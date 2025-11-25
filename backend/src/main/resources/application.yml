@@ -1,0 +1,28 @@
+spring:
+  application:
+    name: whiteboard
+  datasource:
+    url: jdbc:postgresql://localhost:5432/whiteboard
+    username: postgres
+    password: password
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+        show_sql: true
+    database: postgresql
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+
+logging:
+  level:
+    org.hibernate.SQL: debug
+    org.hibernate.type.descriptor.sql: trace
+
+jwt:
+  secret: v3ryS3cr3tK3yF0rJwtT0k3nG3n3r4t10nMustB3L0ng3n0ugh
+  expiration: 1800000 # 30 mins
+  refresh-token:
+    expiration: 1209600000 # 14 days
