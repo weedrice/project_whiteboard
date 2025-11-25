@@ -1,0 +1,25 @@
+# Build outputs
+/.gradle/
+/build/
+/target/
+/out/
+/bin/
+
+# IDE files
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+.idea
+*.iws
+*.iml
+*.ipr
+.vscode/
+
+# Logs and local data
+*.log
+*.tmp
+*.lck
