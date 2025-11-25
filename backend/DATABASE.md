@@ -3,7 +3,7 @@
 ## 변경 이력
 | 버전 | 날짜 | 변경 내용 |
 |-----|------|----------|
-| v2 | 2025-11-25 | users 구조 변경, Closure Table 적용, 인증/보안 테이블 추가, messages 추가, 인덱스 정의, FK 오류 수정, temp_files/read_posts 삭제 |
+| v2 | 2025-11-25 | users 구조 변경(이메일 인증, 마지막 로그인, 탈퇴일시), display_name_histories 추가, boards 아이콘/배너 추가, board_categories 활성화 추가, search_statistics 일자별 집계, point_histories 설명 추가, reports 중복방지, Closure Table 적용, 인증/보안 테이블 추가, messages 추가, 인덱스 정의, FK 오류 수정, temp_files/read_posts 삭제 |
 | v1 | 2025-11-25 | 최초 작성 |
 
 ---
@@ -36,9 +36,9 @@ modified_at  DATETIME   수정일
 
 ---
 
-## 테이블 목록 (총 44개)
+## 테이블 목록 (총 45개)
 
-### 회원/인증 (7개)
+### 회원/인증 (8개)
 1. users - 회원
 2. user_settings - 사용자 설정
 3. user_blocks - 차단
@@ -46,57 +46,58 @@ modified_at  DATETIME   수정일
 5. refresh_tokens - JWT Refresh Token
 6. password_histories - 비밀번호 변경 이력
 7. user_notification_settings - 알림 설정
+8. display_name_histories - 닉네임 변경 이력
 
 ### 게시판/게시글 (8개)
-8. boards - 게시판
-9. board_categories - 게시판 카테고리
-10. board_subscriptions - 게시판 구독
-11. posts - 게시글
-12. post_likes - 게시글 좋아요
-13. post_tags - 태그 연결
-14. post_versions - 게시글 버전 관리
-15. draft_posts - 임시 저장 게시글
+9. boards - 게시판
+10. board_categories - 게시판 카테고리
+11. board_subscriptions - 게시판 구독
+12. posts - 게시글
+13. post_likes - 게시글 좋아요
+14. post_tags - 태그 연결
+15. post_versions - 게시글 버전 관리
+16. draft_posts - 임시 저장 게시글
 
 ### 댓글 (4개)
-16. comments - 댓글
-17. comment_closures - 댓글 계층 관계
-18. comment_likes - 댓글 좋아요
-19. comment_versions - 댓글 버전 관리
+17. comments - 댓글
+18. comment_closures - 댓글 계층 관계
+19. comment_likes - 댓글 좋아요
+20. comment_versions - 댓글 버전 관리
 
 ### 상호작용 (5개)
-20. notifications - 알림
-21. messages - 쪽지
-22. scraps - 스크랩
-23. tags - 태그 마스터
-24. popular_posts - 인기글 캐시
+21. notifications - 알림
+22. messages - 쪽지
+23. scraps - 스크랩
+24. tags - 태그 마스터
+25. popular_posts - 인기글 캐시
 
 ### 관리/운영 (7개)
-25. admins - 관리자
-26. reports - 신고
-27. sanctions - 제재 기록
-28. ip_blocks - IP 차단
-29. logs - 활동 기록
-30. global_configs - 전역 설정
-31. files - 첨부파일
+26. admins - 관리자
+27. reports - 신고
+28. sanctions - 제재 기록
+29. ip_blocks - IP 차단
+30. logs - 활동 기록
+31. global_configs - 전역 설정
+32. files - 첨부파일
 
 ### 검색 (2개)
-32. search_statistics - 검색 통계
-33. search_personalization - 검색 개인화
+33. search_statistics - 검색 통계
+34. search_personalization - 검색 개인화
 
 ### 포인트/상점 (4개)
-34. user_points - 사용자 포인트
-35. point_histories - 포인트 이력
-36. shop_items - 상점 아이템
-37. purchase_history - 구매 기록
+35. user_points - 사용자 포인트
+36. point_histories - 포인트 이력
+37. shop_items - 상점 아이템
+38. purchase_history - 구매 기록
 
 ### 기타 (7개)
-38. common_codes - 공통코드
-39. common_code_details - 상세코드
-40. view_histories - 열람 기록
-41. user_feeds - 사용자 피드
-42. message_queue - 발송 메세지 큐
-43. ads - 광고
-44. ad_click_logs - 광고 클릭 로그
+39. common_codes - 공통코드
+40. common_code_details - 상세코드
+41. view_histories - 열람 기록
+42. user_feeds - 사용자 피드
+43. message_queue - 발송 메세지 큐
+44. ads - 광고
+45. ad_click_logs - 광고 클릭 로그
 
 ---
 
@@ -111,6 +112,9 @@ modified_at  DATETIME   수정일
 | email            | VARCHAR(100) |    |     | NOT NULL | 이메일 (UNIQUE)                         |
 | profile_image_url| VARCHAR(255) |    |     | YES      | 프로필 이미지 URL                        |
 | status           | VARCHAR(20)  |    |     | NOT NULL | 계정 상태 (ACTIVE/SUSPENDED/DELETED)    |
+| is_email_verified| CHAR(1)      |    |     | NOT NULL | 이메일 인증 여부 (Y/N)                   |
+| last_login_at    | DATETIME     |    |     | YES      | 마지막 로그인 일시                       |
+| deleted_at       | DATETIME     |    |     | YES      | 탈퇴 일시 (탈퇴 후 보존 기간 계산용)      |
 | created_at       | DATETIME     |    |     | NOT NULL | 생성일                                  |
 | modified_at      | DATETIME     |    |     | NOT NULL | 수정일                                  |
 
@@ -119,6 +123,7 @@ modified_at  DATETIME   수정일
 CREATE UNIQUE INDEX uk_users_login_id ON users(login_id);
 CREATE UNIQUE INDEX uk_users_email ON users(email);
 CREATE INDEX idx_users_status ON users(status);
+CREATE INDEX idx_users_deleted ON users(deleted_at);
 ```
 
 ---
@@ -234,45 +239,70 @@ CREATE INDEX idx_password_histories_user ON password_histories(user_id, created_
 
 ---
 
-## 8. 게시판 (boards)
+## 8. 닉네임 변경 이력 (display_name_histories)
 
-| 컬럼명       | 타입          | PK | FK  | NULL     | 설명                    |
-|-------------|--------------|----|----- |----------|------------------------|
-| board_id    | BIGINT       | PK |     | NOT NULL | 게시판 ID               |
-| board_name  | VARCHAR(100) |    |     | NOT NULL | 게시판 이름              |
-| description | VARCHAR(255) |    |     | YES      | 설명                    |
-| sort_order  | INT          |    |     | NOT NULL | 정렬 순서               |
-| is_active   | CHAR(1)      |    |     | NOT NULL | 활성 여부 (Y/N)          |
-| allow_nsfw  | CHAR(1)      |    |     | NOT NULL | NSFW 허용 여부 (Y/N)     |
-| created_at  | DATETIME     |    |     | NOT NULL | 생성일                  |
-| modified_at | DATETIME     |    |     | NOT NULL | 수정일                  |
+| 컬럼명        | 타입          | PK | FK            | NULL     | 설명              |
+|--------------|--------------|----|---------------|----------|-------------------|
+| history_id   | BIGINT       | PK |               | NOT NULL | 이력 ID           |
+| user_id      | BIGINT       |    | users.user_id | NOT NULL | 사용자 ID         |
+| previous_name| VARCHAR(50)  |    |               | NOT NULL | 변경 전 닉네임     |
+| new_name     | VARCHAR(50)  |    |               | NOT NULL | 변경 후 닉네임     |
+| changed_at   | DATETIME     |    |               | NOT NULL | 변경 일시          |
+| created_at   | DATETIME     |    |               | NOT NULL | 생성일            |
+| modified_at  | DATETIME     |    |               | NOT NULL | 수정일            |
+
+**인덱스:**
+```sql
+CREATE INDEX idx_display_name_histories_user ON display_name_histories(user_id, changed_at DESC);
+CREATE INDEX idx_display_name_histories_name ON display_name_histories(previous_name);
+```
+
+---
+
+## 9. 게시판 (boards)
+
+| 컬럼명       | 타입          | PK | FK            | NULL     | 설명                    |
+|-------------|--------------|----|--------------  |----------|------------------------|
+| board_id    | BIGINT       | PK |               | NOT NULL | 게시판 ID               |
+| board_name  | VARCHAR(100) |    |               | NOT NULL | 게시판 이름              |
+| description | VARCHAR(255) |    |               | YES      | 설명                    |
+| creator_id  | BIGINT       |    | users.user_id | NOT NULL | 게시판 생성자 ID         |
+| icon_url    | VARCHAR(255) |    |               | YES      | 게시판 아이콘 URL        |
+| banner_url  | VARCHAR(255) |    |               | YES      | 게시판 배너 URL          |
+| sort_order  | INT          |    |               | NOT NULL | 정렬 순서               |
+| is_active   | CHAR(1)      |    |               | NOT NULL | 활성 여부 (Y/N)          |
+| allow_nsfw  | CHAR(1)      |    |               | NOT NULL | NSFW 허용 여부 (Y/N)     |
+| created_at  | DATETIME     |    |               | NOT NULL | 생성일                  |
+| modified_at | DATETIME     |    |               | NOT NULL | 수정일                  |
 
 **인덱스:**
 ```sql
 CREATE INDEX idx_boards_active ON boards(is_active, sort_order);
+CREATE INDEX idx_boards_creator ON boards(creator_id);
 ```
 
 ---
 
-## 9. 게시판 카테고리 (board_categories)
+## 10. 게시판 카테고리 (board_categories)
 
-| 컬럼명      | 타입          | PK | FK              | NULL     | 설명          |
-|------------|--------------|----|-----------------|----------|---------------|
-| category_id| BIGINT       | PK |                 | NOT NULL | 카테고리 ID   |
-| board_id   | BIGINT       |    | boards.board_id | NOT NULL | 게시판 ID     |
-| name       | VARCHAR(100) |    |                 | NOT NULL | 카테고리명    |
-| sort_order | INT          |    |                 | NOT NULL | 정렬 순서     |
-| created_at | DATETIME     |    |                 | NOT NULL | 생성일        |
-| modified_at| DATETIME     |    |                 | NOT NULL | 수정일        |
+| 컬럼명      | 타입          | PK | FK              | NULL     | 설명             |
+|------------|--------------|----|-----------------|----------|------------------|
+| category_id| BIGINT       | PK |                 | NOT NULL | 카테고리 ID      |
+| board_id   | BIGINT       |    | boards.board_id | NOT NULL | 게시판 ID        |
+| name       | VARCHAR(100) |    |                 | NOT NULL | 카테고리명       |
+| sort_order | INT          |    |                 | NOT NULL | 정렬 순서        |
+| is_active  | CHAR(1)      |    |                 | NOT NULL | 활성 여부 (Y/N)  |
+| created_at | DATETIME     |    |                 | NOT NULL | 생성일           |
+| modified_at| DATETIME     |    |                 | NOT NULL | 수정일           |
 
 **인덱스:**
 ```sql
-CREATE INDEX idx_board_categories_board ON board_categories(board_id, sort_order);
+CREATE INDEX idx_board_categories_board ON board_categories(board_id, is_active, sort_order);
 ```
 
 ---
 
-## 10. 게시판 구독 (board_subscriptions)
+## 11. 게시판 구독 (board_subscriptions)
 
 | 컬럼명   | 타입        | PK | FK              | NULL     | 설명                              |
 |---------|------------|----|-----------------|----------|----------------------------------|
@@ -290,7 +320,7 @@ CREATE INDEX idx_board_subscriptions_user ON board_subscriptions(user_id);
 
 ---
 
-## 11. 게시글 (posts)
+## 12. 게시글 (posts)
 
 | 컬럼명        | 타입          | PK | FK                        | NULL     | 설명                  |
 |--------------|--------------|----|--------------------------  |----------|----------------------|
@@ -323,7 +353,7 @@ CREATE INDEX idx_posts_popular ON posts(board_id, is_deleted, like_count DESC, c
 
 ---
 
-## 12. 게시글 좋아요 (post_likes)
+## 13. 게시글 좋아요 (post_likes)
 
 | 컬럼명   | 타입      | PK | FK                | NULL     | 설명          |
 |---------|----------|----|-------------------|----------|---------------|
@@ -339,7 +369,7 @@ CREATE INDEX idx_post_likes_user ON post_likes(user_id);
 
 ---
 
-## 13. 태그 연결 (post_tags)
+## 14. 태그 연결 (post_tags)
 
 | 컬럼명   | 타입      | PK | FK                | NULL     | 설명      |
 |---------|----------|----|-------------------|----------|-----------|
@@ -355,7 +385,7 @@ CREATE INDEX idx_post_tags_tag ON post_tags(tag_id);
 
 ---
 
-## 14. 게시글 버전 관리 (post_versions)
+## 15. 게시글 버전 관리 (post_versions)
 
 | 컬럼명           | 타입          | PK | FK              | NULL     | 설명                   |
 |-----------------|--------------|----|-----------------|----------|------------------------|
@@ -375,7 +405,7 @@ CREATE INDEX idx_post_versions_post ON post_versions(post_id, created_at DESC);
 
 ---
 
-## 15. 임시 저장 게시글 (draft_posts)
+## 16. 임시 저장 게시글 (draft_posts)
 
 | 컬럼명         | 타입          | PK | FK              | NULL     | 설명                  |
 |----------------|--------------|----|-----------------|----------|-----------------------|
@@ -421,7 +451,7 @@ CREATE INDEX idx_comments_parent ON comments(parent_id);
 
 ---
 
-## 17. 댓글 계층 관계 (comment_closures)
+## 18. 댓글 계층 관계 (comment_closures)
 
 | 컬럼명        | 타입      | PK | FK                    | NULL     | 설명                           |
 |--------------|----------|----|-----------------------|----------|-------------------------------|
@@ -481,7 +511,7 @@ WHERE descendant_id = PARENT_ID;
 
 ---
 
-## 18. 댓글 좋아요 (comment_likes)
+## 19. 댓글 좋아요 (comment_likes)
 
 | 컬럼명    | 타입      | PK | FK                   | NULL     | 설명         |
 |----------|----------|----|----------------------|----------|--------------|
@@ -497,7 +527,7 @@ CREATE INDEX idx_comment_likes_user ON comment_likes(user_id);
 
 ---
 
-## 19. 댓글 버전 관리 (comment_versions)
+## 20. 댓글 버전 관리 (comment_versions)
 
 | 컬럼명           | 타입          | PK | FK                  | NULL     | 설명                   |
 |-----------------|--------------|----|--------------------- |----------|------------------------|
@@ -539,7 +569,7 @@ CREATE INDEX idx_notifications_actor ON notifications(actor_id);
 
 ---
 
-## 21. 쪽지 (messages)
+## 22. 쪽지 (messages)
 
 | 컬럼명              | 타입      | PK | FK            | NULL     | 설명                      |
 |--------------------|----------|----|---------------|----------|--------------------------|
@@ -563,7 +593,7 @@ CREATE INDEX idx_messages_sender ON messages(sender_id, is_deleted_by_sender, cr
 
 ---
 
-## 22. 스크랩 (scraps)
+## 23. 스크랩 (scraps)
 
 | 컬럼명   | 타입          | PK | FK            | NULL     | 설명        |
 |---------|--------------|----|---------------|----------|-------------|
@@ -580,7 +610,7 @@ CREATE INDEX idx_scraps_user ON scraps(user_id, created_at DESC);
 
 ---
 
-## 23. 태그 마스터 (tags)
+## 24. 태그 마스터 (tags)
 
 | 컬럼명    | 타입          | PK | FK | NULL     | 설명              |
 |----------|--------------|----|----|----------|-------------------|
@@ -598,7 +628,7 @@ CREATE INDEX idx_tags_count ON tags(post_count DESC);
 
 ---
 
-## 24. 인기글 캐시 (popular_posts)
+## 25. 인기글 캐시 (popular_posts)
 
 | 컬럼명      | 타입          | PK | FK            | NULL     | 설명                          |
 |------------|--------------|----|---------------|----------|-------------------------------|
@@ -618,7 +648,7 @@ CREATE INDEX idx_popular_posts_post ON popular_posts(post_id);
 
 ---
 
-## 25. 관리자 (admins)
+## 26. 관리자 (admins)
 
 | 컬럼명      | 타입          | PK | FK              | NULL     | 설명          |
 |------------|--------------|----|-----------------|----------|---------------|
@@ -640,7 +670,7 @@ CREATE INDEX idx_admins_board ON admins(board_id, is_active);
 
 ---
 
-## 26. 신고 (reports)
+## 27. 신고 (reports)
 
 | 컬럼명     | 타입          | PK | FK              | NULL     | 설명                  |
 |-----------|--------------|----|-----------------|----------|-----------------------|
@@ -661,11 +691,12 @@ CREATE INDEX idx_admins_board ON admins(board_id, is_active);
 CREATE INDEX idx_reports_status ON reports(status, created_at DESC);
 CREATE INDEX idx_reports_reporter ON reports(reporter_id);
 CREATE INDEX idx_reports_target ON reports(target_type, target_id);
+CREATE UNIQUE INDEX uk_reports_user_target ON reports(reporter_id, target_type, target_id);
 ```
 
 ---
 
-## 27. 제재 기록 (sanctions)
+## 28. 제재 기록 (sanctions)
 
 | 컬럼명        | 타입          | PK | FK              | NULL     | 설명                |
 |--------------|--------------|----|-----------------|----------|---------------------|
@@ -689,7 +720,7 @@ CREATE INDEX idx_sanctions_admin ON sanctions(admin_id);
 
 ---
 
-## 28. IP 차단 (ip_blocks)
+## 29. IP 차단 (ip_blocks)
 
 | 컬럼명     | 타입          | PK | FK              | NULL     | 설명          |
 |-----------|--------------|----|-----------------|----------|---------------|
@@ -708,7 +739,7 @@ CREATE INDEX idx_ip_blocks_dates ON ip_blocks(start_date, end_date);
 
 ---
 
-## 29. 활동 기록 (logs)
+## 30. 활동 기록 (logs)
 
 | 컬럼명      | 타입          | PK | FK            | NULL     | 설명           |
 |------------|--------------|----|---------------|----------|----------------|
@@ -716,6 +747,7 @@ CREATE INDEX idx_ip_blocks_dates ON ip_blocks(start_date, end_date);
 | user_id    | BIGINT       |    | users.user_id | YES      | 사용자 ID      |
 | action_type| VARCHAR(100) |    |               | NOT NULL | 액션 유형      |
 | ip_address | VARCHAR(45)  |    |               | NOT NULL | IP 주소        |
+| details    | TEXT         |    |               | YES      | 상세 정보 (JSON 형태) |
 | created_at | DATETIME     |    |               | NOT NULL | 생성일         |
 | modified_at| DATETIME     |    |               | NOT NULL | 수정일         |
 
@@ -725,9 +757,19 @@ CREATE INDEX idx_logs_user ON logs(user_id, created_at DESC);
 CREATE INDEX idx_logs_action ON logs(action_type, created_at DESC);
 ```
 
+**details 예시:**
+```json
+{
+  "target_type": "POST",
+  "target_id": 12345,
+  "before": {"title": "이전 제목"},
+  "after": {"title": "변경된 제목"}
+}
+```
+
 ---
 
-## 30. 전역 설정 (global_configs)
+## 31. 전역 설정 (global_configs)
 
 | 컬럼명     | 타입          | PK | FK | NULL     | 설명           |
 |-----------|--------------|----|----|----------|----------------|
@@ -739,7 +781,7 @@ CREATE INDEX idx_logs_action ON logs(action_type, created_at DESC);
 
 ---
 
-## 31. 첨부파일 (files)
+## 32. 첨부파일 (files)
 
 | 컬럼명        | 타입          | PK | FK            | NULL     | 설명                            |
 |--------------|--------------|----|---------------|----------|---------------------------------|
@@ -764,27 +806,31 @@ CREATE INDEX idx_files_related ON files(related_type, related_id);
 
 **참고:** related_id가 NULL이면 아직 게시글/댓글에 연결되지 않은 임시 파일
 
+**임시파일 정리 정책:** created_at 기준 24시간 경과한 미연결 파일(related_id IS NULL)은 배치로 삭제
+
 ---
 
-## 32. 검색 통계 (search_statistics)
+## 33. 검색 통계 (search_statistics)
 
 | 컬럼명      | 타입          | PK | FK | NULL     | 설명          |
 |------------|--------------|----|----|----------|---------------|
 | keyword    | VARCHAR(255) | PK |    | NOT NULL | 검색어        |
+| search_date| DATE         | PK |    | NOT NULL | 검색 일자     |
 | search_count| INT         |    |    | NOT NULL | 검색 횟수     |
 | created_at | DATETIME     |    |    | NOT NULL | 생성일        |
 | modified_at| DATETIME     |    |    | NOT NULL | 수정일        |
 
-**설명:** 검색 통계 로그용. 실제 검색은 Elasticsearch로 처리.
+**설명:** 검색 통계 로그용. 실제 검색은 Elasticsearch로 처리. 일자별 트렌드 분석 가능.
 
 **인덱스:**
 ```sql
-CREATE INDEX idx_search_statistics_count ON search_statistics(search_count DESC);
+CREATE INDEX idx_search_statistics_date ON search_statistics(search_date, search_count DESC);
+CREATE INDEX idx_search_statistics_keyword ON search_statistics(keyword, search_date DESC);
 ```
 
 ---
 
-## 33. 검색 개인화 (search_personalization)
+## 34. 검색 개인화 (search_personalization)
 
 | 컬럼명  | 타입          | PK | FK            | NULL     | 설명              |
 |--------|--------------|----|---------------|----------|-------------------|
@@ -803,7 +849,7 @@ CREATE INDEX idx_search_personalization_user ON search_personalization(user_id, 
 
 ---
 
-## 34. 사용자 포인트 (user_points)
+## 35. 사용자 포인트 (user_points)
 
 | 컬럼명       | 타입      | PK | FK            | NULL     | 설명           |
 |-------------|----------|----|---------------|----------|----------------|
@@ -814,18 +860,20 @@ CREATE INDEX idx_search_personalization_user ON search_personalization(user_id, 
 
 ---
 
-## 35. 포인트 이력 (point_histories)
+## 36. 포인트 이력 (point_histories)
 
-| 컬럼명     | 타입          | PK | FK            | NULL     | 설명                         |
-|-----------|--------------|----|---------------|----------|------------------------------|
-| history_id| BIGINT       | PK |               | NOT NULL | 포인트 이력 ID               |
-| user_id   | BIGINT       |    | users.user_id | NOT NULL | 사용자 ID                    |
-| type      | VARCHAR(50)  |    |               | NOT NULL | 타입(EARN/SPEND/EXPIRE 등)   |
-| amount    | INT          |    |               | NOT NULL | 포인트 변동량                |
-| related_id| BIGINT       |    |               | YES      | 관련 객체 ID                 |
-| related_type|VARCHAR(50) |    |               | YES      | 관련 객체 타입               |
-| created_at| DATETIME     |    |               | NOT NULL | 생성일                       |
-| modified_at|DATETIME     |    |               | NOT NULL | 수정일                       |
+| 컬럼명       | 타입          | PK | FK            | NULL     | 설명                         |
+|-------------|--------------|----|---------------|----------|------------------------------|
+| history_id  | BIGINT       | PK |               | NOT NULL | 포인트 이력 ID               |
+| user_id     | BIGINT       |    | users.user_id | NOT NULL | 사용자 ID                    |
+| type        | VARCHAR(50)  |    |               | NOT NULL | 타입(EARN/SPEND/EXPIRE 등)   |
+| amount      | INT          |    |               | NOT NULL | 포인트 변동량                |
+| balance_after| INT         |    |               | NOT NULL | 변동 후 잔액                 |
+| description | VARCHAR(255) |    |               | YES      | 변동 사유 설명               |
+| related_id  | BIGINT       |    |               | YES      | 관련 객체 ID                 |
+| related_type| VARCHAR(50)  |    |               | YES      | 관련 객체 타입               |
+| created_at  | DATETIME     |    |               | NOT NULL | 생성일                       |
+| modified_at | DATETIME     |    |               | NOT NULL | 수정일                       |
 
 **인덱스:**
 ```sql
@@ -834,7 +882,7 @@ CREATE INDEX idx_point_histories_user ON point_histories(user_id, created_at DES
 
 ---
 
-## 36. 상점 아이템 (shop_items)
+## 37. 상점 아이템 (shop_items)
 
 | 컬럼명    | 타입          | PK | FK | NULL     | 설명          |
 |----------|--------------|----|----|----------|---------------|
@@ -854,7 +902,7 @@ CREATE INDEX idx_shop_items_active ON shop_items(is_active, item_type);
 
 ---
 
-## 37. 구매 기록 (purchase_history)
+## 38. 구매 기록 (purchase_history)
 
 | 컬럼명        | 타입      | PK | FK                  | NULL     | 설명          |
 |--------------|----------|----|---------------------|----------|---------------|
@@ -872,7 +920,7 @@ CREATE INDEX idx_purchase_history_user ON purchase_history(user_id, created_at D
 
 ---
 
-## 38. 공통코드 (common_codes)
+## 39. 공통코드 (common_codes)
 
 | 컬럼명    | 타입          | PK | FK | NULL     | 설명        |
 |----------|--------------|----|----|----------|-------------|
@@ -884,7 +932,7 @@ CREATE INDEX idx_purchase_history_user ON purchase_history(user_id, created_at D
 
 ---
 
-## 39. 상세코드 (common_code_details)
+## 40. 상세코드 (common_code_details)
 
 | 컬럼명    | 타입          | PK | FK                    | NULL     | 설명               |
 |----------|--------------|----|-----------------------|----------|--------------------|
@@ -904,7 +952,7 @@ CREATE INDEX idx_common_code_details_type ON common_code_details(type_code, is_a
 
 ---
 
-## 40. 열람 기록 (view_histories)
+## 41. 열람 기록 (view_histories)
 
 | 컬럼명              | 타입      | PK | FK                  | NULL     | 설명                    |
 |--------------------|----------|----|--------------------- |----------|-------------------------|
@@ -920,12 +968,16 @@ CREATE INDEX idx_common_code_details_type ON common_code_details(type_code, is_a
 ```sql
 CREATE INDEX idx_view_histories_user ON view_histories(user_id, created_at DESC);
 CREATE INDEX idx_view_histories_post ON view_histories(post_id);
-CREATE INDEX idx_view_histories_user_post ON view_histories(user_id, post_id, created_at DESC);
+CREATE UNIQUE INDEX uk_view_histories_user_post ON view_histories(user_id, post_id);
 ```
+
+**구현 정책:** 동일 사용자가 같은 게시글 재방문 시 기존 row UPDATE (UPSERT)
+- `last_read_comment_id`, `duration_ms`, `modified_at` 갱신
+- 열람 이력은 사용자당 게시글당 1건만 유지
 
 ---
 
-## 41. 사용자 피드 (user_feeds)
+## 42. 사용자 피드 (user_feeds)
 
 | 컬럼명             | 타입       | PK | FK              | NULL     | 설명              |
 |-------------------|-----------|----|-----------------|---------  |------------------|
@@ -949,7 +1001,7 @@ CREATE INDEX idx_user_feeds_user ON user_feeds(target_user_id, is_read, created_
 
 ---
 
-## 42. 발송 메세지 큐 (message_queue)
+## 43. 발송 메세지 큐 (message_queue)
 
 | 컬럼명             | 타입         | PK | FK            | NULL     | 설명              |
 |-------------------|-------------|----|---------------|----------|------------------|
@@ -973,27 +1025,31 @@ CREATE INDEX idx_message_queue_user ON message_queue(target_user_id);
 
 ## 43. 광고 (ads)
 
-| 컬럼명    | 타입          | PK | FK | NULL     | 설명               |
-|----------|--------------|----|----|----------|--------------------|
-| ad_id    | BIGINT       | PK |    | NOT NULL | 광고 ID            |
-| ad_name  | VARCHAR(100) |    |    | NOT NULL | 광고 이름          |
-| image_url| VARCHAR(255) |    |    | NOT NULL | 광고 이미지 URL    |
-| placement| VARCHAR(100) |    |    | NOT NULL | 노출 위치          |
-| target_url|VARCHAR(255) |    |    | NOT NULL | 클릭 시 이동 URL   |
-| start_date|DATETIME     |    |    | NOT NULL | 시작 일시          |
-| end_date | DATETIME     |    |    | YES      | 종료 일시          |
-| is_active| CHAR(1)      |    |    | NOT NULL | 활성 여부 (Y/N)    |
-| created_at|DATETIME     |    |    | NOT NULL | 생성일             |
-| modified_at|DATETIME    |    |    | NOT NULL | 수정일             |
+| 컬럼명          | 타입          | PK | FK | NULL     | 설명               |
+|----------------|--------------|----|----|----------|--------------------|
+| ad_id          | BIGINT       | PK |    | NOT NULL | 광고 ID            |
+| ad_name        | VARCHAR(100) |    |    | NOT NULL | 광고 이름          |
+| image_url      | VARCHAR(255) |    |    | NOT NULL | 광고 이미지 URL    |
+| placement      | VARCHAR(100) |    |    | NOT NULL | 노출 위치          |
+| target_url     | VARCHAR(255) |    |    | NOT NULL | 클릭 시 이동 URL   |
+| impression_count| INT         |    |    | NOT NULL | 노출 수 (비정규화)  |
+| click_count    | INT          |    |    | NOT NULL | 클릭 수 (비정규화)  |
+| start_date     | DATETIME     |    |    | NOT NULL | 시작 일시          |
+| end_date       | DATETIME     |    |    | YES      | 종료 일시          |
+| is_active      | CHAR(1)      |    |    | NOT NULL | 활성 여부 (Y/N)    |
+| created_at     | DATETIME     |    |    | NOT NULL | 생성일             |
+| modified_at    | DATETIME     |    |    | NOT NULL | 수정일             |
 
 **인덱스:**
 ```sql
 CREATE INDEX idx_ads_active ON ads(is_active, placement, start_date, end_date);
 ```
 
+**CTR 계산:** `click_count / impression_count * 100`
+
 ---
 
-## 44. 광고 클릭 로그 (ad_click_logs)
+## 45. 광고 클릭 로그 (ad_click_logs)
 
 | 컬럼명    | 타입          | PK | FK            | NULL     | 설명                 |
 |----------|--------------|----|---------------|----------|----------------------|
@@ -1015,13 +1071,14 @@ CREATE INDEX idx_ad_click_logs_user ON ad_click_logs(user_id);
 
 ## 변경 요약 (v1 → v2)
 
-### 신규 테이블 (7개)
+### 신규 테이블 (8개)
 | 테이블 | 설명 |
 |-------|------|
 | user_settings | 사용자 설정 (테마, 언어, 타임존 등) |
 | login_histories | 로그인 이력 |
 | refresh_tokens | JWT Refresh Token 관리 |
 | password_histories | 비밀번호 변경 이력 |
+| display_name_histories | 닉네임 변경 이력 |
 | comment_closures | 댓글 계층 관계 (Closure Table) |
 | comment_versions | 댓글 버전 관리 |
 | messages | 쪽지 |
@@ -1032,19 +1089,23 @@ CREATE INDEX idx_ad_click_logs_user ON ad_click_logs(user_id);
 | temp_files | files 테이블로 통합 (related_id NULL로 처리) |
 | read_posts | view_histories로 통합 |
 
-### 수정 테이블 (13개)
+### 수정 테이블 (19개)
 | 테이블 | 변경 내용 |
 |-------|----------|
-| users | login_id, display_name, status 추가 |
-| boards | sort_order, allow_nsfw 추가, is_active 네이밍 |
-| board_categories | sort_order 추가 |
+| users | login_id, display_name, status, is_email_verified, last_login_at, deleted_at 추가 |
+| boards | creator_id, sort_order, allow_nsfw, icon_url, banner_url 추가, is_active 네이밍 |
+| board_categories | sort_order, is_active 추가 |
 | posts | comment_count, is_notice, is_nsfw, is_spoiler 추가 |
 | comments | depth 추가 |
 | notifications | actor_id, notification_type, source_type 추가 |
-| files | file_size, mime_type 추가, uploader_id 네이밍 |
+| files | file_size, mime_type 추가, uploader_id 네이밍, 임시파일 정리 정책 명시 |
 | admins | board_id NULL 허용 |
-| ads | image_url 추가 |
-| view_histories | last_read_comment_id 추가 |
+| ads | image_url, impression_count, click_count 추가 |
+| view_histories | last_read_comment_id 추가, UPSERT 정책 |
+| logs | details 컬럼 추가 |
+| point_histories | balance_after, description 추가 |
+| reports | 중복 방지 UNIQUE 인덱스 추가 |
+| search_statistics | search_date 추가, PK 변경 (keyword, search_date) |
 | favorite_boards → board_subscriptions | 테이블명 변경, role 추가 |
 | user_feeds | FK 오류 수정 |
 | message_queue | FK 오류 수정 |
@@ -1056,4 +1117,4 @@ CREATE INDEX idx_ad_click_logs_user ON ad_click_logs(user_id);
 
 ### 총 테이블 수
 - v1: 39개
-- v2: **44개** (신규 7개, 삭제 2개)
+- v2: **45개** (신규 8개, 삭제 2개)
