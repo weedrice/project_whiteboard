@@ -811,7 +811,8 @@ POST /boards/{boardId}/subscribe
 {
   "success": true,
   "data": {
-    "message": "구독되었습니다."
+    "message": "구독되었습니다.",
+    "currentSubscriberCount": 1501
   },
   "error": null
 }
@@ -1106,6 +1107,9 @@ POST /boards/{boardId}/posts
   "error": null
 }
 ```
+**참고**
+- 게시글 작성 실패 시 `fileIds`로 업로드된 파일들은 `related_id`가 연결되지 않은 상태로 남습니다.
+- 이러한 파일들은 매일 새벽 `BATCH-002` 작업에 의해 자동 삭제됩니다.
 
 ---
 
@@ -1526,6 +1530,10 @@ GET /posts/{postId}/comments
 | sort | String | N | latest | 정렬 (latest/popular) |
 | page | int | N | 0 | 페이지 번호 |
 | size | int | N | 20 | 페이지 크기 |
+
+**참고**
+- 기본 조회 시 `depth`는 1(대댓글)까지만 포함됩니다.
+- 그 하위 댓글이나 더 많은 대댓글은 `4.9 대댓글 더보기` API를 사용하세요.
 
 **Response** `200 OK`
 ```json

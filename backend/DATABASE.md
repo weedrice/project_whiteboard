@@ -200,7 +200,7 @@ CREATE INDEX idx_login_histories_login_id ON login_histories(login_id, created_a
 **인덱스:**
 ```sql
 CREATE INDEX idx_refresh_tokens_user ON refresh_tokens(user_id, is_revoked);
-CREATE INDEX idx_refresh_tokens_hash ON refresh_tokens(token_hash);
+CREATE UNIQUE INDEX uk_refresh_tokens_hash ON refresh_tokens(token_hash); -- 중복 토큰 방지
 CREATE INDEX idx_refresh_tokens_expires ON refresh_tokens(expires_at);
 ```
 
@@ -948,6 +948,7 @@ CREATE INDEX idx_purchase_history_user ON purchase_history(user_id, created_at D
 **인덱스:**
 ```sql
 CREATE INDEX idx_common_code_details_type ON common_code_details(type_code, is_active, sort_order);
+CREATE UNIQUE INDEX uk_code_details_value ON common_code_details(type_code, code_value); -- 그룹 내 코드값 중복 방지
 ```
 
 ---
