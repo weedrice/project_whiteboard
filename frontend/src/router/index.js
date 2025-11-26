@@ -53,6 +53,20 @@ const router = createRouter({
             path: '/board/:boardId/write',
             name: 'post-write',
             component: () => import('@/views/board/PostWrite.vue'),
+            meta: { requiresAuth: true }
+        },
+        {
+            path: '/board/:boardId/post/:postId',
+            name: 'post-detail',
+            component: () => import('@/views/board/PostDetail.vue')
+        },
+        {
+            path: '/board/:boardId/post/:postId/edit',
+            name: 'post-edit',
+            component: () => import('@/views/board/PostEdit.vue'),
+            meta: { requiresAuth: true }
+        },
+        {
             path: '/admin',
             component: () => import('@/components/layout/AdminLayout.vue'),
             meta: { requiresAuth: true, requiresAdmin: true },

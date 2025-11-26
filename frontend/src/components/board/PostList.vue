@@ -6,6 +6,10 @@ defineProps({
   posts: {
     type: Array,
     required: true
+  },
+  boardId: {
+    type: Number,
+    required: false
   }
 })
 
@@ -18,7 +22,7 @@ function formatDate(dateString) {
   <div class="bg-white shadow overflow-hidden sm:rounded-md">
     <ul role="list" class="divide-y divide-gray-200">
       <li v-for="post in posts" :key="post.postId">
-        <router-link :to="`/board/${post.boardId}/post/${post.postId}`" class="block hover:bg-gray-50">
+        <router-link :to="`/board/${post.board?.boardId || boardId}/post/${post.postId}`" class="block hover:bg-gray-50">
           <div class="px-4 py-4 sm:px-6">
             <div class="flex items-center justify-between">
               <p class="text-sm font-medium text-indigo-600 truncate">
