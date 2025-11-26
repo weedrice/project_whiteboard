@@ -42,4 +42,19 @@ public class UserSettings extends BaseTimeEntity {
         this.timezone = "Asia/Seoul";
         this.hideNsfw = "Y";
     }
+
+    public void updateSettings(String theme, String language, String timezone, String hideNsfw) {
+        if (theme != null) {
+            this.theme = theme;
+        }
+        if (language != null) {
+            this.language = language;
+        }
+        if (timezone != null) {
+            this.timezone = timezone;
+        }
+        if (hideNsfw != null) {
+            this.hideNsfw = hideNsfw;
+        }
+    }
 }
