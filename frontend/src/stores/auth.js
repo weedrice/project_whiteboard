@@ -52,6 +52,13 @@ export const useAuthStore = defineStore('auth', () => {
             const { data } = await authApi.getMe()
             if (data.success) {
                 user.value = data.data
+
+                // Check for sanctions
+                if (user.value.status === 'SANCTIONED') {
+                    alert('Your account has been sanctioned. You will be logged out.')
+                    await logout()
+                    return
+                }
             }
         } catch (error) {
             console.error('Fetch user failed:', error)
@@ -64,6 +71,7 @@ export const useAuthStore = defineStore('auth', () => {
         user,
         accessToken,
         isAuthenticated,
+        isAdmin: computed(() => user.value?.role === 'ADMIN'),
         login,
         logout,
         fetchUser
