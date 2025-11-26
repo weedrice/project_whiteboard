@@ -77,4 +77,12 @@ public class User extends BaseTimeEntity {
         this.status = "DELETED";
         this.deletedAt = LocalDateTime.now();
     }
+
+    public void suspend() {
+        this.status = "SUSPENDED";
+    }
+
+    public void activate() {
+        this.status = "ACTIVE";
+    }
 }
