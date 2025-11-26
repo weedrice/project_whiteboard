@@ -25,7 +25,7 @@ public class Board extends BaseTimeEntity {
     @Column(name = "board_id")
     private Long boardId;
 
-    @Column(name = "board_name", length = 100, nullable = false)
+    @Column(name = "board_name", length = 100, nullable = false, unique = true)
     private String boardName;
 
     @Column(name = "description", length = 255)
@@ -63,5 +63,13 @@ public class Board extends BaseTimeEntity {
         this.sortOrder = sortOrder != null ? sortOrder : 0;
         this.isActive = "Y";
         this.allowNsfw = "N";
+    }
+
+    public void update(String description, String iconUrl, String bannerUrl, Integer sortOrder, Boolean allowNsfw) {
+        this.description = description;
+        this.iconUrl = iconUrl;
+        this.bannerUrl = bannerUrl;
+        this.sortOrder = sortOrder;
+        this.allowNsfw = allowNsfw ? "Y" : "N";
     }
 }

@@ -1,5 +1,7 @@
 package com.weedrice.whiteboard.domain.board.service;
 
+import com.weedrice.whiteboard.domain.board.dto.BoardCreateRequest;
+import com.weedrice.whiteboard.domain.board.dto.BoardUpdateRequest;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
 import com.weedrice.whiteboard.domain.board.entity.BoardSubscription;
@@ -12,6 +14,8 @@ import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -60,5 +64,47 @@ public class BoardService {
         BoardSubscription subscription = boardSubscriptionRepository.findById(new BoardSubscriptionId(userId, boardId))
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_SUBSCRIBED));
         boardSubscriptionRepository.delete(subscription);
+    }
+
+    public Page<BoardSubscription> getMySubscriptions(Long userId, Pageable pageable) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        return boardSubscriptionRepository.findByUser(user, pageable);
+    }
+
+    @Transactional
+    public Board createBoard(Long creatorId, BoardCreateRequest request) {
+        User creator = userRepository.findById(creatorId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+        if (boardRepository.existsByBoardName(request.getBoardName())) {
+            throw new BusinessException(ErrorCode.DUPLICATE_BOARD_NAME);
+        }
+
+        Board board = Board.builder()
+                .boardName(request.getBoardName())
+                .description(request.getDescription())
+                .creator(creator)
+                .iconUrl(request.getIconUrl())
+                .bannerUrl(request.getBannerUrl())
+                .sortOrder(request.getSortOrder())
+                .build();
+        return boardRepository.save(board);
+    }
+
+    @Transactional
+    public Board updateBoard(Long boardId, BoardUpdateRequest request) {
+        Board board = boardRepository.findById(boardId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
+        board.update(request.getDescription(), request.getIconUrl(), request.getBannerUrl(), request.getSortOrder(), request.getAllowNsfw());
+        return board;
+    }
+
+    @Transactional
+    public void deleteBoard(Long boardId) {
+        if (!boardRepository.existsById(boardId)) {
+            throw new BusinessException(ErrorCode.BOARD_NOT_FOUND);
+        }
+        boardRepository.deleteById(boardId);
     }
 }
