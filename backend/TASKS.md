@@ -74,15 +74,15 @@
   - [x] Custom Query 메서드 (활성화된 코드만 조회 등)
 
 - [x] **Service**
-  - [ ] 코드 유형 CRUD
-  - [ ] 상세 코드 CRUD
+  - [x] 코드 유형 CRUD
+  - [x] 상세 코드 CRUD
   - [x] 코드 조회 (type_code별)
 
 - [x] **Controller (관리자 전용)**
-  - [ ] `POST /api/admin/codes` - 코드 유형 생성
+  - [x] `POST /api/admin/codes` - 코드 유형 생성
   - [x] `GET /api/codes/{typeCode}` - 코드 상세 목록 조회
-  - [ ] `PUT /api/admin/codes/{id}` - 코드 수정
-  - [ ] `DELETE /api/admin/codes/{id}` - 코드 삭제
+  - [x] `PUT /api/admin/codes/details/{detailId}` - 코드 수정
+  - [x] `DELETE /api/admin/codes/details/{detailId}` - 코드 삭제
 
 ### 1.2 전역 설정 (global_configs)
 - [x] **Entity**
@@ -105,8 +105,8 @@
   - [x] 로그인/로그아웃 로그 기록 (수동 호출)
   - [ ] IP 주소 추출 유틸리티
 
-- [ ] **Controller (관리자 전용)**
-  - [ ] `GET /api/admin/logs` - 활동 로그 조회
+- [x] **Controller (관리자 전용)**
+  - [x] `GET /api/admin/logs` - 활동 로그 조회
 
 ---
 
@@ -164,17 +164,17 @@
   - [x] `GET /api/users/me/blocks` - 차단 목록
 
 ### 2.4 제재 관리 (sanctions)
-- [ ] **Entity**
-  - [ ] `Sanction` 엔티티
-  - [ ] `Admin` 엔티티 (FK 연결)
+- [x] **Entity**
+  - [x] `Sanction` 엔티티
+  - [x] `Admin` 엔티티 (FK 연결)
 
-- [ ] **Service**
-  - [ ] 제재 등록/해제
-  - [ ] 로그인 시 제재 확인 로직
+- [x] **Service**
+  - [x] 제재 등록/해제
+  - [x] 로그인 시 제재 확인 로직
 
-- [ ] **Controller (관리자 전용)**
-  - [ ] `POST /api/admin/sanctions` - 제재 등록
-  - [ ] `GET /api/admin/sanctions` - 제재 목록
+- [x] **Controller (관리자 전용)**
+  - [x] `POST /api/admin/sanctions` - 제재 등록
+  - [x] `GET /api/admin/sanctions` - 제재 목록
 
 ---
 
@@ -190,14 +190,14 @@
   - [x] 활성화된 게시판만 조회 쿼리
 
 - [x] **Service**
-  - [ ] 게시판 생성/수정/삭제 (관리자 권한)
+  - [x] 게시판 생성/수정/삭제 (관리자 권한)
   - [x] 게시판 목록 조회
 
 - [x] **Controller**
   - [x] `GET /api/boards` - 게시판 목록
-  - [ ] `POST /api/admin/boards` - 게시판 생성
-  - [ ] `PUT /api/admin/boards/{id}` - 게시판 수정
-  - [ ] `DELETE /api/admin/boards/{id}` - 게시판 삭제
+  - [x] `POST /api/admin/boards` - 게시판 생성
+  - [x] `PUT /api/admin/boards/{id}` - 게시판 수정
+  - [x] `DELETE /api/admin/boards/{id}` - 게시판 삭제
 
 ### 3.2 게시판 카테고리 (board_categories)
 - [x] **Entity**
@@ -223,7 +223,7 @@
 - [x] **Controller**
   - [x] `POST /api/boards/{boardId}/subscribe` - 구독
   - [x] `DELETE /api/boards/{boardId}/subscribe` - 구독 취소
-  - [ ] `GET /api/users/me/subscriptions` - 내 구독 목록
+  - [x] `GET /api/users/me/subscriptions` - 내 구독 목록
 
 ---
 
@@ -286,11 +286,11 @@
 
 - [x] **Service**
   - [x] 스크랩 추가/삭제
-  - [ ] 내 스크랩 목록 조회
+  - [x] 내 스크랩 목록 조회
 
 - [x] **Controller**
   - [x] `POST /api/posts/{postId}/scrap` - 스크랩
-  - [ ] `GET /api/users/me/scraps` - 내 스크랩 목록
+  - [x] `GET /api/users/me/scraps` - 내 스크랩 목록
 
 ### 4.5 임시 저장 (draft_posts)
 - [x] **Entity**
@@ -380,9 +380,9 @@
   - [x] 태그 자동 생성/업데이트
   - [x] 태그별 게시글 조회 (PostService에서 구현)
 
-- [ ] **Controller**
-  - [ ] `GET /api/tags` - 인기 태그 목록
-  - [ ] `GET /api/tags/{tagId}/posts` - 태그별 게시글
+- [x] **Controller**
+  - [x] `GET /api/tags` - 인기 태그 목록
+  - [x] `GET /api/tags/{tagId}/posts` - 태그별 게시글
 
 ---
 
@@ -414,9 +414,9 @@
 - [x] **Entity**
   - [x] `PopularPost` 엔티티
 
-- [ ] **Batch Job**
-  - [ ] Spring Batch 또는 Scheduled Task
-  - [ ] 일별/주별 인기글 집계
+- [x] **Batch Job**
+  - [x] Spring Batch 또는 Scheduled Task
+  - [x] 일별/주별 인기글 집계
 
 - [x] **Controller**
   - [x] `GET /api/posts/popular?type={DAILY|WEEKLY}` - 인기글 조회
@@ -426,17 +426,19 @@
 ## 📋 Phase 8: 알림 도메인 구현
 
 ### 8.1 알림 관리 (notifications)
-- [ ] **Entity**
-  - [ ] `Notification` 엔티티
+- [x] **Entity**
+  - [x] `Notification` 엔티티
 
-- [ ] **Service**
-  - [ ] 알림 생성 (댓글/좋아요/멘션 이벤트 리스너)
-  - [ ] 알림 조회
-  - [ ] 읽음 처리
+- [x] **Service**
+  - [x] 알림 생성 (댓글/좋아요/멘션 이벤트 리스너)
+  - [x] 알림 조회
+  - [x] 읽음 처리
 
-- [ ] **Controller**
-  - [ ] `GET /api/notifications` - 알림 목록
-  - [ ] `PUT /api/notifications/{id}/read` - 읽음 처리
+- [x] **Controller**
+  - [x] `GET /api/notifications` - 알림 목록
+  - [x] `PUT /api/notifications/{id}/read` - 읽음 처리
+  - [x] `PUT /api/notifications/read-all` - 전체 읽음 처리
+  - [x] `GET /api/notifications/unread-count` - 읽지 않은 알림 수
 
 ### 8.2 알림 설정 (user_notification_settings)
 - [x] **Entity**
