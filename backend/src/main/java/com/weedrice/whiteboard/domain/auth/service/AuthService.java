@@ -1,178 +1,148 @@
 package com.weedrice.whiteboard.domain.auth.service;
 
+import com.weedrice.whiteboard.domain.auth.dto.*;
 import com.weedrice.whiteboard.domain.auth.entity.LoginHistory;
 import com.weedrice.whiteboard.domain.auth.entity.RefreshToken;
 import com.weedrice.whiteboard.domain.auth.repository.LoginHistoryRepository;
 import com.weedrice.whiteboard.domain.auth.repository.RefreshTokenRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
-import com.weedrice.whiteboard.domain.user.entity.UserSettings;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
-import com.weedrice.whiteboard.domain.user.repository.UserSettingsRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import com.weedrice.whiteboard.global.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.DigestUtils;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
-import java.util.Base64;
+import java.util.Collections;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class AuthService {
 
     private final UserRepository userRepository;
-    private final UserSettingsRepository userSettingsRepository;
-    private final RefreshTokenRepository refreshTokenRepository;
-    private final LoginHistoryRepository loginHistoryRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final AuthenticationManagerBuilder authenticationManagerBuilder;
+    private final RefreshTokenRepository refreshTokenRepository;
+    private final LoginHistoryRepository loginHistoryRepository;
 
     @Transactional
-    public Long signup(String loginId, String password, String email, String displayName) {
-        if (userRepository.existsByLoginId(loginId)) {
+    public SignupResponse signup(SignupRequest request) {
+        if (userRepository.existsByLoginId(request.getLoginId())) {
             throw new BusinessException(ErrorCode.DUPLICATE_LOGIN_ID);
         }
-        if (userRepository.existsByEmail(email)) {
+        if (userRepository.existsByEmail(request.getEmail())) {
             throw new BusinessException(ErrorCode.DUPLICATE_EMAIL);
         }
 
         User user = User.builder()
-                .loginId(loginId)
-                .password(passwordEncoder.encode(password))
-                .email(email)
-                .displayName(displayName)
+                .loginId(request.getLoginId())
+                .password(passwordEncoder.encode(request.getPassword()))
+                .email(request.getEmail())
+                .displayName(request.getDisplayName())
                 .build();
+        User savedUser = userRepository.save(user);
 
-        userRepository.save(user);
-
-        // Create default settings
-        UserSettings settings = UserSettings.builder()
-                .user(user)
+        return SignupResponse.builder()
+                .userId(savedUser.getUserId())
+                .loginId(savedUser.getLoginId())
+                .email(savedUser.getEmail())
+                .displayName(savedUser.getDisplayName())
                 .build();
-        userSettingsRepository.save(settings);
-
-        return user.getUserId();
     }
 
     @Transactional
-    public TokenResponse login(String loginId, String password, String ipAddress, String userAgent) {
-        User user = userRepository.findByLoginId(loginId)
-                .orElse(null);
-
-        try {
-            UsernamePasswordAuthenticationToken authenticationToken =
-                new UsernamePasswordAuthenticationToken(loginId, password);
-            Authentication authentication = authenticationManagerBuilder.getObject().authenticate(authenticationToken);
-
-            if (user != null) {
-                // Check account status
-                if ("SUSPENDED".equals(user.getStatus())) {
-                    loginHistoryRepository.save(LoginHistory.failure(loginId, ipAddress, userAgent, "ACCOUNT_SUSPENDED"));
-                    throw new BusinessException(ErrorCode.ACCOUNT_SUSPENDED);
-                }
-                if ("DELETED".equals(user.getStatus())) {
-                    loginHistoryRepository.save(LoginHistory.failure(loginId, ipAddress, userAgent, "ACCOUNT_DELETED"));
-                    throw new BusinessException(ErrorCode.ACCOUNT_DELETED);
-                }
-
-                // Update last login
-                user.updateLastLogin();
-
-                // Create tokens
-                String accessToken = jwtTokenProvider.createAccessToken(authentication);
-                String refreshTokenValue = jwtTokenProvider.createRefreshToken(authentication);
-
-                // Save refresh token
-                RefreshToken refreshToken = RefreshToken.builder()
-                        .user(user)
-                        .tokenHash(hashToken(refreshTokenValue))
-                        .deviceInfo(userAgent)
-                        .ipAddress(ipAddress)
-                        .expiresAt(LocalDateTime.now().plusDays(14))
-                        .build();
-                refreshTokenRepository.save(refreshToken);
-
-                // Save login history
-                loginHistoryRepository.save(LoginHistory.success(user, loginId, ipAddress, userAgent));
-
-                return TokenResponse.builder()
-                        .accessToken(accessToken)
-                        .refreshToken(refreshTokenValue)
-                        .expiresIn(1800) // 30 minutes
-                        .build();
-            }
-
-            throw new BusinessException(ErrorCode.INVALID_CREDENTIALS);
-
-        } catch (BusinessException e) {
-            throw e;
-        } catch (Exception e) {
-            loginHistoryRepository.save(LoginHistory.failure(loginId, ipAddress, userAgent, "WRONG_PASSWORD"));
-            throw new BusinessException(ErrorCode.INVALID_CREDENTIALS);
-        }
-    }
-
-    @Transactional
-    public void logout(String refreshToken) {
-        String tokenHash = hashToken(refreshToken);
-        RefreshToken token = refreshTokenRepository.findByTokenHash(tokenHash)
-                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_REFRESH_TOKEN));
-
-        token.revoke();
-    }
-
-    @Transactional
-    public TokenResponse refreshToken(String refreshTokenValue) {
-        String tokenHash = hashToken(refreshTokenValue);
-        RefreshToken refreshToken = refreshTokenRepository.findByTokenHash(tokenHash)
-                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_REFRESH_TOKEN));
-
-        if (!refreshToken.isValid()) {
-            if (refreshToken.isExpired()) {
-                throw new BusinessException(ErrorCode.EXPIRED_REFRESH_TOKEN);
-            }
-            throw new BusinessException(ErrorCode.INVALID_REFRESH_TOKEN);
-        }
-
-        User user = refreshToken.getUser();
-
-        // Create new authentication
+    public LoginResponse login(LoginRequest request, String ipAddress, String userAgent) {
         UsernamePasswordAuthenticationToken authenticationToken =
-            new UsernamePasswordAuthenticationToken(user.getLoginId(), null, null);
+                new UsernamePasswordAuthenticationToken(request.getLoginId(), request.getPassword());
 
-        String accessToken = jwtTokenProvider.createAccessToken(authenticationToken);
+        Authentication authentication = authenticationManagerBuilder.getObject().authenticate(authenticationToken);
+        CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
 
-        return TokenResponse.builder()
+        User user = userRepository.findById(userDetails.getUserId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+        String accessToken = jwtTokenProvider.createAccessToken(authentication);
+        String refreshToken = jwtTokenProvider.createRefreshToken(authentication);
+        String refreshTokenHash = DigestUtils.md5DigestAsHex(refreshToken.getBytes());
+
+        // Refresh Token 저장
+        RefreshToken rt = RefreshToken.builder()
+                .user(user)
+                .tokenHash(refreshTokenHash)
+                .ipAddress(ipAddress)
+                .deviceInfo(userAgent)
+                .expiresAt(LocalDateTime.now().plusDays(14))
+                .build();
+        refreshTokenRepository.save(rt);
+
+        // 로그인 기록 저장
+        LoginHistory loginHistory = LoginHistory.success(user, request.getLoginId(), ipAddress, userAgent);
+        loginHistoryRepository.save(loginHistory);
+
+        user.updateLastLogin(); // 마지막 로그인 시간 업데이트
+
+        return LoginResponse.builder()
                 .accessToken(accessToken)
-                .expiresIn(1800)
+                .refreshToken(refreshToken)
+                .expiresIn(jwtTokenProvider.getAccessTokenValidityInMilliseconds())
+                .user(LoginResponse.UserInfo.builder()
+                        .userId(user.getUserId())
+                        .loginId(user.getLoginId())
+                        .displayName(user.getDisplayName())
+                        .profileImageUrl(user.getProfileImageUrl())
+                        .isEmailVerified("Y".equals(user.getIsEmailVerified()))
+                        .build())
                 .build();
     }
 
-    private String hashToken(String token) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] hash = digest.digest(token.getBytes(StandardCharsets.UTF_8));
-            return Base64.getEncoder().encodeToString(hash);
-        } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException("SHA-256 algorithm not available", e);
-        }
+    @Transactional
+    public void logout(LogoutRequest request) {
+        String refreshTokenHash = DigestUtils.md5DigestAsHex(request.getRefreshToken().getBytes());
+        refreshTokenRepository.findByTokenHash(refreshTokenHash)
+                .ifPresent(refreshToken -> {
+                    refreshToken.revoke();
+                    refreshTokenRepository.save(refreshToken);
+                });
     }
 
-    @lombok.Builder
-    @lombok.Getter
-    public static class TokenResponse {
-        private String accessToken;
-        private String refreshToken;
-        private Integer expiresIn;
+    @Transactional
+    public RefreshResponse refresh(RefreshRequest request) {
+        String refreshToken = request.getRefreshToken();
+        String refreshTokenHash = DigestUtils.md5DigestAsHex(refreshToken.getBytes());
+        RefreshToken rt = refreshTokenRepository.findByTokenHash(refreshTokenHash)
+                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_REFRESH_TOKEN));
+
+        if (!rt.isValid()) {
+            throw new BusinessException(ErrorCode.EXPIRED_REFRESH_TOKEN);
+        }
+
+        User user = rt.getUser();
+        // TODO: 사용자의 실제 권한을 가져와서 설정해야 함
+        List<GrantedAuthority> authorities = Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER"));
+        Authentication authentication = new UsernamePasswordAuthenticationToken(
+                new CustomUserDetails(user.getUserId(), user.getLoginId(), "", authorities),
+                "",
+                authorities
+        );
+
+        String newAccessToken = jwtTokenProvider.createAccessToken(authentication);
+
+        return RefreshResponse.builder()
+                .accessToken(newAccessToken)
+                .expiresIn(jwtTokenProvider.getAccessTokenValidityInMilliseconds())
+                .build();
     }
 }
