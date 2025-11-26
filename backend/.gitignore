@@ -4,6 +4,7 @@
 /target/
 /out/
 /bin/
+/src/main/generated/
 
 # IDE files
 .apt_generated
@@ -23,3 +24,7 @@
 *.log
 *.tmp
 *.lck
+
+# Backup files
+*~
+*.bak
