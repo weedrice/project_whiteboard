@@ -6,6 +6,7 @@ import com.weedrice.whiteboard.domain.comment.entity.CommentLike;
 import com.weedrice.whiteboard.domain.comment.entity.CommentLikeId;
 import com.weedrice.whiteboard.domain.comment.repository.CommentLikeRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
+import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -13,6 +14,7 @@ import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -32,6 +34,7 @@ public class CommentService {
     private final PostRepository postRepository;
     private final UserRepository userRepository;
     private final CommentLikeRepository commentLikeRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     public Page<CommentResponse> getComments(Long postId, Pageable pageable) {
         Page<Comment> parentComments = commentRepository.findByPost_PostIdAndParentIsNullAndIsDeletedOrderByCreatedAtAsc(postId, "N", pageable);
@@ -85,8 +88,21 @@ public class CommentService {
                 .content(content)
                 .build();
 
-        post.incrementCommentCount(); // 게시글 댓글 수 증가
-        return commentRepository.save(comment);
+        post.incrementCommentCount();
+        Comment savedComment = commentRepository.save(comment);
+
+        // 알림 이벤트 발행
+        if (parentComment != null) { // 대댓글
+            String notificationContent = user.getDisplayName() + "님이 회원님의 댓글에 답글을 남겼습니다.";
+            NotificationEvent event = new NotificationEvent(parentComment.getUser(), user, "REPLY", "COMMENT", parentId, notificationContent);
+            eventPublisher.publishEvent(event);
+        } else { // 일반 댓글
+            String notificationContent = user.getDisplayName() + "님이 회원님의 게시글에 댓글을 남겼습니다.";
+            NotificationEvent event = new NotificationEvent(post.getUser(), user, "COMMENT", "POST", postId, notificationContent);
+            eventPublisher.publishEvent(event);
+        }
+
+        return savedComment;
     }
 
     @Transactional
@@ -95,7 +111,7 @@ public class CommentService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
 
         if (!comment.getUser().getUserId().equals(userId)) {
-            throw new BusinessException(ErrorCode.FORBIDDEN); // 작성자만 수정 가능
+            throw new BusinessException(ErrorCode.FORBIDDEN);
         }
 
         comment.updateContent(content);
@@ -107,13 +123,12 @@ public class CommentService {
         Comment comment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
 
-        // TODO: 관리자 권한 확인 로직 추가 필요
         if (!comment.getUser().getUserId().equals(userId)) {
-            throw new BusinessException(ErrorCode.FORBIDDEN); // 작성자만 삭제 가능
+            throw new BusinessException(ErrorCode.FORBIDDEN);
         }
 
-        comment.deleteComment(); // Soft Delete
-        comment.getPost().decrementCommentCount(); // 게시글 댓글 수 감소
+        comment.deleteComment();
+        comment.getPost().decrementCommentCount();
     }
 
     @Transactional
@@ -134,7 +149,11 @@ public class CommentService {
                     .build();
             commentLikeRepository.save(commentLike);
             comment.incrementLikeCount();
-            // TODO: 작성자에게 알림 (notifications INSERT)
+
+            // 알림 이벤트 발행
+            String content = user.getDisplayName() + "님이 회원님의 댓글을 좋아합니다.";
+            NotificationEvent event = new NotificationEvent(comment.getUser(), user, "LIKE", "COMMENT", commentId, content);
+            eventPublisher.publishEvent(event);
         }
         return comment;
     }

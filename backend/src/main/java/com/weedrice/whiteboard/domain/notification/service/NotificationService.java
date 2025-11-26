@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.notification.service;
 
+import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
 import com.weedrice.whiteboard.domain.notification.entity.Notification;
 import com.weedrice.whiteboard.domain.notification.repository.NotificationRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -11,6 +12,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.event.TransactionalEventListener;
 
 @Service
 @RequiredArgsConstructor
@@ -20,20 +22,20 @@ public class NotificationService {
     private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
 
-    @Transactional
-    public void createNotification(Long userId, Long actorId, String notificationType, String sourceType, Long sourceId, String content) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        User actor = userRepository.findById(actorId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+    @TransactionalEventListener
+    public void handleNotificationEvent(NotificationEvent event) {
+        // 자기 자신에게는 알림을 보내지 않음
+        if (event.getUserToNotify().getUserId().equals(event.getActor().getUserId())) {
+            return;
+        }
 
         Notification notification = Notification.builder()
-                .user(user)
-                .actor(actor)
-                .notificationType(notificationType)
-                .sourceType(sourceType)
-                .sourceId(sourceId)
-                .content(content)
+                .user(event.getUserToNotify())
+                .actor(event.getActor())
+                .notificationType(event.getNotificationType())
+                .sourceType(event.getSourceType())
+                .sourceId(event.getSourceId())
+                .content(event.getContent())
                 .build();
         notificationRepository.save(notification);
     }
