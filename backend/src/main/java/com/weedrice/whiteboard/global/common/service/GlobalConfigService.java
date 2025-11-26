@@ -30,12 +30,7 @@ public class GlobalConfigService {
         GlobalConfig config = globalConfigRepository.findById(key)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
         
-        // This is a simplified update. In a real scenario, you might want to create a new entity if it doesn't exist.
-        // For now, we assume the config keys are pre-populated.
-        
-        // The original code had a bug here, it was not updating the value.
-        // config.updateValue(value); // Assuming GlobalConfig has an updateValue method.
-        // Let's add a setter-like method to GlobalConfig.
+        config.setConfigValue(value);
         
         return globalConfigRepository.save(config);
     }

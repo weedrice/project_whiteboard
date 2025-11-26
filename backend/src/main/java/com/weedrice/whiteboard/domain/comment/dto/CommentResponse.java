@@ -3,10 +3,11 @@ package com.weedrice.whiteboard.domain.comment.dto;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import lombok.Builder;
 import lombok.Getter;
+import lombok.Setter;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Getter
 @Builder
@@ -18,7 +19,8 @@ public class CommentResponse {
     private int likeCount;
     private boolean isDeleted;
     private LocalDateTime createdAt;
-    private List<CommentResponse> children; // 대댓글
+    @Setter
+    private List<CommentResponse> children = new ArrayList<>();
 
     @Getter
     @Builder
@@ -30,7 +32,7 @@ public class CommentResponse {
 
     public static CommentResponse from(Comment comment) {
         AuthorInfo authorInfo = null;
-        if (comment.getUser() != null) { // 삭제된 댓글은 user가 null일 수 있음
+        if (comment.getUser() != null && "N".equals(comment.getIsDeleted())) {
             authorInfo = AuthorInfo.builder()
                     .userId(comment.getUser().getUserId())
                     .displayName(comment.getUser().getDisplayName())
@@ -40,15 +42,12 @@ public class CommentResponse {
 
         return CommentResponse.builder()
                 .commentId(comment.getCommentId())
-                .content(comment.getIsDeleted().equals("Y") ? "삭제된 댓글입니다." : comment.getContent())
+                .content("Y".equals(comment.getIsDeleted()) ? "삭제된 댓글입니다." : comment.getContent())
                 .author(authorInfo)
                 .depth(comment.getDepth())
                 .likeCount(comment.getLikeCount())
-                .isDeleted(comment.getIsDeleted().equals("Y"))
+                .isDeleted("Y".equals(comment.getIsDeleted()))
                 .createdAt(comment.getCreatedAt())
-                .children(comment.getChildren().stream() // Assuming children are loaded or fetched
-                        .map(CommentResponse::from)
-                        .collect(Collectors.toList()))
                 .build();
     }
 }

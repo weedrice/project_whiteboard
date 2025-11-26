@@ -2,12 +2,18 @@ package com.weedrice.whiteboard.domain.admin.controller;
 
 import com.weedrice.whiteboard.domain.admin.dto.AdminCreateRequest;
 import com.weedrice.whiteboard.domain.admin.dto.AdminResponse;
+import com.weedrice.whiteboard.domain.admin.dto.IpBlockRequest;
+import com.weedrice.whiteboard.domain.admin.dto.IpBlockResponse;
+import com.weedrice.whiteboard.domain.admin.entity.Admin;
+import com.weedrice.whiteboard.domain.admin.entity.IpBlock;
 import com.weedrice.whiteboard.domain.admin.service.AdminService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
+import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -46,5 +52,30 @@ public class AdminController {
     public ApiResponse<Void> activateAdmin(@PathVariable Long adminId) {
         adminService.activateAdmin(adminId);
         return ApiResponse.success(null);
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @PostMapping("/ip-blocks")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ApiResponse<IpBlockResponse> blockIp(
+            @Valid @RequestBody IpBlockRequest request,
+            Authentication authentication) {
+        Long adminUserId = ((CustomUserDetails) authentication.getPrincipal()).getUserId();
+        IpBlock ipBlock = adminService.blockIp(adminUserId, request.getIpAddress(), request.getReason(), request.getEndDate());
+        return ApiResponse.success(IpBlockResponse.from(ipBlock));
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @DeleteMapping("/ip-blocks/{ipAddress}")
+    public ApiResponse<Void> unblockIp(@PathVariable String ipAddress) {
+        adminService.unblockIp(ipAddress);
+        return ApiResponse.success(null);
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @GetMapping("/ip-blocks")
+    public ApiResponse<List<IpBlockResponse>> getBlockedIps() {
+        List<IpBlock> ipBlocks = adminService.getBlockedIps();
+        return ApiResponse.success(IpBlockResponse.from(ipBlocks));
     }
 }

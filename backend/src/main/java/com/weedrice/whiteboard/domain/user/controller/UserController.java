@@ -8,6 +8,7 @@ import com.weedrice.whiteboard.domain.user.service.UserBlockService;
 import com.weedrice.whiteboard.domain.user.service.UserService;
 import com.weedrice.whiteboard.domain.user.service.UserSettingsService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
+import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -140,7 +141,7 @@ public class UserController {
 
         List<NotificationSettingResponse> response = settings.stream()
                 .map(s -> new NotificationSettingResponse(
-                        s.getId().getNotificationType(),
+                        s.getNotificationType(),
                         "Y".equals(s.getIsEnabled())
                 ))
                 .collect(Collectors.toList());
@@ -161,7 +162,7 @@ public class UserController {
         );
 
         NotificationSettingResponse response = new NotificationSettingResponse(
-                setting.getId().getNotificationType(),
+                setting.getNotificationType(),
                 "Y".equals(setting.getIsEnabled())
         );
 
@@ -224,7 +225,7 @@ public class UserController {
     }
 
     private Long extractUserId(Authentication authentication) {
-        String loginId = authentication.getName();
-        return userService.findUserIdByLoginId(loginId);
+        CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
+        return userDetails.getUserId();
     }
 }

@@ -1,7 +1,9 @@
 package com.weedrice.whiteboard.domain.admin.service;
 
 import com.weedrice.whiteboard.domain.admin.entity.Admin;
+import com.weedrice.whiteboard.domain.admin.entity.IpBlock;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
+import com.weedrice.whiteboard.domain.admin.repository.IpBlockRepository;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -12,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -22,6 +25,7 @@ public class AdminService {
     private final AdminRepository adminRepository;
     private final UserRepository userRepository;
     private final BoardRepository boardRepository;
+    private final IpBlockRepository ipBlockRepository;
 
     @Transactional
     public Admin createAdmin(Long userId, Long boardId, String role) {
@@ -63,5 +67,41 @@ public class AdminService {
 
     public List<Admin> getAllAdmins() {
         return adminRepository.findByIsActive("Y");
+    }
+
+    @Transactional
+    public IpBlock blockIp(Long adminUserId, String ipAddress, String reason, LocalDateTime endDate) {
+        Admin admin = adminRepository.findByUserAndIsActive(userRepository.findById(adminUserId)
+                        .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND)), "Y")
+                .orElseThrow(() -> new BusinessException(ErrorCode.FORBIDDEN, "관리자 권한이 없습니다."));
+
+        ipBlockRepository.findById(ipAddress)
+                .ifPresent(block -> {
+                    throw new BusinessException(ErrorCode.VALIDATION_ERROR, "이미 차단된 IP 주소입니다.");
+                });
+
+        IpBlock ipBlock = IpBlock.builder()
+                .ipAddress(ipAddress)
+                .admin(admin)
+                .reason(reason)
+                .startDate(LocalDateTime.now())
+                .endDate(endDate)
+                .build();
+        return ipBlockRepository.save(ipBlock);
+    }
+
+    @Transactional
+    public void unblockIp(String ipAddress) {
+        IpBlock ipBlock = ipBlockRepository.findById(ipAddress)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+        ipBlockRepository.delete(ipBlock);
+    }
+
+    public List<IpBlock> getBlockedIps() {
+        return ipBlockRepository.findByEndDateAfterOrEndDateIsNull(LocalDateTime.now());
+    }
+
+    public boolean isIpBlocked(String ipAddress) {
+        return ipBlockRepository.findByIpAddressAndEndDateAfterOrEndDateIsNull(ipAddress, LocalDateTime.now()).isPresent();
     }
 }

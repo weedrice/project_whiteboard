@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.comment.controller;
 
 import com.weedrice.whiteboard.domain.comment.dto.CommentCreateRequest;
 import com.weedrice.whiteboard.domain.comment.dto.CommentListResponse;
+import com.weedrice.whiteboard.domain.comment.dto.CommentResponse;
 import com.weedrice.whiteboard.domain.comment.dto.CommentUpdateRequest;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.service.CommentService;
@@ -24,13 +25,13 @@ public class CommentController {
     private final CommentService commentService;
 
     @GetMapping("/posts/{postId}/comments")
-    public ApiResponse<CommentListResponse> getComments(
+    public ApiResponse<Page<CommentResponse>> getComments(
             @PathVariable Long postId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         Pageable pageable = PageRequest.of(page, size);
-        Page<Comment> comments = commentService.getComments(postId, pageable);
-        return ApiResponse.success(CommentListResponse.from(comments));
+        Page<CommentResponse> comments = commentService.getComments(postId, pageable);
+        return ApiResponse.success(comments);
     }
 
     @GetMapping("/comments/{commentId}/replies")
@@ -69,5 +70,12 @@ public class CommentController {
         Long userId = ((CustomUserDetails) authentication.getPrincipal()).getUserId();
         commentService.deleteComment(userId, commentId);
         return ApiResponse.success(null);
+    }
+
+    @PostMapping("/comments/{commentId}/like")
+    public ApiResponse<Integer> toggleCommentLike(@PathVariable Long commentId, Authentication authentication) {
+        Long userId = ((CustomUserDetails) authentication.getPrincipal()).getUserId();
+        Comment updatedComment = commentService.toggleCommentLike(userId, commentId);
+        return ApiResponse.success(updatedComment.getLikeCount());
     }
 }

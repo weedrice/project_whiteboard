@@ -5,8 +5,11 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface CommentRepository extends JpaRepository<Comment, Long> {
+import java.util.List;
+
+public interface CommentRepository extends JpaRepository<Comment, Long>, CommentRepositoryCustom {
     Page<Comment> findByPost_PostIdAndParentIsNullAndIsDeletedOrderByCreatedAtAsc(Long postId, String isDeleted, Pageable pageable);
     Page<Comment> findByParent_CommentIdAndIsDeletedOrderByCreatedAtAsc(Long parentId, String isDeleted, Pageable pageable);
+    List<Comment> findByParent_CommentIdInAndIsDeletedOrderByCreatedAtAsc(List<Long> parentIds, String isDeleted);
     long countByPost_PostIdAndIsDeleted(Long postId, String isDeleted);
 }

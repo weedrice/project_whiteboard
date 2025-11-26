@@ -18,10 +18,10 @@ public class PopularKeywordResponse {
         private long count;
     }
 
-    public static PopularKeywordResponse from(List<SearchService.PopularKeywordDto> popularKeywords) {
+    public static PopularKeywordResponse from(List<PopularKeywordDto> popularKeywords) {
         List<KeywordInfo> keywordInfos = new java.util.ArrayList<>();
         for (int i = 0; i < popularKeywords.size(); i++) {
-            SearchService.PopularKeywordDto dto = popularKeywords.get(i);
+            PopularKeywordDto dto = popularKeywords.get(i);
             keywordInfos.add(KeywordInfo.builder()
                     .rank(i + 1)
                     .keyword(dto.getKeyword())

@@ -1,12 +1,16 @@
 package com.weedrice.whiteboard.domain.board.controller;
 
+import com.weedrice.whiteboard.domain.board.dto.BoardResponse;
+import com.weedrice.whiteboard.domain.board.dto.CategoryResponse;
 import com.weedrice.whiteboard.domain.board.entity.Board;
+import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
 import com.weedrice.whiteboard.domain.board.service.BoardService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
+import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -27,18 +31,27 @@ public class BoardController {
         return ApiResponse.success(response);
     }
 
-    @lombok.Getter
-    private static class BoardResponse {
-        private final Long boardId;
-        private final String boardName;
-        private final String description;
-        private final String iconUrl;
+    @GetMapping("/{boardId}/categories")
+    public ApiResponse<List<CategoryResponse>> getCategories(@PathVariable Long boardId) {
+        List<BoardCategory> categories = boardService.getActiveCategories(boardId);
+        List<CategoryResponse> response = categories.stream()
+                .map(CategoryResponse::new)
+                .collect(Collectors.toList());
+        return ApiResponse.success(response);
+    }
 
-        public BoardResponse(Board board) {
-            this.boardId = board.getBoardId();
-            this.boardName = board.getBoardName();
-            this.description = board.getDescription();
-            this.iconUrl = board.getIconUrl();
-        }
+    @PostMapping("/{boardId}/subscribe")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ApiResponse<Void> subscribeBoard(@PathVariable Long boardId, Authentication authentication) {
+        Long userId = ((CustomUserDetails) authentication.getPrincipal()).getUserId();
+        boardService.subscribeBoard(userId, boardId);
+        return ApiResponse.success(null);
+    }
+
+    @DeleteMapping("/{boardId}/subscribe")
+    public ApiResponse<Void> unsubscribeBoard(@PathVariable Long boardId, Authentication authentication) {
+        Long userId = ((CustomUserDetails) authentication.getPrincipal()).getUserId();
+        boardService.unsubscribeBoard(userId, boardId);
+        return ApiResponse.success(null);
     }
 }

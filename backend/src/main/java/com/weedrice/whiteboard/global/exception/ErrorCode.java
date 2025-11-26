@@ -34,9 +34,13 @@ public enum ErrorCode {
     // Board
     DUPLICATE_BOARD_NAME(HttpStatus.BAD_REQUEST, "DUPLICATE_BOARD_NAME", "이미 존재하는 게시판 이름입니다"),
     BOARD_NOT_FOUND(HttpStatus.NOT_FOUND, "BOARD_NOT_FOUND", "게시판을 찾을 수 없습니다"),
+    ALREADY_SUBSCRIBED(HttpStatus.BAD_REQUEST, "ALREADY_SUBSCRIBED", "이미 구독한 게시판입니다"),
+    NOT_SUBSCRIBED(HttpStatus.BAD_REQUEST, "NOT_SUBSCRIBED", "구독하지 않은 게시판입니다"),
 
     // Post
     POST_NOT_FOUND(HttpStatus.NOT_FOUND, "POST_NOT_FOUND", "게시글을 찾을 수 없습니다"),
+    ALREADY_SCRAPED(HttpStatus.BAD_REQUEST, "ALREADY_SCRAPED", "이미 스크랩한 게시글입니다"),
+    NOT_SCRAPED(HttpStatus.BAD_REQUEST, "NOT_SCRAPED", "스크랩하지 않은 게시글입니다"),
 
     // Comment
     COMMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "COMMENT_NOT_FOUND", "댓글을 찾을 수 없습니다"),
