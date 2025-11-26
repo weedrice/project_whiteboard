@@ -1,7 +1,6 @@
 package com.weedrice.whiteboard.domain.post.controller;
 
 import com.weedrice.whiteboard.domain.post.dto.*;
-import com.weedrice.whiteboard.domain.post.entity.PopularPost;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.domain.search.service.SearchService;
@@ -16,8 +15,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Collections; // For empty tags list
-import java.util.List; // For tags list
+import java.util.Collections;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1")
@@ -105,6 +104,12 @@ public class PostController {
         return ApiResponse.success(null);
     }
 
+    @GetMapping("/users/me/scraps")
+    public ApiResponse<ScrapListResponse> getMyScraps(Authentication authentication, Pageable pageable) {
+        Long userId = ((CustomUserDetails) authentication.getPrincipal()).getUserId();
+        return ApiResponse.success(ScrapListResponse.from(postService.getMyScraps(userId, pageable)));
+    }
+
     @GetMapping("/users/me/drafts")
     public ApiResponse<DraftListResponse> getMyDrafts(
             @RequestParam(defaultValue = "0") int page,
@@ -140,15 +145,5 @@ public class PostController {
     @GetMapping("/posts/{postId}/versions")
     public ApiResponse<List<PostVersionResponse>> getPostVersions(@PathVariable Long postId) {
         return ApiResponse.success(PostVersionResponse.from(postService.getPostVersions(postId)));
-    }
-
-    @GetMapping("/posts/popular")
-    public ApiResponse<PopularPostResponse> getPopularPosts(
-            @RequestParam(defaultValue = "DAILY") String type,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
-        Pageable pageable = PageRequest.of(page, size);
-        Page<PopularPost> popularPosts = postService.getPopularPosts(type, pageable);
-        return ApiResponse.success(PopularPostResponse.from(popularPosts));
     }
 }

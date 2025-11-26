@@ -12,12 +12,10 @@ import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.entity.PostLike;
 import com.weedrice.whiteboard.domain.post.entity.PostLikeId;
 import com.weedrice.whiteboard.domain.post.entity.PostVersion;
-import com.weedrice.whiteboard.domain.post.entity.PopularPost;
 import com.weedrice.whiteboard.domain.post.entity.Scrap;
 import com.weedrice.whiteboard.domain.post.entity.ScrapId;
 import com.weedrice.whiteboard.domain.post.repository.DraftPostRepository;
 import com.weedrice.whiteboard.domain.post.repository.PostLikeRepository;
-import com.weedrice.whiteboard.domain.post.repository.PopularPostRepository;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.repository.PostVersionRepository;
 import com.weedrice.whiteboard.domain.post.repository.ScrapRepository;
@@ -52,10 +50,13 @@ public class PostService {
     private final PostVersionRepository postVersionRepository;
     private final TagService tagService;
     private final PostTagRepository postTagRepository;
-    private final PopularPostRepository popularPostRepository;
 
     public Page<Post> getPosts(Long boardId, Long categoryId, Pageable pageable) {
         return postRepository.findByBoardIdAndCategoryId(boardId, categoryId, pageable);
+    }
+
+    public Page<Post> getPostsByTag(Long tagId, Pageable pageable) {
+        return postRepository.findByTagId(tagId, pageable);
     }
 
     public Post getPostById(Long postId) {
@@ -189,6 +190,12 @@ public class PostService {
         }
     }
 
+    public Page<Scrap> getMyScraps(Long userId, Pageable pageable) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        return scrapRepository.findByUserOrderByCreatedAtDesc(user, pageable);
+    }
+
     public Page<DraftPost> getDraftPosts(Long userId, Pageable pageable) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
@@ -261,9 +268,5 @@ public class PostService {
         return postTagRepository.findByPost(post).stream()
                 .map(postTag -> postTag.getTag().getTagName())
                 .collect(Collectors.toList());
-    }
-
-    public Page<PopularPost> getPopularPosts(String rankingType, Pageable pageable) {
-        return popularPostRepository.findByRankingTypeOrderByRankAsc(rankingType, pageable);
     }
 }

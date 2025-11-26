@@ -1,10 +1,11 @@
 package com.weedrice.whiteboard.domain.post.entity;
 
-import com.weedrice.whiteboard.global.common.entity.BaseTimeEntity;
+import com.weedrice.whiteboard.global.common.BaseTimeEntity;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import jakarta.persistence.*;
 
@@ -32,6 +33,7 @@ public class PopularPost extends BaseTimeEntity {
     @Column(name = "score", nullable = false)
     private Double score;
 
+    @Setter
     @Column(name = "rank", nullable = false)
     private Integer rank;
 
