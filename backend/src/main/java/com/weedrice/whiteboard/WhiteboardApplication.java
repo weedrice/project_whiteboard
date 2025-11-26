@@ -10,7 +10,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @SpringBootApplication
 @EnableJpaAuditing
 @EnableCaching
-@EnableScheduling
+// @EnableScheduling // 스케줄링 비활성화
 @EnableAsync
 public class WhiteboardApplication {
 
