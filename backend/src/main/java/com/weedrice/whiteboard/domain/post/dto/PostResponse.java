@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.post.dto;
 
 import com.weedrice.whiteboard.domain.post.entity.Post;
+import com.weedrice.whiteboard.domain.post.entity.ViewHistory;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -23,6 +24,7 @@ public class PostResponse {
     private boolean isNotice;
     private boolean isNsfw;
     private boolean isSpoiler;
+    private Long lastReadCommentId; // 마지막으로 읽은 댓글 ID
     private LocalDateTime createdAt;
     private LocalDateTime modifiedAt;
 
@@ -48,7 +50,7 @@ public class PostResponse {
         private String name;
     }
 
-    public static PostResponse from(Post post, List<String> tags) {
+    public static PostResponse from(Post post, List<String> tags, ViewHistory viewHistory) {
         AuthorInfo authorInfo = AuthorInfo.builder()
                 .userId(post.getUser().getUserId())
                 .displayName(post.getUser().getDisplayName())
@@ -65,6 +67,11 @@ public class PostResponse {
                 .name(post.getCategory().getName())
                 .build() : null;
 
+        Long lastReadCommentId = null;
+        if (viewHistory != null && viewHistory.getLastReadComment() != null) {
+            lastReadCommentId = viewHistory.getLastReadComment().getCommentId();
+        }
+
         return PostResponse.builder()
                 .postId(post.getPostId())
                 .title(post.getTitle())
@@ -79,6 +86,7 @@ public class PostResponse {
                 .isNotice("Y".equals(post.getIsNotice()))
                 .isNsfw("Y".equals(post.getIsNsfw()))
                 .isSpoiler("Y".equals(post.getIsSpoiler()))
+                .lastReadCommentId(lastReadCommentId)
                 .createdAt(post.getCreatedAt())
                 .modifiedAt(post.getModifiedAt())
                 .build();

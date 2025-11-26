@@ -2,9 +2,11 @@ package com.weedrice.whiteboard.domain.post.controller;
 
 import com.weedrice.whiteboard.domain.post.dto.*;
 import com.weedrice.whiteboard.domain.post.entity.Post;
+import com.weedrice.whiteboard.domain.post.entity.ViewHistory;
 import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.domain.search.service.SearchService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
+import com.weedrice.whiteboard.global.common.dto.PageResponse;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -15,7 +17,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Collections;
 import java.util.List;
 
 @RestController
@@ -24,18 +25,17 @@ import java.util.List;
 public class PostController {
 
     private final PostService postService;
-    private final SearchService searchService; // SearchService 주입
+    private final SearchService searchService;
 
     @GetMapping("/boards/{boardId}/posts")
-    public ApiResponse<PostListResponse> getPosts(
+    public ApiResponse<PageResponse<PostSummary>> getPosts(
             @PathVariable Long boardId,
             @RequestParam(required = false) Long categoryId,
-            @RequestParam(required = false) String keyword, // 검색어 추가
+            @RequestParam(required = false) String keyword,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
-            Authentication authentication) { // Authentication 추가
-        
-        // 검색어 기록
+            Authentication authentication) {
+
         if (keyword != null && !keyword.trim().isEmpty()) {
             Long userId = null;
             if (authentication != null && authentication.getPrincipal() instanceof CustomUserDetails) {
@@ -45,16 +45,21 @@ public class PostController {
         }
 
         Pageable pageable = PageRequest.of(page, size);
-        Page<Post> posts = postService.getPosts(boardId, categoryId, pageable); // TODO: keyword를 이용한 검색 로직 추가 필요
-        return ApiResponse.success(PostListResponse.from(posts));
+        Page<Post> posts = postService.getPosts(boardId, categoryId, pageable);
+        Page<PostSummary> postSummaries = posts.map(PostSummary::from);
+        return ApiResponse.success(new PageResponse<>(postSummaries));
     }
 
     @GetMapping("/posts/{postId}")
-    public ApiResponse<PostResponse> getPost(@PathVariable Long postId) {
-        Post post = postService.getPostById(postId);
-        postService.incrementViewCount(postId); // 조회수 증가
-        List<String> tags = postService.getTagsForPost(postId); // 태그 정보 가져오기
-        return ApiResponse.success(PostResponse.from(post, tags));
+    public ApiResponse<PostResponse> getPost(@PathVariable Long postId, Authentication authentication) {
+        Long userId = null;
+        if (authentication != null && authentication.getPrincipal() instanceof CustomUserDetails) {
+            userId = ((CustomUserDetails) authentication.getPrincipal()).getUserId();
+        }
+        Post post = postService.getPostById(postId, userId);
+        List<String> tags = postService.getTagsForPost(postId);
+        ViewHistory viewHistory = postService.getViewHistory(userId, postId);
+        return ApiResponse.success(PostResponse.from(post, tags, viewHistory));
     }
 
     @PostMapping("/boards/{boardId}/posts")
@@ -89,7 +94,7 @@ public class PostController {
     public ApiResponse<Integer> togglePostLike(@PathVariable Long postId, Authentication authentication) {
         Long userId = ((CustomUserDetails) authentication.getPrincipal()).getUserId();
         postService.togglePostLike(userId, postId);
-        Post post = postService.getPostById(postId); // 좋아요 수 업데이트된 게시글 다시 조회
+        Post post = postService.getPostById(postId, null);
         return ApiResponse.success(post.getLikeCount());
     }
 

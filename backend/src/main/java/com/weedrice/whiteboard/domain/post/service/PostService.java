@@ -4,22 +4,12 @@ import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
 import com.weedrice.whiteboard.domain.board.repository.BoardCategoryRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
+import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
 import com.weedrice.whiteboard.domain.post.dto.PostCreateRequest;
 import com.weedrice.whiteboard.domain.post.dto.PostDraftRequest;
 import com.weedrice.whiteboard.domain.post.dto.PostUpdateRequest;
-import com.weedrice.whiteboard.domain.post.entity.DraftPost;
-import com.weedrice.whiteboard.domain.post.entity.Post;
-import com.weedrice.whiteboard.domain.post.entity.PostLike;
-import com.weedrice.whiteboard.domain.post.entity.PostLikeId;
-import com.weedrice.whiteboard.domain.post.entity.PostVersion;
-import com.weedrice.whiteboard.domain.post.entity.Scrap;
-import com.weedrice.whiteboard.domain.post.entity.ScrapId;
-import com.weedrice.whiteboard.domain.post.repository.DraftPostRepository;
-import com.weedrice.whiteboard.domain.post.repository.PostLikeRepository;
-import com.weedrice.whiteboard.domain.post.repository.PostRepository;
-import com.weedrice.whiteboard.domain.post.repository.PostVersionRepository;
-import com.weedrice.whiteboard.domain.post.repository.ScrapRepository;
-import com.weedrice.whiteboard.domain.tag.entity.PostTag;
+import com.weedrice.whiteboard.domain.post.entity.*;
+import com.weedrice.whiteboard.domain.post.repository.*;
 import com.weedrice.whiteboard.domain.tag.repository.PostTagRepository;
 import com.weedrice.whiteboard.domain.tag.service.TagService;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -27,6 +17,7 @@ import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -50,6 +41,8 @@ public class PostService {
     private final PostVersionRepository postVersionRepository;
     private final TagService tagService;
     private final PostTagRepository postTagRepository;
+    private final ViewHistoryRepository viewHistoryRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     public Page<Post> getPosts(Long boardId, Long categoryId, Pageable pageable) {
         return postRepository.findByBoardIdAndCategoryId(boardId, categoryId, pageable);
@@ -59,9 +52,33 @@ public class PostService {
         return postRepository.findByTagId(tagId, pageable);
     }
 
-    public Post getPostById(Long postId) {
-        return postRepository.findById(postId)
+    @Transactional
+    public Post getPostById(Long postId, Long userId) {
+        Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
+
+        post.incrementViewCount();
+
+        if (userId != null) {
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+            ViewHistory viewHistory = viewHistoryRepository.findByUserAndPost(user, post)
+                    .orElseGet(() -> viewHistoryRepository.save(new ViewHistory(user, post)));
+            viewHistory.updateView(null, 0);
+        }
+
+        return post;
+    }
+
+    public ViewHistory getViewHistory(Long userId, Long postId) {
+        if (userId == null) {
+            return null;
+        }
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        Post post = postRepository.findById(postId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
+        return viewHistoryRepository.findByUserAndPost(user, post).orElse(null);
     }
 
     @Transactional
@@ -87,8 +104,8 @@ public class PostService {
                 .build();
 
         Post savedPost = postRepository.save(post);
-        tagService.processTagsForPost(savedPost, request.getTags()); // 태그 처리
-        savePostVersion(savedPost, user, "CREATE", null, null); // 버전 기록
+        tagService.processTagsForPost(savedPost, request.getTags());
+        savePostVersion(savedPost, user, "CREATE", null, null);
         return savedPost;
     }
 
@@ -98,7 +115,7 @@ public class PostService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
 
         if (!post.getUser().getUserId().equals(userId)) {
-            throw new BusinessException(ErrorCode.FORBIDDEN); // 작성자만 수정 가능
+            throw new BusinessException(ErrorCode.FORBIDDEN);
         }
 
         BoardCategory category = null;
@@ -107,14 +124,13 @@ public class PostService {
                     .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
         }
 
-        // 이전 내용 저장
         String originalTitle = post.getTitle();
         String originalContents = post.getContents();
 
         post.updatePost(category, request.getTitle(), request.getContents(), request.isNsfw(), request.isSpoiler());
-        tagService.processTagsForPost(post, request.getTags()); // 태그 처리
+        tagService.processTagsForPost(post, request.getTags());
         User modifier = userRepository.findById(userId).orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        savePostVersion(post, modifier, "MODIFY", originalTitle, originalContents); // 버전 기록
+        savePostVersion(post, modifier, "MODIFY", originalTitle, originalContents);
 
         return post;
     }
@@ -124,24 +140,15 @@ public class PostService {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
 
-        // TODO: 관리자 권한 확인 로직 추가 필요
         if (!post.getUser().getUserId().equals(userId)) {
-            throw new BusinessException(ErrorCode.FORBIDDEN); // 작성자만 삭제 가능
+            throw new BusinessException(ErrorCode.FORBIDDEN);
         }
 
-        post.deletePost(); // Soft Delete
-        // 태그 post_count 감소
+        post.deletePost();
         postTagRepository.findByPost(post).forEach(postTag -> postTag.getTag().decrementPostCount());
-        postTagRepository.deleteByPost(post); // PostTag 삭제
+        postTagRepository.deleteByPost(post);
         User modifier = userRepository.findById(userId).orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        savePostVersion(post, modifier, "DELETE", post.getTitle(), post.getContents()); // 버전 기록
-    }
-
-    @Transactional
-    public void incrementViewCount(Long postId) {
-        Post post = postRepository.findById(postId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
-        post.incrementViewCount();
+        savePostVersion(post, modifier, "DELETE", post.getTitle(), post.getContents());
     }
 
     @Transactional
@@ -155,7 +162,7 @@ public class PostService {
         if (postLikeRepository.existsById(postLikeId)) {
             postLikeRepository.deleteById(postLikeId);
             post.decrementLikeCount();
-            return false; // 좋아요 취소
+            return false;
         } else {
             PostLike postLike = PostLike.builder()
                     .user(user)
@@ -163,8 +170,13 @@ public class PostService {
                     .build();
             postLikeRepository.save(postLike);
             post.incrementLikeCount();
-            // TODO: 작성자에게 알림 (notifications INSERT)
-            return true; // 좋아요
+
+            // 알림 이벤트 발행
+            String content = user.getDisplayName() + "님이 회원님의 게시글을 좋아합니다.";
+            NotificationEvent event = new NotificationEvent(post.getUser(), user, "LIKE", "POST", postId, content);
+            eventPublisher.publishEvent(event);
+
+            return true;
         }
     }
 
@@ -178,7 +190,7 @@ public class PostService {
         ScrapId scrapId = new ScrapId(userId, postId);
         if (scrapRepository.existsById(scrapId)) {
             scrapRepository.deleteById(scrapId);
-            return false; // 스크랩 취소
+            return false;
         } else {
             Scrap scrap = Scrap.builder()
                     .user(user)
@@ -186,7 +198,7 @@ public class PostService {
                     .remark(remark)
                     .build();
             scrapRepository.save(scrap);
-            return true; // 스크랩
+            return true;
         }
     }
 
