@@ -23,12 +23,15 @@ const form = ref({
   isSpoiler: false
 })
 
+const board = ref(null)
+
 async function fetchData() {
   isLoading.value = true
   try {
-    const [postRes, categoriesRes] = await Promise.all([
+    const [postRes, categoriesRes, boardRes] = await Promise.all([
       postApi.getPost(postId),
-      boardApi.getCategories(boardId)
+      boardApi.getCategories(boardId),
+      boardApi.getBoard(boardId)
     ])
 
     if (postRes.data.success) {
@@ -45,6 +48,10 @@ async function fetchData() {
 
     if (categoriesRes.data.success) {
       categories.value = categoriesRes.data.data
+    }
+
+    if (boardRes.data.success) {
+      board.value = boardRes.data.data
     }
   } catch (err) {
     console.error('Failed to load data:', err)
@@ -66,7 +73,8 @@ async function handleSubmit() {
     const payload = {
       ...form.value,
       tags: form.value.tags.split(',').map(tag => tag.trim()).filter(tag => tag),
-      contents: form.value.content // API expects 'contents'
+      contents: form.value.content, // API expects 'contents'
+      isNsfw: board.value?.allowNsfw ? form.value.isNsfw : false
     }
     
     // Remove 'content' key as we mapped it to 'contents'
@@ -165,7 +173,7 @@ onMounted(fetchData)
 
           <!-- Options -->
           <div class="flex items-start space-x-4">
-            <div class="flex items-center h-5">
+            <div v-if="board?.allowNsfw" class="flex items-center h-5">
               <input
                 id="nsfw"
                 name="nsfw"

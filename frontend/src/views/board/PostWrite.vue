@@ -22,19 +22,29 @@ const form = ref({
   isSpoiler: false
 })
 
+const board = ref(null)
+
 onMounted(async () => {
   isLoading.value = true
   try {
-    const { data } = await boardApi.getCategories(boardId)
-    if (data.success) {
-      categories.value = data.data
+    const [categoriesRes, boardRes] = await Promise.all([
+      boardApi.getCategories(boardId),
+      boardApi.getBoard(boardId)
+    ])
+
+    if (categoriesRes.data.success) {
+      categories.value = categoriesRes.data.data
       if (categories.value.length > 0) {
         form.value.categoryId = categories.value[0].categoryId
       }
     }
+
+    if (boardRes.data.success) {
+      board.value = boardRes.data.data
+    }
   } catch (err) {
-    console.error('Failed to load categories:', err)
-    error.value = 'Failed to load board categories.'
+    console.error('Failed to load data:', err)
+    error.value = 'Failed to load board data.'
   } finally {
     isLoading.value = false
   }
@@ -55,7 +65,7 @@ async function handleSubmit() {
       title: form.value.title,
       contents: form.value.contents,
       tags: form.value.tags.split(',').map(t => t.trim()).filter(t => t),
-      isNsfw: form.value.isNsfw,
+      isNsfw: board.value?.allowNsfw ? form.value.isNsfw : false,
       isSpoiler: form.value.isSpoiler,
       fileIds: [] // File upload not implemented yet
     }
@@ -158,7 +168,7 @@ async function handleSubmit() {
         </div>
 
         <div class="sm:col-span-6">
-          <div class="flex items-start">
+          <div v-if="board?.allowNsfw" class="flex items-start">
             <div class="flex items-center h-5">
               <input
                 id="isNsfw"
