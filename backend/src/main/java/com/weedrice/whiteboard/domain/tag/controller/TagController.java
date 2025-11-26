@@ -1,6 +1,5 @@
 package com.weedrice.whiteboard.domain.tag.controller;
 
-import com.weedrice.whiteboard.domain.post.dto.PostListResponse;
 import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.domain.tag.dto.TagResponse;
 import com.weedrice.whiteboard.domain.tag.service.TagService;

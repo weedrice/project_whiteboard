@@ -1,6 +1,6 @@
 package com.weedrice.whiteboard.global.config;
 
-import com.weedrice.whiteboard.global.config.interceptor.IpBlockInterceptor;
+import com.weedrice.whiteboard.domain.admin.interceptor.IpBlockInterceptor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
@@ -15,6 +15,6 @@ public class WebConfig implements WebMvcConfigurer {
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(ipBlockInterceptor)
-                .addPathPatterns("/**"); // 모든 경로에 대해 인터셉터 적용
+                .addPathPatterns("/**");
     }
 }
