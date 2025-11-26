@@ -101,11 +101,9 @@ onMounted(async () => {
           You haven't posted anything yet.
         </div>
       </div>
-    </div>
-    </div>
-
-    <BaseModal :isOpen="isEditModalOpen" title="Edit Profile" @close="isEditModalOpen = false">
-      <ProfileEditor @close="isEditModalOpen = false" />
-    </BaseModal>
-  </div>
+      <BaseModal :isOpen="isEditModalOpen" title="Edit Profile" @close="isEditModalOpen = false">
+        <ProfileEditor @close="isEditModalOpen = false" />
+      </BaseModal>
+    </div> <!-- Closing div for v-else -->
+  </div> <!-- Closing div for max-w-4xl mx-auto -->
 </template>
