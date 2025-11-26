@@ -1,21 +1,36 @@
 package com.weedrice.whiteboard.domain.auth.service;
 
+import com.weedrice.whiteboard.domain.auth.dto.LoginRequest;
+import com.weedrice.whiteboard.domain.auth.dto.LoginResponse;
 import com.weedrice.whiteboard.domain.auth.dto.SignupRequest;
 import com.weedrice.whiteboard.domain.auth.dto.SignupResponse;
+import com.weedrice.whiteboard.domain.auth.repository.LoginHistoryRepository;
+import com.weedrice.whiteboard.domain.auth.repository.RefreshTokenRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
+import com.weedrice.whiteboard.global.security.CustomUserDetails;
+import com.weedrice.whiteboard.global.security.JwtTokenProvider;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
+
+import java.util.Collections;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -23,24 +38,37 @@ class AuthServiceTest {
 
     @Mock
     private UserRepository userRepository;
-
     @Mock
     private PasswordEncoder passwordEncoder;
+    @Mock
+    private JwtTokenProvider jwtTokenProvider;
+    @Mock
+    private AuthenticationManagerBuilder authenticationManagerBuilder;
+    @Mock
+    private RefreshTokenRepository refreshTokenRepository;
+    @Mock
+    private LoginHistoryRepository loginHistoryRepository;
 
     @InjectMocks
     private AuthService authService;
+
+    private User user;
+
+    @BeforeEach
+    void setUp() {
+        user = User.builder()
+                .loginId("testuser")
+                .password("encodedPassword")
+                .email("test@example.com")
+                .displayName("Test User")
+                .build();
+    }
 
     @Test
     @DisplayName("회원가입 성공")
     void signup_success() {
         // given
         SignupRequest request = new SignupRequest("testuser", "password123", "test@example.com", "Test User");
-        User user = User.builder()
-                .loginId(request.getLoginId())
-                .password("encodedPassword")
-                .email(request.getEmail())
-                .displayName(request.getDisplayName())
-                .build();
 
         when(userRepository.existsByLoginId(request.getLoginId())).thenReturn(false);
         when(userRepository.existsByEmail(request.getEmail())).thenReturn(false);
@@ -79,5 +107,29 @@ class AuthServiceTest {
         // when & then
         BusinessException exception = assertThrows(BusinessException.class, () -> authService.signup(request));
         assertThat(exception.getErrorCode().getCode()).isEqualTo("DUPLICATE_EMAIL");
+    }
+
+    @Test
+    @DisplayName("로그인 성공")
+    void login_success() {
+        // given
+        LoginRequest request = new LoginRequest("testuser", "password123");
+        CustomUserDetails userDetails = new CustomUserDetails(1L, "testuser", "encodedPassword", Collections.emptyList());
+        Authentication authentication = new UsernamePasswordAuthenticationToken(userDetails, null, Collections.emptyList());
+        AuthenticationManager authenticationManager = mock(AuthenticationManager.class);
+
+        when(authenticationManagerBuilder.getObject()).thenReturn(authenticationManager);
+        when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class))).thenReturn(authentication);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(jwtTokenProvider.createAccessToken(authentication)).thenReturn("accessToken");
+        when(jwtTokenProvider.createRefreshToken(authentication)).thenReturn("refreshToken");
+
+        // when
+        LoginResponse response = authService.login(request, null);
+
+        // then
+        assertThat(response.getAccessToken()).isEqualTo("accessToken");
+        assertThat(response.getRefreshToken()).isEqualTo("refreshToken");
+        assertThat(response.getUser().getLoginId()).isEqualTo("testuser");
     }
 }
