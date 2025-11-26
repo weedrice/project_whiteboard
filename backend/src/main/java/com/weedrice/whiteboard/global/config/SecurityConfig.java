@@ -37,8 +37,14 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/v1/auth/**", "/api/v1/codes/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/v1/boards", "/api/v1/boards/{boardId}/categories").permitAll()
-                        .requestMatchers("/api/v1/users/{userId}").permitAll() // Public profile view
+                        .requestMatchers(HttpMethod.GET, "/api/v1/boards", "/api/v1/boards/{boardId}", "/api/v1/boards/{boardId}/categories").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/posts/{postId}", "/api/v1/posts/{postId}/versions").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/boards/{boardId}/posts", "/api/v1/comments/{commentId}/replies").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/tags", "/api/v1/tags/{tagId}/posts").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/search", "/api/v1/search/popular").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/shop/items", "/api/v1/shop/items/{itemId}").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/ads").permitAll()
+                        .requestMatchers("/api/v1/users/{userId}").permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
