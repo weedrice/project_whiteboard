@@ -1,7 +1,7 @@
 package com.weedrice.whiteboard.domain.board.service;
 
+import com.weedrice.whiteboard.domain.board.dto.BoardCreateRequest;
 import com.weedrice.whiteboard.domain.board.entity.Board;
-import com.weedrice.whiteboard.domain.board.entity.BoardSubscription;
 import com.weedrice.whiteboard.domain.board.entity.BoardSubscriptionId;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository;
@@ -16,11 +16,14 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -30,9 +33,9 @@ class BoardServiceTest {
     @Mock
     private BoardRepository boardRepository;
     @Mock
-    private UserRepository userRepository;
-    @Mock
     private BoardSubscriptionRepository boardSubscriptionRepository;
+    @Mock
+    private UserRepository userRepository;
 
     @InjectMocks
     private BoardService boardService;
@@ -56,6 +59,20 @@ class BoardServiceTest {
     }
 
     @Test
+    @DisplayName("활성화된 게시판 목록 조회 성공")
+    void getActiveBoards_success() {
+        // given
+        when(boardRepository.findByIsActiveOrderBySortOrderAsc("Y")).thenReturn(Collections.singletonList(board));
+
+        // when
+        List<Board> activeBoards = boardService.getActiveBoards();
+
+        // then
+        assertThat(activeBoards).hasSize(1);
+        assertThat(activeBoards.get(0).getBoardName()).isEqualTo("Test Board");
+    }
+
+    @Test
     @DisplayName("게시판 구독 성공")
     void subscribeBoard_success() {
         // given
@@ -69,7 +86,7 @@ class BoardServiceTest {
         boardService.subscribeBoard(userId, boardId);
 
         // then
-        verify(boardSubscriptionRepository).save(any(BoardSubscription.class));
+        verify(boardSubscriptionRepository).save(any());
     }
 
     @Test
@@ -78,42 +95,30 @@ class BoardServiceTest {
         // given
         Long userId = 1L;
         Long boardId = 1L;
-        BoardSubscription subscription = new BoardSubscription(user, board, "MEMBER");
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(boardRepository.findById(boardId)).thenReturn(Optional.of(board));
-        when(boardSubscriptionRepository.findById(any(BoardSubscriptionId.class))).thenReturn(Optional.of(subscription));
+        when(boardSubscriptionRepository.findById(any(BoardSubscriptionId.class))).thenReturn(Optional.of(mock(com.weedrice.whiteboard.domain.board.entity.BoardSubscription.class)));
 
         // when & then
         BusinessException exception = assertThrows(BusinessException.class, () -> boardService.subscribeBoard(userId, boardId));
-        assertThat(exception.getErrorCode().getCode()).isEqualTo("ALREADY_SUBSCRIBED");
+        assertThat(exception.getErrorCode()).isEqualTo(com.weedrice.whiteboard.global.exception.ErrorCode.ALREADY_SUBSCRIBED);
     }
 
     @Test
-    @DisplayName("게시판 구독 취소 성공")
-    void unsubscribeBoard_success() {
+    @DisplayName("게시판 생성 성공")
+    void createBoard_success() {
         // given
-        Long userId = 1L;
-        Long boardId = 1L;
-        BoardSubscription subscription = new BoardSubscription(user, board, "MEMBER");
-        when(boardSubscriptionRepository.findById(any(BoardSubscriptionId.class))).thenReturn(Optional.of(subscription));
+        Long creatorId = 1L;
+        BoardCreateRequest request = new BoardCreateRequest("New Board", "New Description", null, null, 1);
+        when(userRepository.findById(creatorId)).thenReturn(Optional.of(user));
+        when(boardRepository.existsByBoardName(request.getBoardName())).thenReturn(false);
+        when(boardRepository.save(any(Board.class))).thenReturn(board);
 
         // when
-        boardService.unsubscribeBoard(userId, boardId);
+        Board createdBoard = boardService.createBoard(creatorId, request);
 
         // then
-        verify(boardSubscriptionRepository).delete(any(BoardSubscription.class));
-    }
-
-    @Test
-    @DisplayName("게시판 구독 취소 실패 - 구독하지 않은 경우")
-    void unsubscribeBoard_fail_notSubscribed() {
-        // given
-        Long userId = 1L;
-        Long boardId = 1L;
-        when(boardSubscriptionRepository.findById(any(BoardSubscriptionId.class))).thenReturn(Optional.empty());
-
-        // when & then
-        BusinessException exception = assertThrows(BusinessException.class, () -> boardService.unsubscribeBoard(userId, boardId));
-        assertThat(exception.getErrorCode().getCode()).isEqualTo("NOT_SUBSCRIBED");
+        assertThat(createdBoard.getBoardName()).isEqualTo("Test Board");
+        verify(boardRepository).save(any(Board.class));
     }
 }

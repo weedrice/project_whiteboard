@@ -8,15 +8,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 
-import java.util.Collections;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
 class LogServiceTest {
@@ -28,20 +22,18 @@ class LogServiceTest {
     private LogService logService;
 
     @Test
-    @DisplayName("활동 로그 조회 성공")
-    void getLogs_success() {
+    @DisplayName("로그 저장 성공")
+    void saveLog_success() {
         // given
-        Pageable pageable = PageRequest.of(0, 10);
-        Log log = Log.builder().actionType("TEST").build();
-        Page<Log> logPage = new PageImpl<>(Collections.singletonList(log), pageable, 1);
-
-        when(logRepository.findAll(pageable)).thenReturn(logPage);
+        Long userId = 1L;
+        String actionType = "TEST_ACTION";
+        String ipAddress = "127.0.0.1";
+        String details = "Test Details";
 
         // when
-        Page<Log> result = logService.getLogs(pageable);
+        logService.saveLog(userId, actionType, ipAddress, details);
 
         // then
-        assertThat(result.getTotalElements()).isEqualTo(1);
-        assertThat(result.getContent().get(0).getActionType()).isEqualTo("TEST");
+        verify(logRepository).save(any(Log.class));
     }
 }

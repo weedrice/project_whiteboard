@@ -23,11 +23,11 @@ class MessageServiceTest {
     private MessageService messageService;
 
     @Test
-    @DisplayName("이메일 큐 저장 성공")
+    @DisplayName("이메일 큐에 추가 성공")
     void queueEmail_success() {
         // given
-        User user = User.builder().email("test@test.com").build();
-        String content = "Test Email Content";
+        User user = User.builder().build();
+        String content = "Test Email";
 
         // when
         messageService.queueEmail(user, content);
