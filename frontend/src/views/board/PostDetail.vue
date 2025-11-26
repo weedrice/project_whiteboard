@@ -5,6 +5,7 @@ import { postApi } from '@/api/post'
 import { useAuthStore } from '@/stores/auth'
 import { User, Clock, ThumbsUp, MessageSquare, Eye, ArrowLeft, MoreHorizontal } from 'lucide-vue-next'
 import CommentList from '@/components/comment/CommentList.vue'
+import PostTags from '@/components/tag/PostTags.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -159,15 +160,7 @@ onMounted(fetchPost)
 
       <!-- Tags -->
       <div v-if="post.tags && post.tags.length > 0" class="px-4 py-4 sm:px-6 border-t border-gray-200 bg-gray-50">
-        <div class="flex flex-wrap gap-2">
-          <span 
-            v-for="tag in post.tags" 
-            :key="tag"
-            class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800"
-          >
-            #{{ tag }}
-          </span>
-        </div>
+        <PostTags :modelValue="post.tags" :readOnly="true" />
       </div>
 
       <!-- Stats & Actions -->

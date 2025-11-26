@@ -3,6 +3,7 @@ import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { boardApi } from '@/api/board'
 import { postApi } from '@/api/post'
+import PostTags from '@/components/tag/PostTags.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -17,7 +18,7 @@ const form = ref({
   categoryId: '',
   title: '',
   contents: '',
-  tags: '', // Comma separated string
+  tags: [], // Array of strings
   isNsfw: false,
   isSpoiler: false
 })
@@ -64,7 +65,7 @@ async function handleSubmit() {
       categoryId: form.value.categoryId,
       title: form.value.title,
       contents: form.value.contents,
-      tags: form.value.tags.split(',').map(t => t.trim()).filter(t => t),
+      tags: form.value.tags,
       isNsfw: board.value?.allowNsfw ? form.value.isNsfw : false,
       isSpoiler: form.value.isSpoiler,
       fileIds: [] // File upload not implemented yet
@@ -156,14 +157,7 @@ async function handleSubmit() {
         <div class="sm:col-span-6">
           <label for="tags" class="block text-sm font-medium text-gray-700">Tags</label>
           <div class="mt-1">
-            <input
-              type="text"
-              name="tags"
-              id="tags"
-              v-model="form.tags"
-              class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
-              placeholder="Tag1, Tag2, Tag3 (comma separated)"
-            />
+            <PostTags v-model="form.tags" />
           </div>
         </div>
 
