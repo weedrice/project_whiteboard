@@ -3,11 +3,15 @@ import { ref, onMounted } from 'vue'
 import { userApi } from '@/api/user'
 import { User, Mail, Calendar, FileText } from 'lucide-vue-next'
 import PostList from '@/components/board/PostList.vue'
+import BaseButton from '@/components/common/BaseButton.vue'
+import BaseModal from '@/components/common/BaseModal.vue'
+import ProfileEditor from '@/components/user/ProfileEditor.vue'
 
 const profile = ref(null)
 const posts = ref([])
 const isLoading = ref(true)
 const error = ref('')
+const isEditModalOpen = ref(false)
 
 function formatDate(dateString) {
   return new Date(dateString).toLocaleDateString()
@@ -49,9 +53,12 @@ onMounted(async () => {
     <div v-else>
       <!-- Profile Section -->
       <div class="bg-white shadow overflow-hidden sm:rounded-lg mb-6">
-        <div class="px-4 py-5 sm:px-6">
-          <h3 class="text-lg leading-6 font-medium text-gray-900">My Profile</h3>
-          <p class="mt-1 max-w-2xl text-sm text-gray-500">Personal details and activity.</p>
+        <div class="px-4 py-5 sm:px-6 flex justify-between items-center">
+          <div>
+            <h3 class="text-lg leading-6 font-medium text-gray-900">My Profile</h3>
+            <p class="mt-1 max-w-2xl text-sm text-gray-500">Personal details and activity.</p>
+          </div>
+          <BaseButton @click="isEditModalOpen = true">Edit Profile</BaseButton>
         </div>
         <div class="border-t border-gray-200 px-4 py-5 sm:p-0">
           <dl class="sm:divide-y sm:divide-gray-200">
@@ -95,5 +102,10 @@ onMounted(async () => {
         </div>
       </div>
     </div>
+    </div>
+
+    <BaseModal :isOpen="isEditModalOpen" title="Edit Profile" @close="isEditModalOpen = false">
+      <ProfileEditor @close="isEditModalOpen = false" />
+    </BaseModal>
   </div>
 </template>
