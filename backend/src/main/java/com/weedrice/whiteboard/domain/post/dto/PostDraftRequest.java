@@ -1,0 +1,16 @@
+package com.weedrice.whiteboard.domain.post.dto;
+
+import jakarta.validation.constraints.NotNull;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+
+@Getter
+@NoArgsConstructor
+public class PostDraftRequest {
+    private Long draftId; // 수정 시 필요
+    @NotNull
+    private Long boardId;
+    private String title;
+    private String contents;
+    private Long originalPostId; // 기존 게시글 수정 시 해당 게시글 ID
+}
