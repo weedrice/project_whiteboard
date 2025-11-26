@@ -25,9 +25,7 @@ public class AuthController {
 
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<LoginResponse>> login(@Valid @RequestBody LoginRequest request, HttpServletRequest httpServletRequest) {
-        String ipAddress = httpServletRequest.getRemoteAddr();
-        String userAgent = httpServletRequest.getHeader("User-Agent");
-        LoginResponse response = authService.login(request, ipAddress, userAgent);
+        LoginResponse response = authService.login(request, httpServletRequest);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 

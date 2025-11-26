@@ -7,10 +7,12 @@ import com.weedrice.whiteboard.domain.auth.repository.LoginHistoryRepository;
 import com.weedrice.whiteboard.domain.auth.repository.RefreshTokenRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.global.common.util.ClientUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import com.weedrice.whiteboard.global.security.JwtTokenProvider;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
@@ -64,7 +66,7 @@ public class AuthService {
     }
 
     @Transactional
-    public LoginResponse login(LoginRequest request, String ipAddress, String userAgent) {
+    public LoginResponse login(LoginRequest request, HttpServletRequest httpServletRequest) {
         UsernamePasswordAuthenticationToken authenticationToken =
                 new UsernamePasswordAuthenticationToken(request.getLoginId(), request.getPassword());
 
@@ -77,6 +79,9 @@ public class AuthService {
         String accessToken = jwtTokenProvider.createAccessToken(authentication);
         String refreshToken = jwtTokenProvider.createRefreshToken(authentication);
         String refreshTokenHash = DigestUtils.md5DigestAsHex(refreshToken.getBytes());
+
+        String ipAddress = ClientUtils.getIp(httpServletRequest);
+        String userAgent = httpServletRequest.getHeader("User-Agent");
 
         // Refresh Token 저장
         RefreshToken rt = RefreshToken.builder()
