@@ -10,6 +10,11 @@ const router = createRouter({
             component: () => import('@/views/board/BoardList.vue')
         },
         {
+            path: '/test-components',
+            name: 'test-components',
+            component: () => import('@/views/ComponentTest.vue')
+        },
+        {
             path: '/login',
             name: 'login',
             component: () => import('@/views/auth/LoginPage.vue'),
@@ -48,18 +53,36 @@ const router = createRouter({
             path: '/board/:boardId/write',
             name: 'post-write',
             component: () => import('@/views/board/PostWrite.vue'),
-            meta: { requiresAuth: true }
-        },
-        {
-            path: '/board/:boardId/post/:postId',
-            name: 'post-detail',
-            component: () => import('@/views/board/PostDetail.vue')
-        },
-        {
-            path: '/board/:boardId/post/:postId/edit',
-            name: 'post-edit',
-            component: () => import('@/views/board/PostEdit.vue'),
-            meta: { requiresAuth: true }
+            path: '/admin',
+            component: () => import('@/components/layout/AdminLayout.vue'),
+            meta: { requiresAuth: true, requiresAdmin: true },
+            children: [
+                {
+                    path: 'dashboard',
+                    name: 'admin-dashboard',
+                    component: () => import('@/views/admin/DashboardPage.vue')
+                },
+                {
+                    path: 'users',
+                    name: 'admin-users',
+                    component: () => import('@/views/admin/UserListPage.vue')
+                },
+                {
+                    path: 'reports',
+                    name: 'admin-reports',
+                    component: () => import('@/views/admin/ReportList.vue')
+                },
+                {
+                    path: 'ip-blocks',
+                    name: 'admin-ip-blocks',
+                    component: () => import('@/views/admin/IpBlockList.vue')
+                },
+                {
+                    path: 'settings',
+                    name: 'admin-settings',
+                    component: () => import('@/views/admin/SettingsPage.vue')
+                }
+            ]
         }
     ],
 })
@@ -72,8 +95,17 @@ router.beforeEach(async (to, from, next) => {
         await authStore.fetchUser()
     }
 
+    // Sanction check
+    if (authStore.user?.status === 'SANCTIONED') {
+        await authStore.logout()
+        next({ name: 'login' })
+        return
+    }
+
     if (to.meta.requiresAuth && !authStore.isAuthenticated) {
         next({ name: 'login', query: { redirect: to.fullPath } })
+    } else if (to.meta.requiresAdmin && !authStore.isAdmin) {
+        next({ name: 'home' }) // Redirect non-admins to home
     } else if (to.meta.guestOnly && authStore.isAuthenticated) {
         next({ name: 'home' })
     } else {
