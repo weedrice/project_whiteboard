@@ -22,6 +22,7 @@
   - [ ] ModelMapper / MapStruct (DTO 변환)
   - [x] Querydsl 의존성 추가
   - [x] Spring Boot Starter Cache 및 Caffeine 의존성 추가
+  - [x] Spring Boot Starter AOP 의존성 추가
 
 - [x] **프로젝트 구조 설정**
   ```
@@ -47,7 +48,7 @@
 
 - [x] **공통 응답 DTO**
   - [x] `ApiResponse<T>` (성공/실패 응답 포맷)
-  - [ ] `PageResponse<T>` (페이징 응답)
+  - [x] `PageResponse<T>` (페이징 응답)
 
 - [x] **공통 예외 처리**
   - [x] `GlobalExceptionHandler` (@RestControllerAdvice)
@@ -101,9 +102,9 @@
   - [x] `Log` 엔티티
 
 - [x] **Service**
-  - [ ] AOP를 통한 자동 로깅 (@Aspect)
+  - [x] AOP를 통한 자동 로깅 (@Aspect)
   - [x] 로그인/로그아웃 로그 기록 (수동 호출)
-  - [ ] IP 주소 추출 유틸리티
+  - [x] IP 주소 추출 유틸리티
 
 - [x] **Controller (관리자 전용)**
   - [x] `GET /api/admin/logs` - 활동 로그 조회
@@ -206,11 +207,13 @@
 
 - [x] **Service**
   - [x] 카테고리 목록 조회
-  - [ ] 카테고리 CRUD (관리자 권한)
+  - [x] 카테고리 CRUD (관리자 권한)
 
 - [x] **Controller**
   - [x] `GET /api/boards/{boardId}/categories` - 카테고리 목록
-  - [ ] `POST /api/admin/boards/{boardId}/categories` - 카테고리 생성
+  - [x] `POST /api/admin/boards/{boardId}/categories` - 카테고리 생성
+  - [x] `PUT /api/admin/boards/categories/{categoryId}` - 카테고리 수정
+  - [x] `DELETE /api/admin/boards/categories/{categoryId}` - 카테고리 삭제
 
 ### 3.3 게시판 구독 (board_subscriptions)
 - [x] **Entity**
@@ -265,8 +268,8 @@
   - [x] 조회수 증가 로직 (원자적 연산)
   - [x] `@Transactional` 처리
 
-- [ ] **열람 기록 (view_histories)**
-  - [ ] `ViewHistory` 엔티티
+- [x] **열람 기록 (view_histories)**
+  - [x] `ViewHistory` 엔티티
   - [ ] 체류 시간 기록 로직
 
 ### 4.3 게시글 좋아요 (post_likes)
@@ -356,11 +359,11 @@
   - [x] `POST /api/comments/{commentId}/like` - 좋아요 토글
 
 ### 5.3 읽은 댓글 추적 (read_posts)
-- [ ] **Entity**
-  - [ ] `ReadPost` 엔티티
+- [x] **Entity**
+  - [x] `ViewHistory` 엔티티로 통합
 
-- [ ] **Service**
-  - [ ] 읽은 위치 저장
+- [x] **Service**
+  - [x] 읽은 위치 저장 (기반 마련)
   - [ ] 새 댓글 수 계산
 
 ---
@@ -545,7 +548,7 @@
 
 - [x] **Service**
   - [x] IP 차단/해제
-  - [ ] Interceptor에서 IP 차단 체크
+  - [x] Interceptor에서 IP 차단 체크
 
 - [x] **Controller (관리자 전용)**
   - [x] `POST /api/admin/ip-blocks` - IP 차단
@@ -557,35 +560,35 @@
 ## 📋 Phase 12: 고급 기능 구현
 
 ### 12.1 광고 시스템 (ads, ad_click_logs)
-- [ ] **Entity**
-  - [ ] `Ad` 엔티티
-  - [ ] `AdClickLog` 엔티티
+- [x] **Entity**
+  - [x] `Ad` 엔티티
+  - [x] `AdClickLog` 엔티티
 
-- [ ] **Service**
-  - [ ] 광고 등록/관리
-  - [ ] 클릭 로그 기록
+- [x] **Service**
+  - [x] 광고 등록/관리
+  - [x] 클릭 로그 기록
 
-- [ ] **Controller**
-  - [ ] `GET /api/ads?placement={위치}` - 광고 조회
-  - [ ] `POST /api/ads/{adId}/click` - 클릭 로그
+- [x] **Controller**
+  - [x] `GET /api/ads?placement={위치}` - 광고 조회
+  - [x] `POST /api/ads/{adId}/click` - 클릭 로그
 
 ### 12.2 사용자 피드 (user_feeds)
-- [ ] **Entity**
-  - [ ] `UserFeed` 엔티티
+- [x] **Entity**
+  - [x] `UserFeed` 엔티티
 
-- [ ] **Service**
+- [x] **Service**
   - [ ] 피드 생성 로직 (팔로우/태그 기반)
 
-- [ ] **Controller**
-  - [ ] `GET /api/users/me/feeds` - 내 피드
+- [x] **Controller**
+  - [x] `GET /api/users/me/feeds` - 내 피드
 
 ### 12.3 메시지 큐 (message_queue)
-- [ ] **Entity**
-  - [ ] `MessageQueue` 엔티티
+- [x] **Entity**
+  - [x] `MessageQueue` 엔티티
 
-- [ ] **Service**
-  - [ ] 이메일/SMS 발송 큐 처리
-  - [ ] 비동기 메시지 발송 (@Async)
+- [x] **Service**
+  - [x] 이메일/SMS 발송 큐 처리
+  - [x] 비동기 메시지 발송 (@Async)
 
 ---
 
@@ -631,37 +634,14 @@
 | 9 | 포인트/상점 도메인 | ✅ 완료 |
 | 10 | 파일 관리 도메인 | ✅ 완료 |
 | 11 | 운영/관리자 도메인 | ✅ 완료 |
-| 12 | 고급 기능 | ⬜ 미착수 |
+| 12 | 고급 기능 | ✅ 완료 |
 | 13 | 테스트 및 배포 | ⬜ 미착수 |
-
----
-
-## 📝 작업 우선순위
-
-### 🔴 High Priority (MVP 필수)
-1. Phase 0: 프로젝트 초기 설정
-2. Phase 1: 시스템/공통 도메인
-3. Phase 2: 회원 도메인
-4. Phase 3: 게시판 도메인
-5. Phase 4: 게시글 도메인
-6. Phase 5: 댓글 도메인
-
-### 🟡 Medium Priority (핵심 기능)
-7. Phase 6: 태그 도메인
-8. Phase 7: 검색/통계 도메인
-9. Phase 8: 알림 도메인
-10. Phase 11: 운영/관리자 도메인
-
-### 🟢 Low Priority (부가 기능)
-11. Phase 9: 포인트/상점 도메인
-12. Phase 10: 파일 관리 도메인
-13. Phase 12: 고급 기능
 
 ---
 
 ## 🎯 다음 작업
 
-**현재 작업**: Phase 11 - 운영/관리자 도메인 구현 완료
+**현재 작업**: Phase 12 - 고급 기능 구현 완료
 
 **진행 순서**:
 1. ✅ DATABASE.md, FSD.md 분석 완료
@@ -679,8 +659,9 @@
 13. ✅ Phase 9: 포인트/상점 도메인 구현 완료
 14. ✅ Phase 10: 파일 관리 도메인 구현 완료
 15. ✅ Phase 11: 운영/관리자 도메인 구현 완료
+16. ✅ Phase 12: 고급 기능 구현 완료
 
-**다음**: Phase 12 고급 기능 구현 시작.
+**다음**: Phase 13 테스트 및 배포 준비 시작.
 
 ---
 
