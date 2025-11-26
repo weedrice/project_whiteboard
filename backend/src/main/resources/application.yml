@@ -26,3 +26,6 @@ jwt:
   expiration: 1800000 # 30 mins
   refresh-token:
     expiration: 1209600000 # 14 days
+
+file:
+  upload-dir: ./uploads
