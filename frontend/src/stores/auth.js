@@ -1,0 +1,71 @@
+import { defineStore } from 'pinia'
+import { ref, computed } from 'vue'
+import { authApi } from '@/api/auth'
+import router from '@/router'
+
+export const useAuthStore = defineStore('auth', () => {
+    const user = ref(null)
+    const accessToken = ref(localStorage.getItem('accessToken'))
+    const isAuthenticated = computed(() => !!accessToken.value)
+
+    async function login(credentials) {
+        try {
+            const { data } = await authApi.login(credentials)
+            if (data.success) {
+                const { accessToken: token, refreshToken, user: userData } = data.data
+
+                accessToken.value = token
+                user.value = userData
+
+                localStorage.setItem('accessToken', token)
+                localStorage.setItem('refreshToken', refreshToken)
+
+                return true
+            }
+        } catch (error) {
+            console.error('Login failed:', error)
+            throw error
+        }
+    }
+
+    async function logout() {
+        try {
+            const refreshToken = localStorage.getItem('refreshToken')
+            if (refreshToken) {
+                await authApi.logout(refreshToken)
+            }
+        } catch (error) {
+            console.error('Logout failed:', error)
+        } finally {
+            accessToken.value = null
+            user.value = null
+            localStorage.removeItem('accessToken')
+            localStorage.removeItem('refreshToken')
+            router.push('/login')
+        }
+    }
+
+    async function fetchUser() {
+        if (!accessToken.value) return
+
+        try {
+            const { data } = await authApi.getMe()
+            if (data.success) {
+                user.value = data.data
+            }
+        } catch (error) {
+            console.error('Fetch user failed:', error)
+            // If fetch user fails (e.g. invalid token), logout
+            logout()
+        }
+    }
+
+    return {
+        user,
+        accessToken,
+        isAuthenticated,
+        login,
+        logout,
+        fetchUser
+    }
+})
