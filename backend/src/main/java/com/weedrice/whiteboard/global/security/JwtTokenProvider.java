@@ -9,8 +9,6 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.userdetails.User;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
 import java.security.Key;
@@ -24,14 +22,15 @@ import java.util.stream.Collectors;
 public class JwtTokenProvider {
 
     private static final String AUTHORITIES_KEY = "auth";
+    private static final String USER_ID_KEY = "userId";
     private static final String BEARER_TYPE = "Bearer";
     private final Key key;
     private final long accessTokenValidityInMilliseconds;
     private final long refreshTokenValidityInMilliseconds;
 
     public JwtTokenProvider(@Value("${jwt.secret}") String secret,
-            @Value("${jwt.expiration}") long accessTokenValidityInMilliseconds,
-            @Value("${jwt.refresh-token.expiration}") long refreshTokenValidityInMilliseconds) {
+                            @Value("${jwt.expiration}") long accessTokenValidityInMilliseconds,
+                            @Value("${jwt.refresh-token.expiration}") long refreshTokenValidityInMilliseconds) {
         byte[] keyBytes = Decoders.BASE64.decode(secret);
         this.key = Keys.hmacShaKeyFor(keyBytes);
         this.accessTokenValidityInMilliseconds = accessTokenValidityInMilliseconds;
@@ -39,6 +38,7 @@ public class JwtTokenProvider {
     }
 
     public String createAccessToken(Authentication authentication) {
+        CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
         String authorities = authentication.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)
                 .collect(Collectors.joining(","));
@@ -48,6 +48,7 @@ public class JwtTokenProvider {
 
         return Jwts.builder()
                 .setSubject(authentication.getName())
+                .claim(USER_ID_KEY, userDetails.getUserId())
                 .claim(AUTHORITIES_KEY, authorities)
                 .setExpiration(validity)
                 .signWith(key, SignatureAlgorithm.HS256)
@@ -55,11 +56,13 @@ public class JwtTokenProvider {
     }
 
     public String createRefreshToken(Authentication authentication) {
+        CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
         long now = (new Date()).getTime();
         Date validity = new Date(now + this.refreshTokenValidityInMilliseconds);
 
         return Jwts.builder()
                 .setSubject(authentication.getName())
+                .claim(USER_ID_KEY, userDetails.getUserId())
                 .setExpiration(validity)
                 .signWith(key, SignatureAlgorithm.HS256)
                 .compact();
@@ -77,7 +80,9 @@ public class JwtTokenProvider {
                 .map(SimpleGrantedAuthority::new)
                 .collect(Collectors.toList());
 
-        UserDetails principal = new User(claims.getSubject(), "", authorities);
+        Long userId = claims.get(USER_ID_KEY, Long.class);
+        CustomUserDetails principal = new CustomUserDetails(userId, claims.getSubject(), "", authorities);
+
         return new UsernamePasswordAuthenticationToken(principal, "", authorities);
     }
 
@@ -103,5 +108,9 @@ public class JwtTokenProvider {
         } catch (ExpiredJwtException e) {
             return e.getClaims();
         }
+    }
+
+    public long getAccessTokenValidityInMilliseconds() {
+        return accessTokenValidityInMilliseconds;
     }
 }
