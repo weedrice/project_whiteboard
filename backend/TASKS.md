@@ -191,14 +191,14 @@
   - [x] 활성화된 게시판만 조회 쿼리
 
 - [x] **Service**
-  - [x] 게시판 생성/수정/삭제 (관리자 권한)
+  - [x] 게시판 생성/수정/삭제 (생성자 또는 관리자 권한)
   - [x] 게시판 목록 조회
 
 - [x] **Controller**
   - [x] `GET /api/boards` - 게시판 목록
-  - [x] `POST /api/admin/boards` - 게시판 생성
-  - [x] `PUT /api/admin/boards/{id}` - 게시판 수정
-  - [x] `DELETE /api/admin/boards/{id}` - 게시판 삭제
+  - [x] `POST /api/boards` - 게시판 생성
+  - [x] `PUT /api/boards/{id}` - 게시판 수정
+  - [x] `DELETE /api/boards/{id}` - 게시판 삭제
 
 ### 3.2 게시판 카테고리 (board_categories)
 - [x] **Entity**
@@ -595,7 +595,7 @@
 ## 📋 Phase 13: 테스트 및 배포 준비
 
 ### 13.1 단위 테스트 작성
-- [ ] Service 계층 테스트 (Mockito)
+- [x] Service 계층 테스트 (Mockito)
 - [ ] Repository 테스트 (@DataJpaTest)
 
 ### 13.2 통합 테스트 작성
@@ -635,33 +635,19 @@
 | 10 | 파일 관리 도메인 | ✅ 완료 |
 | 11 | 운영/관리자 도메인 | ✅ 완료 |
 | 12 | 고급 기능 | ✅ 완료 |
-| 13 | 테스트 및 배포 | ⬜ 미착수 |
+| 13 | 테스트 및 배포 | 🟡 진행중 |
 
 ---
 
 ## 🎯 다음 작업
 
-**현재 작업**: Phase 12 - 고급 기능 구현 완료
+**현재 작업**: Phase 13 - 테스트 및 배포 준비 (단위 테스트)
 
 **진행 순서**:
-1. ✅ DATABASE.md, FSD.md 분석 완료
-2. ✅ `application.yml` 데이터베이스 설정
-3. ✅ `build.gradle` 의존성 추가
-4. ✅ 프로젝트 패키지 구조 생성
-5. ✅ BaseEntity 및 공통 응답 DTO 작성
-6. ✅ Phase 1: 시스템/공통 도메인 구현 완료
-7. ✅ Phase 2: 회원 도메인 구현 완료
-8. ✅ Phase 3: 게시판 도메인 구현 완료
-9. ✅ Phase 4: 게시글 도메인 구현 완료
-10. ✅ Phase 5: 댓글 도메인 구현 완료
-11. ✅ Phase 6: 태그 도메인 구현 완료
-12. ✅ Phase 7: 검색/통계 도메인 구현 완료
-13. ✅ Phase 9: 포인트/상점 도메인 구현 완료
-14. ✅ Phase 10: 파일 관리 도메인 구현 완료
-15. ✅ Phase 11: 운영/관리자 도메인 구현 완료
-16. ✅ Phase 12: 고급 기능 구현 완료
+1. ✅ 모든 기능 구현 완료
+2. ✅ 서비스 계층 단위 테스트 완료
 
-**다음**: Phase 13 테스트 및 배포 준비 시작.
+**다음**: Phase 13의 나머지 작업 진행 (Repository 테스트, 통합 테스트, API 문서화 등)
 
 ---
 
