@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.global.common.entity;
 
+import com.weedrice.whiteboard.global.common.BaseTimeEntity;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -26,4 +27,10 @@ public class CommonCode extends BaseTimeEntity {
 
     @OneToMany(mappedBy = "commonCode", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<CommonCodeDetail> details = new ArrayList<>();
+
+    public CommonCode(String typeCode, String typeName, String description) {
+        this.typeCode = typeCode;
+        this.typeName = typeName;
+        this.description = description;
+    }
 }

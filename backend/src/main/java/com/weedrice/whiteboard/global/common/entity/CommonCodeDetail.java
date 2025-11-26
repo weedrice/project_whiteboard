@@ -1,6 +1,8 @@
 package com.weedrice.whiteboard.global.common.entity;
 
+import com.weedrice.whiteboard.global.common.entity.BaseTimeEntity;
 import lombok.AccessLevel;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -38,4 +40,20 @@ public class CommonCodeDetail extends BaseTimeEntity {
 
     @Column(name = "is_active", length = 1, nullable = false)
     private String isActive;
+
+    @Builder
+    public CommonCodeDetail(CommonCode commonCode, String codeValue, String codeName, Integer sortOrder, Boolean isActive) {
+        this.commonCode = commonCode;
+        this.codeValue = codeValue;
+        this.codeName = codeName;
+        this.sortOrder = sortOrder;
+        this.isActive = isActive ? "Y" : "N";
+    }
+
+    public void update(String codeValue, String codeName, Integer sortOrder, Boolean isActive) {
+        this.codeValue = codeValue;
+        this.codeName = codeName;
+        this.sortOrder = sortOrder;
+        this.isActive = isActive ? "Y" : "N";
+    }
 }
