@@ -64,4 +64,17 @@ public class User extends BaseTimeEntity {
     public void verifyEmail() {
         this.isEmailVerified = "Y";
     }
+
+    public void updateDisplayName(String displayName) {
+        this.displayName = displayName;
+    }
+
+    public void updateProfileImage(String profileImageUrl) {
+        this.profileImageUrl = profileImageUrl;
+    }
+
+    public void delete() {
+        this.status = "DELETED";
+        this.deletedAt = LocalDateTime.now();
+    }
 }
