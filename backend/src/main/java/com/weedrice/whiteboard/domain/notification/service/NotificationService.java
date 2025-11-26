@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.event.TransactionalEventListener;
 
@@ -22,6 +23,8 @@ public class NotificationService {
     private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
 
+    // @TransactionalEventListener 메서드에 @Transactional을 붙일 경우 REQUIRES_NEW 또는 NOT_SUPPORTED를 명시해야 함
+    @Transactional(propagation = Propagation.REQUIRES_NEW) // 새로운 트랜잭션에서 실행
     @TransactionalEventListener
     public void handleNotificationEvent(NotificationEvent event) {
         // 자기 자신에게는 알림을 보내지 않음

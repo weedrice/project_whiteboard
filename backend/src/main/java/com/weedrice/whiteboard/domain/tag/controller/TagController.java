@@ -1,9 +1,11 @@
 package com.weedrice.whiteboard.domain.tag.controller;
 
+import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.domain.tag.dto.TagResponse;
 import com.weedrice.whiteboard.domain.tag.service.TagService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
+import com.weedrice.whiteboard.global.common.dto.PageResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -25,7 +27,7 @@ public class TagController {
     }
 
     @GetMapping("/{tagId}/posts")
-    public ApiResponse<PostListResponse> getPostsByTag(@PathVariable Long tagId, Pageable pageable) {
-        return ApiResponse.success(PostListResponse.from(postService.getPostsByTag(tagId, pageable)));
+    public ApiResponse<PageResponse<PostSummary>> getPostsByTag(@PathVariable Long tagId, Pageable pageable) {
+        return ApiResponse.success(new PageResponse<>(postService.getPostsByTag(tagId, pageable).map(PostSummary::from)));
     }
 }
