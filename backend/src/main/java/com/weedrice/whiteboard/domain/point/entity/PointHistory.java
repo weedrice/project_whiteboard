@@ -1,13 +1,13 @@
 package com.weedrice.whiteboard.domain.point.entity;
 
 import com.weedrice.whiteboard.domain.user.entity.User;
-import com.weedrice.whiteboard.global.common.BaseTimeEntity;
+import com.weedrice.whiteboard.global.common.entity.BaseTimeEntity;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import javax.persistence.*;
+import jakarta.persistence.*;
 
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)

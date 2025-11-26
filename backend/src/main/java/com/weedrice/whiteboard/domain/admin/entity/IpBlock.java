@@ -1,12 +1,12 @@
 package com.weedrice.whiteboard.domain.admin.entity;
 
-import com.weedrice.whiteboard.global.common.BaseTimeEntity;
+import com.weedrice.whiteboard.global.common.entity.BaseTimeEntity;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import javax.persistence.*;
+import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 @Getter

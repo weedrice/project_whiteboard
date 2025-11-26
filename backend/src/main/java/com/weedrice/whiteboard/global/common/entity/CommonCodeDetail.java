@@ -1,11 +1,10 @@
 package com.weedrice.whiteboard.global.common.entity;
 
-import com.weedrice.whiteboard.global.common.BaseTimeEntity;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import javax.persistence.*;
+import jakarta.persistence.*;
 
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)

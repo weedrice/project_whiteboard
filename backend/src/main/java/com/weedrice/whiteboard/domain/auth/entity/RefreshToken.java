@@ -1,6 +1,6 @@
 package com.weedrice.whiteboard.domain.auth.entity;
 
-import com.weedrice.whiteboard.domain.common.BaseTimeEntity;
+import com.weedrice.whiteboard.global.common.entity.BaseTimeEntity;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import jakarta.persistence.*;
 import lombok.AccessLevel;

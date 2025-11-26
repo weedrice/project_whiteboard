@@ -1,12 +1,12 @@
 package com.weedrice.whiteboard.domain.shop.entity;
 
-import com.weedrice.whiteboard.global.common.BaseTimeEntity;
+import com.weedrice.whiteboard.global.common.entity.BaseTimeEntity;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import javax.persistence.*;
+import jakarta.persistence.*;
 
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -33,15 +33,19 @@ public class ShopItem extends BaseTimeEntity {
     @Column(name = "item_type", length = 50, nullable = false)
     private String itemType;
 
+    @Column(name = "image_url", length = 255) // imageUrl 필드 추가
+    private String imageUrl;
+
     @Column(name = "is_active", length = 1, nullable = false)
     private String isActive;
 
     @Builder
-    public ShopItem(String itemName, String description, Integer price, String itemType) {
+    public ShopItem(String itemName, String description, Integer price, String itemType, String imageUrl) {
         this.itemName = itemName;
         this.description = description;
         this.price = price;
         this.itemType = itemType;
+        this.imageUrl = imageUrl;
         this.isActive = "Y";
     }
 }

@@ -1,14 +1,12 @@
 package com.weedrice.whiteboard.global.common.entity;
 
-import com.weedrice.whiteboard.domain.common.BaseTimeEntity;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.Id;
-import javax.persistence.Table;
+import jakarta.persistence.*;
+import java.util.ArrayList;
+import java.util.List;
 
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -25,4 +23,7 @@ public class CommonCode extends BaseTimeEntity {
 
     @Column(name = "description", length = 255)
     private String description;
+
+    @OneToMany(mappedBy = "commonCode", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<CommonCodeDetail> details = new ArrayList<>();
 }

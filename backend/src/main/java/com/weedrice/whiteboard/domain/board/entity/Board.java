@@ -1,13 +1,15 @@
 package com.weedrice.whiteboard.domain.board.entity;
 
 import com.weedrice.whiteboard.domain.user.entity.User;
-import com.weedrice.whiteboard.global.common.BaseTimeEntity;
+import com.weedrice.whiteboard.global.common.entity.BaseTimeEntity;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import javax.persistence.*;
+import jakarta.persistence.*;
+import java.util.ArrayList;
+import java.util.List;
 
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -47,6 +49,9 @@ public class Board extends BaseTimeEntity {
 
     @Column(name = "allow_nsfw", length = 1, nullable = false)
     private String allowNsfw;
+
+    @OneToMany(mappedBy = "board", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<BoardCategory> categories = new ArrayList<>();
 
     @Builder
     public Board(String boardName, String description, User creator, String iconUrl, String bannerUrl, Integer sortOrder) {

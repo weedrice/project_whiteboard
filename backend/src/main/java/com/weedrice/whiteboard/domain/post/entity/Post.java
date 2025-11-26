@@ -3,13 +3,13 @@ package com.weedrice.whiteboard.domain.post.entity;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
 import com.weedrice.whiteboard.domain.user.entity.User;
-import com.weedrice.whiteboard.global.common.BaseTimeEntity;
+import com.weedrice.whiteboard.global.common.entity.BaseTimeEntity;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import javax.persistence.*;
+import jakarta.persistence.*;
 
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -82,5 +82,37 @@ public class Post extends BaseTimeEntity {
         this.isNotice = isNotice ? "Y" : "N";
         this.isNsfw = isNsfw ? "Y" : "N";
         this.isSpoiler = isSpoiler ? "Y" : "N";
+    }
+
+    public void incrementViewCount() {
+        this.viewCount++;
+    }
+
+    public void incrementLikeCount() {
+        this.likeCount++;
+    }
+
+    public void decrementLikeCount() {
+        this.likeCount--;
+    }
+
+    public void incrementCommentCount() {
+        this.commentCount++;
+    }
+
+    public void decrementCommentCount() {
+        this.commentCount--;
+    }
+
+    public void updatePost(BoardCategory category, String title, String contents, boolean isNsfw, boolean isSpoiler) {
+        this.category = category;
+        this.title = title;
+        this.contents = contents;
+        this.isNsfw = isNsfw ? "Y" : "N";
+        this.isSpoiler = isSpoiler ? "Y" : "N";
+    }
+
+    public void deletePost() {
+        this.isDeleted = "Y";
     }
 }
