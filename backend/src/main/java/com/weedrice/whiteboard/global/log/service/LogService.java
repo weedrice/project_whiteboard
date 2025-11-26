@@ -3,6 +3,8 @@ package com.weedrice.whiteboard.global.log.service;
 import com.weedrice.whiteboard.global.log.entity.Log;
 import com.weedrice.whiteboard.global.log.repository.LogRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,5 +28,10 @@ public class LogService {
                 .details(details)
                 .build();
         logRepository.save(log);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<Log> getLogs(Pageable pageable) {
+        return logRepository.findAll(pageable);
     }
 }

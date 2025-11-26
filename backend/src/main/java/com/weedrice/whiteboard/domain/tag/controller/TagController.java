@@ -27,8 +27,6 @@ public class TagController {
 
     @GetMapping("/{tagId}/posts")
     public ApiResponse<PostListResponse> getPostsByTag(@PathVariable Long tagId, Pageable pageable) {
-        // TODO: 태그별 게시글 조회 로직 구현 필요
-        // 현재는 PostService에 해당 기능이 없으므로, 임시로 비워둠
-        return ApiResponse.success(null);
+        return ApiResponse.success(PostListResponse.from(postService.getPostsByTag(tagId, pageable)));
     }
 }
