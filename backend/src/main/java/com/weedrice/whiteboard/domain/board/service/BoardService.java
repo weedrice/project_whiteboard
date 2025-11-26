@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.board.service;
 
 import com.weedrice.whiteboard.domain.board.dto.BoardCreateRequest;
 import com.weedrice.whiteboard.domain.board.dto.BoardUpdateRequest;
+import com.weedrice.whiteboard.domain.board.dto.CategoryRequest;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
 import com.weedrice.whiteboard.domain.board.entity.BoardSubscription;
@@ -106,5 +107,33 @@ public class BoardService {
             throw new BusinessException(ErrorCode.BOARD_NOT_FOUND);
         }
         boardRepository.deleteById(boardId);
+    }
+
+    @Transactional
+    public BoardCategory createCategory(Long boardId, CategoryRequest request) {
+        Board board = boardRepository.findById(boardId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
+        BoardCategory category = BoardCategory.builder()
+                .board(board)
+                .name(request.getName())
+                .sortOrder(request.getSortOrder())
+                .build();
+        return boardCategoryRepository.save(category);
+    }
+
+    @Transactional
+    public BoardCategory updateCategory(Long categoryId, CategoryRequest request) {
+        BoardCategory category = boardCategoryRepository.findById(categoryId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+        category.update(request.getName(), request.getSortOrder());
+        return category;
+    }
+
+    @Transactional
+    public void deleteCategory(Long categoryId) {
+        if (!boardCategoryRepository.existsById(categoryId)) {
+            throw new BusinessException(ErrorCode.NOT_FOUND);
+        }
+        boardCategoryRepository.deleteById(categoryId);
     }
 }

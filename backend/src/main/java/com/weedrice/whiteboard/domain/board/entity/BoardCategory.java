@@ -41,4 +41,9 @@ public class BoardCategory extends BaseTimeEntity {
         this.sortOrder = sortOrder != null ? sortOrder : 0;
         this.isActive = "Y";
     }
+
+    public void update(String name, Integer sortOrder) {
+        this.name = name;
+        this.sortOrder = sortOrder;
+    }
 }

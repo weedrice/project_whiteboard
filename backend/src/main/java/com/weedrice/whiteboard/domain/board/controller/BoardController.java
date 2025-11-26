@@ -3,6 +3,7 @@ package com.weedrice.whiteboard.domain.board.controller;
 import com.weedrice.whiteboard.domain.board.dto.BoardCreateRequest;
 import com.weedrice.whiteboard.domain.board.dto.BoardResponse;
 import com.weedrice.whiteboard.domain.board.dto.BoardUpdateRequest;
+import com.weedrice.whiteboard.domain.board.dto.CategoryRequest;
 import com.weedrice.whiteboard.domain.board.dto.CategoryResponse;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
@@ -87,6 +88,28 @@ public class BoardController {
     @DeleteMapping("/admin/boards/{boardId}")
     public ApiResponse<Void> deleteBoard(@PathVariable Long boardId) {
         boardService.deleteBoard(boardId);
+        return ApiResponse.success(null);
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @PostMapping("/admin/boards/{boardId}/categories")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ApiResponse<CategoryResponse> createCategory(@PathVariable Long boardId, @Valid @RequestBody CategoryRequest request) {
+        BoardCategory category = boardService.createCategory(boardId, request);
+        return ApiResponse.success(new CategoryResponse(category));
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @PutMapping("/admin/boards/categories/{categoryId}")
+    public ApiResponse<CategoryResponse> updateCategory(@PathVariable Long categoryId, @Valid @RequestBody CategoryRequest request) {
+        BoardCategory category = boardService.updateCategory(categoryId, request);
+        return ApiResponse.success(new CategoryResponse(category));
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @DeleteMapping("/admin/boards/categories/{categoryId}")
+    public ApiResponse<Void> deleteCategory(@PathVariable Long categoryId) {
+        boardService.deleteCategory(categoryId);
         return ApiResponse.success(null);
     }
 }
