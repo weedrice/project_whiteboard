@@ -14,7 +14,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -49,9 +49,8 @@ public class CommentController {
     public ApiResponse<Long> createComment(
             @PathVariable Long postId,
             @Valid @RequestBody CommentCreateRequest request,
-            Authentication authentication) {
-        Long userId = ((CustomUserDetails) authentication.getPrincipal()).getUserId();
-        Comment comment = commentService.createComment(userId, postId, request.getParentId(), request.getContent());
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        Comment comment = commentService.createComment(userDetails.getUserId(), postId, request.getParentId(), request.getContent());
         return ApiResponse.success(comment.getCommentId());
     }
 
@@ -59,23 +58,27 @@ public class CommentController {
     public ApiResponse<Long> updateComment(
             @PathVariable Long commentId,
             @Valid @RequestBody CommentUpdateRequest request,
-            Authentication authentication) {
-        Long userId = ((CustomUserDetails) authentication.getPrincipal()).getUserId();
-        Comment comment = commentService.updateComment(userId, commentId, request.getContent());
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        Comment comment = commentService.updateComment(userDetails.getUserId(), commentId, request.getContent());
         return ApiResponse.success(comment.getCommentId());
     }
 
     @DeleteMapping("/comments/{commentId}")
-    public ApiResponse<Void> deleteComment(@PathVariable Long commentId, Authentication authentication) {
-        Long userId = ((CustomUserDetails) authentication.getPrincipal()).getUserId();
-        commentService.deleteComment(userId, commentId);
+    public ApiResponse<Void> deleteComment(@PathVariable Long commentId, @AuthenticationPrincipal CustomUserDetails userDetails) {
+        commentService.deleteComment(userDetails.getUserId(), commentId);
         return ApiResponse.success(null);
     }
 
     @PostMapping("/comments/{commentId}/like")
-    public ApiResponse<Integer> toggleCommentLike(@PathVariable Long commentId, Authentication authentication) {
-        Long userId = ((CustomUserDetails) authentication.getPrincipal()).getUserId();
-        Comment updatedComment = commentService.toggleCommentLike(userId, commentId);
-        return ApiResponse.success(updatedComment.getLikeCount());
+    @ResponseStatus(HttpStatus.CREATED)
+    public ApiResponse<Void> likeComment(@PathVariable Long commentId, @AuthenticationPrincipal CustomUserDetails userDetails) {
+        commentService.likeComment(userDetails.getUserId(), commentId);
+        return ApiResponse.success(null);
+    }
+
+    @DeleteMapping("/comments/{commentId}/like")
+    public ApiResponse<Void> unlikeComment(@PathVariable Long commentId, @AuthenticationPrincipal CustomUserDetails userDetails) {
+        commentService.unlikeComment(userDetails.getUserId(), commentId);
+        return ApiResponse.success(null);
     }
 }

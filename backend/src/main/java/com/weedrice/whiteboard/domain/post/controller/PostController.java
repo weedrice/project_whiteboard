@@ -11,10 +11,10 @@ import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -46,8 +46,7 @@ public class PostController {
 
         Pageable pageable = PageRequest.of(page, size);
         Page<Post> posts = postService.getPosts(boardId, categoryId, pageable);
-        Page<PostSummary> postSummaries = posts.map(PostSummary::from);
-        return ApiResponse.success(new PageResponse<>(postSummaries));
+        return ApiResponse.success(new PageResponse<>(posts.map(PostSummary::from)));
     }
 
     @GetMapping("/posts/{postId}")
@@ -67,9 +66,8 @@ public class PostController {
     public ApiResponse<Long> createPost(
             @PathVariable Long boardId,
             @Valid @RequestBody PostCreateRequest request,
-            Authentication authentication) {
-        Long userId = ((CustomUserDetails) authentication.getPrincipal()).getUserId();
-        Post post = postService.createPost(userId, boardId, request);
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        Post post = postService.createPost(userDetails.getUserId(), boardId, request);
         return ApiResponse.success(post.getPostId());
     }
 
@@ -77,23 +75,28 @@ public class PostController {
     public ApiResponse<Long> updatePost(
             @PathVariable Long postId,
             @Valid @RequestBody PostUpdateRequest request,
-            Authentication authentication) {
-        Long userId = ((CustomUserDetails) authentication.getPrincipal()).getUserId();
-        Post post = postService.updatePost(userId, postId, request);
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        Post post = postService.updatePost(userDetails.getUserId(), postId, request);
         return ApiResponse.success(post.getPostId());
     }
 
     @DeleteMapping("/posts/{postId}")
-    public ApiResponse<Void> deletePost(@PathVariable Long postId, Authentication authentication) {
-        Long userId = ((CustomUserDetails) authentication.getPrincipal()).getUserId();
-        postService.deletePost(userId, postId);
+    public ApiResponse<Void> deletePost(@PathVariable Long postId, @AuthenticationPrincipal CustomUserDetails userDetails) {
+        postService.deletePost(userDetails.getUserId(), postId);
         return ApiResponse.success(null);
     }
 
     @PostMapping("/posts/{postId}/like")
-    public ApiResponse<Integer> togglePostLike(@PathVariable Long postId, Authentication authentication) {
-        Long userId = ((CustomUserDetails) authentication.getPrincipal()).getUserId();
-        postService.togglePostLike(userId, postId);
+    @ResponseStatus(HttpStatus.CREATED)
+    public ApiResponse<Integer> likePost(@PathVariable Long postId, @AuthenticationPrincipal CustomUserDetails userDetails) {
+        postService.likePost(userDetails.getUserId(), postId);
+        Post post = postService.getPostById(postId, null);
+        return ApiResponse.success(post.getLikeCount());
+    }
+
+    @DeleteMapping("/posts/{postId}/like")
+    public ApiResponse<Integer> unlikePost(@PathVariable Long postId, @AuthenticationPrincipal CustomUserDetails userDetails) {
+        postService.unlikePost(userDetails.getUserId(), postId);
         Post post = postService.getPostById(postId, null);
         return ApiResponse.success(post.getLikeCount());
     }
@@ -102,48 +105,42 @@ public class PostController {
     public ApiResponse<Void> togglePostScrap(
             @PathVariable Long postId,
             @RequestBody(required = false) PostScrapRequest request,
-            Authentication authentication) {
-        Long userId = ((CustomUserDetails) authentication.getPrincipal()).getUserId();
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
         String remark = (request != null) ? request.getRemark() : null;
-        postService.togglePostScrap(userId, postId, remark);
+        postService.togglePostScrap(userDetails.getUserId(), postId, remark);
         return ApiResponse.success(null);
     }
 
     @GetMapping("/users/me/scraps")
-    public ApiResponse<ScrapListResponse> getMyScraps(Authentication authentication, Pageable pageable) {
-        Long userId = ((CustomUserDetails) authentication.getPrincipal()).getUserId();
-        return ApiResponse.success(ScrapListResponse.from(postService.getMyScraps(userId, pageable)));
+    public ApiResponse<ScrapListResponse> getMyScraps(@AuthenticationPrincipal CustomUserDetails userDetails, Pageable pageable) {
+        return ApiResponse.success(ScrapListResponse.from(postService.getMyScraps(userDetails.getUserId(), pageable)));
     }
 
     @GetMapping("/users/me/drafts")
     public ApiResponse<DraftListResponse> getMyDrafts(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
-            Authentication authentication) {
-        Long userId = ((CustomUserDetails) authentication.getPrincipal()).getUserId();
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
         Pageable pageable = PageRequest.of(page, size);
-        return ApiResponse.success(DraftListResponse.from(postService.getDraftPosts(userId, pageable)));
+        return ApiResponse.success(DraftListResponse.from(postService.getDraftPosts(userDetails.getUserId(), pageable)));
     }
 
     @GetMapping("/drafts/{draftId}")
-    public ApiResponse<DraftResponse> getDraft(@PathVariable Long draftId, Authentication authentication) {
-        Long userId = ((CustomUserDetails) authentication.getPrincipal()).getUserId();
-        return ApiResponse.success(DraftResponse.from(postService.getDraftPost(userId, draftId)));
+    public ApiResponse<DraftResponse> getDraft(@PathVariable Long draftId, @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ApiResponse.success(DraftResponse.from(postService.getDraftPost(userDetails.getUserId(), draftId)));
     }
 
     @PostMapping("/drafts")
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<Long> saveDraft(
             @Valid @RequestBody PostDraftRequest request,
-            Authentication authentication) {
-        Long userId = ((CustomUserDetails) authentication.getPrincipal()).getUserId();
-        return ApiResponse.success(postService.saveDraftPost(userId, request).getDraftId());
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ApiResponse.success(postService.saveDraftPost(userDetails.getUserId(), request).getDraftId());
     }
 
     @DeleteMapping("/drafts/{draftId}")
-    public ApiResponse<Void> deleteDraft(@PathVariable Long draftId, Authentication authentication) {
-        Long userId = ((CustomUserDetails) authentication.getPrincipal()).getUserId();
-        postService.deleteDraftPost(userId, draftId);
+    public ApiResponse<Void> deleteDraft(@PathVariable Long draftId, @AuthenticationPrincipal CustomUserDetails userDetails) {
+        postService.deleteDraftPost(userDetails.getUserId(), draftId);
         return ApiResponse.success(null);
     }
 
