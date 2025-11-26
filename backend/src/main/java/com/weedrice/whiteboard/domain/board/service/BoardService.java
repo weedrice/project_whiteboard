@@ -17,6 +17,8 @@ import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,6 +36,11 @@ public class BoardService {
 
     public List<Board> getActiveBoards() {
         return boardRepository.findByIsActiveOrderBySortOrderAsc("Y");
+    }
+
+    public Board getBoardDetails(Long boardId) {
+        return boardRepository.findById(boardId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
     }
 
     public List<BoardCategory> getActiveCategories(Long boardId) {
@@ -67,10 +74,10 @@ public class BoardService {
         boardSubscriptionRepository.delete(subscription);
     }
 
-    public Page<BoardSubscription> getMySubscriptions(Long userId, Pageable pageable) {
+    public Page<Board> getMySubscriptions(Long userId, Pageable pageable) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        return boardSubscriptionRepository.findByUser(user, pageable);
+        return boardSubscriptionRepository.findByUser(user, pageable).map(BoardSubscription::getBoard);
     }
 
     @Transactional
@@ -90,22 +97,46 @@ public class BoardService {
                 .bannerUrl(request.getBannerUrl())
                 .sortOrder(request.getSortOrder())
                 .build();
-        return boardRepository.save(board);
+        
+        Board savedBoard = boardRepository.save(board);
+
+        // '일반' 카테고리 자동 생성
+        BoardCategory defaultCategory = BoardCategory.builder()
+                .board(savedBoard)
+                .name("일반")
+                .sortOrder(1)
+                .build();
+        boardCategoryRepository.save(defaultCategory);
+
+        return savedBoard;
     }
 
     @Transactional
-    public Board updateBoard(Long boardId, BoardUpdateRequest request) {
+    public Board updateBoard(Long boardId, BoardUpdateRequest request, UserDetails userDetails) {
         Board board = boardRepository.findById(boardId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
+
+        // 게시판 생성자 또는 관리자만 수정 가능
+        if (!board.getCreator().getLoginId().equals(userDetails.getUsername()) &&
+                !userDetails.getAuthorities().contains(new SimpleGrantedAuthority("ROLE_ADMIN"))) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
+
         board.update(request.getDescription(), request.getIconUrl(), request.getBannerUrl(), request.getSortOrder(), request.getAllowNsfw());
         return board;
     }
 
     @Transactional
-    public void deleteBoard(Long boardId) {
-        if (!boardRepository.existsById(boardId)) {
-            throw new BusinessException(ErrorCode.BOARD_NOT_FOUND);
+    public void deleteBoard(Long boardId, UserDetails userDetails) {
+        Board board = boardRepository.findById(boardId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
+
+        // 게시판 생성자 또는 관리자만 삭제 가능
+        if (!board.getCreator().getLoginId().equals(userDetails.getUsername()) &&
+                !userDetails.getAuthorities().contains(new SimpleGrantedAuthority("ROLE_ADMIN"))) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
         }
+
         boardRepository.deleteById(boardId);
     }
 

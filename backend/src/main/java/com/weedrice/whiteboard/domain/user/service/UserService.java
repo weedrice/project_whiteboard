@@ -1,8 +1,10 @@
 package com.weedrice.whiteboard.domain.user.service;
 
 import com.weedrice.whiteboard.domain.user.entity.DisplayNameHistory;
+import com.weedrice.whiteboard.domain.user.entity.PasswordHistory;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.DisplayNameHistoryRepository;
+import com.weedrice.whiteboard.domain.user.repository.PasswordHistoryRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -12,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -20,6 +23,7 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final DisplayNameHistoryRepository displayNameHistoryRepository;
+    private final PasswordHistoryRepository passwordHistoryRepository;
     private final PasswordEncoder passwordEncoder;
 
     public Long findUserIdByLoginId(String loginId) {
@@ -33,11 +37,10 @@ public class UserService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
     }
 
-    public UserProfileDto getUserProfile(Long userId) {
+    public UserService.UserProfileDto getUserProfile(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
-        // TODO: Get post and comment counts from repositories when they are implemented
         long postCount = 0;
         long commentCount = 0;
 
@@ -59,9 +62,7 @@ public class UserService {
 
         String oldDisplayName = user.getDisplayName();
 
-        // Update display name if provided and different
         if (displayName != null && !displayName.equals(oldDisplayName)) {
-            // Save display name history
             DisplayNameHistory history = DisplayNameHistory.builder()
                     .user(user)
                     .previousName(oldDisplayName)
@@ -72,7 +73,6 @@ public class UserService {
             user.updateDisplayName(displayName);
         }
 
-        // Update profile image if provided
         if (profileImageUrl != null) {
             user.updateProfileImage(profileImageUrl);
         }
@@ -81,16 +81,40 @@ public class UserService {
     }
 
     @Transactional
+    public void updatePassword(Long userId, String currentPassword, String newPassword) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+        if (!passwordEncoder.matches(currentPassword, user.getPassword())) {
+            throw new BusinessException(ErrorCode.INVALID_CURRENT_PASSWORD);
+        }
+
+        List<PasswordHistory> passwordHistories = passwordHistoryRepository.findTop3ByUserOrderByCreatedAtDesc(user);
+        for (PasswordHistory history : passwordHistories) {
+            if (passwordEncoder.matches(newPassword, history.getPasswordHash())) {
+                throw new BusinessException(ErrorCode.PASSWORD_RECENTLY_USED);
+            }
+        }
+
+        String newPasswordHash = passwordEncoder.encode(newPassword);
+        user.updatePassword(newPasswordHash);
+
+        PasswordHistory history = PasswordHistory.builder()
+                .user(user)
+                .passwordHash(newPasswordHash)
+                .build();
+        passwordHistoryRepository.save(history);
+    }
+
+    @Transactional
     public void deleteAccount(Long userId, String password) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
-        // Verify password
         if (!passwordEncoder.matches(password, user.getPassword())) {
             throw new BusinessException(ErrorCode.INVALID_PASSWORD);
         }
 
-        // Soft delete
         user.delete();
     }
 

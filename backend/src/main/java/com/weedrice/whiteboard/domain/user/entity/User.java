@@ -73,6 +73,10 @@ public class User extends BaseTimeEntity {
         this.profileImageUrl = profileImageUrl;
     }
 
+    public void updatePassword(String newPassword) {
+        this.password = newPassword;
+    }
+
     public void delete() {
         this.status = "DELETED";
         this.deletedAt = LocalDateTime.now();

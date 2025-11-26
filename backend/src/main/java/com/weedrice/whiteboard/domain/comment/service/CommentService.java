@@ -65,6 +65,12 @@ public class CommentService {
         return commentRepository.findByParent_CommentIdAndIsDeletedOrderByCreatedAtAsc(parentId, "N", pageable);
     }
 
+    public Page<Comment> getMyComments(Long userId, Pageable pageable) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        return commentRepository.findByUserAndIsDeletedOrderByCreatedAtDesc(user, "N", pageable);
+    }
+
     @Transactional
     public Comment createComment(Long userId, Long postId, Long parentId, String content) {
         User user = userRepository.findById(userId)
@@ -91,12 +97,11 @@ public class CommentService {
         post.incrementCommentCount();
         Comment savedComment = commentRepository.save(comment);
 
-        // 알림 이벤트 발행
-        if (parentComment != null) { // 대댓글
+        if (parentComment != null) {
             String notificationContent = user.getDisplayName() + "님이 회원님의 댓글에 답글을 남겼습니다.";
             NotificationEvent event = new NotificationEvent(parentComment.getUser(), user, "REPLY", "COMMENT", parentId, notificationContent);
             eventPublisher.publishEvent(event);
-        } else { // 일반 댓글
+        } else {
             String notificationContent = user.getDisplayName() + "님이 회원님의 게시글에 댓글을 남겼습니다.";
             NotificationEvent event = new NotificationEvent(post.getUser(), user, "COMMENT", "POST", postId, notificationContent);
             eventPublisher.publishEvent(event);
@@ -132,7 +137,7 @@ public class CommentService {
     }
 
     @Transactional
-    public Comment toggleCommentLike(Long userId, Long commentId) {
+    public void likeComment(Long userId, Long commentId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         Comment comment = commentRepository.findById(commentId)
@@ -140,21 +145,32 @@ public class CommentService {
 
         CommentLikeId commentLikeId = new CommentLikeId(userId, commentId);
         if (commentLikeRepository.existsById(commentLikeId)) {
-            commentLikeRepository.deleteById(commentLikeId);
-            comment.decrementLikeCount();
-        } else {
-            CommentLike commentLike = CommentLike.builder()
-                    .user(user)
-                    .comment(comment)
-                    .build();
-            commentLikeRepository.save(commentLike);
-            comment.incrementLikeCount();
-
-            // 알림 이벤트 발행
-            String content = user.getDisplayName() + "님이 회원님의 댓글을 좋아합니다.";
-            NotificationEvent event = new NotificationEvent(comment.getUser(), user, "LIKE", "COMMENT", commentId, content);
-            eventPublisher.publishEvent(event);
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "이미 좋아요를 누른 댓글입니다.");
         }
-        return comment;
+
+        CommentLike commentLike = CommentLike.builder()
+                .user(user)
+                .comment(comment)
+                .build();
+        commentLikeRepository.save(commentLike);
+        comment.incrementLikeCount();
+
+        String content = user.getDisplayName() + "님이 회원님의 댓글을 좋아합니다.";
+        NotificationEvent event = new NotificationEvent(comment.getUser(), user, "LIKE", "COMMENT", commentId, content);
+        eventPublisher.publishEvent(event);
+    }
+
+    @Transactional
+    public void unlikeComment(Long userId, Long commentId) {
+        Comment comment = commentRepository.findById(commentId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
+
+        CommentLikeId commentLikeId = new CommentLikeId(userId, commentId);
+        if (!commentLikeRepository.existsById(commentLikeId)) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "좋아요를 누르지 않은 댓글입니다.");
+        }
+
+        commentLikeRepository.deleteById(commentLikeId);
+        comment.decrementLikeCount();
     }
 }

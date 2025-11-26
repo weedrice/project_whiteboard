@@ -52,6 +52,12 @@ public class PostService {
         return postRepository.findByTagId(tagId, pageable);
     }
 
+    public Page<Post> getMyPosts(Long userId, Pageable pageable) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        return postRepository.findByUserAndIsDeletedOrderByCreatedAtDesc(user, "N", pageable);
+    }
+
     @Transactional
     public Post getPostById(Long postId, Long userId) {
         Post post = postRepository.findById(postId)
@@ -152,7 +158,7 @@ public class PostService {
     }
 
     @Transactional
-    public boolean togglePostLike(Long userId, Long postId) {
+    public void likePost(Long userId, Long postId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         Post post = postRepository.findById(postId)
@@ -160,24 +166,33 @@ public class PostService {
 
         PostLikeId postLikeId = new PostLikeId(userId, postId);
         if (postLikeRepository.existsById(postLikeId)) {
-            postLikeRepository.deleteById(postLikeId);
-            post.decrementLikeCount();
-            return false;
-        } else {
-            PostLike postLike = PostLike.builder()
-                    .user(user)
-                    .post(post)
-                    .build();
-            postLikeRepository.save(postLike);
-            post.incrementLikeCount();
-
-            // 알림 이벤트 발행
-            String content = user.getDisplayName() + "님이 회원님의 게시글을 좋아합니다.";
-            NotificationEvent event = new NotificationEvent(post.getUser(), user, "LIKE", "POST", postId, content);
-            eventPublisher.publishEvent(event);
-
-            return true;
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "이미 좋아요를 누른 게시글입니다.");
         }
+
+        PostLike postLike = PostLike.builder()
+                .user(user)
+                .post(post)
+                .build();
+        postLikeRepository.save(postLike);
+        post.incrementLikeCount();
+
+        String content = user.getDisplayName() + "님이 회원님의 게시글을 좋아합니다.";
+        NotificationEvent event = new NotificationEvent(post.getUser(), user, "LIKE", "POST", postId, content);
+        eventPublisher.publishEvent(event);
+    }
+
+    @Transactional
+    public void unlikePost(Long userId, Long postId) {
+        Post post = postRepository.findById(postId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
+
+        PostLikeId postLikeId = new PostLikeId(userId, postId);
+        if (!postLikeRepository.existsById(postLikeId)) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "좋아요를 누르지 않은 게시글입니다.");
+        }
+
+        postLikeRepository.deleteById(postLikeId);
+        post.decrementLikeCount();
     }
 
     @Transactional
