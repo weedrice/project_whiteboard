@@ -5,6 +5,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useNotificationStore } from '@/stores/notification'
 import { Menu, X, Bell, User, LogOut } from 'lucide-vue-next'
 import NotificationDropdown from '@/components/notification/NotificationDropdown.vue'
+import GlobalSearchInput from '@/components/search/GlobalSearchInput.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -55,7 +56,14 @@ onMounted(() => {
               <!-- Add more nav items here -->
             </div>
           </div>
-          <div class="flex items-center">
+          
+          <div class="flex-1 flex items-center justify-center px-2 lg:ml-6 lg:justify-end">
+            <div class="max-w-lg w-full lg:max-w-xs">
+              <GlobalSearchInput />
+            </div>
+          </div>
+
+          <div class="flex items-center ml-4">
             <div v-if="authStore.isAuthenticated" class="flex items-center space-x-4">
               <!-- Notification Bell -->
               <div class="relative">
