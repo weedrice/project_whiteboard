@@ -9,6 +9,7 @@ import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
 import com.weedrice.whiteboard.domain.post.dto.PostCreateRequest;
 import com.weedrice.whiteboard.domain.post.dto.PostDraftRequest;
 import com.weedrice.whiteboard.domain.post.dto.PostUpdateRequest;
+import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.entity.*;
 import com.weedrice.whiteboard.domain.post.repository.*;
 import com.weedrice.whiteboard.domain.tag.repository.PostTagRepository;
@@ -46,6 +47,27 @@ public class PostService {
         private final ApplicationEventPublisher eventPublisher;
         private final AdminRepository adminRepository;
 
+        // --- boardUrl 기반 public 메서드 (오버로드) ---
+        public Page<Post> getPosts(String boardUrl, Long categoryId, Integer minLikes, Pageable pageable) {
+                Board board = boardRepository.findByBoardUrl(boardUrl)
+                                .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
+                return this.getPosts(board.getBoardId(), categoryId, minLikes, pageable);
+        }
+
+        public List<Post> getNotices(String boardUrl) {
+                Board board = boardRepository.findByBoardUrl(boardUrl)
+                                .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
+                return this.getNotices(board.getBoardId());
+        }
+
+        @Transactional
+        public Post createPost(Long userId, String boardUrl, PostCreateRequest request) {
+                Board board = boardRepository.findByBoardUrl(boardUrl)
+                                .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
+                return this.createPost(userId, board.getBoardId(), request);
+        }
+        
+        // --- 기존 boardId 기반 public/private 메서스 ---
         public Page<Post> getPosts(Long boardId, Long categoryId, Integer minLikes, Pageable pageable) {
                 return postRepository.findByBoardIdAndCategoryId(boardId, categoryId, minLikes, pageable);
         }
@@ -63,7 +85,15 @@ public class PostService {
                                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
                 return postRepository.findByUserAndIsDeletedOrderByCreatedAtDesc(user, "N", pageable);
         }
-
+        
+        // 최신 게시글 15개 조회 (BoardUrl 기반)
+        public List<PostSummary> getLatestPostsByBoard(String boardUrl, int limit) {
+            Board board = boardRepository.findByBoardUrl(boardUrl)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
+            return postRepository.findTopByBoardAndIsDeletedOrderByCreatedAtDesc(board, "N", Pageable.ofSize(limit)).stream()
+                    .map(PostSummary::from)
+                    .collect(Collectors.toList());
+        }
         @Transactional
         public Post getPostById(Long postId, Long userId) {
                 Post post = postRepository.findById(postId)
@@ -282,7 +312,7 @@ public class PostService {
         public DraftPost saveDraftPost(Long userId, PostDraftRequest request) {
                 User user = userRepository.findById(userId)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-                Board board = boardRepository.findById(request.getBoardId())
+                Board board = boardRepository.findByBoardUrl(request.getBoardUrl()) // boardUrl 사용
                                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
                 Post originalPost = null;
                 if (request.getOriginalPostId() != null) {

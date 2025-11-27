@@ -9,7 +9,7 @@ import lombok.NoArgsConstructor;
 public class PostDraftRequest {
     private Long draftId; // 수정 시 필요
     @NotNull
-    private Long boardId;
+    private String boardUrl;
     private String title;
     private String contents;
     private Long originalPostId; // 기존 게시글 수정 시 해당 게시글 ID
