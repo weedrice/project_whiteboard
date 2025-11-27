@@ -4,8 +4,8 @@ import { boardApi } from '@/api/board'
 import { Trash2, Edit2, Check, X, Plus } from 'lucide-vue-next'
 
 const props = defineProps({
-  boardId: {
-    type: [String, Number],
+  boardUrl: { // boardId 대신 boardUrl 사용
+    type: String,
     required: true
   }
 })
@@ -20,7 +20,7 @@ const editingName = ref('')
 async function fetchCategories() {
   isLoading.value = true
   try {
-    const { data } = await boardApi.getCategories(props.boardId)
+    const { data } = await boardApi.getCategories(props.boardUrl) // boardUrl 사용
     if (data.success) {
       categories.value = data.data
     }
@@ -36,7 +36,7 @@ async function handleAdd() {
   if (!newCategoryName.value.trim()) return
 
   try {
-    const { data } = await boardApi.createCategory(props.boardId, {
+    const { data } = await boardApi.createCategory(props.boardUrl, { // boardUrl 사용
       name: newCategoryName.value,
       sortOrder: categories.value.length + 1
     })
@@ -54,7 +54,7 @@ async function handleDelete(categoryId) {
   if (!confirm('Are you sure you want to delete this category?')) return
 
   try {
-    const { data } = await boardApi.deleteCategory(props.boardId, categoryId)
+    const { data } = await boardApi.deleteCategory(props.boardUrl, categoryId) // boardUrl 사용
     if (data.success) {
       categories.value = categories.value.filter(c => c.categoryId !== categoryId)
     }
@@ -78,7 +78,7 @@ async function saveEdit(category) {
   if (!editingName.value.trim()) return
 
   try {
-    const { data } = await boardApi.updateCategory(props.boardId, category.categoryId, {
+    const { data } = await boardApi.updateCategory(props.boardUrl, category.categoryId, { // boardUrl 사용
       name: editingName.value,
       sortOrder: category.sortOrder,
       isActive: true

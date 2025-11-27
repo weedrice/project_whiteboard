@@ -13,7 +13,7 @@
     <ul v-else class="space-y-3">
       <li v-for="post in posts" :key="post.postId" class="border-b border-gray-100 last:border-0 pb-2 last:pb-0">
         <router-link 
-          :to="`/board/${post.boardId}/post/${post.postId}`"
+          :to="`/board/${post.boardUrl}/post/${post.postId}`"
           class="block hover:bg-gray-50 rounded p-1 -m-1 transition-colors"
         >
           <p class="text-sm font-medium text-gray-900 truncate">{{ post.title }}</p>
@@ -41,11 +41,11 @@ const loading = ref(false)
 
 // Mock data
 const mockPosts = [
-  { postId: 1, boardId: 1, title: 'Getting Started with Vue 3', authorName: 'Alice', likeCount: 42 },
-  { postId: 2, boardId: 1, title: 'Understanding Pinia Stores', authorName: 'Bob', likeCount: 38 },
-  { postId: 3, boardId: 2, title: 'Tailwind CSS Tips & Tricks', authorName: 'Charlie', likeCount: 25 },
-  { postId: 4, boardId: 1, title: 'Vite vs Webpack', authorName: 'Dave', likeCount: 20 },
-  { postId: 5, boardId: 3, title: 'JavaScript ES6 Features', authorName: 'Eve', likeCount: 15 }
+  { postId: 1, boardUrl: 1, title: 'Getting Started with Vue 3', authorName: 'Alice', likeCount: 42 },
+  { postId: 2, boardUrl: 1, title: 'Understanding Pinia Stores', authorName: 'Bob', likeCount: 38 },
+  { postId: 3, boardUrl: 2, title: 'Tailwind CSS Tips & Tricks', authorName: 'Charlie', likeCount: 25 },
+  { postId: 4, boardUrl: 1, title: 'Vite vs Webpack', authorName: 'Dave', likeCount: 20 },
+  { postId: 5, boardUrl: 3, title: 'JavaScript ES6 Features', authorName: 'Eve', likeCount: 15 }
 ]
 
 const fetchPopularPosts = async () => {

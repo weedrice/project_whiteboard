@@ -7,8 +7,8 @@ defineProps({
     type: Array,
     required: true
   },
-  boardId: {
-    type: Number,
+  boardUrl: { // boardId 대신 boardUrl 사용
+    type: String,
     required: false
   }
 })
@@ -61,7 +61,7 @@ function formatDate(dateString) {
               <span v-else>{{ post.postId }}</span>
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 align-middle">
-              <router-link :to="`/board/${boardId}/post/${post.postId}`" class="hover:text-indigo-600 flex items-center h-full">
+              <router-link :to="`/board/${boardUrl}/post/${post.postId}`" class="hover:text-indigo-600 flex items-center h-full">
                 <span 
                   v-if="post.category && post.category.name !== '일반'" 
                   class="inline-flex items-center justify-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 mr-2 h-5"
