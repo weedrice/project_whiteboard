@@ -7,9 +7,10 @@
 `SearchService`를 통해 다음과 같은 핵심 비즈니스 로직을 처리합니다.
 
 - **통합 검색 (`integratedSearch`):**
-  - `type` 파라미터에 따라 게시글, 댓글, 사용자 등 다양한 리소스를 검색합니다.
-  - 현재는 게시글(`title`, `contents`), 댓글(`content`), 사용자(`displayName`) 검색을 지원합니다.
-  - 각 도메인의 Repository에 구현된 검색 메서드를 호출하여 결과를 취합합니다.
+  - 키워드와 일치하는 게시글, 댓글, 사용자 정보를 **미리보기** 형태로 제공합니다. (각 5개씩)
+
+- **게시글 검색 (`searchPosts`):**
+  - 키워드로 게시글을 검색하며, 페이징 및 특정 게시판(`boardId`) 필터링을 지원합니다.
 
 - **검색어 기록 (`recordSearch`):**
   - 검색이 수행될 때마다 호출됩니다.
@@ -28,7 +29,8 @@
 
 | Method | URI                         | 설명                     |
 | :----- | :-------------------------- | :----------------------- |
-| `GET`    | `/api/v1/search`            | 통합 검색                |
+| `GET`    | `/api/v1/search`            | 통합 검색 (미리보기)     |
+| `GET`    | `/api/v1/search/posts`      | 게시글 상세 검색         |
 | `GET`    | `/api/v1/search/popular`    | 인기 검색어 목록 조회    |
 | `GET`    | `/api/v1/search/recent`     | 최근 검색어 목록 조회    |
 | `DELETE` | `/api/v1/search/recent/{logId}` | 특정 최근 검색어 삭제    |

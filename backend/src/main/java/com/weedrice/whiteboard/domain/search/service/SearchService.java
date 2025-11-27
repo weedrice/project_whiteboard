@@ -1,8 +1,7 @@
 package com.weedrice.whiteboard.domain.search.service;
 
-import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
-import com.weedrice.whiteboard.domain.post.entity.Post;
+import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.search.dto.IntegratedSearchResponse;
 import com.weedrice.whiteboard.domain.search.dto.PopularKeywordDto;
@@ -17,6 +16,7 @@ import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,21 +38,16 @@ public class SearchService {
 
     @Transactional
     public void recordSearch(Long userId, String keyword) {
-        // 1. 검색 통계 업데이트
         LocalDate today = DateTimeUtils.nowKST().toLocalDate();
         SearchStatistic statistic = searchStatisticRepository.findByKeywordAndSearchDate(keyword, today)
                 .orElseGet(() -> SearchStatistic.builder().keyword(keyword).searchDate(today).build());
         statistic.incrementSearchCount();
         searchStatisticRepository.save(statistic);
 
-        // 2. 개인화 검색 이력 저장 (로그인한 사용자만)
         if (userId != null) {
             User user = userRepository.findById(userId)
                     .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-
-            // 중복 검색어 방지 (최근 검색어 업데이트)
             searchPersonalizationRepository.deleteByUserAndKeyword(user, keyword);
-
             SearchPersonalization personalization = SearchPersonalization.builder()
                     .user(user)
                     .keyword(keyword)
@@ -61,22 +56,16 @@ public class SearchService {
         }
     }
 
-    public IntegratedSearchResponse integratedSearch(String keyword, String type, Pageable pageable) {
-        Page<Post> postPage = null;
-        Page<Comment> commentPage = null;
-        Page<User> userPage = null;
+    public IntegratedSearchResponse integratedSearch(String keyword) {
+        Pageable previewPageable = PageRequest.of(0, 5); // 미리보기는 5개까지만
+        Page<PostSummary> posts = postRepository.searchPostsByKeyword(keyword, previewPageable).map(PostSummary::from);
+        // TODO: 댓글, 사용자 검색 결과 추가
+        return IntegratedSearchResponse.from(posts, null, null, keyword);
+    }
 
-        if ("all".equalsIgnoreCase(type) || "post".equalsIgnoreCase(type)) {
-            postPage = postRepository.searchPostsByKeyword(keyword, pageable);
-        }
-        if ("all".equalsIgnoreCase(type) || "comment".equalsIgnoreCase(type)) {
-            commentPage = commentRepository.searchCommentsByKeyword(keyword, pageable);
-        }
-        if ("all".equalsIgnoreCase(type) || "user".equalsIgnoreCase(type)) {
-            userPage = userRepository.findByDisplayNameContainingIgnoreCaseAndStatus(keyword, "ACTIVE", pageable);
-        }
-
-        return IntegratedSearchResponse.from(postPage, commentPage, userPage, keyword);
+    public Page<PostSummary> searchPosts(String keyword, Long boardId, Pageable pageable) {
+        // TODO: boardId 필터링 로직 추가 필요
+        return postRepository.searchPostsByKeyword(keyword, pageable).map(PostSummary::from);
     }
 
     public Page<SearchPersonalization> getRecentSearches(Long userId, Pageable pageable) {
@@ -120,14 +109,14 @@ public class SearchService {
                 startDate = endDate.minusMonths(1);
                 break;
             default:
-                startDate = endDate.minusWeeks(1); // 기본값은 주간
+                startDate = endDate.minusWeeks(1);
         }
 
         List<Object[]> results = searchStatisticRepository.findPopularKeywords(startDate, endDate);
 
         return results.stream()
                 .map(result -> new PopularKeywordDto((String) result[0], ((Number) result[1]).longValue()))
-                .sorted((k1, k2) -> Long.compare(k2.getCount(), k1.getCount())) // 내림차순 정렬
+                .sorted((k1, k2) -> Long.compare(k2.getCount(), k1.getCount()))
                 .limit(limit)
                 .collect(Collectors.toList());
     }
