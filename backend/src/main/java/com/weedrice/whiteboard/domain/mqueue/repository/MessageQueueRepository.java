@@ -1,6 +1,6 @@
-package com.weedrice.whiteboard.domain.message.repository;
+package com.weedrice.whiteboard.domain.mqueue.repository;
 
-import com.weedrice.whiteboard.domain.message.entity.MessageQueue;
+import com.weedrice.whiteboard.domain.mqueue.entity.MessageQueue;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;

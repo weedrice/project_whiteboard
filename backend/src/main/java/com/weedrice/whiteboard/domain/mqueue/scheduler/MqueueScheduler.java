@@ -1,8 +1,8 @@
-package com.weedrice.whiteboard.domain.message.scheduler;
+package com.weedrice.whiteboard.domain.mqueue.scheduler;
 
-import com.weedrice.whiteboard.domain.message.entity.MessageQueue;
-import com.weedrice.whiteboard.domain.message.repository.MessageQueueRepository;
-import com.weedrice.whiteboard.domain.message.service.MessageService;
+import com.weedrice.whiteboard.domain.mqueue.entity.MessageQueue;
+import com.weedrice.whiteboard.domain.mqueue.repository.MessageQueueRepository;
+import com.weedrice.whiteboard.domain.mqueue.service.MqueueService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -13,10 +13,10 @@ import java.util.List;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class MessageQueueScheduler {
+public class MqueueScheduler {
 
     private final MessageQueueRepository messageQueueRepository;
-    private final MessageService messageService;
+    private final MqueueService mqueueService;
 
     // 1분마다 실행
     @Scheduled(cron = "0 * * * * ?")
@@ -25,7 +25,7 @@ public class MessageQueueScheduler {
         List<MessageQueue> pendingMessages = messageQueueRepository.findByStatusAndRetryCountLessThan("PENDING", 5);
         for (MessageQueue message : pendingMessages) {
             if ("EMAIL".equals(message.getDeliveryMethod())) {
-                messageService.sendEmail(message);
+                mqueueService.sendEmail(message);
             }
             // TODO: PUSH, SMS 등 다른 발송 방법 처리
         }
