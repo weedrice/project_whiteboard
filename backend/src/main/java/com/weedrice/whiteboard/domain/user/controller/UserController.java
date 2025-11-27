@@ -140,7 +140,7 @@ public class UserController {
 
     @GetMapping("/me/subscriptions")
     public ApiResponse<PageResponse<BoardResponse>> getMySubscriptions(@AuthenticationPrincipal CustomUserDetails userDetails, Pageable pageable) {
-        Page<BoardResponse> response = boardService.getMySubscriptions(userDetails.getUserId(), pageable).map(BoardResponse::new);
+        Page<BoardResponse> response = boardService.getMySubscriptions(userDetails.getUserId(), pageable);
         return ApiResponse.success(new PageResponse<>(response));
     }
 

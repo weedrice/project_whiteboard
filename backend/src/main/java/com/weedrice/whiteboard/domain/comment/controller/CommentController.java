@@ -11,7 +11,6 @@ import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -27,9 +26,7 @@ public class CommentController {
     @GetMapping("/posts/{postId}/comments")
     public ApiResponse<Page<CommentResponse>> getComments(
             @PathVariable Long postId,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
-        Pageable pageable = PageRequest.of(page, size);
+            Pageable pageable) {
         Page<CommentResponse> comments = commentService.getComments(postId, pageable);
         return ApiResponse.success(comments);
     }
@@ -37,9 +34,7 @@ public class CommentController {
     @GetMapping("/comments/{commentId}/replies")
     public ApiResponse<CommentListResponse> getReplies(
             @PathVariable Long commentId,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
-        Pageable pageable = PageRequest.of(page, size);
+            Pageable pageable) {
         Page<Comment> replies = commentService.getReplies(commentId, pageable);
         return ApiResponse.success(CommentListResponse.from(replies));
     }

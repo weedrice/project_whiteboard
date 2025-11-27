@@ -35,9 +35,18 @@ public class ReportController {
                 request.getTargetId(),
                 request.getReasonType(),
                 request.getRemark(),
-                request.getContents()
-        );
+                request.getContents());
         return ApiResponse.success(report.getReportId());
+    }
+
+    @GetMapping("/reports/me")
+    public ApiResponse<ReportResponse> getMyReports(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            Authentication authentication) {
+        Long userId = ((CustomUserDetails) authentication.getPrincipal()).getUserId();
+        Pageable pageable = PageRequest.of(page, size);
+        return ApiResponse.success(ReportResponse.from(reportService.getMyReports(userId, pageable)));
     }
 
     @PreAuthorize("hasRole('ADMIN')")
@@ -62,8 +71,7 @@ public class ReportController {
                 adminUserId,
                 reportId,
                 request.getStatus(),
-                request.getRemark()
-        );
+                request.getRemark());
         return ApiResponse.success(report.getReportId());
     }
 }

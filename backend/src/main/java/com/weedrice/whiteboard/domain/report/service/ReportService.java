@@ -24,7 +24,8 @@ public class ReportService {
     private final AdminRepository adminRepository;
 
     @Transactional
-    public Report createReport(Long reporterId, String targetType, Long targetId, String reasonType, String remark, String contents) {
+    public Report createReport(Long reporterId, String targetType, Long targetId, String reasonType, String remark,
+            String contents) {
         User reporter = userRepository.findById(reporterId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
@@ -56,10 +57,16 @@ public class ReportService {
         return reportRepository.findAll(pageable); // 모든 신고 조회
     }
 
+    public Page<Report> getMyReports(Long userId, Pageable pageable) {
+        User reporter = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        return reportRepository.findByReporterOrderByCreatedAtDesc(reporter, pageable);
+    }
+
     @Transactional
     public Report processReport(Long adminUserId, Long reportId, String status, String remark) {
         Admin admin = adminRepository.findByUserAndIsActive(userRepository.findById(adminUserId)
-                        .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND)), "Y")
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND)), "Y")
                 .orElseThrow(() -> new BusinessException(ErrorCode.FORBIDDEN, "관리자 권한이 없습니다."));
 
         Report report = reportRepository.findById(reportId)

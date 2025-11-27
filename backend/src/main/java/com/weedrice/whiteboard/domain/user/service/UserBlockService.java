@@ -22,7 +22,6 @@ public class UserBlockService {
 
     @Transactional
     public void blockUser(Long userId, Long targetUserId) {
-        // Cannot block self
         if (userId.equals(targetUserId)) {
             throw new BusinessException(ErrorCode.CANNOT_BLOCK_SELF);
         }
@@ -33,7 +32,6 @@ public class UserBlockService {
         User target = userRepository.findById(targetUserId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
-        // Check if already blocked
         if (userBlockRepository.existsByUserAndTarget(user, target)) {
             throw new BusinessException(ErrorCode.ALREADY_BLOCKED);
         }
@@ -60,7 +58,7 @@ public class UserBlockService {
         userBlockRepository.delete(userBlock);
     }
 
-    public Page<BlockedUserDto> getBlockedUsers(Long userId, Pageable pageable) {
+    public Page<UserBlockService.BlockedUserDto> getBlockedUsers(Long userId, Pageable pageable) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
@@ -72,6 +70,14 @@ public class UserBlockService {
                 .displayName(block.getTarget().getDisplayName())
                 .blockedAt(block.getCreatedAt())
                 .build());
+    }
+
+    public boolean isBlocked(Long userId, Long targetUserId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        User target = userRepository.findById(targetUserId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        return userBlockRepository.existsByUserAndTarget(user, target);
     }
 
     @lombok.Builder
