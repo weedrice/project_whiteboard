@@ -25,7 +25,6 @@ public class AdminController {
 
     private final AdminService adminService;
 
-    @PreAuthorize("hasRole('SUPER')")
     @PostMapping("/admins")
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<AdminResponse> createAdmin(@Valid @RequestBody AdminCreateRequest request) {
@@ -33,28 +32,24 @@ public class AdminController {
         return ApiResponse.success(AdminResponse.from(admin));
     }
 
-    @PreAuthorize("hasRole('SUPER')")
     @GetMapping("/admins")
     public ApiResponse<List<AdminResponse>> getAllAdmins() {
         List<Admin> admins = adminService.getAllAdmins();
         return ApiResponse.success(AdminResponse.from(admins));
     }
 
-    @PreAuthorize("hasRole('SUPER')")
     @PutMapping("/admins/{adminId}/deactivate")
     public ApiResponse<Void> deactivateAdmin(@PathVariable Long adminId) {
         adminService.deactivateAdmin(adminId);
         return ApiResponse.success(null);
     }
 
-    @PreAuthorize("hasRole('SUPER')")
     @PutMapping("/admins/{adminId}/activate")
     public ApiResponse<Void> activateAdmin(@PathVariable Long adminId) {
         adminService.activateAdmin(adminId);
         return ApiResponse.success(null);
     }
 
-    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/ip-blocks")
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<IpBlockResponse> blockIp(
@@ -65,14 +60,12 @@ public class AdminController {
         return ApiResponse.success(IpBlockResponse.from(ipBlock));
     }
 
-    @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/ip-blocks/{ipAddress}")
     public ApiResponse<Void> unblockIp(@PathVariable String ipAddress) {
         adminService.unblockIp(ipAddress);
         return ApiResponse.success(null);
     }
 
-    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/ip-blocks")
     public ApiResponse<List<IpBlockResponse>> getBlockedIps() {
         List<IpBlock> ipBlocks = adminService.getBlockedIps();

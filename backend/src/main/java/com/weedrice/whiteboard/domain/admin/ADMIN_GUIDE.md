@@ -29,9 +29,9 @@
 | `GET`    | `/api/v1/admin/admins`               | 전체 관리자 목록 조회    | `SUPER`       |
 | `PUT`    | `/api/v1/admin/admins/{adminId}/deactivate` | 관리자 비활성화          | `SUPER`       |
 | `PUT`    | `/api/v1/admin/admins/{adminId}/activate`   | 관리자 활성화            | `SUPER`       |
-| `POST`   | `/api/v1/admin/ip-blocks`            | IP 주소 차단             | `ADMIN`       |
-| `DELETE` | `/api/v1/admin/ip-blocks/{ipAddress}`| IP 주소 차단 해제        | `ADMIN`       |
-| `GET`    | `/api/v1/admin/ip-blocks`            | 차단된 IP 목록 조회      | `ADMIN`       |
+| `POST`   | `/api/v1/admin/ip-blocks`            | IP 주소 차단             | `SUPER`       |
+| `DELETE` | `/api/v1/admin/ip-blocks/{ipAddress}`| IP 주소 차단 해제        | `SUPER`       |
+| `GET`    | `/api/v1/admin/ip-blocks`            | 차단된 IP 목록 조회      | `SUPER`       |
 
 ## 3. 관련 DB 테이블
 

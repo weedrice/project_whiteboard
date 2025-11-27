@@ -8,6 +8,7 @@ import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.global.common.util.SecurityUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +30,8 @@ public class AdminService {
 
     @Transactional
     public Admin createAdmin(Long userId, Long boardId, String role) {
+        SecurityUtils.validateSuperAdminPermission();
+
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
@@ -61,6 +64,8 @@ public class AdminService {
 
     @Transactional
     public void deactivateAdmin(Long adminId) {
+        SecurityUtils.validateSuperAdminPermission();
+
         Admin admin = adminRepository.findById(adminId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
         admin.deactivate();
@@ -68,25 +73,24 @@ public class AdminService {
 
     @Transactional
     public void activateAdmin(Long adminId) {
+        SecurityUtils.validateSuperAdminPermission();
+
         Admin admin = adminRepository.findById(adminId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
         admin.activate();
     }
 
     public List<Admin> getAllAdmins() {
+        SecurityUtils.validateSuperAdminPermission();
         return adminRepository.findByIsActive("Y");
     }
 
     @Transactional
     public IpBlock blockIp(Long adminUserId, String ipAddress, String reason, LocalDateTime endDate) {
+        SecurityUtils.validateSuperAdminPermission();
+
         User adminUser = userRepository.findById(adminUserId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-
-        // SUPER 관리자 또는 ADMIN 역할 확인
-        if (!adminUser.getIsSuperAdmin().equals("Y") &&
-                !adminRepository.findByUserAndBoardAndIsActive(adminUser, null, "Y").isPresent()) { // 이 부분은 SUPER 관리자만 IP 차단 가능하도록 변경 필요
-            throw new BusinessException(ErrorCode.FORBIDDEN, "관리자 권한이 없습니다.");
-        }
 
         ipBlockRepository.findById(ipAddress)
                 .ifPresent(block -> {
@@ -105,12 +109,15 @@ public class AdminService {
 
     @Transactional
     public void unblockIp(String ipAddress) {
+        SecurityUtils.validateSuperAdminPermission();
+
         IpBlock ipBlock = ipBlockRepository.findById(ipAddress)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
         ipBlockRepository.delete(ipBlock);
     }
 
     public List<IpBlock> getBlockedIps() {
+        SecurityUtils.validateSuperAdminPermission();
         return ipBlockRepository.findByEndDateAfterOrEndDateIsNull(LocalDateTime.now());
     }
 
