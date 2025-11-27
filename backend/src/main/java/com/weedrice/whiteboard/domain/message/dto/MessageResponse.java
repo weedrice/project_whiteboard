@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.message.dto;
 
 import com.weedrice.whiteboard.domain.message.entity.Message;
+import com.weedrice.whiteboard.domain.user.entity.User;
 import lombok.Builder;
 import lombok.Getter;
 import org.springframework.data.domain.Page;

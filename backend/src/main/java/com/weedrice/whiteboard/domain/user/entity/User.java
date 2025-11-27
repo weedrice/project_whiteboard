@@ -41,6 +41,9 @@ public class User extends BaseTimeEntity {
     @Column(name = "is_email_verified", nullable = false, length = 1)
     private String isEmailVerified; // Y, N
 
+    @Column(name = "is_super_admin", nullable = false, length = 1)
+    private String isSuperAdmin; // Y, N
+
     @Column(name = "last_login_at")
     private LocalDateTime lastLoginAt;
 
@@ -55,6 +58,7 @@ public class User extends BaseTimeEntity {
         this.displayName = displayName;
         this.status = "ACTIVE";
         this.isEmailVerified = "N";
+        this.isSuperAdmin = "N"; // 기본값은 일반 사용자
     }
 
     public void updateLastLogin() {
@@ -88,5 +92,13 @@ public class User extends BaseTimeEntity {
 
     public void activate() {
         this.status = "ACTIVE";
+    }
+
+    public void grantSuperAdminRole() {
+        this.isSuperAdmin = "Y";
+    }
+
+    public void revokeSuperAdminRole() {
+        this.isSuperAdmin = "N";
     }
 }
