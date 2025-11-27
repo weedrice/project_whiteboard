@@ -1,6 +1,6 @@
 <script setup>
 import { ref, onMounted } from 'vue'
-import axios from '@/api'
+import { userApi } from '@/api/user'
 import PostList from '@/components/board/PostList.vue'
 
 const scraps = ref([])
@@ -11,11 +11,9 @@ const hasMore = ref(true)
 const fetchScraps = async () => {
   loading.value = true
   try {
-    const { data } = await axios.get('/users/me/scraps', {
-      params: {
-        page: page.value,
-        size: 20
-      }
+    const { data } = await userApi.getMyScraps({
+      page: page.value,
+      size: 20
     })
     if (data.success) {
       const newScraps = data.data.content.map(item => item.post || item)

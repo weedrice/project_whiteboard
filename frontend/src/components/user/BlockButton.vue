@@ -12,7 +12,7 @@
 <script setup>
 import { ref } from 'vue'
 import BaseButton from '@/components/common/BaseButton.vue'
-import axios from '@/api'
+import { userApi } from '@/api/user'
 
 const props = defineProps({
   userId: {
@@ -36,10 +36,10 @@ const toggleBlock = async () => {
   loading.value = true
   try {
     if (isBlocked.value) {
-      await axios.delete(`/users/${props.userId}/block`)
+      await userApi.unblockUser(props.userId)
       isBlocked.value = false
     } else {
-      await axios.post(`/users/${props.userId}/block`)
+      await userApi.blockUser(props.userId)
       isBlocked.value = true
     }
     emit('block-change', isBlocked.value)

@@ -35,7 +35,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import axios from '@/api'
+import { userApi } from '@/api/user'
 import BlockButton from '@/components/user/BlockButton.vue'
 
 const blockedUsers = ref([])
@@ -44,7 +44,7 @@ const loading = ref(false)
 const fetchBlockedUsers = async () => {
   loading.value = true
   try {
-    const { data } = await axios.get('/users/me/blocks')
+    const { data } = await userApi.getBlockedUsers()
     if (data.success) {
       blockedUsers.value = data.data
     }

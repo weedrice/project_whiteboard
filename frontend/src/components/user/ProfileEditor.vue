@@ -23,7 +23,7 @@ import { ref, reactive } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import BaseInput from '@/components/common/BaseInput.vue'
 import BaseButton from '@/components/common/BaseButton.vue'
-import axios from '@/api'
+import { userApi } from '@/api/user'
 
 const authStore = useAuthStore()
 const loading = ref(false)
@@ -38,7 +38,7 @@ const updateProfile = async () => {
   errors.nickname = ''
   
   try {
-    const { data } = await axios.put('/users/me', {
+    const { data } = await userApi.updateMyProfile({
       nickname: form.nickname
     })
     

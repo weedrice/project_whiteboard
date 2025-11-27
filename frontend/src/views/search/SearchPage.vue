@@ -45,10 +45,7 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import axios from '@/api'
-import { ref, onMounted, watch } from 'vue'
-import { useRoute } from 'vue-router'
-import axios from '@/api'
+import { searchApi } from '@/api/search'
 import PostList from '@/components/board/PostList.vue'
 import GlobalSearchInput from '@/components/search/GlobalSearchInput.vue'
 import PopularKeywordList from '@/components/search/PopularKeywordList.vue'
@@ -79,16 +76,15 @@ const fetchPosts = async () => {
       size: 20
     }
     
-    // const { data } = await axios.get('/search', { params })
-    // if (data.success) {
-    //   posts.value = data.data.content
-    // }
-    
-    // Mock data
-    await new Promise(resolve => setTimeout(resolve, 500))
-    posts.value = [] // Empty for now as we don't have real backend search yet
+    const { data } = await searchApi.search({ params })
+    if (data.success) {
+      posts.value = data.data.content
+    } else {
+      posts.value = []
+    }
   } catch (error) {
     console.error('Failed to search posts:', error)
+    posts.value = []
   } finally {
     loading.value = false
   }

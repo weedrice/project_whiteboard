@@ -1,6 +1,6 @@
 <script setup>
 import { ref, onMounted, reactive } from 'vue'
-import axios from '@/api'
+import { userApi } from '@/api/user'
 import BaseButton from '@/components/common/BaseButton.vue'
 
 const loading = ref(false)
@@ -21,13 +21,13 @@ const fetchSettings = async () => {
   loading.value = true
   try {
     // Fetch general settings
-    const settingsRes = await axios.get('/users/me/settings')
+    const settingsRes = await userApi.getUserSettings()
     if (settingsRes.data.success) {
       Object.assign(settings, settingsRes.data.data)
     }
 
     // Fetch notification settings
-    const notifRes = await axios.get('/users/me/notification-settings')
+    const notifRes = await userApi.getNotificationSettings()
     if (notifRes.data.success) {
       // Assuming backend returns list, mapping to object for UI
       // Backend returns List<NotificationSettingResponse>
@@ -66,7 +66,7 @@ const saveSettings = async () => {
     // But I cannot edit backend easily without more context.
     // I will switch UI to show "Theme" and "Language" to match backend `UserSettings`.
     
-    await axios.put('/users/me/settings', {
+    await userApi.updateUserSettings({
         theme: 'LIGHT', // Default or from UI
         language: 'KO', // Default
         timezone: 'Asia/Seoul',
@@ -74,12 +74,12 @@ const saveSettings = async () => {
     })
 
     // Update notifications one by one as backend API is per type
-    await axios.put('/users/me/notification-settings', {
+    await userApi.updateNotificationSettings({
         notificationType: 'EMAIL',
         isEnabled: notificationSettings.emailNotifications ? 'Y' : 'N'
     })
     
-    await axios.put('/users/me/notification-settings', {
+    await userApi.updateNotificationSettings({
         notificationType: 'PUSH',
         isEnabled: notificationSettings.pushNotifications ? 'Y' : 'N'
     })
