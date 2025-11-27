@@ -49,7 +49,7 @@ async function handleDelete() {
   try {
     const { data } = await postApi.deletePost(route.params.postId)
     if (data.success) {
-      router.push(`/board/${post.value.board.boardId}`)
+      router.push(`/board/${post.value.board.boardUrl}`)
     }
   } catch (err) {
     console.error('게시글 삭제 실패:', err)
@@ -136,17 +136,17 @@ onMounted(fetchPost)
       <div class="px-4 py-5 sm:px-6 border-b border-gray-200">
         <div class="flex items-center justify-between">
           <button 
-            @click="router.push(`/board/${post.board.boardId}`)" 
+            @click="router.push(`/board/${post.board.boardUrl}`)" 
             class="inline-flex items-center text-sm text-gray-500 hover:text-gray-700"
           >
             <ArrowLeft class="h-4 w-4 mr-1" />
-            {{ post.board.boardName }} 목록으로
+            목록으로
           </button>
           
           <div class="flex space-x-2">
              <router-link 
               v-if="isAuthor"
-              :to="`/board/${post.board.boardId}/post/${post.postId}/edit`"
+              :to="`/board/${post.board.boardUrl}/post/${post.postId}/edit`"
               class="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 cursor-pointer"
             >
               수정
@@ -198,8 +198,9 @@ onMounted(fetchPost)
       <div class="px-4 py-4 sm:px-6 border-t border-gray-200 bg-gray-50 flex items-center justify-center space-x-8">
           <button 
             @click="handleLike" 
+            :disabled="!authStore.isAuthenticated"
             class="flex flex-col items-center group cursor-pointer"
-            :class="{'text-indigo-600': post.isLiked, 'text-gray-500': !post.isLiked}"
+            :class="{'text-indigo-600': post.isLiked, 'text-gray-500': !post.isLiked, 'opacity-50 cursor-not-allowed': !authStore.isAuthenticated}"
           >
               <div class="p-2 rounded-full group-hover:bg-indigo-50 transition-colors">
                   <ThumbsUp class="h-6 w-6" :class="{'fill-current': post.isLiked}" />
@@ -209,7 +210,9 @@ onMounted(fetchPost)
           
           <button 
             @click="handleScrap"
+            :disabled="!authStore.isAuthenticated"
             class="flex flex-col items-center group text-gray-500 hover:text-yellow-600 cursor-pointer"
+            :class="{'opacity-50 cursor-not-allowed': !authStore.isAuthenticated}"
           >
               <div class="p-2 rounded-full group-hover:bg-yellow-50 transition-colors">
                   <Bookmark class="h-6 w-6" />
@@ -219,8 +222,8 @@ onMounted(fetchPost)
       </div>
 
       <!-- Comments Section -->
-      <div class="border-t border-gray-200">
-        <CommentList :postId="post.postId" />
+      <div class="border-t border-gray-200 mt-6">
+        <CommentList :postId="post.postId" :boardUrl="post.board.boardUrl" />
       </div>
     </div>
   </div>

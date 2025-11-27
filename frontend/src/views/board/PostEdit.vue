@@ -7,7 +7,7 @@ import { boardApi } from '@/api/board'
 const route = useRoute()
 const router = useRouter()
 
-const boardId = route.params.boardId
+const boardUrl = route.params.boardUrl // boardId 대신 boardUrl 사용
 const postId = route.params.postId
 
 const categories = ref([])
@@ -30,8 +30,8 @@ async function fetchData() {
   try {
     const [postRes, categoriesRes, boardRes] = await Promise.all([
       postApi.getPost(postId),
-      boardApi.getCategories(boardId),
-      boardApi.getBoard(boardId)
+      boardApi.getCategories(boardUrl), // boardUrl 사용
+      boardApi.getBoard(boardUrl) // boardUrl 사용
     ])
 
     if (postRes.data.success) {
@@ -56,7 +56,7 @@ async function fetchData() {
   } catch (err) {
     console.error('Failed to load data:', err)
     alert('Failed to load post data.')
-    router.push(`/board/${boardId}/post/${postId}`)
+    router.push(`/board/${boardUrl}/post/${postId}`) // boardUrl 사용
   } finally {
     isLoading.value = false
   }
@@ -83,7 +83,7 @@ async function handleSubmit() {
 
     const { data } = await postApi.updatePost(postId, payload)
     if (data.success) {
-      router.push(`/board/${boardId}/post/${postId}`)
+      router.push(`/board/${board.value.boardUrl}/post/${postId}`) // boardUrl 사용
     }
   } catch (err) {
     console.error('Failed to update post:', err)

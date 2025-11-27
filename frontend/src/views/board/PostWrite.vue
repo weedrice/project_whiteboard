@@ -10,7 +10,7 @@ import { useAuthStore } from '@/stores/auth'
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
-const boardId = route.params.boardId
+const boardUrl = route.params.boardUrl // boardId 대신 boardUrl 사용
 
 const categories = ref([])
 const isLoading = ref(false)
@@ -33,8 +33,8 @@ onMounted(async () => {
   isLoading.value = true
   try {
     const [categoriesRes, boardRes] = await Promise.all([
-      boardApi.getCategories(boardId),
-      boardApi.getBoard(boardId)
+      boardApi.getCategories(boardUrl), // boardUrl 사용
+      boardApi.getBoard(boardUrl) // boardUrl 사용
     ])
 
     if (categoriesRes.data.success) {
@@ -76,9 +76,9 @@ async function handleSubmit() {
       fileIds: [] // File upload not implemented yet
     }
 
-    const { data } = await postApi.createPost(boardId, payload)
+    const { data } = await postApi.createPost(boardUrl, payload) // boardUrl 사용
     if (data.success) {
-      router.push(`/board/${boardId}`)
+      router.push(`/board/${board.value.boardUrl}`) // boardUrl 사용
     }
   } catch (err) {
     console.error('Failed to create post:', err)
