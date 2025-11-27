@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.global.log.service;
 
+import com.weedrice.whiteboard.global.common.util.SecurityUtils;
 import com.weedrice.whiteboard.global.log.entity.Log;
 import com.weedrice.whiteboard.global.log.repository.LogRepository;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +33,7 @@ public class LogService {
 
     @Transactional(readOnly = true)
     public Page<Log> getLogs(Pageable pageable) {
+        SecurityUtils.validateSuperAdminPermission();
         return logRepository.findAll(pageable);
     }
 }

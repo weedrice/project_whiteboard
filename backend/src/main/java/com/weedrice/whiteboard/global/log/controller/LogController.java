@@ -20,7 +20,6 @@ public class LogController {
 
     private final LogService logService;
 
-    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping
     public ApiResponse<LogResponse> getLogs(
             @RequestParam(defaultValue = "0") int page,
