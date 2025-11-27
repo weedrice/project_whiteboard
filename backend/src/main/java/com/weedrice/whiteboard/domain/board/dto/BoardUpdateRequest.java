@@ -11,7 +11,6 @@ public class BoardUpdateRequest {
     private String description;
 
     private String iconUrl;
-    private String bannerUrl;
     private Integer sortOrder;
     private Boolean allowNsfw;
 }

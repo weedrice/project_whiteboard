@@ -20,7 +20,6 @@ public class BoardCreateRequest {
     private String description;
 
     private String iconUrl;
-    private String bannerUrl;
     private Integer sortOrder;
 
     @JsonProperty("allowNsfw")

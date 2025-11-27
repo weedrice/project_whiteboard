@@ -97,7 +97,6 @@ public class BoardController {
         return ApiResponse.success(null);
     }
 
-    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/{boardId}/categories")
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<CategoryResponse> createCategory(@PathVariable Long boardId, @Valid @RequestBody CategoryRequest request) {
@@ -105,14 +104,12 @@ public class BoardController {
         return ApiResponse.success(new CategoryResponse(category));
     }
 
-    @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/categories/{categoryId}")
     public ApiResponse<CategoryResponse> updateCategory(@PathVariable Long categoryId, @Valid @RequestBody CategoryRequest request) {
         BoardCategory category = boardService.updateCategory(categoryId, request);
         return ApiResponse.success(new CategoryResponse(category));
     }
 
-    @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/categories/{categoryId}")
     public ApiResponse<Void> deleteCategory(@PathVariable Long categoryId) {
         boardService.deleteCategory(categoryId);

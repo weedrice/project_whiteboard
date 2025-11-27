@@ -5,6 +5,8 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import lombok.Getter;
 
+import java.util.List;
+
 @Getter
 public class BoardResponse {
     private final Long boardId;
@@ -18,9 +20,10 @@ public class BoardResponse {
 
     @JsonProperty("isSubscribed")
     private final boolean isSubscribed; // 현재 유저의 구독 여부
+    private final List<CategoryResponse> categories; // 추가
 
     public BoardResponse(Board board, long subscriberCount, String adminDisplayName, boolean isAdmin,
-            boolean isSubscribed) {
+            boolean isSubscribed, List<CategoryResponse> categories) { // 생성자 파라미터 추가
         this.boardId = board.getBoardId();
         this.boardName = board.getBoardName();
         this.description = board.getDescription();
@@ -29,5 +32,6 @@ public class BoardResponse {
         this.adminDisplayName = adminDisplayName;
         this.isAdmin = isAdmin;
         this.isSubscribed = isSubscribed;
+        this.categories = categories; // 할당
     }
 }

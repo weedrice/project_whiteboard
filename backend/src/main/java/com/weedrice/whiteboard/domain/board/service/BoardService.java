@@ -2,10 +2,7 @@ package com.weedrice.whiteboard.domain.board.service;
 
 import com.weedrice.whiteboard.domain.admin.entity.Admin;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
-import com.weedrice.whiteboard.domain.board.dto.BoardCreateRequest;
-import com.weedrice.whiteboard.domain.board.dto.BoardResponse;
-import com.weedrice.whiteboard.domain.board.dto.BoardUpdateRequest;
-import com.weedrice.whiteboard.domain.board.dto.CategoryRequest;
+import com.weedrice.whiteboard.domain.board.dto.*;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
 import com.weedrice.whiteboard.domain.board.entity.BoardSubscription;
@@ -15,6 +12,7 @@ import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.global.common.util.SecurityUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -81,7 +79,12 @@ public class BoardService {
             isSubscribed = boardSubscriptionRepository.existsByUserAndBoard(currentUser, board);
         }
 
-        return new BoardResponse(board, subscriberCount, adminDisplayName, isAdmin, isSubscribed);
+        // 카테고리 목록을 가져와서 BoardResponse에 추가
+        List<CategoryResponse> categories = getActiveCategories(board.getBoardId()).stream()
+                .map(CategoryResponse::new)
+                .collect(Collectors.toList());
+
+        return new BoardResponse(board, subscriberCount, adminDisplayName, isAdmin, isSubscribed, categories);
     }
 
     public List<BoardCategory> getActiveCategories(Long boardId) {
@@ -136,7 +139,6 @@ public class BoardService {
                 .description(request.getDescription())
                 .creator(creator)
                 .iconUrl(request.getIconUrl())
-                .bannerUrl(request.getBannerUrl())
                 .sortOrder(request.getSortOrder())
                 .build();
         
@@ -164,18 +166,9 @@ public class BoardService {
         Board board = boardRepository.findById(boardId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
 
-        User currentUser = userRepository.findByLoginId(userDetails.getUsername())
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        SecurityUtils.validateBoardAdminPermission(board);
 
-        boolean isSuperAdmin = "Y".equals(currentUser.getIsSuperAdmin());
-        boolean isBoardAdmin = adminRepository.findByUserAndBoardAndIsActive(currentUser, board, "Y").isPresent();
-        boolean isCreator = board.getCreator().getUserId().equals(currentUser.getUserId());
-
-        if (!isSuperAdmin && !isBoardAdmin && !isCreator) {
-            throw new BusinessException(ErrorCode.FORBIDDEN);
-        }
-
-        board.update(request.getDescription(), request.getIconUrl(), request.getBannerUrl(), request.getSortOrder(), request.getAllowNsfw());
+        board.update(request.getDescription(), request.getIconUrl(), request.getSortOrder(), request.getAllowNsfw());
         return board;
     }
 
@@ -184,16 +177,7 @@ public class BoardService {
         Board board = boardRepository.findById(boardId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
 
-        User currentUser = userRepository.findByLoginId(userDetails.getUsername())
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-
-        boolean isSuperAdmin = "Y".equals(currentUser.getIsSuperAdmin());
-        boolean isBoardAdmin = adminRepository.findByUserAndBoardAndIsActive(currentUser, board, "Y").isPresent();
-        boolean isCreator = board.getCreator().getUserId().equals(currentUser.getUserId());
-
-        if (!isSuperAdmin && !isBoardAdmin && !isCreator) {
-            throw new BusinessException(ErrorCode.FORBIDDEN);
-        }
+        SecurityUtils.validateBoardAdminPermission(board);
 
         boardRepository.deleteById(boardId);
     }
@@ -202,6 +186,9 @@ public class BoardService {
     public BoardCategory createCategory(Long boardId, CategoryRequest request) {
         Board board = boardRepository.findById(boardId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
+        
+        SecurityUtils.validateBoardAdminPermission(board);
+
         BoardCategory category = BoardCategory.builder()
                 .board(board)
                 .name(request.getName())
@@ -214,6 +201,9 @@ public class BoardService {
     public BoardCategory updateCategory(Long categoryId, CategoryRequest request) {
         BoardCategory category = boardCategoryRepository.findById(categoryId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+        
+        SecurityUtils.validateBoardAdminPermission(category.getBoard());
+
         category.update(request.getName(), request.getSortOrder());
         return category;
     }
@@ -222,6 +212,9 @@ public class BoardService {
     public void deleteCategory(Long categoryId) {
         BoardCategory category = boardCategoryRepository.findById(categoryId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+        
+        SecurityUtils.validateBoardAdminPermission(category.getBoard());
+
         category.deactivate();
     }
 }

@@ -28,7 +28,7 @@
   - **게시판 생성자 또는 전체 관리자(`ROLE_ADMIN`)**만 게시판 정보를 수정하거나 삭제할 수 있습니다.
 
 - **카테고리 관리 (`getActiveCategories`, `createCategory` 등):**
-  - 특정 게시판에 속한 카테고리를 조회, 생성, 수정, 삭제합니다.
+  - **게시판 관리자 또는 슈퍼 관리자**가 특정 게시판에 속한 카테고리를 조회, 생성, 수정, 삭제할 수 있습니다.
   - 카테고리 삭제는 실제 데이터를 삭제하는 대신 `is_active` 플래그를 'N'으로 변경하는 Soft Delete 방식입니다.
 
 - **게시판 구독/해제 (`subscribeBoard`, `unsubscribeBoard`):**
@@ -50,9 +50,9 @@
 | `POST`   | `/api/v1/boards/{boardId}/subscribe`     | 게시판 구독              | 인증된 사용자     |
 | `DELETE` | `/api/v1/boards/{boardId}/subscribe`     | 게시판 구독 해제         | 인증된 사용자     |
 | `GET`    | `/api/v1/users/me/subscriptions`         | 내 구독 게시판 목록 조회 | 인증된 사용자     |
-| `POST`   | `/api/v1/admin/boards/{boardId}/categories` | 카테고리 생성 (관리자)   | 관리자              |
-| `PUT`    | `/api/v1/admin/boards/categories/{categoryId}` | 카테고리 수정 (관리자)   | 관리자              |
-| `DELETE` | `/api/v1/admin/boards/categories/{categoryId}` | 카테고리 삭제 (관리자)   | 관리자              |
+| `POST`   | `/api/v1/boards/{boardId}/categories`    | 카테고리 생성            | 게시판 관리자 또는 슈퍼 관리자 |
+| `PUT`    | `/api/v1/boards/categories/{categoryId}` | 카테고리 수정            | 게시판 관리자 또는 슈퍼 관리자 |
+| `DELETE` | `/api/v1/boards/categories/{categoryId}` | 카테고리 삭제            | 게시판 관리자 또는 슈퍼 관리자 |
 
 ## 3. 관련 DB 테이블
 
