@@ -45,29 +45,29 @@ async function handleSubmit() {
   try {
     const { data } = await boardApi.updateBoard(boardId, form.value)
     if (data.success) {
-      alert('Board updated successfully.')
+      alert('게시판이 수정되었습니다.')
       router.push(`/board/${boardId}`)
     }
   } catch (err) {
     console.error('Failed to update board:', err)
-    alert('Failed to update board.')
+    alert('게시판 수정에 실패했습니다.')
   } finally {
     isSubmitting.value = false
   }
 }
 
 async function handleDelete() {
-  if (!confirm('Are you sure you want to DELETE this board? This action cannot be undone.')) return
+  if (!confirm('정말 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) return
 
   try {
     const { data } = await boardApi.deleteBoard(boardId)
     if (data.success) {
-      alert('Board deleted successfully.')
+      alert('게시판이 삭제되었습니다.')
       router.push('/')
     }
   } catch (err) {
     console.error('Failed to delete board:', err)
-    alert('Failed to delete board.')
+    alert('게시판 삭제에 실패했습니다.')
   }
 }
 
@@ -80,20 +80,27 @@ onMounted(fetchBoard)
       <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 mx-auto"></div>
     </div>
 
-    <div v-else class="bg-white shadow px-4 py-5 sm:rounded-lg sm:p-6">
-      <div class="md:grid md:grid-cols-3 md:gap-6">
-        <div class="md:col-span-1">
-          <h3 class="text-lg font-medium leading-6 text-gray-900">Board Settings</h3>
-          <p class="mt-1 text-sm text-gray-500">
-            Manage board details and categories.
-          </p>
+    <div v-else class="bg-white shadow sm:rounded-lg overflow-hidden">
+      <!-- Header -->
+      <div class="px-4 py-5 sm:px-6 border-b border-gray-200 flex justify-between items-center">
+        <div>
+          <h3 class="text-lg leading-6 font-medium text-gray-900">게시판 설정</h3>
+          <p class="mt-1 max-w-2xl text-sm text-gray-500">게시판 정보와 카테고리를 관리합니다.</p>
         </div>
-        <div class="mt-5 md:mt-0 md:col-span-2 space-y-6">
-          
+        <button
+          type="button"
+          @click="router.back()"
+          class="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+        >
+          뒤로 가기
+        </button>
+      </div>
+
+      <div class="px-4 py-5 sm:p-6 space-y-6">
           <!-- Board Form -->
           <form @submit.prevent="handleSubmit" class="space-y-6">
             <div>
-              <label for="boardName" class="block text-sm font-medium text-gray-700">Board Name</label>
+              <label for="boardName" class="block text-sm font-medium text-gray-700">게시판 이름</label>
               <div class="mt-1">
                 <input
                   type="text"
@@ -107,7 +114,7 @@ onMounted(fetchBoard)
             </div>
 
             <div>
-              <label for="description" class="block text-sm font-medium text-gray-700">Description</label>
+              <label for="description" class="block text-sm font-medium text-gray-700">설명</label>
               <div class="mt-1">
                 <textarea
                   id="description"
@@ -130,7 +137,7 @@ onMounted(fetchBoard)
                 />
               </div>
               <div class="ml-3 text-sm">
-                <label for="allowNsfw" class="font-medium text-gray-700">Allow NSFW</label>
+                <label for="allowNsfw" class="font-medium text-gray-700">후방주의 (NSFW) 허용</label>
               </div>
             </div>
 
@@ -140,7 +147,7 @@ onMounted(fetchBoard)
                 :disabled="isSubmitting"
                 class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
               >
-                {{ isSubmitting ? 'Saving...' : 'Save Changes' }}
+                {{ isSubmitting ? '저장 중...' : '변경사항 저장' }}
               </button>
             </div>
           </form>
@@ -154,19 +161,17 @@ onMounted(fetchBoard)
 
           <!-- Danger Zone -->
           <div>
-            <h3 class="text-lg font-medium leading-6 text-red-900">Danger Zone</h3>
+            <h3 class="text-lg font-medium leading-6 text-red-900">위험 구역</h3>
             <div class="mt-2">
               <button
                 type="button"
                 @click="handleDelete"
                 class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
               >
-                Delete Board
+                게시판 삭제
               </button>
             </div>
           </div>
-
-        </div>
       </div>
     </div>
   </div>

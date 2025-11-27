@@ -26,8 +26,14 @@ export const boardApi = {
     createCategory: (boardId, data) => api.post(`/boards/${boardId}/categories`, data),
 
     // Update category
-    updateCategory: (boardId, categoryId, data) => api.put(`/boards/${boardId}/categories/${categoryId}`, data),
+    updateCategory: (boardId, categoryId, data) => api.put(`/boards/categories/${categoryId}`, data),
 
     // Delete category
-    deleteCategory: (boardId, categoryId) => api.delete(`/boards/${boardId}/categories/${categoryId}`),
+    deleteCategory: (boardId, categoryId) => api.delete(`/boards/categories/${categoryId}`),
+
+    // Subscribe to board
+    subscribeBoard: (boardId) => api.post(`/boards/${boardId}/subscribe`),
+
+    // Unsubscribe from board
+    unsubscribeBoard: (boardId) => api.delete(`/boards/${boardId}/subscribe`),
 }
