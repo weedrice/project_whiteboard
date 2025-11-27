@@ -74,19 +74,19 @@ const router = createRouter({
             component: () => import('@/views/board/AllBoardsPage.vue')
         },
         {
-            path: '/board/:boardId/edit',
+            path: '/board/:boardUrl/edit',
             name: 'board-edit',
             component: () => import('@/views/board/BoardEdit.vue'),
             meta: { requiresAuth: true }
         },
         {
-            path: '/board/:boardId/write',
+            path: '/board/:boardUrl/write',
             name: 'post-write',
             component: () => import('@/views/board/PostWrite.vue'),
             meta: { requiresAuth: true }
         },
         {
-            path: '/board/:boardId',
+            path: '/board/:boardUrl',
             name: 'board-detail',
             component: () => import('@/views/board/BoardDetail.vue'),
             children: [
@@ -98,7 +98,7 @@ const router = createRouter({
             ]
         },
         {
-            path: '/board/:boardId/post/:postId/edit',
+            path: '/board/:boardUrl/post/:postId/edit',
             name: 'post-edit',
             component: () => import('@/views/board/PostEdit.vue'),
             meta: { requiresAuth: true }

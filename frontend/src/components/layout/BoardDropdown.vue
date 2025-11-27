@@ -103,8 +103,8 @@ watch(() => authStore.isAuthenticated, (newVal) => {
         <div class="max-h-96 overflow-y-auto">
           <router-link
             v-for="board in items"
-            :key="board.boardId"
-            :to="`/board/${board.boardId}`"
+            :key="board.boardUrl"
+            :to="`/board/${board.boardUrl}`"
             class="group flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900"
             @click="emit('toggle')"
           >
