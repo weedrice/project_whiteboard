@@ -1,124 +1,165 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useNotificationStore } from '@/stores/notification'
-import { Menu, X, Bell, User, LogOut } from 'lucide-vue-next'
+import { Search, Bell } from 'lucide-vue-next'
 import NotificationDropdown from '@/components/notification/NotificationDropdown.vue'
-import GlobalSearchInput from '@/components/search/GlobalSearchInput.vue'
+import UserDropdown from '@/components/layout/UserDropdown.vue'
+import BoardDropdown from '@/components/layout/BoardDropdown.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
 const notificationStore = useNotificationStore()
-
-const isMenuOpen = ref(false)
+const searchQuery = ref('')
 const isNotificationOpen = ref(false)
+const activeDropdown = ref(null) // 'subscription', 'all', 'notification', 'user'
 
-function toggleMenu() {
-  isMenuOpen.value = !isMenuOpen.value
+const handleSearch = () => {
+  if (searchQuery.value.trim()) {
+    router.push({ name: 'search', query: { q: searchQuery.value } })
+  }
 }
 
-function toggleNotification() {
-  isNotificationOpen.value = !isNotificationOpen.value
+const toggleNotification = () => {
+  if (isNotificationOpen.value) {
+    isNotificationOpen.value = false
+    activeDropdown.value = null
+  } else {
+    closeAllDropdowns()
+    isNotificationOpen.value = true
+    activeDropdown.value = 'notification'
+  }
 }
 
-async function handleLogout() {
-  await authStore.logout()
-  router.push('/login')
+const toggleDropdown = (name) => {
+  if (activeDropdown.value === name) {
+    activeDropdown.value = null
+  } else {
+    closeAllDropdowns()
+    activeDropdown.value = name
+  }
 }
+
+const closeAllDropdowns = () => {
+  isNotificationOpen.value = false
+  activeDropdown.value = null
+}
+
+// Expose to children
+const setActiveDropdown = (name) => {
+    if (activeDropdown.value === name) {
+        activeDropdown.value = null
+    } else {
+        isNotificationOpen.value = false
+        activeDropdown.value = name
+    }
+}
+
+// Click outside handler
+const handleClickOutside = (event) => {
+    // If clicking inside nav, ignore (dropdowns handle their own toggles via stop propagation if needed, 
+    // but actually we want to close if clicking outside the active dropdown)
+    // Simplified: If we click anywhere, check if it's inside a dropdown trigger or content.
+    // Since we use @click.stop on triggers, this handler usually fires on outside clicks.
+    // However, we need to be careful not to close immediately after opening.
+    // The easiest way is to use a directive or just rely on the fact that triggers stop propagation.
+    // But triggers in BoardDropdown might not stop propagation?
+    
+    // Let's assume triggers stop propagation.
+    // We just need to close if activeDropdown is set.
+    if (activeDropdown.value || isNotificationOpen.value) {
+        // We can't easily distinguish here without refs.
+        // But if we attach this to window/document, and triggers use .stop, then this only fires for outside clicks.
+        closeAllDropdowns()
+    }
+}
+
+import { onMounted, onUnmounted } from 'vue'
 
 onMounted(() => {
-  if (authStore.isAuthenticated) {
-    notificationStore.fetchUnreadCount()
-  }
+    document.addEventListener('click', handleClickOutside)
+})
+
+onUnmounted(() => {
+    document.removeEventListener('click', handleClickOutside)
 })
 </script>
 
 <template>
   <div class="min-h-screen bg-gray-50">
-    <header class="bg-white shadow">
+    <nav class="bg-white shadow-sm">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex justify-between h-16">
           <div class="flex">
             <div class="flex-shrink-0 flex items-center">
-              <router-link to="/" class="text-xl font-bold text-indigo-600">
-                Whiteboard
-              </router-link>
+              <router-link to="/" class="text-xl font-bold text-indigo-600">Whiteboard</router-link>
             </div>
-            <div class="hidden sm:ml-6 sm:flex sm:space-x-8">
-              <router-link 
-                to="/" 
-                class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
-                active-class="border-indigo-500 text-gray-900"
+            <div class="hidden sm:ml-6 sm:flex sm:space-x-4 items-center">
+              <!-- Navigation Dropdowns -->
+              <BoardDropdown 
+                v-if="authStore.isAuthenticated" 
+                type="subscription" 
+                :isOpen="activeDropdown === 'subscription'"
+                @toggle="setActiveDropdown('subscription')"
+              />
+              <BoardDropdown 
+                type="all" 
+                :isOpen="activeDropdown === 'all'"
+                @toggle="setActiveDropdown('all')"
+              />
+            </div>
+          </div>
+          <div class="flex items-center space-x-4">
+            <!-- Search Bar -->
+            <div class="relative">
+              <input 
+                type="text" 
+                v-model="searchQuery"
+                @keyup.enter="handleSearch"
+                placeholder="검색..." 
+                class="w-64 pl-10 pr-4 py-2 rounded-full border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
               >
-                Home
-              </router-link>
-              <!-- Add more nav items here -->
-            </div>
-          </div>
-          
-          <div class="flex-1 flex items-center justify-center px-2 lg:ml-6 lg:justify-end">
-            <div class="max-w-lg w-full lg:max-w-xs">
-              <GlobalSearchInput />
-            </div>
-          </div>
-
-          <div class="flex items-center ml-4">
-            <div v-if="authStore.isAuthenticated" class="flex items-center space-x-4">
-              <!-- Notification Bell -->
-              <div class="relative">
-                <button 
-                  @click="toggleNotification"
-                  class="bg-white p-1 rounded-full text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                >
-                  <span class="sr-only">View notifications</span>
-                  <Bell class="h-6 w-6" />
-                  <span v-if="notificationStore.unreadCount > 0" class="absolute top-0 right-0 block h-2 w-2 rounded-full bg-red-400 ring-2 ring-white"></span>
-                </button>
-
-                <!-- Dropdown -->
-                <div v-if="isNotificationOpen" class="absolute right-0 mt-2 w-80 z-50">
-                  <NotificationDropdown />
-                </div>
+              <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Search class="h-4 w-4 text-gray-400" />
               </div>
+            </div>
 
-              <router-link 
-                to="/mypage" 
-                class="flex items-center text-sm text-gray-700 hover:text-indigo-600"
-              >
-                <User class="h-4 w-4 mr-1" />
-                {{ authStore.user?.displayName || authStore.user?.loginId }}
-              </router-link>
+            <!-- Notification Dropdown -->
+            <div v-if="authStore.isAuthenticated" class="relative">
               <button 
-                @click="handleLogout"
-                class="p-2 rounded-full text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                title="Logout"
+                @click.stop="toggleNotification"
+                class="bg-white p-1 rounded-full text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
               >
-                <LogOut class="h-5 w-5" />
+                <span class="sr-only">View notifications</span>
+                <Bell class="h-6 w-6" />
+                <span v-if="notificationStore.unreadCount > 0" class="absolute top-0 right-0 block h-2 w-2 rounded-full bg-red-400 ring-2 ring-white"></span>
               </button>
+
+              <div v-if="isNotificationOpen" class="absolute right-0 mt-2 w-80 z-50">
+                <NotificationDropdown />
+              </div>
+            </div>
+
+            <!-- User Menu -->
+            <div v-if="authStore.isAuthenticated" class="flex items-center space-x-4">
+              <UserDropdown 
+                :isOpen="activeDropdown === 'user'"
+                @toggle="setActiveDropdown('user')"
+              />
             </div>
             <div v-else class="flex items-center space-x-4">
-              <router-link 
-                to="/login"
-                class="text-gray-500 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
-              >
-                Login
-              </router-link>
-              <router-link 
-                to="/signup"
-                class="bg-indigo-600 text-white hover:bg-indigo-700 px-3 py-2 rounded-md text-sm font-medium"
-              >
-                Sign up
-              </router-link>
+              <router-link to="/login" class="text-gray-500 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">로그인</router-link>
+              <router-link to="/signup" class="bg-indigo-600 text-white hover:bg-indigo-700 px-4 py-2 rounded-md text-sm font-medium">회원가입</router-link>
             </div>
           </div>
         </div>
       </div>
-    </header>
+    </nav>
 
     <main>
       <div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        <slot />
+        <router-view></router-view>
       </div>
     </main>
   </div>

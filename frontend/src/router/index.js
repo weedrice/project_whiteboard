@@ -33,15 +33,45 @@ const router = createRouter({
             meta: { requiresAuth: true }
         },
         {
+            path: '/mypage/settings',
+            name: 'user-settings',
+            component: () => import('@/views/user/UserSettings.vue'),
+            meta: { requiresAuth: true }
+        },
+        {
+            path: '/mypage/points',
+            name: 'point-history',
+            component: () => import('@/views/user/PointHistory.vue'),
+            meta: { requiresAuth: true }
+        },
+        {
+            path: '/mypage/scraps',
+            name: 'scrap-list',
+            component: () => import('@/views/user/ScrapList.vue'),
+            meta: { requiresAuth: true }
+        },
+        {
+            path: '/mypage/reports',
+            name: 'my-reports',
+            component: () => import('@/views/user/MyReports.vue'),
+            meta: { requiresAuth: true }
+        },
+        {
+            path: '/search/recent',
+            name: 'recent-viewed',
+            component: () => import('@/views/search/RecentViewed.vue'),
+            meta: { requiresAuth: true }
+        },
+        {
             path: '/board/create',
             name: 'board-create',
             component: () => import('@/views/board/BoardCreate.vue'),
             meta: { requiresAuth: true }
         },
         {
-            path: '/board/:boardId',
-            name: 'board-detail',
-            component: () => import('@/views/board/BoardDetail.vue')
+            path: '/boards',
+            name: 'all-boards',
+            component: () => import('@/views/board/AllBoardsPage.vue')
         },
         {
             path: '/board/:boardId/edit',
@@ -56,9 +86,16 @@ const router = createRouter({
             meta: { requiresAuth: true }
         },
         {
-            path: '/board/:boardId/post/:postId',
-            name: 'post-detail',
-            component: () => import('@/views/board/PostDetail.vue')
+            path: '/board/:boardId',
+            name: 'board-detail',
+            component: () => import('@/views/board/BoardDetail.vue'),
+            children: [
+                {
+                    path: 'post/:postId',
+                    name: 'post-detail',
+                    component: () => import('@/views/board/PostDetail.vue')
+                }
+            ]
         },
         {
             path: '/board/:boardId/post/:postId/edit',
@@ -97,6 +134,12 @@ const router = createRouter({
                     component: () => import('@/views/admin/SettingsPage.vue')
                 }
             ]
+        },
+        {
+            path: '/error',
+            name: 'error',
+            component: () => import('@/views/ErrorPage.vue'),
+            props: route => ({ title: route.query.title, message: route.query.message })
         }
     ],
 })

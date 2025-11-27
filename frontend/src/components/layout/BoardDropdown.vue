@@ -1,0 +1,132 @@
+<script setup>
+import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { useRouter } from 'vue-router'
+import { ChevronDown, List, Star } from 'lucide-vue-next'
+import axios from '@/api'
+import { useAuthStore } from '@/stores/auth'
+
+const props = defineProps({
+  type: {
+    type: String,
+    required: true,
+    validator: (value) => ['subscription', 'all'].includes(value)
+  },
+  isOpen: {
+    type: Boolean,
+    default: false
+  }
+})
+
+const emit = defineEmits(['toggle'])
+
+const router = useRouter()
+const authStore = useAuthStore()
+const dropdownRef = ref(null)
+const items = ref([])
+const loading = ref(false)
+
+const toggleDropdown = () => {
+  emit('toggle')
+}
+
+// Watch isOpen to fetch items when opened
+watch(() => props.isOpen, (newVal) => {
+  if (newVal && items.value.length === 0) {
+    fetchItems()
+  }
+})
+
+const fetchItems = async () => {
+  loading.value = true
+  try {
+    let response
+    if (props.type === 'subscription') {
+      response = await axios.get('/users/me/subscriptions', { params: { size: 10 } })
+    } else {
+      response = await axios.get('/boards/top')
+    }
+
+    if (response.data.success) {
+      if (props.type === 'subscription') {
+        items.value = response.data.data.content
+      } else {
+        items.value = response.data.data
+      }
+    }
+  } catch (error) {
+    console.error('Failed to fetch boards:', error)
+  } finally {
+    loading.value = false
+  }
+}
+
+const handleMoreClick = () => {
+  emit('toggle') // Close dropdown
+  router.push('/boards')
+}
+
+// Re-fetch subscriptions if user logs in/out and dropdown is open
+watch(() => authStore.isAuthenticated, (newVal) => {
+  if (newVal && props.type === 'subscription' && props.isOpen) {
+    fetchItems()
+  }
+})
+
+// Re-fetch subscriptions if user logs in/out and dropdown is open (though usually it closes or unmounts)
+watch(() => authStore.isAuthenticated, (newVal) => {
+  if (newVal && props.type === 'subscription' && isOpen.value) {
+    fetchItems()
+  }
+})
+</script>
+
+<template>
+  <div class="relative" ref="dropdownRef">
+    <button
+      @click.stop="toggleDropdown"
+      class="flex items-center space-x-1 text-gray-500 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium focus:outline-none"
+    >
+      <span v-if="type === 'subscription'">구독 게시판</span>
+      <span v-else>전체 게시판</span>
+      <ChevronDown class="h-4 w-4" />
+    </button>
+
+    <div
+      v-if="isOpen"
+      class="origin-top-left absolute left-0 mt-2 w-64 rounded-md shadow-lg py-1 bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-50"
+    >
+      <div v-if="loading" class="px-4 py-3 text-center">
+        <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-indigo-600 mx-auto"></div>
+      </div>
+
+      <div v-else-if="items.length > 0">
+        <div class="max-h-96 overflow-y-auto">
+          <router-link
+            v-for="board in items"
+            :key="board.boardId"
+            :to="`/board/${board.boardId}`"
+            class="group flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+            @click="emit('toggle')"
+          >
+            <span class="truncate">{{ board.boardName }}</span>
+          </router-link>
+        </div>
+        
+        <div v-if="type === 'all'" class="border-t border-gray-100 pt-1">
+          <button
+            @click="handleMoreClick"
+            class="w-full text-left group flex items-center px-4 py-2 text-sm text-indigo-600 hover:bg-indigo-50 font-medium"
+          >
+            <List class="mr-2 h-4 w-4" />
+            더보기
+          </button>
+        </div>
+      </div>
+
+      <div v-else class="px-4 py-3 text-sm text-gray-500 text-center">
+        <span v-if="type === 'subscription'">구독 중인 게시판이 없습니다.</span>
+        <span v-else>게시판이 없습니다.</span>
+      </div>
+    </div>
+  </div>
+</template>
