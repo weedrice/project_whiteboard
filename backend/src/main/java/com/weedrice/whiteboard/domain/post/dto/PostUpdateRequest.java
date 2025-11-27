@@ -1,5 +1,7 @@
 package com.weedrice.whiteboard.domain.post.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
@@ -23,6 +25,9 @@ public class PostUpdateRequest {
     private String contents;
 
     private List<String> tags;
+    @JsonProperty("isNsfw")
     private boolean isNsfw;
+
+    @JsonProperty("isSpoiler")
     private boolean isSpoiler;
 }

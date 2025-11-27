@@ -1,5 +1,7 @@
 package com.weedrice.whiteboard.domain.post.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.entity.ViewHistory;
 import lombok.Builder;
@@ -21,10 +23,21 @@ public class PostResponse {
     private int viewCount;
     private int likeCount;
     private int commentCount;
+    @JsonProperty("isNotice")
     private boolean isNotice;
+
+    @JsonProperty("isNsfw")
     private boolean isNsfw;
+
+    @JsonProperty("isSpoiler")
     private boolean isSpoiler;
-    private Long lastReadCommentId; // 마지막으로 읽은 댓글 ID
+
+    @JsonProperty("isLiked")
+    private boolean isLiked; // 현재 유저의 좋아요 여부
+
+    @JsonProperty("isScrapped")
+    private boolean isScrapped; // 현재 유저의 스크랩 여부
+    private Long lastReadCommentId;
     private LocalDateTime createdAt;
     private LocalDateTime modifiedAt;
 
@@ -50,7 +63,8 @@ public class PostResponse {
         private String name;
     }
 
-    public static PostResponse from(Post post, List<String> tags, ViewHistory viewHistory) {
+    public static PostResponse from(Post post, List<String> tags, ViewHistory viewHistory, boolean isLiked,
+            boolean isScrapped) {
         AuthorInfo authorInfo = AuthorInfo.builder()
                 .userId(post.getUser().getUserId())
                 .displayName(post.getUser().getDisplayName())
@@ -86,6 +100,8 @@ public class PostResponse {
                 .isNotice("Y".equals(post.getIsNotice()))
                 .isNsfw("Y".equals(post.getIsNsfw()))
                 .isSpoiler("Y".equals(post.getIsSpoiler()))
+                .isLiked(isLiked)
+                .isScrapped(isScrapped)
                 .lastReadCommentId(lastReadCommentId)
                 .createdAt(post.getCreatedAt())
                 .modifiedAt(post.getModifiedAt())

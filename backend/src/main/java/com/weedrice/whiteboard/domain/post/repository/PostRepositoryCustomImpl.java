@@ -3,7 +3,6 @@ package com.weedrice.whiteboard.domain.post.repository;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import com.weedrice.whiteboard.domain.post.entity.Post;
-import com.weedrice.whiteboard.domain.tag.entity.QPostTag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -23,17 +22,18 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
     private final JPAQueryFactory queryFactory;
 
     @Override
-    public Page<Post> findByBoardIdAndCategoryId(Long boardId, Long categoryId, Pageable pageable) {
+    public Page<Post> findByBoardIdAndCategoryId(Long boardId, Long categoryId, Integer minLikes, Pageable pageable) {
         List<Post> content = queryFactory
                 .selectFrom(post)
                 .where(
                         post.board.boardId.eq(boardId),
                         categoryIdEq(categoryId),
+                        minLikesGoe(minLikes),
                         post.isDeleted.eq("N")
                 )
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize())
-                .orderBy(post.createdAt.desc()) // Default sort
+                .orderBy(post.createdAt.desc())
                 .fetch();
 
         Long total = queryFactory
@@ -42,6 +42,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                 .where(
                         post.board.boardId.eq(boardId),
                         categoryIdEq(categoryId),
+                        minLikesGoe(minLikes),
                         post.isDeleted.eq("N")
                 )
                 .fetchOne();
@@ -106,5 +107,9 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
 
     private BooleanExpression categoryIdEq(Long categoryId) {
         return categoryId != null ? post.category.categoryId.eq(categoryId) : null;
+    }
+
+    private BooleanExpression minLikesGoe(Integer minLikes) {
+        return minLikes != null ? post.likeCount.goe(minLikes) : null;
     }
 }

@@ -1,5 +1,7 @@
 package com.weedrice.whiteboard.domain.post.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
@@ -23,6 +25,12 @@ public class PostCreateRequest {
     private String contents;
 
     private List<String> tags;
+    @JsonProperty("isNotice")
+    private boolean isNotice = false;
+
+    @JsonProperty("isNsfw")
     private boolean isNsfw = false;
+
+    @JsonProperty("isSpoiler")
     private boolean isSpoiler = false;
 }

@@ -11,7 +11,6 @@ import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
@@ -19,6 +18,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1")
@@ -49,22 +49,18 @@ public class PostController {
         return ApiResponse.success(new PageResponse<>(posts.map(PostSummary::from)));
     }
 
-    @GetMapping("/boards/{boardId}/notices")
-    public ApiResponse<List<PostSummary>> getNotices(@PathVariable Long boardId) {
-        List<Post> notices = postService.getNotices(boardId);
-        return ApiResponse.success(notices.stream().map(PostSummary::from).toList());
-    }
-
     @GetMapping("/posts/{postId}")
-    public ApiResponse<PostResponse> getPost(@PathVariable Long postId, Authentication authentication) {
-        Long userId = null;
-        if (authentication != null && authentication.getPrincipal() instanceof CustomUserDetails) {
-            userId = ((CustomUserDetails) authentication.getPrincipal()).getUserId();
-        }
+    public ApiResponse<PostResponse> getPost(@PathVariable Long postId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        Long userId = (userDetails != null) ? userDetails.getUserId() : null;
+
         Post post = postService.getPostById(postId, userId);
         List<String> tags = postService.getTagsForPost(postId);
-        ViewHistory viewHistory = postService.getViewHistory(userId, postId);
-        return ApiResponse.success(PostResponse.from(post, tags, viewHistory));
+        boolean isLiked = postService.isPostLikedByUser(postId, userId); // isLiked 값을 올바르게 가져옴
+        boolean isScrapped = postService.isPostScrappedByUser(postId, userId);
+        ViewHistory viewHistory = postService.getViewHistory(userId, postId); // ViewHistory를 올바르게 가져옴
+
+        return ApiResponse.success(PostResponse.from(post, tags, viewHistory, isLiked, isScrapped));
     }
 
     @PostMapping("/boards/{boardId}/posts")
@@ -136,10 +132,8 @@ public class PostController {
 
     @GetMapping("/users/me/drafts")
     public ApiResponse<DraftListResponse> getMyDrafts(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size,
+            Pageable pageable,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        Pageable pageable = PageRequest.of(page, size);
         return ApiResponse
                 .success(DraftListResponse.from(postService.getDraftPosts(userDetails.getUserId(), pageable)));
     }
