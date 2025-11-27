@@ -1,5 +1,3 @@
-package com.weedrice.whiteboard.domain.board.service;
-
 import com.weedrice.whiteboard.domain.admin.entity.Admin;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.board.dto.*;
@@ -19,13 +17,15 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
+import com.weedrice.whiteboard.domain.post.service.PostService;
+import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 
 @Service
 @RequiredArgsConstructor
@@ -37,6 +37,7 @@ public class BoardService {
     private final BoardSubscriptionRepository boardSubscriptionRepository;
     private final UserRepository userRepository;
     private final AdminRepository adminRepository;
+    private final PostService postService; // PostService 주입
 
     public List<BoardResponse> getActiveBoards(UserDetails userDetails) {
         List<Board> boards = boardRepository.findByIsActiveOrderBySortOrderAsc("Y");
@@ -52,8 +53,8 @@ public class BoardService {
                 .collect(Collectors.toList());
     }
 
-    public BoardResponse getBoardDetails(Long boardId, UserDetails userDetails) {
-        Board board = boardRepository.findById(boardId)
+    public BoardResponse getBoardDetails(String boardUrl, UserDetails userDetails) {
+        Board board = boardRepository.findByBoardUrl(boardUrl)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
         return createBoardResponse(board, userDetails);
     }
@@ -80,25 +81,30 @@ public class BoardService {
         }
 
         // 카테고리 목록을 가져와서 BoardResponse에 추가
-        List<CategoryResponse> categories = getActiveCategories(board.getBoardId()).stream()
+        List<CategoryResponse> categories = getActiveCategories(board.getBoardUrl()).stream()
                 .map(CategoryResponse::new)
                 .collect(Collectors.toList());
 
-        return new BoardResponse(board, subscriberCount, adminDisplayName, isAdmin, isSubscribed, categories);
+        // 최신 게시글 목록 가져오기
+        List<PostSummary> latestPosts = postService.getLatestPostsByBoard(board.getBoardId(), 15); // PostService는 여전히 boardId 사용
+
+        return new BoardResponse(board, subscriberCount, adminDisplayName, isAdmin, isSubscribed, categories, latestPosts);
     }
 
-    public List<BoardCategory> getActiveCategories(Long boardId) {
-        return boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(boardId, "Y");
+    public List<BoardCategory> getActiveCategories(String boardUrl) {
+        Board board = boardRepository.findByBoardUrl(boardUrl)
+                .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
+        return boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(board.getBoardId(), "Y");
     }
 
     @Transactional
-    public void subscribeBoard(Long userId, Long boardId) {
+    public void subscribeBoard(Long userId, String boardUrl) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        Board board = boardRepository.findById(boardId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+        Board board = boardRepository.findByBoardUrl(boardUrl)
+                .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
 
-        boardSubscriptionRepository.findById(new BoardSubscriptionId(userId, boardId))
+        boardSubscriptionRepository.findById(new BoardSubscriptionId(userId, board.getBoardId()))
                 .ifPresent(subscription -> {
                     throw new BusinessException(ErrorCode.ALREADY_SUBSCRIBED);
                 });
@@ -112,8 +118,13 @@ public class BoardService {
     }
 
     @Transactional
-    public void unsubscribeBoard(Long userId, Long boardId) {
-        BoardSubscription subscription = boardSubscriptionRepository.findById(new BoardSubscriptionId(userId, boardId))
+    public void unsubscribeBoard(Long userId, String boardUrl) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        Board board = boardRepository.findByBoardUrl(boardUrl)
+                .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
+        
+        BoardSubscription subscription = boardSubscriptionRepository.findById(new BoardSubscriptionId(userId, board.getBoardId()))
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_SUBSCRIBED));
         boardSubscriptionRepository.delete(subscription);
     }
@@ -121,8 +132,9 @@ public class BoardService {
     public Page<BoardResponse> getMySubscriptions(Long userId, Pageable pageable) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        Page<Board> boardPage = boardSubscriptionRepository.findByUser(user, pageable).map(BoardSubscription::getBoard);
-        return boardPage.map(board -> createBoardResponse(board, null));
+        Page<Board> boardPage = boardSubscriptionRepository.findByUser(user, pageable).map(board ->
+            createBoardResponse(board, null, Collections.emptyList(), Collections.emptyList()));
+        return boardPage;
     }
 
     @Transactional
@@ -133,9 +145,13 @@ public class BoardService {
         if (boardRepository.existsByBoardName(request.getBoardName())) {
             throw new BusinessException(ErrorCode.DUPLICATE_BOARD_NAME);
         }
+        if (boardRepository.existsByBoardUrl(request.getBoardUrl())) { // boardUrl 중복 체크
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "이미 사용 중인 게시판 URL 입니다.");
+        }
 
         Board board = Board.builder()
                 .boardName(request.getBoardName())
+                .boardUrl(request.getBoardUrl()) // boardUrl 추가
                 .description(request.getDescription())
                 .creator(creator)
                 .iconUrl(request.getIconUrl())
@@ -162,8 +178,8 @@ public class BoardService {
     }
 
     @Transactional
-    public Board updateBoard(Long boardId, BoardUpdateRequest request, UserDetails userDetails) {
-        Board board = boardRepository.findById(boardId)
+    public Board updateBoard(String boardUrl, BoardUpdateRequest request, UserDetails userDetails) {
+        Board board = boardRepository.findByBoardUrl(boardUrl)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
 
         SecurityUtils.validateBoardAdminPermission(board);
@@ -173,18 +189,18 @@ public class BoardService {
     }
 
     @Transactional
-    public void deleteBoard(Long boardId, UserDetails userDetails) {
-        Board board = boardRepository.findById(boardId)
+    public void deleteBoard(String boardUrl, UserDetails userDetails) {
+        Board board = boardRepository.findByBoardUrl(boardUrl)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
 
         SecurityUtils.validateBoardAdminPermission(board);
 
-        boardRepository.deleteById(boardId);
+        boardRepository.deleteById(board.getBoardId()); // ID로 삭제
     }
 
     @Transactional
-    public BoardCategory createCategory(Long boardId, CategoryRequest request) {
-        Board board = boardRepository.findById(boardId)
+    public BoardCategory createCategory(String boardUrl, CategoryRequest request) {
+        Board board = boardRepository.findByBoardUrl(boardUrl)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
         
         SecurityUtils.validateBoardAdminPermission(board);

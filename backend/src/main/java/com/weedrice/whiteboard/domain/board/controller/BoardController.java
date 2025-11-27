@@ -44,14 +44,14 @@ public class BoardController {
         return ApiResponse.success(boardService.getTopBoards(userDetails));
     }
 
-    @GetMapping("/{boardId}")
-    public ApiResponse<BoardResponse> getBoardDetails(@PathVariable Long boardId, @AuthenticationPrincipal UserDetails userDetails) {
-        return ApiResponse.success(boardService.getBoardDetails(boardId, userDetails));
+    @GetMapping("/{boardUrl}")
+    public ApiResponse<BoardResponse> getBoardDetails(@PathVariable String boardUrl, @AuthenticationPrincipal UserDetails userDetails) {
+        return ApiResponse.success(boardService.getBoardDetails(boardUrl, userDetails));
     }
 
-    @GetMapping("/{boardId}/notices")
-    public ApiResponse<List<PostSummary>> getNotices(@PathVariable Long boardId) {
-        List<Post> notices = postService.getNotices(boardId);
+    @GetMapping("/{boardUrl}/notices")
+    public ApiResponse<List<PostSummary>> getNotices(@PathVariable String boardUrl) {
+        List<Post> notices = postService.getNotices(boardUrl);
         List<PostSummary> response = notices.stream().map(PostSummary::from).collect(Collectors.toList());
         return ApiResponse.success(response);
     }
@@ -60,47 +60,47 @@ public class BoardController {
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<BoardResponse> createBoard(@Valid @RequestBody BoardCreateRequest request, @AuthenticationPrincipal CustomUserDetails userDetails) {
         Board board = boardService.createBoard(userDetails.getUserId(), request);
-        return ApiResponse.success(boardService.getBoardDetails(board.getBoardId(), userDetails));
+        return ApiResponse.success(boardService.getBoardDetails(board.getBoardUrl(), userDetails));
     }
 
-    @PutMapping("/{boardId}")
-    public ApiResponse<BoardResponse> updateBoard(@PathVariable Long boardId, @Valid @RequestBody BoardUpdateRequest request, @AuthenticationPrincipal UserDetails userDetails) {
-        boardService.updateBoard(boardId, request, userDetails);
-        return ApiResponse.success(boardService.getBoardDetails(boardId, userDetails));
+    @PutMapping("/{boardUrl}")
+    public ApiResponse<BoardResponse> updateBoard(@PathVariable String boardUrl, @Valid @RequestBody BoardUpdateRequest request, @AuthenticationPrincipal UserDetails userDetails) {
+        boardService.updateBoard(boardUrl, request, userDetails);
+        return ApiResponse.success(boardService.getBoardDetails(boardUrl, userDetails));
     }
 
-    @DeleteMapping("/{boardId}")
-    public ApiResponse<Void> deleteBoard(@PathVariable Long boardId, @AuthenticationPrincipal UserDetails userDetails) {
-        boardService.deleteBoard(boardId, userDetails);
+    @DeleteMapping("/{boardUrl}")
+    public ApiResponse<Void> deleteBoard(@PathVariable String boardUrl, @AuthenticationPrincipal UserDetails userDetails) {
+        boardService.deleteBoard(boardUrl, userDetails);
         return ApiResponse.success(null);
     }
 
-    @GetMapping("/{boardId}/categories")
-    public ApiResponse<List<CategoryResponse>> getCategories(@PathVariable Long boardId) {
-        List<BoardCategory> categories = boardService.getActiveCategories(boardId);
+    @GetMapping("/{boardUrl}/categories")
+    public ApiResponse<List<CategoryResponse>> getCategories(@PathVariable String boardUrl) {
+        List<BoardCategory> categories = boardService.getActiveCategories(boardUrl);
         List<CategoryResponse> response = categories.stream()
                 .map(CategoryResponse::new)
                 .collect(Collectors.toList());
         return ApiResponse.success(response);
     }
 
-    @PostMapping("/{boardId}/subscribe")
+    @PostMapping("/{boardUrl}/subscribe")
     @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse<Void> subscribeBoard(@PathVariable Long boardId, @AuthenticationPrincipal CustomUserDetails userDetails) {
-        boardService.subscribeBoard(userDetails.getUserId(), boardId);
+    public ApiResponse<Void> subscribeBoard(@PathVariable String boardUrl, @AuthenticationPrincipal CustomUserDetails userDetails) {
+        boardService.subscribeBoard(userDetails.getUserId(), boardUrl);
         return ApiResponse.success(null);
     }
 
-    @DeleteMapping("/{boardId}/subscribe")
-    public ApiResponse<Void> unsubscribeBoard(@PathVariable Long boardId, @AuthenticationPrincipal CustomUserDetails userDetails) {
-        boardService.unsubscribeBoard(userDetails.getUserId(), boardId);
+    @DeleteMapping("/{boardUrl}/subscribe")
+    public ApiResponse<Void> unsubscribeBoard(@PathVariable String boardUrl, @AuthenticationPrincipal CustomUserDetails userDetails) {
+        boardService.unsubscribeBoard(userDetails.getUserId(), boardUrl);
         return ApiResponse.success(null);
     }
 
-    @PostMapping("/{boardId}/categories")
+    @PostMapping("/{boardUrl}/categories")
     @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse<CategoryResponse> createCategory(@PathVariable Long boardId, @Valid @RequestBody CategoryRequest request) {
-        BoardCategory category = boardService.createCategory(boardId, request);
+    public ApiResponse<CategoryResponse> createCategory(@PathVariable String boardUrl, @Valid @RequestBody CategoryRequest request) {
+        BoardCategory category = boardService.createCategory(boardUrl, request);
         return ApiResponse.success(new CategoryResponse(category));
     }
 

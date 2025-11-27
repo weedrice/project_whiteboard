@@ -16,6 +16,10 @@ public class BoardCreateRequest {
     @Size(max = 100)
     private String boardName;
 
+    @NotBlank
+    @Size(max = 100)
+    private String boardUrl;
+
     @Size(max = 255)
     private String description;
 
