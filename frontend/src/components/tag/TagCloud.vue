@@ -44,7 +44,7 @@ const mockTags = [
 const fetchTags = async () => {
   loading.value = true
   try {
-    // const { data } = await axios.get('/api/tags')
+    // const { data } = await axios.get('/tags')
     // if (data.success) {
     //   tags.value = data.data
     // }

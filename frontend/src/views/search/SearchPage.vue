@@ -72,11 +72,14 @@ const fetchPosts = async () => {
   
   loading.value = true
   try {
-    // const params = {}
-    // if (tag) params.tag = tag
-    // if (keyword) params.keyword = keyword
+    const params = {
+      q: keyword || tag || '', // 'q' is required by backend
+      type: tag ? 'TAG' : 'ALL', // Example mapping, backend expects 'type'
+      page: 0,
+      size: 20
+    }
     
-    // const { data } = await axios.get('/api/posts', { params })
+    // const { data } = await axios.get('/search', { params })
     // if (data.success) {
     //   posts.value = data.data.content
     // }

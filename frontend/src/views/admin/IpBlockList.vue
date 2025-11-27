@@ -53,7 +53,7 @@ const mockIps = [
 const fetchBlockedIps = async () => {
   loading.value = true
   try {
-    // const { data } = await axios.get('/api/admin/ip-blocks')
+    // const { data } = await axios.get('/admin/ip-blocks')
     // if (data.success) {
     //   blockedIps.value = data.data
     // }
@@ -72,7 +72,7 @@ const blockIp = async () => {
   
   loading.value = true
   try {
-    // await axios.post('/api/admin/ip-blocks', { address: newIp.value })
+    // await axios.post('/admin/ip-blocks', { address: newIp.value })
     
     // Mock add
     blockedIps.value.push({
@@ -94,7 +94,7 @@ const unblockIp = async (id) => {
 
   loading.value = true
   try {
-    // await axios.delete(`/api/admin/ip-blocks/${id}`)
+    // await axios.delete(`/admin/ip-blocks/${id}`)
     
     // Mock remove
     blockedIps.value = blockedIps.value.filter(ip => ip.id !== id)

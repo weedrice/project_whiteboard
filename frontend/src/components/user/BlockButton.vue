@@ -36,10 +36,10 @@ const toggleBlock = async () => {
   loading.value = true
   try {
     if (isBlocked.value) {
-      await axios.delete(`/api/users/blocks/${props.userId}`)
+      await axios.delete(`/users/${props.userId}/block`)
       isBlocked.value = false
     } else {
-      await axios.post(`/api/users/blocks/${props.userId}`)
+      await axios.post(`/users/${props.userId}/block`)
       isBlocked.value = true
     }
     emit('block-change', isBlocked.value)

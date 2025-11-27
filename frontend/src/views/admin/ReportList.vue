@@ -88,7 +88,7 @@ const mockReports = [
 const fetchReports = async () => {
   loading.value = true
   try {
-    // const { data } = await axios.get('/api/admin/reports')
+    // const { data } = await axios.get('/admin/reports')
     // if (data.success) {
     //   reports.value = data.data
     // }

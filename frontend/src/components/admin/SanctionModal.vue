@@ -78,7 +78,7 @@ const submitSanction = async () => {
 
   loading.value = true
   try {
-    // const { data } = await axios.post('/api/admin/sanctions', {
+    // const { data } = await axios.post('/admin/sanctions', {
     //   userId: props.user.userId,
     //   ...form
     // })

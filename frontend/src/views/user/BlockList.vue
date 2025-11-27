@@ -44,7 +44,7 @@ const loading = ref(false)
 const fetchBlockedUsers = async () => {
   loading.value = true
   try {
-    const { data } = await axios.get('/api/users/blocks')
+    const { data } = await axios.get('/users/me/blocks')
     if (data.success) {
       blockedUsers.value = data.data
     }

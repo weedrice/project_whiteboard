@@ -44,7 +44,7 @@ const mockKeywords = [
 const fetchPopularKeywords = async () => {
   loading.value = true
   try {
-    // const { data } = await axios.get('/api/search/popular')
+    // const { data } = await axios.get('/search/popular')
     // if (data.success) {
     //   keywords.value = data.data
     // }

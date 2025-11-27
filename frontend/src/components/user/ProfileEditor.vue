@@ -38,7 +38,7 @@ const updateProfile = async () => {
   errors.nickname = ''
   
   try {
-    const { data } = await axios.put('/api/users/me', {
+    const { data } = await axios.put('/users/me', {
       nickname: form.nickname
     })
     
