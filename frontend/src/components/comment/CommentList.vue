@@ -9,6 +9,10 @@ const props = defineProps({
   postId: {
     type: [Number, String],
     required: true
+  },
+  boardUrl: { // 추가: boardUrl
+    type: String,
+    required: true
   }
 })
 
@@ -150,7 +154,10 @@ watch(() => props.postId, fetchComments)
 
     <!-- New Comment Form -->
     <div v-if="authStore.isAuthenticated" class="mt-8 mb-8">
-      <CommentForm :postId="postId" @success="fetchComments" />
+      <CommentForm 
+        :postId="postId" 
+        @success="fetchComments" 
+      />
     </div>
     <div v-else class="mt-8 mb-8 text-sm text-gray-500">
       <router-link to="/login" class="text-indigo-600 hover:text-indigo-500">로그인</router-link> 후 댓글을 작성할 수 있습니다.
