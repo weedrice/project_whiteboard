@@ -34,7 +34,7 @@ public class FileStorageService {
 
             return fileName; // 저장된 파일명 반환
         } catch (IOException ex) {
-            throw new BusinessException(ErrorCode.INTERNAL_ERROR, "파일 저장에 실패했습니다: " + ex.getMessage());
+            throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR, "파일 저장에 실패했습니다: " + ex.getMessage());
         }
     }
 
