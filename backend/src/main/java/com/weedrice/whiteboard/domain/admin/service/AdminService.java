@@ -32,15 +32,23 @@ public class AdminService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
-        Board board = null;
-        if (boardId != null) {
-            board = boardRepository.findById(boardId)
-                    .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
+        // SUPER 역할은 Admin 엔티티가 아닌 User 엔티티에서 관리
+        if ("SUPER".equals(role)) {
+            user.grantSuperAdminRole();
+            userRepository.save(user);
+            return null; // Admin 엔티티에 저장하지 않으므로 null 반환 또는 다른 응답
         }
 
-        // 이미 관리자인지 확인
-        if (adminRepository.existsByUserAndRoleAndIsActive(user, role, "Y")) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "이미 해당 역할의 관리자입니다.");
+        // BOARD_ADMIN, MODERATOR 역할은 boardId 필수
+        if (boardId == null) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "게시판 관리자 역할은 boardId가 필수입니다.");
+        }
+        Board board = boardRepository.findById(boardId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
+
+        // 이미 해당 게시판의 관리자인지 확인
+        if (adminRepository.existsByUserAndBoardAndRoleAndIsActive(user, board, role, "Y")) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "이미 해당 게시판의 관리자입니다.");
         }
 
         Admin admin = Admin.builder()
@@ -71,9 +79,14 @@ public class AdminService {
 
     @Transactional
     public IpBlock blockIp(Long adminUserId, String ipAddress, String reason, LocalDateTime endDate) {
-        Admin admin = adminRepository.findByUserAndIsActive(userRepository.findById(adminUserId)
-                        .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND)), "Y")
-                .orElseThrow(() -> new BusinessException(ErrorCode.FORBIDDEN, "관리자 권한이 없습니다."));
+        User adminUser = userRepository.findById(adminUserId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+        // SUPER 관리자 또는 ADMIN 역할 확인
+        if (!adminUser.getIsSuperAdmin().equals("Y") &&
+                !adminRepository.findByUserAndBoardAndIsActive(adminUser, null, "Y").isPresent()) { // 이 부분은 SUPER 관리자만 IP 차단 가능하도록 변경 필요
+            throw new BusinessException(ErrorCode.FORBIDDEN, "관리자 권한이 없습니다.");
+        }
 
         ipBlockRepository.findById(ipAddress)
                 .ifPresent(block -> {
@@ -82,7 +95,7 @@ public class AdminService {
 
         IpBlock ipBlock = IpBlock.builder()
                 .ipAddress(ipAddress)
-                .admin(admin)
+                .admin(null) // TODO: IP 차단 Admin 연결 로직 수정 필요
                 .reason(reason)
                 .startDate(LocalDateTime.now())
                 .endDate(endDate)

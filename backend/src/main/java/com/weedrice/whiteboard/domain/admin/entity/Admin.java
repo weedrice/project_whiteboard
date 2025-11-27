@@ -13,7 +13,9 @@ import jakarta.persistence.*;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Entity
-@Table(name = "admins")
+@Table(name = "admins", uniqueConstraints = {
+        @UniqueConstraint(name = "uk_admin_user_board", columnNames = {"user_id", "board_id"})
+})
 public class Admin extends BaseTimeEntity {
 
     @Id
@@ -26,11 +28,11 @@ public class Admin extends BaseTimeEntity {
     private User user;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "board_id")
-    private Board board; // NULL이면 전체 관리자
+    @JoinColumn(name = "board_id", nullable = false) // nullable = false로 변경
+    private Board board; // 이제 NULL일 수 없음
 
     @Column(name = "role", length = 50, nullable = false)
-    private String role; // SUPER, BOARD_ADMIN, MODERATOR
+    private String role; // BOARD_ADMIN, MODERATOR (SUPER 역할은 User 엔티티로 이동)
 
     @Column(name = "is_active", length = 1, nullable = false)
     private String isActive;
