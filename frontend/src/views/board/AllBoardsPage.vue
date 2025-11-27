@@ -36,8 +36,8 @@ onMounted(() => {
     <div v-else class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
       <router-link
         v-for="board in boards"
-        :key="board.boardId"
-        :to="`/board/${board.boardId}`"
+        :key="board.boardUrl"
+        :to="`/board/${board.boardUrl}`"
         class="bg-white overflow-hidden shadow rounded-lg hover:shadow-md transition-shadow duration-200 border border-gray-100"
       >
         <div class="p-6">
@@ -49,7 +49,7 @@ onMounted(() => {
               <h3 class="text-lg font-medium text-gray-900">{{ board.boardName }}</h3>
               <div class="flex items-center mt-1 text-sm text-gray-500">
                 <User class="flex-shrink-0 mr-1.5 h-4 w-4 text-gray-400" />
-                <span>{{ board.adminName || '관리자' }}</span>
+                <span>{{ board.adminDisplayName || '관리자' }}</span>
               </div>
             </div>
           </div>

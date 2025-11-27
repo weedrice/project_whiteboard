@@ -3,14 +3,17 @@ import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { boardApi } from '@/api/board'
 import CategoryManager from '@/components/board/CategoryManager.vue'
+import BaseInput from '@/components/common/BaseInput.vue' // BaseInput 추가
 
 const route = useRoute()
 const router = useRouter()
-const boardId = route.params.boardId
+const boardUrl = route.params.boardUrl // boardId 대신 boardUrl 사용
 
 const form = ref({
   boardName: '',
   description: '',
+  iconUrl: '', // 추가
+  sortOrder: 0, // 추가
   allowNsfw: false
 })
 
@@ -20,19 +23,21 @@ const isSubmitting = ref(false)
 async function fetchBoard() {
   isLoading.value = true
   try {
-    const { data } = await boardApi.getBoard(boardId)
+    const { data } = await boardApi.getBoard(boardUrl) // boardUrl 사용
     if (data.success) {
       const board = data.data
       form.value = {
         boardName: board.boardName,
         description: board.description,
-        allowNsfw: board.allowNsfw || false // Assuming API returns this
+        iconUrl: board.iconUrl || '', // 추가
+        sortOrder: board.sortOrder || 0, // 추가
+        allowNsfw: board.allowNsfw || false
       }
     }
   } catch (err) {
     console.error('Failed to load board:', err)
     alert('Failed to load board data.')
-    router.push(`/board/${boardId}`)
+    router.push(`/board/${boardUrl}`) // boardUrl 사용
   } finally {
     isLoading.value = false
   }
@@ -43,10 +48,10 @@ async function handleSubmit() {
 
   isSubmitting.value = true
   try {
-    const { data } = await boardApi.updateBoard(boardId, form.value)
+    const { data } = await boardApi.updateBoard(boardUrl, form.value) // boardUrl 사용
     if (data.success) {
       alert('게시판이 수정되었습니다.')
-      router.push(`/board/${boardId}`)
+      router.push(`/board/${data.data.boardUrl}`) // boardUrl 사용
     }
   } catch (err) {
     console.error('Failed to update board:', err)
@@ -60,7 +65,7 @@ async function handleDelete() {
   if (!confirm('정말 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) return
 
   try {
-    const { data } = await boardApi.deleteBoard(boardId)
+    const { data } = await boardApi.deleteBoard(boardUrl) // boardUrl 사용
     if (data.success) {
       alert('게시판이 삭제되었습니다.')
       router.push('/')
@@ -126,6 +131,20 @@ onMounted(fetchBoard)
               </div>
             </div>
 
+            <BaseInput
+              label="아이콘 URL"
+              v-model="form.iconUrl"
+              type="text"
+              placeholder="아이콘 이미지 URL"
+            />
+
+            <BaseInput
+              label="정렬 순서"
+              v-model.number="form.sortOrder"
+              type="number"
+              placeholder="정렬 순서 (숫자)"
+            />
+
             <div class="flex items-start">
               <div class="flex items-center h-5">
                 <input
@@ -155,7 +174,7 @@ onMounted(fetchBoard)
           <hr class="border-gray-200" />
 
           <!-- Category Manager -->
-          <CategoryManager :boardId="boardId" />
+          <CategoryManager :boardUrl="boardUrl" />
 
           <hr class="border-gray-200" />
 

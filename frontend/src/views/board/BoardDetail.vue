@@ -13,12 +13,13 @@ const authStore = useAuthStore()
 const board = ref(null)
 const posts = ref([])
 const notices = ref([])
+const categories = ref([]) // 추가: 카테고리 목록
 const isLoading = ref(true)
 const error = ref('')
 const searchQuery = ref('')
 const isSearching = ref(false)
 const showAllNotices = ref(false)
-const filterType = ref('all') // 'all' or 'concept'
+const filterType = ref('all') // 'all', 'concept', or category name
 
 const displayedNotices = computed(() => {
   if (showAllNotices.value) {
@@ -32,19 +33,21 @@ async function fetchBoardData() {
   error.value = ''
   try {
     const promises = [
-      boardApi.getBoard(route.params.boardId),
+      boardApi.getBoard(route.params.boardUrl),
       fetchPosts()
     ]
     
     // Fetch notices only if not searching
     if (!isSearching.value) {
-        promises.push(boardApi.getNotices(route.params.boardId))
+        promises.push(boardApi.getNotices(route.params.boardUrl))
     }
 
     const [boardRes, postsRes, noticesRes] = await Promise.all(promises)
 
     if (boardRes.data.success) {
       board.value = boardRes.data.data
+      // '일반' 카테고리를 제외하고 필터링에 사용할 카테고리 목록을 설정
+      categories.value = board.value.categories.filter(cat => cat.name !== '일반')
     }
     if (postsRes.data.success) {
       let fetchedPosts = postsRes.data.data.content
@@ -66,10 +69,18 @@ async function fetchBoardData() {
 
 async function fetchPosts() {
     if (isSearching.value) {
-        return searchApi.searchPosts({ q: searchQuery.value, boardId: route.params.boardId })
+        return searchApi.searchPosts({ q: searchQuery.value, boardUrl: route.params.boardUrl })
     } else {
-        const minLikes = filterType.value === 'concept' ? 5 : null
-        return boardApi.getPosts(route.params.boardId, { params: { minLikes } })
+        const params = {
+            minLikes: null,
+            category: null
+        }
+        if (filterType.value === 'concept') {
+            params.minLikes = 5
+        } else if (filterType.value !== 'all') { // 카테고리 필터링
+            params.category = filterType.value
+        }
+        return boardApi.getPosts(route.params.boardUrl, { params })
     }
 }
 
@@ -105,11 +116,11 @@ async function handleSubscribe() {
     if (!board.value) return
     try {
         if (board.value.isSubscribed) {
-            await boardApi.unsubscribeBoard(board.value.boardId)
+            await boardApi.unsubscribeBoard(board.value.boardUrl)
             board.value.isSubscribed = false
             board.value.subscriberCount--
         } else {
-            await boardApi.subscribeBoard(board.value.boardId)
+            await boardApi.subscribeBoard(board.value.boardUrl)
             board.value.isSubscribed = true
             board.value.subscriberCount++
         }
@@ -120,7 +131,7 @@ async function handleSubscribe() {
 }
 
 onMounted(fetchBoardData)
-watch(() => route.params.boardId, () => {
+watch(() => route.params.boardUrl, () => {
   searchQuery.value = ''
   isSearching.value = false
   filterType.value = 'all'
@@ -142,7 +153,7 @@ watch(() => route.params.boardId, () => {
       <!-- Board Header -->
       <div class="bg-white shadow rounded-lg mb-6 p-6">
         <div class="flex items-start">
-          <router-link :to="`/board/${board.boardId}`" class="flex-shrink-0 mr-6 cursor-pointer">
+          <router-link :to="`/board/${board.boardUrl}`" class="flex-shrink-0 mr-6 cursor-pointer">
               <img v-if="board.iconUrl" :src="board.iconUrl" class="h-20 w-20 rounded-full" alt="" />
               <div v-else class="h-20 w-20 rounded-full bg-indigo-100 flex items-center justify-center">
                 <span class="text-indigo-600 font-bold text-3xl">{{ board.boardName[0] }}</span>
@@ -150,7 +161,7 @@ watch(() => route.params.boardId, () => {
           </router-link>
           <div class="flex-1 h-20 flex flex-col justify-between">
             <div class="flex justify-between items-start">
-                <router-link :to="`/board/${board.boardId}`" class="hover:underline cursor-pointer">
+                <router-link :to="`/board/${board.boardUrl}`" class="hover:underline cursor-pointer">
                     <h1 class="text-2xl font-bold text-gray-900">{{ board.boardName }}</h1>
                 </router-link>
                 <div class="flex space-x-2">
@@ -164,7 +175,7 @@ watch(() => route.params.boardId, () => {
                     </button>
                     <router-link 
                         v-if="board.isAdmin" 
-                        :to="`/board/${board.boardId}/edit`"
+                        :to="`/board/${board.boardUrl}/edit`"
                         class="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 cursor-pointer"
                     >
                         <Settings class="-ml-1 mr-1 h-4 w-4" />
@@ -210,8 +221,17 @@ watch(() => route.params.boardId, () => {
             >
                 개념글
             </button>
+            <button
+                v-for="category in categories"
+                :key="category.categoryId"
+                @click="toggleFilter(category.name)"
+                class="px-3 py-1 text-sm font-medium rounded-md"
+                :class="filterType === category.name ? 'bg-indigo-100 text-indigo-700' : 'text-gray-500 hover:text-gray-700'"
+            >
+                {{ category.name }}
+            </button>
         </div>
-        <PostList :posts="posts" :boardId="board.boardId" />
+        <PostList :posts="posts" :boardUrl="board.boardUrl" />
       </div>
 
       <!-- Search Bar & Write Button -->
@@ -219,7 +239,7 @@ watch(() => route.params.boardId, () => {
         <div class="flex max-w-lg w-full">
             <div class="relative flex-grow">
                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Search class="h-5 w-5 text-gray-400" />
+                    <Search class="h-5 w-5" />
                 </div>
                 <input
                     type="text"
@@ -245,7 +265,7 @@ watch(() => route.params.boardId, () => {
         <div class="absolute right-6">
             <router-link 
                 v-if="authStore.isAuthenticated"
-                :to="`/board/${board.boardId}/write`"
+                :to="`/board/${board.boardUrl}/write`"
                 class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 whitespace-nowrap"
             >
                 <PlusCircle class="-ml-1 mr-2 h-5 w-5" />
