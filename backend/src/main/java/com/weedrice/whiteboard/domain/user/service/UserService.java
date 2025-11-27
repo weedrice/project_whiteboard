@@ -1,5 +1,7 @@
 package com.weedrice.whiteboard.domain.user.service;
 
+import com.weedrice.whiteboard.domain.comment.entity.Comment;
+import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.user.entity.DisplayNameHistory;
 import com.weedrice.whiteboard.domain.user.entity.PasswordHistory;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -9,6 +11,8 @@ import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,6 +26,7 @@ import java.util.List;
 public class UserService {
 
     private final UserRepository userRepository;
+    private final CommentRepository commentRepository;
     private final DisplayNameHistoryRepository displayNameHistoryRepository;
     private final PasswordHistoryRepository passwordHistoryRepository;
     private final PasswordEncoder passwordEncoder;
@@ -41,8 +46,8 @@ public class UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
-        long postCount = 0;
-        long commentCount = 0;
+        long postCount = 0; // TODO: postCount 계산 로직 추가
+        long commentCount = commentRepository.countByUser(user); // 댓글 수 계산
 
         return UserProfileDto.builder()
                 .userId(user.getUserId())
@@ -116,6 +121,12 @@ public class UserService {
         }
 
         user.delete();
+    }
+
+    public Page<Comment> getMyComments(Long userId, Pageable pageable) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        return commentRepository.findByUserOrderByCreatedAtDesc(user, pageable);
     }
 
     @lombok.Builder
