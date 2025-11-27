@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.global.common.service;
 
+import com.weedrice.whiteboard.global.common.util.SecurityUtils;
 import com.weedrice.whiteboard.global.common.entity.GlobalConfig;
 import com.weedrice.whiteboard.global.common.repository.GlobalConfigRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -27,6 +28,7 @@ public class GlobalConfigService {
     @Transactional
     @CacheEvict(value = "globalConfig", key = "#key")
     public GlobalConfig updateConfig(String key, String value) {
+        SecurityUtils.validateSuperAdminPermission();
         GlobalConfig config = globalConfigRepository.findById(key)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
         

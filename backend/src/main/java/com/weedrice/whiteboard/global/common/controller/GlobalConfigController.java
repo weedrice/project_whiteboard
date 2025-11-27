@@ -22,7 +22,6 @@ public class GlobalConfigController {
         return ApiResponse.success(Collections.singletonMap(key, value));
     }
 
-    @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/admin/configs/{key}")
     public ApiResponse<Void> updateConfig(@PathVariable String key, @RequestBody Map<String, String> request) {
         globalConfigService.updateConfig(key, request.get("value"));

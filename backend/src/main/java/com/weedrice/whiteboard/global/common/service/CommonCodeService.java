@@ -6,6 +6,7 @@ import com.weedrice.whiteboard.global.common.entity.CommonCode;
 import com.weedrice.whiteboard.global.common.entity.CommonCodeDetail;
 import com.weedrice.whiteboard.global.common.repository.CommonCodeDetailRepository;
 import com.weedrice.whiteboard.global.common.repository.CommonCodeRepository;
+import com.weedrice.whiteboard.global.common.util.SecurityUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +29,7 @@ public class CommonCodeService {
 
     @Transactional
     public CommonCode createCodeType(CodeTypeCreateRequest request) {
+        SecurityUtils.validateSuperAdminPermission();
         if (commonCodeRepository.existsById(request.getTypeCode())) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "이미 존재하는 코드 타입입니다.");
         }
@@ -37,6 +39,7 @@ public class CommonCodeService {
 
     @Transactional
     public CommonCodeDetail createCodeDetail(String typeCode, CodeDetailRequest request) {
+        SecurityUtils.validateSuperAdminPermission();
         CommonCode commonCode = commonCodeRepository.findById(typeCode)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "존재하지 않는 코드 타입입니다."));
 
@@ -52,6 +55,7 @@ public class CommonCodeService {
 
     @Transactional
     public CommonCodeDetail updateCodeDetail(Long detailId, CodeDetailRequest request) {
+        SecurityUtils.validateSuperAdminPermission();
         CommonCodeDetail detail = commonCodeDetailRepository.findById(detailId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "존재하지 않는 상세 코드입니다."));
         detail.update(request.getCodeValue(), request.getCodeName(), request.getSortOrder(), request.getIsActive());
@@ -60,6 +64,7 @@ public class CommonCodeService {
 
     @Transactional
     public void deleteCodeDetail(Long detailId) {
+        SecurityUtils.validateSuperAdminPermission();
         if (!commonCodeDetailRepository.existsById(detailId)) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "존재하지 않는 상세 코드입니다.");
         }

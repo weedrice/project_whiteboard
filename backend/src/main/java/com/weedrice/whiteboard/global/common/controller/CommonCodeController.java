@@ -31,7 +31,6 @@ public class CommonCodeController {
         return ApiResponse.success(response);
     }
 
-    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/admin/codes")
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<Void> createCodeType(@Valid @RequestBody CodeTypeCreateRequest request) {
@@ -39,7 +38,6 @@ public class CommonCodeController {
         return ApiResponse.success(null);
     }
 
-    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/admin/codes/{typeCode}")
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<Void> createCodeDetail(@PathVariable String typeCode, @Valid @RequestBody CodeDetailRequest request) {
@@ -47,14 +45,12 @@ public class CommonCodeController {
         return ApiResponse.success(null);
     }
 
-    @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/admin/codes/details/{detailId}")
     public ApiResponse<Void> updateCodeDetail(@PathVariable Long detailId, @Valid @RequestBody CodeDetailRequest request) {
         commonCodeService.updateCodeDetail(detailId, request);
         return ApiResponse.success(null);
     }
 
-    @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/admin/codes/details/{detailId}")
     public ApiResponse<Void> deleteCodeDetail(@PathVariable Long detailId) {
         commonCodeService.deleteCodeDetail(detailId);
