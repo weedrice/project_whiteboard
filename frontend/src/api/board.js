@@ -31,6 +31,12 @@ export const boardApi = {
     // Delete category
     deleteCategory: (boardId, categoryId) => api.delete(`/boards/categories/${categoryId}`),
 
+    // Get posts for a board
+    getPosts: (boardId, params) => api.get(`/boards/${boardId}/posts`, params),
+
+    // Get board notices
+    getNotices: (boardId) => api.get(`/boards/${boardId}/notices`),
+
     // Subscribe to board
     subscribeBoard: (boardId) => api.post(`/boards/${boardId}/subscribe`),
 

@@ -15,24 +15,6 @@
 #### [MODIFY] [build.gradle](file:///c:/Users/user/IdeaProjects/project_whiteboard/backend/build.gradle)
 - 의존성 추가:
     - `spring-boot-starter-data-jpa`
-    - `spring-boot-starter-security`
-    - `spring-boot-starter-validation`
-    - `org.postgresql:postgresql`
-    - `org.projectlombok:lombok`
-    - `io.jsonwebtoken:jjwt` (JWT용)
-
-#### [NEW] [application.yml](file:///c:/Users/user/IdeaProjects/project_whiteboard/backend/src/main/resources/application.yml)
-- DataSource 설정 (PostgreSQL)
-- JPA 설정 (Hibernate DDL auto, Dialect)
-- 로깅 설정
-
-#### [DELETE] [application.properties](file:///c:/Users/user/IdeaProjects/project_whiteboard/backend/src/main/resources/application.properties)
-- `application.yml`로 대체
-
-### 도메인 및 엔티티 (JPA)
-
-#### [NEW] `backend/src/main/java/com/weedrice/project_whiteboard/domain/common/BaseTimeEntity.java`
-- `created_at`, `modified_at` 감사를 위한 공통 엔티티
 
 #### [NEW] `backend/src/main/java/com/weedrice/project_whiteboard/domain/user/entity/User.java`
 - `users` 테이블 매핑
