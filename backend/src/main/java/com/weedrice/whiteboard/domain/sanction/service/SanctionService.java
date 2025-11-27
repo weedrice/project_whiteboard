@@ -6,6 +6,7 @@ import com.weedrice.whiteboard.domain.sanction.entity.Sanction;
 import com.weedrice.whiteboard.domain.sanction.repository.SanctionRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.global.common.util.SecurityUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -27,9 +28,12 @@ public class SanctionService {
 
     @Transactional
     public Sanction createSanction(Long adminUserId, Long targetUserId, String type, String remark, LocalDateTime endDate) {
-        Admin admin = adminRepository.findByUserAndIsActive(userRepository.findById(adminUserId)
-                        .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND)), "Y")
-                .orElseThrow(() -> new BusinessException(ErrorCode.FORBIDDEN, "관리자 권한이 없습니다."));
+        SecurityUtils.validateSuperAdminPermission();
+
+        User adminUser = userRepository.findById(adminUserId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+        Admin admin = adminRepository.findByUserAndIsActive(adminUser, "Y").orElse(null);
 
         User targetUser = userRepository.findById(targetUserId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
@@ -50,6 +54,8 @@ public class SanctionService {
     }
 
     public Page<Sanction> getSanctions(Long targetUserId, Pageable pageable) {
+        SecurityUtils.validateSuperAdminPermission();
+
         if (targetUserId != null) {
             User targetUser = userRepository.findById(targetUserId)
                     .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));

@@ -21,7 +21,6 @@ public class SanctionController {
 
     private final SanctionService sanctionService;
 
-    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<Long> createSanction(
@@ -37,7 +36,6 @@ public class SanctionController {
         ).getSanctionId());
     }
 
-    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping
     public ApiResponse<SanctionResponse> getSanctions(
             @RequestParam(required = false) Long userId,

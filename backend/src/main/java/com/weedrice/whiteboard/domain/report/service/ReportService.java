@@ -6,6 +6,7 @@ import com.weedrice.whiteboard.domain.report.entity.Report;
 import com.weedrice.whiteboard.domain.report.repository.ReportRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.global.common.util.SecurityUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -49,6 +50,8 @@ public class ReportService {
     }
 
     public Page<Report> getReports(String status, String targetType, Pageable pageable) {
+        SecurityUtils.validateSuperAdminPermission();
+
         if (status != null && !status.isEmpty() && targetType != null && !targetType.isEmpty()) {
             return reportRepository.findByTargetTypeAndStatusOrderByCreatedAtDesc(targetType, status, pageable);
         } else if (status != null && !status.isEmpty()) {
@@ -65,9 +68,13 @@ public class ReportService {
 
     @Transactional
     public Report processReport(Long adminUserId, Long reportId, String status, String remark) {
-        Admin admin = adminRepository.findByUserAndIsActive(userRepository.findById(adminUserId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND)), "Y")
-                .orElseThrow(() -> new BusinessException(ErrorCode.FORBIDDEN, "관리자 권한이 없습니다."));
+        SecurityUtils.validateSuperAdminPermission();
+
+        User adminUser = userRepository.findById(adminUserId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+        // Admin 테이블에 존재하면 가져오고, 없으면 null (슈퍼 관리자는 Admin 테이블에 없을 수 있음)
+        Admin admin = adminRepository.findByUserAndIsActive(adminUser, "Y").orElse(null);
 
         Report report = reportRepository.findById(reportId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));

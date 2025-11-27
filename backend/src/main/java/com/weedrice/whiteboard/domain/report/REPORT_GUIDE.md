@@ -26,8 +26,8 @@
 | Method | URI                               | 설명               | 권한          |
 | :----- | :-------------------------------- | :----------------- | :------------ |
 | `POST`   | `/api/v1/reports`                 | 신고 접수          | 인증된 사용자 |
-| `GET`    | `/api/v1/admin/reports`           | 신고 목록 조회     | `ADMIN`       |
-| `PUT`    | `/api/v1/admin/reports/{reportId}`| 신고 처리          | `ADMIN`       |
+| `GET`    | `/api/v1/admin/reports`           | 신고 목록 조회     | `SUPER`       |
+| `PUT`    | `/api/v1/admin/reports/{reportId}`| 신고 처리          | `SUPER`       |
 
 ## 3. 관련 DB 테이블
 

@@ -49,7 +49,6 @@ public class ReportController {
         return ApiResponse.success(ReportResponse.from(reportService.getMyReports(userId, pageable)));
     }
 
-    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/admin/reports")
     public ApiResponse<ReportResponse> getReports(
             @RequestParam(required = false) String status,
@@ -60,7 +59,6 @@ public class ReportController {
         return ApiResponse.success(ReportResponse.from(reportService.getReports(status, targetType, pageable)));
     }
 
-    @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/admin/reports/{reportId}")
     public ApiResponse<Long> processReport(
             @PathVariable Long reportId,
