@@ -5,6 +5,8 @@ import com.weedrice.whiteboard.domain.auth.entity.LoginHistory;
 import com.weedrice.whiteboard.domain.auth.entity.RefreshToken;
 import com.weedrice.whiteboard.domain.auth.repository.LoginHistoryRepository;
 import com.weedrice.whiteboard.domain.auth.repository.RefreshTokenRepository;
+import com.weedrice.whiteboard.domain.point.entity.UserPoint;
+import com.weedrice.whiteboard.domain.point.repository.UserPointRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.common.util.ClientUtils;
@@ -34,6 +36,7 @@ import java.util.List;
 public class AuthService {
 
     private final UserRepository userRepository;
+    private final UserPointRepository userPointRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final AuthenticationManagerBuilder authenticationManagerBuilder;
@@ -56,6 +59,9 @@ public class AuthService {
                 .displayName(request.getDisplayName())
                 .build();
         User savedUser = userRepository.save(user);
+
+        // 포인트 정보 생성
+        userPointRepository.save(UserPoint.builder().user(savedUser).build());
 
         return SignupResponse.builder()
                 .userId(savedUser.getUserId())

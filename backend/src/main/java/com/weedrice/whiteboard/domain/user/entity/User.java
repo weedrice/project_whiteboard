@@ -41,7 +41,7 @@ public class User extends BaseTimeEntity {
     @Column(name = "is_email_verified", nullable = false, length = 1)
     private String isEmailVerified; // Y, N
 
-    @Column(name = "is_super_admin", nullable = false, length = 1)
+    @Column(name = "is_super_admin", nullable = false, length = 1, columnDefinition = "varchar(1) default 'N'") // columnDefinition 추가
     private String isSuperAdmin; // Y, N
 
     @Column(name = "last_login_at")

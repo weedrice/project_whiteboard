@@ -13,4 +13,5 @@ public interface AdminRepository extends JpaRepository<Admin, Long> {
     List<Admin> findByIsActive(String isActive);
     boolean existsByUserAndBoardAndRoleAndIsActive(User user, Board board, String role, String isActive); // 특정 게시판 특정 역할 관리자 존재 여부
     Optional<Admin> findByBoardAndRole(Board board, String role);
+    Optional<Admin> findByUserAndIsActive(User user, String isActive);
 }
