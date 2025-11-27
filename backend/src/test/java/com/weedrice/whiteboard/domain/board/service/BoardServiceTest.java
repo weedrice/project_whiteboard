@@ -97,11 +97,14 @@ class BoardServiceTest {
         Long boardId = 1L;
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(boardRepository.findById(boardId)).thenReturn(Optional.of(board));
-        when(boardSubscriptionRepository.findById(any(BoardSubscriptionId.class))).thenReturn(Optional.of(mock(com.weedrice.whiteboard.domain.board.entity.BoardSubscription.class)));
+        when(boardSubscriptionRepository.findById(any(BoardSubscriptionId.class)))
+                .thenReturn(Optional.of(mock(com.weedrice.whiteboard.domain.board.entity.BoardSubscription.class)));
 
         // when & then
-        BusinessException exception = assertThrows(BusinessException.class, () -> boardService.subscribeBoard(userId, boardId));
-        assertThat(exception.getErrorCode()).isEqualTo(com.weedrice.whiteboard.global.exception.ErrorCode.ALREADY_SUBSCRIBED);
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> boardService.subscribeBoard(userId, boardId));
+        assertThat(exception.getErrorCode())
+                .isEqualTo(com.weedrice.whiteboard.global.exception.ErrorCode.ALREADY_SUBSCRIBED);
     }
 
     @Test
@@ -109,7 +112,7 @@ class BoardServiceTest {
     void createBoard_success() {
         // given
         Long creatorId = 1L;
-        BoardCreateRequest request = new BoardCreateRequest("New Board", "New Description", null, null, 1);
+        BoardCreateRequest request = new BoardCreateRequest("New Board", "New Description", null, null, 1, false);
         when(userRepository.findById(creatorId)).thenReturn(Optional.of(user));
         when(boardRepository.existsByBoardName(request.getBoardName())).thenReturn(false);
         when(boardRepository.save(any(Board.class))).thenReturn(board);

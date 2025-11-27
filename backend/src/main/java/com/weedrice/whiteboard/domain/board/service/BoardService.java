@@ -40,32 +40,48 @@ public class BoardService {
     private final UserRepository userRepository;
     private final AdminRepository adminRepository;
 
-    public List<BoardResponse> getActiveBoards() {
+    public List<BoardResponse> getActiveBoards(UserDetails userDetails) {
         List<Board> boards = boardRepository.findByIsActiveOrderBySortOrderAsc("Y");
         return boards.stream()
-                .map(this::createBoardResponse)
+                .map(board -> createBoardResponse(board, userDetails))
                 .collect(Collectors.toList());
     }
 
-    public List<BoardResponse> getTopBoards() {
+    public List<BoardResponse> getTopBoards(UserDetails userDetails) {
         List<Board> boards = boardRepository.findTopBoardsByPostCount(PageRequest.of(0, 15));
         return boards.stream()
-                .map(this::createBoardResponse)
+                .map(board -> createBoardResponse(board, userDetails))
                 .collect(Collectors.toList());
     }
 
-    public BoardResponse getBoardDetails(Long boardId) {
+    public BoardResponse getBoardDetails(Long boardId, UserDetails userDetails) {
         Board board = boardRepository.findById(boardId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
-        return createBoardResponse(board);
+        return createBoardResponse(board, userDetails);
     }
 
-    private BoardResponse createBoardResponse(Board board) {
+    private BoardResponse createBoardResponse(Board board, UserDetails userDetails) {
         long subscriberCount = boardSubscriptionRepository.countByBoard(board);
         String adminDisplayName = adminRepository.findByBoardAndRole(board, "BOARD_ADMIN")
                 .map(admin -> admin.getUser().getDisplayName())
                 .orElse(board.getCreator().getDisplayName());
-        return new BoardResponse(board, subscriberCount, adminDisplayName);
+
+        boolean isAdmin = false;
+        boolean isSubscribed = false;
+
+        if (userDetails != null) {
+            User currentUser = userRepository.findByLoginId(userDetails.getUsername())
+                    .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+            boolean isSuperAdmin = "Y".equals(currentUser.getIsSuperAdmin());
+            boolean isBoardAdmin = adminRepository.findByUserAndBoardAndIsActive(currentUser, board, "Y").isPresent();
+            boolean isCreator = board.getCreator().getUserId().equals(currentUser.getUserId());
+            
+            isAdmin = isSuperAdmin || isBoardAdmin || isCreator;
+            isSubscribed = boardSubscriptionRepository.existsByUserAndBoard(currentUser, board);
+        }
+
+        return new BoardResponse(board, subscriberCount, adminDisplayName, isAdmin, isSubscribed);
     }
 
     public List<BoardCategory> getActiveCategories(Long boardId) {
@@ -103,7 +119,7 @@ public class BoardService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         Page<Board> boardPage = boardSubscriptionRepository.findByUser(user, pageable).map(BoardSubscription::getBoard);
-        return boardPage.map(this::createBoardResponse);
+        return boardPage.map(board -> createBoardResponse(board, null));
     }
 
     @Transactional
@@ -148,8 +164,14 @@ public class BoardService {
         Board board = boardRepository.findById(boardId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
 
-        if (!board.getCreator().getLoginId().equals(userDetails.getUsername()) &&
-                !userDetails.getAuthorities().contains(new SimpleGrantedAuthority("ROLE_ADMIN"))) {
+        User currentUser = userRepository.findByLoginId(userDetails.getUsername())
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+        boolean isSuperAdmin = "Y".equals(currentUser.getIsSuperAdmin());
+        boolean isBoardAdmin = adminRepository.findByUserAndBoardAndIsActive(currentUser, board, "Y").isPresent();
+        boolean isCreator = board.getCreator().getUserId().equals(currentUser.getUserId());
+
+        if (!isSuperAdmin && !isBoardAdmin && !isCreator) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
 
@@ -162,8 +184,14 @@ public class BoardService {
         Board board = boardRepository.findById(boardId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
 
-        if (!board.getCreator().getLoginId().equals(userDetails.getUsername()) &&
-                !userDetails.getAuthorities().contains(new SimpleGrantedAuthority("ROLE_ADMIN"))) {
+        User currentUser = userRepository.findByLoginId(userDetails.getUsername())
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+        boolean isSuperAdmin = "Y".equals(currentUser.getIsSuperAdmin());
+        boolean isBoardAdmin = adminRepository.findByUserAndBoardAndIsActive(currentUser, board, "Y").isPresent();
+        boolean isCreator = board.getCreator().getUserId().equals(currentUser.getUserId());
+
+        if (!isSuperAdmin && !isBoardAdmin && !isCreator) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
 

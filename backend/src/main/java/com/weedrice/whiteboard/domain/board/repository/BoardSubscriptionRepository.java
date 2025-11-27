@@ -11,4 +11,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface BoardSubscriptionRepository extends JpaRepository<BoardSubscription, BoardSubscriptionId> {
     Page<BoardSubscription> findByUser(User user, Pageable pageable);
     long countByBoard(Board board);
+    boolean existsByUserAndBoard(User user, Board board);
 }

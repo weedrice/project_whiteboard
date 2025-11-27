@@ -8,12 +8,15 @@
 
 - **게시판 목록 조회 (`getActiveBoards`):**
   - 활성화(`is_active = 'Y'`)된 모든 게시판을 정렬 순서(`sort_order`)에 따라 조회합니다.
+  - **현재 로그인한 사용자의 경우, 각 게시판에 대한 관리자 여부(`isAdmin`)를 함께 반환합니다.**
 
 - **인기 게시판 조회 (`getTopBoards`):**
   - 게시글 수가 많은 순서대로 상위 15개의 게시판을 조회합니다.
+  - **현재 로그인한 사용자의 경우, 각 게시판에 대한 관리자 여부(`isAdmin`)를 함께 반환합니다.**
 
 - **게시판 상세 조회 (`getBoardDetails`):**
   - 특정 게시판의 상세 정보(구독자 수, 관리자 닉네임 포함)를 조회합니다.
+  - **현재 로그인한 사용자의 경우, 해당 게시판에 대한 관리자 여부(`isAdmin`)와 구독 여부(`isSubscribed`)를 함께 반환합니다.**
 
 - **게시판 생성 (`createBoard`):**
   - **인증된 모든 사용자**가 새로운 게시판을 생성할 수 있습니다.
@@ -46,6 +49,7 @@
 | `GET`    | `/api/v1/boards/{boardId}/categories`    | 카테고리 목록 조회       | 누구나              |
 | `POST`   | `/api/v1/boards/{boardId}/subscribe`     | 게시판 구독              | 인증된 사용자     |
 | `DELETE` | `/api/v1/boards/{boardId}/subscribe`     | 게시판 구독 해제         | 인증된 사용자     |
+| `GET`    | `/api/v1/users/me/subscriptions`         | 내 구독 게시판 목록 조회 | 인증된 사용자     |
 | `POST`   | `/api/v1/admin/boards/{boardId}/categories` | 카테고리 생성 (관리자)   | 관리자              |
 | `PUT`    | `/api/v1/admin/boards/categories/{categoryId}` | 카테고리 수정 (관리자)   | 관리자              |
 | `DELETE` | `/api/v1/admin/boards/categories/{categoryId}` | 카테고리 삭제 (관리자)   | 관리자              |
