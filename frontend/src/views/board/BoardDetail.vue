@@ -6,7 +6,6 @@ import { searchApi } from '@/api/search'
 import PostList from '@/components/board/PostList.vue'
 import { Search, X, PlusCircle, Settings, ChevronDown, ChevronUp, User } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
-import axios from '@/api'
 
 const route = useRoute()
 const authStore = useAuthStore()
@@ -39,7 +38,7 @@ async function fetchBoardData() {
     
     // Fetch notices only if not searching
     if (!isSearching.value) {
-        promises.push(axios.get(`/boards/${route.params.boardId}/notices`))
+        promises.push(boardApi.getNotices(route.params.boardId))
     }
 
     const [boardRes, postsRes, noticesRes] = await Promise.all(promises)
@@ -70,7 +69,7 @@ async function fetchPosts() {
         return searchApi.searchPosts({ q: searchQuery.value, boardId: route.params.boardId })
     } else {
         const minLikes = filterType.value === 'concept' ? 5 : null
-        return axios.get(`/boards/${route.params.boardId}/posts`, { params: { minLikes } })
+        return boardApi.getPosts(route.params.boardId, { params: { minLikes } })
     }
 }
 
