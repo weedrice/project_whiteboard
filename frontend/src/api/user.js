@@ -33,4 +33,7 @@ export const userApi = {
 
     // Update my profile
     updateMyProfile: (profileData) => api.put('/users/me', profileData),
+
+    // Get my comments
+    getMyComments: (params) => api.get('/users/me/comments', { params }),
 }

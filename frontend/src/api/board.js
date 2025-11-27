@@ -5,41 +5,38 @@ export const boardApi = {
     getBoards: () => api.get('/boards'),
 
     // Get board details
-    getBoard: (boardId) => api.get(`/boards/${boardId}`),
+    getBoard: (boardUrl) => api.get(`/boards/${boardUrl}`),
 
     // Create a new board
     createBoard: (data) => api.post('/boards', data),
 
     // Get posts in a board
-    getPosts: (boardId, params) => api.get(`/boards/${boardId}/posts`, { params }),
+    getPosts: (boardUrl, params) => api.get(`/boards/${boardUrl}/posts`, { params }),
 
     // Get board categories
-    getCategories: (boardId) => api.get(`/boards/${boardId}/categories`),
+    getCategories: (boardUrl) => api.get(`/boards/${boardUrl}/categories`),
 
     // Update board
-    updateBoard: (boardId, data) => api.put(`/boards/${boardId}`, data),
+    updateBoard: (boardUrl, data) => api.put(`/boards/${boardUrl}`, data),
 
     // Delete board
-    deleteBoard: (boardId) => api.delete(`/boards/${boardId}`),
+    deleteBoard: (boardUrl) => api.delete(`/boards/${boardUrl}`),
 
     // Create category
-    createCategory: (boardId, data) => api.post(`/boards/${boardId}/categories`, data),
+    createCategory: (boardUrl, data) => api.post(`/boards/${boardUrl}/categories`, data),
 
     // Update category
-    updateCategory: (boardId, categoryId, data) => api.put(`/boards/categories/${categoryId}`, data),
+    updateCategory: (boardUrl, categoryId, data) => api.put(`/boards/categories/${categoryId}`, data),
 
     // Delete category
-    deleteCategory: (boardId, categoryId) => api.delete(`/boards/categories/${categoryId}`),
-
-    // Get posts for a board
-    getPosts: (boardId, params) => api.get(`/boards/${boardId}/posts`, params),
+    deleteCategory: (boardUrl, categoryId) => api.delete(`/boards/categories/${categoryId}`),
 
     // Get board notices
-    getNotices: (boardId) => api.get(`/boards/${boardId}/notices`),
+    getNotices: (boardUrl) => api.get(`/boards/${boardUrl}/notices`),
 
     // Subscribe to board
-    subscribeBoard: (boardId) => api.post(`/boards/${boardId}/subscribe`),
+    subscribeBoard: (boardUrl) => api.post(`/boards/${boardUrl}/subscribe`),
 
     // Unsubscribe from board
-    unsubscribeBoard: (boardId) => api.delete(`/boards/${boardId}/subscribe`),
+    unsubscribeBoard: (boardUrl) => api.delete(`/boards/${boardUrl}/subscribe`),
 }
