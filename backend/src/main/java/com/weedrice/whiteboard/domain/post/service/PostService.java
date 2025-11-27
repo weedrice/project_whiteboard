@@ -44,8 +44,12 @@ public class PostService {
     private final ViewHistoryRepository viewHistoryRepository;
     private final ApplicationEventPublisher eventPublisher;
 
-    public Page<Post> getPosts(Long boardId, Long categoryId, Pageable pageable) {
-        return postRepository.findByBoardIdAndCategoryId(boardId, categoryId, pageable);
+    public Page<Post> getPosts(Long boardId, Long categoryId, Integer minLikes, Pageable pageable) {
+        return postRepository.findByBoardIdAndCategoryId(boardId, categoryId, minLikes, pageable);
+    }
+
+    public List<Post> getNotices(Long boardId) {
+        return postRepository.findByBoard_BoardIdAndIsNoticeAndIsDeletedOrderByCreatedAtDesc(boardId, "Y", "N");
     }
 
     public Page<Post> getPostsByTag(Long tagId, Pageable pageable) {
@@ -107,6 +111,7 @@ public class PostService {
                 .contents(request.getContents())
                 .isNsfw(request.isNsfw())
                 .isSpoiler(request.isSpoiler())
+                .isNotice(request.isNotice())
                 .build();
 
         Post savedPost = postRepository.save(post);
@@ -135,7 +140,8 @@ public class PostService {
 
         post.updatePost(category, request.getTitle(), request.getContents(), request.isNsfw(), request.isSpoiler());
         tagService.processTagsForPost(post, request.getTags());
-        User modifier = userRepository.findById(userId).orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        User modifier = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         savePostVersion(post, modifier, "MODIFY", originalTitle, originalContents);
 
         return post;
@@ -153,7 +159,8 @@ public class PostService {
         post.deletePost();
         postTagRepository.findByPost(post).forEach(postTag -> postTag.getTag().decrementPostCount());
         postTagRepository.deleteByPost(post);
-        User modifier = userRepository.findById(userId).orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        User modifier = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         savePostVersion(post, modifier, "DELETE", post.getTitle(), post.getContents());
     }
 
@@ -196,7 +203,7 @@ public class PostService {
     }
 
     @Transactional
-    public boolean togglePostScrap(Long userId, Long postId, String remark) {
+    public void scrapPost(Long userId, Long postId, String remark) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         Post post = postRepository.findById(postId)
@@ -204,17 +211,24 @@ public class PostService {
 
         ScrapId scrapId = new ScrapId(userId, postId);
         if (scrapRepository.existsById(scrapId)) {
-            scrapRepository.deleteById(scrapId);
-            return false;
-        } else {
-            Scrap scrap = Scrap.builder()
-                    .user(user)
-                    .post(post)
-                    .remark(remark)
-                    .build();
-            scrapRepository.save(scrap);
-            return true;
+            throw new BusinessException(ErrorCode.ALREADY_SCRAPED);
         }
+
+        Scrap scrap = Scrap.builder()
+                .user(user)
+                .post(post)
+                .remark(remark)
+                .build();
+        scrapRepository.save(scrap);
+    }
+
+    @Transactional
+    public void unscrapPost(Long userId, Long postId) {
+        ScrapId scrapId = new ScrapId(userId, postId);
+        if (!scrapRepository.existsById(scrapId)) {
+            throw new BusinessException(ErrorCode.NOT_SCRAPED);
+        }
+        scrapRepository.deleteById(scrapId);
     }
 
     public Page<Scrap> getMyScraps(Long userId, Pageable pageable) {
@@ -274,7 +288,8 @@ public class PostService {
         draftPostRepository.delete(draftPost);
     }
 
-    private void savePostVersion(Post post, User modifier, String versionType, String originalTitle, String originalContents) {
+    private void savePostVersion(Post post, User modifier, String versionType, String originalTitle,
+            String originalContents) {
         PostVersion postVersion = PostVersion.builder()
                 .post(post)
                 .modifier(modifier)

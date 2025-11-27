@@ -33,8 +33,8 @@ public class PostController {
             @PathVariable Long boardId,
             @RequestParam(required = false) Long categoryId,
             @RequestParam(required = false) String keyword,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) Integer minLikes,
+            Pageable pageable,
             Authentication authentication) {
 
         if (keyword != null && !keyword.trim().isEmpty()) {
@@ -45,9 +45,14 @@ public class PostController {
             searchService.recordSearch(userId, keyword);
         }
 
-        Pageable pageable = PageRequest.of(page, size);
-        Page<Post> posts = postService.getPosts(boardId, categoryId, pageable);
+        Page<Post> posts = postService.getPosts(boardId, categoryId, minLikes, pageable);
         return ApiResponse.success(new PageResponse<>(posts.map(PostSummary::from)));
+    }
+
+    @GetMapping("/boards/{boardId}/notices")
+    public ApiResponse<List<PostSummary>> getNotices(@PathVariable Long boardId) {
+        List<Post> notices = postService.getNotices(boardId);
+        return ApiResponse.success(notices.stream().map(PostSummary::from).toList());
     }
 
     @GetMapping("/posts/{postId}")
@@ -82,38 +87,50 @@ public class PostController {
     }
 
     @DeleteMapping("/posts/{postId}")
-    public ApiResponse<Void> deletePost(@PathVariable Long postId, @AuthenticationPrincipal CustomUserDetails userDetails) {
+    public ApiResponse<Void> deletePost(@PathVariable Long postId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
         postService.deletePost(userDetails.getUserId(), postId);
         return ApiResponse.success(null);
     }
 
     @PostMapping("/posts/{postId}/like")
     @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse<Integer> likePost(@PathVariable Long postId, @AuthenticationPrincipal CustomUserDetails userDetails) {
+    public ApiResponse<Integer> likePost(@PathVariable Long postId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
         postService.likePost(userDetails.getUserId(), postId);
         Post post = postService.getPostById(postId, null);
         return ApiResponse.success(post.getLikeCount());
     }
 
     @DeleteMapping("/posts/{postId}/like")
-    public ApiResponse<Integer> unlikePost(@PathVariable Long postId, @AuthenticationPrincipal CustomUserDetails userDetails) {
+    public ApiResponse<Integer> unlikePost(@PathVariable Long postId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
         postService.unlikePost(userDetails.getUserId(), postId);
         Post post = postService.getPostById(postId, null);
         return ApiResponse.success(post.getLikeCount());
     }
 
     @PostMapping("/posts/{postId}/scrap")
-    public ApiResponse<Void> togglePostScrap(
+    @ResponseStatus(HttpStatus.CREATED)
+    public ApiResponse<Void> scrapPost(
             @PathVariable Long postId,
             @RequestBody(required = false) PostScrapRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         String remark = (request != null) ? request.getRemark() : null;
-        postService.togglePostScrap(userDetails.getUserId(), postId, remark);
+        postService.scrapPost(userDetails.getUserId(), postId, remark);
+        return ApiResponse.success(null);
+    }
+
+    @DeleteMapping("/posts/{postId}/scrap")
+    public ApiResponse<Void> unscrapPost(@PathVariable Long postId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        postService.unscrapPost(userDetails.getUserId(), postId);
         return ApiResponse.success(null);
     }
 
     @GetMapping("/users/me/scraps")
-    public ApiResponse<ScrapListResponse> getMyScraps(@AuthenticationPrincipal CustomUserDetails userDetails, Pageable pageable) {
+    public ApiResponse<ScrapListResponse> getMyScraps(@AuthenticationPrincipal CustomUserDetails userDetails,
+            Pageable pageable) {
         return ApiResponse.success(ScrapListResponse.from(postService.getMyScraps(userDetails.getUserId(), pageable)));
     }
 
@@ -123,11 +140,13 @@ public class PostController {
             @RequestParam(defaultValue = "20") int size,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         Pageable pageable = PageRequest.of(page, size);
-        return ApiResponse.success(DraftListResponse.from(postService.getDraftPosts(userDetails.getUserId(), pageable)));
+        return ApiResponse
+                .success(DraftListResponse.from(postService.getDraftPosts(userDetails.getUserId(), pageable)));
     }
 
     @GetMapping("/drafts/{draftId}")
-    public ApiResponse<DraftResponse> getDraft(@PathVariable Long draftId, @AuthenticationPrincipal CustomUserDetails userDetails) {
+    public ApiResponse<DraftResponse> getDraft(@PathVariable Long draftId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
         return ApiResponse.success(DraftResponse.from(postService.getDraftPost(userDetails.getUserId(), draftId)));
     }
 
@@ -140,7 +159,8 @@ public class PostController {
     }
 
     @DeleteMapping("/drafts/{draftId}")
-    public ApiResponse<Void> deleteDraft(@PathVariable Long draftId, @AuthenticationPrincipal CustomUserDetails userDetails) {
+    public ApiResponse<Void> deleteDraft(@PathVariable Long draftId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
         postService.deleteDraftPost(userDetails.getUserId(), draftId);
         return ApiResponse.success(null);
     }

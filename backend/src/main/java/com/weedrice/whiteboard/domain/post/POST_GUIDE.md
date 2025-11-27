@@ -34,7 +34,7 @@
   - `post_likes` 테이블에 정보를 기록/삭제하고, `posts` 테이블의 `like_count`를 동기화합니다.
   - 좋아요 시, 게시글 작성자에게 알림을 보내기 위해 `NotificationEvent`를 발행합니다.
 
-- **스크랩/스크랩 취소 (`togglePostScrap`):**
+- **스크랩/스크랩 취소 (`scrapPost`, `unscrapPost`):**
   - 특정 게시글을 스크랩하거나 취소합니다.
 
 - **임시저장 (`saveDraftPost`, `getDraftPosts` 등):**
@@ -53,7 +53,8 @@
 | `DELETE` | `/api/v1/posts/{postId}`             | 게시글 삭제            |
 | `POST`   | `/api/v1/posts/{postId}/like`        | 게시글 좋아요          |
 | `DELETE` | `/api/v1/posts/{postId}/like`        | 게시글 좋아요 취소     |
-| `POST`   | `/api/v1/posts/{postId}/scrap`       | 게시글 스크랩 (토글)   |
+| `POST`   | `/api/v1/posts/{postId}/scrap`       | 게시글 스크랩          |
+| `DELETE` | `/api/v1/posts/{postId}/scrap`       | 게시글 스크랩 취소     |
 | `GET`    | `/api/v1/users/me/drafts`            | 내 임시저장 글 목록 조회 |
 | `POST`   | `/api/v1/drafts`                     | 임시저장 글 생성/수정  |
 | `GET`    | `/api/v1/drafts/{draftId}`           | 임시저장 글 상세 조회  |
