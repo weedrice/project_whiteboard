@@ -5,8 +5,11 @@ import { boardApi } from '@/api/board'
 import { postApi } from '@/api/post'
 import PostTags from '@/components/tag/PostTags.vue'
 
+import { useAuthStore } from '@/stores/auth'
+
 const route = useRoute()
 const router = useRouter()
+const authStore = useAuthStore()
 const boardId = route.params.boardId
 
 const categories = ref([])
@@ -20,7 +23,8 @@ const form = ref({
   contents: '',
   tags: [], // Array of strings
   isNsfw: false,
-  isSpoiler: false
+  isSpoiler: false,
+  isNotice: false
 })
 
 const board = ref(null)
@@ -68,6 +72,7 @@ async function handleSubmit() {
       tags: form.value.tags,
       isNsfw: board.value?.allowNsfw ? form.value.isNsfw : false,
       isSpoiler: form.value.isSpoiler,
+      isNotice: form.value.isNotice,
       fileIds: [] // File upload not implemented yet
     }
 
@@ -85,11 +90,11 @@ async function handleSubmit() {
 </script>
 
 <template>
-  <div class="max-w-3xl mx-auto">
+  <div class="w-full">
     <div class="md:flex md:items-center md:justify-between mb-6">
       <div class="flex-1 min-w-0">
         <h2 class="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl sm:truncate">
-          Write New Post
+          새 글 작성
         </h2>
       </div>
     </div>
@@ -109,7 +114,7 @@ async function handleSubmit() {
 
       <div class="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
         <div class="sm:col-span-3">
-          <label for="category" class="block text-sm font-medium text-gray-700">Category</label>
+          <label for="category" class="block text-sm font-medium text-gray-700">카테고리</label>
           <div class="mt-1">
             <select
               id="category"
@@ -125,7 +130,7 @@ async function handleSubmit() {
         </div>
 
         <div class="sm:col-span-6">
-          <label for="title" class="block text-sm font-medium text-gray-700">Title</label>
+          <label for="title" class="block text-sm font-medium text-gray-700">제목</label>
           <div class="mt-1">
             <input
               type="text"
@@ -134,13 +139,13 @@ async function handleSubmit() {
               v-model="form.title"
               required
               class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
-              placeholder="Enter post title"
+              placeholder="제목을 입력하세요"
             />
           </div>
         </div>
 
         <div class="sm:col-span-6">
-          <label for="contents" class="block text-sm font-medium text-gray-700">Content</label>
+          <label for="contents" class="block text-sm font-medium text-gray-700">내용</label>
           <div class="mt-1">
             <textarea
               id="contents"
@@ -149,19 +154,35 @@ async function handleSubmit() {
               v-model="form.contents"
               required
               class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border border-gray-300 rounded-md"
-              placeholder="Write your content here..."
+              placeholder="내용을 입력하세요..."
             ></textarea>
           </div>
         </div>
 
         <div class="sm:col-span-6">
-          <label for="tags" class="block text-sm font-medium text-gray-700">Tags</label>
+          <label for="tags" class="block text-sm font-medium text-gray-700">태그</label>
           <div class="mt-1">
             <PostTags v-model="form.tags" />
           </div>
         </div>
 
         <div class="sm:col-span-6">
+          <div v-if="board?.isAdmin" class="flex items-start mb-4">
+            <div class="flex items-center h-5">
+              <input
+                id="isNotice"
+                name="isNotice"
+                type="checkbox"
+                v-model="form.isNotice"
+                class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded cursor-pointer"
+              />
+            </div>
+            <div class="ml-3 text-sm">
+              <label for="isNotice" class="font-medium text-gray-700 cursor-pointer">공지사항</label>
+              <p class="text-gray-500">이 글을 공지사항으로 등록합니다.</p>
+            </div>
+          </div>
+
           <div v-if="board?.allowNsfw" class="flex items-start">
             <div class="flex items-center h-5">
               <input
@@ -169,12 +190,12 @@ async function handleSubmit() {
                 name="isNsfw"
                 type="checkbox"
                 v-model="form.isNsfw"
-                class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded"
+                class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded cursor-pointer"
               />
             </div>
             <div class="ml-3 text-sm">
-              <label for="isNsfw" class="font-medium text-gray-700">NSFW</label>
-              <p class="text-gray-500">Contains Not Safe For Work content.</p>
+              <label for="isNsfw" class="font-medium text-gray-700 cursor-pointer">후방주의 (NSFW)</label>
+              <p class="text-gray-500">직장에서 보기에 부적절한 콘텐츠를 포함합니다.</p>
             </div>
           </div>
           <div class="flex items-start mt-4">
@@ -184,12 +205,12 @@ async function handleSubmit() {
                 name="isSpoiler"
                 type="checkbox"
                 v-model="form.isSpoiler"
-                class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded"
+                class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded cursor-pointer"
               />
             </div>
             <div class="ml-3 text-sm">
-              <label for="isSpoiler" class="font-medium text-gray-700">Spoiler</label>
-              <p class="text-gray-500">Contains spoilers.</p>
+              <label for="isSpoiler" class="font-medium text-gray-700 cursor-pointer">스포일러</label>
+              <p class="text-gray-500">스포일러를 포함합니다.</p>
             </div>
           </div>
         </div>
@@ -199,16 +220,16 @@ async function handleSubmit() {
         <button
           type="button"
           @click="router.back()"
-          class="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          class="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 cursor-pointer"
         >
-          Cancel
+          취소
         </button>
         <button
           type="submit"
           :disabled="isSubmitting"
-          class="ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+          class="ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 cursor-pointer"
         >
-          {{ isSubmitting ? 'Submitting...' : 'Post' }}
+          {{ isSubmitting ? '등록 중...' : '등록' }}
         </button>
       </div>
     </form>

@@ -18,4 +18,10 @@ export const postApi = {
 
     // Unlike post
     unlikePost: (postId) => api.delete(`/posts/${postId}/like`),
+
+    // Scrap post
+    scrapPost: (postId) => api.post(`/posts/${postId}/scrap`),
+
+    // Unscrap post
+    unscrapPost: (postId) => api.delete(`/posts/${postId}/scrap`),
 }

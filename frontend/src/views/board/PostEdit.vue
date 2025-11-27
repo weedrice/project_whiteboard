@@ -74,7 +74,8 @@ async function handleSubmit() {
       ...form.value,
       tags: form.value.tags.split(',').map(tag => tag.trim()).filter(tag => tag),
       contents: form.value.content, // API expects 'contents'
-      isNsfw: board.value?.allowNsfw ? form.value.isNsfw : false
+      isNsfw: board.value?.allowNsfw ? form.value.isNsfw : false,
+      isSpoiler: form.value.isSpoiler // Explicitly include isSpoiler
     }
     
     // Remove 'content' key as we mapped it to 'contents'
@@ -96,122 +97,132 @@ onMounted(fetchData)
 </script>
 
 <template>
-  <div class="max-w-3xl mx-auto">
+  <div class="w-full">
+    <div class="md:flex md:items-center md:justify-between mb-6">
+      <div class="flex-1 min-w-0">
+        <h2 class="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl sm:truncate">
+          게시글 수정
+        </h2>
+      </div>
+    </div>
+
     <div v-if="isLoading" class="text-center py-10">
       <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 mx-auto"></div>
     </div>
 
     <form v-else @submit.prevent="handleSubmit" class="space-y-6 bg-white shadow px-4 py-5 sm:rounded-lg sm:p-6">
-      <div class="md:grid md:grid-cols-3 md:gap-6">
-        <div class="md:col-span-1">
-          <h3 class="text-lg font-medium leading-6 text-gray-900">Edit Post</h3>
-          <p class="mt-1 text-sm text-gray-500">
-            Update your post content.
-          </p>
-        </div>
-        <div class="mt-5 md:mt-0 md:col-span-2 space-y-6">
-          
-          <!-- Category -->
-          <div v-if="categories.length > 0">
-            <label for="category" class="block text-sm font-medium text-gray-700">Category</label>
+      <div class="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
+        
+        <!-- Category -->
+        <div class="sm:col-span-3" v-if="categories.length > 0">
+          <label for="category" class="block text-sm font-medium text-gray-700">카테고리</label>
+          <div class="mt-1">
             <select
               id="category"
               v-model="form.categoryId"
-              class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+              class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
             >
-              <option value="" disabled>Select a category</option>
+              <option value="" disabled>카테고리 선택</option>
               <option v-for="category in categories" :key="category.categoryId" :value="category.categoryId">
                 {{ category.name }}
               </option>
             </select>
           </div>
+        </div>
 
-          <!-- Title -->
-          <div>
-            <label for="title" class="block text-sm font-medium text-gray-700">Title</label>
-            <div class="mt-1">
-              <input
-                type="text"
-                name="title"
-                id="title"
-                v-model="form.title"
-                required
-                class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
-              />
-            </div>
+        <!-- Title -->
+        <div class="sm:col-span-6">
+          <label for="title" class="block text-sm font-medium text-gray-700">제목</label>
+          <div class="mt-1">
+            <input
+              type="text"
+              name="title"
+              id="title"
+              v-model="form.title"
+              required
+              class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
+            />
           </div>
+        </div>
 
-          <!-- Content -->
-          <div>
-            <label for="content" class="block text-sm font-medium text-gray-700">Content</label>
-            <div class="mt-1">
-              <textarea
-                id="content"
-                name="content"
-                rows="10"
-                v-model="form.content"
-                required
-                class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border border-gray-300 rounded-md"
-              ></textarea>
-            </div>
+        <!-- Content -->
+        <div class="sm:col-span-6">
+          <label for="content" class="block text-sm font-medium text-gray-700">내용</label>
+          <div class="mt-1">
+            <textarea
+              id="content"
+              name="content"
+              rows="10"
+              v-model="form.content"
+              required
+              class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border border-gray-300 rounded-md"
+            ></textarea>
           </div>
+        </div>
 
-          <!-- Tags -->
-          <div>
-            <label for="tags" class="block text-sm font-medium text-gray-700">Tags</label>
-            <div class="mt-1">
-              <input
-                type="text"
-                name="tags"
-                id="tags"
-                v-model="form.tags"
-                placeholder="Comma separated tags (e.g. vue, javascript)"
-                class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
-              />
-            </div>
+        <!-- Tags -->
+        <div class="sm:col-span-6">
+          <label for="tags" class="block text-sm font-medium text-gray-700">태그</label>
+          <div class="mt-1">
+            <input
+              type="text"
+              name="tags"
+              id="tags"
+              v-model="form.tags"
+              placeholder="쉼표로 구분된 태그 (예: vue, javascript)"
+              class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
+            />
           </div>
+        </div>
 
-          <!-- Options -->
-          <div class="flex items-start space-x-4">
-            <div v-if="board?.allowNsfw" class="flex items-center h-5">
+        <!-- Options -->
+        <div class="sm:col-span-6">
+          <div v-if="board?.allowNsfw" class="flex items-start mb-4">
+            <div class="flex items-center h-5">
               <input
                 id="nsfw"
                 name="nsfw"
                 type="checkbox"
                 v-model="form.isNsfw"
-                class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded"
+                class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded cursor-pointer"
               />
-              <label for="nsfw" class="ml-2 block text-sm text-gray-900">NSFW</label>
             </div>
+            <div class="ml-3 text-sm">
+              <label for="nsfw" class="font-medium text-gray-700 cursor-pointer">후방주의 (NSFW)</label>
+            </div>
+          </div>
+          <div class="flex items-start">
             <div class="flex items-center h-5">
               <input
                 id="spoiler"
                 name="spoiler"
                 type="checkbox"
                 v-model="form.isSpoiler"
-                class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded"
+                class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded cursor-pointer"
               />
-              <label for="spoiler" class="ml-2 block text-sm text-gray-900">Spoiler</label>
+            </div>
+            <div class="ml-3 text-sm">
+              <label for="spoiler" class="font-medium text-gray-700 cursor-pointer">스포일러</label>
             </div>
           </div>
-
         </div>
+
       </div>
 
       <div class="flex justify-end">
         <button
           type="button"
           @click="router.back()"
-          class="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          class="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 cursor-pointer"
         >
-          Cancel
+          취소
         </button>
         <button
           type="submit"
           :disabled="isSubmitting"
-          class="ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+          class="ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 cursor-pointer"
         >
-          {{ isSubmitting ? 'Saving...' : 'Save Changes' }}
+          {{ isSubmitting ? '저장 중...' : '수정 완료' }}
         </button>
       </div>
     </form>

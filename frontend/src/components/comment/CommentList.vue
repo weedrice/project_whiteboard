@@ -41,7 +41,7 @@ function handleReplySuccess() {
 }
 
 async function handleDelete(commentId) {
-  if (!confirm('Are you sure you want to delete this comment?')) return
+  if (!confirm('정말 삭제하시겠습니까?')) return
 
   try {
     const { data } = await commentApi.deleteComment(commentId)
@@ -60,15 +60,9 @@ watch(() => props.postId, fetchComments)
 
 <template>
   <div class="mt-8">
-    <h3 class="text-lg font-medium text-gray-900">Comments</h3>
+    <h3 class="text-lg font-medium text-gray-900">댓글</h3>
     
-    <!-- New Comment Form -->
-    <div v-if="authStore.isAuthenticated" class="mb-8">
-      <CommentForm :postId="postId" @success="fetchComments" />
-    </div>
-    <div v-else class="mb-8 text-sm text-gray-500">
-      Please <router-link to="/login" class="text-indigo-600 hover:text-indigo-500">login</router-link> to post comments.
-    </div>
+
 
     <!-- Comment List -->
     <div v-if="isLoading" class="text-center py-4">
@@ -97,14 +91,14 @@ watch(() => props.postId, fetchComments)
                 @click="replyToId = replyToId === comment.commentId ? null : comment.commentId"
                 class="text-xs text-gray-500 hover:text-gray-900 font-medium"
               >
-                Reply
+                답글
               </button>
               <button 
                 v-if="authStore.user?.userId === comment.author.userId"
                 @click="handleDelete(comment.commentId)"
                 class="text-xs text-red-500 hover:text-red-700 font-medium ml-2"
               >
-                Delete
+                삭제
               </button>
             </div>
 
@@ -141,7 +135,7 @@ watch(() => props.postId, fetchComments)
                   @click="handleDelete(child.commentId)"
                   class="text-xs text-red-500 hover:text-red-700 font-medium"
                 >
-                  Delete
+                  삭제
                 </button>
               </div>
             </div>
@@ -150,8 +144,16 @@ watch(() => props.postId, fetchComments)
       </div>
       
       <div v-if="comments.length === 0" class="text-center text-gray-500 py-4">
-        No comments yet. Be the first to share your thoughts!
+        아직 댓글이 없습니다. 첫 번째 댓글을 남겨보세요!
       </div>
+    </div>
+
+    <!-- New Comment Form -->
+    <div v-if="authStore.isAuthenticated" class="mt-8 mb-8">
+      <CommentForm :postId="postId" @success="fetchComments" />
+    </div>
+    <div v-else class="mt-8 mb-8 text-sm text-gray-500">
+      <router-link to="/login" class="text-indigo-600 hover:text-indigo-500">로그인</router-link> 후 댓글을 작성할 수 있습니다.
     </div>
   </div>
 </template>
