@@ -1,6 +1,9 @@
 package com.weedrice.whiteboard.domain.board.service;
 
+import com.weedrice.whiteboard.domain.admin.entity.Admin;
+import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.board.dto.BoardCreateRequest;
+import com.weedrice.whiteboard.domain.board.dto.BoardResponse;
 import com.weedrice.whiteboard.domain.board.dto.BoardUpdateRequest;
 import com.weedrice.whiteboard.domain.board.dto.CategoryRequest;
 import com.weedrice.whiteboard.domain.board.entity.Board;
@@ -16,6 +19,7 @@ import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -23,6 +27,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -33,14 +38,34 @@ public class BoardService {
     private final BoardCategoryRepository boardCategoryRepository;
     private final BoardSubscriptionRepository boardSubscriptionRepository;
     private final UserRepository userRepository;
+    private final AdminRepository adminRepository;
 
-    public List<Board> getActiveBoards() {
-        return boardRepository.findByIsActiveOrderBySortOrderAsc("Y");
+    public List<BoardResponse> getActiveBoards() {
+        List<Board> boards = boardRepository.findByIsActiveOrderBySortOrderAsc("Y");
+        return boards.stream()
+                .map(this::createBoardResponse)
+                .collect(Collectors.toList());
     }
 
-    public Board getBoardDetails(Long boardId) {
-        return boardRepository.findById(boardId)
+    public List<BoardResponse> getTopBoards() {
+        List<Board> boards = boardRepository.findTopBoardsByPostCount(PageRequest.of(0, 15));
+        return boards.stream()
+                .map(this::createBoardResponse)
+                .collect(Collectors.toList());
+    }
+
+    public BoardResponse getBoardDetails(Long boardId) {
+        Board board = boardRepository.findById(boardId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
+        return createBoardResponse(board);
+    }
+
+    private BoardResponse createBoardResponse(Board board) {
+        long subscriberCount = boardSubscriptionRepository.countByBoard(board);
+        String adminDisplayName = adminRepository.findByBoardAndRole(board, "BOARD_ADMIN")
+                .map(admin -> admin.getUser().getDisplayName())
+                .orElse(board.getCreator().getDisplayName());
+        return new BoardResponse(board, subscriberCount, adminDisplayName);
     }
 
     public List<BoardCategory> getActiveCategories(Long boardId) {
@@ -74,10 +99,11 @@ public class BoardService {
         boardSubscriptionRepository.delete(subscription);
     }
 
-    public Page<Board> getMySubscriptions(Long userId, Pageable pageable) {
+    public Page<BoardResponse> getMySubscriptions(Long userId, Pageable pageable) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        return boardSubscriptionRepository.findByUser(user, pageable).map(BoardSubscription::getBoard);
+        Page<Board> boardPage = boardSubscriptionRepository.findByUser(user, pageable).map(BoardSubscription::getBoard);
+        return boardPage.map(this::createBoardResponse);
     }
 
     @Transactional
@@ -100,13 +126,19 @@ public class BoardService {
         
         Board savedBoard = boardRepository.save(board);
 
-        // '일반' 카테고리 자동 생성
         BoardCategory defaultCategory = BoardCategory.builder()
                 .board(savedBoard)
                 .name("일반")
                 .sortOrder(1)
                 .build();
         boardCategoryRepository.save(defaultCategory);
+
+        Admin boardAdmin = Admin.builder()
+                .user(creator)
+                .board(savedBoard)
+                .role("BOARD_ADMIN")
+                .build();
+        adminRepository.save(boardAdmin);
 
         return savedBoard;
     }
@@ -116,7 +148,6 @@ public class BoardService {
         Board board = boardRepository.findById(boardId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
 
-        // 게시판 생성자 또는 관리자만 수정 가능
         if (!board.getCreator().getLoginId().equals(userDetails.getUsername()) &&
                 !userDetails.getAuthorities().contains(new SimpleGrantedAuthority("ROLE_ADMIN"))) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
@@ -131,7 +162,6 @@ public class BoardService {
         Board board = boardRepository.findById(boardId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
 
-        // 게시판 생성자 또는 관리자만 삭제 가능
         if (!board.getCreator().getLoginId().equals(userDetails.getUsername()) &&
                 !userDetails.getAuthorities().contains(new SimpleGrantedAuthority("ROLE_ADMIN"))) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
@@ -162,9 +192,8 @@ public class BoardService {
 
     @Transactional
     public void deleteCategory(Long categoryId) {
-        if (!boardCategoryRepository.existsById(categoryId)) {
-            throw new BusinessException(ErrorCode.NOT_FOUND);
-        }
-        boardCategoryRepository.deleteById(categoryId);
+        BoardCategory category = boardCategoryRepository.findById(categoryId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+        category.deactivate();
     }
 }

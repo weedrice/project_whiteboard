@@ -46,4 +46,8 @@ public class BoardCategory extends BaseTimeEntity {
         this.name = name;
         this.sortOrder = sortOrder;
     }
+
+    public void deactivate() {
+        this.isActive = "N";
+    }
 }
