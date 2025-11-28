@@ -2,8 +2,7 @@
   <button
     :type="type"
     :class="[
-      'px-4 py-2 rounded-md font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2',
-      variantClasses,
+      btnClass,
       disabled ? 'opacity-50 cursor-not-allowed' : ''
     ]"
     :disabled="disabled"
@@ -34,18 +33,18 @@ const props = defineProps({
 
 defineEmits(['click'])
 
-const variantClasses = computed(() => {
+const btnClass = computed(() => {
   switch (props.variant) {
     case 'primary':
-      return 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500'
+      return 'btn-primary'
     case 'secondary':
-      return 'bg-gray-200 text-gray-700 hover:bg-gray-300 focus:ring-gray-500'
+      return 'btn-secondary'
     case 'danger':
-      return 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500'
+      return 'btn-danger'
     case 'ghost':
-      return 'bg-transparent text-gray-600 hover:bg-gray-100 focus:ring-gray-500'
+      return 'btn-ghost'
     default:
-      return 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500'
+      return 'btn-primary'
   }
 })
 </script>

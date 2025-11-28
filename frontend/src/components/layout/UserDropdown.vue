@@ -37,7 +37,7 @@ const fetchPoints = async () => {
 
 const handleLogout = async () => {
   await authStore.logout()
-  router.push('/login')
+  router.push('/')
 }
 
 onMounted(() => {

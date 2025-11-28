@@ -79,6 +79,52 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
     }
 
     @Override
+    public Page<Post> searchPosts(String keyword, String searchType, String boardUrl, Pageable pageable) {
+        BooleanExpression searchCondition = null;
+        if (StringUtils.hasText(keyword)) {
+            if ("TITLE".equalsIgnoreCase(searchType)) {
+                searchCondition = post.title.containsIgnoreCase(keyword);
+            } else if ("CONTENT".equalsIgnoreCase(searchType)) {
+                searchCondition = post.contents.containsIgnoreCase(keyword);
+            } else if ("AUTHOR".equalsIgnoreCase(searchType)) {
+                searchCondition = post.user.displayName.containsIgnoreCase(keyword);
+            } else { // TITLE_CONTENT or default
+                searchCondition = post.title.containsIgnoreCase(keyword)
+                        .or(post.contents.containsIgnoreCase(keyword));
+            }
+        }
+
+        BooleanExpression boardCondition = null;
+        if (StringUtils.hasText(boardUrl)) {
+            boardCondition = post.board.boardUrl.eq(boardUrl);
+        }
+
+        List<Post> content = queryFactory
+                .selectFrom(post)
+                .where(
+                        searchCondition,
+                        boardCondition,
+                        post.isDeleted.eq("N")
+                )
+                .offset(pageable.getOffset())
+                .limit(pageable.getPageSize())
+                .orderBy(post.createdAt.desc())
+                .fetch();
+
+        Long total = queryFactory
+                .select(post.count())
+                .from(post)
+                .where(
+                        searchCondition,
+                        boardCondition,
+                        post.isDeleted.eq("N")
+                )
+                .fetchOne();
+
+        return new PageImpl<>(content, pageable, total != null ? total : 0L);
+    }
+
+    @Override
     public Page<Post> findByTagId(Long tagId, Pageable pageable) {
         List<Post> content = queryFactory
                 .select(post)

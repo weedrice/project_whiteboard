@@ -6,10 +6,22 @@ import PostList from '@/components/board/PostList.vue'
 import BaseButton from '@/components/common/BaseButton.vue'
 import BaseModal from '@/components/common/BaseModal.vue'
 import ProfileEditor from '@/components/user/ProfileEditor.vue'
+import Pagination from '@/components/common/Pagination.vue' // Import Pagination component
 
 const profile = ref(null)
-const posts = ref([])
-const comments = ref([]) // 추가: 내가 작성한 댓글 목록
+
+// Posts pagination state
+const myPosts = ref([])
+const myPostsTotalCount = ref(0)
+const myPostsCurrentPage = ref(0)
+const myPostsSize = ref(10) // 10 items per page
+
+// Comments pagination state
+const myComments = ref([])
+const myCommentsTotalCount = ref(0)
+const myCommentsCurrentPage = ref(0)
+const myCommentsSize = ref(10) // 10 items per page
+
 const isLoading = ref(true)
 const error = ref('')
 const isEditModalOpen = ref(false)
@@ -19,30 +31,62 @@ function formatDate(dateString) {
   return new Date(dateString).toLocaleString()
 }
 
-onMounted(async () => {
-  isLoading.value = true
+async function fetchMyProfile() {
   try {
-    const [profileRes, postsRes, commentsRes] = await Promise.all([ // commentsRes 추가
-      userApi.getMyProfile(),
-      userApi.getMyPosts(),
-      userApi.getMyComments() // 추가: 내가 작성한 댓글 목록 가져오기
-    ])
-
-    if (profileRes.data.success) {
-      profile.value = profileRes.data.data
-    }
-    if (postsRes.data.success) {
-      posts.value = postsRes.data.data.content
-    }
-    if (commentsRes.data.success) { // 추가: 댓글 목록 할당
-        comments.value = commentsRes.data.data.content
+    const { data } = await userApi.getMyProfile()
+    if (data.success) {
+      profile.value = data.data
     }
   } catch (err) {
-    console.error('Failed to load my page data:', err)
-    error.value = 'Failed to load profile information.'
-  } finally {
-    isLoading.value = false
+    console.error('Failed to load my profile:', err)
+    error.value = 'Failed to load profile details.'
   }
+}
+
+async function fetchMyPosts() {
+  try {
+    const { data } = await userApi.getMyPosts(myPostsCurrentPage.value, myPostsSize.value)
+    if (data.success) {
+      myPosts.value = data.data.content
+      myPostsTotalCount.value = data.data.totalElements
+    }
+  } catch (err) {
+    console.error('Failed to load my posts:', err)
+    error.value = 'Failed to load my posts.'
+  }
+}
+
+async function fetchMyComments() {
+  try {
+    const { data } = await userApi.getMyComments(myCommentsCurrentPage.value, myCommentsSize.value)
+    if (data.success) {
+      myComments.value = data.data.content
+      myCommentsTotalCount.value = data.data.totalElements
+    }
+  } catch (err) {
+    console.error('Failed to load my comments:', err)
+    error.value = 'Failed to load my comments.'
+  }
+}
+
+function handleMyPostsPageChange(page) {
+  myPostsCurrentPage.value = page
+  fetchMyPosts()
+}
+
+function handleMyCommentsPageChange(page) {
+  myCommentsCurrentPage.value = page
+  fetchMyComments()
+}
+
+onMounted(async () => {
+  isLoading.value = true
+  await Promise.all([
+    fetchMyProfile(),
+    fetchMyPosts(),
+    fetchMyComments()
+  ])
+  isLoading.value = false
 })
 </script>
 
@@ -121,8 +165,20 @@ onMounted(async () => {
           <h3 class="text-lg leading-6 font-medium text-gray-900">My Posts</h3>
         </div>
         
-        <div v-if="posts.length > 0">
-          <PostList :posts="posts" />
+        <div v-if="myPosts.length > 0">
+          <PostList 
+            :posts="myPosts"
+            :totalCount="myPostsTotalCount"
+            :page="myPostsCurrentPage"
+            :size="myPostsSize"
+          />
+          <div class="mt-4 flex justify-center">
+            <Pagination 
+              :current-page="myPostsCurrentPage" 
+              :total-pages="Math.ceil(myPostsTotalCount / myPostsSize)"
+              @page-change="handleMyPostsPageChange" 
+            />
+          </div>
         </div>
         <div v-else class="text-center py-10 text-gray-500">
           You haven't posted anything yet.
@@ -136,12 +192,15 @@ onMounted(async () => {
           <h3 class="text-lg leading-6 font-medium text-gray-900">My Comments</h3>
         </div>
         
-        <div v-if="comments.length > 0">
+        <div v-if="myComments.length > 0">
           <ul role="list" class="divide-y divide-gray-200">
-            <li v-for="comment in comments" :key="comment.commentId" class="px-4 py-4 sm:px-6 hover:bg-gray-50">
+            <li v-for="(comment, index) in myComments" :key="comment.commentId" class="px-4 py-4 sm:px-6 hover:bg-gray-50">
               <router-link :to="`/board/${comment.post.boardUrl}/post/${comment.post.postId}`" class="block">
                 <div class="flex items-center justify-between">
-                  <p class="text-sm font-medium text-indigo-600 truncate">{{ comment.post.title }}</p>
+                  <p class="text-sm font-medium text-indigo-600 truncate">
+                    <span class="mr-2 text-gray-500 text-xs">{{ myCommentsCurrentPage * myCommentsSize + index + 1 }}.</span>
+                    {{ comment.post.title }}
+                  </p>
                   <p class="ml-2 flex-shrink-0 font-normal text-gray-500 text-xs">{{ formatDate(comment.createdAt) }}</p>
                 </div>
                 <div class="mt-1 sm:flex sm:justify-between">
@@ -150,6 +209,13 @@ onMounted(async () => {
               </router-link>
             </li>
           </ul>
+          <div class="mt-4 flex justify-center">
+            <Pagination 
+              :current-page="myCommentsCurrentPage" 
+              :total-pages="Math.ceil(myCommentsTotalCount / myCommentsSize)"
+              @page-change="handleMyCommentsPageChange" 
+            />
+          </div>
         </div>
         <div v-else class="text-center py-10 text-gray-500">
           You haven't commented on anything yet.

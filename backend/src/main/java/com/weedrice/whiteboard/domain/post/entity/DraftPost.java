@@ -34,8 +34,7 @@ public class DraftPost extends BaseTimeEntity {
     @Column(name = "title", length = 200)
     private String title;
 
-    @Lob
-    @Column(name = "contents")
+    @Column(name = "contents", columnDefinition = "TEXT")
     private String contents;
 
     @ManyToOne(fetch = FetchType.LAZY)

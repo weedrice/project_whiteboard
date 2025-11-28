@@ -16,5 +16,7 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
     List<Post> findByBoard_BoardIdAndIsNoticeAndIsDeletedOrderByCreatedAtDesc(Long boardId, String isNotice, String isDeleted);
     
     // 최신 게시글 N개 조회 (BoardList에서 사용)
-    List<Post> findTopByBoardAndIsDeletedOrderByCreatedAtDesc(Board board, String isDeleted, Pageable pageable);
+    List<Post> findByBoardAndIsDeletedOrderByCreatedAtDesc(Board board, String isDeleted, Pageable pageable);
+
+    void deleteByBoard(Board board);
 }

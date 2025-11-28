@@ -2,6 +2,7 @@
 import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useNotificationStore } from '@/stores/notification'
+import { postApi } from '@/api/post'
 import { Check } from 'lucide-vue-next'
 
 const router = useRouter()
@@ -18,14 +19,16 @@ async function handleNotificationClick(notification) {
   
   // Navigate based on source type
   if (notification.sourceType === 'POST' || notification.sourceType === 'COMMENT') {
-    // Assuming sourceId is postId for now, or we need to fetch post details
-    // For simplicity, let's assume sourceId is the postId for POST type
-    // If it's COMMENT, we might need logic to find the post it belongs to.
-    // Given the API spec doesn't explicitly link comment -> post in notification, 
-    // we might need to rely on the backend providing enough info or just navigate to post if possible.
-    // For this MVP, let's assume sourceId is postId for simplicity if sourceType is POST.
+    // Assuming sourceId is postId for now
     if (notification.sourceType === 'POST') {
-        router.push(`/board/0/post/${notification.sourceId}`) // boardId 0 as placeholder or need to fetch
+        try {
+            const { data } = await postApi.getPost(notification.sourceId)
+            if (data.success && data.data.board) {
+                router.push(`/board/${data.data.board.boardUrl}/post/${notification.sourceId}`)
+            }
+        } catch (err) {
+            console.error('Failed to navigate to post:', err)
+        }
     }
     // If we can't determine the URL, just stay here (marked as read)
   }

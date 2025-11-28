@@ -35,6 +35,7 @@ public class CommentService {
     private final UserRepository userRepository;
     private final CommentLikeRepository commentLikeRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final com.weedrice.whiteboard.domain.point.service.PointService pointService;
 
     public Page<CommentResponse> getComments(Long postId, Pageable pageable) {
         Page<Comment> parentComments = commentRepository.findByPost_PostIdAndParentIsNullAndIsDeletedOrderByCreatedAtAsc(postId, "N", pageable);
@@ -96,6 +97,8 @@ public class CommentService {
 
         post.incrementCommentCount();
         Comment savedComment = commentRepository.save(comment);
+        
+        pointService.addPoint(userId, 10, "댓글 작성", savedComment.getCommentId(), "COMMENT");
 
         if (parentComment != null) {
             String notificationContent = user.getDisplayName() + "님이 회원님의 댓글에 답글을 남겼습니다.";
@@ -134,6 +137,8 @@ public class CommentService {
 
         comment.deleteComment();
         comment.getPost().decrementCommentCount();
+        
+        pointService.forceSubtractPoint(userId, 10, "댓글 삭제", commentId, "COMMENT");
     }
 
     @Transactional

@@ -12,11 +12,16 @@ public class BoardResponse {
     private final Long boardId;
     private final String boardName;
     private final String boardUrl; // 추가
+    private final String description;
     private final String iconUrl;
+    private final Integer sortOrder;
     private final long subscriberCount;
     private final String adminDisplayName;
     @JsonProperty("isAdmin")
     private final boolean isAdmin;
+
+    @JsonProperty("allowNsfw")
+    private final boolean allowNsfw;
 
     @JsonProperty("isSubscribed")
     private final boolean isSubscribed; // 현재 유저의 구독 여부
@@ -28,7 +33,10 @@ public class BoardResponse {
         this.boardId = board.getBoardId();
         this.boardName = board.getBoardName();
         this.boardUrl = board.getBoardUrl(); // 할당
+        this.description = board.getDescription();
         this.iconUrl = board.getIconUrl();
+        this.sortOrder = board.getSortOrder();
+        this.allowNsfw = "Y".equals(board.getAllowNsfw());
         this.subscriberCount = subscriberCount;
         this.adminDisplayName = adminDisplayName;
         this.isAdmin = isAdmin;

@@ -1,8 +1,8 @@
 <script setup>
-import { defineProps } from 'vue'
+import { defineProps, computed } from 'vue'
 import { MessageSquare, ThumbsUp, User, Clock, Image as ImageIcon } from 'lucide-vue-next'
 
-defineProps({
+const props = defineProps({
   posts: {
     type: Array,
     required: true
@@ -10,6 +10,19 @@ defineProps({
   boardUrl: { // boardId 대신 boardUrl 사용
     type: String,
     required: false
+  },
+  // Pagination props for numbering
+  totalCount: {
+    type: Number,
+    default: 0
+  },
+  page: {
+    type: Number,
+    default: 0
+  },
+  size: {
+    type: Number,
+    default: 20
   }
 })
 
@@ -26,49 +39,58 @@ function formatDate(dateString) {
   }
   return date.toLocaleDateString()
 }
+
+function getPostNumber(index) {
+    // 1부터 시작하는 오름차순 번호
+    return (props.page * props.size) + index + 1;
+}
 </script>
 
 <template>
-  <div class="bg-white shadow overflow-hidden sm:rounded-md">
-    <div class="overflow-x-auto">
-      <table class="min-w-full divide-y divide-gray-200">
-        <thead class="bg-gray-50">
+  <div class="card">
+    <div class="table-container">
+      <table class="table-base">
+        <thead class="table-head">
           <tr>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
+            <th scope="col" class="table-th text-center w-24">
               번호
             </th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th scope="col" class="table-th text-left">
               제목
             </th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
+            <th scope="col" class="table-th text-center w-32">
               글쓴이
             </th>
-            <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
+            <th scope="col" class="table-th text-center w-24">
               날짜
             </th>
-            <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
+            <th scope="col" class="table-th text-center w-20">
               조회
             </th>
-            <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
+            <th scope="col" class="table-th text-center w-20">
               추천
             </th>
           </tr>
         </thead>
-        <tbody class="bg-white divide-y divide-gray-200">
-          <tr v-for="post in posts" :key="post.postId" class="hover:bg-gray-50">
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+        <tbody class="table-body">
+          <tr v-for="(post, index) in posts" :key="post.postId" :class="['table-row', post.isNotice ? 'bg-gray-50' : '']">
+            <td class="table-td text-center">
               <span v-if="post.isNotice" class="font-bold text-red-600">공지</span>
-              <span v-else>{{ post.postId }}</span>
+              <span v-else>{{ getPostNumber(index) }}</span>
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 align-middle">
-              <router-link :to="`/board/${boardUrl}/post/${post.postId}`" class="hover:text-indigo-600 flex items-center h-full">
+            <td class="table-td font-medium text-gray-900 align-middle">
+              <router-link 
+                :to="`/board/${boardUrl || post.boardUrl}/post/${post.postId}`" 
+                class="hover:text-indigo-600 flex items-center h-full"
+                v-if="boardUrl || post.boardUrl"
+              >
                 <span 
                   v-if="post.category && post.category.name !== '일반'" 
-                  class="inline-flex items-center justify-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 mr-2 h-5"
+                  class="badge badge-gray"
                 >
                   {{ post.category.name }}
                 </span>
-                <span v-if="post.isNotice" class="inline-flex items-center justify-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 mr-2 h-5">
+                <span v-if="post.isNotice" class="badge badge-red">
                   공지
                 </span>
                 <span v-if="post.hasImage" class="mr-1 text-gray-400 flex items-center">
@@ -79,17 +101,20 @@ function formatDate(dateString) {
                     [{{ post.commentCount }}]
                 </span>
               </router-link>
+              <span v-else class="text-gray-400 flex items-center h-full cursor-not-allowed" title="Invalid Board URL">
+                  <span class="truncate">{{ post.title }}</span>
+              </span>
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+            <td class="table-td text-center">
               {{ post.author?.displayName }}
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+            <td class="table-td text-center">
               {{ formatDate(post.createdAt) }}
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+            <td class="table-td text-center">
               {{ post.viewCount }}
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+            <td class="table-td text-center">
               {{ post.likeCount }}
             </td>
           </tr>

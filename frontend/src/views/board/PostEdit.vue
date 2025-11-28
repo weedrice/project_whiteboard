@@ -148,20 +148,18 @@ onMounted(fetchData)
         <!-- Content -->
         <div class="sm:col-span-6">
           <label for="content" class="block text-sm font-medium text-gray-700">내용</label>
-          <div class="mt-1">
-            <textarea
-              id="content"
-              name="content"
-              rows="10"
-              v-model="form.content"
-              required
-              class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border border-gray-300 rounded-md"
-            ></textarea>
+          <div class="mt-1 h-96">
+            <QuillEditor
+              theme="snow"
+              toolbar="full"
+              contentType="html"
+              v-model:content="form.content"
+            />
           </div>
         </div>
 
         <!-- Tags -->
-        <div class="sm:col-span-6">
+        <div class="sm:col-span-6 mt-12">
           <label for="tags" class="block text-sm font-medium text-gray-700">태그</label>
           <div class="mt-1">
             <input

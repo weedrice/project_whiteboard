@@ -49,7 +49,7 @@ async function handleSubmit() {
         id="comment"
         rows="3"
         v-model="content"
-        class="shadow-sm block w-full focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm border border-gray-300 rounded-md"
+        class="input-base"
         :placeholder="parentId ? 'Write a reply...' : 'Add a comment...'"
         required
       ></textarea>
@@ -59,14 +59,14 @@ async function handleSubmit() {
         v-if="parentId"
         type="button"
         @click="emit('cancel')"
-        class="mr-3 inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+        class="btn-secondary mr-3"
       >
         Cancel
       </button>
       <button
         type="submit"
         :disabled="isSubmitting"
-        class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+        class="btn-primary disabled:opacity-50"
       >
         {{ isSubmitting ? 'Posting...' : (parentId ? 'Reply' : 'Post Comment') }}
       </button>

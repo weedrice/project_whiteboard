@@ -1,3 +1,5 @@
+package com.weedrice.whiteboard.domain.board.service;
+
 import com.weedrice.whiteboard.domain.admin.entity.Admin;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.board.dto.*;
@@ -8,6 +10,8 @@ import com.weedrice.whiteboard.domain.board.entity.BoardSubscriptionId;
 import com.weedrice.whiteboard.domain.board.repository.BoardCategoryRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository;
+import com.weedrice.whiteboard.domain.post.repository.DraftPostRepository;
+import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.common.util.SecurityUtils;
@@ -38,6 +42,8 @@ public class BoardService {
     private final UserRepository userRepository;
     private final AdminRepository adminRepository;
     private final PostService postService; // PostService 주입
+    private final PostRepository postRepository;
+    private final DraftPostRepository draftPostRepository;
 
     public List<BoardResponse> getActiveBoards(UserDetails userDetails) {
         List<Board> boards = boardRepository.findByIsActiveOrderBySortOrderAsc("Y");
@@ -132,8 +138,8 @@ public class BoardService {
     public Page<BoardResponse> getMySubscriptions(Long userId, Pageable pageable) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        Page<Board> boardPage = boardSubscriptionRepository.findByUser(user, pageable).map(board ->
-            createBoardResponse(board, null, Collections.emptyList(), Collections.emptyList()));
+        Page<BoardResponse> boardPage = boardSubscriptionRepository.findByUser(user, pageable).map(boardSubscription ->
+            createBoardResponse(boardSubscription.getBoard(), null));
         return boardPage;
     }
 
@@ -155,7 +161,6 @@ public class BoardService {
                 .description(request.getDescription())
                 .creator(creator)
                 .iconUrl(request.getIconUrl())
-                .sortOrder(request.getSortOrder())
                 .build();
         
         Board savedBoard = boardRepository.save(board);
@@ -184,7 +189,12 @@ public class BoardService {
 
         SecurityUtils.validateBoardAdminPermission(board);
 
-        board.update(request.getDescription(), request.getIconUrl(), request.getSortOrder(), request.getAllowNsfw());
+        if (!board.getBoardName().equals(request.getBoardName()) && 
+            boardRepository.existsByBoardName(request.getBoardName())) {
+            throw new BusinessException(ErrorCode.DUPLICATE_BOARD_NAME);
+        }
+
+        board.update(request.getBoardName(), request.getDescription(), request.getIconUrl(), board.getSortOrder(), "Y".equals(board.getAllowNsfw()));
         return board;
     }
 
@@ -195,7 +205,8 @@ public class BoardService {
 
         SecurityUtils.validateBoardAdminPermission(board);
 
-        boardRepository.deleteById(board.getBoardId()); // ID로 삭제
+        board.deactivate();
+        // 관련 엔티티(게시글, 관리자 등)는 그대로 두거나 필요 시 배치 작업으로 처리
     }
 
     @Transactional

@@ -20,6 +20,7 @@ public class PostSummary {
     private boolean isNsfw;
     private boolean isSpoiler;
     private LocalDateTime createdAt;
+    private String boardUrl;
 
     @Getter
     @Builder
@@ -56,6 +57,7 @@ public class PostSummary {
                 .isNsfw("Y".equals(post.getIsNsfw()))
                 .isSpoiler("Y".equals(post.getIsSpoiler()))
                 .createdAt(post.getCreatedAt())
+                .boardUrl(post.getBoard().getBoardUrl())
                 .build();
     }
 }

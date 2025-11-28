@@ -11,6 +11,7 @@ const boardUrl = route.params.boardUrl // boardId 대신 boardUrl 사용
 
 const form = ref({
   boardName: '',
+  boardUrl: '', // 추가
   description: '',
   iconUrl: '', // 추가
   sortOrder: 0, // 추가
@@ -20,6 +21,17 @@ const form = ref({
 const isLoading = ref(true)
 const isSubmitting = ref(false)
 
+const fileInput = ref(null)
+
+function handleFileChange(event) {
+  const file = event.target.files[0]
+  if (file) {
+    // Placeholder for file upload logic
+    console.log('File selected:', file)
+    alert('File upload not implemented yet.')
+  }
+}
+
 async function fetchBoard() {
   isLoading.value = true
   try {
@@ -28,6 +40,7 @@ async function fetchBoard() {
       const board = data.data
       form.value = {
         boardName: board.boardName,
+        boardUrl: board.boardUrl, // 추가
         description: board.description,
         iconUrl: board.iconUrl || '', // 추가
         sortOrder: board.sortOrder || 0, // 추가
@@ -119,6 +132,20 @@ onMounted(fetchBoard)
             </div>
 
             <div>
+              <label for="boardUrl" class="block text-sm font-medium text-gray-700">게시판 URL</label>
+              <div class="mt-1">
+                <input
+                  type="text"
+                  name="boardUrl"
+                  id="boardUrl"
+                  v-model="form.boardUrl"
+                  disabled
+                  class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md bg-gray-100 text-gray-500 cursor-not-allowed"
+                />
+              </div>
+            </div>
+
+            <div>
               <label for="description" class="block text-sm font-medium text-gray-700">설명</label>
               <div class="mt-1">
                 <textarea
@@ -131,12 +158,25 @@ onMounted(fetchBoard)
               </div>
             </div>
 
-            <BaseInput
-              label="아이콘 URL"
-              v-model="form.iconUrl"
-              type="text"
-              placeholder="아이콘 이미지 URL"
-            />
+            <div>
+              <label class="block text-sm font-medium text-gray-700">아이콘 이미지</label>
+              <div class="mt-1 flex items-center">
+                <span class="inline-block h-12 w-12 rounded-full overflow-hidden bg-gray-100">
+                  <img v-if="form.iconUrl" :src="form.iconUrl" class="h-full w-full text-gray-300" alt="Icon" />
+                  <svg v-else class="h-full w-full text-gray-300" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M24 20.993V24H0v-2.996A14.977 14.977 0 0112.004 15c4.904 0 9.26 2.354 11.996 5.993zM16.002 8.999a4 4 0 11-8 0 4 4 0 018 0z" />
+                  </svg>
+                </span>
+                <button
+                  type="button"
+                  @click="$refs.fileInput.click()"
+                  class="ml-5 bg-white py-2 px-3 border border-gray-300 rounded-md shadow-sm text-sm leading-4 font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                >
+                  변경
+                </button>
+                <input type="file" class="hidden" ref="fileInput" @change="handleFileChange" />
+              </div>
+            </div>
 
             <BaseInput
               label="정렬 순서"
@@ -145,7 +185,8 @@ onMounted(fetchBoard)
               placeholder="정렬 순서 (숫자)"
             />
 
-            <div class="flex items-start">
+            <!-- NSFW Option Hidden -->
+            <div class="flex items-start hidden">
               <div class="flex items-center h-5">
                 <input
                   id="allowNsfw"
@@ -178,10 +219,8 @@ onMounted(fetchBoard)
 
           <hr class="border-gray-200" />
 
-          <!-- Danger Zone -->
-          <div>
-            <h3 class="text-lg font-medium leading-6 text-red-900">위험 구역</h3>
-            <div class="mt-2">
+          <!-- Delete Board (Moved to bottom right) -->
+          <div class="flex justify-end">
               <button
                 type="button"
                 @click="handleDelete"
@@ -189,7 +228,6 @@ onMounted(fetchBoard)
               >
                 게시판 삭제
               </button>
-            </div>
           </div>
       </div>
     </div>

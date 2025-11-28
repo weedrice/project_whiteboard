@@ -65,7 +65,8 @@ public class Board extends BaseTimeEntity {
         this.allowNsfw = "N";
     }
 
-    public void update(String description, String iconUrl, Integer sortOrder, Boolean allowNsfw) {
+    public void update(String boardName, String description, String iconUrl, Integer sortOrder, Boolean allowNsfw) {
+        this.boardName = boardName;
         this.description = description;
         this.iconUrl = iconUrl;
         this.sortOrder = sortOrder;
@@ -74,5 +75,9 @@ public class Board extends BaseTimeEntity {
 
     public void updateBoardUrl(String boardUrl) {
         this.boardUrl = boardUrl;
+    }
+
+    public void deactivate() {
+        this.isActive = "N";
     }
 }

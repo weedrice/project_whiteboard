@@ -43,8 +43,7 @@ public class Post extends BaseTimeEntity {
     @Column(name = "title", length = 200, nullable = false)
     private String title;
 
-    @Lob
-    @Column(name = "contents", nullable = false)
+    @Column(name = "contents", nullable = false, columnDefinition = "TEXT")
     private String contents;
 
     @Column(name = "view_count", nullable = false)

@@ -1,10 +1,10 @@
 <template>
-  <div v-if="isOpen" class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto overflow-x-hidden bg-black bg-opacity-50 p-4 md:inset-0 h-modal md:h-full">
-    <div class="relative w-full max-w-md h-full md:h-auto">
+  <div v-if="isOpen" class="modal-overlay">
+    <div class="modal-container">
       <!-- Modal content -->
-      <div class="relative bg-white rounded-lg shadow dark:bg-gray-700">
+      <div class="modal-content">
         <!-- Modal header -->
-        <div class="flex items-center justify-between p-5 border-b rounded-t dark:border-gray-600">
+        <div class="modal-header">
           <h3 class="text-xl font-medium text-gray-900 dark:text-white">
             {{ title }}
           </h3>
@@ -14,11 +14,11 @@
           </button>
         </div>
         <!-- Modal body -->
-        <div class="p-6 space-y-6">
+        <div class="modal-body">
           <slot></slot>
         </div>
         <!-- Modal footer -->
-        <div v-if="$slots.footer" class="flex items-center p-6 space-x-2 border-t border-gray-200 rounded-b dark:border-gray-600">
+        <div v-if="$slots.footer" class="modal-footer">
           <slot name="footer"></slot>
         </div>
       </div>

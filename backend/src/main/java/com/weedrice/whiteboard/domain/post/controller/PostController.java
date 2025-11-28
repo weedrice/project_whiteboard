@@ -28,9 +28,9 @@ public class PostController {
     private final PostService postService;
     private final SearchService searchService;
 
-    @GetMapping("/boards/{boardId}/posts")
+    @GetMapping("/boards/{boardUrl}/posts")
     public ApiResponse<PageResponse<PostSummary>> getPosts(
-            @PathVariable Long boardId,
+            @PathVariable String boardUrl,
             @RequestParam(required = false) Long categoryId,
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) Integer minLikes,
@@ -45,7 +45,7 @@ public class PostController {
             searchService.recordSearch(userId, keyword);
         }
 
-        Page<Post> posts = postService.getPosts(boardId, categoryId, minLikes, pageable);
+        Page<Post> posts = postService.getPosts(boardUrl, categoryId, minLikes, pageable);
         return ApiResponse.success(new PageResponse<>(posts.map(PostSummary::from)));
     }
 
@@ -63,13 +63,13 @@ public class PostController {
         return ApiResponse.success(PostResponse.from(post, tags, viewHistory, isLiked, isScrapped));
     }
 
-    @PostMapping("/boards/{boardId}/posts")
+    @PostMapping("/boards/{boardUrl}/posts")
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<Long> createPost(
-            @PathVariable Long boardId,
+            @PathVariable String boardUrl,
             @Valid @RequestBody PostCreateRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        Post post = postService.createPost(userDetails.getUserId(), boardId, request);
+        Post post = postService.createPost(userDetails.getUserId(), boardUrl, request);
         return ApiResponse.success(post.getPostId());
     }
 

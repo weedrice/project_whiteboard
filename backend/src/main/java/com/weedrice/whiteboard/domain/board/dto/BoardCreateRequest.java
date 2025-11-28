@@ -1,8 +1,7 @@
 package com.weedrice.whiteboard.domain.board.dto;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -18,14 +17,11 @@ public class BoardCreateRequest {
 
     @NotBlank
     @Size(max = 100)
+    @Pattern(regexp = "^[a-z0-9_]+$", message = "게시판 URL은 영문 소문자, 숫자, 언더바(_)만 허용됩니다.")
     private String boardUrl;
 
     @Size(max = 255)
     private String description;
 
     private String iconUrl;
-    private Integer sortOrder;
-
-    @JsonProperty("allowNsfw")
-    private boolean allowNsfw;
 }

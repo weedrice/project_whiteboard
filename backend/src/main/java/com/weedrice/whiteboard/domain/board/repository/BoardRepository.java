@@ -17,4 +17,6 @@ public interface BoardRepository extends JpaRepository<Board, Long> {
 
     @Query("SELECT p.board FROM Post p WHERE p.isDeleted = 'N' GROUP BY p.board ORDER BY COUNT(p) DESC")
     List<Board> findTopBoardsByPostCount(Pageable pageable);
+
+    Optional<Board> findByBoardId(Long boardId);
 }

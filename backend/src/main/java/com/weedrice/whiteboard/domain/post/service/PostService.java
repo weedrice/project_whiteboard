@@ -46,6 +46,7 @@ public class PostService {
         private final ViewHistoryRepository viewHistoryRepository;
         private final ApplicationEventPublisher eventPublisher;
         private final AdminRepository adminRepository;
+        private final com.weedrice.whiteboard.domain.point.service.PointService pointService;
 
         // --- boardUrl 기반 public 메서드 (오버로드) ---
         public Page<Post> getPosts(String boardUrl, Long categoryId, Integer minLikes, Pageable pageable) {
@@ -87,10 +88,10 @@ public class PostService {
         }
         
         // 최신 게시글 15개 조회 (BoardUrl 기반)
-        public List<PostSummary> getLatestPostsByBoard(String boardUrl, int limit) {
-            Board board = boardRepository.findByBoardUrl(boardUrl)
+        public List<PostSummary> getLatestPostsByBoard(Long boardId, int limit) {
+            Board board = boardRepository.findByBoardId(boardId)
                     .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
-            return postRepository.findTopByBoardAndIsDeletedOrderByCreatedAtDesc(board, "N", Pageable.ofSize(limit)).stream()
+            return postRepository.findByBoardAndIsDeletedOrderByCreatedAtDesc(board, "N", Pageable.ofSize(limit)).stream()
                     .map(PostSummary::from)
                     .collect(Collectors.toList());
         }
@@ -174,6 +175,8 @@ public class PostService {
                 Post savedPost = postRepository.save(post);
                 tagService.processTagsForPost(savedPost, request.getTags());
                 savePostVersion(savedPost, user, "CREATE", null, null);
+                
+                pointService.addPoint(userId, 50, "게시글 작성", savedPost.getPostId(), "POST");
                 return savedPost;
         }
 
@@ -220,6 +223,8 @@ public class PostService {
                 User modifier = userRepository.findById(userId)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
                 savePostVersion(post, modifier, "DELETE", post.getTitle(), post.getContents());
+                
+                pointService.forceSubtractPoint(userId, 50, "게시글 삭제", postId, "POST");
         }
 
         @Transactional

@@ -14,12 +14,17 @@ const board = ref(null)
 const posts = ref([])
 const notices = ref([])
 const categories = ref([]) // 추가: 카테고리 목록
+const totalCount = ref(0)
+const page = ref(0)
+const size = ref(20)
 const isLoading = ref(true)
 const error = ref('')
 const searchQuery = ref('')
+const searchType = ref('TITLE_CONTENT')
 const isSearching = ref(false)
 const showAllNotices = ref(false)
-const filterType = ref('all') // 'all', 'concept', or category name
+const filterType = ref('all') // 'all', 'concept', or 'category'
+const activeFilterCategory = ref(null) // Stores the categoryId when filtering by category
 
 const displayedNotices = computed(() => {
   if (showAllNotices.value) {
@@ -49,69 +54,99 @@ async function fetchBoardData() {
       // '일반' 카테고리를 제외하고 필터링에 사용할 카테고리 목록을 설정
       categories.value = board.value.categories.filter(cat => cat.name !== '일반')
     }
-    if (postsRes.data.success) {
-      let fetchedPosts = postsRes.data.data.content
-      if (noticesRes && noticesRes.data.success && noticesRes.data.data.length > 0) {
-          // Mark notices to be sure (though they should have isNotice=true)
-          const fetchedNotices = noticesRes.data.data.map(n => ({ ...n, isNotice: true }))
-          // Prepend notices to posts
-          fetchedPosts = [...fetchedNotices, ...fetchedPosts]
+              if (postsRes.data.success) {
+                let fetchedPosts = postsRes.data.data.content
+                totalCount.value = postsRes.data.data.totalElements
+                page.value = postsRes.data.data.page
+                size.value = postsRes.data.data.size
+          
+                if (noticesRes && noticesRes.data.success && noticesRes.data.data.length > 0) {                const fetchedNotices = noticesRes.data.data.map(n => ({ ...n, isNotice: true }))
+                notices.value = fetchedNotices
+                fetchedPosts = [...fetchedNotices, ...fetchedPosts]
+            } else if (!isSearching.value && notices.value.length > 0) {
+                 // If notices were already fetched (e.g. returning from post detail), keep them
+                 // But fetchBoardData is called on mount/watch.
+                 // If noticesRes is null (because we didn't fetch it?), we might lose them if we don't persist.
+                 // But fetchBoardData always fetches notices if !isSearching.
+            }
+            posts.value = fetchedPosts
+          }
+        } catch (err) {
+          console.error('Failed to load board data:', err)
+          error.value = 'Failed to load board information.'
+        } finally {
+          isLoading.value = false
+        }
       }
-      posts.value = fetchedPosts
-    }
-  } catch (err) {
-    console.error('Failed to load board data:', err)
-    error.value = 'Failed to load board information.'
-  } finally {
-    isLoading.value = false
-  }
-}
-
-async function fetchPosts() {
-    if (isSearching.value) {
-        return searchApi.searchPosts({ q: searchQuery.value, boardUrl: route.params.boardUrl })
-    } else {
-        const params = {
-            minLikes: null,
-            category: null
-        }
-        if (filterType.value === 'concept') {
-            params.minLikes = 5
-        } else if (filterType.value !== 'all') { // 카테고리 필터링
-            params.category = filterType.value
-        }
-        return boardApi.getPosts(route.params.boardUrl, { params })
-    }
-}
-
-async function handleSearch() {
-  if (!searchQuery.value.trim()) return
-  isSearching.value = true
-  await fetchBoardData()
-}
-
-async function clearSearch() {
-  searchQuery.value = ''
-  isSearching.value = false
-  await fetchBoardData()
-}
-
-async function toggleFilter(type) {
-    if (filterType.value === type) return
-    filterType.value = type
-    isLoading.value = true
-    try {
-        const res = await fetchPosts()
-        if (res.data.success) {
-            posts.value = res.data.data.content
-        }
-    } catch (err) {
-        console.error(err)
-    } finally {
-        isLoading.value = false
-    }
-}
-
+    
+      async function fetchPosts() {
+          if (isSearching.value) {
+              return searchApi.searchPosts({ 
+                  q: searchQuery.value, 
+                  searchType: searchType.value,
+                  boardUrl: route.params.boardUrl 
+              })
+          } else {              const params = {
+                  minLikes: null,
+                  categoryId: null // Changed from 'category'
+              }
+              if (filterType.value === 'concept') {
+                  params.minLikes = 5
+              } else if (filterType.value === 'category' && activeFilterCategory.value !== null) {
+                  params.categoryId = activeFilterCategory.value // Pass categoryId
+              }
+              return boardApi.getPosts(route.params.boardUrl, params)
+          }
+      }
+    
+      async function handleSearch() {
+        if (!searchQuery.value.trim()) return
+        isSearching.value = true
+        await fetchBoardData()
+      }
+    
+      async function clearSearch() {
+        searchQuery.value = ''
+        isSearching.value = false
+        await fetchBoardData()
+      }
+    
+      async function toggleFilter(type, categoryId = null) {
+          if (type === 'all') {
+              if (filterType.value === 'all' && activeFilterCategory.value === null) return
+              filterType.value = 'all'
+              activeFilterCategory.value = null
+          } else if (type === 'concept') {
+              if (filterType.value === 'concept') return
+              filterType.value = 'concept'
+              activeFilterCategory.value = null
+          } else if (type === 'category' && categoryId !== null) {
+              if (filterType.value === 'category' && activeFilterCategory.value === categoryId) return
+              filterType.value = 'category'
+              activeFilterCategory.value = categoryId
+          } else {
+              return // Invalid filter type
+          }
+      
+          isLoading.value = true
+          try {
+                        const res = await fetchPosts()
+                        if (res.data.success) {
+                            let fetchedPosts = res.data.data.content
+                            totalCount.value = res.data.data.totalElements
+                            page.value = res.data.data.page
+                            size.value = res.data.data.size
+              
+                            if (notices.value.length > 0 && !isSearching.value) {
+                                fetchedPosts = [...notices.value, ...fetchedPosts]
+                            }
+                            posts.value = fetchedPosts
+                        }          } catch (err) {
+              console.error(err)
+          } finally {
+              isLoading.value = false
+          }
+      }
 async function handleSubscribe() {
     if (!board.value) return
     try {
@@ -130,11 +165,15 @@ async function handleSubscribe() {
     }
 }
 
-onMounted(fetchBoardData)
+onMounted(() => {
+  activeFilterCategory.value = null; // Reset category filter on mount
+  fetchBoardData();
+});
 watch(() => route.params.boardUrl, () => {
   searchQuery.value = ''
   isSearching.value = false
   filterType.value = 'all'
+  activeFilterCategory.value = null; // Reset category filter on board change
   fetchBoardData()
 })
 </script>
@@ -224,22 +263,34 @@ watch(() => route.params.boardUrl, () => {
             <button
                 v-for="category in categories"
                 :key="category.categoryId"
-                @click="toggleFilter(category.name)"
+                @click="toggleFilter('category', category.categoryId)"
                 class="px-3 py-1 text-sm font-medium rounded-md"
-                :class="filterType === category.name ? 'bg-indigo-100 text-indigo-700' : 'text-gray-500 hover:text-gray-700'"
+                :class="filterType === 'category' && activeFilterCategory === category.categoryId ? 'bg-indigo-100 text-indigo-700' : 'text-gray-500 hover:text-gray-700'"
             >
                 {{ category.name }}
             </button>
         </div>
-        <PostList :posts="posts" :boardUrl="board.boardUrl" />
+        <PostList 
+            :posts="posts" 
+            :boardUrl="board.boardUrl"
+            :totalCount="totalCount"
+            :page="page"
+            :size="size" 
+        />
       </div>
 
       <!-- Search Bar & Write Button -->
       <div class="mt-4 px-4 py-4 sm:px-6 bg-gray-50 rounded-lg relative flex justify-center items-center">
         <div class="flex max-w-lg w-full">
+            <select v-model="searchType" class="block pl-3 pr-8 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md bg-white mr-2 cursor-pointer shadow-sm">
+                <option value="TITLE_CONTENT">제목+내용</option>
+                <option value="TITLE">제목</option>
+                <option value="CONTENT">내용</option>
+                <option value="AUTHOR">글쓴이</option>
+            </select>
             <div class="relative flex-grow">
                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Search class="h-5 w-5" />
+                    <Search class="h-5 w-5 text-gray-400" />
                 </div>
                 <input
                     type="text"

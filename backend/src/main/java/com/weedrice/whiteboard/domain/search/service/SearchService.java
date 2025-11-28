@@ -63,9 +63,8 @@ public class SearchService {
         return IntegratedSearchResponse.from(posts, null, null, keyword);
     }
 
-    public Page<PostSummary> searchPosts(String keyword, Long boardId, Pageable pageable) {
-        // TODO: boardId 필터링 로직 추가 필요
-        return postRepository.searchPostsByKeyword(keyword, pageable).map(PostSummary::from);
+    public Page<PostSummary> searchPosts(String keyword, String searchType, String boardUrl, Pageable pageable) {
+        return postRepository.searchPosts(keyword, searchType, boardUrl, pageable).map(PostSummary::from);
     }
 
     public Page<SearchPersonalization> getRecentSearches(Long userId, Pageable pageable) {

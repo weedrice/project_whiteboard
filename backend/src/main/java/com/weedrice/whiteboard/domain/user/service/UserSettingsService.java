@@ -29,7 +29,12 @@ public class UserSettingsService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
         return userSettingsRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+                .orElseGet(() -> {
+                    UserSettings defaultSettings = UserSettings.builder()
+                            .user(user)
+                            .build();
+                    return userSettingsRepository.save(defaultSettings);
+                });
     }
 
     @Transactional
@@ -38,7 +43,12 @@ public class UserSettingsService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
         UserSettings settings = userSettingsRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+                .orElseGet(() -> {
+                    UserSettings defaultSettings = UserSettings.builder()
+                            .user(user)
+                            .build();
+                    return userSettingsRepository.save(defaultSettings);
+                });
 
         String hideNsfwValue = hideNsfw != null ? (hideNsfw ? "Y" : "N") : null;
 

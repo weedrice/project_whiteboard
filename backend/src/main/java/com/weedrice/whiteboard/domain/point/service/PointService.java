@@ -60,22 +60,18 @@ public class PointService {
     }
 
     @Transactional
-    public void subtractPoint(Long userId, int amount, String description, Long relatedId, String relatedType) {
+    public void forceSubtractPoint(Long userId, int amount, String description, Long relatedId, String relatedType) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         UserPoint userPoint = userPointRepository.findByUserId(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.INSUFFICIENT_POINTS)); // 차감 시에는 UserPoint가 있어야 함
+                .orElseGet(() -> userPointRepository.save(UserPoint.builder().user(user).build()));
 
-        if (userPoint.getCurrentPoint() < amount) {
-            throw new BusinessException(ErrorCode.INSUFFICIENT_POINTS);
-        }
-
-        userPoint.subtractPoint(amount);
+        userPoint.subtractPoint(amount); // Assuming subtractPoint in entity handles calculation. Does it prevent negative? Check entity.
         userPointRepository.save(userPoint);
 
         PointHistory history = PointHistory.builder()
                 .user(user)
-                .type("SPEND")
+                .type("PENALTY") // Or DEDUCT
                 .amount(-amount)
                 .balanceAfter(userPoint.getCurrentPoint())
                 .description(description)

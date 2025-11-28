@@ -2,7 +2,7 @@ import api from './index'
 
 export const postApi = {
     // Create a new post
-    createPost: (boardId, data) => api.post(`/boards/${boardId}/posts`, data),
+    createPost: (boardUrl, data) => api.post(`/boards/${boardUrl}/posts`, data),
 
     // Get post details (placeholder for future)
     getPost: (postId) => api.get(`/posts/${postId}`),

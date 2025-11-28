@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { boardApi } from '@/api/board'
-import { Trash2, Edit2, Check, X, Plus } from 'lucide-vue-next'
+import { Trash2, Edit2, Check, X, Plus, GripVertical } from 'lucide-vue-next'
 
 const props = defineProps({
   boardUrl: { // boardId 대신 boardUrl 사용
@@ -16,6 +16,7 @@ const error = ref('')
 const newCategoryName = ref('')
 const editingId = ref(null)
 const editingName = ref('')
+const dragIndex = ref(null)
 
 async function fetchCategories() {
   isLoading.value = true
@@ -96,6 +97,40 @@ async function saveEdit(category) {
   }
 }
 
+function onDragStart(event, index) {
+  dragIndex.value = index
+  event.dataTransfer.effectAllowed = 'move'
+}
+
+async function onDrop(index) {
+  const fromIndex = dragIndex.value
+  const toIndex = index
+
+  if (fromIndex === null || fromIndex === toIndex) return
+
+  const newCategories = [...categories.value]
+  const [movedItem] = newCategories.splice(fromIndex, 1)
+  newCategories.splice(toIndex, 0, movedItem)
+
+  categories.value = newCategories
+  dragIndex.value = null
+
+  // Update sortOrder for all categories
+  try {
+    const updatePromises = categories.value.map((cat, idx) => {
+      return boardApi.updateCategory(props.boardUrl, cat.categoryId, {
+        name: cat.name,
+        sortOrder: idx + 1
+      })
+    })
+    await Promise.all(updatePromises)
+  } catch (err) {
+    console.error('Failed to reorder categories:', err)
+    alert('Failed to update category order.')
+    fetchCategories() // Revert changes
+  }
+}
+
 onMounted(fetchCategories)
 </script>
 
@@ -109,11 +144,11 @@ onMounted(fetchCategories)
         type="text"
         v-model="newCategoryName"
         placeholder="New category name"
-        class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
+        class="input-base"
       />
       <button
         type="submit"
-        class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+        class="btn-primary"
       >
         <Plus class="h-4 w-4" />
       </button>
@@ -124,8 +159,29 @@ onMounted(fetchCategories)
       <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600 mx-auto"></div>
     </div>
     
-    <ul v-else class="divide-y divide-gray-200 border border-gray-200 rounded-md">
-      <li v-for="category in categories" :key="category.categoryId" class="px-4 py-3 flex items-center justify-between">
+    <transition-group 
+      name="list" 
+      tag="ul" 
+      class="divide-y divide-gray-200 border border-gray-200 rounded-md"
+    >
+      <li 
+        v-for="(category, index) in categories" 
+        :key="category.categoryId" 
+        class="px-4 py-3 flex items-center justify-between group bg-white"
+        @dragover.prevent
+        @dragenter.prevent
+        @drop="onDrop(index)"
+      >
+        <div class="flex items-center">
+          <div 
+            draggable="true"
+            @dragstart="onDragStart($event, index)"
+            class="mr-3 cursor-move text-gray-400 hover:text-gray-600 p-1 rounded hover:bg-gray-100"
+          >
+            <GripVertical class="h-4 w-4" />
+          </div>
+        </div>
+
         <div v-if="editingId === category.categoryId" class="flex-1 flex items-center gap-2">
           <input
             type="text"
@@ -151,9 +207,25 @@ onMounted(fetchCategories)
           </div>
         </div>
       </li>
-      <li v-if="categories.length === 0" class="px-4 py-3 text-sm text-gray-500 text-center">
+      <li v-if="categories.length === 0" key="empty" class="px-4 py-3 text-sm text-gray-500 text-center">
         No categories yet.
       </li>
-    </ul>
+    </transition-group>
   </div>
 </template>
+
+<style scoped>
+.list-move,
+.list-enter-active,
+.list-leave-active {
+  transition: all 0.5s ease;
+}
+.list-enter-from,
+.list-leave-to {
+  opacity: 0;
+  transform: translateX(30px);
+}
+.list-leave-active {
+  position: absolute;
+}
+</style>

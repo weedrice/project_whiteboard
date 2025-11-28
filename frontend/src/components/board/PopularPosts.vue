@@ -1,5 +1,5 @@
 <template>
-  <div class="bg-white shadow rounded-lg p-4">
+  <div class="card p-4">
     <h3 class="text-lg font-medium text-gray-900 mb-4">Popular Posts</h3>
     
     <div v-if="loading" class="text-center py-4">

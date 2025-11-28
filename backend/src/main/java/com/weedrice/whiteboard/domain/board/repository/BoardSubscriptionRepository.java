@@ -12,4 +12,5 @@ public interface BoardSubscriptionRepository extends JpaRepository<BoardSubscrip
     Page<BoardSubscription> findByUser(User user, Pageable pageable);
     long countByBoard(Board board);
     boolean existsByUserAndBoard(User user, Board board);
+    void deleteByBoard(Board board);
 }

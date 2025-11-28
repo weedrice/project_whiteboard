@@ -54,6 +54,7 @@ public class PostResponse {
     public static class BoardInfo {
         private Long boardId;
         private String boardName;
+        private String boardUrl;
     }
 
     @Getter
@@ -74,6 +75,7 @@ public class PostResponse {
         BoardInfo boardInfo = BoardInfo.builder()
                 .boardId(post.getBoard().getBoardId())
                 .boardName(post.getBoard().getBoardName())
+                .boardUrl(post.getBoard().getBoardUrl())
                 .build();
 
         CategoryInfo categoryInfo = post.getCategory() != null ? CategoryInfo.builder()

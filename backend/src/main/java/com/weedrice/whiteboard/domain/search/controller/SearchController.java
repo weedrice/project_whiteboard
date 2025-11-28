@@ -43,7 +43,8 @@ public class SearchController {
     @GetMapping("/posts")
     public ApiResponse<PageResponse<PostSummary>> searchPosts(
             @RequestParam String q,
-            @RequestParam(required = false) Long boardId,
+            @RequestParam(required = false) String searchType,
+            @RequestParam(required = false) String boardUrl,
             Pageable pageable,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
 
@@ -53,7 +54,7 @@ public class SearchController {
             searchService.recordSearch(null, q);
         }
 
-        Page<PostSummary> response = searchService.searchPosts(q, boardId, pageable);
+        Page<PostSummary> response = searchService.searchPosts(q, searchType, boardUrl, pageable);
         return ApiResponse.success(new PageResponse<>(response));
     }
 
