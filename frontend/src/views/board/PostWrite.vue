@@ -120,7 +120,7 @@ async function handleSubmit() {
               id="category"
               v-model="form.categoryId"
               name="category"
-              class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
+              class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md p-2"
             >
               <option v-for="category in categories" :key="category.categoryId" :value="category.categoryId">
                 {{ category.name }}
@@ -138,7 +138,7 @@ async function handleSubmit() {
               id="title"
               v-model="form.title"
               required
-              class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
+              class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md p-2"
               placeholder="제목을 입력하세요"
             />
           </div>

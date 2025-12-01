@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, computed, watch } from 'vue'
+import { ref, onMounted, computed, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { postApi } from '@/api/post'
 import { useAuthStore } from '@/stores/auth'
@@ -8,9 +8,12 @@ import CommentList from '@/components/comment/CommentList.vue'
 import PostTags from '@/components/tag/PostTags.vue'
 import UserMenu from '@/components/common/UserMenu.vue'
 
+import { useI18n } from 'vue-i18n'
+
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const { t } = useI18n()
 
 const post = ref(null)
 const isLoading = ref(true)
@@ -20,9 +23,17 @@ const isAuthor = computed(() => {
   return authStore.user && post.value && authStore.user.userId === post.value.author.userId
 })
 
+const isAdmin = computed(() => authStore.isAdmin)
+
 function formatDate(dateString) {
   return new Date(dateString).toLocaleString()
 }
+
+const isBlurred = ref(false)
+const blurTimer = ref(null)
+const timeLeft = ref(5)
+
+const titleRef = ref(null)
 
 async function fetchPost() {
   isLoading.value = true
@@ -35,6 +46,26 @@ async function fetchPost() {
       post.value.likeCount = post.value.likeCount || 0
       post.value.commentCount = post.value.commentCount || 0
       post.value.viewCount = post.value.viewCount || 0
+
+      // Spoiler Logic
+      if (post.value.isSpoiler) {
+        isBlurred.value = true
+        timeLeft.value = 5
+        startBlurTimer()
+      }
+
+      // Scroll to title
+      nextTick(() => {
+        window.scrollTo(0, 0)
+        if (route.hash) {
+            const element = document.querySelector(route.hash)
+            if (element) {
+                element.scrollIntoView({ behavior: 'smooth' })
+            }
+        } else if (titleRef.value) {
+            titleRef.value.scrollIntoView({ behavior: 'smooth' })
+        }
+      })
     }
   } catch (err) {
     console.error('Failed to load post:', err)
@@ -43,6 +74,7 @@ async function fetchPost() {
     isLoading.value = false
   }
 }
+
 
 async function handleDelete() {
   if (!confirm('정말 삭제하시겠습니까?')) return
@@ -53,17 +85,13 @@ async function handleDelete() {
       router.push(`/board/${post.value.board.boardUrl}`)
     }
   } catch (err) {
-    console.error('게시글 삭제 실패:', err)
+    console.error('Failed to delete post:', err)
     alert('게시글 삭제에 실패했습니다.')
   }
 }
 
 async function handleLike() {
-  if (!authStore.isAuthenticated) {
-    alert('로그인 한 사용자만 사용할 수 있습니다.')
-    return
-  }
-
+  if (!authStore.isAuthenticated) return
   try {
     if (post.value.isLiked) {
       const { data } = await postApi.unlikePost(route.params.postId)
@@ -83,12 +111,57 @@ async function handleLike() {
   }
 }
 
-// ... (scrap logic)
+async function handleScrap() {
+  if (!authStore.isAuthenticated) return
+  try {
+    if (post.value.isScrapped) {
+      const { data } = await postApi.unscrapPost(route.params.postId)
+      if (data.success) {
+        post.value.isScrapped = false
+      }
+    } else {
+      const { data } = await postApi.scrapPost(route.params.postId)
+      if (data.success) {
+        post.value.isScrapped = true
+      }
+    }
+  } catch (err) {
+    console.error('스크랩 처리에 실패했습니다:', err)
+  }
+}
+
+function startBlurTimer() {
+  blurTimer.value = setInterval(() => {
+    timeLeft.value--
+    if (timeLeft.value <= 0) {
+      revealSpoiler()
+    }
+  }, 1000)
+}
+
+function revealSpoiler() {
+  isBlurred.value = false
+  if (blurTimer.value) {
+    clearInterval(blurTimer.value)
+    blurTimer.value = null
+  }
+}
 
 onMounted(fetchPost)
 
 watch(() => route.params.postId, (newId) => {
     if (newId) fetchPost()
+})
+
+watch(() => route.hash, (newHash) => {
+    if (newHash) {
+        nextTick(() => {
+            const element = document.querySelector(newHash)
+            if (element) {
+                element.scrollIntoView({ behavior: 'smooth' })
+            }
+        })
+    }
 })
 </script>
 
@@ -137,35 +210,53 @@ watch(() => route.params.postId, (newId) => {
           </div>
         </div>
         
-        <h1 class="mt-4 text-2xl font-bold text-gray-900 flex items-center">
-          <span v-if="post.category && post.category.name !== '일반'" class="inline-flex items-center px-2.5 py-0.5 rounded-md text-sm font-medium bg-gray-100 text-gray-800 mr-2">
-            {{ post.category.name }}
-          </span>
-          {{ post.title }}
-        </h1>
-        
-        <div class="mt-2 flex items-center text-sm text-gray-500 space-x-4">
-          <span class="flex items-center">
-            <User class="h-4 w-4 mr-1" />
-            <UserMenu
-              :user-id="post.author.userId"
-              :display-name="post.author.displayName"
-            />
-          </span>
-          <span class="flex items-center">
-            <Clock class="h-4 w-4 mr-1" />
-            {{ formatDate(post.createdAt) }}
-          </span>
-          <span class="flex items-center">
-            <Eye class="h-4 w-4 mr-1" />
-            {{ post.viewCount }}
-          </span>
+        <div class="mt-4">
+            <h1 class="text-2xl font-bold text-gray-900" ref="titleRef">{{ post.title }}</h1>
+            <div class="mt-2 flex items-center text-sm text-gray-500 space-x-4">
+                <div class="flex items-center">
+                    <User class="h-4 w-4 mr-1" />
+                    <UserMenu :user-id="post.author.userId" :display-name="post.author.displayName" />
+                </div>
+                <div class="flex items-center">
+                    <Clock class="h-4 w-4 mr-1" />
+                    {{ formatDate(post.createdAt) }}
+                </div>
+                <div class="flex items-center">
+                    <Eye class="h-4 w-4 mr-1" />
+                    {{ post.viewCount }}
+                </div>
+                <div class="flex items-center">
+                    <MessageSquare class="h-4 w-4 mr-1" />
+                    {{ post.commentCount }}
+                </div>
+            </div>
         </div>
       </div>
 
       <!-- Content -->
-      <div class="px-4 py-5 sm:p-6 min-h-[200px] prose max-w-none">
-        <div v-html="post.contents" class="ql-editor"></div>
+      <div class="px-4 py-5 sm:p-6 min-h-[200px] prose max-w-none relative">
+        <div 
+          v-html="post.contents" 
+          class="ql-editor transition-all duration-500"
+          :class="{ 'blur-md select-none': isBlurred }"
+        ></div>
+        
+        <!-- Spoiler Overlay -->
+        <div 
+          v-if="isBlurred" 
+          class="absolute inset-0 flex flex-col items-center justify-center z-10 bg-white/50"
+        >
+          <div class="bg-white p-6 rounded-lg shadow-lg text-center border border-gray-200">
+            <h3 class="text-lg font-bold text-gray-900 mb-2">스포일러 주의!</h3>
+            <p class="text-gray-600 mb-4">{{ timeLeft }}초 후에 내용이 공개됩니다.</p>
+            <button 
+              @click="revealSpoiler"
+              class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            >
+              지금 보기
+            </button>
+          </div>
+        </div>
       </div>
 
       <!-- Tags -->

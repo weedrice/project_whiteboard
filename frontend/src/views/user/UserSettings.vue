@@ -1,8 +1,10 @@
 <script setup>
 import { ref, onMounted, reactive } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { userApi } from '@/api/user'
 import BaseButton from '@/components/common/BaseButton.vue'
 
+const { t } = useI18n()
 const loading = ref(false)
 const saving = ref(false)
 const message = ref('')
@@ -84,10 +86,10 @@ const saveSettings = async () => {
         isEnabled: notificationSettings.pushNotifications ? 'Y' : 'N'
     })
 
-    message.value = '설정이 저장되었습니다.'
+    message.value = t('user.settings.saved')
   } catch (error) {
     console.error('설정 저장 실패:', error)
-    message.value = '설정 저장에 실패했습니다.'
+    message.value = t('user.settings.failed')
   } finally {
     saving.value = false
   }
@@ -100,8 +102,6 @@ onMounted(() => {
 
 <template>
   <div class="max-w-2xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-    <h1 class="text-2xl font-bold text-gray-900 mb-6">설정</h1>
-
     <div v-if="loading" class="text-center py-10">
       <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 mx-auto"></div>
     </div>
@@ -110,9 +110,9 @@ onMounted(() => {
       <div class="px-4 py-5 sm:p-6 space-y-6">
         <!-- General Settings (Matched to Backend) -->
         <div>
-          <h3 class="text-lg font-medium leading-6 text-gray-900">일반 설정</h3>
+          <h3 class="text-lg font-medium leading-6 text-gray-900">{{ $t('user.settings.general') }}</h3>
           <div class="mt-4 space-y-4">
-             <p class="text-sm text-gray-500">테마 및 언어 설정은 현재 준비 중입니다.</p>
+             <p class="text-sm text-gray-500">{{ $t('user.settings.generalDesc') }}</p>
           </div>
         </div>
 
@@ -120,7 +120,7 @@ onMounted(() => {
 
         <!-- Notification Settings -->
         <div>
-          <h3 class="text-lg font-medium leading-6 text-gray-900">알림 설정</h3>
+          <h3 class="text-lg font-medium leading-6 text-gray-900">{{ $t('user.settings.notifications') }}</h3>
           <div class="mt-4 space-y-4">
             <div class="flex items-start">
               <div class="flex items-center h-5">
@@ -132,8 +132,8 @@ onMounted(() => {
                 />
               </div>
               <div class="ml-3 text-sm">
-                <label for="email_notifications" class="font-medium text-gray-700">이메일 알림</label>
-                <p class="text-gray-500">계정 활동에 대한 이메일 알림을 받습니다.</p>
+                <label for="email_notifications" class="font-medium text-gray-700">{{ $t('user.settings.email') }}</label>
+                <p class="text-gray-500">{{ $t('user.settings.emailDesc') }}</p>
               </div>
             </div>
             <div class="flex items-start">
@@ -146,8 +146,8 @@ onMounted(() => {
                 />
               </div>
               <div class="ml-3 text-sm">
-                <label for="push_notifications" class="font-medium text-gray-700">푸시 알림</label>
-                <p class="text-gray-500">기기로 푸시 알림을 받습니다.</p>
+                <label for="push_notifications" class="font-medium text-gray-700">{{ $t('user.settings.push') }}</label>
+                <p class="text-gray-500">{{ $t('user.settings.pushDesc') }}</p>
               </div>
             </div>
           </div>
@@ -159,7 +159,7 @@ onMounted(() => {
               {{ message }}
             </p>
             <BaseButton @click="saveSettings" :disabled="saving">
-              {{ saving ? '저장 중...' : '설정 저장' }}
+              {{ saving ? $t('user.settings.saving') : $t('user.settings.save') }}
             </BaseButton>
           </div>
         </div>

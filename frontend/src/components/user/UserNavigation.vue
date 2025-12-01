@@ -1,41 +1,149 @@
 <template>
-  <div class="border-b border-gray-200 mb-6 overflow-x-auto">
-    <nav class="-mb-px flex space-x-8 min-w-max" aria-label="Tabs">
-      <router-link
-        v-for="tab in tabs"
-        :key="tab.name"
-        :to="tab.href"
-        :class="[
-          isActive(tab.href)
-            ? 'border-indigo-500 text-indigo-600'
-            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300',
-          'whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm'
-        ]"
-        :aria-current="isActive(tab.href) ? 'page' : undefined"
-      >
-        {{ tab.name }}
-      </router-link>
-    </nav>
+  <div class="relative mb-6">
+    <div 
+      ref="scrollContainer"
+      class="overflow-x-auto scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0"
+      @touchstart="handleTouchStart"
+      @touchmove="handleTouchMove"
+      @touchend="handleTouchEnd"
+    >
+      <nav class="flex space-x-8 border-b border-gray-200 min-w-max relative" aria-label="Tabs">
+        <router-link
+          v-for="(tab, index) in tabs"
+          :key="tab.nameKey"
+          :to="tab.href"
+          :ref="el => { if (el) tabRefs[index] = el.$el }"
+          class="whitespace-nowrap py-4 px-1 font-medium text-sm transition-colors duration-200"
+          :class="[
+            isActive(tab.href)
+              ? 'text-indigo-600'
+              : 'text-gray-500 hover:text-gray-700'
+          ]"
+          :aria-current="isActive(tab.href) ? 'page' : undefined"
+        >
+          {{ $t(tab.nameKey) }}
+        </router-link>
+        
+        <!-- Animated Underline -->
+        <div 
+          class="absolute bottom-0 h-0.5 bg-indigo-500 transition-all duration-300 ease-out"
+          :style="underlineStyle"
+        ></div>
+      </nav>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
+import { ref, computed, watch, nextTick, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 const route = useRoute()
+const router = useRouter()
+const { t } = useI18n()
 
 const tabs = [
-  { name: '마이페이지', href: '/mypage' },
-  { name: '표시 설정', href: '/mypage/settings' },
-  { name: '포인트 내역', href: '/mypage/points' },
-  { name: '스크랩 목록', href: '/mypage/scraps' },
-  { name: '최근 읽은 글', href: '/search/recent' },
-  { name: '신고 목록', href: '/mypage/reports' },
+  { nameKey: 'user.tabs.myPage', href: '/mypage' },
+  { nameKey: 'user.tabs.settings', href: '/mypage/settings' },
+  { nameKey: 'user.tabs.notifications', href: '/mypage/notifications' },
+  { nameKey: 'user.tabs.points', href: '/mypage/points' },
+  { nameKey: 'user.tabs.scraps', href: '/mypage/scraps' },
+  { nameKey: 'user.tabs.recent', href: '/mypage/recent' },
+  { nameKey: 'user.tabs.reports', href: '/mypage/reports' },
 ]
 
+const tabRefs = ref([])
+const scrollContainer = ref(null)
+const underlineStyle = ref({ left: '0px', width: '0px' })
+
 function isActive(href) {
-    // Exact match for mypage, but maybe check prefix for others if nested?
-    // For now, strict equality is fine as routes are flat.
-    return route.path === href
+    if (href === '/mypage') {
+        return route.path === '/mypage'
+    }
+    return route.path.startsWith(href)
+}
+
+const activeTabIndex = computed(() => {
+    return tabs.findIndex(tab => isActive(tab.href))
+})
+
+const updateUnderline = () => {
+    const index = activeTabIndex.value
+    if (index !== -1 && tabRefs.value[index]) {
+        const el = tabRefs.value[index]
+        underlineStyle.value = {
+            left: `${el.offsetLeft}px`,
+            width: `${el.offsetWidth}px`
+        }
+        
+        // Scroll into view if needed (for mobile)
+        if (scrollContainer.value) {
+            const container = scrollContainer.value
+            const scrollLeft = container.scrollLeft
+            const containerWidth = container.clientWidth
+            const elLeft = el.offsetLeft
+            const elWidth = el.offsetWidth
+            
+            if (elLeft < scrollLeft) {
+                container.scrollTo({ left: elLeft, behavior: 'smooth' })
+            } else if (elLeft + elWidth > scrollLeft + containerWidth) {
+                container.scrollTo({ left: elLeft + elWidth - containerWidth, behavior: 'smooth' })
+            }
+        }
+    } else {
+        underlineStyle.value = { left: '0px', width: '0px', opacity: 0 }
+    }
+}
+
+watch(() => route.path, () => {
+    nextTick(updateUnderline)
+})
+
+onMounted(() => {
+    // Wait for refs to be populated
+    nextTick(updateUnderline)
+    // Add resize listener to update underline position
+    window.addEventListener('resize', updateUnderline)
+})
+
+// Mobile Swipe Logic
+const touchStartX = ref(0)
+const touchStartY = ref(0)
+
+const handleTouchStart = (e) => {
+    touchStartX.value = e.touches[0].clientX
+    touchStartY.value = e.touches[0].clientY
+}
+
+const handleTouchMove = (e) => {
+    // Optional: prevent default if horizontal swipe is detected to stop vertical scroll
+    // But usually better to let browser handle it unless it's a dedicated slider
+}
+
+const handleTouchEnd = (e) => {
+    const touchEndX = e.changedTouches[0].clientX
+    const touchEndY = e.changedTouches[0].clientY
+    
+    const diffX = touchStartX.value - touchEndX
+    const diffY = touchStartY.value - touchEndY
+    
+    // Threshold for swipe
+    if (Math.abs(diffX) > 50 && Math.abs(diffY) < 50) {
+        const currentIndex = activeTabIndex.value
+        if (diffX > 0) {
+            // Swipe Left -> Next Tab
+            if (currentIndex < tabs.length - 1) {
+                router.push(tabs[currentIndex + 1].href)
+            }
+        } else {
+            // Swipe Right -> Prev Tab
+            if (currentIndex > 0) {
+                router.push(tabs[currentIndex - 1].href)
+            }
+        }
+    }
 }
 </script>
+
+

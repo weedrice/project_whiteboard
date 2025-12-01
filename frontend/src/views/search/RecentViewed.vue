@@ -43,8 +43,6 @@ onMounted(() => {
 
 <template>
   <div class="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-    <h1 class="text-2xl font-bold text-gray-900 mb-6">최근 읽은 글</h1>
-
     <div class="bg-white shadow overflow-hidden sm:rounded-lg mb-6">
       <div v-if="posts.length > 0">
         <PostList 
@@ -63,7 +61,7 @@ onMounted(() => {
       </div>
       
       <div v-else-if="!loading" class="text-center py-10 text-gray-500">
-        최근 읽은 글이 없습니다.
+        {{ $t('user.recentViewed.empty') }}
       </div>
       
       <div v-if="loading && posts.length === 0" class="text-center py-10">

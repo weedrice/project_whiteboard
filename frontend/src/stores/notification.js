@@ -57,6 +57,8 @@ export const useNotificationStore = defineStore('notification', () => {
             if (data.success) {
                 notifications.value.forEach(n => n.isRead = true)
                 unreadCount.value = 0
+                // Refresh from server to ensure sync
+                await fetchNotifications()
             }
         } catch (error) {
             console.error('Failed to mark all notifications as read:', error)

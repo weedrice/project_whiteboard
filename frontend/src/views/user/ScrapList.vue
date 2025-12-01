@@ -45,11 +45,9 @@ onMounted(() => {
 
 <template>
   <div class="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-    <h1 class="text-2xl font-bold text-gray-900 mb-6">스크랩 목록</h1>
-
     <div class="bg-white shadow overflow-hidden sm:rounded-lg">
       <div v-if="scraps.length > 0">
-        <PostList :posts="scraps" :show-board-name="true" />
+        <PostList :posts="scraps" :show-board-name="true" :hide-no-column="true" />
         
         <div v-if="hasMore && scraps.length > 0" class="bg-gray-50 px-4 py-4 sm:px-6 text-center border-t border-gray-200">
           <button 
@@ -57,13 +55,13 @@ onMounted(() => {
             :disabled="loading"
             class="text-sm font-medium text-indigo-600 hover:text-indigo-500 disabled:opacity-50"
           >
-            {{ loading ? '로딩 중...' : '더 보기' }}
+            {{ loading ? $t('common.loading') : $t('common.loadMore') }}
           </button>
         </div>
       </div>
       
       <div v-else-if="!loading" class="text-center py-10 text-gray-500">
-        스크랩한 게시글이 없습니다.
+        {{ $t('user.scrapList.empty') }}
       </div>
       
       <div v-if="loading && scraps.length === 0" class="text-center py-10">

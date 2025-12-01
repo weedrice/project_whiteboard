@@ -1,12 +1,14 @@
 <script setup>
-import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { User, LogOut, Settings, CreditCard, FileText, Clock, AlertTriangle, PlusSquare, ChevronDown } from 'lucide-vue-next'
+import { useNotificationStore } from '@/stores/notification'
+import { User, LogOut, Settings, CreditCard, FileText, Clock, AlertTriangle, PlusSquare, ChevronDown, Bell } from 'lucide-vue-next'
 import axios from '@/api'
 
 const router = useRouter()
 const authStore = useAuthStore()
+const notificationStore = useNotificationStore()
 
 const props = defineProps({
   isOpen: {
@@ -43,6 +45,7 @@ const handleLogout = async () => {
 watch(() => props.isOpen, (newVal) => {
   if (newVal) {
     fetchPoints()
+    // notificationStore.fetchNotifications() // Might still want to fetch to show badge count elsewhere, but not needed for list here
   }
 })
 
@@ -101,6 +104,14 @@ onMounted(() => {
           표시 설정
         </router-link>
         <router-link
+          to="/mypage/notifications"
+          class="group flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+          @click="emit('toggle')"
+        >
+          <Bell class="mr-3 h-4 w-4 text-gray-400 group-hover:text-gray-500" />
+          알림
+        </router-link>
+        <router-link
           to="/mypage/points"
           class="group flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900"
           @click="emit('toggle')"
@@ -121,7 +132,7 @@ onMounted(() => {
       <!-- Group 2 -->
       <div class="py-1 border-b border-gray-100">
         <router-link
-          to="/search/recent"
+          to="/mypage/recent"
           class="group flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900"
           @click="emit('toggle')"
         >

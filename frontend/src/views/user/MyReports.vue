@@ -30,15 +30,13 @@ onMounted(() => {
 
 <template>
   <div class="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-    <h1 class="text-2xl font-bold text-gray-900 mb-6">신고 목록</h1>
-
     <div class="bg-white shadow overflow-hidden sm:rounded-lg">
       <ul role="list" class="divide-y divide-gray-200">
         <li v-for="report in reports" :key="report.id" class="px-4 py-4 sm:px-6 hover:bg-gray-50">
           <div class="flex items-center justify-between">
             <div class="flex flex-col">
               <p class="text-sm font-medium text-indigo-600 truncate">
-                {{ report.targetType }} 신고 - {{ report.reason }}
+                {{ report.targetType }} {{ $t('user.reportList.targetType') }} - {{ report.reason }}
               </p>
               <p class="mt-1 text-xs text-gray-500">
                 {{ formatDate(report.createdAt) }}
@@ -53,13 +51,13 @@ onMounted(() => {
                   'bg-red-100 text-red-800': report.status === 'REJECTED'
                 }"
               >
-                {{ report.status === 'PENDING' ? '대기중' : (report.status === 'PROCESSED' ? '처리됨' : '반려됨') }}
+                {{ report.status === 'PENDING' ? $t('user.reportList.pending') : (report.status === 'PROCESSED' ? $t('user.reportList.processed') : $t('user.reportList.rejected')) }}
               </span>
             </div>
           </div>
         </li>
         <li v-if="reports.length === 0 && !loading" class="px-4 py-8 text-center text-gray-500">
-          신고 내역이 없습니다.
+          {{ $t('user.reportList.empty') }}
         </li>
       </ul>
     </div>

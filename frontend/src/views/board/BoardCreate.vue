@@ -93,7 +93,7 @@ async function handleSubmit() {
               name="description"
               rows="3"
               v-model="form.description"
-              class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border border-gray-300 rounded-md"
+              class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border border-gray-300 rounded-md p-2"
               placeholder="게시판에 대한 간략한 설명"
             ></textarea>
           </div>
@@ -108,6 +108,8 @@ async function handleSubmit() {
             />
         </div>
 
+        <!-- Hidden Fields: Sort Order & NSFW -->
+        <!-- 
         <div class="sm:col-span-6">
             <BaseInput
                 label="정렬 순서"
@@ -130,10 +132,11 @@ async function handleSubmit() {
             </div>
             <div class="ml-3 text-sm">
               <label for="allowNsfw" class="font-medium text-gray-700">후방주의 (NSFW) 허용</label>
-              <p class="text-gray-500">이 게시판에 부적절한 콘텐츠가 포함될 수 있다면 체크하세요.</p>
+              <p class="text-gray-500">이 게시판에 부적절한 콘텐츠를 포함될 수 있다면 체크하세요.</p>
             </div>
           </div>
         </div>
+        -->
       </div>
 
       <div class="flex justify-end">

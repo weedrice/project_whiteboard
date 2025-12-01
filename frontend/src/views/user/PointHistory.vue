@@ -48,15 +48,13 @@ onMounted(() => {
 
 <template>
   <div class="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-    <h1 class="text-2xl font-bold text-gray-900 mb-6">포인트 내역</h1>
-
     <div class="bg-white shadow overflow-hidden sm:rounded-lg">
       <ul role="list" class="divide-y divide-gray-200">
         <li v-for="item in history" :key="item.id" class="px-4 py-4 sm:px-6 hover:bg-gray-50">
           <div class="flex items-center justify-between">
             <div class="flex flex-col">
               <p class="text-sm font-medium text-indigo-600 truncate">
-                {{ item.reason || '포인트 조정' }}
+                {{ item.description || $t('user.pointsHistory.adjustment') }}
               </p>
               <p class="mt-1 text-xs text-gray-500">
                 {{ formatDate(item.createdAt) }}
@@ -73,7 +71,7 @@ onMounted(() => {
           </div>
         </li>
         <li v-if="history.length === 0 && !loading" class="px-4 py-8 text-center text-gray-500">
-          포인트 내역이 없습니다.
+          {{ $t('user.pointsHistory.empty') }}
         </li>
       </ul>
       <div v-if="hasMore && history.length > 0" class="bg-gray-50 px-4 py-4 sm:px-6 text-center">
@@ -82,7 +80,7 @@ onMounted(() => {
           :disabled="loading"
           class="text-sm font-medium text-indigo-600 hover:text-indigo-500 disabled:opacity-50"
         >
-          {{ loading ? '로딩 중...' : '더 보기' }}
+          {{ loading ? $t('common.loading') : $t('common.loadMore') }}
         </button>
       </div>
     </div>
