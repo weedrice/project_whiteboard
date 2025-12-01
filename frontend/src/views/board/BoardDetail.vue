@@ -25,6 +25,7 @@ const isSearching = ref(false)
 const showAllNotices = ref(false)
 const filterType = ref('all') // 'all', 'concept', or 'category'
 const activeFilterCategory = ref(null) // Stores the categoryId when filtering by category
+const sort = ref('createdAt,desc')
 
 const displayedNotices = computed(() => {
   if (showAllNotices.value) {
@@ -95,6 +96,7 @@ async function fetchBoardData() {
               } else if (filterType.value === 'category' && activeFilterCategory.value !== null) {
                   params.categoryId = activeFilterCategory.value // Pass categoryId
               }
+              params.sort = sort.value
               return boardApi.getPosts(route.params.boardUrl, params)
           }
       }
@@ -147,6 +149,29 @@ async function fetchBoardData() {
               isLoading.value = false
           }
       }
+async function handleSortChange(newSort) {
+    sort.value = newSort
+    isLoading.value = true
+    try {
+        const res = await fetchPosts()
+        if (res.data.success) {
+            let fetchedPosts = res.data.data.content
+            totalCount.value = res.data.data.totalElements
+            page.value = res.data.data.page
+            size.value = res.data.data.size
+
+            if (notices.value.length > 0 && !isSearching.value) {
+                fetchedPosts = [...notices.value, ...fetchedPosts]
+            }
+            posts.value = fetchedPosts
+        }
+    } catch (err) {
+        console.error(err)
+    } finally {
+        isLoading.value = false
+    }
+}
+
 async function handleSubscribe() {
     if (!board.value) return
     try {
@@ -275,7 +300,9 @@ watch(() => route.params.boardUrl, () => {
             :boardUrl="board.boardUrl"
             :totalCount="totalCount"
             :page="page"
-            :size="size" 
+            :size="size"
+            :current-sort="sort"
+            @update:sort="handleSortChange"
         />
       </div>
 

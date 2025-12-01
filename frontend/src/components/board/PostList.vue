@@ -1,6 +1,7 @@
 <script setup>
-import { defineProps, computed } from 'vue'
-import { MessageSquare, ThumbsUp, User, Clock, Image as ImageIcon } from 'lucide-vue-next'
+import { defineProps, defineEmits } from 'vue'
+import { MessageSquare, ThumbsUp, User, Clock, Image as ImageIcon, ArrowUp, ArrowDown } from 'lucide-vue-next'
+import UserMenu from '@/components/common/UserMenu.vue'
 
 const props = defineProps({
   posts: {
@@ -23,8 +24,22 @@ const props = defineProps({
   size: {
     type: Number,
     default: 20
+  },
+  currentSort: {
+      type: String,
+      default: 'createdAt,desc'
+  },
+  showBoardName: {
+    type: Boolean,
+    default: false
+  },
+  hideNoColumn: {
+    type: Boolean,
+    default: false
   }
 })
+
+const emit = defineEmits(['update:sort'])
 
 function formatDate(dateString) {
   const date = new Date(dateString)
@@ -40,9 +55,15 @@ function formatDate(dateString) {
   return date.toLocaleDateString()
 }
 
-function getPostNumber(index) {
-    // 1부터 시작하는 오름차순 번호
-    return (props.page * props.size) + index + 1;
+function handleSort(field) {
+    const [currentField, currentDirection] = props.currentSort.split(',')
+    let newDirection = 'desc'
+    
+    if (field === currentField) {
+        newDirection = currentDirection === 'desc' ? 'asc' : 'desc'
+    }
+    
+    emit('update:sort', `${field},${newDirection}`)
 }
 </script>
 
@@ -52,31 +73,65 @@ function getPostNumber(index) {
       <table class="table-base">
         <thead class="table-head">
           <tr>
-            <th scope="col" class="table-th text-center w-24">
-              번호
+            <th v-if="!hideNoColumn" scope="col" class="table-th text-center w-24 cursor-pointer hover:bg-gray-100" @click="handleSort('postId')">
+              <div class="flex items-center justify-center">
+                {{ $t('board.postList.no') }}
+                <component 
+                  v-if="currentSort.startsWith('postId')" 
+                  :is="currentSort.endsWith('desc') ? ArrowDown : ArrowUp" 
+                  class="h-4 w-4 ml-1" 
+                />
+              </div>
+            </th>
+            <th v-if="showBoardName" scope="col" class="table-th text-center w-32">
+              게시판
             </th>
             <th scope="col" class="table-th text-left">
-              제목
+              {{ $t('board.postList.title') }}
             </th>
             <th scope="col" class="table-th text-center w-32">
-              글쓴이
+              {{ $t('board.postList.author') }}
             </th>
-            <th scope="col" class="table-th text-center w-24">
-              날짜
+            <th scope="col" class="table-th text-center w-28 cursor-pointer hover:bg-gray-100" @click="handleSort('createdAt')">
+              <div class="flex items-center justify-center">
+                {{ $t('board.postList.date') }}
+                <component 
+                  v-if="currentSort.startsWith('createdAt')" 
+                  :is="currentSort.endsWith('desc') ? ArrowDown : ArrowUp" 
+                  class="h-4 w-4 ml-1" 
+                />
+              </div>
             </th>
-            <th scope="col" class="table-th text-center w-20">
-              조회
+            <th scope="col" class="table-th text-center w-24 cursor-pointer hover:bg-gray-100" @click="handleSort('viewCount')">
+              <div class="flex items-center justify-center">
+                {{ $t('board.postList.views') }}
+                <component 
+                  v-if="currentSort.startsWith('viewCount')" 
+                  :is="currentSort.endsWith('desc') ? ArrowDown : ArrowUp" 
+                  class="h-4 w-4 ml-1" 
+                />
+              </div>
             </th>
-            <th scope="col" class="table-th text-center w-20">
-              추천
+            <th scope="col" class="table-th text-center w-24 cursor-pointer hover:bg-gray-100" @click="handleSort('likeCount')">
+               <div class="flex items-center justify-center">
+                {{ $t('board.postList.likes') }}
+                <component 
+                  v-if="currentSort.startsWith('likeCount')" 
+                  :is="currentSort.endsWith('desc') ? ArrowDown : ArrowUp" 
+                  class="h-4 w-4 ml-1" 
+                />
+              </div>
             </th>
           </tr>
         </thead>
         <tbody class="table-body">
           <tr v-for="(post, index) in posts" :key="post.postId" :class="['table-row', post.isNotice ? 'bg-gray-50' : '']">
-            <td class="table-td text-center">
+            <td v-if="!hideNoColumn" class="table-td text-center">
               <span v-if="post.isNotice" class="font-bold text-red-600">공지</span>
-              <span v-else>{{ getPostNumber(index) }}</span>
+              <span v-else>{{ post.postId }}</span>
+            </td>
+            <td v-if="showBoardName" class="table-td text-center">
+              {{ post.boardName || '-' }}
             </td>
             <td class="table-td font-medium text-gray-900 align-middle">
               <router-link 
@@ -106,7 +161,11 @@ function getPostNumber(index) {
               </span>
             </td>
             <td class="table-td text-center">
-              {{ post.author?.displayName }}
+              <UserMenu 
+                v-if="post.author"
+                :user-id="post.author.userId"
+                :display-name="post.author.displayName"
+              />
             </td>
             <td class="table-td text-center">
               {{ formatDate(post.createdAt) }}

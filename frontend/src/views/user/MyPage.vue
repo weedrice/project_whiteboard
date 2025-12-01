@@ -7,6 +7,7 @@ import BaseButton from '@/components/common/BaseButton.vue'
 import BaseModal from '@/components/common/BaseModal.vue'
 import ProfileEditor from '@/components/user/ProfileEditor.vue'
 import Pagination from '@/components/common/Pagination.vue' // Import Pagination component
+import UserNavigation from '@/components/user/UserNavigation.vue'
 
 const profile = ref(null)
 
@@ -15,6 +16,7 @@ const myPosts = ref([])
 const myPostsTotalCount = ref(0)
 const myPostsCurrentPage = ref(0)
 const myPostsSize = ref(10) // 10 items per page
+const myPostsSort = ref('createdAt,desc')
 
 // Comments pagination state
 const myComments = ref([])
@@ -45,7 +47,11 @@ async function fetchMyProfile() {
 
 async function fetchMyPosts() {
   try {
-    const { data } = await userApi.getMyPosts(myPostsCurrentPage.value, myPostsSize.value)
+    const { data } = await userApi.getMyPosts({ 
+      page: myPostsCurrentPage.value, 
+      size: myPostsSize.value,
+      sort: myPostsSort.value
+    })
     if (data.success) {
       myPosts.value = data.data.content
       myPostsTotalCount.value = data.data.totalElements
@@ -58,7 +64,7 @@ async function fetchMyPosts() {
 
 async function fetchMyComments() {
   try {
-    const { data } = await userApi.getMyComments(myCommentsCurrentPage.value, myCommentsSize.value)
+    const { data } = await userApi.getMyComments({ page: myCommentsCurrentPage.value, size: myCommentsSize.value })
     if (data.success) {
       myComments.value = data.data.content
       myCommentsTotalCount.value = data.data.totalElements
@@ -71,6 +77,11 @@ async function fetchMyComments() {
 
 function handleMyPostsPageChange(page) {
   myPostsCurrentPage.value = page
+  fetchMyPosts()
+}
+
+function handleMyPostsSortChange(newSort) {
+  myPostsSort.value = newSort
   fetchMyPosts()
 }
 
@@ -91,7 +102,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="max-w-4xl mx-auto">
+  <div class="max-w-7xl mx-auto">
     <div v-if="isLoading" class="text-center py-10">
       <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 mx-auto"></div>
     </div>
@@ -101,10 +112,14 @@ onMounted(async () => {
     </div>
 
     <div v-else>
+      <h1 class="text-2xl font-bold text-gray-900 mb-6">마이페이지</h1>
+      <UserNavigation />
+
       <!-- Profile Section -->
-      <div class="bg-white shadow overflow-hidden sm:rounded-lg mb-6">
-        <div class="px-4 py-5 sm:px-6 flex justify-between items-center">
-          <div class="flex items-center">
+      <div class="max-w-[80%] mx-auto">
+        <div class="bg-white shadow overflow-hidden sm:rounded-lg mb-6">
+          <div class="px-4 py-5 sm:px-6 flex justify-between items-center">
+            <div class="flex items-center">
             <img v-if="profile.profileImageUrl" :src="profile.profileImageUrl" class="h-16 w-16 rounded-full mr-4" alt="Profile" />
             <div v-else class="h-16 w-16 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-2xl mr-4">
               {{ profile.displayName?.[0] || 'U' }}
@@ -157,9 +172,10 @@ onMounted(async () => {
           </dl>
         </div>
       </div>
+      </div>
 
       <!-- My Posts Section -->
-      <div class="bg-white shadow overflow-hidden sm:rounded-lg mb-6">
+      <div class="bg-white shadow overflow-hidden sm:rounded-lg mb-6 pb-6">
         <div class="px-4 py-5 sm:px-6 border-b border-gray-200 flex items-center">
           <FileText class="h-5 w-5 text-gray-500 mr-2" />
           <h3 class="text-lg leading-6 font-medium text-gray-900">My Posts</h3>
@@ -171,6 +187,9 @@ onMounted(async () => {
             :totalCount="myPostsTotalCount"
             :page="myPostsCurrentPage"
             :size="myPostsSize"
+            :current-sort="myPostsSort"
+            :show-board-name="true"
+            @update:sort="handleMyPostsSortChange"
           />
           <div class="mt-4 flex justify-center">
             <Pagination 
