@@ -4,6 +4,7 @@ import { commentApi } from '@/api/comment'
 import { useAuthStore } from '@/stores/auth'
 import CommentForm from './CommentForm.vue'
 import { User, CornerDownRight } from 'lucide-vue-next'
+import UserMenu from '@/components/common/UserMenu.vue'
 
 const props = defineProps({
   postId: {
@@ -84,7 +85,10 @@ watch(() => props.postId, fetchComments)
           </div>
           <div class="flex-1 space-y-1">
             <div class="flex items-center justify-between">
-              <h3 class="text-sm font-medium text-gray-900">{{ comment.author.displayName }}</h3>
+              <UserMenu
+                :user-id="comment.author.userId"
+                :display-name="comment.author.displayName"
+              />
               <p class="text-sm text-gray-500">{{ formatDate(comment.createdAt) }}</p>
             </div>
             <p class="text-sm text-gray-700">{{ comment.content }}</p>
@@ -129,7 +133,10 @@ watch(() => props.postId, fetchComments)
             </div>
             <div class="flex-1 space-y-1">
               <div class="flex items-center justify-between">
-                <h3 class="text-sm font-medium text-gray-900">{{ child.author.displayName }}</h3>
+                <UserMenu
+                  :user-id="child.author.userId"
+                  :display-name="child.author.displayName"
+                />
                 <p class="text-sm text-gray-500">{{ formatDate(child.createdAt) }}</p>
               </div>
               <p class="text-sm text-gray-700">{{ child.content }}</p>

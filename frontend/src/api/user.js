@@ -36,4 +36,7 @@ export const userApi = {
 
     // Get my comments
     getMyComments: (params) => api.get('/users/me/comments', { params }),
+
+    // Get recently viewed posts
+    getRecentlyViewedPosts: (params) => api.get('/users/me/history/views', { params }),
 }

@@ -1,11 +1,12 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { postApi } from '@/api/post'
 import { useAuthStore } from '@/stores/auth'
 import { User, Clock, ThumbsUp, MessageSquare, Eye, ArrowLeft, MoreHorizontal, Bookmark } from 'lucide-vue-next'
 import CommentList from '@/components/comment/CommentList.vue'
 import PostTags from '@/components/tag/PostTags.vue'
+import UserMenu from '@/components/common/UserMenu.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -146,7 +147,10 @@ watch(() => route.params.postId, (newId) => {
         <div class="mt-2 flex items-center text-sm text-gray-500 space-x-4">
           <span class="flex items-center">
             <User class="h-4 w-4 mr-1" />
-            {{ post.author.displayName }}
+            <UserMenu
+              :user-id="post.author.userId"
+              :display-name="post.author.displayName"
+            />
           </span>
           <span class="flex items-center">
             <Clock class="h-4 w-4 mr-1" />
