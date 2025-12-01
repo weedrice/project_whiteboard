@@ -178,12 +178,15 @@ onMounted(fetchBoard)
               </div>
             </div>
 
-            <BaseInput
-              label="정렬 순서"
-              v-model.number="form.sortOrder"
-              type="number"
-              placeholder="정렬 순서 (숫자)"
-            />
+            <!-- Sort Order Hidden -->
+            <div class="hidden">
+              <BaseInput
+                label="정렬 순서"
+                v-model.number="form.sortOrder"
+                type="number"
+                placeholder="정렬 순서 (숫자)"
+              />
+            </div>
 
             <!-- NSFW Option Hidden -->
             <div class="flex items-start hidden">
@@ -215,7 +218,9 @@ onMounted(fetchBoard)
           <hr class="border-gray-200" />
 
           <!-- Category Manager -->
-          <CategoryManager :boardUrl="boardUrl" />
+          <div class="py-6">
+            <CategoryManager :boardUrl="boardUrl" />
+          </div>
 
           <hr class="border-gray-200" />
 

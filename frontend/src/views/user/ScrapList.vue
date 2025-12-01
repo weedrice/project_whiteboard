@@ -23,7 +23,8 @@ const fetchScraps = async () => {
       } else {
         scraps.value.push(...newScraps)
       }
-      hasMore.value = !data.data.last
+      // Ensure hasMore is false if no content or empty content
+      hasMore.value = !data.data.last && data.data.content.length > 0
     }
   } catch (error) {
     console.error('스크랩 목록을 불러오는데 실패했습니다:', error)
@@ -48,9 +49,9 @@ onMounted(() => {
 
     <div class="bg-white shadow overflow-hidden sm:rounded-lg">
       <div v-if="scraps.length > 0">
-        <PostList :posts="scraps" />
+        <PostList :posts="scraps" :show-board-name="true" />
         
-        <div v-if="hasMore" class="bg-gray-50 px-4 py-4 sm:px-6 text-center border-t border-gray-200">
+        <div v-if="hasMore && scraps.length > 0" class="bg-gray-50 px-4 py-4 sm:px-6 text-center border-t border-gray-200">
           <button 
             @click="loadMore" 
             :disabled="loading"

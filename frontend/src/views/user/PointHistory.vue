@@ -22,7 +22,8 @@ const fetchHistory = async () => {
       } else {
         history.value.push(...data.data.content)
       }
-      hasMore.value = !data.data.last
+      // Ensure hasMore is false if no content or empty content
+      hasMore.value = !data.data.last && data.data.content.length > 0
     }
   } catch (error) {
     console.error('포인트 내역을 불러오는데 실패했습니다:', error)
@@ -75,7 +76,7 @@ onMounted(() => {
           포인트 내역이 없습니다.
         </li>
       </ul>
-      <div v-if="hasMore" class="bg-gray-50 px-4 py-4 sm:px-6 text-center">
+      <div v-if="hasMore && history.length > 0" class="bg-gray-50 px-4 py-4 sm:px-6 text-center">
         <button 
           @click="loadMore" 
           :disabled="loading"

@@ -1,10 +1,10 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { boardApi } from '@/api/board'
 import { Trash2, Edit2, Check, X, Plus, GripVertical } from 'lucide-vue-next'
 
 const props = defineProps({
-  boardUrl: { // boardId 대신 boardUrl 사용
+  boardUrl: {
     type: String,
     required: true
   }
@@ -18,12 +18,15 @@ const editingId = ref(null)
 const editingName = ref('')
 const dragIndex = ref(null)
 
+const generalCategory = computed(() => categories.value.find(c => c.name === '일반'))
+const draggableCategories = computed(() => categories.value.filter(c => c.name !== '일반'))
+
 async function fetchCategories() {
   isLoading.value = true
   try {
-    const { data } = await boardApi.getCategories(props.boardUrl) // boardUrl 사용
+    const { data } = await boardApi.getCategories(props.boardUrl)
     if (data.success) {
-      categories.value = data.data
+      categories.value = data.data.sort((a, b) => a.sortOrder - b.sortOrder)
     }
   } catch (err) {
     console.error('Failed to load categories:', err)
@@ -37,7 +40,7 @@ async function handleAdd() {
   if (!newCategoryName.value.trim()) return
 
   try {
-    const { data } = await boardApi.createCategory(props.boardUrl, { // boardUrl 사용
+    const { data } = await boardApi.createCategory(props.boardUrl, {
       name: newCategoryName.value,
       sortOrder: categories.value.length + 1
     })
@@ -55,7 +58,7 @@ async function handleDelete(categoryId) {
   if (!confirm('Are you sure you want to delete this category?')) return
 
   try {
-    const { data } = await boardApi.deleteCategory(props.boardUrl, categoryId) // boardUrl 사용
+    const { data } = await boardApi.deleteCategory(props.boardUrl, categoryId)
     if (data.success) {
       categories.value = categories.value.filter(c => c.categoryId !== categoryId)
     }
@@ -79,7 +82,7 @@ async function saveEdit(category) {
   if (!editingName.value.trim()) return
 
   try {
-    const { data } = await boardApi.updateCategory(props.boardUrl, category.categoryId, { // boardUrl 사용
+    const { data } = await boardApi.updateCategory(props.boardUrl, category.categoryId, {
       name: editingName.value,
       sortOrder: category.sortOrder,
       isActive: true
@@ -108,9 +111,15 @@ async function onDrop(index) {
 
   if (fromIndex === null || fromIndex === toIndex) return
 
-  const newCategories = [...categories.value]
-  const [movedItem] = newCategories.splice(fromIndex, 1)
-  newCategories.splice(toIndex, 0, movedItem)
+  // Operate on draggableCategories logic
+  const newDraggables = [...draggableCategories.value]
+  const [movedItem] = newDraggables.splice(fromIndex, 1)
+  newDraggables.splice(toIndex, 0, movedItem)
+
+  // Reconstruct full list: General (if exists) + Reordered Draggables
+  const newCategories = []
+  if (generalCategory.value) newCategories.push(generalCategory.value)
+  newCategories.push(...newDraggables)
 
   categories.value = newCategories
   dragIndex.value = null
@@ -118,6 +127,12 @@ async function onDrop(index) {
   // Update sortOrder for all categories
   try {
     const updatePromises = categories.value.map((cat, idx) => {
+      // If sortOrder is already correct, skip (optimization)
+      if (cat.sortOrder === idx + 1) return Promise.resolve()
+      
+      // Update local state first to reflect sortOrder immediately
+      cat.sortOrder = idx + 1
+      
       return boardApi.updateCategory(props.boardUrl, cat.categoryId, {
         name: cat.name,
         sortOrder: idx + 1
@@ -158,59 +173,76 @@ onMounted(fetchCategories)
     <div v-if="isLoading" class="text-center py-4">
       <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600 mx-auto"></div>
     </div>
-    
-    <transition-group 
-      name="list" 
-      tag="ul" 
-      class="divide-y divide-gray-200 border border-gray-200 rounded-md"
-    >
-      <li 
-        v-for="(category, index) in categories" 
-        :key="category.categoryId" 
-        class="px-4 py-3 flex items-center justify-between group bg-white"
-        @dragover.prevent
-        @dragenter.prevent
-        @drop="onDrop(index)"
-      >
-        <div class="flex items-center">
-          <div 
-            draggable="true"
-            @dragstart="onDragStart($event, index)"
-            class="mr-3 cursor-move text-gray-400 hover:text-gray-600 p-1 rounded hover:bg-gray-100"
-          >
-            <GripVertical class="h-4 w-4" />
-          </div>
+
+    <div class="border border-gray-200 rounded-md divide-y divide-gray-200 bg-white" v-else>
+        <!-- General Category (Static) -->
+        <div 
+            v-if="generalCategory"
+            class="px-4 py-3 flex items-center justify-between bg-gray-50"
+        >
+            <div class="flex items-center text-gray-400 cursor-not-allowed p-1 mr-3">
+                <GripVertical class="h-4 w-4" />
+            </div>
+            <div class="flex-1 flex items-center justify-between">
+                <span class="text-sm text-gray-900 font-medium">{{ generalCategory.name }} (기본)</span>
+                <!-- No actions for General -->
+            </div>
         </div>
 
-        <div v-if="editingId === category.categoryId" class="flex-1 flex items-center gap-2">
-          <input
-            type="text"
-            v-model="editingName"
-            class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
-          />
-          <button @click="saveEdit(category)" class="text-green-600 hover:text-green-800">
-            <Check class="h-4 w-4" />
-          </button>
-          <button @click="cancelEdit" class="text-gray-500 hover:text-gray-700">
-            <X class="h-4 w-4" />
-          </button>
-        </div>
-        <div v-else class="flex-1 flex items-center justify-between">
-          <span class="text-sm text-gray-900">{{ category.name }}</span>
-          <div class="flex items-center gap-2">
-            <button @click="startEdit(category)" class="text-indigo-600 hover:text-indigo-800">
-              <Edit2 class="h-4 w-4" />
-            </button>
-            <button @click="handleDelete(category.categoryId)" class="text-red-600 hover:text-red-800">
-              <Trash2 class="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-      </li>
-      <li v-if="categories.length === 0" key="empty" class="px-4 py-3 text-sm text-gray-500 text-center">
+        <!-- Draggable List -->
+        <transition-group 
+          name="list" 
+          tag="ul" 
+          class="divide-y divide-gray-200"
+        >
+          <li 
+            v-for="(category, index) in draggableCategories" 
+            :key="category.categoryId" 
+            class="px-4 py-3 flex items-center justify-between group bg-white"
+            @dragover.prevent
+            @dragenter.prevent
+            @drop="onDrop(index)"
+          >
+            <div class="flex items-center">
+              <div 
+                draggable="true"
+                @dragstart="onDragStart($event, index)"
+                class="mr-3 cursor-move text-gray-400 hover:text-gray-600 p-1 rounded hover:bg-gray-100"
+              >
+                <GripVertical class="h-4 w-4" />
+              </div>
+            </div>
+    
+            <div v-if="editingId === category.categoryId" class="flex-1 flex items-center gap-2">
+              <input
+                type="text"
+                v-model="editingName"
+                class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
+              />
+              <button @click="saveEdit(category)" class="text-green-600 hover:text-green-800">
+                <Check class="h-4 w-4" />
+              </button>
+              <button @click="cancelEdit" class="text-gray-500 hover:text-gray-700">
+                <X class="h-4 w-4" />
+              </button>
+            </div>
+            <div v-else class="flex-1 flex items-center justify-between">
+              <span class="text-sm text-gray-900">{{ category.name }}</span>
+              <div class="flex items-center gap-2">
+                <button @click="startEdit(category)" class="text-indigo-600 hover:text-indigo-800">
+                  <Edit2 class="h-4 w-4" />
+                </button>
+                <button @click="handleDelete(category.categoryId)" class="text-red-600 hover:text-red-800">
+                  <Trash2 class="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          </li>
+        </transition-group>
+    </div>
+    <div v-if="!isLoading && categories.length === 0" class="text-sm text-gray-500 text-center">
         No categories yet.
-      </li>
-    </transition-group>
+    </div>
   </div>
 </template>
 

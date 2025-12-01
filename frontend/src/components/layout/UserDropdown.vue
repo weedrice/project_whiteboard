@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { User, LogOut, Settings, CreditCard, FileText, Clock, AlertTriangle, PlusSquare, ChevronDown } from 'lucide-vue-next'
@@ -40,6 +40,12 @@ const handleLogout = async () => {
   router.push('/')
 }
 
+watch(() => props.isOpen, (newVal) => {
+  if (newVal) {
+    fetchPoints()
+  }
+})
+
 onMounted(() => {
   fetchPoints()
 })
@@ -70,10 +76,10 @@ onMounted(() => {
         <p class="text-xs text-gray-500 truncate mb-2">
           {{ authStore.user?.email }}
         </p>
-        <div class="flex items-center text-sm text-indigo-600 font-medium">
+        <router-link to="/mypage/points" class="flex items-center text-sm text-indigo-600 font-medium hover:text-indigo-800" @click="emit('toggle')">
           <CreditCard class="h-4 w-4 mr-1" />
           {{ points.toLocaleString() }} P
-        </div>
+        </router-link>
       </div>
 
       <!-- Group 1 -->
