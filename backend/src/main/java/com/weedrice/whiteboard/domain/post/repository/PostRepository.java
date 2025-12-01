@@ -12,7 +12,7 @@ import java.util.List;
 
 public interface PostRepository extends JpaRepository<Post, Long>, PostRepositoryCustom {
     List<Post> findByCreatedAtAfterAndIsDeleted(LocalDateTime dateTime, String isDeleted);
-    Page<Post> findByUserAndIsDeletedOrderByCreatedAtDesc(User user, String isDeleted, Pageable pageable);
+    Page<Post> findByUserAndIsDeleted(User user, String isDeleted, Pageable pageable);
     List<Post> findByBoard_BoardIdAndIsNoticeAndIsDeletedOrderByCreatedAtDesc(Long boardId, String isNotice, String isDeleted);
     
     // 최신 게시글 N개 조회 (BoardList에서 사용)

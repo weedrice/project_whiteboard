@@ -24,6 +24,7 @@ public class PostSummary {
     private boolean isSpoiler;
     private LocalDateTime createdAt;
     private String boardUrl;
+    private String boardName;
 
     @Getter
     @Builder
@@ -61,6 +62,7 @@ public class PostSummary {
                 .isSpoiler("Y".equals(post.getIsSpoiler()))
                 .createdAt(post.getCreatedAt())
                 .boardUrl(post.getBoard().getBoardUrl())
+                .boardName(post.getBoard().getBoardName())
                 .build();
     }
 }

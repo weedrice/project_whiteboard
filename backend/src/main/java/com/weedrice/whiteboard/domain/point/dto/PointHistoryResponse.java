@@ -19,6 +19,7 @@ public class PointHistoryResponse {
     private int totalPages;
     private boolean hasNext;
     private boolean hasPrevious;
+    private boolean last;
 
     @Getter
     @Builder
@@ -51,6 +52,7 @@ public class PointHistoryResponse {
                 .totalPages(historyPage.getTotalPages())
                 .hasNext(historyPage.hasNext())
                 .hasPrevious(historyPage.hasPrevious())
+                .last(historyPage.isLast())
                 .build();
     }
 }
