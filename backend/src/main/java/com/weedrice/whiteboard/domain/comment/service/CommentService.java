@@ -38,12 +38,14 @@ public class CommentService {
     private final com.weedrice.whiteboard.domain.point.service.PointService pointService;
 
     public Page<CommentResponse> getComments(Long postId, Pageable pageable) {
-        Page<Comment> parentComments = commentRepository.findByPost_PostIdAndParentIsNullAndIsDeletedOrderByCreatedAtAsc(postId, "N", pageable);
+        Page<Comment> parentComments = commentRepository
+                .findByPost_PostIdAndParentIsNullAndIsDeletedOrderByCreatedAtAsc(postId, "N", pageable);
         List<Long> parentIds = parentComments.getContent().stream()
                 .map(Comment::getCommentId)
                 .collect(Collectors.toList());
 
-        List<Comment> childComments = commentRepository.findByParent_CommentIdInAndIsDeletedOrderByCreatedAtAsc(parentIds, "N");
+        List<Comment> childComments = commentRepository
+                .findByParent_CommentIdInAndIsDeletedOrderByCreatedAtAsc(parentIds, "N");
 
         Map<Long, List<CommentResponse>> childCommentMap = childComments.stream()
                 .collect(Collectors.groupingBy(comment -> comment.getParent().getCommentId(),
@@ -64,6 +66,12 @@ public class CommentService {
 
     public Page<Comment> getReplies(Long parentId, Pageable pageable) {
         return commentRepository.findByParent_CommentIdAndIsDeletedOrderByCreatedAtAsc(parentId, "N", pageable);
+    }
+
+    public CommentResponse getComment(Long commentId) {
+        Comment comment = commentRepository.findById(commentId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
+        return CommentResponse.from(comment);
     }
 
     public Page<Comment> getMyComments(Long userId, Pageable pageable) {
@@ -97,16 +105,18 @@ public class CommentService {
 
         post.incrementCommentCount();
         Comment savedComment = commentRepository.save(comment);
-        
+
         pointService.addPoint(userId, 10, "댓글 작성", savedComment.getCommentId(), "COMMENT");
 
         if (parentComment != null) {
             String notificationContent = user.getDisplayName() + "님이 회원님의 댓글에 답글을 남겼습니다.";
-            NotificationEvent event = new NotificationEvent(parentComment.getUser(), user, "REPLY", "COMMENT", parentId, notificationContent);
+            NotificationEvent event = new NotificationEvent(parentComment.getUser(), user, "REPLY", "COMMENT", parentId,
+                    notificationContent);
             eventPublisher.publishEvent(event);
         } else {
             String notificationContent = user.getDisplayName() + "님이 회원님의 게시글에 댓글을 남겼습니다.";
-            NotificationEvent event = new NotificationEvent(post.getUser(), user, "COMMENT", "POST", postId, notificationContent);
+            NotificationEvent event = new NotificationEvent(post.getUser(), user, "COMMENT", "POST", postId,
+                    notificationContent);
             eventPublisher.publishEvent(event);
         }
 
@@ -137,7 +147,7 @@ public class CommentService {
 
         comment.deleteComment();
         comment.getPost().decrementCommentCount();
-        
+
         pointService.forceSubtractPoint(userId, 10, "댓글 삭제", commentId, "COMMENT");
     }
 

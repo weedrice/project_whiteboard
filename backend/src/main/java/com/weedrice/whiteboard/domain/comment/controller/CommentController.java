@@ -39,13 +39,20 @@ public class CommentController {
         return ApiResponse.success(CommentListResponse.from(replies));
     }
 
+    @GetMapping("/comments/{commentId}")
+    public ApiResponse<CommentResponse> getComment(@PathVariable Long commentId) {
+        CommentResponse comment = commentService.getComment(commentId);
+        return ApiResponse.success(comment);
+    }
+
     @PostMapping("/posts/{postId}/comments")
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<Long> createComment(
             @PathVariable Long postId,
             @Valid @RequestBody CommentCreateRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        Comment comment = commentService.createComment(userDetails.getUserId(), postId, request.getParentId(), request.getContent());
+        Comment comment = commentService.createComment(userDetails.getUserId(), postId, request.getParentId(),
+                request.getContent());
         return ApiResponse.success(comment.getCommentId());
     }
 
@@ -59,20 +66,23 @@ public class CommentController {
     }
 
     @DeleteMapping("/comments/{commentId}")
-    public ApiResponse<Void> deleteComment(@PathVariable Long commentId, @AuthenticationPrincipal CustomUserDetails userDetails) {
+    public ApiResponse<Void> deleteComment(@PathVariable Long commentId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
         commentService.deleteComment(userDetails.getUserId(), commentId);
         return ApiResponse.success(null);
     }
 
     @PostMapping("/comments/{commentId}/like")
     @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse<Void> likeComment(@PathVariable Long commentId, @AuthenticationPrincipal CustomUserDetails userDetails) {
+    public ApiResponse<Void> likeComment(@PathVariable Long commentId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
         commentService.likeComment(userDetails.getUserId(), commentId);
         return ApiResponse.success(null);
     }
 
     @DeleteMapping("/comments/{commentId}/like")
-    public ApiResponse<Void> unlikeComment(@PathVariable Long commentId, @AuthenticationPrincipal CustomUserDetails userDetails) {
+    public ApiResponse<Void> unlikeComment(@PathVariable Long commentId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
         commentService.unlikeComment(userDetails.getUserId(), commentId);
         return ApiResponse.success(null);
     }

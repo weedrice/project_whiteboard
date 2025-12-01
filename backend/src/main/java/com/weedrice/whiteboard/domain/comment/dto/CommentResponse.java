@@ -19,6 +19,9 @@ public class CommentResponse {
     private int likeCount;
     private boolean isDeleted;
     private LocalDateTime createdAt;
+    private Long postId;
+    private String boardUrl;
+    private String postTitle;
     @Setter
     private List<CommentResponse> children = new ArrayList<>();
 
@@ -48,6 +51,9 @@ public class CommentResponse {
                 .likeCount(comment.getLikeCount())
                 .isDeleted("Y".equals(comment.getIsDeleted()))
                 .createdAt(comment.getCreatedAt())
+                .postId(comment.getPost().getPostId())
+                .boardUrl(comment.getPost().getBoard().getBoardUrl())
+                .postTitle(comment.getPost().getTitle())
                 .build();
     }
 }
