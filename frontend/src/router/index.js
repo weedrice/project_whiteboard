@@ -28,39 +28,45 @@ const router = createRouter({
         },
         {
             path: '/mypage',
-            name: 'mypage',
             component: () => import('@/views/user/MyPage.vue'),
-            meta: { requiresAuth: true }
-        },
-        {
-            path: '/mypage/settings',
-            name: 'user-settings',
-            component: () => import('@/views/user/UserSettings.vue'),
-            meta: { requiresAuth: true }
-        },
-        {
-            path: '/mypage/points',
-            name: 'point-history',
-            component: () => import('@/views/user/PointHistory.vue'),
-            meta: { requiresAuth: true }
-        },
-        {
-            path: '/mypage/scraps',
-            name: 'scrap-list',
-            component: () => import('@/views/user/ScrapList.vue'),
-            meta: { requiresAuth: true }
-        },
-        {
-            path: '/mypage/reports',
-            name: 'my-reports',
-            component: () => import('@/views/user/MyReports.vue'),
-            meta: { requiresAuth: true }
-        },
-        {
-            path: '/search/recent',
-            name: 'recent-viewed',
-            component: () => import('@/views/search/RecentViewed.vue'),
-            meta: { requiresAuth: true }
+            meta: { requiresAuth: true },
+            children: [
+                {
+                    path: '',
+                    name: 'mypage',
+                    component: () => import('@/views/user/MyPageDashboard.vue')
+                },
+                {
+                    path: 'settings',
+                    name: 'user-settings',
+                    component: () => import('@/views/user/UserSettings.vue')
+                },
+                {
+                    path: 'points',
+                    name: 'point-history',
+                    component: () => import('@/views/user/PointHistory.vue')
+                },
+                {
+                    path: 'scraps',
+                    name: 'scrap-list',
+                    component: () => import('@/views/user/ScrapList.vue')
+                },
+                {
+                    path: 'reports',
+                    name: 'my-reports',
+                    component: () => import('@/views/user/MyReports.vue')
+                },
+                {
+                    path: 'notifications',
+                    name: 'my-notifications',
+                    component: () => import('@/views/user/MyNotifications.vue')
+                },
+                {
+                    path: 'recent',
+                    name: 'recent-viewed',
+                    component: () => import('@/views/search/RecentViewed.vue')
+                }
+            ]
         },
         {
             path: '/board/create',
