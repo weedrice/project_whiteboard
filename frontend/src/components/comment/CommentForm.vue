@@ -10,12 +10,20 @@ const props = defineProps({
   parentId: {
     type: [Number, String],
     default: null
+  },
+  initialContent: {
+    type: String,
+    default: ''
+  },
+  commentId: {
+    type: [Number, String],
+    default: null
   }
 })
 
 const emit = defineEmits(['success', 'cancel'])
 
-const content = ref('')
+const content = ref(props.initialContent)
 const isSubmitting = ref(false)
 
 async function handleSubmit() {
@@ -23,18 +31,27 @@ async function handleSubmit() {
 
   isSubmitting.value = true
   try {
-    const payload = {
-      content: content.value,
-      parentId: props.parentId
-    }
-    const { data } = await commentApi.createComment(props.postId, payload)
-    if (data.success) {
-      content.value = ''
-      emit('success')
+    if (props.commentId) {
+        // Update existing comment
+        const { data } = await commentApi.updateComment(props.commentId, { content: content.value })
+        if (data.success) {
+            emit('success')
+        }
+    } else {
+        // Create new comment
+        const payload = {
+        content: content.value,
+        parentId: props.parentId
+        }
+        const { data } = await commentApi.createComment(props.postId, payload)
+        if (data.success) {
+        content.value = ''
+        emit('success')
+        }
     }
   } catch (err) {
-    console.error('Failed to post comment:', err)
-    alert('Failed to post comment.')
+    console.error('Failed to save comment:', err)
+    alert('Failed to save comment.')
   } finally {
     isSubmitting.value = false
   }

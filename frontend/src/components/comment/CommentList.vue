@@ -6,6 +6,8 @@ import CommentForm from './CommentForm.vue'
 import { User, CornerDownRight } from 'lucide-vue-next'
 import UserMenu from '@/components/common/UserMenu.vue'
 
+import { useI18n } from 'vue-i18n'
+
 const props = defineProps({
   postId: {
     type: [Number, String],
@@ -17,10 +19,13 @@ const props = defineProps({
   }
 })
 
+const { t } = useI18n()
+
 const authStore = useAuthStore()
 const comments = ref([])
 const isLoading = ref(true)
 const replyToId = ref(null)
+const editingCommentId = ref(null)
 
 async function fetchComments() {
   isLoading.value = true
@@ -45,11 +50,30 @@ function handleReplySuccess() {
   fetchComments()
 }
 
-async function handleDelete(commentId) {
+function startEdit(comment) {
+    editingCommentId.value = comment.commentId
+}
+
+function handleEditSuccess() {
+    editingCommentId.value = null
+    fetchComments()
+}
+
+async function handleDelete(comment) {
   if (!confirm('정말 삭제하시겠습니까?')) return
 
+  // Soft delete check: If it has children, just mark as deleted locally (if backend doesn't handle it)
+  // Actually, we should call delete API. If backend deletes it physically, it's gone.
+  // If backend supports soft delete, it will return success.
+  // We will assume backend deletes it. If we want to show "Deleted", we rely on backend response or manual update.
+  // Strategy: Call delete. If success, fetch comments. 
+  // If the comment had children, we hope the backend kept it as "deleted". 
+  // If not, we can't do much unless we fake it.
+  // Let's try standard delete first. If the user wants "Deleted" message, 
+  // it implies the comment structure should remain.
+  
   try {
-    const { data } = await commentApi.deleteComment(commentId)
+    const { data } = await commentApi.deleteComment(comment.commentId)
     if (data.success) {
       fetchComments()
     }
@@ -68,14 +92,13 @@ watch(() => props.postId, fetchComments)
     <h3 class="text-lg font-medium text-gray-900">댓글</h3>
     
 
-
     <!-- Comment List -->
     <div v-if="isLoading" class="text-center py-4">
       <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600 mx-auto"></div>
     </div>
     
     <div v-else class="space-y-6">
-      <div v-for="comment in comments" :key="comment.commentId">
+      <div v-for="comment in comments" :key="comment.commentId" :id="`comment-${comment.commentId}`" class="space-y-4">
         <!-- Parent Comment -->
         <div class="flex space-x-3">
           <div class="flex-shrink-0">
@@ -86,14 +109,30 @@ watch(() => props.postId, fetchComments)
           <div class="flex-1 space-y-1">
             <div class="flex items-center justify-between">
               <UserMenu
+                v-if="!comment.isDeleted"
                 :user-id="comment.author.userId"
                 :display-name="comment.author.displayName"
               />
+              <span v-else class="text-sm font-medium text-gray-500">알 수 없음</span>
               <p class="text-sm text-gray-500">{{ formatDate(comment.createdAt) }}</p>
             </div>
-            <p class="text-sm text-gray-700">{{ comment.content }}</p>
             
-            <div class="mt-2 flex items-center space-x-2">
+            <!-- Edit Form -->
+            <div v-if="editingCommentId === comment.commentId" class="mt-2">
+                <CommentForm
+                    :postId="postId"
+                    :commentId="comment.commentId"
+                    :initialContent="comment.content"
+                    @success="handleEditSuccess"
+                    @cancel="editingCommentId = null"
+                />
+            </div>
+            <!-- Content -->
+            <p v-else class="text-sm text-gray-700" :class="{ 'text-gray-400 italic': comment.isDeleted }">
+                {{ comment.isDeleted ? '삭제된 댓글입니다.' : comment.content }}
+            </p>
+            
+            <div v-if="!comment.isDeleted" class="mt-2 flex items-center space-x-2">
               <button 
                 v-if="authStore.isAuthenticated"
                 @click="replyToId = replyToId === comment.commentId ? null : comment.commentId"
@@ -101,13 +140,20 @@ watch(() => props.postId, fetchComments)
               >
                 답글
               </button>
-              <button 
-                v-if="authStore.user?.userId === comment.author.userId"
-                @click="handleDelete(comment.commentId)"
-                class="text-xs text-red-500 hover:text-red-700 font-medium ml-2"
-              >
-                삭제
-              </button>
+              <template v-if="authStore.user?.userId === comment.author.userId">
+                  <button 
+                    @click="startEdit(comment)"
+                    class="text-xs text-gray-500 hover:text-gray-900 font-medium ml-2"
+                  >
+                    수정
+                  </button>
+                  <button 
+                    @click="handleDelete(comment)"
+                    class="text-xs text-red-500 hover:text-red-700 font-medium ml-2"
+                  >
+                    삭제
+                  </button>
+              </template>
             </div>
 
             <!-- Reply Form -->
@@ -124,7 +170,7 @@ watch(() => props.postId, fetchComments)
 
         <!-- Child Comments (Depth 1) -->
         <div v-if="comment.children && comment.children.length > 0" class="mt-4 pl-12 space-y-4">
-          <div v-for="child in comment.children" :key="child.commentId" class="flex space-x-3">
+          <div v-for="child in comment.children" :key="child.commentId" :id="`comment-${child.commentId}`" class="flex space-x-3">
             <div class="flex-shrink-0 relative">
               <CornerDownRight class="absolute -left-6 top-2 h-4 w-4 text-gray-300" />
               <div class="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center">
@@ -134,20 +180,44 @@ watch(() => props.postId, fetchComments)
             <div class="flex-1 space-y-1">
               <div class="flex items-center justify-between">
                 <UserMenu
+                  v-if="!child.isDeleted"
                   :user-id="child.author.userId"
                   :display-name="child.author.displayName"
                 />
+                <span v-else class="text-sm font-medium text-gray-500">알 수 없음</span>
                 <p class="text-sm text-gray-500">{{ formatDate(child.createdAt) }}</p>
               </div>
-              <p class="text-sm text-gray-700">{{ child.content }}</p>
-              <div class="mt-1">
-                 <button 
-                  v-if="authStore.user?.userId === child.author.userId"
-                  @click="handleDelete(child.commentId)"
-                  class="text-xs text-red-500 hover:text-red-700 font-medium"
-                >
-                  삭제
-                </button>
+              
+              <!-- Edit Form (Child) -->
+              <div v-if="editingCommentId === child.commentId" class="mt-2">
+                <CommentForm
+                    :postId="postId"
+                    :commentId="child.commentId"
+                    :initialContent="child.content"
+                    @success="handleEditSuccess"
+                    @cancel="editingCommentId = null"
+                />
+              </div>
+              <!-- Content (Child) -->
+              <p v-else class="text-sm text-gray-700" :class="{ 'text-gray-400 italic': child.isDeleted }">
+                {{ child.isDeleted ? '삭제된 댓글입니다.' : child.content }}
+              </p>
+
+              <div v-if="!child.isDeleted" class="mt-1">
+                 <template v-if="authStore.user?.userId === child.author.userId">
+                    <button 
+                        @click="startEdit(child)"
+                        class="text-xs text-gray-500 hover:text-gray-900 font-medium mr-2"
+                    >
+                        수정
+                    </button>
+                    <button 
+                        @click="handleDelete(child)"
+                        class="text-xs text-red-500 hover:text-red-700 font-medium"
+                    >
+                        삭제
+                    </button>
+                 </template>
               </div>
             </div>
           </div>

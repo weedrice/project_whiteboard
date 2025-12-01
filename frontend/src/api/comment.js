@@ -9,4 +9,8 @@ export const commentApi = {
 
     // Delete a comment (placeholder for future)
     deleteComment: (commentId) => api.delete(`/comments/${commentId}`),
+
+    // Update a comment
+    updateComment: (commentId, data) => api.put(`/comments/${commentId}`, data),
+    getComment: (commentId) => api.get(`/comments/${commentId}`)
 }
