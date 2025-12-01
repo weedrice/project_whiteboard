@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface BoardSubscriptionRepository extends JpaRepository<BoardSubscription, BoardSubscriptionId> {
     Page<BoardSubscription> findByUser(User user, Pageable pageable);
+    Page<BoardSubscription> findByUserAndBoard_IsActive(User user, String isActive, Pageable pageable);
     long countByBoard(Board board);
     boolean existsByUserAndBoard(User user, Board board);
     void deleteByBoard(Board board);

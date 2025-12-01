@@ -15,7 +15,7 @@ public interface BoardRepository extends JpaRepository<Board, Long> {
     boolean existsByBoardUrl(String boardUrl); // 추가
     Optional<Board> findByBoardUrl(String boardUrl); // 추가
 
-    @Query("SELECT p.board FROM Post p WHERE p.isDeleted = 'N' GROUP BY p.board ORDER BY COUNT(p) DESC")
+    @Query("SELECT p.board FROM Post p WHERE p.isDeleted = 'N' AND p.board.isActive = 'Y' GROUP BY p.board ORDER BY COUNT(p) DESC")
     List<Board> findTopBoardsByPostCount(Pageable pageable);
 
     Optional<Board> findByBoardId(Long boardId);

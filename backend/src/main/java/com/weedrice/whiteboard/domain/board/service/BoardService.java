@@ -62,6 +62,24 @@ public class BoardService {
     public BoardResponse getBoardDetails(String boardUrl, UserDetails userDetails) {
         Board board = boardRepository.findByBoardUrl(boardUrl)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
+
+        boolean isSuperAdmin = false;
+        boolean isBoardAdmin = false;
+        boolean isCreator = false;
+
+        if (userDetails != null) {
+            User currentUser = userRepository.findByLoginId(userDetails.getUsername())
+                    .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+            isSuperAdmin = "Y".equals(currentUser.getIsSuperAdmin());
+            isBoardAdmin = adminRepository.findByUserAndBoardAndIsActive(currentUser, board, "Y").isPresent();
+            isCreator = board.getCreator().getUserId().equals(currentUser.getUserId());
+        }
+
+        if ("N".equals(board.getIsActive()) && !isSuperAdmin && !isBoardAdmin && !isCreator) {
+             throw new BusinessException(ErrorCode.BOARD_NOT_FOUND); // Or FORBIDDEN
+        }
+
         return createBoardResponse(board, userDetails);
     }
 
@@ -110,6 +128,10 @@ public class BoardService {
         Board board = boardRepository.findByBoardUrl(boardUrl)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
 
+        if ("N".equals(board.getIsActive())) {
+             throw new BusinessException(ErrorCode.BOARD_NOT_FOUND);
+        }
+
         boardSubscriptionRepository.findById(new BoardSubscriptionId(userId, board.getBoardId()))
                 .ifPresent(subscription -> {
                     throw new BusinessException(ErrorCode.ALREADY_SUBSCRIBED);
@@ -138,7 +160,7 @@ public class BoardService {
     public Page<BoardResponse> getMySubscriptions(Long userId, Pageable pageable) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        Page<BoardResponse> boardPage = boardSubscriptionRepository.findByUser(user, pageable).map(boardSubscription ->
+        Page<BoardResponse> boardPage = boardSubscriptionRepository.findByUserAndBoard_IsActive(user, "Y", pageable).map(boardSubscription ->
             createBoardResponse(boardSubscription.getBoard(), null));
         return boardPage;
     }
