@@ -146,13 +146,35 @@ public class UserController {
 
     @GetMapping("/me/posts")
     public ApiResponse<PageResponse<PostSummary>> getMyPosts(@AuthenticationPrincipal CustomUserDetails userDetails, Pageable pageable) {
-        Page<PostSummary> response = postService.getMyPosts(userDetails.getUserId(), pageable).map(PostSummary::from);
-        return ApiResponse.success(new PageResponse<>(response));
+        Page<com.weedrice.whiteboard.domain.post.entity.Post> posts = postService.getMyPosts(userDetails.getUserId(), pageable);
+        
+        List<PostSummary> summaries = new java.util.ArrayList<>();
+        long totalElements = posts.getTotalElements();
+        int pageNumber = posts.getNumber();
+        int pageSize = posts.getSize();
+        
+        for (int i = 0; i < posts.getContent().size(); i++) {
+            com.weedrice.whiteboard.domain.post.entity.Post post = posts.getContent().get(i);
+            PostSummary summary = PostSummary.from(post);
+            summary.setRowNum(totalElements - ((long) pageNumber * pageSize) - i);
+            summaries.add(summary);
+        }
+        
+        Page<PostSummary> summaryPage = new org.springframework.data.domain.PageImpl<>(summaries, pageable, totalElements);
+        return ApiResponse.success(new PageResponse<>(summaryPage));
     }
 
     @GetMapping("/me/comments")
     public ApiResponse<PageResponse<MyCommentResponse>> getMyComments(@AuthenticationPrincipal CustomUserDetails userDetails, Pageable pageable) {
         Page<MyCommentResponse> response = commentService.getMyComments(userDetails.getUserId(), pageable).map(MyCommentResponse::from);
+        return ApiResponse.success(new PageResponse<>(response));
+    }
+
+    @GetMapping("/me/history/views")
+    public ApiResponse<PageResponse<PostSummary>> getRecentlyViewedPosts(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            Pageable pageable) {
+        Page<PostSummary> response = postService.getRecentlyViewedPosts(userDetails.getUserId(), pageable);
         return ApiResponse.success(new PageResponse<>(response));
     }
 }

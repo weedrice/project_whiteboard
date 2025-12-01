@@ -1,5 +1,7 @@
 package com.weedrice.whiteboard.domain.post.repository;
 
+import com.querydsl.core.types.Order;
+import com.querydsl.core.types.OrderSpecifier;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import com.weedrice.whiteboard.domain.post.entity.Post;
@@ -7,9 +9,11 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Repository;
 import org.springframework.util.StringUtils;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static com.weedrice.whiteboard.domain.post.entity.QPost.post;
@@ -33,7 +37,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                 )
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize())
-                .orderBy(post.createdAt.desc())
+                .orderBy(getOrderSpecifiers(pageable))
                 .fetch();
 
         Long total = queryFactory
@@ -63,7 +67,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                 )
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize())
-                .orderBy(post.createdAt.desc())
+                .orderBy(getOrderSpecifiers(pageable))
                 .fetch();
 
         Long total = queryFactory
@@ -108,7 +112,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                 )
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize())
-                .orderBy(post.createdAt.desc())
+                .orderBy(getOrderSpecifiers(pageable))
                 .fetch();
 
         Long total = queryFactory
@@ -136,7 +140,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                 )
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize())
-                .orderBy(post.createdAt.desc())
+                .orderBy(getOrderSpecifiers(pageable))
                 .fetch();
 
         Long total = queryFactory
@@ -157,5 +161,26 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
 
     private BooleanExpression minLikesGoe(Integer minLikes) {
         return minLikes != null ? post.likeCount.goe(minLikes) : null;
+    }
+
+    private OrderSpecifier<?>[] getOrderSpecifiers(Pageable pageable) {
+        if (!pageable.getSort().isEmpty()) {
+            return pageable.getSort().stream().map(order -> {
+                Order direction = order.getDirection().isAscending() ? Order.ASC : Order.DESC;
+                switch (order.getProperty()) {
+                    case "viewCount":
+                        return new OrderSpecifier<>(direction, post.viewCount);
+                    case "likeCount":
+                        return new OrderSpecifier<>(direction, post.likeCount);
+                    case "createdAt":
+                        return new OrderSpecifier<>(direction, post.createdAt);
+                    case "postId":
+                        return new OrderSpecifier<>(direction, post.postId);
+                    default:
+                        return new OrderSpecifier<>(Order.DESC, post.createdAt);
+                }
+            }).toArray(OrderSpecifier[]::new);
+        }
+        return new OrderSpecifier[]{new OrderSpecifier<>(Order.DESC, post.createdAt)};
     }
 }

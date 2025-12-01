@@ -3,12 +3,15 @@ package com.weedrice.whiteboard.domain.post.dto;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import lombok.Builder;
 import lombok.Getter;
+import lombok.Setter;
 
 import java.time.LocalDateTime;
 
 @Getter
+@Setter
 @Builder
 public class PostSummary {
+    private Long rowNum;
     private Long postId;
     private String title;
     private AuthorInfo author;

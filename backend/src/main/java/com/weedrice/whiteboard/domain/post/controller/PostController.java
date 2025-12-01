@@ -46,7 +46,23 @@ public class PostController {
         }
 
         Page<Post> posts = postService.getPosts(boardUrl, categoryId, minLikes, pageable);
-        return ApiResponse.success(new PageResponse<>(posts.map(PostSummary::from)));
+
+        List<PostSummary> summaries = new java.util.ArrayList<>();
+        long totalElements = posts.getTotalElements();
+        int pageNumber = posts.getNumber();
+        int pageSize = posts.getSize();
+
+        for (int i = 0; i < posts.getContent().size(); i++) {
+            Post post = posts.getContent().get(i);
+            PostSummary summary = PostSummary.from(post);
+            // Calculate row number: total - (page * size) - index
+            summary.setRowNum(totalElements - ((long) pageNumber * pageSize) - i);
+            summaries.add(summary);
+        }
+
+        Page<PostSummary> summaryPage = new org.springframework.data.domain.PageImpl<>(summaries, pageable, totalElements);
+
+        return ApiResponse.success(new PageResponse<>(summaryPage));
     }
 
     @GetMapping("/posts/{postId}")

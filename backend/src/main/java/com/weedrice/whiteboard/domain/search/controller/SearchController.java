@@ -55,6 +55,16 @@ public class SearchController {
         }
 
         Page<PostSummary> response = searchService.searchPosts(q, searchType, boardUrl, pageable);
+        
+        long totalElements = response.getTotalElements();
+        int pageNumber = response.getNumber();
+        int pageSize = response.getSize();
+        List<PostSummary> content = response.getContent();
+        
+        for (int i = 0; i < content.size(); i++) {
+            content.get(i).setRowNum(totalElements - ((long) pageNumber * pageSize) - i);
+        }
+        
         return ApiResponse.success(new PageResponse<>(response));
     }
 
