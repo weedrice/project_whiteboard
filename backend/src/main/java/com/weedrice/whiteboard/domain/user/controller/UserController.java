@@ -175,6 +175,17 @@ public class UserController {
             @AuthenticationPrincipal CustomUserDetails userDetails,
             Pageable pageable) {
         Page<PostSummary> response = postService.getRecentlyViewedPosts(userDetails.getUserId(), pageable);
+        
+        // Populate rowNum for View History
+        List<PostSummary> summaries = response.getContent();
+        long totalElements = response.getTotalElements();
+        int pageNumber = response.getNumber();
+        int pageSize = response.getSize();
+
+        for (int i = 0; i < summaries.size(); i++) {
+             summaries.get(i).setRowNum(totalElements - ((long) pageNumber * pageSize) - i);
+        }
+        
         return ApiResponse.success(new PageResponse<>(response));
     }
 }

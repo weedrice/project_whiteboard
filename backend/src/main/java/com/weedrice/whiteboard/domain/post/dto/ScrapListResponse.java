@@ -19,6 +19,7 @@ public class ScrapListResponse {
     private int totalPages;
     private boolean hasNext;
     private boolean hasPrevious;
+    private boolean last;
 
     @Getter
     @Builder
@@ -35,20 +36,39 @@ public class ScrapListResponse {
         private Long postId;
         private String title;
         private String boardName;
+        private String boardUrl;
+        private int viewCount;
+        private int likeCount;
+        private String author;
+        private LocalDateTime createdAt;
+        private Long rowNum;
     }
 
     public static ScrapListResponse from(Page<Scrap> scrapPage) {
-        List<ScrapSummary> content = scrapPage.getContent().stream()
-                .map(scrap -> ScrapSummary.builder()
-                        .scrapId(scrap.getPost().getPostId()) // 스크랩 ID는 따로 없으므로 게시글 ID를 사용
+        long totalElements = scrapPage.getTotalElements();
+        int pageNumber = scrapPage.getNumber();
+        int pageSize = scrapPage.getSize();
+
+        List<ScrapSummary> content = java.util.stream.IntStream.range(0, scrapPage.getContent().size())
+                .mapToObj(i -> {
+                    Scrap scrap = scrapPage.getContent().get(i);
+                    return ScrapSummary.builder()
+                        .scrapId(scrap.getPost().getPostId())
                         .post(PostInfo.builder()
                                 .postId(scrap.getPost().getPostId())
                                 .title(scrap.getPost().getTitle())
                                 .boardName(scrap.getPost().getBoard().getBoardName())
+                                .boardUrl(scrap.getPost().getBoard().getBoardUrl())
+                                .viewCount(scrap.getPost().getViewCount())
+                                .likeCount(scrap.getPost().getLikeCount())
+                                .author(scrap.getPost().getUser().getDisplayName())
+                                .createdAt(scrap.getPost().getCreatedAt())
+                                .rowNum(totalElements - ((long) pageNumber * pageSize) - i)
                                 .build())
                         .remark(scrap.getRemark())
                         .createdAt(scrap.getCreatedAt())
-                        .build())
+                        .build();
+                })
                 .collect(Collectors.toList());
 
         return ScrapListResponse.builder()
@@ -59,6 +79,7 @@ public class ScrapListResponse {
                 .totalPages(scrapPage.getTotalPages())
                 .hasNext(scrapPage.hasNext())
                 .hasPrevious(scrapPage.hasPrevious())
+                .last(scrapPage.isLast())
                 .build();
     }
 }

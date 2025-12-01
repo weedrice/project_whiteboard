@@ -9,4 +9,5 @@ import java.util.Optional;
 
 public interface ViewHistoryRepository extends JpaRepository<ViewHistory, Long> {
     Optional<ViewHistory> findByUserAndPost(User user, Post post);
+    org.springframework.data.domain.Page<ViewHistory> findByUserOrderByModifiedAtDesc(User user, org.springframework.data.domain.Pageable pageable);
 }

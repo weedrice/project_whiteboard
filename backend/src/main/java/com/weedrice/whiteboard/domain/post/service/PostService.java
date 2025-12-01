@@ -84,7 +84,7 @@ public class PostService {
         public Page<Post> getMyPosts(Long userId, Pageable pageable) {
                 User user = userRepository.findById(userId)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-                return postRepository.findByUserAndIsDeletedOrderByCreatedAtDesc(user, "N", pageable);
+                return postRepository.findByUserAndIsDeleted(user, "N", pageable);
         }
         
         // 최신 게시글 15개 조회 (BoardUrl 기반)
@@ -99,6 +99,23 @@ public class PostService {
         public Post getPostById(Long postId, Long userId) {
                 Post post = postRepository.findById(postId)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
+
+                // Access Control for Inactive Boards
+                if ("N".equals(post.getBoard().getIsActive())) {
+                    if (userId == null) {
+                        throw new BusinessException(ErrorCode.POST_NOT_FOUND);
+                    }
+                    User user = userRepository.findById(userId)
+                            .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+                    
+                    boolean isSuperAdmin = "Y".equals(user.getIsSuperAdmin());
+                    boolean isBoardAdmin = adminRepository.findByUserAndBoardAndIsActive(user, post.getBoard(), "Y").isPresent();
+                    boolean isAuthor = post.getUser().getUserId().equals(userId);
+
+                    if (!isSuperAdmin && !isBoardAdmin && !isAuthor) {
+                        throw new BusinessException(ErrorCode.POST_NOT_FOUND); // Treat as not found for security
+                    }
+                }
 
                 post.incrementViewCount();
 
@@ -373,5 +390,12 @@ public class PostService {
                 return postTagRepository.findByPost(post).stream()
                                 .map(postTag -> postTag.getTag().getTagName())
                                 .collect(Collectors.toList());
+        }
+
+        public Page<PostSummary> getRecentlyViewedPosts(Long userId, Pageable pageable) {
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+            return viewHistoryRepository.findByUserOrderByModifiedAtDesc(user, pageable)
+                    .map(viewHistory -> PostSummary.from(viewHistory.getPost()));
         }
 }
