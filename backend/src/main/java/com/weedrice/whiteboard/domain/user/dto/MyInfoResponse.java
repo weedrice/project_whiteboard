@@ -16,6 +16,8 @@ public class MyInfoResponse {
     private String displayName;
     private String profileImageUrl;
     private String status;
+    private String role;
     private boolean isEmailVerified;
     private LocalDateTime createdAt;
+    private LocalDateTime lastLoginAt; // Added field
 }

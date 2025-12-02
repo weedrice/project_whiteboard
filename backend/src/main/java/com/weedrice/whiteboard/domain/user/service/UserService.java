@@ -5,9 +5,11 @@ import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.user.entity.DisplayNameHistory;
 import com.weedrice.whiteboard.domain.user.entity.PasswordHistory;
 import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.domain.user.entity.UserSettings;
 import com.weedrice.whiteboard.domain.user.repository.DisplayNameHistoryRepository;
 import com.weedrice.whiteboard.domain.user.repository.PasswordHistoryRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.domain.user.repository.UserSettingsRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +32,7 @@ public class UserService {
     private final DisplayNameHistoryRepository displayNameHistoryRepository;
     private final PasswordHistoryRepository passwordHistoryRepository;
     private final PasswordEncoder passwordEncoder;
+    private final UserSettingsRepository userSettingsRepository;
 
     public Long findUserIdByLoginId(String loginId) {
         User user = userRepository.findByLoginId(loginId)
@@ -55,6 +58,7 @@ public class UserService {
                 .displayName(user.getDisplayName())
                 .profileImageUrl(user.getProfileImageUrl())
                 .createdAt(user.getCreatedAt())
+                .lastLoginAt(user.getLastLoginAt())
                 .postCount(postCount)
                 .commentCount(commentCount)
                 .build();
@@ -129,6 +133,46 @@ public class UserService {
         return commentRepository.findByUserOrderByCreatedAtDesc(user, pageable);
     }
 
+    public Page<User> searchUsers(String keyword, Pageable pageable) {
+        return userRepository.searchUsers(keyword, pageable);
+    }
+
+    @Transactional
+    public void updateUserStatus(Long userId, String status) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        
+        if ("SUSPENDED".equals(status)) {
+            user.suspend();
+        } else if ("ACTIVE".equals(status)) {
+            user.activate();
+        } else {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+    }
+
+    @Transactional
+    public UserSettings updateSettings(Long userId, String theme, String language, String timezone, String hideNsfw) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        
+        UserSettings settings = userSettingsRepository.findById(userId)
+                .orElseGet(() -> {
+                    UserSettings newSettings = new UserSettings(user);
+                    return userSettingsRepository.save(newSettings);
+                });
+
+        settings.updateSettings(theme, language, timezone, hideNsfw);
+        return settings;
+    }
+
+    public UserSettings getSettings(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        return userSettingsRepository.findById(userId)
+                .orElseGet(() -> new UserSettings(user));
+    }
+
     @lombok.Builder
     @lombok.Getter
     @lombok.AllArgsConstructor
@@ -138,6 +182,7 @@ public class UserService {
         private String displayName;
         private String profileImageUrl;
         private LocalDateTime createdAt;
+        private LocalDateTime lastLoginAt;
         private long postCount;
         private long commentCount;
     }

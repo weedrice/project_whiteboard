@@ -15,6 +15,7 @@ public class UserProfileResponse {
     private String displayName;
     private String profileImageUrl;
     private LocalDateTime createdAt;
+    private LocalDateTime lastLoginAt;
     private long postCount;
     private long commentCount;
 }

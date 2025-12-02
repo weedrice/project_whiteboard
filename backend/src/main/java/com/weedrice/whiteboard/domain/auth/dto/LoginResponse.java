@@ -19,5 +19,6 @@ public class LoginResponse {
         private String displayName;
         private String profileImageUrl;
         private boolean isEmailVerified;
+        private String role;
     }
 }

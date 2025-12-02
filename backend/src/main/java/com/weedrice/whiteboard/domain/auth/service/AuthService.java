@@ -35,125 +35,136 @@ import java.util.List;
 @Transactional(readOnly = true)
 public class AuthService {
 
-    private final UserRepository userRepository;
-    private final UserPointRepository userPointRepository;
-    private final PasswordEncoder passwordEncoder;
-    private final JwtTokenProvider jwtTokenProvider;
-    private final AuthenticationManagerBuilder authenticationManagerBuilder;
-    private final RefreshTokenRepository refreshTokenRepository;
-    private final LoginHistoryRepository loginHistoryRepository;
+        private final UserRepository userRepository;
+        private final UserPointRepository userPointRepository;
+        private final PasswordEncoder passwordEncoder;
+        private final JwtTokenProvider jwtTokenProvider;
+        private final AuthenticationManagerBuilder authenticationManagerBuilder;
+        private final RefreshTokenRepository refreshTokenRepository;
+        private final LoginHistoryRepository loginHistoryRepository;
 
-    @Transactional
-    public SignupResponse signup(SignupRequest request) {
-        if (userRepository.existsByLoginId(request.getLoginId())) {
-            throw new BusinessException(ErrorCode.DUPLICATE_LOGIN_ID);
-        }
-        if (userRepository.existsByEmail(request.getEmail())) {
-            throw new BusinessException(ErrorCode.DUPLICATE_EMAIL);
-        }
+        @Transactional
+        public SignupResponse signup(SignupRequest request) {
+                if (userRepository.existsByLoginId(request.getLoginId())) {
+                        throw new BusinessException(ErrorCode.DUPLICATE_LOGIN_ID);
+                }
+                if (userRepository.existsByEmail(request.getEmail())) {
+                        throw new BusinessException(ErrorCode.DUPLICATE_EMAIL);
+                }
 
-        User user = User.builder()
-                .loginId(request.getLoginId())
-                .password(passwordEncoder.encode(request.getPassword()))
-                .email(request.getEmail())
-                .displayName(request.getDisplayName())
-                .build();
-        User savedUser = userRepository.save(user);
+                User user = User.builder()
+                                .loginId(request.getLoginId())
+                                .password(passwordEncoder.encode(request.getPassword()))
+                                .email(request.getEmail())
+                                .displayName(request.getDisplayName())
+                                .build();
+                User savedUser = userRepository.save(user);
 
-        // 포인트 정보 생성
-        userPointRepository.save(UserPoint.builder().user(savedUser).build());
+                // 포인트 정보 생성
+                userPointRepository.save(UserPoint.builder().user(savedUser).build());
 
-        return SignupResponse.builder()
-                .userId(savedUser.getUserId())
-                .loginId(savedUser.getLoginId())
-                .email(savedUser.getEmail())
-                .displayName(savedUser.getDisplayName())
-                .build();
-    }
-
-    @Transactional
-    public LoginResponse login(LoginRequest request, HttpServletRequest httpServletRequest) {
-        UsernamePasswordAuthenticationToken authenticationToken =
-                new UsernamePasswordAuthenticationToken(request.getLoginId(), request.getPassword());
-
-        Authentication authentication = authenticationManagerBuilder.getObject().authenticate(authenticationToken);
-        CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
-
-        User user = userRepository.findById(userDetails.getUserId())
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-
-        String accessToken = jwtTokenProvider.createAccessToken(authentication);
-        String refreshToken = jwtTokenProvider.createRefreshToken(authentication);
-        String refreshTokenHash = DigestUtils.md5DigestAsHex(refreshToken.getBytes());
-
-        String ipAddress = ClientUtils.getIp(httpServletRequest);
-        String userAgent = httpServletRequest.getHeader("User-Agent");
-
-        // Refresh Token 저장
-        RefreshToken rt = RefreshToken.builder()
-                .user(user)
-                .tokenHash(refreshTokenHash)
-                .ipAddress(ipAddress)
-                .deviceInfo(userAgent)
-                .expiresAt(LocalDateTime.now().plusDays(14))
-                .build();
-        refreshTokenRepository.save(rt);
-
-        // 로그인 기록 저장
-        LoginHistory loginHistory = LoginHistory.success(user, request.getLoginId(), ipAddress, userAgent);
-        loginHistoryRepository.save(loginHistory);
-
-        user.updateLastLogin(); // 마지막 로그인 시간 업데이트
-
-        return LoginResponse.builder()
-                .accessToken(accessToken)
-                .refreshToken(refreshToken)
-                .expiresIn(jwtTokenProvider.getAccessTokenValidityInMilliseconds())
-                .user(LoginResponse.UserInfo.builder()
-                        .userId(user.getUserId())
-                        .loginId(user.getLoginId())
-                        .displayName(user.getDisplayName())
-                        .profileImageUrl(user.getProfileImageUrl())
-                        .isEmailVerified("Y".equals(user.getIsEmailVerified()))
-                        .build())
-                .build();
-    }
-
-    @Transactional
-    public void logout(LogoutRequest request) {
-        String refreshTokenHash = DigestUtils.md5DigestAsHex(request.getRefreshToken().getBytes());
-        refreshTokenRepository.findByTokenHash(refreshTokenHash)
-                .ifPresent(refreshToken -> {
-                    refreshToken.revoke();
-                    refreshTokenRepository.save(refreshToken);
-                });
-    }
-
-    @Transactional
-    public RefreshResponse refresh(RefreshRequest request) {
-        String refreshToken = request.getRefreshToken();
-        String refreshTokenHash = DigestUtils.md5DigestAsHex(refreshToken.getBytes());
-        RefreshToken rt = refreshTokenRepository.findByTokenHash(refreshTokenHash)
-                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_REFRESH_TOKEN));
-
-        if (!rt.isValid()) {
-            throw new BusinessException(ErrorCode.EXPIRED_REFRESH_TOKEN);
+                return SignupResponse.builder()
+                                .userId(savedUser.getUserId())
+                                .loginId(savedUser.getLoginId())
+                                .email(savedUser.getEmail())
+                                .displayName(savedUser.getDisplayName())
+                                .build();
         }
 
-        User user = rt.getUser();
-        // TODO: 사용자의 실제 권한을 가져와서 설정해야 함
-        List<GrantedAuthority> authorities = Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER"));
-        Authentication authentication = new UsernamePasswordAuthenticationToken(
-                new CustomUserDetails(user.getUserId(), user.getLoginId(), "", authorities),
-                "",
-                authorities
-        );
+        @Transactional
+        public LoginResponse login(LoginRequest request, HttpServletRequest httpServletRequest) {
+                UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(
+                                request.getLoginId(), request.getPassword());
 
-        String newAccessToken = jwtTokenProvider.createAccessToken(authentication);
+                Authentication authentication = authenticationManagerBuilder.getObject()
+                                .authenticate(authenticationToken);
+                CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
 
-        return RefreshResponse.builder()
-                .accessToken(newAccessToken)
-                .expiresIn(jwtTokenProvider.getAccessTokenValidityInMilliseconds())
-                .build();
-    }
+                Long userId = userDetails.getUserId();
+                if (userId == null) {
+                        throw new BusinessException(ErrorCode.USER_NOT_FOUND);
+                }
+                User user = userRepository.findById(userId)
+                                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+                String accessToken = jwtTokenProvider.createAccessToken(authentication);
+                String refreshToken = jwtTokenProvider.createRefreshToken(authentication);
+                String refreshTokenHash = DigestUtils.md5DigestAsHex(refreshToken.getBytes());
+
+                String ipAddress = ClientUtils.getIp(httpServletRequest);
+                String userAgent = httpServletRequest.getHeader("User-Agent");
+
+                // Refresh Token 저장
+                RefreshToken rt = RefreshToken.builder()
+                                .user(user)
+                                .tokenHash(refreshTokenHash)
+                                .ipAddress(ipAddress)
+                                .deviceInfo(userAgent)
+                                .expiresAt(LocalDateTime.now().plusDays(14))
+                                .build();
+                if (rt != null) {
+                        refreshTokenRepository.save(rt);
+                }
+
+                // 로그인 기록 저장
+                LoginHistory loginHistory = LoginHistory.success(user, request.getLoginId(), ipAddress, userAgent);
+                loginHistoryRepository.save(loginHistory);
+
+                user.updateLastLogin(); // 마지막 로그인 시간 업데이트
+
+                return LoginResponse.builder()
+                                .accessToken(accessToken)
+                                .refreshToken(refreshToken)
+                                .expiresIn(jwtTokenProvider.getAccessTokenValidityInMilliseconds())
+                                .user(LoginResponse.UserInfo.builder()
+                                                .userId(user.getUserId())
+                                                .loginId(user.getLoginId())
+                                                .displayName(user.getDisplayName())
+                                                .profileImageUrl(user.getProfileImageUrl())
+                                                .isEmailVerified("Y".equals(user.getIsEmailVerified()))
+                                                .role("Y".equals(user.getIsSuperAdmin()) ? "SUPER_ADMIN" : "USER")
+                                                .build())
+                                .build();
+        }
+
+        @Transactional
+        public void logout(LogoutRequest request) {
+                String token = request.getRefreshToken();
+                if (token != null) {
+                        String refreshTokenHash = DigestUtils.md5DigestAsHex(token.getBytes());
+                        refreshTokenRepository.findByTokenHash(refreshTokenHash)
+                                        .ifPresent(refreshToken -> {
+                                                refreshToken.revoke();
+                                                refreshTokenRepository.save(refreshToken);
+                                        });
+                }
+
+        }
+
+        @Transactional
+        public RefreshResponse refresh(RefreshRequest request) {
+                String refreshToken = request.getRefreshToken();
+                String refreshTokenHash = DigestUtils.md5DigestAsHex(refreshToken.getBytes());
+                RefreshToken rt = refreshTokenRepository.findByTokenHash(refreshTokenHash)
+                                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_REFRESH_TOKEN));
+
+                if (!rt.isValid()) {
+                        throw new BusinessException(ErrorCode.EXPIRED_REFRESH_TOKEN);
+                }
+
+                User user = rt.getUser();
+                // TODO: 사용자의 실제 권한을 가져와서 설정해야 함
+                List<GrantedAuthority> authorities = Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER"));
+                Authentication authentication = new UsernamePasswordAuthenticationToken(
+                                new CustomUserDetails(user.getUserId(), user.getLoginId(), "", authorities),
+                                "",
+                                authorities);
+
+                String newAccessToken = jwtTokenProvider.createAccessToken(authentication);
+
+                return RefreshResponse.builder()
+                                .accessToken(newAccessToken)
+                                .expiresIn(jwtTokenProvider.getAccessTokenValidityInMilliseconds())
+                                .build();
+        }
 }
