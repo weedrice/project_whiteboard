@@ -17,6 +17,7 @@ public enum ErrorCode {
     NOT_FOUND(HttpStatus.NOT_FOUND, "C006", "Not Found"),
     FORBIDDEN(HttpStatus.FORBIDDEN, "C007", "Forbidden"),
     VALIDATION_ERROR(HttpStatus.BAD_REQUEST, "C008", "Validation Error"),
+    DUPLICATE_RESOURCE(HttpStatus.CONFLICT, "C009", "Duplicate Resource"),
 
     // User
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "U001", "User Not Found"),

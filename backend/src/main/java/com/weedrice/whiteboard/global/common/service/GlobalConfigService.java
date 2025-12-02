@@ -25,6 +25,21 @@ public class GlobalConfigService {
                 .orElse(null);
     }
 
+    public java.util.List<GlobalConfig> getAllConfigs() {
+        SecurityUtils.validateSuperAdminPermission();
+        return globalConfigRepository.findAll();
+    }
+
+    @Transactional
+    public GlobalConfig createConfig(String key, String value, String description) {
+        SecurityUtils.validateSuperAdminPermission();
+        if (globalConfigRepository.existsById(key)) {
+            throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE);
+        }
+        GlobalConfig config = new GlobalConfig(key, value, description);
+        return globalConfigRepository.save(config);
+    }
+
     @Transactional
     @CacheEvict(value = "globalConfig", key = "#key")
     public GlobalConfig updateConfig(String key, String value) {
@@ -35,5 +50,15 @@ public class GlobalConfigService {
         config.setConfigValue(value);
         
         return globalConfigRepository.save(config);
+    }
+
+    @Transactional
+    @CacheEvict(value = "globalConfig", key = "#key")
+    public void deleteConfig(String key) {
+        SecurityUtils.validateSuperAdminPermission();
+        if (!globalConfigRepository.existsById(key)) {
+            throw new BusinessException(ErrorCode.NOT_FOUND);
+        }
+        globalConfigRepository.deleteById(key);
     }
 }

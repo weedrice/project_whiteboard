@@ -16,15 +16,72 @@ public class GlobalConfigController {
 
     private final GlobalConfigService globalConfigService;
 
-    @GetMapping("/configs/{key}")
-    public ApiResponse<Map<String, String>> getConfig(@PathVariable String key) {
-        String value = globalConfigService.getConfig(key);
-        return ApiResponse.success(Collections.singletonMap(key, value));
+        @GetMapping("/configs/{key}")
+
+        public ApiResponse<Map<String, String>> getConfig(@PathVariable String key) {
+
+            String value = globalConfigService.getConfig(key);
+
+            return ApiResponse.success(Collections.singletonMap(key, value));
+
+        }
+
+    
+
+        @GetMapping("/admin/configs")
+
+        public ApiResponse<java.util.List<com.weedrice.whiteboard.global.common.entity.GlobalConfig>> getAllConfigs() {
+
+            return ApiResponse.success(globalConfigService.getAllConfigs());
+
+        }
+
+    
+
+        @PostMapping("/admin/configs")
+
+        public ApiResponse<com.weedrice.whiteboard.global.common.entity.GlobalConfig> createConfig(@RequestBody Map<String, String> request) {
+
+            return ApiResponse.success(globalConfigService.createConfig(request.get("key"), request.get("value"), request.get("description")));
+
+        }
+
+    
+
+        @PutMapping("/admin/configs")
+
+        public ApiResponse<Void> updateConfig(@RequestBody Map<String, String> request) {
+
+            globalConfigService.updateConfig(request.get("key"), request.get("value"));
+
+            return ApiResponse.success(null);
+
+        }
+
+    
+
+        @PutMapping("/admin/configs/{key}")
+
+        public ApiResponse<Void> updateConfigByKey(@PathVariable String key, @RequestBody Map<String, String> request) {
+
+            globalConfigService.updateConfig(key, request.get("value"));
+
+            return ApiResponse.success(null);
+
+        }
+
+    
+
+        @DeleteMapping("/admin/configs/{key}")
+
+        public ApiResponse<Void> deleteConfig(@PathVariable String key) {
+
+            globalConfigService.deleteConfig(key);
+
+            return ApiResponse.success(null);
+
+        }
+
     }
 
-    @PutMapping("/admin/configs/{key}")
-    public ApiResponse<Void> updateConfig(@PathVariable String key, @RequestBody Map<String, String> request) {
-        globalConfigService.updateConfig(key, request.get("value"));
-        return ApiResponse.success(null);
-    }
-}
+    
