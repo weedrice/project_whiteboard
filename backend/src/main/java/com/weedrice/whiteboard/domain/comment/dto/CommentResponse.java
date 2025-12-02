@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.comment.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import lombok.Builder;
 import lombok.Getter;
@@ -17,6 +18,7 @@ public class CommentResponse {
     private AuthorInfo author;
     private int depth;
     private int likeCount;
+    @JsonProperty("isDeleted")
     private boolean isDeleted;
     private LocalDateTime createdAt;
     private Long postId;

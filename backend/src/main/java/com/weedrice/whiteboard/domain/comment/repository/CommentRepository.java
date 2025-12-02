@@ -9,11 +9,23 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 
 public interface CommentRepository extends JpaRepository<Comment, Long>, CommentRepositoryCustom {
-    Page<Comment> findByPost_PostIdAndParentIsNullAndIsDeletedOrderByCreatedAtAsc(Long postId, String isDeleted, Pageable pageable);
-    Page<Comment> findByParent_CommentIdAndIsDeletedOrderByCreatedAtAsc(Long parentId, String isDeleted, Pageable pageable);
+    @org.springframework.data.jpa.repository.Query(value = "SELECT c FROM Comment c WHERE c.post.postId = :postId AND c.parent IS NULL AND (c.isDeleted = 'N' OR (c.isDeleted = 'Y' AND EXISTS (SELECT r FROM Comment r WHERE r.parent = c AND r.isDeleted = 'N'))) ORDER BY c.createdAt ASC", countQuery = "SELECT COUNT(c) FROM Comment c WHERE c.post.postId = :postId AND c.parent IS NULL AND (c.isDeleted = 'N' OR (c.isDeleted = 'Y' AND EXISTS (SELECT r FROM Comment r WHERE r.parent = c AND r.isDeleted = 'N')))")
+    Page<Comment> findParentsWithChildrenOrNotDeleted(
+            @org.springframework.data.repository.query.Param("postId") Long postId, Pageable pageable);
+
+    Page<Comment> findByPost_PostIdAndParentIsNullAndIsDeletedOrderByCreatedAtAsc(Long postId, String isDeleted,
+            Pageable pageable);
+
+    Page<Comment> findByParent_CommentIdAndIsDeletedOrderByCreatedAtAsc(Long parentId, String isDeleted,
+            Pageable pageable);
+
     List<Comment> findByParent_CommentIdInAndIsDeletedOrderByCreatedAtAsc(List<Long> parentIds, String isDeleted);
+
     Page<Comment> findByUserAndIsDeletedOrderByCreatedAtDesc(User user, String isDeleted, Pageable pageable);
+
     long countByPost_PostIdAndIsDeleted(Long postId, String isDeleted);
+
     long countByUser(User user);
+
     Page<Comment> findByUserOrderByCreatedAtDesc(User user, Pageable pageable);
 }

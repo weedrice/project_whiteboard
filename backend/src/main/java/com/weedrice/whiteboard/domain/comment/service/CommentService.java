@@ -39,7 +39,7 @@ public class CommentService {
 
     public Page<CommentResponse> getComments(Long postId, Pageable pageable) {
         Page<Comment> parentComments = commentRepository
-                .findByPost_PostIdAndParentIsNullAndIsDeletedOrderByCreatedAtAsc(postId, "N", pageable);
+                .findParentsWithChildrenOrNotDeleted(postId, pageable);
         List<Long> parentIds = parentComments.getContent().stream()
                 .map(Comment::getCommentId)
                 .collect(Collectors.toList());
