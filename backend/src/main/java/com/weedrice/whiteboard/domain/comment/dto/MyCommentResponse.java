@@ -21,6 +21,7 @@ public class MyCommentResponse {
         private Long postId;
         private String title;
         private String boardUrl;
+        private String boardName;
     }
 
     public static MyCommentResponse from(Comment comment) {
@@ -31,6 +32,7 @@ public class MyCommentResponse {
                         .postId(comment.getPost().getPostId())
                         .title(comment.getPost().getTitle())
                         .boardUrl(comment.getPost().getBoard().getBoardUrl())
+                        .boardName(comment.getPost().getBoard().getBoardName())
                         .build())
                 .likeCount(comment.getLikeCount())
                 .createdAt(comment.getCreatedAt())

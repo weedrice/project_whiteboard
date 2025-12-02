@@ -39,9 +39,17 @@ public class ScrapListResponse {
         private String boardUrl;
         private int viewCount;
         private int likeCount;
-        private String author;
+        private AuthorInfo author;
         private LocalDateTime createdAt;
         private Long rowNum;
+    }
+
+    @Getter
+    @Builder
+    public static class AuthorInfo {
+        private Long userId;
+        private String displayName;
+        private String profileImageUrl;
     }
 
     public static ScrapListResponse from(Page<Scrap> scrapPage) {
@@ -53,21 +61,25 @@ public class ScrapListResponse {
                 .mapToObj(i -> {
                     Scrap scrap = scrapPage.getContent().get(i);
                     return ScrapSummary.builder()
-                        .scrapId(scrap.getPost().getPostId())
-                        .post(PostInfo.builder()
-                                .postId(scrap.getPost().getPostId())
-                                .title(scrap.getPost().getTitle())
-                                .boardName(scrap.getPost().getBoard().getBoardName())
-                                .boardUrl(scrap.getPost().getBoard().getBoardUrl())
-                                .viewCount(scrap.getPost().getViewCount())
-                                .likeCount(scrap.getPost().getLikeCount())
-                                .author(scrap.getPost().getUser().getDisplayName())
-                                .createdAt(scrap.getPost().getCreatedAt())
-                                .rowNum(totalElements - ((long) pageNumber * pageSize) - i)
-                                .build())
-                        .remark(scrap.getRemark())
-                        .createdAt(scrap.getCreatedAt())
-                        .build();
+                            .scrapId(scrap.getPost().getPostId())
+                            .post(PostInfo.builder()
+                                    .postId(scrap.getPost().getPostId())
+                                    .title(scrap.getPost().getTitle())
+                                    .boardName(scrap.getPost().getBoard().getBoardName())
+                                    .boardUrl(scrap.getPost().getBoard().getBoardUrl())
+                                    .viewCount(scrap.getPost().getViewCount())
+                                    .likeCount(scrap.getPost().getLikeCount())
+                                    .author(AuthorInfo.builder()
+                                            .userId(scrap.getPost().getUser().getUserId())
+                                            .displayName(scrap.getPost().getUser().getDisplayName())
+                                            .profileImageUrl(scrap.getPost().getUser().getProfileImageUrl())
+                                            .build())
+                                    .createdAt(scrap.getPost().getCreatedAt())
+                                    .rowNum(totalElements - ((long) pageNumber * pageSize) - i)
+                                    .build())
+                            .remark(scrap.getRemark())
+                            .createdAt(scrap.getCreatedAt())
+                            .build();
                 })
                 .collect(Collectors.toList());
 

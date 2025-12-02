@@ -37,6 +37,22 @@ public class FileController {
         File file = fileService.uploadFile(userId, multipartFile);
         return ApiResponse.success(FileUploadResponse.from(file));
     }
+    
+    @PostMapping("/upload")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ApiResponse<java.util.Map<String, String>> uploadSimple(
+            @RequestParam("file") MultipartFile multipartFile,
+            Authentication authentication) {
+        Long userId = ((CustomUserDetails) authentication.getPrincipal()).getUserId();
+        File file = fileService.uploadFile(userId, multipartFile);
+        // Assuming fileService.uploadFile returns a File entity with getUrl() or construct it
+        // Actually domain fileService uploads to DB and Storage.
+        // I need to return the URL that can be used in <img> src.
+        // The existing downloadFile is /api/v1/files/{fileId}. 
+        // If I want direct static access, I need to know if FileService supports it.
+        // Let's assume /api/v1/files/{fileId} is the URL for now, or check FileUploadResponse.
+        return ApiResponse.success(java.util.Collections.singletonMap("url", "/api/v1/files/" + file.getFileId()));
+    }
 
     @GetMapping("/{fileId}")
     public ResponseEntity<Resource> downloadFile(@PathVariable Long fileId) {
