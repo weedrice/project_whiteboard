@@ -15,15 +15,75 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import java.util.Map;
 
 @RestController
-@RequestMapping("/api/v1")
+@RequestMapping("/api/v1/reports")
 @RequiredArgsConstructor
 public class ReportController {
 
     private final ReportService reportService;
 
-    @PostMapping("/reports")
+    @PostMapping("/users")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ApiResponse<Long> reportUser(
+            @RequestBody Map<String, Object> request,
+            Authentication authentication) {
+        Long reporterId = ((CustomUserDetails) authentication.getPrincipal()).getUserId();
+        Long targetUserId = Long.valueOf(request.get("targetUserId").toString());
+        String reason = (String) request.get("reason");
+        // link는 remarks에 포함하거나 별도 처리, 여기선 remarks로 사용
+        String link = (String) request.get("link");
+        
+        Report report = reportService.createReport(
+                reporterId,
+                "USER",
+                targetUserId,
+                "ETC", // Default reason type or infer from reason
+                reason + (link != null ? " Link: " + link : ""),
+                null);
+        return ApiResponse.success(report.getReportId());
+    }
+
+    @PostMapping("/posts")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ApiResponse<Long> reportPost(
+            @RequestBody Map<String, Object> request,
+            Authentication authentication) {
+        Long reporterId = ((CustomUserDetails) authentication.getPrincipal()).getUserId();
+        Long targetPostId = Long.valueOf(request.get("targetPostId").toString());
+        String reason = (String) request.get("reason");
+
+        Report report = reportService.createReport(
+                reporterId,
+                "POST",
+                targetPostId,
+                "ETC",
+                reason,
+                null);
+        return ApiResponse.success(report.getReportId());
+    }
+
+    @PostMapping("/comments")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ApiResponse<Long> reportComment(
+            @RequestBody Map<String, Object> request,
+            Authentication authentication) {
+        Long reporterId = ((CustomUserDetails) authentication.getPrincipal()).getUserId();
+        Long targetCommentId = Long.valueOf(request.get("targetCommentId").toString());
+        String reason = (String) request.get("reason");
+
+        Report report = reportService.createReport(
+                reporterId,
+                "COMMENT",
+                targetCommentId,
+                "ETC",
+                reason,
+                null);
+        return ApiResponse.success(report.getReportId());
+    }
+    
+    @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<Long> createReport(
             @Valid @RequestBody ReportCreateRequest request,
@@ -39,37 +99,13 @@ public class ReportController {
         return ApiResponse.success(report.getReportId());
     }
 
-    @GetMapping("/reports/me")
-    public ApiResponse<ReportResponse> getMyReports(
+    @GetMapping("/me")
+    public ApiResponse<org.springframework.data.domain.Page<ReportResponse>> getMyReports(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             Authentication authentication) {
         Long userId = ((CustomUserDetails) authentication.getPrincipal()).getUserId();
         Pageable pageable = PageRequest.of(page, size);
-        return ApiResponse.success(ReportResponse.from(reportService.getMyReports(userId, pageable)));
-    }
-
-    @GetMapping("/admin/reports")
-    public ApiResponse<ReportResponse> getReports(
-            @RequestParam(required = false) String status,
-            @RequestParam(required = false) String targetType,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
-        Pageable pageable = PageRequest.of(page, size);
-        return ApiResponse.success(ReportResponse.from(reportService.getReports(status, targetType, pageable)));
-    }
-
-    @PutMapping("/admin/reports/{reportId}")
-    public ApiResponse<Long> processReport(
-            @PathVariable Long reportId,
-            @Valid @RequestBody ReportProcessRequest request,
-            Authentication authentication) {
-        Long adminUserId = ((CustomUserDetails) authentication.getPrincipal()).getUserId();
-        Report report = reportService.processReport(
-                adminUserId,
-                reportId,
-                request.getStatus(),
-                request.getRemark());
-        return ApiResponse.success(report.getReportId());
+        return ApiResponse.success(reportService.getMyReports(userId, pageable).map(ReportResponse::from));
     }
 }

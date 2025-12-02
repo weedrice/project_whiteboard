@@ -37,11 +37,11 @@ public class SanctionController {
     }
 
     @GetMapping
-    public ApiResponse<SanctionResponse> getSanctions(
+    public ApiResponse<org.springframework.data.domain.Page<SanctionResponse>> getSanctions(
             @RequestParam(required = false) Long userId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         Pageable pageable = PageRequest.of(page, size);
-        return ApiResponse.success(SanctionResponse.from(sanctionService.getSanctions(userId, pageable)));
+        return ApiResponse.success(sanctionService.getSanctions(userId, pageable).map(SanctionResponse::from));
     }
 }

@@ -11,6 +11,8 @@ import java.util.Optional;
 public interface ReportRepository extends JpaRepository<Report, Long> {
     Optional<Report> findByReporterAndTargetTypeAndTargetId(User reporter, String targetType, Long targetId);
 
+    long countByStatus(String status);
+
     Page<Report> findByStatusOrderByCreatedAtDesc(String status, Pageable pageable);
 
     Page<Report> findByTargetTypeAndStatusOrderByCreatedAtDesc(String targetType, String status, Pageable pageable);
