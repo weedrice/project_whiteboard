@@ -69,7 +69,7 @@ async function fetchPost() {
     }
   } catch (err) {
     console.error('Failed to load post:', err)
-    error.value = 'Failed to load post details.'
+    error.value = t('board.postDetail.loadFailed')
   } finally {
     isLoading.value = false
   }
@@ -77,7 +77,7 @@ async function fetchPost() {
 
 
 async function handleDelete() {
-  if (!confirm('정말 삭제하시겠습니까?')) return
+  if (!confirm(t('common.confirmDelete'))) return
 
   try {
     const { data } = await postApi.deletePost(route.params.postId)
@@ -86,7 +86,7 @@ async function handleDelete() {
     }
   } catch (err) {
     console.error('Failed to delete post:', err)
-    alert('게시글 삭제에 실패했습니다.')
+    alert(t('board.postDetail.deleteFailed'))
   }
 }
 
@@ -107,7 +107,7 @@ async function handleLike() {
       }
     }
   } catch (err) {
-    console.error('좋아요 처리에 실패했습니다:', err)
+    console.error(t('board.postDetail.likeFailed'), err)
   }
 }
 
@@ -126,7 +126,7 @@ async function handleScrap() {
       }
     }
   } catch (err) {
-    console.error('스크랩 처리에 실패했습니다:', err)
+    console.error(t('board.postDetail.scrapFailed'), err)
   }
 }
 
@@ -175,7 +175,7 @@ watch(() => route.hash, (newHash) => {
       {{ error }}
       <div class="mt-4">
         <button @click="router.back()" class="text-indigo-600 hover:text-indigo-500">
-          뒤로 가기
+          {{ $t('common.back') }}
         </button>
       </div>
     </div>
@@ -189,7 +189,7 @@ watch(() => route.hash, (newHash) => {
             class="inline-flex items-center text-sm text-gray-500 hover:text-gray-700"
           >
             <ArrowLeft class="h-4 w-4 mr-1" />
-            목록으로
+            {{ $t('board.postDetail.toList') }}
           </button>
           
           <div class="flex space-x-2">
@@ -198,14 +198,14 @@ watch(() => route.hash, (newHash) => {
               :to="`/board/${post.board.boardUrl}/post/${post.postId}/edit`"
               class="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 cursor-pointer"
             >
-              수정
+              {{ $t('common.edit') }}
             </router-link>
             <button 
               v-if="isAuthor || isAdmin"
               @click="handleDelete"
               class="inline-flex items-center px-3 py-1.5 border border-transparent shadow-sm text-xs font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 cursor-pointer"
             >
-              삭제
+              {{ $t('common.delete') }}
             </button>
           </div>
         </div>
@@ -247,13 +247,13 @@ watch(() => route.hash, (newHash) => {
           class="absolute inset-0 flex flex-col items-center justify-center z-10 bg-white/50"
         >
           <div class="bg-white p-6 rounded-lg shadow-lg text-center border border-gray-200">
-            <h3 class="text-lg font-bold text-gray-900 mb-2">스포일러 주의!</h3>
-            <p class="text-gray-600 mb-4">{{ timeLeft }}초 후에 내용이 공개됩니다.</p>
+            <h3 class="text-lg font-bold text-gray-900 mb-2">{{ $t('board.postDetail.spoilerWarning') }}</h3>
+            <p class="text-gray-600 mb-4">{{ $t('board.postDetail.spoilerTimer', { time: timeLeft }) }}</p>
             <button 
               @click="revealSpoiler"
               class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
             >
-              지금 보기
+              {{ $t('board.postDetail.revealSpoiler') }}
             </button>
           </div>
         </div>
@@ -287,7 +287,7 @@ watch(() => route.hash, (newHash) => {
               <div class="p-2 rounded-full group-hover:bg-yellow-50 transition-colors">
                   <Bookmark class="h-6 w-6" :class="{'fill-current': post.isScrapped}" />
               </div>
-              <span class="text-sm font-medium mt-1">스크랩</span>
+              <span class="text-sm font-medium mt-1">{{ $t('board.postDetail.scrap') }}</span>
           </button>
       </div>
 

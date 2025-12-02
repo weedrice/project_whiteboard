@@ -1,6 +1,9 @@
 <script setup>
 import { ref } from 'vue'
 import { commentApi } from '@/api/comment'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps({
   postId: {
@@ -51,7 +54,7 @@ async function handleSubmit() {
     }
   } catch (err) {
     console.error('Failed to save comment:', err)
-    alert('Failed to save comment.')
+    alert(t('comment.saveFailed'))
   } finally {
     isSubmitting.value = false
   }
@@ -61,13 +64,13 @@ async function handleSubmit() {
 <template>
   <form @submit.prevent="handleSubmit" class="mt-4">
     <div>
-      <label for="comment" class="sr-only">Add a comment</label>
+      <label for="comment" class="sr-only">{{ $t('comment.title') }}</label>
       <textarea
         id="comment"
         rows="3"
         v-model="content"
         class="input-base"
-        :placeholder="parentId ? 'Write a reply...' : 'Add a comment...'"
+        :placeholder="parentId ? $t('comment.writeReply') : $t('comment.writeComment')"
         required
       ></textarea>
     </div>
@@ -78,14 +81,14 @@ async function handleSubmit() {
         @click="emit('cancel')"
         class="btn-secondary mr-3"
       >
-        Cancel
+        {{ $t('common.cancel') }}
       </button>
       <button
         type="submit"
         :disabled="isSubmitting"
         class="btn-primary disabled:opacity-50"
       >
-        {{ isSubmitting ? 'Posting...' : (parentId ? 'Reply' : 'Post Comment') }}
+        {{ isSubmitting ? $t('comment.posting') : (parentId ? $t('comment.reply') : $t('comment.postComment')) }}
       </button>
     </div>
   </form>

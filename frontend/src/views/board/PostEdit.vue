@@ -3,6 +3,9 @@ import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { postApi } from '@/api/post'
 import { boardApi } from '@/api/board'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const route = useRoute()
 const router = useRouter()
@@ -55,7 +58,7 @@ async function fetchData() {
     }
   } catch (err) {
     console.error('Failed to load data:', err)
-    alert('Failed to load post data.')
+    alert(t('board.writePost.failLoad'))
     router.push(`/board/${boardUrl}/post/${postId}`) // boardUrl 사용
   } finally {
     isLoading.value = false
@@ -64,7 +67,7 @@ async function fetchData() {
 
 async function handleSubmit() {
   if (!form.value.title || !form.value.content) {
-    alert('Please fill in all required fields.')
+    alert(t('board.writePost.validation'))
     return
   }
 
@@ -87,7 +90,7 @@ async function handleSubmit() {
     }
   } catch (err) {
     console.error('Failed to update post:', err)
-    alert('Failed to update post.')
+    alert(t('board.writePost.failUpdate'))
   } finally {
     isSubmitting.value = false
   }
@@ -101,7 +104,7 @@ onMounted(fetchData)
     <div class="md:flex md:items-center md:justify-between mb-6">
       <div class="flex-1 min-w-0">
         <h2 class="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl sm:truncate">
-          게시글 수정
+          {{ $t('board.writePost.editTitle') }}
         </h2>
       </div>
     </div>
@@ -115,14 +118,14 @@ onMounted(fetchData)
         
         <!-- Category -->
         <div class="sm:col-span-3" v-if="categories.length > 0">
-          <label for="category" class="block text-sm font-medium text-gray-700">카테고리</label>
+          <label for="category" class="block text-sm font-medium text-gray-700">{{ $t('board.writePost.category') }}</label>
           <div class="mt-1">
             <select
               id="category"
               v-model="form.categoryId"
               class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
             >
-              <option value="" disabled>카테고리 선택</option>
+              <option value="" disabled>{{ $t('board.writePost.selectCategory') }}</option>
               <option v-for="category in categories" :key="category.categoryId" :value="category.categoryId">
                 {{ category.name }}
               </option>
@@ -132,7 +135,7 @@ onMounted(fetchData)
 
         <!-- Title -->
         <div class="sm:col-span-6">
-          <label for="title" class="block text-sm font-medium text-gray-700">제목</label>
+          <label for="title" class="block text-sm font-medium text-gray-700">{{ $t('board.writePost.title') }}</label>
           <div class="mt-1">
             <input
               type="text"
@@ -147,7 +150,7 @@ onMounted(fetchData)
 
         <!-- Content -->
         <div class="sm:col-span-6">
-          <label for="content" class="block text-sm font-medium text-gray-700">내용</label>
+          <label for="content" class="block text-sm font-medium text-gray-700">{{ $t('board.writePost.content') }}</label>
           <div class="mt-1 h-96">
             <QuillEditor
               theme="snow"
@@ -160,14 +163,14 @@ onMounted(fetchData)
 
         <!-- Tags -->
         <div class="sm:col-span-6 mt-12">
-          <label for="tags" class="block text-sm font-medium text-gray-700">태그</label>
+          <label for="tags" class="block text-sm font-medium text-gray-700">{{ $t('board.writePost.tags') }}</label>
           <div class="mt-1">
             <input
               type="text"
               name="tags"
               id="tags"
               v-model="form.tags"
-              placeholder="쉼표로 구분된 태그 (예: vue, javascript)"
+              :placeholder="$t('board.writePost.placeholder.tags')"
               class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
             />
           </div>
@@ -186,7 +189,7 @@ onMounted(fetchData)
               />
             </div>
             <div class="ml-3 text-sm">
-              <label for="nsfw" class="font-medium text-gray-700 cursor-pointer">후방주의 (NSFW)</label>
+              <label for="nsfw" class="font-medium text-gray-700 cursor-pointer">{{ $t('board.writePost.nsfw') }}</label>
             </div>
           </div>
           <div class="flex items-start">
@@ -200,7 +203,7 @@ onMounted(fetchData)
               />
             </div>
             <div class="ml-3 text-sm">
-              <label for="spoiler" class="font-medium text-gray-700 cursor-pointer">스포일러</label>
+              <label for="spoiler" class="font-medium text-gray-700 cursor-pointer">{{ $t('board.writePost.spoiler') }}</label>
             </div>
           </div>
         </div>
@@ -213,14 +216,14 @@ onMounted(fetchData)
           @click="router.back()"
           class="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 cursor-pointer"
         >
-          취소
+           {{ $t('board.writePost.cancel') }}
         </button>
         <button
           type="submit"
           :disabled="isSubmitting"
           class="ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 cursor-pointer"
         >
-          {{ isSubmitting ? '저장 중...' : '수정 완료' }}
+          {{ isSubmitting ? $t('board.writePost.updating') : $t('board.writePost.update') }}
         </button>
       </div>
     </form>

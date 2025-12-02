@@ -32,7 +32,7 @@ onMounted(async () => {
   <div>
     <!-- Banner Area -->
     <div class="w-[80%] mx-auto bg-gray-200 h-[120px] mb-8 rounded-lg flex items-center justify-center text-gray-500 text-xl font-medium">
-      상단 배너 영역 (80% Width)
+      {{ $t('layout.banner') }}
     </div>
 
     <div v-if="isLoading" class="text-center py-10">
@@ -46,7 +46,7 @@ onMounted(async () => {
     <div v-else>
       <!-- Subscribed Boards -->
       <div v-if="authStore.isAuthenticated && subscribedBoards.length > 0" class="mb-8">
-        <h3 class="text-lg font-bold text-gray-900 mb-4 px-4">구독한 게시판</h3>
+        <h3 class="text-lg font-bold text-gray-900 mb-4 px-4">{{ $t('board.list.subscribed') }}</h3>
         <div class="flex space-x-6 overflow-x-auto px-4 pb-4">
           <router-link
             v-for="board in subscribedBoards"
@@ -82,7 +82,7 @@ onMounted(async () => {
           </div>
           <div class="mt-3 text-sm text-gray-600 space-y-1">
             <p v-if="board.latestPosts && board.latestPosts.length === 0" class="text-gray-500">
-              아직 게시글이 없습니다.
+              {{ $t('board.list.noPosts') }}
             </p>
             <router-link
               v-for="post in board.latestPosts"

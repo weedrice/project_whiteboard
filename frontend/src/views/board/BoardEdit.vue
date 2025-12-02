@@ -3,18 +3,22 @@ import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { boardApi } from '@/api/board'
 import CategoryManager from '@/components/board/CategoryManager.vue'
-import BaseInput from '@/components/common/BaseInput.vue' // BaseInput 추가
+import BaseInput from '@/components/common/BaseInput.vue'
+import { useI18n } from 'vue-i18n'
+import axios from '@/api'
+
+const { t } = useI18n()
 
 const route = useRoute()
 const router = useRouter()
-const boardUrl = route.params.boardUrl // boardId 대신 boardUrl 사용
+const boardUrl = route.params.boardUrl
 
 const form = ref({
   boardName: '',
-  boardUrl: '', // 추가
+  boardUrl: '',
   description: '',
-  iconUrl: '', // 추가
-  sortOrder: 0, // 추가
+  iconUrl: '',
+  sortOrder: 0,
   allowNsfw: false
 })
 
@@ -22,35 +26,39 @@ const isLoading = ref(true)
 const isSubmitting = ref(false)
 
 const fileInput = ref(null)
+const selectedFile = ref(null)
+const previewImage = ref(null)
 
 function handleFileChange(event) {
   const file = event.target.files[0]
   if (file) {
-    // Placeholder for file upload logic
-    console.log('File selected:', file)
-    alert('File upload not implemented yet.')
+    selectedFile.value = file
+    previewImage.value = URL.createObjectURL(file)
   }
 }
 
 async function fetchBoard() {
   isLoading.value = true
   try {
-    const { data } = await boardApi.getBoard(boardUrl) // boardUrl 사용
+    const { data } = await boardApi.getBoard(boardUrl)
     if (data.success) {
       const board = data.data
       form.value = {
         boardName: board.boardName,
-        boardUrl: board.boardUrl, // 추가
+        boardUrl: board.boardUrl,
         description: board.description,
-        iconUrl: board.iconUrl || '', // 추가
-        sortOrder: board.sortOrder || 0, // 추가
+        iconUrl: board.iconUrl || '',
+        sortOrder: board.sortOrder || 0,
         allowNsfw: board.allowNsfw || false
+      }
+      if (form.value.iconUrl) {
+        previewImage.value = form.value.iconUrl
       }
     }
   } catch (err) {
     console.error('Failed to load board:', err)
-    alert('Failed to load board data.')
-    router.push(`/board/${boardUrl}`) // boardUrl 사용
+    alert(t('board.writePost.failLoad'))
+    router.push(`/board/${boardUrl}`)
   } finally {
     isLoading.value = false
   }
@@ -61,31 +69,49 @@ async function handleSubmit() {
 
   isSubmitting.value = true
   try {
-    const { data } = await boardApi.updateBoard(boardUrl, form.value) // boardUrl 사용
+    let iconUrl = form.value.iconUrl
+
+    if (selectedFile.value) {
+      const formData = new FormData()
+      formData.append('file', selectedFile.value)
+      
+      const uploadRes = await axios.post('/files/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      })
+      if (uploadRes.data.success) {
+        iconUrl = uploadRes.data.data.url
+      }
+    }
+
+    const payload = { ...form.value, iconUrl }
+    
+    const { data } = await boardApi.updateBoard(boardUrl, payload)
     if (data.success) {
-      alert('게시판이 수정되었습니다.')
-      router.push(`/board/${data.data.boardUrl}`) // boardUrl 사용
+      alert(t('board.form.successUpdate'))
+      router.push(`/board/${data.data.boardUrl}`)
     }
   } catch (err) {
     console.error('Failed to update board:', err)
-    alert('게시판 수정에 실패했습니다.')
+    alert(t('board.form.failUpdate'))
   } finally {
     isSubmitting.value = false
   }
 }
 
 async function handleDelete() {
-  if (!confirm('정말 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) return
+  if (!confirm(t('board.form.deleteConfirm'))) return
 
   try {
-    const { data } = await boardApi.deleteBoard(boardUrl) // boardUrl 사용
+    const { data } = await boardApi.deleteBoard(boardUrl)
     if (data.success) {
-      alert('게시판이 삭제되었습니다.')
+      alert(t('board.form.successDelete'))
       router.push('/')
     }
   } catch (err) {
     console.error('Failed to delete board:', err)
-    alert('게시판 삭제에 실패했습니다.')
+    alert(t('board.form.failDelete'))
   }
 }
 
@@ -102,37 +128,55 @@ onMounted(fetchBoard)
       <!-- Header -->
       <div class="px-4 py-5 sm:px-6 border-b border-gray-200 flex justify-between items-center">
         <div>
-          <h3 class="text-lg leading-6 font-medium text-gray-900">게시판 설정</h3>
-          <p class="mt-1 max-w-2xl text-sm text-gray-500">게시판 정보와 카테고리를 관리합니다.</p>
+          <h3 class="text-lg leading-6 font-medium text-gray-900">{{ $t('board.form.editTitle') }}</h3>
+          <p class="mt-1 max-w-2xl text-sm text-gray-500">{{ $t('board.form.editDesc') }}</p>
         </div>
         <button
           type="button"
           @click="router.back()"
           class="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
         >
-          뒤로 가기
+          {{ $t('common.back') }}
         </button>
       </div>
 
       <div class="px-4 py-5 sm:p-6 space-y-6">
           <!-- Board Form -->
           <form @submit.prevent="handleSubmit" class="space-y-6">
-            <div>
-              <label for="boardName" class="block text-sm font-medium text-gray-700">게시판 이름</label>
-              <div class="mt-1">
-                <input
-                  type="text"
-                  name="boardName"
-                  id="boardName"
-                  v-model="form.boardName"
-                  required
-                  class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
-                />
-              </div>
+            
+             <!-- Board Name + Icon Upload Row -->
+            <div class="sm:col-span-6 flex items-end gap-4">
+               <!-- Image Preview & Input -->
+               <div class="shrink-0 relative group">
+                  <label for="icon-upload" class="cursor-pointer">
+                    <div class="h-16 w-16 rounded-md border border-gray-300 bg-gray-50 flex items-center justify-center overflow-hidden hover:bg-gray-100 relative">
+                       <img v-if="previewImage" :src="previewImage" class="h-full w-full object-cover" />
+                       <svg v-else class="h-8 w-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                       </svg>
+                    </div>
+                    <input id="icon-upload" type="file" @change="handleFileChange" accept="image/*" class="hidden" ref="fileInput" />
+                  </label>
+                  <span class="text-xs text-gray-500 text-center block mt-1">{{ $t('board.form.iconImage') }}</span>
+               </div>
+
+               <div class="flex-1">
+                   <label for="boardName" class="block text-sm font-medium text-gray-700">{{ $t('board.form.name') }}</label>
+                  <div class="mt-1">
+                    <input
+                      type="text"
+                      name="boardName"
+                      id="boardName"
+                      v-model="form.boardName"
+                      required
+                      class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md px-3 py-2"
+                    />
+                  </div>
+               </div>
             </div>
 
             <div>
-              <label for="boardUrl" class="block text-sm font-medium text-gray-700">게시판 URL</label>
+              <label for="boardUrl" class="block text-sm font-medium text-gray-700">{{ $t('board.form.url') }}</label>
               <div class="mt-1">
                 <input
                   type="text"
@@ -140,51 +184,31 @@ onMounted(fetchBoard)
                   id="boardUrl"
                   v-model="form.boardUrl"
                   disabled
-                  class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md bg-gray-100 text-gray-500 cursor-not-allowed"
+                  class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md bg-gray-100 text-gray-500 cursor-not-allowed px-3 py-2"
                 />
               </div>
             </div>
 
             <div>
-              <label for="description" class="block text-sm font-medium text-gray-700">설명</label>
+              <label for="description" class="block text-sm font-medium text-gray-700">{{ $t('board.form.description') }}</label>
               <div class="mt-1">
                 <textarea
                   id="description"
                   name="description"
                   rows="3"
                   v-model="form.description"
-                  class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border border-gray-300 rounded-md"
+                  class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border border-gray-300 rounded-md px-3 py-2"
                 ></textarea>
-              </div>
-            </div>
-
-            <div>
-              <label class="block text-sm font-medium text-gray-700">아이콘 이미지</label>
-              <div class="mt-1 flex items-center">
-                <span class="inline-block h-12 w-12 rounded-full overflow-hidden bg-gray-100">
-                  <img v-if="form.iconUrl" :src="form.iconUrl" class="h-full w-full text-gray-300" alt="Icon" />
-                  <svg v-else class="h-full w-full text-gray-300" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M24 20.993V24H0v-2.996A14.977 14.977 0 0112.004 15c4.904 0 9.26 2.354 11.996 5.993zM16.002 8.999a4 4 0 11-8 0 4 4 0 018 0z" />
-                  </svg>
-                </span>
-                <button
-                  type="button"
-                  @click="$refs.fileInput.click()"
-                  class="ml-5 bg-white py-2 px-3 border border-gray-300 rounded-md shadow-sm text-sm leading-4 font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                >
-                  변경
-                </button>
-                <input type="file" class="hidden" ref="fileInput" @change="handleFileChange" />
               </div>
             </div>
 
             <!-- Sort Order Hidden -->
             <div class="hidden">
               <BaseInput
-                label="정렬 순서"
+                :label="$t('board.form.sortOrder')"
                 v-model.number="form.sortOrder"
                 type="number"
-                placeholder="정렬 순서 (숫자)"
+                :placeholder="$t('board.form.placeholder.sortOrder')"
               />
             </div>
 
@@ -200,7 +224,7 @@ onMounted(fetchBoard)
                 />
               </div>
               <div class="ml-3 text-sm">
-                <label for="allowNsfw" class="font-medium text-gray-700">후방주의 (NSFW) 허용</label>
+                <label for="allowNsfw" class="font-medium text-gray-700">{{ $t('board.form.allowNsfw') }}</label>
               </div>
             </div>
 
@@ -210,7 +234,7 @@ onMounted(fetchBoard)
                 :disabled="isSubmitting"
                 class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
               >
-                {{ isSubmitting ? '저장 중...' : '변경사항 저장' }}
+                {{ isSubmitting ? $t('board.writePost.updating') : $t('board.form.save') }}
               </button>
             </div>
           </form>
@@ -231,7 +255,7 @@ onMounted(fetchBoard)
                 @click="handleDelete"
                 class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
               >
-                게시판 삭제
+                {{ $t('board.form.delete') }}
               </button>
           </div>
       </div>

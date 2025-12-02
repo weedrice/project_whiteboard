@@ -84,7 +84,7 @@ function handleSort(field) {
               </div>
             </th>
             <th v-if="showBoardName" scope="col" class="table-th text-center w-32">
-              게시판
+              {{ $t('board.postList.category') }}
             </th>
             <th scope="col" class="table-th text-left">
               {{ $t('board.postList.title') }}
@@ -127,7 +127,7 @@ function handleSort(field) {
         <tbody class="table-body">
           <tr v-for="(post, index) in posts" :key="post.postId" :class="['table-row', post.isNotice ? 'bg-gray-50' : '']">
             <td v-if="!hideNoColumn" class="table-td text-center">
-              <span v-if="post.isNotice" class="font-bold text-red-600">공지</span>
+              <span v-if="post.isNotice" class="font-bold text-red-600">{{ $t('board.postList.notice') }}</span>
               <span v-else>{{ post.postId }}</span>
             </td>
             <td v-if="showBoardName" class="table-td text-center">
@@ -146,7 +146,7 @@ function handleSort(field) {
                   {{ post.category.name }}
                 </span>
                 <span v-if="post.isNotice" class="badge badge-red">
-                  공지
+                  {{ $t('board.postList.notice') }}
                 </span>
                 <span v-if="post.hasImage" class="mr-1 text-gray-400 flex items-center">
                     <ImageIcon class="h-4 w-4" />
@@ -179,7 +179,7 @@ function handleSort(field) {
           </tr>
           <tr v-if="posts.length === 0">
             <td colspan="6" class="px-6 py-10 text-center text-gray-500">
-              게시글이 없습니다.
+              {{ $t('board.list.noPosts') }}
             </td>
           </tr>
         </tbody>

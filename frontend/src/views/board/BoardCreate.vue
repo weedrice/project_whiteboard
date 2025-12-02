@@ -2,13 +2,17 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { boardApi } from '@/api/board'
-import BaseInput from '@/components/common/BaseInput.vue' // BaseInput 추가
+import BaseInput from '@/components/common/BaseInput.vue'
+import { useI18n } from 'vue-i18n'
+import axios from '@/api'
+
+const { t } = useI18n()
 
 const router = useRouter()
 
 const form = ref({
   boardName: '',
-  boardUrl: '', // 추가
+  boardUrl: '',
   description: '',
   iconUrl: '',
   sortOrder: 0,
@@ -17,14 +21,24 @@ const form = ref({
 
 const isSubmitting = ref(false)
 const error = ref('')
+const selectedFile = ref(null)
+const previewImage = ref(null)
+
+const handleFileChange = (event) => {
+  const file = event.target.files[0]
+  if (file) {
+    selectedFile.value = file
+    previewImage.value = URL.createObjectURL(file)
+  }
+}
 
 async function handleSubmit() {
   if (!form.value.boardName) {
-    alert('게시판 이름을 입력해주세요.')
+    alert(t('board.form.validation'))
     return
   }
   if (!form.value.boardUrl) {
-    alert('게시판 URL을 입력해주세요.')
+    alert(t('board.form.validation'))
     return
   }
 
@@ -32,13 +46,31 @@ async function handleSubmit() {
   error.value = ''
 
   try {
-    const { data } = await boardApi.createBoard(form.value)
+    let iconUrl = form.value.iconUrl
+
+    if (selectedFile.value) {
+      const formData = new FormData()
+      formData.append('file', selectedFile.value)
+      
+      const uploadRes = await axios.post('/files/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      })
+      if (uploadRes.data.success) {
+        iconUrl = uploadRes.data.data.url
+      }
+    }
+
+    const payload = { ...form.value, iconUrl }
+    
+    const { data } = await boardApi.createBoard(payload)
     if (data.success) {
-      router.push(`/board/${data.data.boardUrl}`) // boardUrl 사용
+      router.push(`/board/${data.data.boardUrl}`)
     }
   } catch (err) {
     console.error('Failed to create board:', err)
-    error.value = err.response?.data?.error?.message || '게시판 생성에 실패했습니다.'
+    error.value = err.response?.data?.error?.message || t('board.form.failCreate')
   } finally {
     isSubmitting.value = false
   }
@@ -50,7 +82,7 @@ async function handleSubmit() {
     <div class="md:flex md:items-center md:justify-between mb-6">
       <div class="flex-1 min-w-0">
         <h2 class="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl sm:truncate">
-          게시판 생성
+          {{ $t('board.form.createTitle') }}
         </h2>
       </div>
     </div>
@@ -65,28 +97,46 @@ async function handleSubmit() {
       </div>
 
       <div class="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
-        <div class="sm:col-span-6">
-          <BaseInput
-            label="게시판 이름"
-            v-model="form.boardName"
-            type="text"
-            required
-            placeholder="예: 자유게시판, 질문과 답변"
-          />
+        
+        <!-- Board Name + Icon Upload Row -->
+        <div class="sm:col-span-6 flex items-end gap-4">
+           <!-- Image Preview & Input -->
+           <div class="shrink-0 relative group">
+              <label for="icon-upload" class="cursor-pointer">
+                <div class="h-16 w-16 rounded-md border border-gray-300 bg-gray-50 flex items-center justify-center overflow-hidden hover:bg-gray-100">
+                   <img v-if="previewImage" :src="previewImage" class="h-full w-full object-cover" />
+                   <svg v-else class="h-8 w-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                   </svg>
+                </div>
+                <input id="icon-upload" type="file" @change="handleFileChange" accept="image/*" class="hidden" />
+              </label>
+              <span class="text-xs text-gray-500 text-center block mt-1">{{ $t('board.form.iconImage') }}</span>
+           </div>
+
+           <div class="flex-1">
+              <BaseInput
+                :label="$t('board.form.name')"
+                v-model="form.boardName"
+                type="text"
+                required
+                :placeholder="$t('board.form.placeholder.name')"
+              />
+           </div>
         </div>
 
         <div class="sm:col-span-6">
           <BaseInput
-            label="게시판 URL"
+            :label="$t('board.form.url')"
             v-model="form.boardUrl"
             type="text"
             required
-            placeholder="예: free, qna (영문 소문자, 숫자, 하이픈만 허용)"
+            :placeholder="$t('board.form.placeholder.url')"
           />
         </div>
 
         <div class="sm:col-span-6">
-          <label for="description" class="block text-sm font-medium text-gray-700">설명</label>
+          <label for="description" class="block text-sm font-medium text-gray-700">{{ $t('board.form.description') }}</label>
           <div class="mt-1">
             <textarea
               id="description"
@@ -94,49 +144,10 @@ async function handleSubmit() {
               rows="3"
               v-model="form.description"
               class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border border-gray-300 rounded-md p-2"
-              placeholder="게시판에 대한 간략한 설명"
+              :placeholder="$t('board.form.placeholder.desc')"
             ></textarea>
           </div>
         </div>
-
-        <div class="sm:col-span-6">
-            <BaseInput
-                label="아이콘 URL"
-                v-model="form.iconUrl"
-                type="text"
-                placeholder="아이콘 이미지 URL"
-            />
-        </div>
-
-        <!-- Hidden Fields: Sort Order & NSFW -->
-        <!-- 
-        <div class="sm:col-span-6">
-            <BaseInput
-                label="정렬 순서"
-                v-model.number="form.sortOrder"
-                type="number"
-                placeholder="정렬 순서 (숫자)"
-            />
-        </div>
-
-        <div class="sm:col-span-6">
-          <div class="flex items-start">
-            <div class="flex items-center h-5">
-              <input
-                id="allowNsfw"
-                name="allowNsfw"
-                type="checkbox"
-                v-model="form.allowNsfw"
-                class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded"
-              />
-            </div>
-            <div class="ml-3 text-sm">
-              <label for="allowNsfw" class="font-medium text-gray-700">후방주의 (NSFW) 허용</label>
-              <p class="text-gray-500">이 게시판에 부적절한 콘텐츠를 포함될 수 있다면 체크하세요.</p>
-            </div>
-          </div>
-        </div>
-        -->
       </div>
 
       <div class="flex justify-end">
@@ -145,14 +156,14 @@ async function handleSubmit() {
           @click="router.back()"
           class="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
         >
-          취소
+          {{ $t('common.cancel') }}
         </button>
         <button
           type="submit"
           :disabled="isSubmitting"
           class="ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
         >
-          {{ isSubmitting ? '생성 중...' : '게시판 생성' }}
+          {{ isSubmitting ? $t('common.loading') : $t('board.form.create') }}
         </button>
       </div>
     </form>

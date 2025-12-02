@@ -6,6 +6,9 @@ import { searchApi } from '@/api/search'
 import PostList from '@/components/board/PostList.vue'
 import { Search, X, PlusCircle, Settings, ChevronDown, ChevronUp, User } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const route = useRoute()
 const authStore = useAuthStore()
@@ -186,7 +189,7 @@ async function handleSubscribe() {
         }
     } catch (err) {
         console.error('Failed to toggle subscription:', err)
-        alert('구독 처리에 실패했습니다.')
+        alert(t('board.detail.subscribeFailed'))
     }
 }
 
@@ -235,7 +238,7 @@ watch(() => route.params.boardUrl, () => {
                         class="inline-flex items-center px-3 py-1.5 border shadow-sm text-xs font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 cursor-pointer"
                         :class="board.isSubscribed ? 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50' : 'border-transparent text-white bg-indigo-600 hover:bg-indigo-700'"
                     >
-                        {{ board.isSubscribed ? '구독 취소' : '구독' }}
+                        {{ board.isSubscribed ? $t('board.detail.unsubscribe') : $t('board.detail.subscribe') }}
                     </button>
                     <router-link 
                         v-if="board.isAdmin" 
@@ -243,17 +246,17 @@ watch(() => route.params.boardUrl, () => {
                         class="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 cursor-pointer"
                     >
                         <Settings class="-ml-1 mr-1 h-4 w-4" />
-                        관리
+                        {{ $t('board.detail.manage') }}
                     </router-link>
                 </div>
             </div>
             <div class="flex items-center text-sm text-gray-500 space-x-4">
                 <span class="flex items-center">
                     <User class="h-4 w-4 mr-1" />
-                    구독자 {{ board.subscriberCount || 0 }}명
+                    {{ $t('board.detail.subscribers') }} {{ board.subscriberCount || 0 }}
                 </span>
                 <span class="flex items-center">
-                    <span class="font-medium mr-1">관리자:</span> {{ board.adminDisplayName || '관리자' }}
+                    <span class="font-medium mr-1">{{ $t('board.detail.admin') }}</span> {{ board.adminDisplayName || $t('board.detail.defaultAdminName') }}
                 </span>
             </div>
             <p class="text-sm text-gray-500 line-clamp-1">{{ board.description }}</p>
@@ -276,14 +279,14 @@ watch(() => route.params.boardUrl, () => {
                 class="px-3 py-1 text-sm font-medium rounded-md"
                 :class="filterType === 'all' ? 'bg-indigo-100 text-indigo-700' : 'text-gray-500 hover:text-gray-700'"
             >
-                전체글
+                {{ $t('board.detail.filter.all') }}
             </button>
             <button 
                 @click="toggleFilter('concept')"
                 class="px-3 py-1 text-sm font-medium rounded-md"
                 :class="filterType === 'concept' ? 'bg-indigo-100 text-indigo-700' : 'text-gray-500 hover:text-gray-700'"
             >
-                개념글
+                {{ $t('board.detail.filter.concept') }}
             </button>
             <button
                 v-for="category in categories"
@@ -310,10 +313,10 @@ watch(() => route.params.boardUrl, () => {
       <div class="mt-4 px-4 py-4 sm:px-6 bg-gray-50 rounded-lg relative flex justify-center items-center">
         <div class="flex max-w-lg w-full">
             <select v-model="searchType" class="block pl-3 pr-8 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md bg-white mr-2 cursor-pointer shadow-sm">
-                <option value="TITLE_CONTENT">제목+내용</option>
-                <option value="TITLE">제목</option>
-                <option value="CONTENT">내용</option>
-                <option value="AUTHOR">글쓴이</option>
+                <option value="TITLE_CONTENT">{{ $t('board.detail.searchType.titleContent') }}</option>
+                <option value="TITLE">{{ $t('board.detail.searchType.title') }}</option>
+                <option value="CONTENT">{{ $t('board.detail.searchType.content') }}</option>
+                <option value="AUTHOR">{{ $t('board.detail.searchType.author') }}</option>
             </select>
             <div class="relative flex-grow">
                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -324,7 +327,7 @@ watch(() => route.params.boardUrl, () => {
                     v-model="searchQuery"
                     @keyup.enter="handleSearch"
                     class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-l-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                    placeholder="게시판 내 검색"
+                    :placeholder="$t('board.detail.searchPlaceholder')"
                 />
                 <div v-if="isSearching" class="absolute inset-y-0 right-2 pr-3 flex items-center">
                     <button type="button" @click="clearSearch" class="text-gray-400 hover:text-gray-500">
@@ -336,7 +339,7 @@ watch(() => route.params.boardUrl, () => {
                 @click="handleSearch"
                 class="inline-flex items-center px-4 py-2 border border-l-0 border-gray-300 shadow-sm text-sm font-medium rounded-r-md text-gray-700 bg-gray-50 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 whitespace-nowrap"
             >
-                검색
+                {{ $t('board.detail.search') }}
             </button>
         </div>
         
@@ -347,7 +350,7 @@ watch(() => route.params.boardUrl, () => {
                 class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 whitespace-nowrap"
             >
                 <PlusCircle class="-ml-1 mr-2 h-5 w-5" />
-                글쓰기
+                {{ $t('board.detail.write') }}
             </router-link>
         </div>
       </div>

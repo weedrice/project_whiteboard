@@ -60,7 +60,7 @@ function handleEditSuccess() {
 }
 
 async function handleDelete(comment) {
-  if (!confirm('정말 삭제하시겠습니까?')) return
+  if (!confirm(t('common.confirmDelete'))) return
 
   // Soft delete check: If it has children, just mark as deleted locally (if backend doesn't handle it)
   // Actually, we should call delete API. If backend deletes it physically, it's gone.
@@ -79,7 +79,7 @@ async function handleDelete(comment) {
     }
   } catch (err) {
     console.error('Failed to delete comment:', err)
-    alert('Failed to delete comment.')
+    alert(t('comment.deleteFailed'))
   }
 }
 
@@ -89,7 +89,7 @@ watch(() => props.postId, fetchComments)
 
 <template>
   <div class="mt-8">
-    <h3 class="text-lg font-medium text-gray-900">댓글</h3>
+    <h3 class="text-lg font-medium text-gray-900">{{ $t('comment.title') }}</h3>
     
 
     <!-- Comment List -->
@@ -113,7 +113,7 @@ watch(() => props.postId, fetchComments)
                 :user-id="comment.author.userId"
                 :display-name="comment.author.displayName"
               />
-              <span v-else class="text-sm font-medium text-gray-500">알 수 없음</span>
+              <span v-else class="text-sm font-medium text-gray-500">{{ $t('common.unknown') }}</span>
               <p class="text-sm text-gray-500">{{ formatDate(comment.createdAt) }}</p>
             </div>
             
@@ -129,7 +129,7 @@ watch(() => props.postId, fetchComments)
             </div>
             <!-- Content -->
             <p v-else class="text-sm text-gray-700" :class="{ 'text-gray-400 italic': comment.isDeleted }">
-                {{ comment.isDeleted ? '삭제된 댓글입니다.' : comment.content }}
+                {{ comment.isDeleted ? $t('comment.deleted') : comment.content }}
             </p>
             
             <div v-if="!comment.isDeleted" class="mt-2 flex items-center space-x-2">
@@ -138,20 +138,20 @@ watch(() => props.postId, fetchComments)
                 @click="replyToId = replyToId === comment.commentId ? null : comment.commentId"
                 class="text-xs text-gray-500 hover:text-gray-900 font-medium"
               >
-                답글
+                {{ $t('comment.reply') }}
               </button>
               <template v-if="authStore.user?.userId === comment.author.userId">
                   <button 
                     @click="startEdit(comment)"
                     class="text-xs text-gray-500 hover:text-gray-900 font-medium ml-2"
                   >
-                    수정
+                    {{ $t('common.edit') }}
                   </button>
                   <button 
                     @click="handleDelete(comment)"
                     class="text-xs text-red-500 hover:text-red-700 font-medium ml-2"
                   >
-                    삭제
+                    {{ $t('common.delete') }}
                   </button>
               </template>
             </div>
@@ -184,7 +184,7 @@ watch(() => props.postId, fetchComments)
                   :user-id="child.author.userId"
                   :display-name="child.author.displayName"
                 />
-                <span v-else class="text-sm font-medium text-gray-500">알 수 없음</span>
+                <span v-else class="text-sm font-medium text-gray-500">{{ $t('common.unknown') }}</span>
                 <p class="text-sm text-gray-500">{{ formatDate(child.createdAt) }}</p>
               </div>
               
@@ -200,7 +200,7 @@ watch(() => props.postId, fetchComments)
               </div>
               <!-- Content (Child) -->
               <p v-else class="text-sm text-gray-700" :class="{ 'text-gray-400 italic': child.isDeleted }">
-                {{ child.isDeleted ? '삭제된 댓글입니다.' : child.content }}
+                {{ child.isDeleted ? $t('comment.deleted') : child.content }}
               </p>
 
               <div v-if="!child.isDeleted" class="mt-1">
@@ -209,13 +209,13 @@ watch(() => props.postId, fetchComments)
                         @click="startEdit(child)"
                         class="text-xs text-gray-500 hover:text-gray-900 font-medium mr-2"
                     >
-                        수정
+                        {{ $t('common.edit') }}
                     </button>
                     <button 
                         @click="handleDelete(child)"
                         class="text-xs text-red-500 hover:text-red-700 font-medium"
                     >
-                        삭제
+                        {{ $t('common.delete') }}
                     </button>
                  </template>
               </div>
@@ -225,7 +225,7 @@ watch(() => props.postId, fetchComments)
       </div>
       
       <div v-if="comments.length === 0" class="text-center text-gray-500 py-4">
-        아직 댓글이 없습니다. 첫 번째 댓글을 남겨보세요!
+        {{ $t('comment.empty') }}
       </div>
     </div>
 
@@ -237,7 +237,7 @@ watch(() => props.postId, fetchComments)
       />
     </div>
     <div v-else class="mt-8 mb-8 text-sm text-gray-500">
-      <router-link to="/login" class="text-indigo-600 hover:text-indigo-500">로그인</router-link> 후 댓글을 작성할 수 있습니다.
+      <router-link to="/login" class="text-indigo-600 hover:text-indigo-500">{{ $t('auth.login') }}</router-link> {{ $t('comment.loginRequired', { login: '' }) }}
     </div>
   </div>
 </template>

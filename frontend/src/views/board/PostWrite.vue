@@ -4,6 +4,9 @@ import { useRoute, useRouter } from 'vue-router'
 import { boardApi } from '@/api/board'
 import { postApi } from '@/api/post'
 import PostTags from '@/components/tag/PostTags.vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 import { useAuthStore } from '@/stores/auth'
 
@@ -49,7 +52,7 @@ onMounted(async () => {
     }
   } catch (err) {
     console.error('Failed to load data:', err)
-    error.value = 'Failed to load board data.'
+    error.value = t('board.writePost.failLoad')
   } finally {
     isLoading.value = false
   }
@@ -57,7 +60,7 @@ onMounted(async () => {
 
 async function handleSubmit() {
   if (!form.value.title || !form.value.contents || !form.value.categoryId) {
-    alert('Please fill in all required fields.')
+    alert(t('board.writePost.validation'))
     return
   }
 
@@ -82,7 +85,7 @@ async function handleSubmit() {
     }
   } catch (err) {
     console.error('Failed to create post:', err)
-    error.value = err.response?.data?.error?.message || 'Failed to create post.'
+    error.value = err.response?.data?.error?.message || t('board.writePost.failCreate')
   } finally {
     isSubmitting.value = false
   }
@@ -94,7 +97,7 @@ async function handleSubmit() {
     <div class="md:flex md:items-center md:justify-between mb-6">
       <div class="flex-1 min-w-0">
         <h2 class="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl sm:truncate">
-          새 글 작성
+          {{ $t('board.writePost.createTitle') }}
         </h2>
       </div>
     </div>
@@ -114,7 +117,7 @@ async function handleSubmit() {
 
       <div class="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
         <div class="sm:col-span-3">
-          <label for="category" class="block text-sm font-medium text-gray-700">카테고리</label>
+          <label for="category" class="block text-sm font-medium text-gray-700">{{ $t('board.writePost.category') }}</label>
           <div class="mt-1">
             <select
               id="category"
@@ -130,7 +133,7 @@ async function handleSubmit() {
         </div>
 
         <div class="sm:col-span-6">
-          <label for="title" class="block text-sm font-medium text-gray-700">제목</label>
+          <label for="title" class="block text-sm font-medium text-gray-700">{{ $t('board.writePost.title') }}</label>
           <div class="mt-1">
             <input
               type="text"
@@ -139,13 +142,13 @@ async function handleSubmit() {
               v-model="form.title"
               required
               class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md p-2"
-              placeholder="제목을 입력하세요"
+              :placeholder="$t('board.writePost.placeholder.title')"
             />
           </div>
         </div>
 
         <div class="sm:col-span-6">
-          <label for="contents" class="block text-sm font-medium text-gray-700">내용</label>
+          <label for="contents" class="block text-sm font-medium text-gray-700">{{ $t('board.writePost.content') }}</label>
           <div class="mt-1 h-96">
             <QuillEditor
               theme="snow"
@@ -157,7 +160,7 @@ async function handleSubmit() {
         </div>
 
         <div class="sm:col-span-6 mt-12">
-          <label for="tags" class="block text-sm font-medium text-gray-700">태그</label>
+          <label for="tags" class="block text-sm font-medium text-gray-700">{{ $t('board.writePost.tags') }}</label>
           <div class="mt-1">
             <PostTags v-model="form.tags" />
           </div>
@@ -175,8 +178,8 @@ async function handleSubmit() {
               />
             </div>
             <div class="ml-3 text-sm">
-              <label for="isNotice" class="font-medium text-gray-700 cursor-pointer">공지사항</label>
-              <p class="text-gray-500">이 글을 공지사항으로 등록합니다.</p>
+              <label for="isNotice" class="font-medium text-gray-700 cursor-pointer">{{ $t('board.writePost.notice') }}</label>
+              <p class="text-gray-500">{{ $t('board.writePost.noticeDesc') }}</p>
             </div>
           </div>
 
@@ -191,8 +194,8 @@ async function handleSubmit() {
               />
             </div>
             <div class="ml-3 text-sm">
-              <label for="isNsfw" class="font-medium text-gray-700 cursor-pointer">후방주의 (NSFW)</label>
-              <p class="text-gray-500">직장에서 보기에 부적절한 콘텐츠를 포함합니다.</p>
+              <label for="isNsfw" class="font-medium text-gray-700 cursor-pointer">{{ $t('board.writePost.nsfw') }}</label>
+              <p class="text-gray-500">{{ $t('board.writePost.nsfwDesc') }}</p>
             </div>
           </div>
           <div class="flex items-start mt-4">
@@ -206,8 +209,8 @@ async function handleSubmit() {
               />
             </div>
             <div class="ml-3 text-sm">
-              <label for="isSpoiler" class="font-medium text-gray-700 cursor-pointer">스포일러</label>
-              <p class="text-gray-500">스포일러를 포함합니다.</p>
+              <label for="isSpoiler" class="font-medium text-gray-700 cursor-pointer">{{ $t('board.writePost.spoiler') }}</label>
+              <p class="text-gray-500">{{ $t('board.writePost.spoilerDesc') }}</p>
             </div>
           </div>
         </div>
@@ -219,14 +222,14 @@ async function handleSubmit() {
           @click="router.back()"
           class="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 cursor-pointer"
         >
-          취소
+           {{ $t('board.writePost.cancel') }}
         </button>
         <button
           type="submit"
           :disabled="isSubmitting"
           class="ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 cursor-pointer"
         >
-          {{ isSubmitting ? '등록 중...' : '등록' }}
+          {{ isSubmitting ? $t('board.writePost.submitting') : $t('board.writePost.submit') }}
         </button>
       </div>
     </form>

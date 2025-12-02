@@ -7,11 +7,11 @@
           @keydown.enter.prevent="addTag"
           @keydown.comma.prevent="addTag"
           type="text"
-          placeholder="Add a tag..."
+          :placeholder="$t('board.tags.placeholder')"
           class="px-3 py-1 border border-gray-300 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         />
       </div>
-      <span class="text-xs text-gray-500">Press Enter or Comma to add</span>
+      <span class="text-xs text-gray-500">{{ $t('board.tags.help') }}</span>
     </div>
 
     <div class="flex flex-wrap gap-2">
@@ -27,7 +27,7 @@
           type="button"
           class="ml-1.5 inline-flex items-center justify-center h-4 w-4 rounded-full text-blue-400 hover:bg-blue-200 hover:text-blue-500 focus:outline-none"
         >
-          <span class="sr-only">Remove tag</span>
+          <span class="sr-only">{{ $t('board.tags.remove') }}</span>
           <svg class="h-2 w-2" stroke="currentColor" fill="none" viewBox="0 0 8 8">
             <path stroke-linecap="round" stroke-width="1.5" d="M1 1l6 6m0-6L1 7" />
           </svg>

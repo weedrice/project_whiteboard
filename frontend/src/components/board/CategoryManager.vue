@@ -2,6 +2,9 @@
 import { ref, onMounted, computed } from 'vue'
 import { boardApi } from '@/api/board'
 import { Trash2, Edit2, Check, X, Plus, GripVertical } from 'lucide-vue-next'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps({
   boardUrl: {
@@ -30,7 +33,7 @@ async function fetchCategories() {
     }
   } catch (err) {
     console.error('Failed to load categories:', err)
-    error.value = 'Failed to load categories.'
+    error.value = t('board.category.loadFailed')
   } finally {
     isLoading.value = false
   }
@@ -50,12 +53,12 @@ async function handleAdd() {
     }
   } catch (err) {
     console.error('Failed to create category:', err)
-    alert('Failed to create category.')
+    alert(t('board.category.createFailed'))
   }
 }
 
 async function handleDelete(categoryId) {
-  if (!confirm('Are you sure you want to delete this category?')) return
+  if (!confirm(t('board.category.deleteConfirm'))) return
 
   try {
     const { data } = await boardApi.deleteCategory(props.boardUrl, categoryId)
@@ -64,7 +67,7 @@ async function handleDelete(categoryId) {
     }
   } catch (err) {
     console.error('Failed to delete category:', err)
-    alert('Failed to delete category.')
+    alert(t('board.category.deleteFailed'))
   }
 }
 
@@ -96,7 +99,7 @@ async function saveEdit(category) {
     }
   } catch (err) {
     console.error('Failed to update category:', err)
-    alert('Failed to update category.')
+    alert(t('board.category.updateFailed'))
   }
 }
 
@@ -141,7 +144,7 @@ async function onDrop(index) {
     await Promise.all(updatePromises)
   } catch (err) {
     console.error('Failed to reorder categories:', err)
-    alert('Failed to update category order.')
+    alert(t('board.category.orderFailed'))
     fetchCategories() // Revert changes
   }
 }
@@ -151,14 +154,14 @@ onMounted(fetchCategories)
 
 <template>
   <div class="space-y-4">
-    <h3 class="text-lg font-medium leading-6 text-gray-900">Categories</h3>
+    <h3 class="text-lg font-medium leading-6 text-gray-900">{{ $t('board.category.title') }}</h3>
     
     <!-- Add Category -->
     <form @submit.prevent="handleAdd" class="flex gap-2">
       <input
         type="text"
         v-model="newCategoryName"
-        placeholder="New category name"
+        :placeholder="$t('board.category.placeholder.new')"
         class="input-base"
       />
       <button
@@ -184,7 +187,7 @@ onMounted(fetchCategories)
                 <GripVertical class="h-4 w-4" />
             </div>
             <div class="flex-1 flex items-center justify-between">
-                <span class="text-sm text-gray-900 font-medium">{{ generalCategory.name }} (기본)</span>
+                <span class="text-sm text-gray-900 font-medium">{{ generalCategory.name }} {{ $t('board.category.default') }}</span>
                 <!-- No actions for General -->
             </div>
         </div>
@@ -241,7 +244,7 @@ onMounted(fetchCategories)
         </transition-group>
     </div>
     <div v-if="!isLoading && categories.length === 0" class="text-sm text-gray-500 text-center">
-        No categories yet.
+        {{ $t('board.category.empty') }}
     </div>
   </div>
 </template>
