@@ -1,7 +1,9 @@
 package com.weedrice.whiteboard.domain.post.service;
 
+import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
+import com.weedrice.whiteboard.domain.point.service.PointService;
 import com.weedrice.whiteboard.domain.post.dto.PostCreateRequest;
 import com.weedrice.whiteboard.domain.post.dto.PostUpdateRequest;
 import com.weedrice.whiteboard.domain.post.entity.Post;
@@ -46,6 +48,10 @@ class PostServiceTest {
     private PostVersionRepository postVersionRepository;
     @Mock
     private ApplicationEventPublisher eventPublisher;
+    @Mock
+    private AdminRepository adminRepository;
+    @Mock
+    private PointService pointService;
 
     @InjectMocks
     private PostService postService;
@@ -67,7 +73,7 @@ class PostServiceTest {
         // given
         Long userId = 1L;
         Long boardId = 1L;
-        PostCreateRequest request = new PostCreateRequest(null, "New Post", "New Contents", Collections.emptyList(), false, false);
+        PostCreateRequest request = new PostCreateRequest(null, "New Post", "New Contents", Collections.emptyList(), false, false, false);
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(boardRepository.findById(boardId)).thenReturn(Optional.of(board));
         when(postRepository.save(any(Post.class))).thenReturn(post);
@@ -79,6 +85,7 @@ class PostServiceTest {
         assertThat(createdPost.getTitle()).isEqualTo("Test Post");
         verify(tagService).processTagsForPost(any(), any());
         verify(postVersionRepository).save(any());
+        verify(pointService).addPoint(any(), any(), any(), any(), any());
     }
 
     @Test
@@ -102,7 +109,7 @@ class PostServiceTest {
 
     @Test
     @DisplayName("게시글 좋아요 성공")
-    void togglePostLike_success_like() {
+    void likePost_success() {
         // given
         Long userId = 1L;
         Long postId = 1L;
@@ -111,29 +118,26 @@ class PostServiceTest {
         when(postLikeRepository.existsById(any(PostLikeId.class))).thenReturn(false);
 
         // when
-        boolean result = postService.togglePostLike(userId, postId);
+        postService.likePost(userId, postId);
 
         // then
-        assertThat(result).isTrue();
         verify(postLikeRepository).save(any());
         verify(eventPublisher).publishEvent(any());
     }
 
     @Test
     @DisplayName("게시글 좋아요 취소 성공")
-    void togglePostLike_success_unlike() {
+    void unlikePost_success() {
         // given
         Long userId = 1L;
         Long postId = 1L;
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(postRepository.findById(postId)).thenReturn(Optional.of(post));
         when(postLikeRepository.existsById(any(PostLikeId.class))).thenReturn(true);
 
         // when
-        boolean result = postService.togglePostLike(userId, postId);
+        postService.unlikePost(userId, postId);
 
         // then
-        assertThat(result).isFalse();
         verify(postLikeRepository).deleteById(any());
     }
 }

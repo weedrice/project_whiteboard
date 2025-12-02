@@ -89,7 +89,7 @@ class CommentServiceTest {
 
     @Test
     @DisplayName("댓글 좋아요 성공")
-    void toggleCommentLike_success_like() {
+    void likeComment_success() {
         // given
         Long userId = 1L;
         Long commentId = 1L;
@@ -98,30 +98,26 @@ class CommentServiceTest {
         when(commentLikeRepository.existsById(any(CommentLikeId.class))).thenReturn(false);
 
         // when
-        Comment updatedComment = commentService.toggleCommentLike(userId, commentId);
+        commentService.likeComment(userId, commentId);
 
         // then
-        assertThat(updatedComment.getLikeCount()).isEqualTo(1);
         verify(commentLikeRepository).save(any());
         verify(eventPublisher).publishEvent(any());
     }
 
     @Test
     @DisplayName("댓글 좋아요 취소 성공")
-    void toggleCommentLike_success_unlike() {
+    void unlikeComment_success() {
         // given
         Long userId = 1L;
         Long commentId = 1L;
-        comment.incrementLikeCount(); // 초기 좋아요 수 1로 설정
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(commentRepository.findById(commentId)).thenReturn(Optional.of(comment));
         when(commentLikeRepository.existsById(any(CommentLikeId.class))).thenReturn(true);
 
         // when
-        Comment updatedComment = commentService.toggleCommentLike(userId, commentId);
+        commentService.unlikeComment(userId, commentId);
 
         // then
-        assertThat(updatedComment.getLikeCount()).isZero();
         verify(commentLikeRepository).deleteById(any());
     }
 }

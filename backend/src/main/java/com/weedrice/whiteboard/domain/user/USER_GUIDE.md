@@ -60,6 +60,14 @@
 | `GET`    | `/api/v1/users/me/scraps`          | 내 스크랩 목록 조회        |
 | `GET`    | `/api/v1/users/me/drafts`          | 내 임시저장 글 목록 조회   |
 
+### 2.1 Admin API (`AdminUserController`)
+
+관리자 전용 기능을 제공합니다. (`SUPER` 권한 필요)
+
+| Method | URI                        | 설명             |
+| :----- | :------------------------- | :--------------- |
+| `GET`    | `/api/v1/admin/users`      | 사용자 검색/조회 |
+
 ## 3. 관련 DB 테이블
 
 `user` 도메인은 주로 다음 테이블과 상호작용합니다.

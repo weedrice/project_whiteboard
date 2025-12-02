@@ -20,7 +20,7 @@
 
 ## 2. API Endpoints
 
-`SanctionController`에서 다음 API를 제공합니다. 모든 엔드포인트는 관리자 권한(`SUPER`)이 필요합니다.
+`AdminSanctionController`에서 다음 API를 제공합니다. 모든 엔드포인트는 관리자 권한(`SUPER`)이 필요합니다.
 
 | Method | URI                       | 설명             |
 | :----- | :------------------------ | :--------------- |

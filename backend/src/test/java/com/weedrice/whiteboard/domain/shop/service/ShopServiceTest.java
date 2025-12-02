@@ -65,7 +65,7 @@ class ShopServiceTest {
         PurchaseHistory purchaseHistory = shopService.purchaseItem(userId, itemId);
 
         // then
-        verify(pointService).subtractPoint(anyLong(), any(Integer.class), anyString(), anyLong(), anyString());
+        verify(pointService).forceSubtractPoint(anyLong(), any(Integer.class), anyString(), anyLong(), anyString());
         assertThat(purchaseHistory.getItem().getItemName()).isEqualTo("Test Item");
         assertThat(purchaseHistory.getPurchasedPrice()).isEqualTo(100);
     }

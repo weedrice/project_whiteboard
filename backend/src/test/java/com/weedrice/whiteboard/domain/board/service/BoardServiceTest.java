@@ -1,10 +1,13 @@
 package com.weedrice.whiteboard.domain.board.service;
 
+import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.board.dto.BoardCreateRequest;
+import com.weedrice.whiteboard.domain.board.dto.BoardResponse;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardSubscriptionId;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository;
+import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -36,6 +39,10 @@ class BoardServiceTest {
     private BoardSubscriptionRepository boardSubscriptionRepository;
     @Mock
     private UserRepository userRepository;
+    @Mock
+    private AdminRepository adminRepository;
+    @Mock
+    private PostService postService;
 
     @InjectMocks
     private BoardService boardService;
@@ -54,6 +61,7 @@ class BoardServiceTest {
 
         board = Board.builder()
                 .boardName("Test Board")
+                .boardUrl("test-board")
                 .creator(user)
                 .build();
     }
@@ -63,9 +71,11 @@ class BoardServiceTest {
     void getActiveBoards_success() {
         // given
         when(boardRepository.findByIsActiveOrderBySortOrderAsc("Y")).thenReturn(Collections.singletonList(board));
+        when(adminRepository.findByBoardAndRole(any(), any())).thenReturn(Optional.empty()); // Mocking admin repository
+        when(postService.getLatestPostsByBoard(any(), any())).thenReturn(Collections.emptyList()); // Mocking post service
 
         // when
-        List<Board> activeBoards = boardService.getActiveBoards();
+        List<BoardResponse> activeBoards = boardService.getActiveBoards(null);
 
         // then
         assertThat(activeBoards).hasSize(1);
@@ -77,13 +87,13 @@ class BoardServiceTest {
     void subscribeBoard_success() {
         // given
         Long userId = 1L;
-        Long boardId = 1L;
+        String boardUrl = "test-board";
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        when(boardRepository.findById(boardId)).thenReturn(Optional.of(board));
+        when(boardRepository.findByBoardUrl(boardUrl)).thenReturn(Optional.of(board));
         when(boardSubscriptionRepository.findById(any(BoardSubscriptionId.class))).thenReturn(Optional.empty());
 
         // when
-        boardService.subscribeBoard(userId, boardId);
+        boardService.subscribeBoard(userId, boardUrl);
 
         // then
         verify(boardSubscriptionRepository).save(any());
@@ -94,15 +104,15 @@ class BoardServiceTest {
     void subscribeBoard_fail_alreadySubscribed() {
         // given
         Long userId = 1L;
-        Long boardId = 1L;
+        String boardUrl = "test-board";
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        when(boardRepository.findById(boardId)).thenReturn(Optional.of(board));
+        when(boardRepository.findByBoardUrl(boardUrl)).thenReturn(Optional.of(board));
         when(boardSubscriptionRepository.findById(any(BoardSubscriptionId.class)))
                 .thenReturn(Optional.of(mock(com.weedrice.whiteboard.domain.board.entity.BoardSubscription.class)));
 
         // when & then
         BusinessException exception = assertThrows(BusinessException.class,
-                () -> boardService.subscribeBoard(userId, boardId));
+                () -> boardService.subscribeBoard(userId, boardUrl));
         assertThat(exception.getErrorCode())
                 .isEqualTo(com.weedrice.whiteboard.global.exception.ErrorCode.ALREADY_SUBSCRIBED);
     }
@@ -112,9 +122,10 @@ class BoardServiceTest {
     void createBoard_success() {
         // given
         Long creatorId = 1L;
-        BoardCreateRequest request = new BoardCreateRequest("New Board", "New Description", null, null, 1, false);
+        BoardCreateRequest request = new BoardCreateRequest("New Board", "new-board", "New Description", null);
         when(userRepository.findById(creatorId)).thenReturn(Optional.of(user));
         when(boardRepository.existsByBoardName(request.getBoardName())).thenReturn(false);
+        when(boardRepository.existsByBoardUrl(request.getBoardUrl())).thenReturn(false);
         when(boardRepository.save(any(Board.class))).thenReturn(board);
 
         // when

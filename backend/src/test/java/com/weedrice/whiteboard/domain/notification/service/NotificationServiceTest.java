@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.notification.service;
 
+import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
 import com.weedrice.whiteboard.domain.notification.entity.Notification;
 import com.weedrice.whiteboard.domain.notification.repository.NotificationRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -49,17 +50,14 @@ class NotificationServiceTest {
     }
 
     @Test
-    @DisplayName("알림 생성 성공")
-    void createNotification_success() {
+    @DisplayName("알림 이벤트 처리 성공")
+    void handleNotificationEvent_success() {
         // given
-        Long userId = 1L;
-        Long actorId = 2L;
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        when(userRepository.findById(actorId)).thenReturn(Optional.of(actor));
+        NotificationEvent event = new NotificationEvent(user, actor, "LIKE", "POST", 1L, "Test Notification");
         when(notificationRepository.save(any(Notification.class))).thenReturn(notification);
 
         // when
-        notificationService.createNotification(userId, actorId, "LIKE", "POST", 1L, "Test Notification");
+        notificationService.handleNotificationEvent(event);
 
         // then
         verify(notificationRepository).save(any(Notification.class));

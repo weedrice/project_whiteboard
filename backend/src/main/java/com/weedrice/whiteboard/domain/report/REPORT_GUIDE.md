@@ -21,7 +21,7 @@
 
 ## 2. API Endpoints
 
-`ReportController`에서 다음 API를 제공합니다.
+`ReportController` (사용자용) 및 `AdminReportController` (관리자용)에서 다음 API를 제공합니다.
 
 | Method | URI                               | 설명               | 권한          |
 | :----- | :-------------------------------- | :----------------- | :------------ |
