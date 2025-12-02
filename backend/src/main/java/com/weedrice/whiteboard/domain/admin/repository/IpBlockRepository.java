@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Optional;
 
 public interface IpBlockRepository extends JpaRepository<IpBlock, String> {
+    Optional<IpBlock> findByIpAddress(String ipAddress);
     Optional<IpBlock> findByIpAddressAndEndDateAfterOrEndDateIsNull(String ipAddress, LocalDateTime now);
     List<IpBlock> findByEndDateAfterOrEndDateIsNull(LocalDateTime now);
 }

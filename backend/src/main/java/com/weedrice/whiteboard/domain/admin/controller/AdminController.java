@@ -71,4 +71,9 @@ public class AdminController {
         List<IpBlock> ipBlocks = adminService.getBlockedIps();
         return ApiResponse.success(IpBlockResponse.from(ipBlocks));
     }
+
+    @GetMapping("/stats")
+    public ApiResponse<com.weedrice.whiteboard.domain.admin.dto.DashboardStatsDto> getDashboardStats() {
+        return ApiResponse.success(adminService.getDashboardStats());
+    }
 }

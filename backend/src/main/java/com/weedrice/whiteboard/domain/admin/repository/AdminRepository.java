@@ -12,7 +12,9 @@ public interface AdminRepository extends JpaRepository<Admin, Long> {
     Optional<Admin> findByUserAndBoardAndIsActive(User user, Board board, String isActive); // 특정 게시판 관리자 조회
     List<Admin> findByIsActive(String isActive);
     boolean existsByUserAndBoardAndRoleAndIsActive(User user, Board board, String role, String isActive); // 특정 게시판 특정 역할 관리자 존재 여부
+    boolean existsByUserAndRoleAndIsActive(User user, String role, String isActive); // 특정 역할 관리자 존재 여부
     Optional<Admin> findByBoardAndRole(Board board, String role);
     Optional<Admin> findByUserAndIsActive(User user, String isActive);
+    boolean existsByUser(User user);
     void deleteByBoard(Board board);
 }

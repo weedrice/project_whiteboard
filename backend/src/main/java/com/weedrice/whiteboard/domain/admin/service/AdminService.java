@@ -1,11 +1,15 @@
 package com.weedrice.whiteboard.domain.admin.service;
 
-import com.weedrice.whiteboard.domain.admin.entity.Admin;
+import com.weedrice.whiteboard.domain.admin.dto.DashboardStatsDto;
 import com.weedrice.whiteboard.domain.admin.entity.IpBlock;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.admin.repository.IpBlockRepository;
+import com.weedrice.whiteboard.domain.admin.entity.Admin;
+import com.weedrice.whiteboard.domain.admin.dto.AdminCreateRequest;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
+import com.weedrice.whiteboard.domain.post.repository.PostRepository;
+import com.weedrice.whiteboard.domain.report.repository.ReportRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.common.util.SecurityUtils;
@@ -15,6 +19,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -27,6 +32,8 @@ public class AdminService {
     private final UserRepository userRepository;
     private final BoardRepository boardRepository;
     private final IpBlockRepository ipBlockRepository;
+    private final PostRepository postRepository;
+    private final ReportRepository reportRepository;
 
     @Transactional
     public Admin createAdmin(Long userId, Long boardId, String role) {
@@ -35,23 +42,14 @@ public class AdminService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
-        // SUPER 역할은 Admin 엔티티가 아닌 User 엔티티에서 관리
-        if ("SUPER".equals(role)) {
-            user.grantSuperAdminRole();
-            userRepository.save(user);
-            return null; // Admin 엔티티에 저장하지 않으므로 null 반환 또는 다른 응답
+        if (adminRepository.existsByUser(user)) {
+            throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE);
         }
 
-        // BOARD_ADMIN, MODERATOR 역할은 boardId 필수
-        if (boardId == null) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "게시판 관리자 역할은 boardId가 필수입니다.");
-        }
-        Board board = boardRepository.findById(boardId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
-
-        // 이미 해당 게시판의 관리자인지 확인
-        if (adminRepository.existsByUserAndBoardAndRoleAndIsActive(user, board, role, "Y")) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "이미 해당 게시판의 관리자입니다.");
+        Board board = null;
+        if (boardId != null) {
+            board = boardRepository.findById(boardId)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
         }
 
         Admin admin = Admin.builder()
@@ -59,13 +57,21 @@ public class AdminService {
                 .board(board)
                 .role(role)
                 .build();
+
+        if (admin == null) {
+            throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
+        }
         return adminRepository.save(admin);
+    }
+
+    public List<Admin> getAllAdmins() {
+        SecurityUtils.validateSuperAdminPermission();
+        return adminRepository.findAll();
     }
 
     @Transactional
     public void deactivateAdmin(Long adminId) {
         SecurityUtils.validateSuperAdminPermission();
-
         Admin admin = adminRepository.findById(adminId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
         admin.deactivate();
@@ -74,54 +80,65 @@ public class AdminService {
     @Transactional
     public void activateAdmin(Long adminId) {
         SecurityUtils.validateSuperAdminPermission();
-
         Admin admin = adminRepository.findById(adminId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
         admin.activate();
-    }
-
-    public List<Admin> getAllAdmins() {
-        SecurityUtils.validateSuperAdminPermission();
-        return adminRepository.findByIsActive("Y");
     }
 
     @Transactional
     public IpBlock blockIp(Long adminUserId, String ipAddress, String reason, LocalDateTime endDate) {
         SecurityUtils.validateSuperAdminPermission();
 
+        // TODO: 이미 차단된 IP인지 확인 필요
+
         User adminUser = userRepository.findById(adminUserId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
-        ipBlockRepository.findById(ipAddress)
-                .ifPresent(block -> {
-                    throw new BusinessException(ErrorCode.VALIDATION_ERROR, "이미 차단된 IP 주소입니다.");
-                });
+        Admin admin = adminRepository.findByUserAndIsActive(adminUser, "Y")
+                .orElseThrow(() -> new BusinessException(ErrorCode.FORBIDDEN));
 
         IpBlock ipBlock = IpBlock.builder()
                 .ipAddress(ipAddress)
-                .admin(null) // TODO: IP 차단 Admin 연결 로직 수정 필요
                 .reason(reason)
-                .startDate(LocalDateTime.now())
+                .admin(admin)
                 .endDate(endDate)
                 .build();
+
         return ipBlockRepository.save(ipBlock);
     }
 
     @Transactional
     public void unblockIp(String ipAddress) {
         SecurityUtils.validateSuperAdminPermission();
-
-        IpBlock ipBlock = ipBlockRepository.findById(ipAddress)
+        IpBlock ipBlock = ipBlockRepository.findByIpAddress(ipAddress)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
         ipBlockRepository.delete(ipBlock);
     }
 
     public List<IpBlock> getBlockedIps() {
         SecurityUtils.validateSuperAdminPermission();
-        return ipBlockRepository.findByEndDateAfterOrEndDateIsNull(LocalDateTime.now());
+        return ipBlockRepository.findAll();
     }
 
     public boolean isIpBlocked(String ipAddress) {
-        return ipBlockRepository.findByIpAddressAndEndDateAfterOrEndDateIsNull(ipAddress, LocalDateTime.now()).isPresent();
+        return ipBlockRepository.findByIpAddressAndEndDateAfterOrEndDateIsNull(ipAddress, LocalDateTime.now())
+                .isPresent();
+    }
+
+    public DashboardStatsDto getDashboardStats() {
+        SecurityUtils.validateSuperAdminPermission();
+
+        long totalUsers = userRepository.count();
+        long totalPosts = postRepository.count();
+        long pendingReports = reportRepository.countByStatus("PENDING");
+        // Active Users: Logged in within the last 24 hours
+        long activeUsers = userRepository.countByLastLoginAtAfter(LocalDateTime.now().minusDays(1));
+
+        return DashboardStatsDto.builder()
+                .totalUsers(totalUsers)
+                .totalPosts(totalPosts)
+                .pendingReports(pendingReports)
+                .activeUsers(activeUsers)
+                .build();
     }
 }

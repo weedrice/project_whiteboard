@@ -22,6 +22,7 @@ public class AdminResponse {
     @Builder
     public static class UserInfo {
         private Long userId;
+        private String loginId;
         private String displayName;
     }
 
@@ -35,6 +36,7 @@ public class AdminResponse {
     public static AdminResponse from(Admin admin) {
         UserInfo userInfo = UserInfo.builder()
                 .userId(admin.getUser().getUserId())
+                .loginId(admin.getUser().getLoginId())
                 .displayName(admin.getUser().getDisplayName())
                 .build();
 
