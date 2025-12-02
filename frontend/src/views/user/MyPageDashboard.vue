@@ -29,6 +29,11 @@ const isEditModalOpen = ref(false)
 
 function formatDate(dateString) {
   if (!dateString) return 'N/A'
+  // Handle Java LocalDateTime array format [year, month, day, hour, minute, second]
+  if (Array.isArray(dateString)) {
+     const [year, month, day, hour, minute, second] = dateString
+     return new Date(year, month - 1, day, hour, minute, second || 0).toLocaleString()
+  }
   return new Date(dateString).toLocaleString()
 }
 
@@ -171,69 +176,75 @@ onMounted(async () => {
       </div>
 
       <!-- My Posts Section -->
-      <div class="bg-white shadow overflow-hidden sm:rounded-lg mb-6 pb-6">
-        <div class="px-4 py-5 sm:px-6 border-b border-gray-200 flex items-center">
-          <FileText class="h-5 w-5 text-gray-500 mr-2" />
-          <h3 class="text-lg leading-6 font-medium text-gray-900">{{ $t('user.myPosts') }}</h3>
-        </div>
-        
-        <div v-if="myPosts.length > 0">
-          <PostList 
-            :posts="myPosts"
-            :totalCount="myPostsTotalCount"
-            :page="myPostsCurrentPage"
-            :size="myPostsSize"
-            :current-sort="myPostsSort"
-            :show-board-name="true"
-            @update:sort="handleMyPostsSortChange"
-          />
-          <div class="mt-4 flex justify-center">
-            <Pagination 
-              :current-page="myPostsCurrentPage" 
-              :total-pages="Math.ceil(myPostsTotalCount / myPostsSize)"
-              @page-change="handleMyPostsPageChange" 
+      <div class="max-w-[80%] mx-auto">
+        <div class="bg-white shadow overflow-hidden sm:rounded-lg mb-6 pb-6">
+          <div class="px-4 py-5 sm:px-6 border-b border-gray-200 flex items-center">
+            <FileText class="h-5 w-5 text-gray-500 mr-2" />
+            <h3 class="text-lg leading-6 font-medium text-gray-900">{{ $t('user.myPosts') }}</h3>
+          </div>
+          
+          <div v-if="myPosts.length > 0">
+            <PostList 
+              :posts="myPosts"
+              :totalCount="myPostsTotalCount"
+              :page="myPostsCurrentPage"
+              :size="myPostsSize"
+              :current-sort="myPostsSort"
+              :show-board-name="true"
+              @update:sort="handleMyPostsSortChange"
             />
+            <div class="mt-4 flex justify-center">
+              <Pagination 
+                :current-page="myPostsCurrentPage" 
+                :total-pages="Math.ceil(myPostsTotalCount / myPostsSize)"
+                @page-change="handleMyPostsPageChange" 
+              />
+            </div>
+          </div>
+          <div v-else class="text-center py-10 text-gray-500">
+            {{ $t('common.noData') }}
           </div>
         </div>
-        <div v-else class="text-center py-10 text-gray-500">
-          {{ $t('common.noData') }}
-        </div>
-      </div>
 
-      <!-- My Comments Section -->
-      <div class="bg-white shadow overflow-hidden sm:rounded-lg">
-        <div class="px-4 py-5 sm:px-6 border-b border-gray-200 flex items-center">
-          <MessageSquare class="h-5 w-5 text-gray-500 mr-2" />
-          <h3 class="text-lg leading-6 font-medium text-gray-900">{{ $t('user.myComments') }}</h3>
-        </div>
-        
-        <div v-if="myComments.length > 0">
-          <ul role="list" class="divide-y divide-gray-200">
-            <li v-for="(comment, index) in myComments" :key="comment.commentId" class="px-4 py-4 sm:px-6 hover:bg-gray-50">
-              <router-link :to="`/board/${comment.boardUrl}/post/${comment.postId}`" class="block">
-                <div class="flex items-center justify-between">
-                  <p class="text-sm font-medium text-indigo-600 truncate">
-                    <span class="mr-2 text-gray-500 text-xs">{{ myCommentsCurrentPage * myCommentsSize + index + 1 }}.</span>
-                    {{ comment.postTitle }}
-                  </p>
-                  <p class="ml-2 flex-shrink-0 font-normal text-gray-500 text-xs">{{ formatDate(comment.createdAt) }}</p>
-                </div>
-                <div class="mt-1 sm:flex sm:justify-between">
-                  <p class="text-sm text-gray-900 line-clamp-2">{{ comment.content }}</p>
-                </div>
-              </router-link>
-            </li>
-          </ul>
-          <div class="mt-4 flex justify-center">
-            <Pagination 
-              :current-page="myCommentsCurrentPage" 
-              :total-pages="Math.ceil(myCommentsTotalCount / myCommentsSize)"
-              @page-change="handleMyCommentsPageChange" 
-            />
+        <!-- My Comments Section -->
+        <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+          <div class="px-4 py-5 sm:px-6 border-b border-gray-200 flex items-center">
+            <MessageSquare class="h-5 w-5 text-gray-500 mr-2" />
+            <h3 class="text-lg leading-6 font-medium text-gray-900">{{ $t('user.myComments') }}</h3>
           </div>
-        </div>
-        <div v-else class="text-center py-10 text-gray-500">
-          {{ $t('common.noData') }}
+          
+          <div v-if="myComments.length > 0">
+            <ul role="list" class="divide-y divide-gray-200">
+              <li v-for="comment in myComments" :key="comment.commentId" class="px-4 py-4 sm:px-6 hover:bg-gray-50">
+                <router-link :to="`/board/${comment.post.boardUrl}/post/${comment.post.postId}`" class="block">
+                  <div class="flex items-center justify-between">
+                    <div class="flex items-center">
+                      <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 mr-2">
+                        {{ comment.post.boardName }}
+                      </span>
+                      <p class="text-sm font-medium text-indigo-600 truncate">
+                        {{ comment.post.title }}
+                      </p>
+                    </div>
+                    <p class="ml-2 flex-shrink-0 font-normal text-gray-500 text-xs">{{ formatDate(comment.createdAt) }}</p>
+                  </div>
+                  <div class="mt-1 sm:flex sm:justify-between">
+                    <p class="text-sm text-gray-900 line-clamp-2">{{ comment.content }}</p>
+                  </div>
+                </router-link>
+              </li>
+            </ul>
+            <div class="mt-4 flex justify-center pb-6">
+              <Pagination 
+                :current-page="myCommentsCurrentPage" 
+                :total-pages="Math.ceil(myCommentsTotalCount / myCommentsSize)"
+                @page-change="handleMyCommentsPageChange" 
+              />
+            </div>
+          </div>
+          <div v-else class="text-center py-10 text-gray-500">
+            {{ $t('common.noData') }}
+          </div>
         </div>
       </div>
 

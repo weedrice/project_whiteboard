@@ -1,8 +1,9 @@
 import api from './index'
 
 export const messageApi = {
-    sendMessage: (recipientId, content) => api.post(`/messages/send`, { recipientId, content }),
-    // Other message related APIs can be added here
-    // getConversations: () => api.get('/messages/conversations'),
-    // getMessages: (conversationId) => api.get(`/messages/${conversationId}`),
+    sendMessage: (receiverId, content) => api.post(`/messages`, { receiverId, content }),
+    getReceivedMessages: (params) => api.get('/messages/received', { params }),
+    getSentMessages: (params) => api.get('/messages/sent', { params }),
+    getUnreadCount: () => api.get('/messages/unread-count'),
+    deleteMessage: (messageId) => api.delete(`/messages/${messageId}`),
 }

@@ -5,6 +5,9 @@ import { useNotificationStore } from '@/stores/notification'
 import { postApi } from '@/api/post'
 import { commentApi } from '@/api/comment'
 import { Check, Bell } from 'lucide-vue-next'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const router = useRouter()
 const notificationStore = useNotificationStore()
@@ -18,7 +21,6 @@ async function handleNotificationClick(notification) {
     await notificationStore.markAsRead(notification.notificationId)
   }
   
-  // Navigate based on source type
   if (notification.sourceType === 'POST' || notification.sourceType === 'COMMENT') {
     if (notification.sourceType === 'POST') {
         try {
@@ -54,14 +56,14 @@ function formatDate(dateString) {
       <div class="px-4 py-5 sm:px-6 flex justify-between items-center border-b border-gray-200">
         <h3 class="text-lg leading-6 font-medium text-gray-900 flex items-center">
           <Bell class="h-5 w-5 mr-2 text-gray-500" />
-          알림 목록
+          {{ $t('notification.title') }}
         </h3>
         <button 
-          @click="notificationStore.markAllAsRead"
+          @click="() => { console.log('Marking all as read'); notificationStore.markAllAsRead(); }"
           class="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
         >
           <Check class="h-4 w-4 mr-1 text-green-500" />
-          모두 읽음으로 표시
+          {{ $t('notification.markAllRead') }}
         </button>
       </div>
       
@@ -70,7 +72,7 @@ function formatDate(dateString) {
       </div>
 
       <div v-else-if="notificationStore.notifications.length === 0" class="text-center py-10 text-gray-500">
-        새로운 알림이 없습니다.
+        {{ $t('notification.empty') }}
       </div>
 
       <ul v-else class="divide-y divide-gray-200">
@@ -109,9 +111,6 @@ function formatDate(dateString) {
           </a>
         </li>
       </ul>
-      
-      <!-- Pagination (Simple Load More) -->
-       <!-- TODO: Implement pagination if needed -->
     </div>
   </div>
 </template>

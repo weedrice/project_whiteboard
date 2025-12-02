@@ -1,15 +1,15 @@
 <template>
   <div class="space-y-6">
     <div class="flex justify-between items-center">
-      <h2 class="text-2xl font-bold text-gray-900">Blocked Users</h2>
+      <h2 class="text-2xl font-bold text-gray-900">{{ $t('user.blockList.title') }}</h2>
     </div>
 
     <div v-if="loading" class="text-center py-8">
-      <p class="text-gray-500">Loading...</p>
+      <p class="text-gray-500">{{ $t('common.loading') }}</p>
     </div>
 
     <div v-else-if="blockedUsers.length === 0" class="text-center py-8 bg-gray-50 rounded-lg">
-      <p class="text-gray-500">No blocked users.</p>
+      <p class="text-gray-500">{{ $t('user.blockList.empty') }}</p>
     </div>
 
     <div v-else class="bg-white shadow overflow-hidden sm:rounded-md">
@@ -37,6 +37,9 @@
 import { ref, onMounted } from 'vue'
 import { userApi } from '@/api/user'
 import BlockButton from '@/components/user/BlockButton.vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const blockedUsers = ref([])
 const loading = ref(false)

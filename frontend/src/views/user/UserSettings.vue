@@ -10,8 +10,10 @@ const saving = ref(false)
 const message = ref('')
 
 const settings = reactive({
-  isPublicProfile: true,
-  allowMessages: true
+  theme: 'LIGHT',
+  language: 'ko',
+  timezone: 'Asia/Seoul',
+  hideNsfw: 'Y'
 })
 
 const notificationSettings = reactive({
@@ -31,16 +33,12 @@ const fetchSettings = async () => {
     // Fetch notification settings
     const notifRes = await userApi.getNotificationSettings()
     if (notifRes.data.success) {
-      // Assuming backend returns list, mapping to object for UI
-      // Backend returns List<NotificationSettingResponse>
-      // We need to map this list to our reactive object
       const notifList = notifRes.data.data
-      // Example mapping logic, adjust based on actual enum values
       const emailSetting = notifList.find(s => s.notificationType === 'EMAIL')
       const pushSetting = notifList.find(s => s.notificationType === 'PUSH')
       
-      if (emailSetting) notificationSettings.emailNotifications = emailSetting.isEnabled
-      if (pushSetting) notificationSettings.pushNotifications = pushSetting.isEnabled
+      if (emailSetting) notificationSettings.emailNotifications = emailSetting.isEnabled === 'Y'
+      if (pushSetting) notificationSettings.pushNotifications = pushSetting.isEnabled === 'Y'
     }
   } catch (error) {
     console.error('설정을 불러오는데 실패했습니다:', error)
@@ -53,29 +51,13 @@ const saveSettings = async () => {
   saving.value = true
   message.value = ''
   try {
-    // Backend expects specific structure for updates
-    // UpdateSettingsRequest: theme, language, timezone, hideNsfw
-    // UpdateNotificationSettingRequest: notificationType, isEnabled
-    
-    // Since the UI currently shows "Privacy" (Public Profile, Allow Messages) which are NOT in UserSettings entity (it has theme, etc.),
-    // I need to align UI with Backend or mock it if backend doesn't support it yet.
-    // Backend UserSettings: theme, language, timezone, hideNsfw.
-    // Backend User: status, isEmailVerified.
-    // The current UI "Public Profile" and "Allow Messages" seem to be missing in backend UserSettings.
-    // I will update the UI to match Backend UserSettings (Theme, Language) for now to be accurate,
-    // OR I will keep the UI as "Privacy" but note that it's mocked/not fully connected if backend lacks fields.
-    // Given the user wants "match backend", I should probably show what's available or add fields to backend.
-    // But I cannot edit backend easily without more context.
-    // I will switch UI to show "Theme" and "Language" to match backend `UserSettings`.
-    
     await userApi.updateUserSettings({
-        theme: 'LIGHT', // Default or from UI
-        language: 'KO', // Default
-        timezone: 'Asia/Seoul',
-        hideNsfw: 'N'
+        theme: settings.theme,
+        language: settings.language,
+        timezone: settings.timezone,
+        hideNsfw: settings.hideNsfw
     })
 
-    // Update notifications one by one as backend API is per type
     await userApi.updateNotificationSettings({
         notificationType: 'EMAIL',
         isEnabled: notificationSettings.emailNotifications ? 'Y' : 'N'
@@ -108,11 +90,39 @@ onMounted(() => {
 
     <div v-else class="bg-white shadow overflow-hidden sm:rounded-lg">
       <div class="px-4 py-5 sm:p-6 space-y-6">
-        <!-- General Settings (Matched to Backend) -->
+        <!-- General Settings -->
         <div>
           <h3 class="text-lg font-medium leading-6 text-gray-900">{{ $t('user.settings.general') }}</h3>
           <div class="mt-4 space-y-4">
-             <p class="text-sm text-gray-500">{{ $t('user.settings.generalDesc') }}</p>
+            
+            <!-- Theme -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Theme</label>
+                <select v-model="settings.theme" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                    <option value="LIGHT">Light</option>
+                    <option value="DARK">Dark</option>
+                </select>
+            </div>
+
+            <!-- Language -->
+             <div>
+                <label class="block text-sm font-medium text-gray-700">Language</label>
+                <select v-model="settings.language" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                    <option value="ko">한국어</option>
+                    <option value="en">English</option>
+                </select>
+            </div>
+
+             <!-- NSFW -->
+             <!-- <div class="flex items-start pt-2">
+                <div class="flex items-center h-5">
+                    <input id="hideNsfw" v-model="settings.hideNsfw" true-value="Y" false-value="N" type="checkbox" class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded" />
+                </div>
+                <div class="ml-3 text-sm">
+                    <label for="hideNsfw" class="font-medium text-gray-700">Hide NSFW Content</label>
+                </div>
+             </div> -->
+
           </div>
         </div>
 

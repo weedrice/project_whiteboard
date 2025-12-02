@@ -2,29 +2,25 @@
 import { ref, onMounted } from 'vue'
 import { userApi } from '@/api/user'
 import PostList from '@/components/board/PostList.vue'
+import Pagination from '@/components/common/Pagination.vue'
 
 const scraps = ref([])
 const loading = ref(false)
 const page = ref(0)
-const hasMore = ref(true)
+const totalPages = ref(0)
+const size = ref(20)
 
 const fetchScraps = async () => {
   loading.value = true
   try {
     const { data } = await userApi.getMyScraps({
       page: page.value,
-      size: 20
+      size: size.value
     })
     if (data.success) {
       const newScraps = data.data.content.map(item => item.post || item)
-      
-      if (page.value === 0) {
-        scraps.value = newScraps
-      } else {
-        scraps.value.push(...newScraps)
-      }
-      // Ensure hasMore is false if no content or empty content
-      hasMore.value = !data.data.last && data.data.content.length > 0
+      scraps.value = newScraps
+      totalPages.value = data.data.totalPages
     }
   } catch (error) {
     console.error('스크랩 목록을 불러오는데 실패했습니다:', error)
@@ -33,8 +29,8 @@ const fetchScraps = async () => {
   }
 }
 
-const loadMore = () => {
-  page.value++
+const handlePageChange = (newPage) => {
+  page.value = newPage
   fetchScraps()
 }
 
@@ -44,19 +40,17 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+  <div class="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
     <div class="bg-white shadow overflow-hidden sm:rounded-lg">
       <div v-if="scraps.length > 0">
         <PostList :posts="scraps" :show-board-name="true" :hide-no-column="true" />
         
-        <div v-if="hasMore && scraps.length > 0" class="bg-gray-50 px-4 py-4 sm:px-6 text-center border-t border-gray-200">
-          <button 
-            @click="loadMore" 
-            :disabled="loading"
-            class="text-sm font-medium text-indigo-600 hover:text-indigo-500 disabled:opacity-50"
-          >
-            {{ loading ? $t('common.loading') : $t('common.loadMore') }}
-          </button>
+        <div class="mt-4 flex justify-center pb-6">
+          <Pagination 
+            :current-page="page" 
+            :total-pages="totalPages"
+            @page-change="handlePageChange" 
+          />
         </div>
       </div>
       

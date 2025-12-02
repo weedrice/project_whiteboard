@@ -47,6 +47,7 @@ const tabs = [
   { nameKey: 'user.tabs.myPage', href: '/mypage' },
   { nameKey: 'user.tabs.settings', href: '/mypage/settings' },
   { nameKey: 'user.tabs.notifications', href: '/mypage/notifications' },
+  { nameKey: 'user.tabs.messages', href: '/mypage/messages' },
   { nameKey: 'user.tabs.points', href: '/mypage/points' },
   { nameKey: 'user.tabs.scraps', href: '/mypage/scraps' },
   { nameKey: 'user.tabs.recent', href: '/mypage/recent' },

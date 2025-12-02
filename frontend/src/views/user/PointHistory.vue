@@ -1,11 +1,13 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import axios from '@/api'
+import Pagination from '@/components/common/Pagination.vue'
 
 const history = ref([])
 const loading = ref(false)
 const page = ref(0)
-const hasMore = ref(true)
+const totalPages = ref(0)
+const size = ref(20)
 
 const fetchHistory = async () => {
   loading.value = true
@@ -13,17 +15,12 @@ const fetchHistory = async () => {
     const { data } = await axios.get('/points/me/history', {
       params: {
         page: page.value,
-        size: 20
+        size: size.value
       }
     })
     if (data.success) {
-      if (page.value === 0) {
-        history.value = data.data.content
-      } else {
-        history.value.push(...data.data.content)
-      }
-      // Ensure hasMore is false if no content or empty content
-      hasMore.value = !data.data.last && data.data.content.length > 0
+      history.value = data.data.content
+      totalPages.value = data.data.totalPages
     }
   } catch (error) {
     console.error('포인트 내역을 불러오는데 실패했습니다:', error)
@@ -32,8 +29,8 @@ const fetchHistory = async () => {
   }
 }
 
-const loadMore = () => {
-  page.value++
+const handlePageChange = (newPage) => {
+  page.value = newPage
   fetchHistory()
 }
 
@@ -47,7 +44,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+  <div class="max-w-2xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
     <div class="bg-white shadow overflow-hidden sm:rounded-lg">
       <ul role="list" class="divide-y divide-gray-200">
         <li v-for="item in history" :key="item.id" class="px-4 py-4 sm:px-6 hover:bg-gray-50">
@@ -74,14 +71,13 @@ onMounted(() => {
           {{ $t('user.pointsHistory.empty') }}
         </li>
       </ul>
-      <div v-if="hasMore && history.length > 0" class="bg-gray-50 px-4 py-4 sm:px-6 text-center">
-        <button 
-          @click="loadMore" 
-          :disabled="loading"
-          class="text-sm font-medium text-indigo-600 hover:text-indigo-500 disabled:opacity-50"
-        >
-          {{ loading ? $t('common.loading') : $t('common.loadMore') }}
-        </button>
+      
+      <div v-if="history.length > 0" class="bg-gray-50 px-4 py-4 sm:px-6 flex justify-center">
+        <Pagination 
+          :current-page="page" 
+          :total-pages="totalPages"
+          @page-change="handlePageChange" 
+        />
       </div>
     </div>
   </div>
