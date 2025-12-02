@@ -4,6 +4,9 @@ import { useRouter } from 'vue-router'
 import { ChevronDown, List, Star } from 'lucide-vue-next'
 import axios from '@/api'
 import { useAuthStore } from '@/stores/auth'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps({
   type: {
@@ -71,13 +74,6 @@ watch(() => authStore.isAuthenticated, (newVal) => {
     fetchItems()
   }
 })
-
-// Re-fetch subscriptions if user logs in/out and dropdown is open (though usually it closes or unmounts)
-watch(() => authStore.isAuthenticated, (newVal) => {
-  if (newVal && props.type === 'subscription' && isOpen.value) {
-    fetchItems()
-  }
-})
 </script>
 
 <template>
@@ -86,8 +82,8 @@ watch(() => authStore.isAuthenticated, (newVal) => {
       @click.stop="toggleDropdown"
       class="flex items-center space-x-1 text-gray-500 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium focus:outline-none"
     >
-      <span v-if="type === 'subscription'">구독 게시판</span>
-      <span v-else>전체 게시판</span>
+      <span v-if="type === 'subscription'">{{ $t('board.list.subscribed') }}</span>
+      <span v-else>{{ $t('board.list.all') }}</span>
       <ChevronDown class="h-4 w-4" />
     </button>
 
@@ -118,14 +114,14 @@ watch(() => authStore.isAuthenticated, (newVal) => {
             class="w-full text-left group flex items-center px-4 py-2 text-sm text-indigo-600 hover:bg-indigo-50 font-medium"
           >
             <List class="mr-2 h-4 w-4" />
-            더보기
+            {{ $t('common.loadMore') }}
           </button>
         </div>
       </div>
 
       <div v-else class="px-4 py-3 text-sm text-gray-500 text-center">
-        <span v-if="type === 'subscription'">구독 중인 게시판이 없습니다.</span>
-        <span v-else>게시판이 없습니다.</span>
+        <span v-if="type === 'subscription'">{{ $t('board.list.noSubscribed') }}</span>
+        <span v-else>{{ $t('board.list.noBoards') }}</span>
       </div>
     </div>
   </div>

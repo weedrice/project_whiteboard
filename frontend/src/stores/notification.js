@@ -12,10 +12,14 @@ export const useNotificationStore = defineStore('notification', () => {
         try {
             const { data } = await notificationApi.getNotifications({ page, size })
             if (data.success) {
+                const mappedContent = data.data.content.map(n => ({
+                    ...n,
+                    isRead: n.isRead === true || n.isRead === 'Y' || n.is_read === 'Y' || n.is_read === true || n.read === true
+                }))
                 if (page === 0) {
-                    notifications.value = data.data.content
+                    notifications.value = mappedContent
                 } else {
-                    notifications.value.push(...data.data.content)
+                    notifications.value.push(...mappedContent)
                 }
             }
         } catch (error) {

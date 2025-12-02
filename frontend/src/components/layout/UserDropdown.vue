@@ -3,7 +3,7 @@ import { ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useNotificationStore } from '@/stores/notification'
-import { User, LogOut, Settings, CreditCard, FileText, Clock, AlertTriangle, PlusSquare, ChevronDown, Bell } from 'lucide-vue-next'
+import { User, LogOut, Settings, CreditCard, FileText, Clock, AlertTriangle, PlusSquare, ChevronDown, Bell, LayoutDashboard, Mail } from 'lucide-vue-next'
 import axios from '@/api'
 
 const router = useRouter()
@@ -88,12 +88,21 @@ onMounted(() => {
       <!-- Group 1 -->
       <div class="py-1 border-b border-gray-100">
         <router-link
+          v-if="authStore.user?.role === 'SUPER_ADMIN'"
+          to="/admin/dashboard"
+          class="group flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+          @click="emit('toggle')"
+        >
+          <LayoutDashboard class="mr-3 h-4 w-4 text-gray-400 group-hover:text-gray-500" />
+          {{ $t('layout.menu.admin') }}
+        </router-link>
+        <router-link
           to="/mypage"
           class="group flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900"
           @click="emit('toggle')"
         >
           <User class="mr-3 h-4 w-4 text-gray-400 group-hover:text-gray-500" />
-          마이페이지
+          {{ $t('layout.menu.myPage') }}
         </router-link>
         <router-link
           to="/mypage/settings"
@@ -101,7 +110,7 @@ onMounted(() => {
           @click="emit('toggle')"
         >
           <Settings class="mr-3 h-4 w-4 text-gray-400 group-hover:text-gray-500" />
-          표시 설정
+          {{ $t('layout.menu.settings') }}
         </router-link>
         <router-link
           to="/mypage/notifications"
@@ -109,7 +118,15 @@ onMounted(() => {
           @click="emit('toggle')"
         >
           <Bell class="mr-3 h-4 w-4 text-gray-400 group-hover:text-gray-500" />
-          알림
+          {{ $t('layout.menu.notifications') }}
+        </router-link>
+        <router-link
+          to="/mypage/messages"
+          class="group flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+          @click="emit('toggle')"
+        >
+          <Mail class="mr-3 h-4 w-4 text-gray-400 group-hover:text-gray-500" />
+          {{ $t('layout.menu.messages') }}
         </router-link>
         <router-link
           to="/mypage/points"
@@ -117,7 +134,7 @@ onMounted(() => {
           @click="emit('toggle')"
         >
           <CreditCard class="mr-3 h-4 w-4 text-gray-400 group-hover:text-gray-500" />
-          포인트 내역
+          {{ $t('layout.menu.points') }}
         </router-link>
         <router-link
           to="/mypage/scraps"
@@ -125,7 +142,7 @@ onMounted(() => {
           @click="emit('toggle')"
         >
           <FileText class="mr-3 h-4 w-4 text-gray-400 group-hover:text-gray-500" />
-          스크랩 목록
+          {{ $t('layout.menu.scraps') }}
         </router-link>
       </div>
 
@@ -137,7 +154,7 @@ onMounted(() => {
           @click="emit('toggle')"
         >
           <Clock class="mr-3 h-4 w-4 text-gray-400 group-hover:text-gray-500" />
-          최근 읽은 글
+          {{ $t('layout.menu.recent') }}
         </router-link>
         <router-link
           to="/mypage/reports"
@@ -145,7 +162,7 @@ onMounted(() => {
           @click="emit('toggle')"
         >
           <AlertTriangle class="mr-3 h-4 w-4 text-gray-400 group-hover:text-gray-500" />
-          신고 목록
+          {{ $t('layout.menu.reports') }}
         </router-link>
         <router-link
           to="/board/create"
@@ -153,7 +170,7 @@ onMounted(() => {
           @click="emit('toggle')"
         >
           <PlusSquare class="mr-3 h-4 w-4 text-gray-400 group-hover:text-gray-500" />
-          게시판 만들기
+          {{ $t('layout.menu.createBoard') }}
         </router-link>
       </div>
 
@@ -164,7 +181,7 @@ onMounted(() => {
           class="w-full text-left group flex items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50 hover:text-red-700"
         >
           <LogOut class="mr-3 h-4 w-4 text-red-500 group-hover:text-red-600" />
-          로그아웃
+          {{ $t('layout.menu.logout') }}
         </button>
       </div>
     </div>

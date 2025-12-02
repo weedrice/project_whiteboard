@@ -1,5 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import AdminLayout from '@/views/admin/AdminLayout.vue'
+import AdminDashboard from '@/views/admin/AdminDashboard.vue'
 
 const router = createRouter({
     history: createWebHistory(import.meta.env.BASE_URL),
@@ -48,22 +50,27 @@ const router = createRouter({
                 },
                 {
                     path: 'scraps',
-                    name: 'scrap-list',
+                    name: 'MyScraps',
                     component: () => import('@/views/user/ScrapList.vue')
                 },
                 {
-                    path: 'reports',
-                    name: 'my-reports',
-                    component: () => import('@/views/user/MyReports.vue')
+                    path: 'messages',
+                    name: 'MyMessages',
+                    component: () => import('@/views/user/MyMessages.vue')
                 },
                 {
                     path: 'notifications',
-                    name: 'my-notifications',
+                    name: 'MyNotifications',
                     component: () => import('@/views/user/MyNotifications.vue')
                 },
                 {
+                    path: 'reports',
+                    name: 'MyReports',
+                    component: () => import('@/views/user/MyReports.vue')
+                },
+                {
                     path: 'recent',
-                    name: 'recent-viewed',
+                    name: 'RecentViewed',
                     component: () => import('@/views/search/RecentViewed.vue')
                 }
             ]
@@ -111,33 +118,46 @@ const router = createRouter({
         },
         {
             path: '/admin',
-            component: () => import('@/components/layout/AdminLayout.vue'),
-            meta: { requiresAuth: true, requiresAdmin: true },
+            meta: { requiresAuth: true, roles: ['SUPER_ADMIN'], layout: 'AdminLayout' },
             children: [
                 {
                     path: 'dashboard',
-                    name: 'admin-dashboard',
-                    component: () => import('@/views/admin/DashboardPage.vue')
+                    name: 'AdminDashboard',
+                    component: AdminDashboard
                 },
                 {
                     path: 'users',
-                    name: 'admin-users',
-                    component: () => import('@/views/admin/UserListPage.vue')
+                    name: 'UserManagement',
+                    component: () => import('@/views/admin/UserManagement.vue')
+                },
+                {
+                    path: 'boards',
+                    name: 'BoardManagement',
+                    component: () => import('@/views/admin/BoardManagement.vue')
+                },
+                {
+                    path: 'admins',
+                    name: 'AdminManagement',
+                    component: () => import('@/views/admin/AdminManagement.vue')
                 },
                 {
                     path: 'reports',
-                    name: 'admin-reports',
-                    component: () => import('@/views/admin/ReportList.vue')
+                    name: 'ReportManagement',
+                    component: () => import('@/views/admin/ReportManagement.vue')
                 },
                 {
-                    path: 'ip-blocks',
-                    name: 'admin-ip-blocks',
-                    component: () => import('@/views/admin/IpBlockList.vue')
+                    path: 'security',
+                    name: 'SecuritySettings',
+                    component: () => import('@/views/admin/SecuritySettings.vue')
                 },
                 {
                     path: 'settings',
-                    name: 'admin-settings',
-                    component: () => import('@/views/admin/SettingsPage.vue')
+                    name: 'GlobalSettings',
+                    component: () => import('@/views/admin/GlobalSettings.vue')
+                },
+                {
+                    path: '',
+                    redirect: '/admin/dashboard'
                 }
             ]
         },
@@ -146,6 +166,10 @@ const router = createRouter({
             name: 'error',
             component: () => import('@/views/ErrorPage.vue'),
             props: route => ({ title: route.query.title, message: route.query.message })
+        },
+        {
+            path: '/:pathMatch(.*)*',
+            redirect: '/'
         }
     ],
 })
@@ -167,8 +191,9 @@ router.beforeEach(async (to, from, next) => {
 
     if (to.meta.requiresAuth && !authStore.isAuthenticated) {
         next({ name: 'login', query: { redirect: to.fullPath } })
-    } else if (to.meta.requiresAdmin && !authStore.isAdmin) {
-        next({ name: 'home' }) // Redirect non-admins to home
+    } else if (to.meta.roles && !to.meta.roles.includes(authStore.user?.role)) {
+        // Role check (e.g. SUPER_ADMIN)
+        next({ name: 'home' })
     } else if (to.meta.guestOnly && authStore.isAuthenticated) {
         next({ name: 'home' })
     } else {
