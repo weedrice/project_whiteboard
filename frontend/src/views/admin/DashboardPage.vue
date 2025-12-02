@@ -85,6 +85,8 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 
+import { adminApi } from '@/api/admin'
+
 const stats = ref({
   totalUsers: 0,
   totalPosts: 0,
@@ -93,13 +95,13 @@ const stats = ref({
 })
 
 const fetchStats = async () => {
-  // Mock API call
-  await new Promise(resolve => setTimeout(resolve, 500))
-  stats.value = {
-    totalUsers: 1250,
-    totalPosts: 5430,
-    pendingReports: 12,
-    activeUsers: 85
+  try {
+    const { data } = await adminApi.getDashboardStats()
+    if (data.success) {
+      stats.value = data.data
+    }
+  } catch (error) {
+    console.error('Failed to fetch dashboard stats:', error)
   }
 }
 
