@@ -79,6 +79,15 @@ public class PostController {
         return ApiResponse.success(PostResponse.from(post, tags, viewHistory, isLiked, isScrapped));
     }
 
+    @PutMapping("/posts/{postId}/history")
+    public ApiResponse<Void> updateViewHistory(
+            @PathVariable Long postId,
+            @RequestBody ViewHistoryRequest request,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        postService.updateViewHistory(userDetails.getUserId(), postId, request);
+        return ApiResponse.success(null);
+    }
+
     @PostMapping("/boards/{boardUrl}/posts")
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<Long> createPost(

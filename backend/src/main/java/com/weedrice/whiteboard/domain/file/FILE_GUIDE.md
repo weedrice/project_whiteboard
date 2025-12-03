@@ -30,7 +30,8 @@
 
 | Method | URI                     | 설명           |
 | :----- | :---------------------- | :------------- |
-| `POST`   | `/api/v1/files`         | 파일 업로드    |
+| `POST`   | `/api/v1/files`         | 파일 업로드 (상세 응답) |
+| `POST`   | `/api/v1/files/upload`  | 파일 업로드 (URL 반환, 에디터용) |
 | `GET`    | `/api/v1/files/{fileId}`| 파일 다운로드  |
 
 ## 3. 관련 DB 테이블

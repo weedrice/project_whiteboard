@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.search.service;
 
+import com.weedrice.whiteboard.domain.comment.dto.CommentResponse;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
@@ -9,6 +10,7 @@ import com.weedrice.whiteboard.domain.search.entity.SearchPersonalization;
 import com.weedrice.whiteboard.domain.search.entity.SearchStatistic;
 import com.weedrice.whiteboard.domain.search.repository.SearchPersonalizationRepository;
 import com.weedrice.whiteboard.domain.search.repository.SearchStatisticRepository;
+import com.weedrice.whiteboard.domain.user.dto.UserSummary;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.common.util.DateTimeUtils;
@@ -58,9 +60,17 @@ public class SearchService {
 
     public IntegratedSearchResponse integratedSearch(String keyword) {
         Pageable previewPageable = PageRequest.of(0, 5); // 미리보기는 5개까지만
-        Page<PostSummary> posts = postRepository.searchPostsByKeyword(keyword, previewPageable).map(PostSummary::from);
-        // TODO: 댓글, 사용자 검색 결과 추가
-        return IntegratedSearchResponse.from(posts, null, null, keyword);
+        
+        Page<PostSummary> posts = postRepository.searchPostsByKeyword(keyword, previewPageable)
+                .map(PostSummary::from);
+        
+        Page<CommentResponse> comments = commentRepository.findByContentContainingIgnoreCaseAndIsDeleted(keyword, "N", previewPageable)
+                .map(CommentResponse::from);
+        
+        Page<UserSummary> users = userRepository.findByDisplayNameContainingIgnoreCase(keyword, previewPageable)
+                .map(UserSummary::from);
+
+        return IntegratedSearchResponse.from(posts, comments, users, keyword);
     }
 
     public Page<PostSummary> searchPosts(String keyword, String searchType, String boardUrl, Pageable pageable) {

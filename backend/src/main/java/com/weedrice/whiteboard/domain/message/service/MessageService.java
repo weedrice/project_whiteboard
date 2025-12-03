@@ -90,6 +90,13 @@ public class MessageService {
         }
     }
 
+    @Transactional
+    public void deleteMessages(Long userId, java.util.List<Long> messageIds) {
+        for (Long messageId : messageIds) {
+            deleteMessage(userId, messageId);
+        }
+    }
+
     public long getUnreadMessageCount(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));

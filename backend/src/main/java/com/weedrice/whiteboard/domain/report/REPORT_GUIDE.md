@@ -8,8 +8,12 @@
 
 - **신고 접수 (`createReport`):**
   - 사용자가 특정 대상(`targetType`, `targetId`)을 지정하여 신고를 접수합니다.
+  - `USER`, `POST`, `COMMENT` 등 대상별로 간편 신고 API도 지원합니다.
   - 동일한 사용자가 동일한 대상을 중복으로 신고할 수 없습니다.
   - 접수된 신고는 `PENDING` 상태로 `reports` 테이블에 저장됩니다.
+
+- **내 신고 목록 조회 (`getMyReports`):**
+  - 사용자가 자신이 접수한 신고 목록을 페이징하여 조회합니다.
 
 - **신고 목록 조회 (`getReports`):**
   - 관리자가 신고 목록을 페이징하여 조회합니다.
@@ -25,9 +29,13 @@
 
 | Method | URI                               | 설명               | 권한          |
 | :----- | :-------------------------------- | :----------------- | :------------ |
-| `POST`   | `/api/v1/reports`                 | 신고 접수          | 인증된 사용자 |
-| `GET`    | `/api/v1/admin/reports`           | 신고 목록 조회     | `SUPER`       |
-| `PUT`    | `/api/v1/admin/reports/{reportId}`| 신고 처리          | `SUPER`       |
+| `POST`   | `/api/v1/reports`                 | 일반 신고 접수     | 인증된 사용자 |
+| `POST`   | `/api/v1/reports/users`           | 사용자 신고 접수   | 인증된 사용자 |
+| `POST`   | `/api/v1/reports/posts`           | 게시글 신고 접수   | 인증된 사용자 |
+| `POST`   | `/api/v1/reports/comments`        | 댓글 신고 접수     | 인증된 사용자 |
+| `GET`    | `/api/v1/reports/me`              | 내 신고 목록 조회  | 인증된 사용자 |
+| `GET`    | `/api/v1/admin/reports`           | 신고 목록 조회     | `SUPER`/`ADMIN` |
+| `PUT`    | `/api/v1/admin/reports/{reportId}`| 신고 처리          | `SUPER`/`ADMIN` |
 
 ## 3. 관련 DB 테이블
 

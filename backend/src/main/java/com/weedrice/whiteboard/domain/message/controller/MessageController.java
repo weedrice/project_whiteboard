@@ -24,29 +24,48 @@ public class MessageController {
     public ApiResponse<Long> sendMessage(
             @Valid @RequestBody MessageCreateRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        return ApiResponse.success(messageService.sendMessage(userDetails.getUserId(), request.getReceiverId(), request.getContent()).getMessageId());
+        return ApiResponse.success(messageService
+                .sendMessage(userDetails.getUserId(), request.getReceiverId(), request.getContent()).getMessageId());
     }
 
     @GetMapping("/received")
     public ApiResponse<MessageResponse> getReceivedMessages(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             Pageable pageable) {
-        return ApiResponse.success(MessageResponse.from(messageService.getReceivedMessages(userDetails.getUserId(), pageable), userDetails.getUserId()));
+        return ApiResponse.success(MessageResponse
+                .from(messageService.getReceivedMessages(userDetails.getUserId(), pageable), userDetails.getUserId()));
     }
 
     @GetMapping("/sent")
     public ApiResponse<MessageResponse> getSentMessages(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             Pageable pageable) {
-        return ApiResponse.success(MessageResponse.from(messageService.getSentMessages(userDetails.getUserId(), pageable), userDetails.getUserId()));
+        return ApiResponse.success(MessageResponse
+                .from(messageService.getSentMessages(userDetails.getUserId(), pageable), userDetails.getUserId()));
     }
 
     @GetMapping("/{messageId}")
     public ApiResponse<MessageResponse.MessageSummary> getMessage(
             @PathVariable Long messageId,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        // 이 부분은 단일 메시지를 반환하도록 수정이 필요할 수 있음
-        return ApiResponse.success(null);
+        com.weedrice.whiteboard.domain.message.entity.Message message = messageService
+                .getMessage(userDetails.getUserId(), messageId);
+
+        com.weedrice.whiteboard.domain.user.entity.User partner = message.getSender().getUserId()
+                .equals(userDetails.getUserId())
+                        ? message.getReceiver()
+                        : message.getSender();
+
+        return ApiResponse.success(MessageResponse.MessageSummary.builder()
+                .messageId(message.getMessageId())
+                .partner(MessageResponse.UserInfo.builder()
+                        .userId(partner.getUserId())
+                        .displayName(partner.getDisplayName())
+                        .build())
+                .content(message.getContent())
+                .isRead("Y".equals(message.getIsRead()))
+                .createdAt(message.getCreatedAt())
+                .build());
     }
 
     @DeleteMapping("/{messageId}")
@@ -54,6 +73,14 @@ public class MessageController {
             @PathVariable Long messageId,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         messageService.deleteMessage(userDetails.getUserId(), messageId);
+        return ApiResponse.success(null);
+    }
+
+    @DeleteMapping
+    public ApiResponse<Void> deleteMessages(
+            @RequestBody java.util.List<Long> messageIds,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        messageService.deleteMessages(userDetails.getUserId(), messageIds);
         return ApiResponse.success(null);
     }
 

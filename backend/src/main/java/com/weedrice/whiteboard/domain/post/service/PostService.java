@@ -5,11 +5,14 @@ import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
 import com.weedrice.whiteboard.domain.board.repository.BoardCategoryRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
+import com.weedrice.whiteboard.domain.comment.entity.Comment;
+import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
 import com.weedrice.whiteboard.domain.post.dto.PostCreateRequest;
 import com.weedrice.whiteboard.domain.post.dto.PostDraftRequest;
 import com.weedrice.whiteboard.domain.post.dto.PostUpdateRequest;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
+import com.weedrice.whiteboard.domain.post.dto.ViewHistoryRequest;
 import com.weedrice.whiteboard.domain.post.entity.*;
 import com.weedrice.whiteboard.domain.post.repository.*;
 import com.weedrice.whiteboard.domain.tag.repository.PostTagRepository;
@@ -47,6 +50,7 @@ public class PostService {
         private final ApplicationEventPublisher eventPublisher;
         private final AdminRepository adminRepository;
         private final com.weedrice.whiteboard.domain.point.service.PointService pointService;
+        private final CommentRepository commentRepository;
 
         // --- boardUrl 기반 public 메서드 (오버로드) ---
         public Page<Post> getPosts(String boardUrl, Long categoryId, Integer minLikes, Pageable pageable) {
@@ -153,6 +157,24 @@ public class PostService {
                 Post post = postRepository.findById(postId)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
                 return viewHistoryRepository.findByUserAndPost(user, post).orElse(null);
+        }
+
+        @Transactional
+        public void updateViewHistory(Long userId, Long postId, ViewHistoryRequest request) {
+                User user = userRepository.findById(userId)
+                        .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+                Post post = postRepository.findById(postId)
+                        .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
+
+                ViewHistory viewHistory = viewHistoryRepository.findByUserAndPost(user, post)
+                        .orElseGet(() -> viewHistoryRepository.save(new ViewHistory(user, post)));
+
+                Comment lastReadComment = null;
+                if (request.getLastReadCommentId() != null) {
+                        lastReadComment = commentRepository.findById(request.getLastReadCommentId()).orElse(null);
+                }
+
+                viewHistory.updateView(lastReadComment, request.getDurationMs() != null ? request.getDurationMs() : 0L);
         }
 
         @Transactional
