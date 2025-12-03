@@ -4,8 +4,12 @@ import com.weedrice.whiteboard.domain.comment.dto.CommentResponse;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.entity.CommentLike;
 import com.weedrice.whiteboard.domain.comment.entity.CommentLikeId;
+import com.weedrice.whiteboard.domain.comment.entity.CommentVersion;
+import com.weedrice.whiteboard.domain.comment.entity.CommentClosure;
+import com.weedrice.whiteboard.domain.comment.repository.CommentClosureRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentLikeRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
+import com.weedrice.whiteboard.domain.comment.repository.CommentVersionRepository;
 import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
@@ -34,6 +38,8 @@ public class CommentService {
     private final PostRepository postRepository;
     private final UserRepository userRepository;
     private final CommentLikeRepository commentLikeRepository;
+    private final CommentVersionRepository commentVersionRepository;
+    private final CommentClosureRepository commentClosureRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final com.weedrice.whiteboard.domain.point.service.PointService pointService;
 
@@ -105,6 +111,16 @@ public class CommentService {
 
         post.incrementCommentCount();
         Comment savedComment = commentRepository.save(comment);
+        
+        // Save CommentVersion for CREATE
+        saveCommentVersion(savedComment, user, "CREATE", null);
+
+        // Save to CommentClosure
+        if (parentId != null) {
+            commentClosureRepository.createClosures(savedComment.getCommentId(), parentId);
+        } else {
+            commentClosureRepository.createSelfClosure(savedComment.getCommentId());
+        }
 
         pointService.addPoint(userId, 10, "댓글 작성", savedComment.getCommentId(), "COMMENT");
 
@@ -132,7 +148,13 @@ public class CommentService {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
 
+        String originalContent = comment.getContent(); // Get original content before update
         comment.updateContent(content);
+
+        // Save CommentVersion for MODIFY
+        saveCommentVersion(comment, userRepository.findById(userId)
+                                                    .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND)),
+                            "MODIFY", originalContent);
         return comment;
     }
 
@@ -145,8 +167,14 @@ public class CommentService {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
 
+        String originalContent = comment.getContent(); // Get content before delete
         comment.deleteComment();
         comment.getPost().decrementCommentCount();
+
+        // Save CommentVersion for DELETE
+        saveCommentVersion(comment, userRepository.findById(userId)
+                                                    .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND)),
+                            "DELETE", originalContent);
 
         pointService.forceSubtractPoint(userId, 10, "댓글 삭제", commentId, "COMMENT");
     }
@@ -187,5 +215,15 @@ public class CommentService {
 
         commentLikeRepository.deleteById(commentLikeId);
         comment.decrementLikeCount();
+    }
+
+    private void saveCommentVersion(Comment comment, User modifier, String versionType, String originalContent) {
+        CommentVersion commentVersion = CommentVersion.builder()
+                .comment(comment)
+                .modifier(modifier)
+                .versionType(versionType)
+                .originalContent(originalContent)
+                .build();
+        commentVersionRepository.save(commentVersion);
     }
 }

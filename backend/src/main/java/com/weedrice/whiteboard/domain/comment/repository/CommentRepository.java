@@ -28,4 +28,6 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
     long countByUser(User user);
 
     Page<Comment> findByUserOrderByCreatedAtDesc(User user, Pageable pageable);
+
+    Page<Comment> findByContentContainingIgnoreCaseAndIsDeleted(String content, String isDeleted, Pageable pageable); // Added for IntegratedSearch
 }
