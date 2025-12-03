@@ -25,7 +25,6 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 import com.weedrice.whiteboard.domain.post.service.PostService;
@@ -96,9 +95,12 @@ public class BoardService {
 
         private BoardResponse createBoardResponse(Board board, UserDetails userDetails) {
                 long subscriberCount = boardSubscriptionRepository.countByBoard(board);
-                String adminDisplayName = adminRepository.findByBoardAndRole(board, "BOARD_ADMIN")
-                                .map(admin -> admin.getUser().getDisplayName())
-                                .orElse(board.getCreator().getDisplayName());
+                User adminUser = adminRepository.findByBoardAndRole(board, "BOARD_ADMIN")
+                                .map(Admin::getUser)
+                                .orElse(board.getCreator());
+
+                String adminDisplayName = adminUser.getDisplayName();
+                Long adminUserId = adminUser.getUserId();
 
                 boolean isAdmin = false;
                 boolean isSubscribed = false;
@@ -126,7 +128,8 @@ public class BoardService {
                                                                                                            // 여전히
                                                                                                            // boardId 사용
 
-                return new BoardResponse(board, subscriberCount, adminDisplayName, isAdmin, isSubscribed, categories,
+                return new BoardResponse(board, subscriberCount, adminDisplayName, adminUserId, isAdmin, isSubscribed,
+                                categories,
                                 latestPosts);
         }
 
@@ -153,10 +156,13 @@ public class BoardService {
                                         throw new BusinessException(ErrorCode.ALREADY_SUBSCRIBED);
                                 });
 
+                Integer maxSortOrder = boardSubscriptionRepository.findMaxSortOrder(user);
+
                 BoardSubscription subscription = BoardSubscription.builder()
                                 .user(user)
                                 .board(board)
                                 .role("MEMBER")
+                                .sortOrder(maxSortOrder + 1)
                                 .build();
                 boardSubscriptionRepository.save(subscription);
         }
@@ -175,10 +181,13 @@ public class BoardService {
         }
 
         public Page<BoardResponse> getMySubscriptions(Long userId, Pageable pageable) {
+                if (userId == null) {
+                        throw new BusinessException(ErrorCode.USER_NOT_FOUND);
+                }
                 User user = userRepository.findById(userId)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
                 Page<BoardResponse> boardPage = boardSubscriptionRepository
-                                .findByUserAndBoard_IsActive(user, "Y", pageable)
+                                .findByUserAndBoard_IsActiveOrderBySortOrderAsc(user, "Y", pageable)
                                 .map(boardSubscription -> createBoardResponse(boardSubscription.getBoard(), null));
                 return boardPage;
         }
@@ -238,7 +247,7 @@ public class BoardService {
                 }
 
                 board.update(request.getBoardName(), request.getDescription(), request.getIconUrl(),
-                                board.getSortOrder(), "Y".equals(board.getAllowNsfw()));
+                                request.getSortOrder(), "Y".equals(board.getAllowNsfw()));
                 return board;
         }
 
@@ -270,6 +279,9 @@ public class BoardService {
 
         @Transactional
         public BoardCategory updateCategory(Long categoryId, CategoryRequest request) {
+                if (categoryId == null) {
+                        throw new BusinessException(ErrorCode.VALIDATION_ERROR, "Category ID cannot be null");
+                }
                 BoardCategory category = boardCategoryRepository.findById(categoryId)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
 
@@ -287,5 +299,24 @@ public class BoardService {
                 SecurityUtils.validateBoardAdminPermission(category.getBoard());
 
                 category.deactivate();
+        }
+
+        @Transactional
+        public void updateSubscriptionOrder(Long userId, List<String> boardUrls) {
+                User user = userRepository.findById(userId)
+                                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+                List<BoardSubscription> subscriptions = boardSubscriptionRepository.findAllByUser(user);
+
+                for (int i = 0; i < boardUrls.size(); i++) {
+                        String boardUrl = boardUrls.get(i);
+                        int sortOrder = i + 1;
+
+                        subscriptions.stream()
+                                        .filter(sub -> sub.getBoard().getBoardUrl().equals(boardUrl))
+                                        .findFirst()
+                                        .ifPresent(sub -> sub.updateSortOrder(sortOrder));
+                }
+                boardSubscriptionRepository.saveAll(subscriptions);
         }
 }

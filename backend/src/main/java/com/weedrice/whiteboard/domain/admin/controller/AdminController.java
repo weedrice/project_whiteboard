@@ -28,7 +28,7 @@ public class AdminController {
     @PostMapping("/admins")
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<AdminResponse> createAdmin(@Valid @RequestBody AdminCreateRequest request) {
-        Admin admin = adminService.createAdmin(request.getUserId(), request.getBoardId(), request.getRole());
+        Admin admin = adminService.createAdmin(request.getLoginId(), request.getBoardId(), request.getRole());
         return ApiResponse.success(AdminResponse.from(admin));
     }
 
@@ -56,7 +56,8 @@ public class AdminController {
             @Valid @RequestBody IpBlockRequest request,
             Authentication authentication) {
         Long adminUserId = ((CustomUserDetails) authentication.getPrincipal()).getUserId();
-        IpBlock ipBlock = adminService.blockIp(adminUserId, request.getIpAddress(), request.getReason(), request.getEndDate());
+        IpBlock ipBlock = adminService.blockIp(adminUserId, request.getIpAddress(), request.getReason(),
+                request.getEndDate());
         return ApiResponse.success(IpBlockResponse.from(ipBlock));
     }
 

@@ -29,10 +29,18 @@ public class BoardSubscription extends BaseTimeEntity {
     @Column(name = "role", nullable = false, length = 20)
     private String role; // MEMBER, MODERATOR, BANNED
 
+    @Column(name = "sort_order")
+    private Integer sortOrder;
+
     @Builder
-    public BoardSubscription(User user, Board board, String role) {
+    public BoardSubscription(User user, Board board, String role, Integer sortOrder) {
         this.user = user;
         this.board = board;
         this.role = role;
+        this.sortOrder = sortOrder;
+    }
+
+    public void updateSortOrder(Integer sortOrder) {
+        this.sortOrder = sortOrder;
     }
 }

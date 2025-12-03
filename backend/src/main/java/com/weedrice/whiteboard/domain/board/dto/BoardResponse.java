@@ -28,7 +28,12 @@ public class BoardResponse {
     private final List<CategoryResponse> categories;
     private final List<PostSummary> latestPosts; // 추가
 
-    public BoardResponse(Board board, long subscriberCount, String adminDisplayName, boolean isAdmin,
+    private final Long adminUserId; // 추가
+
+    @JsonProperty("isActive")
+    private final String isActive; // 추가
+
+    public BoardResponse(Board board, long subscriberCount, String adminDisplayName, Long adminUserId, boolean isAdmin,
             boolean isSubscribed, List<CategoryResponse> categories, List<PostSummary> latestPosts) { // 생성자 파라미터 추가
         this.boardId = board.getBoardId();
         this.boardName = board.getBoardName();
@@ -39,9 +44,11 @@ public class BoardResponse {
         this.allowNsfw = "Y".equals(board.getAllowNsfw());
         this.subscriberCount = subscriberCount;
         this.adminDisplayName = adminDisplayName;
+        this.adminUserId = adminUserId; // 할당
         this.isAdmin = isAdmin;
         this.isSubscribed = isSubscribed;
         this.categories = categories;
         this.latestPosts = latestPosts; // 할당
+        this.isActive = board.getIsActive(); // 할당
     }
 }

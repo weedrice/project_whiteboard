@@ -19,6 +19,9 @@
   - `ip_blocks` 테이블에 차단 정보를 기록/삭제합니다.
   - `IpBlockInterceptor`를 통해 모든 요청에 대해 차단된 IP인지 검사합니다.
 
+- **대시보드 통계 (`getDashboardStats`):**
+  - 관리자 대시보드에 표시할 주요 통계 데이터를 제공합니다.
+
 ## 2. API Endpoints
 
 `AdminController`에서 다음 API를 제공합니다. 모든 엔드포인트는 관리자 권한(`ADMIN` 또는 `SUPER`)이 필요합니다.
@@ -32,6 +35,7 @@
 | `POST`   | `/api/v1/admin/ip-blocks`            | IP 주소 차단             | `SUPER`       |
 | `DELETE` | `/api/v1/admin/ip-blocks/{ipAddress}`| IP 주소 차단 해제        | `SUPER`       |
 | `GET`    | `/api/v1/admin/ip-blocks`            | 차단된 IP 목록 조회      | `SUPER`       |
+| `GET`    | `/api/v1/admin/stats`                | 대시보드 통계 조회       | `SUPER`/`ADMIN` |
 
 ## 3. 관련 DB 테이블
 

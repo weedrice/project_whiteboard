@@ -41,7 +41,8 @@ public class User extends BaseTimeEntity {
     @Column(name = "is_email_verified", nullable = false, length = 1)
     private String isEmailVerified; // Y, N
 
-    @Column(name = "is_super_admin", nullable = false, length = 1, columnDefinition = "varchar(1) default 'N'") // columnDefinition 추가
+    @Column(name = "is_super_admin", nullable = false, length = 1, columnDefinition = "varchar(1) default 'N'") // columnDefinition
+                                                                                                                // 추가
     private String isSuperAdmin; // Y, N
 
     @Column(name = "last_login_at")
@@ -49,6 +50,9 @@ public class User extends BaseTimeEntity {
 
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
+
+    @Column(name = "theme", length = 20)
+    private String theme; // LIGHT, DARK
 
     @Builder
     public User(String loginId, String password, String email, String displayName) {
@@ -59,6 +63,7 @@ public class User extends BaseTimeEntity {
         this.status = "ACTIVE";
         this.isEmailVerified = "N";
         this.isSuperAdmin = "N"; // 기본값은 일반 사용자
+        this.theme = "LIGHT"; // 기본값은 라이트 모드
     }
 
     public void updateLastLogin() {
@@ -100,5 +105,9 @@ public class User extends BaseTimeEntity {
 
     public void revokeSuperAdminRole() {
         this.isSuperAdmin = "N";
+    }
+
+    public void updateTheme(String theme) {
+        this.theme = theme;
     }
 }

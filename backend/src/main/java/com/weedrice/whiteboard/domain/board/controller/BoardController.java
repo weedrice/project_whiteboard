@@ -129,4 +129,12 @@ public class BoardController {
         boardService.deleteCategory(categoryId);
         return ApiResponse.success(null);
     }
+
+    @PutMapping("/subscriptions/order")
+    public ApiResponse<Void> updateSubscriptionOrder(
+            @RequestBody List<String> boardUrls,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        boardService.updateSubscriptionOrder(userDetails.getUserId(), boardUrls);
+        return ApiResponse.success(null);
+    }
 }

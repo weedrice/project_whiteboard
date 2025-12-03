@@ -9,7 +9,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class AdminCreateRequest {
     @NotNull
-    private Long userId;
+    private String loginId;
     private Long boardId; // 전체 관리자일 경우 null
     @NotBlank
     private String role; // SUPER, BOARD_ADMIN, MODERATOR

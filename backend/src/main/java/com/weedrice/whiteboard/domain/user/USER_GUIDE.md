@@ -33,8 +33,11 @@
 - **사용자 차단/해제 (`blockUser`, `unblockUser`):**
   - 특정 사용자를 차단하거나 차단을 해제합니다.
 
-- **내 활동 내역 조회 (`getMyPosts`, `getMyComments`, `getMyScraps` 등):**
-  - 내가 작성한 게시글, 댓글, 스크랩한 게시글 목록을 페이징하여 조회합니다.
+- **내 활동 내역 조회 (`getMyPosts`, `getMyComments`):**
+  - 내가 작성한 게시글, 댓글 목록을 페이징하여 조회합니다.
+
+- **최근 본 게시글 조회 (`getRecentlyViewedPosts`):**
+  - 사용자가 최근에 조회한 게시글 목록을 제공합니다.
 
 ## 2. API Endpoints
 
@@ -57,16 +60,11 @@
 | `GET`    | `/api/v1/users/me/subscriptions`   | 내 구독 게시판 목록 조회   |
 | `GET`    | `/api/v1/users/me/posts`           | 내가 작성한 게시글 목록 조회 |
 | `GET`    | `/api/v1/users/me/comments`        | 내가 작성한 댓글 목록 조회 |
-| `GET`    | `/api/v1/users/me/scraps`          | 내 스크랩 목록 조회        |
-| `GET`    | `/api/v1/users/me/drafts`          | 내 임시저장 글 목록 조회   |
+| `GET`    | `/api/v1/users/me/history/views`   | 최근 본 게시글 목록 조회    |
 
-### 2.1 Admin API (`AdminUserController`)
+### 2.1 Admin API
 
-관리자 전용 기능을 제공합니다. (`SUPER` 권한 필요)
-
-| Method | URI                        | 설명             |
-| :----- | :------------------------- | :--------------- |
-| `GET`    | `/api/v1/admin/users`      | 사용자 검색/조회 |
+`UserController`에는 관리자 API가 포함되어 있지 않으며, `AdminUserController` 또는 별도의 관리자 도메인에서 처리될 수 있습니다.
 
 ## 3. 관련 DB 테이블
 

@@ -123,6 +123,7 @@ public class AuthService {
                                                 .profileImageUrl(user.getProfileImageUrl())
                                                 .isEmailVerified("Y".equals(user.getIsEmailVerified()))
                                                 .role("Y".equals(user.getIsSuperAdmin()) ? "SUPER_ADMIN" : "USER")
+                                                .theme(user.getTheme())
                                                 .build())
                                 .build();
         }

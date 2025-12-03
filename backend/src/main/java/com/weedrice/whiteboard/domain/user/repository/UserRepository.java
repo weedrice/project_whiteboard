@@ -13,4 +13,5 @@ public interface UserRepository extends JpaRepository<User, Long>, UserRepositor
     boolean existsByEmail(String email);
     long countByLastLoginAtAfter(java.time.LocalDateTime lastLoginAt);
     Page<User> findByDisplayNameContainingIgnoreCaseAndStatus(String displayName, String status, Pageable pageable);
+    Page<User> findByDisplayNameContainingIgnoreCase(String displayName, Pageable pageable); // Added for IntegratedSearch
 }

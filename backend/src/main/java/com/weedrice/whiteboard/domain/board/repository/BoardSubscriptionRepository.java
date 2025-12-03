@@ -8,10 +8,22 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.List;
+
 public interface BoardSubscriptionRepository extends JpaRepository<BoardSubscription, BoardSubscriptionId> {
     Page<BoardSubscription> findByUser(User user, Pageable pageable);
-    Page<BoardSubscription> findByUserAndBoard_IsActive(User user, String isActive, Pageable pageable);
+
+    Page<BoardSubscription> findByUserAndBoard_IsActiveOrderBySortOrderAsc(User user, String isActive,
+            Pageable pageable);
+
+    List<BoardSubscription> findAllByUser(User user);
+
     long countByBoard(Board board);
+
     boolean existsByUserAndBoard(User user, Board board);
+
     void deleteByBoard(Board board);
+
+    @org.springframework.data.jpa.repository.Query("SELECT COALESCE(MAX(bs.sortOrder), 0) FROM BoardSubscription bs WHERE bs.user = :user")
+    Integer findMaxSortOrder(@org.springframework.data.repository.query.Param("user") User user);
 }

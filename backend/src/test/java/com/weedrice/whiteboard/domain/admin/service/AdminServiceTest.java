@@ -47,14 +47,14 @@ class AdminServiceTest {
     @DisplayName("관리자 생성 성공")
     void createAdmin_success() {
         // given
-        Long userId = 1L;
+        String loginId = "testUser";
         String role = "ADMIN";
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        when(adminRepository.existsByUserAndRoleAndIsActive(user, role, "Y")).thenReturn(false);
+        when(userRepository.findByLoginId(loginId)).thenReturn(Optional.of(user));
+        when(adminRepository.existsByUser(user)).thenReturn(false);
         when(adminRepository.save(any(Admin.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         // when
-        Admin createdAdmin = adminService.createAdmin(userId, null, role);
+        Admin createdAdmin = adminService.createAdmin(loginId, null, role);
 
         // then
         assertThat(createdAdmin.getRole()).isEqualTo(role);

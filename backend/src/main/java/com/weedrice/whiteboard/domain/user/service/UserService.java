@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.user.service;
 
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
+import com.weedrice.whiteboard.domain.post.repository.PostRepository; // Import PostRepository
 import com.weedrice.whiteboard.domain.user.entity.DisplayNameHistory;
 import com.weedrice.whiteboard.domain.user.entity.PasswordHistory;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -33,6 +34,7 @@ public class UserService {
     private final PasswordHistoryRepository passwordHistoryRepository;
     private final PasswordEncoder passwordEncoder;
     private final UserSettingsRepository userSettingsRepository;
+    private final PostRepository postRepository; // Inject PostRepository
 
     public Long findUserIdByLoginId(String loginId) {
         User user = userRepository.findByLoginId(loginId)
@@ -49,7 +51,7 @@ public class UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
-        long postCount = 0; // TODO: postCount 계산 로직 추가
+        long postCount = postRepository.countByUserAndIsDeleted(user, "N"); // Calculate postCount
         long commentCount = commentRepository.countByUser(user); // 댓글 수 계산
 
         return UserProfileDto.builder()
@@ -141,7 +143,7 @@ public class UserService {
     public void updateUserStatus(Long userId, String status) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        
+
         if ("SUSPENDED".equals(status)) {
             user.suspend();
         } else if ("ACTIVE".equals(status)) {
@@ -155,7 +157,7 @@ public class UserService {
     public UserSettings updateSettings(Long userId, String theme, String language, String timezone, String hideNsfw) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        
+
         UserSettings settings = userSettingsRepository.findById(userId)
                 .orElseGet(() -> {
                     UserSettings newSettings = new UserSettings(user);
@@ -163,6 +165,12 @@ public class UserService {
                 });
 
         settings.updateSettings(theme, language, timezone, hideNsfw);
+
+        // Sync theme to User entity
+        if (theme != null) {
+            user.updateTheme(theme);
+        }
+
         return settings;
     }
 

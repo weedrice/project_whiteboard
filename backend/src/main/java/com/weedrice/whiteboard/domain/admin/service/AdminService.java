@@ -36,10 +36,10 @@ public class AdminService {
     private final ReportRepository reportRepository;
 
     @Transactional
-    public Admin createAdmin(Long userId, Long boardId, String role) {
+    public Admin createAdmin(String loginId, Long boardId, String role) {
         SecurityUtils.validateSuperAdminPermission();
 
-        User user = userRepository.findById(userId)
+        User user = userRepository.findByLoginId(loginId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
         if (adminRepository.existsByUser(user)) {
