@@ -1,27 +1,18 @@
-package com.weedrice.whiteboard.global.common.dto;
+package com.weedrice.whiteboard.domain.common.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Size;
-import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Getter
 @NoArgsConstructor
-@AllArgsConstructor
-public class CodeDetailRequest {
+public class CommonCodeDetailRequest {
     @NotBlank
-    @Size(max = 100)
     private String codeValue;
-
     @NotBlank
-    @Size(max = 100)
     private String codeName;
-
     @NotNull
     private Integer sortOrder;
-
-    @NotNull
-    private Boolean isActive;
+    private String isActive;
 }
