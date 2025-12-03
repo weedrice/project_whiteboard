@@ -50,7 +50,7 @@ async function handleLogin() {
       <form class="mt-8 space-y-6" @submit.prevent="handleLogin">
         <div class="rounded-md shadow-sm -space-y-px">
           <div>
-            <label for="login-id" class="sr-only">{{ $t('auth.loginId') }}</label>
+            <label for="login-id" class="sr-only">{{ $t('common.loginId') }}</label>
             <div class="relative">
               <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <User class="h-5 w-5 text-gray-400" />
@@ -62,12 +62,12 @@ async function handleLogin() {
                 type="text"
                 required
                 class="appearance-none rounded-none rounded-t-md relative block w-full px-3 py-2 pl-10 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                :placeholder="$t('auth.loginId')"
+                :placeholder="$t('common.loginId')"
               />
             </div>
           </div>
           <div>
-            <label for="password" class="sr-only">{{ $t('auth.password') }}</label>
+            <label for="password" class="sr-only">{{ $t('common.password') }}</label>
             <div class="relative">
               <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <Lock class="h-5 w-5 text-gray-400" />
@@ -79,7 +79,7 @@ async function handleLogin() {
                 type="password"
                 required
                 class="appearance-none rounded-none rounded-b-md relative block w-full px-3 py-2 pl-10 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                :placeholder="$t('auth.password')"
+                :placeholder="$t('common.password')"
               />
             </div>
           </div>

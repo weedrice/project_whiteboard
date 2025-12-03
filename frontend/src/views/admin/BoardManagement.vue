@@ -16,7 +16,7 @@
     </div>
 
     <!-- Board List -->
-    <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+    <div class="bg-white shadow overflow-hidden sm:rounded-lg mb-20">
       <table class="min-w-full divide-y divide-gray-200">
         <thead class="bg-gray-50">
           <tr>
@@ -58,24 +58,31 @@
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
               {{ board.boardUrl }}
             </td>
-            <td class="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">
-              {{ board.description }}
+            <td class="px-6 py-4 text-sm text-gray-500 max-w-xs">
+              <input 
+                v-model="board.description" 
+                @input="handleInputChange(board)"
+                class="block w-full border-0 p-0 text-gray-500 placeholder-gray-500 focus:ring-0 sm:text-sm truncate"
+              />
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-center text-sm">
-              <span
-                class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full"
+              <button 
+                @click="board.isActive = board.isActive === 'Y' ? 'N' : 'Y'; handleInputChange(board)"
+                class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full cursor-pointer"
                 :class="board.isActive === 'Y' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'"
               >
                 {{ board.isActive === 'Y' ? t('common.active') : t('common.inactive') }}
-              </span>
+              </button>
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500">
-              {{ board.sortOrder }}
+              <input 
+                v-model="board.sortOrder" 
+                type="number"
+                @input="handleInputChange(board)"
+                class="block w-full border-0 p-0 text-gray-500 placeholder-gray-500 focus:ring-0 sm:text-sm text-center"
+              />
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-              <button @click="openEditModal(board)" class="text-indigo-600 hover:text-indigo-900 mr-4">
-                {{ $t('common.edit') }}
-              </button>
               <button @click="handleDelete(board)" class="text-red-600 hover:text-red-900">
                 {{ $t('common.delete') }}
               </button>
@@ -83,6 +90,18 @@
           </tr>
         </tbody>
       </table>
+    </div>
+
+    <!-- Floating Save Button -->
+    <div v-if="modifiedBoards.size > 0" class="fixed bottom-8 right-8 z-50">
+      <button
+        @click="handleSaveAll"
+        :disabled="isSubmitting"
+        class="inline-flex items-center px-6 py-3 border border-transparent shadow-lg text-base font-medium rounded-full text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-200 transform hover:scale-105"
+      >
+        <Save class="-ml-1 mr-3 h-5 w-5" />
+        {{ isSubmitting ? $t('common.saving') : $t('common.saveChanges') }}
+      </button>
     </div>
 
     <!-- Create/Edit Modal -->
@@ -153,6 +172,7 @@ import BaseModal from '@/components/common/BaseModal.vue'
 import BaseInput from '@/components/common/BaseInput.vue'
 import BaseButton from '@/components/common/BaseButton.vue'
 import { useI18n } from 'vue-i18n'
+import { Save } from 'lucide-vue-next'
 
 const { t } = useI18n()
 
@@ -259,6 +279,43 @@ async function handleSubmit() {
   } catch (error) {
     console.error('Failed to save board:', error)
     alert(isEditMode.value ? t('admin.boards.messages.updateFailed') : t('admin.boards.messages.createFailed'))
+  } finally {
+    isSubmitting.value = false
+  }
+}
+
+const modifiedBoards = ref(new Set())
+
+function handleInputChange(board) {
+  modifiedBoards.value.add(board.boardId)
+}
+
+async function handleSaveAll() {
+  if (modifiedBoards.value.size === 0) return
+  
+  if (!confirm(t('admin.boards.messages.confirmSaveAll'))) return
+
+  isSubmitting.value = true
+  try {
+    const promises = Array.from(modifiedBoards.value).map(boardId => {
+      const board = boards.value.find(b => b.boardId === boardId)
+      return adminApi.updateBoard(board.boardUrl, {
+        boardName: board.boardName,
+        description: board.description,
+        iconUrl: board.iconUrl,
+        allowNsfw: board.isActive === 'Y',
+        sortOrder: parseInt(board.sortOrder),
+        isActive: board.isActive === 'Y' // Also send isActive if needed, though updateBoard might not use it directly for activation/deactivation
+      })
+    })
+    
+    await Promise.all(promises)
+    alert(t('admin.boards.messages.savedAll'))
+    modifiedBoards.value.clear()
+    fetchBoards()
+  } catch (error) {
+    console.error('Failed to save boards:', error)
+    alert(t('admin.boards.messages.saveAllFailed'))
   } finally {
     isSubmitting.value = false
   }

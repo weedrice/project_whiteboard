@@ -54,7 +54,7 @@ async function handleSignup() {
       <form class="mt-8 space-y-6" @submit.prevent="handleSignup">
         <div class="rounded-md shadow-sm -space-y-px">
           <div>
-            <label for="login-id" class="sr-only">{{ $t('auth.loginId') }}</label>
+            <label for="login-id" class="sr-only">{{ $t('common.loginId') }}</label>
             <div class="relative">
               <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <User class="h-5 w-5 text-gray-400" />
@@ -71,7 +71,7 @@ async function handleSignup() {
             </div>
           </div>
           <div>
-            <label for="password" class="sr-only">{{ $t('auth.password') }}</label>
+            <label for="password" class="sr-only">{{ $t('common.password') }}</label>
             <div class="relative">
               <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <Lock class="h-5 w-5 text-gray-400" />
@@ -88,7 +88,7 @@ async function handleSignup() {
             </div>
           </div>
           <div>
-            <label for="email" class="sr-only">{{ $t('auth.email') }}</label>
+            <label for="email" class="sr-only">{{ $t('common.email') }}</label>
             <div class="relative">
               <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <Mail class="h-5 w-5 text-gray-400" />
@@ -105,7 +105,7 @@ async function handleSignup() {
             </div>
           </div>
           <div>
-            <label for="display-name" class="sr-only">{{ $t('auth.displayName') }}</label>
+            <label for="display-name" class="sr-only">{{ $t('common.displayName') }}</label>
             <div class="relative">
               <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <Smile class="h-5 w-5 text-gray-400" />

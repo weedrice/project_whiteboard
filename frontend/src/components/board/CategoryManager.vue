@@ -154,7 +154,7 @@ onMounted(fetchCategories)
 
 <template>
   <div class="space-y-4">
-    <h3 class="text-lg font-medium leading-6 text-gray-900">{{ $t('board.category.title') }}</h3>
+    <h3 class="text-lg font-medium leading-6 text-gray-900">{{ $t('common.category') }}</h3>
     
     <!-- Add Category -->
     <form @submit.prevent="handleAdd" class="flex gap-2">

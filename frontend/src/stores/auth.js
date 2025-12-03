@@ -1,12 +1,14 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { authApi } from '@/api/auth'
+import { useThemeStore } from '@/stores/theme'
 import router from '@/router'
 
 export const useAuthStore = defineStore('auth', () => {
     const user = ref(null)
     const accessToken = ref(localStorage.getItem('accessToken'))
     const isAuthenticated = computed(() => !!accessToken.value)
+    const themeStore = useThemeStore()
 
     async function login(credentials) {
         try {
@@ -19,6 +21,11 @@ export const useAuthStore = defineStore('auth', () => {
 
                 localStorage.setItem('accessToken', token)
                 localStorage.setItem('refreshToken', refreshToken)
+
+                // Set theme from user settings
+                if (userData.theme) {
+                    themeStore.setTheme(userData.theme)
+                }
 
                 return true
             }
@@ -41,6 +48,7 @@ export const useAuthStore = defineStore('auth', () => {
             user.value = null
             localStorage.removeItem('accessToken')
             localStorage.removeItem('refreshToken')
+            themeStore.setTheme('LIGHT') // Reset to default on logout
             router.push('/login')
         }
     }

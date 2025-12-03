@@ -18,6 +18,7 @@
         :style="dropdownStyle"
         class="fixed w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-50"
         role="menu"
+        id="user-menu-dropdown"
         aria-orientation="vertical"
         aria-labelledby="menu-button"
       >
@@ -143,6 +144,7 @@ const buttonRef = ref(null)
 const dropdownStyle = ref({})
 
 const toggleDropdown = () => {
+  if (!authStore.user) return // Disable for guests
   if (isSelf.value) return // Disable dropdown for self
   
   if (isDropdownOpen.value) {
@@ -250,7 +252,16 @@ const handleReportUser = async () => {
 
 // Close dropdown when clicking outside
 const handleClickOutside = (event) => {
-  if (isDropdownOpen.value && event.target && !event.target.closest('.inline-block.text-left')) {
+  if (isDropdownOpen.value) {
+    // Check if click is inside the button
+    if (buttonRef.value && buttonRef.value.contains(event.target)) {
+      return
+    }
+    // Check if click is inside the dropdown content (we need a ref for it)
+    const dropdownEl = document.getElementById('user-menu-dropdown')
+    if (dropdownEl && dropdownEl.contains(event.target)) {
+      return
+    }
     closeDropdown()
   }
 }

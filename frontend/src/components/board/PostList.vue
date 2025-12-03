@@ -84,13 +84,13 @@ function handleSort(field) {
               </div>
             </th>
             <th v-if="showBoardName" scope="col" class="table-th text-center w-32">
-              {{ $t('board.postList.category') }}
+              {{ $t('common.category') }}
             </th>
             <th scope="col" class="table-th text-left">
-              {{ $t('board.postList.title') }}
+              {{ $t('common.title') }}
             </th>
             <th scope="col" class="table-th text-center w-32">
-              {{ $t('board.postList.author') }}
+              {{ $t('common.author') }}
             </th>
             <th scope="col" class="table-th text-center w-28 cursor-pointer hover:bg-gray-100" @click="handleSort('createdAt')">
               <div class="flex items-center justify-center">

@@ -72,6 +72,11 @@ const router = createRouter({
                     path: 'recent',
                     name: 'RecentViewed',
                     component: () => import('@/views/search/RecentViewed.vue')
+                },
+                {
+                    path: 'subscriptions',
+                    name: 'SubscribedBoards',
+                    component: () => import('@/views/user/SubscribedBoards.vue')
                 }
             ]
         },

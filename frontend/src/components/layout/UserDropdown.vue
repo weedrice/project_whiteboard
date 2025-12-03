@@ -3,7 +3,7 @@ import { ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useNotificationStore } from '@/stores/notification'
-import { User, LogOut, Settings, CreditCard, FileText, Clock, AlertTriangle, PlusSquare, ChevronDown, Bell, LayoutDashboard, Mail } from 'lucide-vue-next'
+import { User, LogOut, Settings, CreditCard, FileText, Clock, AlertTriangle, PlusSquare, ChevronDown, Bell, LayoutDashboard, Mail, Star } from 'lucide-vue-next'
 import axios from '@/api'
 
 const router = useRouter()
@@ -85,7 +85,7 @@ onMounted(() => {
         </router-link>
       </div>
 
-      <!-- Group 1 -->
+      <!-- Group 1: Admin, MyInfo, Points, Settings -->
       <div class="py-1 border-b border-gray-100">
         <router-link
           v-if="authStore.user?.role === 'SUPER_ADMIN'"
@@ -102,31 +102,7 @@ onMounted(() => {
           @click="emit('toggle')"
         >
           <User class="mr-3 h-4 w-4 text-gray-400 group-hover:text-gray-500" />
-          {{ $t('layout.menu.myPage') }}
-        </router-link>
-        <router-link
-          to="/mypage/settings"
-          class="group flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900"
-          @click="emit('toggle')"
-        >
-          <Settings class="mr-3 h-4 w-4 text-gray-400 group-hover:text-gray-500" />
-          {{ $t('layout.menu.settings') }}
-        </router-link>
-        <router-link
-          to="/mypage/notifications"
-          class="group flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900"
-          @click="emit('toggle')"
-        >
-          <Bell class="mr-3 h-4 w-4 text-gray-400 group-hover:text-gray-500" />
-          {{ $t('layout.menu.notifications') }}
-        </router-link>
-        <router-link
-          to="/mypage/messages"
-          class="group flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900"
-          @click="emit('toggle')"
-        >
-          <Mail class="mr-3 h-4 w-4 text-gray-400 group-hover:text-gray-500" />
-          {{ $t('layout.menu.messages') }}
+          {{ $t('common.myPage') }}
         </router-link>
         <router-link
           to="/mypage/points"
@@ -137,6 +113,38 @@ onMounted(() => {
           {{ $t('layout.menu.points') }}
         </router-link>
         <router-link
+          to="/mypage/settings"
+          class="group flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+          @click="emit('toggle')"
+        >
+          <Settings class="mr-3 h-4 w-4 text-gray-400 group-hover:text-gray-500" />
+          {{ $t('common.settings') }}
+        </router-link>
+      </div>
+
+      <!-- Group 2: Messages, Notifications -->
+      <div class="py-1 border-b border-gray-100">
+        <router-link
+          to="/mypage/messages"
+          class="group flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+          @click="emit('toggle')"
+        >
+          <Mail class="mr-3 h-4 w-4 text-gray-400 group-hover:text-gray-500" />
+          {{ $t('common.messages') }}
+        </router-link>
+        <router-link
+          to="/mypage/notifications"
+          class="group flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+          @click="emit('toggle')"
+        >
+          <Bell class="mr-3 h-4 w-4 text-gray-400 group-hover:text-gray-500" />
+          {{ $t('common.notifications') }}
+        </router-link>
+      </div>
+
+      <!-- Group 3: Scraps, Subscriptions -->
+      <div class="py-1 border-b border-gray-100">
+        <router-link
           to="/mypage/scraps"
           class="group flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900"
           @click="emit('toggle')"
@@ -144,9 +152,17 @@ onMounted(() => {
           <FileText class="mr-3 h-4 w-4 text-gray-400 group-hover:text-gray-500" />
           {{ $t('layout.menu.scraps') }}
         </router-link>
+        <router-link
+          to="/mypage/subscriptions"
+          class="group flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+          @click="emit('toggle')"
+        >
+          <Star class="mr-3 h-4 w-4 text-gray-400 group-hover:text-gray-500" />
+          {{ $t('user.tabs.subscriptions') }}
+        </router-link>
       </div>
 
-      <!-- Group 2 -->
+      <!-- Group 4: Recent, Reports, Create Board -->
       <div class="py-1 border-b border-gray-100">
         <router-link
           to="/mypage/recent"
@@ -181,7 +197,7 @@ onMounted(() => {
           class="w-full text-left group flex items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50 hover:text-red-700"
         >
           <LogOut class="mr-3 h-4 w-4 text-red-500 group-hover:text-red-600" />
-          {{ $t('layout.menu.logout') }}
+          {{ $t('common.logout') }}
         </button>
       </div>
     </div>

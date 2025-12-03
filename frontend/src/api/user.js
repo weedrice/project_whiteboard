@@ -54,5 +54,8 @@ export const userApi = {
     },
     getRecentlyViewedPosts(params) {
         return api.get('/users/me/history/views', { params })
+    },
+    getMySubscriptions(params) {
+        return api.get('/users/me/subscriptions', { params })
     }
 }

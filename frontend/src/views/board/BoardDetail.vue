@@ -5,6 +5,7 @@ import { boardApi } from '@/api/board'
 import { searchApi } from '@/api/search'
 import PostList from '@/components/board/PostList.vue'
 import { Search, X, PlusCircle, Settings, ChevronDown, ChevronUp, User } from 'lucide-vue-next'
+import UserMenu from '@/components/common/UserMenu.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useI18n } from 'vue-i18n'
 
@@ -256,7 +257,13 @@ watch(() => route.params.boardUrl, () => {
                     {{ $t('board.detail.subscribers') }} {{ board.subscriberCount || 0 }}
                 </span>
                 <span class="flex items-center">
-                    <span class="font-medium mr-1">{{ $t('board.detail.admin') }}</span> {{ board.adminDisplayName || $t('board.detail.defaultAdminName') }}
+                    <span class="font-medium mr-1">{{ $t('board.detail.admin') }}</span> 
+                    <UserMenu 
+                        v-if="board.adminUserId"
+                        :user-id="board.adminUserId"
+                        :display-name="board.adminDisplayName || $t('board.detail.defaultAdminName')"
+                    />
+                    <span v-else>{{ board.adminDisplayName || $t('board.detail.defaultAdminName') }}</span>
                 </span>
             </div>
             <p class="text-sm text-gray-500 line-clamp-1">{{ board.description }}</p>
@@ -339,7 +346,7 @@ watch(() => route.params.boardUrl, () => {
                 @click="handleSearch"
                 class="inline-flex items-center px-4 py-2 border border-l-0 border-gray-300 shadow-sm text-sm font-medium rounded-r-md text-gray-700 bg-gray-50 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 whitespace-nowrap"
             >
-                {{ $t('board.detail.search') }}
+                {{ $t('board.search') }}
             </button>
         </div>
         
@@ -350,7 +357,7 @@ watch(() => route.params.boardUrl, () => {
                 class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 whitespace-nowrap"
             >
                 <PlusCircle class="-ml-1 mr-2 h-5 w-5" />
-                {{ $t('board.detail.write') }}
+                {{ $t('common.write') }}
             </router-link>
         </div>
       </div>

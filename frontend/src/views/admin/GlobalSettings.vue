@@ -3,6 +3,8 @@ import { ref, onMounted, reactive } from 'vue'
 import { adminApi } from '@/api/admin'
 import { Save } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
+import BaseInput from '@/components/common/BaseInput.vue'
+import BaseButton from '@/components/common/BaseButton.vue'
 
 const { t } = useI18n()
 
@@ -111,7 +113,7 @@ onMounted(() => {
                     <input 
                         type="text" 
                         v-model="config.value"
-                        class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                        class="block w-full border-0 p-0 text-gray-900 placeholder-gray-500 focus:ring-0 sm:text-sm"
                     />
                   </td>
                   <td class="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
@@ -141,29 +143,29 @@ onMounted(() => {
                 <h3 class="text-lg font-medium leading-6 text-gray-900" id="modal-title">{{ t('admin.settings.addConfig') }}</h3>
                 <div class="mt-2">
                   <div class="space-y-4">
-                    <div>
-                      <label class="block text-sm font-medium text-gray-700 text-left">{{ t('admin.settings.table.key') }}</label>
-                      <input v-model="newConfig.key" type="text" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" />
+                    <div class="flex items-center">
+                      <label class="w-20 text-sm font-medium text-gray-700 text-left mr-4">{{ t('admin.settings.table.key') }}</label>
+                      <input v-model="newConfig.key" type="text" class="flex-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" />
                     </div>
-                    <div>
-                      <label class="block text-sm font-medium text-gray-700 text-left">{{ t('admin.settings.table.value') }}</label>
-                      <input v-model="newConfig.value" type="text" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" />
+                    <div class="flex items-center">
+                      <label class="w-20 text-sm font-medium text-gray-700 text-left mr-4">{{ t('admin.settings.table.value') }}</label>
+                      <input v-model="newConfig.value" type="text" class="flex-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" />
                     </div>
-                    <div>
-                      <label class="block text-sm font-medium text-gray-700 text-left">{{ t('admin.settings.table.desc') }}</label>
-                      <input v-model="newConfig.description" type="text" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" />
+                    <div class="flex items-center">
+                      <label class="w-20 text-sm font-medium text-gray-700 text-left mr-4">{{ t('admin.settings.table.desc') }}</label>
+                      <input v-model="newConfig.description" type="text" class="flex-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" />
                     </div>
                   </div>
                 </div>
               </div>
             </div>
             <div class="mt-5 sm:mt-6 sm:grid sm:grid-flow-row-dense sm:grid-cols-2 sm:gap-3">
-              <button @click="handleCreateConfig" type="button" class="inline-flex w-full justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-base font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:col-start-2 sm:text-sm">
+              <BaseButton @click="handleCreateConfig" class="w-full sm:col-start-2 justify-center">
                 {{ t('common.save') }}
-              </button>
-              <button @click="isModalOpen = false" type="button" class="mt-3 inline-flex w-full justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-base font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:col-start-1 sm:mt-0 sm:text-sm">
+              </BaseButton>
+              <BaseButton @click="isModalOpen = false" variant="secondary" class="w-full sm:col-start-1 sm:mt-0 justify-center">
                 {{ t('common.cancel') }}
-              </button>
+              </BaseButton>
             </div>
           </div>
         </div>

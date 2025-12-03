@@ -82,11 +82,11 @@ onMounted(() => {
               <tbody class="divide-y divide-gray-200 bg-white">
                 <tr v-for="report in reports" :key="report.reportId">
                   <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">{{ report.reportId }}</td>
-                  <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{{ report.reporter.displayName }}</td>
+                  <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{{ report.reporterDisplayName }}</td>
                   <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                     {{ report.targetType }} #{{ report.targetId }}
                   </td>
-                  <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{{ report.reason }}</td>
+                  <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{{ report.contents }}</td>
                   <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                     <span class="inline-flex rounded-full px-2 text-xs font-semibold leading-5" 
                         :class="{

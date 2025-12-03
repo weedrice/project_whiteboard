@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+    <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
+
+    <!-- 로그 저장 경로 및 패턴 설정 -->
+    <property name="LOG_DIR" value="./logs"/>
+    <property name="LOG_PATTERN" value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"/>
+
+    <!-- RollingFileAppender 설정 -->
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <!-- 현재 기록 중인 로그 파일 -->
+        <file>${LOG_DIR}/whiteboard-active.log</file>
+        
+        <encoder>
+            <pattern>${LOG_PATTERN}</pattern>
+        </encoder>
+
+        <!-- 롤링 정책: 시간 단위(Hourly) 분할 -->
+        <!-- Logback 설정상 6시간 단위 분할은 복잡하므로, 더 세밀한 분석이 가능한 1시간 단위로 설정했습니다. -->
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_DIR}/whiteboard-%d{yyyy-MM-dd_HH}.log</fileNamePattern>
+            <!-- 보관 기간: 30일 (24시간 * 30일 = 720시간) -->
+            <maxHistory>720</maxHistory>
+            <!-- 전체 로그 용량 제한 -->
+            <totalSizeCap>3GB</totalSizeCap>
+        </rollingPolicy>
+    </appender>
+
+    <!-- 로그 레벨 및 Appender 적용 -->
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="FILE"/>
+    </root>
+
+    <!-- 상세 로깅 설정 (application.yml 설정 반영) -->
+    <logger name="org.hibernate.SQL" level="DEBUG"/>
+    <logger name="org.hibernate.type.descriptor.sql" level="TRACE"/>
+</configuration>

@@ -13,7 +13,7 @@ const settings = reactive({
   theme: 'LIGHT',
   language: 'ko',
   timezone: 'Asia/Seoul',
-  hideNsfw: 'Y'
+  hideNsfw: true
 })
 
 const notificationSettings = reactive({

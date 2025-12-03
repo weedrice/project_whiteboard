@@ -39,4 +39,7 @@ export const boardApi = {
 
     // Unsubscribe from board
     unsubscribeBoard: (boardUrl) => api.delete(`/boards/${boardUrl}/subscribe`),
+
+    // Update subscription order
+    updateSubscriptionOrder: (boardUrls) => api.put('/boards/subscriptions/order', boardUrls),
 }

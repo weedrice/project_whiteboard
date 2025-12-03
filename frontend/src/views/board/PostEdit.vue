@@ -118,7 +118,7 @@ onMounted(fetchData)
         
         <!-- Category -->
         <div class="sm:col-span-3" v-if="categories.length > 0">
-          <label for="category" class="block text-sm font-medium text-gray-700">{{ $t('board.writePost.category') }}</label>
+          <label for="category" class="block text-sm font-medium text-gray-700">{{ $t('common.category') }}</label>
           <div class="mt-1">
             <select
               id="category"
@@ -135,7 +135,7 @@ onMounted(fetchData)
 
         <!-- Title -->
         <div class="sm:col-span-6">
-          <label for="title" class="block text-sm font-medium text-gray-700">{{ $t('board.writePost.title') }}</label>
+          <label for="title" class="block text-sm font-medium text-gray-700">{{ $t('common.title') }}</label>
           <div class="mt-1">
             <input
               type="text"
@@ -150,7 +150,7 @@ onMounted(fetchData)
 
         <!-- Content -->
         <div class="sm:col-span-6">
-          <label for="content" class="block text-sm font-medium text-gray-700">{{ $t('board.writePost.content') }}</label>
+          <label for="content" class="block text-sm font-medium text-gray-700">{{ $t('common.content') }}</label>
           <div class="mt-1 h-96">
             <QuillEditor
               theme="snow"
@@ -216,7 +216,7 @@ onMounted(fetchData)
           @click="router.back()"
           class="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 cursor-pointer"
         >
-           {{ $t('board.writePost.cancel') }}
+           {{ $t('common.cancel') }}
         </button>
         <button
           type="submit"
