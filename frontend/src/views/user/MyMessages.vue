@@ -64,7 +64,7 @@
             </div>
             <p 
                 class="mt-1 text-sm text-gray-900 line-clamp-1"
-                :class="{ 'font-bold': viewType === 'received' && !msg.isRead }"
+                :class="{ 'font-bold': viewType === 'received' && !msg.read }"
             >
                 {{ msg.content }}
             </p>
@@ -184,10 +184,10 @@ function changeViewType(type) {
 
 async function openMessage(msg) {
     selectedMessage.value = msg
-    if (viewType.value === 'received' && !msg.isRead) {
+    if (viewType.value === 'received' && !msg.read) {
         try {
             await messageApi.getMessage(msg.messageId)
-            msg.isRead = true
+            msg.read = true
             notificationStore.fetchUnreadCount()
         } catch (error) {
             console.error('Failed to mark as read:', error)

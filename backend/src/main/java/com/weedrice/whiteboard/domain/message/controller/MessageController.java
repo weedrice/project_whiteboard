@@ -2,7 +2,9 @@ package com.weedrice.whiteboard.domain.message.controller;
 
 import com.weedrice.whiteboard.domain.message.dto.MessageCreateRequest;
 import com.weedrice.whiteboard.domain.message.dto.MessageResponse;
+import com.weedrice.whiteboard.domain.message.entity.Message;
 import com.weedrice.whiteboard.domain.message.service.MessageService;
+import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import jakarta.validation.Valid;
@@ -48,10 +50,9 @@ public class MessageController {
     public ApiResponse<MessageResponse.MessageSummary> getMessage(
             @PathVariable Long messageId,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        com.weedrice.whiteboard.domain.message.entity.Message message = messageService
-                .getMessage(userDetails.getUserId(), messageId);
+        Message message = messageService.getMessage(userDetails.getUserId(), messageId);
 
-        com.weedrice.whiteboard.domain.user.entity.User partner = message.getSender().getUserId()
+        User partner = message.getSender().getUserId()
                 .equals(userDetails.getUserId())
                         ? message.getReceiver()
                         : message.getSender();
