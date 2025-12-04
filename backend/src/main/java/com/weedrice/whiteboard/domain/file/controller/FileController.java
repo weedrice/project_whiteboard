@@ -7,8 +7,8 @@ import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.util.FileStorageService;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.io.InputStreamResource;
 import org.springframework.core.io.Resource;
-import org.springframework.core.io.UrlResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -17,8 +17,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.net.MalformedURLException;
-import java.nio.file.Path;
+import java.io.InputStream;
 
 @RestController
 @RequestMapping("/api/v1/files")
@@ -40,30 +39,25 @@ public class FileController {
     
     @PostMapping("/upload")
     @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse<java.util.Map<String, String>> uploadSimple(
+    public ApiResponse<java.util.Map<String, Object>> uploadSimple(
             @RequestParam("file") MultipartFile multipartFile,
             Authentication authentication) {
         Long userId = ((CustomUserDetails) authentication.getPrincipal()).getUserId();
         File file = fileService.uploadFile(userId, multipartFile);
-        // Assuming fileService.uploadFile returns a File entity with getUrl() or construct it
-        // Actually domain fileService uploads to DB and Storage.
-        // I need to return the URL that can be used in <img> src.
-        // The existing downloadFile is /api/v1/files/{fileId}. 
-        // If I want direct static access, I need to know if FileService supports it.
-        // Let's assume /api/v1/files/{fileId} is the URL for now, or check FileUploadResponse.
-        return ApiResponse.success(java.util.Collections.singletonMap("url", "/api/v1/files/" + file.getFileId()));
+        // Returns the proxy URL /api/v1/files/{fileId} which streams from S3
+        java.util.Map<String, Object> response = new java.util.HashMap<>();
+        response.put("url", "/api/v1/files/" + file.getFileId());
+        response.put("fileId", file.getFileId());
+        return ApiResponse.success(response);
     }
 
     @GetMapping("/{fileId}")
     public ResponseEntity<Resource> downloadFile(@PathVariable Long fileId) {
         File file = fileService.getFile(fileId);
-        Path filePath = fileStorageService.loadFile(file.getFilePath());
-        Resource resource;
-        try {
-            resource = new UrlResource(filePath.toUri());
-        } catch (MalformedURLException e) {
-            throw new RuntimeException("파일을 찾을 수 없습니다: " + file.getFilePath(), e);
-        }
+        
+        // S3로부터 InputStream을 받아옴
+        InputStream inputStream = fileStorageService.loadFile(file.getFilePath());
+        Resource resource = new InputStreamResource(inputStream);
 
         String contentType = file.getMimeType();
         if (contentType == null) {

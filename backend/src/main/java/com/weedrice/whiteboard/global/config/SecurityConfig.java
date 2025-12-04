@@ -38,6 +38,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/v1/auth/**", "/api/v1/codes/**").permitAll()
                         .requestMatchers(HttpMethod.GET,
+                                "/api/v1/files/**",
                                 "/api/v1/boards/**", // /boards 로 시작하는 모든 GET 요청 허용
                                 "/api/v1/posts/{postId}/**",
                                 "/api/v1/comments/{commentId}/replies",
