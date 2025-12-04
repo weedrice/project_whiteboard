@@ -54,8 +54,8 @@ onMounted(async () => {
             :to="`/board/${board.boardUrl}`"
             class="flex flex-col items-center group flex-shrink-0"
           >
-            <div class="h-16 w-16 rounded-full bg-indigo-100 flex items-center justify-center group-hover:ring-2 ring-indigo-500 transition-all overflow-hidden">
-               <img v-if="board.iconUrl" :src="board.iconUrl" class="h-full w-full object-cover" alt="" />
+            <div class="h-16 w-16 rounded-full bg-indigo-100 flex items-center justify-center group-hover:ring-2 ring-indigo-500 transition-all overflow-hidden border border-gray-200">
+               <img v-if="board.iconUrl" :src="board.iconUrl" class="h-full w-full object-contain bg-white" alt="" />
                <span v-else class="text-indigo-600 font-bold text-xl">{{ board.boardName[0] }}</span>
             </div>
             <span class="mt-2 text-xs font-medium text-gray-700 group-hover:text-indigo-600">{{ board.boardName }}</span>

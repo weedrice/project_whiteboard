@@ -4,8 +4,8 @@
     <form @submit.prevent="updateProfile" class="space-y-4">
       <!-- Image Upload -->
       <div class="flex items-center space-x-6">
-        <div class="shrink-0">
-          <img class="h-16 w-16 object-cover rounded-full" :src="previewImage || authStore.user?.profileImageUrl || 'https://via.placeholder.com/150'" alt="Current profile photo" />
+        <div class="shrink-0 border border-gray-200 rounded-full overflow-hidden h-16 w-16">
+          <img class="h-full w-full object-contain bg-white" :src="previewImage || authStore.user?.profileImageUrl || 'https://via.placeholder.com/150'" alt="Current profile photo" />
         </div>
         <label class="block">
           <span class="sr-only">Choose profile photo</span>
@@ -112,6 +112,7 @@ const updateProfile = async () => {
   
   try {
     let profileImageUrl = authStore.user?.profileImageUrl
+    let profileImageId = null
 
     if (selectedFile.value) {
       const formData = new FormData()
@@ -124,12 +125,14 @@ const updateProfile = async () => {
       })
       if (uploadRes.data.success) {
         profileImageUrl = uploadRes.data.data.url
+        profileImageId = uploadRes.data.data.fileId
       }
     }
 
     const { data } = await userApi.updateMyProfile({
       displayName: form.displayName,
-      profileImageUrl: profileImageUrl
+      profileImageUrl: profileImageUrl,
+      profileImageId: profileImageId
     })
     
     if (data.success) {

@@ -60,8 +60,16 @@ onMounted(() => {
       @click.stop="toggleDropdown"
       class="flex items-center space-x-2 text-sm text-gray-700 hover:text-indigo-600 focus:outline-none"
     >
-      <div class="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold">
-        {{ authStore.user?.displayName?.[0] || authStore.user?.loginId?.[0] || 'U' }}
+      <div class="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold overflow-hidden border border-gray-200">
+        <img 
+          v-if="authStore.user?.profileImageUrl" 
+          :src="authStore.user.profileImageUrl" 
+          alt="Profile" 
+          class="h-full w-full object-contain bg-white"
+        />
+        <span v-else>
+          {{ authStore.user?.displayName?.[0] || authStore.user?.loginId?.[0] || 'U' }}
+        </span>
       </div>
       <span class="hidden md:block font-medium">{{ authStore.user?.displayName || authStore.user?.loginId }}</span>
       <ChevronDown class="h-4 w-4 text-gray-500" />
@@ -130,7 +138,7 @@ onMounted(() => {
           @click="emit('toggle')"
         >
           <Mail class="mr-3 h-4 w-4 text-gray-400 group-hover:text-gray-500" />
-          {{ $t('common.messages') }}
+          {{ $t('common.message') }}
         </router-link>
         <router-link
           to="/mypage/notifications"

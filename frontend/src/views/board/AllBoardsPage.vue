@@ -42,8 +42,9 @@ onMounted(() => {
       >
         <div class="p-6">
           <div class="flex items-center">
-            <div class="flex-shrink-0 h-12 w-12 rounded-md bg-indigo-100 flex items-center justify-center text-indigo-600 text-xl font-bold">
-              {{ board.boardName.substring(0, 1) }}
+            <div class="flex-shrink-0 h-12 w-12 rounded-md bg-indigo-100 flex items-center justify-center text-indigo-600 text-xl font-bold overflow-hidden border border-gray-200">
+              <img v-if="board.iconUrl" :src="board.iconUrl" class="h-full w-full object-contain bg-white" alt="" />
+              <span v-else>{{ board.boardName.substring(0, 1) }}</span>
             </div>
             <div class="ml-4">
               <h3 class="text-lg font-medium text-gray-900">{{ board.boardName }}</h3>

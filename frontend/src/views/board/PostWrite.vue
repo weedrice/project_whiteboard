@@ -5,6 +5,9 @@ import { boardApi } from '@/api/board'
 import { postApi } from '@/api/post'
 import PostTags from '@/components/tag/PostTags.vue'
 import { useI18n } from 'vue-i18n'
+import { QuillEditor } from '@vueup/vue-quill'
+import '@vueup/vue-quill/dist/vue-quill.snow.css'
+import axios from '@/api'
 
 const { t } = useI18n()
 
@@ -19,6 +22,8 @@ const categories = ref([])
 const isLoading = ref(false)
 const isSubmitting = ref(false)
 const error = ref('')
+const fileIds = ref([])
+const editor = ref(null)
 
 const form = ref({
   categoryId: '',
@@ -31,6 +36,78 @@ const form = ref({
 })
 
 const board = ref(null)
+
+const toolbarOptions = [
+  ['bold', 'italic', 'underline', 'strike'],        // toggled buttons
+  ['blockquote', 'code-block'],
+
+  [{ 'header': 1 }, { 'header': 2 }],               // custom button values
+  [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+  [{ 'script': 'sub'}, { 'script': 'super' }],      // superscript/subscript
+  [{ 'indent': '-1'}, { 'indent': '+1' }],          // outdent/indent
+  [{ 'direction': 'rtl' }],                         // text direction
+
+  [{ 'size': ['small', false, 'large', 'huge'] }],  // custom dropdown
+  [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
+
+  [{ 'color': [] }, { 'background': [] }],          // dropdown with defaults from theme
+  [{ 'font': [] }],
+  [{ 'align': [] }],
+
+  ['clean'],                                         // remove formatting
+  ['link', 'image', 'video']
+]
+
+const imageHandler = () => {
+  const input = document.createElement('input')
+  input.setAttribute('type', 'file')
+  input.setAttribute('accept', 'image/*')
+  input.click()
+
+  input.onchange = async () => {
+    const file = input.files[0]
+    if (!file) return
+
+    const formData = new FormData()
+    formData.append('file', file)
+
+    try {
+      const res = await axios.post('/files/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      })
+      
+      if (res.data.success) {
+        const { url, fileId } = res.data.data
+        fileIds.value.push(fileId)
+        
+        let quill = null
+        if (editor.value) {
+             if (typeof editor.value.getQuill === 'function') {
+                 quill = editor.value.getQuill()
+             } else {
+                 quill = editor.value // Assuming it was overwritten by onEditorReady
+             }
+        }
+        
+        if (quill) {
+            const range = quill.getSelection(true)
+            quill.insertEmbed(range.index, 'image', url)
+            quill.setSelection(range.index + 1)
+        }
+      }
+    } catch (err) {
+      console.error('Image upload failed:', err)
+      alert('Failed to upload image')
+    }
+  }
+}
+
+const onEditorReady = (quill) => {
+  editor.value = quill // Save quill instance ref if needed or just use payload
+  quill.getModule('toolbar').addHandler('image', imageHandler)
+}
 
 onMounted(async () => {
   isLoading.value = true
@@ -76,7 +153,7 @@ async function handleSubmit() {
       isNsfw: board.value?.allowNsfw ? form.value.isNsfw : false,
       isSpoiler: form.value.isSpoiler,
       isNotice: form.value.isNotice,
-      fileIds: [] // File upload not implemented yet
+      fileIds: fileIds.value // Send collected fileIds
     }
 
     const { data } = await postApi.createPost(boardUrl, payload) // boardUrl 사용
@@ -151,10 +228,12 @@ async function handleSubmit() {
           <label for="contents" class="block text-sm font-medium text-gray-700">{{ $t('common.content') }}</label>
           <div class="mt-1 h-96">
             <QuillEditor
+              ref="editor"
+              :toolbar="toolbarOptions"
               theme="snow"
-              toolbar="full"
               contentType="html"
               v-model:content="form.contents"
+              @ready="onEditorReady"
             />
           </div>
         </div>

@@ -136,8 +136,8 @@
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">{{ $t('board.form.iconUrl') }}</label>
           <div class="flex items-center space-x-4">
-            <div v-if="form.iconUrl" class="flex-shrink-0">
-              <img :src="form.iconUrl" alt="Icon Preview" class="h-12 w-12 rounded-full object-cover border border-gray-200">
+            <div v-if="form.iconUrl" class="flex-shrink-0 border border-gray-200 rounded-full overflow-hidden h-12 w-12">
+              <img :src="form.iconUrl" alt="Icon Preview" class="h-full w-full object-contain bg-white">
             </div>
             <input
               type="file"
