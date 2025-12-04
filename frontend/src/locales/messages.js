@@ -42,7 +42,7 @@ export const messages = {
       logout: '로그아웃',
       settings: '설정',
       notifications: '알림',
-      messages: '쪽지함',
+      message: '쪽지함',
       myPage: '마이페이지',
       submit: '등록',
       messages: {

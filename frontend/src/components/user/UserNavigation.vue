@@ -47,7 +47,7 @@ const tabs = [
   { nameKey: 'common.myPage', href: '/mypage' },
   { nameKey: 'user.tabs.settings', href: '/mypage/settings' },
   { nameKey: 'common.notifications', href: '/mypage/notifications' },
-  { nameKey: 'common.messages', href: '/mypage/messages' },
+  { nameKey: 'common.message', href: '/mypage/messages' },
   { nameKey: 'user.tabs.points', href: '/mypage/points' },
   { nameKey: 'user.tabs.scraps', href: '/mypage/scraps' },
   { nameKey: 'user.tabs.subscriptions', href: '/mypage/subscriptions' },
