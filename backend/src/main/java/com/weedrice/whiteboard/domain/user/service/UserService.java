@@ -165,12 +165,6 @@ public class UserService {
                 });
 
         settings.updateSettings(theme, language, timezone, hideNsfw);
-
-        // Sync theme to User entity
-        if (theme != null) {
-            user.updateTheme(theme);
-        }
-
         return settings;
     }
 

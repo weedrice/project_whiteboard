@@ -35,60 +35,62 @@
             <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
               {{ $t('admin.boards.table.sortOrder') }}
             </th>
-            <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-              {{ $t('admin.boards.table.actions') }}
-            </th>
           </tr>
         </thead>
-        <tbody class="bg-white divide-y divide-gray-200">
-          <tr v-if="loading">
-            <td colspan="6" class="px-6 py-4 text-center text-sm text-gray-500">
-              {{ t('common.loading') }}
-            </td>
-          </tr>
-          <tr v-else-if="boards.length === 0">
-            <td colspan="6" class="px-6 py-4 text-center text-sm text-gray-500">
-              {{ $t('common.noData') }}
-            </td>
-          </tr>
-          <tr v-else v-for="board in boards" :key="board.boardId">
-            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-              {{ board.boardName }}
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-              {{ board.boardUrl }}
-            </td>
-            <td class="px-6 py-4 text-sm text-gray-500 max-w-xs">
-              <input 
-                v-model="board.description" 
-                @input="handleInputChange(board)"
-                class="block w-full border-0 p-0 text-gray-500 placeholder-gray-500 focus:ring-0 sm:text-sm truncate"
-              />
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap text-center text-sm">
-              <button 
-                @click="board.isActive = board.isActive === 'Y' ? 'N' : 'Y'; handleInputChange(board)"
-                class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full cursor-pointer"
-                :class="board.isActive === 'Y' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'"
-              >
-                {{ board.isActive === 'Y' ? t('common.active') : t('common.inactive') }}
-              </button>
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500">
-              <input 
-                v-model="board.sortOrder" 
-                type="number"
-                @input="handleInputChange(board)"
-                class="block w-full border-0 p-0 text-gray-500 placeholder-gray-500 focus:ring-0 sm:text-sm text-center"
-              />
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-              <button @click="handleDelete(board)" class="text-red-600 hover:text-red-900">
-                {{ $t('common.delete') }}
-              </button>
-            </td>
-          </tr>
-        </tbody>
+        <draggable 
+          v-model="boards" 
+          tag="tbody" 
+          item-key="boardId"
+          handle=".drag-handle"
+          @end="handleDragEnd"
+          class="bg-white divide-y divide-gray-200"
+        >
+          <template #item="{ element: board }">
+            <tr v-if="loading">
+              <td colspan="5" class="px-6 py-4 text-center text-sm text-gray-500">
+                {{ t('common.loading') }}
+              </td>
+            </tr>
+            <tr v-else-if="boards.length === 0">
+              <td colspan="5" class="px-6 py-4 text-center text-sm text-gray-500">
+                {{ $t('common.noData') }}
+              </td>
+            </tr>
+            <tr v-else :key="board.boardId">
+              <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 flex items-center">
+                <GripVertical class="h-4 w-4 text-gray-400 mr-2 cursor-move drag-handle" />
+                {{ board.boardName }}
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                {{ board.boardUrl }}
+              </td>
+              <td class="px-6 py-4 text-sm text-gray-500 max-w-xs">
+                <input 
+                  v-model="board.description" 
+                  @input="handleInputChange(board)"
+                  class="block w-full border-0 p-0 text-gray-500 placeholder-gray-500 focus:ring-0 sm:text-sm truncate"
+                />
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-center text-sm">
+                <button 
+                  @click="board.isActive = board.isActive === 'Y' ? 'N' : 'Y'; handleInputChange(board)"
+                  class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full cursor-pointer"
+                  :class="board.isActive === 'Y' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'"
+                >
+                  {{ board.isActive === 'Y' ? t('common.active') : t('common.inactive') }}
+                </button>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500">
+                <input 
+                  v-model="board.sortOrder" 
+                  type="number"
+                  @change="handleSortOrderChange(board)"
+                  class="block w-full border-0 p-0 text-gray-500 placeholder-gray-500 focus:ring-0 sm:text-sm text-center"
+                />
+              </td>
+            </tr>
+          </template>
+        </draggable>
       </table>
     </div>
 
@@ -172,7 +174,8 @@ import BaseModal from '@/components/common/BaseModal.vue'
 import BaseInput from '@/components/common/BaseInput.vue'
 import BaseButton from '@/components/common/BaseButton.vue'
 import { useI18n } from 'vue-i18n'
-import { Save } from 'lucide-vue-next'
+import { Save, GripVertical } from 'lucide-vue-next'
+import draggable from 'vuedraggable'
 
 const { t } = useI18n()
 
@@ -290,10 +293,25 @@ function handleInputChange(board) {
   modifiedBoards.value.add(board.boardId)
 }
 
+function handleDragEnd() {
+  boards.value.forEach((board, index) => {
+    const newSortOrder = index + 1
+    if (board.sortOrder !== newSortOrder) {
+      board.sortOrder = newSortOrder
+      handleInputChange(board)
+    }
+  })
+}
+
+function handleSortOrderChange(board) {
+  handleInputChange(board)
+  boards.value.sort((a, b) => a.sortOrder - b.sortOrder)
+}
+
 async function handleSaveAll() {
   if (modifiedBoards.value.size === 0) return
   
-  if (!confirm(t('admin.boards.messages.confirmSaveAll'))) return
+  if (!confirm(t('common.messages.save'))) return
 
   isSubmitting.value = true
   try {
@@ -310,31 +328,18 @@ async function handleSaveAll() {
     })
     
     await Promise.all(promises)
-    alert(t('admin.boards.messages.savedAll'))
+    alert(t('common.messages.saveSuccess'))
     modifiedBoards.value.clear()
     fetchBoards()
   } catch (error) {
     console.error('Failed to save boards:', error)
-    alert(t('admin.boards.messages.saveAllFailed'))
+    alert(t('common.messages.saveFailed'))
   } finally {
     isSubmitting.value = false
   }
 }
 
-async function handleDelete(board) {
-  if (!confirm(t('admin.boards.messages.confirmDelete'))) return
 
-  try {
-    const { data } = await adminApi.deleteBoard(board.boardUrl)
-    if (data.success) {
-      alert(t('admin.boards.messages.deleted'))
-      fetchBoards()
-    }
-  } catch (error) {
-    console.error('Failed to delete board:', error)
-    alert(t('admin.boards.messages.deleteFailed'))
-  }
-}
 
 onMounted(() => {
   fetchBoards()
