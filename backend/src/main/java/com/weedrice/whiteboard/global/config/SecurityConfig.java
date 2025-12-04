@@ -48,6 +48,9 @@ public class SecurityConfig {
                                 "/api/v1/ads",
                                 "/api/v1/users/{userId}"
                         ).permitAll()
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/v1/ads/{adId}/click" // 광고 클릭 기록 허용
+                        ).permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 

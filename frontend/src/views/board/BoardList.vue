@@ -3,6 +3,7 @@ import { ref, onMounted, computed } from 'vue'
 import { boardApi } from '@/api/board'
 import { Users, PlusCircle } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
+import AdBanner from '@/components/common/AdBanner.vue'
 
 const authStore = useAuthStore()
 const boards = ref([])
@@ -30,10 +31,10 @@ onMounted(async () => {
 
 <template>
   <div>
-    <!-- Banner Area -->
-    <div class="w-[80%] mx-auto bg-gray-200 h-[120px] mb-8 rounded-lg flex items-center justify-center text-gray-500 text-xl font-medium">
-      {{ $t('layout.banner') }}
-    </div>
+    <!-- Banner Area (Hidden) -->
+    <!-- <div class="w-[90%] mx-auto mb-8">
+      <AdBanner placement="HEADER" />
+    </div> -->
 
     <div v-if="isLoading" class="text-center py-10">
       <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 mx-auto"></div>

@@ -1,6 +1,6 @@
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useNotificationStore } from '@/stores/notification'
 import { useThemeStore } from '@/stores/theme'
@@ -8,14 +8,20 @@ import { Search, Bell, Moon, Sun } from 'lucide-vue-next'
 import NotificationDropdown from '@/components/notification/NotificationDropdown.vue'
 import UserDropdown from '@/components/layout/UserDropdown.vue'
 import BoardDropdown from '@/components/layout/BoardDropdown.vue'
+import AdBanner from '@/components/common/AdBanner.vue'
 
 const router = useRouter()
+const route = useRoute()
 const authStore = useAuthStore()
 const notificationStore = useNotificationStore()
 const themeStore = useThemeStore()
 const searchQuery = ref('')
 const isNotificationOpen = ref(false)
 const activeDropdown = ref(null) // 'subscription', 'all', 'notification', 'user'
+
+const showSidebarAd = computed(() => {
+  return !['login', 'signup'].includes(route.name)
+})
 
 const handleSearch = () => {
   if (searchQuery.value.trim()) {
@@ -147,10 +153,13 @@ onUnmounted(() => {
       </div>
     </nav>
 
-    <main>
-      <div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        <router-view></router-view>
-      </div>
+    <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+      <!-- Left Sidebar Ad (Fixed to viewport, centered vertically) - Hidden -->
+      <!-- <div v-if="showSidebarAd" class="hidden 2xl:block fixed left-[calc(50%-51.25rem)] top-1/2 -translate-y-1/2 w-40">
+        <AdBanner placement="SIDEBAR" />
+      </div> -->
+
+      <router-view></router-view>
     </main>
   </div>
 </template>
