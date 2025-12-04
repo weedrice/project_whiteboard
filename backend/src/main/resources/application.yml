@@ -29,3 +29,13 @@ jwt:
 
 file:
   upload-dir: ./uploads
+
+cloud:
+  aws:
+    credentials:
+      access-key: MYACCESSKEY
+      secret-key: MYSECRETKEY
+    region:
+      static: MYREGION
+    s3:
+      bucket: MYBUCKETNAME
