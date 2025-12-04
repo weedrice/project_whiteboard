@@ -42,3 +42,6 @@ backend/*.log
 backend/.classpath
 backend/.project
 backend/.settings/
+
+# File uploads
+uploads/
