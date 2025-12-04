@@ -30,4 +30,6 @@ public class PostUpdateRequest {
 
     @JsonProperty("isSpoiler")
     private boolean isSpoiler;
+
+    private List<Long> fileIds;
 }

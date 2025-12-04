@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.user.service;
 
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
+import com.weedrice.whiteboard.domain.file.service.FileService; // Add import
 import com.weedrice.whiteboard.domain.post.repository.PostRepository; // Import PostRepository
 import com.weedrice.whiteboard.domain.user.entity.DisplayNameHistory;
 import com.weedrice.whiteboard.domain.user.entity.PasswordHistory;
@@ -35,6 +36,7 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final UserSettingsRepository userSettingsRepository;
     private final PostRepository postRepository; // Inject PostRepository
+    private final FileService fileService; // Inject FileService
 
     public Long findUserIdByLoginId(String loginId) {
         User user = userRepository.findByLoginId(loginId)
@@ -67,7 +69,7 @@ public class UserService {
     }
 
     @Transactional
-    public User updateMyProfile(Long userId, String displayName, String profileImageUrl) {
+    public User updateMyProfile(Long userId, String displayName, String profileImageUrl, Long profileImageId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
@@ -86,6 +88,10 @@ public class UserService {
 
         if (profileImageUrl != null) {
             user.updateProfileImage(profileImageUrl);
+        }
+
+        if (profileImageId != null) {
+            fileService.associateFileWithEntity(profileImageId, user.getUserId(), "USER_PROFILE");
         }
 
         return user;

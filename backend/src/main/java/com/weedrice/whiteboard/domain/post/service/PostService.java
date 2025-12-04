@@ -7,6 +7,7 @@ import com.weedrice.whiteboard.domain.board.repository.BoardCategoryRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
+import com.weedrice.whiteboard.domain.file.service.FileService; // Import FileService
 import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
 import com.weedrice.whiteboard.domain.post.dto.PostCreateRequest;
 import com.weedrice.whiteboard.domain.post.dto.PostDraftRequest;
@@ -51,6 +52,7 @@ public class PostService {
         private final AdminRepository adminRepository;
         private final com.weedrice.whiteboard.domain.point.service.PointService pointService;
         private final CommentRepository commentRepository;
+        private final FileService fileService; // Inject FileService
 
         // --- boardUrl 기반 public 메서드 (오버로드) ---
         public Page<Post> getPosts(String boardUrl, Long categoryId, Integer minLikes, Pageable pageable) {
@@ -215,6 +217,12 @@ public class PostService {
                 tagService.processTagsForPost(savedPost, request.getTags());
                 savePostVersion(savedPost, user, "CREATE", null, null);
                 
+                if (request.getFileIds() != null && !request.getFileIds().isEmpty()) {
+                    for (Long fileId : request.getFileIds()) {
+                        fileService.associateFileWithEntity(fileId, savedPost.getPostId(), "POST_CONTENT");
+                    }
+                }
+                
                 pointService.addPoint(userId, 50, "게시글 작성", savedPost.getPostId(), "POST");
                 return savedPost;
         }
@@ -240,6 +248,13 @@ public class PostService {
                 post.updatePost(category, request.getTitle(), request.getContents(), request.isNsfw(),
                                 request.isSpoiler());
                 tagService.processTagsForPost(post, request.getTags());
+                
+                if (request.getFileIds() != null && !request.getFileIds().isEmpty()) {
+                    for (Long fileId : request.getFileIds()) {
+                        fileService.associateFileWithEntity(fileId, post.getPostId(), "POST_CONTENT");
+                    }
+                }
+                
                 User modifier = userRepository.findById(userId)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
                 savePostVersion(post, modifier, "MODIFY", originalTitle, originalContents);

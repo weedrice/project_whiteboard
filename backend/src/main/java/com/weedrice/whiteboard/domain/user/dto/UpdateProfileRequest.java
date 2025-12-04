@@ -9,4 +9,6 @@ public class UpdateProfileRequest {
     private String displayName;
 
     private String profileImageUrl;
+    
+    private Long profileImageId;
 }

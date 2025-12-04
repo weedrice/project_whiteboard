@@ -65,7 +65,7 @@ public class UserController {
                         @Valid @RequestBody UpdateProfileRequest request,
                         @AuthenticationPrincipal CustomUserDetails userDetails) {
                 User user = userService.updateMyProfile(userDetails.getUserId(), request.getDisplayName(),
-                                request.getProfileImageUrl());
+                                request.getProfileImageUrl(), request.getProfileImageId());
                 UpdateProfileResponse response = new UpdateProfileResponse(user.getUserId(), user.getDisplayName(),
                                 user.getProfileImageUrl());
                 return ResponseEntity.ok(ApiResponse.success(response));
