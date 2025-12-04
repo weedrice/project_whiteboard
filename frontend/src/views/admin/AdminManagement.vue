@@ -6,14 +6,12 @@ import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
 
-const admins = ref([])
+const superAdmins = ref([])
+const boardAdmins = ref([])
 const isLoading = ref(false)
 const newSuperAdminLoginId = ref('')
 const newBoardAdminLoginId = ref('')
 const newBoardId = ref('')
-
-const superAdmins = computed(() => admins.value.filter(a => ['SUPER', 'SUPER_ADMIN'].includes(a.role)))
-const boardAdmins = computed(() => admins.value.filter(a => a.role === 'BOARD_ADMIN'))
 
 function formatDate(dateString) {
   if (!dateString) return '-'
@@ -25,13 +23,32 @@ function formatDate(dateString) {
   return `${date.getFullYear()}/${pad(date.getMonth() + 1)}/${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
 }
 
-async function fetchAdmins() {
+async function fetchSuperAdmins() {
+  isLoading.value = true
+  try {
+    const res = await adminApi.getSuperAdmin()
+    if (res.data.success) {
+      superAdmins.value = res.data.data.map(admin => ({
+          ...admin,
+          type: 'SUPER',
+          isActive: admin.isActive === true || admin.isActive === 'Y' || admin.active === true // Handle various active flags
+      }))
+    }
+  } catch (err) {
+    console.error('Failed to fetch super admins:', err)
+  } finally {
+    isLoading.value = false
+  }
+}
+
+async function fetchBoardAdmins() {
   isLoading.value = true
   try {
     const res = await adminApi.getAdmins()
     if (res.data.success) {
-      admins.value = res.data.data.map(admin => ({
+      boardAdmins.value = res.data.data.map(admin => ({
           ...admin,
+          type: 'BOARD',
           isActive: admin.isActive === true || admin.isActive === 'Y' || admin.active === true // Handle various active flags
       }))
     }
@@ -43,12 +60,15 @@ async function fetchAdmins() {
 }
 
 async function handleCreateSuperAdmin() {
-    if (!newSuperAdminLoginId.value) return
+    if (!newSuperAdminLoginId.value) {
+        alert(t('admin.admins.messages.inputLoginId'))
+        return
+    }
     try {
-        await adminApi.createAdmin({ loginId: newSuperAdminLoginId.value, role: 'SUPER' })
+        await adminApi.activeSuperAdmin({ loginId: newSuperAdminLoginId.value })
         alert(t('admin.admins.messages.added'))
         newSuperAdminLoginId.value = ''
-        fetchAdmins()
+        fetchSuperAdmins()
     } catch (err) {
         console.error(err)
         alert(t('admin.admins.messages.addFailed'))
@@ -56,13 +76,16 @@ async function handleCreateSuperAdmin() {
 }
 
 async function handleCreateBoardAdmin() {
-    if (!newBoardAdminLoginId.value || !newBoardId.value) return
+    if (!newBoardAdminLoginId.value || !newBoardId.value) {
+        alert(t('admin.admins.messages.inputLoginId'))
+        return
+    }
     try {
         await adminApi.createAdmin({ loginId: newBoardAdminLoginId.value, role: 'BOARD_ADMIN', boardId: newBoardId.value })
         alert(t('admin.admins.messages.added'))
         newBoardAdminLoginId.value = ''
         newBoardId.value = ''
-        fetchAdmins()
+        fetchBoardAdmins()
     } catch (err) {
         console.error(err)
         alert(t('admin.admins.messages.addFailed'))
@@ -71,12 +94,23 @@ async function handleCreateBoardAdmin() {
 
 async function toggleAdminStatus(admin) {
     try {
-        if (admin.isActive) {
-            await adminApi.deactivateAdmin(admin.adminId)
-            admin.isActive = false
+        if (admin.type === 'SUPER') {
+            const payload = { loginId: admin.loginId }
+            console.log(admin);
+            if (admin.superAdmin) {
+                await adminApi.deactiveSuperAdmin(payload)
+            } else {
+                await adminApi.activeSuperAdmin(payload)
+            }
+            fetchSuperAdmins()
         } else {
-            await adminApi.activateAdmin(admin.adminId)
-            admin.isActive = true
+            // Board Admin
+            if (admin.isActive) {
+                await adminApi.deactivateAdmin(admin.adminId)
+            } else {
+                await adminApi.activateAdmin(admin.adminId)
+            }
+            fetchBoardAdmins()
         }
     } catch (err) {
         console.error(err)
@@ -85,7 +119,8 @@ async function toggleAdminStatus(admin) {
 }
 
 onMounted(() => {
-  fetchAdmins()
+  fetchSuperAdmins()
+  fetchBoardAdmins()
 })
 </script>
 
@@ -186,13 +221,13 @@ onMounted(() => {
                 </thead>
                 <tbody class="divide-y divide-gray-200 bg-white">
                   <tr v-for="admin in superAdmins" :key="admin.adminId">
-                    <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">{{ admin.adminId }}</td>
-                    <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{{ admin.user?.loginId || '-' }}</td>
-                    <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{{ admin.user?.displayName || '-' }}</td>
+                    <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">{{ admin.userId }}</td>
+                    <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{{ admin.loginId || '-' }}</td>
+                    <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{{ admin.displayName || '-' }}</td>
                     <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                       <span class="inline-flex rounded-full px-2 text-xs font-semibold leading-5" 
-                          :class="admin.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'">
-                        {{ admin.isActive ? t('common.active') : t('common.inactive') }}
+                          :class="admin.superAdmin ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'">
+                        {{ admin.superAdmin ? t('common.active') : t('common.inactive') }}
                       </span>
                     </td>
                     <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{{ formatDate(admin.createdAt) }}</td>
@@ -201,7 +236,7 @@ onMounted(() => {
                           @click="toggleAdminStatus(admin)" 
                           class="text-indigo-600 hover:text-indigo-900"
                       >
-                          {{ admin.isActive ? t('admin.admins.actions.deactivate') : t('admin.admins.actions.activate') }}
+                          {{ admin.superAdmin ? t('admin.admins.actions.deactivate') : t('admin.admins.actions.activate') }}
                       </button>
                     </td>
                   </tr>

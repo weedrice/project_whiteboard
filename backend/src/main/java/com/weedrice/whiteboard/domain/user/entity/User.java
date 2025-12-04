@@ -41,8 +41,7 @@ public class User extends BaseTimeEntity {
     @Column(name = "is_email_verified", nullable = false, length = 1)
     private String isEmailVerified; // Y, N
 
-    @Column(name = "is_super_admin", nullable = false, length = 1, columnDefinition = "varchar(1) default 'N'") // columnDefinition
-                                                                                                                // 추가
+    @Column(name = "is_super_admin", nullable = false, length = 1, columnDefinition = "varchar(1) default 'N'")
     private String isSuperAdmin; // Y, N
 
     @Column(name = "last_login_at")
@@ -84,6 +83,10 @@ public class User extends BaseTimeEntity {
 
     public void updatePassword(String newPassword) {
         this.password = newPassword;
+    }
+
+    public void updateIsSuperAdmin(String isSuperAdmin) {
+        this.isSuperAdmin = isSuperAdmin;
     }
 
     public void delete() {

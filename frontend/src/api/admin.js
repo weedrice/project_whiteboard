@@ -14,6 +14,15 @@ export const adminApi = {
     activateAdmin(adminId) {
         return api.put(`/admin/admins/${adminId}/activate`)
     },
+    getSuperAdmin() {
+        return api.get('/admin/super')
+    },
+    activeSuperAdmin(data) {
+        return api.put('/admin/super/active', data)
+    },
+    deactiveSuperAdmin(data) {
+        return api.put('/admin/super/deactive', data)
+    },
 
     // IP 차단 관리
     getIpBlocks() {

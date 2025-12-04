@@ -45,6 +45,11 @@ export const messages = {
       messages: '쪽지함',
       myPage: '마이페이지',
       submit: '등록',
+      messages: {
+        save: '저장하시겠습니까?',
+        saveSuccess: '저장되었습니다.',
+        saveFailed: '저장에 실패했습니다.',
+      }
     },
     layout: {
       menu: {
@@ -396,6 +401,7 @@ export const messages = {
           added: '관리자가 추가되었습니다.',
           addFailed: '관리자 추가 실패',
           statusChangeFailed: '상태 변경 실패',
+          inputLoginId: '로그인 ID를 입력해주세요.',
         },
       },
       reports: {

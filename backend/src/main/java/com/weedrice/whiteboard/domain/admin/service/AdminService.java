@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.admin.service;
 
 import com.weedrice.whiteboard.domain.admin.dto.DashboardStatsDto;
+import com.weedrice.whiteboard.domain.admin.dto.SuperAdminResponse;
 import com.weedrice.whiteboard.domain.admin.entity.IpBlock;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.admin.repository.IpBlockRepository;
@@ -15,6 +16,7 @@ import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.common.util.SecurityUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,7 +27,6 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
 public class AdminService {
 
     private final AdminRepository adminRepository;
@@ -140,5 +141,37 @@ public class AdminService {
                 .pendingReports(pendingReports)
                 .activeUsers(activeUsers)
                 .build();
+    }
+
+    @Transactional
+    public User createSuperAdmin(@NotNull String loginId) {
+        User user = userRepository.findByLoginId(loginId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+        if ("Y".equals(user.getIsSuperAdmin())) {
+            throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE);
+        }
+
+        user.grantSuperAdminRole();
+        return userRepository.save(user);
+    }
+
+    @Transactional
+    public User deactiveSuperAdmin(@NotNull String loginId) {
+        User user = userRepository.findByLoginId(loginId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+        if("N".equals(user.getIsSuperAdmin())) {
+            throw new BusinessException(ErrorCode.INVALID_TARGET);
+        }
+
+        user.revokeSuperAdminRole();
+        return userRepository.save(user);
+    }
+
+    public List<SuperAdminResponse> getSuperAdmin() {
+        List<User> userList = userRepository.findByIsSuperAdmin("Y");
+
+        return userList.stream().map(SuperAdminResponse::from).toList();
     }
 }

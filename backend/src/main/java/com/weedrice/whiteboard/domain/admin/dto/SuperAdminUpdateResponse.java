@@ -6,12 +6,12 @@ import lombok.Getter;
 
 @Getter
 @Builder
-public class SuperAdminResponse {
+public class SuperAdminUpdateResponse {
     private String loginId;
     private boolean isSuperAdmin;
 
-    public static SuperAdminResponse from(User user) {
-        return SuperAdminResponse.builder()
+    public static SuperAdminUpdateResponse from(User user) {
+        return SuperAdminUpdateResponse.builder()
                 .loginId(user.getLoginId())
                 .isSuperAdmin("Y".equals(user.getIsSuperAdmin()))
                 .build();

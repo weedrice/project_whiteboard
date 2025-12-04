@@ -5,6 +5,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface UserRepository extends JpaRepository<User, Long>, UserRepositoryCustom {
@@ -14,4 +15,6 @@ public interface UserRepository extends JpaRepository<User, Long>, UserRepositor
     long countByLastLoginAtAfter(java.time.LocalDateTime lastLoginAt);
     Page<User> findByDisplayNameContainingIgnoreCaseAndStatus(String displayName, String status, Pageable pageable);
     Page<User> findByDisplayNameContainingIgnoreCase(String displayName, Pageable pageable); // Added for IntegratedSearch
+
+    List<User> findByIsSuperAdmin(String isSuperAdmin);
 }
