@@ -4,6 +4,7 @@ import { RouterView, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { userApi } from '@/api/user'
 import { useI18n } from 'vue-i18n'
+import ToastContainer from '@/components/common/ToastContainer.vue'
 
 // Import layouts
 import DefaultLayout from '@/components/layout/DefaultLayout.vue'
@@ -64,4 +65,5 @@ onMounted(() => {
   <component :is="layout">
     <RouterView />
   </component>
+  <ToastContainer />
 </template>

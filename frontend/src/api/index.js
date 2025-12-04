@@ -29,6 +29,9 @@ api.interceptors.response.use(
     },
     async (error) => {
         const originalRequest = error.config
+        // Import store dynamically to avoid circular dependency issues during initialization
+        const { useToastStore } = await import('@/stores/toast')
+        const toastStore = useToastStore()
 
         // If 401 and not already retrying
         if (error.response?.status === 401 && !originalRequest._retry) {
@@ -56,9 +59,43 @@ api.interceptors.response.use(
                 // Refresh failed - clear tokens and redirect to login
                 localStorage.removeItem('accessToken')
                 localStorage.removeItem('refreshToken')
+
+                toastStore.addToast('세션이 만료되었습니다. 다시 로그인해주세요.', 'warning')
+
                 window.location.href = '/login'
                 return Promise.reject(refreshError)
             }
+        }
+
+        // Handle other common errors
+        if (error.response) {
+            const status = error.response.status
+            const message = error.response.data?.message || error.message
+
+            switch (status) {
+                case 400:
+                    toastStore.addToast(message || '잘못된 요청입니다.', 'error')
+                    break
+                case 403:
+                    toastStore.addToast('권한이 없습니다.', 'error')
+                    break
+                case 404:
+                    toastStore.addToast('요청한 리소스를 찾을 수 없습니다.', 'error')
+                    break
+                case 500:
+                    toastStore.addToast('서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.', 'error')
+                    break
+                default:
+                    // Don't show toast for 401 as it's handled above (unless it wasn't a retry)
+                    if (status !== 401) {
+                        toastStore.addToast(message || '알 수 없는 오류가 발생했습니다.', 'error')
+                    }
+            }
+        } else if (error.request) {
+            // Network error
+            toastStore.addToast('서버와 통신할 수 없습니다. 인터넷 연결을 확인해주세요.', 'error')
+        } else {
+            toastStore.addToast('요청 설정 중 오류가 발생했습니다.', 'error')
         }
 
         return Promise.reject(error)
