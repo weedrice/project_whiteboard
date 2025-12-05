@@ -16,5 +16,5 @@ public interface UserRepository extends JpaRepository<User, Long>, UserRepositor
     Page<User> findByDisplayNameContainingIgnoreCaseAndStatus(String displayName, String status, Pageable pageable);
     Page<User> findByDisplayNameContainingIgnoreCase(String displayName, Pageable pageable); // Added for IntegratedSearch
 
-    List<User> findByIsSuperAdmin(String isSuperAdmin);
+    List<User> findByIsSuperAdminTrue();
 }

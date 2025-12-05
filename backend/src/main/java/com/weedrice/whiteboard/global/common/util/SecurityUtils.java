@@ -61,8 +61,8 @@ public class SecurityUtils {
         User currentUser = staticUserRepository.findById(currentUserId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
-        boolean isSuperAdmin = "Y".equals(currentUser.getIsSuperAdmin());
-        boolean isBoardAdmin = staticAdminRepository.findByUserAndBoardAndIsActive(currentUser, board, "Y").isPresent();
+        boolean isSuperAdmin = currentUser.getIsSuperAdmin();
+        boolean isBoardAdmin = staticAdminRepository.findByUserAndBoardAndIsActive(currentUser, board, true).isPresent();
         boolean isCreator = board.getCreator().getUserId().equals(currentUser.getUserId());
 
         if (!isSuperAdmin && !isBoardAdmin && !isCreator) {
@@ -75,7 +75,7 @@ public class SecurityUtils {
         User currentUser = staticUserRepository.findById(currentUserId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
-        if (!"Y".equals(currentUser.getIsSuperAdmin())) {
+        if (!currentUser.getIsSuperAdmin()) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
     }

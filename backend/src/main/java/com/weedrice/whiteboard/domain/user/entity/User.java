@@ -38,11 +38,13 @@ public class User extends BaseTimeEntity {
     @Column(name = "status", nullable = false, length = 20)
     private String status; // ACTIVE, SUSPENDED, DELETED
 
+    @Convert(converter = BooleanToYNConverter.class)
     @Column(name = "is_email_verified", nullable = false, length = 1)
-    private String isEmailVerified; // Y, N
+    private Boolean isEmailVerified; // Y, N
 
+    @Convert(converter = BooleanToYNConverter.class)
     @Column(name = "is_super_admin", nullable = false, length = 1, columnDefinition = "varchar(1) default 'N'")
-    private String isSuperAdmin; // Y, N
+    private Boolean isSuperAdmin; // Y, N
 
     @Column(name = "last_login_at")
     private LocalDateTime lastLoginAt;
@@ -57,8 +59,8 @@ public class User extends BaseTimeEntity {
         this.email = email;
         this.displayName = displayName;
         this.status = "ACTIVE";
-        this.isEmailVerified = "N";
-        this.isSuperAdmin = "N"; // 기본값은 일반 사용자
+        this.isEmailVerified = false; // 기본값은 false
+        this.isSuperAdmin = false;   // 기본값은 일반 사용자
     }
 
     public void updateLastLogin() {
@@ -66,7 +68,7 @@ public class User extends BaseTimeEntity {
     }
 
     public void verifyEmail() {
-        this.isEmailVerified = "Y";
+        this.isEmailVerified = true;
     }
 
     public void updateDisplayName(String displayName) {
@@ -79,10 +81,6 @@ public class User extends BaseTimeEntity {
 
     public void updatePassword(String newPassword) {
         this.password = newPassword;
-    }
-
-    public void updateIsSuperAdmin(String isSuperAdmin) {
-        this.isSuperAdmin = isSuperAdmin;
     }
 
     public void delete() {
@@ -99,10 +97,10 @@ public class User extends BaseTimeEntity {
     }
 
     public void grantSuperAdminRole() {
-        this.isSuperAdmin = "Y";
+        this.isSuperAdmin = true;
     }
 
     public void revokeSuperAdminRole() {
-        this.isSuperAdmin = "N";
+        this.isSuperAdmin = false;
     }
 }

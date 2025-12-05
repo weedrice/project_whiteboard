@@ -48,7 +48,7 @@ public class AdminService {
                     .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
         }
 
-        if (adminRepository.existsByUserAndBoardAndIsActive(user, board, "Y")) {
+        if (adminRepository.existsByUserAndBoardAndIsActive(user, board, true)) {
             throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE);
         }
 
@@ -151,7 +151,7 @@ public class AdminService {
         User user = userRepository.findByLoginId(loginId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
-        if ("Y".equals(user.getIsSuperAdmin())) {
+        if (user.getIsSuperAdmin()) {
             throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE);
         }
 
@@ -165,7 +165,7 @@ public class AdminService {
         User user = userRepository.findByLoginId(loginId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
-        if("N".equals(user.getIsSuperAdmin())) {
+        if(!user.getIsSuperAdmin()) {
             throw new BusinessException(ErrorCode.INVALID_TARGET);
         }
 
@@ -175,7 +175,7 @@ public class AdminService {
 
     @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
     public List<SuperAdminResponse> getSuperAdmin() {
-        List<User> userList = userRepository.findByIsSuperAdmin("Y");
+        List<User> userList = userRepository.findByIsSuperAdminTrue();
 
         return userList.stream().map(SuperAdminResponse::from).toList();
     }

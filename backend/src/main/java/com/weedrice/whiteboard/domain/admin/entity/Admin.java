@@ -34,22 +34,23 @@ public class Admin extends BaseTimeEntity {
     @Column(name = "role", length = 50, nullable = false)
     private String role; // BOARD_ADMIN, MODERATOR
 
+    @Convert(converter = BooleanToYNConverter.class)
     @Column(name = "is_active", length = 1, nullable = false)
-    private String isActive;
+    private Boolean isActive;
 
     @Builder
     public Admin(User user, Board board, String role) {
         this.user = user;
         this.board = board;
         this.role = role;
-        this.isActive = "Y";
+        this.isActive = true; // Set to true by default
     }
 
     public void deactivate() {
-        this.isActive = "N";
+        this.isActive = false;
     }
 
     public void activate() {
-        this.isActive = "Y";
+        this.isActive = true;
     }
 }
