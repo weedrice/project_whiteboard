@@ -140,7 +140,13 @@ function handleSort(field) {
                 v-if="boardUrl || post.boardUrl"
               >
                 <span 
-                  v-if="post.category && post.category.name !== '일반'" 
+                  v-if="showBoardName && post.boardName" 
+                  class="badge badge-indigo mr-1"
+                >
+                  {{ post.boardName }}
+                </span>
+                <span 
+                  v-else-if="post.category && post.category.name !== '일반'" 
                   class="badge badge-gray"
                 >
                   {{ post.category.name }}

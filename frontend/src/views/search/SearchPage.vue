@@ -4,18 +4,10 @@
       <!-- Main Content -->
       <div class="flex-1">
         <div class="mb-6">
-          <h2 class="text-2xl font-bold text-gray-900">Search Results</h2>
-          <p v-if="searchTag" class="mt-2 text-gray-600">
-            Showing results for tag: <span class="font-semibold text-indigo-600">#{{ searchTag }}</span>
+          <h2 class="text-2xl font-bold text-gray-900">검색 결과</h2>
+          <p v-if="searchQuery" class="mt-2 text-gray-600">
+            검색어: <span class="font-semibold text-indigo-600">"{{ searchQuery }}"</span>
           </p>
-          <p v-if="searchKeyword" class="mt-2 text-gray-600">
-            Showing results for keyword: <span class="font-semibold text-indigo-600">"{{ searchKeyword }}"</span>
-          </p>
-        </div>
-
-        <!-- Search Input (Mobile/Tablet) -->
-        <div class="md:hidden mb-6">
-          <GlobalSearchInput />
         </div>
 
         <div v-if="loading" class="text-center py-10">
@@ -23,20 +15,12 @@
         </div>
 
         <div v-else-if="posts.length === 0" class="text-center py-10 bg-white shadow rounded-lg">
-          <p class="text-gray-500">No posts found.</p>
+          <p class="text-gray-500">검색 결과가 없습니다.</p>
         </div>
 
         <div v-else class="space-y-4">
-          <PostList :posts="posts" />
+          <PostList :posts="posts" :showBoardName="true" :hideNoColumn="true" />
         </div>
-      </div>
-
-      <!-- Sidebar -->
-      <div class="w-full md:w-80 space-y-6">
-        <GlobalSearchInput class="hidden md:block" />
-        <PopularKeywordList />
-        <PopularPosts />
-        <TagCloud />
       </div>
     </div>
   </div>
@@ -47,36 +31,28 @@ import { ref, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { searchApi } from '@/api/search'
 import PostList from '@/components/board/PostList.vue'
-import GlobalSearchInput from '@/components/search/GlobalSearchInput.vue'
-import PopularKeywordList from '@/components/search/PopularKeywordList.vue'
-import PopularPosts from '@/components/board/PopularPosts.vue'
-import TagCloud from '@/components/tag/TagCloud.vue'
 
 const route = useRoute()
 const posts = ref([])
 const loading = ref(false)
-const searchTag = ref('')
-const searchKeyword = ref('')
+const searchQuery = ref('')
 
 const fetchPosts = async () => {
-  const tag = route.query.tag
-  const keyword = route.query.keyword
+  const query = route.query.q
   
-  if (!tag && !keyword) return
+  if (!query) return
 
-  searchTag.value = tag || ''
-  searchKeyword.value = keyword || ''
+  searchQuery.value = query
   
   loading.value = true
   try {
     const params = {
-      q: keyword || tag || '', // 'q' is required by backend
-      type: tag ? 'TAG' : 'ALL', // Example mapping, backend expects 'type'
+      q: query,
       page: 0,
       size: 20
     }
     
-    const { data } = await searchApi.search({ params })
+    const { data } = await searchApi.searchPosts(params)
     if (data.success) {
       posts.value = data.data.content
     } else {
@@ -90,7 +66,7 @@ const fetchPosts = async () => {
   }
 }
 
-watch(() => route.query, () => {
+watch(() => route.query.q, () => {
   fetchPosts()
 })
 

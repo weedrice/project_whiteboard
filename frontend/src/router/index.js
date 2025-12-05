@@ -173,6 +173,11 @@ const router = createRouter({
             props: route => ({ title: route.query.title, message: route.query.message })
         },
         {
+            path: '/search',
+            name: 'search',
+            component: () => import('@/views/search/SearchPage.vue')
+        },
+        {
             path: '/:pathMatch(.*)*',
             redirect: '/'
         }
