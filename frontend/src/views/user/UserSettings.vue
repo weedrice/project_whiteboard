@@ -97,16 +97,16 @@ onMounted(() => {
             
             <!-- Theme -->
             <div>
-                <label class="block text-sm font-medium text-gray-700">Theme</label>
+                <label class="block text-sm font-medium text-gray-700">{{ $t('user.settings.theme') }}</label>
                 <select v-model="settings.theme" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
-                    <option value="LIGHT">Light</option>
-                    <option value="DARK">Dark</option>
+                    <option value="LIGHT">{{ $t('user.settings.light') }}</option>
+                    <option value="DARK">{{ $t('user.settings.dark') }}</option>
                 </select>
             </div>
 
             <!-- Language -->
              <div>
-                <label class="block text-sm font-medium text-gray-700">Language</label>
+                <label class="block text-sm font-medium text-gray-700">{{ $t('user.settings.language') }}</label>
                 <select v-model="settings.language" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
                     <option value="ko">한국어</option>
                     <option value="en">English</option>

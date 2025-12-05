@@ -138,7 +138,7 @@ onMounted(() => {
           @click="emit('toggle')"
         >
           <Mail class="mr-3 h-4 w-4 text-gray-400 group-hover:text-gray-500" />
-          {{ $t('common.message') }}
+          {{ $t('common.messages.mailbox') }}
         </router-link>
         <router-link
           to="/mypage/notifications"

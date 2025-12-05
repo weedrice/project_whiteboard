@@ -1,17 +1,20 @@
 <script setup>
 import { useRouter } from 'vue-router'
 import { AlertTriangle } from 'lucide-vue-next'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const router = useRouter()
 
 const props = defineProps({
   title: {
     type: String,
-    default: '오류가 발생했습니다'
+    default: () => t('common.messages.defaultTitle')
   },
   message: {
     type: String,
-    default: '요청하신 작업을 처리하는 중 문제가 발생했습니다.'
+    default: () => t('common.messages.defaultMessage')
   }
 })
 </script>
@@ -36,7 +39,7 @@ const props = defineProps({
             @click="router.push('/')"
             class="w-full flex items-center justify-center px-8 py-3 border border-transparent text-base font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 md:py-4 md:text-lg md:px-10"
           >
-            홈으로 돌아가기
+            {{ $t('common.home') }}
           </button>
         </div>
         <div class="mt-3 sm:mt-0 sm:ml-3">
@@ -44,7 +47,7 @@ const props = defineProps({
             @click="router.back()"
             class="w-full flex items-center justify-center px-8 py-3 border border-transparent text-base font-medium rounded-md text-indigo-700 bg-indigo-100 hover:bg-indigo-200 md:py-4 md:text-lg md:px-10"
           >
-            이전 페이지
+            {{ $t('common.prevPage') }}
           </button>
         </div>
       </div>

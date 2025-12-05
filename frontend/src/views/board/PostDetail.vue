@@ -77,7 +77,7 @@ async function fetchPost() {
 
 
 async function handleDelete() {
-  if (!confirm(t('common.confirmDelete'))) return
+  if (!confirm(t('common.messages.confirmDelete'))) return
 
   try {
     const { data } = await postApi.deletePost(route.params.postId)

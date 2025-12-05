@@ -82,7 +82,7 @@ onUnmounted(() => {
         v-model="searchQuery"
         @keyup.enter="handleSearch"
         @focus="showDropdown = !!searchQuery.trim()"
-        placeholder="검색..." 
+        :placeholder="$t('search.placeholder')" 
         class="w-64 pl-10 pr-4 py-2 rounded-full border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
       >
       <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -95,7 +95,7 @@ onUnmounted(() => {
       <!-- Board Results -->
       <div v-if="filteredBoards.length > 0">
         <div class="px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700">
-          게시판
+          {{ $t('search.boards') }}
         </div>
         <ul>
           <li 
@@ -120,7 +120,7 @@ onUnmounted(() => {
         class="border-t border-gray-200 dark:border-gray-700 px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer flex items-center text-indigo-600 dark:text-indigo-400"
       >
         <Search class="h-4 w-4 mr-2" />
-        <span class="text-sm font-medium">"{{ searchQuery }}" 검색하기</span>
+        <span class="text-sm font-medium">{{ $t('search.doSearch', { query: searchQuery }) }}</span>
       </div>
     </div>
   </div>

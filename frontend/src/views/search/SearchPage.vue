@@ -4,9 +4,9 @@
       <!-- Main Content -->
       <div class="flex-1">
         <div class="mb-6">
-          <h2 class="text-2xl font-bold text-gray-900">검색 결과</h2>
+          <h2 class="text-2xl font-bold text-gray-900">{{ $t('search.results') }}</h2>
           <p v-if="searchQuery" class="mt-2 text-gray-600">
-            검색어: <span class="font-semibold text-indigo-600">"{{ searchQuery }}"</span>
+            {{ $t('search.query') }}: <span class="font-semibold text-indigo-600">"{{ searchQuery }}"</span>
           </p>
         </div>
 
@@ -15,7 +15,7 @@
         </div>
 
         <div v-else-if="posts.length === 0" class="text-center py-10 bg-white shadow rounded-lg">
-          <p class="text-gray-500">검색 결과가 없습니다.</p>
+          <p class="text-gray-500">{{ $t('search.noResults') }}</p>
         </div>
 
         <div v-else class="space-y-4">

@@ -1,4 +1,7 @@
 import axios from 'axios'
+import i18n from '@/i18n'
+
+const { t } = i18n.global
 
 const api = axios.create({
     baseURL: import.meta.env.VITE_API_URL || '/api/v1',
@@ -60,7 +63,7 @@ api.interceptors.response.use(
                 localStorage.removeItem('accessToken')
                 localStorage.removeItem('refreshToken')
 
-                toastStore.addToast('세션이 만료되었습니다. 다시 로그인해주세요.', 'warning')
+                toastStore.addToast(t('common.messages.sessionExpired'), 'warning')
 
                 window.location.href = '/login'
                 return Promise.reject(refreshError)
@@ -74,27 +77,27 @@ api.interceptors.response.use(
 
             switch (status) {
                 case 400:
-                    toastStore.addToast(message || '잘못된 요청입니다.', 'error')
+                    toastStore.addToast(message || t('common.messages.badRequest'), 'error')
                     break
                 case 403:
-                    toastStore.addToast(message || '권한이 없습니다.', 'error')
+                    toastStore.addToast(message || t('common.messages.forbidden'), 'error')
                     break
                 case 404:
-                    toastStore.addToast(message || '요청한 리소스를 찾을 수 없습니다.', 'error')
+                    toastStore.addToast(message || t('common.messages.notFound'), 'error')
                     break
                 case 500:
-                    toastStore.addToast(message || '서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.', 'error')
+                    toastStore.addToast(message || t('common.messages.serverError'), 'error')
                     break
                 default:
                     if (status !== 401) {
-                        toastStore.addToast(message || '알 수 없는 오류가 발생했습니다.', 'error')
+                        toastStore.addToast(message || t('common.messages.unknown'), 'error')
                     }
             }
         } else if (error.request) {
             // Network error
-            toastStore.addToast(message || '서버와 통신할 수 없습니다. 인터넷 연결을 확인해주세요.', 'error')
+            toastStore.addToast(message || t('common.messages.network'), 'error')
         } else {
-            toastStore.addToast(message || '요청 설정 중 오류가 발생했습니다.', 'error')
+            toastStore.addToast(message || t('common.messages.requestSetup'), 'error')
         }
 
         return Promise.reject(error)

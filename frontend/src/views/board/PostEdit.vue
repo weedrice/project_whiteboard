@@ -95,7 +95,7 @@ const imageHandler = () => {
       }
     } catch (err) {
       console.error('Image upload failed:', err)
-      alert('Failed to upload image')
+      alert(t('common.messages.uploadFailed'))
     }
   }
 }

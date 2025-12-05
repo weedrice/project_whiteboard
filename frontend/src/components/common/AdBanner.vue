@@ -1,6 +1,9 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import axios from '@/api'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps({
   placement: {
@@ -23,23 +26,23 @@ const fetchAd = async () => {
   } catch (error) {
     // console.error('Failed to load ad:', error)
     // 광고 로드 실패 시 기본값 설정
-    ad.value = {
-        adId: null,
-        title: 'Advertisement',
-        imageUrl: null,
-        targetUrl: null
-    }
-  } finally {
-    loading.value = false
-    // 데이터가 없어도 기본값 설정 (API 성공했으나 데이터가 없는 경우)
-    if (!ad.value) {
         ad.value = {
             adId: null,
-            title: 'Advertisement',
+            title: t('common.advertisement'),
             imageUrl: null,
             targetUrl: null
         }
-    }
+    } finally {
+        loading.value = false
+        // 데이터가 없어도 기본값 설정 (API 성공했으나 데이터가 없는 경우)
+        if (!ad.value) {
+            ad.value = {
+                adId: null,
+                title: t('common.advertisement'),
+                imageUrl: null,
+                targetUrl: null
+            }
+        }
   }
 }
 
@@ -84,7 +87,7 @@ onMounted(() => {
       />
       <div v-else class="bg-gray-100 p-4 flex items-center justify-center text-gray-400 text-sm"
         :class="placement === 'SIDEBAR' ? 'w-40 h-[600px]' : 'w-full h-[120px]'">
-        <span>{{ ad.title || 'Advertisement' }}</span>
+        <span>{{ ad.title || $t('common.advertisement') }}</span>
       </div>
     </div>
   </div>

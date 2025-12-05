@@ -70,7 +70,7 @@
         <div class="mt-4 flex justify-end">
           <BaseButton @click="closeMessageModal" variant="secondary" class="mr-2">{{ $t('common.cancel') }}</BaseButton>
           <BaseButton @click="handleSendMessage" :disabled="isSendingMessage">
-            {{ isSendingMessage ? $t('common.sending') : $t('common.send') }}
+            {{ isSendingMessage ? $t('common.messages.sending') : $t('common.send') }}
           </BaseButton>
         </div>
       </div>
@@ -95,7 +95,7 @@
         <div class="mt-4 flex justify-end">
           <BaseButton @click="closeReportModal" variant="secondary" class="mr-2">{{ $t('common.cancel') }}</BaseButton>
           <BaseButton @click="handleReportUser" :disabled="isReporting">
-            {{ isReporting ? $t('common.reporting') : $t('common.report') }}
+            {{ isReporting ? $t('common.messages.reporting') : $t('common.report') }}
           </BaseButton>
         </div>
       </div>

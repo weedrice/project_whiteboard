@@ -78,7 +78,7 @@ async function fetchBoardData() {
           }
         } catch (err) {
           console.error('Failed to load board data:', err)
-          error.value = 'Failed to load board information.'
+          error.value = t('board.loadFailed')
         } finally {
           isLoading.value = false
         }

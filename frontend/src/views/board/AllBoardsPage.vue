@@ -27,7 +27,7 @@ onMounted(() => {
 
 <template>
   <div class="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-    <h1 class="text-3xl font-bold text-gray-900 mb-8">전체 게시판</h1>
+    <h1 class="text-3xl font-bold text-gray-900 mb-8">{{ $t('board.list.title') }}</h1>
 
     <div v-if="loading" class="text-center py-20">
       <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
@@ -50,19 +50,19 @@ onMounted(() => {
               <h3 class="text-lg font-medium text-gray-900">{{ board.boardName }}</h3>
               <div class="flex items-center mt-1 text-sm text-gray-500">
                 <User class="flex-shrink-0 mr-1.5 h-4 w-4 text-gray-400" />
-                <span>{{ board.adminDisplayName || '관리자' }}</span>
+                <span>{{ board.adminDisplayName || $t('common.admin') }}</span>
               </div>
             </div>
           </div>
           <div class="mt-4">
             <p class="text-sm text-gray-500 line-clamp-2 h-10">
-              {{ board.description || '설명이 없습니다.' }}
+              {{ board.description || $t('board.list.noDesc') }}
             </p>
           </div>
           <div class="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between">
              <div class="flex items-center text-sm text-gray-500">
                 <Users class="flex-shrink-0 mr-1.5 h-4 w-4 text-gray-400" />
-                <span>구독자 {{ board.subscriberCount || 0 }}명</span>
+                <span>{{ $t('board.list.subscribers', { count: board.subscriberCount || 0 }) }}</span>
              </div>
           </div>
         </div>
@@ -70,7 +70,7 @@ onMounted(() => {
     </div>
     
     <div v-if="!loading && boards.length === 0" class="text-center py-20 text-gray-500">
-      등록된 게시판이 없습니다.
+      {{ $t('board.list.empty') }}
     </div>
   </div>
 </template>

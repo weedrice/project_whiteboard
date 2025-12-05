@@ -82,7 +82,7 @@ onUnmounted(() => {
         <div class="flex justify-between h-16">
           <div class="flex">
             <div class="flex-shrink-0 flex items-center">
-              <router-link to="/" class="text-xl font-bold text-indigo-600 dark:text-indigo-400">Whiteboard</router-link>
+              <router-link to="/" class="text-xl font-bold text-indigo-600 dark:text-indigo-400">{{ $t('common.appName') }}</router-link>
             </div>
             <div class="hidden sm:ml-6 sm:flex sm:space-x-4 items-center">
               <!-- Navigation Dropdowns -->
@@ -132,8 +132,8 @@ onUnmounted(() => {
               />
             </div>
             <div v-else class="flex items-center space-x-4">
-              <router-link to="/login" class="text-gray-500 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white px-3 py-2 rounded-md text-sm font-medium">로그인</router-link>
-              <router-link to="/signup" class="bg-indigo-600 text-white hover:bg-indigo-700 px-4 py-2 rounded-md text-sm font-medium">회원가입</router-link>
+              <router-link to="/login" class="text-gray-500 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white px-3 py-2 rounded-md text-sm font-medium">{{ $t('auth.login') }}</router-link>
+              <router-link to="/signup" class="bg-indigo-600 text-white hover:bg-indigo-700 px-4 py-2 rounded-md text-sm font-medium">{{ $t('auth.signup') }}</router-link>
             </div>
           </div>
         </div>

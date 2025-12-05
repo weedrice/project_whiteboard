@@ -3,11 +3,12 @@ import { ref, onMounted } from 'vue'
 import { userApi } from '@/api/user'
 import PostList from '@/components/board/PostList.vue'
 import Pagination from '@/components/common/Pagination.vue'
+import PageSizeSelector from '@/components/common/PageSizeSelector.vue'
 
 const posts = ref([])
 const loading = ref(false)
 const page = ref(0)
-const size = ref(20)
+const size = ref(15)
 const totalPages = ref(0)
 const totalElements = ref(0)
 
@@ -36,6 +37,11 @@ const handlePageChange = (newPage) => {
   fetchRecentViewed()
 }
 
+const handleSizeChange = () => {
+  page.value = 0
+  fetchRecentViewed()
+}
+
 onMounted(() => {
   fetchRecentViewed()
 })
@@ -44,6 +50,10 @@ onMounted(() => {
 <template>
   <div class="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
     <div class="bg-white shadow overflow-hidden sm:rounded-lg mb-6">
+      <div class="px-4 py-5 sm:px-6 flex justify-between items-center border-b border-gray-200">
+          <h3 class="text-lg font-medium leading-6 text-gray-900">{{ $t('user.tabs.recent') }}</h3>
+          <PageSizeSelector v-model="size" @change="handleSizeChange" />
+      </div>
       <div v-if="posts.length > 0">
         <PostList 
           :posts="posts" 
