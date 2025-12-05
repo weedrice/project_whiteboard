@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.auth.dto;
 
+import com.weedrice.whiteboard.domain.user.entity.Role;
 import lombok.Builder;
 import lombok.Getter;
 

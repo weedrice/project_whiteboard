@@ -12,5 +12,5 @@ public class AdminCreateRequest {
     private String loginId;
     private Long boardId; // 전체 관리자일 경우 null
     @NotBlank
-    private String role; // SUPER, BOARD_ADMIN, MODERATOR
+    private String role; // BOARD_ADMIN, MODERATOR
 }

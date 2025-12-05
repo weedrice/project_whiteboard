@@ -32,7 +32,7 @@ public class Admin extends BaseTimeEntity {
     private Board board; // 이제 NULL일 수 없음
 
     @Column(name = "role", length = 50, nullable = false)
-    private String role; // BOARD_ADMIN, MODERATOR (SUPER 역할은 User 엔티티로 이동)
+    private String role; // BOARD_ADMIN, MODERATOR
 
     @Column(name = "is_active", length = 1, nullable = false)
     private String isActive;

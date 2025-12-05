@@ -12,6 +12,7 @@ import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository;
 import com.weedrice.whiteboard.domain.post.repository.DraftPostRepository;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
+import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.common.util.SecurityUtils;
@@ -95,7 +96,7 @@ public class BoardService {
 
         private BoardResponse createBoardResponse(Board board, UserDetails userDetails) {
                 long subscriberCount = boardSubscriptionRepository.countByBoard(board);
-                User adminUser = adminRepository.findByBoardAndRole(board, "BOARD_ADMIN")
+                User adminUser = adminRepository.findByBoardAndRole(board, Role.BOARD_ADMIN)
                                 .map(Admin::getUser)
                                 .orElse(board.getCreator());
 
@@ -124,9 +125,7 @@ public class BoardService {
                                 .collect(Collectors.toList());
 
                 // 최신 게시글 목록 가져오기
-                List<PostSummary> latestPosts = postService.getLatestPostsByBoard(board.getBoardId(), 15); // PostService는
-                                                                                                           // 여전히
-                                                                                                           // boardId 사용
+                List<PostSummary> latestPosts = postService.getLatestPostsByBoard(board.getBoardId(), 15);
 
                 return new BoardResponse(board, subscriberCount, adminDisplayName, adminUserId, isAdmin, isSubscribed,
                                 categories,
@@ -227,7 +226,7 @@ public class BoardService {
                 Admin boardAdmin = Admin.builder()
                                 .user(creator)
                                 .board(savedBoard)
-                                .role("BOARD_ADMIN")
+                                .role(Role.BOARD_ADMIN)
                                 .build();
                 adminRepository.save(boardAdmin);
 

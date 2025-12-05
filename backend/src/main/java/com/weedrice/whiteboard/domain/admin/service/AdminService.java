@@ -6,22 +6,21 @@ import com.weedrice.whiteboard.domain.admin.entity.IpBlock;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.admin.repository.IpBlockRepository;
 import com.weedrice.whiteboard.domain.admin.entity.Admin;
-import com.weedrice.whiteboard.domain.admin.dto.AdminCreateRequest;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.report.repository.ReportRepository;
+import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
-import com.weedrice.whiteboard.global.common.util.SecurityUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -36,21 +35,21 @@ public class AdminService {
     private final PostRepository postRepository;
     private final ReportRepository reportRepository;
 
+    @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
     @Transactional
     public Admin createAdmin(String loginId, Long boardId, String role) {
-        SecurityUtils.validateSuperAdminPermission();
 
         User user = userRepository.findByLoginId(loginId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-
-        if (adminRepository.existsByUser(user)) {
-            throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE);
-        }
 
         Board board = null;
         if (boardId != null) {
             board = boardRepository.findById(boardId)
                     .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
+        }
+
+        if (adminRepository.existsByUserAndBoardAndIsActive(user, board, "Y")) {
+            throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE);
         }
 
         Admin admin = Admin.builder()
@@ -62,35 +61,38 @@ public class AdminService {
         if (admin == null) {
             throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
         }
+
         return adminRepository.save(admin);
     }
 
+    @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
     public List<Admin> getAllAdmins() {
-        SecurityUtils.validateSuperAdminPermission();
         return adminRepository.findAll();
     }
 
+    @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
     @Transactional
     public void deactivateAdmin(Long adminId) {
-        SecurityUtils.validateSuperAdminPermission();
         Admin admin = adminRepository.findById(adminId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
         admin.deactivate();
     }
 
+    @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
     @Transactional
     public void activateAdmin(Long adminId) {
-        SecurityUtils.validateSuperAdminPermission();
         Admin admin = adminRepository.findById(adminId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
         admin.activate();
     }
 
+    @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
     @Transactional
     public IpBlock blockIp(Long adminUserId, String ipAddress, String reason, LocalDateTime endDate) {
-        SecurityUtils.validateSuperAdminPermission();
 
-        // TODO: 이미 차단된 IP인지 확인 필요
+        if(ipBlockRepository.findByIpAddress(ipAddress).isPresent()) {
+            throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE);
+        }
 
         User adminUser = userRepository.findById(adminUserId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
@@ -108,16 +110,16 @@ public class AdminService {
         return ipBlockRepository.save(ipBlock);
     }
 
+    @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
     @Transactional
     public void unblockIp(String ipAddress) {
-        SecurityUtils.validateSuperAdminPermission();
         IpBlock ipBlock = ipBlockRepository.findByIpAddress(ipAddress)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
         ipBlockRepository.delete(ipBlock);
     }
 
+    @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
     public List<IpBlock> getBlockedIps() {
-        SecurityUtils.validateSuperAdminPermission();
         return ipBlockRepository.findAll();
     }
 
@@ -126,8 +128,8 @@ public class AdminService {
                 .isPresent();
     }
 
+    @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
     public DashboardStatsDto getDashboardStats() {
-        SecurityUtils.validateSuperAdminPermission();
 
         long totalUsers = userRepository.count();
         long totalPosts = postRepository.count();
@@ -143,6 +145,7 @@ public class AdminService {
                 .build();
     }
 
+    @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
     @Transactional
     public User createSuperAdmin(@NotNull String loginId) {
         User user = userRepository.findByLoginId(loginId)
@@ -156,6 +159,7 @@ public class AdminService {
         return userRepository.save(user);
     }
 
+    @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
     @Transactional
     public User deactiveSuperAdmin(@NotNull String loginId) {
         User user = userRepository.findByLoginId(loginId)
@@ -169,6 +173,7 @@ public class AdminService {
         return userRepository.save(user);
     }
 
+    @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
     public List<SuperAdminResponse> getSuperAdmin() {
         List<User> userList = userRepository.findByIsSuperAdmin("Y");
 

@@ -4,6 +4,7 @@ import com.weedrice.whiteboard.domain.admin.dto.*;
 import com.weedrice.whiteboard.domain.admin.entity.Admin;
 import com.weedrice.whiteboard.domain.admin.entity.IpBlock;
 import com.weedrice.whiteboard.domain.admin.service.AdminService;
+import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.common.ApiResponse;
@@ -17,10 +18,13 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+/**
+ * 관리자 기능을 처리하는 컨트롤러
+ */
 @RestController
 @RequestMapping("/api/v1/admin")
 @RequiredArgsConstructor
-@PreAuthorize("hasRole('SUPER_ADMIN')")
+@PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
 public class AdminController {
 
     private final AdminService adminService;
@@ -60,6 +64,11 @@ public class AdminController {
         return ApiResponse.success(SuperAdminUpdateResponse.from(user));
     }
 
+    /**
+     * Admin 등록
+     * @param request {@link AdminCreateRequest} 등록할 Admin 정보 (loginId, boardId, role)
+     * @return {@link AdminResponse} 등록된 Admin 정보
+     */
     @PostMapping("/admins")
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<AdminResponse> createAdmin(@Valid @RequestBody AdminCreateRequest request) {
@@ -67,24 +76,44 @@ public class AdminController {
         return ApiResponse.success(AdminResponse.from(admin));
     }
 
+    /**
+     * 모든 Admin 조회
+     * @return {@link AdminResponse} 모든 Admin 목록
+     */
     @GetMapping("/admins")
     public ApiResponse<List<AdminResponse>> getAllAdmins() {
         List<Admin> admins = adminService.getAllAdmins();
         return ApiResponse.success(AdminResponse.from(admins));
     }
 
+    /**
+     * Admin 비활성화
+     * @param adminId 비활성화할 Admin ID
+     * @return 성공 응답
+     */
     @PutMapping("/admins/{adminId}/deactivate")
     public ApiResponse<Void> deactivateAdmin(@PathVariable Long adminId) {
         adminService.deactivateAdmin(adminId);
         return ApiResponse.success(null);
     }
 
+    /**
+     * Admin 활성화
+     * @param adminId 활성화할 Admin ID
+     * @return 성공 응답
+     */
     @PutMapping("/admins/{adminId}/activate")
     public ApiResponse<Void> activateAdmin(@PathVariable Long adminId) {
         adminService.activateAdmin(adminId);
         return ApiResponse.success(null);
     }
 
+    /**
+     * IP 차단
+     * @param request {@link IpBlockRequest} 차단할 IP 정보 (ipAddress, reason, endDate)
+     * @param authentication 인증 정보
+     * @return {@link IpBlockResponse} 차단된 IP 정보
+     */
     @PostMapping("/ip-blocks")
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<IpBlockResponse> blockIp(
@@ -96,20 +125,33 @@ public class AdminController {
         return ApiResponse.success(IpBlockResponse.from(ipBlock));
     }
 
+    /**
+     * IP 차단 해제
+     * @param ipAddress 차단 해제할 IP 주소
+     * @return 성공 응답
+     */
     @DeleteMapping("/ip-blocks/{ipAddress}")
     public ApiResponse<Void> unblockIp(@PathVariable String ipAddress) {
         adminService.unblockIp(ipAddress);
         return ApiResponse.success(null);
     }
 
+    /**
+     * 차단된 IP 목록 조회
+     * @return {@link IpBlockResponse} 차단된 IP 목록
+     */
     @GetMapping("/ip-blocks")
     public ApiResponse<List<IpBlockResponse>> getBlockedIps() {
         List<IpBlock> ipBlocks = adminService.getBlockedIps();
         return ApiResponse.success(IpBlockResponse.from(ipBlocks));
     }
 
+    /**
+     * 대시보드 통계 조회
+     * @return {@link DashboardStatsDto} 대시보드 통계 정보
+     */
     @GetMapping("/stats")
-    public ApiResponse<com.weedrice.whiteboard.domain.admin.dto.DashboardStatsDto> getDashboardStats() {
+    public ApiResponse<DashboardStatsDto> getDashboardStats() {
         return ApiResponse.success(adminService.getDashboardStats());
     }
 }

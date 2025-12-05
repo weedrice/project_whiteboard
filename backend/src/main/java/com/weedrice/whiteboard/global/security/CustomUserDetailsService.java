@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.global.security;
 
+import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -25,10 +26,10 @@ public class CustomUserDetailsService implements UserDetailsService {
                 .orElseThrow(() -> new UsernameNotFoundException("User not found with loginId: " + loginId));
 
         List<GrantedAuthority> authorities = new ArrayList<>();
-        authorities.add(new SimpleGrantedAuthority("ROLE_USER"));
+        authorities.add(new SimpleGrantedAuthority(Role.ROLE_USER));
 
         if ("Y".equals(user.getIsSuperAdmin())) {
-            authorities.add(new SimpleGrantedAuthority("ROLE_SUPER_ADMIN"));
+            authorities.add(new SimpleGrantedAuthority(Role.ROLE_SUPER_ADMIN));
         }
 
         return new CustomUserDetails(

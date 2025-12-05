@@ -113,4 +113,8 @@ public class JwtTokenProvider {
     public long getAccessTokenValidityInMilliseconds() {
         return accessTokenValidityInMilliseconds;
     }
+
+    public long getRefreshTokenValidityInMilliseconds() {
+        return refreshTokenValidityInMilliseconds;
+    }
 }
