@@ -7,5 +7,6 @@ import lombok.Getter;
 @Builder
 public class RefreshResponse {
     private String accessToken;
+    private String refreshToken; // Added for refresh token rotation
     private long expiresIn;
 }
