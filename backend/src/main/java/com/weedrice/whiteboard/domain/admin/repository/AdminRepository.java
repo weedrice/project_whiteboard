@@ -17,4 +17,5 @@ public interface AdminRepository extends JpaRepository<Admin, Long> {
     Optional<Admin> findByUserAndIsActive(User user, String isActive);
     boolean existsByUser(User user);
     void deleteByBoard(Board board);
+    boolean existsByUserAndBoardAndIsActive(User userId, Board boardId, String isActive);
 }

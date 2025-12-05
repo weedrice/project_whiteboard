@@ -7,6 +7,7 @@ import com.weedrice.whiteboard.domain.comment.service.CommentService;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.domain.user.dto.*;
+import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.entity.UserNotificationSettings;
 import com.weedrice.whiteboard.domain.user.entity.UserSettings;
@@ -44,7 +45,7 @@ public class UserController {
         public ResponseEntity<ApiResponse<MyInfoResponse>> getMyInfo(
                         @AuthenticationPrincipal CustomUserDetails userDetails) {
                 User user = userService.getMyInfo(userDetails.getUserId());
-                String role = "Y".equals(user.getIsSuperAdmin()) ? "SUPER_ADMIN" : "USER";
+                String role = "Y".equals(user.getIsSuperAdmin()) ? Role.SUPER_ADMIN : Role.USER;
                 MyInfoResponse response = new MyInfoResponse(user.getUserId(), user.getLoginId(), user.getEmail(),
                                 user.getDisplayName(), user.getProfileImageUrl(), user.getStatus(), role,
                                 "Y".equals(user.getIsEmailVerified()), user.getCreatedAt(), user.getLastLoginAt());

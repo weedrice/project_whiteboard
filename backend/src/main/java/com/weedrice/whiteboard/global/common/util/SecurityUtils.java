@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.global.common.util;
 
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.board.entity.Board;
+import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -52,7 +53,7 @@ public class SecurityUtils {
         }
 
         return authentication.getAuthorities().stream()
-                .anyMatch(grantedAuthority -> grantedAuthority.getAuthority().equals("ROLE_SUPER_ADMIN"));
+                .anyMatch(grantedAuthority -> grantedAuthority.getAuthority().equals(Role.ROLE_SUPER_ADMIN));
     }
 
     public static void validateBoardAdminPermission(Board board) {
