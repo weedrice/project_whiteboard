@@ -129,15 +129,14 @@ public class AuthService {
                                 .refreshToken(refreshToken)
                                 .expiresIn(jwtTokenProvider.getAccessTokenValidityInMilliseconds())
                                 .user(LoginResponse.UserInfo.builder()
-                                                .userId(user.getUserId())
-                                                .loginId(user.getLoginId())
-                                                .displayName(user.getDisplayName())
-                                                .profileImageUrl(user.getProfileImageUrl())
-                                                .isEmailVerified("Y".equals(user.getIsEmailVerified()))
-                                                .role("Y".equals(user.getIsSuperAdmin()) ? Role.SUPER_ADMIN : Role.USER)
-                                                .build())
-                                .build();
-        }
+                                                                                .userId(user.getUserId())
+                                                                                .loginId(user.getLoginId())
+                                                                                .displayName(user.getDisplayName())
+                                                                                .profileImageUrl(user.getProfileImageUrl())
+                                                                                .isEmailVerified(user.getIsEmailVerified())
+                                                                                .role(user.getIsSuperAdmin() ? Role.SUPER_ADMIN : Role.USER)
+                                                                                .build())
+                                                                                .build();        }
 
         @Transactional
         public void logout(LogoutRequest request) {
@@ -170,7 +169,7 @@ public class AuthService {
 
                 User user = rt.getUser();
                 Set<GrantedAuthority> authorities = new HashSet<>();
-                if ("Y".equals(user.getIsSuperAdmin())) {
+                if (user.getIsSuperAdmin()) {
                     authorities.add(new SimpleGrantedAuthority(Role.ROLE_SUPER_ADMIN));
                 } else {
                     authorities.add(new SimpleGrantedAuthority(Role.ROLE_USER));
