@@ -61,7 +61,7 @@ function handleEditSuccess() {
 }
 
 async function handleDelete(comment) {
-  if (!confirm(t('common.confirmDelete'))) return
+  if (!confirm(t('common.messages.confirmDelete'))) return
 
   // Soft delete check: If it has children, just mark as deleted locally (if backend doesn't handle it)
   // Actually, we should call delete API. If backend deletes it physically, it's gone.

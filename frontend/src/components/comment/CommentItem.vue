@@ -75,7 +75,7 @@ function handleDelete() {
             :user-id="comment.author.userId"
             :display-name="comment.author.displayName"
           />
-          <span v-else class="text-sm font-medium text-gray-500">{{ $t('common.unknown') }}</span>
+          <span v-else class="text-sm font-medium text-gray-500">{{ $t('common.messages.unknown') }}</span>
           <p class="text-sm text-gray-500">{{ formatDate(comment.createdAt) }}</p>
         </div>
 

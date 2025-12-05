@@ -102,7 +102,7 @@
         class="inline-flex items-center px-6 py-3 border border-transparent shadow-lg text-base font-medium rounded-full text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-200 transform hover:scale-105"
       >
         <Save class="-ml-1 mr-3 h-5 w-5" />
-        {{ isSubmitting ? $t('common.saving') : $t('common.saveChanges') }}
+        {{ isSubmitting ? $t('common.messages.saving') : $t('common.saveChanges') }}
       </button>
     </div>
 
@@ -158,7 +158,7 @@
         <div class="flex justify-end space-x-3 pt-4">
           <BaseButton @click="closeModal" variant="secondary">{{ $t('common.cancel') }}</BaseButton>
           <BaseButton @click="handleSubmit" :disabled="isSubmitting">
-            {{ isSubmitting ? $t('common.saving') : $t('common.save') }}
+            {{ isSubmitting ? $t('common.messages.saving') : $t('common.save') }}
           </BaseButton>
         </div>
       </div>
@@ -217,7 +217,7 @@ async function handleFileUpload(event) {
     }
   } catch (error) {
     console.error('Failed to upload file:', error)
-    alert(t('common.error'))
+    alert(t('common.messages.error'))
   }
 }
 

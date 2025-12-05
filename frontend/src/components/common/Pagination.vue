@@ -1,5 +1,5 @@
 <template>
-  <nav v-if="totalPages > 1" class="flex items-center justify-center space-x-1" aria-label="Pagination">
+  <nav v-if="totalPages >= 1" class="flex items-center justify-center space-x-1" aria-label="Pagination">
     <button
       :disabled="currentPage === 0"
       @click="$emit('page-change', currentPage - 1)"

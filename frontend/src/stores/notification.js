@@ -5,6 +5,8 @@ import { notificationApi } from '@/api/notification'
 export const useNotificationStore = defineStore('notification', () => {
     const notifications = ref([])
     const unreadCount = ref(0)
+    const totalPages = ref(0)
+    const totalElements = ref(0)
     const isLoading = ref(false)
 
     async function fetchNotifications(page = 0, size = 20) {
@@ -16,11 +18,9 @@ export const useNotificationStore = defineStore('notification', () => {
                     ...n,
                     isRead: n.isRead === true || n.isRead === 'Y' || n.is_read === 'Y' || n.is_read === true || n.read === true
                 }))
-                if (page === 0) {
-                    notifications.value = mappedContent
-                } else {
-                    notifications.value.push(...mappedContent)
-                }
+                notifications.value = mappedContent
+                totalPages.value = data.data.totalPages
+                totalElements.value = data.data.totalElements
             }
         } catch (error) {
             console.error('Failed to fetch notifications:', error)
@@ -72,6 +72,8 @@ export const useNotificationStore = defineStore('notification', () => {
     return {
         notifications,
         unreadCount,
+        totalPages,
+        totalElements,
         isLoading,
         fetchNotifications,
         fetchUnreadCount,

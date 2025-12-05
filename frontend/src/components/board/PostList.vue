@@ -162,7 +162,7 @@ function handleSort(field) {
                     [{{ post.commentCount }}]
                 </span>
               </router-link>
-              <span v-else class="text-gray-400 flex items-center h-full cursor-not-allowed" title="Invalid Board URL">
+              <span v-else class="text-gray-400 flex items-center h-full cursor-not-allowed" :title="$t('board.invalidUrl')">
                   <span class="truncate">{{ post.title }}</span>
               </span>
             </td>

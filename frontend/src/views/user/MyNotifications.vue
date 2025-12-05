@@ -1,20 +1,35 @@
 <script setup>
-import { onMounted } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useNotificationStore } from '@/stores/notification'
 import { postApi } from '@/api/post'
 import { commentApi } from '@/api/comment'
 import { Check, Bell } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
+import Pagination from '@/components/common/Pagination.vue'
+import PageSizeSelector from '@/components/common/PageSizeSelector.vue'
 
 const { t } = useI18n()
 
 const router = useRouter()
 const notificationStore = useNotificationStore()
 
+const page = ref(0)
+const size = ref(15)
+
 onMounted(() => {
-  notificationStore.fetchNotifications()
+  notificationStore.fetchNotifications(page.value, size.value)
 })
+
+function handlePageChange(newPage) {
+  page.value = newPage
+  notificationStore.fetchNotifications(page.value, size.value)
+}
+
+function handleSizeChange() {
+  page.value = 0
+  notificationStore.fetchNotifications(page.value, size.value)
+}
 
 async function handleNotificationClick(notification) {
   if (!notification.isRead) {
@@ -58,13 +73,16 @@ function formatDate(dateString) {
           <Bell class="h-5 w-5 mr-2 text-gray-500" />
           {{ $t('notification.title') }}
         </h3>
-        <button 
-          @click="() => { console.log('Marking all as read'); notificationStore.markAllAsRead(); }"
-          class="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-        >
-          <Check class="h-4 w-4 mr-1 text-green-500" />
-          {{ $t('notification.markAllRead') }}
-        </button>
+        <div class="flex items-center space-x-4">
+            <PageSizeSelector v-model="size" @change="handleSizeChange" />
+            <button 
+            @click="() => { console.log('Marking all as read'); notificationStore.markAllAsRead(); }"
+            class="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            >
+            <Check class="h-4 w-4 mr-1 text-green-500" />
+            {{ $t('notification.markAllRead') }}
+            </button>
+        </div>
       </div>
       
       <div v-if="notificationStore.isLoading && notificationStore.notifications.length === 0" class="text-center py-10">
@@ -111,6 +129,14 @@ function formatDate(dateString) {
           </a>
         </li>
       </ul>
+      
+      <div v-if="notificationStore.notifications.length > 0" class="bg-gray-50 px-4 py-4 sm:px-6 flex justify-center">
+        <Pagination 
+          :current-page="page" 
+          :total-pages="notificationStore.totalPages"
+          @page-change="handlePageChange" 
+        />
+      </div>
     </div>
   </div>
 </template>

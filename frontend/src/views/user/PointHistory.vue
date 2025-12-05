@@ -2,12 +2,13 @@
 import { ref, onMounted } from 'vue'
 import axios from '@/api'
 import Pagination from '@/components/common/Pagination.vue'
+import PageSizeSelector from '@/components/common/PageSizeSelector.vue'
 
 const history = ref([])
 const loading = ref(false)
 const page = ref(0)
 const totalPages = ref(0)
-const size = ref(20)
+const size = ref(15)
 
 const fetchHistory = async () => {
   loading.value = true
@@ -34,6 +35,11 @@ const handlePageChange = (newPage) => {
   fetchHistory()
 }
 
+const handleSizeChange = () => {
+  page.value = 0
+  fetchHistory()
+}
+
 const formatDate = (dateString) => {
   return new Date(dateString).toLocaleString()
 }
@@ -46,6 +52,10 @@ onMounted(() => {
 <template>
   <div class="max-w-2xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
     <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+      <div class="px-4 py-5 sm:px-6 flex justify-between items-center border-b border-gray-200">
+          <h3 class="text-lg font-medium leading-6 text-gray-900">{{ $t('user.tabs.points') }}</h3>
+          <PageSizeSelector v-model="size" @change="handleSizeChange" />
+      </div>
       <ul role="list" class="divide-y divide-gray-200">
         <li v-for="item in history" :key="item.id" class="px-4 py-4 sm:px-6 hover:bg-gray-50">
           <div class="flex items-center justify-between">

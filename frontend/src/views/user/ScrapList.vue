@@ -3,12 +3,13 @@ import { ref, onMounted } from 'vue'
 import { userApi } from '@/api/user'
 import PostList from '@/components/board/PostList.vue'
 import Pagination from '@/components/common/Pagination.vue'
+import PageSizeSelector from '@/components/common/PageSizeSelector.vue'
 
 const scraps = ref([])
 const loading = ref(false)
 const page = ref(0)
 const totalPages = ref(0)
-const size = ref(20)
+const size = ref(15)
 
 const fetchScraps = async () => {
   loading.value = true
@@ -34,6 +35,11 @@ const handlePageChange = (newPage) => {
   fetchScraps()
 }
 
+const handleSizeChange = () => {
+  page.value = 0
+  fetchScraps()
+}
+
 onMounted(() => {
   fetchScraps()
 })
@@ -42,6 +48,10 @@ onMounted(() => {
 <template>
   <div class="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
     <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+      <div class="px-4 py-5 sm:px-6 flex justify-between items-center border-b border-gray-200">
+          <h3 class="text-lg font-medium leading-6 text-gray-900">{{ $t('user.tabs.scraps') }}</h3>
+          <PageSizeSelector v-model="size" @change="handleSizeChange" />
+      </div>
       <div v-if="scraps.length > 0">
         <PostList :posts="scraps" :show-board-name="true" :hide-no-column="true" />
         

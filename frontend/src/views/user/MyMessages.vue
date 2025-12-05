@@ -2,7 +2,8 @@
   <div class="bg-white shadow rounded-lg overflow-hidden">
     <div class="px-4 py-5 sm:px-6 flex justify-between items-center">
         <h3 class="text-lg font-medium leading-6 text-gray-900">{{ $t('user.message.boxTitle') }}</h3>
-        <div class="flex items-center space-x-2">
+        <div class="flex items-center space-x-4">
+            <PageSizeSelector v-model="size" @change="handleSizeChange" />
             <button 
                 v-if="selectedMessages.length > 0"
                 @click="deleteSelectedMessages"
@@ -72,6 +73,14 @@
       </li>
     </ul>
 
+    <div v-if="messages.length > 0" class="mt-4 flex justify-center pb-6">
+        <Pagination 
+            :current-page="page" 
+            :total-pages="totalPages"
+            @page-change="handlePageChange" 
+        />
+    </div>
+
     <!-- Message Detail Modal -->
     <BaseModal :isOpen="!!selectedMessage" :title="$t('user.message.title')" @close="selectedMessage = null">
         <div v-if="selectedMessage" class="p-4 space-y-4">
@@ -118,7 +127,7 @@
              <div class="flex justify-end space-x-2">
                  <BaseButton @click="closeReplyModal" variant="secondary">{{ $t('common.cancel') }}</BaseButton>
                  <BaseButton @click="sendReply" :disabled="isSending">
-                     {{ isSending ? $t('common.sending') : $t('common.send') }}
+                     {{ isSending ? $t('common.messages.sending') : $t('common.send') }}
                  </BaseButton>
              </div>
         </div>
@@ -132,6 +141,8 @@ import { ref, watch, onMounted } from 'vue'
 import { messageApi } from '@/api/message'
 import BaseModal from '@/components/common/BaseModal.vue'
 import BaseButton from '@/components/common/BaseButton.vue'
+import Pagination from '@/components/common/Pagination.vue'
+import PageSizeSelector from '@/components/common/PageSizeSelector.vue'
 import { useI18n } from 'vue-i18n'
 import { useNotificationStore } from '@/stores/notification'
 
@@ -144,6 +155,10 @@ const loading = ref(false)
 const selectedMessage = ref(null)
 const selectedMessages = ref([])
 
+const page = ref(0)
+const size = ref(15)
+const totalPages = ref(0)
+
 const isReplyModalOpen = ref(false)
 const replyTarget = ref(null)
 const replyContent = ref('')
@@ -154,18 +169,33 @@ async function fetchMessages() {
     messages.value = []
     selectedMessages.value = []
     try {
+        const params = {
+            page: page.value,
+            size: size.value
+        }
         const { data } = viewType.value === 'received' 
-            ? await messageApi.getReceivedMessages() 
-            : await messageApi.getSentMessages()
+            ? await messageApi.getReceivedMessages(params) 
+            : await messageApi.getSentMessages(params)
         
         if (data.success) {
             messages.value = data.data?.content || [] 
+            totalPages.value = data.data?.totalPages || 0
         }
     } catch (error) {
         console.error('Failed to fetch messages:', error)
     } finally {
         loading.value = false
     }
+}
+
+function handlePageChange(newPage) {
+    page.value = newPage
+    fetchMessages()
+}
+
+function handleSizeChange() {
+    page.value = 0
+    fetchMessages()
 }
 
 function toggleSelection(messageId) {
@@ -179,6 +209,7 @@ function toggleSelection(messageId) {
 
 function changeViewType(type) {
     viewType.value = type
+    page.value = 0
     fetchMessages()
 }
 
@@ -196,16 +227,16 @@ async function openMessage(msg) {
 }
 
 async function deleteSelectedMessages() {
-    if (!confirm(t('common.deleteConfirm'))) return
+    if (!confirm(t('common.messages.confirmDelete'))) return
     try {
         const { data } = await messageApi.deleteMessages(selectedMessages.value)
         if (data.success) {
-            alert(t('common.deleteSuccess'))
+            alert(t('common.messages.deleteSuccess'))
             fetchMessages()
         }
     } catch (error) {
         console.error('Failed to delete messages:', error)
-        alert(t('common.deleteFailed'))
+        alert(t('common.messages.deleteFailed'))
     }
 }
 

@@ -1,22 +1,41 @@
 <script setup>
 import { ref, onMounted } from 'vue'
-import axios from '@/api'
+import { reportApi } from '@/api/report'
+import Pagination from '@/components/common/Pagination.vue'
+import PageSizeSelector from '@/components/common/PageSizeSelector.vue'
 
 const reports = ref([])
 const loading = ref(false)
+const page = ref(0)
+const size = ref(15)
+const totalPages = ref(0)
 
 const fetchReports = async () => {
   loading.value = true
   try {
-    const { data } = await axios.get('/reports/me')
+    const { data } = await reportApi.getMyReports({
+      page: page.value,
+      size: size.value
+    })
     if (data.success) {
       reports.value = data.data.content
+      totalPages.value = data.data.totalPages
     }
   } catch (error) {
     console.error('신고 목록을 불러오는데 실패했습니다:', error)
   } finally {
     loading.value = false
   }
+}
+
+const handlePageChange = (newPage) => {
+  page.value = newPage
+  fetchReports()
+}
+
+const handleSizeChange = () => {
+  page.value = 0
+  fetchReports()
 }
 
 const formatDate = (dateString) => {
@@ -31,6 +50,10 @@ onMounted(() => {
 <template>
   <div class="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
     <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+      <div class="px-4 py-5 sm:px-6 flex justify-between items-center border-b border-gray-200">
+          <h3 class="text-lg font-medium leading-6 text-gray-900">{{ $t('user.tabs.reports') }}</h3>
+          <PageSizeSelector v-model="size" @change="handleSizeChange" />
+      </div>
       <ul role="list" class="divide-y divide-gray-200">
         <li v-for="report in reports" :key="report.id" class="px-4 py-4 sm:px-6 hover:bg-gray-50">
           <div class="flex items-center justify-between">
@@ -60,6 +83,14 @@ onMounted(() => {
           {{ $t('user.reportList.empty') }}
         </li>
       </ul>
+      
+      <div v-if="reports.length > 0" class="bg-gray-50 px-4 py-4 sm:px-6 flex justify-center">
+        <Pagination 
+          :current-page="page" 
+          :total-pages="totalPages"
+          @page-change="handlePageChange" 
+        />
+      </div>
     </div>
   </div>
 </template>
