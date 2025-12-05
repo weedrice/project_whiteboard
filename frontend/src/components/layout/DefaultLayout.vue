@@ -8,6 +8,8 @@ import { Search, Bell, Moon, Sun } from 'lucide-vue-next'
 import NotificationDropdown from '@/components/notification/NotificationDropdown.vue'
 import UserDropdown from '@/components/layout/UserDropdown.vue'
 import BoardDropdown from '@/components/layout/BoardDropdown.vue'
+import Footer from '@/components/layout/Footer.vue'
+import GlobalSearchBar from '@/components/search/GlobalSearchBar.vue'
 import AdBanner from '@/components/common/AdBanner.vue'
 
 const router = useRouter()
@@ -15,19 +17,12 @@ const route = useRoute()
 const authStore = useAuthStore()
 const notificationStore = useNotificationStore()
 const themeStore = useThemeStore()
-const searchQuery = ref('')
 const isNotificationOpen = ref(false)
 const activeDropdown = ref(null) // 'subscription', 'all', 'notification', 'user'
 
 const showSidebarAd = computed(() => {
   return !['login', 'signup'].includes(route.name)
 })
-
-const handleSearch = () => {
-  if (searchQuery.value.trim()) {
-    router.push({ name: 'search', query: { q: searchQuery.value } })
-  }
-}
 
 const toggleNotification = () => {
   if (isNotificationOpen.value) {
@@ -81,7 +76,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
+  <div class="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200 flex flex-col">
     <nav class="bg-white shadow-sm dark:bg-gray-800 dark:border-gray-700">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex justify-between h-16">
@@ -106,17 +101,9 @@ onUnmounted(() => {
           </div>
           <div class="flex items-center space-x-4">
             <!-- Search Bar -->
+            <!-- Search Bar -->
             <div class="relative">
-              <input 
-                type="text" 
-                v-model="searchQuery"
-                @keyup.enter="handleSearch"
-                placeholder="검색..." 
-                class="w-64 pl-10 pr-4 py-2 rounded-full border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
-              >
-              <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Search class="h-4 w-4 text-gray-400 dark:text-gray-500" />
-              </div>
+              <GlobalSearchBar />
             </div>
 
 
@@ -153,7 +140,7 @@ onUnmounted(() => {
       </div>
     </nav>
 
-    <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+    <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8 flex-grow w-full">
       <!-- Left Sidebar Ad (Fixed to viewport, centered vertically) - Hidden -->
       <!-- <div v-if="showSidebarAd" class="hidden 2xl:block fixed left-[calc(50%-51.25rem)] top-1/2 -translate-y-1/2 w-40">
         <AdBanner placement="SIDEBAR" />
@@ -161,5 +148,7 @@ onUnmounted(() => {
 
       <router-view></router-view>
     </main>
+
+    <Footer />
   </div>
 </template>

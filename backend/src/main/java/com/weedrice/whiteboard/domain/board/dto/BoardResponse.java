@@ -11,7 +11,7 @@ import java.util.List;
 public class BoardResponse {
     private final Long boardId;
     private final String boardName;
-    private final String boardUrl; // 추가
+    private final String boardUrl;
     private final String description;
     private final String iconUrl;
     private final Integer sortOrder;

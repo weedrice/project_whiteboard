@@ -73,7 +73,7 @@ onMounted(async () => {
           class="relative rounded-lg border border-gray-300 bg-white px-6 py-5 shadow-sm hover:border-gray-400 focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-indigo-500 block"
         >
           <div class="flex justify-between items-center mb-2">
-            <p class="text-base font-bold text-gray-900 truncate mr-2">
+            <p class="text-xl font-bold text-gray-900 truncate mr-2">
               {{ board.boardName }}
             </p>
             <div class="flex-shrink-0 text-gray-400 text-xs flex items-center">
@@ -81,17 +81,17 @@ onMounted(async () => {
               {{ board.subscriberCount }}
             </div>
           </div>
-          <div class="mt-3 text-sm text-gray-600 space-y-1">
+          <div class="mt-3 text-sm text-gray-600 space-y-3">
             <p v-if="board.latestPosts && board.latestPosts.length === 0" class="text-gray-500">
               {{ $t('board.list.noPosts') }}
             </p>
             <router-link
-              v-for="post in board.latestPosts"
+              v-for="post in board.latestPosts.slice(0, 10)"
               :key="post.postId"
               :to="`/board/${board.boardUrl}/post/${post.postId}`"
               class="block hover:underline text-gray-700 truncate"
             >
-              {{ post.title }}
+              {{ post.title }} <span class="text-gray-500 text-xs">[{{ post.commentCount || 0 }}]</span>
             </router-link>
           </div>
         </router-link>

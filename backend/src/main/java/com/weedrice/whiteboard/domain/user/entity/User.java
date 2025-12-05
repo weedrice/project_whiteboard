@@ -50,9 +50,6 @@ public class User extends BaseTimeEntity {
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
-    @Column(name = "theme", length = 20)
-    private String theme; // LIGHT, DARK
-
     @Builder
     public User(String loginId, String password, String email, String displayName) {
         this.loginId = loginId;
@@ -62,7 +59,6 @@ public class User extends BaseTimeEntity {
         this.status = "ACTIVE";
         this.isEmailVerified = "N";
         this.isSuperAdmin = "N"; // 기본값은 일반 사용자
-        this.theme = "LIGHT"; // 기본값은 라이트 모드
     }
 
     public void updateLastLogin() {
@@ -108,9 +104,5 @@ public class User extends BaseTimeEntity {
 
     public void revokeSuperAdminRole() {
         this.isSuperAdmin = "N";
-    }
-
-    public void updateTheme(String theme) {
-        this.theme = theme;
     }
 }
