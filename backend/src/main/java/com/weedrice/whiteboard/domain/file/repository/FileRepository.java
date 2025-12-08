@@ -10,4 +10,6 @@ public interface FileRepository extends JpaRepository<File, Long> {
     List<File> findByRelatedIdIsNullAndCreatedAtBefore(LocalDateTime dateTime);
 
     List<File> findByRelatedIdAndRelatedType(Long relatedId, String relatedType);
+
+    List<File> findByRelatedIdInAndRelatedType(List<Long> relatedIds, String relatedType);
 }

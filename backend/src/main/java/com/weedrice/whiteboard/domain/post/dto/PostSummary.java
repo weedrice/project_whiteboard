@@ -25,6 +25,11 @@ public class PostSummary {
     private LocalDateTime createdAt;
     private String boardUrl;
     private String boardName;
+    private String thumbnailUrl;
+    private String boardIconUrl;
+    private boolean isLiked;
+    private boolean isScrapped;
+    private boolean isSubscribed;
 
     @Getter
     @Builder
@@ -42,6 +47,11 @@ public class PostSummary {
     }
 
     public static PostSummary from(Post post) {
+        return from(post, null, null, false, false, false);
+    }
+
+    public static PostSummary from(Post post, String thumbnailUrl, String boardIconUrl, boolean isLiked,
+            boolean isScrapped, boolean isSubscribed) {
         return PostSummary.builder()
                 .postId(post.getPostId())
                 .title(post.getTitle())
@@ -63,6 +73,11 @@ public class PostSummary {
                 .createdAt(post.getCreatedAt())
                 .boardUrl(post.getBoard().getBoardUrl())
                 .boardName(post.getBoard().getBoardName())
+                .thumbnailUrl(thumbnailUrl)
+                .boardIconUrl(boardIconUrl)
+                .isLiked(isLiked)
+                .isScrapped(isScrapped)
+                .isSubscribed(isSubscribed)
                 .build();
     }
 }

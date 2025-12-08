@@ -7,6 +7,7 @@ import com.weedrice.whiteboard.domain.board.repository.BoardCategoryRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
+import com.weedrice.whiteboard.domain.file.entity.File;
 import com.weedrice.whiteboard.domain.file.service.FileService; // Import FileService
 import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
 import com.weedrice.whiteboard.domain.post.dto.PostCreateRequest;
@@ -30,7 +31,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -53,7 +54,8 @@ public class PostService {
         private final AdminRepository adminRepository;
         private final com.weedrice.whiteboard.domain.point.service.PointService pointService;
         private final CommentRepository commentRepository;
-        private final FileService fileService; // Inject FileService
+        private final FileService fileService;
+        private final com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository boardSubscriptionRepository;
 
         // --- boardUrl 기반 public 메서드 (오버로드) ---
         public Page<Post> getPosts(String boardUrl, Long categoryId, Integer minLikes, Pageable pageable) {
@@ -105,10 +107,65 @@ public class PostService {
                                 .collect(Collectors.toList());
         }
 
-        public List<PostSummary> getTrendingPosts(int limit) {
+        public List<PostSummary> getTrendingPosts(int limit, Long userId) {
                 LocalDateTime since = LocalDateTime.now().minusHours(24);
-                return postRepository.findTrendingPosts(since, Pageable.ofSize(limit)).stream()
-                                .map(PostSummary::from)
+                List<Post> posts = postRepository.findTrendingPosts(since, Pageable.ofSize(limit));
+
+                if (posts.isEmpty()) {
+                        return Collections.emptyList();
+                }
+
+                List<Long> postIds = posts.stream().map(Post::getPostId).collect(Collectors.toList());
+                List<Board> boards = posts.stream().map(Post::getBoard).distinct().collect(Collectors.toList());
+
+                // Batch fetch files (images)
+                List<File> files = fileService
+                                .getFilesByRelatedEntityIn(postIds, "POST_CONTENT");
+                Map<Long, String> thumbnailMap = files.stream()
+                                .filter(f -> f.getMimeType().startsWith("image/"))
+                                .collect(Collectors.groupingBy(
+                                                File::getRelatedId,
+                                                Collectors.collectingAndThen(Collectors.toList(), list -> {
+                                                        if (list.isEmpty())
+                                                                return null;
+                                                        return "/api/v1/files/" + list.getFirst().getFileId();
+                                                })));
+
+                // Batch fetch user interactions if logged in
+                Set<Long> likedPostIds = new HashSet<>();
+                Set<Long> scrappedPostIds = new HashSet<>();
+                Set<String> subscribedBoardUrls = new HashSet<>();
+
+                if (userId != null) {
+                        User user = userRepository.findById(userId).orElse(null);
+                        if (user != null) {
+                                likedPostIds = postLikeRepository.findByUserAndPostIn(user, posts).stream()
+                                                .map(like -> like.getPost().getPostId())
+                                                .collect(Collectors.toSet());
+
+                                scrappedPostIds = scrapRepository.findByUserAndPostIn(user, posts).stream()
+                                                .map(scrap -> scrap.getPost().getPostId())
+                                                .collect(Collectors.toSet());
+
+                                subscribedBoardUrls = boardSubscriptionRepository.findByUserAndBoardIn(user, boards)
+                                                .stream()
+                                                .map(sub -> sub.getBoard().getBoardUrl())
+                                                .collect(Collectors.toSet());
+                        }
+                }
+
+                final Set<Long> finalLikedPostIds = likedPostIds;
+                final Set<Long> finalScrappedPostIds = scrappedPostIds;
+                final Set<String> finalSubscribedBoardUrls = subscribedBoardUrls;
+
+                return posts.stream()
+                                .map(post -> PostSummary.from(
+                                                post,
+                                                thumbnailMap.get(post.getPostId()),
+                                                post.getBoard().getIconUrl(),
+                                                finalLikedPostIds.contains(post.getPostId()),
+                                                finalScrappedPostIds.contains(post.getPostId()),
+                                                finalSubscribedBoardUrls.contains(post.getBoard().getBoardUrl())))
                                 .collect(Collectors.toList());
         }
 

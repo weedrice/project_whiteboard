@@ -9,4 +9,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface ScrapRepository extends JpaRepository<Scrap, ScrapId> {
     Page<Scrap> findByUserOrderByCreatedAtDesc(User user, Pageable pageable);
+
+    java.util.List<Scrap> findByUserAndPostIn(User user,
+            java.util.List<com.weedrice.whiteboard.domain.post.entity.Post> posts);
 }

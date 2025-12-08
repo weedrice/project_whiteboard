@@ -69,6 +69,7 @@ export const messages = {
       pageSize: '조회 단위',
       admin: '관리자',
       subscribe: '구독',
+      subscribed: '구독중',
       unsubscribe: '구독 취소',
       manage: '관리',
       subscribers: '구독자',

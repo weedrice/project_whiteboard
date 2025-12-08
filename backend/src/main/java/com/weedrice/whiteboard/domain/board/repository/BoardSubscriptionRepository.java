@@ -26,4 +26,6 @@ public interface BoardSubscriptionRepository extends JpaRepository<BoardSubscrip
 
     @org.springframework.data.jpa.repository.Query("SELECT COALESCE(MAX(bs.sortOrder), 0) FROM BoardSubscription bs WHERE bs.user = :user")
     Integer findMaxSortOrder(@org.springframework.data.repository.query.Param("user") User user);
+
+    List<BoardSubscription> findByUserAndBoardIn(User user, List<Board> boards);
 }

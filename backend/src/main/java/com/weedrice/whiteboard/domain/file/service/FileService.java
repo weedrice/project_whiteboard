@@ -82,4 +82,8 @@ public class FileService {
     public List<File> getFilesByRelatedEntity(Long relatedId, String relatedType) {
         return fileRepository.findByRelatedIdAndRelatedType(relatedId, relatedType);
     }
+
+    public List<File> getFilesByRelatedEntityIn(List<Long> relatedIds, String relatedType) {
+        return fileRepository.findByRelatedIdInAndRelatedType(relatedIds, relatedType);
+    }
 }

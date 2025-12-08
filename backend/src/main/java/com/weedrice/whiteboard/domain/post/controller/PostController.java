@@ -66,8 +66,10 @@ public class PostController {
     }
 
     @GetMapping("/posts/trending")
-    public ApiResponse<List<PostSummary>> getTrendingPosts(@RequestParam(defaultValue = "10") int limit) {
-        return ApiResponse.success(postService.getTrendingPosts(limit));
+    public ApiResponse<List<PostSummary>> getTrendingPosts(@RequestParam(defaultValue = "10") int limit,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        Long userId = (userDetails != null) ? userDetails.getUserId() : null;
+        return ApiResponse.success(postService.getTrendingPosts(limit, userId));
     }
 
     @GetMapping("/posts/{postId}")

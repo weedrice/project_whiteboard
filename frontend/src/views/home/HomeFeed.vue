@@ -1,17 +1,5 @@
 <template>
   <div class="max-w-lg mx-auto py-8">
-    <!-- Stories (Placeholder) -->
-    <div class="bg-white border border-gray-200 rounded-lg p-4 mb-6 overflow-x-auto whitespace-nowrap scrollbar-hide">
-      <div class="inline-flex space-x-4">
-        <div v-for="i in 5" :key="i" class="flex flex-col items-center space-y-1">
-          <div class="h-16 w-16 rounded-full ring-2 ring-pink-500 p-0.5">
-            <div class="h-full w-full rounded-full bg-gray-200"></div>
-          </div>
-          <span class="text-xs text-gray-500">User {{ i }}</span>
-        </div>
-      </div>
-    </div>
-
     <!-- Feed -->
     <div v-if="loading" class="space-y-6">
       <div v-for="i in 3" :key="i" class="bg-white border border-gray-200 rounded-lg h-96 animate-pulse"></div>
@@ -34,6 +22,7 @@
         :post="post"
         @like="handleLike"
         @scrap="handleScrap"
+        @subscribe="handleSubscribe"
       />
     </div>
   </div>
@@ -42,6 +31,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { postApi } from '@/api/post'
+import { boardApi } from '@/api/board'
 import FeedCard from '@/components/feed/FeedCard.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useRouter } from 'vue-router'
@@ -102,6 +92,33 @@ async function handleScrap(post) {
     }
   } catch (error) {
     console.error('Failed to toggle scrap:', error)
+  }
+}
+
+async function handleSubscribe(post) {
+  if (!authStore.isAuthenticated) {
+    router.push('/login')
+    return
+  }
+
+  try {
+    const boardUrl = post.boardUrl
+    const isSubscribed = post.isSubscribed
+
+    if (isSubscribed) {
+      await boardApi.unsubscribeBoard(boardUrl)
+    } else {
+      await boardApi.subscribeBoard(boardUrl)
+    }
+
+    // Update all posts from the same board
+    posts.value.forEach(p => {
+      if (p.boardUrl === boardUrl) {
+        p.isSubscribed = !isSubscribed
+      }
+    })
+  } catch (error) {
+    console.error('Failed to toggle subscription:', error)
   }
 }
 
