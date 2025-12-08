@@ -9,7 +9,7 @@ const router = createRouter({
         {
             path: '/',
             name: 'home',
-            component: () => import('@/views/board/BoardList.vue')
+            component: () => import('@/views/home/HomeFeed.vue')
         },
         {
             path: '/test-components',

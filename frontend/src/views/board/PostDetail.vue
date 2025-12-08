@@ -233,6 +233,19 @@ watch(() => route.hash, (newHash) => {
         </div>
       </div>
 
+      <!-- Images -->
+      <div v-if="post.imageUrls && post.imageUrls.length > 0" class="px-4 py-5 sm:px-6">
+        <div class="space-y-4">
+          <img 
+            v-for="(url, index) in post.imageUrls" 
+            :key="index" 
+            :src="url" 
+            class="w-full h-auto rounded-lg shadow-sm"
+            alt="Post Image"
+          />
+        </div>
+      </div>
+
       <!-- Content -->
       <div class="px-4 py-5 sm:p-6 min-h-[200px] prose max-w-none relative">
         <div 
@@ -287,7 +300,7 @@ watch(() => route.hash, (newHash) => {
               <div class="p-2 rounded-full group-hover:bg-yellow-50 transition-colors">
                   <Bookmark class="h-6 w-6" :class="{'fill-current': post.isScrapped}" />
               </div>
-              <span class="text-sm font-medium mt-1">{{ $t('board.postDetail.scrap') }}</span>
+              <span class="text-sm font-medium mt-1">{{ $t('common.scrap') }}</span>
           </button>
       </div>
 

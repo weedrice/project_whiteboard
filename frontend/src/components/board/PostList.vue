@@ -75,7 +75,7 @@ function handleSort(field) {
           <tr>
             <th v-if="!hideNoColumn" scope="col" class="table-th text-center w-24 cursor-pointer hover:bg-gray-100" @click="handleSort('postId')">
               <div class="flex items-center justify-center">
-                {{ $t('board.postList.no') }}
+                {{ $t('common.no') }}
                 <component 
                   v-if="currentSort.startsWith('postId')" 
                   :is="currentSort.endsWith('desc') ? ArrowDown : ArrowUp" 
@@ -84,9 +84,9 @@ function handleSort(field) {
               </div>
             </th>
             <th v-if="showBoardName" scope="col" class="table-th text-center w-32">
-              {{ $t('common.category') }}
+              {{ $t('common.board') }}
             </th>
-            <th scope="col" class="table-th text-left">
+            <th scope="col" class="table-th text-center">
               {{ $t('common.title') }}
             </th>
             <th scope="col" class="table-th text-center w-32">
@@ -94,7 +94,7 @@ function handleSort(field) {
             </th>
             <th scope="col" class="table-th text-center w-28 cursor-pointer hover:bg-gray-100" @click="handleSort('createdAt')">
               <div class="flex items-center justify-center">
-                {{ $t('board.postList.date') }}
+                {{ $t('common.date') }}
                 <component 
                   v-if="currentSort.startsWith('createdAt')" 
                   :is="currentSort.endsWith('desc') ? ArrowDown : ArrowUp" 
@@ -104,7 +104,7 @@ function handleSort(field) {
             </th>
             <th scope="col" class="table-th text-center w-24 cursor-pointer hover:bg-gray-100" @click="handleSort('viewCount')">
               <div class="flex items-center justify-center">
-                {{ $t('board.postList.views') }}
+                {{ $t('common.views') }}
                 <component 
                   v-if="currentSort.startsWith('viewCount')" 
                   :is="currentSort.endsWith('desc') ? ArrowDown : ArrowUp" 
@@ -114,7 +114,7 @@ function handleSort(field) {
             </th>
             <th scope="col" class="table-th text-center w-24 cursor-pointer hover:bg-gray-100" @click="handleSort('likeCount')">
                <div class="flex items-center justify-center">
-                {{ $t('board.postList.likes') }}
+                {{ $t('common.likes') }}
                 <component 
                   v-if="currentSort.startsWith('likeCount')" 
                   :is="currentSort.endsWith('desc') ? ArrowDown : ArrowUp" 
@@ -127,7 +127,7 @@ function handleSort(field) {
         <tbody class="table-body">
           <tr v-for="(post, index) in posts" :key="post.postId" :class="['table-row', post.isNotice ? 'bg-gray-50' : '']">
             <td v-if="!hideNoColumn" class="table-td text-center">
-              <span v-if="post.isNotice" class="font-bold text-red-600">{{ $t('board.postList.notice') }}</span>
+              <span v-if="post.isNotice" class="font-bold text-red-600">{{ $t('common.notice') }}</span>
               <span v-else>{{ post.postId }}</span>
             </td>
             <td v-if="showBoardName" class="table-td text-center">
@@ -140,19 +140,13 @@ function handleSort(field) {
                 v-if="boardUrl || post.boardUrl"
               >
                 <span 
-                  v-if="showBoardName && post.boardName" 
-                  class="badge badge-indigo mr-1"
-                >
-                  {{ post.boardName }}
-                </span>
-                <span 
-                  v-else-if="post.category && post.category.name !== '일반'" 
+                  v-if="post.category && post.category.name !== '일반'" 
                   class="badge badge-gray"
                 >
                   {{ post.category.name }}
                 </span>
                 <span v-if="post.isNotice" class="badge badge-red">
-                  {{ $t('board.postList.notice') }}
+                  {{ $t('common.notice') }}
                 </span>
                 <span v-if="post.hasImage" class="mr-1 text-gray-400 flex items-center">
                     <ImageIcon class="h-4 w-4" />

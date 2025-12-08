@@ -173,7 +173,7 @@ async function handleSubmit() {
   <div class="w-full">
     <div class="md:flex md:items-center md:justify-between mb-6">
       <div class="flex-1 min-w-0">
-        <h2 class="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl sm:truncate">
+        <h2 class="text-3xl font-bold leading-7 text-gray-900 sm:text-3xl sm:truncate">
           {{ $t('board.writePost.createTitle') }}
         </h2>
       </div>
@@ -239,7 +239,7 @@ async function handleSubmit() {
         </div>
 
         <div class="sm:col-span-6 mt-12">
-          <label for="tags" class="block text-sm font-medium text-gray-700">{{ $t('board.writePost.tags') }}</label>
+          <label for="tags" class="block text-sm font-medium text-gray-700">{{ $t('common.tags') }}</label>
           <div class="mt-1">
             <PostTags v-model="form.tags" />
           </div>
@@ -257,7 +257,7 @@ async function handleSubmit() {
               />
             </div>
             <div class="ml-3 text-sm">
-              <label for="isNotice" class="font-medium text-gray-700 cursor-pointer">{{ $t('board.writePost.notice') }}</label>
+              <label for="isNotice" class="font-medium text-gray-700 cursor-pointer">{{ $t('common.notice') }}</label>
               <p class="text-gray-500">{{ $t('board.writePost.noticeDesc') }}</p>
             </div>
           </div>

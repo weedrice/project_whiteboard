@@ -5,7 +5,7 @@
       @click="$emit('page-change', currentPage - 1)"
       class="btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
     >
-      Previous
+      {{ $t('common.previous') }}
     </button>
     
     <template v-for="page in displayedPages" :key="page">
@@ -28,7 +28,7 @@
       @click="$emit('page-change', currentPage + 1)"
       class="btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
     >
-      Next
+      {{ $t('common.next') }}
     </button>
   </nav>
 </template>

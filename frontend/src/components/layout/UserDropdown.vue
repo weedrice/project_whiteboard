@@ -118,7 +118,7 @@ onMounted(() => {
           @click="emit('toggle')"
         >
           <CreditCard class="mr-3 h-4 w-4 text-gray-400 group-hover:text-gray-500" />
-          {{ $t('layout.menu.points') }}
+          {{ $t('common.points') }}
         </router-link>
         <router-link
           to="/mypage/settings"
@@ -138,7 +138,7 @@ onMounted(() => {
           @click="emit('toggle')"
         >
           <Mail class="mr-3 h-4 w-4 text-gray-400 group-hover:text-gray-500" />
-          {{ $t('common.messages.mailbox') }}
+          {{ $t('common.mailbox') }}
         </router-link>
         <router-link
           to="/mypage/notifications"
@@ -158,7 +158,7 @@ onMounted(() => {
           @click="emit('toggle')"
         >
           <FileText class="mr-3 h-4 w-4 text-gray-400 group-hover:text-gray-500" />
-          {{ $t('layout.menu.scraps') }}
+          {{ $t('common.scrap') }}
         </router-link>
         <router-link
           to="/mypage/subscriptions"

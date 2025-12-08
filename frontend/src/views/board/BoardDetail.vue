@@ -239,7 +239,7 @@ watch(() => route.params.boardUrl, () => {
                         class="inline-flex items-center px-3 py-1.5 border shadow-sm text-xs font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 cursor-pointer"
                         :class="board.isSubscribed ? 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50' : 'border-transparent text-white bg-indigo-600 hover:bg-indigo-700'"
                     >
-                        {{ board.isSubscribed ? $t('board.detail.unsubscribe') : $t('board.detail.subscribe') }}
+                        {{ board.isSubscribed ? $t('common.unsubscribe') : $t('common.subscribe') }}
                     </button>
                     <router-link 
                         v-if="board.isAdmin" 
@@ -247,21 +247,21 @@ watch(() => route.params.boardUrl, () => {
                         class="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 cursor-pointer"
                     >
                         <Settings class="-ml-1 mr-1 h-4 w-4" />
-                        {{ $t('board.detail.manage') }}
+                        {{ $t('common.manage') }}
                     </router-link>
                 </div>
             </div>
             <div class="flex items-center text-sm text-gray-500 space-x-4">
                 <span class="flex items-center">
                     <User class="h-4 w-4 mr-1" />
-                    {{ $t('board.detail.subscribers') }} {{ board.subscriberCount || 0 }}
+                    {{ $t('common.subscribers') }} {{ board.subscriberCount || 0 }}
                 </span>
                 <span class="flex items-center">
-                    <span class="font-medium mr-1">{{ $t('board.detail.admin') }}</span> 
+                    <span class="font-medium mr-1">{{ $t('common.admin') }}</span> 
                     <UserMenu 
                         v-if="board.adminUserId"
                         :user-id="board.adminUserId"
-                        :display-name="board.adminDisplayName || $t('board.detail.defaultAdminName')"
+                        :display-name="board.adminDisplayName || $t('common.defaultAdminName')"
                     />
                     <span v-else>{{ board.adminDisplayName || $t('board.detail.defaultAdminName') }}</span>
                 </span>
@@ -346,7 +346,7 @@ watch(() => route.params.boardUrl, () => {
                 @click="handleSearch"
                 class="inline-flex items-center px-4 py-2 border border-l-0 border-gray-300 shadow-sm text-sm font-medium rounded-r-md text-gray-700 bg-gray-50 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 whitespace-nowrap"
             >
-                {{ $t('board.search') }}
+                {{ $t('common.search') }}
             </button>
         </div>
         

@@ -21,19 +21,19 @@
         <thead class="bg-gray-50">
           <tr>
             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              {{ $t('admin.boards.table.name') }}
+              {{ $t('common.board') + ' ' + $t('common.name') }}
             </th>
             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              {{ $t('admin.boards.table.url') }}
+              {{ $t('common.url') }}
             </th>
             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              {{ $t('admin.boards.table.desc') }}
+              {{ $t('common.description') }}
             </th>
             <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-              {{ $t('admin.boards.table.active') }}
+              {{ $t('common.status') }}
             </th>
             <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-              {{ $t('admin.boards.table.sortOrder') }}
+              {{ $t('common.sortOrder') }}
             </th>
           </tr>
         </thead>

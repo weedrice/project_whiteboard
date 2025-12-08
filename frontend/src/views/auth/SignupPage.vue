@@ -47,7 +47,7 @@ async function handleSignup() {
         <p class="mt-2 text-center text-sm text-gray-600">
           {{ $t('auth.alreadyHaveAccount') }}
           <router-link to="/login" class="font-medium text-indigo-600 hover:text-indigo-500">
-            {{ $t('auth.login') }}
+            {{ $t('common.login') }}
           </router-link>
         </p>
       </div>

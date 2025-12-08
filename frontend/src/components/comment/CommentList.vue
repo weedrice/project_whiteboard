@@ -123,7 +123,7 @@ watch(() => props.postId, fetchComments)
       />
     </div>
     <div v-else class="mt-8 mb-8 text-sm text-gray-500">
-      <router-link to="/login" class="text-indigo-600 hover:text-indigo-500">{{ $t('auth.login') }}</router-link> {{ $t('comment.loginRequired', { login: '' }) }}
+      <router-link to="/login" class="text-indigo-600 hover:text-indigo-500">{{ $t('common.login') }}</router-link> {{ $t('comment.loginRequired', { login: '' }) }}
     </div>
   </div>
 </template>

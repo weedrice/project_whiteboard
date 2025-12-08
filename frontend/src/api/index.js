@@ -54,6 +54,12 @@ api.interceptors.response.use(
                     const newAccessToken = data.data.accessToken
                     localStorage.setItem('accessToken', newAccessToken)
 
+                    // Update user state (permissions, etc.) with new token
+                    const { useAuthStore } = await import('@/stores/auth')
+                    const authStore = useAuthStore()
+                    authStore.accessToken = newAccessToken
+                    await authStore.fetchUser()
+
                     // Retry original request with new token
                     originalRequest.headers.Authorization = `Bearer ${newAccessToken}`
                     return api(originalRequest)

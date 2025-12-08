@@ -1,20 +1,26 @@
 export const messages = {
   ko: {
     common: {
+      appName: 'NoviIs',
       loading: '로딩 중...',
       noData: '데이터가 없습니다.',
       loadMore: '더 보기',
+      add: '추가',
       save: '저장',
       cancel: '취소',
       delete: '삭제',
       edit: '수정',
       close: '닫기',
+      previous: '이전',
+      next: '다음',
       or: '또는',
       displayName: '닉네임',
       mailbox: '쪽지함',
       confirm: '확인',
       query: '검색어',
       boards: '게시판',
+      tags: '태그',
+      notice: '공지사항',
       messages: {
         error: '오류가 발생했습니다.',
         defaultTitle: '오류가 발생했습니다',
@@ -38,15 +44,10 @@ export const messages = {
         save: '저장하시겠습니까?',
         saveSuccess: '저장되었습니다.',
         saveFailed: '저장에 실패했습니다.',
+        noResults: '검색 결과가 없습니다.',
       },
       title: '제목',
       content: '내용',
-      search: {
-        results: '검색 결과',
-        noResults: '검색 결과가 없습니다.',
-        placeholder: '검색...',
-        doSearch: '"{query}" 검색하기',
-      },
       write: '글쓰기',
       date: '날짜',
       description: '설명',
@@ -55,6 +56,11 @@ export const messages = {
       createdAt: '등록일',
       category: '카테고리',
       author: '글쓴이',
+      login: '로그인',
+      loginId: '로그인ID',
+      password: '비밀번호',
+      email: '이메일',
+      displayName: '닉네임',
       logout: '로그아웃',
       settings: '설정',
       notifications: '알림',
@@ -70,7 +76,6 @@ export const messages = {
       views: '조회',
       likes: '추천',
       notice: '공지',
-      login: '로그인',
       points: '포인트',
       scrap: '스크랩',
       block: '차단',
@@ -84,7 +89,13 @@ export const messages = {
       board: '게시판',
       deactivate: '비활성화',
       activate: '활성화',
-
+      search: '검색',
+      searchResults: '검색 결과',
+      searchPlaceholder: '검색...',
+      doSearch: '"{query}" 검색하기',
+      active: '활성화',
+      inactive: '비활성화',
+      sortOrder: '정렬 순서',
     },
     layout: {
       menu: {
@@ -92,6 +103,7 @@ export const messages = {
         recent: '최근 본 글',
         reports: '신고 내역',
         createBoard: '게시판 만들기',
+
       },
       banner: '배너 영역',
     },
@@ -113,8 +125,6 @@ export const messages = {
       },
     },
     board: {
-      postList: {
-      },
       list: {
         subscribed: '구독한 게시판',
         all: '전체 게시판',
@@ -125,6 +135,10 @@ export const messages = {
         noDesc: '설명이 없습니다.',
         subscribers: '구독자 {count}명',
         empty: '등록된 게시판이 없습니다.',
+      },
+      feed: {
+        likes: '좋아요 {count}개',
+        viewAllComments: '댓글 {count}개 모두 보기',
       },
       createBoard: '게시판 만들기',
       loadFailed: '게시판 정보를 불러오는데 실패했습니다.',
@@ -140,6 +154,7 @@ export const messages = {
           titleContent: '제목+내용',
           title: '제목',
           content: '내용',
+          author: '글쓴이',
         },
       },
       form: {
@@ -200,8 +215,6 @@ export const messages = {
         createTitle: '새 글 작성',
         editTitle: '게시글 수정',
         selectCategory: '카테고리 선택',
-        tags: '태그',
-        notice: '공지사항',
         noticeDesc: '이 글을 공지사항으로 등록합니다.',
         nsfw: '후방주의 (NSFW)',
         nsfwDesc: '직장에서 보기에 부적절한 콘텐츠를 포함합니다.',

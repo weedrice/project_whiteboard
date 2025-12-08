@@ -31,7 +31,7 @@ async function fetchSuperAdmins() {
       superAdmins.value = res.data.data.map(admin => ({
           ...admin,
           type: 'SUPER',
-          isActive: admin.isActive === true || admin.isActive === 'Y' || admin.active === true // Handle various active flags
+          isActive: admin.active === true // Handle various active flags
       }))
     }
   } catch (err) {
@@ -49,7 +49,7 @@ async function fetchBoardAdmins() {
       boardAdmins.value = res.data.data.map(admin => ({
           ...admin,
           type: 'BOARD',
-          isActive: admin.isActive === true || admin.isActive === 'Y' || admin.active === true // Handle various active flags
+          isActive: admin.active === true // Handle various active flags
       }))
     }
   } catch (err) {
@@ -209,11 +209,11 @@ onMounted(() => {
               <table class="min-w-full divide-y divide-gray-300">
                 <thead class="bg-gray-50">
                   <tr>
-                    <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6">{{ t('admin.admins.table.id') }}</th>
-                    <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">{{ t('admin.admins.table.loginId') }}</th>
-                    <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">{{ t('admin.admins.table.name') }}</th>
-                    <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">{{ t('admin.admins.table.status') }}</th>
-                    <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">{{ t('admin.admins.table.createdAt') }}</th>
+                    <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6">{{ t('common.id') }}</th>
+                    <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">{{ t('common.loginId') }}</th>
+                    <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">{{ t('common.name') }}</th>
+                    <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">{{ t('common.status') }}</th>
+                    <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">{{ t('common.createdAt') }}</th>
                     <th scope="col" class="relative py-3.5 pl-3 pr-4 sm:pr-6">
                       <span class="sr-only">Actions</span>
                     </th>
@@ -236,7 +236,7 @@ onMounted(() => {
                           @click="toggleAdminStatus(admin)" 
                           class="text-indigo-600 hover:text-indigo-900"
                       >
-                          {{ admin.superAdmin ? t('admin.admins.actions.deactivate') : t('admin.admins.actions.activate') }}
+                          {{ admin.superAdmin ? t('common.deactivate') : t('common.activate') }}
                       </button>
                     </td>
                   </tr>
@@ -258,12 +258,12 @@ onMounted(() => {
               <table class="min-w-full divide-y divide-gray-300">
                 <thead class="bg-gray-50">
                   <tr>
-                    <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6">{{ t('admin.admins.table.id') }}</th>
-                    <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">{{ t('admin.admins.table.loginId') }}</th>
-                    <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">{{ t('admin.admins.table.name') }}</th>
-                    <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">{{ t('admin.admins.table.board') }}</th>
-                    <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">{{ t('admin.admins.table.status') }}</th>
-                    <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">{{ t('admin.admins.table.createdAt') }}</th>
+                    <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6">{{ t('common.id') }}</th>
+                    <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">{{ t('common.loginId') }}</th>
+                    <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">{{ t('common.name') }}</th>
+                    <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">{{ t('common.board') }}</th>
+                    <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">{{ t('common.status') }}</th>
+                    <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">{{ t('common.createdAt') }}</th>
                     <th scope="col" class="relative py-3.5 pl-3 pr-4 sm:pr-6">
                       <span class="sr-only">Actions</span>
                     </th>
@@ -287,7 +287,7 @@ onMounted(() => {
                           @click="toggleAdminStatus(admin)" 
                           class="text-indigo-600 hover:text-indigo-900"
                       >
-                          {{ admin.isActive ? t('admin.admins.actions.deactivate') : t('admin.admins.actions.activate') }}
+                          {{ admin.isActive ? t('common.deactivate') : t('common.activate') }}
                       </button>
                     </td>
                   </tr>

@@ -24,4 +24,7 @@ export const postApi = {
 
     // Unscrap post
     unscrapPost: (postId) => api.delete(`/posts/${postId}/scrap`),
+
+    // Get trending posts
+    getTrendingPosts: (limit) => api.get('/posts/trending', { params: { limit } }),
 }

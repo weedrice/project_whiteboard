@@ -132,7 +132,7 @@ onUnmounted(() => {
               />
             </div>
             <div v-else class="flex items-center space-x-4">
-              <router-link to="/login" class="text-gray-500 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white px-3 py-2 rounded-md text-sm font-medium">{{ $t('auth.login') }}</router-link>
+              <router-link to="/login" class="text-gray-500 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white px-3 py-2 rounded-md text-sm font-medium">{{ $t('common.login') }}</router-link>
               <router-link to="/signup" class="bg-indigo-600 text-white hover:bg-indigo-700 px-4 py-2 rounded-md text-sm font-medium">{{ $t('auth.signup') }}</router-link>
             </div>
           </div>
