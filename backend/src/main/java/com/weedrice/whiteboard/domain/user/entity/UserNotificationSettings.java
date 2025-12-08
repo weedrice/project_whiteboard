@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.user.entity;
 
+import com.weedrice.whiteboard.global.common.converter.BooleanToYNConverter;
 import com.weedrice.whiteboard.global.common.entity.BaseTimeEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -26,17 +27,18 @@ public class UserNotificationSettings extends BaseTimeEntity {
     @JoinColumn(name = "user_id", insertable = false, updatable = false)
     private User user;
 
+    @Convert(converter = BooleanToYNConverter.class)
     @Column(name = "is_enabled", nullable = false, length = 1)
-    private String isEnabled; // Y, N
+    private Boolean isEnabled; // Y, N
 
     @Builder
-    public UserNotificationSettings(Long userId, String notificationType, String isEnabled) {
+    public UserNotificationSettings(Long userId, String notificationType, Boolean isEnabled) {
         this.userId = userId;
         this.notificationType = notificationType;
-        this.isEnabled = isEnabled != null ? isEnabled : "Y";
+        this.isEnabled = isEnabled != null ? isEnabled : true;
     }
 
     public void setEnabled(boolean enabled) {
-        this.isEnabled = enabled ? "Y" : "N";
+        this.isEnabled = enabled;
     }
 }

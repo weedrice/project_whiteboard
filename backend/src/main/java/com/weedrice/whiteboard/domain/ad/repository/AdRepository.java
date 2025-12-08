@@ -8,5 +8,5 @@ import java.util.List;
 
 public interface AdRepository extends JpaRepository<Ad, Long> {
     List<Ad> findByPlacementAndIsActiveAndStartDateBeforeAndEndDateAfter(
-            String placement, String isActive, LocalDateTime now, LocalDateTime now2);
+            String placement, Boolean isActive, LocalDateTime now, LocalDateTime now2);
 }

@@ -15,8 +15,8 @@ public class UserAdminResponse {
     private String displayName;
     private String profileImageUrl;
     private String status;
-    private String isEmailVerified;
-    private String isSuperAdmin;
+    private Boolean isEmailVerified;
+    private Boolean isSuperAdmin;
     private LocalDateTime createdAt;
     private LocalDateTime lastLoginAt;
 

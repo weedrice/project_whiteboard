@@ -33,7 +33,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                         post.board.boardId.eq(boardId),
                         categoryIdEq(categoryId),
                         minLikesGoe(minLikes),
-                        post.isDeleted.eq("N")
+                        post.isDeleted.eq(false)
                 )
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize())
@@ -47,7 +47,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                         post.board.boardId.eq(boardId),
                         categoryIdEq(categoryId),
                         minLikesGoe(minLikes),
-                        post.isDeleted.eq("N")
+                        post.isDeleted.eq(false)
                 )
                 .fetchOne();
 
@@ -63,7 +63,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                 .selectFrom(post)
                 .where(
                         keywordExpression,
-                        post.isDeleted.eq("N")
+                        post.isDeleted.eq(false)
                 )
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize())
@@ -75,7 +75,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                 .from(post)
                 .where(
                         keywordExpression,
-                        post.isDeleted.eq("N")
+                        post.isDeleted.eq(false)
                 )
                 .fetchOne();
 
@@ -108,7 +108,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                 .where(
                         searchCondition,
                         boardCondition,
-                        post.isDeleted.eq("N")
+                        post.isDeleted.eq(false)
                 )
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize())
@@ -121,7 +121,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                 .where(
                         searchCondition,
                         boardCondition,
-                        post.isDeleted.eq("N")
+                        post.isDeleted.eq(false)
                 )
                 .fetchOne();
 
@@ -136,7 +136,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                 .join(postTag.post, post)
                 .where(
                         postTag.tag.tagId.eq(tagId),
-                        post.isDeleted.eq("N")
+                        post.isDeleted.eq(false)
                 )
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize())
@@ -148,7 +148,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                 .from(postTag)
                 .where(
                         postTag.tag.tagId.eq(tagId),
-                        postTag.post.isDeleted.eq("N")
+                        postTag.post.isDeleted.eq(false)
                 )
                 .fetchOne();
 

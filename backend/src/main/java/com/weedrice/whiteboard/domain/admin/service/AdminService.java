@@ -97,7 +97,7 @@ public class AdminService {
         User adminUser = userRepository.findById(adminUserId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
-        Admin admin = adminRepository.findByUserAndIsActive(adminUser, "Y")
+        Admin admin = adminRepository.findByUserAndIsActive(adminUser, true)
                 .orElseThrow(() -> new BusinessException(ErrorCode.FORBIDDEN));
 
         IpBlock ipBlock = IpBlock.builder()

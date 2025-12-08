@@ -53,7 +53,7 @@ public class AdminResponse {
                 .user(userInfo)
                 .board(boardInfo)
                 .role(admin.getRole())
-                .isActive("Y".equals(admin.getIsActive()))
+                .isActive(admin.getIsActive())
                 .createdAt(admin.getCreatedAt())
                 .build();
     }

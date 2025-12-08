@@ -20,7 +20,7 @@ public class SuperAdminResponse {
                 .userId(user.getUserId())
                 .loginId(user.getLoginId())
                 .displayName(user.getDisplayName())
-                .isSuperAdmin("Y".equals(user.getIsSuperAdmin()))
+                .isSuperAdmin(user.getIsSuperAdmin())
                 .createdAt(user.getCreatedAt())
                 .build();
     }

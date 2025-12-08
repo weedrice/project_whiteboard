@@ -27,9 +27,9 @@ public class ShopService {
 
     public Page<ShopItem> getShopItems(String itemType, Pageable pageable) {
         if (itemType != null && !itemType.isEmpty()) {
-            return shopItemRepository.findByIsActiveAndItemType("Y", itemType, pageable);
+            return shopItemRepository.findByIsActiveAndItemType(true, itemType, pageable);
         }
-        return shopItemRepository.findByIsActive("Y", pageable);
+        return shopItemRepository.findByIsActive(true, pageable);
     }
 
     public ShopItem getShopItem(Long itemId) {
@@ -44,7 +44,7 @@ public class ShopService {
         ShopItem item = shopItemRepository.findById(itemId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.ITEM_NOT_AVAILABLE));
 
-        if (!"Y".equals(item.getIsActive())) {
+        if (!item.getIsActive()) {
             throw new BusinessException(ErrorCode.ITEM_NOT_AVAILABLE);
         }
 

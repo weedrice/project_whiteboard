@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.notification.entity;
 
 import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.global.common.converter.BooleanToYNConverter;
 import com.weedrice.whiteboard.global.common.entity.BaseTimeEntity;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -42,8 +43,9 @@ public class Notification extends BaseTimeEntity {
     @Column(name = "content", length = 255, nullable = false)
     private String content;
 
+    @Convert(converter = BooleanToYNConverter.class)
     @Column(name = "is_read", length = 1, nullable = false)
-    private String isRead;
+    private Boolean isRead;
 
     @Builder
     public Notification(User user, User actor, String notificationType, String sourceType, Long sourceId, String content) {
@@ -53,10 +55,10 @@ public class Notification extends BaseTimeEntity {
         this.sourceType = sourceType;
         this.sourceId = sourceId;
         this.content = content;
-        this.isRead = "N";
+        this.isRead = false;
     }
 
     public void read() {
-        this.isRead = "Y";
+        this.isRead = true;
     }
 }

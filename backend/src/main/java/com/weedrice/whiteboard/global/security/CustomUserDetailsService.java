@@ -28,7 +28,7 @@ public class CustomUserDetailsService implements UserDetailsService {
         List<GrantedAuthority> authorities = new ArrayList<>();
         authorities.add(new SimpleGrantedAuthority(Role.ROLE_USER));
 
-        if ("Y".equals(user.getIsSuperAdmin())) {
+        if (user.getIsSuperAdmin()) {
             authorities.add(new SimpleGrantedAuthority(Role.ROLE_SUPER_ADMIN));
         }
 
@@ -36,7 +36,6 @@ public class CustomUserDetailsService implements UserDetailsService {
                 user.getUserId(),
                 user.getLoginId(),
                 user.getPassword(),
-                authorities
-        );
+                authorities);
     }
 }

@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.ad.entity;
 
+import com.weedrice.whiteboard.global.common.converter.BooleanToYNConverter;
 import com.weedrice.whiteboard.global.common.entity.BaseTimeEntity;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -46,8 +47,9 @@ public class Ad extends BaseTimeEntity {
     @Column(name = "end_date")
     private LocalDateTime endDate;
 
+    @Convert(converter = BooleanToYNConverter.class)
     @Column(name = "is_active", length = 1, nullable = false)
-    private String isActive;
+    private Boolean isActive;
 
     @Builder
     public Ad(String adName, String imageUrl, String placement, String targetUrl, LocalDateTime startDate, LocalDateTime endDate) {
@@ -59,7 +61,7 @@ public class Ad extends BaseTimeEntity {
         this.endDate = endDate;
         this.impressionCount = 0;
         this.clickCount = 0;
-        this.isActive = "Y";
+        this.isActive = true;
     }
 
     public void incrementImpressionCount() {

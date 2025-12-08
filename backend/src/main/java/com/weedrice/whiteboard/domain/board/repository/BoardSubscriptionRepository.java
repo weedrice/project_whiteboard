@@ -13,7 +13,7 @@ import java.util.List;
 public interface BoardSubscriptionRepository extends JpaRepository<BoardSubscription, BoardSubscriptionId> {
     Page<BoardSubscription> findByUser(User user, Pageable pageable);
 
-    Page<BoardSubscription> findByUserAndBoard_IsActiveOrderBySortOrderAsc(User user, String isActive,
+    Page<BoardSubscription> findByUserAndBoard_IsActiveOrderBySortOrderAsc(User user, Boolean isActive,
             Pageable pageable);
 
     List<BoardSubscription> findAllByUser(User user);

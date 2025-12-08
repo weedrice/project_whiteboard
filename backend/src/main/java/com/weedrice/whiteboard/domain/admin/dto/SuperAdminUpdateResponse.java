@@ -13,7 +13,7 @@ public class SuperAdminUpdateResponse {
     public static SuperAdminUpdateResponse from(User user) {
         return SuperAdminUpdateResponse.builder()
                 .loginId(user.getLoginId())
-                .isSuperAdmin("Y".equals(user.getIsSuperAdmin()))
+                .isSuperAdmin(user.getIsSuperAdmin())
                 .build();
     }
 }

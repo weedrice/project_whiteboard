@@ -74,7 +74,7 @@ public class ReportService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
         // Admin 테이블에 존재하면 가져오고, 없으면 null (슈퍼 관리자는 Admin 테이블에 없을 수 있음)
-        Admin admin = adminRepository.findByUserAndIsActive(adminUser, "Y").orElse(null);
+        Admin admin = adminRepository.findByUserAndIsActive(adminUser, true).orElse(null);
 
         Report report = reportRepository.findById(reportId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));

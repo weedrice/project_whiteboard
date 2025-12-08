@@ -14,5 +14,5 @@ public class CommonCodeDetailRequest {
     private String codeName;
     @NotNull
     private Integer sortOrder;
-    private String isActive;
+    private Boolean isActive;
 }

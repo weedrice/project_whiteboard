@@ -27,7 +27,7 @@ public class AdService {
     @Transactional
     public Ad getAd(String placement) {
         LocalDateTime now = LocalDateTime.now();
-        List<Ad> ads = adRepository.findByPlacementAndIsActiveAndStartDateBeforeAndEndDateAfter(placement, "Y", now, now);
+        List<Ad> ads = adRepository.findByPlacementAndIsActiveAndStartDateBeforeAndEndDateAfter(placement, true, now, now);
         if (ads.isEmpty()) {
             return null;
         }

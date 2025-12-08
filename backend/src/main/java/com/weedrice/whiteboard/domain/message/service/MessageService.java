@@ -45,13 +45,13 @@ public class MessageService {
     public Page<Message> getReceivedMessages(Long userId, Pageable pageable) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        return messageRepository.findByReceiverAndIsDeletedByReceiver(user, "N", pageable);
+        return messageRepository.findByReceiverAndIsDeletedByReceiver(user, false, pageable);
     }
 
     public Page<Message> getSentMessages(Long userId, Pageable pageable) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        return messageRepository.findBySenderAndIsDeletedBySender(user, "N", pageable);
+        return messageRepository.findBySenderAndIsDeletedBySender(user, false, pageable);
     }
 
     @Transactional
@@ -85,7 +85,7 @@ public class MessageService {
         }
 
         // 양쪽 모두 삭제했다면 DB에서 Hard Delete
-        if ("Y".equals(message.getIsDeletedBySender()) && "Y".equals(message.getIsDeletedByReceiver())) {
+        if (message.getIsDeletedBySender() && message.getIsDeletedByReceiver()) {
             messageRepository.delete(message);
         }
     }
@@ -100,6 +100,6 @@ public class MessageService {
     public long getUnreadMessageCount(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        return messageRepository.countByReceiverAndIsReadAndIsDeletedByReceiver(user, "N", "N");
+        return messageRepository.countByReceiverAndIsReadAndIsDeletedByReceiver(user, false, false);
     }
 }

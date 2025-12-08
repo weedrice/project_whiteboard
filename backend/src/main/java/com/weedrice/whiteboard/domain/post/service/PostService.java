@@ -29,6 +29,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -73,14 +74,15 @@ public class PostService {
                                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
                 return this.createPost(userId, board.getBoardId(), request);
         }
-        
+
         // --- 기존 boardId 기반 public/private 메서스 ---
         public Page<Post> getPosts(Long boardId, Long categoryId, Integer minLikes, Pageable pageable) {
                 return postRepository.findByBoardIdAndCategoryId(boardId, categoryId, minLikes, pageable);
         }
 
         public List<Post> getNotices(Long boardId) {
-                return postRepository.findByBoard_BoardIdAndIsNoticeAndIsDeletedOrderByCreatedAtDesc(boardId, "Y", "N");
+                return postRepository.findByBoard_BoardIdAndIsNoticeAndIsDeletedOrderByCreatedAtDesc(boardId, true,
+                                false);
         }
 
         public Page<Post> getPostsByTag(Long tagId, Pageable pageable) {
@@ -90,37 +92,47 @@ public class PostService {
         public Page<Post> getMyPosts(Long userId, Pageable pageable) {
                 User user = userRepository.findById(userId)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-                return postRepository.findByUserAndIsDeleted(user, "N", pageable);
+                return postRepository.findByUserAndIsDeleted(user, false, pageable);
         }
-        
+
         // 최신 게시글 15개 조회 (BoardUrl 기반)
         public List<PostSummary> getLatestPostsByBoard(Long boardId, int limit) {
-            Board board = boardRepository.findByBoardId(boardId)
-                    .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
-            return postRepository.findByBoardAndIsDeletedOrderByCreatedAtDesc(board, "N", Pageable.ofSize(limit)).stream()
-                    .map(PostSummary::from)
-                    .collect(Collectors.toList());
+                Board board = boardRepository.findByBoardId(boardId)
+                                .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
+                return postRepository.findByBoardAndIsDeletedOrderByCreatedAtDesc(board, false, Pageable.ofSize(limit))
+                                .stream()
+                                .map(PostSummary::from)
+                                .collect(Collectors.toList());
         }
+
+        public List<PostSummary> getTrendingPosts(int limit) {
+                LocalDateTime since = LocalDateTime.now().minusHours(24);
+                return postRepository.findTrendingPosts(since, Pageable.ofSize(limit)).stream()
+                                .map(PostSummary::from)
+                                .collect(Collectors.toList());
+        }
+
         @Transactional
         public Post getPostById(Long postId, Long userId) {
                 Post post = postRepository.findById(postId)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
 
                 // Access Control for Inactive Boards
-                if ("N".equals(post.getBoard().getIsActive())) {
-                    if (userId == null) {
-                        throw new BusinessException(ErrorCode.POST_NOT_FOUND);
-                    }
-                    User user = userRepository.findById(userId)
-                            .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-                    
-                    boolean isSuperAdmin = "Y".equals(user.getIsSuperAdmin());
-                    boolean isBoardAdmin = adminRepository.findByUserAndBoardAndIsActive(user, post.getBoard(), "Y").isPresent();
-                    boolean isAuthor = post.getUser().getUserId().equals(userId);
+                if (!post.getBoard().getIsActive()) {
+                        if (userId == null) {
+                                throw new BusinessException(ErrorCode.POST_NOT_FOUND);
+                        }
+                        User user = userRepository.findById(userId)
+                                        .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
-                    if (!isSuperAdmin && !isBoardAdmin && !isAuthor) {
-                        throw new BusinessException(ErrorCode.POST_NOT_FOUND); // Treat as not found for security
-                    }
+                        boolean isBoardAdmin = adminRepository
+                                        .findByUserAndBoardAndIsActive(user, post.getBoard(), true).isPresent();
+                        boolean isAuthor = post.getUser().getUserId().equals(userId);
+
+                        if (!user.getIsSuperAdmin() && !isBoardAdmin && !isAuthor) {
+                                throw new BusinessException(ErrorCode.POST_NOT_FOUND); // Treat as not found for
+                                                                                       // security
+                        }
                 }
 
                 post.incrementViewCount();
@@ -164,12 +176,12 @@ public class PostService {
         @Transactional
         public void updateViewHistory(Long userId, Long postId, ViewHistoryRequest request) {
                 User user = userRepository.findById(userId)
-                        .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+                                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
                 Post post = postRepository.findById(postId)
-                        .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
+                                .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
 
                 ViewHistory viewHistory = viewHistoryRepository.findByUserAndPost(user, post)
-                        .orElseGet(() -> viewHistoryRepository.save(new ViewHistory(user, post)));
+                                .orElseGet(() -> viewHistoryRepository.save(new ViewHistory(user, post)));
 
                 Comment lastReadComment = null;
                 if (request.getLastReadCommentId() != null) {
@@ -187,11 +199,10 @@ public class PostService {
                                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
 
                 if (request.isNotice()) {
-                        boolean isSuperAdmin = "Y".equals(user.getIsSuperAdmin());
-                        boolean isBoardAdmin = adminRepository.findByUserAndBoardAndIsActive(user, board, "Y")
+                        boolean isBoardAdmin = adminRepository.findByUserAndBoardAndIsActive(user, board, true)
                                         .isPresent();
 
-                        if (!isSuperAdmin && !isBoardAdmin) {
+                        if (!user.getIsSuperAdmin() && !isBoardAdmin) {
                                 throw new BusinessException(ErrorCode.FORBIDDEN, "공지사항 작성 권한이 없습니다.");
                         }
                 }
@@ -216,13 +227,13 @@ public class PostService {
                 Post savedPost = postRepository.save(post);
                 tagService.processTagsForPost(savedPost, request.getTags());
                 savePostVersion(savedPost, user, "CREATE", null, null);
-                
+
                 if (request.getFileIds() != null && !request.getFileIds().isEmpty()) {
-                    for (Long fileId : request.getFileIds()) {
-                        fileService.associateFileWithEntity(fileId, savedPost.getPostId(), "POST_CONTENT");
-                    }
+                        for (Long fileId : request.getFileIds()) {
+                                fileService.associateFileWithEntity(fileId, savedPost.getPostId(), "POST_CONTENT");
+                        }
                 }
-                
+
                 pointService.addPoint(userId, 50, "게시글 작성", savedPost.getPostId(), "POST");
                 return savedPost;
         }
@@ -248,13 +259,13 @@ public class PostService {
                 post.updatePost(category, request.getTitle(), request.getContents(), request.isNsfw(),
                                 request.isSpoiler());
                 tagService.processTagsForPost(post, request.getTags());
-                
+
                 if (request.getFileIds() != null && !request.getFileIds().isEmpty()) {
-                    for (Long fileId : request.getFileIds()) {
-                        fileService.associateFileWithEntity(fileId, post.getPostId(), "POST_CONTENT");
-                    }
+                        for (Long fileId : request.getFileIds()) {
+                                fileService.associateFileWithEntity(fileId, post.getPostId(), "POST_CONTENT");
+                        }
                 }
-                
+
                 User modifier = userRepository.findById(userId)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
                 savePostVersion(post, modifier, "MODIFY", originalTitle, originalContents);
@@ -277,7 +288,7 @@ public class PostService {
                 User modifier = userRepository.findById(userId)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
                 savePostVersion(post, modifier, "DELETE", post.getTitle(), post.getContents());
-                
+
                 pointService.forceSubtractPoint(userId, 50, "게시글 삭제", postId, "POST");
         }
 
@@ -430,9 +441,16 @@ public class PostService {
         }
 
         public Page<PostSummary> getRecentlyViewedPosts(Long userId, Pageable pageable) {
-            User user = userRepository.findById(userId)
-                    .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-            return viewHistoryRepository.findByUserOrderByModifiedAtDesc(user, pageable)
-                    .map(viewHistory -> PostSummary.from(viewHistory.getPost()));
+                User user = userRepository.findById(userId)
+                                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+                return viewHistoryRepository.findByUserOrderByModifiedAtDesc(user, pageable)
+                                .map(viewHistory -> PostSummary.from(viewHistory.getPost()));
+        }
+
+        public List<String> getPostImageUrls(Long postId) {
+                return fileService.getFilesByRelatedEntity(postId, "POST_CONTENT").stream()
+                                .filter(file -> file.getMimeType().startsWith("image/"))
+                                .map(file -> "/api/v1/files/" + file.getFileId())
+                                .collect(Collectors.toList());
         }
 }

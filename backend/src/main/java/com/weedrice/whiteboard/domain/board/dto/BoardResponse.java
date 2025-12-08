@@ -31,7 +31,7 @@ public class BoardResponse {
     private final Long adminUserId; // 추가
 
     @JsonProperty("isActive")
-    private final String isActive; // 추가
+    private final boolean isActive; // 추가
 
     public BoardResponse(Board board, long subscriberCount, String adminDisplayName, Long adminUserId, boolean isAdmin,
             boolean isSubscribed, List<CategoryResponse> categories, List<PostSummary> latestPosts) { // 생성자 파라미터 추가
@@ -41,7 +41,7 @@ public class BoardResponse {
         this.description = board.getDescription();
         this.iconUrl = board.getIconUrl();
         this.sortOrder = board.getSortOrder();
-        this.allowNsfw = "Y".equals(board.getAllowNsfw());
+        this.allowNsfw = board.getAllowNsfw();
         this.subscriberCount = subscriberCount;
         this.adminDisplayName = adminDisplayName;
         this.adminUserId = adminUserId; // 할당

@@ -52,7 +52,7 @@ public class NotificationResponse {
                                 .build())
                         .sourceType(notification.getSourceType())
                         .sourceId(notification.getSourceId())
-                        .isRead("Y".equals(notification.getIsRead()))
+                        .isRead(notification.getIsRead())
                         .createdAt(notification.getCreatedAt())
                         .build())
                 .collect(Collectors.toList());

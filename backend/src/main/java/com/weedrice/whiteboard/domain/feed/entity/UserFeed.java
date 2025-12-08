@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.feed.entity;
 
 import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.global.common.converter.BooleanToYNConverter;
 import com.weedrice.whiteboard.global.common.entity.BaseTimeEntity;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -41,8 +42,9 @@ public class UserFeed extends BaseTimeEntity {
     @Column(name = "criteria_id")
     private Long criteriaId;
 
+    @Convert(converter = BooleanToYNConverter.class)
     @Column(name = "is_read", length = 1, nullable = false)
-    private String isRead;
+    private Boolean isRead;
 
     @Builder
     public UserFeed(User targetUser, String feedType, String contentType, Long contentId, String sourceCriteria, Long criteriaId) {
@@ -52,10 +54,10 @@ public class UserFeed extends BaseTimeEntity {
         this.contentId = contentId;
         this.sourceCriteria = sourceCriteria;
         this.criteriaId = criteriaId;
-        this.isRead = "N";
+        this.isRead = false;
     }
 
     public void read() {
-        this.isRead = "Y";
+        this.isRead = true;
     }
 }

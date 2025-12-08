@@ -18,7 +18,6 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1")
@@ -60,9 +59,15 @@ public class PostController {
             summaries.add(summary);
         }
 
-        Page<PostSummary> summaryPage = new org.springframework.data.domain.PageImpl<>(summaries, pageable, totalElements);
+        Page<PostSummary> summaryPage = new org.springframework.data.domain.PageImpl<>(summaries, pageable,
+                totalElements);
 
         return ApiResponse.success(new PageResponse<>(summaryPage));
+    }
+
+    @GetMapping("/posts/trending")
+    public ApiResponse<List<PostSummary>> getTrendingPosts(@RequestParam(defaultValue = "10") int limit) {
+        return ApiResponse.success(postService.getTrendingPosts(limit));
     }
 
     @GetMapping("/posts/{postId}")
@@ -75,8 +80,9 @@ public class PostController {
         boolean isLiked = postService.isPostLikedByUser(postId, userId); // isLiked 값을 올바르게 가져옴
         boolean isScrapped = postService.isPostScrappedByUser(postId, userId);
         ViewHistory viewHistory = postService.getViewHistory(userId, postId); // ViewHistory를 올바르게 가져옴
+        List<String> imageUrls = postService.getPostImageUrls(postId);
 
-        return ApiResponse.success(PostResponse.from(post, tags, viewHistory, isLiked, isScrapped));
+        return ApiResponse.success(PostResponse.from(post, tags, viewHistory, isLiked, isScrapped, imageUrls));
     }
 
     @PutMapping("/posts/{postId}/history")

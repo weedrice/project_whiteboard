@@ -50,9 +50,7 @@ public class UserSettingsService {
                     return userSettingsRepository.save(defaultSettings);
                 });
 
-        String hideNsfwValue = hideNsfw != null ? (hideNsfw ? "Y" : "N") : null;
-
-        settings.updateSettings(theme, language, timezone, hideNsfwValue);
+        settings.updateSettings(theme, language, timezone, hideNsfw);
 
         return settings;
     }
@@ -75,7 +73,7 @@ public class UserSettingsService {
                 .orElse(UserNotificationSettings.builder()
                         .userId(userId)
                         .notificationType(notificationType)
-                        .isEnabled("Y")
+                        .isEnabled(true)
                         .build());
 
         if (isEnabled != null) {

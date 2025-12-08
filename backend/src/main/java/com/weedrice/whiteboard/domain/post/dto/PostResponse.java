@@ -40,6 +40,7 @@ public class PostResponse {
     private Long lastReadCommentId;
     private LocalDateTime createdAt;
     private LocalDateTime modifiedAt;
+    private List<String> imageUrls;
 
     @Getter
     @Builder
@@ -65,7 +66,7 @@ public class PostResponse {
     }
 
     public static PostResponse from(Post post, List<String> tags, ViewHistory viewHistory, boolean isLiked,
-            boolean isScrapped) {
+            boolean isScrapped, List<String> imageUrls) {
         AuthorInfo authorInfo = AuthorInfo.builder()
                 .userId(post.getUser().getUserId())
                 .displayName(post.getUser().getDisplayName())
@@ -99,14 +100,15 @@ public class PostResponse {
                 .viewCount(post.getViewCount())
                 .likeCount(post.getLikeCount())
                 .commentCount(post.getCommentCount())
-                .isNotice("Y".equals(post.getIsNotice()))
-                .isNsfw("Y".equals(post.getIsNsfw()))
-                .isSpoiler("Y".equals(post.getIsSpoiler()))
+                .isNotice(post.getIsNotice())
+                .isNsfw(post.getIsNsfw())
+                .isSpoiler(post.getIsSpoiler())
                 .isLiked(isLiked)
                 .isScrapped(isScrapped)
                 .lastReadCommentId(lastReadCommentId)
                 .createdAt(post.getCreatedAt())
                 .modifiedAt(post.getModifiedAt())
+                .imageUrls(imageUrls)
                 .build();
     }
 }

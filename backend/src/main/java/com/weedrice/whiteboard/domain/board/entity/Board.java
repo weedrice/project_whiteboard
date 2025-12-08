@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.board.entity;
 
 import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.global.common.converter.BooleanToYNConverter;
 import com.weedrice.whiteboard.global.common.entity.BaseTimeEntity;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -44,11 +45,13 @@ public class Board extends BaseTimeEntity {
     @Column(name = "sort_order", nullable = false)
     private Integer sortOrder;
 
+    @Convert(converter = BooleanToYNConverter.class)
     @Column(name = "is_active", length = 1, nullable = false)
-    private String isActive;
+    private Boolean isActive;
 
+    @Convert(converter = BooleanToYNConverter.class)
     @Column(name = "allow_nsfw", length = 1, nullable = false)
-    private String allowNsfw;
+    private Boolean allowNsfw;
 
     @OneToMany(mappedBy = "board", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<BoardCategory> categories = new ArrayList<>();
@@ -61,8 +64,8 @@ public class Board extends BaseTimeEntity {
         this.creator = creator;
         this.iconUrl = iconUrl;
         this.sortOrder = sortOrder != null ? sortOrder : 0;
-        this.isActive = "Y";
-        this.allowNsfw = "N";
+        this.isActive = true;
+        this.allowNsfw = false;
     }
 
     public void update(String boardName, String description, String iconUrl, Integer sortOrder, Boolean allowNsfw) {
@@ -70,7 +73,7 @@ public class Board extends BaseTimeEntity {
         this.description = description;
         this.iconUrl = iconUrl;
         this.sortOrder = sortOrder;
-        this.allowNsfw = allowNsfw ? "Y" : "N";
+        this.allowNsfw = allowNsfw;
     }
 
     public void updateBoardUrl(String boardUrl) {
@@ -78,6 +81,6 @@ public class Board extends BaseTimeEntity {
     }
 
     public void deactivate() {
-        this.isActive = "N";
+        this.isActive = false;
     }
 }

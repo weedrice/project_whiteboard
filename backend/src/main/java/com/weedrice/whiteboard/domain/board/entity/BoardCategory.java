@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.board.entity;
 
+import com.weedrice.whiteboard.global.common.converter.BooleanToYNConverter;
 import com.weedrice.whiteboard.global.common.entity.BaseTimeEntity;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -31,15 +32,16 @@ public class BoardCategory extends BaseTimeEntity {
     @Column(name = "sort_order", nullable = false)
     private Integer sortOrder;
 
+    @Convert(converter = BooleanToYNConverter.class)
     @Column(name = "is_active", length = 1, nullable = false)
-    private String isActive;
+    private Boolean isActive;
 
     @Builder
     public BoardCategory(Board board, String name, Integer sortOrder) {
         this.board = board;
         this.name = name;
         this.sortOrder = sortOrder != null ? sortOrder : 0;
-        this.isActive = "Y";
+        this.isActive = true;
     }
 
     public void update(String name, Integer sortOrder) {
@@ -48,6 +50,6 @@ public class BoardCategory extends BaseTimeEntity {
     }
 
     public void deactivate() {
-        this.isActive = "N";
+        this.isActive = false;
     }
 }

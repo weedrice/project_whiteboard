@@ -45,10 +45,10 @@ public class UserController {
         public ResponseEntity<ApiResponse<MyInfoResponse>> getMyInfo(
                         @AuthenticationPrincipal CustomUserDetails userDetails) {
                 User user = userService.getMyInfo(userDetails.getUserId());
-                String role = "Y".equals(user.getIsSuperAdmin()) ? Role.SUPER_ADMIN : Role.USER;
+                String role = user.getIsSuperAdmin() ? Role.SUPER_ADMIN : Role.USER;
                 MyInfoResponse response = new MyInfoResponse(user.getUserId(), user.getLoginId(), user.getEmail(),
                                 user.getDisplayName(), user.getProfileImageUrl(), user.getStatus(), role,
-                                "Y".equals(user.getIsEmailVerified()), user.getCreatedAt(), user.getLastLoginAt());
+                                user.getIsEmailVerified(), user.getCreatedAt(), user.getLastLoginAt());
                 return ResponseEntity.ok(ApiResponse.success(response));
         }
 
@@ -94,7 +94,7 @@ public class UserController {
                         @AuthenticationPrincipal CustomUserDetails userDetails) {
                 UserSettings settings = userSettingsService.getSettings(userDetails.getUserId());
                 UserSettingsResponse response = new UserSettingsResponse(settings.getTheme(), settings.getLanguage(),
-                                settings.getTimezone(), "Y".equals(settings.getHideNsfw()));
+                                settings.getTimezone(), settings.getHideNsfw());
                 return ResponseEntity.ok(ApiResponse.success(response));
         }
 
@@ -105,7 +105,7 @@ public class UserController {
                 UserSettings settings = userSettingsService.updateSettings(userDetails.getUserId(), request.getTheme(),
                                 request.getLanguage(), request.getTimezone(), request.getHideNsfw());
                 UserSettingsResponse response = new UserSettingsResponse(settings.getTheme(), settings.getLanguage(),
-                                settings.getTimezone(), "Y".equals(settings.getHideNsfw()));
+                                settings.getTimezone(), settings.getHideNsfw());
                 return ResponseEntity.ok(ApiResponse.success(response));
         }
 
@@ -116,7 +116,7 @@ public class UserController {
                                 .getNotificationSettings(userDetails.getUserId());
                 List<NotificationSettingResponse> response = settings.stream()
                                 .map(s -> new NotificationSettingResponse(s.getNotificationType(),
-                                                "Y".equals(s.getIsEnabled())))
+                                                s.getIsEnabled()))
                                 .collect(Collectors.toList());
                 return ResponseEntity.ok(ApiResponse.success(response));
         }
@@ -129,7 +129,7 @@ public class UserController {
                                 userDetails.getUserId(),
                                 request.getNotificationType(), request.getIsEnabled());
                 NotificationSettingResponse response = new NotificationSettingResponse(setting.getNotificationType(),
-                                "Y".equals(setting.getIsEnabled()));
+                                setting.getIsEnabled());
                 return ResponseEntity.ok(ApiResponse.success(response));
         }
 

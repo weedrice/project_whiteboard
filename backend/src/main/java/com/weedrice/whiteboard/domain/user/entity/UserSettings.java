@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.user.entity;
 
+import com.weedrice.whiteboard.global.common.converter.BooleanToYNConverter;
 import com.weedrice.whiteboard.global.common.entity.BaseTimeEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -31,8 +32,9 @@ public class UserSettings extends BaseTimeEntity {
     @Column(name = "timezone", nullable = false, length = 50)
     private String timezone;
 
+    @Convert(converter = BooleanToYNConverter.class)
     @Column(name = "hide_nsfw", nullable = false, length = 1)
-    private String hideNsfw;
+    private Boolean hideNsfw;
 
     @Builder
     public UserSettings(User user) {
@@ -40,10 +42,10 @@ public class UserSettings extends BaseTimeEntity {
         this.theme = "LIGHT";
         this.language = "ko";
         this.timezone = "Asia/Seoul";
-        this.hideNsfw = "Y";
+        this.hideNsfw = true;
     }
 
-    public void updateSettings(String theme, String language, String timezone, String hideNsfw) {
+    public void updateSettings(String theme, String language, String timezone, Boolean hideNsfw) {
         if (theme != null) {
             this.theme = theme;
         }

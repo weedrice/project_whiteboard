@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.message.entity;
 
 import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.global.common.converter.BooleanToYNConverter;
 import com.weedrice.whiteboard.global.common.entity.BaseTimeEntity;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -35,34 +36,37 @@ public class Message extends BaseTimeEntity {
     @Column(name = "content", nullable = false)
     private String content;
 
+    @Convert(converter = BooleanToYNConverter.class)
     @Column(name = "is_read", length = 1, nullable = false)
-    private String isRead;
+    private Boolean isRead;
 
+    @Convert(converter = BooleanToYNConverter.class)
     @Column(name = "is_deleted_by_sender", length = 1, nullable = false)
-    private String isDeletedBySender;
+    private Boolean isDeletedBySender;
 
+    @Convert(converter = BooleanToYNConverter.class)
     @Column(name = "is_deleted_by_receiver", length = 1, nullable = false)
-    private String isDeletedByReceiver;
+    private Boolean isDeletedByReceiver;
 
     @Builder
     public Message(User sender, User receiver, String content) {
         this.sender = sender;
         this.receiver = receiver;
         this.content = content;
-        this.isRead = "N";
-        this.isDeletedBySender = "N";
-        this.isDeletedByReceiver = "N";
+        this.isRead = false;
+        this.isDeletedBySender = false;
+        this.isDeletedByReceiver = false;
     }
 
     public void markAsRead() {
-        this.isRead = "Y";
+        this.isRead = true;
     }
 
     public void deleteBySender() {
-        this.isDeletedBySender = "Y";
+        this.isDeletedBySender = true;
     }
 
     public void deleteByReceiver() {
-        this.isDeletedByReceiver = "Y";
+        this.isDeletedByReceiver = true;
     }
 }

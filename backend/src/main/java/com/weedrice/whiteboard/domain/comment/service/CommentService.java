@@ -51,7 +51,7 @@ public class CommentService {
                 .collect(Collectors.toList());
 
         List<Comment> childComments = commentRepository
-                .findByParent_CommentIdInAndIsDeletedOrderByCreatedAtAsc(parentIds, "N");
+                .findByParent_CommentIdInAndIsDeletedOrderByCreatedAtAsc(parentIds, false);
 
         Map<Long, List<CommentResponse>> childCommentMap = childComments.stream()
                 .collect(Collectors.groupingBy(comment -> comment.getParent().getCommentId(),
@@ -71,7 +71,7 @@ public class CommentService {
     }
 
     public Page<Comment> getReplies(Long parentId, Pageable pageable) {
-        return commentRepository.findByParent_CommentIdAndIsDeletedOrderByCreatedAtAsc(parentId, "N", pageable);
+        return commentRepository.findByParent_CommentIdAndIsDeletedOrderByCreatedAtAsc(parentId, false, pageable);
     }
 
     public CommentResponse getComment(Long commentId) {
@@ -83,7 +83,7 @@ public class CommentService {
     public Page<Comment> getMyComments(Long userId, Pageable pageable) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        return commentRepository.findByUserAndIsDeletedOrderByCreatedAtDesc(user, "N", pageable);
+        return commentRepository.findByUserAndIsDeletedOrderByCreatedAtDesc(user, false, pageable);
     }
 
     @Transactional

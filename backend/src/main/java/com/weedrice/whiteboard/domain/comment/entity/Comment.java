@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.comment.entity;
 
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.global.common.converter.BooleanToYNConverter;
 import com.weedrice.whiteboard.global.common.entity.BaseTimeEntity;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -44,8 +45,9 @@ public class Comment extends BaseTimeEntity {
     @Column(name = "content", nullable = false)
     private String content;
 
+    @Convert(converter = BooleanToYNConverter.class)
     @Column(name = "is_deleted", length = 1, nullable = false)
-    private String isDeleted;
+    private Boolean isDeleted;
 
     @Column(name = "like_count", nullable = false)
     private Integer likeCount;
@@ -57,7 +59,7 @@ public class Comment extends BaseTimeEntity {
         this.parent = parent;
         this.depth = depth;
         this.content = content;
-        this.isDeleted = "N";
+        this.isDeleted = false;
         this.likeCount = 0;
     }
 
@@ -66,7 +68,7 @@ public class Comment extends BaseTimeEntity {
     }
 
     public void deleteComment() {
-        this.isDeleted = "Y";
+        this.isDeleted = true;
     }
 
     public void incrementLikeCount() {

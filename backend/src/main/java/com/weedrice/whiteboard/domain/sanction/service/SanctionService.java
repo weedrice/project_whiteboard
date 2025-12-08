@@ -33,7 +33,7 @@ public class SanctionService {
         User adminUser = userRepository.findById(adminUserId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
-        Admin admin = adminRepository.findByUserAndIsActive(adminUser, "Y").orElse(null);
+        Admin admin = adminRepository.findByUserAndIsActive(adminUser, true).orElse(null);
 
         User targetUser = userRepository.findById(targetUserId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));

@@ -7,6 +7,6 @@ import java.util.List;
 import java.util.Optional;
 
 public interface CommonCodeDetailRepository extends JpaRepository<CommonCodeDetail, Long> {
-    List<CommonCodeDetail> findByCommonCode_TypeCodeAndIsActiveOrderBySortOrderAsc(String typeCode, String isActive);
+    List<CommonCodeDetail> findByCommonCode_TypeCodeAndIsActiveOrderBySortOrderAsc(String typeCode, Boolean isActive);
     Optional<CommonCodeDetail> findByCommonCode_TypeCodeAndCodeValue(String typeCode, String codeValue);
 }

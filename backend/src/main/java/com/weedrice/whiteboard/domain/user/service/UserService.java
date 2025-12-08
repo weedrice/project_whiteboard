@@ -53,7 +53,7 @@ public class UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
-        long postCount = postRepository.countByUserAndIsDeleted(user, "N"); // Calculate postCount
+        long postCount = postRepository.countByUserAndIsDeleted(user, false); // Calculate postCount
         long commentCount = commentRepository.countByUser(user); // 댓글 수 계산
 
         return UserProfileDto.builder()
@@ -160,7 +160,7 @@ public class UserService {
     }
 
     @Transactional
-    public UserSettings updateSettings(Long userId, String theme, String language, String timezone, String hideNsfw) {
+    public UserSettings updateSettings(Long userId, String theme, String language, String timezone, boolean hideNsfw) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 

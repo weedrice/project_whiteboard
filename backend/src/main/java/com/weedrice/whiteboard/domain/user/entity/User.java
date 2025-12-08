@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.user.entity;
 
+import com.weedrice.whiteboard.global.common.converter.BooleanToYNConverter;
 import com.weedrice.whiteboard.global.common.entity.BaseTimeEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;

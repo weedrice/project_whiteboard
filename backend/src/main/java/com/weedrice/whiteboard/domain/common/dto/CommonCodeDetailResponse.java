@@ -12,7 +12,7 @@ public class CommonCodeDetailResponse {
     private String codeValue;
     private String codeName;
     private Integer sortOrder;
-    private String isActive;
+    private Boolean isActive;
 
     public static CommonCodeDetailResponse from(CommonCodeDetail detail) {
         return new CommonCodeDetailResponse(

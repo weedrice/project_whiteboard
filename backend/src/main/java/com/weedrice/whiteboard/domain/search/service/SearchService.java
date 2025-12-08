@@ -64,7 +64,7 @@ public class SearchService {
         Page<PostSummary> posts = postRepository.searchPostsByKeyword(keyword, previewPageable)
                 .map(PostSummary::from);
         
-        Page<CommentResponse> comments = commentRepository.findByContentContainingIgnoreCaseAndIsDeleted(keyword, "N", previewPageable)
+        Page<CommentResponse> comments = commentRepository.findByContentContainingIgnoreCaseAndIsDeleted(keyword, false, previewPageable)
                 .map(CommentResponse::from);
         
         Page<UserSummary> users = userRepository.findByDisplayNameContainingIgnoreCase(keyword, previewPageable)

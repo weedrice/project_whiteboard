@@ -3,6 +3,7 @@ package com.weedrice.whiteboard.domain.post.entity;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
 import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.global.common.converter.BooleanToYNConverter;
 import com.weedrice.whiteboard.global.common.entity.BaseTimeEntity;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -55,17 +56,21 @@ public class Post extends BaseTimeEntity {
     @Column(name = "comment_count", nullable = false)
     private Integer commentCount;
 
+    @Convert(converter = BooleanToYNConverter.class)
     @Column(name = "is_deleted", length = 1, nullable = false)
-    private String isDeleted;
+    private Boolean isDeleted;
 
+    @Convert(converter = BooleanToYNConverter.class)
     @Column(name = "is_notice", length = 1, nullable = false)
-    private String isNotice;
+    private Boolean isNotice;
 
+    @Convert(converter = BooleanToYNConverter.class)
     @Column(name = "is_nsfw", length = 1, nullable = false)
-    private String isNsfw;
+    private Boolean isNsfw;
 
+    @Convert(converter = BooleanToYNConverter.class)
     @Column(name = "is_spoiler", length = 1, nullable = false)
-    private String isSpoiler;
+    private Boolean isSpoiler;
 
     @Builder
     public Post(Board board, User user, BoardCategory category, String title, String contents, boolean isNotice, boolean isNsfw, boolean isSpoiler) {
@@ -77,10 +82,10 @@ public class Post extends BaseTimeEntity {
         this.viewCount = 0;
         this.likeCount = 0;
         this.commentCount = 0;
-        this.isDeleted = "N";
-        this.isNotice = isNotice ? "Y" : "N";
-        this.isNsfw = isNsfw ? "Y" : "N";
-        this.isSpoiler = isSpoiler ? "Y" : "N";
+        this.isDeleted = false;
+        this.isNotice = isNotice;
+        this.isNsfw = isNsfw;
+        this.isSpoiler = isSpoiler;
     }
 
     public void incrementViewCount() {
@@ -107,11 +112,11 @@ public class Post extends BaseTimeEntity {
         this.category = category;
         this.title = title;
         this.contents = contents;
-        this.isNsfw = isNsfw ? "Y" : "N";
-        this.isSpoiler = isSpoiler ? "Y" : "N";
+        this.isNsfw = isNsfw;
+        this.isSpoiler = isSpoiler;
     }
 
     public void deletePost() {
-        this.isDeleted = "Y";
+        this.isDeleted = true;
     }
 }

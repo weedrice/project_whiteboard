@@ -93,7 +93,7 @@ public class CommonCodeService {
 
     public List<CommonCodeDetailResponse> getCommonCodeDetails(String typeCode) {
         // Public access allowed for retrieving active codes
-        return commonCodeDetailRepository.findByCommonCode_TypeCodeAndIsActiveOrderBySortOrderAsc(typeCode, "Y").stream()
+        return commonCodeDetailRepository.findByCommonCode_TypeCodeAndIsActiveOrderBySortOrderAsc(typeCode, true).stream()
                 .map(CommonCodeDetailResponse::from)
                 .collect(Collectors.toList());
     }

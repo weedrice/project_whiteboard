@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.auth.entity;
 
+import com.weedrice.whiteboard.global.common.converter.BooleanToYNConverter;
 import com.weedrice.whiteboard.global.common.entity.BaseTimeEntity;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import jakarta.persistence.*;
@@ -37,8 +38,9 @@ public class LoginHistory extends BaseTimeEntity {
     @Column(name = "user_agent", length = 500)
     private String userAgent;
 
+    @Convert(converter = BooleanToYNConverter.class)
     @Column(name = "is_success", nullable = false, length = 1)
-    private String isSuccess; // Y, N
+    private Boolean isSuccess; // Y, N
 
     @Column(name = "failure_reason", length = 50)
     private String failureReason;
@@ -50,7 +52,7 @@ public class LoginHistory extends BaseTimeEntity {
         this.loginId = loginId;
         this.ipAddress = ipAddress;
         this.userAgent = userAgent;
-        this.isSuccess = isSuccess ? "Y" : "N";
+        this.isSuccess = isSuccess;
         this.failureReason = failureReason;
     }
 

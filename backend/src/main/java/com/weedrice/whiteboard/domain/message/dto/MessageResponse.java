@@ -49,7 +49,7 @@ public class MessageResponse {
                                     .displayName(partner.getDisplayName())
                                     .build())
                             .content(message.getContent())
-                            .isRead("Y".equals(message.getIsRead()))
+                            .isRead(message.getIsRead())
                             .createdAt(message.getCreatedAt())
                             .build();
                 })

@@ -50,157 +50,160 @@ public class AuthService {
     private final UserSettingsRepository userSettingsRepository;
 
     @Transactional
-        public SignupResponse signup(SignupRequest request) {
-            if (userRepository.existsByLoginId(request.getLoginId())) {
-                    throw new BusinessException(ErrorCode.DUPLICATE_LOGIN_ID);
-            }
-            if (userRepository.existsByEmail(request.getEmail())) {
-                    throw new BusinessException(ErrorCode.DUPLICATE_EMAIL);
-            }
-
-            User user = User.builder()
-                            .loginId(request.getLoginId())
-                            .password(passwordEncoder.encode(request.getPassword()))
-                            .email(request.getEmail())
-                            .displayName(request.getDisplayName())
-                            .build();
-            User savedUser = userRepository.save(user);
-
-            // 기본 세팅 정보 생성
-            UserSettings userSettings = UserSettings.builder()
-                                            .user(user)
-                                            .build();
-            userSettingsRepository.save(userSettings);
-
-            // 포인트 정보 생성
-            userPointRepository.save(UserPoint.builder().user(savedUser).build());
-
-            return SignupResponse.builder()
-                            .userId(savedUser.getUserId())
-                            .loginId(savedUser.getLoginId())
-                            .email(savedUser.getEmail())
-                            .displayName(savedUser.getDisplayName())
-                            .build();
+    public SignupResponse signup(SignupRequest request) {
+        if (userRepository.existsByLoginId(request.getLoginId())) {
+            throw new BusinessException(ErrorCode.DUPLICATE_LOGIN_ID);
+        }
+        if (userRepository.existsByEmail(request.getEmail())) {
+            throw new BusinessException(ErrorCode.DUPLICATE_EMAIL);
         }
 
-        @Transactional
-        public LoginResponse login(LoginRequest request, HttpServletRequest httpServletRequest) {
-                UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(
-                                request.getLoginId(), request.getPassword());
+        User user = User.builder()
+                .loginId(request.getLoginId())
+                .password(passwordEncoder.encode(request.getPassword()))
+                .email(request.getEmail())
+                .displayName(request.getDisplayName())
+                .build();
+        User savedUser = userRepository.save(user);
 
-                Authentication authentication = authenticationManagerBuilder.getObject()
-                                .authenticate(authenticationToken);
-                CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
+        // 기본 세팅 정보 생성
+        UserSettings userSettings = UserSettings.builder()
+                .user(user)
+                .build();
+        userSettingsRepository.save(userSettings);
 
-                Long userId = userDetails.getUserId();
-                if (userId == null) {
-                        throw new BusinessException(ErrorCode.USER_NOT_FOUND);
-                }
-                User user = userRepository.findById(userId)
-                                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        // 포인트 정보 생성
+        userPointRepository.save(UserPoint.builder().user(savedUser).build());
 
-                String accessToken = jwtTokenProvider.createAccessToken(authentication);
-                String refreshToken = jwtTokenProvider.createRefreshToken(authentication);
-                String refreshTokenHash = hashTokenSha256(refreshToken);
+        return SignupResponse.builder()
+                .userId(savedUser.getUserId())
+                .loginId(savedUser.getLoginId())
+                .email(savedUser.getEmail())
+                .displayName(savedUser.getDisplayName())
+                .build();
+    }
 
-                String ipAddress = ClientUtils.getIp(httpServletRequest);
-                String userAgent = httpServletRequest.getHeader("User-Agent");
+    @Transactional
+    public LoginResponse login(LoginRequest request, HttpServletRequest httpServletRequest) {
+        UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(
+                request.getLoginId(), request.getPassword());
 
-                // Refresh Token 저장
-                RefreshToken rt = RefreshToken.builder()
-                                .user(user)
-                                .tokenHash(refreshTokenHash)
-                                .ipAddress(ipAddress)
-                                .deviceInfo(userAgent)
-                                .expiresAt(LocalDateTime.now().plusDays(14))
-                                .build();
-                if (rt != null) {
-                        refreshTokenRepository.save(rt);
-                }
+        Authentication authentication = authenticationManagerBuilder.getObject()
+                .authenticate(authenticationToken);
+        CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
 
-                // 로그인 기록 저장
-                LoginHistory loginHistory = LoginHistory.success(user, request.getLoginId(), ipAddress, userAgent);
-                loginHistoryRepository.save(loginHistory);
+        Long userId = userDetails.getUserId();
+        if (userId == null) {
+            throw new BusinessException(ErrorCode.USER_NOT_FOUND);
+        }
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
-                user.updateLastLogin(); // 마지막 로그인 시간 업데이트
+        String accessToken = jwtTokenProvider.createAccessToken(authentication);
+        String refreshToken = jwtTokenProvider.createRefreshToken(authentication);
+        String refreshTokenHash = hashTokenSha256(refreshToken);
 
-                return LoginResponse.builder()
-                                .accessToken(accessToken)
-                                .refreshToken(refreshToken)
-                                .expiresIn(jwtTokenProvider.getAccessTokenValidityInMilliseconds())
-                                .user(LoginResponse.UserInfo.builder()
-                                                                                .userId(user.getUserId())
-                                                                                .loginId(user.getLoginId())
-                                                                                .displayName(user.getDisplayName())
-                                                                                .profileImageUrl(user.getProfileImageUrl())
-                                                                                .isEmailVerified(user.getIsEmailVerified())
-                                                                                .role(user.getIsSuperAdmin() ? Role.SUPER_ADMIN : Role.USER)
-                                                                                .build())
-                                                                                .build();        }
+        String ipAddress = ClientUtils.getIp(httpServletRequest);
+        String userAgent = httpServletRequest.getHeader("User-Agent");
 
-        @Transactional
-        public void logout(LogoutRequest request) {
-            String token = request.getRefreshToken();
-            if (token != null) {
-                String refreshTokenHash = hashTokenSha256(token);
-                refreshTokenRepository.findByTokenHash(refreshTokenHash)
-                                .ifPresent(refreshToken -> {
-                                        refreshToken.revoke();
-                                        refreshTokenRepository.save(refreshToken);
-                                });
-            }
-
+        // Refresh Token 저장
+        RefreshToken rt = RefreshToken.builder()
+                .user(user)
+                .tokenHash(refreshTokenHash)
+                .ipAddress(ipAddress)
+                .deviceInfo(userAgent)
+                .expiresAt(LocalDateTime.now().plusDays(14))
+                .build();
+        if (rt != null) {
+            refreshTokenRepository.save(rt);
         }
 
-        @Transactional
-        public RefreshResponse refresh(RefreshRequest request) {
-                String oldRefreshToken = request.getRefreshToken();
-                String oldRefreshTokenHash = hashTokenSha256(oldRefreshToken);
-                RefreshToken rt = refreshTokenRepository.findByTokenHash(oldRefreshTokenHash)
-                                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_REFRESH_TOKEN));
+        // 로그인 기록 저장
+        LoginHistory loginHistory = LoginHistory.success(user, request.getLoginId(), ipAddress, userAgent);
+        loginHistoryRepository.save(loginHistory);
 
-                if (!rt.isValid()) {
-                        throw new BusinessException(ErrorCode.EXPIRED_REFRESH_TOKEN);
-                }
+        user.updateLastLogin(); // 마지막 로그인 시간 업데이트
 
-                // Revoke the old refresh token
-                rt.revoke();
-                refreshTokenRepository.save(rt);
+        return LoginResponse.builder()
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
+                .expiresIn(jwtTokenProvider.getAccessTokenValidityInMilliseconds())
+                .user(LoginResponse.UserInfo.builder()
+                        .userId(user.getUserId())
+                        .loginId(user.getLoginId())
+                        .displayName(user.getDisplayName())
+                        .profileImageUrl(user.getProfileImageUrl())
+                        .isEmailVerified(user.getIsEmailVerified())
+                        .role(user.getIsSuperAdmin() ? Role.SUPER_ADMIN : Role.USER)
+                        .build())
+                .build();
+    }
 
-                User user = rt.getUser();
-                Set<GrantedAuthority> authorities = new HashSet<>();
-                if (user.getIsSuperAdmin()) {
-                    authorities.add(new SimpleGrantedAuthority(Role.ROLE_SUPER_ADMIN));
-                } else {
-                    authorities.add(new SimpleGrantedAuthority(Role.ROLE_USER));
-                }
-
-                Authentication authentication = new UsernamePasswordAuthenticationToken(
-                                new CustomUserDetails(user.getUserId(), user.getLoginId(), "", new ArrayList<>(authorities)),
-                                "",
-                                new ArrayList<>(authorities));
-
-                // Generate new access and refresh tokens
-                String newAccessToken = jwtTokenProvider.createAccessToken(authentication);
-                String newRefreshToken = jwtTokenProvider.createRefreshToken(authentication);
-                String newRefreshTokenHash = hashTokenSha256(newRefreshToken);
-
-                // Save the new refresh token
-                RefreshToken newRt = RefreshToken.builder()
-                                .user(user)
-                                .tokenHash(newRefreshTokenHash)
-                                .ipAddress(rt.getIpAddress()) // Keep original IP/device info
-                                .deviceInfo(rt.getDeviceInfo())
-                                .expiresAt(LocalDateTime.now().plusDays(jwtTokenProvider.getRefreshTokenValidityInMilliseconds() / (1000 * 60 * 60 * 24))) // Use provider's validity
-                                .build();
-                refreshTokenRepository.save(newRt);
-
-                return RefreshResponse.builder()
-                                .accessToken(newAccessToken)
-                                .refreshToken(newRefreshToken)
-                                .expiresIn(jwtTokenProvider.getAccessTokenValidityInMilliseconds())
-                                .build();
+    @Transactional
+    public void logout(LogoutRequest request) {
+        String token = request.getRefreshToken();
+        if (token != null) {
+            String refreshTokenHash = hashTokenSha256(token);
+            refreshTokenRepository.findByTokenHash(refreshTokenHash)
+                    .ifPresent(refreshToken -> {
+                        refreshToken.revoke();
+                        refreshTokenRepository.save(refreshToken);
+                    });
         }
+
+    }
+
+    @Transactional
+    public RefreshResponse refresh(RefreshRequest request) {
+        String oldRefreshToken = request.getRefreshToken();
+        String oldRefreshTokenHash = hashTokenSha256(oldRefreshToken);
+        RefreshToken rt = refreshTokenRepository.findByTokenHash(oldRefreshTokenHash)
+                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_REFRESH_TOKEN));
+
+        if (!rt.isValid()) {
+            throw new BusinessException(ErrorCode.EXPIRED_REFRESH_TOKEN);
+        }
+
+        // Revoke the old refresh token
+        rt.revoke();
+        refreshTokenRepository.save(rt);
+
+        User user = rt.getUser();
+        Set<GrantedAuthority> authorities = new HashSet<>();
+        authorities.add(new SimpleGrantedAuthority(Role.ROLE_USER)); // 기본 부여
+        if (user.getIsSuperAdmin()) {
+            authorities.add(new SimpleGrantedAuthority(Role.ROLE_SUPER_ADMIN)); // 추가 부여
+        }
+
+        Authentication authentication = new UsernamePasswordAuthenticationToken(
+                new CustomUserDetails(user.getUserId(), user.getLoginId(), "", new ArrayList<>(authorities)),
+                "",
+                new ArrayList<>(authorities));
+
+        // Generate new access and refresh tokens
+        String newAccessToken = jwtTokenProvider.createAccessToken(authentication);
+        String newRefreshToken = jwtTokenProvider.createRefreshToken(authentication);
+        String newRefreshTokenHash = hashTokenSha256(newRefreshToken);
+
+        // Save the new refresh token
+        RefreshToken newRt = RefreshToken.builder()
+                .user(user)
+                .tokenHash(newRefreshTokenHash)
+                .ipAddress(rt.getIpAddress()) // Keep original IP/device info
+                .deviceInfo(rt.getDeviceInfo())
+                .expiresAt(LocalDateTime.now()
+                        .plusDays(jwtTokenProvider.getRefreshTokenValidityInMilliseconds() / (1000 * 60 * 60 * 24))) // Use
+                                                                                                                     // provider's
+                                                                                                                     // validity
+                .build();
+        refreshTokenRepository.save(newRt);
+
+        return RefreshResponse.builder()
+                .accessToken(newAccessToken)
+                .refreshToken(newRefreshToken)
+                .expiresIn(jwtTokenProvider.getAccessTokenValidityInMilliseconds())
+                .build();
+    }
 
     private String hashTokenSha256(String token) {
         try {

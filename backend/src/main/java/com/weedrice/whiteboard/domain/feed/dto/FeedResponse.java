@@ -39,7 +39,7 @@ public class FeedResponse {
                         .feedType(feed.getFeedType())
                         .contentType(feed.getContentType())
                         .contentId(feed.getContentId())
-                        .isRead("Y".equals(feed.getIsRead()))
+                        .isRead(feed.getIsRead())
                         .createdAt(feed.getCreatedAt())
                         .build())
                 .collect(Collectors.toList());

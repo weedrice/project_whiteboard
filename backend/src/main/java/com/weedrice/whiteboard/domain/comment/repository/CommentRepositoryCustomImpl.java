@@ -29,7 +29,7 @@ public class CommentRepositoryCustomImpl implements CommentRepositoryCustom {
                 .selectFrom(comment)
                 .where(
                         keywordExpression,
-                        comment.isDeleted.eq("N")
+                        comment.isDeleted.eq(false)
                 )
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize())
@@ -41,7 +41,7 @@ public class CommentRepositoryCustomImpl implements CommentRepositoryCustom {
                 .from(comment)
                 .where(
                         keywordExpression,
-                        comment.isDeleted.eq("N")
+                        comment.isDeleted.eq(false)
                 )
                 .fetchOne();
 

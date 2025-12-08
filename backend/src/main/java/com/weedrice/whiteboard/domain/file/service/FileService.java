@@ -78,4 +78,8 @@ public class FileService {
         return fileRepository.findById(fileId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
     }
+
+    public List<File> getFilesByRelatedEntity(Long relatedId, String relatedType) {
+        return fileRepository.findByRelatedIdAndRelatedType(relatedId, relatedType);
+    }
 }

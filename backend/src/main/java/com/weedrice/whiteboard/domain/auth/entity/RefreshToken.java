@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.auth.entity;
 
+import com.weedrice.whiteboard.global.common.converter.BooleanToYNConverter;
 import com.weedrice.whiteboard.global.common.entity.BaseTimeEntity;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import jakarta.persistence.*;
@@ -42,8 +43,9 @@ public class RefreshToken extends BaseTimeEntity {
     @Column(name = "expires_at", nullable = false)
     private LocalDateTime expiresAt;
 
+    @Convert(converter = BooleanToYNConverter.class)
     @Column(name = "is_revoked", nullable = false, length = 1)
-    private String isRevoked; // Y, N
+    private Boolean isRevoked; // Y, N
 
     @Builder
     public RefreshToken(User user, String tokenHash, String deviceInfo, String ipAddress,
@@ -53,11 +55,11 @@ public class RefreshToken extends BaseTimeEntity {
         this.deviceInfo = deviceInfo;
         this.ipAddress = ipAddress;
         this.expiresAt = expiresAt;
-        this.isRevoked = "N";
+        this.isRevoked = false;
     }
 
     public void revoke() {
-        this.isRevoked = "Y";
+        this.isRevoked = true;
     }
 
     public boolean isExpired() {
@@ -65,6 +67,6 @@ public class RefreshToken extends BaseTimeEntity {
     }
 
     public boolean isValid() {
-        return "N".equals(isRevoked) && !isExpired();
+        return !isRevoked && !isExpired();
     }
 }

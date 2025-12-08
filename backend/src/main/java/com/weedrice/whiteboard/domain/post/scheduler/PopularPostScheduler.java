@@ -41,7 +41,7 @@ public class PopularPostScheduler {
     }
 
     private void aggregateAndSave(String rankingType, LocalDateTime since) {
-        List<Post> posts = postRepository.findByCreatedAtAfterAndIsDeleted(since, "N");
+        List<Post> posts = postRepository.findByCreatedAtAfterAndIsDeleted(since, false);
 
         List<PopularPost> popularPosts = posts.stream()
                 .map(post -> {

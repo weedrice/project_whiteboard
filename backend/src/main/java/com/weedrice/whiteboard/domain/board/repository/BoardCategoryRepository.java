@@ -7,5 +7,5 @@ import java.util.List;
 
 public interface BoardCategoryRepository extends JpaRepository<BoardCategory, Long> {
 
-    List<BoardCategory> findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(Long boardId, String isActive);
+    List<BoardCategory> findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(Long boardId, Boolean isActive);
 }

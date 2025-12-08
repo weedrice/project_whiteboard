@@ -37,7 +37,7 @@ public class CommentResponse {
 
     public static CommentResponse from(Comment comment) {
         AuthorInfo authorInfo = null;
-        if (comment.getUser() != null && "N".equals(comment.getIsDeleted())) {
+        if (comment.getUser() != null && !comment.getIsDeleted()) {
             authorInfo = AuthorInfo.builder()
                     .userId(comment.getUser().getUserId())
                     .displayName(comment.getUser().getDisplayName())
@@ -47,11 +47,11 @@ public class CommentResponse {
 
         return CommentResponse.builder()
                 .commentId(comment.getCommentId())
-                .content("Y".equals(comment.getIsDeleted()) ? "삭제된 댓글입니다." : comment.getContent())
+                .content(comment.getIsDeleted() ? "삭제된 댓글입니다." : comment.getContent())
                 .author(authorInfo)
                 .depth(comment.getDepth())
                 .likeCount(comment.getLikeCount())
-                .isDeleted("Y".equals(comment.getIsDeleted()))
+                .isDeleted(comment.getIsDeleted())
                 .createdAt(comment.getCreatedAt())
                 .postId(comment.getPost().getPostId())
                 .boardUrl(comment.getPost().getBoard().getBoardUrl())

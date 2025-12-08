@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.common.entity;
 
+import com.weedrice.whiteboard.global.common.converter.BooleanToYNConverter;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -42,8 +43,9 @@ public class CommonCodeDetail {
     @Column(name = "sort_order", nullable = false)
     private Integer sortOrder;
 
+    @Convert(converter = BooleanToYNConverter.class)
     @Column(name = "is_active", nullable = false, length = 1)
-    private String isActive;
+    private Boolean isActive;
 
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -54,15 +56,15 @@ public class CommonCodeDetail {
     private LocalDateTime modifiedAt;
 
     @Builder
-    public CommonCodeDetail(CommonCode commonCode, String codeValue, String codeName, Integer sortOrder, String isActive) {
+    public CommonCodeDetail(CommonCode commonCode, String codeValue, String codeName, Integer sortOrder, Boolean isActive) {
         this.commonCode = commonCode;
         this.codeValue = codeValue;
         this.codeName = codeName;
         this.sortOrder = sortOrder != null ? sortOrder : 0;
-        this.isActive = isActive != null ? isActive : "Y";
+        this.isActive = isActive != null ? isActive : true;
     }
 
-    public void update(String codeName, Integer sortOrder, String isActive) {
+    public void update(String codeName, Integer sortOrder, Boolean isActive) {
         this.codeName = codeName;
         this.sortOrder = sortOrder;
         this.isActive = isActive;

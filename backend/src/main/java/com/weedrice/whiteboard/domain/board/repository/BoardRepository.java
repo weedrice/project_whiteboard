@@ -10,7 +10,7 @@ import java.util.Optional;
 
 public interface BoardRepository extends JpaRepository<Board, Long> {
 
-    List<Board> findByIsActiveOrderBySortOrderAsc(String isActive);
+    List<Board> findByIsActiveOrderBySortOrderAsc(Boolean isActive);
 
     boolean existsByBoardName(String boardName);
 
@@ -18,7 +18,7 @@ public interface BoardRepository extends JpaRepository<Board, Long> {
 
     Optional<Board> findByBoardUrl(String boardUrl); // 추가
 
-    @Query("SELECT p.board FROM Post p WHERE p.isDeleted = 'N' AND p.board.isActive = 'Y' GROUP BY p.board ORDER BY COUNT(p) DESC")
+    @Query("SELECT p.board FROM Post p WHERE p.isDeleted = false AND p.board.isActive = true GROUP BY p.board ORDER BY COUNT(p) DESC")
     List<Board> findTopBoardsByPostCount(Pageable pageable);
 
     @Query("SELECT COALESCE(MAX(b.sortOrder), 0) FROM Board b")

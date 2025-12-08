@@ -8,4 +8,6 @@ import java.util.List;
 
 public interface FileRepository extends JpaRepository<File, Long> {
     List<File> findByRelatedIdIsNullAndCreatedAtBefore(LocalDateTime dateTime);
+
+    List<File> findByRelatedIdAndRelatedType(Long relatedId, String relatedType);
 }

@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.shop.entity;
 
+import com.weedrice.whiteboard.global.common.converter.BooleanToYNConverter;
 import com.weedrice.whiteboard.global.common.entity.BaseTimeEntity;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -36,8 +37,9 @@ public class ShopItem extends BaseTimeEntity {
     @Column(name = "image_url", length = 255) // imageUrl 필드 추가
     private String imageUrl;
 
+    @Convert(converter = BooleanToYNConverter.class)
     @Column(name = "is_active", length = 1, nullable = false)
-    private String isActive;
+    private Boolean isActive;
 
     @Builder
     public ShopItem(String itemName, String description, Integer price, String itemType, String imageUrl) {
@@ -46,6 +48,6 @@ public class ShopItem extends BaseTimeEntity {
         this.price = price;
         this.itemType = itemType;
         this.imageUrl = imageUrl;
-        this.isActive = "Y";
+        this.isActive = true;
     }
 }
