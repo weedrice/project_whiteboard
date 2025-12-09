@@ -13,11 +13,11 @@
           :key="tab.nameKey"
           :to="tab.href"
           :ref="el => { if (el) tabRefs[index] = el.$el }"
-          class="whitespace-nowrap py-4 px-1 font-medium text-sm transition-colors duration-200"
+          class="whitespace-nowrap py-4 px-1 text-sm transition-colors duration-200"
           :class="[
             isActive(tab.href)
-              ? 'text-indigo-600'
-              : 'text-gray-500 hover:text-gray-700'
+              ? 'text-indigo-600 dark:text-indigo-400 font-bold'
+              : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 font-medium'
           ]"
           :aria-current="isActive(tab.href) ? 'page' : undefined"
         >
@@ -39,6 +39,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ref, computed, watch, nextTick, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 
+// User Navigation Component
 const route = useRoute()
 const router = useRouter()
 const { t } = useI18n()

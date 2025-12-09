@@ -1,28 +1,28 @@
 <template>
-  <div class="bg-white shadow rounded-lg overflow-hidden">
+  <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden transition-colors duration-200">
     <div class="px-4 py-5 sm:px-6 flex justify-between items-center">
-        <h3 class="text-lg font-medium leading-6 text-gray-900">{{ $t('user.message.boxTitle') }}</h3>
+        <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-white">{{ $t('user.message.boxTitle') }}</h3>
         <div class="flex items-center space-x-4">
             <PageSizeSelector v-model="size" @change="handleSizeChange" />
             <button 
                 v-if="selectedMessages.length > 0"
                 @click="deleteSelectedMessages"
-                class="px-3 py-1 text-sm font-medium rounded-md text-red-700 bg-red-100 hover:bg-red-200 mr-2"
+                class="px-3 py-1 text-sm font-medium rounded-md text-red-700 bg-red-100 hover:bg-red-200 dark:bg-red-900/50 dark:text-red-400 dark:hover:bg-red-900/70 mr-2"
             >
                 {{ $t('common.delete') }} ({{ selectedMessages.length }})
             </button>
             <div class="space-x-2">
                 <button 
                     @click="changeViewType('received')" 
-                    class="px-3 py-1 text-sm font-medium rounded-md"
-                    :class="viewType === 'received' ? 'bg-indigo-100 text-indigo-700' : 'text-gray-500 hover:text-gray-700'"
+                    class="px-3 py-1 text-sm font-medium rounded-md transition-colors duration-200"
+                    :class="viewType === 'received' ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-400' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'"
                 >
                     {{ $t('user.message.received') }}
                 </button>
                  <button 
                     @click="changeViewType('sent')" 
-                    class="px-3 py-1 text-sm font-medium rounded-md"
-                    :class="viewType === 'sent' ? 'bg-indigo-100 text-indigo-700' : 'text-gray-500 hover:text-gray-700'"
+                    class="px-3 py-1 text-sm font-medium rounded-md transition-colors duration-200"
+                    :class="viewType === 'sent' ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-400' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'"
                 >
                     {{ $t('user.message.sent') }}
                 </button>
@@ -34,15 +34,15 @@
       <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 mx-auto"></div>
     </div>
 
-    <div v-else-if="messages.length === 0" class="text-center py-10 text-gray-500">
+    <div v-else-if="messages.length === 0" class="text-center py-10 text-gray-500 dark:text-gray-400">
         {{ $t('user.message.empty') }}
     </div>
 
-    <ul v-else class="divide-y divide-gray-200">
+    <ul v-else class="divide-y divide-gray-200 dark:divide-gray-700">
       <li 
         v-for="msg in messages" 
         :key="msg.messageId" 
-        class="p-4 hover:bg-gray-50 cursor-pointer flex items-start"
+        class="p-4 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer flex items-start transition-colors duration-200"
         @click="openMessage(msg)"
       >
         <div class="flex items-center justify-center h-full mr-4 p-2 -ml-2 cursor-pointer" @click.stop="toggleSelection(msg.messageId)">
@@ -50,21 +50,21 @@
                 type="checkbox" 
                 :value="msg.messageId" 
                 v-model="selectedMessages"
-                class="focus:ring-indigo-500 h-5 w-5 text-indigo-600 border-gray-300 rounded cursor-pointer"
+                class="focus:ring-indigo-500 h-5 w-5 text-indigo-600 border-gray-300 dark:border-gray-600 rounded cursor-pointer bg-white dark:bg-gray-700"
                 @click.stop
             >
         </div>
         <div class="flex-1 min-w-0">
             <div class="flex justify-between">
-                <div class="text-sm font-medium text-indigo-600">
+                <div class="text-sm font-medium text-indigo-600 dark:text-indigo-400">
                     {{ msg.partner.displayName }}
                 </div>
-                <div class="text-xs text-gray-500">
+                <div class="text-xs text-gray-500 dark:text-gray-400">
                     {{ new Date(msg.createdAt).toLocaleString() }}
                 </div>
             </div>
             <p 
-                class="mt-1 text-sm text-gray-900 line-clamp-1"
+                class="mt-1 text-sm text-gray-900 dark:text-gray-100 line-clamp-1"
                 :class="{ 'font-bold': viewType === 'received' && !msg.read }"
             >
                 {{ msg.content }}
@@ -84,14 +84,14 @@
     <!-- Message Detail Modal -->
     <BaseModal :isOpen="!!selectedMessage" :title="$t('user.message.title')" @close="selectedMessage = null">
         <div v-if="selectedMessage" class="p-4 space-y-4">
-             <div class="flex justify-between items-start border-b pb-2">
+             <div class="flex justify-between items-start border-b dark:border-gray-700 pb-2">
                  <div>
-                     <span class="block text-xs text-gray-500">{{ viewType === 'received' ? $t('user.message.from') : $t('user.message.to') }}</span>
-                     <span class="text-sm font-medium">{{ selectedMessage.partner.displayName }}</span>
+                     <span class="block text-xs text-gray-500 dark:text-gray-400">{{ viewType === 'received' ? $t('user.message.from') : $t('user.message.to') }}</span>
+                     <span class="text-sm font-medium text-gray-900 dark:text-white">{{ selectedMessage.partner.displayName }}</span>
                  </div>
-                 <span class="text-xs text-gray-500">{{ new Date(selectedMessage.createdAt).toLocaleString() }}</span>
+                 <span class="text-xs text-gray-500 dark:text-gray-400">{{ new Date(selectedMessage.createdAt).toLocaleString() }}</span>
              </div>
-             <div class="text-sm text-gray-900 whitespace-pre-wrap min-h-[100px]">
+             <div class="text-sm text-gray-900 dark:text-gray-100 whitespace-pre-wrap min-h-[100px]">
                  {{ selectedMessage.content }}
              </div>
              
@@ -111,17 +111,17 @@
     <BaseModal :isOpen="isReplyModalOpen" :title="$t('user.message.replyTitle')" @close="closeReplyModal">
         <div class="p-4 space-y-4">
              <div>
-                 <label class="block text-sm font-medium text-gray-700">{{ $t('user.message.to') }}</label>
-                 <div class="mt-1 p-2 bg-gray-50 rounded-md text-sm text-gray-900">
+                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">{{ $t('user.message.to') }}</label>
+                 <div class="mt-1 p-2 bg-gray-50 dark:bg-gray-700 rounded-md text-sm text-gray-900 dark:text-white">
                      {{ replyTarget?.partner.displayName }}
                  </div>
              </div>
              <div>
-                 <label class="block text-sm font-medium text-gray-700">{{ $t('user.message.content') }}</label>
+                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">{{ $t('user.message.content') }}</label>
                  <textarea 
                     v-model="replyContent" 
                     rows="4" 
-                    class="mt-1 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                    class="mt-1 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                  ></textarea>
              </div>
              <div class="flex justify-end space-x-2">

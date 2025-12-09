@@ -1,39 +1,45 @@
 <script setup>
-import { onMounted, ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { useNotificationStore } from '@/stores/notification'
+import { useNotification } from '@/composables/useNotification'
 import { postApi } from '@/api/post'
 import { commentApi } from '@/api/comment'
 import { Check, Bell } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import Pagination from '@/components/common/Pagination.vue'
 import PageSizeSelector from '@/components/common/PageSizeSelector.vue'
+import logger from '@/utils/logger'
 
 const { t } = useI18n()
-
 const router = useRouter()
-const notificationStore = useNotificationStore()
+const { useNotifications, useMarkAsRead, useMarkAllAsRead } = useNotification()
 
 const page = ref(0)
 const size = ref(15)
 
-onMounted(() => {
-  notificationStore.fetchNotifications(page.value, size.value)
-})
+const params = computed(() => ({
+    page: page.value,
+    size: size.value
+}))
+
+const { data: notificationsData, isLoading } = useNotifications(params)
+const { mutate: markAsRead } = useMarkAsRead()
+const { mutate: markAllAsRead } = useMarkAllAsRead()
+
+const notifications = computed(() => notificationsData.value?.content || [])
+const totalPages = computed(() => notificationsData.value?.totalPages || 0)
 
 function handlePageChange(newPage) {
   page.value = newPage
-  notificationStore.fetchNotifications(page.value, size.value)
 }
 
 function handleSizeChange() {
   page.value = 0
-  notificationStore.fetchNotifications(page.value, size.value)
 }
 
 async function handleNotificationClick(notification) {
   if (!notification.isRead) {
-    await notificationStore.markAsRead(notification.notificationId)
+    markAsRead(notification.notificationId)
   }
   
   if (notification.sourceType === 'POST' || notification.sourceType === 'COMMENT') {
@@ -44,7 +50,7 @@ async function handleNotificationClick(notification) {
                 router.push(`/board/${data.data.board.boardUrl}/post/${notification.sourceId}`)
             }
         } catch (err) {
-            console.error('Failed to navigate to post:', err)
+            logger.error('Failed to navigate to post:', err)
         }
     } else if (notification.sourceType === 'COMMENT') {
         try {
@@ -54,7 +60,7 @@ async function handleNotificationClick(notification) {
                 router.push(`/board/${boardUrl}/post/${postId}#comment-${notification.sourceId}`)
             }
         } catch (err) {
-            console.error('Failed to navigate to comment:', err)
+            logger.error('Failed to navigate to comment:', err)
         }
     }
   }
@@ -67,17 +73,17 @@ function formatDate(dateString) {
 
 <template>
   <div class="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-    <div class="bg-white shadow overflow-hidden sm:rounded-lg">
-      <div class="px-4 py-5 sm:px-6 flex justify-between items-center border-b border-gray-200">
-        <h3 class="text-lg leading-6 font-medium text-gray-900 flex items-center">
-          <Bell class="h-5 w-5 mr-2 text-gray-500" />
+    <div class="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg transition-colors duration-200">
+      <div class="px-4 py-5 sm:px-6 flex justify-between items-center border-b border-gray-200 dark:border-gray-700">
+        <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white flex items-center">
+          <Bell class="h-5 w-5 mr-2 text-gray-500 dark:text-gray-400" />
           {{ $t('notification.title') }}
         </h3>
         <div class="flex items-center space-x-4">
             <PageSizeSelector v-model="size" @change="handleSizeChange" />
             <button 
-            @click="() => { console.log('Marking all as read'); notificationStore.markAllAsRead(); }"
-            class="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            @click="markAllAsRead"
+            class="inline-flex items-center px-3 py-1.5 border border-gray-300 dark:border-gray-600 shadow-sm text-xs font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
             >
             <Check class="h-4 w-4 mr-1 text-green-500" />
             {{ $t('notification.markAllRead') }}
@@ -85,43 +91,43 @@ function formatDate(dateString) {
         </div>
       </div>
       
-      <div v-if="notificationStore.isLoading && notificationStore.notifications.length === 0" class="text-center py-10">
+      <div v-if="isLoading && notifications.length === 0" class="text-center py-10">
         <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto"></div>
       </div>
 
-      <div v-else-if="notificationStore.notifications.length === 0" class="text-center py-10 text-gray-500">
+      <div v-else-if="notifications.length === 0" class="text-center py-10 text-gray-500 dark:text-gray-400">
         {{ $t('notification.empty') }}
       </div>
 
-      <ul v-else class="divide-y divide-gray-200">
+      <ul v-else class="divide-y divide-gray-200 dark:divide-gray-700">
         <li 
-            v-for="notification in notificationStore.notifications" 
+            v-for="notification in notifications" 
             :key="notification.notificationId"
-            class="hover:bg-gray-50 transition duration-150 ease-in-out"
-            :class="{ 'bg-blue-50': !notification.isRead }"
+            class="hover:bg-gray-50 dark:hover:bg-gray-700 transition duration-150 ease-in-out"
+            :class="{ 'bg-blue-50 dark:bg-blue-900/20': !notification.isRead }"
         >
           <a href="#" @click.prevent="handleNotificationClick(notification)" class="block px-4 py-4 sm:px-6">
             <div class="flex items-center justify-between">
               <div class="flex items-center">
                 <div class="flex-shrink-0">
-                    <div class="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold">
+                    <div class="h-10 w-10 rounded-full bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold">
                         {{ notification.actor.displayName[0] }}
                     </div>
                 </div>
                 <div class="ml-4">
-                    <div class="text-sm font-medium text-indigo-600 truncate">
+                    <div class="text-sm font-medium text-indigo-600 dark:text-indigo-400 truncate">
                         {{ notification.actor.displayName }}
                     </div>
-                    <div class="flex items-center text-sm text-gray-500">
+                    <div class="flex items-center text-sm text-gray-500 dark:text-gray-400">
                         {{ notification.message }}
                     </div>
                 </div>
               </div>
               <div class="ml-2 flex-shrink-0 flex flex-col items-end">
-                <p class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800 mb-1">
+                <p class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-400 mb-1">
                   {{ notification.sourceType }}
                 </p>
-                <p class="text-xs text-gray-500">
+                <p class="text-xs text-gray-500 dark:text-gray-400">
                   {{ formatDate(notification.createdAt) }}
                 </p>
               </div>
@@ -130,10 +136,10 @@ function formatDate(dateString) {
         </li>
       </ul>
       
-      <div v-if="notificationStore.notifications.length > 0" class="bg-gray-50 px-4 py-4 sm:px-6 flex justify-center">
+      <div v-if="notifications.length > 0" class="bg-gray-50 dark:bg-gray-900/50 px-4 py-4 sm:px-6 flex justify-center">
         <Pagination 
           :current-page="page" 
-          :total-pages="notificationStore.totalPages"
+          :total-pages="totalPages"
           @page-change="handlePageChange" 
         />
       </div>

@@ -40,12 +40,15 @@ import { ref, reactive } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import BaseInput from '@/components/common/BaseInput.vue'
 import BaseButton from '@/components/common/BaseButton.vue'
-import { userApi } from '@/api/user'
+import { useUser } from '@/composables/useUser'
 import axios from '@/api' // Direct axios for file upload
 import logger from '@/utils/logger'
 
 const authStore = useAuthStore()
-const loading = ref(false)
+const { useUpdateMyProfile } = useUser()
+const { mutate: updateProfileMutate, isLoading: isUpdating } = useUpdateMyProfile()
+
+const loading = ref(false) // Local loading state for image processing + mutation
 const errors = reactive({})
 const selectedFile = ref(null)
 const previewImage = ref(null)
@@ -130,24 +133,29 @@ const updateProfile = async () => {
       }
     }
 
-    const { data } = await userApi.updateMyProfile({
+    updateProfileMutate({
       displayName: form.displayName,
       profileImageUrl: profileImageUrl,
       profileImageId: profileImageId
+    }, {
+        onSuccess: async () => {
+            await authStore.fetchUser()
+            alert('Profile updated successfully')
+            loading.value = false
+        },
+        onError: (error) => {
+            logger.error('Failed to update profile:', error)
+            if (error.response?.data?.message) {
+                errors.displayName = error.response.data.message
+            } else {
+                alert('Failed to update profile')
+            }
+            loading.value = false
+        }
     })
     
-    if (data.success) {
-      await authStore.fetchUser()
-      alert('Profile updated successfully')
-    }
   } catch (error) {
-    logger.error('Failed to update profile:', error)
-    if (error.response?.data?.message) {
-      errors.displayName = error.response.data.message
-    } else {
-      alert('Failed to update profile')
-    }
-  } finally {
+    logger.error('Failed to process profile update:', error)
     loading.value = false
   }
 }

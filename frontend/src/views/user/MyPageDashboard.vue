@@ -111,64 +111,64 @@ onMounted(async () => {
       <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 mx-auto"></div>
     </div>
 
-    <div v-else-if="error" class="text-center py-10 text-red-500">
+    <div v-else-if="error" class="text-center py-10 text-red-500 dark:text-red-400">
       {{ error }}
     </div>
 
     <div v-else>
       <!-- Profile Section -->
       <div class="max-w-[80%] mx-auto">
-        <div class="bg-white shadow overflow-hidden sm:rounded-lg mb-6">
+        <div class="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg mb-6 transition-colors duration-200">
           <div class="px-4 py-5 sm:px-6 flex justify-between items-center">
             <div class="flex items-center">
             <img v-if="profile.profileImageUrl" :src="profile.profileImageUrl" class="h-16 w-16 rounded-full mr-4" alt="Profile" />
-            <div v-else class="h-16 w-16 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-2xl mr-4">
+            <div v-else class="h-16 w-16 rounded-full bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold text-2xl mr-4">
               {{ profile.displayName?.[0] || 'U' }}
             </div>
             <div>
-              <h3 class="text-lg leading-6 font-medium text-gray-900">{{ profile.displayName }}</h3>
-              <p class="mt-1 max-w-2xl text-sm text-gray-500">{{ $t('user.profile.personalDetails') }}</p>
+              <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white">{{ profile.displayName }}</h3>
+              <p class="mt-1 max-w-2xl text-sm text-gray-500 dark:text-gray-400">{{ $t('user.profile.personalDetails') }}</p>
             </div>
           </div>
           <BaseButton @click="isEditModalOpen = true">{{ $t('user.profile.edit') }}</BaseButton>
         </div>
-        <div class="border-t border-gray-200 px-4 py-5 sm:p-0">
-          <dl class="sm:divide-y sm:divide-gray-200">
+        <div class="border-t border-gray-200 dark:border-gray-700 px-4 py-5 sm:p-0">
+          <dl class="sm:divide-y sm:divide-gray-200 dark:sm:divide-gray-700">
             <div class="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-              <dt class="text-sm font-medium text-gray-500 flex items-center">
+              <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center">
                 <User class="h-4 w-4 mr-2" />
                 {{ $t('user.profile.displayName') }}
               </dt>
-              <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">{{ profile.displayName }}</dd>
+              <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100 sm:mt-0 sm:col-span-2">{{ profile.displayName }}</dd>
             </div>
             <div class="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-              <dt class="text-sm font-medium text-gray-500 flex items-center">
+              <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center">
                 <Mail class="h-4 w-4 mr-2" />
                 {{ $t('user.profile.email') }}
               </dt>
-              <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+              <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100 sm:mt-0 sm:col-span-2">
                 {{ profile.email }}
-                <span v-if="profile.isEmailVerified" class="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                <span v-if="profile.isEmailVerified" class="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-400">
                   <CheckCircle class="h-3 w-3 mr-1" /> {{ $t('user.profile.verified') }}
                 </span>
-                <span v-else class="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                <span v-else class="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-400">
                   <XCircle class="h-3 w-3 mr-1" /> {{ $t('user.profile.notVerified') }}
                 </span>
               </dd>
             </div>
             <div class="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-              <dt class="text-sm font-medium text-gray-500 flex items-center">
+              <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center">
                 <Calendar class="h-4 w-4 mr-2" />
                 {{ $t('user.profile.joined') }}
               </dt>
-              <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">{{ formatDate(profile.createdAt) }}</dd>
+              <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100 sm:mt-0 sm:col-span-2">{{ formatDate(profile.createdAt) }}</dd>
             </div>
             <div class="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-              <dt class="text-sm font-medium text-gray-500 flex items-center">
+              <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center">
                 <Clock class="h-4 w-4 mr-2" />
                 {{ $t('user.profile.lastLogin') }}
               </dt>
-              <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">{{ formatDate(profile.lastLoginAt) }}</dd>
+              <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100 sm:mt-0 sm:col-span-2">{{ formatDate(profile.lastLoginAt) }}</dd>
             </div>
           </dl>
         </div>
@@ -177,10 +177,10 @@ onMounted(async () => {
 
       <!-- My Posts Section -->
       <div class="max-w-[80%] mx-auto">
-        <div class="bg-white shadow overflow-hidden sm:rounded-lg mb-6 pb-6">
-          <div class="px-4 py-5 sm:px-6 border-b border-gray-200 flex items-center">
-            <FileText class="h-5 w-5 text-gray-500 mr-2" />
-            <h3 class="text-lg leading-6 font-medium text-gray-900">{{ $t('user.myPosts') }}</h3>
+        <div class="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg mb-6 pb-6 transition-colors duration-200">
+          <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700 flex items-center">
+            <FileText class="h-5 w-5 text-gray-500 dark:text-gray-400 mr-2" />
+            <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white">{{ $t('user.myPosts') }}</h3>
           </div>
           
           <div v-if="myPosts.length > 0">
@@ -201,35 +201,35 @@ onMounted(async () => {
               />
             </div>
           </div>
-          <div v-else class="text-center py-10 text-gray-500">
+          <div v-else class="text-center py-10 text-gray-500 dark:text-gray-400">
             {{ $t('common.noData') }}
           </div>
         </div>
 
         <!-- My Comments Section -->
-        <div class="bg-white shadow overflow-hidden sm:rounded-lg">
-          <div class="px-4 py-5 sm:px-6 border-b border-gray-200 flex items-center">
-            <MessageSquare class="h-5 w-5 text-gray-500 mr-2" />
-            <h3 class="text-lg leading-6 font-medium text-gray-900">{{ $t('user.myComments') }}</h3>
+        <div class="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg transition-colors duration-200">
+          <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700 flex items-center">
+            <MessageSquare class="h-5 w-5 text-gray-500 dark:text-gray-400 mr-2" />
+            <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white">{{ $t('user.myComments') }}</h3>
           </div>
           
           <div v-if="myComments.length > 0">
-            <ul role="list" class="divide-y divide-gray-200">
-              <li v-for="comment in myComments" :key="comment.commentId" class="px-4 py-4 sm:px-6 hover:bg-gray-50">
+            <ul role="list" class="divide-y divide-gray-200 dark:divide-gray-700">
+              <li v-for="comment in myComments" :key="comment.commentId" class="px-4 py-4 sm:px-6 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200">
                 <router-link :to="`/board/${comment.post.boardUrl}/post/${comment.post.postId}`" class="block">
                   <div class="flex items-center justify-between">
                     <div class="flex items-center">
-                      <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 mr-2">
+                      <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 mr-2">
                         {{ comment.post.boardName }}
                       </span>
-                      <p class="text-sm font-medium text-indigo-600 truncate">
+                      <p class="text-sm font-medium text-indigo-600 dark:text-indigo-400 truncate">
                         {{ comment.post.title }}
                       </p>
                     </div>
-                    <p class="ml-2 flex-shrink-0 font-normal text-gray-500 text-xs">{{ formatDate(comment.createdAt) }}</p>
+                    <p class="ml-2 flex-shrink-0 font-normal text-gray-500 dark:text-gray-400 text-xs">{{ formatDate(comment.createdAt) }}</p>
                   </div>
                   <div class="mt-1 sm:flex sm:justify-between">
-                    <p class="text-sm text-gray-900 line-clamp-2">{{ comment.content }}</p>
+                    <p class="text-sm text-gray-900 dark:text-gray-300 line-clamp-2">{{ comment.content }}</p>
                   </div>
                 </router-link>
               </li>
@@ -242,7 +242,7 @@ onMounted(async () => {
               />
             </div>
           </div>
-          <div v-else class="text-center py-10 text-gray-500">
+          <div v-else class="text-center py-10 text-gray-500 dark:text-gray-400">
             {{ $t('common.noData') }}
           </div>
         </div>

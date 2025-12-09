@@ -47,9 +47,9 @@ onMounted(() => {
 
 <template>
   <div class="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-    <div class="bg-white shadow overflow-hidden sm:rounded-lg">
-      <div class="px-4 py-5 sm:px-6 flex justify-between items-center border-b border-gray-200">
-          <h3 class="text-lg font-medium leading-6 text-gray-900">{{ $t('user.tabs.scraps') }}</h3>
+    <div class="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg transition-colors duration-200">
+      <div class="px-4 py-5 sm:px-6 flex justify-between items-center border-b border-gray-200 dark:border-gray-700">
+          <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-white">{{ $t('user.tabs.scraps') }}</h3>
           <PageSizeSelector v-model="size" @change="handleSizeChange" />
       </div>
       <div v-if="scraps.length > 0">
@@ -64,7 +64,7 @@ onMounted(() => {
         </div>
       </div>
       
-      <div v-else-if="!loading" class="text-center py-10 text-gray-500">
+      <div v-else-if="!loading" class="text-center py-10 text-gray-500 dark:text-gray-400">
         {{ $t('user.scrapList.empty') }}
       </div>
       
