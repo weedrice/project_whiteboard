@@ -1,14 +1,20 @@
 package com.weedrice.whiteboard.global.common;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Getter;
 
 @Getter
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class ApiResponse<T> {
 
+    @JsonProperty("success")
     private final boolean success;
+    
+    @JsonProperty("data")
     private final T data;
+    
+    @JsonProperty("error")
     private final ErrorResponse error;
 
     private ApiResponse(boolean success, T data, ErrorResponse error) {
