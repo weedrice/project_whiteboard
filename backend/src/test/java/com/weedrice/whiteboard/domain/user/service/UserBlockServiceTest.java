@@ -15,6 +15,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Collections;
 import java.util.Optional;
@@ -42,7 +43,10 @@ class UserBlockServiceTest {
     @BeforeEach
     void setUp() {
         user = User.builder().loginId("user").build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+
         targetUser = User.builder().loginId("target").build();
+        ReflectionTestUtils.setField(targetUser, "userId", 2L);
     }
 
     @Test
@@ -70,7 +74,7 @@ class UserBlockServiceTest {
 
         // when & then
         BusinessException exception = assertThrows(BusinessException.class, () -> userBlockService.blockUser(userId, userId));
-        assertThat(exception.getErrorCode().getCode()).isEqualTo("CANNOT_BLOCK_SELF");
+        assertThat(exception.getErrorCode().getCode()).isEqualTo("U008");
     }
 
     @Test

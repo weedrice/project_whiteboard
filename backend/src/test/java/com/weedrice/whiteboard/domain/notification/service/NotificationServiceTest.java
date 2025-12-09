@@ -12,6 +12,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Optional;
 
@@ -38,7 +39,11 @@ class NotificationServiceTest {
     @BeforeEach
     void setUp() {
         user = User.builder().build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+
         actor = User.builder().build();
+        ReflectionTestUtils.setField(actor, "userId", 2L);
+
         notification = Notification.builder()
                 .user(user)
                 .actor(actor)
@@ -47,6 +52,7 @@ class NotificationServiceTest {
                 .sourceId(1L)
                 .content("Test Notification")
                 .build();
+        ReflectionTestUtils.setField(notification, "notificationId", 1L);
     }
 
     @Test
@@ -75,6 +81,6 @@ class NotificationServiceTest {
         notificationService.readNotification(userId, notificationId);
 
         // then
-        assertThat(notification.getIsRead()).isEqualTo("Y");
+        assertThat(notification.getIsRead()).isEqualTo(true);
     }
 }

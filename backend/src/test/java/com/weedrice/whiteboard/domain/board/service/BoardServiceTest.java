@@ -4,13 +4,18 @@ import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.board.dto.BoardCreateRequest;
 import com.weedrice.whiteboard.domain.board.dto.BoardResponse;
 import com.weedrice.whiteboard.domain.board.entity.Board;
+import com.weedrice.whiteboard.domain.board.entity.BoardSubscription;
 import com.weedrice.whiteboard.domain.board.entity.BoardSubscriptionId;
+import com.weedrice.whiteboard.domain.board.repository.BoardCategoryRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository;
+import com.weedrice.whiteboard.domain.post.repository.DraftPostRepository;
+import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
+import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -18,6 +23,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Collections;
 import java.util.List;
@@ -26,6 +32,8 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -43,6 +51,12 @@ class BoardServiceTest {
     private AdminRepository adminRepository;
     @Mock
     private PostService postService;
+    @Mock
+    private BoardCategoryRepository boardCategoryRepository;
+    @Mock
+    private PostRepository postRepository;
+    @Mock
+    private DraftPostRepository draftPostRepository;
 
     @InjectMocks
     private BoardService boardService;
@@ -58,21 +72,26 @@ class BoardServiceTest {
                 .email("test@test.com")
                 .displayName("Test User")
                 .build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
 
         board = Board.builder()
                 .boardName("Test Board")
                 .boardUrl("test-board")
                 .creator(user)
                 .build();
+        ReflectionTestUtils.setField(board, "boardId", 1L);
+        ReflectionTestUtils.setField(board, "isActive", true);
     }
 
     @Test
     @DisplayName("활성화된 게시판 목록 조회 성공")
     void getActiveBoards_success() {
         // given
-        when(boardRepository.findByIsActiveOrderBySortOrderAsc("Y")).thenReturn(Collections.singletonList(board));
-        when(adminRepository.findByBoardAndRole(any(), any())).thenReturn(Optional.empty()); // Mocking admin repository
-        when(postService.getLatestPostsByBoard(any(), any())).thenReturn(Collections.emptyList()); // Mocking post service
+        when(boardRepository.findByIsActiveOrderBySortOrderAsc(true)).thenReturn(Collections.singletonList(board));
+        when(boardRepository.findByBoardUrl(board.getBoardUrl())).thenReturn(Optional.of(board));
+        when(boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(board.getBoardId(), true)).thenReturn(Collections.emptyList());
+        when(adminRepository.findByBoardAndRole(any(), any())).thenReturn(Optional.empty());
+        when(postService.getLatestPostsByBoard(anyLong(), anyInt())).thenReturn(Collections.emptyList());
 
         // when
         List<BoardResponse> activeBoards = boardService.getActiveBoards(null);
@@ -91,12 +110,13 @@ class BoardServiceTest {
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(boardRepository.findByBoardUrl(boardUrl)).thenReturn(Optional.of(board));
         when(boardSubscriptionRepository.findById(any(BoardSubscriptionId.class))).thenReturn(Optional.empty());
+        when(boardSubscriptionRepository.findMaxSortOrder(user)).thenReturn(0);
 
         // when
         boardService.subscribeBoard(userId, boardUrl);
 
         // then
-        verify(boardSubscriptionRepository).save(any());
+        verify(boardSubscriptionRepository).save(any(BoardSubscription.class));
     }
 
     @Test
@@ -108,13 +128,12 @@ class BoardServiceTest {
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(boardRepository.findByBoardUrl(boardUrl)).thenReturn(Optional.of(board));
         when(boardSubscriptionRepository.findById(any(BoardSubscriptionId.class)))
-                .thenReturn(Optional.of(mock(com.weedrice.whiteboard.domain.board.entity.BoardSubscription.class)));
+                .thenReturn(Optional.of(mock(BoardSubscription.class)));
 
         // when & then
         BusinessException exception = assertThrows(BusinessException.class,
                 () -> boardService.subscribeBoard(userId, boardUrl));
-        assertThat(exception.getErrorCode())
-                .isEqualTo(com.weedrice.whiteboard.global.exception.ErrorCode.ALREADY_SUBSCRIBED);
+        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.ALREADY_SUBSCRIBED);
     }
 
     @Test
@@ -127,6 +146,7 @@ class BoardServiceTest {
         when(boardRepository.existsByBoardName(request.getBoardName())).thenReturn(false);
         when(boardRepository.existsByBoardUrl(request.getBoardUrl())).thenReturn(false);
         when(boardRepository.save(any(Board.class))).thenReturn(board);
+        when(boardRepository.findMaxSortOrder()).thenReturn(0);
 
         // when
         Board createdBoard = boardService.createBoard(creatorId, request);
@@ -134,5 +154,7 @@ class BoardServiceTest {
         // then
         assertThat(createdBoard.getBoardName()).isEqualTo("Test Board");
         verify(boardRepository).save(any(Board.class));
+        verify(boardCategoryRepository).save(any());
+        verify(adminRepository).save(any());
     }
 }

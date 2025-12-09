@@ -7,10 +7,13 @@ import com.weedrice.whiteboard.domain.auth.dto.SignupResponse;
 import com.weedrice.whiteboard.domain.auth.repository.LoginHistoryRepository;
 import com.weedrice.whiteboard.domain.auth.repository.RefreshTokenRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.domain.point.repository.UserPointRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.domain.user.repository.UserSettingsRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import com.weedrice.whiteboard.global.security.JwtTokenProvider;
+import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -38,6 +41,10 @@ class AuthServiceTest {
 
     @Mock
     private UserRepository userRepository;
+    @Mock
+    private UserPointRepository userPointRepository;
+    @Mock
+    private UserSettingsRepository userSettingsRepository;
     @Mock
     private PasswordEncoder passwordEncoder;
     @Mock
@@ -93,7 +100,7 @@ class AuthServiceTest {
 
         // when & then
         BusinessException exception = assertThrows(BusinessException.class, () -> authService.signup(request));
-        assertThat(exception.getErrorCode().getCode()).isEqualTo("DUPLICATE_LOGIN_ID");
+        assertThat(exception.getErrorCode().getCode()).isEqualTo("U002");
     }
 
     @Test
@@ -106,7 +113,7 @@ class AuthServiceTest {
 
         // when & then
         BusinessException exception = assertThrows(BusinessException.class, () -> authService.signup(request));
-        assertThat(exception.getErrorCode().getCode()).isEqualTo("DUPLICATE_EMAIL");
+        assertThat(exception.getErrorCode().getCode()).isEqualTo("U003");
     }
 
     @Test
@@ -117,6 +124,7 @@ class AuthServiceTest {
         CustomUserDetails userDetails = new CustomUserDetails(1L, "testuser", "encodedPassword", Collections.emptyList());
         Authentication authentication = new UsernamePasswordAuthenticationToken(userDetails, null, Collections.emptyList());
         AuthenticationManager authenticationManager = mock(AuthenticationManager.class);
+        HttpServletRequest httpServletRequest = mock(HttpServletRequest.class);
 
         when(authenticationManagerBuilder.getObject()).thenReturn(authenticationManager);
         when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class))).thenReturn(authentication);
@@ -125,7 +133,7 @@ class AuthServiceTest {
         when(jwtTokenProvider.createRefreshToken(authentication)).thenReturn("refreshToken");
 
         // when
-        LoginResponse response = authService.login(request, null);
+        LoginResponse response = authService.login(request, httpServletRequest);
 
         // then
         assertThat(response.getAccessToken()).isEqualTo("accessToken");

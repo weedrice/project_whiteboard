@@ -14,11 +14,13 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.verify;
@@ -45,10 +47,14 @@ class ShopServiceTest {
     @BeforeEach
     void setUp() {
         user = User.builder().build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+
         shopItem = ShopItem.builder()
                 .itemName("Test Item")
                 .price(100)
                 .build();
+        ReflectionTestUtils.setField(shopItem, "itemId", 1L);
+        ReflectionTestUtils.setField(shopItem, "isActive", true);
     }
 
     @Test
@@ -65,7 +71,7 @@ class ShopServiceTest {
         PurchaseHistory purchaseHistory = shopService.purchaseItem(userId, itemId);
 
         // then
-        verify(pointService).forceSubtractPoint(anyLong(), any(Integer.class), anyString(), anyLong(), anyString());
+        verify(pointService).forceSubtractPoint(anyLong(), anyInt(), anyString(), anyLong(), anyString());
         assertThat(purchaseHistory.getItem().getItemName()).isEqualTo("Test Item");
         assertThat(purchaseHistory.getPurchasedPrice()).isEqualTo(100);
     }

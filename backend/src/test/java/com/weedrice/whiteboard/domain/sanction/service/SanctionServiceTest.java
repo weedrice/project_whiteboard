@@ -6,18 +6,24 @@ import com.weedrice.whiteboard.domain.sanction.entity.Sanction;
 import com.weedrice.whiteboard.domain.sanction.repository.SanctionRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.global.common.util.SecurityUtils;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -37,12 +43,24 @@ class SanctionServiceTest {
     private User adminUser;
     private User targetUser;
     private Admin admin;
+    private MockedStatic<SecurityUtils> mockedSecurityUtils;
 
     @BeforeEach
     void setUp() {
         adminUser = User.builder().build();
+        ReflectionTestUtils.setField(adminUser, "userId", 1L);
+
         targetUser = User.builder().build();
+        ReflectionTestUtils.setField(targetUser, "userId", 2L);
+
         admin = Admin.builder().user(adminUser).build();
+
+        mockedSecurityUtils = mockStatic(SecurityUtils.class);
+    }
+
+    @AfterEach
+    void tearDown() {
+        mockedSecurityUtils.close();
     }
 
     @Test
@@ -52,8 +70,9 @@ class SanctionServiceTest {
         Long adminUserId = 1L;
         Long targetUserId = 2L;
         String type = "BAN";
+        mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).then(invocation -> null);
         when(userRepository.findById(adminUserId)).thenReturn(Optional.of(adminUser));
-        when(adminRepository.findByUserAndIsActive(adminUser, "Y")).thenReturn(Optional.of(admin));
+        when(adminRepository.findByUserAndIsActive(adminUser, true)).thenReturn(Optional.of(admin));
         when(userRepository.findById(targetUserId)).thenReturn(Optional.of(targetUser));
         when(sanctionRepository.save(any(Sanction.class))).thenAnswer(invocation -> invocation.getArgument(0));
 

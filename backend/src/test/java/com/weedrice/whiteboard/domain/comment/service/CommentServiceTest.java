@@ -2,8 +2,12 @@ package com.weedrice.whiteboard.domain.comment.service;
 
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.entity.CommentLikeId;
+import com.weedrice.whiteboard.domain.comment.repository.CommentClosureRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentLikeRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
+import com.weedrice.whiteboard.domain.comment.repository.CommentVersionRepository;
+import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
+import com.weedrice.whiteboard.domain.point.service.PointService;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -16,11 +20,16 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -37,6 +46,12 @@ class CommentServiceTest {
     private CommentLikeRepository commentLikeRepository;
     @Mock
     private ApplicationEventPublisher eventPublisher;
+    @Mock
+    private CommentVersionRepository commentVersionRepository;
+    @Mock
+    private CommentClosureRepository commentClosureRepository;
+    @Mock
+    private PointService pointService;
 
     @InjectMocks
     private CommentService commentService;
@@ -47,9 +62,17 @@ class CommentServiceTest {
 
     @BeforeEach
     void setUp() {
-        user = User.builder().loginId("testuser").build();
+        user = User.builder().loginId("testuser").displayName("Test User").build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+
         post = Post.builder().title("Test Post").contents("Test Contents").user(user).build();
+        ReflectionTestUtils.setField(post, "postId", 1L);
+        ReflectionTestUtils.setField(post, "commentCount", 0);
+
+
         comment = Comment.builder().content("Test Comment").user(user).post(post).build();
+        ReflectionTestUtils.setField(comment, "commentId", 1L);
+        ReflectionTestUtils.setField(comment, "likeCount", 0);
     }
 
     @Test
@@ -62,13 +85,16 @@ class CommentServiceTest {
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(postRepository.findById(postId)).thenReturn(Optional.of(post));
         when(commentRepository.save(any(Comment.class))).thenReturn(comment);
+        doNothing().when(pointService).addPoint(anyLong(), anyInt(), anyString(), anyLong(), anyString());
 
         // when
         Comment createdComment = commentService.createComment(userId, postId, null, content);
 
         // then
         assertThat(createdComment.getContent()).isEqualTo("Test Comment");
-        verify(eventPublisher).publishEvent(any());
+        verify(eventPublisher).publishEvent(any(NotificationEvent.class));
+        verify(commentVersionRepository).save(any());
+        verify(commentClosureRepository).createSelfClosure(any());
     }
 
     @Test
@@ -79,12 +105,14 @@ class CommentServiceTest {
         Long commentId = 1L;
         String updatedContent = "Updated Comment";
         when(commentRepository.findById(commentId)).thenReturn(Optional.of(comment));
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
 
         // when
         Comment updatedComment = commentService.updateComment(userId, commentId, updatedContent);
 
         // then
         assertThat(updatedComment.getContent()).isEqualTo(updatedContent);
+        verify(commentVersionRepository).save(any());
     }
 
     @Test
@@ -102,7 +130,7 @@ class CommentServiceTest {
 
         // then
         verify(commentLikeRepository).save(any());
-        verify(eventPublisher).publishEvent(any());
+        verify(eventPublisher).publishEvent(any(NotificationEvent.class));
     }
 
     @Test

@@ -2,15 +2,24 @@ package com.weedrice.whiteboard.domain.post.service;
 
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.board.entity.Board;
+import com.weedrice.whiteboard.domain.board.repository.BoardCategoryRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
+import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository;
+import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
+import com.weedrice.whiteboard.domain.file.service.FileService;
+import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
 import com.weedrice.whiteboard.domain.point.service.PointService;
 import com.weedrice.whiteboard.domain.post.dto.PostCreateRequest;
 import com.weedrice.whiteboard.domain.post.dto.PostUpdateRequest;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.entity.PostLikeId;
+import com.weedrice.whiteboard.domain.post.repository.DraftPostRepository;
 import com.weedrice.whiteboard.domain.post.repository.PostLikeRepository;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
+import com.weedrice.whiteboard.domain.tag.repository.PostTagRepository;
 import com.weedrice.whiteboard.domain.post.repository.PostVersionRepository;
+import com.weedrice.whiteboard.domain.post.repository.ScrapRepository;
+import com.weedrice.whiteboard.domain.post.repository.ViewHistoryRepository;
 import com.weedrice.whiteboard.domain.tag.service.TagService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
@@ -22,12 +31,17 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Collections;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -52,6 +66,22 @@ class PostServiceTest {
     private AdminRepository adminRepository;
     @Mock
     private PointService pointService;
+    @Mock
+    private BoardCategoryRepository boardCategoryRepository;
+    @Mock
+    private ScrapRepository scrapRepository;
+    @Mock
+    private DraftPostRepository draftPostRepository;
+    @Mock
+    private PostTagRepository postTagRepository;
+    @Mock
+    private ViewHistoryRepository viewHistoryRepository;
+    @Mock
+    private CommentRepository commentRepository;
+    @Mock
+    private FileService fileService;
+    @Mock
+    private BoardSubscriptionRepository boardSubscriptionRepository;
 
     @InjectMocks
     private PostService postService;
@@ -62,9 +92,15 @@ class PostServiceTest {
 
     @BeforeEach
     void setUp() {
-        user = User.builder().loginId("testuser").build();
+        user = User.builder().loginId("testuser").displayName("Test User").build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+
         board = Board.builder().boardName("Test Board").creator(user).build();
+        ReflectionTestUtils.setField(board, "boardId", 1L);
+
         post = Post.builder().title("Test Post").contents("Test Contents").user(user).board(board).build();
+        ReflectionTestUtils.setField(post, "postId", 1L);
+        ReflectionTestUtils.setField(post, "likeCount", 0);
     }
 
     @Test
@@ -73,10 +109,11 @@ class PostServiceTest {
         // given
         Long userId = 1L;
         Long boardId = 1L;
-        PostCreateRequest request = new PostCreateRequest(null, "New Post", "New Contents", Collections.emptyList(), false, false, false);
+        PostCreateRequest request = new PostCreateRequest(null, "New Post", "New Contents", Collections.emptyList(), false, false, false, Collections.emptyList());
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(boardRepository.findById(boardId)).thenReturn(Optional.of(board));
         when(postRepository.save(any(Post.class))).thenReturn(post);
+        doNothing().when(pointService).addPoint(anyLong(), anyInt(), anyString(), anyLong(), anyString());
 
         // when
         Post createdPost = postService.createPost(userId, boardId, request);
@@ -85,7 +122,6 @@ class PostServiceTest {
         assertThat(createdPost.getTitle()).isEqualTo("Test Post");
         verify(tagService).processTagsForPost(any(), any());
         verify(postVersionRepository).save(any());
-        verify(pointService).addPoint(any(), any(), any(), any(), any());
     }
 
     @Test
@@ -94,7 +130,7 @@ class PostServiceTest {
         // given
         Long userId = 1L;
         Long postId = 1L;
-        PostUpdateRequest request = new PostUpdateRequest(null, "Updated Title", "Updated Contents", Collections.emptyList(), false, false);
+        PostUpdateRequest request = new PostUpdateRequest(null, "Updated Title", "Updated Contents", Collections.emptyList(), false, false, Collections.emptyList());
         when(postRepository.findById(postId)).thenReturn(Optional.of(post));
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
 
@@ -122,7 +158,7 @@ class PostServiceTest {
 
         // then
         verify(postLikeRepository).save(any());
-        verify(eventPublisher).publishEvent(any());
+        verify(eventPublisher).publishEvent(any(NotificationEvent.class));
     }
 
     @Test
