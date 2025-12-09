@@ -1,11 +1,24 @@
 import { defineStore } from 'pinia'
 import { ref, watch } from 'vue'
+import { useAuthStore } from '@/stores/auth'
+import { userApi } from '@/api/user'
 
 export const useThemeStore = defineStore('theme', () => {
+    const authStore = useAuthStore()
     const isDark = ref(localStorage.getItem('theme') === 'dark')
 
-    function toggleTheme() {
+    async function toggleTheme() {
         isDark.value = !isDark.value
+
+        if (authStore.isAuthenticated) {
+            try {
+                await userApi.updateUserSettings({
+                    theme: isDark.value ? 'DARK' : 'LIGHT'
+                })
+            } catch (error) {
+                console.error('Failed to save theme setting:', error)
+            }
+        }
     }
 
     function setTheme(theme) {

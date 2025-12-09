@@ -2,6 +2,7 @@
 import { onMounted, watch, computed, defineAsyncComponent } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useThemeStore } from '@/stores/theme'
 import { userApi } from '@/api/user'
 import { useI18n } from 'vue-i18n'
 import ToastContainer from '@/components/common/ToastContainer.vue'
@@ -20,11 +21,11 @@ const layout = computed(() => {
   return route.meta.layout === 'AdminLayout' ? AdminLayout : DefaultLayout
 })
 
+const themeStore = useThemeStore()
+
 const applySettings = (settings) => {
-    if (settings.theme === 'DARK') {
-        document.documentElement.classList.add('dark')
-    } else {
-        document.documentElement.classList.remove('dark')
+    if (settings.theme) {
+        themeStore.setTheme(settings.theme)
     }
     if (settings.language) {
         locale.value = settings.language.toLowerCase()
@@ -50,7 +51,7 @@ watch(() => authStore.isAuthenticated, (newVal) => {
         loadSettings()
     } else {
         // Reset to defaults on logout
-        document.documentElement.classList.remove('dark')
+        themeStore.setTheme('LIGHT')
         // locale.value = 'ko' // Optional: Keep last used or reset
     }
 })
