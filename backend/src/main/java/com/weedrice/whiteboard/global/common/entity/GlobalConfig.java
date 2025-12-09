@@ -31,4 +31,8 @@ public class GlobalConfig extends BaseTimeEntity {
     public void setConfigValue(String configValue) {
         this.configValue = configValue;
     }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
 }
