@@ -58,8 +58,17 @@ export const adminApi = {
     getConfigs() {
         return api.get('/admin/configs')
     },
-    updateConfig(key, value) {
-        return api.put('/admin/configs', { key, value })
+
+    updateConfig(key, value, description) {
+        return api.put(`/admin/configs/${key}`, { value, description })
+    },
+
+    createConfig(data) {
+        return api.post('/admin/configs', data)
+    },
+
+    deleteConfig(key) {
+        return api.delete(`/admin/configs/${key}`)
     },
 
     // 대시보드 통계

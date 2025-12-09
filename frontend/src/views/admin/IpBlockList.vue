@@ -1,13 +1,13 @@
 <template>
   <div class="space-y-6">
     <div class="flex justify-between items-center">
-      <h2 class="text-2xl font-bold text-gray-900">IP Block Management</h2>
+      <h2 class="text-2xl font-bold text-gray-900 dark:text-white">IP Block Management</h2>
       <div class="flex space-x-2">
         <input
           v-model="newIp"
           type="text"
           placeholder="Enter IP address"
-          class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block sm:text-sm border-gray-300 rounded-md"
+          class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block sm:text-sm border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
         />
         <BaseButton @click="blockIp" :disabled="!newIp || loading">Block IP</BaseButton>
       </div>
@@ -17,16 +17,16 @@
       <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 mx-auto"></div>
     </div>
 
-    <div v-else-if="blockedIps.length === 0" class="text-center py-8 bg-white shadow rounded-lg">
-      <p class="text-gray-500">No blocked IPs.</p>
+    <div v-else-if="blockedIps.length === 0" class="text-center py-8 bg-white dark:bg-gray-800 shadow rounded-lg border border-gray-200 dark:border-gray-700">
+      <p class="text-gray-500 dark:text-gray-400">No blocked IPs.</p>
     </div>
 
-    <div v-else class="bg-white shadow overflow-hidden sm:rounded-md">
-      <ul role="list" class="divide-y divide-gray-200">
+    <div v-else class="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-md border border-gray-200 dark:border-gray-700">
+      <ul role="list" class="divide-y divide-gray-200 dark:divide-gray-700">
         <li v-for="ip in blockedIps" :key="ip.id" class="px-4 py-4 sm:px-6 flex justify-between items-center">
           <div>
-            <p class="text-sm font-medium text-gray-900">{{ ip.address }}</p>
-            <p class="text-xs text-gray-500">Blocked on: {{ new Date(ip.createdAt).toLocaleDateString() }}</p>
+            <p class="text-sm font-medium text-gray-900 dark:text-white">{{ ip.address }}</p>
+            <p class="text-xs text-gray-500 dark:text-gray-400">Blocked on: {{ new Date(ip.createdAt).toLocaleDateString() }}</p>
           </div>
           <BaseButton size="sm" variant="danger" @click="unblockIp(ip.id)">Unblock</BaseButton>
         </li>
@@ -36,76 +36,43 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed } from 'vue'
 import BaseButton from '@/components/common/BaseButton.vue'
-import axios from '@/api'
+import { useAdmin } from '@/composables/useAdmin'
+import logger from '@/utils/logger'
+import { useToastStore } from '@/stores/toast'
 
-const blockedIps = ref([])
-const loading = ref(false)
+const { useIpBlocks, useBlockIp, useUnblockIp } = useAdmin()
+const toastStore = useToastStore()
+
 const newIp = ref('')
 
-// Mock data
-const mockIps = [
-  { id: 1, address: '192.168.1.100', createdAt: '2023-11-01' },
-  { id: 2, address: '10.0.0.55', createdAt: '2023-11-15' }
-]
+const { data: blockedIpsData, isLoading: loading } = useIpBlocks()
+const { mutateAsync: blockIpMutation } = useBlockIp()
+const { mutateAsync: unblockIpMutation } = useUnblockIp()
 
-const fetchBlockedIps = async () => {
-  loading.value = true
-  try {
-    // const { data } = await axios.get('/admin/ip-blocks')
-    // if (data.success) {
-    //   blockedIps.value = data.data
-    // }
-    
-    await new Promise(resolve => setTimeout(resolve, 500))
-    blockedIps.value = mockIps
-  } catch (error) {
-    console.error('Failed to fetch blocked IPs:', error)
-  } finally {
-    loading.value = false
-  }
-}
+const blockedIps = computed(() => blockedIpsData.value || [])
 
 const blockIp = async () => {
   if (!newIp.value) return
   
-  loading.value = true
   try {
-    // await axios.post('/admin/ip-blocks', { address: newIp.value })
-    
-    // Mock add
-    blockedIps.value.push({
-      id: Date.now(),
-      address: newIp.value,
-      createdAt: new Date().toISOString()
-    })
+    await blockIpMutation({ ipAddress: newIp.value })
+    toastStore.addToast('IP blocked successfully.', 'success')
     newIp.value = ''
   } catch (error) {
-    console.error('Failed to block IP:', error)
-    alert('Failed to block IP.')
-  } finally {
-    loading.value = false
+    // Error handled globally
   }
 }
 
-const unblockIp = async (id) => {
+const unblockIp = async (ipAddress) => {
   if (!confirm('Unblock this IP?')) return
 
-  loading.value = true
   try {
-    // await axios.delete(`/admin/ip-blocks/${id}`)
-    
-    // Mock remove
-    blockedIps.value = blockedIps.value.filter(ip => ip.id !== id)
+    await unblockIpMutation(ipAddress)
+    toastStore.addToast('IP unblocked successfully.', 'success')
   } catch (error) {
-    console.error('Failed to unblock IP:', error)
-  } finally {
-    loading.value = false
+    // Error handled globally
   }
 }
-
-onMounted(() => {
-  fetchBlockedIps()
-})
 </script>

@@ -57,7 +57,9 @@
 import { ref, reactive } from 'vue'
 import BaseModal from '@/components/common/BaseModal.vue'
 import BaseButton from '@/components/common/BaseButton.vue'
-import axios from '@/api'
+import { useAdmin } from '@/composables/useAdmin'
+import logger from '@/utils/logger'
+import { useToastStore } from '@/stores/toast'
 
 const props = defineProps({
   isOpen: Boolean,
@@ -66,7 +68,10 @@ const props = defineProps({
 
 const emit = defineEmits(['close', 'sanctioned'])
 
-const loading = ref(false)
+const toastStore = useToastStore()
+const { useSanctionUser } = useAdmin()
+const { mutateAsync: sanctionUser, isLoading: loading } = useSanctionUser()
+
 const form = reactive({
   reason: 'SPAM',
   description: '',
@@ -76,24 +81,17 @@ const form = reactive({
 const submitSanction = async () => {
   if (!props.user) return
 
-  loading.value = true
   try {
-    // const { data } = await axios.post('/admin/sanctions', {
-    //   userId: props.user.userId,
-    //   ...form
-    // })
+    await sanctionUser({
+      userId: props.user.userId || props.user.id,
+      ...form
+    })
     
-    // Mock API call
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    
-    alert(`User ${props.user.nickname} has been sanctioned.`)
+    toastStore.addToast(`User ${props.user.nickname || props.user.name} has been sanctioned.`, 'success')
     emit('sanctioned')
     emit('close')
   } catch (error) {
-    logger.error('Failed to sanction user:', error)
-    alert('Failed to sanction user.')
-  } finally {
-    loading.value = false
+    // Error handled globally
   }
 }
 </script>
