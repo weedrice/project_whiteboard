@@ -73,7 +73,7 @@ function handleSort(field) {
       <table class="table-base">
         <thead class="table-head">
           <tr>
-            <th v-if="!hideNoColumn" scope="col" class="table-th text-center w-24 cursor-pointer hover:bg-gray-100" @click="handleSort('postId')">
+            <th v-if="!hideNoColumn" scope="col" class="table-th text-center w-24 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors duration-200" @click="handleSort('postId')">
               <div class="flex items-center justify-center">
                 {{ $t('common.no') }}
                 <component 
@@ -92,7 +92,7 @@ function handleSort(field) {
             <th scope="col" class="table-th text-center w-32">
               {{ $t('common.author') }}
             </th>
-            <th scope="col" class="table-th text-center w-28 cursor-pointer hover:bg-gray-100" @click="handleSort('createdAt')">
+            <th scope="col" class="table-th text-center w-28 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors duration-200" @click="handleSort('createdAt')">
               <div class="flex items-center justify-center">
                 {{ $t('common.date') }}
                 <component 
@@ -102,7 +102,7 @@ function handleSort(field) {
                 />
               </div>
             </th>
-            <th scope="col" class="table-th text-center w-24 cursor-pointer hover:bg-gray-100" @click="handleSort('viewCount')">
+            <th scope="col" class="table-th text-center w-24 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors duration-200" @click="handleSort('viewCount')">
               <div class="flex items-center justify-center">
                 {{ $t('common.views') }}
                 <component 
@@ -112,7 +112,7 @@ function handleSort(field) {
                 />
               </div>
             </th>
-            <th scope="col" class="table-th text-center w-24 cursor-pointer hover:bg-gray-100" @click="handleSort('likeCount')">
+            <th scope="col" class="table-th text-center w-24 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors duration-200" @click="handleSort('likeCount')">
                <div class="flex items-center justify-center">
                 {{ $t('common.likes') }}
                 <component 
@@ -125,18 +125,18 @@ function handleSort(field) {
           </tr>
         </thead>
         <tbody class="table-body">
-          <tr v-for="(post, index) in posts" :key="post.postId" :class="['table-row', post.isNotice ? 'bg-gray-50' : '']">
+          <tr v-for="(post, index) in posts" :key="post.postId" :class="['table-row', post.isNotice ? 'bg-gray-50 dark:bg-gray-900/50' : '']">
             <td v-if="!hideNoColumn" class="table-td text-center">
-              <span v-if="post.isNotice" class="font-bold text-red-600">{{ $t('common.notice') }}</span>
+              <span v-if="post.isNotice" class="font-bold text-red-600 dark:text-red-400">{{ $t('common.notice') }}</span>
               <span v-else>{{ post.postId }}</span>
             </td>
             <td v-if="showBoardName" class="table-td text-center">
               {{ post.boardName || '-' }}
             </td>
-            <td class="table-td font-medium text-gray-900 align-middle">
+            <td class="table-td font-medium text-gray-900 dark:text-gray-100 align-middle">
               <router-link 
                 :to="`/board/${boardUrl || post.boardUrl}/post/${post.postId}`" 
-                class="hover:text-indigo-600 flex items-center h-full"
+                class="hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center h-full"
                 v-if="boardUrl || post.boardUrl"
               >
                 <span 
@@ -152,7 +152,7 @@ function handleSort(field) {
                     <ImageIcon class="h-4 w-4" />
                 </span>
                 <span class="truncate">{{ post.title }}</span>
-                <span v-if="post.commentCount > 0" class="ml-1 text-indigo-600 text-xs flex items-center">
+                <span v-if="post.commentCount > 0" class="ml-1 text-indigo-600 dark:text-indigo-400 text-xs flex items-center">
                     [{{ post.commentCount }}]
                 </span>
               </router-link>
@@ -160,7 +160,7 @@ function handleSort(field) {
                   <span class="truncate">{{ post.title }}</span>
               </span>
             </td>
-            <td class="table-td text-center">
+            <td class="table-td text-center text-gray-900 dark:text-gray-200">
               <UserMenu 
                 v-if="post.author"
                 :user-id="post.author.userId"
@@ -178,7 +178,7 @@ function handleSort(field) {
             </td>
           </tr>
           <tr v-if="posts.length === 0">
-            <td colspan="6" class="px-6 py-10 text-center text-gray-500">
+            <td colspan="6" class="px-6 py-10 text-center text-gray-500 dark:text-gray-400">
               {{ $t('board.list.noPosts') }}
             </td>
           </tr>

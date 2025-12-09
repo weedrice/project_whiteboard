@@ -1,21 +1,25 @@
 <script setup>
-import { onMounted } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { useNotificationStore } from '@/stores/notification'
+import { useNotification } from '@/composables/useNotification'
 import { postApi } from '@/api/post'
 import { Check } from 'lucide-vue-next'
 import logger from '@/utils/logger'
 
 const router = useRouter()
-const notificationStore = useNotificationStore()
+const { useNotifications, useMarkAsRead, useMarkAllAsRead } = useNotification()
 
-onMounted(() => {
-  notificationStore.fetchNotifications()
-})
+// Default params for dropdown
+const params = ref({ page: 0, size: 20 })
+const { data: notificationsData, isLoading } = useNotifications(params)
+const { mutate: markAsRead } = useMarkAsRead()
+const { mutate: markAllAsRead } = useMarkAllAsRead()
+
+const notifications = computed(() => notificationsData.value?.content || [])
 
 async function handleNotificationClick(notification) {
   if (!notification.isRead) {
-    await notificationStore.markAsRead(notification.notificationId)
+    markAsRead(notification.notificationId)
   }
   
   // Navigate based on source type
@@ -41,12 +45,12 @@ function formatDate(dateString) {
 </script>
 
 <template>
-  <div class="origin-top-right absolute right-0 mt-2 w-80 rounded-md shadow-lg py-1 bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-50">
-    <div class="px-4 py-2 border-b border-gray-100 flex justify-between items-center">
-      <h3 class="text-sm font-medium text-gray-900">Notifications</h3>
+  <div class="origin-top-right absolute right-0 mt-2 w-80 rounded-md shadow-lg py-1 bg-white dark:bg-gray-800 ring-1 ring-black ring-opacity-5 focus:outline-none z-50 transition-colors duration-200">
+    <div class="px-4 py-2 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
+      <h3 class="text-sm font-medium text-gray-900 dark:text-white">Notifications</h3>
       <button 
-        @click="notificationStore.markAllAsRead"
-        class="text-xs text-indigo-600 hover:text-indigo-500 flex items-center"
+        @click="markAllAsRead"
+        class="text-xs text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300 flex items-center"
       >
         <Check class="h-3 w-3 mr-1" />
         Mark all read
@@ -54,42 +58,42 @@ function formatDate(dateString) {
     </div>
 
     <div class="max-h-96 overflow-y-auto">
-      <div v-if="notificationStore.isLoading && notificationStore.notifications.length === 0" class="px-4 py-4 text-center">
+      <div v-if="isLoading && notifications.length === 0" class="px-4 py-4 text-center">
         <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-indigo-600 mx-auto"></div>
       </div>
       
-      <div v-else-if="notificationStore.notifications.length === 0" class="px-4 py-4 text-center text-sm text-gray-500">
+      <div v-else-if="notifications.length === 0" class="px-4 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
         No notifications.
       </div>
 
       <a
-        v-for="notification in notificationStore.notifications"
+        v-for="notification in notifications"
         :key="notification.notificationId"
         href="#"
         @click.prevent="handleNotificationClick(notification)"
-        class="block px-4 py-3 hover:bg-gray-50 transition duration-150 ease-in-out"
-        :class="{ 'bg-blue-50': !notification.isRead }"
+        class="block px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition duration-150 ease-in-out"
+        :class="{ 'bg-blue-50 dark:bg-blue-900/20': !notification.isRead }"
       >
         <div class="flex items-start">
           <div class="flex-shrink-0">
             <!-- Icon based on type could go here -->
-            <div class="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold">
+            <div class="h-8 w-8 rounded-full bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold">
               {{ notification.actor.displayName[0] }}
             </div>
           </div>
           <div class="ml-3 w-0 flex-1">
-            <p class="text-sm font-medium text-gray-900">
+            <p class="text-sm font-medium text-gray-900 dark:text-white">
               {{ notification.actor.displayName }}
             </p>
-            <p class="text-sm text-gray-500 truncate">
+            <p class="text-sm text-gray-500 dark:text-gray-400 truncate">
               {{ notification.message }}
             </p>
-            <p class="mt-1 text-xs text-gray-400">
+            <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">
               {{ formatDate(notification.createdAt) }}
             </p>
           </div>
           <div v-if="!notification.isRead" class="ml-2 flex-shrink-0">
-            <span class="inline-block h-2 w-2 rounded-full bg-indigo-600"></span>
+            <span class="inline-block h-2 w-2 rounded-full bg-indigo-600 dark:bg-indigo-400"></span>
           </div>
         </div>
       </a>

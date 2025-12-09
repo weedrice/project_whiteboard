@@ -1,41 +1,25 @@
 <script setup>
-import { ref, onMounted, watch, onUnmounted } from 'vue'
+import { ref, watch, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { boardApi } from '@/api/board'
+import { useBoard } from '@/composables/useBoard'
 import { Search } from 'lucide-vue-next'
-import logger from '@/utils/logger'
 
 const router = useRouter()
+const { useBoards } = useBoard()
+const { data: boardsData } = useBoards()
+
 const searchQuery = ref('')
-const boards = ref([])
-const filteredBoards = ref([])
 const showDropdown = ref(false)
 const searchContainer = ref(null)
 
-// Fetch all boards for autocomplete
-const fetchBoards = async () => {
-  try {
-    const { data } = await boardApi.getBoards()
-    if (data.success) {
-      boards.value = data.data
-    }
-  } catch (error) {
-    logger.error('Failed to fetch boards for autocomplete:', error)
-  }
-}
-
-// Filter boards based on search query
-const filterBoards = () => {
-  if (!searchQuery.value.trim()) {
-    filteredBoards.value = []
-    return
-  }
-  
-  const query = searchQuery.value.toLowerCase()
-  filteredBoards.value = boards.value.filter(board => 
-    board.boardName.toLowerCase().includes(query)
-  )
-}
+const boards = computed(() => boardsData.value || [])
+const filteredBoards = computed(() => {
+    if (!searchQuery.value.trim()) return []
+    const query = searchQuery.value.toLowerCase()
+    return boards.value.filter(board => 
+        board.boardName.toLowerCase().includes(query)
+    )
+})
 
 // Handle search submission (Full Search)
 const handleSearch = () => {
@@ -54,7 +38,6 @@ const selectBoard = (boardUrl) => {
 
 // Watch for input changes
 watch(searchQuery, () => {
-  filterBoards()
   showDropdown.value = !!searchQuery.value.trim()
 })
 
@@ -66,7 +49,6 @@ const handleClickOutside = (event) => {
 }
 
 onMounted(() => {
-  fetchBoards()
   document.addEventListener('click', handleClickOutside)
 })
 

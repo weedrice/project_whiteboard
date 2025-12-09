@@ -154,7 +154,7 @@ onMounted(fetchCategories)
 
 <template>
   <div class="space-y-4">
-    <h3 class="text-lg font-medium leading-6 text-gray-900">{{ $t('common.category') }}</h3>
+    <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-white">{{ $t('common.category') }}</h3>
     
     <!-- Add Category -->
     <form @submit.prevent="handleAdd" class="flex gap-2">
@@ -162,7 +162,7 @@ onMounted(fetchCategories)
         type="text"
         v-model="newCategoryName"
         :placeholder="$t('board.category.placeholder.new')"
-        class="input-base"
+        class="input-base dark:bg-gray-700 dark:text-white dark:border-gray-600 dark:placeholder-gray-400"
       />
       <button
         type="submit"
@@ -177,17 +177,17 @@ onMounted(fetchCategories)
       <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600 mx-auto"></div>
     </div>
 
-    <div class="border border-gray-200 rounded-md divide-y divide-gray-200 bg-white" v-else>
+    <div class="border border-gray-200 dark:border-gray-700 rounded-md divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-800" v-else>
         <!-- General Category (Static) -->
         <div 
             v-if="generalCategory"
-            class="px-4 py-3 flex items-center justify-between bg-gray-50"
+            class="px-4 py-3 flex items-center justify-between bg-gray-50 dark:bg-gray-900/50"
         >
-            <div class="flex items-center text-gray-400 cursor-not-allowed p-1 mr-3">
+            <div class="flex items-center text-gray-400 dark:text-gray-500 cursor-not-allowed p-1 mr-3">
                 <GripVertical class="h-4 w-4" />
             </div>
             <div class="flex-1 flex items-center justify-between">
-                <span class="text-sm text-gray-900 font-medium">{{ generalCategory.name }} {{ $t('board.category.default') }}</span>
+                <span class="text-sm text-gray-900 dark:text-gray-200 font-medium">{{ generalCategory.name }} {{ $t('board.category.default') }}</span>
                 <!-- No actions for General -->
             </div>
         </div>
@@ -196,12 +196,12 @@ onMounted(fetchCategories)
         <transition-group 
           name="list" 
           tag="ul" 
-          class="divide-y divide-gray-200"
+          class="divide-y divide-gray-200 dark:divide-gray-700"
         >
           <li 
             v-for="(category, index) in draggableCategories" 
             :key="category.categoryId" 
-            class="px-4 py-3 flex items-center justify-between group bg-white"
+            class="px-4 py-3 flex items-center justify-between group bg-white dark:bg-gray-800"
             @dragover.prevent
             @dragenter.prevent
             @drop="onDrop(index)"
@@ -210,7 +210,7 @@ onMounted(fetchCategories)
               <div 
                 draggable="true"
                 @dragstart="onDragStart($event, index)"
-                class="mr-3 cursor-move text-gray-400 hover:text-gray-600 p-1 rounded hover:bg-gray-100"
+                class="mr-3 cursor-move text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
               >
                 <GripVertical class="h-4 w-4" />
               </div>
@@ -220,22 +220,22 @@ onMounted(fetchCategories)
               <input
                 type="text"
                 v-model="editingName"
-                class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               />
-              <button @click="saveEdit(category)" class="text-green-600 hover:text-green-800">
+              <button @click="saveEdit(category)" class="text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300">
                 <Check class="h-4 w-4" />
               </button>
-              <button @click="cancelEdit" class="text-gray-500 hover:text-gray-700">
+              <button @click="cancelEdit" class="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
                 <X class="h-4 w-4" />
               </button>
             </div>
             <div v-else class="flex-1 flex items-center justify-between">
-              <span class="text-sm text-gray-900">{{ category.name }}</span>
+              <span class="text-sm text-gray-900 dark:text-gray-200">{{ category.name }}</span>
               <div class="flex items-center gap-2">
-                <button @click="startEdit(category)" class="text-indigo-600 hover:text-indigo-800">
+                <button @click="startEdit(category)" class="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300">
                   <Edit2 class="h-4 w-4" />
                 </button>
-                <button @click="handleDelete(category.categoryId)" class="text-red-600 hover:text-red-800">
+                <button @click="handleDelete(category.categoryId)" class="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300">
                   <Trash2 class="h-4 w-4" />
                 </button>
               </div>
@@ -243,7 +243,7 @@ onMounted(fetchCategories)
           </li>
         </transition-group>
     </div>
-    <div v-if="!isLoading && categories.length === 0" class="text-sm text-gray-500 text-center">
+    <div v-if="!isLoading && categories.length === 0" class="text-sm text-gray-500 dark:text-gray-400 text-center">
         {{ $t('board.category.empty') }}
     </div>
   </div>

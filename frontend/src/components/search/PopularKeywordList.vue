@@ -26,40 +26,11 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import axios from '@/api'
-import logger from '@/utils/logger'
+import { computed } from 'vue'
+import { useSearch } from '@/composables/useSearch'
 
-const keywords = ref([])
-const loading = ref(false)
+const { usePopularKeywords } = useSearch()
+const { data: keywordsData, isLoading: loading } = usePopularKeywords()
 
-// Mock data
-const mockKeywords = [
-  { keyword: 'Vue 3', count: 120 },
-  { keyword: 'Tailwind', count: 95 },
-  { keyword: 'Vite', count: 80 },
-  { keyword: 'Pinia', count: 65 },
-  { keyword: 'JavaScript', count: 50 }
-]
-
-const fetchPopularKeywords = async () => {
-  loading.value = true
-  try {
-    // const { data } = await axios.get('/search/popular')
-    // if (data.success) {
-    //   keywords.value = data.data
-    // }
-    
-    await new Promise(resolve => setTimeout(resolve, 500))
-    keywords.value = mockKeywords
-  } catch (error) {
-    logger.error('Failed to fetch popular keywords:', error)
-  } finally {
-    loading.value = false
-  }
-}
-
-onMounted(() => {
-  fetchPopularKeywords()
-})
+const keywords = computed(() => keywordsData.value || [])
 </script>
