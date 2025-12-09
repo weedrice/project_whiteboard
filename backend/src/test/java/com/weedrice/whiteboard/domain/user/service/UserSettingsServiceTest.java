@@ -12,6 +12,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -25,10 +26,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class UserSettingsServiceTest {
@@ -75,13 +73,14 @@ class UserSettingsServiceTest {
         Long userId = 1L;
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(userSettingsRepository.findById(userId)).thenReturn(Optional.empty());
-        when(userSettingsRepository.save(any(UserSettings.class))).thenReturn(userSettings);
+        when(userSettingsRepository.save(any(UserSettings.class))).thenAnswer(i -> i.getArgument(0));
 
         // when
         UserSettings foundSettings = userSettingsService.getSettings(userId);
 
         // then
-        assertThat(foundSettings).isEqualTo(userSettings);
+        assertThat(foundSettings.getUser()).isEqualTo(user);
+        assertThat(foundSettings.getTheme()).isEqualTo("LIGHT"); // Default
         verify(userSettingsRepository).save(any(UserSettings.class));
     }
 
@@ -103,6 +102,7 @@ class UserSettingsServiceTest {
         Long userId = 1L;
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(userSettingsRepository.findById(userId)).thenReturn(Optional.of(userSettings));
+        when(userSettingsRepository.save(any(UserSettings.class))).thenAnswer(i -> i.getArgument(0));
 
         // when
         UserSettings updatedSettings = userSettingsService.updateSettings(userId, "DARK", "en", "UTC", false);
@@ -124,6 +124,7 @@ class UserSettingsServiceTest {
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(userSettingsRepository.findById(userId)).thenReturn(Optional.of(userSettings));
+        when(userSettingsRepository.save(any(UserSettings.class))).thenAnswer(i -> i.getArgument(0));
 
         // when
         UserSettings updatedSettings = userSettingsService.updateSettings(userId, "DARK", "en", null, null);
@@ -151,7 +152,9 @@ class UserSettingsServiceTest {
         // then
         assertThat(updatedSettings.getTheme()).isEqualTo(newTheme);
         assertThat(updatedSettings.getLanguage()).isEqualTo("en");
-        verify(userSettingsRepository).save(any(UserSettings.class));
+        
+        // Should be called 2 times: 1st for default creation, 2nd for update
+        verify(userSettingsRepository, times(2)).save(any(UserSettings.class));
     }
 
     @Test
@@ -182,7 +185,7 @@ class UserSettingsServiceTest {
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(userNotificationSettingsRepository.findById(id)).thenReturn(Optional.of(setting));
-        when(userNotificationSettingsRepository.save(any(UserNotificationSettings.class))).thenReturn(setting);
+        when(userNotificationSettingsRepository.save(any(UserNotificationSettings.class))).thenAnswer(i -> i.getArgument(0));
 
         // when
         UserNotificationSettings updatedSetting = userSettingsService.updateNotificationSetting(userId, notificationType, false);
@@ -198,11 +201,11 @@ class UserSettingsServiceTest {
         Long userId = 1L;
         String notificationType = "COMMENT";
         UserNotificationSettingsId id = new UserNotificationSettingsId(userId, notificationType);
-        UserNotificationSettings newSetting = UserNotificationSettings.builder().userId(userId).notificationType(notificationType).isEnabled(false).build();
-
+        // New setting is created with default enabled=true, then updated to false
+        
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(userNotificationSettingsRepository.findById(id)).thenReturn(Optional.empty());
-        when(userNotificationSettingsRepository.save(any(UserNotificationSettings.class))).thenReturn(newSetting);
+        when(userNotificationSettingsRepository.save(any(UserNotificationSettings.class))).thenAnswer(i -> i.getArgument(0));
 
         // when
         UserNotificationSettings updatedSetting = userSettingsService.updateNotificationSetting(userId, notificationType, false);
@@ -220,17 +223,18 @@ class UserSettingsServiceTest {
         String notificationType = "LIKE";
         UserNotificationSettingsId id = new UserNotificationSettingsId(userId, notificationType);
         UserNotificationSettings setting = UserNotificationSettings.builder().userId(userId).notificationType(notificationType).isEnabled(true).build();
-        UserNotificationSettings settingSpy = spy(setting);
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        when(userNotificationSettingsRepository.findById(id)).thenReturn(Optional.of(settingSpy));
-        when(userNotificationSettingsRepository.save(any(UserNotificationSettings.class))).thenReturn(settingSpy);
+        when(userNotificationSettingsRepository.findById(id)).thenReturn(Optional.of(setting));
+        when(userNotificationSettingsRepository.save(any(UserNotificationSettings.class))).thenAnswer(i -> i.getArgument(0));
 
         // when
         userSettingsService.updateNotificationSetting(userId, notificationType, null);
 
         // then
-        verify(settingSpy, never()).setEnabled(anyBoolean());
-        verify(userNotificationSettingsRepository).save(settingSpy);
+        ArgumentCaptor<UserNotificationSettings> captor = ArgumentCaptor.forClass(UserNotificationSettings.class);
+        verify(userNotificationSettingsRepository).save(captor.capture());
+        
+        assertThat(captor.getValue().getIsEnabled()).isTrue(); // Should remain true
     }
 }
