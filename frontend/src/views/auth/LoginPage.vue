@@ -34,15 +34,15 @@ async function handleLogin() {
 </script>
 
 <template>
-  <div class="min-h-screen flex items-start justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8 pt-32">
+  <div class="min-h-screen flex items-start justify-center bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8 pt-32 transition-colors duration-200">
     <div class="max-w-md w-full space-y-8">
       <div>
-        <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">
+        <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900 dark:text-white">
           {{ $t('common.login') }}
         </h2>
-        <p class="mt-2 text-center text-sm text-gray-600">
+        <p class="mt-2 text-center text-sm text-gray-600 dark:text-gray-400">
           {{ $t('common.or') }}
-          <router-link to="/signup" class="font-medium text-indigo-600 hover:text-indigo-500">
+          <router-link to="/signup" class="font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300">
             {{ $t('auth.createAccount') }}
           </router-link>
         </p>
@@ -61,7 +61,7 @@ async function handleLogin() {
                 name="loginId"
                 type="text"
                 required
-                class="appearance-none rounded-none rounded-t-md relative block w-full px-3 py-2 pl-10 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                class="appearance-none rounded-none rounded-t-md relative block w-full px-3 py-2 pl-10 border border-gray-300 dark:border-gray-700 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white bg-white dark:bg-gray-800 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm transition-colors duration-200"
                 :placeholder="$t('auth.placeholders.loginId')"
               />
             </div>
@@ -78,14 +78,14 @@ async function handleLogin() {
                 name="password"
                 type="password"
                 required
-                class="appearance-none rounded-none rounded-b-md relative block w-full px-3 py-2 pl-10 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                class="appearance-none rounded-none rounded-b-md relative block w-full px-3 py-2 pl-10 border border-gray-300 dark:border-gray-700 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white bg-white dark:bg-gray-800 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm transition-colors duration-200"
                 :placeholder="$t('auth.placeholders.password')"
               />
             </div>
           </div>
         </div>
 
-        <div v-if="error" class="text-red-500 text-sm text-center">
+        <div v-if="error" class="text-red-500 dark:text-red-400 text-sm text-center">
           {{ error }}
         </div>
 
@@ -93,7 +93,7 @@ async function handleLogin() {
           <button
             type="submit"
             :disabled="isLoading"
-            class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+            class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 transition-colors duration-200"
           >
             <span v-if="isLoading">{{ $t('common.signingIn') }}</span>
             <span v-else>{{ $t('common.login') }}</span>

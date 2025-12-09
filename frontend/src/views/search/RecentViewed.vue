@@ -1,57 +1,40 @@
 <script setup>
-import { ref, onMounted } from 'vue'
-import { userApi } from '@/api/user'
+import { ref, computed } from 'vue'
+import { useUser } from '@/composables/useUser'
 import PostList from '@/components/board/PostList.vue'
 import Pagination from '@/components/common/Pagination.vue'
 import PageSizeSelector from '@/components/common/PageSizeSelector.vue'
 
-const posts = ref([])
-const loading = ref(false)
+const { useRecentlyViewedPosts } = useUser()
+
 const page = ref(0)
 const size = ref(15)
-const totalPages = ref(0)
-const totalElements = ref(0)
 
-const fetchRecentViewed = async () => {
-  loading.value = true
-  try {
-    const { data } = await userApi.getRecentlyViewedPosts({
-      page: page.value,
-      size: size.value
-    })
-    
-    if (data.success) {
-      posts.value = data.data.content
-      totalPages.value = data.data.totalPages
-      totalElements.value = data.data.totalElements
-    }
-  } catch (error) {
-    logger.error('최근 읽은 글을 불러오는데 실패했습니다:', error)
-  } finally {
-    loading.value = false
-  }
-}
+const params = computed(() => ({
+    page: page.value,
+    size: size.value
+}))
+
+const { data: recentData, isLoading: loading } = useRecentlyViewedPosts(params)
+
+const posts = computed(() => recentData.value?.content || [])
+const totalPages = computed(() => recentData.value?.totalPages || 0)
+const totalElements = computed(() => recentData.value?.totalElements || 0)
 
 const handlePageChange = (newPage) => {
   page.value = newPage
-  fetchRecentViewed()
 }
 
 const handleSizeChange = () => {
   page.value = 0
-  fetchRecentViewed()
 }
-
-onMounted(() => {
-  fetchRecentViewed()
-})
 </script>
 
 <template>
   <div class="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-    <div class="bg-white shadow overflow-hidden sm:rounded-lg mb-6">
-      <div class="px-4 py-5 sm:px-6 flex justify-between items-center border-b border-gray-200">
-          <h3 class="text-lg font-medium leading-6 text-gray-900">{{ $t('user.tabs.recent') }}</h3>
+    <div class="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg mb-6 transition-colors duration-200">
+      <div class="px-4 py-5 sm:px-6 flex justify-between items-center border-b border-gray-200 dark:border-gray-700">
+          <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-white">{{ $t('user.tabs.recent') }}</h3>
           <PageSizeSelector v-model="size" @change="handleSizeChange" />
       </div>
       <div v-if="posts.length > 0">
@@ -70,7 +53,7 @@ onMounted(() => {
         </div>
       </div>
       
-      <div v-else-if="!loading" class="text-center py-10 text-gray-500">
+      <div v-else-if="!loading" class="text-center py-10 text-gray-500 dark:text-gray-400">
         {{ $t('user.recentViewed.empty') }}
       </div>
       

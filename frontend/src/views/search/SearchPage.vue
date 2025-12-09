@@ -27,50 +27,23 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, computed } from 'vue'
 import { useRoute } from 'vue-router'
-import { searchApi } from '@/api/search'
+import { useSearch } from '@/composables/useSearch'
 import PostList from '@/components/board/PostList.vue'
 
 const route = useRoute()
-const posts = ref([])
-const loading = ref(false)
-const searchQuery = ref('')
+const { useSearchPosts } = useSearch()
 
-const fetchPosts = async () => {
-  const query = route.query.q
-  
-  if (!query) return
+const query = computed(() => route.query.q)
+const params = computed(() => ({
+    q: query.value,
+    page: 0,
+    size: 20
+}))
 
-  searchQuery.value = query
-  
-  loading.value = true
-  try {
-    const params = {
-      q: query,
-      page: 0,
-      size: 20
-    }
-    
-    const { data } = await searchApi.searchPosts(params)
-    if (data.success) {
-      posts.value = data.data.content
-    } else {
-      posts.value = []
-    }
-  } catch (error) {
-    logger.error('Failed to search posts:', error)
-    posts.value = []
-  } finally {
-    loading.value = false
-  }
-}
+const { data: postsData, isLoading } = useSearchPosts(params)
+const posts = computed(() => postsData.value?.content || [])
+const searchQuery = computed(() => query.value)
 
-watch(() => route.query.q, () => {
-  fetchPosts()
-})
-
-onMounted(() => {
-  fetchPosts()
-})
 </script>
