@@ -9,6 +9,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -26,27 +27,26 @@ public class GlobalConfigController {
         return ApiResponse.success(Collections.singletonMap(key, value));
     }
 
-
     @GetMapping("/admin/configs")
-    public ApiResponse<java.util.List<GlobalConfig>> getAllConfigs() {
+    public ApiResponse<List<GlobalConfig>> getAllConfigs() {
         return ApiResponse.success(globalConfigService.getAllConfigs());
     }
 
-
     @PostMapping("/admin/configs")
     public ApiResponse<GlobalConfig> createConfig(@RequestBody Map<String, String> request) {
-        return ApiResponse.success(globalConfigService.createConfig(request.get("key"), request.get("value"), request.get("description")));
+        return ApiResponse.success(
+                globalConfigService.createConfig(request.get("key"), request.get("value"), request.get("description")));
     }
 
     @PutMapping("/admin/configs")
     public ApiResponse<Void> updateConfig(@RequestBody Map<String, String> request) {
-        globalConfigService.updateConfig(request.get("key"), request.get("value"));
+        globalConfigService.updateConfig(request.get("key"), request.get("value"), request.get("description"));
         return ApiResponse.success(null);
     }
 
     @PutMapping("/admin/configs/{key}")
     public ApiResponse<Void> updateConfigByKey(@PathVariable String key, @RequestBody Map<String, String> request) {
-        globalConfigService.updateConfig(key, request.get("value"));
+        globalConfigService.updateConfig(key, request.get("value"), request.get("description"));
 
         return ApiResponse.success(null);
     }
@@ -58,5 +58,3 @@ public class GlobalConfigController {
         return ApiResponse.success(null);
     }
 }
-
-    
