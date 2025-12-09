@@ -9,11 +9,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
+import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Repository;
 import org.springframework.util.StringUtils;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import static com.weedrice.whiteboard.domain.post.entity.QPost.post;
@@ -26,15 +25,15 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
     private final JPAQueryFactory queryFactory;
 
     @Override
-    public Page<Post> findByBoardIdAndCategoryId(Long boardId, Long categoryId, Integer minLikes, Pageable pageable) {
+    public Page<Post> findByBoardIdAndCategoryId(Long boardId, Long categoryId, Integer minLikes,
+            @NonNull Pageable pageable) {
         List<Post> content = queryFactory
                 .selectFrom(post)
                 .where(
                         post.board.boardId.eq(boardId),
                         categoryIdEq(categoryId),
                         minLikesGoe(minLikes),
-                        post.isDeleted.eq(false)
-                )
+                        post.isDeleted.eq(false))
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize())
                 .orderBy(getOrderSpecifiers(pageable))
@@ -47,24 +46,23 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                         post.board.boardId.eq(boardId),
                         categoryIdEq(categoryId),
                         minLikesGoe(minLikes),
-                        post.isDeleted.eq(false)
-                )
+                        post.isDeleted.eq(false))
                 .fetchOne();
 
         return new PageImpl<>(content, pageable, total != null ? total : 0L);
     }
 
     @Override
-    public Page<Post> searchPostsByKeyword(String keyword, Pageable pageable) {
-        BooleanExpression keywordExpression = StringUtils.hasText(keyword) ?
-                post.title.containsIgnoreCase(keyword).or(post.contents.containsIgnoreCase(keyword)) : null;
+    public Page<Post> searchPostsByKeyword(String keyword, @NonNull Pageable pageable) {
+        BooleanExpression keywordExpression = StringUtils.hasText(keyword)
+                ? post.title.containsIgnoreCase(keyword).or(post.contents.containsIgnoreCase(keyword))
+                : null;
 
         List<Post> content = queryFactory
                 .selectFrom(post)
                 .where(
                         keywordExpression,
-                        post.isDeleted.eq(false)
-                )
+                        post.isDeleted.eq(false))
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize())
                 .orderBy(getOrderSpecifiers(pageable))
@@ -75,15 +73,14 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                 .from(post)
                 .where(
                         keywordExpression,
-                        post.isDeleted.eq(false)
-                )
+                        post.isDeleted.eq(false))
                 .fetchOne();
 
         return new PageImpl<>(content, pageable, total != null ? total : 0L);
     }
 
     @Override
-    public Page<Post> searchPosts(String keyword, String searchType, String boardUrl, Pageable pageable) {
+    public Page<Post> searchPosts(String keyword, String searchType, String boardUrl, @NonNull Pageable pageable) {
         BooleanExpression searchCondition = null;
         if (StringUtils.hasText(keyword)) {
             if ("TITLE".equalsIgnoreCase(searchType)) {
@@ -108,8 +105,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                 .where(
                         searchCondition,
                         boardCondition,
-                        post.isDeleted.eq(false)
-                )
+                        post.isDeleted.eq(false))
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize())
                 .orderBy(getOrderSpecifiers(pageable))
@@ -121,23 +117,21 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                 .where(
                         searchCondition,
                         boardCondition,
-                        post.isDeleted.eq(false)
-                )
+                        post.isDeleted.eq(false))
                 .fetchOne();
 
         return new PageImpl<>(content, pageable, total != null ? total : 0L);
     }
 
     @Override
-    public Page<Post> findByTagId(Long tagId, Pageable pageable) {
+    public Page<Post> findByTagId(Long tagId, @NonNull Pageable pageable) {
         List<Post> content = queryFactory
                 .select(post)
                 .from(postTag)
                 .join(postTag.post, post)
                 .where(
                         postTag.tag.tagId.eq(tagId),
-                        post.isDeleted.eq(false)
-                )
+                        post.isDeleted.eq(false))
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize())
                 .orderBy(getOrderSpecifiers(pageable))
@@ -148,8 +142,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                 .from(postTag)
                 .where(
                         postTag.tag.tagId.eq(tagId),
-                        postTag.post.isDeleted.eq(false)
-                )
+                        postTag.post.isDeleted.eq(false))
                 .fetchOne();
 
         return new PageImpl<>(content, pageable, total != null ? total : 0L);
@@ -181,6 +174,6 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                 }
             }).toArray(OrderSpecifier[]::new);
         }
-        return new OrderSpecifier[]{new OrderSpecifier<>(Order.DESC, post.createdAt)};
+        return new OrderSpecifier[] { new OrderSpecifier<>(Order.DESC, post.createdAt) };
     }
 }

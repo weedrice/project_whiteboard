@@ -13,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
+import org.springframework.lang.NonNull;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -33,7 +34,7 @@ public class PostController {
             @RequestParam(required = false) Long categoryId,
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) Integer minLikes,
-            Pageable pageable,
+            @NonNull Pageable pageable,
             Authentication authentication) {
 
         if (keyword != null && !keyword.trim().isEmpty()) {
@@ -159,13 +160,13 @@ public class PostController {
 
     @GetMapping("/users/me/scraps")
     public ApiResponse<ScrapListResponse> getMyScraps(@AuthenticationPrincipal CustomUserDetails userDetails,
-            Pageable pageable) {
+            @NonNull Pageable pageable) {
         return ApiResponse.success(ScrapListResponse.from(postService.getMyScraps(userDetails.getUserId(), pageable)));
     }
 
     @GetMapping("/users/me/drafts")
     public ApiResponse<DraftListResponse> getMyDrafts(
-            Pageable pageable,
+            @NonNull Pageable pageable,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         return ApiResponse
                 .success(DraftListResponse.from(postService.getDraftPosts(userDetails.getUserId(), pageable)));

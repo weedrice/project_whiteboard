@@ -27,6 +27,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,6 +38,7 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
+@SuppressWarnings({ "null", "unchecked" })
 public class PostService {
 
         private final PostRepository postRepository;
@@ -58,7 +60,7 @@ public class PostService {
         private final com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository boardSubscriptionRepository;
 
         // --- boardUrl 기반 public 메서드 (오버로드) ---
-        public Page<Post> getPosts(String boardUrl, Long categoryId, Integer minLikes, Pageable pageable) {
+        public Page<Post> getPosts(String boardUrl, Long categoryId, Integer minLikes, @NonNull Pageable pageable) {
                 Board board = boardRepository.findByBoardUrl(boardUrl)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
                 return this.getPosts(board.getBoardId(), categoryId, minLikes, pageable);
@@ -71,14 +73,14 @@ public class PostService {
         }
 
         @Transactional
-        public Post createPost(Long userId, String boardUrl, PostCreateRequest request) {
+        public Post createPost(@NonNull Long userId, String boardUrl, PostCreateRequest request) {
                 Board board = boardRepository.findByBoardUrl(boardUrl)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
                 return this.createPost(userId, board.getBoardId(), request);
         }
 
         // --- 기존 boardId 기반 public/private 메서스 ---
-        public Page<Post> getPosts(Long boardId, Long categoryId, Integer minLikes, Pageable pageable) {
+        public Page<Post> getPosts(Long boardId, Long categoryId, Integer minLikes, @NonNull Pageable pageable) {
                 return postRepository.findByBoardIdAndCategoryId(boardId, categoryId, minLikes, pageable);
         }
 
@@ -87,11 +89,11 @@ public class PostService {
                                 false);
         }
 
-        public Page<Post> getPostsByTag(Long tagId, Pageable pageable) {
+        public Page<Post> getPostsByTag(Long tagId, @NonNull Pageable pageable) {
                 return postRepository.findByTagId(tagId, pageable);
         }
 
-        public Page<Post> getMyPosts(Long userId, Pageable pageable) {
+        public Page<Post> getMyPosts(@NonNull Long userId, @NonNull Pageable pageable) {
                 User user = userRepository.findById(userId)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
                 return postRepository.findByUserAndIsDeleted(user, false, pageable);
@@ -170,7 +172,7 @@ public class PostService {
         }
 
         @Transactional
-        public Post getPostById(Long postId, Long userId) {
+        public Post getPostById(@NonNull Long postId, Long userId) {
                 Post post = postRepository.findById(postId)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
 
@@ -205,21 +207,21 @@ public class PostService {
                 return post;
         }
 
-        public boolean isPostLikedByUser(Long postId, Long userId) {
+        public boolean isPostLikedByUser(@NonNull Long postId, Long userId) {
                 if (userId == null) {
                         return false;
                 }
                 return postLikeRepository.existsById(new PostLikeId(userId, postId));
         }
 
-        public boolean isPostScrappedByUser(Long postId, Long userId) {
+        public boolean isPostScrappedByUser(@NonNull Long postId, Long userId) {
                 if (userId == null) {
                         return false;
                 }
                 return scrapRepository.existsById(new ScrapId(userId, postId));
         }
 
-        public ViewHistory getViewHistory(Long userId, Long postId) {
+        public ViewHistory getViewHistory(Long userId, @NonNull Long postId) {
                 if (userId == null) {
                         return null;
                 }
@@ -231,7 +233,7 @@ public class PostService {
         }
 
         @Transactional
-        public void updateViewHistory(Long userId, Long postId, ViewHistoryRequest request) {
+        public void updateViewHistory(@NonNull Long userId, @NonNull Long postId, ViewHistoryRequest request) {
                 User user = userRepository.findById(userId)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
                 Post post = postRepository.findById(postId)
@@ -249,7 +251,7 @@ public class PostService {
         }
 
         @Transactional
-        public Post createPost(Long userId, Long boardId, PostCreateRequest request) {
+        public Post createPost(@NonNull Long userId, @NonNull Long boardId, PostCreateRequest request) {
                 User user = userRepository.findById(userId)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
                 Board board = boardRepository.findById(boardId)
@@ -296,7 +298,7 @@ public class PostService {
         }
 
         @Transactional
-        public Post updatePost(Long userId, Long postId, PostUpdateRequest request) {
+        public Post updatePost(@NonNull Long userId, @NonNull Long postId, PostUpdateRequest request) {
                 Post post = postRepository.findById(postId)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
 
@@ -331,7 +333,7 @@ public class PostService {
         }
 
         @Transactional
-        public void deletePost(Long userId, Long postId) {
+        public void deletePost(@NonNull Long userId, @NonNull Long postId) {
                 Post post = postRepository.findById(postId)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
 
@@ -350,7 +352,7 @@ public class PostService {
         }
 
         @Transactional
-        public void likePost(Long userId, Long postId) {
+        public void likePost(@NonNull Long userId, @NonNull Long postId) {
                 User user = userRepository.findById(userId)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
                 Post post = postRepository.findById(postId)
@@ -374,7 +376,7 @@ public class PostService {
         }
 
         @Transactional
-        public void unlikePost(Long userId, Long postId) {
+        public void unlikePost(@NonNull Long userId, @NonNull Long postId) {
                 Post post = postRepository.findById(postId)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
 
@@ -388,7 +390,7 @@ public class PostService {
         }
 
         @Transactional
-        public void scrapPost(Long userId, Long postId, String remark) {
+        public void scrapPost(@NonNull Long userId, @NonNull Long postId, String remark) {
                 User user = userRepository.findById(userId)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
                 Post post = postRepository.findById(postId)
@@ -408,7 +410,7 @@ public class PostService {
         }
 
         @Transactional
-        public void unscrapPost(Long userId, Long postId) {
+        public void unscrapPost(@NonNull Long userId, @NonNull Long postId) {
                 ScrapId scrapId = new ScrapId(userId, postId);
                 if (!scrapRepository.existsById(scrapId)) {
                         throw new BusinessException(ErrorCode.NOT_SCRAPED);
@@ -416,19 +418,19 @@ public class PostService {
                 scrapRepository.deleteById(scrapId);
         }
 
-        public Page<Scrap> getMyScraps(Long userId, Pageable pageable) {
+        public Page<Scrap> getMyScraps(@NonNull Long userId, @NonNull Pageable pageable) {
                 User user = userRepository.findById(userId)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
                 return scrapRepository.findByUserOrderByCreatedAtDesc(user, pageable);
         }
 
-        public Page<DraftPost> getDraftPosts(Long userId, Pageable pageable) {
+        public Page<DraftPost> getDraftPosts(@NonNull Long userId, @NonNull Pageable pageable) {
                 User user = userRepository.findById(userId)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
                 return draftPostRepository.findByUserOrderByModifiedAtDesc(user, pageable);
         }
 
-        public DraftPost getDraftPost(Long userId, Long draftId) {
+        public DraftPost getDraftPost(@NonNull Long userId, @NonNull Long draftId) {
                 User user = userRepository.findById(userId)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
                 return draftPostRepository.findByDraftIdAndUser(draftId, user)
@@ -436,7 +438,7 @@ public class PostService {
         }
 
         @Transactional
-        public DraftPost saveDraftPost(Long userId, PostDraftRequest request) {
+        public DraftPost saveDraftPost(@NonNull Long userId, PostDraftRequest request) {
                 User user = userRepository.findById(userId)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
                 Board board = boardRepository.findByBoardUrl(request.getBoardUrl()) // boardUrl 사용
@@ -465,7 +467,7 @@ public class PostService {
         }
 
         @Transactional
-        public void deleteDraftPost(Long userId, Long draftId) {
+        public void deleteDraftPost(@NonNull Long userId, @NonNull Long draftId) {
                 User user = userRepository.findById(userId)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
                 DraftPost draftPost = draftPostRepository.findByDraftIdAndUser(draftId, user)
@@ -485,11 +487,11 @@ public class PostService {
                 postVersionRepository.save(postVersion);
         }
 
-        public List<PostVersion> getPostVersions(Long postId) {
+        public List<PostVersion> getPostVersions(@NonNull Long postId) {
                 return postVersionRepository.findByPost_PostIdOrderByCreatedAtDesc(postId);
         }
 
-        public List<String> getTagsForPost(Long postId) {
+        public List<String> getTagsForPost(@NonNull Long postId) {
                 Post post = postRepository.findById(postId)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
                 return postTagRepository.findByPost(post).stream()
@@ -497,14 +499,14 @@ public class PostService {
                                 .collect(Collectors.toList());
         }
 
-        public Page<PostSummary> getRecentlyViewedPosts(Long userId, Pageable pageable) {
+        public Page<PostSummary> getRecentlyViewedPosts(@NonNull Long userId, @NonNull Pageable pageable) {
                 User user = userRepository.findById(userId)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
                 return viewHistoryRepository.findByUserOrderByModifiedAtDesc(user, pageable)
                                 .map(viewHistory -> PostSummary.from(viewHistory.getPost()));
         }
 
-        public List<String> getPostImageUrls(Long postId) {
+        public List<String> getPostImageUrls(@NonNull Long postId) {
                 return fileService.getFilesByRelatedEntity(postId, "POST_CONTENT").stream()
                                 .filter(file -> file.getMimeType().startsWith("image/"))
                                 .map(file -> "/api/v1/files/" + file.getFileId())
