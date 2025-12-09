@@ -4,6 +4,7 @@ import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.file.service.FileService; // Add import
 import com.weedrice.whiteboard.domain.post.repository.PostRepository; // Import PostRepository
+import com.weedrice.whiteboard.domain.user.dto.UserProfileResponse;
 import com.weedrice.whiteboard.domain.user.entity.DisplayNameHistory;
 import com.weedrice.whiteboard.domain.user.entity.PasswordHistory;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -49,14 +50,14 @@ public class UserService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
     }
 
-    public UserService.UserProfileDto getUserProfile(Long userId) {
+    public UserProfileResponse getUserProfile(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
         long postCount = postRepository.countByUserAndIsDeleted(user, false); // Calculate postCount
         long commentCount = commentRepository.countByUser(user); // 댓글 수 계산
 
-        return UserProfileDto.builder()
+        return UserProfileResponse.builder()
                 .userId(user.getUserId())
                 .loginId(user.getLoginId())
                 .displayName(user.getDisplayName())
@@ -179,19 +180,5 @@ public class UserService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         return userSettingsRepository.findById(userId)
                 .orElseGet(() -> new UserSettings(user));
-    }
-
-    @lombok.Builder
-    @lombok.Getter
-    @lombok.AllArgsConstructor
-    public static class UserProfileDto {
-        private Long userId;
-        private String loginId;
-        private String displayName;
-        private String profileImageUrl;
-        private LocalDateTime createdAt;
-        private LocalDateTime lastLoginAt;
-        private long postCount;
-        private long commentCount;
     }
 }

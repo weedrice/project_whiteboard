@@ -54,7 +54,7 @@ public class UserController {
 
         @GetMapping("/{userId}")
         public ResponseEntity<ApiResponse<UserProfileResponse>> getUserProfile(@PathVariable Long userId) {
-                UserService.UserProfileDto profile = userService.getUserProfile(userId);
+                UserProfileResponse profile = userService.getUserProfile(userId);
                 UserProfileResponse response = new UserProfileResponse(profile.getUserId(), profile.getLoginId(),
                                 profile.getDisplayName(), profile.getProfileImageUrl(), profile.getCreatedAt(),
                                 profile.getLastLoginAt(), profile.getPostCount(), profile.getCommentCount());
