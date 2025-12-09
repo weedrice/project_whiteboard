@@ -1,13 +1,12 @@
 <script setup>
-import { ref, onMounted, watch } from 'vue'
-import { commentApi } from '@/api/comment'
+import { ref, onMounted, watch, computed } from 'vue'
+import { useComment } from '@/composables/useComment'
 import { useAuthStore } from '@/stores/auth'
 import CommentForm from './CommentForm.vue'
 import CommentItem from './CommentItem.vue'
 import { User, CornerDownRight } from 'lucide-vue-next'
 import UserMenu from '@/components/common/UserMenu.vue'
 import logger from '@/utils/logger'
-
 import { useI18n } from 'vue-i18n'
 
 const props = defineProps({
@@ -15,83 +14,54 @@ const props = defineProps({
     type: [Number, String],
     required: true
   },
-  boardUrl: { // 추가: boardUrl
+  boardUrl: {
     type: String,
     required: true
   }
 })
 
 const { t } = useI18n()
-
 const authStore = useAuthStore()
-const comments = ref([])
-const isLoading = ref(true)
+
+const { useComments, useDeleteComment } = useComment()
+
+// We might need to pass params for pagination if needed, currently just fetching all or default page
+const params = ref({ page: 0, size: 50 }) 
+const postId = computed(() => props.postId)
+
+const { data: commentsData, isLoading, refetch } = useComments(postId, params)
+const comments = computed(() => commentsData.value?.content || [])
+
+const { mutate: deleteComment } = useDeleteComment()
+
 const replyToId = ref(null)
 const editingCommentId = ref(null)
 
-async function fetchComments() {
-  isLoading.value = true
-  try {
-    const { data } = await commentApi.getComments(props.postId)
-    if (data.success) {
-      comments.value = data.data.content
-    }
-  } catch (err) {
-    logger.error('Failed to load comments:', err)
-  } finally {
-    isLoading.value = false
-  }
-}
-
-function formatDate(dateString) {
-  return new Date(dateString).toLocaleString()
-}
-
 function handleReplySuccess() {
   replyToId.value = null
-  fetchComments()
-}
-
-function startEdit(comment) {
-    editingCommentId.value = comment.commentId
+  // Query invalidation handled in composable
 }
 
 function handleEditSuccess() {
-    editingCommentId.value = null
-    fetchComments()
+  editingCommentId.value = null
+  // Query invalidation handled in composable
 }
 
-async function handleDelete(comment) {
+function handleDelete(comment) {
   if (!confirm(t('common.messages.confirmDelete'))) return
 
-  // Soft delete check: If it has children, just mark as deleted locally (if backend doesn't handle it)
-  // Actually, we should call delete API. If backend deletes it physically, it's gone.
-  // If backend supports soft delete, it will return success.
-  // We will assume backend deletes it. If we want to show "Deleted", we rely on backend response or manual update.
-  // Strategy: Call delete. If success, fetch comments. 
-  // If the comment had children, we hope the backend kept it as "deleted". 
-  // If not, we can't do much unless we fake it.
-  // Let's try standard delete first. If the user wants "Deleted" message, 
-  // it implies the comment structure should remain.
-  
-  try {
-    const { data } = await commentApi.deleteComment(comment.commentId)
-    if (data.success) {
-      fetchComments()
-    }
-  } catch (err) {
-    logger.error('Failed to delete comment:', err)
-    alert(t('comment.deleteFailed'))
-  }
+  deleteComment(comment.commentId, {
+      onError: (err) => {
+          logger.error('Failed to delete comment:', err)
+          alert(t('comment.deleteFailed'))
+      }
+  })
 }
-
-onMounted(fetchComments)
-watch(() => props.postId, fetchComments)
 </script>
 
 <template>
   <div class="mt-8">
-    <h3 class="text-lg font-medium text-gray-900 mb-6">{{ $t('comment.title') }}</h3>
+    <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-6">{{ $t('comment.title') }}</h3>
     
 
     <!-- Comment List -->
@@ -111,7 +81,7 @@ watch(() => props.postId, fetchComments)
         @delete="handleDelete"
       />
       
-      <div v-if="comments.length === 0" class="text-center text-gray-500 py-4">
+      <div v-if="comments.length === 0" class="text-center text-gray-500 dark:text-gray-400 py-4">
         {{ $t('comment.empty') }}
       </div>
     </div>
@@ -123,8 +93,8 @@ watch(() => props.postId, fetchComments)
         @success="fetchComments" 
       />
     </div>
-    <div v-else class="mt-8 mb-8 text-sm text-gray-500">
-      <router-link to="/login" class="text-indigo-600 hover:text-indigo-500">{{ $t('common.login') }}</router-link> {{ $t('comment.loginRequired', { login: '' }) }}
+    <div v-else class="mt-8 mb-8 text-sm text-gray-500 dark:text-gray-400">
+      <router-link to="/login" class="text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300">{{ $t('common.login') }}</router-link> {{ $t('comment.loginRequired', { login: '' }) }}
     </div>
   </div>
 </template>

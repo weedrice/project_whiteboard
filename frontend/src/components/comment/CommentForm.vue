@@ -1,6 +1,6 @@
 <script setup>
 import { ref } from 'vue'
-import { commentApi } from '@/api/comment'
+import { useComment } from '@/composables/useComment'
 import { useI18n } from 'vue-i18n'
 import logger from '@/utils/logger'
 
@@ -27,37 +27,49 @@ const props = defineProps({
 
 const emit = defineEmits(['success', 'cancel'])
 
+const { useCreateComment, useUpdateComment } = useComment()
+const { mutate: createComment, isLoading: isCreating } = useCreateComment()
+const { mutate: updateComment, isLoading: isUpdating } = useUpdateComment()
+
 const content = ref(props.initialContent)
-const isSubmitting = ref(false)
+const isSubmitting = ref(false) // Keep local state for button disabled, or use isCreating/isUpdating
 
 async function handleSubmit() {
   if (!content.value.trim()) return
 
   isSubmitting.value = true
-  try {
-    if (props.commentId) {
-        // Update existing comment
-        const { data } = await commentApi.updateComment(props.commentId, { content: content.value })
-        if (data.success) {
-            emit('success')
-        }
-    } else {
-        // Create new comment
-        const payload = {
-        content: content.value,
-        parentId: props.parentId
-        }
-        const { data } = await commentApi.createComment(props.postId, payload)
-        if (data.success) {
-        content.value = ''
-        emit('success')
-        }
-    }
-  } catch (err) {
-    logger.error('Failed to save comment:', err)
-    alert(t('comment.saveFailed'))
-  } finally {
-    isSubmitting.value = false
+
+  if (props.commentId) {
+      // Update existing comment
+      updateComment({ commentId: props.commentId, data: { content: content.value } }, {
+          onSuccess: () => {
+              emit('success')
+              isSubmitting.value = false
+          },
+          onError: (err) => {
+              logger.error('Failed to save comment:', err)
+              alert(t('comment.saveFailed'))
+              isSubmitting.value = false
+          }
+      })
+  } else {
+      // Create new comment
+      const payload = {
+          content: content.value,
+          parentId: props.parentId
+      }
+      createComment({ postId: props.postId, data: payload }, {
+          onSuccess: () => {
+              content.value = ''
+              emit('success')
+              isSubmitting.value = false
+          },
+          onError: (err) => {
+              logger.error('Failed to save comment:', err)
+              alert(t('comment.saveFailed'))
+              isSubmitting.value = false
+          }
+      })
   }
 }
 </script>

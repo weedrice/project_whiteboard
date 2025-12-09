@@ -61,7 +61,7 @@ function handleDelete() {
     <div class="flex space-x-3">
       <!-- Avatar -->
       <div class="flex-shrink-0 relative">
-        <CornerDownRight v-if="depth > 0" class="absolute -left-6 top-2 h-4 w-4 text-gray-300" />
+        <CornerDownRight v-if="depth > 0" class="absolute -left-6 top-2 h-4 w-4 text-gray-300 dark:text-gray-600" />
         <div class="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center dark:bg-gray-700">
           <User class="h-6 w-6 text-gray-500 dark:text-gray-400" />
         </div>
@@ -75,8 +75,8 @@ function handleDelete() {
             :user-id="comment.author.userId"
             :display-name="comment.author.displayName"
           />
-          <span v-else class="text-sm font-medium text-gray-500">{{ $t('common.messages.unknown') }}</span>
-          <p class="text-sm text-gray-500">{{ formatDate(comment.createdAt) }}</p>
+          <span v-else class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ $t('common.messages.unknown') }}</span>
+          <p class="text-sm text-gray-500 dark:text-gray-400">{{ formatDate(comment.createdAt) }}</p>
         </div>
 
         <!-- Edit Form -->
@@ -114,7 +114,7 @@ function handleDelete() {
             </button>
             <button 
               @click="handleDelete"
-              class="text-xs text-red-500 hover:text-red-700 font-medium ml-2"
+              class="text-xs text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 font-medium ml-2"
             >
               {{ $t('common.delete') }}
             </button>
