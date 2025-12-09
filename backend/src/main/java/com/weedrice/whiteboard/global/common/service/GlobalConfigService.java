@@ -42,13 +42,16 @@ public class GlobalConfigService {
 
     @Transactional
     @CacheEvict(value = "globalConfig", key = "#key")
-    public GlobalConfig updateConfig(String key, String value) {
+    public GlobalConfig updateConfig(String key, String value, String description) {
         SecurityUtils.validateSuperAdminPermission();
         GlobalConfig config = globalConfigRepository.findById(key)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
-        
+
         config.setConfigValue(value);
-        
+        if (description != null) {
+            config.setDescription(description);
+        }
+
         return globalConfigRepository.save(config);
     }
 
