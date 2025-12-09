@@ -35,8 +35,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 
-@WebMvcTest(controllers = GlobalConfigController.class,
-    excludeFilters = @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = com.weedrice.whiteboard.global.config.WebConfig.class))
+@WebMvcTest(controllers = GlobalConfigController.class, excludeFilters = @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = com.weedrice.whiteboard.global.config.WebConfig.class))
 class GlobalConfigControllerTest {
 
     @Autowired
@@ -64,7 +63,8 @@ class GlobalConfigControllerTest {
 
     @BeforeEach
     void setUp() throws Exception {
-        adminUser = new CustomUserDetails(1L, "admin", "password", Collections.singletonList(new SimpleGrantedAuthority("ROLE_SUPER_ADMIN")));
+        adminUser = new CustomUserDetails(1L, "admin", "password",
+                Collections.singletonList(new SimpleGrantedAuthority("ROLE_SUPER_ADMIN")));
 
         when(ipBlockInterceptor.preHandle(any(), any(), any())).thenReturn(true);
 
@@ -83,8 +83,8 @@ class GlobalConfigControllerTest {
         when(globalConfigService.getConfig("key")).thenReturn("value");
 
         mockMvc.perform(get("/api/v1/configs/{key}", "key")
-                        .with(user(adminUser))
-                        .accept(MediaType.APPLICATION_JSON))
+                .with(user(adminUser))
+                .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.key").value("value"));
@@ -97,8 +97,8 @@ class GlobalConfigControllerTest {
         when(globalConfigService.getAllConfigs()).thenReturn(List.of(config));
 
         mockMvc.perform(get("/api/v1/admin/configs")
-                        .with(user(adminUser))
-                        .accept(MediaType.APPLICATION_JSON))
+                .with(user(adminUser))
+                .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data[0].configKey").value("key"));
@@ -109,14 +109,14 @@ class GlobalConfigControllerTest {
     void createConfig_success() throws Exception {
         Map<String, String> request = Map.of("key", "newKey", "value", "val", "description", "desc");
         GlobalConfig created = new GlobalConfig("newKey", "val", "desc");
-        
+
         when(globalConfigService.createConfig("newKey", "val", "desc")).thenReturn(created);
 
         mockMvc.perform(post("/api/v1/admin/configs")
-                        .with(user(adminUser))
-                        .with(csrf())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
+                .with(user(adminUser))
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.configKey").value("newKey"));
@@ -126,14 +126,15 @@ class GlobalConfigControllerTest {
     @DisplayName("설정 수정")
     void updateConfig_success() throws Exception {
         Map<String, String> request = Map.of("key", "key", "value", "newVal");
-        
-        when(globalConfigService.updateConfig("key", "newVal")).thenReturn(new GlobalConfig("key", "newVal", "desc"));
+
+        when(globalConfigService.updateConfig("key", "newVal", null))
+                .thenReturn(new GlobalConfig("key", "newVal", "desc"));
 
         mockMvc.perform(put("/api/v1/admin/configs")
-                        .with(user(adminUser))
-                        .with(csrf())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
+                .with(user(adminUser))
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
     }
@@ -142,14 +143,15 @@ class GlobalConfigControllerTest {
     @DisplayName("키로 설정 수정")
     void updateConfigByKey_success() throws Exception {
         Map<String, String> request = Map.of("value", "newVal");
-        
-        when(globalConfigService.updateConfig("key", "newVal")).thenReturn(new GlobalConfig("key", "newVal", "desc"));
+
+        when(globalConfigService.updateConfig("key", "newVal", null))
+                .thenReturn(new GlobalConfig("key", "newVal", "desc"));
 
         mockMvc.perform(put("/api/v1/admin/configs/{key}", "key")
-                        .with(user(adminUser))
-                        .with(csrf())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
+                .with(user(adminUser))
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
     }
@@ -160,8 +162,8 @@ class GlobalConfigControllerTest {
         doNothing().when(globalConfigService).deleteConfig("key");
 
         mockMvc.perform(delete("/api/v1/admin/configs/{key}", "key")
-                        .with(user(adminUser))
-                        .with(csrf()))
+                .with(user(adminUser))
+                .with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
     }
