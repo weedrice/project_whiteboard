@@ -1,13 +1,14 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { boardApi } from '@/api/board'
-import { postApi } from '@/api/post'
+import { useBoard } from '@/composables/useBoard'
+import { usePost } from '@/composables/usePost'
 import PostTags from '@/components/tag/PostTags.vue'
 import { useI18n } from 'vue-i18n'
 import { QuillEditor } from '@vueup/vue-quill'
 import '@vueup/vue-quill/dist/vue-quill.snow.css'
 import axios from '@/api'
+import logger from '@/utils/logger'
 
 const { t } = useI18n()
 
@@ -16,11 +17,16 @@ import { useAuthStore } from '@/stores/auth'
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
-const boardUrl = route.params.boardUrl // boardId 대신 boardUrl 사용
+const boardUrl = computed(() => route.params.boardUrl)
 
-const categories = ref([])
-const isLoading = ref(false)
-const isSubmitting = ref(false)
+const { useBoardDetail, useBoardCategories } = useBoard()
+const { useCreatePost } = usePost()
+
+const { data: board, isLoading: isBoardLoading } = useBoardDetail(boardUrl)
+const { data: categories, isLoading: isCategoriesLoading } = useBoardCategories(boardUrl)
+const { mutate: createPost, isLoading: isSubmitting } = useCreatePost()
+
+const isLoading = computed(() => isBoardLoading.value || isCategoriesLoading.value)
 const error = ref('')
 const fileIds = ref([])
 const editor = ref(null)
@@ -34,8 +40,6 @@ const form = ref({
   isSpoiler: false,
   isNotice: false
 })
-
-const board = ref(null)
 
 const toolbarOptions = [
   ['bold', 'italic', 'underline', 'strike'],        // toggled buttons
@@ -109,30 +113,12 @@ const onEditorReady = (quill) => {
   quill.getModule('toolbar').addHandler('image', imageHandler)
 }
 
-onMounted(async () => {
-  isLoading.value = true
-  try {
-    const [categoriesRes, boardRes] = await Promise.all([
-      boardApi.getCategories(boardUrl), // boardUrl 사용
-      boardApi.getBoard(boardUrl) // boardUrl 사용
-    ])
-
-    if (categoriesRes.data.success) {
-      categories.value = categoriesRes.data.data
-      if (categories.value.length > 0) {
+// Set default category when loaded
+import { watchEffect } from 'vue'
+watchEffect(() => {
+    if (categories.value && categories.value.length > 0 && !form.value.categoryId) {
         form.value.categoryId = categories.value[0].categoryId
-      }
     }
-
-    if (boardRes.data.success) {
-      board.value = boardRes.data.data
-    }
-  } catch (err) {
-    logger.error('Failed to load data:', err)
-    error.value = t('board.writePost.failLoad')
-  } finally {
-    isLoading.value = false
-  }
 })
 
 async function handleSubmit() {
@@ -141,11 +127,9 @@ async function handleSubmit() {
     return
   }
 
-  isSubmitting.value = true
   error.value = ''
 
-  try {
-    const payload = {
+  const payload = {
       categoryId: form.value.categoryId,
       title: form.value.title,
       contents: form.value.contents,
@@ -154,18 +138,17 @@ async function handleSubmit() {
       isSpoiler: form.value.isSpoiler,
       isNotice: form.value.isNotice,
       fileIds: fileIds.value // Send collected fileIds
-    }
-
-    const { data } = await postApi.createPost(boardUrl, payload) // boardUrl 사용
-    if (data.success) {
-      router.push(`/board/${board.value.boardUrl}`) // boardUrl 사용
-    }
-  } catch (err) {
-    logger.error('Failed to create post:', err)
-    error.value = err.response?.data?.error?.message || t('board.writePost.failCreate')
-  } finally {
-    isSubmitting.value = false
   }
+
+  createPost({ boardUrl: boardUrl.value, data: payload }, {
+      onSuccess: () => {
+          router.push(`/board/${boardUrl.value}`)
+      },
+      onError: (err) => {
+          logger.error('Failed to create post:', err)
+          error.value = err.response?.data?.error?.message || t('board.writePost.failCreate')
+      }
+  })
 }
 </script>
 

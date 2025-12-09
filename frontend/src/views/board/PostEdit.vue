@@ -1,24 +1,31 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed, watchEffect } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { postApi } from '@/api/post'
-import { boardApi } from '@/api/board'
+import { useBoard } from '@/composables/useBoard'
+import { usePost } from '@/composables/usePost'
 import { useI18n } from 'vue-i18n'
 import { QuillEditor } from '@vueup/vue-quill'
 import '@vueup/vue-quill/dist/vue-quill.snow.css'
 import axios from '@/api'
+import logger from '@/utils/logger'
 
 const { t } = useI18n()
 
 const route = useRoute()
 const router = useRouter()
 
-const boardUrl = route.params.boardUrl // boardId 대신 boardUrl 사용
-const postId = route.params.postId
+const boardUrl = computed(() => route.params.boardUrl)
+const postId = computed(() => route.params.postId)
 
-const categories = ref([])
-const isSubmitting = ref(false)
-const isLoading = ref(true)
+const { useBoardDetail, useBoardCategories } = useBoard()
+const { usePostDetail, useUpdatePost } = usePost()
+
+const { data: board, isLoading: isBoardLoading } = useBoardDetail(boardUrl)
+const { data: categories, isLoading: isCategoriesLoading } = useBoardCategories(boardUrl)
+const { data: post, isLoading: isPostLoading } = usePostDetail(postId)
+const { mutate: updatePost, isLoading: isSubmitting } = useUpdatePost()
+
+const isLoading = computed(() => isBoardLoading.value || isCategoriesLoading.value || isPostLoading.value)
 const fileIds = ref([])
 const editor = ref(null)
 
@@ -30,8 +37,6 @@ const form = ref({
   isNsfw: false,
   isSpoiler: false
 })
-
-const board = ref(null)
 
 const toolbarOptions = [
   ['bold', 'italic', 'underline', 'strike'],        // toggled buttons
@@ -105,42 +110,18 @@ const onEditorReady = (quill) => {
   quill.getModule('toolbar').addHandler('image', imageHandler)
 }
 
-async function fetchData() {
-  isLoading.value = true
-  try {
-    const [postRes, categoriesRes, boardRes] = await Promise.all([
-      postApi.getPost(postId),
-      boardApi.getCategories(boardUrl), // boardUrl 사용
-      boardApi.getBoard(boardUrl) // boardUrl 사용
-    ])
-
-    if (postRes.data.success) {
-      const post = postRes.data.data
-      form.value = {
-        title: post.title,
-        content: post.contents,
-        categoryId: post.category?.categoryId || '',
-        tags: post.tags ? post.tags.join(', ') : '',
-        isNsfw: post.isNsfw,
-        isSpoiler: post.isSpoiler
-      }
+watchEffect(() => {
+    if (post.value) {
+        form.value = {
+            title: post.value.title,
+            content: post.value.contents,
+            categoryId: post.value.category?.categoryId || '',
+            tags: post.value.tags ? post.value.tags.join(', ') : '',
+            isNsfw: post.value.isNsfw,
+            isSpoiler: post.value.isSpoiler
+        }
     }
-
-    if (categoriesRes.data.success) {
-      categories.value = categoriesRes.data.data
-    }
-
-    if (boardRes.data.success) {
-      board.value = boardRes.data.data
-    }
-  } catch (err) {
-    logger.error('Failed to load data:', err)
-    alert(t('board.writePost.failLoad'))
-    router.push(`/board/${boardUrl}/post/${postId}`) // boardUrl 사용
-  } finally {
-    isLoading.value = false
-  }
-}
+})
 
 async function handleSubmit() {
   if (!form.value.title || !form.value.content) {
@@ -148,33 +129,28 @@ async function handleSubmit() {
     return
   }
 
-  isSubmitting.value = true
-  try {
-    const payload = {
+  const payload = {
       ...form.value,
       tags: form.value.tags.split(',').map(tag => tag.trim()).filter(tag => tag),
       contents: form.value.content, // API expects 'contents'
       isNsfw: board.value?.allowNsfw ? form.value.isNsfw : false,
       isSpoiler: form.value.isSpoiler, // Explicitly include isSpoiler
       fileIds: fileIds.value // Send collected fileIds
-    }
-    
-    // Remove 'content' key as we mapped it to 'contents'
-    delete payload.content
-
-    const { data } = await postApi.updatePost(postId, payload)
-    if (data.success) {
-      router.push(`/board/${board.value.boardUrl}/post/${postId}`) // boardUrl 사용
-    }
-  } catch (err) {
-    logger.error('Failed to update post:', err)
-    alert(t('board.writePost.failUpdate'))
-  } finally {
-    isSubmitting.value = false
   }
-}
+  
+  // Remove 'content' key as we mapped it to 'contents'
+  delete payload.content
 
-onMounted(fetchData)
+  updatePost({ postId: postId.value, data: payload }, {
+      onSuccess: () => {
+          router.push(`/board/${boardUrl.value}/post/${postId.value}`)
+      },
+      onError: (err) => {
+          logger.error('Failed to update post:', err)
+          alert(t('board.writePost.failUpdate'))
+      }
+  })
+}
 </script>
 
 <template>

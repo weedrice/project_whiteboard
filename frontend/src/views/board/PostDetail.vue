@@ -1,23 +1,53 @@
 <script setup>
 import { ref, onMounted, computed, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { postApi } from '@/api/post'
+import { usePost } from '@/composables/usePost'
 import { useAuthStore } from '@/stores/auth'
 import { User, Clock, ThumbsUp, MessageSquare, Eye, ArrowLeft, MoreHorizontal, Bookmark } from 'lucide-vue-next'
 import CommentList from '@/components/comment/CommentList.vue'
 import PostTags from '@/components/tag/PostTags.vue'
 import UserMenu from '@/components/common/UserMenu.vue'
-
 import { useI18n } from 'vue-i18n'
+import logger from '@/utils/logger'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 const { t } = useI18n()
 
-const post = ref(null)
-const isLoading = ref(true)
-const error = ref('')
+const { usePostDetail, useDeletePost, useLikePost, useUnlikePost, useScrapPost, useUnscrapPost } = usePost()
+
+const postId = computed(() => route.params.postId)
+const { data: post, isLoading, error: postError } = usePostDetail(postId, {
+    onSuccess: (data) => {
+        // Spoiler Logic
+        if (data.isSpoiler) {
+            isBlurred.value = true
+            timeLeft.value = 5
+            startBlurTimer()
+        }
+        // Scroll to title
+        nextTick(() => {
+            window.scrollTo(0, 0)
+            if (route.hash) {
+                const element = document.querySelector(route.hash)
+                if (element) {
+                    element.scrollIntoView({ behavior: 'smooth' })
+                }
+            } else if (titleRef.value) {
+                titleRef.value.scrollIntoView({ behavior: 'smooth' })
+            }
+        })
+    }
+})
+
+const { mutate: deleteMutate } = useDeletePost()
+const { mutate: likeMutate } = useLikePost()
+const { mutate: unlikeMutate } = useUnlikePost()
+const { mutate: scrapMutate } = useScrapPost()
+const { mutate: unscrapMutate } = useUnscrapPost()
+
+const error = computed(() => postError.value ? t('board.postDetail.loadFailed') : '')
 
 const isAuthor = computed(() => {
   return authStore.user && post.value && authStore.user.userId === post.value.author.userId
@@ -35,98 +65,43 @@ const timeLeft = ref(5)
 
 const titleRef = ref(null)
 
-async function fetchPost() {
-  isLoading.value = true
-  error.value = ''
-  try {
-    const { data } = await postApi.getPost(route.params.postId, { redirectOnError: true })
-    if (data.success) {
-      post.value = data.data
-      // Ensure numeric counts
-      post.value.likeCount = post.value.likeCount || 0
-      post.value.commentCount = post.value.commentCount || 0
-      post.value.viewCount = post.value.viewCount || 0
-
-      // Spoiler Logic
-      if (post.value.isSpoiler) {
-        isBlurred.value = true
-        timeLeft.value = 5
-        startBlurTimer()
-      }
-
-      // Scroll to title
-      nextTick(() => {
-        window.scrollTo(0, 0)
-        if (route.hash) {
-            const element = document.querySelector(route.hash)
-            if (element) {
-                element.scrollIntoView({ behavior: 'smooth' })
-            }
-        } else if (titleRef.value) {
-            titleRef.value.scrollIntoView({ behavior: 'smooth' })
-        }
-      })
-    }
-  } catch (err) {
-    logger.error('Failed to load post:', err)
-    error.value = t('board.postDetail.loadFailed')
-  } finally {
-    isLoading.value = false
-  }
-}
-
-
 async function handleDelete() {
   if (!confirm(t('common.messages.confirmDelete'))) return
 
-  try {
-    const { data } = await postApi.deletePost(route.params.postId)
-    if (data.success) {
-      router.push(`/board/${post.value.board.boardUrl}`)
-    }
-  } catch (err) {
-    logger.error('Failed to delete post:', err)
-    alert(t('board.postDetail.deleteFailed'))
-  }
+  deleteMutate(route.params.postId, {
+      onSuccess: () => {
+          router.push(`/board/${post.value.board.boardUrl}`)
+      },
+      onError: (err) => {
+          logger.error('Failed to delete post:', err)
+          alert(t('board.postDetail.deleteFailed'))
+      }
+  })
 }
 
 async function handleLike() {
   if (!authStore.isAuthenticated) return
-  try {
-    if (post.value.isLiked) {
-      const { data } = await postApi.unlikePost(route.params.postId)
-      if (data.success) {
-        post.value.isLiked = false
-        post.value.likeCount = data.data
-      }
-    } else {
-      const { data } = await postApi.likePost(route.params.postId)
-      if (data.success) {
-        post.value.isLiked = true
-        post.value.likeCount = data.data
-      }
-    }
-  } catch (err) {
-    logger.error(t('board.postDetail.likeFailed'), err)
+  if (post.value.isLiked) {
+      unlikeMutate(route.params.postId, {
+          onError: (err) => logger.error(t('board.postDetail.likeFailed'), err)
+      })
+  } else {
+      likeMutate(route.params.postId, {
+          onError: (err) => logger.error(t('board.postDetail.likeFailed'), err)
+      })
   }
 }
 
 async function handleScrap() {
   if (!authStore.isAuthenticated) return
-  try {
-    if (post.value.isScrapped) {
-      const { data } = await postApi.unscrapPost(route.params.postId)
-      if (data.success) {
-        post.value.isScrapped = false
-      }
-    } else {
-      const { data } = await postApi.scrapPost(route.params.postId)
-      if (data.success) {
-        post.value.isScrapped = true
-      }
-    }
-  } catch (err) {
-    logger.error(t('board.postDetail.scrapFailed'), err)
+  if (post.value.isScrapped) {
+      unscrapMutate(route.params.postId, {
+          onError: (err) => logger.error(t('board.postDetail.scrapFailed'), err)
+      })
+  } else {
+      scrapMutate(route.params.postId, {
+          onError: (err) => logger.error(t('board.postDetail.scrapFailed'), err)
+      })
   }
 }
 
@@ -147,12 +122,6 @@ function revealSpoiler() {
   }
 }
 
-onMounted(fetchPost)
-
-watch(() => route.params.postId, (newId) => {
-    if (newId) fetchPost()
-})
-
 watch(() => route.hash, (newHash) => {
     if (newHash) {
         nextTick(() => {
@@ -166,7 +135,7 @@ watch(() => route.hash, (newHash) => {
 </script>
 
 <template>
-  <div class="w-full bg-white shadow overflow-hidden sm:rounded-lg">
+  <div class="w-full bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg transition-colors duration-200">
     <div v-if="isLoading" class="text-center py-10">
       <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 mx-auto"></div>
     </div>
@@ -174,7 +143,7 @@ watch(() => route.hash, (newHash) => {
     <div v-else-if="error" class="text-center py-10 text-red-500">
       {{ error }}
       <div class="mt-4">
-        <button @click="router.back()" class="text-indigo-600 hover:text-indigo-500">
+        <button @click="router.back()" class="text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300">
           {{ $t('common.back') }}
         </button>
       </div>
@@ -182,11 +151,11 @@ watch(() => route.hash, (newHash) => {
 
     <div v-else-if="post">
       <!-- Header -->
-      <div class="px-4 py-5 sm:px-6 border-b border-gray-200">
+      <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
         <div class="flex items-center justify-between">
           <button 
             @click="router.push(`/board/${post.board.boardUrl}`)" 
-            class="inline-flex items-center text-sm text-gray-500 hover:text-gray-700"
+            class="inline-flex items-center text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
           >
             <ArrowLeft class="h-4 w-4 mr-1" />
             {{ $t('board.postDetail.toList') }}
@@ -196,7 +165,7 @@ watch(() => route.hash, (newHash) => {
              <router-link 
               v-if="isAuthor"
               :to="`/board/${post.board.boardUrl}/post/${post.postId}/edit`"
-              class="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 cursor-pointer"
+              class="inline-flex items-center px-3 py-1.5 border border-gray-300 dark:border-gray-600 shadow-sm text-xs font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 cursor-pointer transition-colors duration-200"
             >
               {{ $t('common.edit') }}
             </router-link>
@@ -211,8 +180,8 @@ watch(() => route.hash, (newHash) => {
         </div>
         
         <div class="mt-4">
-            <h1 class="text-2xl font-bold text-gray-900" ref="titleRef">{{ post.title }}</h1>
-            <div class="mt-2 flex items-center text-sm text-gray-500 space-x-4">
+            <h1 class="text-2xl font-bold text-gray-900 dark:text-white" ref="titleRef">{{ post.title }}</h1>
+            <div class="mt-2 flex items-center text-sm text-gray-500 dark:text-gray-400 space-x-4">
                 <div class="flex items-center">
                     <User class="h-4 w-4 mr-1" />
                     <UserMenu :user-id="post.author.userId" :display-name="post.author.displayName" />
@@ -247,7 +216,7 @@ watch(() => route.hash, (newHash) => {
       </div>
 
       <!-- Content -->
-      <div class="px-4 py-5 sm:p-6 min-h-[200px] prose max-w-none relative">
+      <div class="px-4 py-5 sm:p-6 min-h-[200px] prose dark:prose-invert max-w-none relative text-gray-900 dark:text-gray-100">
         <div 
           v-html="post.contents" 
           class="ql-editor transition-all duration-500"
@@ -257,11 +226,11 @@ watch(() => route.hash, (newHash) => {
         <!-- Spoiler Overlay -->
         <div 
           v-if="isBlurred" 
-          class="absolute inset-0 flex flex-col items-center justify-center z-10 bg-white/50"
+          class="absolute inset-0 flex flex-col items-center justify-center z-10 bg-white/50 dark:bg-black/50"
         >
-          <div class="bg-white p-6 rounded-lg shadow-lg text-center border border-gray-200">
-            <h3 class="text-lg font-bold text-gray-900 mb-2">{{ $t('board.postDetail.spoilerWarning') }}</h3>
-            <p class="text-gray-600 mb-4">{{ $t('board.postDetail.spoilerTimer', { time: timeLeft }) }}</p>
+          <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg text-center border border-gray-200 dark:border-gray-700">
+            <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-2">{{ $t('board.postDetail.spoilerWarning') }}</h3>
+            <p class="text-gray-600 dark:text-gray-300 mb-4">{{ $t('board.postDetail.spoilerTimer', { time: timeLeft }) }}</p>
             <button 
               @click="revealSpoiler"
               class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
@@ -273,19 +242,19 @@ watch(() => route.hash, (newHash) => {
       </div>
 
       <!-- Tags -->
-      <div v-if="post.tags && post.tags.length > 0" class="px-4 py-4 sm:px-6 border-t border-gray-200 bg-gray-50">
+      <div v-if="post.tags && post.tags.length > 0" class="px-4 py-4 sm:px-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
         <PostTags :modelValue="post.tags" :readOnly="true" />
       </div>
 
       <!-- Stats & Actions -->
-      <div class="px-4 py-4 sm:px-6 border-t border-gray-200 bg-white flex items-center justify-center space-x-8">
+      <div class="px-4 py-4 sm:px-6 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex items-center justify-center space-x-8 transition-colors duration-200">
           <button 
             @click="handleLike" 
             :disabled="!authStore.isAuthenticated"
             class="flex flex-col items-center group cursor-pointer"
-            :class="{'text-indigo-600': post.isLiked, 'text-gray-500': !post.isLiked, 'opacity-50 cursor-not-allowed': !authStore.isAuthenticated}"
+            :class="{'text-indigo-600 dark:text-indigo-400': post.isLiked, 'text-gray-500 dark:text-gray-400': !post.isLiked, 'opacity-50 cursor-not-allowed': !authStore.isAuthenticated}"
           >
-              <div class="p-2 rounded-full group-hover:bg-indigo-50 transition-colors">
+              <div class="p-2 rounded-full group-hover:bg-indigo-50 dark:group-hover:bg-indigo-900/30 transition-colors">
                   <ThumbsUp class="h-6 w-6" :class="{'fill-current': post.isLiked}" />
               </div>
               <span class="text-sm font-medium mt-1">{{ post.likeCount }}</span>
@@ -295,9 +264,9 @@ watch(() => route.hash, (newHash) => {
             @click="handleScrap"
             :disabled="!authStore.isAuthenticated"
             class="flex flex-col items-center group cursor-pointer"
-            :class="{'text-yellow-500': post.isScrapped, 'text-gray-500': !post.isScrapped, 'opacity-50 cursor-not-allowed': !authStore.isAuthenticated}"
+            :class="{'text-yellow-500': post.isScrapped, 'text-gray-500 dark:text-gray-400': !post.isScrapped, 'opacity-50 cursor-not-allowed': !authStore.isAuthenticated}"
           >
-              <div class="p-2 rounded-full group-hover:bg-yellow-50 transition-colors">
+              <div class="p-2 rounded-full group-hover:bg-yellow-50 dark:group-hover:bg-yellow-900/30 transition-colors">
                   <Bookmark class="h-6 w-6" :class="{'fill-current': post.isScrapped}" />
               </div>
               <span class="text-sm font-medium mt-1">{{ $t('common.scrap') }}</span>
@@ -305,7 +274,7 @@ watch(() => route.hash, (newHash) => {
       </div>
 
       <!-- Comments Section -->
-      <div class="border-t border-gray-200 mt-8 p-4">
+      <div class="border-t border-gray-200 dark:border-gray-700 mt-8 p-4">
         <CommentList :postId="post.postId" :boardUrl="post.board.boardUrl" />
       </div>
     </div>
