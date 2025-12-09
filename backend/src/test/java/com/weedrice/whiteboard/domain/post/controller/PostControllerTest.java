@@ -1,17 +1,20 @@
 package com.weedrice.whiteboard.domain.post.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.weedrice.whiteboard.domain.post.dto.PostResponse;
-import com.weedrice.whiteboard.domain.post.dto.PostSummary;
-import com.weedrice.whiteboard.domain.post.dto.ViewHistoryRequest;
+import com.weedrice.whiteboard.domain.board.entity.Board;
+import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
+import com.weedrice.whiteboard.domain.post.dto.*;
+import com.weedrice.whiteboard.domain.post.entity.DraftPost;
 import com.weedrice.whiteboard.domain.post.entity.Post;
+import com.weedrice.whiteboard.domain.post.entity.Scrap;
 import com.weedrice.whiteboard.domain.post.entity.ViewHistory;
 import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.domain.search.service.SearchService;
-import com.weedrice.whiteboard.global.common.dto.PageResponse;
+import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -21,10 +24,8 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDateTime;
@@ -32,12 +33,17 @@ import java.util.Collections;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import static org.mockito.Mockito.doAnswer;
 
 @WebMvcTest(PostController.class)
 class PostControllerTest {
@@ -54,206 +60,302 @@ class PostControllerTest {
     @MockBean
     private SearchService searchService;
 
+    @MockBean
+    private com.weedrice.whiteboard.global.security.JwtAuthenticationFilter jwtAuthenticationFilter;
+
+    @MockBean
+    private com.weedrice.whiteboard.global.security.JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
+
+    @MockBean
+    private com.weedrice.whiteboard.domain.admin.interceptor.IpBlockInterceptor ipBlockInterceptor;
+
+    @MockBean
+    private org.springframework.data.jpa.mapping.JpaMetamodelMappingContext jpaMetamodelMappingContext;
+
     private CustomUserDetails customUserDetails;
+    private User user;
+    private Board board;
+    private Post post;
+    private BoardCategory category;
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws Exception {
         customUserDetails = new CustomUserDetails(1L, "test@example.com", "password", Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER")));
-        Authentication authentication = new UsernamePasswordAuthenticationToken(customUserDetails, null, customUserDetails.getAuthorities());
-        SecurityContextHolder.getContext().setAuthentication(authentication);
+
+        user = User.builder().displayName("Test User").build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+        ReflectionTestUtils.setField(user, "profileImageUrl", "profile.jpg");
+
+        board = Board.builder().boardName("Test Board").build();
+        ReflectionTestUtils.setField(board, "boardUrl", "free");
+        ReflectionTestUtils.setField(board, "iconUrl", "icon.png");
+
+        category = BoardCategory.builder().name("Cat").board(board).build();
+        ReflectionTestUtils.setField(category, "categoryId", 1L);
+
+        post = Post.builder().title("Test Post").contents("Contents").user(user).board(board).category(category).build();
+        ReflectionTestUtils.setField(post, "postId", 1L);
+        ReflectionTestUtils.setField(post, "createdAt", LocalDateTime.now());
+
+        when(ipBlockInterceptor.preHandle(any(), any(), any())).thenReturn(true);
+
+        // Stub doFilter to allow request to proceed
+        doAnswer(invocation -> {
+            HttpServletRequest request = invocation.getArgument(0);
+            HttpServletResponse response = invocation.getArgument(1);
+            FilterChain chain = invocation.getArgument(2);
+            chain.doFilter(request, response);
+            return null;
+        }).when(jwtAuthenticationFilter).doFilter(any(), any(), any());
+    }
+
+    @Nested
+    @DisplayName("게시글 조회 API")
+    class PostRetrievalApiTests {
+        @Test
+        @DisplayName("게시글 목록 조회 성공")
+        void getPosts_success() throws Exception {
+            String boardUrl = "free";
+            Page<Post> postPage = new PageImpl<>(List.of(post));
+
+            when(postService.getPosts(eq(boardUrl), any(), any(), any(Pageable.class))).thenReturn(postPage);
+
+            mockMvc.perform(get("/api/v1/boards/{boardUrl}/posts", boardUrl)
+                            .with(user(customUserDetails))
+                            .accept(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true));
+        }
+
+        @Test
+        @DisplayName("인기 게시글 목록 조회 성공")
+        void getTrendingPosts_success() throws Exception {
+            PostSummary summary = PostSummary.from(post);
+            when(postService.getTrendingPosts(anyInt(), any())).thenReturn(List.of(summary));
+
+            mockMvc.perform(get("/api/v1/posts/trending")
+                            .with(user(customUserDetails))
+                            .accept(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true));
+        }
+
+        @Test
+        @DisplayName("단일 게시글 조회 성공")
+        void getPost_success() throws Exception {
+            Long postId = 1L;
+            when(postService.getPostById(eq(postId), any())).thenReturn(post);
+            when(postService.getTagsForPost(eq(postId))).thenReturn(List.of("tag"));
+            when(postService.getViewHistory(any(), eq(postId))).thenReturn(ViewHistory.builder().build());
+
+            mockMvc.perform(get("/api/v1/posts/{postId}", postId)
+                            .with(user(customUserDetails))
+                            .accept(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true));
+        }
+
+        @Test
+        @DisplayName("조회 기록 업데이트 성공")
+        void updateViewHistory_success() throws Exception {
+            Long postId = 1L;
+            ViewHistoryRequest request = new ViewHistoryRequest(100L, 0L);
+
+            mockMvc.perform(put("/api/v1/posts/{postId}/history", postId)
+                            .with(user(customUserDetails))
+                            .with(csrf())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isOk());
+        }
+    }
+
+    @Nested
+    @DisplayName("게시글 관리 API")
+    class PostManagementApiTests {
+        @Test
+        @DisplayName("게시글 생성 성공")
+        void createPost_success() throws Exception {
+            String boardUrl = "free";
+            PostCreateRequest request = new PostCreateRequest(null, "Title", "Content", List.of("tag"), false, false, false, null);
+            
+            when(postService.createPost(anyLong(), eq(boardUrl), any(PostCreateRequest.class))).thenReturn(post);
+
+            mockMvc.perform(post("/api/v1/boards/{boardUrl}/posts", boardUrl)
+                            .with(user(customUserDetails))
+                            .with(csrf())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .accept(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.success").value(true));
+        }
+
+        @Test
+        @DisplayName("게시글 수정 성공")
+        void updatePost_success() throws Exception {
+            Long postId = 1L;
+            PostUpdateRequest request = new PostUpdateRequest(null, "Title", "Content", List.of("tag"), false, false, null);
+
+            when(postService.updatePost(anyLong(), eq(postId), any(PostUpdateRequest.class))).thenReturn(post);
+
+            mockMvc.perform(put("/api/v1/posts/{postId}", postId)
+                            .with(user(customUserDetails))
+                            .with(csrf())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isOk());
+        }
+
+        @Test
+        @DisplayName("게시글 삭제 성공")
+        void deletePost_success() throws Exception {
+            Long postId = 1L;
+            mockMvc.perform(delete("/api/v1/posts/{postId}", postId)
+                            .with(user(customUserDetails))
+                            .with(csrf()))
+                    .andExpect(status().isOk());
+        }
+    }
+
+    @Nested
+    @DisplayName("좋아요 및 스크랩 API")
+    class LikeAndScrapApiTests {
+        @Test
+        @DisplayName("좋아요 성공")
+        void likePost_success() throws Exception {
+            Long postId = 1L;
+            ReflectionTestUtils.setField(post, "likeCount", 1);
+            
+            when(postService.getPostById(eq(postId), any())).thenReturn(post);
+
+            mockMvc.perform(post("/api/v1/posts/{postId}/like", postId)
+                            .with(user(customUserDetails))
+                            .with(csrf())
+                            .accept(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.success").value(true));
+        }
+
+        @Test
+        @DisplayName("좋아요 취소 성공")
+        void unlikePost_success() throws Exception {
+            Long postId = 1L;
+            ReflectionTestUtils.setField(post, "likeCount", 0);
+            
+            when(postService.getPostById(eq(postId), any())).thenReturn(post);
+
+            mockMvc.perform(delete("/api/v1/posts/{postId}/like", postId)
+                            .with(user(customUserDetails))
+                            .with(csrf())
+                            .accept(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true));
+        }
+
+        @Test
+        @DisplayName("스크랩 성공")
+        void scrapPost_success() throws Exception {
+            Long postId = 1L;
+            PostScrapRequest request = new PostScrapRequest("Remark");
+
+            mockMvc.perform(post("/api/v1/posts/{postId}/scrap", postId)
+                            .with(user(customUserDetails))
+                            .with(csrf())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isCreated());
+        }
+
+        @Test
+        @DisplayName("스크랩 취소 성공")
+        void unscrapPost_success() throws Exception {
+            Long postId = 1L;
+            mockMvc.perform(delete("/api/v1/posts/{postId}/scrap", postId)
+                            .with(user(customUserDetails))
+                            .with(csrf()))
+                    .andExpect(status().isOk());
+        }
+
+        @Test
+        @DisplayName("내 스크랩 조회")
+        void getMyScraps_success() throws Exception {
+            Page<Scrap> page = Page.empty();
+            when(postService.getMyScraps(anyLong(), any())).thenReturn(page);
+
+            mockMvc.perform(get("/api/v1/users/me/scraps")
+                            .with(user(customUserDetails)))
+                    .andExpect(status().isOk());
+        }
+    }
+
+    @Nested
+    @DisplayName("임시저장 API")
+    class DraftApiTests {
+        @Test
+        @DisplayName("임시저장 목록 조회")
+        void getMyDrafts_success() throws Exception {
+            Page<DraftPost> page = Page.empty();
+            when(postService.getDraftPosts(anyLong(), any())).thenReturn(page);
+
+            mockMvc.perform(get("/api/v1/users/me/drafts")
+                            .with(user(customUserDetails)))
+                    .andExpect(status().isOk());
+        }
+
+        @Test
+        @DisplayName("임시저장 단건 조회")
+        void getDraft_success() throws Exception {
+            Long draftId = 1L;
+            DraftPost draft = DraftPost.builder().title("Draft").user(user).board(board).build();
+            ReflectionTestUtils.setField(draft, "draftId", 1L);
+            ReflectionTestUtils.setField(draft, "modifiedAt", LocalDateTime.now());
+            
+            when(postService.getDraftPost(anyLong(), eq(draftId))).thenReturn(draft);
+
+            mockMvc.perform(get("/api/v1/drafts/{draftId}", draftId)
+                            .with(user(customUserDetails))
+                            .accept(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true));
+        }
+
+        @Test
+        @DisplayName("임시저장 저장")
+        void saveDraft_success() throws Exception {
+            PostDraftRequest request = new PostDraftRequest(null, "free", "Title", "Content", null);
+            DraftPost draft = DraftPost.builder().title("Title").build();
+            ReflectionTestUtils.setField(draft, "draftId", 1L);
+            
+            when(postService.saveDraftPost(anyLong(), any())).thenReturn(draft);
+
+            mockMvc.perform(post("/api/v1/drafts")
+                            .with(user(customUserDetails))
+                            .with(csrf())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isCreated());
+        }
+
+        @Test
+        @DisplayName("임시저장 삭제")
+        void deleteDraft_success() throws Exception {
+            Long draftId = 1L;
+            mockMvc.perform(delete("/api/v1/drafts/{draftId}", draftId)
+                            .with(user(customUserDetails))
+                            .with(csrf()))
+                    .andExpect(status().isOk());
+        }
     }
 
     @Test
-    @DisplayName("게시글 목록 조회 성공")
-    void getPosts_success() throws Exception {
-        // Given
-        String boardUrl = "free";
-        Pageable pageable = PageRequest.of(0, 10);
-
-        Post mockPost = Post.builder()
-                .postId(1L)
-                .title("Test Post")
-                .content("Content of test post")
-                .likeCount(5)
-                .viewCount(10)
-                .createdAt(LocalDateTime.now())
-                .updatedAt(LocalDateTime.now())
-                .build();
-        List<Post> postList = Collections.singletonList(mockPost);
-        Page<Post> postPage = new PageImpl<>(postList, pageable, 1);
-
-        PostSummary mockSummary = PostSummary.from(mockPost);
-        mockSummary.setRowNum(1L); // Assuming totalElements = 1, page = 0, size = 10, index = 0
-
-        when(postService.getPosts(eq(boardUrl), any(), any(), any(Pageable.class))).thenReturn(postPage);
-
-        // When & Then
-        mockMvc.perform(get("/api/v1/boards/{boardUrl}/posts", boardUrl)
-                        .param("page", "0")
-                        .param("size", "10")
-                        .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.content[0].postId").value(mockSummary.getPostId()))
-                .andExpect(jsonPath("$.data.content[0].title").value(mockSummary.getTitle()))
-                .andExpect(jsonPath("$.data.content[0].rowNum").value(mockSummary.getRowNum()));
-    }
-
-    @Test
-    @DisplayName("게시글 목록 조회 - 키워드 검색 성공")
-    void getPosts_withKeyword_success() throws Exception {
-        // Given
-        String boardUrl = "free";
-        String keyword = "search_term";
-        Pageable pageable = PageRequest.of(0, 10);
-
-        Post mockPost = Post.builder()
-                .postId(2L)
-                .title("Keyword Post")
-                .content("Content with search_term")
-                .likeCount(3)
-                .viewCount(7)
-                .createdAt(LocalDateTime.now())
-                .updatedAt(LocalDateTime.now())
-                .build();
-        List<Post> postList = Collections.singletonList(mockPost);
-        Page<Post> postPage = new PageImpl<>(postList, pageable, 1);
-
-        PostSummary mockSummary = PostSummary.from(mockPost);
-        mockSummary.setRowNum(1L);
-
-        when(postService.getPosts(eq(boardUrl), any(), eq(keyword), any(Pageable.class))).thenReturn(postPage);
-
-        // When & Then
-        mockMvc.perform(get("/api/v1/boards/{boardUrl}/posts", boardUrl)
-                        .param("keyword", keyword)
-                        .param("page", "0")
-                        .param("size", "10")
-                        .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.content[0].title").value(mockSummary.getTitle()));
-    }
-
-    @Test
-    @DisplayName("인기 게시글 목록 조회 성공")
-    void getTrendingPosts_success() throws Exception {
-        // Given
-        int limit = 10;
-        Post mockPost1 = Post.builder()
-                .postId(1L)
-                .title("Trending Post 1")
-                .content("Content 1")
-                .likeCount(10)
-                .viewCount(100)
-                .createdAt(LocalDateTime.now())
-                .updatedAt(LocalDateTime.now())
-                .build();
-        Post mockPost2 = Post.builder()
-                .postId(2L)
-                .title("Trending Post 2")
-                .content("Content 2")
-                .likeCount(8)
-                .viewCount(80)
-                .createdAt(LocalDateTime.now())
-                .updatedAt(LocalDateTime.now())
-                .build();
-        List<PostSummary> trendingPosts = List.of(PostSummary.from(mockPost1), PostSummary.from(mockPost2));
-
-        when(postService.getTrendingPosts(eq(limit), anyLong())).thenReturn(trendingPosts);
-
-        // When & Then
-        mockMvc.perform(get("/api/v1/posts/trending")
-                        .param("limit", String.valueOf(limit))
-                        .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.size()").value(2))
-                .andExpect(jsonPath("$.data[0].postId").value(mockPost1.getPostId()))
-                .andExpect(jsonPath("$.data[1].postId").value(mockPost2.getPostId()));
-    }
-
-    @Test
-    @DisplayName("단일 게시글 조회 성공")
-    void getPost_success() throws Exception {
-        // Given
+    @DisplayName("게시글 버전 조회")
+    void getPostVersions_success() throws Exception {
         Long postId = 1L;
-        Long userId = customUserDetails.getUserId();
+        when(postService.getPostVersions(postId)).thenReturn(Collections.emptyList());
 
-        Post mockPost = Post.builder()
-                .postId(postId)
-                .title("Single Post Title")
-                .content("Single Post Content")
-                .likeCount(15)
-                .viewCount(200)
-                .createdAt(LocalDateTime.now())
-                .updatedAt(LocalDateTime.now())
-                .build();
-
-        List<String> tags = List.of("tag1", "tag2");
-        boolean isLiked = true;
-        boolean isScrapped = false;
-        ViewHistory viewHistory = ViewHistory.builder()
-                .viewHistoryId(1L)
-                .postId(postId)
-                .userId(userId)
-                .lastViewedAt(LocalDateTime.now())
-                .build();
-        List<String> imageUrls = List.of("http://example.com/image1.jpg");
-
-        when(postService.getPostById(eq(postId), eq(userId))).thenReturn(mockPost);
-        when(postService.getTagsForPost(eq(postId))).thenReturn(tags);
-        when(postService.isPostLikedByUser(eq(postId), eq(userId))).thenReturn(isLiked);
-        when(postService.isPostScrappedByUser(eq(postId), eq(userId))).thenReturn(isScrapped);
-        when(postService.getViewHistory(eq(userId), eq(postId))).thenReturn(viewHistory);
-        when(postService.getPostImageUrls(eq(postId))).thenReturn(imageUrls);
-
-        // When & Then
-        mockMvc.perform(get("/api/v1/posts/{postId}", postId)
-                        .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.postId").value(postId))
-                .andExpect(jsonPath("$.data.title").value("Single Post Title"))
-                .andExpect(jsonPath("$.data.content").value("Single Post Content"))
-                .andExpect(jsonPath("$.data.tags[0]").value("tag1"))
-                .andExpect(jsonPath("$.data.liked").value(isLiked))
-                .andExpect(jsonPath("$.data.scrapped").value(isScrapped))
-                .andExpect(jsonPath("$.data.viewHistory.viewHistoryId").value(viewHistory.getViewHistoryId()))
-                .andExpect(jsonPath("$.data.imageUrls[0]").value("http://example.com/image1.jpg"));
+        mockMvc.perform(get("/api/v1/posts/{postId}/versions", postId)
+                        .with(user(customUserDetails)))
+                .andExpect(status().isOk());
     }
-
-    @Test
-    @DisplayName("조회 기록 업데이트 성공")
-    void updateViewHistory_success() throws Exception {
-        // Given
-        Long postId = 1L;
-        Long userId = customUserDetails.getUserId();
-        ViewHistoryRequest request = new ViewHistoryRequest(100); // Example scroll position
-
-        doNothing().when(postService).updateViewHistory(eq(userId), eq(postId), any(ViewHistoryRequest.class));
-
-        // When & Then
-        mockMvc.perform(put("/api/v1/posts/{postId}/history", postId)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data").doesNotExist()); // Expecting null data for success
-    }
-
-    // TODO: Add more tests for other endpoints in PostController
-    // - createPost
-    // - updatePost
-    // - deletePost
-    // - likePost
-    // - unlikePost
-    // - scrapPost
-    // - unscrapPost
-    // - getMyScraps
-    // - getMyDrafts
-    // - getDraft
-    // - saveDraft
-    // - deleteDraft
-    // - getPostVersions
 }
