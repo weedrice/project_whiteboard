@@ -1,6 +1,6 @@
 <template>
   <div class="flex flex-col gap-1">
-    <label v-if="label" :for="id" class="text-sm font-medium text-gray-700">
+    <label v-if="label" :for="id" class="text-sm font-medium text-gray-700 dark:text-gray-200" :class="labelClass">
       {{ label }}
     </label>
     <input
@@ -9,12 +9,12 @@
       :value="modelValue"
       :placeholder="placeholder"
       :disabled="disabled"
-      class="input-base disabled:bg-gray-100 disabled:text-gray-500"
+      class="input-base disabled:bg-gray-100 disabled:text-gray-500 dark:disabled:bg-gray-600 dark:disabled:text-gray-400"
       :class="{ 'border-red-500 focus:border-red-500 focus:ring-red-500': error }"
       @input="$emit('update:modelValue', $event.target.value)"
       @blur="$emit('blur', $event)"
     />
-    <p v-if="error" class="text-sm text-red-600">{{ error }}</p>
+    <p v-if="error" class="text-sm text-red-600 dark:text-red-400">{{ error }}</p>
   </div>
 </template>
 
@@ -45,6 +45,10 @@ defineProps({
     default: false
   },
   error: {
+    type: String,
+    default: ''
+  },
+  labelClass: {
     type: String,
     default: ''
   }

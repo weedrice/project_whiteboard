@@ -4,8 +4,8 @@
       <button
         ref="buttonRef"
         type="button"
-        class="inline-flex justify-center w-full rounded-md text-sm font-medium text-gray-700 hover:text-indigo-600 focus:outline-none"
-        :class="{ 'cursor-default hover:text-gray-700': isSelf }"
+        class="inline-flex justify-center w-full rounded-md text-sm font-medium text-gray-700 dark:text-gray-200 hover:text-indigo-600 dark:hover:text-indigo-400 focus:outline-none"
+        :class="{ 'cursor-default hover:text-gray-700 dark:hover:text-gray-200': isSelf }"
         @click="toggleDropdown"
       >
         {{ displayName }}
@@ -16,7 +16,7 @@
       <div
         v-if="isDropdownOpen"
         :style="dropdownStyle"
-        class="fixed w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-50"
+        class="absolute w-56 rounded-md shadow-lg bg-white dark:bg-gray-800 ring-1 ring-black ring-opacity-5 dark:ring-gray-700 focus:outline-none z-50 transition-colors duration-200"
         role="menu"
         id="user-menu-dropdown"
         aria-orientation="vertical"
@@ -26,7 +26,7 @@
           <button
             v-if="!isSelf"
             @click="openMessageModal"
-            class="text-gray-700 block px-4 py-2 text-sm w-full text-left hover:bg-gray-100"
+            class="text-gray-700 dark:text-gray-200 block px-4 py-2 text-sm w-full text-left hover:bg-gray-100 dark:hover:bg-gray-700"
             role="menuitem"
           >
             {{ $t('user.menu.sendMessage') }}
@@ -34,7 +34,7 @@
           <button
             v-if="!isSelf"
             @click="openReportModal"
-            class="text-gray-700 block px-4 py-2 text-sm w-full text-left hover:bg-gray-100"
+            class="text-gray-700 dark:text-gray-200 block px-4 py-2 text-sm w-full text-left hover:bg-gray-100 dark:hover:bg-gray-700"
             role="menuitem"
           >
             {{ $t('user.menu.report') }}
@@ -42,7 +42,7 @@
           <button
             v-if="!isSelf"
             @click="handleBlockUser"
-            class="text-gray-700 block px-4 py-2 text-sm w-full text-left hover:bg-gray-100"
+            class="text-gray-700 dark:text-gray-200 block px-4 py-2 text-sm w-full text-left hover:bg-gray-100 dark:hover:bg-gray-700"
             role="menuitem"
           >
             {{ $t('user.menu.block') }}

@@ -81,7 +81,7 @@ watch(() => authStore.isAuthenticated, (newVal) => {
   <div class="relative" ref="dropdownRef">
     <button
       @click.stop="toggleDropdown"
-      class="flex items-center space-x-1 text-gray-500 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium focus:outline-none"
+      class="flex items-center space-x-1 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 px-3 py-2 rounded-md text-sm font-medium focus:outline-none"
     >
       <span v-if="type === 'subscription'">{{ $t('board.list.subscribed') }}</span>
       <span v-else>{{ $t('board.list.all') }}</span>
@@ -90,7 +90,7 @@ watch(() => authStore.isAuthenticated, (newVal) => {
 
     <div
       v-if="isOpen"
-      class="origin-top-left absolute left-0 mt-2 w-64 rounded-md shadow-lg py-1 bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-50"
+      class="origin-top-left absolute left-0 mt-2 w-64 rounded-md shadow-lg py-1 bg-white dark:bg-gray-800 ring-1 ring-black ring-opacity-5 dark:ring-gray-700 focus:outline-none z-50"
     >
       <div v-if="loading" class="px-4 py-3 text-center">
         <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-indigo-600 mx-auto"></div>
@@ -102,17 +102,17 @@ watch(() => authStore.isAuthenticated, (newVal) => {
             v-for="board in items"
             :key="board.boardUrl"
             :to="`/board/${board.boardUrl}`"
-            class="group flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+            class="group flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
             @click="emit('toggle')"
           >
             <span class="truncate">{{ board.boardName }}</span>
           </router-link>
         </div>
         
-        <div v-if="type === 'all'" class="border-t border-gray-100 pt-1">
+        <div v-if="type === 'all'" class="border-t border-gray-100 dark:border-gray-700 pt-1">
           <button
             @click="handleMoreClick"
-            class="w-full text-left group flex items-center px-4 py-2 text-sm text-indigo-600 hover:bg-indigo-50 font-medium"
+            class="w-full text-left group flex items-center px-4 py-2 text-sm text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/50 font-medium"
           >
             <List class="mr-2 h-4 w-4" />
             {{ $t('common.loadMore') }}
@@ -120,7 +120,7 @@ watch(() => authStore.isAuthenticated, (newVal) => {
         </div>
       </div>
 
-      <div v-else class="px-4 py-3 text-sm text-gray-500 text-center">
+      <div v-else class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 text-center">
         <span v-if="type === 'subscription'">{{ $t('board.list.noSubscribed') }}</span>
         <span v-else>{{ $t('board.list.noBoards') }}</span>
       </div>
