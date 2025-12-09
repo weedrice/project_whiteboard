@@ -78,6 +78,21 @@ class UserBlockServiceTest {
     }
 
     @Test
+    @DisplayName("사용자 차단 실패 - 이미 차단된 사용자")
+    void blockUser_fail_alreadyBlocked() {
+        // given
+        Long userId = 1L;
+        Long targetUserId = 2L;
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(userRepository.findById(targetUserId)).thenReturn(Optional.of(targetUser));
+        when(userBlockRepository.existsByUserAndTarget(user, targetUser)).thenReturn(true);
+
+        // when & then
+        BusinessException exception = assertThrows(BusinessException.class, () -> userBlockService.blockUser(userId, targetUserId));
+        assertThat(exception.getErrorCode().getCode()).isEqualTo("U007");
+    }
+
+    @Test
     @DisplayName("차단 해제 성공")
     void unblockUser_success() {
         // given
@@ -93,6 +108,21 @@ class UserBlockServiceTest {
 
         // then
         verify(userBlockRepository).delete(any(UserBlock.class));
+    }
+
+    @Test
+    @DisplayName("차단 해제 실패 - 차단되지 않은 사용자")
+    void unblockUser_fail_notBlocked() {
+        // given
+        Long userId = 1L;
+        Long targetUserId = 2L;
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(userRepository.findById(targetUserId)).thenReturn(Optional.of(targetUser));
+        when(userBlockRepository.findByUserAndTarget(user, targetUser)).thenReturn(Optional.empty());
+
+        // when & then
+        BusinessException exception = assertThrows(BusinessException.class, () -> userBlockService.unblockUser(userId, targetUserId));
+        assertThat(exception.getErrorCode().getCode()).isEqualTo("C006");
     }
 
     @Test
@@ -113,5 +143,39 @@ class UserBlockServiceTest {
         // then
         assertThat(result.getContent()).hasSize(1);
         assertThat(result.getContent().get(0).getLoginId()).isEqualTo("target");
+    }
+
+    @Test
+    @DisplayName("차단 여부 확인 - 차단된 경우")
+    void isBlocked_true_whenBlocked() {
+        // given
+        Long userId = 1L;
+        Long targetUserId = 2L;
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(userRepository.findById(targetUserId)).thenReturn(Optional.of(targetUser));
+        when(userBlockRepository.existsByUserAndTarget(user, targetUser)).thenReturn(true);
+
+        // when
+        boolean isBlocked = userBlockService.isBlocked(userId, targetUserId);
+
+        // then
+        assertThat(isBlocked).isTrue();
+    }
+
+    @Test
+    @DisplayName("차단 여부 확인 - 차단되지 않은 경우")
+    void isBlocked_false_whenNotBlocked() {
+        // given
+        Long userId = 1L;
+        Long targetUserId = 2L;
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(userRepository.findById(targetUserId)).thenReturn(Optional.of(targetUser));
+        when(userBlockRepository.existsByUserAndTarget(user, targetUser)).thenReturn(false);
+
+        // when
+        boolean isBlocked = userBlockService.isBlocked(userId, targetUserId);
+
+        // then
+        assertThat(isBlocked).isFalse();
     }
 }

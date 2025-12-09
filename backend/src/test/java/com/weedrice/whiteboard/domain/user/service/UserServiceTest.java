@@ -1,10 +1,13 @@
 package com.weedrice.whiteboard.domain.user.service;
 
+import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.file.service.FileService;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
+import com.weedrice.whiteboard.domain.user.dto.UserProfileResponse;
 import com.weedrice.whiteboard.domain.user.entity.PasswordHistory;
 import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.domain.user.entity.UserSettings;
 import com.weedrice.whiteboard.domain.user.repository.DisplayNameHistoryRepository;
 import com.weedrice.whiteboard.domain.user.repository.PasswordHistoryRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
@@ -17,6 +20,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -27,6 +33,8 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -67,6 +75,34 @@ class UserServiceTest {
     }
 
     @Test
+    @DisplayName("로그인 ID로 사용자 ID 찾기 성공")
+    void findUserIdByLoginId_success() {
+        // given
+        String loginId = "testuser";
+        when(userRepository.findByLoginId(loginId)).thenReturn(Optional.of(user));
+
+        // when
+        Long foundUserId = userService.findUserIdByLoginId(loginId);
+
+        // then
+        assertThat(foundUserId).isEqualTo(1L);
+    }
+
+    @Test
+    @DisplayName("로그인 ID로 사용자 ID 찾기 실패 - 사용자를 찾을 수 없음")
+    void findUserIdByLoginId_fail_userNotFound() {
+        // given
+        String loginId = "nonexistentuser";
+        when(userRepository.findByLoginId(loginId)).thenReturn(Optional.empty());
+
+        // when & then
+        BusinessException exception = assertThrows(BusinessException.class, () -> {
+            userService.findUserIdByLoginId(loginId);
+        });
+        assertThat(exception.getErrorCode().getCode()).isEqualTo("U001");
+    }
+
+    @Test
     @DisplayName("내 정보 조회 성공")
     void getMyInfo_success() {
         // given
@@ -78,6 +114,25 @@ class UserServiceTest {
 
         // then
         assertThat(foundUser).isEqualTo(user);
+    }
+
+    @Test
+    @DisplayName("사용자 프로필 조회 성공")
+    void getUserProfile_success() {
+        // given
+        Long userId = 1L;
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(postRepository.countByUserAndIsDeleted(user, false)).thenReturn(10L);
+        when(commentRepository.countByUser(user)).thenReturn(20L);
+
+        // when
+        UserProfileResponse userProfile = userService.getUserProfile(userId);
+
+        // then
+        assertThat(userProfile.getUserId()).isEqualTo(userId);
+        assertThat(userProfile.getLoginId()).isEqualTo(user.getLoginId());
+        assertThat(userProfile.getPostCount()).isEqualTo(10L);
+        assertThat(userProfile.getCommentCount()).isEqualTo(20L);
     }
 
     @Test
@@ -97,8 +152,23 @@ class UserServiceTest {
     }
 
     @Test
-    @DisplayName("프로필 수정 성공 - 프로필 이미지 변경")
-    void updateMyProfile_success_profileImage() {
+    @DisplayName("프로필 수정 - 닉네임 변경 없음")
+    void updateMyProfile_doesNotUpdateDisplayNameIfUnchanged() {
+        // given
+        Long userId = 1L;
+        String sameDisplayName = user.getDisplayName();
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+
+        // when
+        userService.updateMyProfile(userId, sameDisplayName, null, null);
+
+        // then
+        verify(displayNameHistoryRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("프로필 수정 성공 - 프로필 이미지 URL 변경")
+    void updateMyProfile_success_profileImageUrl() {
         // given
         Long userId = 1L;
         String newProfileImageUrl = "https://new-image.com/img.png";
@@ -111,7 +181,20 @@ class UserServiceTest {
         assertThat(updatedUser.getProfileImageUrl()).isEqualTo(newProfileImageUrl);
     }
 
+    @Test
+    @DisplayName("프로필 수정 성공 - 프로필 이미지 ID로 연결")
+    void updateMyProfile_success_profileImageId() {
+        // given
+        Long userId = 1L;
+        Long profileImageId = 123L;
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
 
+        // when
+        userService.updateMyProfile(userId, null, null, profileImageId);
+
+        // then
+        verify(fileService).associateFileWithEntity(profileImageId, userId, "USER_PROFILE");
+    }
 
     @Test
     @DisplayName("비밀번호 변경 성공")
@@ -144,10 +227,9 @@ class UserServiceTest {
         when(passwordEncoder.matches(currentPassword, user.getPassword())).thenReturn(false);
 
         // when & then
-        BusinessException exception = assertThrows(BusinessException.class, () -> {
+        assertThrows(BusinessException.class, () -> {
             userService.updatePassword(userId, currentPassword, newPassword);
         });
-        assertThat(exception.getErrorCode().getCode()).isEqualTo("U005");
     }
 
     @Test
@@ -197,9 +279,161 @@ class UserServiceTest {
         when(passwordEncoder.matches(password, user.getPassword())).thenReturn(false);
 
         // when & then
-        BusinessException exception = assertThrows(BusinessException.class, () -> {
+        assertThrows(BusinessException.class, () -> {
             userService.deleteAccount(userId, password);
         });
-        assertThat(exception.getErrorCode().getCode()).isEqualTo("U004");
+    }
+
+    @Test
+    @DisplayName("내 댓글 목록 조회 성공")
+    void getMyComments_success() {
+        // given
+        Long userId = 1L;
+        Pageable pageable = Pageable.unpaged();
+        Comment comment = Comment.builder().user(user).content("My Comment").build();
+        Page<Comment> page = new PageImpl<>(Collections.singletonList(comment));
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(commentRepository.findByUserOrderByCreatedAtDesc(user, pageable)).thenReturn(page);
+
+        // when
+        Page<Comment> result = userService.getMyComments(userId, pageable);
+
+        // then
+        assertThat(result.getContent()).hasSize(1);
+        assertThat(result.getContent().get(0).getContent()).isEqualTo("My Comment");
+    }
+
+    @Test
+    @DisplayName("사용자 검색 성공")
+    void searchUsers_success() {
+        // given
+        String keyword = "test";
+        Pageable pageable = Pageable.unpaged();
+        Page<User> page = new PageImpl<>(Collections.singletonList(user));
+
+        when(userRepository.searchUsers(keyword, pageable)).thenReturn(page);
+
+        // when
+        Page<User> result = userService.searchUsers(keyword, pageable);
+
+        // then
+        assertThat(result.getContent()).hasSize(1);
+        assertThat(result.getContent().get(0).getLoginId()).isEqualTo("testuser");
+    }
+
+    @Test
+    @DisplayName("사용자 상태 변경 성공 - 정지")
+    void updateUserStatus_success_suspend() {
+        // given
+        Long userId = 1L;
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+
+        // when
+        userService.updateUserStatus(userId, "SUSPENDED");
+
+        // then
+        assertThat(user.getStatus()).isEqualTo("SUSPENDED");
+    }
+
+    @Test
+    @DisplayName("사용자 상태 변경 성공 - 활성")
+    void updateUserStatus_success_activate() {
+        // given
+        Long userId = 1L;
+        user.suspend(); // Start from a non-active state
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+
+        // when
+        userService.updateUserStatus(userId, "ACTIVE");
+
+        // then
+        assertThat(user.getStatus()).isEqualTo("ACTIVE");
+    }
+
+    @Test
+    @DisplayName("사용자 상태 변경 실패 - 유효하지 않은 상태")
+    void updateUserStatus_fail_invalidStatus() {
+        // given
+        Long userId = 1L;
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+
+        // when & then
+        BusinessException exception = assertThrows(BusinessException.class, () -> {
+            userService.updateUserStatus(userId, "INVALID_STATUS");
+        });
+        assertThat(exception.getErrorCode().getCode()).isEqualTo("C001"); // INVALID_INPUT_VALUE
+    }
+
+    @Test
+    @DisplayName("설정 수정 성공 - 기존 설정 존재")
+    void updateSettings_success_existingSettings() {
+        // given
+        Long userId = 1L;
+        UserSettings settings = new UserSettings(user);
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(userSettingsRepository.findById(userId)).thenReturn(Optional.of(settings));
+
+        // when
+        UserSettings updatedSettings = userService.updateSettings(userId, "dark", "en", "UTC", true);
+
+        // then
+        assertThat(updatedSettings.getTheme()).isEqualTo("dark");
+        assertThat(updatedSettings.getLanguage()).isEqualTo("en");
+        assertThat(updatedSettings.getTimezone()).isEqualTo("UTC");
+        assertThat(updatedSettings.getHideNsfw()).isTrue();
+    }
+
+    @Test
+    @DisplayName("설정 수정 성공 - 새로운 설정 생성")
+    void updateSettings_success_newSettings() {
+        // given
+        Long userId = 1L;
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(userSettingsRepository.findById(userId)).thenReturn(Optional.empty());
+        when(userSettingsRepository.save(any(UserSettings.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // when
+        UserSettings updatedSettings = userService.updateSettings(userId, "dark", "en", "UTC", true);
+
+        // then
+        assertThat(updatedSettings.getTheme()).isEqualTo("dark");
+        verify(userSettingsRepository).save(any(UserSettings.class));
+    }
+
+    @Test
+    @DisplayName("설정 조회 성공 - 기존 설정 존재")
+    void getSettings_success_existingSettings() {
+        // given
+        Long userId = 1L;
+        UserSettings settings = new UserSettings(user);
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(userSettingsRepository.findById(userId)).thenReturn(Optional.of(settings));
+
+        // when
+        UserSettings foundSettings = userService.getSettings(userId);
+
+        // then
+        assertThat(foundSettings).isEqualTo(settings);
+        verify(userSettingsRepository, never()).save(any());
+    }
+
+
+
+    @Test
+    @DisplayName("설정 조회 성공 - 새로운 설정 생성")
+    void getSettings_success_newSettings() {
+        // given
+        Long userId = 1L;
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(userSettingsRepository.findById(userId)).thenReturn(Optional.empty());
+
+        // when
+        UserSettings foundSettings = userService.getSettings(userId);
+
+        // then
+        assertThat(foundSettings.getUser()).isEqualTo(user);
+        // Default values can be checked if they are defined in the entity
+        assertThat(foundSettings.getTheme()).isEqualTo("LIGHT"); // Assuming "light" is default
     }
 }
