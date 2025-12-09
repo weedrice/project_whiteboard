@@ -5,7 +5,7 @@ export const boardApi = {
     getBoards: () => api.get('/boards'),
 
     // Get board details
-    getBoard: (boardUrl) => api.get(`/boards/${boardUrl}`),
+    getBoard: (boardUrl, config) => api.get(`/boards/${boardUrl}`, config),
 
     // Create a new board
     createBoard: (data) => api.post('/boards', data),

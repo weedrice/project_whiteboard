@@ -43,7 +43,7 @@ async function fetchBoardData() {
   error.value = ''
   try {
     const promises = [
-      boardApi.getBoard(route.params.boardUrl),
+      boardApi.getBoard(route.params.boardUrl, { redirectOnError: true }),
       fetchPosts()
     ]
     
@@ -77,7 +77,7 @@ async function fetchBoardData() {
             posts.value = fetchedPosts
           }
         } catch (err) {
-          console.error('Failed to load board data:', err)
+          logger.error('Failed to load board data:', err)
           error.value = t('board.loadFailed')
         } finally {
           isLoading.value = false
@@ -148,7 +148,7 @@ async function fetchBoardData() {
                             }
                             posts.value = fetchedPosts
                         }          } catch (err) {
-              console.error(err)
+              logger.error(err)
           } finally {
               isLoading.value = false
           }
@@ -170,7 +170,7 @@ async function handleSortChange(newSort) {
             posts.value = fetchedPosts
         }
     } catch (err) {
-        console.error(err)
+        logger.error(err)
     } finally {
         isLoading.value = false
     }
@@ -189,7 +189,7 @@ async function handleSubscribe() {
             board.value.subscriberCount++
         }
     } catch (err) {
-        console.error('Failed to toggle subscription:', err)
+        logger.error('Failed to toggle subscription:', err)
         alert(t('board.detail.subscribeFailed'))
     }
 }

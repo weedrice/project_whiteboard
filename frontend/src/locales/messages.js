@@ -21,6 +21,20 @@ export const messages = {
       boards: '게시판',
       tags: '태그',
       notice: '공지사항',
+      footer: {
+        rights: 'All rights reserved.',
+        github: 'GitHub',
+        switchToLight: '라이트 모드로 전환',
+        switchToDark: '다크 모드로 전환',
+      },
+      error: {
+        goHome: '홈으로 돌아가기',
+        notFound: '페이지를 찾을 수 없습니다',
+        forbidden: '접근 권한이 없습니다',
+        serverError: '서버 오류가 발생했습니다',
+        unknown: '알 수 없는 오류가 발생했습니다',
+        defaultMessage: '요청하신 페이지를 처리하는 중 문제가 발생했습니다.',
+      },
       messages: {
         error: '오류가 발생했습니다.',
         defaultTitle: '오류가 발생했습니다',

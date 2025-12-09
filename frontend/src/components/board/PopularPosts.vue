@@ -59,7 +59,7 @@ const fetchPopularPosts = async () => {
     await new Promise(resolve => setTimeout(resolve, 500))
     posts.value = mockPosts
   } catch (error) {
-    console.error('Failed to fetch popular posts:', error)
+    logger.error('Failed to fetch popular posts:', error)
   } finally {
     loading.value = false
   }

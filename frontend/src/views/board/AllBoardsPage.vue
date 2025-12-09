@@ -14,7 +14,7 @@ const fetchBoards = async () => {
       boards.value = data.data
     }
   } catch (error) {
-    console.error('게시판 목록을 불러오는데 실패했습니다:', error)
+    logger.error('게시판 목록을 불러오는데 실패했습니다:', error)
   } finally {
     loading.value = false
   }

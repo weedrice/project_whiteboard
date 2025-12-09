@@ -5,6 +5,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useNotificationStore } from '@/stores/notification'
 import { User, LogOut, Settings, CreditCard, FileText, Clock, AlertTriangle, PlusSquare, ChevronDown, Bell, LayoutDashboard, Mail, Star } from 'lucide-vue-next'
 import axios from '@/api'
+import logger from '@/utils/logger'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -33,7 +34,7 @@ const fetchPoints = async () => {
       points.value = data.data.currentPoint
     }
   } catch (error) {
-    console.error('포인트 조회 실패:', error)
+    logger.error('포인트 조회 실패:', error)
   }
 }
 

@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { commentApi } from '@/api/comment'
 import { useI18n } from 'vue-i18n'
+import logger from '@/utils/logger'
 
 const { t } = useI18n()
 
@@ -53,7 +54,7 @@ async function handleSubmit() {
         }
     }
   } catch (err) {
-    console.error('Failed to save comment:', err)
+    logger.error('Failed to save comment:', err)
     alert(t('comment.saveFailed'))
   } finally {
     isSubmitting.value = false

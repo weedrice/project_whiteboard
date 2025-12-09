@@ -69,7 +69,7 @@ async function handleSubmit() {
       router.push(`/board/${data.data.boardUrl}`)
     }
   } catch (err) {
-    console.error('Failed to create board:', err)
+    logger.error('Failed to create board:', err)
     error.value = err.response?.data?.error?.message || t('board.form.failCreate')
   } finally {
     isSubmitting.value = false

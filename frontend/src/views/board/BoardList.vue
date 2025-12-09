@@ -22,7 +22,7 @@ onMounted(async () => {
     }
   } catch (err) {
     error.value = 'Failed to load boards.'
-    console.error(err)
+    logger.error(err)
   } finally {
     isLoading.value = false
   }

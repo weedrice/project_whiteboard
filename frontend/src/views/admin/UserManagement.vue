@@ -22,7 +22,7 @@ async function fetchUsers() {
       totalCount.value = res.data.data.totalElements
     }
   } catch (err) {
-    console.error('Failed to fetch users:', err)
+    logger.error('Failed to fetch users:', err)
   } finally {
     isLoading.value = false
   }
@@ -35,7 +35,7 @@ async function handleStatusChange(user, status) {
     user.status = status
     alert(t('admin.users.messages.statusChanged'))
   } catch (err) {
-    console.error(err)
+    logger.error(err)
     alert(t('admin.users.messages.statusChangeFailed'))
   }
 }
@@ -48,7 +48,7 @@ async function handleSanction(user, type) {
         await adminApi.sanctionUser({ userId: user.userId, type, reason })
         alert(t('admin.users.messages.sanctionComplete', { type }))
     } catch (err) {
-        console.error(err)
+        logger.error(err)
         alert(t('admin.users.messages.sanctionFailed'))
     }
 }

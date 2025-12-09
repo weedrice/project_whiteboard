@@ -169,8 +169,7 @@ const router = createRouter({
         {
             path: '/error',
             name: 'error',
-            component: () => import('@/views/ErrorPage.vue'),
-            props: route => ({ title: route.query.title, message: route.query.message })
+            component: () => import('@/views/common/ErrorPage.vue')
         },
         {
             path: '/search',

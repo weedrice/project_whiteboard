@@ -94,7 +94,7 @@ const imageHandler = () => {
         }
       }
     } catch (err) {
-      console.error('Image upload failed:', err)
+      logger.error('Image upload failed:', err)
       alert(t('common.messages.uploadFailed'))
     }
   }
@@ -134,7 +134,7 @@ async function fetchData() {
       board.value = boardRes.data.data
     }
   } catch (err) {
-    console.error('Failed to load data:', err)
+    logger.error('Failed to load data:', err)
     alert(t('board.writePost.failLoad'))
     router.push(`/board/${boardUrl}/post/${postId}`) // boardUrl 사용
   } finally {
@@ -167,7 +167,7 @@ async function handleSubmit() {
       router.push(`/board/${board.value.boardUrl}/post/${postId}`) // boardUrl 사용
     }
   } catch (err) {
-    console.error('Failed to update post:', err)
+    logger.error('Failed to update post:', err)
     alert(t('board.writePost.failUpdate'))
   } finally {
     isSubmitting.value = false

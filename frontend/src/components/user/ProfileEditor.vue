@@ -42,6 +42,7 @@ import BaseInput from '@/components/common/BaseInput.vue'
 import BaseButton from '@/components/common/BaseButton.vue'
 import { userApi } from '@/api/user'
 import axios from '@/api' // Direct axios for file upload
+import logger from '@/utils/logger'
 
 const authStore = useAuthStore()
 const loading = ref(false)
@@ -66,7 +67,7 @@ const handleFileChange = async (event) => {
       selectedFile.value = resizedImage
       previewImage.value = URL.createObjectURL(resizedImage)
     } catch (e) {
-      console.error('Image resize failed', e)
+      logger.error('Image resize failed', e)
       alert('Failed to process image.')
     }
   }
@@ -140,7 +141,7 @@ const updateProfile = async () => {
       alert('Profile updated successfully')
     }
   } catch (error) {
-    console.error('Failed to update profile:', error)
+    logger.error('Failed to update profile:', error)
     if (error.response?.data?.message) {
       errors.displayName = error.response.data.message
     } else {

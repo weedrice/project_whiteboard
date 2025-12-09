@@ -41,7 +41,7 @@ const fetchSettings = async () => {
       if (pushSetting) notificationSettings.pushNotifications = pushSetting.isEnabled === 'Y'
     }
   } catch (error) {
-    console.error('설정을 불러오는데 실패했습니다:', error)
+    logger.error('설정을 불러오는데 실패했습니다:', error)
   } finally {
     loading.value = false
   }
@@ -70,7 +70,7 @@ const saveSettings = async () => {
 
     message.value = t('user.settings.saved')
   } catch (error) {
-    console.error('설정 저장 실패:', error)
+    logger.error('설정 저장 실패:', error)
     message.value = t('user.settings.failed')
   } finally {
     saving.value = false

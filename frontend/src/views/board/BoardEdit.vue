@@ -56,7 +56,7 @@ async function fetchBoard() {
       }
     }
   } catch (err) {
-    console.error('Failed to load board:', err)
+    logger.error('Failed to load board:', err)
     alert(t('board.writePost.failLoad'))
     router.push(`/board/${boardUrl}`)
   } finally {
@@ -93,7 +93,7 @@ async function handleSubmit() {
       router.push(`/board/${data.data.boardUrl}`)
     }
   } catch (err) {
-    console.error('Failed to update board:', err)
+    logger.error('Failed to update board:', err)
     alert(t('board.form.failUpdate'))
   } finally {
     isSubmitting.value = false
@@ -110,7 +110,7 @@ async function handleDelete() {
       router.push('/')
     }
   } catch (err) {
-    console.error('Failed to delete board:', err)
+    logger.error('Failed to delete board:', err)
     alert(t('board.form.failDelete'))
   }
 }

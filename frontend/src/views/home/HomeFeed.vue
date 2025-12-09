@@ -49,7 +49,7 @@ async function fetchTrendingPosts() {
       posts.value = data.data
     }
   } catch (error) {
-    console.error('Failed to fetch trending posts:', error)
+    logger.error('Failed to fetch trending posts:', error)
   } finally {
     loading.value = false
   }
@@ -72,7 +72,7 @@ async function handleLike(post) {
       post.likeCount++
     }
   } catch (error) {
-    console.error('Failed to toggle like:', error)
+    logger.error('Failed to toggle like:', error)
   }
 }
 
@@ -91,7 +91,7 @@ async function handleScrap(post) {
       post.isScrapped = true
     }
   } catch (error) {
-    console.error('Failed to toggle scrap:', error)
+    logger.error('Failed to toggle scrap:', error)
   }
 }
 
@@ -118,7 +118,7 @@ async function handleSubscribe(post) {
       }
     })
   } catch (error) {
-    console.error('Failed to toggle subscription:', error)
+    logger.error('Failed to toggle subscription:', error)
   }
 }
 

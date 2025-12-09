@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import { authApi } from '@/api/auth'
 import { useThemeStore } from '@/stores/theme'
 import router from '@/router'
+import logger from '@/utils/logger'
 
 export const useAuthStore = defineStore('auth', () => {
     const user = ref(null)
@@ -30,7 +31,7 @@ export const useAuthStore = defineStore('auth', () => {
                 return true
             }
         } catch (error) {
-            console.error('Login failed:', error)
+            logger.error('Login failed:', error)
             throw error
         }
     }
@@ -42,7 +43,7 @@ export const useAuthStore = defineStore('auth', () => {
                 await authApi.logout(refreshToken)
             }
         } catch (error) {
-            console.error('Logout failed:', error)
+            logger.error('Logout failed:', error)
         } finally {
             accessToken.value = null
             user.value = null
@@ -69,7 +70,7 @@ export const useAuthStore = defineStore('auth', () => {
                 }
             }
         } catch (error) {
-            console.error('Fetch user failed:', error)
+            logger.error('Fetch user failed:', error)
             // If fetch user fails (e.g. invalid token), logout
             logout()
         }

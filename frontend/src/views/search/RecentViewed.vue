@@ -26,7 +26,7 @@ const fetchRecentViewed = async () => {
       totalElements.value = data.data.totalElements
     }
   } catch (error) {
-    console.error('최근 읽은 글을 불러오는데 실패했습니다:', error)
+    logger.error('최근 읽은 글을 불러오는데 실패했습니다:', error)
   } finally {
     loading.value = false
   }

@@ -5,7 +5,7 @@ export const postApi = {
     createPost: (boardUrl, data) => api.post(`/boards/${boardUrl}/posts`, data),
 
     // Get post details (placeholder for future)
-    getPost: (postId) => api.get(`/posts/${postId}`),
+    getPost: (postId, config) => api.get(`/posts/${postId}`, config),
 
     // Update post
     updatePost: (postId, data) => api.put(`/posts/${postId}`, data),

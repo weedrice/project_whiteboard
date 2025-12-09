@@ -17,7 +17,7 @@ async function fetchReports() {
       reports.value = res.data.data.content || res.data.data // Handle pagination or list
     }
   } catch (err) {
-    console.error('Failed to fetch reports:', err)
+    logger.error('Failed to fetch reports:', err)
   } finally {
     isLoading.value = false
   }
@@ -30,7 +30,7 @@ async function handleResolve(report) {
         report.status = 'RESOLVED'
         alert(t('admin.reports.messages.resolved'))
     } catch (err) {
-        console.error(err)
+        logger.error(err)
         alert(t('admin.reports.messages.resolveFailed'))
     }
 }
@@ -42,7 +42,7 @@ async function handleReject(report) {
         report.status = 'REJECTED'
         alert(t('admin.reports.messages.rejected'))
     } catch (err) {
-        console.error(err)
+        logger.error(err)
         alert(t('admin.reports.messages.rejectFailed'))
     }
 }

@@ -27,6 +27,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import axios from '@/api'
+import logger from '@/utils/logger'
 
 const tags = ref([])
 const loading = ref(false)
@@ -53,7 +54,7 @@ const fetchTags = async () => {
     await new Promise(resolve => setTimeout(resolve, 500))
     tags.value = mockTags
   } catch (error) {
-    console.error('Failed to fetch tags:', error)
+    logger.error('Failed to fetch tags:', error)
   } finally {
     loading.value = false
   }

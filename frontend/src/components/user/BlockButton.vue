@@ -13,6 +13,7 @@
 import { ref } from 'vue'
 import BaseButton from '@/components/common/BaseButton.vue'
 import { userApi } from '@/api/user'
+import logger from '@/utils/logger'
 
 const props = defineProps({
   userId: {
@@ -44,7 +45,7 @@ const toggleBlock = async () => {
     }
     emit('block-change', isBlocked.value)
   } catch (error) {
-    console.error('Failed to toggle block:', error)
+    logger.error('Failed to toggle block:', error)
     alert('Failed to process request')
   } finally {
     loading.value = false

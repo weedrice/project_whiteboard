@@ -59,7 +59,7 @@ const fetchPosts = async () => {
       posts.value = []
     }
   } catch (error) {
-    console.error('Failed to search posts:', error)
+    logger.error('Failed to search posts:', error)
     posts.value = []
   } finally {
     loading.value = false

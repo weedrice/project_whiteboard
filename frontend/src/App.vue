@@ -5,6 +5,7 @@ import { useAuthStore } from '@/stores/auth'
 import { userApi } from '@/api/user'
 import { useI18n } from 'vue-i18n'
 import ToastContainer from '@/components/common/ToastContainer.vue'
+import logger from '@/utils/logger'
 
 // Import layouts
 import DefaultLayout from '@/components/layout/DefaultLayout.vue'
@@ -40,7 +41,7 @@ const loadSettings = async () => {
             applySettings(data.data)
         }
     } catch (error) {
-        console.warn('Failed to load user settings:', error)
+        logger.warn('Failed to load user settings:', error)
     }
 }
 

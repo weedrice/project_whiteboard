@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { useNotificationStore } from '@/stores/notification'
 import { postApi } from '@/api/post'
 import { Check } from 'lucide-vue-next'
+import logger from '@/utils/logger'
 
 const router = useRouter()
 const notificationStore = useNotificationStore()
@@ -27,7 +28,7 @@ async function handleNotificationClick(notification) {
                 router.push(`/board/${data.data.board.boardUrl}/post/${notification.sourceId}`)
             }
         } catch (err) {
-            console.error('Failed to navigate to post:', err)
+            logger.error('Failed to navigate to post:', err)
         }
     }
     // If we can't determine the URL, just stay here (marked as read)

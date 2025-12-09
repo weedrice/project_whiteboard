@@ -39,7 +39,7 @@ async function fetchPost() {
   isLoading.value = true
   error.value = ''
   try {
-    const { data } = await postApi.getPost(route.params.postId)
+    const { data } = await postApi.getPost(route.params.postId, { redirectOnError: true })
     if (data.success) {
       post.value = data.data
       // Ensure numeric counts
@@ -68,7 +68,7 @@ async function fetchPost() {
       })
     }
   } catch (err) {
-    console.error('Failed to load post:', err)
+    logger.error('Failed to load post:', err)
     error.value = t('board.postDetail.loadFailed')
   } finally {
     isLoading.value = false
@@ -85,7 +85,7 @@ async function handleDelete() {
       router.push(`/board/${post.value.board.boardUrl}`)
     }
   } catch (err) {
-    console.error('Failed to delete post:', err)
+    logger.error('Failed to delete post:', err)
     alert(t('board.postDetail.deleteFailed'))
   }
 }
@@ -107,7 +107,7 @@ async function handleLike() {
       }
     }
   } catch (err) {
-    console.error(t('board.postDetail.likeFailed'), err)
+    logger.error(t('board.postDetail.likeFailed'), err)
   }
 }
 
@@ -126,7 +126,7 @@ async function handleScrap() {
       }
     }
   } catch (err) {
-    console.error(t('board.postDetail.scrapFailed'), err)
+    logger.error(t('board.postDetail.scrapFailed'), err)
   }
 }
 

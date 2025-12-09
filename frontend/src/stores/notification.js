@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { notificationApi } from '@/api/notification'
+import logger from '@/utils/logger'
 
 export const useNotificationStore = defineStore('notification', () => {
     const notifications = ref([])
@@ -23,7 +24,7 @@ export const useNotificationStore = defineStore('notification', () => {
                 totalElements.value = data.data.totalElements
             }
         } catch (error) {
-            console.error('Failed to fetch notifications:', error)
+            logger.error('Failed to fetch notifications:', error)
         } finally {
             isLoading.value = false
         }
@@ -36,7 +37,7 @@ export const useNotificationStore = defineStore('notification', () => {
                 unreadCount.value = data.data.count
             }
         } catch (error) {
-            console.error('Failed to fetch unread count:', error)
+            logger.error('Failed to fetch unread count:', error)
         }
     }
 
@@ -51,7 +52,7 @@ export const useNotificationStore = defineStore('notification', () => {
                 }
             }
         } catch (error) {
-            console.error('Failed to mark notification as read:', error)
+            logger.error('Failed to mark notification as read:', error)
         }
     }
 
@@ -65,7 +66,7 @@ export const useNotificationStore = defineStore('notification', () => {
                 await fetchNotifications()
             }
         } catch (error) {
-            console.error('Failed to mark all notifications as read:', error)
+            logger.error('Failed to mark all notifications as read:', error)
         }
     }
 

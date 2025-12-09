@@ -1,6 +1,8 @@
 import axios from 'axios'
 import i18n from '@/i18n'
 
+import router from '@/router'
+
 const { t } = i18n.global
 
 const api = axios.create({
@@ -74,6 +76,14 @@ api.interceptors.response.use(
                 window.location.href = '/login'
                 return Promise.reject(refreshError)
             }
+        }
+
+        // Handle redirect on error
+        if (originalRequest?.redirectOnError) {
+            const status = error.response?.status || 500
+            const message = error.response?.data?.message || error.message
+            router.push({ name: 'error', query: { status, message } })
+            return Promise.reject(error)
         }
 
         // Handle other common errors

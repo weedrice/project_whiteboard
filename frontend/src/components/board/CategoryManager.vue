@@ -32,7 +32,7 @@ async function fetchCategories() {
       categories.value = data.data.sort((a, b) => a.sortOrder - b.sortOrder)
     }
   } catch (err) {
-    console.error('Failed to load categories:', err)
+    logger.error('Failed to load categories:', err)
     error.value = t('board.category.loadFailed')
   } finally {
     isLoading.value = false
@@ -52,7 +52,7 @@ async function handleAdd() {
       newCategoryName.value = ''
     }
   } catch (err) {
-    console.error('Failed to create category:', err)
+    logger.error('Failed to create category:', err)
     alert(t('board.category.createFailed'))
   }
 }
@@ -66,7 +66,7 @@ async function handleDelete(categoryId) {
       categories.value = categories.value.filter(c => c.categoryId !== categoryId)
     }
   } catch (err) {
-    console.error('Failed to delete category:', err)
+    logger.error('Failed to delete category:', err)
     alert(t('board.category.deleteFailed'))
   }
 }
@@ -98,7 +98,7 @@ async function saveEdit(category) {
       cancelEdit()
     }
   } catch (err) {
-    console.error('Failed to update category:', err)
+    logger.error('Failed to update category:', err)
     alert(t('board.category.updateFailed'))
   }
 }
@@ -143,7 +143,7 @@ async function onDrop(index) {
     })
     await Promise.all(updatePromises)
   } catch (err) {
-    console.error('Failed to reorder categories:', err)
+    logger.error('Failed to reorder categories:', err)
     alert(t('board.category.orderFailed'))
     fetchCategories() // Revert changes
   }

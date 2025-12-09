@@ -90,7 +90,7 @@ const submitSanction = async () => {
     emit('sanctioned')
     emit('close')
   } catch (error) {
-    console.error('Failed to sanction user:', error)
+    logger.error('Failed to sanction user:', error)
     alert('Failed to sanction user.')
   } finally {
     loading.value = false

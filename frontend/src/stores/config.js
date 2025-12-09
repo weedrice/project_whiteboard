@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { configApi } from '@/api/config'
+import logger from '@/utils/logger'
 
 export const useConfigStore = defineStore('config', {
     state: () => ({
@@ -19,7 +20,7 @@ export const useConfigStore = defineStore('config', {
                 return data
             } catch (error) {
                 this.error = error
-                console.error(`Failed to fetch config ${key}:`, error)
+                logger.error(`Failed to fetch config ${key}:`, error)
                 return null
             } finally {
                 this.loading = false
@@ -41,7 +42,7 @@ export const useConfigStore = defineStore('config', {
                 }
             } catch (error) {
                 this.error = error
-                console.error('Failed to fetch all configs:', error)
+                logger.error('Failed to fetch all configs:', error)
             } finally {
                 this.loading = false
             }

@@ -3,6 +3,7 @@ import { ref, onMounted, watch, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { boardApi } from '@/api/board'
 import { Search } from 'lucide-vue-next'
+import logger from '@/utils/logger'
 
 const router = useRouter()
 const searchQuery = ref('')
@@ -19,7 +20,7 @@ const fetchBoards = async () => {
       boards.value = data.data
     }
   } catch (error) {
-    console.error('Failed to fetch boards for autocomplete:', error)
+    logger.error('Failed to fetch boards for autocomplete:', error)
   }
 }
 

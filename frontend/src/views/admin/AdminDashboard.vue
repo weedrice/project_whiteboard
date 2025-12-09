@@ -26,7 +26,7 @@ onMounted(async () => {
         ]
     }
   } catch (err) {
-    console.error('Failed to fetch dashboard stats:', err)
+    logger.error('Failed to fetch dashboard stats:', err)
   }
 })
 </script>

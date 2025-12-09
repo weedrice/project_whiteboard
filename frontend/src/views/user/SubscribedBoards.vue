@@ -64,7 +64,7 @@ async function fetchSubscriptions() {
             boards.value = data.data.content
         }
     } catch (error) {
-        console.error(error)
+        logger.error(error)
     } finally {
         loading.value = false
     }
@@ -79,7 +79,7 @@ async function handleUnsubscribe(board) {
             fetchSubscriptions() // Refresh list
         }
     } catch (error) {
-        console.error(error)
+        logger.error(error)
         alert(t('user.subscriptions.unsubscribeFailed'))
     }
 }
@@ -89,7 +89,7 @@ async function handleDragEnd() {
     try {
         await boardApi.updateSubscriptionOrder(boardUrls)
     } catch (error) {
-        console.error('Failed to update order:', error)
+        logger.error('Failed to update order:', error)
         // Revert order if failed (optional, but good UX)
         fetchSubscriptions()
     }

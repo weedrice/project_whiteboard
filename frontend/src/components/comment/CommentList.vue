@@ -6,6 +6,7 @@ import CommentForm from './CommentForm.vue'
 import CommentItem from './CommentItem.vue'
 import { User, CornerDownRight } from 'lucide-vue-next'
 import UserMenu from '@/components/common/UserMenu.vue'
+import logger from '@/utils/logger'
 
 import { useI18n } from 'vue-i18n'
 
@@ -36,7 +37,7 @@ async function fetchComments() {
       comments.value = data.data.content
     }
   } catch (err) {
-    console.error('Failed to load comments:', err)
+    logger.error('Failed to load comments:', err)
   } finally {
     isLoading.value = false
   }
@@ -79,7 +80,7 @@ async function handleDelete(comment) {
       fetchComments()
     }
   } catch (err) {
-    console.error('Failed to delete comment:', err)
+    logger.error('Failed to delete comment:', err)
     alert(t('comment.deleteFailed'))
   }
 }

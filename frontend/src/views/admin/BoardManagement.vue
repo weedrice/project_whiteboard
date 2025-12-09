@@ -216,7 +216,7 @@ async function handleFileUpload(event) {
       form.iconUrl = data.data.url
     }
   } catch (error) {
-    console.error('Failed to upload file:', error)
+    logger.error('Failed to upload file:', error)
     alert(t('common.messages.error'))
   }
 }
@@ -229,7 +229,7 @@ async function fetchBoards() {
       boards.value = data.data
     }
   } catch (error) {
-    console.error('Failed to fetch boards:', error)
+    logger.error('Failed to fetch boards:', error)
   } finally {
     loading.value = false
   }
@@ -280,7 +280,7 @@ async function handleSubmit() {
       fetchBoards()
     }
   } catch (error) {
-    console.error('Failed to save board:', error)
+    logger.error('Failed to save board:', error)
     alert(isEditMode.value ? t('admin.boards.messages.updateFailed') : t('admin.boards.messages.createFailed'))
   } finally {
     isSubmitting.value = false
@@ -332,7 +332,7 @@ async function handleSaveAll() {
     modifiedBoards.value.clear()
     fetchBoards()
   } catch (error) {
-    console.error('Failed to save boards:', error)
+    logger.error('Failed to save boards:', error)
     alert(t('common.messages.saveFailed'))
   } finally {
     isSubmitting.value = false

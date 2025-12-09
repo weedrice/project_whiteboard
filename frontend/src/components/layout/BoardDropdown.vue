@@ -5,6 +5,7 @@ import { ChevronDown, List, Star } from 'lucide-vue-next'
 import axios from '@/api'
 import { useAuthStore } from '@/stores/auth'
 import { useI18n } from 'vue-i18n'
+import logger from '@/utils/logger'
 
 const { t } = useI18n()
 
@@ -57,7 +58,7 @@ const fetchItems = async () => {
       }
     }
   } catch (error) {
-    console.error('Failed to fetch boards:', error)
+    logger.error('Failed to fetch boards:', error)
   } finally {
     loading.value = false
   }

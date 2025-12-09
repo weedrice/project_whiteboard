@@ -113,6 +113,7 @@ import BaseInput from '@/components/common/BaseInput.vue'
 import BaseButton from '@/components/common/BaseButton.vue'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
+import logger from '@/utils/logger'
 
 const { t } = useI18n()
 const authStore = useAuthStore()
@@ -205,7 +206,7 @@ const handleBlockUser = async () => {
       alert(t('user.block.success', { name: props.displayName }))
     }
   } catch (error) {
-    console.error('Failed to block user:', error)
+    logger.error('Failed to block user:', error)
     alert(t('user.block.failed'))
   }
 }
@@ -223,7 +224,7 @@ const handleSendMessage = async () => {
       closeMessageModal()
     }
   } catch (error) {
-    console.error('Failed to send message:', error)
+    logger.error('Failed to send message:', error)
     alert(t('user.message.sendFailed'))
   } finally {
     isSendingMessage.value = false
@@ -243,7 +244,7 @@ const handleReportUser = async () => {
       closeReportModal()
     }
   } catch (error) {
-    console.error('Failed to report user:', error)
+    logger.error('Failed to report user:', error)
     alert(t('user.report.reportFailed'))
   } finally {
     isReporting.value = false
