@@ -52,7 +52,7 @@ public class UserSettingsService {
 
         settings.updateSettings(theme, language, timezone, hideNsfw);
 
-        return settings;
+        return userSettingsRepository.save(settings);
     }
 
     public List<UserNotificationSettings> getNotificationSettings(Long userId) {
