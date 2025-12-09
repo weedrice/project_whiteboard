@@ -118,7 +118,7 @@ class GlobalConfigServiceTest {
         when(globalConfigRepository.save(any(GlobalConfig.class))).thenAnswer(i -> i.getArgument(0));
 
         // when
-        GlobalConfig updated = globalConfigService.updateConfig("key", "new");
+        GlobalConfig updated = globalConfigService.updateConfig("key", "new", "desc");
 
         // then
         assertThat(updated.getConfigValue()).isEqualTo("new");
@@ -132,7 +132,7 @@ class GlobalConfigServiceTest {
         when(globalConfigRepository.findById("key")).thenReturn(Optional.empty());
 
         // when & then
-        assertThatThrownBy(() -> globalConfigService.updateConfig("key", "val"))
+        assertThatThrownBy(() -> globalConfigService.updateConfig("key", "val", "desc"))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.NOT_FOUND);
     }
