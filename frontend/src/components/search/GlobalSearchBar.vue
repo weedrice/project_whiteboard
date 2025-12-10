@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useBoard } from '@/composables/useBoard'
@@ -10,13 +10,13 @@ const { data: boardsData } = useBoards()
 
 const searchQuery = ref('')
 const showDropdown = ref(false)
-const searchContainer = ref(null)
+const searchContainer = ref<HTMLElement | null>(null)
 
 const boards = computed(() => boardsData.value || [])
 const filteredBoards = computed(() => {
     if (!searchQuery.value.trim()) return []
     const query = searchQuery.value.toLowerCase()
-    return boards.value.filter(board => 
+    return boards.value.filter((board: any) => 
         board.boardName.toLowerCase().includes(query)
     )
 })
@@ -30,7 +30,7 @@ const handleSearch = () => {
 }
 
 // Handle board selection (Autocomplete)
-const selectBoard = (boardUrl) => {
+const selectBoard = (boardUrl: string) => {
   showDropdown.value = false
   searchQuery.value = '' // Optional: clear search after navigation
   router.push(`/board/${boardUrl}`)
@@ -42,8 +42,8 @@ watch(searchQuery, () => {
 })
 
 // Click outside to close dropdown
-const handleClickOutside = (event) => {
-  if (searchContainer.value && !searchContainer.value.contains(event.target)) {
+const handleClickOutside = (event: Event) => {
+  if (searchContainer.value && !searchContainer.value.contains(event.target as Node)) {
     showDropdown.value = false
   }
 }

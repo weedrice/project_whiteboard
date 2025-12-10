@@ -103,8 +103,8 @@
   </div>
 </template>
 
-<script setup>
-import { ref, onMounted, onUnmounted, computed } from 'vue'
+<script setup lang="ts">
+import { ref, onMounted, onUnmounted, computed, type CSSProperties } from 'vue'
 import { userApi } from '@/api/user'
 import { messageApi } from '@/api/message'
 import { reportApi } from '@/api/report'
@@ -118,16 +118,10 @@ import logger from '@/utils/logger'
 const { t } = useI18n()
 const authStore = useAuthStore()
 
-const props = defineProps({
-  userId: {
-    type: Number,
-    required: true
-  },
-  displayName: {
-    type: String,
-    required: true
-  }
-})
+const props = defineProps<{
+  userId: number
+  displayName: string
+}>()
 
 const isDropdownOpen = ref(false)
 const isMessageModalOpen = ref(false)
@@ -141,8 +135,8 @@ const isSelf = computed(() => {
     return authStore.user && authStore.user.userId === props.userId
 })
 
-const buttonRef = ref(null)
-const dropdownStyle = ref({})
+const buttonRef = ref<HTMLButtonElement | null>(null)
+const dropdownStyle = ref<CSSProperties>({})
 
 const toggleDropdown = () => {
   if (!authStore.user) return // Disable for guests
@@ -238,7 +232,7 @@ const handleReportUser = async () => {
   }
   isReporting.value = true
   try {
-    const { data } = await reportApi.reportUser(props.userId, reportReason.value)
+    const { data } = await reportApi.reportUser(props.userId, reportReason.value, '')
     if (data.success) {
       alert(t('user.report.reportSuccess'))
       closeReportModal()
@@ -252,15 +246,15 @@ const handleReportUser = async () => {
 }
 
 // Close dropdown when clicking outside
-const handleClickOutside = (event) => {
+const handleClickOutside = (event: Event) => {
   if (isDropdownOpen.value) {
     // Check if click is inside the button
-    if (buttonRef.value && buttonRef.value.contains(event.target)) {
+    if (buttonRef.value && buttonRef.value.contains(event.target as Node)) {
       return
     }
     // Check if click is inside the dropdown content (we need a ref for it)
     const dropdownEl = document.getElementById('user-menu-dropdown')
-    if (dropdownEl && dropdownEl.contains(event.target)) {
+    if (dropdownEl && dropdownEl.contains(event.target as Node)) {
       return
     }
     closeDropdown()

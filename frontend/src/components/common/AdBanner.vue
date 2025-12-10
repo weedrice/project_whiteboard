@@ -1,18 +1,24 @@
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import axios from '@/api'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
 
-const props = defineProps({
-  placement: {
-    type: String,
-    default: 'SIDEBAR'
-  }
+const props = withDefaults(defineProps<{
+  placement?: string
+}>(), {
+  placement: 'SIDEBAR'
 })
 
-const ad = ref(null)
+interface Ad {
+  adId: number | null;
+  title: string;
+  imageUrl: string | null;
+  targetUrl: string | null;
+}
+
+const ad = ref<Ad | null>(null)
 const loading = ref(true)
 
 const fetchAd = async () => {
@@ -51,11 +57,15 @@ const handleAdClick = async () => {
   
   try {
     // 클릭 로깅 및 타겟 URL 조회
-    const { data } = await axios.post(`/ads/${ad.value.adId}/click`)
-    if (data.success && data.data) {
-      window.open(data.data, '_blank')
+    if (ad.value.adId) {
+        const { data } = await axios.post(`/ads/${ad.value.adId}/click`)
+        if (data.success && data.data) {
+            window.open(data.data, '_blank')
+        } else if (ad.value.targetUrl) {
+            window.open(ad.value.targetUrl, '_blank')
+        }
     } else if (ad.value.targetUrl) {
-      window.open(ad.value.targetUrl, '_blank')
+        window.open(ad.value.targetUrl, '_blank')
     }
   } catch (error) {
     console.error('Ad click error:', error)

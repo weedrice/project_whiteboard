@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { computed } from 'vue'
 import { useThemeStore } from '@/stores/theme'
 import { Sun, Moon } from 'lucide-vue-next'

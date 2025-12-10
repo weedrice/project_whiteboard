@@ -32,15 +32,24 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import axios from '@/api'
+import logger from '@/utils/logger'
 
-const posts = ref([])
+interface PopularPost {
+  postId: number
+  boardUrl: number | string
+  title: string
+  authorName: string
+  likeCount: number
+}
+
+const posts = ref<PopularPost[]>([])
 const loading = ref(false)
 
 // Mock data
-const mockPosts = [
+const mockPosts: PopularPost[] = [
   { postId: 1, boardUrl: 1, title: 'Getting Started with Vue 3', authorName: 'Alice', likeCount: 42 },
   { postId: 2, boardUrl: 1, title: 'Understanding Pinia Stores', authorName: 'Bob', likeCount: 38 },
   { postId: 3, boardUrl: 2, title: 'Tailwind CSS Tips & Tricks', authorName: 'Charlie', likeCount: 25 },

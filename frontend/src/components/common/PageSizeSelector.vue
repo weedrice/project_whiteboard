@@ -4,7 +4,7 @@
     <select
       id="page-size"
       :value="modelValue"
-      @change="$emit('update:modelValue', Number($event.target.value)); $emit('change')"
+      @change="handleChange"
       class="block w-19 pl-3 pr-6 py-1 text-base border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md transition-colors duration-200"
     >
       <option v-for="option in options" :key="option" :value="option">
@@ -14,17 +14,22 @@
   </div>
 </template>
 
-<script setup>
-defineProps({
-  modelValue: {
-    type: Number,
-    required: true
-  },
-  options: {
-    type: Array,
-    default: () => [15, 30, 50]
-  }
+<script setup lang="ts">
+withDefaults(defineProps<{
+  modelValue: number
+  options?: number[]
+}>(), {
+  options: () => [15, 30, 50]
 })
 
-defineEmits(['update:modelValue', 'change'])
+const emit = defineEmits<{
+  (e: 'update:modelValue', value: number): void
+  (e: 'change'): void
+}>()
+
+const handleChange = (event: Event) => {
+  const target = event.target as HTMLSelectElement
+  emit('update:modelValue', Number(target.value))
+  emit('change')
+}
 </script>

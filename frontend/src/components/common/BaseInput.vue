@@ -11,48 +11,41 @@
       :disabled="disabled"
       class="input-base disabled:bg-gray-100 disabled:text-gray-500 dark:disabled:bg-gray-600 dark:disabled:text-gray-400"
       :class="{ 'border-red-500 focus:border-red-500 focus:ring-red-500': error }"
-      @input="$emit('update:modelValue', $event.target.value)"
+      @input="updateValue"
       @blur="$emit('blur', $event)"
     />
     <p v-if="error" class="text-sm text-red-600 dark:text-red-400">{{ error }}</p>
   </div>
 </template>
 
-<script setup>
-defineProps({
-  id: {
-    type: String,
-    default: () => `input-${Math.random().toString(36).substr(2, 9)}`
-  },
-  label: {
-    type: String,
-    default: ''
-  },
-  type: {
-    type: String,
-    default: 'text'
-  },
-  modelValue: {
-    type: [String, Number],
-    default: ''
-  },
-  placeholder: {
-    type: String,
-    default: ''
-  },
-  disabled: {
-    type: Boolean,
-    default: false
-  },
-  error: {
-    type: String,
-    default: ''
-  },
-  labelClass: {
-    type: String,
-    default: ''
-  }
+<script setup lang="ts">
+const props = withDefaults(defineProps<{
+  id?: string
+  label?: string
+  type?: string
+  modelValue?: string | number
+  placeholder?: string
+  disabled?: boolean
+  error?: string
+  labelClass?: string
+}>(), {
+  id: () => `input-${Math.random().toString(36).substr(2, 9)}`,
+  label: '',
+  type: 'text',
+  modelValue: '',
+  placeholder: '',
+  disabled: false,
+  error: '',
+  labelClass: ''
 })
 
-defineEmits(['update:modelValue', 'blur'])
+const emit = defineEmits<{
+  (e: 'update:modelValue', value: string | number): void
+  (e: 'blur', event: FocusEvent): void
+}>()
+
+const updateValue = (event: Event) => {
+  const target = event.target as HTMLInputElement
+  emit('update:modelValue', target.value)
+}
 </script>

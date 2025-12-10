@@ -1,31 +1,30 @@
-<script setup>
-import { onMounted, onUnmounted } from 'vue'
+<script setup lang="ts">
 import { X, CheckCircle, AlertCircle, Info, AlertTriangle } from 'lucide-vue-next'
+import type { Toast } from '@/stores/toast'
 
-const props = defineProps({
-  toast: {
-    type: Object,
-    required: true
-  }
-})
+const props = defineProps<{
+  toast: Toast
+}>()
 
-const emit = defineEmits(['close'])
+const emit = defineEmits<{
+  (e: 'close'): void
+}>()
 
-const icons = {
+const icons: Record<Toast['type'], any> = {
   success: CheckCircle,
   error: AlertCircle,
   info: Info,
   warning: AlertTriangle
 }
 
-const colors = {
+const colors: Record<Toast['type'], string> = {
   success: 'bg-green-50 text-green-800 border-green-200',
   error: 'bg-red-50 text-red-800 border-red-200',
   info: 'bg-blue-50 text-blue-800 border-blue-200',
   warning: 'bg-yellow-50 text-yellow-800 border-yellow-200'
 }
 
-const iconColors = {
+const iconColors: Record<Toast['type'], string> = {
   success: 'text-green-400',
   error: 'text-red-400',
   info: 'text-blue-400',

@@ -37,21 +37,20 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref } from 'vue'
 
-const props = defineProps({
-  modelValue: {
-    type: Array,
-    default: () => []
-  },
-  readOnly: {
-    type: Boolean,
-    default: false
-  }
+const props = withDefaults(defineProps<{
+  modelValue: string[]
+  readOnly?: boolean
+}>(), {
+  modelValue: () => [],
+  readOnly: false
 })
 
-const emit = defineEmits(['update:modelValue'])
+const emit = defineEmits<{
+  (e: 'update:modelValue', tags: string[]): void
+}>()
 
 const newTag = ref('')
 
@@ -63,7 +62,7 @@ const addTag = () => {
   newTag.value = ''
 }
 
-const removeTag = (index) => {
+const removeTag = (index: number) => {
   const newTags = [...props.modelValue]
   newTags.splice(index, 1)
   emit('update:modelValue', newTags)

@@ -1,47 +1,52 @@
-<script setup>
-import { defineProps, defineEmits } from 'vue'
+<script setup lang="ts">
+// defineProps and defineEmits are compiler macros and don't need to be imported
 import { MessageSquare, ThumbsUp, User, Clock, Image as ImageIcon, ArrowUp, ArrowDown } from 'lucide-vue-next'
 import UserMenu from '@/components/common/UserMenu.vue'
 
-const props = defineProps({
-  posts: {
-    type: Array,
-    required: true
-  },
-  boardUrl: { // boardId 대신 boardUrl 사용
-    type: String,
-    required: false
-  },
-  // Pagination props for numbering
-  totalCount: {
-    type: Number,
-    default: 0
-  },
-  page: {
-    type: Number,
-    default: 0
-  },
-  size: {
-    type: Number,
-    default: 20
-  },
-  currentSort: {
-      type: String,
-      default: 'createdAt,desc'
-  },
-  showBoardName: {
-    type: Boolean,
-    default: false
-  },
-  hideNoColumn: {
-    type: Boolean,
-    default: false
+// Define interfaces for props
+interface Post {
+  postId: number
+  boardUrl?: string | number
+  boardName?: string
+  title: string
+  author?: {
+    userId: number
+    displayName: string
   }
+  createdAt: string
+  viewCount: number
+  likeCount: number
+  commentCount: number
+  isNotice?: boolean
+  hasImage?: boolean
+  category?: {
+    name: string
+  }
+}
+
+const props = withDefaults(defineProps<{
+  posts: Post[]
+  boardUrl?: string
+  totalCount?: number
+  page?: number
+  size?: number
+  currentSort?: string
+  showBoardName?: boolean
+  hideNoColumn?: boolean
+}>(), {
+  totalCount: 0,
+  page: 0,
+  size: 20,
+  currentSort: 'createdAt,desc',
+  showBoardName: false,
+  hideNoColumn: false
 })
 
-const emit = defineEmits(['update:sort'])
+const emit = defineEmits<{
+  (e: 'update:sort', sort: string): void
+}>()
 
-function formatDate(dateString) {
+function formatDate(dateString: string) {
   const date = new Date(dateString)
   const today = new Date()
   
@@ -55,7 +60,7 @@ function formatDate(dateString) {
   return date.toLocaleDateString()
 }
 
-function handleSort(field) {
+function handleSort(field: string) {
     const [currentField, currentDirection] = props.currentSort.split(',')
     let newDirection = 'desc'
     

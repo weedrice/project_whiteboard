@@ -12,26 +12,25 @@
   </button>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed } from 'vue'
 
-const props = defineProps({
-  type: {
-    type: String,
-    default: 'button'
-  },
-  variant: {
-    type: String,
-    default: 'primary',
-    validator: (value) => ['primary', 'secondary', 'danger', 'ghost'].includes(value)
-  },
-  disabled: {
-    type: Boolean,
-    default: false
-  }
+type ButtonType = 'button' | 'submit' | 'reset'
+type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'ghost'
+
+const props = withDefaults(defineProps<{
+  type?: ButtonType
+  variant?: ButtonVariant
+  disabled?: boolean
+}>(), {
+  type: 'button',
+  variant: 'primary',
+  disabled: false
 })
 
-defineEmits(['click'])
+defineEmits<{
+  (e: 'click', event: MouseEvent): void
+}>()
 
 const btnClass = computed(() => {
   switch (props.variant) {

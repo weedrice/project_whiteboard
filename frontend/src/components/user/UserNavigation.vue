@@ -12,7 +12,7 @@
           v-for="(tab, index) in tabs"
           :key="tab.nameKey"
           :to="tab.href"
-          :ref="el => { if (el) tabRefs[index] = el.$el }"
+          :ref="el => { if (el) tabRefs[index] = (el as any).$el }"
           class="whitespace-nowrap py-4 px-1 text-sm transition-colors duration-200"
           :class="[
             isActive(tab.href)
@@ -34,7 +34,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { useRoute, useRouter } from 'vue-router'
 import { ref, computed, watch, nextTick, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -44,7 +44,12 @@ const route = useRoute()
 const router = useRouter()
 const { t } = useI18n()
 
-const tabs = [
+interface Tab {
+    nameKey: string;
+    href: string;
+}
+
+const tabs: Tab[] = [
   { nameKey: 'common.myPage', href: '/mypage' },
   { nameKey: 'user.tabs.settings', href: '/mypage/settings' },
   { nameKey: 'common.notifications', href: '/mypage/notifications' },
@@ -56,11 +61,11 @@ const tabs = [
   { nameKey: 'user.tabs.reports', href: '/mypage/reports' },
 ]
 
-const tabRefs = ref([])
-const scrollContainer = ref(null)
-const underlineStyle = ref({ left: '0px', width: '0px' })
+const tabRefs = ref<HTMLElement[]>([])
+const scrollContainer = ref<HTMLElement | null>(null)
+const underlineStyle = ref({ left: '0px', width: '0px', opacity: 1 })
 
-function isActive(href) {
+function isActive(href: string) {
     if (href === '/mypage') {
         return route.path === '/mypage'
     }
@@ -77,7 +82,8 @@ const updateUnderline = () => {
         const el = tabRefs.value[index]
         underlineStyle.value = {
             left: `${el.offsetLeft}px`,
-            width: `${el.offsetWidth}px`
+            width: `${el.offsetWidth}px`,
+            opacity: 1
         }
         
         // Scroll into view if needed (for mobile)
@@ -114,17 +120,17 @@ onMounted(() => {
 const touchStartX = ref(0)
 const touchStartY = ref(0)
 
-const handleTouchStart = (e) => {
+const handleTouchStart = (e: TouchEvent) => {
     touchStartX.value = e.touches[0].clientX
     touchStartY.value = e.touches[0].clientY
 }
 
-const handleTouchMove = (e) => {
+const handleTouchMove = (e: TouchEvent) => {
     // Optional: prevent default if horizontal swipe is detected to stop vertical scroll
     // But usually better to let browser handle it unless it's a dedicated slider
 }
 
-const handleTouchEnd = (e) => {
+const handleTouchEnd = (e: TouchEvent) => {
     const touchEndX = e.changedTouches[0].clientX
     const touchEndY = e.changedTouches[0].clientY
     
@@ -148,5 +154,3 @@ const handleTouchEnd = (e) => {
     }
 }
 </script>
-
-

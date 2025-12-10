@@ -1,35 +1,30 @@
-<script setup>
-import { ref, computed } from 'vue'
-import { User, CornerDownRight } from 'lucide-vue-next'
+<script setup lang="ts">
+import { ref } from 'vue'
+import { User as UserIcon, CornerDownRight } from 'lucide-vue-next'
 import UserMenu from '@/components/common/UserMenu.vue'
 import CommentForm from './CommentForm.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useI18n } from 'vue-i18n'
+import type { Comment } from '@/api/comment'
 
 defineOptions({
   name: 'CommentItem'
 })
 
-const props = defineProps({
-  comment: {
-    type: Object,
-    required: true
-  },
-  postId: {
-    type: [Number, String],
-    required: true
-  },
-  boardUrl: {
-    type: String,
-    required: true
-  },
-  depth: {
-    type: Number,
-    default: 0
-  }
+const props = withDefaults(defineProps<{
+  comment: Comment
+  postId: number | string
+  boardUrl: string
+  depth?: number
+}>(), {
+  depth: 0
 })
 
-const emit = defineEmits(['reply-success', 'edit-success', 'delete'])
+const emit = defineEmits<{
+  (e: 'reply-success'): void
+  (e: 'edit-success'): void
+  (e: 'delete', comment: Comment): void
+}>()
 
 const { t } = useI18n()
 const authStore = useAuthStore()
@@ -37,7 +32,7 @@ const authStore = useAuthStore()
 const isReplying = ref(false)
 const isEditing = ref(false)
 
-function formatDate(dateString) {
+function formatDate(dateString: string) {
   return new Date(dateString).toLocaleString()
 }
 
@@ -63,7 +58,7 @@ function handleDelete() {
       <div class="flex-shrink-0 relative">
         <CornerDownRight v-if="depth > 0" class="absolute -left-6 top-2 h-4 w-4 text-gray-300 dark:text-gray-600" />
         <div class="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center dark:bg-gray-700">
-          <User class="h-6 w-6 text-gray-500 dark:text-gray-400" />
+          <UserIcon class="h-6 w-6 text-gray-500 dark:text-gray-400" />
         </div>
       </div>
 
@@ -105,7 +100,7 @@ function handleDelete() {
             {{ $t('comment.reply') }}
           </button>
           
-          <template v-if="authStore.user?.userId === comment.author.userId">
+          <template v-if="authStore.user?.id === comment.author.userId">
             <button 
               @click="isEditing = !isEditing"
               class="text-xs text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200 font-medium ml-2"

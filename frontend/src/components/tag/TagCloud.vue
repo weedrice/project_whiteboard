@@ -24,17 +24,18 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import axios from '@/api'
 import logger from '@/utils/logger'
+import type { Tag } from '@/api/tag'
+// import { tagApi } from '@/api/tag' // Uncomment when API is ready
 
-const tags = ref([])
+const tags = ref<Tag[]>([])
 const loading = ref(false)
 
 // Mock data for now as backend API might not be ready or empty
 // In real implementation, remove mock and rely on API
-const mockTags = [
+const mockTags: Tag[] = [
   { name: 'Vue', count: 10 },
   { name: 'Vite', count: 8 },
   { name: 'JavaScript', count: 15 },
@@ -45,7 +46,7 @@ const mockTags = [
 const fetchTags = async () => {
   loading.value = true
   try {
-    // const { data } = await axios.get('/tags')
+    // const { data } = await tagApi.getTags()
     // if (data.success) {
     //   tags.value = data.data
     // }
@@ -60,9 +61,12 @@ const fetchTags = async () => {
   }
 }
 
-const calculateFontSize = (count) => {
+const calculateFontSize = (count: number) => {
   const minSize = 0.875 // 14px (text-sm)
   const maxSize = 1.25 // 20px (text-xl)
+  
+  if (tags.value.length === 0) return `${minSize}rem`
+
   const maxCount = Math.max(...tags.value.map(t => t.count))
   const minCount = Math.min(...tags.value.map(t => t.count))
   

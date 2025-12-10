@@ -1,35 +1,31 @@
-<script setup>
+<script setup lang="ts">
 import { ref } from 'vue'
 import { useComment } from '@/composables/useComment'
 import { useI18n } from 'vue-i18n'
 import logger from '@/utils/logger'
+import type { CommentPayload } from '@/api/comment'
 
 const { t } = useI18n()
 
-const props = defineProps({
-  postId: {
-    type: [Number, String],
-    required: true
-  },
-  parentId: {
-    type: [Number, String],
-    default: null
-  },
-  initialContent: {
-    type: String,
-    default: ''
-  },
-  commentId: {
-    type: [Number, String],
-    default: null
-  }
+const props = withDefaults(defineProps<{
+  postId: number | string
+  parentId?: number | string | null
+  initialContent?: string
+  commentId?: number | string | null
+}>(), {
+  parentId: null,
+  initialContent: '',
+  commentId: null
 })
 
-const emit = defineEmits(['success', 'cancel'])
+const emit = defineEmits<{
+  (e: 'success'): void
+  (e: 'cancel'): void
+}>()
 
 const { useCreateComment, useUpdateComment } = useComment()
-const { mutate: createComment, isLoading: isCreating } = useCreateComment()
-const { mutate: updateComment, isLoading: isUpdating } = useUpdateComment()
+const { mutate: createComment, isPending: isCreating } = useCreateComment()
+const { mutate: updateComment, isPending: isUpdating } = useUpdateComment()
 
 const content = ref(props.initialContent)
 const isSubmitting = ref(false) // Keep local state for button disabled, or use isCreating/isUpdating
@@ -54,9 +50,9 @@ async function handleSubmit() {
       })
   } else {
       // Create new comment
-      const payload = {
+      const payload: CommentPayload = {
           content: content.value,
-          parentId: props.parentId
+          parentId: props.parentId ? Number(props.parentId) : null
       }
       createComment({ postId: props.postId, data: payload }, {
           onSuccess: () => {

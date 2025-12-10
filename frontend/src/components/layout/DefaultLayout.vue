@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
@@ -18,10 +18,10 @@ const authStore = useAuthStore()
 const notificationStore = useNotificationStore()
 const themeStore = useThemeStore()
 const isNotificationOpen = ref(false)
-const activeDropdown = ref(null) // 'subscription', 'all', 'notification', 'user'
+const activeDropdown = ref<string | null>(null) // 'subscription', 'all', 'notification', 'user'
 
 const showSidebarAd = computed(() => {
-  return !['login', 'signup'].includes(route.name)
+  return !['login', 'signup'].includes(route.name as string)
 })
 
 const toggleNotification = () => {
@@ -35,7 +35,7 @@ const toggleNotification = () => {
   }
 }
 
-const toggleDropdown = (name) => {
+const toggleDropdown = (name: string) => {
   if (activeDropdown.value === name) {
     activeDropdown.value = null
   } else {
@@ -50,7 +50,7 @@ const closeAllDropdowns = () => {
 }
 
 // Expose to children
-const setActiveDropdown = (name) => {
+const setActiveDropdown = (name: string) => {
     if (activeDropdown.value === name) {
         activeDropdown.value = null
     } else {
@@ -60,8 +60,13 @@ const setActiveDropdown = (name) => {
 }
 
 // Click outside handler
-const handleClickOutside = (event) => {
+const handleClickOutside = (event: Event) => {
     if (activeDropdown.value || isNotificationOpen.value) {
+        // This is a simple check, ideally we should check if click is inside any dropdown
+        // But since dropdowns handle their own outside clicks or are closed by this global handler
+        // We might need to be careful.
+        // For now, let's assume individual dropdowns handle their own closing or we rely on this global one if they don't stop propagation.
+        // Actually, the original code had this, so I'll keep it.
         closeAllDropdowns()
     }
 }

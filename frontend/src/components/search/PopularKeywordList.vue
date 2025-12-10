@@ -25,12 +25,13 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed } from 'vue'
 import { useSearch } from '@/composables/useSearch'
+import type { PopularKeyword } from '@/api/search'
 
 const { usePopularKeywords } = useSearch()
 const { data: keywordsData, isLoading: loading } = usePopularKeywords()
 
-const keywords = computed(() => keywordsData.value || [])
+const keywords = computed<PopularKeyword[]>(() => keywordsData.value || [])
 </script>

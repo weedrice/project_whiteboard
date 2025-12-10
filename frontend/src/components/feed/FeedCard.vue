@@ -94,19 +94,37 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { Heart, MessageCircle, Bookmark, Image as ImageIcon, Share2 } from 'lucide-vue-next'
 
-const props = defineProps({
-  post: {
-    type: Object,
-    required: true
-  }
-})
+interface FeedPost {
+  postId: number
+  boardUrl: string | number
+  boardName: string
+  boardIconUrl?: string
+  title: string
+  authorName: string
+  createdAt: string
+  viewCount: number
+  likeCount: number
+  commentCount: number
+  thumbnailUrl?: string
+  isLiked: boolean
+  isScrapped: boolean
+  isSubscribed: boolean
+}
 
-defineEmits(['like', 'scrap', 'subscribe'])
+const props = defineProps<{
+  post: FeedPost
+}>()
 
-function formatDate(dateString) {
+const emit = defineEmits<{
+  (e: 'like', post: FeedPost): void
+  (e: 'scrap', post: FeedPost): void
+  (e: 'subscribe', post: FeedPost): void
+}>()
+
+function formatDate(dateString: string) {
   if (!dateString) return ''
   return new Date(dateString).toLocaleDateString()
 }

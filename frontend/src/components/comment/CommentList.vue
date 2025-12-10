@@ -1,24 +1,17 @@
-<script setup>
-import { ref, onMounted, watch, computed } from 'vue'
+<script setup lang="ts">
+import { ref, computed } from 'vue'
 import { useComment } from '@/composables/useComment'
 import { useAuthStore } from '@/stores/auth'
 import CommentForm from './CommentForm.vue'
 import CommentItem from './CommentItem.vue'
-import { User, CornerDownRight } from 'lucide-vue-next'
-import UserMenu from '@/components/common/UserMenu.vue'
-import logger from '@/utils/logger'
 import { useI18n } from 'vue-i18n'
+import logger from '@/utils/logger'
+import type { Comment } from '@/api/comment'
 
-const props = defineProps({
-  postId: {
-    type: [Number, String],
-    required: true
-  },
-  boardUrl: {
-    type: String,
-    required: true
-  }
-})
+const props = defineProps<{
+  postId: number | string
+  boardUrl: string
+}>()
 
 const { t } = useI18n()
 const authStore = useAuthStore()
@@ -30,12 +23,12 @@ const params = ref({ page: 0, size: 50 })
 const postId = computed(() => props.postId)
 
 const { data: commentsData, isLoading, refetch } = useComments(postId, params)
-const comments = computed(() => commentsData.value?.content || [])
+const comments = computed<Comment[]>(() => commentsData.value?.content || [])
 
 const { mutate: deleteComment } = useDeleteComment()
 
-const replyToId = ref(null)
-const editingCommentId = ref(null)
+const replyToId = ref<number | null>(null)
+const editingCommentId = ref<number | null>(null)
 
 function handleReplySuccess() {
   replyToId.value = null
@@ -47,7 +40,7 @@ function handleEditSuccess() {
   // Query invalidation handled in composable
 }
 
-function handleDelete(comment) {
+function handleDelete(comment: Comment) {
   if (!confirm(t('common.messages.confirmDelete'))) return
 
   deleteComment(comment.commentId, {
@@ -56,6 +49,10 @@ function handleDelete(comment) {
           alert(t('comment.deleteFailed'))
       }
   })
+}
+
+function fetchComments() {
+    refetch()
 }
 </script>
 

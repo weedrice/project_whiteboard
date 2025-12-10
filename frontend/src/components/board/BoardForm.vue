@@ -1,43 +1,48 @@
-<script setup>
+<script setup lang="ts">
 import { ref, watch, onMounted } from 'vue'
 import BaseInput from '@/components/common/BaseInput.vue'
 import { useI18n } from 'vue-i18n'
 import axios from '@/api'
 import logger from '@/utils/logger'
 
-const props = defineProps({
-  initialData: {
-    type: Object,
-    default: () => ({
-      boardName: '',
-      boardUrl: '',
-      description: '',
-      iconUrl: '',
-      sortOrder: 0,
-      allowNsfw: false
-    })
-  },
-  isEdit: {
-    type: Boolean,
-    default: false
-  },
-  isSubmitting: {
-    type: Boolean,
-    default: false
-  },
-  error: {
-    type: String,
-    default: ''
-  }
+interface BoardData {
+  boardName: string
+  boardUrl: string
+  description: string
+  iconUrl: string
+  sortOrder: number
+  allowNsfw: boolean
+}
+
+const props = withDefaults(defineProps<{
+  initialData?: BoardData
+  isEdit?: boolean
+  isSubmitting?: boolean
+  error?: string
+}>(), {
+  initialData: () => ({
+    boardName: '',
+    boardUrl: '',
+    description: '',
+    iconUrl: '',
+    sortOrder: 0,
+    allowNsfw: false
+  }),
+  isEdit: false,
+  isSubmitting: false,
+  error: ''
 })
 
-const emit = defineEmits(['submit', 'cancel'])
+const emit = defineEmits<{
+  (e: 'submit', data: BoardData): void
+  (e: 'cancel'): void
+}>()
 
 const { t } = useI18n()
 
-const form = ref({ ...props.initialData })
-const selectedFile = ref(null)
-const previewImage = ref(null)
+const form = ref<BoardData>({ ...props.initialData })
+const selectedFile = ref<File | null>(null)
+const previewImage = ref<string | null>(null)
 
 // Watch for changes in initialData (e.g. when loading data in edit mode)
 watch(() => props.initialData, (newData) => {
@@ -47,8 +52,9 @@ watch(() => props.initialData, (newData) => {
   }
 }, { deep: true })
 
-const handleFileChange = (event) => {
-  const file = event.target.files[0]
+const handleFileChange = (event: Event) => {
+  const target = event.target as HTMLInputElement
+  const file = target.files?.[0]
   if (file) {
     selectedFile.value = file
     previewImage.value = URL.createObjectURL(file)

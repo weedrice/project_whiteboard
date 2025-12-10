@@ -26,19 +26,15 @@
   </div>
 </template>
 
-<script setup>
-defineProps({
-  isOpen: {
-    type: Boolean,
-    required: true
-  },
-  title: {
-    type: String,
-    default: ''
-  }
-})
+<script setup lang="ts">
+defineProps<{
+  isOpen: boolean
+  title?: string
+}>()
 
-const emit = defineEmits(['close'])
+const emit = defineEmits<{
+  (e: 'close'): void
+}>()
 
 const close = () => {
   emit('close')

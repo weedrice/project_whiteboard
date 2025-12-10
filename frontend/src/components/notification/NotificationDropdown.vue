@@ -1,23 +1,24 @@
-<script setup>
+<script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useNotification } from '@/composables/useNotification'
 import { postApi } from '@/api/post'
 import { Check } from 'lucide-vue-next'
 import logger from '@/utils/logger'
+import type { Notification, NotificationParams } from '@/api/notification'
 
 const router = useRouter()
 const { useNotifications, useMarkAsRead, useMarkAllAsRead } = useNotification()
 
 // Default params for dropdown
-const params = ref({ page: 0, size: 20 })
+const params = ref<NotificationParams>({ page: 0, size: 20 })
 const { data: notificationsData, isLoading } = useNotifications(params)
 const { mutate: markAsRead } = useMarkAsRead()
 const { mutate: markAllAsRead } = useMarkAllAsRead()
 
-const notifications = computed(() => notificationsData.value?.content || [])
+const notifications = computed<Notification[]>(() => notificationsData.value?.content || [])
 
-async function handleNotificationClick(notification) {
+async function handleNotificationClick(notification: Notification) {
   if (!notification.isRead) {
     markAsRead(notification.notificationId)
   }
@@ -39,7 +40,7 @@ async function handleNotificationClick(notification) {
   }
 }
 
-function formatDate(dateString) {
+function formatDate(dateString: string) {
   return new Date(dateString).toLocaleDateString()
 }
 </script>
@@ -49,7 +50,7 @@ function formatDate(dateString) {
     <div class="px-4 py-2 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
       <h3 class="text-sm font-medium text-gray-900 dark:text-white">Notifications</h3>
       <button 
-        @click="markAllAsRead"
+        @click="() => markAllAsRead()"
         class="text-xs text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300 flex items-center"
       >
         <Check class="h-3 w-3 mr-1" />

@@ -35,7 +35,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, reactive } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import BaseInput from '@/components/common/BaseInput.vue'
@@ -43,22 +43,24 @@ import BaseButton from '@/components/common/BaseButton.vue'
 import { useUser } from '@/composables/useUser'
 import axios from '@/api' // Direct axios for file upload
 import logger from '@/utils/logger'
+import type { UserUpdatePayload } from '@/api/user'
 
 const authStore = useAuthStore()
 const { useUpdateMyProfile } = useUser()
-const { mutate: updateProfileMutate, isLoading: isUpdating } = useUpdateMyProfile()
+const { mutate: updateProfileMutate, isPending: isUpdating } = useUpdateMyProfile()
 
 const loading = ref(false) // Local loading state for image processing + mutation
-const errors = reactive({})
-const selectedFile = ref(null)
-const previewImage = ref(null)
+const errors = reactive<Record<string, string>>({})
+const selectedFile = ref<File | null>(null)
+const previewImage = ref<string | null>(null)
 
 const form = reactive({
   displayName: authStore.user?.displayName || ''
 })
 
-const handleFileChange = async (event) => {
-  const file = event.target.files[0]
+const handleFileChange = async (event: Event) => {
+  const target = event.target as HTMLInputElement
+  const file = target.files?.[0]
   if (file) {
     if (file.size > 10 * 1024 * 1024) {
       alert('File size exceeds 10MB limit.')
@@ -76,7 +78,7 @@ const handleFileChange = async (event) => {
   }
 }
 
-const resizeImage = (file, maxWidth, maxHeight) => {
+const resizeImage = (file: File, maxWidth: number, maxHeight: number): Promise<File> => {
   return new Promise((resolve, reject) => {
     const img = new Image()
     img.src = URL.createObjectURL(file)
@@ -100,11 +102,18 @@ const resizeImage = (file, maxWidth, maxHeight) => {
       canvas.width = width
       canvas.height = height
       const ctx = canvas.getContext('2d')
-      ctx.drawImage(img, 0, 0, width, height)
-
-      canvas.toBlob((blob) => {
-        resolve(new File([blob], file.name, { type: file.type }))
-      }, file.type)
+      if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height)
+          canvas.toBlob((blob) => {
+            if (blob) {
+                resolve(new File([blob], file.name, { type: file.type }))
+            } else {
+                reject(new Error('Canvas to Blob failed'))
+            }
+          }, file.type)
+      } else {
+          reject(new Error('Could not get canvas context'))
+      }
     }
     img.onerror = reject
   })
@@ -116,7 +125,7 @@ const updateProfile = async () => {
   
   try {
     let profileImageUrl = authStore.user?.profileImageUrl
-    let profileImageId = null
+    let profileImageId: number | null = null
 
     if (selectedFile.value) {
       const formData = new FormData()
@@ -133,17 +142,19 @@ const updateProfile = async () => {
       }
     }
 
-    updateProfileMutate({
+    const payload: UserUpdatePayload = {
       displayName: form.displayName,
       profileImageUrl: profileImageUrl,
       profileImageId: profileImageId
-    }, {
+    }
+
+    updateProfileMutate(payload, {
         onSuccess: async () => {
             await authStore.fetchUser()
             alert('Profile updated successfully')
             loading.value = false
         },
-        onError: (error) => {
+        onError: (error: any) => {
             logger.error('Failed to update profile:', error)
             if (error.response?.data?.message) {
                 errors.displayName = error.response.data.message

@@ -1,27 +1,26 @@
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { useNotificationStore } from '@/stores/notification'
 import { User, LogOut, Settings, CreditCard, FileText, Clock, AlertTriangle, PlusSquare, ChevronDown, Bell, LayoutDashboard, Mail, Star } from 'lucide-vue-next'
 import axios from '@/api'
 import logger from '@/utils/logger'
 
 const router = useRouter()
 const authStore = useAuthStore()
-const notificationStore = useNotificationStore()
 
-const props = defineProps({
-  isOpen: {
-    type: Boolean,
-    default: false
-  }
+const props = withDefaults(defineProps<{
+  isOpen?: boolean
+}>(), {
+  isOpen: false
 })
 
-const emit = defineEmits(['toggle'])
+const emit = defineEmits<{
+  (e: 'toggle'): void
+}>()
 
 const points = ref(0)
-const dropdownRef = ref(null)
+const dropdownRef = ref<HTMLElement | null>(null)
 
 const toggleDropdown = () => {
   emit('toggle')
@@ -46,7 +45,6 @@ const handleLogout = async () => {
 watch(() => props.isOpen, (newVal) => {
   if (newVal) {
     fetchPoints()
-    // notificationStore.fetchNotifications() // Might still want to fetch to show badge count elsewhere, but not needed for list here
   }
 })
 

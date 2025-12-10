@@ -1,25 +1,30 @@
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { boardApi } from '@/api/board'
 import { Trash2, Edit2, Check, X, Plus, GripVertical } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
+import logger from '@/utils/logger'
 
 const { t } = useI18n()
 
-const props = defineProps({
-  boardUrl: {
-    type: String,
-    required: true
-  }
-})
+const props = defineProps<{
+  boardUrl: string
+}>()
 
-const categories = ref([])
+interface Category {
+  categoryId: number
+  name: string
+  sortOrder: number
+  isActive: boolean
+}
+
+const categories = ref<Category[]>([])
 const isLoading = ref(true)
 const error = ref('')
 const newCategoryName = ref('')
-const editingId = ref(null)
+const editingId = ref<number | null>(null)
 const editingName = ref('')
-const dragIndex = ref(null)
+const dragIndex = ref<number | null>(null)
 
 const generalCategory = computed(() => categories.value.find(c => c.name === '일반'))
 const draggableCategories = computed(() => categories.value.filter(c => c.name !== '일반'))
@@ -29,7 +34,7 @@ async function fetchCategories() {
   try {
     const { data } = await boardApi.getCategories(props.boardUrl)
     if (data.success) {
-      categories.value = data.data.sort((a, b) => a.sortOrder - b.sortOrder)
+      categories.value = data.data.sort((a: Category, b: Category) => a.sortOrder - b.sortOrder)
     }
   } catch (err) {
     logger.error('Failed to load categories:', err)
@@ -57,7 +62,7 @@ async function handleAdd() {
   }
 }
 
-async function handleDelete(categoryId) {
+async function handleDelete(categoryId: number) {
   if (!confirm(t('board.category.deleteConfirm'))) return
 
   try {
@@ -71,7 +76,7 @@ async function handleDelete(categoryId) {
   }
 }
 
-function startEdit(category) {
+function startEdit(category: Category) {
   editingId.value = category.categoryId
   editingName.value = category.name
 }
@@ -81,7 +86,7 @@ function cancelEdit() {
   editingName.value = ''
 }
 
-async function saveEdit(category) {
+async function saveEdit(category: Category) {
   if (!editingName.value.trim()) return
 
   try {
@@ -103,12 +108,14 @@ async function saveEdit(category) {
   }
 }
 
-function onDragStart(event, index) {
+function onDragStart(event: DragEvent, index: number) {
   dragIndex.value = index
-  event.dataTransfer.effectAllowed = 'move'
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move'
+  }
 }
 
-async function onDrop(index) {
+async function onDrop(index: number) {
   const fromIndex = dragIndex.value
   const toIndex = index
 
@@ -120,7 +127,7 @@ async function onDrop(index) {
   newDraggables.splice(toIndex, 0, movedItem)
 
   // Reconstruct full list: General (if exists) + Reordered Draggables
-  const newCategories = []
+  const newCategories: Category[] = []
   if (generalCategory.value) newCategories.push(generalCategory.value)
   newCategories.push(...newDraggables)
 
@@ -138,7 +145,8 @@ async function onDrop(index) {
       
       return boardApi.updateCategory(props.boardUrl, cat.categoryId, {
         name: cat.name,
-        sortOrder: idx + 1
+        sortOrder: idx + 1,
+        isActive: cat.isActive
       })
     })
     await Promise.all(updatePromises)

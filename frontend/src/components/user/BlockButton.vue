@@ -9,24 +9,22 @@
   </BaseButton>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref } from 'vue'
 import BaseButton from '@/components/common/BaseButton.vue'
 import { userApi } from '@/api/user'
 import logger from '@/utils/logger'
 
-const props = defineProps({
-  userId: {
-    type: [String, Number],
-    required: true
-  },
-  initialBlocked: {
-    type: Boolean,
-    default: false
-  }
+const props = withDefaults(defineProps<{
+  userId: string | number
+  initialBlocked?: boolean
+}>(), {
+  initialBlocked: false
 })
 
-const emit = defineEmits(['block-change'])
+const emit = defineEmits<{
+  (e: 'block-change', isBlocked: boolean): void
+}>()
 
 const isBlocked = ref(props.initialBlocked)
 const loading = ref(false)

@@ -1,32 +1,24 @@
-<script setup>
-import { ref, onMounted, onUnmounted, watch } from 'vue'
+<script setup lang="ts">
+import { ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { ChevronDown, List, Star } from 'lucide-vue-next'
+import { ChevronDown, List } from 'lucide-vue-next'
 import axios from '@/api'
 import { useAuthStore } from '@/stores/auth'
-import { useI18n } from 'vue-i18n'
 import logger from '@/utils/logger'
 
-const { t } = useI18n()
+const props = defineProps<{
+  type: 'subscription' | 'all'
+  isOpen: boolean
+}>()
 
-const props = defineProps({
-  type: {
-    type: String,
-    required: true,
-    validator: (value) => ['subscription', 'all'].includes(value)
-  },
-  isOpen: {
-    type: Boolean,
-    default: false
-  }
-})
-
-const emit = defineEmits(['toggle'])
+const emit = defineEmits<{
+  (e: 'toggle'): void
+}>()
 
 const router = useRouter()
 const authStore = useAuthStore()
-const dropdownRef = ref(null)
-const items = ref([])
+const dropdownRef = ref<HTMLElement | null>(null)
+const items = ref<any[]>([])
 const loading = ref(false)
 
 const toggleDropdown = () => {
