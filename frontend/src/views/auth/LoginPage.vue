@@ -4,6 +4,8 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { Lock, User } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
+import BaseInput from '@/components/common/BaseInput.vue'
+import BaseButton from '@/components/common/BaseButton.vue'
 
 const { t } = useI18n()
 
@@ -18,7 +20,7 @@ const isLoading = ref(false)
 async function handleLogin() {
   error.value = ''
   isLoading.value = true
-  
+
   try {
     await authStore.login({
       loginId: loginId.value,
@@ -34,7 +36,8 @@ async function handleLogin() {
 </script>
 
 <template>
-  <div class="min-h-screen flex items-start justify-center bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8 pt-32 transition-colors duration-200">
+  <div
+    class="min-h-screen flex items-start justify-center bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8 pt-32 transition-colors duration-200">
     <div class="max-w-md w-full space-y-8">
       <div>
         <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900 dark:text-white">
@@ -42,46 +45,29 @@ async function handleLogin() {
         </h2>
         <p class="mt-2 text-center text-sm text-gray-600 dark:text-gray-400">
           {{ $t('common.or') }}
-          <router-link to="/signup" class="font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300">
+          <router-link to="/signup"
+            class="font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300">
             {{ $t('auth.createAccount') }}
           </router-link>
         </p>
       </div>
       <form class="mt-8 space-y-6" @submit.prevent="handleLogin">
         <div class="rounded-md shadow-sm -space-y-px">
-          <div>
-            <label for="login-id" class="sr-only">{{ $t('common.loginId') }}</label>
-            <div class="relative">
-              <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+          <div class="mb-4">
+            <BaseInput id="login-id" v-model="loginId" name="loginId" type="text" required
+              :placeholder="$t('auth.placeholders.loginId')" :label="$t('common.loginId')" hideLabel>
+              <template #prefix>
                 <User class="h-5 w-5 text-gray-400" />
-              </div>
-              <input
-                id="login-id"
-                v-model="loginId"
-                name="loginId"
-                type="text"
-                required
-                class="appearance-none rounded-none rounded-t-md relative block w-full px-3 py-2 pl-10 border border-gray-300 dark:border-gray-700 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white bg-white dark:bg-gray-800 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm transition-colors duration-200"
-                :placeholder="$t('auth.placeholders.loginId')"
-              />
-            </div>
+              </template>
+            </BaseInput>
           </div>
           <div>
-            <label for="password" class="sr-only">{{ $t('common.password') }}</label>
-            <div class="relative">
-              <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <BaseInput id="password" v-model="password" name="password" type="password" required
+              :placeholder="$t('auth.placeholders.password')" :label="$t('common.password')" hideLabel>
+              <template #prefix>
                 <Lock class="h-5 w-5 text-gray-400" />
-              </div>
-              <input
-                id="password"
-                v-model="password"
-                name="password"
-                type="password"
-                required
-                class="appearance-none rounded-none rounded-b-md relative block w-full px-3 py-2 pl-10 border border-gray-300 dark:border-gray-700 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white bg-white dark:bg-gray-800 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm transition-colors duration-200"
-                :placeholder="$t('auth.placeholders.password')"
-              />
-            </div>
+              </template>
+            </BaseInput>
           </div>
         </div>
 
@@ -90,14 +76,9 @@ async function handleLogin() {
         </div>
 
         <div>
-          <button
-            type="submit"
-            :disabled="isLoading"
-            class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 transition-colors duration-200"
-          >
-            <span v-if="isLoading">{{ $t('common.signingIn') }}</span>
-            <span v-else>{{ $t('common.login') }}</span>
-          </button>
+          <BaseButton type="submit" :loading="isLoading" fullWidth variant="primary">
+            {{ $t('common.login') }}
+          </BaseButton>
         </div>
       </form>
     </div>
