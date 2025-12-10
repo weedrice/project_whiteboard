@@ -8,6 +8,8 @@ import { QuillEditor } from '@vueup/vue-quill'
 import '@vueup/vue-quill/dist/vue-quill.snow.css'
 import axios from '@/api'
 import logger from '@/utils/logger'
+import BaseInput from '@/components/common/BaseInput.vue'
+import BaseButton from '@/components/common/BaseButton.vue'
 
 const { t } = useI18n()
 
@@ -43,9 +45,9 @@ const toolbarOptions = [
   ['blockquote', 'code-block'],
 
   [{ 'header': 1 }, { 'header': 2 }],               // custom button values
-  [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-  [{ 'script': 'sub'}, { 'script': 'super' }],      // superscript/subscript
-  [{ 'indent': '-1'}, { 'indent': '+1' }],          // outdent/indent
+  [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+  [{ 'script': 'sub' }, { 'script': 'super' }],      // superscript/subscript
+  [{ 'indent': '-1' }, { 'indent': '+1' }],          // outdent/indent
   [{ 'direction': 'rtl' }],                         // text direction
 
   [{ 'size': ['small', false, 'large', 'huge'] }],  // custom dropdown
@@ -78,24 +80,24 @@ const imageHandler = () => {
           'Content-Type': 'multipart/form-data'
         }
       })
-      
+
       if (res.data.success) {
         const { url, fileId } = res.data.data
         fileIds.value.push(fileId)
-        
+
         let quill = null
         if (editor.value) {
-             if (typeof editor.value.getQuill === 'function') {
-                 quill = editor.value.getQuill()
-             } else {
-                 quill = editor.value
-             }
+          if (typeof editor.value.getQuill === 'function') {
+            quill = editor.value.getQuill()
+          } else {
+            quill = editor.value
+          }
         }
-        
+
         if (quill) {
-            const range = quill.getSelection(true)
-            quill.insertEmbed(range.index, 'image', url)
-            quill.setSelection(range.index + 1)
+          const range = quill.getSelection(true)
+          quill.insertEmbed(range.index, 'image', url)
+          quill.setSelection(range.index + 1)
         }
       }
     } catch (err) {
@@ -111,16 +113,16 @@ const onEditorReady = (quill) => {
 }
 
 watchEffect(() => {
-    if (post.value) {
-        form.value = {
-            title: post.value.title,
-            content: post.value.contents,
-            categoryId: post.value.category?.categoryId || '',
-            tags: post.value.tags ? post.value.tags.join(', ') : '',
-            isNsfw: post.value.isNsfw,
-            isSpoiler: post.value.isSpoiler
-        }
+  if (post.value) {
+    form.value = {
+      title: post.value.title,
+      content: post.value.contents,
+      categoryId: post.value.category?.categoryId || '',
+      tags: post.value.tags ? post.value.tags.join(', ') : '',
+      isNsfw: post.value.isNsfw,
+      isSpoiler: post.value.isSpoiler
     }
+  }
 })
 
 async function handleSubmit() {
@@ -130,25 +132,25 @@ async function handleSubmit() {
   }
 
   const payload = {
-      ...form.value,
-      tags: form.value.tags.split(',').map(tag => tag.trim()).filter(tag => tag),
-      contents: form.value.content, // API expects 'contents'
-      isNsfw: board.value?.allowNsfw ? form.value.isNsfw : false,
-      isSpoiler: form.value.isSpoiler, // Explicitly include isSpoiler
-      fileIds: fileIds.value // Send collected fileIds
+    ...form.value,
+    tags: form.value.tags.split(',').map(tag => tag.trim()).filter(tag => tag),
+    contents: form.value.content, // API expects 'contents'
+    isNsfw: board.value?.allowNsfw ? form.value.isNsfw : false,
+    isSpoiler: form.value.isSpoiler, // Explicitly include isSpoiler
+    fileIds: fileIds.value // Send collected fileIds
   }
-  
+
   // Remove 'content' key as we mapped it to 'contents'
   delete payload.content
 
   updatePost({ postId: postId.value, data: payload }, {
-      onSuccess: () => {
-          router.push(`/board/${boardUrl.value}/post/${postId.value}`)
-      },
-      onError: (err) => {
-          logger.error('Failed to update post:', err)
-          alert(t('board.writePost.failUpdate'))
-      }
+    onSuccess: () => {
+      router.push(`/board/${boardUrl.value}/post/${postId.value}`)
+    },
+    onError: (err) => {
+      logger.error('Failed to update post:', err)
+      alert(t('board.writePost.failUpdate'))
+    }
   })
 }
 </script>
@@ -169,16 +171,13 @@ async function handleSubmit() {
 
     <form v-else @submit.prevent="handleSubmit" class="space-y-6 bg-white shadow px-4 py-5 sm:rounded-lg sm:p-6">
       <div class="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
-        
+
         <!-- Category -->
         <div class="sm:col-span-3" v-if="categories.length > 0">
           <label for="category" class="block text-sm font-medium text-gray-700">{{ $t('common.category') }}</label>
           <div class="mt-1">
-            <select
-              id="category"
-              v-model="form.categoryId"
-              class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
-            >
+            <select id="category" v-model="form.categoryId"
+              class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md">
               <option value="" disabled>{{ $t('board.writePost.selectCategory') }}</option>
               <option v-for="category in categories" :key="category.categoryId" :value="category.categoryId">
                 {{ category.name }}
@@ -189,98 +188,57 @@ async function handleSubmit() {
 
         <!-- Title -->
         <div class="sm:col-span-6">
-          <label for="title" class="block text-sm font-medium text-gray-700">{{ $t('common.title') }}</label>
-          <div class="mt-1">
-            <input
-              type="text"
-              name="title"
-              id="title"
-              v-model="form.title"
-              required
-              class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
-            />
-          </div>
+          <BaseInput id="title" v-model="form.title" name="title" type="text" required :label="$t('common.title')" />
         </div>
 
         <!-- Content -->
         <div class="sm:col-span-6">
           <label for="content" class="block text-sm font-medium text-gray-700">{{ $t('common.content') }}</label>
           <div class="mt-1 h-96">
-            <QuillEditor
-              ref="editor"
-              :toolbar="toolbarOptions"
-              theme="snow"
-              contentType="html"
-              v-model:content="form.content"
-              @ready="onEditorReady"
-            />
+            <QuillEditor ref="editor" :toolbar="toolbarOptions" theme="snow" contentType="html"
+              v-model:content="form.content" @ready="onEditorReady" />
           </div>
         </div>
 
         <!-- Tags -->
         <div class="sm:col-span-6 mt-12">
-          <label for="tags" class="block text-sm font-medium text-gray-700">{{ $t('board.writePost.tags') }}</label>
-          <div class="mt-1">
-            <input
-              type="text"
-              name="tags"
-              id="tags"
-              v-model="form.tags"
-              :placeholder="$t('board.writePost.placeholder.tags')"
-              class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
-            />
-          </div>
+          <BaseInput id="tags" v-model="form.tags" name="tags" type="text"
+            :placeholder="$t('board.writePost.placeholder.tags')" :label="$t('board.writePost.tags')" />
         </div>
 
         <!-- Options -->
         <div class="sm:col-span-6">
           <div v-if="board?.allowNsfw" class="flex items-start mb-4">
             <div class="flex items-center h-5">
-              <input
-                id="nsfw"
-                name="nsfw"
-                type="checkbox"
-                v-model="form.isNsfw"
-                class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded cursor-pointer"
-              />
+              <input id="nsfw" name="nsfw" type="checkbox" v-model="form.isNsfw"
+                class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded cursor-pointer" />
             </div>
             <div class="ml-3 text-sm">
-              <label for="nsfw" class="font-medium text-gray-700 cursor-pointer">{{ $t('board.writePost.nsfw') }}</label>
+              <label for="nsfw" class="font-medium text-gray-700 cursor-pointer">{{ $t('board.writePost.nsfw')
+                }}</label>
             </div>
           </div>
           <div class="flex items-start">
             <div class="flex items-center h-5">
-              <input
-                id="spoiler"
-                name="spoiler"
-                type="checkbox"
-                v-model="form.isSpoiler"
-                class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded cursor-pointer"
-              />
+              <input id="spoiler" name="spoiler" type="checkbox" v-model="form.isSpoiler"
+                class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded cursor-pointer" />
             </div>
             <div class="ml-3 text-sm">
-              <label for="spoiler" class="font-medium text-gray-700 cursor-pointer">{{ $t('board.writePost.spoiler') }}</label>
+              <label for="spoiler" class="font-medium text-gray-700 cursor-pointer">{{ $t('board.writePost.spoiler')
+                }}</label>
             </div>
           </div>
         </div>
 
       </div>
 
-      <div class="flex justify-end">
-        <button
-          type="button"
-          @click="router.back()"
-          class="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 cursor-pointer"
-        >
-           {{ $t('common.cancel') }}
-        </button>
-        <button
-          type="submit"
-          :disabled="isSubmitting"
-          class="ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 cursor-pointer"
-        >
+      <div class="flex justify-end space-x-3">
+        <BaseButton type="button" variant="secondary" @click="router.back()">
+          {{ $t('common.cancel') }}
+        </BaseButton>
+        <BaseButton type="submit" variant="primary" :loading="isSubmitting">
           {{ isSubmitting ? $t('board.writePost.updating') : $t('board.writePost.update') }}
-        </button>
+        </BaseButton>
       </div>
     </form>
   </div>

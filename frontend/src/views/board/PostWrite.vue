@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watchEffect } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useBoard } from '@/composables/useBoard'
 import { usePost } from '@/composables/usePost'
@@ -9,10 +9,11 @@ import { QuillEditor } from '@vueup/vue-quill'
 import '@vueup/vue-quill/dist/vue-quill.snow.css'
 import axios from '@/api'
 import logger from '@/utils/logger'
+import { useAuthStore } from '@/stores/auth'
+import BaseInput from '@/components/common/BaseInput.vue'
+import BaseButton from '@/components/common/BaseButton.vue'
 
 const { t } = useI18n()
-
-import { useAuthStore } from '@/stores/auth'
 
 const route = useRoute()
 const router = useRouter()
@@ -46,9 +47,9 @@ const toolbarOptions = [
   ['blockquote', 'code-block'],
 
   [{ 'header': 1 }, { 'header': 2 }],               // custom button values
-  [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-  [{ 'script': 'sub'}, { 'script': 'super' }],      // superscript/subscript
-  [{ 'indent': '-1'}, { 'indent': '+1' }],          // outdent/indent
+  [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+  [{ 'script': 'sub' }, { 'script': 'super' }],      // superscript/subscript
+  [{ 'indent': '-1' }, { 'indent': '+1' }],          // outdent/indent
   [{ 'direction': 'rtl' }],                         // text direction
 
   [{ 'size': ['small', false, 'large', 'huge'] }],  // custom dropdown
@@ -81,24 +82,24 @@ const imageHandler = () => {
           'Content-Type': 'multipart/form-data'
         }
       })
-      
+
       if (res.data.success) {
         const { url, fileId } = res.data.data
         fileIds.value.push(fileId)
-        
+
         let quill = null
         if (editor.value) {
-             if (typeof editor.value.getQuill === 'function') {
-                 quill = editor.value.getQuill()
-             } else {
-                 quill = editor.value // Assuming it was overwritten by onEditorReady
-             }
+          if (typeof editor.value.getQuill === 'function') {
+            quill = editor.value.getQuill()
+          } else {
+            quill = editor.value // Assuming it was overwritten by onEditorReady
+          }
         }
-        
+
         if (quill) {
-            const range = quill.getSelection(true)
-            quill.insertEmbed(range.index, 'image', url)
-            quill.setSelection(range.index + 1)
+          const range = quill.getSelection(true)
+          quill.insertEmbed(range.index, 'image', url)
+          quill.setSelection(range.index + 1)
         }
       }
     } catch (err) {
@@ -114,11 +115,10 @@ const onEditorReady = (quill) => {
 }
 
 // Set default category when loaded
-import { watchEffect } from 'vue'
 watchEffect(() => {
-    if (categories.value && categories.value.length > 0 && !form.value.categoryId) {
-        form.value.categoryId = categories.value[0].categoryId
-    }
+  if (categories.value && categories.value.length > 0 && !form.value.categoryId) {
+    form.value.categoryId = categories.value[0].categoryId
+  }
 })
 
 async function handleSubmit() {
@@ -130,24 +130,24 @@ async function handleSubmit() {
   error.value = ''
 
   const payload = {
-      categoryId: form.value.categoryId,
-      title: form.value.title,
-      contents: form.value.contents,
-      tags: form.value.tags,
-      isNsfw: board.value?.allowNsfw ? form.value.isNsfw : false,
-      isSpoiler: form.value.isSpoiler,
-      isNotice: form.value.isNotice,
-      fileIds: fileIds.value // Send collected fileIds
+    categoryId: form.value.categoryId,
+    title: form.value.title,
+    contents: form.value.contents,
+    tags: form.value.tags,
+    isNsfw: board.value?.allowNsfw ? form.value.isNsfw : false,
+    isSpoiler: form.value.isSpoiler,
+    isNotice: form.value.isNotice,
+    fileIds: fileIds.value // Send collected fileIds
   }
 
   createPost({ boardUrl: boardUrl.value, data: payload }, {
-      onSuccess: () => {
-          router.push(`/board/${boardUrl.value}`)
-      },
-      onError: (err) => {
-          logger.error('Failed to create post:', err)
-          error.value = err.response?.data?.error?.message || t('board.writePost.failCreate')
-      }
+    onSuccess: () => {
+      router.push(`/board/${boardUrl.value}`)
+    },
+    onError: (err) => {
+      logger.error('Failed to create post:', err)
+      error.value = err.response?.data?.error?.message || t('board.writePost.failCreate')
+    }
   })
 }
 </script>
@@ -179,12 +179,8 @@ async function handleSubmit() {
         <div class="sm:col-span-3">
           <label for="category" class="block text-sm font-medium text-gray-700">{{ $t('common.category') }}</label>
           <div class="mt-1">
-            <select
-              id="category"
-              v-model="form.categoryId"
-              name="category"
-              class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md p-2"
-            >
+            <select id="category" v-model="form.categoryId" name="category"
+              class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md p-2">
               <option v-for="category in categories" :key="category.categoryId" :value="category.categoryId">
                 {{ category.name }}
               </option>
@@ -193,31 +189,15 @@ async function handleSubmit() {
         </div>
 
         <div class="sm:col-span-6">
-          <label for="title" class="block text-sm font-medium text-gray-700">{{ $t('common.title') }}</label>
-          <div class="mt-1">
-            <input
-              type="text"
-              name="title"
-              id="title"
-              v-model="form.title"
-              required
-              class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md p-2"
-              :placeholder="$t('board.writePost.placeholder.title')"
-            />
-          </div>
+          <BaseInput id="title" v-model="form.title" name="title" type="text" required
+            :placeholder="$t('board.writePost.placeholder.title')" :label="$t('common.title')" />
         </div>
 
         <div class="sm:col-span-6">
           <label for="contents" class="block text-sm font-medium text-gray-700">{{ $t('common.content') }}</label>
           <div class="mt-1 h-96">
-            <QuillEditor
-              ref="editor"
-              :toolbar="toolbarOptions"
-              theme="snow"
-              contentType="html"
-              v-model:content="form.contents"
-              @ready="onEditorReady"
-            />
+            <QuillEditor ref="editor" :toolbar="toolbarOptions" theme="snow" contentType="html"
+              v-model:content="form.contents" @ready="onEditorReady" />
           </div>
         </div>
 
@@ -231,13 +211,8 @@ async function handleSubmit() {
         <div class="sm:col-span-6">
           <div v-if="board?.isAdmin" class="flex items-start mb-4">
             <div class="flex items-center h-5">
-              <input
-                id="isNotice"
-                name="isNotice"
-                type="checkbox"
-                v-model="form.isNotice"
-                class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded cursor-pointer"
-              />
+              <input id="isNotice" name="isNotice" type="checkbox" v-model="form.isNotice"
+                class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded cursor-pointer" />
             </div>
             <div class="ml-3 text-sm">
               <label for="isNotice" class="font-medium text-gray-700 cursor-pointer">{{ $t('common.notice') }}</label>
@@ -247,52 +222,36 @@ async function handleSubmit() {
 
           <div v-if="board?.allowNsfw" class="flex items-start">
             <div class="flex items-center h-5">
-              <input
-                id="isNsfw"
-                name="isNsfw"
-                type="checkbox"
-                v-model="form.isNsfw"
-                class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded cursor-pointer"
-              />
+              <input id="isNsfw" name="isNsfw" type="checkbox" v-model="form.isNsfw"
+                class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded cursor-pointer" />
             </div>
             <div class="ml-3 text-sm">
-              <label for="isNsfw" class="font-medium text-gray-700 cursor-pointer">{{ $t('board.writePost.nsfw') }}</label>
+              <label for="isNsfw" class="font-medium text-gray-700 cursor-pointer">{{ $t('board.writePost.nsfw')
+                }}</label>
               <p class="text-gray-500">{{ $t('board.writePost.nsfwDesc') }}</p>
             </div>
           </div>
           <div class="flex items-start mt-4">
             <div class="flex items-center h-5">
-              <input
-                id="isSpoiler"
-                name="isSpoiler"
-                type="checkbox"
-                v-model="form.isSpoiler"
-                class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded cursor-pointer"
-              />
+              <input id="isSpoiler" name="isSpoiler" type="checkbox" v-model="form.isSpoiler"
+                class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded cursor-pointer" />
             </div>
             <div class="ml-3 text-sm">
-              <label for="isSpoiler" class="font-medium text-gray-700 cursor-pointer">{{ $t('board.writePost.spoiler') }}</label>
+              <label for="isSpoiler" class="font-medium text-gray-700 cursor-pointer">{{ $t('board.writePost.spoiler')
+                }}</label>
               <p class="text-gray-500">{{ $t('board.writePost.spoilerDesc') }}</p>
             </div>
           </div>
         </div>
       </div>
 
-      <div class="flex justify-end">
-        <button
-          type="button"
-          @click="router.back()"
-          class="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 cursor-pointer"
-        >
-           {{ $t('common.cancel') }}
-        </button>
-        <button
-          type="submit"
-          :disabled="isSubmitting"
-          class="ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 cursor-pointer"
-        >
+      <div class="flex justify-end space-x-3">
+        <BaseButton type="button" variant="secondary" @click="router.back()">
+          {{ $t('common.cancel') }}
+        </BaseButton>
+        <BaseButton type="submit" variant="primary" :loading="isSubmitting">
           {{ isSubmitting ? $t('board.writePost.submitting') : $t('common.submit') }}
-        </button>
+        </BaseButton>
       </div>
     </form>
   </div>
