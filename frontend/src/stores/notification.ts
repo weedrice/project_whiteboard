@@ -3,8 +3,16 @@ import { ref } from 'vue'
 import { notificationApi } from '@/api/notification'
 import logger from '@/utils/logger'
 
+export interface Notification {
+    notificationId: number;
+    message: string;
+    isRead: boolean;
+    // Add other properties as needed
+    [key: string]: any;
+}
+
 export const useNotificationStore = defineStore('notification', () => {
-    const notifications = ref([])
+    const notifications = ref<Notification[]>([])
     const unreadCount = ref(0)
     const totalPages = ref(0)
     const totalElements = ref(0)
@@ -15,7 +23,7 @@ export const useNotificationStore = defineStore('notification', () => {
         try {
             const { data } = await notificationApi.getNotifications({ page, size })
             if (data.success) {
-                const mappedContent = data.data.content.map(n => ({
+                const mappedContent = data.data.content.map((n: any) => ({
                     ...n,
                     isRead: n.isRead === true || n.isRead === 'Y' || n.is_read === 'Y' || n.is_read === true || n.read === true
                 }))
@@ -41,7 +49,7 @@ export const useNotificationStore = defineStore('notification', () => {
         }
     }
 
-    async function markAsRead(notificationId) {
+    async function markAsRead(notificationId: number) {
         try {
             const { data } = await notificationApi.markAsRead(notificationId)
             if (data.success) {

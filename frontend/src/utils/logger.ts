@@ -1,17 +1,17 @@
-import log from 'loglevel'
+import log, { type Logger } from 'loglevel'
 import prefix from 'loglevel-plugin-prefix'
 
 // Apply the prefix plugin to loglevel
 prefix.reg(log)
 prefix.apply(log, {
     template: '[%t] %l:',
-    levelFormatter(level) {
+    levelFormatter(level: string): string {
         return level.toUpperCase()
     },
-    nameFormatter(name) {
+    nameFormatter(name: string | undefined): string {
         return name || 'root'
     },
-    timestampFormatter(date) {
+    timestampFormatter(date: Date): string {
         return date.toLocaleTimeString()
     },
 })
@@ -25,4 +25,4 @@ if (import.meta.env.DEV) {
     log.setLevel('warn')
 }
 
-export default log
+export default log as Logger

@@ -1,18 +1,18 @@
 import { useQuery } from '@tanstack/vue-query'
-import { searchApi } from '@/api/search'
-import { computed } from 'vue'
+import { searchApi, type SearchParams, type PopularKeyword } from '@/api/search'
+import { computed, type Ref } from 'vue'
 
 export function useSearch() {
 
-    const useSearchPosts = (params) => {
+    const useSearchPosts = (params: Ref<SearchParams>) => {
         return useQuery({
             queryKey: ['search', 'posts', params],
             queryFn: async () => {
                 const { data } = await searchApi.searchPosts(params.value)
                 return data.data
             },
-            enabled: computed(() => !!params.value.q),
-            keepPreviousData: true
+            enabled: computed(() => !!params.value.q || !!params.value.keyword),
+            placeholderData: (previousData: any) => previousData // keepPreviousData renamed/changed in v5
         })
     }
 
@@ -23,13 +23,14 @@ export function useSearch() {
             queryFn: async () => {
                 // Simulate API call
                 await new Promise(resolve => setTimeout(resolve, 500))
-                return [
+                const mockData: PopularKeyword[] = [
                     { keyword: 'Vue 3', count: 120 },
                     { keyword: 'Tailwind', count: 95 },
                     { keyword: 'Vite', count: 80 },
                     { keyword: 'Pinia', count: 65 },
                     { keyword: 'JavaScript', count: 50 }
                 ]
+                return mockData
             },
             staleTime: 1000 * 60 * 5 // 5 minutes
         })

@@ -5,13 +5,23 @@ import { useThemeStore } from '@/stores/theme'
 import router from '@/router'
 import logger from '@/utils/logger'
 
+export interface User {
+    id: number;
+    username: string;
+    email: string;
+    role: 'USER' | 'ADMIN' | 'SUPER_ADMIN';
+    status: 'ACTIVE' | 'INACTIVE' | 'SANCTIONED';
+    theme?: 'LIGHT' | 'DARK';
+    [key: string]: any;
+}
+
 export const useAuthStore = defineStore('auth', () => {
-    const user = ref(null)
-    const accessToken = ref(localStorage.getItem('accessToken'))
+    const user = ref<User | null>(null)
+    const accessToken = ref<string | null>(localStorage.getItem('accessToken'))
     const isAuthenticated = computed(() => !!accessToken.value)
     const themeStore = useThemeStore()
 
-    async function login(credentials) {
+    async function login(credentials: any) {
         try {
             const { data } = await authApi.login(credentials)
             if (data.success) {
@@ -63,7 +73,7 @@ export const useAuthStore = defineStore('auth', () => {
                 user.value = data.data
 
                 // Check for sanctions
-                if (user.value.status === 'SANCTIONED') {
+                if (user.value?.status === 'SANCTIONED') {
                     alert('Your account has been sanctioned. You will be logged out.')
                     await logout()
                     return

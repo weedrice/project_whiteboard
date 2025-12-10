@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
 import { boardApi } from '@/api/board'
 import { searchApi } from '@/api/search'
-import { computed } from 'vue'
+import { computed, type Ref } from 'vue'
 
 export function useBoard() {
     const queryClient = useQueryClient()
@@ -19,7 +19,7 @@ export function useBoard() {
     }
 
     // Fetch single board details
-    const useBoardDetail = (boardUrl, options = {}) => {
+    const useBoardDetail = (boardUrl: Ref<string>, options = {}) => {
         return useQuery({
             queryKey: ['board', boardUrl],
             queryFn: async () => {
@@ -32,7 +32,7 @@ export function useBoard() {
     }
 
     // Fetch posts for a board (supports search)
-    const useBoardPosts = (boardUrl, params, isSearching) => {
+    const useBoardPosts = (boardUrl: Ref<string>, params: Ref<any>, isSearching?: Ref<boolean>) => {
         return useQuery({
             queryKey: ['board', boardUrl, 'posts', params, isSearching],
             queryFn: async () => {
@@ -45,12 +45,12 @@ export function useBoard() {
                 }
             },
             enabled: computed(() => !!boardUrl.value),
-            keepPreviousData: true,
+            placeholderData: (previousData: any) => previousData,
         })
     }
 
     // Fetch notices for a board
-    const useBoardNotices = (boardUrl) => {
+    const useBoardNotices = (boardUrl: Ref<string>) => {
         return useQuery({
             queryKey: ['board', boardUrl, 'notices'],
             queryFn: async () => {
@@ -64,7 +64,7 @@ export function useBoard() {
     // Subscribe/Unsubscribe mutation
     const useSubscribeBoard = () => {
         return useMutation({
-            mutationFn: async ({ boardUrl, isSubscribed }) => {
+            mutationFn: async ({ boardUrl, isSubscribed }: { boardUrl: string, isSubscribed: boolean }) => {
                 if (isSubscribed) {
                     await boardApi.unsubscribeBoard(boardUrl)
                 } else {
@@ -73,14 +73,14 @@ export function useBoard() {
             },
             onSuccess: (_, { boardUrl }) => {
                 // Invalidate board details and boards list to refresh subscription status
-                queryClient.invalidateQueries(['board', boardUrl])
-                queryClient.invalidateQueries(['boards'])
+                queryClient.invalidateQueries({ queryKey: ['board', boardUrl] })
+                queryClient.invalidateQueries({ queryKey: ['boards'] })
             }
         })
     }
 
     // Fetch categories for a board
-    const useBoardCategories = (boardUrl) => {
+    const useBoardCategories = (boardUrl: Ref<string>) => {
         return useQuery({
             queryKey: ['board', boardUrl, 'categories'],
             queryFn: async () => {

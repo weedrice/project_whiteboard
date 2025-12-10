@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
-import { userApi } from '@/api/user'
-import { computed } from 'vue'
+import { userApi, type UserUpdatePayload } from '@/api/user'
+import { computed, type Ref } from 'vue'
 
 export function useUser() {
     const queryClient = useQueryClient()
@@ -18,7 +18,7 @@ export function useUser() {
         })
     }
 
-    const useUserProfile = (userId) => {
+    const useUserProfile = (userId: Ref<string | number>) => {
         return useQuery({
             queryKey: ['user', userId],
             queryFn: async () => {
@@ -63,19 +63,19 @@ export function useUser() {
 
     const useUpdateMyProfile = () => {
         return useMutation({
-            mutationFn: async (data) => {
+            mutationFn: async (data: UserUpdatePayload) => {
                 const { data: res } = await userApi.updateMyProfile(data)
                 return res
             },
             onSuccess: () => {
-                queryClient.invalidateQueries(['user', 'me'])
+                queryClient.invalidateQueries({ queryKey: ['user', 'me'] })
             }
         })
     }
 
     const useUpdatePassword = () => {
         return useMutation({
-            mutationFn: async ({ currentPassword, newPassword }) => {
+            mutationFn: async ({ currentPassword, newPassword }: any) => {
                 const { data } = await userApi.updatePassword(currentPassword, newPassword)
                 return data
             }
@@ -84,7 +84,7 @@ export function useUser() {
 
     const useDeleteAccount = () => {
         return useMutation({
-            mutationFn: async (password) => {
+            mutationFn: async (password: string) => {
                 const { data } = await userApi.deleteAccount(password)
                 return data
             },
@@ -97,53 +97,53 @@ export function useUser() {
 
     const useUpdateUserSettings = () => {
         return useMutation({
-            mutationFn: async (data) => {
+            mutationFn: async (data: any) => {
                 const { data: res } = await userApi.updateUserSettings(data)
                 return res
             },
             onSuccess: () => {
-                queryClient.invalidateQueries(['user', 'settings'])
+                queryClient.invalidateQueries({ queryKey: ['user', 'settings'] })
             }
         })
     }
 
     const useUpdateNotificationSettings = () => {
         return useMutation({
-            mutationFn: async (data) => {
+            mutationFn: async (data: any) => {
                 const { data: res } = await userApi.updateNotificationSettings(data)
                 return res
             },
             onSuccess: () => {
-                queryClient.invalidateQueries(['user', 'notification-settings'])
+                queryClient.invalidateQueries({ queryKey: ['user', 'notification-settings'] })
             }
         })
     }
 
     const useBlockUser = () => {
         return useMutation({
-            mutationFn: async (userId) => {
+            mutationFn: async (userId: string | number) => {
                 const { data } = await userApi.blockUser(userId)
                 return data
             },
             onSuccess: () => {
-                queryClient.invalidateQueries(['user', 'blocks'])
+                queryClient.invalidateQueries({ queryKey: ['user', 'blocks'] })
             }
         })
     }
 
     const useUnblockUser = () => {
         return useMutation({
-            mutationFn: async (userId) => {
+            mutationFn: async (userId: string | number) => {
                 const { data } = await userApi.unblockUser(userId)
                 return data
             },
             onSuccess: () => {
-                queryClient.invalidateQueries(['user', 'blocks'])
+                queryClient.invalidateQueries({ queryKey: ['user', 'blocks'] })
             }
         })
     }
 
-    const useRecentlyViewedPosts = (params) => {
+    const useRecentlyViewedPosts = (params?: Ref<any>) => {
         return useQuery({
             queryKey: ['user', 'history', 'views', params],
             queryFn: async () => {

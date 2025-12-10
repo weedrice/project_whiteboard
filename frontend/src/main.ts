@@ -18,7 +18,7 @@ app.use(i18n)
 
 const queryClient = new QueryClient({
     queryCache: new QueryCache({
-        onError: (error, query) => {
+        onError: (error: any, query) => {
             if (query.meta?.errorMessage === false) return
 
             const toastStore = useToastStore()
@@ -28,7 +28,7 @@ const queryClient = new QueryClient({
         }
     }),
     mutationCache: new MutationCache({
-        onError: (error, variables, context, mutation) => {
+        onError: (error: any, variables, context, mutation) => {
             if (mutation.meta?.errorMessage === false) return
 
             const toastStore = useToastStore()

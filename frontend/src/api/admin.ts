@@ -5,22 +5,22 @@ export const adminApi = {
     getAdmins() {
         return api.get('/admin/admins')
     },
-    createAdmin(data) {
+    createAdmin(data: any) {
         return api.post('/admin/admins', data)
     },
-    deactivateAdmin(adminId) {
+    deactivateAdmin(adminId: string | number) {
         return api.put(`/admin/admins/${adminId}/deactivate`)
     },
-    activateAdmin(adminId) {
+    activateAdmin(adminId: string | number) {
         return api.put(`/admin/admins/${adminId}/activate`)
     },
     getSuperAdmin() {
         return api.get('/admin/super')
     },
-    activeSuperAdmin(data) {
+    activeSuperAdmin(data: any) {
         return api.put('/admin/super/active', data)
     },
-    deactiveSuperAdmin(data) {
+    deactiveSuperAdmin(data: any) {
         return api.put('/admin/super/deactive', data)
     },
 
@@ -28,29 +28,29 @@ export const adminApi = {
     getIpBlocks() {
         return api.get('/admin/ip-blocks')
     },
-    blockIp(data) {
+    blockIp(data: any) {
         return api.post('/admin/ip-blocks', data)
     },
-    unblockIp(ipAddress) {
+    unblockIp(ipAddress: string) {
         return api.delete(`/admin/ip-blocks/${ipAddress}`)
     },
 
     // 사용자 관리
-    getUsers(params) {
+    getUsers(params: any) {
         return api.get('/admin/users', { params })
     },
-    updateUserStatus(userId, status) {
+    updateUserStatus(userId: string | number, status: string) {
         return api.put(`/admin/users/${userId}/status`, { status })
     },
-    sanctionUser(data) {
+    sanctionUser(data: any) {
         return api.post('/admin/sanctions', data)
     },
 
     // 신고 관리
-    getReports(params) {
+    getReports(params: any) {
         return api.get('/admin/reports', { params })
     },
-    resolveReport(reportId, data) {
+    resolveReport(reportId: string | number, data: any) {
         return api.put(`/admin/reports/${reportId}`, data)
     },
 
@@ -59,15 +59,15 @@ export const adminApi = {
         return api.get('/admin/configs')
     },
 
-    updateConfig(key, value, description) {
+    updateConfig(key: string, value: string, description: string) {
         return api.put(`/admin/configs/${key}`, { value, description })
     },
 
-    createConfig(data) {
+    createConfig(data: any) {
         return api.post('/admin/configs', data)
     },
 
-    deleteConfig(key) {
+    deleteConfig(key: string) {
         return api.delete(`/admin/configs/${key}`)
     },
 
@@ -80,13 +80,13 @@ export const adminApi = {
     getBoards() {
         return api.get('/boards/all')
     },
-    createBoard(data) {
+    createBoard(data: any) {
         return api.post('/boards', data)
     },
-    updateBoard(boardUrl, data) {
+    updateBoard(boardUrl: string, data: any) {
         return api.put(`/boards/${boardUrl}`, data)
     },
-    deleteBoard(boardUrl) {
+    deleteBoard(boardUrl: string) {
         return api.delete(`/boards/${boardUrl}`)
     }
 }

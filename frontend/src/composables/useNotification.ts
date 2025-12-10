@@ -1,24 +1,24 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
-import { notificationApi } from '@/api/notification'
-import { computed } from 'vue'
+import { notificationApi, type NotificationParams, type Notification } from '@/api/notification'
+import { type Ref } from 'vue'
 
 export function useNotification() {
     const queryClient = useQueryClient()
 
-    const useNotifications = (params) => {
+    const useNotifications = (params: Ref<NotificationParams>) => {
         return useQuery({
             queryKey: ['notifications', params],
             queryFn: async () => {
                 const { data } = await notificationApi.getNotifications(params.value)
                 if (data.success && data.data.content) {
-                    data.data.content = data.data.content.map(n => ({
+                    data.data.content = data.data.content.map((n: any) => ({
                         ...n,
                         isRead: n.isRead === true || n.isRead === 'Y' || n.is_read === 'Y' || n.is_read === true || n.read === true
                     }))
                 }
                 return data.data
             },
-            keepPreviousData: true
+            placeholderData: (previousData: any) => previousData
         })
     }
 
@@ -35,12 +35,12 @@ export function useNotification() {
 
     const useMarkAsRead = () => {
         return useMutation({
-            mutationFn: async (notificationId) => {
+            mutationFn: async (notificationId: string | number) => {
                 const { data } = await notificationApi.markAsRead(notificationId)
                 return data
             },
             onSuccess: () => {
-                queryClient.invalidateQueries(['notifications'])
+                queryClient.invalidateQueries({ queryKey: ['notifications'] })
             }
         })
     }
@@ -52,7 +52,7 @@ export function useNotification() {
                 return data
             },
             onSuccess: () => {
-                queryClient.invalidateQueries(['notifications'])
+                queryClient.invalidateQueries({ queryKey: ['notifications'] })
             }
         })
     }

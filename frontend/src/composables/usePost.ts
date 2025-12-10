@@ -1,12 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
 import { postApi } from '@/api/post'
-import { computed } from 'vue'
+import { computed, type Ref } from 'vue'
 
 export function usePost() {
     const queryClient = useQueryClient()
 
     // Fetch single post details
-    const usePostDetail = (postId, options = {}) => {
+    const usePostDetail = (postId: Ref<string | number>, options = {}) => {
         return useQuery({
             queryKey: ['post', postId],
             queryFn: async () => {
@@ -21,11 +21,11 @@ export function usePost() {
     // Create a new post
     const useCreatePost = () => {
         return useMutation({
-            mutationFn: async ({ boardUrl, data }) => {
+            mutationFn: async ({ boardUrl, data }: { boardUrl: string, data: any }) => {
                 return await postApi.createPost(boardUrl, data)
             },
             onSuccess: (_, { boardUrl }) => {
-                queryClient.invalidateQueries(['board', boardUrl, 'posts'])
+                queryClient.invalidateQueries({ queryKey: ['board', boardUrl, 'posts'] })
             }
         })
     }
@@ -33,11 +33,11 @@ export function usePost() {
     // Update a post
     const useUpdatePost = () => {
         return useMutation({
-            mutationFn: async ({ postId, data }) => {
+            mutationFn: async ({ postId, data }: { postId: string | number, data: any }) => {
                 return await postApi.updatePost(postId, data)
             },
             onSuccess: (_, { postId }) => {
-                queryClient.invalidateQueries(['post', postId])
+                queryClient.invalidateQueries({ queryKey: ['post', postId] })
             }
         })
     }
@@ -45,13 +45,13 @@ export function usePost() {
     // Delete a post
     const useDeletePost = () => {
         return useMutation({
-            mutationFn: async (postId) => {
+            mutationFn: async (postId: string | number) => {
                 return await postApi.deletePost(postId)
             },
             onSuccess: () => {
                 // Invalidate relevant queries (e.g., board posts)
                 // Note: We might need boardUrl to be more specific, but 'posts' key usually includes boardUrl
-                queryClient.invalidateQueries(['board'])
+                queryClient.invalidateQueries({ queryKey: ['board'] })
             }
         })
     }
@@ -59,11 +59,11 @@ export function usePost() {
     // Like a post
     const useLikePost = () => {
         return useMutation({
-            mutationFn: async (postId) => {
+            mutationFn: async (postId: string | number) => {
                 return await postApi.likePost(postId)
             },
             onSuccess: (_, postId) => {
-                queryClient.invalidateQueries(['post', postId])
+                queryClient.invalidateQueries({ queryKey: ['post', postId] })
             }
         })
     }
@@ -71,11 +71,11 @@ export function usePost() {
     // Unlike a post
     const useUnlikePost = () => {
         return useMutation({
-            mutationFn: async (postId) => {
+            mutationFn: async (postId: string | number) => {
                 return await postApi.unlikePost(postId)
             },
             onSuccess: (_, postId) => {
-                queryClient.invalidateQueries(['post', postId])
+                queryClient.invalidateQueries({ queryKey: ['post', postId] })
             }
         })
     }
@@ -83,11 +83,11 @@ export function usePost() {
     // Scrap a post
     const useScrapPost = () => {
         return useMutation({
-            mutationFn: async (postId) => {
+            mutationFn: async (postId: string | number) => {
                 return await postApi.scrapPost(postId)
             },
             onSuccess: (_, postId) => {
-                queryClient.invalidateQueries(['post', postId])
+                queryClient.invalidateQueries({ queryKey: ['post', postId] })
             }
         })
     }
@@ -95,11 +95,11 @@ export function usePost() {
     // Unscrap a post
     const useUnscrapPost = () => {
         return useMutation({
-            mutationFn: async (postId) => {
+            mutationFn: async (postId: string | number) => {
                 return await postApi.unscrapPost(postId)
             },
             onSuccess: (_, postId) => {
-                queryClient.invalidateQueries(['post', postId])
+                queryClient.invalidateQueries({ queryKey: ['post', postId] })
             }
         })
     }

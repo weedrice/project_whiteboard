@@ -1,11 +1,16 @@
-import axios from 'axios'
+import axios, { type AxiosInstance, type AxiosRequestConfig, type AxiosResponse, type InternalAxiosRequestConfig } from 'axios'
 import i18n from '@/i18n'
-
 import router from '@/router'
 
 const { t } = i18n.global
 
-const api = axios.create({
+// Extend InternalAxiosRequestConfig to include _retry property
+interface CustomAxiosRequestConfig extends InternalAxiosRequestConfig {
+    _retry?: boolean;
+    redirectOnError?: boolean;
+}
+
+const api: AxiosInstance = axios.create({
     baseURL: import.meta.env.VITE_API_URL || '/api/v1',
     timeout: 10000,
     headers: {
@@ -15,25 +20,25 @@ const api = axios.create({
 
 // Request Interceptor
 api.interceptors.request.use(
-    (config) => {
+    (config: InternalAxiosRequestConfig) => {
         const token = localStorage.getItem('accessToken')
         if (token) {
             config.headers.Authorization = `Bearer ${token}`
         }
         return config
     },
-    (error) => {
+    (error: any) => {
         return Promise.reject(error)
     }
 )
 
 // Response Interceptor
 api.interceptors.response.use(
-    (response) => {
+    (response: AxiosResponse) => {
         return response
     },
-    async (error) => {
-        const originalRequest = error.config
+    async (error: any) => {
+        const originalRequest = error.config as CustomAxiosRequestConfig
         // Import store dynamically to avoid circular dependency issues during initialization
         const { useToastStore } = await import('@/stores/toast')
         const toastStore = useToastStore()
@@ -82,7 +87,7 @@ api.interceptors.response.use(
         if (originalRequest?.redirectOnError) {
             const status = error.response?.status || 500
             const message = error.response?.data?.message || error.message
-            router.push({ name: 'error', query: { status, message } })
+            router.push({ name: 'error', query: { status: status.toString(), message } })
             return Promise.reject(error)
         }
 
@@ -111,9 +116,9 @@ api.interceptors.response.use(
             }
         } else if (error.request) {
             // Network error
-            toastStore.addToast(message || t('common.messages.network'), 'error')
+            toastStore.addToast(error.message || t('common.messages.network'), 'error')
         } else {
-            toastStore.addToast(message || t('common.messages.requestSetup'), 'error')
+            toastStore.addToast(error.message || t('common.messages.requestSetup'), 'error')
         }
 
         return Promise.reject(error)

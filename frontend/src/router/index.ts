@@ -1,7 +1,17 @@
-import { createRouter, createWebHistory } from 'vue-router'
+import { createRouter, createWebHistory, type RouteLocationNormalized, type NavigationGuardNext } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import AdminLayout from '@/views/admin/AdminLayout.vue'
 import AdminDashboard from '@/views/admin/AdminDashboard.vue'
+
+// Extend RouteMeta interface
+declare module 'vue-router' {
+    interface RouteMeta {
+        requiresAuth?: boolean
+        guestOnly?: boolean
+        roles?: string[]
+        layout?: string
+    }
+}
 
 const router = createRouter({
     history: createWebHistory(import.meta.env.BASE_URL),
@@ -183,7 +193,7 @@ const router = createRouter({
     ],
 })
 
-router.beforeEach(async (to, from, next) => {
+router.beforeEach(async (to: RouteLocationNormalized, from: RouteLocationNormalized, next: NavigationGuardNext) => {
     const authStore = useAuthStore()
 
     // Initialize auth state from local storage if needed
@@ -200,7 +210,7 @@ router.beforeEach(async (to, from, next) => {
 
     if (to.meta.requiresAuth && !authStore.isAuthenticated) {
         next({ name: 'login', query: { redirect: to.fullPath } })
-    } else if (to.meta.roles && !to.meta.roles.includes(authStore.user?.role)) {
+    } else if (to.meta.roles && !to.meta.roles.includes(authStore.user?.role || '')) {
         // Role check (e.g. SUPER_ADMIN)
         next({ name: 'home' })
     } else if (to.meta.guestOnly && authStore.isAuthenticated) {

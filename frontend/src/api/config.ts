@@ -1,7 +1,7 @@
 import axios from '@/api'
 
 export const configApi = {
-    getConfig(key) {
+    getConfig(key: string) {
         return axios.get(`/configs/${key}`)
     }
 }
