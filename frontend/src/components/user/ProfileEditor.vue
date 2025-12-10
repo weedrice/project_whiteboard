@@ -5,7 +5,9 @@
       <!-- Image Upload -->
       <div class="flex items-center space-x-6">
         <div class="shrink-0 border border-gray-200 rounded-full overflow-hidden h-16 w-16">
-          <img class="h-full w-full object-contain bg-white" :src="previewImage || authStore.user?.profileImageUrl || 'https://via.placeholder.com/150'" alt="Current profile photo" />
+          <img class="h-full w-full object-contain bg-white"
+            :src="previewImage || authStore.user?.profileImageUrl || 'https://via.placeholder.com/150'"
+            alt="Current profile photo" />
         </div>
         <label class="block">
           <span class="sr-only">Choose profile photo</span>
@@ -15,19 +17,15 @@
             file:text-sm file:font-semibold
             file:bg-violet-50 file:text-violet-700
             hover:file:bg-violet-100
-          "/>
+          " />
         </label>
       </div>
 
-      <BaseInput
-        :label="$t('user.profile.displayName')"
-        v-model="form.displayName"
-        :error="errors.displayName"
-        placeholder="Enter your nickname"
-      />
-      
+      <BaseInput :label="$t('user.profile.displayName')" v-model="form.displayName" :error="errors.displayName"
+        placeholder="Enter your nickname" />
+
       <div class="flex justify-end">
-        <BaseButton type="submit" :disabled="loading">
+        <BaseButton type="submit" :loading="loading">
           {{ loading ? 'Saving...' : 'Save Changes' }}
         </BaseButton>
       </div>
@@ -103,16 +101,16 @@ const resizeImage = (file: File, maxWidth: number, maxHeight: number): Promise<F
       canvas.height = height
       const ctx = canvas.getContext('2d')
       if (ctx) {
-          ctx.drawImage(img, 0, 0, width, height)
-          canvas.toBlob((blob) => {
-            if (blob) {
-                resolve(new File([blob], file.name, { type: file.type }))
-            } else {
-                reject(new Error('Canvas to Blob failed'))
-            }
-          }, file.type)
+        ctx.drawImage(img, 0, 0, width, height)
+        canvas.toBlob((blob) => {
+          if (blob) {
+            resolve(new File([blob], file.name, { type: file.type }))
+          } else {
+            reject(new Error('Canvas to Blob failed'))
+          }
+        }, file.type)
       } else {
-          reject(new Error('Could not get canvas context'))
+        reject(new Error('Could not get canvas context'))
       }
     }
     img.onerror = reject
@@ -122,7 +120,7 @@ const resizeImage = (file: File, maxWidth: number, maxHeight: number): Promise<F
 const updateProfile = async () => {
   loading.value = true
   errors.displayName = ''
-  
+
   try {
     let profileImageUrl = authStore.user?.profileImageUrl
     let profileImageId: number | null = null
@@ -130,7 +128,7 @@ const updateProfile = async () => {
     if (selectedFile.value) {
       const formData = new FormData()
       formData.append('file', selectedFile.value)
-      
+
       const uploadRes = await axios.post('/files/upload', formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
@@ -149,22 +147,22 @@ const updateProfile = async () => {
     }
 
     updateProfileMutate(payload, {
-        onSuccess: async () => {
-            await authStore.fetchUser()
-            alert('Profile updated successfully')
-            loading.value = false
-        },
-        onError: (error: any) => {
-            logger.error('Failed to update profile:', error)
-            if (error.response?.data?.message) {
-                errors.displayName = error.response.data.message
-            } else {
-                alert('Failed to update profile')
-            }
-            loading.value = false
+      onSuccess: async () => {
+        await authStore.fetchUser()
+        alert('Profile updated successfully')
+        loading.value = false
+      },
+      onError: (error: any) => {
+        logger.error('Failed to update profile:', error)
+        if (error.response?.data?.message) {
+          errors.displayName = error.response.data.message
+        } else {
+          alert('Failed to update profile')
         }
+        loading.value = false
+      }
     })
-    
+
   } catch (error) {
     logger.error('Failed to process profile update:', error)
     loading.value = false
