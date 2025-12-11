@@ -6,55 +6,77 @@ import { postApi } from '@/api/post'
 import { Check } from 'lucide-vue-next'
 import logger from '@/utils/logger'
 import type { Notification, NotificationParams } from '@/api/notification'
+import { useI18n } from 'vue-i18n'
+
+import { useNotificationStore } from '@/stores/notification'
 
 const router = useRouter()
+const { t } = useI18n()
 const { useNotifications, useMarkAsRead, useMarkAllAsRead } = useNotification()
+const store = useNotificationStore()
 
 // Default params for dropdown
 const params = ref<NotificationParams>({ page: 0, size: 20 })
-const { data: notificationsData, isLoading } = useNotifications(params)
+// Trigger fetch via useQuery
+const { isLoading } = useNotifications(params)
 const { mutate: markAsRead } = useMarkAsRead()
 const { mutate: markAllAsRead } = useMarkAllAsRead()
+const { connectToSse } = useNotification()
 
-const notifications = computed<Notification[]>(() => notificationsData.value?.content || [])
+// Connect to SSE for real-time updates
+connectToSse()
+
+// Use store state directly to reflect SSE updates
+const notifications = computed<Notification[]>(() => store.notifications)
 
 async function handleNotificationClick(notification: Notification) {
   if (!notification.isRead) {
     markAsRead(notification.notificationId)
   }
-  
+
   // Navigate based on source type
   if (notification.sourceType === 'POST' || notification.sourceType === 'COMMENT') {
     // Assuming sourceId is postId for now
     if (notification.sourceType === 'POST') {
-        try {
-            const { data } = await postApi.getPost(notification.sourceId)
-            if (data.success && data.data.board) {
-                router.push(`/board/${data.data.board.boardUrl}/post/${notification.sourceId}`)
-            }
-        } catch (err) {
-            logger.error('Failed to navigate to post:', err)
+      try {
+        const { data } = await postApi.getPost(notification.sourceId)
+        if (data.success && data.data.board) {
+          router.push(`/board/${data.data.board.boardUrl}/post/${notification.sourceId}`)
         }
+      } catch (err) {
+        logger.error('Failed to navigate to post:', err)
+      }
     }
     // If we can't determine the URL, just stay here (marked as read)
   }
 }
 
-function formatDate(dateString: string) {
-  return new Date(dateString).toLocaleDateString()
+function formatTimeAgo(dateString: string) {
+  const date = new Date(dateString)
+  const now = new Date()
+  const seconds = Math.floor((now.getTime() - date.getTime()) / 1000)
+
+  if (seconds < 60) return t('common.time.justNow')
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return t('common.time.minutesAgo', { count: minutes })
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return t('common.time.hoursAgo', { count: hours })
+  const days = Math.floor(hours / 24)
+  if (days < 7) return t('common.time.daysAgo', { count: days })
+
+  return date.toLocaleDateString()
 }
 </script>
 
 <template>
-  <div class="origin-top-right absolute right-0 mt-2 w-80 rounded-md shadow-lg py-1 bg-white dark:bg-gray-800 ring-1 ring-black ring-opacity-5 focus:outline-none z-50 transition-colors duration-200">
+  <div
+    class="origin-top-right absolute right-0 mt-2 w-80 rounded-md shadow-lg py-1 bg-white dark:bg-gray-800 ring-1 ring-black ring-opacity-5 focus:outline-none z-50 transition-colors duration-200">
     <div class="px-4 py-2 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
-      <h3 class="text-sm font-medium text-gray-900 dark:text-white">Notifications</h3>
-      <button 
-        @click="() => markAllAsRead()"
-        class="text-xs text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300 flex items-center"
-      >
+      <h3 class="text-sm font-medium text-gray-900 dark:text-white">{{ $t('common.notifications') }}</h3>
+      <button @click="() => markAllAsRead()"
+        class="text-xs text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300 flex items-center">
         <Check class="h-3 w-3 mr-1" />
-        Mark all read
+        {{ $t('notification.markAllRead') }}
       </button>
     </div>
 
@@ -62,23 +84,21 @@ function formatDate(dateString: string) {
       <div v-if="isLoading && notifications.length === 0" class="px-4 py-4 text-center">
         <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-indigo-600 mx-auto"></div>
       </div>
-      
-      <div v-else-if="notifications.length === 0" class="px-4 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
-        No notifications.
+
+      <div v-else-if="notifications.length === 0"
+        class="px-4 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
+        {{ $t('notification.empty') }}
       </div>
 
-      <a
-        v-for="notification in notifications"
-        :key="notification.notificationId"
-        href="#"
+      <a v-for="notification in notifications" :key="notification.notificationId" href="#"
         @click.prevent="handleNotificationClick(notification)"
-        class="block px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition duration-150 ease-in-out"
-        :class="{ 'bg-blue-50 dark:bg-blue-900/20': !notification.isRead }"
-      >
+        class="block px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition duration-150 ease-in-out border-b border-gray-50 dark:border-gray-700 last:border-0"
+        :class="{ 'bg-blue-50 dark:bg-blue-900/20': !notification.isRead }">
         <div class="flex items-start">
           <div class="flex-shrink-0">
             <!-- Icon based on type could go here -->
-            <div class="h-8 w-8 rounded-full bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold">
+            <div
+              class="h-8 w-8 rounded-full bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold">
               {{ notification.actor.displayName[0] }}
             </div>
           </div>
@@ -90,7 +110,7 @@ function formatDate(dateString: string) {
               {{ notification.message }}
             </p>
             <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">
-              {{ formatDate(notification.createdAt) }}
+              {{ formatTimeAgo(notification.createdAt) }}
             </p>
           </div>
           <div v-if="!notification.isRead" class="ml-2 flex-shrink-0">
@@ -98,6 +118,13 @@ function formatDate(dateString: string) {
           </div>
         </div>
       </a>
+    </div>
+
+    <div class="px-4 py-2 border-t border-gray-100 dark:border-gray-700 text-center">
+      <router-link to="/mypage/notifications"
+        class="text-xs font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300">
+        {{ $t('common.viewAll') }}
+      </router-link>
     </div>
   </div>
 </template>

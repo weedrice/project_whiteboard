@@ -16,14 +16,23 @@ interface Category {
   name: string
   sortOrder: number
   isActive: boolean
+  minWriteRole: string
 }
+
+const roles = [
+  { value: 'USER', label: 'User' },
+  { value: 'BOARD_ADMIN', label: 'Board Admin' },
+  { value: 'SUPER_ADMIN', label: 'Super Admin' }
+]
 
 const categories = ref<Category[]>([])
 const isLoading = ref(true)
 const error = ref('')
 const newCategoryName = ref('')
+const newCategoryRole = ref('USER')
 const editingId = ref<number | null>(null)
 const editingName = ref('')
+const editingRole = ref('USER')
 const dragIndex = ref<number | null>(null)
 
 const generalCategory = computed(() => categories.value.find(c => c.name === '일반'))
@@ -50,11 +59,13 @@ async function handleAdd() {
   try {
     const { data } = await boardApi.createCategory(props.boardUrl, {
       name: newCategoryName.value,
+      minWriteRole: newCategoryRole.value,
       sortOrder: categories.value.length + 1
     })
     if (data.success) {
       categories.value.push(data.data)
       newCategoryName.value = ''
+      newCategoryRole.value = 'USER'
     }
   } catch (err) {
     logger.error('Failed to create category:', err)
@@ -79,11 +90,13 @@ async function handleDelete(categoryId: number) {
 function startEdit(category: Category) {
   editingId.value = category.categoryId
   editingName.value = category.name
+  editingRole.value = category.minWriteRole || 'USER'
 }
 
 function cancelEdit() {
   editingId.value = null
   editingName.value = ''
+  editingRole.value = 'USER'
 }
 
 async function saveEdit(category: Category) {
@@ -93,6 +106,7 @@ async function saveEdit(category: Category) {
     const { data } = await boardApi.updateCategory(props.boardUrl, category.categoryId, {
       name: editingName.value,
       sortOrder: category.sortOrder,
+      minWriteRole: editingRole.value,
       isActive: true
     })
     if (data.success) {
@@ -139,13 +153,14 @@ async function onDrop(index: number) {
     const updatePromises = categories.value.map((cat, idx) => {
       // If sortOrder is already correct, skip (optimization)
       if (cat.sortOrder === idx + 1) return Promise.resolve()
-      
+
       // Update local state first to reflect sortOrder immediately
       cat.sortOrder = idx + 1
-      
+
       return boardApi.updateCategory(props.boardUrl, cat.categoryId, {
         name: cat.name,
         sortOrder: idx + 1,
+        minWriteRole: cat.minWriteRole,
         isActive: cat.isActive
       })
     })
@@ -163,19 +178,15 @@ onMounted(fetchCategories)
 <template>
   <div class="space-y-4">
     <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-white">{{ $t('common.category') }}</h3>
-    
+
     <!-- Add Category -->
     <form @submit.prevent="handleAdd" class="flex gap-2">
-      <input
-        type="text"
-        v-model="newCategoryName"
-        :placeholder="$t('board.category.placeholder.new')"
-        class="input-base dark:bg-gray-700 dark:text-white dark:border-gray-600 dark:placeholder-gray-400"
-      />
-      <button
-        type="submit"
-        class="btn-primary"
-      >
+      <input type="text" v-model="newCategoryName" :placeholder="$t('board.category.placeholder.new')"
+        class="flex-1 input-base dark:bg-gray-700 dark:text-white dark:border-gray-600 dark:placeholder-gray-400" />
+      <select v-model="newCategoryRole" class="input-base w-32 dark:bg-gray-700 dark:text-white dark:border-gray-600">
+        <option v-for="role in roles" :key="role.value" :value="role.value">{{ role.label }}</option>
+      </select>
+      <button type="submit" class="btn-primary">
         <Plus class="h-4 w-4" />
       </button>
     </form>
@@ -185,74 +196,102 @@ onMounted(fetchCategories)
       <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600 mx-auto"></div>
     </div>
 
-    <div class="border border-gray-200 dark:border-gray-700 rounded-md divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-800" v-else>
-        <!-- General Category (Static) -->
-        <div 
-            v-if="generalCategory"
-            class="px-4 py-3 flex items-center justify-between bg-gray-50 dark:bg-gray-900/50"
-        >
-            <div class="flex items-center text-gray-400 dark:text-gray-500 cursor-not-allowed p-1 mr-3">
-                <GripVertical class="h-4 w-4" />
-            </div>
-            <div class="flex-1 flex items-center justify-between">
-                <span class="text-sm text-gray-900 dark:text-gray-200 font-medium">{{ generalCategory.name }} {{ $t('board.category.default') }}</span>
-                <!-- No actions for General -->
-            </div>
+    <div
+      class="border border-gray-200 dark:border-gray-700 rounded-md divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-800"
+      v-else>
+      <!-- General Category (Static) -->
+      <div v-if="generalCategory" class="px-4 py-3 flex items-center justify-between bg-gray-50 dark:bg-gray-900/50">
+        <div class="flex items-center text-gray-400 dark:text-gray-500 cursor-not-allowed p-1 mr-3">
+          <GripVertical class="h-4 w-4" />
         </div>
 
-        <!-- Draggable List -->
-        <transition-group 
-          name="list" 
-          tag="ul" 
-          class="divide-y divide-gray-200 dark:divide-gray-700"
-        >
-          <li 
-            v-for="(category, index) in draggableCategories" 
-            :key="category.categoryId" 
-            class="px-4 py-3 flex items-center justify-between group bg-white dark:bg-gray-800"
-            @dragover.prevent
-            @dragenter.prevent
-            @drop="onDrop(index)"
-          >
-            <div class="flex items-center">
-              <div 
-                draggable="true"
-                @dragstart="onDragStart($event, index)"
-                class="mr-3 cursor-move text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
-              >
-                <GripVertical class="h-4 w-4" />
-              </div>
+        <div v-if="editingId === generalCategory.categoryId" class="flex-1 flex items-center gap-2">
+          <span class="text-sm text-gray-900 dark:text-gray-200 font-medium">{{ generalCategory.name }} {{
+            $t('board.category.default') }}</span>
+          <div class="ml-auto flex items-center gap-2">
+            <select v-model="editingRole"
+              class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-32 sm:text-sm border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+              <option v-for="role in roles" :key="role.value" :value="role.value">{{ role.label }}</option>
+            </select>
+            <button @click="saveEdit(generalCategory)"
+              class="text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300">
+              <Check class="h-4 w-4" />
+            </button>
+            <button @click="cancelEdit"
+              class="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
+              <X class="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+
+        <div v-else class="flex-1 flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="text-sm text-gray-900 dark:text-gray-200 font-medium">{{ generalCategory.name }} {{
+              $t('board.category.default') }}</span>
+            <span
+              class="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full">{{
+                generalCategory.minWriteRole || 'USER' }}</span>
+          </div>
+          <button @click="startEdit(generalCategory)"
+            class="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300">
+            <Edit2 class="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+
+      <!-- Draggable List -->
+      <transition-group name="list" tag="ul" class="divide-y divide-gray-200 dark:divide-gray-700">
+        <li v-for="(category, index) in draggableCategories" :key="category.categoryId"
+          class="px-4 py-3 flex items-center justify-between group bg-white dark:bg-gray-800" @dragover.prevent
+          @dragenter.prevent @drop="onDrop(index)">
+          <div class="flex items-center">
+            <div draggable="true" @dragstart="onDragStart($event, index)"
+              class="mr-3 cursor-move text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700">
+              <GripVertical class="h-4 w-4" />
             </div>
-    
-            <div v-if="editingId === category.categoryId" class="flex-1 flex items-center gap-2">
-              <input
-                type="text"
-                v-model="editingName"
-                class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              />
-              <button @click="saveEdit(category)" class="text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300">
+          </div>
+
+          <div v-if="editingId === category.categoryId" class="flex-1 flex items-center gap-2">
+            <input type="text" v-model="editingName"
+              class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white" />
+            <div class="ml-auto flex items-center gap-2">
+              <select v-model="editingRole"
+                class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-32 sm:text-sm border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                <option v-for="role in roles" :key="role.value" :value="role.value">{{ role.label }}</option>
+              </select>
+              <button @click="saveEdit(category)"
+                class="text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300">
                 <Check class="h-4 w-4" />
               </button>
-              <button @click="cancelEdit" class="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
+              <button @click="cancelEdit"
+                class="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
                 <X class="h-4 w-4" />
               </button>
             </div>
-            <div v-else class="flex-1 flex items-center justify-between">
+          </div>
+          <div v-else class="flex-1 flex items-center justify-between">
+            <div class="flex items-center gap-2">
               <span class="text-sm text-gray-900 dark:text-gray-200">{{ category.name }}</span>
-              <div class="flex items-center gap-2">
-                <button @click="startEdit(category)" class="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300">
-                  <Edit2 class="h-4 w-4" />
-                </button>
-                <button @click="handleDelete(category.categoryId)" class="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300">
-                  <Trash2 class="h-4 w-4" />
-                </button>
-              </div>
+              <span
+                class="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full">{{
+                  category.minWriteRole }}</span>
             </div>
-          </li>
-        </transition-group>
+            <div class="flex items-center gap-2">
+              <button @click="startEdit(category)"
+                class="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300">
+                <Edit2 class="h-4 w-4" />
+              </button>
+              <button @click="handleDelete(category.categoryId)"
+                class="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300">
+                <Trash2 class="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        </li>
+      </transition-group>
     </div>
     <div v-if="!isLoading && categories.length === 0" class="text-sm text-gray-500 dark:text-gray-400 text-center">
-        {{ $t('board.category.empty') }}
+      {{ $t('board.category.empty') }}
     </div>
   </div>
 </template>
@@ -263,11 +302,13 @@ onMounted(fetchCategories)
 .list-leave-active {
   transition: all 0.5s ease;
 }
+
 .list-enter-from,
 .list-leave-to {
   opacity: 0;
   transform: translateX(30px);
 }
+
 .list-leave-active {
   position: absolute;
 }

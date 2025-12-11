@@ -27,16 +27,29 @@ const router = createRouter({
             component: () => import('@/views/ComponentTest.vue')
         },
         {
-            path: '/login',
-            name: 'login',
-            component: () => import('@/views/auth/LoginPage.vue'),
-            meta: { guestOnly: true }
-        },
-        {
-            path: '/signup',
-            name: 'signup',
-            component: () => import('@/views/auth/SignupPage.vue'),
-            meta: { guestOnly: true }
+            path: '/auth',
+            component: () => import('@/views/auth/AuthLayout.vue'),
+            meta: { guestOnly: true },
+            children: [
+                {
+                    path: 'login',
+                    alias: '/login',
+                    name: 'login',
+                    component: () => import('@/views/auth/LoginPage.vue')
+                },
+                {
+                    path: 'signup',
+                    alias: '/signup',
+                    name: 'signup',
+                    component: () => import('@/views/auth/SignupPage.vue')
+                },
+                {
+                    path: 'find',
+                    alias: '/find',
+                    name: 'find-account',
+                    component: () => import('@/views/auth/FindAccountPage.vue')
+                }
+            ]
         },
         {
             path: '/mypage',
@@ -77,6 +90,11 @@ const router = createRouter({
                     path: 'reports',
                     name: 'MyReports',
                     component: () => import('@/views/user/MyReports.vue')
+                },
+                {
+                    path: 'blocked',
+                    name: 'BlockList',
+                    component: () => import('@/views/user/BlockList.vue')
                 },
                 {
                     path: 'recent',

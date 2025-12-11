@@ -26,5 +26,8 @@ export const postApi = {
     unscrapPost: (postId: string | number) => api.delete(`/posts/${postId}/scrap`),
 
     // Get trending posts
-    getTrendingPosts: (limit: number) => api.get('/posts/trending', { params: { limit } }),
+    getTrendingPosts: (page: number = 0, size: number = 10) => api.get('/posts/trending', { params: { page, size } }),
+
+    // Report post
+    reportPost: (data: any) => api.post('/reports/posts', data),
 }

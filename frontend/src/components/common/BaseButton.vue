@@ -1,13 +1,9 @@
 <template>
-  <button
-    :type="type"
-    :class="[
-      btnClass,
-      disabled ? 'opacity-50 cursor-not-allowed' : ''
-    ]"
-    :disabled="disabled"
-    @click="$emit('click', $event)"
-  >
+  <button :type="type" :class="[
+    btnClass,
+    'flex justify-center items-center',
+    disabled ? 'opacity-50 cursor-not-allowed' : ''
+  ]" :disabled="disabled" @click="$emit('click', $event)">
     <slot></slot>
   </button>
 </template>

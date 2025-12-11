@@ -6,19 +6,21 @@ export interface Toast {
     message: string;
     type: 'info' | 'success' | 'warning' | 'error';
     duration: number;
+    position: 'top-center' | 'bottom-center';
 }
 
 export const useToastStore = defineStore('toast', () => {
     const toasts = ref<Toast[]>([])
     let nextId = 0
 
-    const addToast = (message: string, type: Toast['type'] = 'info', duration = 3000) => {
+    const addToast = (message: string, type: Toast['type'] = 'info', duration = 3000, position: Toast['position'] = 'bottom-center') => {
         const id = nextId++
         const toast: Toast = {
             id,
             message,
             type,
-            duration
+            duration,
+            position
         }
         toasts.value.push(toast)
 

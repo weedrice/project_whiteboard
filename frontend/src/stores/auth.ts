@@ -90,7 +90,7 @@ export const useAuthStore = defineStore('auth', () => {
         user,
         accessToken,
         isAuthenticated,
-        isAdmin: computed(() => user.value?.role === 'ADMIN'),
+        isAdmin: computed(() => user.value?.role === 'ADMIN' || user.value?.role === 'SUPER_ADMIN'),
         login,
         logout,
         fetchUser

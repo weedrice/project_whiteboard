@@ -1,22 +1,23 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
 import { notificationApi, type NotificationParams, type Notification } from '@/api/notification'
 import { type Ref } from 'vue'
+import { useNotificationStore } from '@/stores/notification'
 
 export function useNotification() {
     const queryClient = useQueryClient()
+    const store = useNotificationStore()
 
     const useNotifications = (params: Ref<NotificationParams>) => {
         return useQuery({
             queryKey: ['notifications', params],
             queryFn: async () => {
-                const { data } = await notificationApi.getNotifications(params.value)
-                if (data.success && data.data.content) {
-                    data.data.content = data.data.content.map((n: any) => ({
-                        ...n,
-                        isRead: n.isRead === true || n.isRead === 'Y' || n.is_read === 'Y' || n.is_read === true || n.read === true
-                    }))
+                // Delegate to store for fetching, but return data for useQuery
+                await store.fetchNotifications(params.value.page, params.value.size)
+                return {
+                    content: store.notifications,
+                    totalPages: store.totalPages,
+                    totalElements: store.totalElements
                 }
-                return data.data
             },
             placeholderData: (previousData: any) => previousData
         })
@@ -26,18 +27,18 @@ export function useNotification() {
         return useQuery({
             queryKey: ['notifications', 'unread-count'],
             queryFn: async () => {
-                const { data } = await notificationApi.getUnreadCount()
-                return data.data
+                await store.fetchUnreadCount()
+                return store.unreadCount
             },
-            refetchInterval: 30000, // Poll every 30 seconds
+            // Reduce polling since we have SSE, but keep it as backup or for initial load
+            refetchInterval: 60000,
         })
     }
 
     const useMarkAsRead = () => {
         return useMutation({
-            mutationFn: async (notificationId: string | number) => {
-                const { data } = await notificationApi.markAsRead(notificationId)
-                return data
+            mutationFn: async (notificationId: number) => {
+                return store.markAsRead(notificationId)
             },
             onSuccess: () => {
                 queryClient.invalidateQueries({ queryKey: ['notifications'] })
@@ -48,8 +49,7 @@ export function useNotification() {
     const useMarkAllAsRead = () => {
         return useMutation({
             mutationFn: async () => {
-                const { data } = await notificationApi.markAllAsRead()
-                return data
+                return store.markAllAsRead()
             },
             onSuccess: () => {
                 queryClient.invalidateQueries({ queryKey: ['notifications'] })
@@ -57,10 +57,15 @@ export function useNotification() {
         })
     }
 
+    const connectToSse = () => {
+        store.connectToSse()
+    }
+
     return {
         useNotifications,
         useUnreadCount,
         useMarkAsRead,
-        useMarkAllAsRead
+        useMarkAllAsRead,
+        connectToSse
     }
 }

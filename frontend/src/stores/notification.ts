@@ -1,15 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { notificationApi } from '@/api/notification'
+import { notificationApi, type Notification } from '@/api/notification'
 import logger from '@/utils/logger'
-
-export interface Notification {
-    notificationId: number;
-    message: string;
-    isRead: boolean;
-    // Add other properties as needed
-    [key: string]: any;
-}
 
 export const useNotificationStore = defineStore('notification', () => {
     const notifications = ref<Notification[]>([])
@@ -50,31 +42,97 @@ export const useNotificationStore = defineStore('notification', () => {
     }
 
     async function markAsRead(notificationId: number) {
+        // Optimistic update
+        const notification = notifications.value.find(n => n.notificationId === notificationId)
+        if (notification && !notification.isRead) {
+            notification.isRead = true
+            unreadCount.value = Math.max(0, unreadCount.value - 1)
+        }
+
         try {
             const { data } = await notificationApi.markAsRead(notificationId)
-            if (data.success) {
-                const notification = notifications.value.find(n => n.notificationId === notificationId)
-                if (notification && !notification.isRead) {
-                    notification.isRead = true
-                    unreadCount.value = Math.max(0, unreadCount.value - 1)
+            if (!data.success) {
+                // Revert if failed
+                if (notification) {
+                    notification.isRead = false
+                    unreadCount.value++
                 }
             }
         } catch (error) {
             logger.error('Failed to mark notification as read:', error)
+            // Revert if failed
+            if (notification) {
+                notification.isRead = false
+                unreadCount.value++
+            }
         }
     }
 
     async function markAllAsRead() {
+        // Optimistic update
+        const unreadNotifications = notifications.value.filter(n => !n.isRead)
+        notifications.value.forEach(n => n.isRead = true)
+        const previousUnreadCount = unreadCount.value
+        unreadCount.value = 0
+
         try {
             const { data } = await notificationApi.markAllAsRead()
             if (data.success) {
-                notifications.value.forEach(n => n.isRead = true)
-                unreadCount.value = 0
                 // Refresh from server to ensure sync
                 await fetchNotifications()
+            } else {
+                // Revert
+                unreadNotifications.forEach(n => n.isRead = false)
+                unreadCount.value = previousUnreadCount
             }
         } catch (error) {
             logger.error('Failed to mark all notifications as read:', error)
+            // Revert
+            unreadNotifications.forEach(n => n.isRead = false)
+            unreadCount.value = previousUnreadCount
+        }
+    }
+
+    let eventSource: EventSource | null = null
+
+    function connectToSse() {
+        if (eventSource) return
+
+        // Use relative path if proxy is set up, otherwise full URL
+        const url = '/api/v1/notifications/stream'
+        eventSource = new EventSource(url)
+
+        eventSource.addEventListener('connect', (event) => {
+            // console.log('SSE Connected:', event.data)
+        })
+
+        eventSource.addEventListener('notification', (event) => {
+            try {
+                const newNotification = JSON.parse(event.data)
+                // Add to list
+                notifications.value.unshift({
+                    ...newNotification,
+                    isRead: false
+                })
+                // Increment unread count
+                unreadCount.value++
+                // Update total elements if tracking
+                totalElements.value++
+            } catch (e) {
+                logger.error('Failed to parse SSE notification:', e)
+            }
+        })
+
+        eventSource.onerror = (error) => {
+            // console.error('SSE Error:', error)
+            if (eventSource) {
+                eventSource.close()
+                eventSource = null
+                // Retry connection after delay? Browser usually handles reconnection for EventSource
+                // But if we manually closed it, we might need to reopen.
+                // For now, let's leave it closed or try to reconnect after 5s
+                setTimeout(() => connectToSse(), 5000)
+            }
         }
     }
 
@@ -87,6 +145,7 @@ export const useNotificationStore = defineStore('notification', () => {
         fetchNotifications,
         fetchUnreadCount,
         markAsRead,
-        markAllAsRead
+        markAllAsRead,
+        connectToSse
     }
 })

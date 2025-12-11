@@ -1,37 +1,24 @@
 <template>
-  <div class="relative mb-6">
-    <div 
-      ref="scrollContainer"
-      class="overflow-x-auto scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0"
-      @touchstart="handleTouchStart"
-      @touchmove="handleTouchMove"
-      @touchend="handleTouchEnd"
-    >
-      <nav class="flex space-x-8 border-b border-gray-200 min-w-max relative" aria-label="Tabs">
-        <router-link
-          v-for="(tab, index) in tabs"
-          :key="tab.nameKey"
-          :to="tab.href"
-          :ref="el => { if (el) tabRefs[index] = (el as any).$el }"
-          class="whitespace-nowrap py-4 px-1 text-sm transition-colors duration-200"
-          :class="[
-            isActive(tab.href)
-              ? 'text-indigo-600 dark:text-indigo-400 font-bold'
-              : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 font-medium'
-          ]"
-          :aria-current="isActive(tab.href) ? 'page' : undefined"
-        >
-          {{ $t(tab.nameKey) }}
-        </router-link>
-        
-        <!-- Animated Underline -->
-        <div 
-          class="absolute bottom-0 h-0.5 bg-indigo-500 transition-all duration-300 ease-out"
-          :style="underlineStyle"
-        ></div>
-      </nav>
+    <div class="relative mb-6">
+        <div ref="scrollContainer" class="overflow-x-auto scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0"
+            @touchstart="handleTouchStart" @touchmove="handleTouchMove" @touchend="handleTouchEnd">
+            <nav class="flex space-x-8 border-b border-gray-200 min-w-max relative" aria-label="Tabs">
+                <router-link v-for="(tab, index) in tabs" :key="tab.nameKey" :to="tab.href"
+                    :ref="el => { if (el) tabRefs[index] = (el as any).$el }"
+                    class="whitespace-nowrap py-4 px-1 text-sm transition-colors duration-200" :class="[
+                        isActive(tab.href)
+                            ? 'text-indigo-600 dark:text-indigo-400 font-bold'
+                            : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 font-medium'
+                    ]" :aria-current="isActive(tab.href) ? 'page' : undefined">
+                    {{ $t(tab.nameKey) }}
+                </router-link>
+
+                <!-- Animated Underline -->
+                <div class="absolute bottom-0 h-0.5 bg-indigo-500 transition-all duration-300 ease-out"
+                    :style="underlineStyle"></div>
+            </nav>
+        </div>
     </div>
-  </div>
 </template>
 
 <script setup lang="ts">
@@ -50,15 +37,16 @@ interface Tab {
 }
 
 const tabs: Tab[] = [
-  { nameKey: 'common.myPage', href: '/mypage' },
-  { nameKey: 'user.tabs.settings', href: '/mypage/settings' },
-  { nameKey: 'common.notifications', href: '/mypage/notifications' },
-  { nameKey: 'common.mailbox', href: '/mypage/messages' },
-  { nameKey: 'common.points', href: '/mypage/points' },
-  { nameKey: 'user.scraps', href: '/mypage/scraps' },
-  { nameKey: 'user.tabs.subscriptions', href: '/mypage/subscriptions' },
-  { nameKey: 'user.tabs.recent', href: '/mypage/recent' },
-  { nameKey: 'user.tabs.reports', href: '/mypage/reports' },
+    { nameKey: 'common.myPage', href: '/mypage' },
+    { nameKey: 'user.tabs.settings', href: '/mypage/settings' },
+    { nameKey: 'common.notifications', href: '/mypage/notifications' },
+    { nameKey: 'common.mailbox', href: '/mypage/messages' },
+    { nameKey: 'common.points', href: '/mypage/points' },
+    { nameKey: 'user.scraps', href: '/mypage/scraps' },
+    { nameKey: 'user.tabs.subscriptions', href: '/mypage/subscriptions' },
+    { nameKey: 'user.tabs.recent', href: '/mypage/recent' },
+    { nameKey: 'user.tabs.reports', href: '/mypage/reports' },
+    { nameKey: 'user.tabs.blocked', href: '/mypage/blocked' },
 ]
 
 const tabRefs = ref<HTMLElement[]>([])
@@ -85,7 +73,7 @@ const updateUnderline = () => {
             width: `${el.offsetWidth}px`,
             opacity: 1
         }
-        
+
         // Scroll into view if needed (for mobile)
         if (scrollContainer.value) {
             const container = scrollContainer.value
@@ -93,7 +81,7 @@ const updateUnderline = () => {
             const containerWidth = container.clientWidth
             const elLeft = el.offsetLeft
             const elWidth = el.offsetWidth
-            
+
             if (elLeft < scrollLeft) {
                 container.scrollTo({ left: elLeft, behavior: 'smooth' })
             } else if (elLeft + elWidth > scrollLeft + containerWidth) {
@@ -133,10 +121,10 @@ const handleTouchMove = (e: TouchEvent) => {
 const handleTouchEnd = (e: TouchEvent) => {
     const touchEndX = e.changedTouches[0].clientX
     const touchEndY = e.changedTouches[0].clientY
-    
+
     const diffX = touchStartX.value - touchEndX
     const diffY = touchStartY.value - touchEndY
-    
+
     // Threshold for swipe
     if (Math.abs(diffX) > 50 && Math.abs(diffY) < 50) {
         const currentIndex = activeTabIndex.value

@@ -14,18 +14,18 @@
 
     <div v-else class="bg-white shadow overflow-hidden sm:rounded-md">
       <ul role="list" class="divide-y divide-gray-200">
-        <li v-for="user in blockedUsers" :key="user.id" class="px-4 py-4 sm:px-6 flex items-center justify-between">
+        <li v-for="user in blockedUsers" :key="user.userId" class="px-4 py-4 sm:px-6 flex items-center justify-between">
           <div class="flex items-center">
             <div class="flex-shrink-0 h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
-              <span class="text-gray-500 font-medium">{{ user.nickname.charAt(0).toUpperCase() }}</span>
+              <span class="text-gray-500 font-medium">{{ user.displayName.charAt(0).toUpperCase() }}</span>
             </div>
             <div class="ml-4">
-              <p class="text-sm font-medium text-gray-900">{{ user.nickname }}</p>
+              <p class="text-sm font-medium text-gray-900">{{ user.displayName }}</p>
               <p class="text-sm text-gray-500">{{ user.email }}</p>
             </div>
           </div>
           <div>
-            <BlockButton :userId="user.id" :initialBlocked="true" @block-change="refreshList" />
+            <BlockButton :userId="user.userId" :initialBlocked="true" @block-change="refreshList" />
           </div>
         </li>
       </ul>
@@ -47,9 +47,9 @@ const loading = ref(false)
 const fetchBlockedUsers = async () => {
   loading.value = true
   try {
-    const { data } = await userApi.getBlockedUsers()
+    const { data } = await userApi.getBlockList()
     if (data.success) {
-      blockedUsers.value = data.data
+      blockedUsers.value = data.data.content
     }
   } catch (error) {
     console.error('Failed to fetch blocked users:', error)

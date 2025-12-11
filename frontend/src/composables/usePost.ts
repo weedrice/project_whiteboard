@@ -104,6 +104,15 @@ export function usePost() {
         })
     }
 
+    // Report a post
+    const useReportPost = () => {
+        return useMutation({
+            mutationFn: async (data: any) => {
+                return await postApi.reportPost(data)
+            }
+        })
+    }
+
     return {
         usePostDetail,
         useCreatePost,
@@ -112,6 +121,7 @@ export function usePost() {
         useLikePost,
         useUnlikePost,
         useScrapPost,
-        useUnscrapPost
+        useUnscrapPost,
+        useReportPost
     }
 }

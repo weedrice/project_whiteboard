@@ -5,9 +5,21 @@ import router from '@/router'
 const { t } = i18n.global
 
 // Extend InternalAxiosRequestConfig to include _retry property
+declare module 'axios' {
+    export interface AxiosRequestConfig {
+        skipGlobalErrorHandler?: boolean;
+    }
+    export interface InternalAxiosRequestConfig {
+        _retry?: boolean;
+        redirectOnError?: boolean;
+        skipGlobalErrorHandler?: boolean;
+    }
+}
+
 interface CustomAxiosRequestConfig extends InternalAxiosRequestConfig {
     _retry?: boolean;
     redirectOnError?: boolean;
+    skipGlobalErrorHandler?: boolean;
 }
 
 const api: AxiosInstance = axios.create({
@@ -91,6 +103,11 @@ api.interceptors.response.use(
             return Promise.reject(error)
         }
 
+        // Skip global error handler if requested
+        if (originalRequest?.skipGlobalErrorHandler) {
+            return Promise.reject(error)
+        }
+
         // Handle other common errors
         if (error.response) {
             const status = error.response.status
@@ -98,27 +115,27 @@ api.interceptors.response.use(
 
             switch (status) {
                 case 400:
-                    toastStore.addToast(message || t('common.messages.badRequest'), 'error')
+                    toastStore.addToast(message || t('common.messages.badRequest'), 'error', 3000, 'top-center')
                     break
                 case 403:
-                    toastStore.addToast(message || t('common.messages.forbidden'), 'error')
+                    toastStore.addToast(message || t('common.messages.forbidden'), 'error', 3000, 'top-center')
                     break
                 case 404:
-                    toastStore.addToast(message || t('common.messages.notFound'), 'error')
+                    toastStore.addToast(message || t('common.messages.notFound'), 'error', 3000, 'top-center')
                     break
                 case 500:
-                    toastStore.addToast(message || t('common.messages.serverError'), 'error')
+                    toastStore.addToast(message || t('common.messages.serverError'), 'error', 3000, 'top-center')
                     break
                 default:
                     if (status !== 401) {
-                        toastStore.addToast(message || t('common.messages.unknown'), 'error')
+                        toastStore.addToast(message || t('common.messages.unknown'), 'error', 3000, 'top-center')
                     }
             }
         } else if (error.request) {
             // Network error
-            toastStore.addToast(error.message || t('common.messages.network'), 'error')
+            toastStore.addToast(error.message || t('common.messages.network'), 'error', 3000, 'top-center')
         } else {
-            toastStore.addToast(error.message || t('common.messages.requestSetup'), 'error')
+            toastStore.addToast(error.message || t('common.messages.requestSetup'), 'error', 3000, 'top-center')
         }
 
         return Promise.reject(error)

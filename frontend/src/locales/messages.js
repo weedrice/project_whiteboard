@@ -1,6 +1,7 @@
 export const messages = {
   ko: {
     common: {
+      advertisement: '광고',
       appName: 'NoviIs',
       loading: '로딩 중...',
       noData: '데이터가 없습니다.',
@@ -11,10 +12,15 @@ export const messages = {
       delete: '삭제',
       edit: '수정',
       close: '닫기',
+      post: '게시글',
       previous: '이전',
       next: '다음',
       back: '뒤로',
+      return: '돌아가기',
       or: '또는',
+      report: '신고',
+      share: '공유',
+      copy: '복사하기',
       displayName: '닉네임',
       mailbox: '쪽지함',
       confirm: '확인',
@@ -50,6 +56,7 @@ export const messages = {
         requestSetup: '요청 설정 중 오류가 발생했습니다.',
         success: '성공적으로 처리되었습니다.',
         uploadFailed: '이미지 업로드에 실패했습니다.',
+        urlCopied: '주소가 복사되었습니다.',
         confirmDelete: '정말 삭제하시겠습니까?',
         deleteSuccess: '삭제되었습니다.',
         deleteFailed: '삭제에 실패했습니다.',
@@ -113,6 +120,14 @@ export const messages = {
       active: '활성화',
       inactive: '비활성화',
       sortOrder: '정렬 순서',
+      time: {
+        justNow: '방금 전',
+        minutesAgo: '{count}분 전',
+        hoursAgo: '{count}시간 전',
+        daysAgo: '{count}일 전',
+      },
+      notifications: '알림',
+      viewAll: '모두 보기',
     },
     layout: {
       menu: {
@@ -134,10 +149,12 @@ export const messages = {
       signup: '회원가입',
       signupSuccess: '회원가입이 완료되었습니다. 로그인해주세요.',
       signupFailed: '회원가입에 실패했습니다.',
+      findAccount: 'ID/비밀번호 찾기',
+      findIdPassword: 'ID/비밀번호를 잊으셨나요?',
       placeholders: {
         loginId: '아이디를 입력하세요',
         password: '비밀번호를 입력하세요',
-        email: '이메일을 입력하세요',
+        email: '회원가입 시 입력한 이메일을 입력하세요',
         displayName: '닉네임을 입력하세요',
       },
     },
@@ -172,6 +189,7 @@ export const messages = {
           title: '제목',
           content: '내용',
           author: '글쓴이',
+          tag: '태그',
         },
       },
       form: {
@@ -285,6 +303,7 @@ export const messages = {
         recent: '최근 읽은 글',
         reports: '신고 목록',
         subscriptions: '구독한 게시판',
+        blocked: '차단 사용자 목록',
       },
       profile: {
         edit: '프로필 수정',
@@ -357,14 +376,6 @@ export const messages = {
         reply: '답장',
         replyTitle: '답장 보내기',
       },
-      report: {
-        title: '사용자 신고',
-        target: '신고 대상',
-        reason: '신고 사유',
-        inputReason: '신고 사유를 입력해주세요.',
-        reportSuccess: '신고가 접수되었습니다.',
-        reportFailed: '신고 접수에 실패했습니다.',
-      },
       block: {
         confirm: '{name}님을 차단하시겠습니까?',
         success: '{name}님을 차단했습니다.',
@@ -378,6 +389,14 @@ export const messages = {
         unsubscribeSuccess: '구독이 취소되었습니다.',
         unsubscribeFailed: '구독 취소에 실패했습니다.',
       },
+    },
+    report: {
+      title: '사용자 신고',
+      target: '신고 대상',
+      reason: '신고 사유',
+      inputReason: '신고 사유를 입력해주세요.',
+      reportSuccess: '신고가 접수되었습니다.',
+      reportFailed: '신고 접수에 실패했습니다.',
     },
     admin: {
       layout: {
