@@ -8,7 +8,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
 import java.security.Key;
@@ -27,14 +27,17 @@ public class JwtTokenProvider {
     private final Key key;
     private final long accessTokenValidityInMilliseconds;
     private final long refreshTokenValidityInMilliseconds;
+    private final CustomUserDetailsService customUserDetailsService;
 
     public JwtTokenProvider(@Value("${jwt.secret}") String secret,
                             @Value("${jwt.expiration}") long accessTokenValidityInMilliseconds,
-                            @Value("${jwt.refresh-token.expiration}") long refreshTokenValidityInMilliseconds) {
+                            @Value("${jwt.refresh-token.expiration}") long refreshTokenValidityInMilliseconds,
+                            CustomUserDetailsService customUserDetailsService) {
         byte[] keyBytes = Decoders.BASE64.decode(secret);
         this.key = Keys.hmacShaKeyFor(keyBytes);
         this.accessTokenValidityInMilliseconds = accessTokenValidityInMilliseconds;
         this.refreshTokenValidityInMilliseconds = refreshTokenValidityInMilliseconds;
+        this.customUserDetailsService = customUserDetailsService;
     }
 
     public String createAccessToken(Authentication authentication) {
@@ -75,15 +78,10 @@ public class JwtTokenProvider {
             throw new RuntimeException("권한 정보가 없는 토큰입니다.");
         }
 
-        Collection<? extends GrantedAuthority> authorities = Arrays
-                .stream(claims.get(AUTHORITIES_KEY).toString().split(","))
-                .map(SimpleGrantedAuthority::new)
-                .collect(Collectors.toList());
+        // DB에서 최신 유저 정보 조회 (상태 체크 포함)
+        UserDetails userDetails = customUserDetailsService.loadUserByUsername(claims.getSubject());
 
-        Long userId = claims.get(USER_ID_KEY, Long.class);
-        CustomUserDetails principal = new CustomUserDetails(userId, claims.getSubject(), "", authorities);
-
-        return new UsernamePasswordAuthenticationToken(principal, "", authorities);
+        return new UsernamePasswordAuthenticationToken(userDetails, "", userDetails.getAuthorities());
     }
 
     public boolean validateToken(String token) {

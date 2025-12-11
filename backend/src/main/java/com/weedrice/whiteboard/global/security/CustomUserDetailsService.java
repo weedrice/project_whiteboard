@@ -32,10 +32,17 @@ public class CustomUserDetailsService implements UserDetailsService {
             authorities.add(new SimpleGrantedAuthority(Role.ROLE_SUPER_ADMIN));
         }
 
+        boolean enabled = !"DELETED".equals(user.getStatus());
+        boolean accountNonLocked = !"SUSPENDED".equals(user.getStatus());
+
         return new CustomUserDetails(
                 user.getUserId(),
                 user.getLoginId(),
                 user.getPassword(),
+                enabled,
+                true, // accountNonExpired
+                true, // credentialsNonExpired
+                accountNonLocked,
                 authorities);
     }
 }

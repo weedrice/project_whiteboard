@@ -169,6 +169,11 @@ public class AuthService {
         refreshTokenRepository.save(rt);
 
         User user = rt.getUser();
+
+        if (!"ACTIVE".equals(user.getStatus())) {
+            throw new BusinessException(ErrorCode.USER_NOT_ACTIVE);
+        }
+
         Set<GrantedAuthority> authorities = new HashSet<>();
         authorities.add(new SimpleGrantedAuthority(Role.ROLE_USER)); // 기본 부여
         if (user.getIsSuperAdmin()) {
@@ -176,7 +181,8 @@ public class AuthService {
         }
 
         Authentication authentication = new UsernamePasswordAuthenticationToken(
-                new CustomUserDetails(user.getUserId(), user.getLoginId(), "", new ArrayList<>(authorities)),
+                new CustomUserDetails(user.getUserId(), user.getLoginId(), "", true, true, true, true,
+                        new ArrayList<>(authorities)),
                 "",
                 new ArrayList<>(authorities));
 
