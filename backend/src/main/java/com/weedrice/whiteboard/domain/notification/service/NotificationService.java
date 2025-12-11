@@ -76,7 +76,7 @@ public class NotificationService {
             try {
                 emitter.send(org.springframework.web.servlet.mvc.method.annotation.SseEmitter.event()
                         .name("notification")
-                        .data(com.weedrice.whiteboard.domain.notification.dto.NotificationResponse.from(notification)));
+                        .data(com.weedrice.whiteboard.domain.notification.dto.NotificationResponse.NotificationSummary.from(notification)));
             } catch (java.io.IOException e) {
                 emitters.remove(userId);
             }

@@ -31,6 +31,22 @@ public class NotificationResponse {
         private Long sourceId;
         private boolean isRead;
         private LocalDateTime createdAt;
+
+        public static NotificationSummary from(Notification notification) {
+            return NotificationSummary.builder()
+                    .notificationId(notification.getNotificationId())
+                    .notificationType(notification.getNotificationType())
+                    .message(notification.getContent())
+                    .actor(UserInfo.builder()
+                            .userId(notification.getActor().getUserId())
+                            .displayName(notification.getActor().getDisplayName())
+                            .build())
+                    .sourceType(notification.getSourceType())
+                    .sourceId(notification.getSourceId())
+                    .isRead(notification.getIsRead())
+                    .createdAt(notification.getCreatedAt())
+                    .build();
+        }
     }
 
     @Getter

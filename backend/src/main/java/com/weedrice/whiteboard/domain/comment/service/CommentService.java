@@ -11,6 +11,7 @@ import com.weedrice.whiteboard.domain.comment.repository.CommentLikeRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentVersionRepository;
 import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
+import com.weedrice.whiteboard.domain.point.service.PointService;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -42,7 +43,7 @@ public class CommentService {
     private final CommentVersionRepository commentVersionRepository;
     private final CommentClosureRepository commentClosureRepository;
     private final ApplicationEventPublisher eventPublisher;
-    private final com.weedrice.whiteboard.domain.point.service.PointService pointService;
+    private final PointService pointService;
     private final UserBlockService userBlockService; // Inject UserBlockService
 
     public Page<CommentResponse> getComments(Long postId, Long currentUserId, Pageable pageable) {
@@ -108,7 +109,7 @@ public class CommentService {
         }
 
         Comment parentComment = null;
-        Integer depth = 0;
+        int depth = 0;
         if (parentId != null) {
             parentComment = commentRepository.findById(parentId)
                     .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
