@@ -53,6 +53,7 @@ dependencies {
 	// AWS SDK v2
 	implementation platform('software.amazon.awssdk:bom:2.21.1')
 	implementation 'software.amazon.awssdk:s3'
+	implementation 'software.amazon.awssdk:ses'
 }
 
 tasks.named('test') {
