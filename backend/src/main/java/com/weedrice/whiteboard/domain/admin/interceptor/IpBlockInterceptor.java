@@ -20,7 +20,7 @@ public class IpBlockInterceptor implements HandlerInterceptor {
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
         String clientIp = ClientUtils.getIp(request);
         if (adminService.isIpBlocked(clientIp)) {
-            throw new BusinessException(ErrorCode.FORBIDDEN, "차단된 IP 주소입니다.");
+            throw new BusinessException(ErrorCode.IP_BLOCKED);
         }
         return true;
     }

@@ -31,7 +31,7 @@ public class FileService {
 
         // 파일 유효성 검사 (크기, 형식 등)
         if (multipartFile.isEmpty()) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "업로드할 파일이 없습니다.");
+            throw new BusinessException(ErrorCode.FILE_EMPTY);
         }
         if (multipartFile.getSize() > 10 * 1024 * 1024) { // 10MB 제한
             throw new BusinessException(ErrorCode.FILE_TOO_LARGE);
@@ -85,5 +85,15 @@ public class FileService {
 
     public List<File> getFilesByRelatedEntityIn(List<Long> relatedIds, String relatedType) {
         return fileRepository.findByRelatedIdInAndRelatedType(relatedIds, relatedType);
+    }
+
+    public List<Long> getRelatedIdsWithImages(List<Long> relatedIds, String relatedType) {
+        return fileRepository.findRelatedIdsWithImages(relatedIds, relatedType);
+    }
+
+    public Long getOneImageFileIdForPost(Long postId) {
+        return fileRepository.findFirstByRelatedIdAndRelatedTypeAndMimeTypeStartingWith(postId, "POST_CONTENT", "image/")
+                .map(File::getFileId)
+                .orElse(null);
     }
 }

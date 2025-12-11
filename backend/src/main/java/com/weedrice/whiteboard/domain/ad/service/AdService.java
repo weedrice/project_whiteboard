@@ -40,7 +40,7 @@ public class AdService {
     @Transactional
     public String recordAdClick(Long adId, Long userId, String ipAddress) {
         Ad ad = adRepository.findById(adId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "광고를 찾을 수 없습니다."));
+                .orElseThrow(() -> new BusinessException(ErrorCode.AD_NOT_FOUND));
         ad.incrementClickCount();
 
         User user = null;

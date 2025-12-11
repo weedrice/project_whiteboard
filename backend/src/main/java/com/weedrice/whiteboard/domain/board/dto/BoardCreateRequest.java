@@ -17,7 +17,7 @@ public class BoardCreateRequest {
 
     @NotBlank
     @Size(max = 100)
-    @Pattern(regexp = "^[a-z0-9_]+$", message = "게시판 URL은 영문 소문자, 숫자, 언더바(_)만 허용됩니다.")
+    @Pattern(regexp = "^[a-z0-9_]+$", message = "{validation.board.url.pattern}")
     private String boardUrl;
 
     @Size(max = 255)

@@ -9,56 +9,72 @@ import org.springframework.http.HttpStatus;
 public enum ErrorCode {
 
     // Common
-    INVALID_INPUT_VALUE(HttpStatus.BAD_REQUEST, "C001", "Invalid Input Value"),
-    METHOD_NOT_ALLOWED(HttpStatus.METHOD_NOT_ALLOWED, "C002", "Method Not Allowed"),
-    HANDLE_ACCESS_DENIED(HttpStatus.FORBIDDEN, "C003", "Access Denied"),
-    UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "C004", "Unauthorized"),
-    INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "C005", "Server Error"),
-    NOT_FOUND(HttpStatus.NOT_FOUND, "C006", "Not Found"),
-    FORBIDDEN(HttpStatus.FORBIDDEN, "C007", "Forbidden"),
-    VALIDATION_ERROR(HttpStatus.BAD_REQUEST, "C008", "Validation Error"),
-    DUPLICATE_RESOURCE(HttpStatus.CONFLICT, "C009", "Duplicate Resource"),
+    INVALID_INPUT_VALUE(HttpStatus.BAD_REQUEST, "C001", "error.common.invalidInput"),
+    METHOD_NOT_ALLOWED(HttpStatus.METHOD_NOT_ALLOWED, "C002", "error.common.methodNotAllowed"),
+    HANDLE_ACCESS_DENIED(HttpStatus.FORBIDDEN, "C003", "error.common.accessDenied"),
+    UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "C004", "error.common.unauthorized"),
+    INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "C005", "error.common.serverError"),
+    NOT_FOUND(HttpStatus.NOT_FOUND, "C006", "error.common.notFound"),
+    FORBIDDEN(HttpStatus.FORBIDDEN, "C007", "error.common.forbidden"),
+    VALIDATION_ERROR(HttpStatus.BAD_REQUEST, "C008", "error.common.validationError"),
+    DUPLICATE_RESOURCE(HttpStatus.CONFLICT, "C009", "error.common.duplicateResource"),
 
     // User
-    USER_NOT_FOUND(HttpStatus.NOT_FOUND, "U001", "User Not Found"),
-    DUPLICATE_LOGIN_ID(HttpStatus.CONFLICT, "U002", "Duplicate Login ID"),
-    DUPLICATE_EMAIL(HttpStatus.CONFLICT, "U003", "Duplicate Email"),
-    INVALID_PASSWORD(HttpStatus.BAD_REQUEST, "U004", "Invalid Password"),
-    INVALID_CURRENT_PASSWORD(HttpStatus.BAD_REQUEST, "U005", "Invalid Current Password"),
-    PASSWORD_RECENTLY_USED(HttpStatus.BAD_REQUEST, "U006", "Password Recently Used"),
-    ALREADY_BLOCKED(HttpStatus.CONFLICT, "U007", "Already Blocked"),
-    CANNOT_BLOCK_SELF(HttpStatus.BAD_REQUEST, "U008", "Cannot Block Self"),
-    BLOCKED_BY_USER(HttpStatus.FORBIDDEN, "U009", "Blocked by User"),
+    USER_NOT_FOUND(HttpStatus.NOT_FOUND, "U001", "error.user.notFound"),
+    DUPLICATE_LOGIN_ID(HttpStatus.CONFLICT, "U002", "error.user.duplicateLoginId"),
+    DUPLICATE_EMAIL(HttpStatus.CONFLICT, "U003", "error.user.duplicateEmail"),
+    INVALID_PASSWORD(HttpStatus.BAD_REQUEST, "U004", "error.user.invalidPassword"),
+    INVALID_CURRENT_PASSWORD(HttpStatus.BAD_REQUEST, "U005", "error.user.invalidCurrentPassword"),
+    PASSWORD_RECENTLY_USED(HttpStatus.BAD_REQUEST, "U006", "error.user.passwordRecentlyUsed"),
+    ALREADY_BLOCKED(HttpStatus.CONFLICT, "U007", "error.user.alreadyBlocked"),
+    CANNOT_BLOCK_SELF(HttpStatus.BAD_REQUEST, "U008", "error.user.cannotBlockSelf"),
+    BLOCKED_BY_USER(HttpStatus.FORBIDDEN, "U009", "error.user.blockedByUser"),
+    USER_NOT_ACTIVE(HttpStatus.FORBIDDEN, "U010", "error.user.notActive"),
 
     // Board
-    BOARD_NOT_FOUND(HttpStatus.NOT_FOUND, "B001", "Board Not Found"),
-    DUPLICATE_BOARD_NAME(HttpStatus.CONFLICT, "B002", "Duplicate Board Name"),
-    ALREADY_SUBSCRIBED(HttpStatus.CONFLICT, "B003", "Already Subscribed"),
-    NOT_SUBSCRIBED(HttpStatus.BAD_REQUEST, "B004", "Not Subscribed"),
+    BOARD_NOT_FOUND(HttpStatus.NOT_FOUND, "B001", "error.board.notFound"),
+    DUPLICATE_BOARD_NAME(HttpStatus.CONFLICT, "B002", "error.board.duplicateName"),
+    ALREADY_SUBSCRIBED(HttpStatus.CONFLICT, "B003", "error.board.alreadySubscribed"),
+    NOT_SUBSCRIBED(HttpStatus.BAD_REQUEST, "B004", "error.board.notSubscribed"),
+    DUPLICATE_BOARD_URL(HttpStatus.CONFLICT, "B005", "error.board.duplicateUrl"),
 
     // Post
-    POST_NOT_FOUND(HttpStatus.NOT_FOUND, "P001", "Post Not Found"),
-    ALREADY_SCRAPED(HttpStatus.CONFLICT, "P002", "Already Scraped"),
-    NOT_SCRAPED(HttpStatus.BAD_REQUEST, "P003", "Not Scraped"),
+    POST_NOT_FOUND(HttpStatus.NOT_FOUND, "P001", "error.post.notFound"),
+    ALREADY_SCRAPED(HttpStatus.CONFLICT, "P002", "error.post.alreadyScraped"),
+    NOT_SCRAPED(HttpStatus.BAD_REQUEST, "P003", "error.post.notScraped"),
 
     // Comment
-    COMMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "C001", "Comment Not Found"),
+    COMMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "C001", "error.comment.notFound"),
 
     // Point
-    INSUFFICIENT_POINTS(HttpStatus.BAD_REQUEST, "PT001", "Insufficient Points"),
-    ITEM_NOT_AVAILABLE(HttpStatus.BAD_REQUEST, "I001", "판매 중단된 아이템입니다"),
+    INSUFFICIENT_POINTS(HttpStatus.BAD_REQUEST, "PT001", "error.point.insufficientPoints"),
+    ITEM_NOT_AVAILABLE(HttpStatus.BAD_REQUEST, "I001", "error.point.itemNotAvailable"),
 
     // Auth
-    INVALID_REFRESH_TOKEN(HttpStatus.UNAUTHORIZED, "A001", "Invalid Refresh Token"),
-    EXPIRED_REFRESH_TOKEN(HttpStatus.UNAUTHORIZED, "A002", "Expired Refresh Token"),
+    INVALID_REFRESH_TOKEN(HttpStatus.UNAUTHORIZED, "A001", "error.auth.invalidRefreshToken"),
+    EXPIRED_REFRESH_TOKEN(HttpStatus.UNAUTHORIZED, "A002", "error.auth.expiredRefreshToken"),
+    LOGIN_FAILED(HttpStatus.UNAUTHORIZED, "A003", "error.auth.loginFailed"),
 
     // Report
-    ALREADY_REPORTED(HttpStatus.BAD_REQUEST, "R001", "이미 신고한 대상입니다"),
-    INVALID_TARGET(HttpStatus.BAD_REQUEST, "R002", "유효하지 않은 신고 대상입니다"),
+    ALREADY_REPORTED(HttpStatus.BAD_REQUEST, "R001", "error.report.alreadyReported"),
+    INVALID_TARGET(HttpStatus.BAD_REQUEST, "R002", "error.report.invalidTarget"),
+
+    // Ad
+    AD_NOT_FOUND(HttpStatus.NOT_FOUND, "AD001", "error.ad.notFound"),
+
+    // IP Block
+    IP_BLOCKED(HttpStatus.FORBIDDEN, "IP001", "error.ip.blocked"),
+
+    // Like
+    ALREADY_LIKED(HttpStatus.BAD_REQUEST, "L001", "error.like.alreadyLiked"),
+    NOT_LIKED(HttpStatus.BAD_REQUEST, "L002", "error.like.notLiked"),
 
     // File
-    FILE_TOO_LARGE(HttpStatus.BAD_REQUEST, "F001", "파일 크기가 너무 큽니다"),
-    INVALID_FILE_TYPE(HttpStatus.BAD_REQUEST, "F002", "허용되지 않은 파일 형식입니다");
+    FILE_TOO_LARGE(HttpStatus.BAD_REQUEST, "F001", "error.file.tooLarge"),
+    INVALID_FILE_TYPE(HttpStatus.BAD_REQUEST, "F002", "error.file.invalidType"),
+    FILE_EMPTY(HttpStatus.BAD_REQUEST, "F003", "error.file.empty"),
+    FILE_UPLOAD_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "F004", "error.file.uploadError"),
+    FILE_LOAD_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "F005", "error.file.loadError");
 
     private final HttpStatus status;
     private final String code;

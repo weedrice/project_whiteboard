@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
+import com.weedrice.whiteboard.global.security.CustomUserDetails;
 
 @Service
 @RequiredArgsConstructor
@@ -124,7 +125,8 @@ public class BoardService {
                                 .collect(Collectors.toList());
 
                 // 최신 게시글 목록 가져오기
-                List<PostSummary> latestPosts = postService.getLatestPostsByBoard(board.getBoardId(), 15);
+                Long currentUserId = (userDetails instanceof CustomUserDetails) ? ((CustomUserDetails) userDetails).getUserId() : null;
+                List<PostSummary> latestPosts = postService.getLatestPostsByBoard(board.getBoardId(), 15, currentUserId);
 
                 return new BoardResponse(board, subscriberCount, adminDisplayName, adminUserId, isAdmin, isSubscribed,
                                 categories,
@@ -199,7 +201,7 @@ public class BoardService {
                         throw new BusinessException(ErrorCode.DUPLICATE_BOARD_NAME);
                 }
                 if (boardRepository.existsByBoardUrl(request.getBoardUrl())) { // boardUrl 중복 체크
-                        throw new BusinessException(ErrorCode.VALIDATION_ERROR, "이미 사용 중인 게시판 URL 입니다.");
+                        throw new BusinessException(ErrorCode.DUPLICATE_BOARD_URL);
                 }
 
                 Integer maxSortOrder = boardRepository.findMaxSortOrder();
@@ -271,6 +273,7 @@ public class BoardService {
                                 .board(board)
                                 .name(request.getName())
                                 .sortOrder(request.getSortOrder())
+                                .minWriteRole(request.getMinWriteRole())
                                 .build();
                 return boardCategoryRepository.save(category);
         }
@@ -285,7 +288,7 @@ public class BoardService {
 
                 SecurityUtils.validateBoardAdminPermission(category.getBoard());
 
-                category.update(request.getName(), request.getSortOrder());
+                category.update(request.getName(), request.getSortOrder(), request.getMinWriteRole());
                 return category;
         }
 
