@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.post.service;
 
+import com.weedrice.whiteboard.domain.user.entity.Role; // Import Role
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
@@ -21,6 +22,7 @@ import com.weedrice.whiteboard.domain.tag.repository.PostTagRepository;
 import com.weedrice.whiteboard.domain.tag.service.TagService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.domain.user.service.UserBlockService; // Import UserBlockService
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -58,18 +60,20 @@ public class PostService {
         private final CommentRepository commentRepository;
         private final FileService fileService;
         private final com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository boardSubscriptionRepository;
+        private final UserBlockService userBlockService; // Inject UserBlockService
 
         // --- boardUrl 기반 public 메서드 (오버로드) ---
-        public Page<Post> getPosts(String boardUrl, Long categoryId, Integer minLikes, @NonNull Pageable pageable) {
+        public Page<Post> getPosts(String boardUrl, Long categoryId, Integer minLikes, Long currentUserId,
+                        @NonNull Pageable pageable) {
                 Board board = boardRepository.findByBoardUrl(boardUrl)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
-                return this.getPosts(board.getBoardId(), categoryId, minLikes, pageable);
+                return this.getPosts(board.getBoardId(), categoryId, minLikes, currentUserId, pageable);
         }
 
-        public List<Post> getNotices(String boardUrl) {
+        public List<Post> getNotices(String boardUrl, Long currentUserId) {
                 Board board = boardRepository.findByBoardUrl(boardUrl)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
-                return this.getNotices(board.getBoardId());
+                return this.getNotices(board.getBoardId(), currentUserId);
         }
 
         @Transactional
@@ -80,17 +84,30 @@ public class PostService {
         }
 
         // --- 기존 boardId 기반 public/private 메서스 ---
-        public Page<Post> getPosts(Long boardId, Long categoryId, Integer minLikes, @NonNull Pageable pageable) {
-                return postRepository.findByBoardIdAndCategoryId(boardId, categoryId, minLikes, pageable);
+        public Page<Post> getPosts(Long boardId, Long categoryId, Integer minLikes, Long currentUserId,
+                        @NonNull Pageable pageable) {
+                List<Long> blockedUserIds = null;
+                if (currentUserId != null) {
+                        blockedUserIds = userBlockService.getBlockedUserIds(currentUserId);
+                }
+                return postRepository.findByBoardIdAndCategoryId(boardId, categoryId, minLikes, blockedUserIds,
+                                pageable);
         }
 
-        public List<Post> getNotices(Long boardId) {
-                return postRepository.findByBoard_BoardIdAndIsNoticeAndIsDeletedOrderByCreatedAtDesc(boardId, true,
-                                false);
+        public List<Post> getNotices(Long boardId, Long currentUserId) {
+                List<Long> blockedUserIds = null;
+                if (currentUserId != null) {
+                        blockedUserIds = userBlockService.getBlockedUserIds(currentUserId);
+                }
+                return postRepository.findNoticesByBoardId(boardId, true, false, blockedUserIds);
         }
 
-        public Page<Post> getPostsByTag(Long tagId, @NonNull Pageable pageable) {
-                return postRepository.findByTagId(tagId, pageable);
+        public Page<Post> getPostsByTag(Long tagId, Long currentUserId, @NonNull Pageable pageable) {
+                List<Long> blockedUserIds = null;
+                if (currentUserId != null) {
+                        blockedUserIds = userBlockService.getBlockedUserIds(currentUserId);
+                }
+                return postRepository.findByTagId(tagId, blockedUserIds, pageable);
         }
 
         public Page<Post> getMyPosts(@NonNull Long userId, @NonNull Pageable pageable) {
@@ -100,18 +117,39 @@ public class PostService {
         }
 
         // 최신 게시글 15개 조회 (BoardUrl 기반)
-        public List<PostSummary> getLatestPostsByBoard(Long boardId, int limit) {
+        public List<PostSummary> getLatestPostsByBoard(Long boardId, int limit, Long currentUserId) {
                 Board board = boardRepository.findByBoardId(boardId)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
-                return postRepository.findByBoardAndIsDeletedOrderByCreatedAtDesc(board, false, Pageable.ofSize(limit))
-                                .stream()
-                                .map(PostSummary::from)
+
+                List<Long> blockedUserIds = null;
+                if (currentUserId != null) {
+                        blockedUserIds = userBlockService.getBlockedUserIds(currentUserId);
+                }
+
+                List<Post> posts = postRepository.findLatestPostsByBoardId(board.getBoardId(), false, blockedUserIds,
+                                Pageable.ofSize(limit));
+
+                List<Long> postIds = posts.stream().map(Post::getPostId).collect(Collectors.toList());
+                Set<Long> postIdsWithImages = getPostIdsWithImages(postIds);
+
+                return posts.stream()
+                                .map(post -> {
+                                        PostSummary summary = PostSummary.from(post);
+                                        summary.setHasImage(postIdsWithImages.contains(post.getPostId()));
+                                        return summary;
+                                })
                                 .collect(Collectors.toList());
         }
 
-        public List<PostSummary> getTrendingPosts(int limit, Long userId) {
+        public List<PostSummary> getTrendingPosts(Pageable pageable, Long currentUserId) {
                 LocalDateTime since = LocalDateTime.now().minusHours(24);
-                List<Post> posts = postRepository.findTrendingPosts(since, Pageable.ofSize(limit));
+
+                List<Long> blockedUserIds = null;
+                if (currentUserId != null) {
+                        blockedUserIds = userBlockService.getBlockedUserIds(currentUserId);
+                }
+
+                List<Post> posts = postRepository.findTrendingPosts(since, blockedUserIds, pageable);
 
                 if (posts.isEmpty()) {
                         return Collections.emptyList();
@@ -120,26 +158,15 @@ public class PostService {
                 List<Long> postIds = posts.stream().map(Post::getPostId).collect(Collectors.toList());
                 List<Board> boards = posts.stream().map(Post::getBoard).distinct().collect(Collectors.toList());
 
-                // Batch fetch files (images)
-                List<File> files = fileService
-                                .getFilesByRelatedEntityIn(postIds, "POST_CONTENT");
-                Map<Long, String> thumbnailMap = files.stream()
-                                .filter(f -> f.getMimeType().startsWith("image/"))
-                                .collect(Collectors.groupingBy(
-                                                File::getRelatedId,
-                                                Collectors.collectingAndThen(Collectors.toList(), list -> {
-                                                        if (list.isEmpty())
-                                                                return null;
-                                                        return "/api/v1/files/" + list.getFirst().getFileId();
-                                                })));
+                Set<Long> postIdsWithImages = getPostIdsWithImages(postIds);
 
                 // Batch fetch user interactions if logged in
                 Set<Long> likedPostIds = new HashSet<>();
                 Set<Long> scrappedPostIds = new HashSet<>();
                 Set<String> subscribedBoardUrls = new HashSet<>();
 
-                if (userId != null) {
-                        User user = userRepository.findById(userId).orElse(null);
+                if (currentUserId != null) {
+                        User user = userRepository.findById(currentUserId).orElse(null);
                         if (user != null) {
                                 likedPostIds = postLikeRepository.findByUserAndPostIn(user, posts).stream()
                                                 .map(like -> like.getPost().getPostId())
@@ -163,11 +190,14 @@ public class PostService {
                 return posts.stream()
                                 .map(post -> PostSummary.from(
                                                 post,
-                                                thumbnailMap.get(post.getPostId()),
+                                                postIdsWithImages.contains(post.getPostId()) ? "/api/v1/files/"
+                                                                + fileService.getOneImageFileIdForPost(post.getPostId())
+                                                                : null,
                                                 post.getBoard().getIconUrl(),
                                                 finalLikedPostIds.contains(post.getPostId()),
                                                 finalScrappedPostIds.contains(post.getPostId()),
-                                                finalSubscribedBoardUrls.contains(post.getBoard().getBoardUrl())))
+                                                finalSubscribedBoardUrls.contains(post.getBoard().getBoardUrl()),
+                                                postIdsWithImages.contains(post.getPostId()))) // Add hasImage argument
                                 .collect(Collectors.toList());
         }
 
@@ -175,6 +205,13 @@ public class PostService {
         public Post getPostById(@NonNull Long postId, Long userId) {
                 Post post = postRepository.findById(postId)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
+
+                if (userId != null) {
+                        List<Long> blockedUserIds = userBlockService.getBlockedUserIds(userId);
+                        if (blockedUserIds.contains(post.getUser().getUserId())) {
+                                throw new BusinessException(ErrorCode.POST_NOT_FOUND);
+                        }
+                }
 
                 // Access Control for Inactive Boards
                 if (!post.getBoard().getIsActive()) {
@@ -250,6 +287,8 @@ public class PostService {
                 viewHistory.updateView(lastReadComment, request.getDurationMs() != null ? request.getDurationMs() : 0L);
         }
 
+        // ...
+
         @Transactional
         public Post createPost(@NonNull Long userId, @NonNull Long boardId, PostCreateRequest request) {
                 User user = userRepository.findById(userId)
@@ -257,12 +296,16 @@ public class PostService {
                 Board board = boardRepository.findById(boardId)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
 
+                if (!board.getIsActive()) {
+                        throw new BusinessException(ErrorCode.BOARD_NOT_FOUND);
+                }
+
                 if (request.isNotice()) {
                         boolean isBoardAdmin = adminRepository.findByUserAndBoardAndIsActive(user, board, true)
                                         .isPresent();
 
                         if (!user.getIsSuperAdmin() && !isBoardAdmin) {
-                                throw new BusinessException(ErrorCode.FORBIDDEN, "공지사항 작성 권한이 없습니다.");
+                                throw new BusinessException(ErrorCode.FORBIDDEN);
                         }
                 }
 
@@ -270,6 +313,20 @@ public class PostService {
                 if (request.getCategoryId() != null) {
                         category = boardCategoryRepository.findById(request.getCategoryId())
                                         .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+
+                        // Category Permission Check
+                        String minRole = category.getMinWriteRole();
+                        if (Role.SUPER_ADMIN.equals(minRole)) {
+                                if (!user.getIsSuperAdmin()) {
+                                        throw new BusinessException(ErrorCode.FORBIDDEN);
+                                }
+                        } else if (Role.BOARD_ADMIN.equals(minRole)) {
+                                boolean isBoardAdmin = adminRepository.findByUserAndBoardAndIsActive(user, board, true)
+                                                .isPresent();
+                                if (!user.getIsSuperAdmin() && !isBoardAdmin) {
+                                        throw new BusinessException(ErrorCode.FORBIDDEN);
+                                }
+                        }
                 }
 
                 Post post = Post.builder()
@@ -301,6 +358,10 @@ public class PostService {
         public Post updatePost(@NonNull Long userId, @NonNull Long postId, PostUpdateRequest request) {
                 Post post = postRepository.findById(postId)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
+
+                if (post.getIsDeleted()) {
+                        throw new BusinessException(ErrorCode.POST_NOT_FOUND);
+                }
 
                 if (!post.getUser().getUserId().equals(userId)) {
                         throw new BusinessException(ErrorCode.FORBIDDEN);
@@ -337,6 +398,10 @@ public class PostService {
                 Post post = postRepository.findById(postId)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
 
+                if (post.getIsDeleted()) {
+                        throw new BusinessException(ErrorCode.POST_NOT_FOUND);
+                }
+
                 if (!post.getUser().getUserId().equals(userId)) {
                         throw new BusinessException(ErrorCode.FORBIDDEN);
                 }
@@ -358,9 +423,13 @@ public class PostService {
                 Post post = postRepository.findById(postId)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
 
+                if (post.getIsDeleted()) {
+                        throw new BusinessException(ErrorCode.POST_NOT_FOUND);
+                }
+
                 PostLikeId postLikeId = new PostLikeId(userId, postId);
                 if (postLikeRepository.existsById(postLikeId)) {
-                        throw new BusinessException(ErrorCode.VALIDATION_ERROR, "이미 좋아요를 누른 게시글입니다.");
+                        throw new BusinessException(ErrorCode.ALREADY_LIKED);
                 }
 
                 PostLike postLike = PostLike.builder()
@@ -380,9 +449,13 @@ public class PostService {
                 Post post = postRepository.findById(postId)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
 
+                if (post.getIsDeleted()) {
+                        throw new BusinessException(ErrorCode.POST_NOT_FOUND);
+                }
+
                 PostLikeId postLikeId = new PostLikeId(userId, postId);
                 if (!postLikeRepository.existsById(postLikeId)) {
-                        throw new BusinessException(ErrorCode.VALIDATION_ERROR, "좋아요를 누르지 않은 게시글입니다.");
+                        throw new BusinessException(ErrorCode.NOT_LIKED);
                 }
 
                 postLikeRepository.deleteById(postLikeId);
@@ -395,6 +468,10 @@ public class PostService {
                                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
                 Post post = postRepository.findById(postId)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
+
+                if (post.getIsDeleted()) {
+                        throw new BusinessException(ErrorCode.POST_NOT_FOUND);
+                }
 
                 ScrapId scrapId = new ScrapId(userId, postId);
                 if (scrapRepository.existsById(scrapId)) {
@@ -415,6 +492,8 @@ public class PostService {
                 if (!scrapRepository.existsById(scrapId)) {
                         throw new BusinessException(ErrorCode.NOT_SCRAPED);
                 }
+                // Unscrap은 게시글이 삭제되었어도 내 스크랩 목록에서 삭제 가능해야 할 수 있음.
+                // 하지만 일관성을 위해 체크하지 않거나, 체크해도 무방함. 여기서는 게시글 존재 여부 체크 안함 (스크랩 ID로만 삭제)
                 scrapRepository.deleteById(scrapId);
         }
 
@@ -502,8 +581,19 @@ public class PostService {
         public Page<PostSummary> getRecentlyViewedPosts(@NonNull Long userId, @NonNull Pageable pageable) {
                 User user = userRepository.findById(userId)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-                return viewHistoryRepository.findByUserOrderByModifiedAtDesc(user, pageable)
-                                .map(viewHistory -> PostSummary.from(viewHistory.getPost()));
+                Page<ViewHistory> historyPage = viewHistoryRepository.findByUserOrderByModifiedAtDesc(user, pageable);
+
+                List<Long> postIds = historyPage.getContent().stream()
+                                .map(h -> h.getPost().getPostId())
+                                .collect(Collectors.toList());
+
+                Set<Long> postIdsWithImages = getPostIdsWithImages(postIds);
+
+                return historyPage.map(viewHistory -> {
+                        PostSummary summary = PostSummary.from(viewHistory.getPost());
+                        summary.setHasImage(postIdsWithImages.contains(viewHistory.getPost().getPostId()));
+                        return summary;
+                });
         }
 
         public List<String> getPostImageUrls(@NonNull Long postId) {
@@ -511,5 +601,26 @@ public class PostService {
                                 .filter(file -> file.getMimeType().startsWith("image/"))
                                 .map(file -> "/api/v1/files/" + file.getFileId())
                                 .collect(Collectors.toList());
+        }
+
+        public Set<Long> getPostIdsWithImages(List<Long> postIds) {
+                if (postIds == null || postIds.isEmpty()) {
+                        return Collections.emptySet();
+                }
+                return new HashSet<>(fileService.getRelatedIdsWithImages(postIds, "POST_CONTENT"));
+        }
+
+        public boolean isBoardAdmin(Long userId, Long boardId) {
+                if (userId == null)
+                        return false;
+                User user = userRepository.findById(userId).orElse(null);
+                if (user == null)
+                        return false;
+                if (user.getIsSuperAdmin())
+                        return true;
+                Board board = boardRepository.findById(boardId).orElse(null);
+                if (board == null)
+                        return false;
+                return adminRepository.findByUserAndBoardAndIsActive(user, board, true).isPresent();
         }
 }

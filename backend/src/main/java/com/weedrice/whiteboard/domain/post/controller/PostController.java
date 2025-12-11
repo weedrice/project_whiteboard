@@ -11,6 +11,7 @@ import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.lang.NonNull;
@@ -37,26 +38,40 @@ public class PostController {
             @NonNull Pageable pageable,
             Authentication authentication) {
 
+        Long userId = null;
+        if (authentication != null && authentication.getPrincipal() instanceof CustomUserDetails) {
+            userId = ((CustomUserDetails) authentication.getPrincipal()).getUserId();
+        }
+
         if (keyword != null && !keyword.trim().isEmpty()) {
-            Long userId = null;
-            if (authentication != null && authentication.getPrincipal() instanceof CustomUserDetails) {
-                userId = ((CustomUserDetails) authentication.getPrincipal()).getUserId();
-            }
             searchService.recordSearch(userId, keyword);
         }
 
-        Page<Post> posts = postService.getPosts(boardUrl, categoryId, minLikes, pageable);
+        Page<Post> posts = postService.getPosts(boardUrl, categoryId, minLikes, userId, pageable);
 
         List<PostSummary> summaries = new java.util.ArrayList<>();
         long totalElements = posts.getTotalElements();
         int pageNumber = posts.getNumber();
         int pageSize = posts.getSize();
 
+        boolean isAscending = pageable.getSort().stream()
+                .anyMatch(order -> order.getProperty().equals("createdAt") && order.isAscending()
+                        || order.getProperty().equals("postId") && order.isAscending());
+
+        List<Long> postIds = posts.getContent().stream().map(Post::getPostId)
+                .collect(java.util.stream.Collectors.toList());
+        java.util.Set<Long> postIdsWithImages = postService.getPostIdsWithImages(postIds);
+
         for (int i = 0; i < posts.getContent().size(); i++) {
             Post post = posts.getContent().get(i);
             PostSummary summary = PostSummary.from(post);
-            // Calculate row number: total - (page * size) - index
-            summary.setRowNum(totalElements - ((long) pageNumber * pageSize) - i);
+            summary.setHasImage(postIdsWithImages.contains(post.getPostId()));
+
+            if (isAscending) {
+                summary.setRowNum(((long) pageNumber * pageSize) + i + 1);
+            } else {
+                summary.setRowNum(totalElements - ((long) pageNumber * pageSize) - i);
+            }
             summaries.add(summary);
         }
 
@@ -67,10 +82,12 @@ public class PostController {
     }
 
     @GetMapping("/posts/trending")
-    public ApiResponse<List<PostSummary>> getTrendingPosts(@RequestParam(defaultValue = "10") int limit,
+    public ApiResponse<List<PostSummary>> getTrendingPosts(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         Long userId = (userDetails != null) ? userDetails.getUserId() : null;
-        return ApiResponse.success(postService.getTrendingPosts(limit, userId));
+        return ApiResponse.success(postService.getTrendingPosts(PageRequest.of(page, size), userId));
     }
 
     @GetMapping("/posts/{postId}")
@@ -85,7 +102,9 @@ public class PostController {
         ViewHistory viewHistory = postService.getViewHistory(userId, postId); // ViewHistory를 올바르게 가져옴
         List<String> imageUrls = postService.getPostImageUrls(postId);
 
-        return ApiResponse.success(PostResponse.from(post, tags, viewHistory, isLiked, isScrapped, imageUrls));
+        boolean isAdmin = postService.isBoardAdmin(userId, post.getBoard().getBoardId());
+
+        return ApiResponse.success(PostResponse.from(post, tags, viewHistory, isLiked, isScrapped, imageUrls, isAdmin));
     }
 
     @PutMapping("/posts/{postId}/history")

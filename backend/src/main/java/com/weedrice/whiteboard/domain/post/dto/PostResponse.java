@@ -56,6 +56,8 @@ public class PostResponse {
         private Long boardId;
         private String boardName;
         private String boardUrl;
+        @JsonProperty("isAdmin")
+        private boolean isAdmin;
     }
 
     @Getter
@@ -66,7 +68,7 @@ public class PostResponse {
     }
 
     public static PostResponse from(Post post, List<String> tags, ViewHistory viewHistory, boolean isLiked,
-            boolean isScrapped, List<String> imageUrls) {
+            boolean isScrapped, List<String> imageUrls, boolean isAdmin) {
         AuthorInfo authorInfo = AuthorInfo.builder()
                 .userId(post.getUser().getUserId())
                 .displayName(post.getUser().getDisplayName())
@@ -77,6 +79,7 @@ public class PostResponse {
                 .boardId(post.getBoard().getBoardId())
                 .boardName(post.getBoard().getBoardName())
                 .boardUrl(post.getBoard().getBoardUrl())
+                .isAdmin(isAdmin)
                 .build();
 
         CategoryInfo categoryInfo = post.getCategory() != null ? CategoryInfo.builder()

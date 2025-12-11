@@ -30,6 +30,7 @@ public class PostSummary {
     private boolean isLiked;
     private boolean isScrapped;
     private boolean isSubscribed;
+    private boolean hasImage;
 
     @Getter
     @Builder
@@ -47,11 +48,11 @@ public class PostSummary {
     }
 
     public static PostSummary from(Post post) {
-        return from(post, null, null, false, false, false);
+        return from(post, null, null, false, false, false, false);
     }
 
     public static PostSummary from(Post post, String thumbnailUrl, String boardIconUrl, boolean isLiked,
-            boolean isScrapped, boolean isSubscribed) {
+            boolean isScrapped, boolean isSubscribed, boolean hasImage) {
         return PostSummary.builder()
                 .postId(post.getPostId())
                 .title(post.getTitle())
@@ -78,6 +79,7 @@ public class PostSummary {
                 .isLiked(isLiked)
                 .isScrapped(isScrapped)
                 .isSubscribed(isSubscribed)
+                .hasImage(hasImage)
                 .build();
     }
 }
