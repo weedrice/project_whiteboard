@@ -30,6 +30,7 @@ public enum ErrorCode {
     CANNOT_BLOCK_SELF(HttpStatus.BAD_REQUEST, "U008", "error.user.cannotBlockSelf"),
     BLOCKED_BY_USER(HttpStatus.FORBIDDEN, "U009", "error.user.blockedByUser"),
     USER_NOT_ACTIVE(HttpStatus.FORBIDDEN, "U010", "error.user.notActive"),
+    EMAIL_NOT_VERIFIED(HttpStatus.BAD_REQUEST, "U011", "error.user.emailNotVerified"),
 
     // Board
     BOARD_NOT_FOUND(HttpStatus.NOT_FOUND, "B001", "error.board.notFound"),
@@ -54,6 +55,9 @@ public enum ErrorCode {
     INVALID_REFRESH_TOKEN(HttpStatus.UNAUTHORIZED, "A001", "error.auth.invalidRefreshToken"),
     EXPIRED_REFRESH_TOKEN(HttpStatus.UNAUTHORIZED, "A002", "error.auth.expiredRefreshToken"),
     LOGIN_FAILED(HttpStatus.UNAUTHORIZED, "A003", "error.auth.loginFailed"),
+    INVALID_PASSWORD_RESET_TOKEN(HttpStatus.BAD_REQUEST, "A004", "error.auth.invalidPasswordResetToken"),
+    EXPIRED_PASSWORD_RESET_TOKEN(HttpStatus.BAD_REQUEST, "A005", "error.auth.expiredPasswordResetToken"),
+    USED_PASSWORD_RESET_TOKEN(HttpStatus.BAD_REQUEST, "A006", "error.auth.usedPasswordResetToken"),
 
     // Report
     ALREADY_REPORTED(HttpStatus.BAD_REQUEST, "R001", "error.report.alreadyReported"),

@@ -24,6 +24,10 @@ import org.springframework.security.config.annotation.authentication.builders.Au
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import com.weedrice.whiteboard.domain.auth.entity.PasswordResetToken;
+import com.weedrice.whiteboard.domain.auth.repository.PasswordResetTokenRepository;
+import com.weedrice.whiteboard.global.email.EmailService;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,6 +38,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.UUID; // Import UUID
 
 @Service
 @RequiredArgsConstructor
@@ -48,6 +53,12 @@ public class AuthService {
     private final RefreshTokenRepository refreshTokenRepository;
     private final LoginHistoryRepository loginHistoryRepository;
     private final UserSettingsRepository userSettingsRepository;
+    private final VerificationCodeService verificationCodeService;
+    private final PasswordResetTokenRepository passwordResetTokenRepository; // Inject PasswordResetTokenRepository
+    private final EmailService emailService; // Inject EmailService
+
+    @Value("${password-reset.frontend-url}")
+    private String passwordResetFrontendUrl; // Inject VerificationCodeService
 
     @Transactional
     public SignupResponse signup(SignupRequest request) {
@@ -58,12 +69,17 @@ public class AuthService {
             throw new BusinessException(ErrorCode.DUPLICATE_EMAIL);
         }
 
+        if (!verificationCodeService.isVerified(request.getEmail())) {
+            throw new BusinessException(ErrorCode.EMAIL_NOT_VERIFIED);
+        }
+
         User user = User.builder()
                 .loginId(request.getLoginId())
                 .password(passwordEncoder.encode(request.getPassword()))
                 .email(request.getEmail())
                 .displayName(request.getDisplayName())
                 .build();
+        user.verifyEmail(); // Set isEmailVerified = true
         User savedUser = userRepository.save(user);
 
         // 기본 세팅 정보 생성
@@ -227,5 +243,82 @@ public class AuthService {
         } catch (NoSuchAlgorithmException e) {
             throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR); // Or a more specific error
         }
+    }
+
+    public FindIdResponse findLoginId(String email) {
+        if (!verificationCodeService.isVerified(email)) {
+            throw new BusinessException(ErrorCode.EMAIL_NOT_VERIFIED);
+        }
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND)); // Or EMAIL_NOT_REGISTERED
+        return new FindIdResponse(user.getLoginId());
+    }
+
+    @Transactional
+    public void sendPasswordResetLink(String email) {
+        if (!verificationCodeService.isVerified(email)) {
+            throw new BusinessException(ErrorCode.EMAIL_NOT_VERIFIED);
+        }
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+        String rawToken = UUID.randomUUID().toString();
+        String hashedToken = hashTokenSha256(rawToken);
+        LocalDateTime expiryDate = LocalDateTime.now().plusHours(1); // 1시간 유효
+
+        PasswordResetToken passwordResetToken = PasswordResetToken.builder()
+                .token(hashedToken)
+                .user(user)
+                .expiryDate(expiryDate)
+                .build();
+        passwordResetTokenRepository.save(passwordResetToken);
+
+        String resetLink = passwordResetFrontendUrl + rawToken;
+        String subject = "[Whiteboard] 비밀번호 재설정 링크";
+        String body = "<h1>비밀번호 재설정</h1><p>아래 링크를 클릭하여 비밀번호를 재설정해주세요.</p><p><a href=\"" + resetLink + "\">" + resetLink
+                + "</a></p>";
+
+        emailService.sendEmail(email, subject, body);
+    }
+
+    @Transactional
+    public void resetPasswordWithToken(String rawToken, String newPassword) {
+        String hashedToken = hashTokenSha256(rawToken);
+        PasswordResetToken passwordResetToken = passwordResetTokenRepository.findByToken(hashedToken)
+                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_PASSWORD_RESET_TOKEN));
+
+        if (passwordResetToken.isExpired()) {
+            throw new BusinessException(ErrorCode.EXPIRED_PASSWORD_RESET_TOKEN);
+        }
+        if (passwordResetToken.getIsUsed()) {
+            throw new BusinessException(ErrorCode.USED_PASSWORD_RESET_TOKEN);
+        }
+
+        User user = passwordResetToken.getUser();
+        user.updatePassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user); // Save user with new password
+
+        passwordResetToken.useToken();
+        passwordResetTokenRepository.save(passwordResetToken);
+
+        // Clear verification code after password reset
+        verificationCodeService.clearVerificationStatus(user.getEmail());
+    }
+
+    @Transactional
+    public void resetPasswordByCode(String email, String code, String newPassword) {
+        if (!verificationCodeService.isVerified(email)) {
+            throw new BusinessException(ErrorCode.EMAIL_NOT_VERIFIED);
+        }
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+        user.updatePassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+
+        // Clear verification status to prevent reuse
+        verificationCodeService.clearVerificationStatus(email);
     }
 }
