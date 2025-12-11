@@ -15,4 +15,15 @@ export const authApi = {
 
     // Get Current User
     getMe: () => api.get('/users/me'),
+
+    // Email Verification
+    sendVerificationCode: (email: string) => api.post('/auth/email/send-verification', { email }),
+    verifyCode: (email: string, code: string) => api.post('/auth/email/verify', { email, code }),
+
+    // Find ID
+    findId: (email: string) => api.post('/auth/find-id', { email }),
+
+    // Password Reset
+    sendPasswordReset: (email: string) => api.post('/auth/password/forgot', { email }),
+    resetPassword: (data: any) => api.post('/auth/password/reset-by-code', data),
 }
