@@ -57,8 +57,10 @@ public class BoardController {
     }
 
     @GetMapping("/{boardUrl}/notices")
-    public ApiResponse<List<PostSummary>> getNotices(@PathVariable String boardUrl) {
-        List<Post> notices = postService.getNotices(boardUrl);
+    public ApiResponse<List<PostSummary>> getNotices(@PathVariable String boardUrl,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        Long userId = (userDetails != null) ? userDetails.getUserId() : null;
+        List<Post> notices = postService.getNotices(boardUrl, userId);
         List<PostSummary> response = notices.stream().map(PostSummary::from).collect(Collectors.toList());
         return ApiResponse.success(response);
     }

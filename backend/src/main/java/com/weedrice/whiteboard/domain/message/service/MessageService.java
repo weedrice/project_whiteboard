@@ -13,6 +13,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @Service("messageDomainService") // Bean 이름 충돌을 피하기 위해 명시적으로 지정
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -28,6 +30,11 @@ public class MessageService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         User receiver = userRepository.findById(receiverId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+        // 발신자가 수신자를 차단했는지 확인
+        if (userBlockService.isBlocked(senderId, receiverId)) {
+            throw new BusinessException(ErrorCode.BLOCKED_BY_USER);
+        }
 
         // 수신자가 발신자를 차단했는지 확인
         if (userBlockService.isBlocked(receiverId, senderId)) {
@@ -45,13 +52,15 @@ public class MessageService {
     public Page<Message> getReceivedMessages(Long userId, Pageable pageable) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        return messageRepository.findByReceiverAndIsDeletedByReceiver(user, false, pageable);
+        List<Long> blockedUserIds = userBlockService.getBlockedUserIds(userId);
+        return messageRepository.findReceivedMessagesExcludingBlocked(user, false, blockedUserIds, pageable);
     }
 
     public Page<Message> getSentMessages(Long userId, Pageable pageable) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        return messageRepository.findBySenderAndIsDeletedBySender(user, false, pageable);
+        List<Long> blockedUserIds = userBlockService.getBlockedUserIds(userId);
+        return messageRepository.findSentMessagesExcludingBlocked(user, false, blockedUserIds, pageable);
     }
 
     @Transactional
@@ -61,6 +70,14 @@ public class MessageService {
 
         if (!message.getReceiver().getUserId().equals(userId) && !message.getSender().getUserId().equals(userId)) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
+
+        // 차단 관계 확인
+        if (userBlockService.isBlocked(userId, message.getSender().getUserId()) ||
+            userBlockService.isBlocked(message.getSender().getUserId(), userId) ||
+            userBlockService.isBlocked(userId, message.getReceiver().getUserId()) ||
+            userBlockService.isBlocked(message.getReceiver().getUserId(), userId)) {
+            throw new BusinessException(ErrorCode.BLOCKED_BY_USER);
         }
 
         // 수신자가 읽었을 경우 읽음 처리
@@ -100,6 +117,7 @@ public class MessageService {
     public long getUnreadMessageCount(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        return messageRepository.countByReceiverAndIsReadAndIsDeletedByReceiver(user, false, false);
+        List<Long> blockedUserIds = userBlockService.getBlockedUserIds(userId);
+        return messageRepository.countUnreadMessagesExcludingBlocked(user, false, false, blockedUserIds);
     }
 }
