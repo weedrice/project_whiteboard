@@ -15,4 +15,7 @@ public class CategoryRequest {
 
     @NotNull
     private Integer sortOrder;
+
+    @Size(max = 20)
+    private String minWriteRole;
 }
