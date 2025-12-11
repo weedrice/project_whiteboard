@@ -27,6 +27,10 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import com.weedrice.whiteboard.domain.user.service.UserBlockService; // Import UserBlockService
+
+// ...
+
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -37,6 +41,9 @@ public class SearchService {
     private final UserRepository userRepository;
     private final PostRepository postRepository;
     private final CommentRepository commentRepository;
+    private final UserBlockService userBlockService; // Inject UserBlockService
+
+    private final com.weedrice.whiteboard.domain.file.service.FileService fileService; // Inject FileService
 
     @Transactional
     public void recordSearch(Long userId, String keyword) {
@@ -58,23 +65,53 @@ public class SearchService {
         }
     }
 
-    public IntegratedSearchResponse integratedSearch(String keyword) {
+    public IntegratedSearchResponse integratedSearch(String keyword, Long currentUserId) {
         Pageable previewPageable = PageRequest.of(0, 5); // 미리보기는 5개까지만
-        
-        Page<PostSummary> posts = postRepository.searchPostsByKeyword(keyword, previewPageable)
-                .map(PostSummary::from);
-        
-        Page<CommentResponse> comments = commentRepository.findByContentContainingIgnoreCaseAndIsDeleted(keyword, false, previewPageable)
+
+        List<Long> blockedUserIds = null;
+        if (currentUserId != null) {
+            blockedUserIds = userBlockService.getBlockedUserIds(currentUserId);
+        }
+
+        Page<PostSummary> posts = postRepository.searchPostsByKeyword(keyword, blockedUserIds, previewPageable)
+                .map(post -> {
+                    PostSummary summary = PostSummary.from(post);
+                    // Check for image
+                    List<Long> postIds = java.util.Collections.singletonList(post.getPostId());
+                    boolean hasImage = !fileService.getRelatedIdsWithImages(postIds, "POST_CONTENT").isEmpty();
+                    summary.setHasImage(hasImage);
+                    return summary;
+                });
+
+        Page<CommentResponse> comments = commentRepository
+                .findByContentContainingIgnoreCaseAndIsDeleted(keyword, false, previewPageable)
                 .map(CommentResponse::from);
-        
+
         Page<UserSummary> users = userRepository.findByDisplayNameContainingIgnoreCase(keyword, previewPageable)
                 .map(UserSummary::from);
 
         return IntegratedSearchResponse.from(posts, comments, users, keyword);
     }
 
-    public Page<PostSummary> searchPosts(String keyword, String searchType, String boardUrl, Pageable pageable) {
-        return postRepository.searchPosts(keyword, searchType, boardUrl, pageable).map(PostSummary::from);
+    public Page<PostSummary> searchPosts(String keyword, String searchType, String boardUrl, Pageable pageable,
+            Long currentUserId) {
+        List<Long> blockedUserIds = null;
+        if (currentUserId != null) {
+            blockedUserIds = userBlockService.getBlockedUserIds(currentUserId);
+        }
+        Page<com.weedrice.whiteboard.domain.post.entity.Post> postPage = postRepository.searchPosts(keyword, searchType,
+                boardUrl, blockedUserIds, pageable);
+
+        List<Long> postIds = postPage.getContent().stream()
+                .map(com.weedrice.whiteboard.domain.post.entity.Post::getPostId).collect(Collectors.toList());
+        java.util.Set<Long> postIdsWithImages = new java.util.HashSet<>(
+                fileService.getRelatedIdsWithImages(postIds, "POST_CONTENT"));
+
+        return postPage.map(post -> {
+            PostSummary summary = PostSummary.from(post);
+            summary.setHasImage(postIdsWithImages.contains(post.getPostId()));
+            return summary;
+        });
     }
 
     public Page<SearchPersonalization> getRecentSearches(Long userId, Pageable pageable) {

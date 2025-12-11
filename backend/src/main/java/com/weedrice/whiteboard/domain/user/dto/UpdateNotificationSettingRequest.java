@@ -5,7 +5,7 @@ import lombok.Data;
 
 @Data
 public class UpdateNotificationSettingRequest {
-    @NotBlank(message = "알림 타입은 필수입니다")
+    @NotBlank(message = "{validation.notification.type.required}")
     private String notificationType;
 
     private Boolean isEnabled;

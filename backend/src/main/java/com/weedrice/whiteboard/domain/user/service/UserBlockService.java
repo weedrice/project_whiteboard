@@ -12,6 +12,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -78,6 +81,14 @@ public class UserBlockService {
         User target = userRepository.findById(targetUserId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         return userBlockRepository.existsByUserAndTarget(user, target);
+    }
+
+    public List<Long> getBlockedUserIds(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        return userBlockRepository.findByUser(user).stream()
+                .map(block -> block.getTarget().getUserId())
+                .collect(Collectors.toList());
     }
 
     @lombok.Builder

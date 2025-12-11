@@ -5,6 +5,6 @@ import lombok.Data;
 
 @Data
 public class DeleteAccountRequest {
-    @NotBlank(message = "비밀번호는 필수입니다")
+    @NotBlank(message = "{validation.user.password.required}")
     private String password;
 }

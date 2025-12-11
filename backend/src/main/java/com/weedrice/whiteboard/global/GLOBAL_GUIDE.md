@@ -49,6 +49,13 @@ throw new BusinessException(ErrorCode.USER_NOT_FOUND);
 ```
 발생한 예외는 `GlobalExceptionHandler`에 의해 자동으로 4xx/5xx HTTP 상태 코드와 함께 적절한 에러 응답으로 변환됩니다.
 
+### 메시지 처리 및 국제화 (i18n)
+- **MessageSource**: Spring `MessageSource`를 사용하여 메시지를 중앙에서 관리합니다.
+- **리소스 파일**: `src/main/resources/messages.properties` (기본/한국어) 및 `messages_en.properties` (영어)에 메시지를 정의합니다.
+- **ErrorCode 사용**: `ErrorCode` Enum은 메시지 텍스트 대신 '메시지 키'를 가집니다 (예: `error.user.notFound`). 예외 핸들러가 이를 해석하여 클라이언트에게 현지화된 메시지를 반환합니다.
+- **성공 메시지**: 컨트롤러에서 성공 메시지 반환 시 `MessageSource`를 주입받아 키를 통해 메시지를 조회해야 합니다.
+- **Validation**: DTO의 Validation 어노테이션에는 `{key}` 형식을 사용하여 메시지 키를 지정합니다.
+
 ### 보안 및 인증
 - **인증 필요 API**: Spring Security 설정에 따라 보호되며, 요청 헤더에 유효한 `Bearer` 토큰이 필요합니다.
 - **현재 사용자 접근**: `SecurityContextHolder`를 직접 접근하거나, 컨트롤러 메서드 인자로 `@AuthenticationPrincipal CustomUserDetails userDetails`를 받아 현재 인증된 사용자의 ID(`userId`)를 획득할 수 있습니다.

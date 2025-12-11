@@ -30,13 +30,10 @@ public class SearchController {
             @RequestParam String q,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
 
-        if (userDetails != null) {
-            searchService.recordSearch(userDetails.getUserId(), q);
-        } else {
-            searchService.recordSearch(null, q);
-        }
+        Long userId = (userDetails != null) ? userDetails.getUserId() : null;
+        searchService.recordSearch(userId, q);
 
-        IntegratedSearchResponse response = searchService.integratedSearch(q);
+        IntegratedSearchResponse response = searchService.integratedSearch(q, userId);
         return ApiResponse.success(response);
     }
 
@@ -48,13 +45,10 @@ public class SearchController {
             Pageable pageable,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
 
-        if (userDetails != null) {
-            searchService.recordSearch(userDetails.getUserId(), q);
-        } else {
-            searchService.recordSearch(null, q);
-        }
+        Long userId = (userDetails != null) ? userDetails.getUserId() : null;
+        searchService.recordSearch(userId, q);
 
-        Page<PostSummary> response = searchService.searchPosts(q, searchType, boardUrl, pageable);
+        Page<PostSummary> response = searchService.searchPosts(q, searchType, boardUrl, pageable, userId);
         
         long totalElements = response.getTotalElements();
         int pageNumber = response.getNumber();

@@ -6,6 +6,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface UserBlockRepository extends JpaRepository<UserBlock, Long> {
@@ -15,4 +16,6 @@ public interface UserBlockRepository extends JpaRepository<UserBlock, Long> {
     Optional<UserBlock> findByUserAndTarget(User user, User target);
 
     Page<UserBlock> findByUserOrderByCreatedAtDesc(User user, Pageable pageable);
+
+    List<UserBlock> findByUser(User user);
 }

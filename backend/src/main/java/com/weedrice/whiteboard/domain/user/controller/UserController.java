@@ -19,6 +19,8 @@ import com.weedrice.whiteboard.global.common.dto.PageResponse;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -40,6 +42,7 @@ public class UserController {
         private final BoardService boardService;
         private final PostService postService;
         private final CommentService commentService;
+        private final MessageSource messageSource;
 
         @GetMapping("/me")
         public ResponseEntity<ApiResponse<MyInfoResponse>> getMyInfo(
@@ -78,7 +81,9 @@ public class UserController {
                         @AuthenticationPrincipal CustomUserDetails userDetails) {
                 userService.updatePassword(userDetails.getUserId(), request.getCurrentPassword(),
                                 request.getNewPassword());
-                return ResponseEntity.ok(ApiResponse.success(new MessageResponse("비밀번호가 변경되었습니다.")));
+                String message = messageSource.getMessage("success.user.passwordChanged", null,
+                                LocaleContextHolder.getLocale());
+                return ResponseEntity.ok(ApiResponse.success(new MessageResponse(message)));
         }
 
         @DeleteMapping("/me")
@@ -86,7 +91,9 @@ public class UserController {
                         @Valid @RequestBody DeleteAccountRequest request,
                         @AuthenticationPrincipal CustomUserDetails userDetails) {
                 userService.deleteAccount(userDetails.getUserId(), request.getPassword());
-                return ResponseEntity.ok(ApiResponse.success(new MessageResponse("회원 탈퇴가 완료되었습니다.")));
+                String message = messageSource.getMessage("success.user.accountDeleted", null,
+                                LocaleContextHolder.getLocale());
+                return ResponseEntity.ok(ApiResponse.success(new MessageResponse(message)));
         }
 
         @GetMapping("/me/settings")
@@ -138,8 +145,10 @@ public class UserController {
                         @PathVariable Long userId,
                         @AuthenticationPrincipal CustomUserDetails userDetails) {
                 userBlockService.blockUser(userDetails.getUserId(), userId);
+                String message = messageSource.getMessage("success.user.blocked", null,
+                                LocaleContextHolder.getLocale());
                 return ResponseEntity.status(HttpStatus.CREATED)
-                                .body(ApiResponse.success(new MessageResponse("차단되었습니다.")));
+                                .body(ApiResponse.success(new MessageResponse(message)));
         }
 
         @DeleteMapping("/{userId}/block")
@@ -147,7 +156,9 @@ public class UserController {
                         @PathVariable Long userId,
                         @AuthenticationPrincipal CustomUserDetails userDetails) {
                 userBlockService.unblockUser(userDetails.getUserId(), userId);
-                return ResponseEntity.ok(ApiResponse.success(new MessageResponse("차단이 해제되었습니다.")));
+                String message = messageSource.getMessage("success.user.unblocked", null,
+                                LocaleContextHolder.getLocale());
+                return ResponseEntity.ok(ApiResponse.success(new MessageResponse(message)));
         }
 
         @GetMapping("/me/blocks")

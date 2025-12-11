@@ -5,7 +5,7 @@ import lombok.Data;
 
 @Data
 public class UpdateProfileRequest {
-    @Size(min = 2, max = 50, message = "표시 이름은 2-50자여야 합니다")
+    @Size(min = 2, max = 50, message = "{validation.user.displayName.size}")
     private String displayName;
 
     private String profileImageUrl;
