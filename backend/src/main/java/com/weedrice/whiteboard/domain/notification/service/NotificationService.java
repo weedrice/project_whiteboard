@@ -23,7 +23,10 @@ public class NotificationService {
     private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
 
-    // @TransactionalEventListener 메서드에 @Transactional을 붙일 경우 REQUIRES_NEW 또는 NOT_SUPPORTED를 명시해야 함
+    private final java.util.Map<Long, org.springframework.web.servlet.mvc.method.annotation.SseEmitter> emitters = new java.util.concurrent.ConcurrentHashMap<>();
+
+    // @TransactionalEventListener 메서드에 @Transactional을 붙일 경우 REQUIRES_NEW 또는
+    // NOT_SUPPORTED를 명시해야 함
     @Transactional(propagation = Propagation.REQUIRES_NEW) // 새로운 트랜잭션에서 실행
     @TransactionalEventListener
     public void handleNotificationEvent(NotificationEvent event) {
@@ -41,6 +44,43 @@ public class NotificationService {
                 .content(event.getContent())
                 .build();
         notificationRepository.save(notification);
+
+        // SSE 전송
+        sendNotificationToUser(event.getUserToNotify().getUserId(), notification);
+    }
+
+    public org.springframework.web.servlet.mvc.method.annotation.SseEmitter subscribe(Long userId) {
+        org.springframework.web.servlet.mvc.method.annotation.SseEmitter emitter = new org.springframework.web.servlet.mvc.method.annotation.SseEmitter(
+                Long.MAX_VALUE);
+        emitters.put(userId, emitter);
+
+        emitter.onCompletion(() -> emitters.remove(userId));
+        emitter.onTimeout(() -> emitters.remove(userId));
+        emitter.onError((e) -> emitters.remove(userId));
+
+        // 503 Service Unavailable 방지를 위한 더미 데이터 전송
+        try {
+            emitter.send(org.springframework.web.servlet.mvc.method.annotation.SseEmitter.event()
+                    .name("connect")
+                    .data("connected!"));
+        } catch (java.io.IOException e) {
+            emitters.remove(userId);
+        }
+
+        return emitter;
+    }
+
+    private void sendNotificationToUser(Long userId, Notification notification) {
+        org.springframework.web.servlet.mvc.method.annotation.SseEmitter emitter = emitters.get(userId);
+        if (emitter != null) {
+            try {
+                emitter.send(org.springframework.web.servlet.mvc.method.annotation.SseEmitter.event()
+                        .name("notification")
+                        .data(com.weedrice.whiteboard.domain.notification.dto.NotificationResponse.from(notification)));
+            } catch (java.io.IOException e) {
+                emitters.remove(userId);
+            }
+        }
     }
 
     public Page<Notification> getNotifications(Long userId, Pageable pageable) {

@@ -48,4 +48,10 @@ public class NotificationController {
         Long userId = ((CustomUserDetails) authentication.getPrincipal()).getUserId();
         return ApiResponse.success(notificationService.getUnreadNotificationCount(userId));
     }
+
+    @GetMapping(value = "/stream", produces = org.springframework.http.MediaType.TEXT_EVENT_STREAM_VALUE)
+    public org.springframework.web.servlet.mvc.method.annotation.SseEmitter subscribe(Authentication authentication) {
+        Long userId = ((CustomUserDetails) authentication.getPrincipal()).getUserId();
+        return notificationService.subscribe(userId);
+    }
 }
