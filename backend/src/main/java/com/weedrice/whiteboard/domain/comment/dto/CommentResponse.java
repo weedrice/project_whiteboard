@@ -26,6 +26,7 @@ public class CommentResponse {
     private String boardUrl;
     private String postTitle;
     @Setter
+    @Builder.Default
     private List<CommentResponse> children = new ArrayList<>();
 
     @Getter
@@ -48,7 +49,8 @@ public class CommentResponse {
 
         return CommentResponse.builder()
                 .commentId(comment.getCommentId())
-                .parentId(comment.getParent() != null ? comment.getParent().getCommentId() : null) // Initialize parentId
+                .parentId(comment.getParent() != null ? comment.getParent().getCommentId() : null) // Initialize
+                                                                                                   // parentId
                 .content(comment.getIsDeleted() ? "삭제된 댓글입니다." : comment.getContent())
                 .author(authorInfo)
                 .depth(comment.getDepth())

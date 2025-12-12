@@ -60,22 +60,35 @@ public class CommentService {
                 .map(Comment::getCommentId)
                 .collect(Collectors.toList());
 
-        List<Comment> childComments = commentRepository
-                .findByParent_CommentIdInAndIsDeletedOrderByCreatedAtAsc(parentIds, false);
+        if (parentIds.isEmpty()) {
+            return new PageImpl<>(List.of(), pageable, parentComments.getTotalElements());
+        }
 
-        Map<Long, List<CommentResponse>> childCommentMap = childComments.stream()
-                .map(comment -> maskCommentContent(CommentResponse.from(comment), finalBlockedUserIds))
-                .collect(Collectors.groupingBy(commentResponse -> commentResponse.getParentId(),
-                        Collectors.mapping(commentResponse -> commentResponse, Collectors.toList())));
+        List<Comment> allDescendants = commentRepository.findAllDescendants(parentIds);
+
+        Map<Long, CommentResponse> responseMap = new java.util.HashMap<>();
+
+        // Add roots
+        parentComments.getContent().forEach(c -> responseMap.put(c.getCommentId(),
+                maskCommentContent(CommentResponse.from(c), finalBlockedUserIds)));
+
+        // Add descendants
+        allDescendants.forEach(c -> responseMap.put(c.getCommentId(),
+                maskCommentContent(CommentResponse.from(c), finalBlockedUserIds)));
+
+        // Build Tree
+        allDescendants.forEach(child -> {
+            CommentResponse childResponse = responseMap.get(child.getCommentId());
+            if (child.getParent() != null) {
+                Long parentId = child.getParent().getCommentId();
+                if (responseMap.containsKey(parentId)) {
+                    responseMap.get(parentId).getChildren().add(childResponse);
+                }
+            }
+        });
 
         List<CommentResponse> responseContent = parentComments.getContent().stream()
-                .map(comment -> {
-                    CommentResponse response = maskCommentContent(CommentResponse.from(comment), finalBlockedUserIds);
-                    if (childCommentMap.containsKey(comment.getCommentId())) {
-                        response.setChildren(childCommentMap.get(comment.getCommentId()));
-                    }
-                    return response;
-                })
+                .map(c -> responseMap.get(c.getCommentId()))
                 .collect(Collectors.toList());
 
         return new PageImpl<>(responseContent, pageable, parentComments.getTotalElements());
@@ -113,7 +126,7 @@ public class CommentService {
         if (parentId != null) {
             parentComment = commentRepository.findById(parentId)
                     .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
-            
+
             if (parentComment.getIsDeleted()) {
                 throw new BusinessException(ErrorCode.COMMENT_NOT_FOUND);
             }
@@ -131,7 +144,7 @@ public class CommentService {
 
         post.incrementCommentCount();
         Comment savedComment = commentRepository.save(comment);
-        
+
         // Save CommentVersion for CREATE
         saveCommentVersion(savedComment, user, "CREATE", null);
 
@@ -177,8 +190,8 @@ public class CommentService {
 
         // Save CommentVersion for MODIFY
         saveCommentVersion(comment, userRepository.findById(userId)
-                                                    .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND)),
-                            "MODIFY", originalContent);
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND)),
+                "MODIFY", originalContent);
         return comment;
     }
 
@@ -201,8 +214,8 @@ public class CommentService {
 
         // Save CommentVersion for DELETE
         saveCommentVersion(comment, userRepository.findById(userId)
-                                                    .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND)),
-                            "DELETE", originalContent);
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND)),
+                "DELETE", originalContent);
 
         pointService.forceSubtractPoint(userId, 10, "댓글 삭제", commentId, "COMMENT");
     }
@@ -260,14 +273,15 @@ public class CommentService {
     }
 
     private CommentResponse maskCommentContent(CommentResponse response, List<Long> blockedUserIds) {
-        if (blockedUserIds != null && response.getAuthor() != null && blockedUserIds.contains(response.getAuthor().getUserId())) {
+        if (blockedUserIds != null && response.getAuthor() != null
+                && blockedUserIds.contains(response.getAuthor().getUserId())) {
             return response.toBuilder() // Use toBuilder to create a new builder from existing values
                     .content("차단된 사용자의 댓글입니다.")
                     .author(CommentResponse.AuthorInfo.builder()
-                                .userId(response.getAuthor().getUserId())
-                                .displayName("차단된 사용자")
-                                .profileImageUrl(null)
-                                .build())
+                            .userId(response.getAuthor().getUserId())
+                            .displayName("차단된 사용자")
+                            .profileImageUrl(null)
+                            .build())
                     .build();
         }
         return response;
