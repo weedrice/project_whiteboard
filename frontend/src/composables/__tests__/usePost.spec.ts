@@ -35,7 +35,8 @@ vi.mock('@/api/post', () => ({
         likePost: vi.fn().mockResolvedValue({ success: true }),
         unlikePost: vi.fn().mockResolvedValue({ success: true }),
         scrapPost: vi.fn().mockResolvedValue({ success: true }),
-        unscrapPost: vi.fn().mockResolvedValue({ success: true })
+        unscrapPost: vi.fn().mockResolvedValue({ success: true }),
+        reportPost: vi.fn().mockResolvedValue({ data: { success: true } })
     }
 }))
 
@@ -118,5 +119,16 @@ describe('usePost', () => {
         await mutation.mutate(1)
         expect(postApi.unscrapPost).toHaveBeenCalledWith(1)
         expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['post', 1] })
+    })
+
+    it('reports a post', async () => {
+        const reportData = { targetType: 'POST', targetId: 1, reason: 'Spam' }
+        vi.mocked(postApi.reportPost).mockResolvedValue({ data: { success: true } } as any)
+
+        const { useReportPost } = usePost()
+        const mutation = useReportPost()
+
+        await mutation.mutate(reportData)
+        expect(postApi.reportPost).toHaveBeenCalledWith(reportData)
     })
 })

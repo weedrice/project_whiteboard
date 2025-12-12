@@ -27,6 +27,19 @@ vi.mock('@/stores/theme', () => ({
     }))
 }))
 
+const mockAddToast = vi.fn()
+vi.mock('@/stores/toast', () => ({
+    useToastStore: vi.fn(() => ({
+        addToast: mockAddToast
+    }))
+}))
+
+vi.mock('@/utils/logger', () => ({
+    default: {
+        error: vi.fn()
+    }
+}))
+
 describe('Auth Store', () => {
     let store: ReturnType<typeof useAuthStore>
 
@@ -65,7 +78,7 @@ describe('Auth Store', () => {
             }
             vi.mocked(authApi.login).mockResolvedValue(mockResponse as any)
 
-            const result = await store.login({ username: 'test', password: 'password' })
+            const result = await store.login({ loginId: 'test', password: 'password' })
 
             expect(result).toBe(true)
             expect(store.accessToken).toBe('new-token')
@@ -81,7 +94,7 @@ describe('Auth Store', () => {
             const error = new Error('Login failed')
             vi.mocked(authApi.login).mockRejectedValue(error)
 
-            await expect(store.login({ username: 'test', password: 'wrong' })).rejects.toThrow('Login failed')
+            await expect(store.login({ loginId: 'test', password: 'wrong' })).rejects.toThrow('Login failed')
             expect(store.accessToken).toBeNull()
             expect(store.user).toBeNull()
         })
@@ -138,6 +151,7 @@ describe('Auth Store', () => {
             expect(store.user).toEqual(mockUser)
         })
 
+
         it('handles sanctioned user', async () => {
             store.accessToken = 'token'
             const mockUser = { id: 1, username: 'test', role: 'USER', status: 'SANCTIONED' }
@@ -145,24 +159,22 @@ describe('Auth Store', () => {
                 data: { success: true, data: mockUser }
             } as any)
 
-            // Mock alert
-            const alertMock = vi.spyOn(window, 'alert').mockImplementation(() => { })
-
             await store.fetchUser()
 
-            expect(alertMock).toHaveBeenCalled()
+            // Now uses toast instead of alert, and logout is called
             expect(store.accessToken).toBeNull() // Should have logged out
             expect(router.push).toHaveBeenCalledWith('/login')
         })
 
-        it('logs out on fetch error', async () => {
+        it('does not logout on fetch error (handled by interceptor)', async () => {
             store.accessToken = 'token'
             vi.mocked(authApi.getMe).mockRejectedValue(new Error('Invalid token'))
 
             await store.fetchUser()
 
-            expect(store.accessToken).toBeNull()
-            expect(router.push).toHaveBeenCalledWith('/login')
+            // fetchUser now only logs the error, interceptor handles logout
+            // Token should remain as interceptor is mocked
+            expect(store.accessToken).toBe('token')
         })
     })
 
