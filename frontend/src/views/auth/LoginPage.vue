@@ -87,7 +87,7 @@ async function handleLogin() {
       <div class="w-[80%] mx-auto flex justify-end">
         <router-link to="/find"
           class="text-sm text-gray-600 hover:text-indigo-500 dark:text-gray-400 dark:hover:text-indigo-400">
-          {{ $t('auth.findIdPassword') || '아이디/비밀번호 찾기' }}
+          {{ $t('auth.findIdPassword') }}
         </router-link>
       </div>
 

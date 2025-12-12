@@ -12,12 +12,16 @@ import logger from '@/utils/logger'
 import { useAuthStore } from '@/stores/auth'
 import BaseInput from '@/components/common/BaseInput.vue'
 import BaseButton from '@/components/common/BaseButton.vue'
+import BaseSelect from '@/components/common/BaseSelect.vue'
+import BaseCheckbox from '@/components/common/BaseCheckbox.vue'
+import { useToastStore } from '@/stores/toast'
 
 const { t } = useI18n()
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const toastStore = useToastStore()
 const boardUrl = computed(() => route.params.boardUrl)
 
 const { useBoardDetail, useBoardCategories } = useBoard()
@@ -117,7 +121,7 @@ const imageHandler = () => {
       }
     } catch (err) {
       logger.error('Image upload failed:', err)
-      alert(t('common.messages.uploadFailed'))
+      toastStore.addToast(t('common.messages.uploadFailed'), 'error')
     }
   }
 }
@@ -136,7 +140,7 @@ watchEffect(() => {
 
 async function handleSubmit() {
   if (!form.value.title || !form.value.contents || !form.value.categoryId) {
-    alert(t('board.writePost.validation'))
+    toastStore.addToast(t('board.writePost.validation'), 'error')
     return
   }
 
@@ -191,16 +195,11 @@ async function handleSubmit() {
 
       <div class="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
         <div class="sm:col-span-3">
-          <label for="category" class="block text-sm font-medium text-gray-700 dark:text-gray-300">{{
-            $t('common.category') }}</label>
-          <div class="mt-1">
-            <select id="category" v-model="form.categoryId" name="category"
-              class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
-              <option v-for="category in filteredCategories" :key="category.categoryId" :value="category.categoryId">
-                {{ category.name }}
-              </option>
-            </select>
-          </div>
+          <BaseSelect id="category" v-model="form.categoryId" :label="$t('common.category')">
+            <option v-for="category in filteredCategories" :key="category.categoryId" :value="category.categoryId">
+              {{ category.name }}
+            </option>
+          </BaseSelect>
         </div>
 
         <div class="sm:col-span-6">
@@ -226,42 +225,14 @@ async function handleSubmit() {
         </div>
 
         <div class="sm:col-span-6">
-          <div v-if="board?.isAdmin" class="flex items-start mb-4">
-            <div class="flex items-center h-5">
-              <input id="isNotice" name="isNotice" type="checkbox" v-model="form.isNotice"
-                class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded cursor-pointer dark:bg-gray-700 dark:border-gray-600" />
-            </div>
-            <div class="ml-3 text-sm">
-              <label for="isNotice" class="font-medium text-gray-700 dark:text-gray-300 cursor-pointer">{{
-                $t('common.notice') }}</label>
-              <p class="text-gray-500 dark:text-gray-400">{{ $t('board.writePost.noticeDesc') }}</p>
-            </div>
-          </div>
+          <BaseCheckbox v-if="board?.isAdmin" id="isNotice" v-model="form.isNotice" :label="$t('common.notice')"
+            :description="$t('board.writePost.noticeDesc')" class="mb-4" />
 
-          <div v-if="board?.allowNsfw" class="flex items-start">
-            <div class="flex items-center h-5">
-              <input id="isNsfw" name="isNsfw" type="checkbox" v-model="form.isNsfw"
-                class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded cursor-pointer dark:bg-gray-700 dark:border-gray-600" />
-            </div>
-            <div class="ml-3 text-sm">
-              <label for="isNsfw" class="font-medium text-gray-700 dark:text-gray-300 cursor-pointer">{{
-                $t('board.writePost.nsfw')
-              }}</label>
-              <p class="text-gray-500 dark:text-gray-400">{{ $t('board.writePost.nsfwDesc') }}</p>
-            </div>
-          </div>
-          <div class="flex items-start mt-4">
-            <div class="flex items-center h-5">
-              <input id="isSpoiler" name="isSpoiler" type="checkbox" v-model="form.isSpoiler"
-                class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded cursor-pointer dark:bg-gray-700 dark:border-gray-600" />
-            </div>
-            <div class="ml-3 text-sm">
-              <label for="isSpoiler" class="font-medium text-gray-700 dark:text-gray-300 cursor-pointer">{{
-                $t('board.writePost.spoiler')
-              }}</label>
-              <p class="text-gray-500 dark:text-gray-400">{{ $t('board.writePost.spoilerDesc') }}</p>
-            </div>
-          </div>
+          <BaseCheckbox v-if="board?.allowNsfw" id="isNsfw" v-model="form.isNsfw" :label="$t('board.writePost.nsfw')"
+            :description="$t('board.writePost.nsfwDesc')" />
+
+          <BaseCheckbox id="isSpoiler" v-model="form.isSpoiler" :label="$t('board.writePost.spoiler')"
+            :description="$t('board.writePost.spoilerDesc')" class="mt-4" />
         </div>
       </div>
 

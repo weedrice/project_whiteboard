@@ -5,16 +5,22 @@ import { usePost } from '@/composables/usePost'
 import { useAuthStore } from '@/stores/auth'
 import { User, Clock, ThumbsUp, MessageSquare, Eye, ArrowLeft, MoreHorizontal, Bookmark, AlertTriangle, Share2, Copy } from 'lucide-vue-next'
 import BaseModal from '@/components/common/BaseModal.vue'
+import BaseButton from '@/components/common/BaseButton.vue'
+import BaseTextarea from '@/components/common/BaseTextarea.vue'
+import BaseCard from '@/components/common/BaseCard.vue'
+import BaseSpinner from '@/components/common/BaseSpinner.vue'
 import CommentList from '@/components/comment/CommentList.vue'
 import PostTags from '@/components/tag/PostTags.vue'
 import UserMenu from '@/components/common/UserMenu.vue'
 import { useI18n } from 'vue-i18n'
 import logger from '@/utils/logger'
+import { useToastStore } from '@/stores/toast'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 const { t } = useI18n()
+const toastStore = useToastStore()
 
 const { usePostDetail, useDeletePost, useLikePost, useUnlikePost, useScrapPost, useUnscrapPost, useReportPost } = usePost()
 
@@ -55,14 +61,14 @@ async function handleDelete() {
     },
     onError: (err) => {
       logger.error('Failed to delete post:', err)
-      alert(t('board.postDetail.deleteFailed'))
+      toastStore.addToast(t('board.postDetail.deleteFailed'), 'error')
     }
   })
 }
 
 async function handleLike() {
   if (!authStore.isAuthenticated) return
-  if (post.value.isLiked) {
+  if (post.value.liked) {
     unlikeMutate(route.params.postId, {
       onError: (err) => logger.error(t('board.postDetail.likeFailed'), err)
     })
@@ -75,7 +81,7 @@ async function handleLike() {
 
 async function handleScrap() {
   if (!authStore.isAuthenticated) return
-  if (post.value.isScrapped) {
+  if (post.value.scrapped) {
     unscrapMutate(route.params.postId, {
       onError: (err) => logger.error(t('board.postDetail.scrapFailed'), err)
     })
@@ -96,18 +102,18 @@ function handleReport() {
 }
 async function submitReport() {
   if (!reportReason.value.trim()) {
-    alert(t('board.postDetail.reportReasonRequired') || '신고 사유를 입력해주세요.')
+    toastStore.addToast(t('board.postDetail.reportReasonRequired'), 'error')
     return
   }
 
   reportMutate({ targetPostId: route.params.postId, reason: reportReason.value }, {
     onSuccess: () => {
-      alert(t('board.postDetail.reportSuccess') || '신고가 접수되었습니다.')
+      toastStore.addToast(t('board.postDetail.reportSuccess'), 'success')
       showReportModal.value = false
     },
     onError: (err) => {
       logger.error('Report failed:', err)
-      alert(t('board.postDetail.reportFailed') || '신고 접수에 실패했습니다.')
+      toastStore.addToast(t('board.postDetail.reportFailed'), 'error')
     }
   })
 }
@@ -165,7 +171,7 @@ const currentUrl = computed(() => window.location.origin + route.fullPath)
 
 function handleCopyUrl() {
   navigator.clipboard.writeText(currentUrl.value).then(() => {
-    alert(t('common.messages.urlCopied'))
+    toastStore.addToast(t('common.messages.urlCopied'), 'success')
   }).catch(err => {
     logger.error('Failed to copy URL:', err)
   })
@@ -186,18 +192,17 @@ function handleShare() {
 </script>
 
 <template>
-  <div class="w-full bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg transition-colors duration-200">
+  <BaseCard noPadding>
     <div v-if="isLoading" class="text-center py-10">
-      <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 mx-auto"></div>
+      <BaseSpinner size="lg" />
     </div>
 
     <div v-else-if="error" class="text-center py-10 text-red-500">
       {{ error }}
       <div class="mt-4">
-        <button @click="router.back()"
-          class="text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300">
+        <BaseButton @click="router.back()" variant="ghost">
           {{ $t('common.back') }}
-        </button>
+        </BaseButton>
       </div>
     </div>
 
@@ -205,21 +210,20 @@ function handleShare() {
       <!-- Header -->
       <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
         <div class="flex items-center justify-between">
-          <button @click="router.push(`/board/${post.board.boardUrl}`)"
-            class="inline-flex items-center text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+          <BaseButton @click="router.push(`/board/${post.board.boardUrl}`)" variant="ghost" size="sm">
             <ArrowLeft class="h-4 w-4 mr-1" />
             {{ $t('board.postDetail.toList') }}
-          </button>
+          </BaseButton>
 
           <div class="flex space-x-2">
             <router-link v-if="isAuthor" :to="`/board/${post.board.boardUrl}/post/${post.postId}/edit`"
               class="inline-flex items-center px-3 py-1.5 border border-gray-300 dark:border-gray-600 shadow-sm text-xs font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 cursor-pointer transition-colors duration-200">
               {{ $t('common.edit') }}
             </router-link>
-            <button v-if="isAuthor || isAdmin || post.board.isAdmin" @click="handleDelete"
-              class="inline-flex items-center px-3 py-1.5 border border-transparent shadow-sm text-xs font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 cursor-pointer">
+            <BaseButton v-if="isAuthor || isAdmin || post.board.isAdmin" @click="handleDelete" variant="danger"
+              size="sm">
               {{ $t('common.delete') }}
-            </button>
+            </BaseButton>
           </div>
         </div>
 
@@ -256,10 +260,9 @@ function handleShare() {
           <div class="flex items-center space-x-2 bg-gray-100 dark:bg-gray-700 rounded-md px-3 py-1.5">
             <span class="text-[10px] text-gray-500 dark:text-gray-400 select-all">{{ currentUrl }}</span>
             <div class="h-3 w-px bg-gray-300 dark:bg-gray-600 mx-1"></div>
-            <button @click="handleCopyUrl"
-              class="text-xs font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300 focus:outline-none whitespace-nowrap">
+            <BaseButton @click="handleCopyUrl" variant="ghost" size="sm" class="text-xs">
               {{ $t('common.copy') }}
-            </button>
+            </BaseButton>
           </div>
         </div>
 
@@ -275,10 +278,9 @@ function handleShare() {
             </h3>
             <p class="text-gray-600 dark:text-gray-300 mb-4">{{ $t('board.postDetail.spoilerTimer', { time: timeLeft })
             }}</p>
-            <button @click="revealSpoiler"
-              class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+            <BaseButton @click="revealSpoiler" variant="primary">
               {{ $t('board.postDetail.revealSpoiler') }}
-            </button>
+            </BaseButton>
           </div>
         </div>
       </div>
@@ -292,39 +294,39 @@ function handleShare() {
       <!-- Stats & Actions -->
       <div
         class="px-4 py-4 sm:px-6 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex items-center justify-center space-x-8 transition-colors duration-200">
-        <button @click="handleLike" :disabled="!authStore.isAuthenticated"
-          class="flex flex-col items-center group cursor-pointer"
-          :class="{ 'text-indigo-600 dark:text-indigo-400': post.isLiked, 'text-gray-500 dark:text-gray-400': !post.isLiked, 'opacity-50 cursor-not-allowed': !authStore.isAuthenticated }">
+        <BaseButton @click="handleLike" :disabled="!authStore.isAuthenticated" variant="ghost"
+          class="flex flex-col items-center group cursor-pointer h-auto py-2"
+          :class="{ 'text-indigo-600 dark:text-indigo-400': post.liked, 'text-gray-500 dark:text-gray-400': !post.liked, 'opacity-50 cursor-not-allowed': !authStore.isAuthenticated }">
           <div class="p-2 rounded-full group-hover:bg-indigo-50 dark:group-hover:bg-indigo-900/30 transition-colors">
-            <ThumbsUp class="h-6 w-6" :class="{ 'fill-current': post.isLiked }" />
+            <ThumbsUp class="h-6 w-6" :class="{ 'fill-current': post.liked }" />
           </div>
           <span class="text-sm font-medium mt-1">{{ post.likeCount }}</span>
-        </button>
+        </BaseButton>
 
-        <button @click="handleScrap" :disabled="!authStore.isAuthenticated"
-          class="flex flex-col items-center group cursor-pointer"
-          :class="{ 'text-yellow-500': post.isScrapped, 'text-gray-500 dark:text-gray-400': !post.isScrapped, 'opacity-50 cursor-not-allowed': !authStore.isAuthenticated }">
+        <BaseButton @click="handleScrap" :disabled="!authStore.isAuthenticated" variant="ghost"
+          class="flex flex-col items-center group cursor-pointer h-auto py-2"
+          :class="{ 'text-yellow-500': post.scrapped, 'text-gray-500 dark:text-gray-400': !post.scrapped, 'opacity-50 cursor-not-allowed': !authStore.isAuthenticated }">
           <div class="p-2 rounded-full group-hover:bg-yellow-50 dark:group-hover:bg-yellow-900/30 transition-colors">
-            <Bookmark class="h-6 w-6" :class="{ 'fill-current': post.isScrapped }" />
+            <Bookmark class="h-6 w-6" :class="{ 'fill-current': post.scrapped }" />
           </div>
           <span class="text-sm font-medium mt-1">{{ $t('common.scrap') }}</span>
-        </button>
+        </BaseButton>
 
-        <button @click="handleShare"
-          class="flex flex-col items-center group cursor-pointer text-gray-500 dark:text-gray-400">
+        <BaseButton @click="handleShare" variant="ghost"
+          class="flex flex-col items-center group cursor-pointer text-gray-500 dark:text-gray-400 h-auto py-2">
           <div class="p-2 rounded-full group-hover:bg-indigo-50 dark:group-hover:bg-indigo-900/30 transition-colors">
             <Share2 class="h-6 w-6" />
           </div>
           <span class="text-sm font-medium mt-1">{{ $t('common.share') }}</span>
-        </button>
+        </BaseButton>
 
-        <button v-if="authStore.isAuthenticated && !isAuthor" @click="handleReport"
-          class="flex flex-col items-center group cursor-pointer text-gray-500 dark:text-gray-400">
+        <BaseButton v-if="authStore.isAuthenticated && !isAuthor" @click="handleReport" variant="ghost"
+          class="flex flex-col items-center group cursor-pointer text-gray-500 dark:text-gray-400 h-auto py-2">
           <div class="p-2 rounded-full group-hover:bg-red-50 dark:group-hover:bg-red-900/30 transition-colors">
             <AlertTriangle class="h-6 w-6" />
           </div>
-          <span class="text-sm font-medium mt-1">{{ $t('common.report') || 'Report' }}</span>
-        </button>
+          <span class="text-sm font-medium mt-1">{{ $t('common.report') }}</span>
+        </BaseButton>
       </div>
 
       <!-- Comments Section -->
@@ -333,38 +335,32 @@ function handleShare() {
       </div>
 
       <!-- Report Modal -->
-      <BaseModal :isOpen="showReportModal" :title="$t('common.report') || '신고'" @close="showReportModal = false">
+      <BaseModal :isOpen="showReportModal" :title="$t('common.report')" @close="showReportModal = false">
         <div class="space-y-4">
           <div>
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              {{ $t('report.target') || '신고 대상' }}
+              {{ $t('report.target') }}
             </label>
             <div class="mt-1 text-sm text-gray-900 dark:text-white font-medium">
-              {{ $t('common.post') || '게시글' }} | {{ post.title }}
+              {{ $t('common.post') }} | {{ post.title }}
             </div>
           </div>
           <div>
-            <label for="report-reason" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              {{ $t('report.reason') || '신고 사유' }}
-            </label>
-            <textarea id="report-reason" v-model="reportReason" rows="4"
-              class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400 p-2 border"
-              :placeholder="$t('report.inputReason') || '신고 사유를 상세히 입력해주세요.'"></textarea>
+            <BaseTextarea id="report-reason" v-model="reportReason" :label="$t('report.reason')" rows="4"
+              :placeholder="$t('report.inputReason')" />
           </div>
         </div>
         <template #footer>
           <div class="flex justify-end space-x-3">
-            <button @click="showReportModal = false"
-              class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600">
-              {{ $t('common.cancel') || '취소' }}
-            </button>
-            <button @click="submitReport"
-              class="px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
-              {{ $t('common.submit') || '제출' }}
-            </button>
+            <BaseButton @click="showReportModal = false" variant="secondary">
+              {{ $t('common.cancel') }}
+            </BaseButton>
+            <BaseButton @click="submitReport" variant="danger">
+              {{ $t('common.submit') }}
+            </BaseButton>
           </div>
         </template>
       </BaseModal>
     </div>
-  </div>
+  </BaseCard>
 </template>

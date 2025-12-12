@@ -5,12 +5,12 @@ import { useI18n } from 'vue-i18n'
 import { authApi } from '@/api/auth'
 import BaseInput from '@/components/common/BaseInput.vue'
 import BaseButton from '@/components/common/BaseButton.vue'
-import { useToast } from '@/composables/useToast'
+import { useToastStore } from '@/stores/toast'
 import { Mail, ChevronLeft, Key, User, CheckCircle } from 'lucide-vue-next'
 
 const { t } = useI18n()
 const router = useRouter()
-const toast = useToast()
+const toastStore = useToastStore()
 
 const activeTab = ref('id') // 'id' or 'password'
 
@@ -47,7 +47,7 @@ const switchTab = (tab) => {
 
 const handleSendCode = async () => {
     if (!form.email) {
-        toast.error(t('auth.placeholders.email'))
+        toastStore.addToast(t('auth.placeholders.email'), 'error')
         return
     }
 
@@ -56,7 +56,7 @@ const handleSendCode = async () => {
         const { data } = await authApi.sendVerificationCode(form.email)
         if (data.success) {
             status.isCodeSent = true
-            toast.success(t('auth.codeSent'))
+            toastStore.addToast(t('auth.codeSent'), 'success')
         }
     } catch (error) {
         // Error handled by global interceptor or toast
@@ -67,7 +67,7 @@ const handleSendCode = async () => {
 
 const handleVerifyCode = async () => {
     if (!form.code) {
-        toast.error(t('auth.codePlaceholder'))
+        toastStore.addToast(t('auth.codePlaceholder'), 'error')
         return
     }
 
@@ -76,7 +76,7 @@ const handleVerifyCode = async () => {
         const { data } = await authApi.verifyCode(form.email, form.code)
         if (data.success) {
             status.isVerified = true
-            toast.success(t('auth.codeVerified'))
+            toastStore.addToast(t('auth.codeVerified'), 'success')
 
             if (activeTab.value === 'id') {
                 findId()
@@ -102,7 +102,7 @@ const findId = async () => {
 
 const handleResetPassword = async () => {
     if (form.newPassword !== form.confirmPassword) {
-        toast.error(t('auth.passwordMismatch') || '비밀번호가 일치하지 않습니다.')
+        toastStore.addToast(t('auth.passwordMismatch'), 'error')
         return
     }
 
@@ -114,7 +114,7 @@ const handleResetPassword = async () => {
             newPassword: form.newPassword
         })
         if (data.success) {
-            toast.success(t('auth.passwordResetSuccess'))
+            toastStore.addToast(t('auth.passwordResetSuccess'), 'success')
             router.push('/login')
         }
     } catch (error) {
@@ -145,18 +145,16 @@ const handleResetPassword = async () => {
         <div class="w-full max-w-md mx-auto">
             <!-- Tabs -->
             <div class="flex border-b border-gray-200 dark:border-gray-700 mb-8">
-                <button @click="switchTab('id')"
-                    class="flex-1 py-3 text-sm font-medium border-b-2 transition-colors duration-200 flex items-center justify-center"
+                <BaseButton @click="switchTab('id')" variant="ghost" class="flex-1 rounded-b-none border-b-2"
                     :class="activeTab === 'id' ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'">
                     <User class="w-4 h-4 mr-2" />
                     {{ t('auth.findId') }}
-                </button>
-                <button @click="switchTab('password')"
-                    class="flex-1 py-3 text-sm font-medium border-b-2 transition-colors duration-200 flex items-center justify-center"
+                </BaseButton>
+                <BaseButton @click="switchTab('password')" variant="ghost" class="flex-1 rounded-b-none border-b-2"
                     :class="activeTab === 'password' ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'">
                     <Key class="w-4 h-4 mr-2" />
                     {{ t('auth.findPassword') }}
-                </button>
+                </BaseButton>
             </div>
 
             <!-- Content -->

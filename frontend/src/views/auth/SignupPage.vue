@@ -88,7 +88,7 @@ async function handleSignup() {
     return
   }
   if (!verification.isVerified) {
-    toastStore.addToast(t('auth.emailNotVerified') || '이메일 인증이 필요합니다.', 'error')
+    toastStore.addToast(t('auth.emailNotVerified'), 'error')
     return
   }
   if (!form.value.displayName) {
@@ -119,7 +119,7 @@ async function handleSignup() {
       <router-link to="/login"
         class="flex items-center text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors">
         <ChevronLeft class="h-5 w-5 mr-1" />
-        <span class="text-sm font-medium">{{ $t('common.back') || 'Back' }}</span>
+        <span class="text-sm font-medium">{{ $t('common.back') }}</span>
       </router-link>
     </div>
     <div class="text-center mb-12 mt-16">

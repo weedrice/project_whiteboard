@@ -8,6 +8,8 @@ import UserMenu from '@/components/common/UserMenu.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useI18n } from 'vue-i18n'
 import Pagination from '@/components/common/Pagination.vue' // Added Pagination
+import BaseButton from '@/components/common/BaseButton.vue'
+import BaseInput from '@/components/common/BaseInput.vue'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -213,11 +215,11 @@ watch(() => route.params.boardUrl, () => {
                                 <h1 class="text-2xl font-bold text-gray-900 dark:text-white">{{ board.boardName }}</h1>
                             </router-link>
                             <div class="flex space-x-2">
-                                <button v-if="authStore.isAuthenticated" @click="handleSubscribe"
-                                    class="inline-flex items-center px-3 py-1.5 border shadow-sm text-xs font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 cursor-pointer transition-colors duration-200"
-                                    :class="board.isSubscribed ? 'border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600' : 'border-transparent text-white bg-indigo-600 hover:bg-indigo-700'">
+                                <BaseButton v-if="authStore.isAuthenticated" @click="handleSubscribe" size="sm"
+                                    :variant="board.isSubscribed ? 'secondary' : 'primary'"
+                                    class="cursor-pointer transition-colors duration-200">
                                     {{ board.isSubscribed ? $t('common.unsubscribe') : $t('common.subscribe') }}
-                                </button>
+                                </BaseButton>
                                 <router-link v-if="board.isAdmin" :to="`/board/${board.boardUrl}/edit`"
                                     class="inline-flex items-center px-3 py-1.5 border border-gray-300 dark:border-gray-600 shadow-sm text-xs font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 cursor-pointer transition-colors duration-200">
                                     <Settings class="-ml-1 mr-1 h-4 w-4" />
@@ -252,22 +254,22 @@ watch(() => route.params.boardUrl, () => {
             <!-- Filters & Post List -->
             <div class="bg-white dark:bg-gray-800 shadow rounded-lg transition-colors duration-200">
                 <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex space-x-4">
-                    <button @click="toggleFilter('all')"
-                        class="px-3 py-1 text-sm font-medium rounded-md transition-colors duration-200"
-                        :class="filterType === 'all' ? 'bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'">
+                    <BaseButton @click="toggleFilter('all')" size="sm"
+                        :variant="filterType === 'all' ? 'primary' : 'ghost'"
+                        :class="filterType === 'all' ? '!bg-indigo-100 !text-indigo-700 dark:!bg-indigo-900/50 dark:!text-indigo-300' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'">
                         {{ $t('board.detail.filter.all') }}
-                    </button>
-                    <button @click="toggleFilter('concept')"
-                        class="px-3 py-1 text-sm font-medium rounded-md transition-colors duration-200"
-                        :class="filterType === 'concept' ? 'bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'">
+                    </BaseButton>
+                    <BaseButton @click="toggleFilter('concept')" size="sm"
+                        :variant="filterType === 'concept' ? 'primary' : 'ghost'"
+                        :class="filterType === 'concept' ? '!bg-indigo-100 !text-indigo-700 dark:!bg-indigo-900/50 dark:!text-indigo-300' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'">
                         {{ $t('board.detail.filter.concept') }}
-                    </button>
-                    <button v-for="category in categories" :key="category.categoryId"
-                        @click="toggleFilter('category', category.categoryId)"
-                        class="px-3 py-1 text-sm font-medium rounded-md transition-colors duration-200"
-                        :class="filterType === 'category' && activeFilterCategory === category.categoryId ? 'bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'">
+                    </BaseButton>
+                    <BaseButton v-for="category in categories" :key="category.categoryId"
+                        @click="toggleFilter('category', category.categoryId)" size="sm"
+                        :variant="filterType === 'category' && activeFilterCategory === category.categoryId ? 'primary' : 'ghost'"
+                        :class="filterType === 'category' && activeFilterCategory === category.categoryId ? '!bg-indigo-100 !text-indigo-700 dark:!bg-indigo-900/50 dark:!text-indigo-300' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'">
                         {{ category.name }}
-                    </button>
+                    </BaseButton>
                 </div>
                 <PostList :posts="posts" :boardUrl="board.boardUrl" :totalCount="totalCount" :page="page" :size="size"
                     :current-sort="sort" @update:sort="handleSortChange" />
@@ -291,23 +293,24 @@ watch(() => route.params.boardUrl, () => {
                         <option value="TAG">{{ $t('board.detail.searchType.tag') }}</option>
                     </select>
                     <div class="relative flex-grow">
-                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <Search class="h-5 w-5 text-gray-400" />
-                        </div>
-                        <input type="text" v-model="searchQuery" @keyup.enter="handleSearch"
-                            class="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-l-md leading-5 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition-colors duration-200"
-                            :placeholder="$t('board.detail.searchPlaceholder')" />
-                        <div v-if="isSearching" class="absolute inset-y-0 right-2 pr-3 flex items-center">
-                            <button type="button" @click="clearSearch"
-                                class="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300">
-                                <X class="h-5 w-5" />
-                            </button>
-                        </div>
+                        <BaseInput v-model="searchQuery" @keyup.enter="handleSearch"
+                            :placeholder="$t('board.detail.searchPlaceholder')"
+                            inputClass="rounded-l-md rounded-r-none border-r-0" hideLabel>
+                            <template #prefix>
+                                <Search class="h-5 w-5 text-gray-400" />
+                            </template>
+                            <template #suffix>
+                                <button v-if="isSearching" type="button" @click="clearSearch"
+                                    class="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 cursor-pointer">
+                                    <X class="h-5 w-5" />
+                                </button>
+                            </template>
+                        </BaseInput>
                     </div>
-                    <button @click="handleSearch"
-                        class="inline-flex items-center px-4 py-2 border border-l-0 border-gray-300 dark:border-gray-600 shadow-sm text-sm font-medium rounded-r-md text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 whitespace-nowrap transition-colors duration-200">
+                    <BaseButton @click="handleSearch" variant="secondary"
+                        class="rounded-l-none border-l-0 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600">
                         {{ $t('common.search') }}
-                    </button>
+                    </BaseButton>
                 </div>
 
                 <div class="absolute right-6">

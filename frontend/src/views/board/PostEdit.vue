@@ -10,11 +10,16 @@ import axios from '@/api'
 import logger from '@/utils/logger'
 import BaseInput from '@/components/common/BaseInput.vue'
 import BaseButton from '@/components/common/BaseButton.vue'
+import BaseSelect from '@/components/common/BaseSelect.vue'
+import BaseCheckbox from '@/components/common/BaseCheckbox.vue'
+import PostTags from '@/components/tag/PostTags.vue'
+import { useToastStore } from '@/stores/toast'
 
 const { t } = useI18n()
 
 const route = useRoute()
 const router = useRouter()
+const toastStore = useToastStore()
 
 const boardUrl = computed(() => route.params.boardUrl)
 const postId = computed(() => route.params.postId)
@@ -35,7 +40,7 @@ const form = ref({
   title: '',
   content: '',
   categoryId: '',
-  tags: '',
+  tags: [],
   isNsfw: false,
   isSpoiler: false
 })
@@ -102,7 +107,7 @@ const imageHandler = () => {
       }
     } catch (err) {
       logger.error('Image upload failed:', err)
-      alert(t('common.messages.uploadFailed'))
+      toastStore.addToast(t('common.messages.uploadFailed'), 'error')
     }
   }
 }
@@ -118,7 +123,7 @@ watchEffect(() => {
       title: post.value.title,
       content: post.value.contents,
       categoryId: post.value.category?.categoryId || '',
-      tags: post.value.tags ? post.value.tags.join(', ') : '',
+      tags: post.value.tags || [],
       isNsfw: post.value.isNsfw,
       isSpoiler: post.value.isSpoiler
     }
@@ -127,13 +132,13 @@ watchEffect(() => {
 
 async function handleSubmit() {
   if (!form.value.title || !form.value.content) {
-    alert(t('board.writePost.validation'))
+    toastStore.addToast(t('board.writePost.validation'), 'error')
     return
   }
 
   const payload = {
     ...form.value,
-    tags: form.value.tags.split(',').map(tag => tag.trim()).filter(tag => tag),
+    tags: form.value.tags,
     contents: form.value.content, // API expects 'contents'
     isNsfw: board.value?.allowNsfw ? form.value.isNsfw : false,
     isSpoiler: form.value.isSpoiler, // Explicitly include isSpoiler
@@ -149,7 +154,7 @@ async function handleSubmit() {
     },
     onError: (err) => {
       logger.error('Failed to update post:', err)
-      alert(t('board.writePost.failUpdate'))
+      toastStore.addToast(t('board.writePost.failUpdate'), 'error')
     }
   })
 }
@@ -159,7 +164,7 @@ async function handleSubmit() {
   <div class="w-full">
     <div class="md:flex md:items-center md:justify-between mb-6">
       <div class="flex-1 min-w-0">
-        <h2 class="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl sm:truncate">
+        <h2 class="text-2xl font-bold leading-7 text-gray-900 dark:text-white sm:text-3xl sm:truncate">
           {{ $t('board.writePost.editTitle') }}
         </h2>
       </div>
@@ -169,21 +174,18 @@ async function handleSubmit() {
       <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 mx-auto"></div>
     </div>
 
-    <form v-else @submit.prevent="handleSubmit" class="space-y-6 bg-white shadow px-4 py-5 sm:rounded-lg sm:p-6">
+    <form v-else @submit.prevent="handleSubmit"
+      class="space-y-6 bg-white dark:bg-gray-800 shadow px-4 py-5 sm:rounded-lg sm:p-6">
       <div class="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
 
         <!-- Category -->
         <div class="sm:col-span-3" v-if="categories.length > 0">
-          <label for="category" class="block text-sm font-medium text-gray-700">{{ $t('common.category') }}</label>
-          <div class="mt-1">
-            <select id="category" v-model="form.categoryId"
-              class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md">
-              <option value="" disabled>{{ $t('board.writePost.selectCategory') }}</option>
-              <option v-for="category in categories" :key="category.categoryId" :value="category.categoryId">
-                {{ category.name }}
-              </option>
-            </select>
-          </div>
+          <BaseSelect id="category" v-model="form.categoryId" :label="$t('common.category')">
+            <option value="" disabled>{{ $t('board.writePost.selectCategory') }}</option>
+            <option v-for="category in categories" :key="category.categoryId" :value="category.categoryId">
+              {{ category.name }}
+            </option>
+          </BaseSelect>
         </div>
 
         <!-- Title -->
@@ -193,7 +195,8 @@ async function handleSubmit() {
 
         <!-- Content -->
         <div class="sm:col-span-6">
-          <label for="content" class="block text-sm font-medium text-gray-700">{{ $t('common.content') }}</label>
+          <label for="content" class="block text-sm font-medium text-gray-700 dark:text-gray-300">{{
+            $t('common.content') }}</label>
           <div class="mt-1 h-96">
             <QuillEditor ref="editor" :toolbar="toolbarOptions" theme="snow" contentType="html"
               v-model:content="form.content" @ready="onEditorReady" />
@@ -202,32 +205,18 @@ async function handleSubmit() {
 
         <!-- Tags -->
         <div class="sm:col-span-6 mt-12">
-          <BaseInput id="tags" v-model="form.tags" name="tags" type="text"
-            :placeholder="$t('board.writePost.placeholder.tags')" :label="$t('board.writePost.tags')" />
+          <label for="tags" class="block text-sm font-medium text-gray-700 dark:text-gray-300">{{
+            $t('board.writePost.tags') }}</label>
+          <div class="mt-1">
+            <PostTags v-model="form.tags" />
+          </div>
         </div>
 
         <!-- Options -->
         <div class="sm:col-span-6">
-          <div v-if="board?.allowNsfw" class="flex items-start mb-4">
-            <div class="flex items-center h-5">
-              <input id="nsfw" name="nsfw" type="checkbox" v-model="form.isNsfw"
-                class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded cursor-pointer" />
-            </div>
-            <div class="ml-3 text-sm">
-              <label for="nsfw" class="font-medium text-gray-700 cursor-pointer">{{ $t('board.writePost.nsfw')
-                }}</label>
-            </div>
-          </div>
-          <div class="flex items-start">
-            <div class="flex items-center h-5">
-              <input id="spoiler" name="spoiler" type="checkbox" v-model="form.isSpoiler"
-                class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded cursor-pointer" />
-            </div>
-            <div class="ml-3 text-sm">
-              <label for="spoiler" class="font-medium text-gray-700 cursor-pointer">{{ $t('board.writePost.spoiler')
-                }}</label>
-            </div>
-          </div>
+          <BaseCheckbox v-if="board?.allowNsfw" id="nsfw" v-model="form.isNsfw" :label="$t('board.writePost.nsfw')"
+            class="mb-4" />
+          <BaseCheckbox id="spoiler" v-model="form.isSpoiler" :label="$t('board.writePost.spoiler')" />
         </div>
 
       </div>

@@ -25,7 +25,7 @@
 
       <!-- Sentinel for infinite scroll -->
       <div ref="sentinel" class="h-10 flex justify-center items-center mt-4">
-        <div v-if="loadingMore" class="animate-spin rounded-full h-5 w-5 border-b-2 border-indigo-600"></div>
+        <BaseSpinner v-if="loadingMore" size="sm" />
       </div>
     </div>
   </div>
@@ -36,6 +36,7 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import { postApi } from '@/api/post'
 import { boardApi } from '@/api/board'
 import FeedCard from '@/components/feed/FeedCard.vue'
+import BaseSpinner from '@/components/common/BaseSpinner.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useRouter } from 'vue-router'
 import logger from '@/utils/logger'
@@ -61,6 +62,7 @@ async function fetchTrendingPosts(isLoadMore = false) {
 
   try {
     const { data } = await postApi.getTrendingPosts(page.value, size.value)
+    console.log(data);
     if (data.success) {
       const newPosts = data.data
       if (newPosts.length < size.value) {
@@ -90,13 +92,13 @@ async function handleLike(post) {
   }
 
   try {
-    if (post.isLiked) {
+    if (post.liked) {
       await postApi.unlikePost(post.postId)
-      post.isLiked = false
+      post.liked = false
       post.likeCount--
     } else {
       await postApi.likePost(post.postId)
-      post.isLiked = true
+      post.liked = true
       post.likeCount++
     }
   } catch (error) {
@@ -111,12 +113,12 @@ async function handleScrap(post) {
   }
 
   try {
-    if (post.isScrapped) {
+    if (post.scrapped) {
       await postApi.unscrapPost(post.postId)
-      post.isScrapped = false
+      post.scrapped = false
     } else {
       await postApi.scrapPost(post.postId)
-      post.isScrapped = true
+      post.scrapped = true
     }
   } catch (error) {
     logger.error('Failed to toggle scrap:', error)
@@ -131,9 +133,9 @@ async function handleSubscribe(post) {
 
   try {
     const boardUrl = post.boardUrl
-    const isSubscribed = post.isSubscribed
+    const subscribed = post.subscribed
 
-    if (isSubscribed) {
+    if (subscribed) {
       await boardApi.unsubscribeBoard(boardUrl)
     } else {
       await boardApi.subscribeBoard(boardUrl)
@@ -142,7 +144,7 @@ async function handleSubscribe(post) {
     // Update all posts from the same board
     posts.value.forEach(p => {
       if (p.boardUrl === boardUrl) {
-        p.isSubscribed = !isSubscribed
+        p.subscribed = !subscribed
       }
     })
   } catch (error) {

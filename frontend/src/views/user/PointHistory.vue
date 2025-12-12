@@ -3,6 +3,8 @@ import { ref, onMounted } from 'vue'
 import axios from '@/api'
 import Pagination from '@/components/common/Pagination.vue'
 import PageSizeSelector from '@/components/common/PageSizeSelector.vue'
+import BaseBadge from '@/components/common/BaseBadge.vue'
+import logger from '@/utils/logger'
 
 const history = ref([])
 const loading = ref(false)
@@ -24,7 +26,7 @@ const fetchHistory = async () => {
       totalPages.value = data.data.totalPages
     }
   } catch (error) {
-    console.error('포인트 내역을 불러오는데 실패했습니다:', error)
+    logger.error('Failed to load point history:', error)
   } finally {
     loading.value = false
   }
@@ -53,11 +55,12 @@ onMounted(() => {
   <div class="max-w-2xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
     <div class="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg transition-colors duration-200">
       <div class="px-4 py-5 sm:px-6 flex justify-between items-center border-b border-gray-200 dark:border-gray-700">
-          <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-white">{{ $t('user.tabs.points') }}</h3>
-          <PageSizeSelector v-model="size" @change="handleSizeChange" />
+        <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-white">{{ $t('user.tabs.points') }}</h3>
+        <PageSizeSelector v-model="size" @change="handleSizeChange" />
       </div>
       <ul role="list" class="divide-y divide-gray-200 dark:divide-gray-700">
-        <li v-for="item in history" :key="item.id" class="px-4 py-4 sm:px-6 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200">
+        <li v-for="item in history" :key="item.id"
+          class="px-4 py-4 sm:px-6 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200">
           <div class="flex items-center justify-between">
             <div class="flex flex-col">
               <p class="text-sm font-medium text-indigo-600 dark:text-indigo-400 truncate">
@@ -68,12 +71,9 @@ onMounted(() => {
               </p>
             </div>
             <div class="flex items-center">
-              <span 
-                class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full"
-                :class="item.amount > 0 ? 'bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-400' : 'bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-400'"
-              >
+              <BaseBadge :variant="item.amount > 0 ? 'success' : 'danger'" size="sm">
                 {{ item.amount > 0 ? '+' : '' }}{{ item.amount }} P
-              </span>
+              </BaseBadge>
             </div>
           </div>
         </li>
@@ -81,13 +81,9 @@ onMounted(() => {
           {{ $t('user.pointsHistory.empty') }}
         </li>
       </ul>
-      
+
       <div v-if="history.length > 0" class="bg-gray-50 dark:bg-gray-900/50 px-4 py-4 sm:px-6 flex justify-center">
-        <Pagination 
-          :current-page="page" 
-          :total-pages="totalPages"
-          @page-change="handlePageChange" 
-        />
+        <Pagination :current-page="page" :total-pages="totalPages" @page-change="handlePageChange" />
       </div>
     </div>
   </div>

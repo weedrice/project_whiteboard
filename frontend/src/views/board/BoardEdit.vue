@@ -4,10 +4,13 @@ import { useRoute, useRouter } from 'vue-router'
 import { boardApi } from '@/api/board'
 import CategoryManager from '@/components/board/CategoryManager.vue'
 import BoardForm from '@/components/board/BoardForm.vue'
+import BaseButton from '@/components/common/BaseButton.vue'
 import { useI18n } from 'vue-i18n'
 import logger from '@/utils/logger'
+import { useToastStore } from '@/stores/toast'
 
 const { t } = useI18n()
+const toastStore = useToastStore()
 
 const route = useRoute()
 const router = useRouter()
@@ -43,7 +46,7 @@ async function fetchBoard() {
     }
   } catch (err) {
     logger.error('Failed to load board:', err)
-    alert(t('board.writePost.failLoad'))
+    toastStore.addToast(t('board.writePost.failLoad'), 'error')
     router.push(`/board/${boardUrl}`)
   } finally {
     isLoading.value = false
@@ -56,7 +59,7 @@ async function handleUpdate(formData) {
   try {
     const { data } = await boardApi.updateBoard(boardUrl, formData)
     if (data.success) {
-      alert(t('board.form.successUpdate'))
+      toastStore.addToast(t('board.form.successUpdate'), 'success')
       router.push(`/board/${data.data.boardUrl}`)
     }
   } catch (err) {
@@ -73,12 +76,12 @@ async function handleDelete() {
   try {
     const { data } = await boardApi.deleteBoard(boardUrl)
     if (data.success) {
-      alert(t('board.form.successDelete'))
+      toastStore.addToast(t('board.form.successDelete'), 'success')
       router.push('/')
     }
   } catch (err) {
     logger.error('Failed to delete board:', err)
-    alert(t('board.form.failDelete'))
+    toastStore.addToast(t('board.form.failDelete'), 'error')
   }
 }
 
@@ -98,45 +101,31 @@ onMounted(fetchBoard)
           <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white">{{ $t('board.form.editTitle') }}</h3>
           <p class="mt-1 max-w-2xl text-sm text-gray-500 dark:text-gray-400">{{ $t('board.form.editDesc') }}</p>
         </div>
-        <button
-          type="button"
-          @click="router.back()"
-          class="bg-white dark:bg-gray-700 py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-        >
+        <BaseButton type="button" @click="router.back()" variant="secondary">
           {{ $t('common.back') }}
-        </button>
+        </BaseButton>
       </div>
 
       <div class="px-4 py-5 sm:p-6 space-y-6">
-          <!-- Board Form -->
-          <BoardForm
-            :initialData="form"
-            :isEdit="true"
-            :isSubmitting="isSubmitting"
-            :error="error"
-            @submit="handleUpdate"
-            @cancel="router.back()"
-          />
+        <!-- Board Form -->
+        <BoardForm :initialData="form" :isEdit="true" :isSubmitting="isSubmitting" :error="error" @submit="handleUpdate"
+          @cancel="router.back()" />
 
-          <hr class="border-gray-200 dark:border-gray-700" />
+        <hr class="border-gray-200 dark:border-gray-700" />
 
-          <!-- Category Manager -->
-          <div class="py-6">
-            <CategoryManager :boardUrl="boardUrl" />
-          </div>
+        <!-- Category Manager -->
+        <div class="py-6">
+          <CategoryManager :boardUrl="boardUrl" />
+        </div>
 
-          <hr class="border-gray-200 dark:border-gray-700" />
+        <hr class="border-gray-200 dark:border-gray-700" />
 
-          <!-- Delete Board (Moved to bottom right) -->
-          <div class="flex justify-end">
-              <button
-                type="button"
-                @click="handleDelete"
-                class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-              >
-                {{ $t('board.form.delete') }}
-              </button>
-          </div>
+        <!-- Delete Board (Moved to bottom right) -->
+        <div class="flex justify-end">
+          <BaseButton type="button" @click="handleDelete" variant="danger">
+            {{ $t('board.form.delete') }}
+          </BaseButton>
+        </div>
       </div>
     </div>
   </div>

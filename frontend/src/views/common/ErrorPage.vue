@@ -13,12 +13,9 @@
                 </p>
             </div>
             <div class="mt-5">
-                <button
-                    @click="goHome"
-                    class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                >
+                <BaseButton @click="goHome" full-width variant="primary">
                     {{ $t('common.error.goHome') }}
-                </button>
+                </BaseButton>
             </div>
         </div>
     </div>
@@ -28,6 +25,7 @@
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import BaseButton from '@/components/common/BaseButton.vue'
 
 const route = useRoute()
 const router = useRouter()

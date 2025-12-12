@@ -8,6 +8,8 @@ import BaseButton from '@/components/common/BaseButton.vue'
 import BaseModal from '@/components/common/BaseModal.vue'
 import logger from '@/utils/logger'
 import { useToastStore } from '@/stores/toast'
+import BaseTable from '@/components/common/BaseTable.vue'
+
 
 const { t } = useI18n()
 const toastStore = useToastStore()
@@ -81,6 +83,15 @@ async function handleDelete(key) {
     // Error handled globally
   }
 }
+
+const columns = [
+  { key: 'configKey', label: t('common.key'), width: '15%' },
+  { key: 'description', label: t('common.description'), width: '25%' },
+  { key: 'configValue', label: t('common.value'), width: '25%' },
+  { key: 'createdAt', label: t('common.createdAt'), width: '15%' },
+  { key: 'modifiedAt', label: t('common.updatedAt'), width: '15%' },
+  { key: 'actions', label: '', align: 'right', width: '5%' }
+]
 </script>
 
 <template>
@@ -97,66 +108,39 @@ async function handleDelete(key) {
       </div>
     </div>
 
-    <div class="mt-8 flex flex-col">
-      <div class="-my-2 -mx-4 overflow-x-auto sm:-mx-6 lg:-mx-8">
-        <div class="inline-block min-w-full py-2 align-middle md:px-6 lg:px-8">
-          <div
-            class="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg border border-gray-200 dark:border-gray-700">
-            <table class="min-w-full divide-y divide-gray-300 dark:divide-gray-700">
-              <thead class="bg-gray-50 dark:bg-gray-700">
-                <tr>
-                  <th scope="col"
-                    class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 dark:text-white sm:pl-6">{{
-                      t('common.key') }}</th>
-                  <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-white">{{
-                    t('common.description') }}</th>
-                  <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-white">{{
-                    t('common.value') }}</th>
-                  <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-white">{{
-                    t('common.createdAt') }}</th>
-                  <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-white">{{
-                    t('common.updatedAt') }}</th>
-                  <th scope="col" class="relative py-3.5 pl-3 pr-4 sm:pr-6">
-                    <span class="sr-only">Actions</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-800">
-                <tr v-for="config in configs" :key="config.configKey">
-                  <td
-                    class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 dark:text-white sm:pl-6">
-                    {{ config.configKey }}</td>
-                  <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400">
-                    <input type="text" v-model="config.description"
-                      class="block w-full border-0 p-0 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-500 focus:ring-0 sm:text-sm bg-transparent" />
-                  </td>
-                  <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400">
-                    <input type="text" v-model="config.configValue"
-                      class="block w-full border-0 p-0 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-500 focus:ring-0 sm:text-sm bg-transparent" />
-                  </td>
-                  <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400">{{
-                    formatDate(config.createdAt) }}</td>
-                  <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400">{{
-                    formatDate(config.modifiedAt) }}</td>
-                  <td class="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
-                    <div class="flex justify-end space-x-2">
-                      <BaseButton @click="handleSave(config)" variant="secondary" size="sm" :title="t('common.save')"
-                        class="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300">
-                        <Save class="h-4 w-4" />
-                      </BaseButton>
-                      <BaseButton @click="handleDelete(config.configKey)" variant="secondary" size="sm"
-                        :title="t('common.delete')"
-                        class="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300">
-                        <Trash2 class="h-4 w-4" />
-                      </BaseButton>
-                    </div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+    <div class="mt-8">
+      <BaseTable :columns="columns" :items="configs" :loading="isLoading" :emptyText="t('common.noData')">
+        <template #cell-description="{ item }">
+          <BaseInput v-model="item.description" hideLabel
+            inputClass="block w-full border-0 p-0 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-500 focus:ring-0 sm:text-sm bg-transparent shadow-none" />
+        </template>
+
+        <template #cell-configValue="{ item }">
+          <BaseInput v-model="item.configValue" hideLabel
+            inputClass="block w-full border-0 p-0 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-500 focus:ring-0 sm:text-sm bg-transparent shadow-none" />
+        </template>
+
+        <template #cell-createdAt="{ item }">
+          {{ formatDate(item.createdAt) }}
+        </template>
+
+        <template #cell-modifiedAt="{ item }">
+          {{ formatDate(item.modifiedAt) }}
+        </template>
+
+        <template #cell-actions="{ item }">
+          <div class="flex justify-end space-x-2">
+            <BaseButton @click="handleSave(item)" variant="ghost" size="sm" :title="t('common.save')"
+              class="p-1 text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300">
+              <Save class="h-4 w-4" />
+            </BaseButton>
+            <BaseButton @click="handleDelete(item.configKey)" variant="ghost" size="sm" :title="t('common.delete')"
+              class="p-1 text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300">
+              <Trash2 class="h-4 w-4" />
+            </BaseButton>
           </div>
-        </div>
-      </div>
+        </template>
+      </BaseTable>
     </div>
 
     <!-- Add Config Modal -->

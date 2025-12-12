@@ -3,6 +3,8 @@ import { ref, onMounted, reactive, watchEffect, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useUser } from '@/composables/useUser'
 import BaseButton from '@/components/common/BaseButton.vue'
+import BaseSelect from '@/components/common/BaseSelect.vue'
+import BaseCheckbox from '@/components/common/BaseCheckbox.vue'
 import logger from '@/utils/logger'
 
 import { useThemeStore } from '@/stores/theme'
@@ -19,6 +21,7 @@ const { mutateAsync: updateNotif, isPending: isUpdatingNotif } = useUpdateNotifi
 const loading = computed(() => isSettingsLoading.value || isNotifLoading.value)
 const saving = computed(() => isUpdatingSettings.value || isUpdatingNotif.value)
 const message = ref('')
+const isError = ref(false)
 
 const settings = reactive({
   theme: 'LIGHT',
@@ -54,6 +57,7 @@ watch(() => themeStore.isDark, (isDark) => {
 
 const saveSettings = async () => {
   message.value = ''
+  isError.value = false
   try {
     // Update General Settings
     await updateSettings({
@@ -80,8 +84,9 @@ const saveSettings = async () => {
 
     message.value = t('user.settings.saved')
   } catch (error) {
-    logger.error('설정 저장 실패:', error)
+    logger.error('Failed to save settings:', error)
     message.value = t('user.settings.failed')
+    isError.value = true
   }
 }
 </script>
@@ -101,24 +106,20 @@ const saveSettings = async () => {
 
             <!-- Theme -->
             <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">{{ $t('user.settings.theme')
-                }}</label>
-              <select v-model="settings.theme"
-                class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+              <BaseSelect v-model="settings.theme" :label="$t('user.settings.theme')"
+                inputClass="dark:bg-gray-700 dark:text-white dark:border-gray-600">
                 <option value="LIGHT">{{ $t('user.settings.light') }}</option>
                 <option value="DARK">{{ $t('user.settings.dark') }}</option>
-              </select>
+              </BaseSelect>
             </div>
 
             <!-- Language -->
             <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">{{ $t('user.settings.language')
-                }}</label>
-              <select v-model="settings.language"
-                class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
-                <option value="ko">한국어</option>
-                <option value="en">English</option>
-              </select>
+              <BaseSelect v-model="settings.language" :label="$t('user.settings.language')"
+                inputClass="dark:bg-gray-700 dark:text-white dark:border-gray-600">
+                <option value="ko">{{ $t('common.languages.ko') }}</option>
+                <option value="en">{{ $t('common.languages.en') }}</option>
+              </BaseSelect>
             </div>
 
           </div>
@@ -129,37 +130,19 @@ const saveSettings = async () => {
         <!-- Notification Settings -->
         <div>
           <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-white">{{ $t('user.settings.notifications')
-            }}</h3>
+          }}</h3>
           <div class="mt-4 space-y-4">
-            <div class="flex items-start">
-              <div class="flex items-center h-5">
-                <input id="email_notifications" v-model="notificationSettings.emailNotifications" type="checkbox"
-                  class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700" />
-              </div>
-              <div class="ml-3 text-sm">
-                <label for="email_notifications" class="font-medium text-gray-700 dark:text-gray-300">{{
-                  $t('user.settings.email') }}</label>
-                <p class="text-gray-500 dark:text-gray-400">{{ $t('user.settings.emailDesc') }}</p>
-              </div>
-            </div>
-            <div class="flex items-start">
-              <div class="flex items-center h-5">
-                <input id="push_notifications" v-model="notificationSettings.pushNotifications" type="checkbox"
-                  class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700" />
-              </div>
-              <div class="ml-3 text-sm">
-                <label for="push_notifications" class="font-medium text-gray-700 dark:text-gray-300">{{
-                  $t('user.settings.push') }}</label>
-                <p class="text-gray-500 dark:text-gray-400">{{ $t('user.settings.pushDesc') }}</p>
-              </div>
-            </div>
+            <BaseCheckbox id="email_notifications" v-model="notificationSettings.emailNotifications"
+              :label="$t('user.settings.email')" :description="$t('user.settings.emailDesc')" />
+            <BaseCheckbox id="push_notifications" v-model="notificationSettings.pushNotifications"
+              :label="$t('user.settings.push')" :description="$t('user.settings.pushDesc')" />
           </div>
         </div>
 
         <div class="pt-5">
           <div class="flex justify-end">
             <p v-if="message" class="mr-4 text-sm flex items-center"
-              :class="message.includes('실패') ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'">
+              :class="isError ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'">
               {{ message }}
             </p>
             <BaseButton @click="saveSettings" :loading="saving">
