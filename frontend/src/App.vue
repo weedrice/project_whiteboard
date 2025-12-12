@@ -7,6 +7,7 @@ import { userApi } from '@/api/user'
 import { useI18n } from 'vue-i18n'
 import ToastContainer from '@/components/common/ToastContainer.vue'
 import GlobalConfirmModal from '@/components/common/GlobalConfirmModal.vue'
+import GlobalPromptModal from '@/components/common/GlobalPromptModal.vue'
 import logger from '@/utils/logger'
 
 // Import layouts
@@ -70,4 +71,5 @@ onMounted(() => {
     </component>
     <ToastContainer />
     <GlobalConfirmModal />
+    <GlobalPromptModal />
 </template>
