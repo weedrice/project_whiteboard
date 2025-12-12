@@ -1,21 +1,15 @@
 <template>
   <div class="flex items-center space-x-2">
-    <label for="page-size" class="text-sm text-gray-500 dark:text-gray-400">{{ $t('common.pageSize') }}</label>
-    <select
-      id="page-size"
-      :value="modelValue"
-      @change="handleChange"
-      class="block w-19 pl-3 pr-6 py-1 text-base border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md transition-colors duration-200"
-    >
-      <option v-for="option in options" :key="option" :value="option">
-        {{ option }}
-      </option>
-    </select>
+    <BaseSelect id="page-size" :modelValue="modelValue" @update:modelValue="handleUpdate" :label="$t('common.pageSize')"
+      :options="selectOptions" inputClass="w-19 py-1" hideLabel />
   </div>
 </template>
 
 <script setup lang="ts">
-withDefaults(defineProps<{
+import { computed } from 'vue'
+import BaseSelect from '@/components/common/BaseSelect.vue'
+
+const props = withDefaults(defineProps<{
   modelValue: number
   options?: number[]
 }>(), {
@@ -27,9 +21,12 @@ const emit = defineEmits<{
   (e: 'change'): void
 }>()
 
-const handleChange = (event: Event) => {
-  const target = event.target as HTMLSelectElement
-  emit('update:modelValue', Number(target.value))
+const selectOptions = computed(() => {
+  return props.options.map(opt => ({ value: opt, label: opt.toString() }))
+})
+
+const handleUpdate = (value: string | number) => {
+  emit('update:modelValue', Number(value))
   emit('change')
 }
 </script>

@@ -9,24 +9,18 @@
             :src="previewImage || authStore.user?.profileImageUrl || 'https://via.placeholder.com/150'"
             alt="Current profile photo" />
         </div>
-        <label class="block">
-          <span class="sr-only">Choose profile photo</span>
-          <input type="file" @change="handleFileChange" accept="image/*" class="block w-full text-sm text-slate-500
-            file:mr-4 file:py-2 file:px-4
-            file:rounded-full file:border-0
-            file:text-sm file:font-semibold
-            file:bg-violet-50 file:text-violet-700
-            hover:file:bg-violet-100
-          " />
-        </label>
+        <div class="flex-1">
+          <BaseFileInput :label="$t('user.profile.choosePhoto')" accept="image/*" @change="handleFileChange"
+            :placeholder="$t('user.profile.choosePhotoPlaceholder')" />
+        </div>
       </div>
 
       <BaseInput :label="$t('user.profile.displayName')" v-model="form.displayName" :error="errors.displayName"
-        placeholder="Enter your nickname" />
+        :placeholder="$t('user.profile.displayNamePlaceholder')" />
 
       <div class="flex justify-end">
         <BaseButton type="submit" :loading="loading">
-          {{ loading ? 'Saving...' : 'Save Changes' }}
+          {{ loading ? $t('common.saving') : $t('common.save') }}
         </BaseButton>
       </div>
     </form>
@@ -38,12 +32,15 @@ import { ref, reactive } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import BaseInput from '@/components/common/BaseInput.vue'
 import BaseButton from '@/components/common/BaseButton.vue'
+import BaseFileInput from '@/components/common/BaseFileInput.vue'
 import { useUser } from '@/composables/useUser'
 import axios from '@/api' // Direct axios for file upload
 import logger from '@/utils/logger'
 import type { UserUpdatePayload } from '@/api/user'
+import { useToastStore } from '@/stores/toast'
 
 const authStore = useAuthStore()
+const toastStore = useToastStore()
 const { useUpdateMyProfile } = useUser()
 const { mutate: updateProfileMutate, isPending: isUpdating } = useUpdateMyProfile()
 
@@ -61,7 +58,7 @@ const handleFileChange = async (event: Event) => {
   const file = target.files?.[0]
   if (file) {
     if (file.size > 10 * 1024 * 1024) {
-      alert('File size exceeds 10MB limit.')
+      toastStore.addToast('File size exceeds 10MB limit.', 'warning')
       return
     }
 
@@ -71,7 +68,7 @@ const handleFileChange = async (event: Event) => {
       previewImage.value = URL.createObjectURL(resizedImage)
     } catch (e) {
       logger.error('Image resize failed', e)
-      alert('Failed to process image.')
+      toastStore.addToast('Failed to process image.', 'error')
     }
   }
 }
@@ -149,7 +146,7 @@ const updateProfile = async () => {
     updateProfileMutate(payload, {
       onSuccess: async () => {
         await authStore.fetchUser()
-        alert('Profile updated successfully')
+        toastStore.addToast('Profile updated successfully', 'success')
         loading.value = false
       },
       onError: (error: any) => {
@@ -157,7 +154,7 @@ const updateProfile = async () => {
         if (error.response?.data?.message) {
           errors.displayName = error.response.data.message
         } else {
-          alert('Failed to update profile')
+          toastStore.addToast('Failed to update profile', 'error')
         }
         loading.value = false
       }

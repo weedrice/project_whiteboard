@@ -4,6 +4,11 @@ import { useComment } from '@/composables/useComment'
 import { useI18n } from 'vue-i18n'
 import logger from '@/utils/logger'
 import type { CommentPayload } from '@/api/comment'
+import BaseButton from '@/components/common/BaseButton.vue'
+import BaseTextarea from '@/components/common/BaseTextarea.vue'
+import { useToastStore } from '@/stores/toast'
+
+const toastStore = useToastStore()
 
 const { t } = useI18n()
 
@@ -36,36 +41,36 @@ async function handleSubmit() {
   isSubmitting.value = true
 
   if (props.commentId) {
-      // Update existing comment
-      updateComment({ commentId: props.commentId, data: { content: content.value } }, {
-          onSuccess: () => {
-              emit('success')
-              isSubmitting.value = false
-          },
-          onError: (err) => {
-              logger.error('Failed to save comment:', err)
-              alert(t('comment.saveFailed'))
-              isSubmitting.value = false
-          }
-      })
-  } else {
-      // Create new comment
-      const payload: CommentPayload = {
-          content: content.value,
-          parentId: props.parentId ? Number(props.parentId) : null
+    // Update existing comment
+    updateComment({ commentId: props.commentId, data: { content: content.value } }, {
+      onSuccess: () => {
+        emit('success')
+        isSubmitting.value = false
+      },
+      onError: (err) => {
+        logger.error('Failed to save comment:', err)
+        toastStore.addToast(t('comment.saveFailed'), 'error')
+        isSubmitting.value = false
       }
-      createComment({ postId: props.postId, data: payload }, {
-          onSuccess: () => {
-              content.value = ''
-              emit('success')
-              isSubmitting.value = false
-          },
-          onError: (err) => {
-              logger.error('Failed to save comment:', err)
-              alert(t('comment.saveFailed'))
-              isSubmitting.value = false
-          }
-      })
+    })
+  } else {
+    // Create new comment
+    const payload: CommentPayload = {
+      content: content.value,
+      parentId: props.parentId ? Number(props.parentId) : null
+    }
+    createComment({ postId: props.postId, data: payload }, {
+      onSuccess: () => {
+        content.value = ''
+        emit('success')
+        isSubmitting.value = false
+      },
+      onError: (err) => {
+        logger.error('Failed to save comment:', err)
+        alert(t('comment.saveFailed'))
+        isSubmitting.value = false
+      }
+    })
   }
 }
 </script>
@@ -73,32 +78,16 @@ async function handleSubmit() {
 <template>
   <form @submit.prevent="handleSubmit" class="mt-4">
     <div>
-      <label for="comment" class="sr-only">{{ $t('comment.title') }}</label>
-      <textarea
-        id="comment"
-        rows="3"
-        v-model="content"
-        class="input-base"
-        :placeholder="parentId ? $t('comment.writeReply') : $t('comment.writeComment')"
-        required
-      ></textarea>
+      <BaseTextarea id="comment" v-model="content" rows="3"
+        :placeholder="parentId ? $t('comment.writeReply') : $t('comment.writeComment')" required hideLabel />
     </div>
     <div class="mt-3 flex items-center justify-end">
-      <button
-        v-if="parentId"
-        type="button"
-        @click="emit('cancel')"
-        class="btn-secondary mr-3"
-      >
+      <BaseButton v-if="parentId" type="button" @click="emit('cancel')" variant="secondary" class="mr-3">
         {{ $t('common.cancel') }}
-      </button>
-      <button
-        type="submit"
-        :disabled="isSubmitting"
-        class="btn-primary disabled:opacity-50"
-      >
+      </BaseButton>
+      <BaseButton type="submit" :loading="isSubmitting" variant="primary">
         {{ isSubmitting ? $t('comment.posting') : (parentId ? $t('comment.reply') : $t('comment.postComment')) }}
-      </button>
+      </BaseButton>
     </div>
   </form>
 </template>

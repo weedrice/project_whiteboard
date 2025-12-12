@@ -1,95 +1,10 @@
-<template>
-  <div
-    class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg mb-6 overflow-hidden transition-colors duration-200">
-    <!-- Header -->
-    <div class="flex items-center justify-between p-3 border-b border-gray-100 dark:border-gray-700">
-      <div class="flex items-center space-x-2">
-        <router-link :to="`/board/${post.boardUrl}`" class="flex items-center space-x-2 group">
-          <!-- Board Thumbnail -->
-          <div
-            class="h-6 w-6 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden group-hover:opacity-80 transition-opacity">
-            <img v-if="post.boardIconUrl" :src="post.boardIconUrl" class="h-full w-full object-cover" alt="Board" />
-            <div v-else
-              class="h-full w-full flex items-center justify-center bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 font-bold text-[10px]">
-              {{ post.boardName?.charAt(0) }}
-            </div>
-          </div>
-          <!-- Board Name -->
-          <span class="text-sm font-semibold text-gray-900 dark:text-gray-100 group-hover:underline">{{ post.boardName
-          }}</span>
-        </router-link>
-        <span class="text-gray-300 dark:text-gray-600">|</span>
-        <!-- Date -->
-        <span class="text-xs text-gray-500 dark:text-gray-400">{{ formatDate(post.createdAt) }}</span>
-      </div>
-
-      <div class="flex items-center space-x-3">
-        <!-- Subscribe Button -->
-        <button @click="$emit('subscribe', post)"
-          class="text-xs font-medium focus:outline-none transition-colors duration-200"
-          :class="post.isSubscribed ? 'text-gray-500 dark:text-gray-400' : 'text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300'">
-          {{ post.isSubscribed ? $t('common.subscribed') : $t('common.subscribe') }}
-        </button>
-        <!-- Scrap Button -->
-        <button @click="$emit('scrap', post)" class="focus:outline-none transition-colors duration-200"
-          :class="post.isScrapped ? 'text-yellow-500' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'">
-          <Bookmark class="h-5 w-5" :class="{ 'fill-current': post.isScrapped }" />
-        </button>
-      </div>
-    </div>
-
-    <!-- Body (Image) -->
-    <!-- Body (Image) -->
-    <router-link :to="`/board/${post.boardUrl}/post/${post.postId}`"
-      class="block aspect-w-1 aspect-h-1 bg-gray-100 dark:bg-gray-900 relative cursor-pointer">
-      <img v-if="post.thumbnailUrl" :src="post.thumbnailUrl" class="object-cover w-full h-full" alt="Post Image" />
-      <div v-else class="flex items-center justify-center h-full text-gray-400 dark:text-gray-600">
-        <ImageIcon class="h-12 w-12" />
-      </div>
-    </router-link>
-
-    <!-- Footer (Actions) -->
-    <div class="p-3">
-      <div class="flex items-center justify-between">
-        <div class="flex items-center space-x-6">
-          <!-- Like -->
-          <button @click="$emit('like', post)"
-            class="flex items-center space-x-1 focus:outline-none transition-colors duration-200 group"
-            :class="post.isLiked ? 'text-red-500' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'">
-            <ThumbsUp class="h-6 w-6" :class="{ 'fill-current': post.isLiked }" />
-            <span class="text-sm font-medium">{{ post.likeCount }}</span>
-          </button>
-
-          <!-- Comment -->
-          <router-link :to="`/board/${post.boardUrl}/post/${post.postId}`"
-            class="flex items-center space-x-1 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 focus:outline-none group">
-            <MessageCircle class="h-6 w-6" />
-            <span class="text-sm font-medium">{{ post.commentCount }}</span>
-          </router-link>
-        </div>
-
-        <!-- Share -->
-        <button
-          class="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 focus:outline-none">
-          <Share2 class="h-6 w-6" />
-        </button>
-      </div>
-
-      <!-- Title (Optional, keeping it for context) -->
-      <!-- Title (Optional, keeping it for context) -->
-      <div class="mt-3">
-        <span class="text-sm font-semibold text-gray-900 dark:text-white mr-2">{{ post.authorName }}</span>
-        <router-link :to="`/board/${post.boardUrl}/post/${post.postId}`"
-          class="text-sm text-gray-900 dark:text-gray-300 hover:underline cursor-pointer">
-          {{ post.title }}
-        </router-link>
-      </div>
-    </div>
-  </div>
-</template>
-
 <script setup lang="ts">
-import { ThumbsUp, MessageCircle, Bookmark, Image as ImageIcon, Share2 } from 'lucide-vue-next'
+import { ThumbsUp, MessageSquare, Bookmark, User, Eye } from 'lucide-vue-next'
+import BaseButton from '@/components/common/BaseButton.vue'
+import BaseCard from '@/components/common/BaseCard.vue'
+import { useRouter } from 'vue-router'
+
+const router = useRouter()
 
 interface FeedPost {
   postId: number
@@ -97,15 +12,16 @@ interface FeedPost {
   boardName: string
   boardIconUrl?: string
   title: string
+  summary?: string
   authorName: string
   createdAt: string
   viewCount: number
   likeCount: number
   commentCount: number
   thumbnailUrl?: string
-  isLiked: boolean
-  isScrapped: boolean
-  isSubscribed: boolean
+  liked: boolean
+  scrapped: boolean
+  subscribed: boolean
 }
 
 const props = defineProps<{
@@ -123,3 +39,80 @@ function formatDate(dateString: string) {
   return new Date(dateString).toLocaleDateString()
 }
 </script>
+
+<template>
+  <BaseCard noPadding class="mb-6">
+    <!-- Header -->
+    <div class="px-4 py-4 sm:px-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <!-- Board Info -->
+        <div class="flex-shrink-0">
+          <img v-if="post.boardIconUrl" :src="post.boardIconUrl" alt="Board Icon" class="h-8 w-8 rounded-full" />
+          <div v-else class="h-8 w-8 rounded-full bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center">
+            <span class="text-xs font-bold text-indigo-600 dark:text-indigo-300">{{ post.boardName?.substring(0, 1)
+            }}</span>
+          </div>
+        </div>
+        <div>
+          <h3 class="text-sm font-medium text-gray-900 dark:text-white">
+            <router-link :to="`/board/${post.boardUrl}`" class="hover:underline">
+              {{ post.boardName }}
+            </router-link>
+          </h3>
+          <p class="text-xs text-gray-500 dark:text-gray-400">{{ formatDate(post.createdAt) }}</p>
+        </div>
+      </div>
+      <div class="flex items-center space-x-2">
+        <BaseButton @click="$emit('subscribe', post)" variant="ghost" size="sm"
+          :class="{ 'text-indigo-600 dark:text-indigo-400': post.subscribed, 'text-gray-400 dark:text-gray-500': !post.subscribed }">
+          {{ post.subscribed ? $t('common.subscribed') : $t('common.subscribe') }}
+        </BaseButton>
+      </div>
+    </div>
+
+    <!-- Content -->
+    <div class="px-4 py-4 sm:px-6 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+      @click="router.push(`/board/${post.boardUrl}/post/${post.postId}`)">
+      <h2 class="text-lg font-bold text-gray-900 dark:text-white mb-2">{{ post.title }}</h2>
+      <p class="text-sm text-gray-600 dark:text-gray-300 line-clamp-3 mb-4">{{ post.summary }}</p>
+
+      <!-- Thumbnail if exists -->
+      <div v-if="post.thumbnailUrl" class="mb-4 rounded-lg overflow-hidden h-48 w-full bg-gray-100 dark:bg-gray-900">
+        <img :src="post.thumbnailUrl" alt="Post Thumbnail" class="w-full h-full object-cover" />
+      </div>
+
+      <div class="flex items-center text-xs text-gray-500 dark:text-gray-400 space-x-4">
+        <div class="flex items-center">
+          <User class="h-3 w-3 mr-1" />
+          <span>{{ post.authorName }}</span>
+        </div>
+        <div class="flex items-center">
+          <Eye class="h-3 w-3 mr-1" />
+          <span>{{ post.viewCount }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer Actions -->
+    <div
+      class="px-4 py-3 sm:px-6 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-200 dark:border-gray-700 flex justify-around">
+      <BaseButton @click.stop="$emit('like', post)" variant="ghost" size="sm" class="flex-1 justify-center"
+        :class="{ 'text-indigo-600 dark:text-indigo-400': post.liked, 'text-gray-500 dark:text-gray-400': !post.liked }">
+        <ThumbsUp class="h-4 w-4 mr-1.5" :class="{ 'fill-current': post.liked }" />
+        <span>{{ post.likeCount }}</span>
+      </BaseButton>
+
+      <BaseButton @click.stop="router.push(`/board/${post.boardUrl}/post/${post.postId}#comments`)" variant="ghost"
+        size="sm" class="flex-1 justify-center text-gray-500 dark:text-gray-400">
+        <MessageSquare class="h-4 w-4 mr-1.5" />
+        <span>{{ post.commentCount }}</span>
+      </BaseButton>
+
+      <BaseButton @click.stop="$emit('scrap', post)" variant="ghost" size="sm" class="flex-1 justify-center"
+        :class="{ 'text-yellow-500': post.scrapped, 'text-gray-500 dark:text-gray-400': !post.scrapped }">
+        <Bookmark class="h-4 w-4 mr-1.5" :class="{ 'fill-current': post.scrapped }" />
+        <span>{{ $t('common.scrap') }}</span>
+      </BaseButton>
+    </div>
+  </BaseCard>
+</template>

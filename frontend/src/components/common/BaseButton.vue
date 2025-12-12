@@ -1,6 +1,7 @@
 <template>
   <button :type="type" :class="[
     btnClass,
+    sizeClass,
     'flex justify-center items-center',
     disabled ? 'opacity-50 cursor-not-allowed' : ''
   ]" :disabled="disabled" @click="$emit('click', $event)">
@@ -17,10 +18,12 @@ type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'ghost'
 const props = withDefaults(defineProps<{
   type?: ButtonType
   variant?: ButtonVariant
+  size?: 'sm' | 'md' | 'lg'
   disabled?: boolean
 }>(), {
   type: 'button',
   variant: 'primary',
+  size: 'md',
   disabled: false
 })
 
@@ -40,6 +43,17 @@ const btnClass = computed(() => {
       return 'btn-ghost'
     default:
       return 'btn-primary'
+  }
+})
+
+const sizeClass = computed(() => {
+  switch (props.size) {
+    case 'sm':
+      return 'btn-sm'
+    case 'lg':
+      return 'px-6 py-3 text-base'
+    default:
+      return ''
   }
 })
 </script>

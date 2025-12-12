@@ -4,8 +4,13 @@ import { boardApi } from '@/api/board'
 import { Trash2, Edit2, Check, X, Plus, GripVertical } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import logger from '@/utils/logger'
+import { useToastStore } from '@/stores/toast'
+import BaseInput from '@/components/common/BaseInput.vue'
+import BaseButton from '@/components/common/BaseButton.vue'
+import BaseSelect from '@/components/common/BaseSelect.vue'
 
 const { t } = useI18n()
+const toastStore = useToastStore()
 
 const props = defineProps<{
   boardUrl: string
@@ -69,7 +74,7 @@ async function handleAdd() {
     }
   } catch (err) {
     logger.error('Failed to create category:', err)
-    alert(t('board.category.createFailed'))
+    toastStore.addToast(t('board.category.createFailed'), 'error')
   }
 }
 
@@ -83,7 +88,7 @@ async function handleDelete(categoryId: number) {
     }
   } catch (err) {
     logger.error('Failed to delete category:', err)
-    alert(t('board.category.deleteFailed'))
+    toastStore.addToast(t('board.category.deleteFailed'), 'error')
   }
 }
 
@@ -118,7 +123,7 @@ async function saveEdit(category: Category) {
     }
   } catch (err) {
     logger.error('Failed to update category:', err)
-    alert(t('board.category.updateFailed'))
+    toastStore.addToast(t('board.category.updateFailed'), 'error')
   }
 }
 
@@ -167,7 +172,7 @@ async function onDrop(index: number) {
     await Promise.all(updatePromises)
   } catch (err) {
     logger.error('Failed to reorder categories:', err)
-    alert(t('board.category.orderFailed'))
+    toastStore.addToast(t('board.category.orderFailed'), 'error')
     fetchCategories() // Revert changes
   }
 }
@@ -181,14 +186,15 @@ onMounted(fetchCategories)
 
     <!-- Add Category -->
     <form @submit.prevent="handleAdd" class="flex gap-2">
-      <input type="text" v-model="newCategoryName" :placeholder="$t('board.category.placeholder.new')"
-        class="flex-1 input-base dark:bg-gray-700 dark:text-white dark:border-gray-600 dark:placeholder-gray-400" />
-      <select v-model="newCategoryRole" class="input-base w-32 dark:bg-gray-700 dark:text-white dark:border-gray-600">
+      <BaseInput v-model="newCategoryName" :placeholder="$t('board.category.placeholder.new')" hideLabel
+        inputClass="dark:bg-gray-700 dark:text-white dark:border-gray-600 dark:placeholder-gray-400" class="flex-1" />
+      <BaseSelect v-model="newCategoryRole" class="w-32"
+        inputClass="dark:bg-gray-700 dark:text-white dark:border-gray-600">
         <option v-for="role in roles" :key="role.value" :value="role.value">{{ role.label }}</option>
-      </select>
-      <button type="submit" class="btn-primary">
+      </BaseSelect>
+      <BaseButton type="submit" variant="primary" class="px-3">
         <Plus class="h-4 w-4" />
-      </button>
+      </BaseButton>
     </form>
 
     <!-- Category List -->
@@ -209,18 +215,18 @@ onMounted(fetchCategories)
           <span class="text-sm text-gray-900 dark:text-gray-200 font-medium">{{ generalCategory.name }} {{
             $t('board.category.default') }}</span>
           <div class="ml-auto flex items-center gap-2">
-            <select v-model="editingRole"
-              class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-32 sm:text-sm border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+            <BaseSelect v-model="editingRole" class="w-32"
+              inputClass="dark:bg-gray-700 dark:text-white dark:border-gray-600">
               <option v-for="role in roles" :key="role.value" :value="role.value">{{ role.label }}</option>
-            </select>
-            <button @click="saveEdit(generalCategory)"
-              class="text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300">
+            </BaseSelect>
+            <BaseButton @click="saveEdit(generalCategory)" variant="ghost" size="sm"
+              class="p-1 text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300">
               <Check class="h-4 w-4" />
-            </button>
-            <button @click="cancelEdit"
-              class="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
+            </BaseButton>
+            <BaseButton @click="cancelEdit" variant="ghost" size="sm"
+              class="p-1 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
               <X class="h-4 w-4" />
-            </button>
+            </BaseButton>
           </div>
         </div>
 
@@ -232,10 +238,10 @@ onMounted(fetchCategories)
               class="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full">{{
                 generalCategory.minWriteRole || 'USER' }}</span>
           </div>
-          <button @click="startEdit(generalCategory)"
-            class="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300">
+          <BaseButton @click="startEdit(generalCategory)" variant="ghost" size="sm"
+            class="p-1 text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300">
             <Edit2 class="h-4 w-4" />
-          </button>
+          </BaseButton>
         </div>
       </div>
 
@@ -252,21 +258,21 @@ onMounted(fetchCategories)
           </div>
 
           <div v-if="editingId === category.categoryId" class="flex-1 flex items-center gap-2">
-            <input type="text" v-model="editingName"
-              class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white" />
+            <BaseInput v-model="editingName" hideLabel
+              inputClass="dark:bg-gray-700 dark:text-white dark:border-gray-600" class="w-full" />
             <div class="ml-auto flex items-center gap-2">
-              <select v-model="editingRole"
-                class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-32 sm:text-sm border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+              <BaseSelect v-model="editingRole" class="w-32"
+                inputClass="dark:bg-gray-700 dark:text-white dark:border-gray-600">
                 <option v-for="role in roles" :key="role.value" :value="role.value">{{ role.label }}</option>
-              </select>
-              <button @click="saveEdit(category)"
-                class="text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300">
+              </BaseSelect>
+              <BaseButton @click="saveEdit(category)" variant="ghost" size="sm"
+                class="p-1 text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300">
                 <Check class="h-4 w-4" />
-              </button>
-              <button @click="cancelEdit"
-                class="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
+              </BaseButton>
+              <BaseButton @click="cancelEdit" variant="ghost" size="sm"
+                class="p-1 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
                 <X class="h-4 w-4" />
-              </button>
+              </BaseButton>
             </div>
           </div>
           <div v-else class="flex-1 flex items-center justify-between">
@@ -277,14 +283,14 @@ onMounted(fetchCategories)
                   category.minWriteRole }}</span>
             </div>
             <div class="flex items-center gap-2">
-              <button @click="startEdit(category)"
-                class="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300">
+              <BaseButton @click="startEdit(category)" variant="ghost" size="sm"
+                class="p-1 text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300">
                 <Edit2 class="h-4 w-4" />
-              </button>
-              <button @click="handleDelete(category.categoryId)"
-                class="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300">
+              </BaseButton>
+              <BaseButton @click="handleDelete(category.categoryId)" variant="ghost" size="sm"
+                class="p-1 text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300">
                 <Trash2 class="h-4 w-4" />
-              </button>
+              </BaseButton>
             </div>
           </div>
         </li>

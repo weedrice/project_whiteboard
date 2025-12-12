@@ -1,40 +1,28 @@
 <template>
   <nav v-if="totalPages >= 1" class="flex items-center justify-center space-x-1" aria-label="Pagination">
-    <button
-      :disabled="currentPage === 0"
-      @click="$emit('page-change', currentPage - 1)"
-      class="btn-secondary disabled:opacity-50 disabled:cursor-not-allowed dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-600"
-    >
+    <BaseButton :disabled="currentPage === 0" @click="$emit('page-change', currentPage - 1)" variant="secondary">
       {{ $t('common.previous') }}
-    </button>
-    
+    </BaseButton>
+
     <template v-for="page in displayedPages" :key="page">
       <span v-if="page === '...'" class="px-3 py-2 text-gray-500 dark:text-gray-400">...</span>
-      <button
-        v-else
-        @click="$emit('page-change', (page as number) - 1)"
-        :class="[
-          currentPage === (page as number) - 1
-            ? 'px-4 py-2 rounded-md border text-sm font-medium z-10 bg-blue-50 border-blue-500 text-blue-600 dark:bg-blue-900/50 dark:border-blue-500 dark:text-blue-300'
-            : 'btn-secondary dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-600'
-        ]"
-      >
+      <BaseButton v-else @click="$emit('page-change', (page as number) - 1)"
+        :variant="currentPage === (page as number) - 1 ? 'primary' : 'secondary'"
+        :class="currentPage === (page as number) - 1 ? 'z-10' : ''">
         {{ page }}
-      </button>
+      </BaseButton>
     </template>
 
-    <button
-      :disabled="currentPage === totalPages - 1"
-      @click="$emit('page-change', currentPage + 1)"
-      class="btn-secondary disabled:opacity-50 disabled:cursor-not-allowed dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-600"
-    >
+    <BaseButton :disabled="currentPage === totalPages - 1" @click="$emit('page-change', currentPage + 1)"
+      variant="secondary">
       {{ $t('common.next') }}
-    </button>
+    </BaseButton>
   </nav>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import BaseButton from '@/components/common/BaseButton.vue'
 
 const props = defineProps<{
   currentPage: number

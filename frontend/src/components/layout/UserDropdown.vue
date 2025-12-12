@@ -5,6 +5,7 @@ import { useAuthStore } from '@/stores/auth'
 import { User, LogOut, Settings, CreditCard, FileText, Clock, AlertTriangle, PlusSquare, ChevronDown, Bell, LayoutDashboard, Mail, Star, Slash } from 'lucide-vue-next'
 import axios from '@/api'
 import logger from '@/utils/logger'
+import BaseButton from '@/components/common/BaseButton.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -33,7 +34,7 @@ const fetchPoints = async () => {
       points.value = data.data.currentPoint
     }
   } catch (error) {
-    logger.error('포인트 조회 실패:', error)
+    logger.error('Failed to fetch points:', error)
   }
 }
 
@@ -189,12 +190,12 @@ onMounted(() => {
 
       <!-- Logout -->
       <div class="py-1">
-        <button @click="handleLogout"
-          class="w-full text-left group flex items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-700 dark:hover:text-red-400">
+        <BaseButton @click="handleLogout" variant="ghost" full-width
+          class="w-full text-left group flex items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-700 dark:hover:text-red-400 justify-start">
           <LogOut
             class="mr-3 h-4 w-4 text-red-500 group-hover:text-red-600 dark:text-red-400 dark:group-hover:text-red-300" />
           {{ $t('common.logout') }}
-        </button>
+        </BaseButton>
       </div>
     </div>
   </div>

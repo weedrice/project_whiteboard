@@ -2,9 +2,11 @@
 import { ref, watch } from 'vue'
 import BaseInput from '@/components/common/BaseInput.vue'
 import BaseButton from '@/components/common/BaseButton.vue'
+import BaseTextarea from '@/components/common/BaseTextarea.vue'
 import { useI18n } from 'vue-i18n'
 import axios from '@/api'
 import logger from '@/utils/logger'
+import { useToastStore } from '@/stores/toast'
 
 interface BoardData {
   boardName: string
@@ -40,6 +42,7 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+const toastStore = useToastStore()
 
 const form = ref<BoardData>({ ...props.initialData })
 const selectedFile = ref<File | null>(null)
@@ -64,11 +67,11 @@ const handleFileChange = (event: Event) => {
 
 async function handleSubmit() {
   if (!form.value.boardName) {
-    alert(t('board.form.validation'))
+    toastStore.addToast(t('board.form.validation'), 'error')
     return
   }
   if (!form.value.boardUrl) {
-    alert(t('board.form.validation'))
+    toastStore.addToast(t('board.form.validation'), 'error')
     return
   }
 
@@ -92,7 +95,7 @@ async function handleSubmit() {
     emit('submit', { ...form.value, iconUrl })
   } catch (err) {
     logger.error('Failed to upload file:', err)
-    alert(t('board.form.failUpload'))
+    toastStore.addToast(t('board.form.failUpload'), 'error')
   }
 }
 </script>
@@ -127,7 +130,7 @@ async function handleSubmit() {
             <input id="icon-upload" type="file" @change="handleFileChange" accept="image/*" class="hidden" />
           </label>
           <span class="text-xs text-gray-500 dark:text-gray-400 text-center block mt-1">{{ $t('board.form.iconImage')
-            }}</span>
+          }}</span>
         </div>
 
         <div class="flex-1">
@@ -142,13 +145,9 @@ async function handleSubmit() {
       </div>
 
       <div class="sm:col-span-6">
-        <label for="description" class="block text-base font-medium text-gray-700 dark:text-gray-200">{{
-          $t('board.form.description') }}</label>
-        <div class="mt-1">
-          <textarea id="description" name="description" rows="3" v-model="form.description"
-            class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
-            :placeholder="$t('board.form.placeholder.desc')"></textarea>
-        </div>
+        <BaseTextarea id="description" name="description" rows="3" v-model="form.description"
+          :label="$t('board.form.description')" :placeholder="$t('board.form.placeholder.desc')"
+          labelClass="text-base" />
       </div>
     </div>
 

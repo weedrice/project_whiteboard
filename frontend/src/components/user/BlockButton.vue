@@ -1,10 +1,5 @@
 <template>
-  <BaseButton
-    :variant="isBlocked ? 'secondary' : 'danger'"
-    size="sm"
-    @click="toggleBlock"
-    :disabled="loading"
-  >
+  <BaseButton :variant="isBlocked ? 'secondary' : 'danger'" size="sm" @click="toggleBlock" :disabled="loading">
     {{ isBlocked ? 'Unblock' : 'Block' }}
   </BaseButton>
 </template>
@@ -14,6 +9,9 @@ import { ref } from 'vue'
 import BaseButton from '@/components/common/BaseButton.vue'
 import { userApi } from '@/api/user'
 import logger from '@/utils/logger'
+import { useToastStore } from '@/stores/toast'
+
+const toastStore = useToastStore()
 
 const props = withDefaults(defineProps<{
   userId: string | number
@@ -44,7 +42,7 @@ const toggleBlock = async () => {
     emit('block-change', isBlocked.value)
   } catch (error) {
     logger.error('Failed to toggle block:', error)
-    alert('Failed to process request')
+    toastStore.addToast('Failed to process request', 'error')
   } finally {
     loading.value = false
   }

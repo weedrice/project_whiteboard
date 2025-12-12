@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { useThemeStore } from '@/stores/theme'
 import { Sun, Moon } from 'lucide-vue-next'
+import BaseButton from '@/components/common/BaseButton.vue'
 
 const currentYear = computed(() => new Date().getFullYear())
 const themeStore = useThemeStore()
@@ -17,15 +18,13 @@ const themeStore = useThemeStore()
           </p>
         </div>
         <div class="flex space-x-6 items-center">
-            <button
-                @click="themeStore.toggleTheme()"
-                class="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 focus:outline-none"
-                :title="themeStore.isDark ? $t('common.footer.switchToLight') : $t('common.footer.switchToDark')"
-            >
-                <Sun v-if="themeStore.isDark" class="h-5 w-5" />
-                <Moon v-else class="h-5 w-5" />
-            </button>
-          <a href="https://github.com/weedrice/project_whiteboard" target="_blank" rel="noopener noreferrer" class="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300">
+          <BaseButton @click="themeStore.toggleTheme()" variant="ghost" size="sm" class="p-1"
+            :title="themeStore.isDark ? $t('common.footer.switchToLight') : $t('common.footer.switchToDark')">
+            <Sun v-if="themeStore.isDark" class="h-5 w-5" />
+            <Moon v-else class="h-5 w-5" />
+          </BaseButton>
+          <a href="https://github.com/weedrice/project_whiteboard" target="_blank" rel="noopener noreferrer"
+            class="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300">
             <span class="sr-only">{{ $t('common.footer.github') }}</span>
             <!-- Github Icon or similar could go here -->
             {{ $t('common.footer.github') }}

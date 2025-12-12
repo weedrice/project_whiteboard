@@ -9,6 +9,7 @@ import type { Notification, NotificationParams } from '@/api/notification'
 import { useI18n } from 'vue-i18n'
 
 import { useNotificationStore } from '@/stores/notification'
+import BaseButton from '@/components/common/BaseButton.vue'
 
 const router = useRouter()
 const { t } = useI18n()
@@ -73,11 +74,11 @@ function formatTimeAgo(dateString: string) {
     class="origin-top-right absolute right-0 mt-2 w-80 rounded-md shadow-lg py-1 bg-white dark:bg-gray-800 ring-1 ring-black ring-opacity-5 focus:outline-none z-50 transition-colors duration-200">
     <div class="px-4 py-2 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
       <h3 class="text-sm font-medium text-gray-900 dark:text-white">{{ $t('common.notifications') }}</h3>
-      <button @click="() => markAllAsRead()"
-        class="text-xs text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300 flex items-center">
+      <BaseButton @click="() => markAllAsRead()" variant="ghost" size="sm"
+        class="text-xs text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300 flex items-center p-0">
         <Check class="h-3 w-3 mr-1" />
         {{ $t('notification.markAllRead') }}
-      </button>
+      </BaseButton>
     </div>
 
     <div class="max-h-96 overflow-y-auto">
