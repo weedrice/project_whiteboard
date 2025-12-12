@@ -1,4 +1,5 @@
 import api from '@/api'
+import type { UserSettings } from '@/types'
 
 export interface UserProfile {
     userId: number;
@@ -13,6 +14,16 @@ export interface UserUpdatePayload {
     displayName?: string;
     profileImageUrl?: string;
     profileImageId?: number | null;
+}
+
+interface PaginationParams {
+    page?: number
+    size?: number
+}
+
+interface NotificationSettingsPayload {
+    notificationType: string
+    isEnabled: boolean
 }
 
 export const userApi = {
@@ -35,13 +46,13 @@ export const userApi = {
     getUserSettings() {
         return api.get('/users/me/settings')
     },
-    updateUserSettings(data: any) {
+    updateUserSettings(data: Partial<UserSettings>) {
         return api.put('/users/me/settings', data)
     },
     getNotificationSettings() {
         return api.get('/users/me/notification-settings')
     },
-    updateNotificationSettings(data: any) {
+    updateNotificationSettings(data: NotificationSettingsPayload) {
         return api.put('/users/me/notification-settings', data)
     },
     // Blocks
@@ -55,22 +66,23 @@ export const userApi = {
         return api.get('/users/me/blocks')
     },
     // Activity
-    getMyPosts(params: any) {
+    getMyPosts(params: PaginationParams) {
         return api.get('/users/me/posts', { params })
     },
-    getMyComments(params: any) {
+    getMyComments(params: PaginationParams) {
         return api.get('/users/me/comments', { params })
     },
-    getMyScraps(params: any) {
+    getMyScraps(params: PaginationParams) {
         return api.get('/users/me/scraps', { params })
     },
-    getMyDrafts(params: any) {
+    getMyDrafts(params: PaginationParams) {
         return api.get('/users/me/drafts', { params })
     },
-    getRecentlyViewedPosts(params: any) {
+    getRecentlyViewedPosts(params: PaginationParams) {
         return api.get('/users/me/history/views', { params })
     },
-    getMySubscriptions(params: any) {
+    getMySubscriptions(params: PaginationParams) {
         return api.get('/users/me/subscriptions', { params })
     }
 }
+

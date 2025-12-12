@@ -1,32 +1,69 @@
 import api from './index'
+import type { AxiosRequestConfig } from 'axios'
+
+interface BoardCreateData {
+    boardName: string
+    boardUrl: string
+    description?: string
+    iconUrl?: string
+    sortOrder?: number
+    allowNsfw?: boolean
+}
+
+interface BoardUpdateData {
+    boardName?: string
+    description?: string
+    iconUrl?: string
+    sortOrder?: number
+    allowNsfw?: boolean
+    isActive?: boolean
+}
+
+interface PostsParams {
+    page?: number
+    size?: number
+    categoryId?: number
+    sort?: string
+}
+
+interface CategoryCreateData {
+    name: string
+    sortOrder?: number
+}
+
+interface CategoryUpdateData {
+    name?: string
+    sortOrder?: number
+    isActive?: boolean
+}
 
 export const boardApi = {
     // Get all boards
     getBoards: () => api.get('/boards'),
 
     // Get board details
-    getBoard: (boardUrl: string, config?: any) => api.get(`/boards/${boardUrl}`, config),
+    getBoard: (boardUrl: string, config?: AxiosRequestConfig) => api.get(`/boards/${boardUrl}`, config),
 
     // Create a new board
-    createBoard: (data: any) => api.post('/boards', data),
+    createBoard: (data: BoardCreateData) => api.post('/boards', data),
 
     // Get posts in a board
-    getPosts: (boardUrl: string, params: any) => api.get(`/boards/${boardUrl}/posts`, { params }),
+    getPosts: (boardUrl: string, params: PostsParams) => api.get(`/boards/${boardUrl}/posts`, { params }),
 
     // Get board categories
     getCategories: (boardUrl: string) => api.get(`/boards/${boardUrl}/categories`),
 
     // Update board
-    updateBoard: (boardUrl: string, data: any) => api.put(`/boards/${boardUrl}`, data),
+    updateBoard: (boardUrl: string, data: BoardUpdateData) => api.put(`/boards/${boardUrl}`, data),
 
     // Delete board
     deleteBoard: (boardUrl: string) => api.delete(`/boards/${boardUrl}`),
 
     // Create category
-    createCategory: (boardUrl: string, data: any) => api.post(`/boards/${boardUrl}/categories`, data),
+    createCategory: (boardUrl: string, data: CategoryCreateData) => api.post(`/boards/${boardUrl}/categories`, data),
 
     // Update category
-    updateCategory: (boardUrl: string, categoryId: string | number, data: any) => api.put(`/boards/categories/${categoryId}`, data),
+    updateCategory: (boardUrl: string, categoryId: string | number, data: CategoryUpdateData) => api.put(`/boards/categories/${categoryId}`, data),
 
     // Delete category
     deleteCategory: (boardUrl: string, categoryId: string | number) => api.delete(`/boards/categories/${categoryId}`),
@@ -43,3 +80,4 @@ export const boardApi = {
     // Update subscription order
     updateSubscriptionOrder: (boardUrls: string[]) => api.put('/boards/subscriptions/order', boardUrls),
 }
+

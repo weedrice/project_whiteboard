@@ -1,11 +1,18 @@
 import api from './index'
+import type { LoginCredentials, SignupData } from '@/types'
+
+interface PasswordResetData {
+    email: string
+    code: string
+    newPassword: string
+}
 
 export const authApi = {
     // Login
-    login: (credentials: any) => api.post('/auth/login', credentials, { skipGlobalErrorHandler: true }),
+    login: (credentials: LoginCredentials) => api.post('/auth/login', credentials, { skipGlobalErrorHandler: true }),
 
     // Signup
-    signup: (data: any) => api.post('/auth/signup', data, { skipGlobalErrorHandler: true }),
+    signup: (data: SignupData) => api.post('/auth/signup', data, { skipGlobalErrorHandler: true }),
 
     // Logout
     logout: (refreshToken: string) => api.post('/auth/logout', { refreshToken }),
@@ -25,5 +32,6 @@ export const authApi = {
 
     // Password Reset
     sendPasswordReset: (email: string) => api.post('/auth/password/forgot', { email }),
-    resetPassword: (data: any) => api.post('/auth/password/reset-by-code', data),
+    resetPassword: (data: PasswordResetData) => api.post('/auth/password/reset-by-code', data),
 }
+

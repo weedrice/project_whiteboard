@@ -1,11 +1,66 @@
 import api from '@/api'
 
+// Admin types
+interface AdminCreateData {
+    loginId: string
+    boardId?: number
+}
+
+interface SuperAdminData {
+    loginId: string
+}
+
+interface IpBlockData {
+    ipAddress: string
+    reason: string
+}
+
+interface PaginationParams {
+    page?: number
+    size?: number
+    q?: string
+}
+
+interface SanctionData {
+    userId: number
+    type: 'BAN' | 'MUTE'
+    reason: string
+}
+
+interface ReportResolveData {
+    status: 'RESOLVED' | 'REJECTED'
+}
+
+interface ConfigCreateData {
+    key: string
+    value: string
+    description?: string
+}
+
+interface BoardCreateData {
+    boardName: string
+    boardUrl: string
+    description?: string
+    iconUrl?: string
+    sortOrder?: number
+    allowNsfw?: boolean
+}
+
+interface BoardUpdateData {
+    boardName?: string
+    description?: string
+    iconUrl?: string
+    sortOrder?: number
+    allowNsfw?: boolean
+    isActive?: boolean
+}
+
 export const adminApi = {
     // 관리자 관리
     getAdmins() {
         return api.get('/admin/admins')
     },
-    createAdmin(data: any) {
+    createAdmin(data: AdminCreateData) {
         return api.post('/admin/admins', data)
     },
     deactivateAdmin(adminId: string | number) {
@@ -17,10 +72,10 @@ export const adminApi = {
     getSuperAdmin() {
         return api.get('/admin/super')
     },
-    activeSuperAdmin(data: any) {
+    activeSuperAdmin(data: SuperAdminData) {
         return api.put('/admin/super/active', data)
     },
-    deactiveSuperAdmin(data: any) {
+    deactiveSuperAdmin(data: SuperAdminData) {
         return api.put('/admin/super/deactive', data)
     },
 
@@ -28,7 +83,7 @@ export const adminApi = {
     getIpBlocks() {
         return api.get('/admin/ip-blocks')
     },
-    blockIp(data: any) {
+    blockIp(data: IpBlockData) {
         return api.post('/admin/ip-blocks', data)
     },
     unblockIp(ipAddress: string) {
@@ -36,21 +91,21 @@ export const adminApi = {
     },
 
     // 사용자 관리
-    getUsers(params: any) {
+    getUsers(params: PaginationParams) {
         return api.get('/admin/users', { params })
     },
     updateUserStatus(userId: string | number, status: string) {
         return api.put(`/admin/users/${userId}/status`, { status })
     },
-    sanctionUser(data: any) {
+    sanctionUser(data: SanctionData) {
         return api.post('/admin/sanctions', data)
     },
 
     // 신고 관리
-    getReports(params: any) {
+    getReports(params: PaginationParams) {
         return api.get('/admin/reports', { params })
     },
-    resolveReport(reportId: string | number, data: any) {
+    resolveReport(reportId: string | number, data: ReportResolveData) {
         return api.put(`/admin/reports/${reportId}`, data)
     },
 
@@ -63,7 +118,7 @@ export const adminApi = {
         return api.put(`/admin/configs/${key}`, { value, description })
     },
 
-    createConfig(data: any) {
+    createConfig(data: ConfigCreateData) {
         return api.post('/admin/configs', data)
     },
 
@@ -80,13 +135,14 @@ export const adminApi = {
     getBoards() {
         return api.get('/boards/all')
     },
-    createBoard(data: any) {
+    createBoard(data: BoardCreateData) {
         return api.post('/boards', data)
     },
-    updateBoard(boardUrl: string, data: any) {
+    updateBoard(boardUrl: string, data: BoardUpdateData) {
         return api.put(`/boards/${boardUrl}`, data)
     },
     deleteBoard(boardUrl: string) {
         return api.delete(`/boards/${boardUrl}`)
     }
 }
+

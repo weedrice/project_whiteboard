@@ -83,14 +83,22 @@ api.interceptors.response.use(
                     originalRequest.headers.Authorization = `Bearer ${newAccessToken}`
                     return api(originalRequest)
                 }
-            } catch (refreshError) {
-                // Refresh failed - clear tokens and redirect to login
-                localStorage.removeItem('accessToken')
-                localStorage.removeItem('refreshToken')
-
-                toastStore.addToast(t('common.messages.sessionExpired'), 'warning')
-
-                window.location.href = '/login'
+            } catch (refreshError: any) {
+                // refresh token이 유효하지 않거나(401/403) refresh API 자체가 실패한 경우에만 로그아웃
+                // 네트워크 에러 등 일시적 오류는 로그아웃하지 않음
+                const refreshStatus = refreshError.response?.status
+                if (refreshStatus === 401 || refreshStatus === 403 || !refreshError.response) {
+                    // 401/403: refresh token도 만료됨 → 로그아웃
+                    // !refreshError.response + refreshToken 만료: 실제 인증 문제일 가능성 높음
+                    // 하지만 네트워크 에러(!refreshError.response)는 구분이 어려우므로
+                    // refresh token 자체가 없는 경우에만 확실히 로그아웃
+                    if (!localStorage.getItem('refreshToken') || refreshStatus === 401 || refreshStatus === 403) {
+                        localStorage.removeItem('accessToken')
+                        localStorage.removeItem('refreshToken')
+                        toastStore.addToast(t('common.messages.sessionExpired'), 'warning')
+                        window.location.href = '/login'
+                    }
+                }
                 return Promise.reject(refreshError)
             }
         }
