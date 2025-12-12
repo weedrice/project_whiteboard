@@ -57,7 +57,7 @@ public class AuthService {
     private final PasswordResetTokenRepository passwordResetTokenRepository; // Inject PasswordResetTokenRepository
     private final EmailService emailService; // Inject EmailService
 
-    @Value("${password-reset.frontend-url}")
+    @Value("${cloud.aws.password-reset.frontend-url}")
     private String passwordResetFrontendUrl; // Inject VerificationCodeService
 
     @Transactional
