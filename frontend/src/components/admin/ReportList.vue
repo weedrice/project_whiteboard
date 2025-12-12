@@ -5,28 +5,29 @@ import BaseButton from '@/components/common/BaseButton.vue'
 import BaseTable from '@/components/common/BaseTable.vue'
 import BaseBadge from '@/components/common/BaseBadge.vue'
 import { computed } from 'vue'
+import type { Report } from '@/types'
 
 const { t } = useI18n()
 
 defineProps<{
-  reports: any[]
+  reports: Report[]
 }>()
 
 const emit = defineEmits<{
-  (e: 'resolve', report: any): void
-  (e: 'reject', report: any): void
-  (e: 'sanction', report: any): void
+  (e: 'resolve', report: Report): void
+  (e: 'reject', report: Report): void
+  (e: 'sanction', report: Report): void
 }>()
 
-function onResolve(report: any) {
+function onResolve(report: Report) {
   emit('resolve', report)
 }
 
-function onReject(report: any) {
+function onReject(report: Report) {
   emit('reject', report)
 }
 
-function onSanction(report: any) {
+function onSanction(report: Report) {
   emit('sanction', report)
 }
 

@@ -4,11 +4,12 @@ import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/BaseButton.vue'
 import BaseTable from '@/components/common/BaseTable.vue'
 import { computed } from 'vue'
+import type { IpBlock } from '@/types'
 
 const { t } = useI18n()
 
 defineProps<{
-  ipBlocks: any[]
+  ipBlocks: IpBlock[]
 }>()
 
 const emit = defineEmits<{

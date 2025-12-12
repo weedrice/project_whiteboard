@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { useBoard } from '@/composables/useBoard'
 import { Search } from 'lucide-vue-next'
 import BaseInput from '@/components/common/BaseInput.vue'
+import type { Board } from '@/types'
 
 const router = useRouter()
 const { useBoards } = useBoard()
@@ -17,7 +18,7 @@ const boards = computed(() => boardsData.value || [])
 const filteredBoards = computed(() => {
   if (!searchQuery.value.trim()) return []
   const query = searchQuery.value.toLowerCase()
-  return boards.value.filter((board: any) =>
+  return boards.value.filter((board: Board) =>
     board.boardName.toLowerCase().includes(query)
   )
 })

@@ -66,8 +66,8 @@ const handleFileChange = async (event: Event) => {
       const resizedImage = await resizeImage(file, 100, 100)
       selectedFile.value = resizedImage
       previewImage.value = URL.createObjectURL(resizedImage)
-    } catch (e) {
-      logger.error('Image resize failed', e)
+    } catch (error) {
+      logger.error('Image resize failed', error)
       toastStore.addToast('Failed to process image.', 'error')
     }
   }
@@ -149,10 +149,11 @@ const updateProfile = async () => {
         toastStore.addToast('Profile updated successfully', 'success')
         loading.value = false
       },
-      onError: (error: any) => {
+      onError: (error: Error) => {
+        const axiosError = error as Error & { response?: { data?: { message?: string } } }
         logger.error('Failed to update profile:', error)
-        if (error.response?.data?.message) {
-          errors.displayName = error.response.data.message
+        if (axiosError.response?.data?.message) {
+          errors.displayName = axiosError.response.data.message
         } else {
           toastStore.addToast('Failed to update profile', 'error')
         }
