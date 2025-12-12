@@ -46,8 +46,7 @@ public class Report extends BaseTimeEntity {
     @Column(name = "status", length = 50, nullable = false)
     private String status; // PENDING, RESOLVED, REJECTED
 
-    @Lob
-    @Column(name = "contents")
+    @Column(name = "contents", columnDefinition = "TEXT")
     private String contents;
 
     @ManyToOne(fetch = FetchType.LAZY)

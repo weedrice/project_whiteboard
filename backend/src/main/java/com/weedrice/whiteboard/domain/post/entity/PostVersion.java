@@ -36,8 +36,7 @@ public class PostVersion extends BaseTimeEntity {
     @Column(name = "original_title", length = 200)
     private String originalTitle;
 
-    @Lob
-    @Column(name = "original_contents")
+    @Column(name = "original_contents", columnDefinition = "TEXT")
     private String originalContents;
 
     @Builder

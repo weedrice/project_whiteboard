@@ -31,8 +31,7 @@ public class MessageQueue extends BaseTimeEntity {
     @Column(name = "delivery_method", length = 20, nullable = false)
     private String deliveryMethod; // EMAIL, PUSH, SMS
 
-    @Lob
-    @Column(name = "content", nullable = false)
+    @Column(name = "content", nullable = false, columnDefinition = "TEXT")
     private String content;
 
     @Column(name = "requested_at", nullable = false)

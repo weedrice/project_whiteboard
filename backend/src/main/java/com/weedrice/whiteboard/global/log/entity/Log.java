@@ -31,8 +31,7 @@ public class Log extends BaseTimeEntity {
     @Column(name = "ip_address", length = 45, nullable = false)
     private String ipAddress;
 
-    @Lob
-    @Column(name = "details")
+    @Column(name = "details", columnDefinition = "TEXT")
     private String details; // JSON format
 
     @Builder
