@@ -17,6 +17,7 @@ import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.lang.reflect.Method;
+import java.util.Arrays;
 
 @Slf4j
 @Aspect
@@ -42,8 +43,10 @@ public class LogAspect {
                 userId = ((CustomUserDetails) authentication.getPrincipal()).getUserId();
             }
 
+            String userAgent = request.getHeader("User-Agent");
             // 간단한 로그 메시지 생성 (필요에 따라 파라미터 등을 JSON으로 변환하여 details에 저장 가능)
-            String details = "Method: " + actionType;
+            String details = String.format("[API LOG] Method: %s | Args: %s | UA: %s", 
+                    actionType, Arrays.toString(joinPoint.getArgs()), userAgent);
 
             logService.saveLog(userId, actionType, ipAddress, details);
         } catch (Exception e) {
