@@ -9,8 +9,10 @@ import logger from '@/utils/logger'
 import type { Comment } from '@/api/comment'
 import { useToastStore } from '@/stores/toast'
 import BaseSpinner from '@/components/common/BaseSpinner.vue'
+import { useConfirm } from '@/composables/useConfirm'
 
 const toastStore = useToastStore()
+const { confirm } = useConfirm()
 
 const props = defineProps<{
   postId: number | string
@@ -44,8 +46,9 @@ function handleEditSuccess() {
   // Query invalidation handled in composable
 }
 
-function handleDelete(comment: Comment) {
-  if (!confirm(t('common.messages.confirmDelete'))) return
+async function handleDelete(comment: Comment) {
+  const isConfirmed = await confirm(t('common.messages.confirmDelete'))
+  if (!isConfirmed) return
 
   deleteComment(comment.commentId, {
     onError: (err) => {

@@ -7,9 +7,11 @@ import { useToastStore } from '@/stores/toast'
 import IpBlockList from '@/components/admin/IpBlockList.vue'
 import BaseInput from '@/components/common/BaseInput.vue'
 import BaseButton from '@/components/common/BaseButton.vue'
+import { useConfirm } from '@/composables/useConfirm'
 
 const { t } = useI18n()
 const toastStore = useToastStore()
+const { confirm } = useConfirm()
 const { useIpBlocks, useBlockIp, useUnblockIp } = useAdmin()
 
 const newIp = ref('')
@@ -34,7 +36,8 @@ async function handleBlockIp() {
 }
 
 async function handleUnblockIp(ipAddress) {
-    if (!confirm(t('admin.security.messages.confirmUnblock', { ip: ipAddress }))) return
+    const isConfirmed = await confirm(t('admin.security.messages.confirmUnblock', { ip: ipAddress }))
+    if (!isConfirmed) return
     try {
         await unblockIp(ipAddress)
         toastStore.addToast(t('admin.security.messages.unblocked'), 'success')

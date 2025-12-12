@@ -5,9 +5,11 @@ import { useI18n } from 'vue-i18n'
 import { useToastStore } from '@/stores/toast'
 import ReportList from '@/components/admin/ReportList.vue'
 import SanctionModal from '@/components/admin/SanctionModal.vue'
+import { useConfirm } from '@/composables/useConfirm'
 
 const { t } = useI18n()
 const toastStore = useToastStore()
+const { confirm } = useConfirm()
 const { useReports, useResolveReport } = useAdmin()
 
 const page = ref(0)
@@ -45,7 +47,8 @@ function refreshList() {
 }
 
 async function handleResolve(report) {
-  if (!confirm(t('admin.reports.messages.confirmResolve'))) return
+  const isConfirmed = await confirm(t('admin.reports.messages.confirmResolve'))
+  if (!isConfirmed) return
   try {
     await resolveReport({ reportId: report.reportId, data: { status: 'RESOLVED' } })
     toastStore.addToast(t('admin.reports.messages.resolved'), 'success')
@@ -55,7 +58,8 @@ async function handleResolve(report) {
 }
 
 async function handleReject(report) {
-  if (!confirm(t('admin.reports.messages.confirmReject'))) return
+  const isConfirmed = await confirm(t('admin.reports.messages.confirmReject'))
+  if (!isConfirmed) return
   try {
     await resolveReport({ reportId: report.reportId, data: { status: 'REJECTED' } })
     toastStore.addToast(t('admin.reports.messages.rejected'), 'success')

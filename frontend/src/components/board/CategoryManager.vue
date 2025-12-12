@@ -8,9 +8,11 @@ import { useToastStore } from '@/stores/toast'
 import BaseInput from '@/components/common/BaseInput.vue'
 import BaseButton from '@/components/common/BaseButton.vue'
 import BaseSelect from '@/components/common/BaseSelect.vue'
+import { useConfirm } from '@/composables/useConfirm'
 
 const { t } = useI18n()
 const toastStore = useToastStore()
+const { confirm } = useConfirm()
 
 const props = defineProps<{
   boardUrl: string
@@ -79,7 +81,8 @@ async function handleAdd() {
 }
 
 async function handleDelete(categoryId: number) {
-  if (!confirm(t('board.category.deleteConfirm'))) return
+  const isConfirmed = await confirm(t('board.category.deleteConfirm'))
+  if (!isConfirmed) return
 
   try {
     const { data } = await boardApi.deleteCategory(props.boardUrl, categoryId)

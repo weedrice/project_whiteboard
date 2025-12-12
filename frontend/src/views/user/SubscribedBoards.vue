@@ -48,9 +48,11 @@ import draggable from 'vuedraggable'
 import { Menu } from 'lucide-vue-next'
 import logger from '@/utils/logger'
 import BaseButton from '@/components/common/BaseButton.vue'
+import { useConfirm } from '@/composables/useConfirm'
 
 const { t } = useI18n()
 const toastStore = useToastStore()
+const { confirm } = useConfirm()
 const boards = ref([])
 const loading = ref(false)
 
@@ -69,7 +71,8 @@ async function fetchSubscriptions() {
 }
 
 async function handleUnsubscribe(board) {
-    if (!confirm(t('user.subscriptions.unsubscribeConfirm'))) return
+    const isConfirmed = await confirm(t('user.subscriptions.unsubscribeConfirm'))
+    if (!isConfirmed) return
     try {
         const { data } = await boardApi.unsubscribeBoard(board.boardUrl)
         if (data.success) {

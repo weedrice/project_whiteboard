@@ -75,10 +75,12 @@ import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import logger from '@/utils/logger'
 import { useToastStore } from '@/stores/toast'
+import { useConfirm } from '@/composables/useConfirm'
 
 const { t } = useI18n()
 const authStore = useAuthStore()
 const toastStore = useToastStore()
+const { confirm } = useConfirm()
 
 const props = defineProps<{
   userId: number
@@ -153,7 +155,8 @@ const closeReportModal = () => {
 const handleBlockUser = async () => {
   closeDropdown()
   if (isSelf.value) return
-  if (!confirm(t('user.block.confirm', { name: props.displayName }))) {
+  const isConfirmed = await confirm(t('user.block.confirm', { name: props.displayName }))
+  if (!isConfirmed) {
     return
   }
   try {

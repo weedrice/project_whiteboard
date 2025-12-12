@@ -94,7 +94,7 @@
             <div class="p-4 space-y-4">
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">{{ $t('user.message.to')
-                    }}</label>
+                        }}</label>
                     <div class="mt-1 p-2 bg-gray-50 dark:bg-gray-700 rounded-md text-sm text-gray-900 dark:text-white">
                         {{ replyTarget?.partner.displayName }}
                     </div>
@@ -127,10 +127,12 @@ import PageSizeSelector from '@/components/common/PageSizeSelector.vue'
 import { useI18n } from 'vue-i18n'
 import { useNotificationStore } from '@/stores/notification'
 import { useToastStore } from '@/stores/toast'
+import { useConfirm } from '@/composables/useConfirm'
 
 const { t } = useI18n()
 const notificationStore = useNotificationStore()
 const toastStore = useToastStore()
+const { confirm } = useConfirm()
 
 const viewType = ref('received') // 'received' | 'sent'
 const messages = ref([])
@@ -210,7 +212,8 @@ async function openMessage(msg) {
 }
 
 async function deleteSelectedMessages() {
-    if (!confirm(t('common.messages.confirmDelete'))) return
+    const isConfirmed = await confirm(t('common.messages.confirmDelete'))
+    if (!isConfirmed) return
     try {
         const { data } = await messageApi.deleteMessages(selectedMessages.value)
         if (data.success) {

@@ -15,12 +15,14 @@ import UserMenu from '@/components/common/UserMenu.vue'
 import { useI18n } from 'vue-i18n'
 import logger from '@/utils/logger'
 import { useToastStore } from '@/stores/toast'
+import { useConfirm } from '@/composables/useConfirm'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 const { t } = useI18n()
 const toastStore = useToastStore()
+const { confirm } = useConfirm()
 
 const { usePostDetail, useDeletePost, useLikePost, useUnlikePost, useScrapPost, useUnscrapPost, useReportPost } = usePost()
 
@@ -53,7 +55,8 @@ const timeLeft = ref(5)
 const titleRef = ref(null)
 
 async function handleDelete() {
-  if (!confirm(t('common.messages.confirmDelete'))) return
+  const isConfirmed = await confirm(t('common.messages.confirmDelete'))
+  if (!isConfirmed) return
 
   deleteMutate(route.params.postId, {
     onSuccess: () => {

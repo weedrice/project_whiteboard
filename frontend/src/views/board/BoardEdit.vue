@@ -8,9 +8,11 @@ import BaseButton from '@/components/common/BaseButton.vue'
 import { useI18n } from 'vue-i18n'
 import logger from '@/utils/logger'
 import { useToastStore } from '@/stores/toast'
+import { useConfirm } from '@/composables/useConfirm'
 
 const { t } = useI18n()
 const toastStore = useToastStore()
+const { confirm } = useConfirm()
 
 const route = useRoute()
 const router = useRouter()
@@ -71,7 +73,8 @@ async function handleUpdate(formData) {
 }
 
 async function handleDelete() {
-  if (!confirm(t('board.form.deleteConfirm'))) return
+  const isConfirmed = await confirm(t('board.form.deleteConfirm'))
+  if (!isConfirmed) return
 
   try {
     const { data } = await boardApi.deleteBoard(boardUrl)

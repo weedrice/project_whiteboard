@@ -6,6 +6,7 @@ import { useThemeStore } from '@/stores/theme'
 import { userApi } from '@/api/user'
 import { useI18n } from 'vue-i18n'
 import ToastContainer from '@/components/common/ToastContainer.vue'
+import GlobalConfirmModal from '@/components/common/GlobalConfirmModal.vue'
 import logger from '@/utils/logger'
 
 // Import layouts
@@ -18,7 +19,7 @@ const authStore = useAuthStore()
 const { locale } = useI18n()
 
 const layout = computed(() => {
-  return route.meta.layout === 'AdminLayout' ? AdminLayout : DefaultLayout
+    return route.meta.layout === 'AdminLayout' ? AdminLayout : DefaultLayout
 })
 
 const themeStore = useThemeStore()
@@ -34,7 +35,7 @@ const applySettings = (settings) => {
 
 const loadSettings = async () => {
     // Critical check: Do not call API if not authenticated to avoid 401 redirects for guests
-    if (!authStore.isAuthenticated) return 
+    if (!authStore.isAuthenticated) return
 
     try {
         const { data } = await userApi.getUserSettings()
@@ -64,8 +65,9 @@ onMounted(() => {
 </script>
 
 <template>
-  <component :is="layout">
-    <RouterView />
-  </component>
-  <ToastContainer />
+    <component :is="layout">
+        <RouterView />
+    </component>
+    <ToastContainer />
+    <GlobalConfirmModal />
 </template>

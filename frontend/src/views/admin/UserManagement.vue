@@ -9,9 +9,11 @@ import BaseInput from '@/components/common/BaseInput.vue'
 import BaseButton from '@/components/common/BaseButton.vue'
 import BaseBadge from '@/components/common/BaseBadge.vue'
 import BaseTable from '@/components/common/BaseTable.vue'
+import { useConfirm } from '@/composables/useConfirm'
 
 const { t } = useI18n()
 const toastStore = useToastStore()
+const { confirm } = useConfirm()
 const { useUsers, useUpdateUserStatus, useSanctionUser } = useAdmin()
 
 const page = ref(0)
@@ -32,7 +34,8 @@ const users = computed(() => usersData.value?.content || [])
 const totalCount = computed(() => usersData.value?.totalElements || 0)
 
 async function handleStatusChange(user, status) {
-  if (!confirm(t('admin.users.messages.confirmStatusChange', { status }))) return
+  const isConfirmed = await confirm(t('admin.users.messages.confirmStatusChange', { status }))
+  if (!isConfirmed) return
   try {
     await updateUserStatus({ userId: user.userId, status })
     toastStore.addToast(t('admin.users.messages.statusChanged'), 'success')

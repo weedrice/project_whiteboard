@@ -9,10 +9,12 @@ import BaseModal from '@/components/common/BaseModal.vue'
 import logger from '@/utils/logger'
 import { useToastStore } from '@/stores/toast'
 import BaseTable from '@/components/common/BaseTable.vue'
+import { useConfirm } from '@/composables/useConfirm'
 
 
 const { t } = useI18n()
 const toastStore = useToastStore()
+const { confirm } = useConfirm()
 const { useConfigs, useUpdateConfig, useCreateConfig, useDeleteConfig } = useAdmin()
 
 const configs = ref([])
@@ -75,7 +77,8 @@ async function handleCreateConfig() {
 }
 
 async function handleDelete(key) {
-  if (!confirm(t('common.confirmDelete'))) return
+  const isConfirmed = await confirm(t('common.confirmDelete'))
+  if (!isConfirmed) return
   try {
     await deleteConfig(key)
     toastStore.addToast(t('common.deleted'), 'success')

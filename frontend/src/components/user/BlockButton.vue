@@ -10,8 +10,10 @@ import BaseButton from '@/components/common/BaseButton.vue'
 import { userApi } from '@/api/user'
 import logger from '@/utils/logger'
 import { useToastStore } from '@/stores/toast'
+import { useConfirm } from '@/composables/useConfirm'
 
 const toastStore = useToastStore()
+const { confirm } = useConfirm()
 
 const props = withDefaults(defineProps<{
   userId: string | number
@@ -28,7 +30,8 @@ const isBlocked = ref(props.initialBlocked)
 const loading = ref(false)
 
 const toggleBlock = async () => {
-  if (!confirm(isBlocked.value ? 'Unblock this user?' : 'Block this user?')) return
+  const isConfirmed = await confirm(isBlocked.value ? 'Unblock this user?' : 'Block this user?')
+  if (!isConfirmed) return
 
   loading.value = true
   try {

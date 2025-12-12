@@ -157,9 +157,11 @@ import { Save, GripVertical } from 'lucide-vue-next'
 import draggable from 'vuedraggable'
 import logger from '@/utils/logger'
 import { useToastStore } from '@/stores/toast'
+import { useConfirm } from '@/composables/useConfirm'
 
 const { t } = useI18n()
 const toastStore = useToastStore()
+const { confirm } = useConfirm()
 const { useAdminBoards, useCreateBoard, useUpdateBoard } = useAdmin()
 
 const boards = ref([])
@@ -292,7 +294,8 @@ function handleSortOrderChange(board) {
 async function handleSaveAll() {
   if (modifiedBoards.value.size === 0) return
 
-  if (!confirm(t('common.messages.save'))) return
+  const isConfirmed = await confirm(t('common.messages.save'))
+  if (!isConfirmed) return
 
   isSubmitting.value = true
   try {
