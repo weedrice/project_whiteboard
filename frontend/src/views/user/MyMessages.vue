@@ -94,7 +94,7 @@
             <div class="p-4 space-y-4">
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">{{ $t('user.message.to')
-                        }}</label>
+                    }}</label>
                     <div class="mt-1 p-2 bg-gray-50 dark:bg-gray-700 rounded-md text-sm text-gray-900 dark:text-white">
                         {{ replyTarget?.partner.displayName }}
                     </div>
@@ -128,6 +128,7 @@ import { useI18n } from 'vue-i18n'
 import { useNotificationStore } from '@/stores/notification'
 import { useToastStore } from '@/stores/toast'
 import { useConfirm } from '@/composables/useConfirm'
+import logger from '@/utils/logger'
 
 const { t } = useI18n()
 const notificationStore = useNotificationStore()
@@ -167,7 +168,7 @@ async function fetchMessages() {
             totalPages.value = data.data?.totalPages || 0
         }
     } catch (error) {
-        console.error('Failed to fetch messages:', error)
+        logger.error('Failed to fetch messages:', error)
     } finally {
         loading.value = false
     }
@@ -206,7 +207,7 @@ async function openMessage(msg) {
             msg.read = true
             notificationStore.fetchUnreadCount()
         } catch (error) {
-            console.error('Failed to mark as read:', error)
+            logger.error('Failed to mark as read:', error)
         }
     }
 }
@@ -221,7 +222,7 @@ async function deleteSelectedMessages() {
             fetchMessages()
         }
     } catch (error) {
-        console.error('Failed to delete messages:', error)
+        logger.error('Failed to delete messages:', error)
         toastStore.addToast(t('common.messages.deleteFailed'), 'error')
     }
 }
@@ -248,7 +249,7 @@ async function sendReply() {
             closeReplyModal()
         }
     } catch (error) {
-        console.error('Failed to send reply:', error)
+        logger.error('Failed to send reply:', error)
         toastStore.addToast(t('user.message.sendFailed'), 'error')
     } finally {
         isSending.value = false

@@ -176,6 +176,7 @@ export const messages = {
       },
       emailNotVerified: '이메일 인증이 필요합니다.',
       passwordMismatch: '비밀번호가 일치하지 않습니다.',
+      verificationFailed: '인증에 실패했습니다.',
     },
     board: {
       list: {
@@ -471,6 +472,7 @@ export const messages = {
           statusChanged: '상태가 변경되었습니다.',
           statusChangeFailed: '상태 변경 실패',
           enterReason: '{type} 사유를 입력하세요:',
+          sanctionTitle: '{type} 처리',
           sanctionComplete: '{type} 처리가 완료되었습니다.',
           sanctionFailed: '제재 처리 실패',
         },

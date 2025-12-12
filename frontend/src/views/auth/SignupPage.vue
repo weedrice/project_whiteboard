@@ -65,7 +65,7 @@ async function verifyCode() {
       toastStore.addToast(t('auth.codeVerified'), 'success')
     }
   } catch (err) {
-    const message = err.response?.data?.error?.message || 'Verification failed'
+    const message = err.response?.data?.error?.message || t('auth.verificationFailed')
     toastStore.addToast(message, 'error')
   } finally {
     verification.loading = false

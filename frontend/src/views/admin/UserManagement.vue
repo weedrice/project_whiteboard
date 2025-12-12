@@ -10,10 +10,12 @@ import BaseButton from '@/components/common/BaseButton.vue'
 import BaseBadge from '@/components/common/BaseBadge.vue'
 import BaseTable from '@/components/common/BaseTable.vue'
 import { useConfirm } from '@/composables/useConfirm'
+import { usePrompt } from '@/composables/usePrompt'
 
 const { t } = useI18n()
 const toastStore = useToastStore()
 const { confirm } = useConfirm()
+const { prompt } = usePrompt()
 const { useUsers, useUpdateUserStatus, useSanctionUser } = useAdmin()
 
 const page = ref(0)
@@ -45,7 +47,7 @@ async function handleStatusChange(user, status) {
 }
 
 async function handleSanction(user, type) {
-  const reason = prompt(t('admin.users.messages.enterReason', { type }))
+  const reason = await prompt(t('admin.users.messages.enterReason', { type }), t('admin.users.messages.sanctionTitle', { type }))
   if (!reason) return
 
   try {

@@ -38,6 +38,7 @@ import { ref, onMounted } from 'vue'
 import { userApi } from '@/api/user'
 import BlockButton from '@/components/user/BlockButton.vue'
 import { useI18n } from 'vue-i18n'
+import logger from '@/utils/logger'
 
 const { t } = useI18n()
 
@@ -52,7 +53,7 @@ const fetchBlockedUsers = async () => {
       blockedUsers.value = data.data.content
     }
   } catch (error) {
-    console.error('Failed to fetch blocked users:', error)
+    logger.error('Failed to fetch blocked users:', error)
   } finally {
     loading.value = false
   }

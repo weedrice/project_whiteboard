@@ -62,7 +62,6 @@ async function fetchTrendingPosts(isLoadMore = false) {
 
   try {
     const { data } = await postApi.getTrendingPosts(page.value, size.value)
-    console.log(data);
     if (data.success) {
       const newPosts = data.data
       if (newPosts.length < size.value) {

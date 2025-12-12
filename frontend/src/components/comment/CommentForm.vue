@@ -67,7 +67,7 @@ async function handleSubmit() {
       },
       onError: (err) => {
         logger.error('Failed to save comment:', err)
-        alert(t('comment.saveFailed'))
+        toastStore.addToast(t('comment.saveFailed'), 'error')
         isSubmitting.value = false
       }
     })

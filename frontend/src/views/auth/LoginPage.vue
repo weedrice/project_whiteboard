@@ -41,7 +41,6 @@ async function handleLogin() {
     router.push('/')
   } catch (err) {
     const message = err.response?.data?.error?.message || t('auth.loginFailed')
-    console.log(message);
     toastStore.addToast(message, 'error', 3000, 'top-center')
   } finally {
     isLoading.value = false
