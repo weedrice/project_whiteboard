@@ -15,9 +15,9 @@ export const useNotificationStore = defineStore('notification', () => {
         try {
             const { data } = await notificationApi.getNotifications({ page, size })
             if (data.success) {
-                const mappedContent = data.data.content.map((n: any) => ({
+                const mappedContent = data.data.content.map((n: Notification) => ({
                     ...n,
-                    isRead: n.isRead === true || n.isRead === 'Y' || n.is_read === 'Y' || n.is_read === true || n.read === true
+                    isRead: n.isRead === true || (n as unknown as { is_read?: string | boolean }).is_read === 'Y' || (n as unknown as { is_read?: string | boolean }).is_read === true
                 }))
                 notifications.value = mappedContent
                 totalPages.value = data.data.totalPages
@@ -118,8 +118,8 @@ export const useNotificationStore = defineStore('notification', () => {
                 unreadCount.value++
                 // Update total elements if tracking
                 totalElements.value++
-            } catch (e) {
-                logger.error('Failed to parse SSE notification:', e)
+            } catch (error) {
+                logger.error('Failed to parse SSE notification:', error)
             }
         })
 

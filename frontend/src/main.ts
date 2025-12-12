@@ -18,21 +18,23 @@ app.use(i18n)
 
 const queryClient = new QueryClient({
     queryCache: new QueryCache({
-        onError: (error: any, query) => {
+        onError: (error: Error, query) => {
             if (query.meta?.errorMessage === false) return
 
             const toastStore = useToastStore()
-            const message = error.response?.data?.message || error.message || 'An error occurred'
+            const axiosError = error as Error & { response?: { data?: { message?: string } } }
+            const message = axiosError.response?.data?.message || error.message || 'An error occurred'
             toastStore.addToast(message, 'error')
             logger.error('Query Error:', error)
         }
     }),
     mutationCache: new MutationCache({
-        onError: (error: any, variables, context, mutation) => {
+        onError: (error: Error, variables, context, mutation) => {
             if (mutation.meta?.errorMessage === false) return
 
             const toastStore = useToastStore()
-            const message = error.response?.data?.message || error.message || 'An error occurred'
+            const axiosError = error as Error & { response?: { data?: { message?: string } } }
+            const message = axiosError.response?.data?.message || error.message || 'An error occurred'
             toastStore.addToast(message, 'error')
             logger.error('Mutation Error:', error)
         }

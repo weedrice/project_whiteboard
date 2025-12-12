@@ -1,4 +1,4 @@
-import axios, { type AxiosInstance, type AxiosRequestConfig, type AxiosResponse, type InternalAxiosRequestConfig } from 'axios'
+import axios, { AxiosError, type AxiosInstance, type AxiosRequestConfig, type AxiosResponse, type InternalAxiosRequestConfig } from 'axios'
 import i18n from '@/i18n'
 import router from '@/router'
 
@@ -22,6 +22,11 @@ interface CustomAxiosRequestConfig extends InternalAxiosRequestConfig {
     skipGlobalErrorHandler?: boolean;
 }
 
+interface ApiErrorResponse {
+    message?: string;
+    code?: string;
+}
+
 const api: AxiosInstance = axios.create({
     baseURL: import.meta.env.VITE_API_URL || '/api/v1',
     timeout: 10000,
@@ -39,7 +44,7 @@ api.interceptors.request.use(
         }
         return config
     },
-    (error: any) => {
+    (error: AxiosError) => {
         return Promise.reject(error)
     }
 )
@@ -49,7 +54,7 @@ api.interceptors.response.use(
     (response: AxiosResponse) => {
         return response
     },
-    async (error: any) => {
+    async (error: AxiosError) => {
         const originalRequest = error.config as CustomAxiosRequestConfig
         // Import store dynamically to avoid circular dependency issues during initialization
         const { useToastStore } = await import('@/stores/toast')
@@ -83,11 +88,12 @@ api.interceptors.response.use(
                     originalRequest.headers.Authorization = `Bearer ${newAccessToken}`
                     return api(originalRequest)
                 }
-            } catch (refreshError: any) {
+            } catch (refreshError) {
+                const axiosRefreshError = refreshError as AxiosError
                 // refresh token이 유효하지 않거나(401/403) refresh API 자체가 실패한 경우에만 로그아웃
                 // 네트워크 에러 등 일시적 오류는 로그아웃하지 않음
-                const refreshStatus = refreshError.response?.status
-                if (refreshStatus === 401 || refreshStatus === 403 || !refreshError.response) {
+                const refreshStatus = axiosRefreshError.response?.status
+                if (refreshStatus === 401 || refreshStatus === 403 || !axiosRefreshError.response) {
                     // 401/403: refresh token도 만료됨 → 로그아웃
                     // !refreshError.response + refreshToken 만료: 실제 인증 문제일 가능성 높음
                     // 하지만 네트워크 에러(!refreshError.response)는 구분이 어려우므로
@@ -106,7 +112,8 @@ api.interceptors.response.use(
         // Handle redirect on error
         if (originalRequest?.redirectOnError) {
             const status = error.response?.status || 500
-            const message = error.response?.data?.message || error.message
+            const errorData = error.response?.data as ApiErrorResponse | undefined
+            const message = errorData?.message || error.message
             router.push({ name: 'error', query: { status: status.toString(), message } })
             return Promise.reject(error)
         }
@@ -119,7 +126,8 @@ api.interceptors.response.use(
         // Handle other common errors
         if (error.response) {
             const status = error.response.status
-            const message = error.response.data?.message || error.message
+            const errorData = error.response.data as ApiErrorResponse | undefined
+            const message = errorData?.message || error.message
 
             switch (status) {
                 case 400:

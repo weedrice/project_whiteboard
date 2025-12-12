@@ -74,7 +74,7 @@ export const useAuthStore = defineStore('auth', () => {
                     return
                 }
             }
-        } catch (error: any) {
+        } catch (error) {
             logger.error('Fetch user failed:', error)
             // 401 에러는 axios 인터셉터에서 refresh token으로 처리함
             // 여기서는 로그만 남기고, 인터셉터가 refresh 실패 시 로그아웃 처리
