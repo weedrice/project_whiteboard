@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Check, X } from 'lucide-vue-next'
+import { Check, X, ShieldAlert } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/BaseButton.vue'
 
@@ -12,6 +12,7 @@ defineProps<{
 const emit = defineEmits<{
   (e: 'resolve', report: any): void
   (e: 'reject', report: any): void
+  (e: 'sanction', report: any): void
 }>()
 
 function onResolve(report: any) {
@@ -20,6 +21,10 @@ function onResolve(report: any) {
 
 function onReject(report: any) {
   emit('reject', report)
+}
+
+function onSanction(report: any) {
+  emit('sanction', report)
 }
 </script>
 
@@ -74,6 +79,11 @@ function onReject(report: any) {
                 </td>
                 <td class="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
                   <div v-if="report.status === 'PENDING'" class="flex justify-end space-x-2">
+                    <BaseButton @click="onSanction(report)" variant="danger" size="sm"
+                      :title="t('admin.reports.actions.sanction')"
+                      class="text-orange-600 hover:text-orange-900 dark:text-orange-400 dark:hover:text-orange-300">
+                      <ShieldAlert class="h-4 w-4" />
+                    </BaseButton>
                     <BaseButton @click="onResolve(report)" variant="secondary" size="sm"
                       :title="t('admin.reports.actions.resolve')"
                       class="text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300">
