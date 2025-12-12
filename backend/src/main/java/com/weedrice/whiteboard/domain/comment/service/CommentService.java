@@ -61,7 +61,7 @@ public class CommentService {
                 .collect(Collectors.toList());
 
         if (parentIds.isEmpty()) {
-            return new PageImpl<>(List.of(), pageable, parentComments.getTotalElements());
+            return new PageImpl<>(java.util.Collections.emptyList(), pageable, parentComments.getTotalElements());
         }
 
         List<Comment> allDescendants = commentRepository.findAllDescendants(parentIds);
