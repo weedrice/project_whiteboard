@@ -5,16 +5,9 @@ import { useThemeStore } from '@/stores/theme'
 import router from '@/router'
 import logger from '@/utils/logger'
 import { useToastStore } from '@/stores/toast'
+import type { User, LoginCredentials } from '@/types'
 
-export interface User {
-    id: number;
-    username: string;
-    email: string;
-    role: 'USER' | 'ADMIN' | 'SUPER_ADMIN';
-    status: 'ACTIVE' | 'INACTIVE' | 'SANCTIONED';
-    theme?: 'LIGHT' | 'DARK';
-    [key: string]: any;
-}
+
 
 export const useAuthStore = defineStore('auth', () => {
     const user = ref<User | null>(null)
@@ -23,7 +16,7 @@ export const useAuthStore = defineStore('auth', () => {
     const themeStore = useThemeStore()
     const toastStore = useToastStore()
 
-    async function login(credentials: any) {
+    async function login(credentials: LoginCredentials) {
         try {
             const { data } = await authApi.login(credentials)
             if (data.success) {
@@ -81,10 +74,11 @@ export const useAuthStore = defineStore('auth', () => {
                     return
                 }
             }
-        } catch (error) {
+        } catch (error: any) {
             logger.error('Fetch user failed:', error)
-            // If fetch user fails (e.g. invalid token), logout
-            logout()
+            // 401 에러는 axios 인터셉터에서 refresh token으로 처리함
+            // 여기서는 로그만 남기고, 인터셉터가 refresh 실패 시 로그아웃 처리
+            // 네트워크 에러나 서버 에러(500 등)는 로그아웃하지 않음
         }
     }
 

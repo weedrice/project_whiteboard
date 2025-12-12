@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, watch } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { userApi } from '@/api/user'
+import logger from '@/utils/logger'
 
 export const useThemeStore = defineStore('theme', () => {
     const authStore = useAuthStore()
@@ -16,7 +17,7 @@ export const useThemeStore = defineStore('theme', () => {
                     theme: isDark.value ? 'DARK' : 'LIGHT'
                 })
             } catch (error) {
-                console.error('Failed to save theme setting:', error)
+                logger.error('Failed to save theme setting:', error)
             }
         }
     }
