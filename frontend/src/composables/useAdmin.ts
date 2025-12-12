@@ -1,6 +1,57 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
 import { adminApi } from '@/api/admin'
 import { type Ref } from 'vue'
+import type { SanctionData, PageResponse, User, Report } from '@/types'
+
+// Admin specific types
+interface AdminCreateData {
+    loginId: string
+    boardId?: number
+}
+
+interface UserSearchParams {
+    page?: number
+    size?: number
+    q?: string
+}
+
+interface ReportSearchParams {
+    page?: number
+    size?: number
+}
+
+interface ReportResolveData {
+    status: 'RESOLVED' | 'REJECTED'
+}
+
+interface IpBlockData {
+    ipAddress: string
+    reason: string
+}
+
+interface ConfigCreateData {
+    key: string
+    value: string
+    description?: string
+}
+
+interface BoardCreateData {
+    boardName: string
+    boardUrl: string
+    description?: string
+    iconUrl?: string
+    sortOrder?: number
+    allowNsfw?: boolean
+}
+
+interface BoardUpdateData {
+    boardName?: string
+    description?: string
+    iconUrl?: string
+    sortOrder?: number
+    allowNsfw?: boolean
+    isActive?: boolean
+}
 
 export function useAdmin() {
     const queryClient = useQueryClient()
@@ -18,7 +69,7 @@ export function useAdmin() {
 
     const useCreateAdmin = () => {
         return useMutation({
-            mutationFn: (data: any) => adminApi.createAdmin(data),
+            mutationFn: (data: AdminCreateData) => adminApi.createAdmin(data),
             onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'admins'] })
         })
     }
@@ -54,14 +105,14 @@ export function useAdmin() {
     }
 
     // --- User Management ---
-    const useUsers = (params: Ref<any>) => {
+    const useUsers = (params: Ref<UserSearchParams>) => {
         return useQuery({
             queryKey: ['admin', 'users', params],
             queryFn: async () => {
                 const { data } = await adminApi.getUsers(params.value)
-                return data.data
+                return data.data as PageResponse<User>
             },
-            placeholderData: (previousData: any) => previousData
+            placeholderData: (previousData) => previousData
         })
     }
 
@@ -74,26 +125,26 @@ export function useAdmin() {
 
     const useSanctionUser = () => {
         return useMutation({
-            mutationFn: (data: any) => adminApi.sanctionUser(data),
+            mutationFn: (data: SanctionData) => adminApi.sanctionUser(data),
             onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'users'] })
         })
     }
 
     // --- Report Management ---
-    const useReports = (params: Ref<any>) => {
+    const useReports = (params: Ref<ReportSearchParams>) => {
         return useQuery({
             queryKey: ['admin', 'reports', params],
             queryFn: async () => {
                 const { data } = await adminApi.getReports(params.value)
-                return data.data
+                return data.data as PageResponse<Report>
             },
-            placeholderData: (previousData: any) => previousData
+            placeholderData: (previousData) => previousData
         })
     }
 
     const useResolveReport = () => {
         return useMutation({
-            mutationFn: ({ reportId, data }: { reportId: string | number, data: any }) => adminApi.resolveReport(reportId, data),
+            mutationFn: ({ reportId, data }: { reportId: string | number, data: ReportResolveData }) => adminApi.resolveReport(reportId, data),
             onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'reports'] })
         })
     }
@@ -111,7 +162,7 @@ export function useAdmin() {
 
     const useBlockIp = () => {
         return useMutation({
-            mutationFn: (data: any) => adminApi.blockIp(data),
+            mutationFn: (data: IpBlockData) => adminApi.blockIp(data),
             onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'ip-blocks'] })
         })
     }
@@ -143,7 +194,7 @@ export function useAdmin() {
 
     const useCreateConfig = () => {
         return useMutation({
-            mutationFn: (data: any) => adminApi.createConfig(data),
+            mutationFn: (data: ConfigCreateData) => adminApi.createConfig(data),
             onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'configs'] })
         })
     }
@@ -179,14 +230,14 @@ export function useAdmin() {
 
     const useCreateBoard = () => {
         return useMutation({
-            mutationFn: (data: any) => adminApi.createBoard(data),
+            mutationFn: (data: BoardCreateData) => adminApi.createBoard(data),
             onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'boards'] })
         })
     }
 
     const useUpdateBoard = () => {
         return useMutation({
-            mutationFn: ({ boardUrl, data }: { boardUrl: string, data: any }) => adminApi.updateBoard(boardUrl, data),
+            mutationFn: ({ boardUrl, data }: { boardUrl: string, data: BoardUpdateData }) => adminApi.updateBoard(boardUrl, data),
             onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'boards'] })
         })
     }

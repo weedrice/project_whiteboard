@@ -1,6 +1,22 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
 import { userApi, type UserUpdatePayload } from '@/api/user'
 import { computed, type Ref } from 'vue'
+import type { UserSettings } from '@/types'
+
+interface PasswordUpdateData {
+    currentPassword: string
+    newPassword: string
+}
+
+interface NotificationSettingsData {
+    emailNotification?: boolean
+    pushNotification?: boolean
+}
+
+interface PaginationParams {
+    page?: number
+    size?: number
+}
 
 export function useUser() {
     const queryClient = useQueryClient()
@@ -75,7 +91,7 @@ export function useUser() {
 
     const useUpdatePassword = () => {
         return useMutation({
-            mutationFn: async ({ currentPassword, newPassword }: any) => {
+            mutationFn: async ({ currentPassword, newPassword }: PasswordUpdateData) => {
                 const { data } = await userApi.updatePassword(currentPassword, newPassword)
                 return data
             }
@@ -97,7 +113,7 @@ export function useUser() {
 
     const useUpdateUserSettings = () => {
         return useMutation({
-            mutationFn: async (data: any) => {
+            mutationFn: async (data: Partial<UserSettings>) => {
                 const { data: res } = await userApi.updateUserSettings(data)
                 return res
             },
@@ -109,7 +125,7 @@ export function useUser() {
 
     const useUpdateNotificationSettings = () => {
         return useMutation({
-            mutationFn: async (data: any) => {
+            mutationFn: async (data: NotificationSettingsData) => {
                 const { data: res } = await userApi.updateNotificationSettings(data)
                 return res
             },
@@ -143,7 +159,7 @@ export function useUser() {
         })
     }
 
-    const useRecentlyViewedPosts = (params?: Ref<any>) => {
+    const useRecentlyViewedPosts = (params?: Ref<PaginationParams>) => {
         return useQuery({
             queryKey: ['user', 'history', 'views', params],
             queryFn: async () => {

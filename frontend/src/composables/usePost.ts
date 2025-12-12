@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
-import { postApi } from '@/api/post'
+import { postApi, type PostCreateData, type PostUpdateData, type ReportData } from '@/api/post'
 import { computed, type Ref } from 'vue'
 
 export function usePost() {
@@ -21,7 +21,7 @@ export function usePost() {
     // Create a new post
     const useCreatePost = () => {
         return useMutation({
-            mutationFn: async ({ boardUrl, data }: { boardUrl: string, data: any }) => {
+            mutationFn: async ({ boardUrl, data }: { boardUrl: string, data: PostCreateData }) => {
                 return await postApi.createPost(boardUrl, data)
             },
             onSuccess: (_, { boardUrl }) => {
@@ -33,7 +33,7 @@ export function usePost() {
     // Update a post
     const useUpdatePost = () => {
         return useMutation({
-            mutationFn: async ({ postId, data }: { postId: string | number, data: any }) => {
+            mutationFn: async ({ postId, data }: { postId: string | number, data: PostUpdateData }) => {
                 return await postApi.updatePost(postId, data)
             },
             onSuccess: (_, { postId }) => {
@@ -107,7 +107,7 @@ export function usePost() {
     // Report a post
     const useReportPost = () => {
         return useMutation({
-            mutationFn: async (data: any) => {
+            mutationFn: async (data: ReportData) => {
                 return await postApi.reportPost(data)
             }
         })

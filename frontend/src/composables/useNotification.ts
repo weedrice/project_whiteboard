@@ -19,7 +19,7 @@ export function useNotification() {
                     totalElements: store.totalElements
                 }
             },
-            placeholderData: (previousData: any) => previousData
+            placeholderData: (previousData) => previousData
         })
     }
 

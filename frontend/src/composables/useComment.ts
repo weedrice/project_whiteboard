@@ -14,7 +14,7 @@ export function useComment() {
                 return data.data
             },
             enabled: computed(() => !!postId.value),
-            placeholderData: (previousData: any) => previousData
+            placeholderData: (previousData) => previousData
         })
     }
 

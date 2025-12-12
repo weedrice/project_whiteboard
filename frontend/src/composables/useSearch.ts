@@ -12,7 +12,7 @@ export function useSearch() {
                 return data.data
             },
             enabled: computed(() => !!params.value.q || !!params.value.keyword),
-            placeholderData: (previousData: any) => previousData // keepPreviousData renamed/changed in v5
+            placeholderData: (previousData) => previousData // keepPreviousData renamed/changed in v5
         })
     }
 

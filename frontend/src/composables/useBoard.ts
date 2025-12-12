@@ -2,6 +2,16 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
 import { boardApi } from '@/api/board'
 import { searchApi } from '@/api/search'
 import { computed, type Ref } from 'vue'
+import type { PageResponse, PostSummary } from '@/types'
+
+interface BoardPostParams {
+    page?: number
+    size?: number
+    categoryId?: number
+    sort?: string
+    q?: string
+    searchType?: string
+}
 
 export function useBoard() {
     const queryClient = useQueryClient()
@@ -32,7 +42,7 @@ export function useBoard() {
     }
 
     // Fetch posts for a board (supports search)
-    const useBoardPosts = (boardUrl: Ref<string>, params: Ref<any>, isSearching?: Ref<boolean>) => {
+    const useBoardPosts = (boardUrl: Ref<string>, params: Ref<BoardPostParams>, isSearching?: Ref<boolean>) => {
         return useQuery({
             queryKey: ['board', boardUrl, 'posts', params, isSearching],
             queryFn: async () => {
@@ -45,7 +55,7 @@ export function useBoard() {
                 }
             },
             enabled: computed(() => !!boardUrl.value),
-            placeholderData: (previousData: any) => previousData,
+            placeholderData: (previousData) => previousData,
         })
     }
 
