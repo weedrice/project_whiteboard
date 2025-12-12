@@ -29,6 +29,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @RestController
@@ -183,6 +184,7 @@ public class UserController {
         @GetMapping("/me/posts")
         public ApiResponse<PageResponse<PostSummary>> getMyPosts(@AuthenticationPrincipal CustomUserDetails userDetails,
                         Pageable pageable) {
+                Objects.requireNonNull(pageable, "Pageable must not be null");
                 Page<com.weedrice.whiteboard.domain.post.entity.Post> posts = postService.getMyPosts(
                                 userDetails.getUserId(),
                                 pageable);
@@ -216,7 +218,9 @@ public class UserController {
         public ApiResponse<PageResponse<PostSummary>> getRecentlyViewedPosts(
                         @AuthenticationPrincipal CustomUserDetails userDetails,
                         Pageable pageable) {
-                Page<PostSummary> response = postService.getRecentlyViewedPosts(userDetails.getUserId(), pageable);
+                Objects.requireNonNull(pageable, "Pageable must not be null");
+                Long userId = Objects.requireNonNull(userDetails.getUserId(), "UserId must not be null");
+                Page<PostSummary> response = postService.getRecentlyViewedPosts(userId, pageable);
 
                 // Populate rowNum for View History
                 List<PostSummary> summaries = response.getContent();

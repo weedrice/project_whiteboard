@@ -5,7 +5,6 @@ import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.entity.CommentLike;
 import com.weedrice.whiteboard.domain.comment.entity.CommentLikeId;
 import com.weedrice.whiteboard.domain.comment.entity.CommentVersion;
-import com.weedrice.whiteboard.domain.comment.entity.CommentClosure;
 import com.weedrice.whiteboard.domain.comment.repository.CommentClosureRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentLikeRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
@@ -29,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Service
@@ -47,6 +47,8 @@ public class CommentService {
     private final UserBlockService userBlockService; // Inject UserBlockService
 
     public Page<CommentResponse> getComments(Long postId, Long currentUserId, Pageable pageable) {
+        Objects.requireNonNull(pageable, "Pageable must not be null");
+
         List<Long> blockedUserIds = null;
         if (currentUserId != null) {
             blockedUserIds = userBlockService.getBlockedUserIds(currentUserId);
@@ -61,7 +63,8 @@ public class CommentService {
                 .collect(Collectors.toList());
 
         if (parentIds.isEmpty()) {
-            return new PageImpl<>(java.util.Collections.emptyList(), pageable, parentComments.getTotalElements());
+            List<CommentResponse> emptyContent = new java.util.ArrayList<>();
+            return new PageImpl<>(emptyContent, pageable, parentComments.getTotalElements());
         }
 
         List<Comment> allDescendants = commentRepository.findAllDescendants(parentIds);
@@ -87,9 +90,10 @@ public class CommentService {
             }
         });
 
-        List<CommentResponse> responseContent = parentComments.getContent().stream()
-                .map(c -> responseMap.get(c.getCommentId()))
-                .collect(Collectors.toList());
+        List<CommentResponse> responseContent = new java.util.ArrayList<>(
+                parentComments.getContent().stream()
+                        .map(c -> responseMap.get(c.getCommentId()))
+                        .collect(Collectors.toList()));
 
         return new PageImpl<>(responseContent, pageable, parentComments.getTotalElements());
     }
