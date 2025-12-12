@@ -128,6 +128,11 @@ export const messages = {
       },
       notifications: '알림',
       viewAll: '모두 보기',
+      sent: '전송됨',
+      languages: {
+        ko: '한국어',
+        en: 'English',
+      },
     },
     layout: {
       menu: {
@@ -169,6 +174,8 @@ export const messages = {
         email: '회원가입 시 입력한 이메일을 입력하세요',
         displayName: '닉네임을 입력하세요',
       },
+      emailNotVerified: '이메일 인증이 필요합니다.',
+      passwordMismatch: '비밀번호가 일치하지 않습니다.',
     },
     board: {
       list: {
@@ -257,6 +264,9 @@ export const messages = {
         likeFailed: '좋아요 처리에 실패했습니다.',
         scrapFailed: '스크랩 처리에 실패했습니다.',
         loadFailed: '게시글을 불러오는데 실패했습니다.',
+        reportReasonRequired: '신고 사유를 입력해주세요.',
+        reportSuccess: '신고가 접수되었습니다.',
+        reportFailed: '신고 접수에 실패했습니다.',
       },
       writePost: {
         createTitle: '새 글 작성',
@@ -409,6 +419,11 @@ export const messages = {
       inputReason: '신고 사유를 입력해주세요.',
       reportSuccess: '신고가 접수되었습니다.',
       reportFailed: '신고 접수에 실패했습니다.',
+      types: {
+        post: '게시글',
+        comment: '댓글',
+        user: '사용자',
+      },
     },
     admin: {
       layout: {

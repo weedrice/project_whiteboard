@@ -4,6 +4,7 @@ import { authApi } from '@/api/auth'
 import { useThemeStore } from '@/stores/theme'
 import router from '@/router'
 import logger from '@/utils/logger'
+import { useToastStore } from '@/stores/toast'
 
 export interface User {
     id: number;
@@ -20,6 +21,7 @@ export const useAuthStore = defineStore('auth', () => {
     const accessToken = ref<string | null>(localStorage.getItem('accessToken'))
     const isAuthenticated = computed(() => !!accessToken.value)
     const themeStore = useThemeStore()
+    const toastStore = useToastStore()
 
     async function login(credentials: any) {
         try {
@@ -74,7 +76,7 @@ export const useAuthStore = defineStore('auth', () => {
 
                 // Check for sanctions
                 if (user.value?.status === 'SANCTIONED') {
-                    alert('Your account has been sanctioned. You will be logged out.')
+                    toastStore.addToast('Your account has been sanctioned. You will be logged out.', 'error')
                     await logout()
                     return
                 }

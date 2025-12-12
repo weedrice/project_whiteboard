@@ -21,11 +21,7 @@ const router = createRouter({
             name: 'home',
             component: () => import('@/views/home/HomeFeed.vue')
         },
-        {
-            path: '/test-components',
-            name: 'test-components',
-            component: () => import('@/views/ComponentTest.vue')
-        },
+
         {
             path: '/auth',
             component: () => import('@/views/auth/AuthLayout.vue'),
