@@ -1,5 +1,5 @@
 import api from './index'
-import type { LoginCredentials, SignupData } from '@/types'
+import type { LoginCredentials, SignupData, ApiResponse, LoginResponse, User } from '@/types'
 
 interface PasswordResetData {
     email: string
@@ -9,29 +9,29 @@ interface PasswordResetData {
 
 export const authApi = {
     // Login
-    login: (credentials: LoginCredentials) => api.post('/auth/login', credentials, { skipGlobalErrorHandler: true }),
+    login: (credentials: LoginCredentials) => api.post<ApiResponse<LoginResponse>>('/auth/login', credentials, { skipGlobalErrorHandler: true }),
 
     // Signup
-    signup: (data: SignupData) => api.post('/auth/signup', data, { skipGlobalErrorHandler: true }),
+    signup: (data: SignupData) => api.post<ApiResponse<User>>('/auth/signup', data, { skipGlobalErrorHandler: true }),
 
     // Logout
-    logout: (refreshToken: string) => api.post('/auth/logout', { refreshToken }),
+    logout: (refreshToken: string) => api.post<ApiResponse<void>>('/auth/logout', { refreshToken }),
 
     // Refresh Token
-    refreshToken: (refreshToken: string) => api.post('/auth/refresh', { refreshToken }),
+    refreshToken: (refreshToken: string) => api.post<ApiResponse<{ accessToken: string, refreshToken: string }>>('/auth/refresh', { refreshToken }),
 
     // Get Current User
-    getMe: () => api.get('/users/me'),
+    getMe: () => api.get<ApiResponse<User>>('/users/me'),
 
     // Email Verification
-    sendVerificationCode: (email: string) => api.post('/auth/email/send-verification', { email }),
-    verifyCode: (email: string, code: string) => api.post('/auth/email/verify', { email, code }),
+    sendVerificationCode: (email: string) => api.post<ApiResponse<void>>('/auth/email/send-verification', { email }),
+    verifyCode: (email: string, code: string) => api.post<ApiResponse<boolean>>('/auth/email/verify', { email, code }),
 
     // Find ID
-    findId: (email: string) => api.post('/auth/find-id', { email }),
+    findId: (email: string) => api.post<ApiResponse<{ loginId: string }>>('/auth/find-id', { email }),
 
     // Password Reset
-    sendPasswordReset: (email: string) => api.post('/auth/password/forgot', { email }),
-    resetPassword: (data: PasswordResetData) => api.post('/auth/password/reset-by-code', data),
+    sendPasswordReset: (email: string) => api.post<ApiResponse<void>>('/auth/password/forgot', { email }),
+    resetPassword: (data: PasswordResetData) => api.post<ApiResponse<void>>('/auth/password/reset-by-code', data),
 }
 

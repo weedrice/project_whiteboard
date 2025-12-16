@@ -1,4 +1,5 @@
 import api from '@/api'
+import type { ApiResponse, PageResponse, User, Report, GlobalConfig, IpBlock, Board, BoardCreateData, BoardUpdateData, SanctionData, DashboardStats } from '@/types'
 
 // Admin types
 interface AdminCreateData {
@@ -21,12 +22,6 @@ interface PaginationParams {
     q?: string
 }
 
-interface SanctionData {
-    userId: number
-    type: 'BAN' | 'MUTE'
-    reason: string
-}
-
 interface ReportResolveData {
     status: 'RESOLVED' | 'REJECTED'
 }
@@ -37,112 +32,94 @@ interface ConfigCreateData {
     description?: string
 }
 
-interface BoardCreateData {
-    boardName: string
-    boardUrl: string
-    description?: string
-    iconUrl?: string
-    sortOrder?: number
-    allowNsfw?: boolean
-}
-
-interface BoardUpdateData {
-    boardName?: string
-    description?: string
-    iconUrl?: string
-    sortOrder?: number
-    allowNsfw?: boolean
-    isActive?: boolean
-}
-
 export const adminApi = {
     // 관리자 관리
     getAdmins() {
-        return api.get('/admin/admins')
+        return api.get<ApiResponse<User[]>>('/admin/admins')
     },
     createAdmin(data: AdminCreateData) {
-        return api.post('/admin/admins', data)
+        return api.post<ApiResponse<void>>('/admin/admins', data)
     },
     deactivateAdmin(adminId: string | number) {
-        return api.put(`/admin/admins/${adminId}/deactivate`)
+        return api.put<ApiResponse<void>>(`/admin/admins/${adminId}/deactivate`)
     },
     activateAdmin(adminId: string | number) {
-        return api.put(`/admin/admins/${adminId}/activate`)
+        return api.put<ApiResponse<void>>(`/admin/admins/${adminId}/activate`)
     },
     getSuperAdmin() {
-        return api.get('/admin/super')
+        return api.get<ApiResponse<User>>('/admin/super')
     },
     activeSuperAdmin(data: SuperAdminData) {
-        return api.put('/admin/super/active', data)
+        return api.put<ApiResponse<void>>('/admin/super/active', data)
     },
     deactiveSuperAdmin(data: SuperAdminData) {
-        return api.put('/admin/super/deactive', data)
+        return api.put<ApiResponse<void>>('/admin/super/deactive', data)
     },
 
     // IP 차단 관리
     getIpBlocks() {
-        return api.get('/admin/ip-blocks')
+        return api.get<ApiResponse<IpBlock[]>>('/admin/ip-blocks')
     },
     blockIp(data: IpBlockData) {
-        return api.post('/admin/ip-blocks', data)
+        return api.post<ApiResponse<void>>('/admin/ip-blocks', data)
     },
     unblockIp(ipAddress: string) {
-        return api.delete(`/admin/ip-blocks/${ipAddress}`)
+        return api.delete<ApiResponse<void>>(`/admin/ip-blocks/${ipAddress}`)
     },
 
     // 사용자 관리
     getUsers(params: PaginationParams) {
-        return api.get('/admin/users', { params })
+        return api.get<ApiResponse<PageResponse<User>>>('/admin/users', { params })
     },
     updateUserStatus(userId: string | number, status: string) {
-        return api.put(`/admin/users/${userId}/status`, { status })
+        return api.put<ApiResponse<void>>(`/admin/users/${userId}/status`, { status })
     },
     sanctionUser(data: SanctionData) {
-        return api.post('/admin/sanctions', data)
+        return api.post<ApiResponse<void>>('/admin/sanctions', data)
     },
 
     // 신고 관리
     getReports(params: PaginationParams) {
-        return api.get('/admin/reports', { params })
+        return api.get<ApiResponse<PageResponse<Report>>>('/admin/reports', { params })
     },
     resolveReport(reportId: string | number, data: ReportResolveData) {
-        return api.put(`/admin/reports/${reportId}`, data)
+        return api.put<ApiResponse<void>>(`/admin/reports/${reportId}`, data)
     },
 
     // 전역 설정
     getConfigs() {
-        return api.get('/admin/configs')
+        return api.get<ApiResponse<GlobalConfig[]>>('/admin/configs')
     },
 
     updateConfig(key: string, value: string, description: string) {
-        return api.put(`/admin/configs/${key}`, { value, description })
+        return api.put<ApiResponse<GlobalConfig>>(`/admin/configs/${key}`, { value, description })
     },
 
     createConfig(data: ConfigCreateData) {
-        return api.post('/admin/configs', data)
+        return api.post<ApiResponse<GlobalConfig>>('/admin/configs', data)
     },
 
     deleteConfig(key: string) {
-        return api.delete(`/admin/configs/${key}`)
+        return api.delete<ApiResponse<void>>(`/admin/configs/${key}`)
     },
 
     // 대시보드 통계
     getDashboardStats() {
-        return api.get('/admin/stats')
+        return api.get<ApiResponse<DashboardStats>>('/admin/stats')
     },
 
     // 게시판 관리
     getBoards() {
-        return api.get('/boards/all')
+        return api.get<ApiResponse<Board[]>>('/boards/all')
     },
     createBoard(data: BoardCreateData) {
-        return api.post('/boards', data)
+        return api.post<ApiResponse<Board>>('/boards', data)
     },
     updateBoard(boardUrl: string, data: BoardUpdateData) {
-        return api.put(`/boards/${boardUrl}`, data)
+        return api.put<ApiResponse<Board>>(`/boards/${boardUrl}`, data)
     },
     deleteBoard(boardUrl: string) {
-        return api.delete(`/boards/${boardUrl}`)
+        return api.delete<ApiResponse<void>>(`/boards/${boardUrl}`)
     }
 }
 

@@ -1,5 +1,5 @@
 import api from '@/api'
-import type { UserSettings } from '@/types'
+import type { ApiResponse, PageResponse, User, UserSummary, UserSettings, PostSummary, Comment, Board } from '@/types'
 
 export interface UserProfile {
     userId: number;
@@ -21,68 +21,68 @@ interface PaginationParams {
     size?: number
 }
 
-interface NotificationSettingsPayload {
+export interface NotificationSettingsPayload {
     notificationType: string
     isEnabled: boolean
 }
 
 export const userApi = {
     getMyProfile() {
-        return api.get('/users/me')
+        return api.get<ApiResponse<User>>('/users/me')
     },
     getUserProfile(userId: string | number) {
-        return api.get(`/users/${userId}`)
+        return api.get<ApiResponse<User>>(`/users/${userId}`)
     },
     updateMyProfile(data: UserUpdatePayload) {
-        return api.put('/users/me', data)
+        return api.put<ApiResponse<User>>('/users/me', data)
     },
     updatePassword(currentPassword: string, newPassword: string) {
-        return api.put('/users/me/password', { currentPassword, newPassword })
+        return api.put<ApiResponse<void>>('/users/me/password', { currentPassword, newPassword })
     },
     deleteAccount(password: string) {
-        return api.delete('/users/me', { data: { password } }) // DELETE usually sends data in config
+        return api.delete<ApiResponse<void>>('/users/me', { data: { password } }) // DELETE usually sends data in config
     },
     // Settings
     getUserSettings() {
-        return api.get('/users/me/settings')
+        return api.get<ApiResponse<UserSettings>>('/users/me/settings')
     },
     updateUserSettings(data: Partial<UserSettings>) {
-        return api.put('/users/me/settings', data)
+        return api.put<ApiResponse<UserSettings>>('/users/me/settings', data)
     },
     getNotificationSettings() {
-        return api.get('/users/me/notification-settings')
+        return api.get<ApiResponse<NotificationSettingsPayload>>('/users/me/notification-settings')
     },
     updateNotificationSettings(data: NotificationSettingsPayload) {
-        return api.put('/users/me/notification-settings', data)
+        return api.put<ApiResponse<NotificationSettingsPayload>>('/users/me/notification-settings', data)
     },
     // Blocks
     blockUser(userId: string | number) {
-        return api.post(`/users/${userId}/block`)
+        return api.post<ApiResponse<void>>(`/users/${userId}/block`)
     },
     unblockUser(userId: string | number) {
-        return api.delete(`/users/${userId}/block`)
+        return api.delete<ApiResponse<void>>(`/users/${userId}/block`)
     },
     getBlockList() {
-        return api.get('/users/me/blocks')
+        return api.get<ApiResponse<UserSummary[]>>('/users/me/blocks')
     },
     // Activity
     getMyPosts(params: PaginationParams) {
-        return api.get('/users/me/posts', { params })
+        return api.get<ApiResponse<PageResponse<PostSummary>>>('/users/me/posts', { params })
     },
     getMyComments(params: PaginationParams) {
-        return api.get('/users/me/comments', { params })
+        return api.get<ApiResponse<PageResponse<Comment>>>('/users/me/comments', { params })
     },
     getMyScraps(params: PaginationParams) {
-        return api.get('/users/me/scraps', { params })
+        return api.get<ApiResponse<PageResponse<PostSummary>>>('/users/me/scraps', { params })
     },
     getMyDrafts(params: PaginationParams) {
-        return api.get('/users/me/drafts', { params })
+        return api.get<ApiResponse<PageResponse<PostSummary>>>('/users/me/drafts', { params })
     },
     getRecentlyViewedPosts(params: PaginationParams) {
-        return api.get('/users/me/history/views', { params })
+        return api.get<ApiResponse<PageResponse<PostSummary>>>('/users/me/history/views', { params })
     },
     getMySubscriptions(params: PaginationParams) {
-        return api.get('/users/me/subscriptions', { params })
+        return api.get<ApiResponse<PageResponse<Board>>>('/users/me/subscriptions', { params })
     }
 }
 

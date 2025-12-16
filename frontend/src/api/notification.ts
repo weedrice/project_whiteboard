@@ -1,20 +1,5 @@
 import api from './index'
-
-export interface NotificationActor {
-    userId: number;
-    displayName: string;
-    profileImageUrl?: string;
-}
-
-export interface Notification {
-    notificationId: number;
-    message: string;
-    sourceType: 'POST' | 'COMMENT' | 'SYSTEM';
-    sourceId: number;
-    isRead: boolean;
-    createdAt: string;
-    actor: NotificationActor;
-}
+import type { ApiResponse, Notification } from '@/types'
 
 export interface NotificationParams {
     page?: number;
@@ -23,14 +8,14 @@ export interface NotificationParams {
 
 export const notificationApi = {
     // Get notifications
-    getNotifications: (params: NotificationParams) => api.get('/notifications', { params }),
+    getNotifications: (params: NotificationParams) => api.get<ApiResponse<Notification[]>>('/notifications', { params }),
 
     // Mark as read
-    markAsRead: (notificationId: string | number) => api.put(`/notifications/${notificationId}/read`),
+    markAsRead: (notificationId: string | number) => api.put<ApiResponse<void>>(`/notifications/${notificationId}/read`),
 
     // Mark all as read
-    markAllAsRead: () => api.put('/notifications/read-all'),
+    markAllAsRead: () => api.put<ApiResponse<void>>('/notifications/read-all'),
 
     // Get unread count
-    getUnreadCount: () => api.get('/notifications/unread-count'),
+    getUnreadCount: () => api.get<ApiResponse<number>>('/notifications/unread-count'),
 }

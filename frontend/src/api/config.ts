@@ -1,11 +1,12 @@
-import axios from '@/api'
+import api from './index'
+import type { ApiResponse, GlobalConfig } from '@/types'
 
 export const configApi = {
     getConfig(key: string) {
-        return axios.get(`/configs/${key}`)
+        return api.get<ApiResponse<GlobalConfig>>(`/configs/${key}`)
     },
     getConfigs() {
-        return axios.get('/configs')
+        return api.get<ApiResponse<GlobalConfig[]>>('/configs')
     }
 }
 

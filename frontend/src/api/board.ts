@@ -1,23 +1,6 @@
 import api from './index'
 import type { AxiosRequestConfig } from 'axios'
-
-interface BoardCreateData {
-    boardName: string
-    boardUrl: string
-    description?: string
-    iconUrl?: string
-    sortOrder?: number
-    allowNsfw?: boolean
-}
-
-interface BoardUpdateData {
-    boardName?: string
-    description?: string
-    iconUrl?: string
-    sortOrder?: number
-    allowNsfw?: boolean
-    isActive?: boolean
-}
+import type { ApiResponse, PageResponse, Board, Category, PostSummary, BoardCreateData, BoardUpdateData } from '@/types'
 
 interface PostsParams {
     page?: number
@@ -39,45 +22,45 @@ interface CategoryUpdateData {
 
 export const boardApi = {
     // Get all boards
-    getBoards: () => api.get('/boards'),
+    getBoards: () => api.get<ApiResponse<Board[]>>('/boards'),
 
     // Get board details
-    getBoard: (boardUrl: string, config?: AxiosRequestConfig) => api.get(`/boards/${boardUrl}`, config),
+    getBoard: (boardUrl: string, config?: AxiosRequestConfig) => api.get<ApiResponse<Board>>(`/boards/${boardUrl}`, config),
 
     // Create a new board
-    createBoard: (data: BoardCreateData) => api.post('/boards', data),
+    createBoard: (data: BoardCreateData) => api.post<ApiResponse<Board>>('/boards', data),
 
     // Get posts in a board
-    getPosts: (boardUrl: string, params: PostsParams) => api.get(`/boards/${boardUrl}/posts`, { params }),
+    getPosts: (boardUrl: string, params: PostsParams) => api.get<ApiResponse<PageResponse<PostSummary>>>(`/boards/${boardUrl}/posts`, { params }),
 
     // Get board categories
-    getCategories: (boardUrl: string) => api.get(`/boards/${boardUrl}/categories`),
+    getCategories: (boardUrl: string) => api.get<ApiResponse<Category[]>>(`/boards/${boardUrl}/categories`),
 
     // Update board
-    updateBoard: (boardUrl: string, data: BoardUpdateData) => api.put(`/boards/${boardUrl}`, data),
+    updateBoard: (boardUrl: string, data: BoardUpdateData) => api.put<ApiResponse<Board>>(`/boards/${boardUrl}`, data),
 
     // Delete board
-    deleteBoard: (boardUrl: string) => api.delete(`/boards/${boardUrl}`),
+    deleteBoard: (boardUrl: string) => api.delete<ApiResponse<void>>(`/boards/${boardUrl}`),
 
     // Create category
-    createCategory: (boardUrl: string, data: CategoryCreateData) => api.post(`/boards/${boardUrl}/categories`, data),
+    createCategory: (boardUrl: string, data: CategoryCreateData) => api.post<ApiResponse<Category>>(`/boards/${boardUrl}/categories`, data),
 
     // Update category
-    updateCategory: (boardUrl: string, categoryId: string | number, data: CategoryUpdateData) => api.put(`/boards/categories/${categoryId}`, data),
+    updateCategory: (boardUrl: string, categoryId: string | number, data: CategoryUpdateData) => api.put<ApiResponse<Category>>(`/boards/categories/${categoryId}`, data),
 
     // Delete category
-    deleteCategory: (boardUrl: string, categoryId: string | number) => api.delete(`/boards/categories/${categoryId}`),
+    deleteCategory: (boardUrl: string, categoryId: string | number) => api.delete<ApiResponse<void>>(`/boards/categories/${categoryId}`),
 
     // Get board notices
-    getNotices: (boardUrl: string) => api.get(`/boards/${boardUrl}/notices`),
+    getNotices: (boardUrl: string) => api.get<ApiResponse<PostSummary[]>>(`/boards/${boardUrl}/notices`),
 
     // Subscribe to board
-    subscribeBoard: (boardUrl: string) => api.post(`/boards/${boardUrl}/subscribe`),
+    subscribeBoard: (boardUrl: string) => api.post<ApiResponse<void>>(`/boards/${boardUrl}/subscribe`),
 
     // Unsubscribe from board
-    unsubscribeBoard: (boardUrl: string) => api.delete(`/boards/${boardUrl}/subscribe`),
+    unsubscribeBoard: (boardUrl: string) => api.delete<ApiResponse<void>>(`/boards/${boardUrl}/subscribe`),
 
     // Update subscription order
-    updateSubscriptionOrder: (boardUrls: string[]) => api.put('/boards/subscriptions/order', boardUrls),
+    updateSubscriptionOrder: (boardUrls: string[]) => api.put<ApiResponse<void>>('/boards/subscriptions/order', boardUrls),
 }
 

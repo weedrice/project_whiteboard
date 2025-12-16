@@ -1,27 +1,13 @@
 import api from './index'
-
-export interface SearchParams {
-    q?: string;
-    keyword?: string;
-    page?: number;
-    size?: number;
-    type?: string;
-    sort?: string;
-    boardUrl?: string;
-}
-
-export interface PopularKeyword {
-    keyword: string;
-    count: number;
-}
+import type { ApiResponse, PageResponse, PostSummary, PopularKeyword, SearchParams } from '@/types'
 
 export const searchApi = {
     // General search
-    search: (params: SearchParams) => api.get('/search', { params }),
+    search: (params: SearchParams) => api.get<ApiResponse<PageResponse<PostSummary>>>('/search', { params }),
 
     // Search posts
-    searchPosts: (params: SearchParams) => api.get('/search/posts', { params }),
+    searchPosts: (params: SearchParams) => api.get<ApiResponse<PageResponse<PostSummary>>>('/search/posts', { params }),
 
     // Get popular keywords
-    getPopularKeywords: () => api.get('/search/popular-keywords')
+    getPopularKeywords: () => api.get<ApiResponse<PopularKeyword[]>>('/search/popular-keywords')
 }
