@@ -33,49 +33,23 @@
     </Teleport>
 
     <!-- Message Modal -->
-    <BaseModal :isOpen="isMessageModalOpen" :title="$t('user.message.title')" @close="closeMessageModal">
-      <div class="p-4">
-        <BaseInput :label="$t('user.message.receiver')" :modelValue="displayName" :disabled="true" class="mb-4" />
-        <BaseTextarea id="messageContent" v-model="messageContent" :label="$t('user.message.content')" rows="4" />
-        <div class="mt-4 flex justify-end">
-          <BaseButton @click="closeMessageModal" variant="secondary" class="mr-2">{{ $t('common.cancel') }}</BaseButton>
-          <BaseButton @click="handleSendMessage" :disabled="isSendingMessage">
-            {{ isSendingMessage ? $t('common.messages.sending') : $t('common.send') }}
-          </BaseButton>
-        </div>
-      </div>
-    </BaseModal>
+    <MessageModal :isOpen="isMessageModalOpen" :userId="userId" :displayName="displayName" @close="closeMessageModal" />
 
     <!-- Report Modal -->
-    <BaseModal :isOpen="isReportModalOpen" :title="$t('user.report.title')" @close="closeReportModal">
-      <div class="p-4">
-        <BaseInput :label="$t('user.report.target')" :modelValue="displayName" :disabled="true" class="mb-4" />
-        <BaseTextarea id="reportReason" v-model="reportReason" :label="$t('user.report.reason')" rows="4" />
-        <div class="mt-4 flex justify-end">
-          <BaseButton @click="closeReportModal" variant="secondary" class="mr-2">{{ $t('common.cancel') }}</BaseButton>
-          <BaseButton @click="handleReportUser" :disabled="isReporting">
-            {{ isReporting ? $t('common.messages.reporting') : $t('common.report') }}
-          </BaseButton>
-        </div>
-      </div>
-    </BaseModal>
+    <ReportModal :isOpen="isReportModalOpen" :userId="userId" :displayName="displayName" @close="closeReportModal" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, type CSSProperties } from 'vue'
 import { userApi } from '@/api/user'
-import { messageApi } from '@/api/message'
-import { reportApi } from '@/api/report'
-import BaseModal from '@/components/common/ui/BaseModal.vue'
-import BaseInput from '@/components/common/ui/BaseInput.vue'
-import BaseButton from '@/components/common/ui/BaseButton.vue'
-import BaseTextarea from '@/components/common/ui/BaseTextarea.vue'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import logger from '@/utils/logger'
 import { useToastStore } from '@/stores/toast'
 import { useConfirm } from '@/composables/useConfirm'
+import MessageModal from '@/components/user/MessageModal.vue'
+import ReportModal from '@/components/report/ReportModal.vue'
 
 const { t } = useI18n()
 const authStore = useAuthStore()
@@ -90,10 +64,6 @@ const props = defineProps<{
 const isDropdownOpen = ref(false)
 const isMessageModalOpen = ref(false)
 const isReportModalOpen = ref(false)
-const messageContent = ref('')
-const reportReason = ref('')
-const isSendingMessage = ref(false)
-const isReporting = ref(false)
 
 const isSelf = computed(() => {
   return authStore.user && authStore.user.userId === props.userId
@@ -136,8 +106,6 @@ const openMessageModal = () => {
 
 const closeMessageModal = () => {
   isMessageModalOpen.value = false
-  messageContent.value = ''
-  isSendingMessage.value = false
 }
 
 const openReportModal = () => {
@@ -148,8 +116,6 @@ const openReportModal = () => {
 
 const closeReportModal = () => {
   isReportModalOpen.value = false
-  reportReason.value = ''
-  isReporting.value = false
 }
 
 const handleBlockUser = async () => {
@@ -167,46 +133,6 @@ const handleBlockUser = async () => {
   } catch (error) {
     logger.error('Failed to block user:', error)
     toastStore.addToast(t('user.block.failed'), 'error')
-  }
-}
-
-const handleSendMessage = async () => {
-  if (!messageContent.value.trim()) {
-    toastStore.addToast(t('user.message.inputContent'), 'warning')
-    return
-  }
-  isSendingMessage.value = true
-  try {
-    const { data } = await messageApi.sendMessage(props.userId, messageContent.value)
-    if (data.success) {
-      toastStore.addToast(t('user.message.sendSuccess'), 'success')
-      closeMessageModal()
-    }
-  } catch (error) {
-    logger.error('Failed to send message:', error)
-    toastStore.addToast(t('user.message.sendFailed'), 'error')
-  } finally {
-    isSendingMessage.value = false
-  }
-}
-
-const handleReportUser = async () => {
-  if (!reportReason.value.trim()) {
-    toastStore.addToast(t('user.report.inputReason'), 'warning')
-    return
-  }
-  isReporting.value = true
-  try {
-    const { data } = await reportApi.reportUser(props.userId, reportReason.value, '')
-    if (data.success) {
-      toastStore.addToast(t('user.report.reportSuccess'), 'success')
-      closeReportModal()
-    }
-  } catch (error) {
-    logger.error('Failed to report user:', error)
-    toastStore.addToast(t('user.report.reportFailed'), 'error')
-  } finally {
-    isReporting.value = false
   }
 }
 
@@ -234,4 +160,3 @@ onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside)
 })
 </script>
-
