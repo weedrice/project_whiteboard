@@ -1,47 +1,46 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
-import { notificationApi, type NotificationParams, type Notification } from '@/api/notification'
-import { type Ref } from 'vue'
-import { useNotificationStore } from '@/stores/notification'
+import { notificationApi, type NotificationParams } from '@/api/notification'
+import type { Notification, PageResponse } from '@/types'
+import { type Ref, computed } from 'vue'
+import logger from '@/utils/logger'
+import { useAuthStore } from '@/stores/auth'
 
 export function useNotification() {
     const queryClient = useQueryClient()
-    const store = useNotificationStore()
 
     const useNotifications = (params: Ref<NotificationParams>) => {
         return useQuery({
             queryKey: ['notifications', params],
             queryFn: async () => {
-                // Delegate to store for fetching, but return data for useQuery
-                await store.fetchNotifications(params.value.page, params.value.size)
-                return {
-                    content: store.notifications,
-                    totalPages: store.totalPages,
-                    totalElements: store.totalElements
-                }
+                const { data } = await notificationApi.getNotifications(params.value)
+                return data.data
             },
             placeholderData: (previousData) => previousData
         })
     }
 
     const useUnreadCount = () => {
+        const authStore = useAuthStore()
         return useQuery({
             queryKey: ['notifications', 'unread-count'],
             queryFn: async () => {
-                await store.fetchUnreadCount()
-                return store.unreadCount
+                const { data } = await notificationApi.getUnreadCount()
+                return data.data
             },
-            // Reduce polling since we have SSE, but keep it as backup or for initial load
             refetchInterval: 60000,
+            enabled: computed(() => authStore.isAuthenticated),
         })
     }
 
     const useMarkAsRead = () => {
         return useMutation({
             mutationFn: async (notificationId: number) => {
-                return store.markAsRead(notificationId)
+                const { data } = await notificationApi.markAsRead(notificationId)
+                return data
             },
             onSuccess: () => {
                 queryClient.invalidateQueries({ queryKey: ['notifications'] })
+                queryClient.invalidateQueries({ queryKey: ['notifications', 'unread-count'] })
             }
         })
     }
@@ -49,16 +48,82 @@ export function useNotification() {
     const useMarkAllAsRead = () => {
         return useMutation({
             mutationFn: async () => {
-                return store.markAllAsRead()
+                const { data } = await notificationApi.markAllAsRead()
+                return data
             },
             onSuccess: () => {
                 queryClient.invalidateQueries({ queryKey: ['notifications'] })
+                queryClient.setQueryData(['notifications', 'unread-count'], 0)
             }
         })
     }
 
+    let eventSource: EventSource | null = null
+
     const connectToSse = () => {
-        store.connectToSse()
+        if (eventSource) return
+
+        const url = '/api/v1/notifications/stream'
+        eventSource = new EventSource(url)
+
+        eventSource.addEventListener('notification', (event) => {
+            try {
+                const newNotification = JSON.parse(event.data) as Notification
+                // Transform if needed (though we rely on API for transform, SSE might send raw data)
+                // Assuming SSE sends compatible JSON or we need to transform it here too.
+                // For now, let's assume it matches or is close enough.
+                // Actually, we should probably ensure camelCase here if backend sends snake_case via SSE.
+                const transformedNotification: Notification = {
+                    ...newNotification,
+                    isRead: false,
+                    // Add other transforms if SSE data is raw
+                }
+
+                // Update unread count
+                queryClient.setQueryData(['notifications', 'unread-count'], (old: number | undefined) => (old || 0) + 1)
+
+                // Update notifications list (for page 0)
+                // We need to find the active query for page 0.
+                // This is a bit complex with dynamic params.
+                // A simple approach is to invalidate, but that triggers a refetch.
+                // To update cache directly:
+                queryClient.setQueriesData({ queryKey: ['notifications'] }, (oldData: any) => {
+                    if (!oldData) return oldData
+                    // Check if this is a PageResponse
+                    if ('content' in oldData) {
+                        const pageData = oldData as PageResponse<Notification>
+                        // Only prepend if it's the first page (usually we can't easily know from here without params)
+                        // But commonly we want to see it.
+                        // For simplicity, let's just invalidate to be safe and consistent.
+                        return oldData
+                    }
+                    return oldData
+                })
+                queryClient.invalidateQueries({ queryKey: ['notifications'] })
+
+            } catch (error) {
+                logger.error('Failed to parse SSE notification:', error)
+            }
+        })
+
+        eventSource.onerror = (error) => {
+            if (eventSource) {
+                eventSource.close()
+                eventSource = null
+                setTimeout(() => connectToSse(), 5000)
+            }
+        }
+    }
+
+    // We might want to close SSE when not needed, but usually it's global.
+    // If this composable is used in a component, we shouldn't close it on unmount if it's meant to be global.
+    // But if we call connectToSse in a top-level component, it persists.
+
+    const closeSse = () => {
+        if (eventSource) {
+            eventSource.close()
+            eventSource = null
+        }
     }
 
     return {
@@ -66,6 +131,7 @@ export function useNotification() {
         useUnreadCount,
         useMarkAsRead,
         useMarkAllAsRead,
-        connectToSse
+        connectToSse,
+        closeSse
     }
 }

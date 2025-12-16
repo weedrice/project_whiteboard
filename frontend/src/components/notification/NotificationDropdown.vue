@@ -5,31 +5,26 @@ import { useNotification } from '@/composables/useNotification'
 import { postApi } from '@/api/post'
 import { Check } from 'lucide-vue-next'
 import logger from '@/utils/logger'
-import type { Notification, NotificationParams } from '@/api/notification'
+import type { NotificationParams } from '@/api/notification'
+import type { Notification } from '@/types'
 import { useI18n } from 'vue-i18n'
-
-import { useNotificationStore } from '@/stores/notification'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import { formatTimeAgo } from '@/utils/date'
 
 const router = useRouter()
 const { t } = useI18n()
 const { useNotifications, useMarkAsRead, useMarkAllAsRead } = useNotification()
-const store = useNotificationStore()
 
 // Default params for dropdown
 const params = ref<NotificationParams>({ page: 0, size: 20 })
+
 // Trigger fetch via useQuery
-const { isLoading } = useNotifications(params)
+const { data: notificationsData, isLoading } = useNotifications(params)
 const { mutate: markAsRead } = useMarkAsRead()
 const { mutate: markAllAsRead } = useMarkAllAsRead()
-const { connectToSse } = useNotification()
 
-// Connect to SSE for real-time updates
-connectToSse()
-
-// Use store state directly to reflect SSE updates
-const notifications = computed<Notification[]>(() => store.notifications)
+// Use query data
+const notifications = computed<Notification[]>(() => notificationsData.value?.content || [])
 
 async function handleNotificationClick(notification: Notification) {
   if (!notification.isRead) {
