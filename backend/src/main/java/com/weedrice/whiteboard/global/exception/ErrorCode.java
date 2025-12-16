@@ -78,7 +78,10 @@ public enum ErrorCode {
     INVALID_FILE_TYPE(HttpStatus.BAD_REQUEST, "F002", "error.file.invalidType"),
     FILE_EMPTY(HttpStatus.BAD_REQUEST, "F003", "error.file.empty"),
     FILE_UPLOAD_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "F004", "error.file.uploadError"),
-    FILE_LOAD_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "F005", "error.file.loadError");
+    FILE_LOAD_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "F005", "error.file.loadError"),
+
+    // Email
+    EMAIL_SEND_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "E001", "error.email.sendFailed");
 
     private final HttpStatus status;
     private final String code;

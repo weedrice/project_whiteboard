@@ -38,7 +38,7 @@ public class SesEmailService implements EmailService {
         } catch (SesException e) {
             log.error("Failed to send email to: {}", to, e);
             // TODO: ErrorCode.EMAIL_SEND_FAILED 추가 필요
-            throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR, "Email send failed: " + e.getMessage());
+            throw new BusinessException(ErrorCode.EMAIL_SEND_FAILED, "Email send failed: " + e.getMessage());
         }
     }
 }

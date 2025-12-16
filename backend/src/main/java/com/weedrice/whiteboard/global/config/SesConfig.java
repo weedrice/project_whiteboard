@@ -11,10 +11,10 @@ import software.amazon.awssdk.services.ses.SesClient;
 @Configuration
 public class SesConfig {
 
-    @Value("${cloud.aws.credentials.access-key}")
+    @Value("${cloud.aws.ses.credentials.access-key}")
     private String accessKey;
 
-    @Value("${cloud.aws.credentials.secret-key}")
+    @Value("${cloud.aws.ses.credentials.secret-key}")
     private String secretKey;
 
     @Value("${cloud.aws.region.static}")
