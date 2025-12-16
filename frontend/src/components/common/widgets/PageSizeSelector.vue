@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="flex items-center space-x-2">
     <BaseSelect id="page-size" :modelValue="modelValue" @update:modelValue="handleUpdate" :label="$t('common.pageSize')"
       :options="selectOptions" inputClass="w-19 py-1" hideLabel />
@@ -7,7 +7,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import BaseSelect from '@/components/common/BaseSelect.vue'
+import BaseSelect from '@/components/common/ui/BaseSelect.vue'
 
 const props = withDefaults(defineProps<{
   modelValue: number
@@ -30,3 +30,4 @@ const handleUpdate = (value: string | number) => {
   emit('change')
 }
 </script>
+

@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="relative inline-block text-left">
     <div>
       <button ref="buttonRef" type="button"
@@ -67,10 +67,10 @@ import { ref, onMounted, onUnmounted, computed, type CSSProperties } from 'vue'
 import { userApi } from '@/api/user'
 import { messageApi } from '@/api/message'
 import { reportApi } from '@/api/report'
-import BaseModal from '@/components/common/BaseModal.vue'
-import BaseInput from '@/components/common/BaseInput.vue'
-import BaseButton from '@/components/common/BaseButton.vue'
-import BaseTextarea from '@/components/common/BaseTextarea.vue'
+import BaseModal from '@/components/common/ui/BaseModal.vue'
+import BaseInput from '@/components/common/ui/BaseInput.vue'
+import BaseButton from '@/components/common/ui/BaseButton.vue'
+import BaseTextarea from '@/components/common/ui/BaseTextarea.vue'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import logger from '@/utils/logger'
@@ -234,3 +234,4 @@ onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside)
 })
 </script>
+

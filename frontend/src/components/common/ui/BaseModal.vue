@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div v-if="isOpen" class="modal-overlay">
     <div class="modal-container">
       <!-- Modal content -->
@@ -32,7 +32,7 @@
 </template>
 
 <script setup lang="ts">
-import BaseButton from '@/components/common/BaseButton.vue'
+import BaseButton from '@/components/common/ui/BaseButton.vue'
 defineProps<{
   isOpen: boolean
   title?: string
@@ -46,3 +46,4 @@ const close = () => {
   emit('close')
 }
 </script>
+

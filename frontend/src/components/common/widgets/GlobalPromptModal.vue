@@ -1,8 +1,8 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { usePromptStore } from '@/stores/prompt'
-import BaseModal from '@/components/common/BaseModal.vue'
-import BaseButton from '@/components/common/BaseButton.vue'
-import BaseInput from '@/components/common/BaseInput.vue'
+import BaseModal from '@/components/common/ui/BaseModal.vue'
+import BaseButton from '@/components/common/ui/BaseButton.vue'
+import BaseInput from '@/components/common/ui/BaseInput.vue'
 
 const promptStore = usePromptStore()
 </script>
@@ -28,3 +28,4 @@ const promptStore = usePromptStore()
         </template>
     </BaseModal>
 </template>
+

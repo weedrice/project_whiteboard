@@ -1,4 +1,4 @@
-<script setup lang="ts">
+<script setup lang="ts" generic="T extends Record<string, any>">
 import { computed } from 'vue'
 
 export interface TableColumn {
@@ -11,7 +11,7 @@ export interface TableColumn {
 
 const props = withDefaults(defineProps<{
     columns: TableColumn[]
-    items: any[]
+    items: T[]
     loading?: boolean
     emptyText?: string
 }>(), {
@@ -21,7 +21,7 @@ const props = withDefaults(defineProps<{
 
 const emit = defineEmits<{
     (e: 'sort', key: string): void
-    (e: 'row-click', item: any): void
+    (e: 'row-click', item: T): void
 }>()
 
 const alignClass = (align?: string) => {

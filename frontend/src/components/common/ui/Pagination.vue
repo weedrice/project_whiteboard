@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <nav v-if="totalPages >= 1" class="flex items-center justify-center space-x-1" aria-label="Pagination">
     <BaseButton :disabled="currentPage === 0" @click="$emit('page-change', currentPage - 1)" variant="secondary">
       {{ $t('common.previous') }}
@@ -22,7 +22,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import BaseButton from '@/components/common/BaseButton.vue'
+import BaseButton from '@/components/common/ui/BaseButton.vue'
 
 const props = defineProps<{
   currentPage: number
@@ -60,3 +60,4 @@ const displayedPages = computed(() => {
   return rangeWithDots
 })
 </script>
+
