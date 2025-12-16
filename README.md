@@ -2,110 +2,43 @@
 
 **NoviIs**는 Vue 3와 Spring Boot (Java 21)를 기반으로 구축된 모던 커뮤니티 플랫폼입니다. 사용자 친화적인 인터페이스와 강력한 관리 기능을 제공하며, 게시판, 게시글, 댓글, 알림 등 커뮤니티의 핵심 기능을 모두 갖추고 있습니다.
 
-## 🚀 Tech Stack
+이 프로젝트는 **Monorepo** 구조로 구성되어 있으며, 백엔드와 프론트엔드가 각각 독립적인 디렉토리에서 관리됩니다.
 
-### Frontend
--   **Framework**: Vue 3 (Composition API)
--   **Build Tool**: Vite
--   **State Management**: Pinia
--   **Routing**: Vue Router
--   **Styling**: TailwindCSS
--   **HTTP Client**: Axios
--   **Icons**: Lucide Vue Next
+## 📂 프로젝트 구성 (Project Components)
 
-### Backend
--   **Framework**: Spring Boot 3.x
--   **Language**: Java 21
--   **Build Tool**: Gradle
--   **Database**: H2 (Dev), MySQL/MariaDB (Prod recommended)
--   **ORM**: JPA / Hibernate
+### [Backend](./backend/README.md)
+Spring Boot 기반의 강력한 RESTful API 서버입니다.
+-   **Tech**: Java 21, Spring Boot 3, JPA, Gradle
+-   **Features**: 인증, 게시판/게시글/댓글 관리, 알림(SSE), 관리자 기능 등
 
----
+### [Frontend](./frontend/README.md)
+Vue 3 기반의 반응형 웹 애플리케이션입니다.
+-   **Tech**: Vue 3, Vite, TypeScript, Pinia, TailwindCSS
+-   **Features**: 사용자 UI, 게시판 탐색, 에디터, 실시간 알림, 다크 모드 등
 
-## ✨ Key Features
+## 🚀 빠른 시작 (Quick Start)
 
-### 1. 🔐 Authentication (인증)
--   **회원가입 & 로그인**: JWT 기반 인증 시스템.
--   **마이페이지**: 내 정보 조회 및 내가 쓴 글 관리.
+각 프로젝트의 상세 설정 및 실행 방법은 해당 디렉토리의 `README.md`를 참조하세요.
 
-### 2. 📋 Board & Post (게시판 & 게시글)
--   **게시판 목록**: 다양한 주제의 게시판 탐색.
--   **게시글 작성/수정/삭제**:
-    -   WYSIWYG 에디터 (기본 텍스트 에리어 구현).
-    -   **NSFW 설정**: 게시판 설정에 따라 NSFW(후방주의) 옵션 조건부 노출.
-    -   태그 및 스포일러 설정.
--   **게시글 검색**: 게시판 내 제목/내용 검색 기능.
--   **좋아요**: 게시글 추천 기능.
-
-### 3. 💬 Comment (댓글)
--   **댓글 작성/삭제**: 게시글에 의견 남기기.
--   **대댓글 (답글)**: 계층형 댓글 구조 지원.
-
-### 4. 🔔 Notification (알림)
--   **실시간 알림**: 내 글에 댓글이 달리거나 좋아요를 받으면 알림 수신.
--   **알림 센터**: 헤더의 종 아이콘을 통해 읽지 않은 알림 확인 및 이동.
-
-### 5. 🛡️ Admin (관리자)
--   **게시판 관리**: 게시판 생성, 수정, 삭제.
--   **카테고리 관리**: 게시판별 말머리(카테고리) 추가/수정/삭제.
--   **접근 제어**: 관리자 전용 메뉴 및 기능 보호.
-
----
-
-## 🛠️ Getting Started
-
-### Prerequisites
--   Node.js 18+
--   JDK 21
--   Git
-
-### Installation & Run
-
-#### 1. Clone the repository
+### 1. 저장소 클론 (Clone)
 ```bash
-git clone https://github.com/your-username/project_whiteboard.git
+git clone https://github.com/weedrice/project_whiteboard.git
 cd project_whiteboard
 ```
 
-#### 2. Backend Setup
+### 2. 백엔드 실행 (Backend)
 ```bash
 cd backend
-# Build and Run
 ./gradlew bootRun
 ```
-*Server runs on `http://localhost:8080`*
 
-#### 3. Frontend Setup
+### 3. 프론트엔드 실행 (Frontend)
 ```bash
 cd frontend
-# Install dependencies
 npm install
-
-# Run development server
 npm run dev
 ```
-*Client runs on `http://localhost:5173`*
 
----
-
-## 📂 Project Structure
-
-```
-project_whiteboard/
-├── backend/            # Spring Boot Application
-│   ├── src/main/java/  # Java Source Code
-│   └── build.gradle    # Gradle Config
-│
-└── frontend/           # Vue.js Application
-    ├── src/
-    │   ├── api/        # API Clients
-    │   ├── components/ # Reusable Components
-    │   ├── router/     # Route Definitions
-    │   ├── stores/     # Pinia State Stores
-    │   └── views/      # Page Components
-    └── vite.config.js  # Vite Config
-```
-
-## 📝 License
+## 📝 라이선스 (License)
 
 This project is licensed under the MIT License.
