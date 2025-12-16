@@ -142,7 +142,7 @@ const handleResetPassword = async () => {
             </h2>
         </div>
 
-        <div class="w-full max-w-md mx-auto">
+        <div class="w-[80%] mx-auto">
             <!-- Tabs -->
             <div class="flex border-b border-gray-200 dark:border-gray-700 mb-8">
                 <BaseButton @click="switchTab('id')" variant="ghost" class="flex-1 rounded-b-none border-b-2"
@@ -249,4 +249,3 @@ const handleResetPassword = async () => {
     }
 }
 </style>
-

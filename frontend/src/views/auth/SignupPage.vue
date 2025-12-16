@@ -95,7 +95,7 @@ async function handleSignup() {
   }
 
   if (isEmpty(form.value.email)) {
-    toastStore.addToast(t('auth.placeholders.email'), 'error')
+    toastStore.addToast(t('auth.placeholders.newEmail'), 'error')
     return
   }
   if (!isValidEmail(form.value.email)) {
@@ -165,10 +165,10 @@ async function handleSignup() {
 
         <!-- Email Verification -->
         <div>
-          <div class="flex gap-2 items-end">
+          <div class="flex gap-2 items-start">
             <div class="flex-grow">
               <BaseInput id="email" v-model="form.email" name="email" type="email" required
-                :placeholder="$t('auth.placeholders.email')" :label="$t('common.email')" hideLabel
+                :placeholder="$t('auth.placeholders.newEmail')" :label="$t('common.email')" hideLabel
                 :disabled="verification.isCodeSent">
                 <template #prefix>
                   <Mail class="h-5 w-5 text-gray-400" />
@@ -177,13 +177,13 @@ async function handleSignup() {
             </div>
             <BaseButton type="button" @click="sendVerificationCode"
               :disabled="verification.isCodeSent || verification.loading"
-              :loading="verification.loading && !verification.isCodeSent" class="mb-[2px] h-[42px]" size="sm">
+              :loading="verification.loading && !verification.isCodeSent">
               {{ verification.isCodeSent ? t('common.sent') : t('auth.sendCode') }}
             </BaseButton>
           </div>
 
           <div v-if="verification.isCodeSent && !verification.isVerified"
-            class="flex gap-2 items-end mt-4 animate-fade-in-down">
+            class="flex gap-2 items-start mt-4 animate-fade-in-down">
             <div class="flex-grow">
               <BaseInput v-model="verification.code" :placeholder="t('auth.codePlaceholder')" hideLabel>
                 <template #prefix>
@@ -191,8 +191,7 @@ async function handleSignup() {
                 </template>
               </BaseInput>
             </div>
-            <BaseButton type="button" @click="verifyCode" :loading="verification.loading" class="mb-[2px] h-[42px]"
-              size="sm">
+            <BaseButton type="button" @click="verifyCode" :loading="verification.loading">
               {{ t('auth.verifyCode') }}
             </BaseButton>
           </div>

@@ -21,6 +21,15 @@ export const messages = {
       report: '신고',
       share: '공유',
       copy: '복사하기',
+      chooseFile: '파일 선택',
+      send: '전송',
+      saving: '저장 중...',
+      yes: '예',
+      input: '입력',
+      saveChanges: '변경사항 저장',
+      confirmDelete: '삭제하시겠습니까?',
+      deleted: '삭제됨',
+      defaultAdminName: '관리자',
       displayName: '닉네임',
       mailbox: '쪽지함',
       confirm: '확인',
@@ -113,10 +122,6 @@ export const messages = {
       board: '게시판',
       deactivate: '비활성화',
       activate: '활성화',
-      search: '검색',
-      searchResults: '검색 결과',
-      searchPlaceholder: '검색...',
-      doSearch: '"{query}" 검색하기',
       active: '활성화',
       inactive: '비활성화',
       sortOrder: '정렬 순서',
@@ -133,6 +138,14 @@ export const messages = {
         ko: '한국어',
         en: 'English',
       },
+    },
+    search: {
+      boards: '게시판',
+      doSearch: '검색',
+      results: '검색 결과',
+      query: '검색어',
+      noResults: '검색 결과가 없습니다.',
+      placeholder: '검색...',
     },
     layout: {
       menu: {
@@ -173,10 +186,18 @@ export const messages = {
         password: '비밀번호를 입력하세요',
         email: '회원가입 시 입력한 이메일을 입력하세요',
         displayName: '닉네임을 입력하세요',
+        newEmail: '이메일을 입력하세요'
       },
+      email: '이메일',
+      login: '로그인',
       emailNotVerified: '이메일 인증이 필요합니다.',
       passwordMismatch: '비밀번호가 일치하지 않습니다.',
       verificationFailed: '인증에 실패했습니다.',
+      validation: {
+        passwordStrength: '',
+        loginIdFormat: '아이디 형식이 올바르지 않습니다.',
+        emailFormat: '이메일 형식이 올바르지 않습니다.'
+      }
     },
     board: {
       list: {
@@ -211,6 +232,7 @@ export const messages = {
           author: '글쓴이',
           tag: '태그',
         },
+        defaultAdminName: '관리자',
       },
       form: {
         createTitle: '게시판 생성',
@@ -240,7 +262,9 @@ export const messages = {
           desc: '게시판에 대한 간략한 설명',
           icon: '아이콘 이미지 URL',
           sortOrder: '정렬 순서 (숫자)',
-        }
+        },
+        validation: '입력 값을 확인해주세요.',
+        failUpload: '파일 업로드 실패',
       },
       category: {
         placeholder: {
@@ -289,6 +313,7 @@ export const messages = {
         failUpdate: '게시글 수정에 실패했습니다.',
         failLoad: '게시글 정보를 불러오는데 실패했습니다.',
         validation: '필수 항목을 모두 입력해주세요.',
+        tags: '태그',
       },
       tags: {
         placeholder: '태그 추가...',
@@ -337,6 +362,9 @@ export const messages = {
         personalDetails: '개인 정보 및 활동 내역입니다.',
         displayName: '닉네임',
         email: '이메일',
+        choosePhoto: '사진 선택',
+        choosePhotoPlaceholder: '프로필 사진을 선택하세요',
+        displayNamePlaceholder: '닉네임',
       },
       pointsHistory: {
         description: '내역',
@@ -428,7 +456,7 @@ export const messages = {
     },
     admin: {
       layout: {
-        title: 'Whiteboard 관리자',
+        title: 'NoviIs 관리자',
       },
       menu: {
         dashboard: '대시보드',
@@ -488,9 +516,13 @@ export const messages = {
         superAdmins: '최고 관리자 목록',
         boardAdmins: '게시판 관리자 목록',
         loginIdPlaceholder: '사용자 로그인 ID',
+        table: {
+          loginId: '로그인 ID',
+        },
         messages: {
           added: '관리자가 추가되었습니다.',
           addFailed: '관리자 추가 실패',
+          statusChanged: '상태가 변경되었습니다.',
           statusChangeFailed: '상태 변경 실패',
           inputLoginId: '로그인 ID를 입력해주세요.',
         },
@@ -510,6 +542,7 @@ export const messages = {
         actions: {
           resolve: '승인',
           reject: '반려',
+          sanction: '제재',
         },
         messages: {
           confirmResolve: '신고를 처리(승인)하시겠습니까?',

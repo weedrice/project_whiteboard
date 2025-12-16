@@ -22,7 +22,7 @@ watch(() => route.name, (to, from) => {
     <div
         class="min-h-screen flex items-start justify-center bg-gray-50 dark:bg-gray-900 px-4 sm:px-6 lg:px-8 pt-20 transition-colors duration-200">
         <div
-            class="max-w-md w-full bg-white dark:bg-gray-800 shadow-xl rounded-2xl overflow-hidden relative min-h-[500px] flex flex-col">
+            class="max-w-lg w-full bg-white dark:bg-gray-800 shadow-xl rounded-2xl overflow-hidden relative min-h-[500px] flex flex-col">
             <router-view v-slot="{ Component }">
                 <transition :name="transitionName" mode="out-in">
                     <component :is="Component" class="flex-1" />

@@ -206,7 +206,7 @@ watch(() => route.params.boardUrl, () => {
                         <div v-else
                             class="h-20 w-20 rounded-full bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center">
                             <span class="text-indigo-600 dark:text-indigo-400 font-bold text-3xl">{{ board.boardName[0]
-                            }}</span>
+                                }}</span>
                         </div>
                     </router-link>
                     <div class="flex-1 h-20 flex flex-col justify-between">
@@ -309,7 +309,7 @@ watch(() => route.params.boardUrl, () => {
                     </div>
                     <BaseButton @click="handleSearch" variant="secondary"
                         class="rounded-l-none border-l-0 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600">
-                        {{ $t('common.search') }}
+                        {{ $t('search.doSearch') }}
                     </BaseButton>
                 </div>
 
@@ -324,4 +324,3 @@ watch(() => route.params.boardUrl, () => {
         </div>
     </div>
 </template>
-

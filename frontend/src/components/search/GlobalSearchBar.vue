@@ -63,7 +63,7 @@ onUnmounted(() => {
   <div ref="searchContainer" class="relative w-full max-w-md">
     <div class="relative">
       <BaseInput v-model="searchQuery" @keyup.enter="handleSearch" @focus="showDropdown = !!searchQuery.trim()"
-        :placeholder="$t('common.searchPlaceholder')"
+        :placeholder="$t('search.placeholder')"
         inputClass="w-64 rounded-full pl-10 pr-4 py-2 border-gray-300 focus:ring-indigo-500 focus:border-transparent dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
         hideLabel>
         <template #prefix>
@@ -103,4 +103,3 @@ onUnmounted(() => {
     </div>
   </div>
 </template>
-

@@ -1,9 +1,9 @@
 ﻿<script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { useNotificationStore } from '@/stores/notification'
 import { useThemeStore } from '@/stores/theme'
+import { useNotification } from '@/composables/useNotification'
 import { Search, Bell, Moon, Sun } from 'lucide-vue-next'
 import NotificationDropdown from '@/components/notification/NotificationDropdown.vue'
 import UserDropdown from '@/components/layout/UserDropdown.vue'
@@ -15,10 +15,23 @@ import AdBanner from '@/components/common/widgets/AdBanner.vue'
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
-const notificationStore = useNotificationStore()
 const themeStore = useThemeStore()
+const { useUnreadCount, connectToSse, closeSse } = useNotification()
+
 const isNotificationOpen = ref(false)
 const activeDropdown = ref<string | null>(null) // 'subscription', 'all', 'notification', 'user'
+
+// Fetch unread count
+const { data: unreadCount } = useUnreadCount()
+
+// Connect to SSE if authenticated
+watch(() => authStore.isAuthenticated, (isAuthenticated) => {
+  if (isAuthenticated) {
+    connectToSse()
+  } else {
+    closeSse()
+  }
+}, { immediate: true })
 
 const showAds = computed(() => {
   return !['login', 'signup'].includes(route.name as string)
@@ -62,11 +75,6 @@ const setActiveDropdown = (name: string) => {
 // Click outside handler
 const handleClickOutside = (event: Event) => {
   if (activeDropdown.value || isNotificationOpen.value) {
-    // This is a simple check, ideally we should check if click is inside any dropdown
-    // But since dropdowns handle their own outside clicks or are closed by this global handler
-    // We might need to be careful.
-    // For now, let's assume individual dropdowns handle their own closing or we rely on this global one if they don't stop propagation.
-    // Actually, the original code had this, so I'll keep it.
     closeAllDropdowns()
   }
 }
@@ -76,6 +84,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  closeSse()
   document.removeEventListener('click', handleClickOutside)
 })
 </script>
@@ -99,12 +108,9 @@ onUnmounted(() => {
           </div>
           <div class="flex items-center space-x-4">
             <!-- Search Bar -->
-            <!-- Search Bar -->
             <div class="relative">
               <GlobalSearchBar />
             </div>
-
-
 
             <!-- Notification Dropdown -->
             <div v-if="authStore.isAuthenticated" class="relative">
@@ -112,7 +118,7 @@ onUnmounted(() => {
                 class="bg-white dark:bg-gray-800 p-1 rounded-full text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:focus:ring-offset-gray-800">
                 <span class="sr-only">View notifications</span>
                 <Bell class="h-6 w-6" />
-                <span v-if="notificationStore.unreadCount > 0"
+                <span v-if="unreadCount && unreadCount > 0"
                   class="absolute top-0 right-0 block h-2 w-2 rounded-full bg-red-400 ring-2 ring-white dark:ring-gray-800"></span>
               </button>
 
@@ -155,4 +161,3 @@ onUnmounted(() => {
     <Footer />
   </div>
 </template>
-
