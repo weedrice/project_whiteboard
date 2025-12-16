@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <BaseButton :variant="isBlocked ? 'secondary' : 'danger'" size="sm" @click="toggleBlock" :disabled="loading">
     {{ isBlocked ? 'Unblock' : 'Block' }}
   </BaseButton>
@@ -6,7 +6,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import BaseButton from '@/components/common/BaseButton.vue'
+import BaseButton from '@/components/common/ui/BaseButton.vue'
 import { userApi } from '@/api/user'
 import logger from '@/utils/logger'
 import { useToastStore } from '@/stores/toast'
@@ -51,3 +51,4 @@ const toggleBlock = async () => {
   }
 }
 </script>
+

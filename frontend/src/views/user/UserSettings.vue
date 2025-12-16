@@ -1,10 +1,10 @@
-<script setup>
+﻿<script setup>
 import { ref, onMounted, reactive, watchEffect, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useUser } from '@/composables/useUser'
-import BaseButton from '@/components/common/BaseButton.vue'
-import BaseSelect from '@/components/common/BaseSelect.vue'
-import BaseCheckbox from '@/components/common/BaseCheckbox.vue'
+import BaseButton from '@/components/common/ui/BaseButton.vue'
+import BaseSelect from '@/components/common/ui/BaseSelect.vue'
+import BaseCheckbox from '@/components/common/ui/BaseCheckbox.vue'
 import logger from '@/utils/logger'
 
 import { useThemeStore } from '@/stores/theme'

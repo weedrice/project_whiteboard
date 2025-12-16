@@ -1,11 +1,11 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ChevronDown, List } from 'lucide-vue-next'
 import axios from '@/api'
 import { useAuthStore } from '@/stores/auth'
 import logger from '@/utils/logger'
-import BaseButton from '@/components/common/BaseButton.vue'
+import BaseButton from '@/components/common/ui/BaseButton.vue'
 
 const props = defineProps<{
   type: 'subscription' | 'all'
@@ -110,3 +110,4 @@ watch(() => authStore.isAuthenticated, (newVal) => {
     </div>
   </div>
 </template>
+

@@ -1,12 +1,12 @@
-<script setup>
+﻿<script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { Lock, User } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { useToastStore } from '@/stores/toast'
-import BaseInput from '@/components/common/BaseInput.vue'
-import BaseButton from '@/components/common/BaseButton.vue'
+import BaseInput from '@/components/common/ui/BaseInput.vue'
+import BaseButton from '@/components/common/ui/BaseButton.vue'
 
 const { t } = useI18n()
 const toastStore = useToastStore()
@@ -99,3 +99,4 @@ async function handleLogin() {
     </form>
   </div>
 </template>
+

@@ -1,12 +1,13 @@
-<script setup>
+﻿<script setup>
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { authApi } from '@/api/auth'
 import { Lock, User, Mail, Smile, ChevronLeft, CheckCircle } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { useToastStore } from '@/stores/toast'
-import BaseInput from '@/components/common/BaseInput.vue'
-import BaseButton from '@/components/common/BaseButton.vue'
+import BaseInput from '@/components/common/ui/BaseInput.vue'
+import BaseButton from '@/components/common/ui/BaseButton.vue'
+import { isEmpty, isValidEmail, isValidLoginId, isValidPassword } from '@/utils/validation'
 
 const { t } = useI18n()
 const toastStore = useToastStore()
@@ -75,23 +76,38 @@ async function verifyCode() {
 async function handleSignup() {
   error.value = ''
 
-  if (!form.value.loginId) {
+  if (isEmpty(form.value.loginId)) {
     toastStore.addToast(t('auth.placeholders.loginId'), 'error')
     return
   }
-  if (!form.value.password) {
+  if (!isValidLoginId(form.value.loginId)) {
+    toastStore.addToast(t('auth.validation.loginIdFormat'), 'error')
+    return
+  }
+
+  if (isEmpty(form.value.password)) {
     toastStore.addToast(t('auth.placeholders.password'), 'error')
     return
   }
-  if (!form.value.email) {
+  if (!isValidPassword(form.value.password)) {
+    toastStore.addToast(t('auth.validation.passwordStrength'), 'error')
+    return
+  }
+
+  if (isEmpty(form.value.email)) {
     toastStore.addToast(t('auth.placeholders.email'), 'error')
     return
   }
+  if (!isValidEmail(form.value.email)) {
+    toastStore.addToast(t('auth.validation.emailFormat'), 'error')
+    return
+  }
+
   if (!verification.isVerified) {
     toastStore.addToast(t('auth.emailNotVerified'), 'error')
     return
   }
-  if (!form.value.displayName) {
+  if (isEmpty(form.value.displayName)) {
     toastStore.addToast(t('auth.placeholders.displayName'), 'error')
     return
   }

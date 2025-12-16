@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 import { ref, onMounted, computed, watchEffect } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useBoard } from '@/composables/useBoard'
@@ -8,10 +8,10 @@ import { QuillEditor } from '@vueup/vue-quill'
 import '@vueup/vue-quill/dist/vue-quill.snow.css'
 import axios from '@/api'
 import logger from '@/utils/logger'
-import BaseInput from '@/components/common/BaseInput.vue'
-import BaseButton from '@/components/common/BaseButton.vue'
-import BaseSelect from '@/components/common/BaseSelect.vue'
-import BaseCheckbox from '@/components/common/BaseCheckbox.vue'
+import BaseInput from '@/components/common/ui/BaseInput.vue'
+import BaseButton from '@/components/common/ui/BaseButton.vue'
+import BaseSelect from '@/components/common/ui/BaseSelect.vue'
+import BaseCheckbox from '@/components/common/ui/BaseCheckbox.vue'
 import PostTags from '@/components/tag/PostTags.vue'
 import { useToastStore } from '@/stores/toast'
 
@@ -232,3 +232,4 @@ async function handleSubmit() {
     </form>
   </div>
 </template>
+

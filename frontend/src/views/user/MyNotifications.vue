@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useNotification } from '@/composables/useNotification'
@@ -6,10 +6,10 @@ import { postApi } from '@/api/post'
 import { commentApi } from '@/api/comment'
 import { Check, Bell } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
-import Pagination from '@/components/common/Pagination.vue'
-import PageSizeSelector from '@/components/common/PageSizeSelector.vue'
+import Pagination from '@/components/common/ui/Pagination.vue'
+import PageSizeSelector from '@/components/common/widgets/PageSizeSelector.vue'
 import logger from '@/utils/logger'
-import BaseButton from '@/components/common/BaseButton.vue'
+import BaseButton from '@/components/common/ui/BaseButton.vue'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -67,9 +67,7 @@ async function handleNotificationClick(notification) {
   }
 }
 
-function formatDate(dateString) {
-  return new Date(dateString).toLocaleString()
-}
+import { formatDate } from '@/utils/date'
 </script>
 
 <template>

@@ -1,14 +1,14 @@
-<script setup>
+﻿<script setup>
 import { ref, computed, watch } from 'vue'
 import { useAdmin } from '@/composables/useAdmin'
 import { Search, MoreVertical, Shield, Ban, VolumeX } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import logger from '@/utils/logger'
 import { useToastStore } from '@/stores/toast'
-import BaseInput from '@/components/common/BaseInput.vue'
-import BaseButton from '@/components/common/BaseButton.vue'
-import BaseBadge from '@/components/common/BaseBadge.vue'
-import BaseTable from '@/components/common/BaseTable.vue'
+import BaseInput from '@/components/common/ui/BaseInput.vue'
+import BaseButton from '@/components/common/ui/BaseButton.vue'
+import BaseBadge from '@/components/common/ui/BaseBadge.vue'
+import BaseTable from '@/components/common/ui/BaseTable.vue'
 import { useConfirm } from '@/composables/useConfirm'
 import { usePrompt } from '@/composables/usePrompt'
 
@@ -118,3 +118,4 @@ const columns = computed(() => [
     </div>
   </div>
 </template>
+

@@ -1,7 +1,7 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { ThumbsUp, MessageSquare, Bookmark, User, Eye } from 'lucide-vue-next'
-import BaseButton from '@/components/common/BaseButton.vue'
-import BaseCard from '@/components/common/BaseCard.vue'
+import BaseButton from '@/components/common/ui/BaseButton.vue'
+import BaseCard from '@/components/common/ui/BaseCard.vue'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
@@ -34,10 +34,7 @@ const emit = defineEmits<{
   (e: 'subscribe', post: FeedPost): void
 }>()
 
-function formatDate(dateString: string) {
-  if (!dateString) return ''
-  return new Date(dateString).toLocaleDateString()
-}
+import { formatDateOnly } from '@/utils/date'
 </script>
 
 <template>
@@ -59,7 +56,7 @@ function formatDate(dateString: string) {
               {{ post.boardName }}
             </router-link>
           </h3>
-          <p class="text-xs text-gray-500 dark:text-gray-400">{{ formatDate(post.createdAt) }}</p>
+          <p class="text-xs text-gray-500 dark:text-gray-400">{{ formatDateOnly(post.createdAt) }}</p>
         </div>
       </div>
       <div class="flex items-center space-x-2">
@@ -116,3 +113,4 @@ function formatDate(dateString: string) {
     </div>
   </BaseCard>
 </template>
+

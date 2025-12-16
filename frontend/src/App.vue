@@ -1,13 +1,13 @@
-<script setup>
+﻿<script setup>
 import { onMounted, watch, computed, defineAsyncComponent } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useThemeStore } from '@/stores/theme'
 import { userApi } from '@/api/user'
 import { useI18n } from 'vue-i18n'
-import ToastContainer from '@/components/common/ToastContainer.vue'
-import GlobalConfirmModal from '@/components/common/GlobalConfirmModal.vue'
-import GlobalPromptModal from '@/components/common/GlobalPromptModal.vue'
+import ToastContainer from '@/components/common/widgets/ToastContainer.vue'
+import GlobalConfirmModal from '@/components/common/widgets/GlobalConfirmModal.vue'
+import GlobalPromptModal from '@/components/common/widgets/GlobalPromptModal.vue'
 import logger from '@/utils/logger'
 
 // Import layouts
@@ -73,3 +73,4 @@ onMounted(() => {
     <GlobalConfirmModal />
     <GlobalPromptModal />
 </template>
+

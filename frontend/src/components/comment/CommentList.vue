@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useComment } from '@/composables/useComment'
 import { useAuthStore } from '@/stores/auth'
@@ -8,7 +8,7 @@ import { useI18n } from 'vue-i18n'
 import logger from '@/utils/logger'
 import type { Comment } from '@/api/comment'
 import { useToastStore } from '@/stores/toast'
-import BaseSpinner from '@/components/common/BaseSpinner.vue'
+import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import { useConfirm } from '@/composables/useConfirm'
 
 const toastStore = useToastStore()
@@ -94,3 +94,4 @@ function fetchComments() {
     </div>
   </div>
 </template>
+

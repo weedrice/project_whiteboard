@@ -1,4 +1,4 @@
-<template>
+﻿<template>
     <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden transition-colors duration-200">
         <div class="px-4 py-5 sm:px-6 flex justify-between items-center">
             <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-white">{{ $t('user.message.boxTitle') }}
@@ -117,13 +117,13 @@
 <script setup>
 import { ref, watch, onMounted } from 'vue'
 import { messageApi } from '@/api/message'
-import BaseModal from '@/components/common/BaseModal.vue'
-import BaseButton from '@/components/common/BaseButton.vue'
-import BaseCheckbox from '@/components/common/BaseCheckbox.vue'
-import BaseTextarea from '@/components/common/BaseTextarea.vue'
-import BaseSpinner from '@/components/common/BaseSpinner.vue'
-import Pagination from '@/components/common/Pagination.vue'
-import PageSizeSelector from '@/components/common/PageSizeSelector.vue'
+import BaseModal from '@/components/common/ui/BaseModal.vue'
+import BaseButton from '@/components/common/ui/BaseButton.vue'
+import BaseCheckbox from '@/components/common/ui/BaseCheckbox.vue'
+import BaseTextarea from '@/components/common/ui/BaseTextarea.vue'
+import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
+import Pagination from '@/components/common/ui/Pagination.vue'
+import PageSizeSelector from '@/components/common/widgets/PageSizeSelector.vue'
 import { useI18n } from 'vue-i18n'
 import { useNotificationStore } from '@/stores/notification'
 import { useToastStore } from '@/stores/toast'
@@ -264,3 +264,4 @@ onMounted(() => {
     fetchMessages()
 })
 </script>
+

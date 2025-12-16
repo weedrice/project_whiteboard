@@ -1,4 +1,4 @@
-<template>
+﻿<template>
     <div class="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
         <div class="max-w-md w-full space-y-8 text-center">
             <div>
@@ -25,7 +25,7 @@
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import BaseButton from '@/components/common/BaseButton.vue'
+import BaseButton from '@/components/common/ui/BaseButton.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -51,3 +51,4 @@ const goHome = () => {
     router.push('/')
 }
 </script>
+

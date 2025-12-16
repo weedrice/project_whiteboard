@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 import { ref, onMounted, computed, watchEffect } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useBoard } from '@/composables/useBoard'
@@ -10,10 +10,10 @@ import '@vueup/vue-quill/dist/vue-quill.snow.css'
 import axios from '@/api'
 import logger from '@/utils/logger'
 import { useAuthStore } from '@/stores/auth'
-import BaseInput from '@/components/common/BaseInput.vue'
-import BaseButton from '@/components/common/BaseButton.vue'
-import BaseSelect from '@/components/common/BaseSelect.vue'
-import BaseCheckbox from '@/components/common/BaseCheckbox.vue'
+import BaseInput from '@/components/common/ui/BaseInput.vue'
+import BaseButton from '@/components/common/ui/BaseButton.vue'
+import BaseSelect from '@/components/common/ui/BaseSelect.vue'
+import BaseCheckbox from '@/components/common/ui/BaseCheckbox.vue'
 import { useToastStore } from '@/stores/toast'
 
 const { t } = useI18n()
@@ -335,3 +335,4 @@ async function handleSubmit() {
   /* blue-400 */
 }
 </style>
+

@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
@@ -10,7 +10,7 @@ import UserDropdown from '@/components/layout/UserDropdown.vue'
 import BoardDropdown from '@/components/layout/BoardDropdown.vue'
 import Footer from '@/components/layout/Footer.vue'
 import GlobalSearchBar from '@/components/search/GlobalSearchBar.vue'
-import AdBanner from '@/components/common/AdBanner.vue'
+import AdBanner from '@/components/common/widgets/AdBanner.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -155,3 +155,4 @@ onUnmounted(() => {
     <Footer />
   </div>
 </template>
+

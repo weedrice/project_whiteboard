@@ -1,11 +1,11 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { ref } from 'vue'
 import { useComment } from '@/composables/useComment'
 import { useI18n } from 'vue-i18n'
 import logger from '@/utils/logger'
 import type { CommentPayload } from '@/api/comment'
-import BaseButton from '@/components/common/BaseButton.vue'
-import BaseTextarea from '@/components/common/BaseTextarea.vue'
+import BaseButton from '@/components/common/ui/BaseButton.vue'
+import BaseTextarea from '@/components/common/ui/BaseTextarea.vue'
 import { useToastStore } from '@/stores/toast'
 
 const toastStore = useToastStore()
@@ -91,3 +91,4 @@ async function handleSubmit() {
     </div>
   </form>
 </template>
+

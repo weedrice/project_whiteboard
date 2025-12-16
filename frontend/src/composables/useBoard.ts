@@ -3,6 +3,7 @@ import { boardApi } from '@/api/board'
 import { searchApi } from '@/api/search'
 import { computed, type Ref } from 'vue'
 import type { PageResponse, PostSummary } from '@/types'
+import { QUERY_STALE_TIME } from '@/utils/constants'
 
 interface BoardPostParams {
     page?: number
@@ -24,7 +25,7 @@ export function useBoard() {
                 const { data } = await boardApi.getBoards()
                 return data.data
             },
-            staleTime: 1000 * 60 * 5, // 5 minutes
+            staleTime: QUERY_STALE_TIME.MEDIUM, // 5 minutes
         })
     }
 

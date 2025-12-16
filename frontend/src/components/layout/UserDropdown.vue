@@ -1,11 +1,11 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { User, LogOut, Settings, CreditCard, FileText, Clock, AlertTriangle, PlusSquare, ChevronDown, Bell, LayoutDashboard, Mail, Star, Slash } from 'lucide-vue-next'
 import axios from '@/api'
 import logger from '@/utils/logger'
-import BaseButton from '@/components/common/BaseButton.vue'
+import BaseButton from '@/components/common/ui/BaseButton.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -200,3 +200,4 @@ onMounted(() => {
     </div>
   </div>
 </template>
+

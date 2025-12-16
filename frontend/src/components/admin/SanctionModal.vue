@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <BaseModal :isOpen="isOpen" title="Sanction User" @close="$emit('close')">
     <form @submit.prevent="submitSanction" class="space-y-4">
       <div>
@@ -37,11 +37,11 @@
 
 <script setup>
 import { ref, reactive } from 'vue'
-import BaseModal from '@/components/common/BaseModal.vue'
-import BaseButton from '@/components/common/BaseButton.vue'
-import BaseInput from '@/components/common/BaseInput.vue'
-import BaseSelect from '@/components/common/BaseSelect.vue'
-import BaseTextarea from '@/components/common/BaseTextarea.vue'
+import BaseModal from '@/components/common/ui/BaseModal.vue'
+import BaseButton from '@/components/common/ui/BaseButton.vue'
+import BaseInput from '@/components/common/ui/BaseInput.vue'
+import BaseSelect from '@/components/common/ui/BaseSelect.vue'
+import BaseTextarea from '@/components/common/ui/BaseTextarea.vue'
 import { useAdmin } from '@/composables/useAdmin'
 import logger from '@/utils/logger'
 import { useToastStore } from '@/stores/toast'
@@ -80,3 +80,4 @@ const submitSanction = async () => {
   }
 }
 </script>
+

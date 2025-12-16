@@ -1,10 +1,11 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { ref, watch } from 'vue'
-import BaseInput from '@/components/common/BaseInput.vue'
-import BaseButton from '@/components/common/BaseButton.vue'
-import BaseTextarea from '@/components/common/BaseTextarea.vue'
+import BaseInput from '@/components/common/ui/BaseInput.vue'
+import BaseButton from '@/components/common/ui/BaseButton.vue'
+import BaseTextarea from '@/components/common/ui/BaseTextarea.vue'
 import { useI18n } from 'vue-i18n'
-import axios from '@/api'
+import { fileApi } from '@/api/file'
+import { isEmpty } from '@/utils/validation'
 import logger from '@/utils/logger'
 import { useToastStore } from '@/stores/toast'
 
@@ -66,11 +67,11 @@ const handleFileChange = (event: Event) => {
 }
 
 async function handleSubmit() {
-  if (!form.value.boardName) {
+  if (isEmpty(form.value.boardName)) {
     toastStore.addToast(t('board.form.validation'), 'error')
     return
   }
-  if (!form.value.boardUrl) {
+  if (isEmpty(form.value.boardUrl)) {
     toastStore.addToast(t('board.form.validation'), 'error')
     return
   }
@@ -79,16 +80,9 @@ async function handleSubmit() {
 
   try {
     if (selectedFile.value) {
-      const formData = new FormData()
-      formData.append('file', selectedFile.value)
-
-      const uploadRes = await axios.post('/files/upload', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
-      })
-      if (uploadRes.data.success) {
-        iconUrl = uploadRes.data.data.url
+      const { data } = await fileApi.uploadFile(selectedFile.value)
+      if (data.success) {
+        iconUrl = data.data.url
       }
     }
 

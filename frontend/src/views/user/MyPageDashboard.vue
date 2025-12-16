@@ -1,12 +1,12 @@
-<script setup>
+﻿<script setup>
 import { ref, onMounted } from 'vue'
 import { userApi } from '@/api/user'
 import { User, Mail, Calendar, FileText, CheckCircle, XCircle, Clock, MessageSquare } from 'lucide-vue-next'
 import PostList from '@/components/board/PostList.vue'
-import BaseButton from '@/components/common/BaseButton.vue'
-import BaseModal from '@/components/common/BaseModal.vue'
+import BaseButton from '@/components/common/ui/BaseButton.vue'
+import BaseModal from '@/components/common/ui/BaseModal.vue'
 import ProfileEditor from '@/components/user/ProfileEditor.vue'
-import Pagination from '@/components/common/Pagination.vue'
+import Pagination from '@/components/common/ui/Pagination.vue'
 import logger from '@/utils/logger'
 
 const profile = ref(null)
@@ -28,15 +28,7 @@ const isLoading = ref(true)
 const error = ref('')
 const isEditModalOpen = ref(false)
 
-function formatDate(dateString) {
-  if (!dateString) return 'N/A'
-  // Handle Java LocalDateTime array format [year, month, day, hour, minute, second]
-  if (Array.isArray(dateString)) {
-    const [year, month, day, hour, minute, second] = dateString
-    return new Date(year, month - 1, day, hour, minute, second || 0).toLocaleString()
-  }
-  return new Date(dateString).toLocaleString()
-}
+import { formatDate } from '@/utils/date'
 
 async function fetchMyProfile() {
   try {
@@ -255,3 +247,4 @@ onMounted(async () => {
     </div>
   </div>
 </template>
+

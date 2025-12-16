@@ -1,17 +1,17 @@
-<script setup>
+﻿<script setup>
 import { ref, onMounted, computed, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { usePost } from '@/composables/usePost'
 import { useAuthStore } from '@/stores/auth'
 import { User, Clock, ThumbsUp, MessageSquare, Eye, ArrowLeft, MoreHorizontal, Bookmark, AlertTriangle, Share2, Copy } from 'lucide-vue-next'
-import BaseModal from '@/components/common/BaseModal.vue'
-import BaseButton from '@/components/common/BaseButton.vue'
-import BaseTextarea from '@/components/common/BaseTextarea.vue'
-import BaseCard from '@/components/common/BaseCard.vue'
-import BaseSpinner from '@/components/common/BaseSpinner.vue'
+import BaseModal from '@/components/common/ui/BaseModal.vue'
+import BaseButton from '@/components/common/ui/BaseButton.vue'
+import BaseTextarea from '@/components/common/ui/BaseTextarea.vue'
+import BaseCard from '@/components/common/ui/BaseCard.vue'
+import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import CommentList from '@/components/comment/CommentList.vue'
 import PostTags from '@/components/tag/PostTags.vue'
-import UserMenu from '@/components/common/UserMenu.vue'
+import UserMenu from '@/components/common/widgets/UserMenu.vue'
 import { useI18n } from 'vue-i18n'
 import logger from '@/utils/logger'
 import { useToastStore } from '@/stores/toast'
@@ -38,15 +38,13 @@ const { mutate: reportMutate } = useReportPost()
 
 const error = computed(() => postError.value ? t('board.postDetail.loadFailed') : '')
 
+import { formatDate } from '@/utils/date'
+
 const isAuthor = computed(() => {
   return authStore.user && post.value && authStore.user.userId === post.value.author.userId
 })
 
 const isAdmin = computed(() => authStore.isAdmin)
-
-function formatDate(dateString) {
-  return new Date(dateString).toLocaleString()
-}
 
 const isBlurred = ref(false)
 const blurTimer = ref(null)
@@ -367,3 +365,4 @@ function handleShare() {
     </div>
   </BaseCard>
 </template>
+

@@ -1,4 +1,4 @@
-<template>
+﻿<template>
     <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden transition-colors duration-200">
         <div class="px-4 py-5 sm:px-6">
             <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-white">{{ $t('user.subscriptions.title') }}
@@ -47,7 +47,7 @@ import { useToastStore } from '@/stores/toast'
 import draggable from 'vuedraggable'
 import { Menu } from 'lucide-vue-next'
 import logger from '@/utils/logger'
-import BaseButton from '@/components/common/BaseButton.vue'
+import BaseButton from '@/components/common/ui/BaseButton.vue'
 import { useConfirm } from '@/composables/useConfirm'
 
 const { t } = useI18n()
@@ -100,3 +100,4 @@ onMounted(() => {
     fetchSubscriptions()
 })
 </script>
+

@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useNotification } from '@/composables/useNotification'
@@ -9,7 +9,8 @@ import type { Notification, NotificationParams } from '@/api/notification'
 import { useI18n } from 'vue-i18n'
 
 import { useNotificationStore } from '@/stores/notification'
-import BaseButton from '@/components/common/BaseButton.vue'
+import BaseButton from '@/components/common/ui/BaseButton.vue'
+import { formatTimeAgo } from '@/utils/date'
 
 const router = useRouter()
 const { t } = useI18n()
@@ -50,22 +51,6 @@ async function handleNotificationClick(notification: Notification) {
     }
     // If we can't determine the URL, just stay here (marked as read)
   }
-}
-
-function formatTimeAgo(dateString: string) {
-  const date = new Date(dateString)
-  const now = new Date()
-  const seconds = Math.floor((now.getTime() - date.getTime()) / 1000)
-
-  if (seconds < 60) return t('common.time.justNow')
-  const minutes = Math.floor(seconds / 60)
-  if (minutes < 60) return t('common.time.minutesAgo', { count: minutes })
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return t('common.time.hoursAgo', { count: hours })
-  const days = Math.floor(hours / 24)
-  if (days < 7) return t('common.time.daysAgo', { count: days })
-
-  return date.toLocaleDateString()
 }
 </script>
 
@@ -111,7 +96,7 @@ function formatTimeAgo(dateString: string) {
               {{ notification.message }}
             </p>
             <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">
-              {{ formatTimeAgo(notification.createdAt) }}
+              {{ formatTimeAgo(notification.createdAt, t) }}
             </p>
           </div>
           <div v-if="!notification.isRead" class="ml-2 flex-shrink-0">

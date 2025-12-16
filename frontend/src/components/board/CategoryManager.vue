@@ -1,13 +1,13 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { boardApi } from '@/api/board'
 import { Trash2, Edit2, Check, X, Plus, GripVertical } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import logger from '@/utils/logger'
 import { useToastStore } from '@/stores/toast'
-import BaseInput from '@/components/common/BaseInput.vue'
-import BaseButton from '@/components/common/BaseButton.vue'
-import BaseSelect from '@/components/common/BaseSelect.vue'
+import BaseInput from '@/components/common/ui/BaseInput.vue'
+import BaseButton from '@/components/common/ui/BaseButton.vue'
+import BaseSelect from '@/components/common/ui/BaseSelect.vue'
 import { useConfirm } from '@/composables/useConfirm'
 
 const { t } = useI18n()
@@ -42,8 +42,8 @@ const editingName = ref('')
 const editingRole = ref('USER')
 const dragIndex = ref<number | null>(null)
 
-const generalCategory = computed(() => categories.value.find(c => c.name === '일반'))
-const draggableCategories = computed(() => categories.value.filter(c => c.name !== '일반'))
+const generalCategory = computed(() => categories.value.find(c => c.name === '?쇰컲'))
+const draggableCategories = computed(() => categories.value.filter(c => c.name !== '?쇰컲'))
 
 async function fetchCategories() {
   isLoading.value = true
@@ -322,3 +322,4 @@ onMounted(fetchCategories)
   position: absolute;
 }
 </style>
+

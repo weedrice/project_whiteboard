@@ -1,10 +1,10 @@
-<script setup>
+﻿<script setup>
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { boardApi } from '@/api/board'
 import CategoryManager from '@/components/board/CategoryManager.vue'
 import BoardForm from '@/components/board/BoardForm.vue'
-import BaseButton from '@/components/common/BaseButton.vue'
+import BaseButton from '@/components/common/ui/BaseButton.vue'
 import { useI18n } from 'vue-i18n'
 import logger from '@/utils/logger'
 import { useToastStore } from '@/stores/toast'

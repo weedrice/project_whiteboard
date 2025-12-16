@@ -1,8 +1,8 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { Trash2 } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
-import BaseButton from '@/components/common/BaseButton.vue'
-import BaseTable from '@/components/common/BaseTable.vue'
+import BaseButton from '@/components/common/ui/BaseButton.vue'
+import BaseTable from '@/components/common/ui/BaseTable.vue'
 import { computed } from 'vue'
 import type { IpBlock } from '@/types'
 
@@ -40,3 +40,4 @@ const columns = computed(() => [
     </BaseTable>
   </div>
 </template>
+

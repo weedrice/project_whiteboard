@@ -1,12 +1,12 @@
-<script setup>
+﻿<script setup>
 import { ref, computed } from 'vue'
 import { useAdmin } from '@/composables/useAdmin'
 import { Shield } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { useToastStore } from '@/stores/toast'
 import IpBlockList from '@/components/admin/IpBlockList.vue'
-import BaseInput from '@/components/common/BaseInput.vue'
-import BaseButton from '@/components/common/BaseButton.vue'
+import BaseInput from '@/components/common/ui/BaseInput.vue'
+import BaseButton from '@/components/common/ui/BaseButton.vue'
 import { useConfirm } from '@/composables/useConfirm'
 
 const { t } = useI18n()
@@ -81,3 +81,4 @@ async function handleUnblockIp(ipAddress) {
         <IpBlockList :ip-blocks="ipBlocks" @unblock="handleUnblockIp" />
     </div>
 </template>
+

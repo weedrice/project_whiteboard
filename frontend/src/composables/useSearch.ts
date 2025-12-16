@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/vue-query'
 import { searchApi, type SearchParams, type PopularKeyword } from '@/api/search'
 import { computed, type Ref } from 'vue'
+import { QUERY_STALE_TIME } from '@/utils/constants'
 
 export function useSearch() {
 
@@ -32,7 +33,7 @@ export function useSearch() {
                 ]
                 return mockData
             },
-            staleTime: 1000 * 60 * 5 // 5 minutes
+            staleTime: QUERY_STALE_TIME.MEDIUM // 5 minutes
         })
     }
 

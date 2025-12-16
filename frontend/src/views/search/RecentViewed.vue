@@ -1,9 +1,9 @@
-<script setup>
+﻿<script setup>
 import { ref, computed } from 'vue'
 import { useUser } from '@/composables/useUser'
 import PostList from '@/components/board/PostList.vue'
-import Pagination from '@/components/common/Pagination.vue'
-import PageSizeSelector from '@/components/common/PageSizeSelector.vue'
+import Pagination from '@/components/common/ui/Pagination.vue'
+import PageSizeSelector from '@/components/common/widgets/PageSizeSelector.vue'
 
 const { useRecentlyViewedPosts } = useUser()
 
@@ -63,3 +63,4 @@ const handleSizeChange = () => {
     </div>
   </div>
 </template>
+

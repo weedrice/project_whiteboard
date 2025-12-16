@@ -1,14 +1,14 @@
-<script setup>
+﻿<script setup>
 import { ref, reactive, watch } from 'vue'
 import { useAdmin } from '@/composables/useAdmin'
 import { Save, Trash2 } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
-import BaseInput from '@/components/common/BaseInput.vue'
-import BaseButton from '@/components/common/BaseButton.vue'
-import BaseModal from '@/components/common/BaseModal.vue'
+import BaseInput from '@/components/common/ui/BaseInput.vue'
+import BaseButton from '@/components/common/ui/BaseButton.vue'
+import BaseModal from '@/components/common/ui/BaseModal.vue'
 import logger from '@/utils/logger'
 import { useToastStore } from '@/stores/toast'
-import BaseTable from '@/components/common/BaseTable.vue'
+import BaseTable from '@/components/common/ui/BaseTable.vue'
 import { useConfirm } from '@/composables/useConfirm'
 
 
@@ -36,17 +36,7 @@ watch(configsData, (newData) => {
   }
 }, { immediate: true })
 
-function formatDate(dateString) {
-  if (!dateString) return '-'
-  const date = new Date(dateString)
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  const hours = String(date.getHours()).padStart(2, '0')
-  const minutes = String(date.getMinutes()).padStart(2, '0')
-  const seconds = String(date.getSeconds()).padStart(2, '0')
-  return `${year}/${month}/${day} ${hours}:${minutes}:${seconds}`
-}
+import { formatDate } from '@/utils/date'
 
 async function handleSave(config) {
   try {
@@ -166,3 +156,4 @@ const columns = [
     </BaseModal>
   </div>
 </template>
+

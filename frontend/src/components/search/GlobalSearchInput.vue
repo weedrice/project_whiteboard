@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="relative">
     <BaseInput v-model="keyword" @keydown.enter="onSearch" placeholder="Search..." inputClass="pl-10" hideLabel>
       <template #prefix>
@@ -16,7 +16,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import BaseInput from '@/components/common/BaseInput.vue'
+import BaseInput from '@/components/common/ui/BaseInput.vue'
 
 const router = useRouter()
 const keyword = ref('')
@@ -28,3 +28,4 @@ const onSearch = () => {
   }
 }
 </script>
+

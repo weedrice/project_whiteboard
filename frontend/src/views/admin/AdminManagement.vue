@@ -1,14 +1,14 @@
-<script setup>
+﻿<script setup>
 import { ref, computed } from 'vue'
 import { useAdmin } from '@/composables/useAdmin'
 import { UserPlus, UserMinus, Shield } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import logger from '@/utils/logger'
 import { useToastStore } from '@/stores/toast'
-import BaseInput from '@/components/common/BaseInput.vue'
-import BaseButton from '@/components/common/BaseButton.vue'
-import BaseTable from '@/components/common/BaseTable.vue'
-import BaseBadge from '@/components/common/BaseBadge.vue'
+import BaseInput from '@/components/common/ui/BaseInput.vue'
+import BaseButton from '@/components/common/ui/BaseButton.vue'
+import BaseTable from '@/components/common/ui/BaseTable.vue'
+import BaseBadge from '@/components/common/ui/BaseBadge.vue'
 
 const { t } = useI18n()
 const toastStore = useToastStore()
@@ -52,15 +52,7 @@ const boardAdmins = computed(() => {
 
 const isLoading = computed(() => isSuperAdminsLoading.value || isBoardAdminsLoading.value)
 
-function formatDate(dateString) {
-  if (!dateString) return '-'
-  const date = Array.isArray(dateString)
-    ? new Date(dateString[0], dateString[1] - 1, dateString[2], dateString[3], dateString[4], dateString[5] || 0)
-    : new Date(dateString)
-
-  const pad = (n) => n.toString().padStart(2, '0')
-  return `${date.getFullYear()}/${pad(date.getMonth() + 1)}/${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
-}
+import { formatDate } from '@/utils/date'
 
 async function handleCreateSuperAdmin() {
   if (!newSuperAdminLoginId.value) {
@@ -254,3 +246,4 @@ const boardAdminColumns = [
     </div>
   </div>
 </template>
+

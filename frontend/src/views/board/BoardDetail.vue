@@ -1,15 +1,15 @@
-<script setup>
+﻿<script setup>
 import { ref, watch, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useBoard } from '@/composables/useBoard'
 import PostList from '@/components/board/PostList.vue'
 import { Search, X, PlusCircle, Settings, User } from 'lucide-vue-next'
-import UserMenu from '@/components/common/UserMenu.vue'
+import UserMenu from '@/components/common/widgets/UserMenu.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useI18n } from 'vue-i18n'
-import Pagination from '@/components/common/Pagination.vue' // Added Pagination
-import BaseButton from '@/components/common/BaseButton.vue'
-import BaseInput from '@/components/common/BaseInput.vue'
+import Pagination from '@/components/common/ui/Pagination.vue' // Added Pagination
+import BaseButton from '@/components/common/ui/BaseButton.vue'
+import BaseInput from '@/components/common/ui/BaseInput.vue'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -65,7 +65,7 @@ const { mutate: subscribeMutate } = useSubscribeBoard()
 
 // Computed Data
 const categories = computed(() => {
-    return board.value?.categories.filter(cat => cat.name !== '일반') || []
+    return board.value?.categories.filter(cat => cat.name !== '?쇰컲') || []
 })
 
 const posts = computed(() => {
@@ -116,7 +116,7 @@ const canWrite = computed(() => {
     if (!authStore.isAuthenticated || !board.value) return false
 
     // Find general category
-    const generalCategory = board.value.categories.find(c => c.name === '일반')
+    const generalCategory = board.value.categories.find(c => c.name === '?쇰컲')
     if (!generalCategory) return true // Fallback if no general category
 
     const minRole = generalCategory.minWriteRole || 'USER'
@@ -324,3 +324,4 @@ watch(() => route.params.boardUrl, () => {
         </div>
     </div>
 </template>
+

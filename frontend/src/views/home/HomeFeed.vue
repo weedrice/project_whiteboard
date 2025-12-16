@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="max-w-2xl mx-auto py-8">
     <!-- Feed -->
     <div v-if="loading" class="space-y-6">
@@ -36,7 +36,7 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import { postApi } from '@/api/post'
 import { boardApi } from '@/api/board'
 import FeedCard from '@/components/feed/FeedCard.vue'
-import BaseSpinner from '@/components/common/BaseSpinner.vue'
+import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useRouter } from 'vue-router'
 import logger from '@/utils/logger'
@@ -173,3 +173,4 @@ onUnmounted(() => {
   }
 })
 </script>
+

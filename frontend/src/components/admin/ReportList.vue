@@ -1,9 +1,9 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { Check, X, ShieldAlert } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
-import BaseButton from '@/components/common/BaseButton.vue'
-import BaseTable from '@/components/common/BaseTable.vue'
-import BaseBadge from '@/components/common/BaseBadge.vue'
+import BaseButton from '@/components/common/ui/BaseButton.vue'
+import BaseTable from '@/components/common/ui/BaseTable.vue'
+import BaseBadge from '@/components/common/ui/BaseBadge.vue'
 import { computed } from 'vue'
 import type { Report } from '@/types'
 
@@ -75,3 +75,4 @@ const columns = computed(() => [
     </BaseTable>
   </div>
 </template>
+

@@ -1,7 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
-import { userApi, type UserUpdatePayload } from '@/api/user'
+import { userApi, type UserUpdatePayload, type NotificationSettingsPayload } from '@/api/user'
 import { computed, type Ref } from 'vue'
 import type { UserSettings } from '@/types'
+import { QUERY_STALE_TIME } from '@/utils/constants'
 
 interface PasswordUpdateData {
     currentPassword: string
@@ -30,7 +31,7 @@ export function useUser() {
                 const { data } = await userApi.getMyProfile()
                 return data.data
             },
-            staleTime: 1000 * 60 * 5, // 5 minutes
+            staleTime: QUERY_STALE_TIME.MEDIUM, // 5 minutes
         })
     }
 
@@ -125,7 +126,7 @@ export function useUser() {
 
     const useUpdateNotificationSettings = () => {
         return useMutation({
-            mutationFn: async (data: NotificationSettingsData) => {
+            mutationFn: async (data: NotificationSettingsPayload) => {
                 const { data: res } = await userApi.updateNotificationSettings(data)
                 return res
             },
@@ -163,7 +164,7 @@ export function useUser() {
         return useQuery({
             queryKey: ['user', 'history', 'views', params],
             queryFn: async () => {
-                const { data } = await userApi.getRecentlyViewedPosts(params?.value)
+                const { data } = await userApi.getRecentlyViewedPosts(params?.value || {})
                 return data.data
             },
         })

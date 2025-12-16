@@ -1,9 +1,9 @@
-<script setup>
+﻿<script setup>
 import { ref, onMounted } from 'vue'
 import axios from '@/api'
-import Pagination from '@/components/common/Pagination.vue'
-import PageSizeSelector from '@/components/common/PageSizeSelector.vue'
-import BaseBadge from '@/components/common/BaseBadge.vue'
+import Pagination from '@/components/common/ui/Pagination.vue'
+import PageSizeSelector from '@/components/common/widgets/PageSizeSelector.vue'
+import BaseBadge from '@/components/common/ui/BaseBadge.vue'
 import logger from '@/utils/logger'
 
 const history = ref([])
@@ -37,13 +37,11 @@ const handlePageChange = (newPage) => {
   fetchHistory()
 }
 
+import { formatDate } from '@/utils/date'
+
 const handleSizeChange = () => {
   page.value = 0
   fetchHistory()
-}
-
-const formatDate = (dateString) => {
-  return new Date(dateString).toLocaleString()
 }
 
 onMounted(() => {
@@ -88,3 +86,4 @@ onMounted(() => {
     </div>
   </div>
 </template>
+

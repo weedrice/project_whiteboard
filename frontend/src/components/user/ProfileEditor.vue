@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="bg-white shadow rounded-lg p-6">
     <h3 class="text-lg font-medium leading-6 text-gray-900 mb-4">{{ $t('user.profile.edit') }}</h3>
     <form @submit.prevent="updateProfile" class="space-y-4">
@@ -30,9 +30,9 @@
 <script setup lang="ts">
 import { ref, reactive } from 'vue'
 import { useAuthStore } from '@/stores/auth'
-import BaseInput from '@/components/common/BaseInput.vue'
-import BaseButton from '@/components/common/BaseButton.vue'
-import BaseFileInput from '@/components/common/BaseFileInput.vue'
+import BaseInput from '@/components/common/ui/BaseInput.vue'
+import BaseButton from '@/components/common/ui/BaseButton.vue'
+import BaseFileInput from '@/components/common/ui/BaseFileInput.vue'
 import { useUser } from '@/composables/useUser'
 import axios from '@/api' // Direct axios for file upload
 import logger from '@/utils/logger'

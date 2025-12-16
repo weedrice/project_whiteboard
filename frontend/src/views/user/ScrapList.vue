@@ -1,9 +1,9 @@
-<script setup>
+﻿<script setup>
 import { ref, onMounted } from 'vue'
 import { userApi } from '@/api/user'
 import PostList from '@/components/board/PostList.vue'
-import Pagination from '@/components/common/Pagination.vue'
-import PageSizeSelector from '@/components/common/PageSizeSelector.vue'
+import Pagination from '@/components/common/ui/Pagination.vue'
+import PageSizeSelector from '@/components/common/widgets/PageSizeSelector.vue'
 import logger from '@/utils/logger'
 
 const scraps = ref([])
@@ -71,3 +71,4 @@ onMounted(() => {
     </div>
   </div>
 </template>
+

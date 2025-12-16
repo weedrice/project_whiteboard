@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="space-y-6">
     <div class="sm:flex sm:items-center sm:justify-between">
       <div>
@@ -147,11 +147,11 @@
 import { ref, reactive, watch } from 'vue'
 import { useAdmin } from '@/composables/useAdmin'
 import axios from 'axios'
-import BaseModal from '@/components/common/BaseModal.vue'
-import BaseInput from '@/components/common/BaseInput.vue'
-import BaseButton from '@/components/common/BaseButton.vue'
-import BaseTextarea from '@/components/common/BaseTextarea.vue'
-import BaseTable from '@/components/common/BaseTable.vue'
+import BaseModal from '@/components/common/ui/BaseModal.vue'
+import BaseInput from '@/components/common/ui/BaseInput.vue'
+import BaseButton from '@/components/common/ui/BaseButton.vue'
+import BaseTextarea from '@/components/common/ui/BaseTextarea.vue'
+import BaseTable from '@/components/common/ui/BaseTable.vue'
 import { useI18n } from 'vue-i18n'
 import { Save, GripVertical } from 'lucide-vue-next'
 import draggable from 'vuedraggable'
@@ -324,3 +324,4 @@ async function handleSaveAll() {
   }
 }
 </script>
+

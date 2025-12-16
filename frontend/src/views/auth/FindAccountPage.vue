@@ -1,10 +1,10 @@
-<script setup>
+﻿<script setup>
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { authApi } from '@/api/auth'
-import BaseInput from '@/components/common/BaseInput.vue'
-import BaseButton from '@/components/common/BaseButton.vue'
+import BaseInput from '@/components/common/ui/BaseInput.vue'
+import BaseButton from '@/components/common/ui/BaseButton.vue'
 import { useToastStore } from '@/stores/toast'
 import { Mail, ChevronLeft, Key, User, CheckCircle } from 'lucide-vue-next'
 
@@ -249,3 +249,4 @@ const handleResetPassword = async () => {
     }
 }
 </style>
+

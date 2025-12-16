@@ -1,8 +1,8 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 // defineProps and defineEmits are compiler macros and don't need to be imported
 import { MessageSquare, ThumbsUp, User, Clock, Image as ImageIcon, ArrowUp, ArrowDown } from 'lucide-vue-next'
-import UserMenu from '@/components/common/UserMenu.vue'
-import BaseTable from '@/components/common/BaseTable.vue'
+import UserMenu from '@/components/common/widgets/UserMenu.vue'
+import BaseTable from '@/components/common/ui/BaseTable.vue'
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -48,23 +48,11 @@ const props = withDefaults(defineProps<{
   hideNoColumn: false
 })
 
+import { formatRelativeDate } from '@/utils/date'
+
 const emit = defineEmits<{
   (e: 'update:sort', sort: string): void
 }>()
-
-function formatDate(dateString: string) {
-  const date = new Date(dateString)
-  const today = new Date()
-
-  const isToday = date.getDate() === today.getDate() &&
-    date.getMonth() === today.getMonth() &&
-    date.getFullYear() === today.getFullYear()
-
-  if (isToday) {
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-  }
-  return date.toLocaleDateString()
-}
 
 function handleSort(field: string) {
   const [currentField, currentDirection] = props.currentSort.split(',')
@@ -158,7 +146,7 @@ const columns = computed(() => {
             <router-link :to="`/board/${boardUrl || item.boardUrl}/post/${item.postId}`"
               class="hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center h-full w-full"
               v-if="boardUrl || item.boardUrl">
-              <span v-if="item.category && item.category.name !== '일반'" class="badge badge-gray mr-2">
+              <span v-if="item.category && item.category.name !== '?쇰컲'" class="badge badge-gray mr-2">
                 {{ item.category.name }}
               </span>
               <span v-if="item.isNotice" class="badge badge-red mr-2">
@@ -185,7 +173,7 @@ const columns = computed(() => {
         </template>
 
         <template #cell-createdAt="{ item }">
-          {{ formatDate(item.createdAt) }}
+          {{ formatRelativeDate(item.createdAt) }}
         </template>
 
         <template #cell-viewCount="{ item }">

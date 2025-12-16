@@ -1,9 +1,9 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useBoard } from '@/composables/useBoard'
 import { Search } from 'lucide-vue-next'
-import BaseInput from '@/components/common/BaseInput.vue'
+import BaseInput from '@/components/common/ui/BaseInput.vue'
 import type { Board } from '@/types'
 
 const router = useRouter()
@@ -103,3 +103,4 @@ onUnmounted(() => {
     </div>
   </div>
 </template>
+

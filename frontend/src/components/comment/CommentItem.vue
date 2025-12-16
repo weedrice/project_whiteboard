@@ -1,7 +1,7 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { ref } from 'vue'
 import { User as UserIcon, CornerDownRight } from 'lucide-vue-next'
-import UserMenu from '@/components/common/UserMenu.vue'
+import UserMenu from '@/components/common/widgets/UserMenu.vue'
 import CommentForm from './CommentForm.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useI18n } from 'vue-i18n'
@@ -29,12 +29,10 @@ const emit = defineEmits<{
 const { t } = useI18n()
 const authStore = useAuthStore()
 
+import { formatDate } from '@/utils/date'
+
 const isReplying = ref(false)
 const isEditing = ref(false)
-
-function formatDate(dateString: string) {
-  return new Date(dateString).toLocaleString()
-}
 
 function handleReplySuccess() {
   isReplying.value = false
@@ -97,7 +95,7 @@ function handleDelete() {
             {{ $t('comment.reply') }}
           </button>
 
-          <template v-if="authStore.user?.id === comment.author.userId">
+          <template v-if="authStore.user?.userId === comment.author.userId">
             <button @click="isEditing = !isEditing"
               class="text-xs text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200 font-medium ml-2">
               {{ $t('common.edit') }}
@@ -125,3 +123,4 @@ function handleDelete() {
     </div>
   </div>
 </template>
+

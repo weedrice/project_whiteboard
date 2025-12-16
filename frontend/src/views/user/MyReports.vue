@@ -1,8 +1,8 @@
-<script setup>
+﻿<script setup>
 import { ref, onMounted } from 'vue'
 import { reportApi } from '@/api/report'
-import Pagination from '@/components/common/Pagination.vue'
-import PageSizeSelector from '@/components/common/PageSizeSelector.vue'
+import Pagination from '@/components/common/ui/Pagination.vue'
+import PageSizeSelector from '@/components/common/widgets/PageSizeSelector.vue'
 import logger from '@/utils/logger'
 
 const reports = ref([])
@@ -34,13 +34,11 @@ const handlePageChange = (newPage) => {
   fetchReports()
 }
 
+import { formatDate } from '@/utils/date'
+
 const handleSizeChange = () => {
   page.value = 0
   fetchReports()
-}
-
-const formatDate = (dateString) => {
-  return new Date(dateString).toLocaleString()
 }
 
 onMounted(() => {
@@ -91,3 +89,4 @@ onMounted(() => {
     </div>
   </div>
 </template>
+

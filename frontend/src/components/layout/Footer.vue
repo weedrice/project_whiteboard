@@ -1,8 +1,8 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { computed } from 'vue'
 import { useThemeStore } from '@/stores/theme'
 import { Sun, Moon } from 'lucide-vue-next'
-import BaseButton from '@/components/common/BaseButton.vue'
+import BaseButton from '@/components/common/ui/BaseButton.vue'
 
 const currentYear = computed(() => new Date().getFullYear())
 const themeStore = useThemeStore()
@@ -40,3 +40,4 @@ const themeStore = useThemeStore()
     </div>
   </footer>
 </template>
+
