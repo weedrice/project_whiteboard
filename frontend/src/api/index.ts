@@ -8,11 +8,13 @@ const { t } = i18n.global
 declare module 'axios' {
     export interface AxiosRequestConfig {
         skipGlobalErrorHandler?: boolean;
+        skipAuthRefresh?: boolean;
     }
     export interface InternalAxiosRequestConfig {
         _retry?: boolean;
         redirectOnError?: boolean;
         skipGlobalErrorHandler?: boolean;
+        skipAuthRefresh?: boolean;
     }
 }
 
@@ -20,6 +22,7 @@ interface CustomAxiosRequestConfig extends InternalAxiosRequestConfig {
     _retry?: boolean;
     redirectOnError?: boolean;
     skipGlobalErrorHandler?: boolean;
+    skipAuthRefresh?: boolean;
 }
 
 interface ApiErrorResponse {
@@ -61,7 +64,7 @@ api.interceptors.response.use(
         const toastStore = useToastStore()
 
         // If 401 and not already retrying
-        if (error.response?.status === 401 && !originalRequest._retry) {
+        if (error.response?.status === 401 && !originalRequest._retry && !originalRequest.skipAuthRefresh) {
             originalRequest._retry = true
 
             try {
@@ -82,7 +85,9 @@ api.interceptors.response.use(
                     const { useAuthStore } = await import('@/stores/auth')
                     const authStore = useAuthStore()
                     authStore.accessToken = newAccessToken
-                    await authStore.fetchUser()
+
+                    // Pass skipAuthRefresh to prevent infinite loop if getMe fails
+                    await authStore.fetchUser({ skipAuthRefresh: true })
 
                     // Retry original request with new token
                     originalRequest.headers.Authorization = `Bearer ${newAccessToken}`

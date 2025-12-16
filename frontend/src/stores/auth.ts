@@ -59,11 +59,11 @@ export const useAuthStore = defineStore('auth', () => {
         }
     }
 
-    async function fetchUser() {
+    async function fetchUser(config?: any) {
         if (!accessToken.value) return
 
         try {
-            const { data } = await authApi.getMe()
+            const { data } = await authApi.getMe(config)
             if (data.success) {
                 user.value = data.data
 
