@@ -70,6 +70,9 @@ api.interceptors.response.use(
             try {
                 const refreshToken = localStorage.getItem('refreshToken')
                 if (!refreshToken) {
+                    // No refresh token, cannot refresh. 
+                    // Clear access token if it exists (it's invalid/expired)
+                    localStorage.removeItem('accessToken')
                     throw new Error('No refresh token')
                 }
 
@@ -98,6 +101,10 @@ api.interceptors.response.use(
                 // refresh token이 유효하지 않거나(401/403) refresh API 자체가 실패한 경우에만 로그아웃
                 // 네트워크 에러 등 일시적 오류는 로그아웃하지 않음
                 const refreshStatus = axiosRefreshError.response?.status
+
+                // Check if we are already on the login page to avoid infinite redirect loop
+                const isLoginPage = window.location.pathname === '/login'
+
                 if (refreshStatus === 401 || refreshStatus === 403 || !axiosRefreshError.response) {
                     // 401/403: refresh token도 만료됨 → 로그아웃
                     // !refreshError.response + refreshToken 만료: 실제 인증 문제일 가능성 높음
@@ -106,8 +113,11 @@ api.interceptors.response.use(
                     if (!localStorage.getItem('refreshToken') || refreshStatus === 401 || refreshStatus === 403) {
                         localStorage.removeItem('accessToken')
                         localStorage.removeItem('refreshToken')
-                        toastStore.addToast(t('common.messages.sessionExpired'), 'warning')
-                        window.location.href = '/login'
+
+                        if (!isLoginPage) {
+                            toastStore.addToast(t('common.messages.sessionExpired'), 'warning')
+                            window.location.href = '/login'
+                        }
                     }
                 }
                 return Promise.reject(refreshError)

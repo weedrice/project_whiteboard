@@ -60,7 +60,15 @@ export const useAuthStore = defineStore('auth', () => {
     }
 
     async function fetchUser(config?: any) {
-        if (!accessToken.value) return
+        // Double check token existence
+        const token = localStorage.getItem('accessToken')
+        if (!token) {
+            accessToken.value = null
+            user.value = null
+            return
+        }
+
+        if (!accessToken.value) accessToken.value = token
 
         try {
             const { data } = await authApi.getMe(config)

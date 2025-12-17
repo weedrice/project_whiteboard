@@ -212,7 +212,16 @@ router.beforeEach(async (to: RouteLocationNormalized, from: RouteLocationNormali
 
     // Initialize auth state from local storage if needed
     if (!authStore.user && authStore.accessToken) {
-        await authStore.fetchUser()
+        try {
+            await authStore.fetchUser()
+        } catch (error) {
+            // Token might be invalid
+            await authStore.logout()
+            if (to.meta.requiresAuth) {
+                next({ name: 'login', query: { redirect: to.fullPath } })
+                return
+            }
+        }
     }
 
     // Sanction check
