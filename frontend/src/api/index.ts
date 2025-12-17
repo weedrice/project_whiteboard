@@ -42,7 +42,10 @@ const api: AxiosInstance = axios.create({
 api.interceptors.request.use(
     (config: InternalAxiosRequestConfig) => {
         const token = localStorage.getItem('accessToken')
-        if (token) {
+        // Skip adding token for auth endpoints to avoid 401s with expired tokens on public endpoints
+        const isAuthEndpoint = config.url?.includes('/auth/')
+
+        if (token && !isAuthEndpoint) {
             config.headers.Authorization = `Bearer ${token}`
         }
         return config
