@@ -1,50 +1,9 @@
 spring:
+  profiles:
+    active: dev
   application:
-    name: whiteboard
-  datasource:
-    url: jdbc:postgresql://localhost:5432/whiteboard
-    username: postgres
-    password: password
-    driver-class-name: org.postgresql.Driver
-  jpa:
-    hibernate:
-      ddl-auto: update
-    properties:
-      hibernate:
-        format_sql: true
-        show_sql: true
-        default_batch_fetch_size: 100
-    database: postgresql
-    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    name: noviis
 
   messages:
     basename: messages
     encoding: UTF-8
-
-logging:
-  level:
-    org.hibernate.SQL: debug
-    org.hibernate.type.descriptor.sql: trace
-
-jwt:
-  secret: v3ryS3cr3tK3yF0rJwtT0k3nG3n3r4t10nMustB3L0ng3n0ugh
-  expiration: 1800000 # 30 mins
-  refresh-token:
-    expiration: 1209600000 # 14 days
-
-file:
-  upload-dir: ./uploads
-
-cloud:
-  aws:
-    credentials:
-      access-key: MYACCESSKEY
-      secret-key: MYSECRETKEY
-    region:
-      static: MYREGION
-    s3:
-      bucket: MYBUCKETNAME
-    ses:
-      sender: no-reply@example.com # Replace with verified sender email
-    password-reset:
-      frontend-url: http://localhost:5173/reset-password?token=

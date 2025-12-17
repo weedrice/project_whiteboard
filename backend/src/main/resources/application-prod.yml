@@ -1,0 +1,51 @@
+spring:
+  config:
+    activate:
+      on-profile: prod
+  datasource:
+    url: jdbc:postgresql://${DB_HOST}:5432/${DB_NAME}
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: false
+        show_sql: false
+        default_batch_fetch_size: 100
+    database: postgresql
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+
+logging:
+  level:
+    root: INFO
+    org.hibernate.SQL: INFO
+    org.hibernate.type.descriptor.sql: INFO
+
+jwt:
+  secret: ${JWT_SECRET_PROD}
+  expiration: 1800000 # 30 mins
+  refresh-token:
+    expiration: 1209600000 # 14 days
+
+file:
+  upload-dir: /opt/app/uploads
+
+cloud:
+  aws:
+    credentials:
+      access-key: ${AWS_ACCESS_KEY}
+      secret-key: ${AWS_SECRET_KEY}
+    ses:
+      credentials:
+        access-key: ${AWS_SES_ACCESS_KEY}
+        secret-key: ${AWS_SES_SECRET_KEY}
+      sender: ${AWS_SES_SENDER}
+    region:
+      static: ${AWS_S3_REGION}
+    s3:
+      bucket: ${S3_BUCKET}
+    password-reset:
+      frontend-url: https://noviis.kr/reset-password?token=
