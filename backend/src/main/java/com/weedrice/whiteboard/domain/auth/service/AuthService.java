@@ -190,6 +190,8 @@ public class AuthService {
             throw new BusinessException(ErrorCode.USER_NOT_ACTIVE);
         }
 
+        user.updateLastLogin(); // 마지막 로그인 시간 업데이트
+
         Set<GrantedAuthority> authorities = new HashSet<>();
         authorities.add(new SimpleGrantedAuthority(Role.ROLE_USER)); // 기본 부여
         if (user.getIsSuperAdmin()) {
