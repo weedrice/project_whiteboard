@@ -3,8 +3,6 @@ name: Deploy Frontend
 on:
   push:
     branches: [ "main" ]
-    paths:
-      - "frontend/**"
   workflow_dispatch:
 
 jobs:
@@ -12,43 +10,49 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. 소스 체크아웃
       - name: Checkout
         uses: actions/checkout@v4
 
-      # 2. Node 설치
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      # 3. Vue 빌드
-      - name: Build Frontend
-        working-directory: frontend
-        env:
-          VITE_API_BASE_URL: http://${{ secrets.EC2_HOST }}/api
-        run: |
-          npm ci
-          npm run build
+      - name: Install dependencies
+        run: npm ci
 
-      # 4. EC2로 dist 업로드
-      - name: Upload dist to EC2
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          source: frontend/dist/*
-          target: /var/www/app
-          strip_components: 2
+      - name: Build frontend
+        run: npm run build
 
-      # 5. Nginx reload
-      - name: Reload Nginx
+      # 📌 핵심 1: 서버 기존 파일 완전 제거
+      - name: Clean frontend directory on EC2
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
+          username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            sudo nginx -t
-            sudo systemctl reload nginx
+            rm -rf /var/www/app/*
+            mkdir -p /var/www/app
+
+      # 📌 핵심 2: 빌드 결과만 업로드
+      - name: Upload frontend build
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: "dist/*"
+          target: "/var/www/app"
+          strip_components: 1
+
+      # 📌 (선택) 배포 결과 검증
+      - name: Verify frontend files
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            ls -al /var/www/app
+            grep assets /var/www/app/index.html

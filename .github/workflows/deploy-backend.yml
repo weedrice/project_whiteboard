@@ -3,49 +3,57 @@ name: Deploy Backend
 on:
   push:
     branches: [ "main" ]
-    paths:
-      - "backend/**"
+  workflow_dispatch:
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. 소스 가져오기
       - name: Checkout
         uses: actions/checkout@v4
 
-      # 2. JDK 설치
-      - name: Set up JDK
+      - name: Setup JDK
         uses: actions/setup-java@v4
         with:
-          distribution: temurin
-          java-version: 21
+          distribution: 'temurin'
+          java-version: '21'
 
-      # 3. Spring Boot 빌드
-      - name: Build Backend
-        working-directory: backend
-        run: |
-          chmod +x gradlew
-          ./gradlew clean bootJar
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
 
-      # 4. EC2로 JAR 업로드
-      - name: Copy JAR to EC2
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          source: backend/build/libs/*.jar
-          target: /opt/app/backend
-          strip_components: 3
+      - name: Build Spring Boot JAR
+        run: ./gradlew clean bootJar
 
-      # 5. 서버에서 서비스 재시작
-      - name: Restart App
+      # 📌 서버 앱 중지
+      - name: Stop backend service
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
+          username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            sudo systemctl restart app
+            sudo systemctl stop app || true
+
+      # 📌 JAR 교체
+      - name: Upload backend jar
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: "build/libs/*.jar"
+          target: "/opt/app/backend"
+          strip_components: 2
+
+      # 📌 서비스 재시작
+      - name: Start backend service
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            sudo systemctl daemon-reload
+            sudo systemctl start app
+            sudo systemctl status app --no-pager
