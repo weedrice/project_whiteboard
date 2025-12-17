@@ -29,8 +29,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String jwt = resolveToken(request);
 
         if (StringUtils.hasText(jwt) && jwtTokenProvider.validateToken(jwt)) {
-            Authentication authentication = jwtTokenProvider.getAuthentication(jwt);
-            SecurityContextHolder.getContext().setAuthentication(authentication);
+            try {
+                Authentication authentication = jwtTokenProvider.getAuthentication(jwt);
+                SecurityContextHolder.getContext().setAuthentication(authentication);
+            } catch (Exception e) {
+                // 토큰은 유효하지만(서명 등) 사용자 정보가 없는 경우(DB 삭제 등)
+                // 예외를 무시하고 익명 사용자로 처리 (SecurityContext 설정 안 함)
+                // 필요 시 로그 출력: logger.warn("Authentication failed: {}", e.getMessage());
+                request.setAttribute("exception", e); // entry point에서 처리 가능하도록 설정
+            }
         }
 
         filterChain.doFilter(request, response);
