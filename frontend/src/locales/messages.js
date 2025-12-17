@@ -36,7 +36,6 @@ export const messages = {
       query: '검색어',
       boards: '게시판',
       tags: '태그',
-      notice: '공지사항',
       footer: {
         rights: 'All rights reserved.',
         github: 'GitHub',
@@ -92,7 +91,6 @@ export const messages = {
       loginId: '로그인ID',
       password: '비밀번호',
       email: '이메일',
-      displayName: '닉네임',
       logout: '로그아웃',
       settings: '설정',
       notifications: '알림',
@@ -131,7 +129,6 @@ export const messages = {
         hoursAgo: '{count}시간 전',
         daysAgo: '{count}일 전',
       },
-      notifications: '알림',
       viewAll: '모두 보기',
       sent: '전송됨',
       languages: {

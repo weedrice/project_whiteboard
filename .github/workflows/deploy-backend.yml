@@ -26,6 +26,7 @@ jobs:
       - name: Build Backend
         working-directory: backend
         run: |
+          chmod +x gradlew
           ./gradlew clean bootJar
 
       # 4. EC2로 JAR 업로드
