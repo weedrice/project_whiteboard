@@ -18,13 +18,15 @@ jobs:
         with:
           node-version: 20
 
-      - name: Install dependencies
+      - name: Install frontend dependencies
         run: npm ci
+        working-directory: frontend
 
       - name: Build frontend
         run: npm run build
+        working-directory: frontend
 
-      # 📌 핵심 1: 서버 기존 파일 완전 제거
+      # 🔥 핵심: 기존 프론트 파일 완전 삭제
       - name: Clean frontend directory on EC2
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -35,19 +37,19 @@ jobs:
             rm -rf /var/www/app/*
             mkdir -p /var/www/app
 
-      # 📌 핵심 2: 빌드 결과만 업로드
+      # 빌드 결과 업로드
       - name: Upload frontend build
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
-          source: "dist/*"
+          source: "frontend/dist/*"
           target: "/var/www/app"
-          strip_components: 1
+          strip_components: 2
 
-      # 📌 (선택) 배포 결과 검증
-      - name: Verify frontend files
+      # (선택) 배포 검증
+      - name: Verify frontend deploy
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}

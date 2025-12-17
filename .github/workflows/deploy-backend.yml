@@ -13,19 +13,21 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup JDK
+      - name: Setup JDK 21
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
-          java-version: '21'
+          distribution: temurin
+          java-version: 21
 
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
+        working-directory: backend
 
       - name: Build Spring Boot JAR
         run: ./gradlew clean bootJar
+        working-directory: backend
 
-      # 📌 서버 앱 중지
+      # 서비스 중지
       - name: Stop backend service
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -35,18 +37,18 @@ jobs:
           script: |
             sudo systemctl stop app || true
 
-      # 📌 JAR 교체
+      # JAR 업로드
       - name: Upload backend jar
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
-          source: "build/libs/*.jar"
+          source: "backend/build/libs/*.jar"
           target: "/opt/app/backend"
-          strip_components: 2
+          strip_components: 3
 
-      # 📌 서비스 재시작
+      # 서비스 재시작
       - name: Start backend service
         uses: appleboy/ssh-action@v1.0.3
         with:
