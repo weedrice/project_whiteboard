@@ -41,7 +41,7 @@ public class SecurityConfig {
                                                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                                 .authorizeHttpRequests(auth -> auth
                                                 .requestMatchers("/api/v1/users/me/**").authenticated()
-                                                .requestMatchers("/api/v1/auth/**", "/api/v1/codes/**", "/health")
+                                                .requestMatchers("/api/v1/auth/**", "/api/v1/codes/**", "/actuator/health")
                                                 .permitAll()
                                                 .requestMatchers(HttpMethod.GET,
                                                                 "/api/v1/files/**",
