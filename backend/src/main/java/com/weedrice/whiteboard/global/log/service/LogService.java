@@ -6,6 +6,7 @@ import com.weedrice.whiteboard.global.log.repository.LogRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,11 +18,13 @@ public class LogService {
 
     private final LogRepository logRepository;
 
+    @Async("taskExecutor")
     @Transactional(propagation = REQUIRES_NEW)
     public void saveLog(Log log) {
         logRepository.save(log);
     }
 
+    @Async("taskExecutor")
     @Transactional(propagation = REQUIRES_NEW)
     public void saveLog(Long userId, String actionType, String ipAddress, String details) {
         Log log = Log.builder()
