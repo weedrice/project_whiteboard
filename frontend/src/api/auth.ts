@@ -24,14 +24,14 @@ export const authApi = {
     getMe: (config?: any) => api.get<ApiResponse<User>>('/users/me', config),
 
     // Email Verification
-    sendVerificationCode: (email: string) => api.post<ApiResponse<void>>('/auth/email/send-verification', { email }),
-    verifyCode: (email: string, code: string) => api.post<ApiResponse<boolean>>('/auth/email/verify', { email, code }),
+    sendVerificationCode: (email: string) => api.post<ApiResponse<void>>('/auth/email/send-verification', { email }, { skipAuthRefresh: true }),
+    verifyCode: (email: string, code: string) => api.post<ApiResponse<boolean>>('/auth/email/verify', { email, code }, { skipAuthRefresh: true }),
 
     // Find ID
-    findId: (email: string) => api.post<ApiResponse<{ loginId: string }>>('/auth/find-id', { email }),
+    findId: (email: string) => api.post<ApiResponse<{ loginId: string }>>('/auth/find-id', { email }, { skipAuthRefresh: true }),
 
     // Password Reset
-    sendPasswordReset: (email: string) => api.post<ApiResponse<void>>('/auth/password/forgot', { email }),
-    resetPassword: (data: PasswordResetData) => api.post<ApiResponse<void>>('/auth/password/reset-by-code', data),
+    sendPasswordReset: (email: string) => api.post<ApiResponse<void>>('/auth/password/forgot', { email }, { skipAuthRefresh: true }),
+    resetPassword: (data: PasswordResetData) => api.post<ApiResponse<void>>('/auth/password/reset-by-code', data, { skipAuthRefresh: true }),
 }
 
