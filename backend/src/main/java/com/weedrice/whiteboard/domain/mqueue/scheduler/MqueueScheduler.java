@@ -5,6 +5,7 @@ import com.weedrice.whiteboard.domain.mqueue.repository.MessageQueueRepository;
 import com.weedrice.whiteboard.domain.mqueue.service.MqueueService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -22,13 +23,16 @@ public class MqueueScheduler {
     @Scheduled(cron = "0 * * * * ?")
     public void processMessageQueue() {
         log.info("메시지 큐 처리 스케줄러 시작");
-        List<MessageQueue> pendingMessages = messageQueueRepository.findByStatusAndRetryCountLessThan("PENDING", 5);
+        // 한 번에 최대 50개만 처리
+        List<MessageQueue> pendingMessages = messageQueueRepository.findByStatusAndRetryCountLessThan(
+                "PENDING", 5, PageRequest.of(0, 50));
+        
         for (MessageQueue message : pendingMessages) {
             if ("EMAIL".equals(message.getDeliveryMethod())) {
                 mqueueService.sendEmail(message);
             }
             // TODO: PUSH, SMS 등 다른 발송 방법 처리
         }
-        log.info("메시지 큐 처리 스케줄러 완료");
+        log.info("메시지 큐 처리 스케줄러 완료: {}건 처리 시도", pendingMessages.size());
     }
 }

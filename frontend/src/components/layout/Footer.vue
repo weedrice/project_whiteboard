@@ -18,7 +18,7 @@ const commitHash = __COMMIT_HASH__
             &copy; {{ currentYear }} {{ $t('common.appName') }}. {{ $t('common.footer.rights') }}
           </p>
         </div>
-        <div class="flex space-x-6 items-center">
+        <div class="flex flex-wrap justify-center gap-4 sm:gap-6 items-center">
           <BaseButton @click="themeStore.toggleTheme()" variant="ghost" size="sm" class="p-1"
             :title="themeStore.isDark ? $t('common.footer.switchToLight') : $t('common.footer.switchToDark')">
             <Sun v-if="themeStore.isDark" class="h-5 w-5" />

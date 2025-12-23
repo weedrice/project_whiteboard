@@ -6,7 +6,9 @@ export function formatDate(dateString: string | number[]): string {
     if (!dateString) return ''
     if (Array.isArray(dateString)) {
         const [year, month, day, hour, minute, second] = dateString
-        return new Date(year, month - 1, day, hour, minute, second || 0).toLocaleString()
+        // Treat array as UTC components
+        const utcDate = new Date(Date.UTC(year, month - 1, day, hour, minute, second || 0))
+        return utcDate.toLocaleString()
     }
     return new Date(dateString).toLocaleString()
 }
@@ -36,7 +38,9 @@ export function formatDateOnly(dateString: string | number[]): string {
     if (!dateString) return ''
     if (Array.isArray(dateString)) {
         const [year, month, day] = dateString
-        return new Date(year, month - 1, day).toLocaleDateString()
+        // Treat array as UTC components
+        const utcDate = new Date(Date.UTC(year, month - 1, day))
+        return utcDate.toLocaleDateString()
     }
     return new Date(dateString).toLocaleDateString()
 }
@@ -44,7 +48,7 @@ export function formatDateOnly(dateString: string | number[]): string {
 export function formatTimeAgo(dateString: string | number[], t: (key: string, values?: any) => string): string {
     if (!dateString) return ''
     const date = Array.isArray(dateString)
-        ? new Date(dateString[0], dateString[1] - 1, dateString[2], dateString[3], dateString[4], dateString[5] || 0)
+        ? new Date(Date.UTC(dateString[0], dateString[1] - 1, dateString[2], dateString[3], dateString[4], dateString[5] || 0))
         : new Date(dateString)
 
     const now = new Date()

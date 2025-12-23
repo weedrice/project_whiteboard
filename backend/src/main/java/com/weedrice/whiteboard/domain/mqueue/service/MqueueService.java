@@ -16,6 +16,8 @@ public class MqueueService {
 
     private final MessageQueueRepository messageQueueRepository;
 
+    private final org.springframework.transaction.support.TransactionTemplate transactionTemplate;
+
     @Transactional
     public void queueEmail(User user, String content) {
         MessageQueue message = MessageQueue.builder()
@@ -26,8 +28,7 @@ public class MqueueService {
         messageQueueRepository.save(message);
     }
 
-    @Async
-    @Transactional
+    @Async("taskExecutor") // Use the defined executor
     public void sendEmail(MessageQueue message) {
         try {
             // TODO: 실제 이메일 발송 로직 구현 (e.g., JavaMailSender)
@@ -39,6 +40,9 @@ public class MqueueService {
             log.error("이메일 발송 실패: " + e.getMessage());
             message.failed();
         }
-        messageQueueRepository.save(message);
+        
+        transactionTemplate.executeWithoutResult(status -> {
+            messageQueueRepository.save(message);
+        });
     }
 }

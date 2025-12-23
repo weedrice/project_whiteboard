@@ -206,15 +206,16 @@ watch(() => route.params.boardUrl, () => {
                         <div v-else
                             class="h-20 w-20 rounded-full bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center">
                             <span class="text-indigo-600 dark:text-indigo-400 font-bold text-3xl">{{ board.boardName[0]
-                                }}</span>
+                            }}</span>
                         </div>
                     </router-link>
-                    <div class="flex-1 h-20 flex flex-col justify-between">
-                        <div class="flex justify-between items-start">
+                    <div class="flex-1 min-h-[5rem] flex flex-col justify-between">
+                        <div class="flex flex-col sm:flex-row justify-between items-start gap-2">
                             <router-link :to="`/board/${board.boardUrl}`" class="hover:underline cursor-pointer">
-                                <h1 class="text-2xl font-bold text-gray-900 dark:text-white">{{ board.boardName }}</h1>
+                                <h1 class="text-2xl font-bold text-gray-900 dark:text-white break-all">{{
+                                    board.boardName }}</h1>
                             </router-link>
-                            <div class="flex space-x-2">
+                            <div class="flex space-x-2 flex-shrink-0">
                                 <BaseButton v-if="authStore.isAuthenticated" @click="handleSubscribe" size="sm"
                                     :variant="board.isSubscribed ? 'secondary' : 'primary'"
                                     class="cursor-pointer transition-colors duration-200">
@@ -227,7 +228,8 @@ watch(() => route.params.boardUrl, () => {
                                 </router-link>
                             </div>
                         </div>
-                        <div class="flex items-center text-sm text-gray-500 dark:text-gray-400 space-x-4">
+                        <div
+                            class="flex flex-wrap items-center text-sm text-gray-500 dark:text-gray-400 gap-4 mt-2 sm:mt-0">
                             <span class="flex items-center">
                                 <User class="h-4 w-4 mr-1" />
                                 {{ $t('common.subscribers') }} {{ board.subscriberCount || 0 }}
@@ -239,7 +241,8 @@ watch(() => route.params.boardUrl, () => {
                                 <span v-else>{{ board.adminDisplayName || $t('board.detail.defaultAdminName') }}</span>
                             </span>
                         </div>
-                        <p class="text-sm text-gray-500 dark:text-gray-400 line-clamp-1">{{ board.description }}</p>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 line-clamp-1 mt-1">{{ board.description }}
+                        </p>
                     </div>
                 </div>
             </div>
@@ -253,21 +256,25 @@ watch(() => route.params.boardUrl, () => {
 
             <!-- Filters & Post List -->
             <div class="bg-white dark:bg-gray-800 shadow rounded-lg transition-colors duration-200">
-                <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex space-x-4">
+                <div
+                    class="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex space-x-4 overflow-x-auto scrollbar-hide">
                     <BaseButton @click="toggleFilter('all')" size="sm"
                         :variant="filterType === 'all' ? 'primary' : 'ghost'"
-                        :class="filterType === 'all' ? '!bg-indigo-100 !text-indigo-700 dark:!bg-indigo-900/50 dark:!text-indigo-300' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'">
+                        :class="filterType === 'all' ? '!bg-indigo-100 !text-indigo-700 dark:!bg-indigo-900/50 dark:!text-indigo-300' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'"
+                        class="whitespace-nowrap">
                         {{ $t('board.detail.filter.all') }}
                     </BaseButton>
                     <BaseButton @click="toggleFilter('concept')" size="sm"
                         :variant="filterType === 'concept' ? 'primary' : 'ghost'"
-                        :class="filterType === 'concept' ? '!bg-indigo-100 !text-indigo-700 dark:!bg-indigo-900/50 dark:!text-indigo-300' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'">
+                        :class="filterType === 'concept' ? '!bg-indigo-100 !text-indigo-700 dark:!bg-indigo-900/50 dark:!text-indigo-300' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'"
+                        class="whitespace-nowrap">
                         {{ $t('board.detail.filter.concept') }}
                     </BaseButton>
                     <BaseButton v-for="category in categories" :key="category.categoryId"
                         @click="toggleFilter('category', category.categoryId)" size="sm"
                         :variant="filterType === 'category' && activeFilterCategory === category.categoryId ? 'primary' : 'ghost'"
-                        :class="filterType === 'category' && activeFilterCategory === category.categoryId ? '!bg-indigo-100 !text-indigo-700 dark:!bg-indigo-900/50 dark:!text-indigo-300' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'">
+                        :class="filterType === 'category' && activeFilterCategory === category.categoryId ? '!bg-indigo-100 !text-indigo-700 dark:!bg-indigo-900/50 dark:!text-indigo-300' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'"
+                        class="whitespace-nowrap">
                         {{ category.name }}
                     </BaseButton>
                 </div>
@@ -282,7 +289,7 @@ watch(() => route.params.boardUrl, () => {
 
             <!-- Search Bar & Write Button -->
             <div
-                class="mt-4 px-4 py-4 sm:px-6 bg-gray-50 dark:bg-gray-800 rounded-lg relative flex justify-center items-center transition-colors duration-200">
+                class="mt-4 px-4 py-4 sm:px-6 bg-gray-50 dark:bg-gray-800 rounded-lg flex flex-col sm:flex-row justify-between items-center gap-4 transition-colors duration-200">
                 <div class="flex max-w-lg w-full">
                     <select v-model="searchType"
                         class="block pl-3 pr-8 py-2 text-base border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white mr-2 cursor-pointer shadow-sm transition-colors duration-200">
@@ -313,7 +320,7 @@ watch(() => route.params.boardUrl, () => {
                     </BaseButton>
                 </div>
 
-                <div class="absolute right-6">
+                <div class="w-full sm:w-auto flex justify-end">
                     <router-link v-if="canWrite" :to="`/board/${board.boardUrl}/write`"
                         class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 whitespace-nowrap">
                         <PlusCircle class="-ml-1 mr-2 h-5 w-5" />
