@@ -257,6 +257,7 @@ public class AuthService {
         return new FindIdResponse(user.getLoginId());
     }
 
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
     public void sendPasswordResetLink(String email) {
         if (!verificationCodeService.isVerified(email)) {
             throw new BusinessException(ErrorCode.EMAIL_NOT_VERIFIED);

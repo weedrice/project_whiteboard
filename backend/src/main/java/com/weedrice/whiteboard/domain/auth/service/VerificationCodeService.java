@@ -21,6 +21,7 @@ public class VerificationCodeService {
     private final EmailService emailService;
     private final org.springframework.transaction.support.TransactionTemplate transactionTemplate;
 
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
     public void sendVerificationCode(String email) {
         String code = generateRandomCode();
         

@@ -25,6 +25,7 @@ public class FileService {
     private final FileStorageService fileStorageService;
     private final org.springframework.transaction.support.TransactionTemplate transactionTemplate;
 
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
     public File uploadFile(Long uploaderId, MultipartFile multipartFile) {
         // 파일 유효성 검사 (크기, 형식 등)
         if (multipartFile.isEmpty()) {
