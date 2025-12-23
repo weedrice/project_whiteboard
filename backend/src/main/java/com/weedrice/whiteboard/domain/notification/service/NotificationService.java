@@ -76,7 +76,8 @@ public class NotificationService {
             try {
                 emitter.send(org.springframework.web.servlet.mvc.method.annotation.SseEmitter.event()
                         .name("notification")
-                        .data(com.weedrice.whiteboard.domain.notification.dto.NotificationResponse.NotificationSummary.from(notification)));
+                        .data(com.weedrice.whiteboard.domain.notification.dto.NotificationResponse.NotificationSummary
+                                .from(notification)));
             } catch (java.io.IOException e) {
                 emitters.remove(userId);
             }
@@ -109,6 +110,6 @@ public class NotificationService {
     public long getUnreadNotificationCount(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        return notificationRepository.countByUserAndIsRead(user, "N");
+        return notificationRepository.countByUserAndIsRead(user, false);
     }
 }

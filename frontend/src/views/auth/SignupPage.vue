@@ -1,5 +1,5 @@
 ﻿<script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { authApi } from '@/api/auth'
 import { Lock, User, Mail, Smile, ChevronLeft, CheckCircle } from 'lucide-vue-next'
@@ -25,11 +25,43 @@ const verification = reactive({
   code: '',
   isCodeSent: false,
   isVerified: false,
-  loading: false
+  loading: false,
+  timeLeft: 0
 })
+
+let timerInterval = null
 
 const error = ref('')
 const isLoading = ref(false)
+
+function startTimer() {
+  stopTimer()
+  verification.timeLeft = 300 // 5 minutes
+  timerInterval = setInterval(() => {
+    if (verification.timeLeft > 0) {
+      verification.timeLeft--
+    } else {
+      stopTimer()
+    }
+  }, 1000)
+}
+
+function stopTimer() {
+  if (timerInterval) {
+    clearInterval(timerInterval)
+    timerInterval = null
+  }
+}
+
+function formatTime(seconds) {
+  const m = Math.floor(seconds / 60)
+  const s = seconds % 60
+  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
+}
+
+onUnmounted(() => {
+  stopTimer()
+})
 
 async function sendVerificationCode() {
   if (!form.value.email) {
@@ -42,6 +74,7 @@ async function sendVerificationCode() {
     const { data } = await authApi.sendVerificationCode(form.value.email)
     if (data.success) {
       verification.isCodeSent = true
+      startTimer()
       toastStore.addToast(t('auth.codeSent'), 'success')
     }
   } catch (err) {
@@ -58,11 +91,17 @@ async function verifyCode() {
     return
   }
 
+  if (verification.timeLeft <= 0) {
+    toastStore.addToast(t('auth.codeExpired'), 'error')
+    return
+  }
+
   verification.loading = true
   try {
     const { data } = await authApi.verifyCode(form.value.email, verification.code)
     if (data.success) {
       verification.isVerified = true
+      stopTimer()
       toastStore.addToast(t('auth.codeVerified'), 'success')
     }
   } catch (err) {
@@ -169,32 +208,50 @@ async function handleSignup() {
             <div class="flex-grow">
               <BaseInput id="email" v-model="form.email" name="email" type="email" required
                 :placeholder="$t('auth.placeholders.newEmail')" :label="$t('common.email')" hideLabel
-                :disabled="verification.isCodeSent">
+                :disabled="verification.isCodeSent && verification.timeLeft > 0">
                 <template #prefix>
                   <Mail class="h-5 w-5 text-gray-400" />
                 </template>
               </BaseInput>
             </div>
             <BaseButton type="button" @click="sendVerificationCode"
-              :disabled="verification.isCodeSent || verification.loading"
+              :disabled="(verification.isCodeSent && verification.timeLeft > 0) || verification.loading"
               :loading="verification.loading && !verification.isCodeSent">
-              {{ verification.isCodeSent ? t('common.sent') : t('auth.sendCode') }}
+              <span v-if="verification.isCodeSent && verification.timeLeft > 0">
+                {{ t('common.sent') }}
+              </span>
+              <span v-else-if="verification.isCodeSent && verification.timeLeft <= 0">
+                {{ t('auth.resendCode') }}
+              </span>
+              <span v-else>
+                {{ t('auth.sendCode') }}
+              </span>
             </BaseButton>
           </div>
 
           <div v-if="verification.isCodeSent && !verification.isVerified"
             class="flex gap-2 items-start mt-4 animate-fade-in-down">
-            <div class="flex-grow">
-              <BaseInput v-model="verification.code" :placeholder="t('auth.codePlaceholder')" hideLabel>
+            <div class="flex-grow relative">
+              <BaseInput v-model="verification.code" :placeholder="t('auth.codePlaceholder')" hideLabel
+                :disabled="verification.timeLeft <= 0">
                 <template #prefix>
                   <CheckCircle class="h-5 w-5 text-gray-400" />
                 </template>
               </BaseInput>
+              <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium"
+                :class="verification.timeLeft <= 60 ? 'text-red-500' : 'text-gray-500'">
+                {{ formatTime(verification.timeLeft) }}
+              </span>
             </div>
-            <BaseButton type="button" @click="verifyCode" :loading="verification.loading">
+            <BaseButton type="button" @click="verifyCode"
+              :disabled="verification.loading || verification.timeLeft <= 0" :loading="verification.loading">
               {{ t('auth.verifyCode') }}
             </BaseButton>
           </div>
+          <p v-if="verification.isCodeSent && verification.timeLeft <= 0 && !verification.isVerified"
+            class="text-xs text-red-500 mt-1 ml-1">
+            {{ t('auth.codeExpired') }}
+          </p>
         </div>
 
         <div>

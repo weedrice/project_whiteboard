@@ -63,7 +63,11 @@ export function useNotification() {
     const connectToSse = () => {
         if (eventSource) return
 
-        const url = '/api/v1/notifications/stream'
+        const authStore = useAuthStore()
+        const token = authStore.accessToken
+        if (!token) return
+
+        const url = `/api/v1/notifications/stream?token=${token}`
         eventSource = new EventSource(url)
 
         eventSource.addEventListener('notification', (event) => {
