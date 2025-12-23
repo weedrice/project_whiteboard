@@ -265,6 +265,9 @@ export const messages = {
         },
         validation: '입력 값을 확인해주세요.',
         failUpload: '파일 업로드 실패',
+        cost: '생성 비용',
+        currentPoints: '보유 포인트',
+        insufficientPoints: '포인트가 부족합니다. (필요: 1000P)',
       },
       category: {
         placeholder: {

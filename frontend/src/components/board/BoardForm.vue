@@ -1,5 +1,5 @@
 ﻿<script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseTextarea from '@/components/common/ui/BaseTextarea.vue'
@@ -8,6 +8,7 @@ import { fileApi } from '@/api/file'
 import { isEmpty } from '@/utils/validation'
 import logger from '@/utils/logger'
 import { useToastStore } from '@/stores/toast'
+import { useAuthStore } from '@/stores/auth'
 
 interface BoardData {
   boardName: string
@@ -44,6 +45,10 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 const toastStore = useToastStore()
+const authStore = useAuthStore()
+
+const userPoints = computed(() => authStore.user?.points || 0)
+const canCreate = computed(() => props.isEdit || userPoints.value >= 1000)
 
 const form = ref<BoardData>({ ...props.initialData })
 const selectedFile = ref<File | null>(null)
@@ -73,6 +78,11 @@ async function handleSubmit() {
   }
   if (isEmpty(form.value.boardUrl)) {
     toastStore.addToast(t('board.form.validation'), 'error')
+    return
+  }
+
+  if (!props.isEdit && !canCreate.value) {
+    toastStore.addToast(t('board.form.insufficientPoints'), 'error')
     return
   }
 
@@ -145,11 +155,17 @@ async function handleSubmit() {
       </div>
     </div>
 
-    <div class="flex justify-end space-x-3">
+    <div class="flex justify-end space-x-3 items-center">
+      <div v-if="!isEdit" class="flex items-center mr-2 text-sm"
+        :class="canCreate ? 'text-gray-600 dark:text-gray-400' : 'text-red-500 font-bold'">
+        <span>{{ $t('board.form.cost') }}: 1000 P</span>
+        <span class="mx-2 text-gray-300">|</span>
+        <span>{{ $t('board.form.currentPoints') }}: {{ userPoints }} P</span>
+      </div>
       <BaseButton type="button" variant="secondary" @click="emit('cancel')">
         {{ $t('common.cancel') }}
       </BaseButton>
-      <BaseButton type="submit" variant="primary" :loading="isSubmitting">
+      <BaseButton type="submit" variant="primary" :loading="isSubmitting" :disabled="!isEdit && !canCreate">
         {{ isEdit ? $t('board.form.save') : $t('board.form.create') }}
       </BaseButton>
     </div>

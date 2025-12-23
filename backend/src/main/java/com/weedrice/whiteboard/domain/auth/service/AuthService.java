@@ -5,7 +5,9 @@ import com.weedrice.whiteboard.domain.auth.entity.LoginHistory;
 import com.weedrice.whiteboard.domain.auth.entity.RefreshToken;
 import com.weedrice.whiteboard.domain.auth.repository.LoginHistoryRepository;
 import com.weedrice.whiteboard.domain.auth.repository.RefreshTokenRepository;
+import com.weedrice.whiteboard.domain.point.entity.PointHistory;
 import com.weedrice.whiteboard.domain.point.entity.UserPoint;
+import com.weedrice.whiteboard.domain.point.repository.PointHistoryRepository;
 import com.weedrice.whiteboard.domain.point.repository.UserPointRepository;
 import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -47,6 +49,7 @@ public class AuthService {
 
     private final UserRepository userRepository;
     private final UserPointRepository userPointRepository;
+    private final PointHistoryRepository pointHistoryRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final AuthenticationManagerBuilder authenticationManagerBuilder;
@@ -54,12 +57,12 @@ public class AuthService {
     private final LoginHistoryRepository loginHistoryRepository;
     private final UserSettingsRepository userSettingsRepository;
     private final VerificationCodeService verificationCodeService;
-    private final PasswordResetTokenRepository passwordResetTokenRepository; // Inject PasswordResetTokenRepository
-    private final EmailService emailService; // Inject EmailService
+    private final PasswordResetTokenRepository passwordResetTokenRepository;
+    private final EmailService emailService;
     private final org.springframework.transaction.support.TransactionTemplate transactionTemplate;
 
     @Value("${cloud.aws.password-reset.frontend-url}")
-    private String passwordResetFrontendUrl; // Inject VerificationCodeService
+    private String passwordResetFrontendUrl;
 
     @Transactional
     public SignupResponse signup(SignupRequest request) {
@@ -89,8 +92,20 @@ public class AuthService {
                 .build();
         userSettingsRepository.save(userSettings);
 
-        // 포인트 정보 생성
-        userPointRepository.save(UserPoint.builder().user(savedUser).build());
+        // 포인트 정보 생성 (가입 축하금 500p)
+        UserPoint userPoint = UserPoint.builder().user(savedUser).build();
+        userPoint.addPoint(500);
+        userPointRepository.save(userPoint);
+
+        pointHistoryRepository.save(PointHistory.builder()
+                .user(savedUser)
+                .type("EARN")
+                .amount(500)
+                .balanceAfter(500)
+                .description("회원가입 축하 포인트")
+                .relatedType("SIGNUP")
+                .relatedId(savedUser.getUserId())
+                .build());
 
         return SignupResponse.builder()
                 .userId(savedUser.getUserId())
@@ -152,6 +167,8 @@ public class AuthService {
                         .profileImageUrl(user.getProfileImageUrl())
                         .isEmailVerified(user.getIsEmailVerified())
                         .role(user.getIsSuperAdmin() ? Role.SUPER_ADMIN : Role.USER)
+                        .points(userPointRepository.findById(user.getUserId()).map(UserPoint::getCurrentPoint)
+                                .orElse(0))
                         .build())
                 .build();
     }
@@ -264,7 +281,7 @@ public class AuthService {
         }
 
         String rawToken = UUID.randomUUID().toString();
-        
+
         transactionTemplate.executeWithoutResult(status -> {
             User user = userRepository.findByEmail(email)
                     .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));

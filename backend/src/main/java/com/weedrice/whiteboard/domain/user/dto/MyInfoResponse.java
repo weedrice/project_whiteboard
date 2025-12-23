@@ -19,5 +19,6 @@ public class MyInfoResponse {
     private String role;
     private Boolean isEmailVerified;
     private LocalDateTime createdAt;
-    private LocalDateTime lastLoginAt; // Added field
+    private LocalDateTime lastLoginAt;
+    private Integer points;
 }

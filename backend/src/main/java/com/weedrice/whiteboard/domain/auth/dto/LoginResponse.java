@@ -22,5 +22,6 @@ public class LoginResponse {
         private boolean isEmailVerified;
         private String role;
         private String theme;
+        private Integer points;
     }
 }

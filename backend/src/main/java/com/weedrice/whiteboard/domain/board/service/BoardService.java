@@ -12,6 +12,10 @@ import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository;
 import com.weedrice.whiteboard.domain.post.repository.DraftPostRepository;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
+import com.weedrice.whiteboard.domain.point.entity.PointHistory;
+import com.weedrice.whiteboard.domain.point.entity.UserPoint;
+import com.weedrice.whiteboard.domain.point.repository.PointHistoryRepository;
+import com.weedrice.whiteboard.domain.point.repository.UserPointRepository;
 import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
@@ -42,9 +46,11 @@ public class BoardService {
         private final BoardSubscriptionRepository boardSubscriptionRepository;
         private final UserRepository userRepository;
         private final AdminRepository adminRepository;
-        private final PostService postService; // PostService 주입
+        private final PostService postService;
         private final PostRepository postRepository;
         private final DraftPostRepository draftPostRepository;
+        private final UserPointRepository userPointRepository;
+        private final PointHistoryRepository pointHistoryRepository;
 
         public List<BoardResponse> getActiveBoards(UserDetails userDetails) {
                 List<Board> boards = boardRepository.findByIsActiveOrderBySortOrderAsc(true);
@@ -61,8 +67,6 @@ public class BoardService {
         }
 
         public List<BoardResponse> getAllBoards(UserDetails userDetails) {
-                // Admin check should be done in Controller or via SecurityUtils, but here we
-                // assume it's called by admin endpoint
                 List<Board> boards = boardRepository.findAll(org.springframework.data.domain.Sort
                                 .by(org.springframework.data.domain.Sort.Direction.ASC, "sortOrder"));
                 return boards.stream()
@@ -89,7 +93,7 @@ public class BoardService {
                 }
 
                 if (!board.getIsActive() && !isSuperAdmin && !isBoardAdmin && !isCreator) {
-                        throw new BusinessException(ErrorCode.BOARD_NOT_FOUND); // Or FORBIDDEN
+                        throw new BusinessException(ErrorCode.BOARD_NOT_FOUND);
                 }
 
                 return createBoardResponse(board, userDetails);
@@ -119,12 +123,10 @@ public class BoardService {
                         isSubscribed = boardSubscriptionRepository.existsByUserAndBoard(currentUser, board);
                 }
 
-                // 카테고리 목록을 가져와서 BoardResponse에 추가
                 List<CategoryResponse> categories = getActiveCategories(board.getBoardUrl()).stream()
                                 .map(CategoryResponse::new)
                                 .collect(Collectors.toList());
 
-                // 최신 게시글 목록 가져오기
                 Long currentUserId = (userDetails instanceof CustomUserDetails)
                                 ? ((CustomUserDetails) userDetails).getUserId()
                                 : null;
@@ -203,15 +205,25 @@ public class BoardService {
                 if (boardRepository.existsByBoardName(request.getBoardName())) {
                         throw new BusinessException(ErrorCode.DUPLICATE_BOARD_NAME);
                 }
-                if (boardRepository.existsByBoardUrl(request.getBoardUrl())) { // boardUrl 중복 체크
+                if (boardRepository.existsByBoardUrl(request.getBoardUrl())) {
                         throw new BusinessException(ErrorCode.DUPLICATE_BOARD_URL);
                 }
+
+                UserPoint userPoint = userPointRepository.findById(creatorId)
+                                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+                if (userPoint.getCurrentPoint() < 1000) {
+                        throw new BusinessException(ErrorCode.INSUFFICIENT_POINTS);
+                }
+
+                userPoint.subtractPoint(1000);
+                // userPointRepository.save(userPoint); // Dirty checking
 
                 Integer maxSortOrder = boardRepository.findMaxSortOrder();
 
                 Board board = Board.builder()
                                 .boardName(request.getBoardName())
-                                .boardUrl(request.getBoardUrl()) // boardUrl 추가
+                                .boardUrl(request.getBoardUrl())
                                 .description(request.getDescription())
                                 .creator(creator)
                                 .iconUrl(request.getIconUrl())
@@ -219,6 +231,16 @@ public class BoardService {
                                 .build();
 
                 Board savedBoard = boardRepository.save(board);
+
+                pointHistoryRepository.save(PointHistory.builder()
+                                .user(creator)
+                                .type("SPEND")
+                                .amount(-1000)
+                                .balanceAfter(userPoint.getCurrentPoint())
+                                .description("게시판 생성 (" + savedBoard.getBoardName() + ")")
+                                .relatedType("BOARD_CREATE")
+                                .relatedId(savedBoard.getBoardId())
+                                .build());
 
                 BoardCategory defaultCategory = BoardCategory.builder()
                                 .board(savedBoard)
@@ -244,13 +266,14 @@ public class BoardService {
 
                 SecurityUtils.validateBoardAdminPermission(board);
 
-                if (!board.getBoardName().equals(request.getBoardName()) &&
-                                boardRepository.existsByBoardName(request.getBoardName())) {
+                if (!board.getBoardName().equals(request.getBoardName())
+                                && boardRepository.existsByBoardName(request.getBoardName())) {
                         throw new BusinessException(ErrorCode.DUPLICATE_BOARD_NAME);
                 }
 
                 board.update(request.getBoardName(), request.getDescription(), request.getIconUrl(),
-                                request.getSortOrder(), board.getAllowNsfw(), request.getIsActive());
+                                request.getSortOrder(),
+                                board.getAllowNsfw(), request.getIsActive());
                 return board;
         }
 
@@ -262,7 +285,6 @@ public class BoardService {
                 SecurityUtils.validateBoardAdminPermission(board);
 
                 board.deactivate();
-                // 관련 엔티티(게시글, 관리자 등)는 그대로 두거나 필요 시 배치 작업으로 처리
         }
 
         @Transactional

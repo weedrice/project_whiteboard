@@ -14,6 +14,8 @@ import com.weedrice.whiteboard.domain.user.entity.UserSettings;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
 import com.weedrice.whiteboard.domain.user.service.UserService;
 import com.weedrice.whiteboard.domain.user.service.UserSettingsService;
+import com.weedrice.whiteboard.domain.point.entity.UserPoint;
+import com.weedrice.whiteboard.domain.point.repository.UserPointRepository;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
@@ -44,15 +46,21 @@ public class UserController {
         private final PostService postService;
         private final CommentService commentService;
         private final MessageSource messageSource;
+        private final UserPointRepository userPointRepository;
 
         @GetMapping("/me")
         public ResponseEntity<ApiResponse<MyInfoResponse>> getMyInfo(
                         @AuthenticationPrincipal CustomUserDetails userDetails) {
                 User user = userService.getMyInfo(userDetails.getUserId());
                 String role = user.getIsSuperAdmin() ? Role.SUPER_ADMIN : Role.USER;
+
+                Integer points = userPointRepository.findById(user.getUserId())
+                                .map(UserPoint::getCurrentPoint)
+                                .orElse(0);
+
                 MyInfoResponse response = new MyInfoResponse(user.getUserId(), user.getLoginId(), user.getEmail(),
                                 user.getDisplayName(), user.getProfileImageUrl(), user.getStatus(), role,
-                                user.getIsEmailVerified(), user.getCreatedAt(), user.getLastLoginAt());
+                                user.getIsEmailVerified(), user.getCreatedAt(), user.getLastLoginAt(), points);
                 return ResponseEntity.ok(ApiResponse.success(response));
         }
 

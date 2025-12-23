@@ -11,6 +11,7 @@ export interface User {
     theme?: 'LIGHT' | 'DARK'
     createdAt: string
     modifiedAt?: string
+    points?: number
 }
 
 export interface UserSummary {
