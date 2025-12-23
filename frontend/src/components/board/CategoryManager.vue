@@ -42,8 +42,8 @@ const editingName = ref('')
 const editingRole = ref('USER')
 const dragIndex = ref<number | null>(null)
 
-const generalCategory = computed(() => categories.value.find(c => c.name === '?쇰컲'))
-const draggableCategories = computed(() => categories.value.filter(c => c.name !== '?쇰컲'))
+const generalCategory = computed(() => categories.value.find(c => c.name === '일반'))
+const draggableCategories = computed(() => categories.value.filter(c => c.name !== '일반'))
 
 async function fetchCategories() {
   isLoading.value = true
@@ -322,4 +322,3 @@ onMounted(fetchCategories)
   position: absolute;
 }
 </style>
-

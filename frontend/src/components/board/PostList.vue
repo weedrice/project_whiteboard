@@ -146,7 +146,7 @@ const columns = computed(() => {
             <router-link :to="`/board/${boardUrl || item.boardUrl}/post/${item.postId}`"
               class="hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center h-full w-full"
               v-if="boardUrl || item.boardUrl">
-              <span v-if="item.category && item.category.name !== '?쇰컲'" class="badge badge-gray mr-2">
+              <span v-if="item.category && item.category.name !== '일반'" class="badge badge-gray mr-2">
                 {{ item.category.name }}
               </span>
               <span v-if="item.isNotice" class="badge badge-red mr-2">

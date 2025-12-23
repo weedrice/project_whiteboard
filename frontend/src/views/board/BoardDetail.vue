@@ -65,7 +65,7 @@ const { mutate: subscribeMutate } = useSubscribeBoard()
 
 // Computed Data
 const categories = computed(() => {
-    return board.value?.categories.filter(cat => cat.name !== '?쇰컲') || []
+    return board.value?.categories.filter(cat => cat.name !== '일반') || []
 })
 
 const posts = computed(() => {
@@ -116,7 +116,7 @@ const canWrite = computed(() => {
     if (!authStore.isAuthenticated || !board.value) return false
 
     // Find general category
-    const generalCategory = board.value.categories.find(c => c.name === '?쇰컲')
+    const generalCategory = board.value.categories.find(c => c.name === '일반')
     if (!generalCategory) return true // Fallback if no general category
 
     const minRole = generalCategory.minWriteRole || 'USER'
