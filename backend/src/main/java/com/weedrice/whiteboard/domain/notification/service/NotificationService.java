@@ -54,6 +54,7 @@ public class NotificationService {
         }
     }
 
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public org.springframework.web.servlet.mvc.method.annotation.SseEmitter subscribe(Long userId) {
         org.springframework.web.servlet.mvc.method.annotation.SseEmitter emitter = new org.springframework.web.servlet.mvc.method.annotation.SseEmitter(
                 Long.MAX_VALUE);
