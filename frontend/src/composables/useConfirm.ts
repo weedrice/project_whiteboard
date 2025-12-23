@@ -9,7 +9,7 @@ export function useConfirm() {
         message: string,
         title: string = t('common.confirm'),
         confirmText: string = t('common.yes'),
-        cancelText: string = t('common.no')
+        cancelText: string = t('common.noValue')
     ): Promise<boolean> => {
         return confirmStore.open(message, title, confirmText, cancelText)
     }

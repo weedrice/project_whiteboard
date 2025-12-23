@@ -307,7 +307,7 @@ async function handleSaveAll() {
           boardName: board.boardName,
           description: board.description,
           iconUrl: board.iconUrl,
-          allowNsfw: board.isActive,
+          allowNsfw: board.allowNsfw,
           sortOrder: parseInt(board.sortOrder),
           isActive: board.isActive
         }

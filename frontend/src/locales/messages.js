@@ -104,6 +104,7 @@ export const messages = {
       manage: '관리',
       subscribers: '구독자',
       no: '번호',
+      noValue: '아니오',
       views: '조회',
       likes: '추천',
       notice: '공지',

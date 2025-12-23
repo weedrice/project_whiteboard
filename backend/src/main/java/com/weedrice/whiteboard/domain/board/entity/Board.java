@@ -57,7 +57,8 @@ public class Board extends BaseTimeEntity {
     private List<BoardCategory> categories = new ArrayList<>();
 
     @Builder
-    public Board(String boardName, String boardUrl, String description, User creator, String iconUrl, Integer sortOrder) {
+    public Board(String boardName, String boardUrl, String description, User creator, String iconUrl,
+            Integer sortOrder) {
         this.boardName = boardName;
         this.boardUrl = boardUrl;
         this.description = description;
@@ -68,12 +69,16 @@ public class Board extends BaseTimeEntity {
         this.allowNsfw = false;
     }
 
-    public void update(String boardName, String description, String iconUrl, Integer sortOrder, Boolean allowNsfw) {
+    public void update(String boardName, String description, String iconUrl, Integer sortOrder, Boolean allowNsfw,
+            Boolean isActive) {
         this.boardName = boardName;
         this.description = description;
         this.iconUrl = iconUrl;
         this.sortOrder = sortOrder;
         this.allowNsfw = allowNsfw;
+        if (isActive != null) {
+            this.isActive = isActive;
+        }
     }
 
     public void updateBoardUrl(String boardUrl) {

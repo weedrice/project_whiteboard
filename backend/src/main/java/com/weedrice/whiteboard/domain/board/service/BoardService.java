@@ -125,8 +125,11 @@ public class BoardService {
                                 .collect(Collectors.toList());
 
                 // 최신 게시글 목록 가져오기
-                Long currentUserId = (userDetails instanceof CustomUserDetails) ? ((CustomUserDetails) userDetails).getUserId() : null;
-                List<PostSummary> latestPosts = postService.getLatestPostsByBoard(board.getBoardId(), 15, currentUserId);
+                Long currentUserId = (userDetails instanceof CustomUserDetails)
+                                ? ((CustomUserDetails) userDetails).getUserId()
+                                : null;
+                List<PostSummary> latestPosts = postService.getLatestPostsByBoard(board.getBoardId(), 15,
+                                currentUserId);
 
                 return new BoardResponse(board, subscriberCount, adminDisplayName, adminUserId, isAdmin, isSubscribed,
                                 categories,
@@ -247,7 +250,7 @@ public class BoardService {
                 }
 
                 board.update(request.getBoardName(), request.getDescription(), request.getIconUrl(),
-                                request.getSortOrder(), board.getAllowNsfw());
+                                request.getSortOrder(), board.getAllowNsfw(), request.getIsActive());
                 return board;
         }
 
