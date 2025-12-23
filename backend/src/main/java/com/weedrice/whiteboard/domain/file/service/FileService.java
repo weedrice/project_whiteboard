@@ -23,12 +23,9 @@ public class FileService {
     private final FileRepository fileRepository;
     private final UserRepository userRepository;
     private final FileStorageService fileStorageService;
+    private final org.springframework.transaction.support.TransactionTemplate transactionTemplate;
 
-    @Transactional
     public File uploadFile(Long uploaderId, MultipartFile multipartFile) {
-        User uploader = userRepository.findById(uploaderId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-
         // 파일 유효성 검사 (크기, 형식 등)
         if (multipartFile.isEmpty()) {
             throw new BusinessException(ErrorCode.FILE_EMPTY);
@@ -36,22 +33,33 @@ public class FileService {
         if (multipartFile.getSize() > 10 * 1024 * 1024) { // 10MB 제한
             throw new BusinessException(ErrorCode.FILE_TOO_LARGE);
         }
-        // TODO: 허용되는 파일 타입 검사 로직 추가
 
         String storedFileName = fileStorageService.storeFile(multipartFile);
-        String originalFileName = multipartFile.getOriginalFilename();
-        Long fileSize = multipartFile.getSize();
-        String mimeType = multipartFile.getContentType();
+        
+        try {
+            return transactionTemplate.execute(status -> {
+                User uploader = userRepository.findById(uploaderId)
+                        .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
-        File file = File.builder()
-                .filePath(storedFileName)
-                .originalName(originalFileName)
-                .fileSize(fileSize)
-                .mimeType(mimeType)
-                .uploader(uploader)
-                .build(); // related_id, related_type은 null로 시작 (임시 파일)
+                String originalFileName = multipartFile.getOriginalFilename();
+                Long fileSize = multipartFile.getSize();
+                String mimeType = multipartFile.getContentType();
 
-        return fileRepository.save(file);
+                File file = File.builder()
+                        .filePath(storedFileName)
+                        .originalName(originalFileName)
+                        .fileSize(fileSize)
+                        .mimeType(mimeType)
+                        .uploader(uploader)
+                        .build();
+
+                return fileRepository.save(file);
+            });
+        } catch (Exception e) {
+            // DB 저장 실패 시 S3 파일 삭제
+            fileStorageService.deleteFile(storedFileName);
+            throw e;
+        }
     }
 
     @Transactional

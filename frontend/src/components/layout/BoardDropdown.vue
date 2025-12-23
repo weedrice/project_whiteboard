@@ -40,7 +40,7 @@ const fetchItems = async () => {
     if (props.type === 'subscription') {
       response = await axios.get('/users/me/subscriptions', { params: { size: 10 } })
     } else {
-      response = await axios.get('/boards/top')
+      response = await axios.get('/boards')
     }
 
     if (response.data.success) {
@@ -110,4 +110,3 @@ watch(() => authStore.isAuthenticated, (newVal) => {
     </div>
   </div>
 </template>
-

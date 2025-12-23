@@ -22,12 +22,13 @@ public class NotificationService {
 
     private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
+    private final org.springframework.transaction.support.TransactionTemplate transactionTemplate;
 
     private final java.util.Map<Long, org.springframework.web.servlet.mvc.method.annotation.SseEmitter> emitters = new java.util.concurrent.ConcurrentHashMap<>();
 
     // @TransactionalEventListener 메서드에 @Transactional을 붙일 경우 REQUIRES_NEW 또는
     // NOT_SUPPORTED를 명시해야 함
-    @Transactional(propagation = Propagation.REQUIRES_NEW) // 새로운 트랜잭션에서 실행
+    @Transactional(propagation = Propagation.NOT_SUPPORTED) // 트랜잭션 없이 실행
     @TransactionalEventListener
     public void handleNotificationEvent(NotificationEvent event) {
         // 자기 자신에게는 알림을 보내지 않음
@@ -35,18 +36,22 @@ public class NotificationService {
             return;
         }
 
-        Notification notification = Notification.builder()
-                .user(event.getUserToNotify())
-                .actor(event.getActor())
-                .notificationType(event.getNotificationType())
-                .sourceType(event.getSourceType())
-                .sourceId(event.getSourceId())
-                .content(event.getContent())
-                .build();
-        notificationRepository.save(notification);
+        Notification notification = transactionTemplate.execute(status -> {
+            Notification noti = Notification.builder()
+                    .user(event.getUserToNotify())
+                    .actor(event.getActor())
+                    .notificationType(event.getNotificationType())
+                    .sourceType(event.getSourceType())
+                    .sourceId(event.getSourceId())
+                    .content(event.getContent())
+                    .build();
+            return notificationRepository.save(noti);
+        });
 
         // SSE 전송
-        sendNotificationToUser(event.getUserToNotify().getUserId(), notification);
+        if (notification != null) {
+            sendNotificationToUser(event.getUserToNotify().getUserId(), notification);
+        }
     }
 
     public org.springframework.web.servlet.mvc.method.annotation.SseEmitter subscribe(Long userId) {

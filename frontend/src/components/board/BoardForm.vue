@@ -55,7 +55,7 @@ watch(() => props.initialData, (newData) => {
   if (newData.iconUrl) {
     previewImage.value = newData.iconUrl
   }
-}, { deep: true })
+}, { deep: true, immediate: true })
 
 const handleFileChange = (event: Event) => {
   const target = event.target as HTMLInputElement

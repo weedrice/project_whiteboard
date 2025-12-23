@@ -56,6 +56,7 @@ public class AuthService {
     private final VerificationCodeService verificationCodeService;
     private final PasswordResetTokenRepository passwordResetTokenRepository; // Inject PasswordResetTokenRepository
     private final EmailService emailService; // Inject EmailService
+    private final org.springframework.transaction.support.TransactionTemplate transactionTemplate;
 
     @Value("${cloud.aws.password-reset.frontend-url}")
     private String passwordResetFrontendUrl; // Inject VerificationCodeService
@@ -256,25 +257,27 @@ public class AuthService {
         return new FindIdResponse(user.getLoginId());
     }
 
-    @Transactional
     public void sendPasswordResetLink(String email) {
         if (!verificationCodeService.isVerified(email)) {
             throw new BusinessException(ErrorCode.EMAIL_NOT_VERIFIED);
         }
 
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-
         String rawToken = UUID.randomUUID().toString();
-        String hashedToken = hashTokenSha256(rawToken);
-        LocalDateTime expiryDate = LocalDateTime.now().plusHours(1); // 1시간 유효
+        
+        transactionTemplate.executeWithoutResult(status -> {
+            User user = userRepository.findByEmail(email)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
-        PasswordResetToken passwordResetToken = PasswordResetToken.builder()
-                .token(hashedToken)
-                .user(user)
-                .expiryDate(expiryDate)
-                .build();
-        passwordResetTokenRepository.save(passwordResetToken);
+            String hashedToken = hashTokenSha256(rawToken);
+            LocalDateTime expiryDate = LocalDateTime.now().plusHours(1); // 1시간 유효
+
+            PasswordResetToken passwordResetToken = PasswordResetToken.builder()
+                    .token(hashedToken)
+                    .user(user)
+                    .expiryDate(expiryDate)
+                    .build();
+            passwordResetTokenRepository.save(passwordResetToken);
+        });
 
         String resetLink = passwordResetFrontendUrl + rawToken;
         String subject = "[Whiteboard] 비밀번호 재설정 링크";

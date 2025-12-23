@@ -19,19 +19,22 @@ public class VerificationCodeService {
 
     private final VerificationCodeRepository verificationCodeRepository;
     private final EmailService emailService;
+    private final org.springframework.transaction.support.TransactionTemplate transactionTemplate;
 
-    @Transactional
     public void sendVerificationCode(String email) {
         String code = generateRandomCode();
-        LocalDateTime expiryDate = LocalDateTime.now().plusMinutes(5); // 5분 유효
+        
+        transactionTemplate.executeWithoutResult(status -> {
+            LocalDateTime expiryDate = LocalDateTime.now().plusMinutes(5); // 5분 유효
 
-        VerificationCode verificationCode = VerificationCode.builder()
-                .email(email)
-                .code(code)
-                .expiryDate(expiryDate)
-                .build();
+            VerificationCode verificationCode = VerificationCode.builder()
+                    .email(email)
+                    .code(code)
+                    .expiryDate(expiryDate)
+                    .build();
 
-        verificationCodeRepository.save(verificationCode);
+            verificationCodeRepository.save(verificationCode);
+        });
 
         String subject = "[Whiteboard] 이메일 인증 코드";
         String body = "<h1>이메일 인증 코드</h1><p>아래 코드를 입력하여 인증을 완료해주세요.</p><h3>" + code + "</h3>";
