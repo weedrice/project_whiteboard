@@ -1,4 +1,5 @@
 import { fileURLToPath, URL } from 'node:url'
+import { execSync } from 'child_process'
 
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
@@ -16,7 +17,7 @@ export default defineConfig({
         },
     },
     define: {
-        __COMMIT_HASH__: JSON.stringify(require('child_process').execSync('git rev-parse --short HEAD').toString().trim())
+        __COMMIT_HASH__: JSON.stringify(execSync('git rev-parse --short HEAD').toString().trim())
     },
     server: {
         proxy: {
