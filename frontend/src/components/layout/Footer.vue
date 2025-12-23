@@ -6,6 +6,7 @@ import BaseButton from '@/components/common/ui/BaseButton.vue'
 
 const currentYear = computed(() => new Date().getFullYear())
 const themeStore = useThemeStore()
+const commitHash = __COMMIT_HASH__
 </script>
 
 <template>
@@ -29,6 +30,10 @@ const themeStore = useThemeStore()
             <!-- Github Icon or similar could go here -->
             {{ $t('common.footer.github') }}
           </a>
+          <span class="text-xs text-gray-400 border-l border-gray-300 dark:border-gray-600 pl-3 ml-3"
+            :title="'Commit: ' + commitHash">
+            {{ commitHash }}
+          </span>
           <!-- <a href="#" class="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300">
             Terms
           </a>
@@ -40,4 +45,3 @@ const themeStore = useThemeStore()
     </div>
   </footer>
 </template>
-

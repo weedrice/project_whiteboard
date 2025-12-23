@@ -15,6 +15,9 @@ export default defineConfig({
             '@': fileURLToPath(new URL('./src', import.meta.url))
         },
     },
+    define: {
+        __COMMIT_HASH__: JSON.stringify(require('child_process').execSync('git rev-parse --short HEAD').toString().trim())
+    },
     server: {
         proxy: {
             '/api': {
