@@ -14,6 +14,11 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @EnableAsync
 public class WhiteboardApplication {
 
+	@jakarta.annotation.PostConstruct
+	public void init() {
+		java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("Asia/Seoul"));
+	}
+
 	public static void main(String[] args) {
 		SpringApplication.run(WhiteboardApplication.class, args);
 	}

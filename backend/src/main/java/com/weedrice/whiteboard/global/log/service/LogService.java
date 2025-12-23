@@ -9,18 +9,20 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import static org.springframework.transaction.annotation.Propagation.REQUIRES_NEW;
+
 @Service
 @RequiredArgsConstructor
 public class LogService {
 
     private final LogRepository logRepository;
 
-    @Transactional
+    @Transactional(propagation = REQUIRES_NEW)
     public void saveLog(Log log) {
         logRepository.save(log);
     }
 
-    @Transactional
+    @Transactional(propagation = REQUIRES_NEW)
     public void saveLog(Long userId, String actionType, String ipAddress, String details) {
         Log log = Log.builder()
                 .userId(userId)
