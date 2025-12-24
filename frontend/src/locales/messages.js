@@ -194,7 +194,7 @@ export const messages = {
       passwordMismatch: '비밀번호가 일치하지 않습니다.',
       verificationFailed: '인증에 실패했습니다.',
       validation: {
-        passwordStrength: '',
+        passwordStrength: '비밀번호는 영문, 숫자를 포함하여 8자 이상이어야 합니다.',
         loginIdFormat: '아이디 형식이 올바르지 않습니다.',
         emailFormat: '이메일 형식이 올바르지 않습니다.'
       }

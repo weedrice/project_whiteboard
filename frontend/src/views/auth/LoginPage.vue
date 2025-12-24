@@ -84,7 +84,7 @@ async function handleLogin() {
       </div>
 
       <div class="w-[80%] mx-auto flex justify-end">
-        <router-link to="/find"
+        <router-link v-if="false" to="/find"
           class="text-sm text-gray-600 hover:text-indigo-500 dark:text-gray-400 dark:hover:text-indigo-400">
           {{ $t('auth.findIdPassword') }}
         </router-link>
@@ -99,4 +99,3 @@ async function handleLogin() {
     </form>
   </div>
 </template>
-

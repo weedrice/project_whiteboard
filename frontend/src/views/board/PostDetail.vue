@@ -147,24 +147,28 @@ watch(() => route.hash, (newHash) => {
   }
 })
 
-watch(post, (newPost) => {
+watch(post, (newPost, oldPost) => {
   if (newPost) {
     if (newPost.isSpoiler) {
       isBlurred.value = true
       timeLeft.value = 5
       startBlurTimer()
     }
-    nextTick(() => {
-      window.scrollTo(0, 0)
-      if (route.hash) {
-        const element = document.querySelector(route.hash)
-        if (element) {
-          element.scrollIntoView({ behavior: 'smooth' })
+
+    // Only scroll if it's a new post (different ID) or initial load
+    if (!oldPost || newPost.postId !== oldPost.postId) {
+      nextTick(() => {
+        window.scrollTo(0, 0)
+        if (route.hash) {
+          const element = document.querySelector(route.hash)
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth' })
+          }
+        } else if (titleRef.value) {
+          titleRef.value.scrollIntoView({ behavior: 'smooth' })
         }
-      } else if (titleRef.value) {
-        titleRef.value.scrollIntoView({ behavior: 'smooth' })
-      }
-    })
+      })
+    }
   }
 })
 
@@ -365,4 +369,3 @@ function handleShare() {
     </div>
   </BaseCard>
 </template>
-
