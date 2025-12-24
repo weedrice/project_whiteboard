@@ -20,11 +20,13 @@ const props = withDefaults(defineProps<{
   variant?: ButtonVariant
   size?: 'sm' | 'md' | 'lg'
   disabled?: boolean
+  fullWidth?: boolean
 }>(), {
   type: 'button',
   variant: 'primary',
   size: 'md',
-  disabled: false
+  disabled: false,
+  fullWidth: false
 })
 
 defineEmits<{
@@ -32,17 +34,18 @@ defineEmits<{
 }>()
 
 const btnClass = computed(() => {
+  const base = props.fullWidth ? 'w-full ' : ''
   switch (props.variant) {
     case 'primary':
-      return 'btn-primary'
+      return base + 'btn-primary'
     case 'secondary':
-      return 'btn-secondary'
+      return base + 'btn-secondary'
     case 'danger':
-      return 'btn-danger'
+      return base + 'btn-danger'
     case 'ghost':
-      return 'btn-ghost'
+      return base + 'btn-ghost'
     default:
-      return 'btn-primary'
+      return base + 'btn-primary'
   }
 })
 
