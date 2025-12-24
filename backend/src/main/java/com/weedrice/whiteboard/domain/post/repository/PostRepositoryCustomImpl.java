@@ -31,6 +31,9 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                         List<Long> blockedUserIds, @NonNull Pageable pageable) {
                 List<Post> content = queryFactory
                                 .selectFrom(post)
+                                .join(post.user).fetchJoin()
+                                .join(post.board).fetchJoin()
+                                .leftJoin(post.category).fetchJoin()
                                 .where(
                                                 post.board.boardId.eq(boardId),
                                                 categoryIdEq(categoryId),
@@ -64,6 +67,9 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
 
                 List<Post> content = queryFactory
                                 .selectFrom(post)
+                                .join(post.user).fetchJoin()
+                                .join(post.board).fetchJoin()
+                                .leftJoin(post.category).fetchJoin()
                                 .where(
                                                 keywordExpression,
                                                 post.isDeleted.eq(false),
@@ -109,6 +115,9 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
 
                 List<Post> content = queryFactory
                                 .selectFrom(post)
+                                .join(post.user).fetchJoin()
+                                .join(post.board).fetchJoin()
+                                .leftJoin(post.category).fetchJoin()
                                 .where(
                                                 searchCondition,
                                                 boardCondition,
@@ -138,6 +147,9 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                                 .select(post)
                                 .from(postTag)
                                 .join(postTag.post, post)
+                                .join(post.user).fetchJoin()
+                                .join(post.board).fetchJoin()
+                                .leftJoin(post.category).fetchJoin()
                                 .where(
                                                 postTag.tag.tagId.eq(tagId),
                                                 post.isDeleted.eq(false),
@@ -164,6 +176,9 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                         List<Long> blockedUserIds) {
                 return queryFactory
                                 .selectFrom(post)
+                                .join(post.user).fetchJoin()
+                                .join(post.board).fetchJoin()
+                                .leftJoin(post.category).fetchJoin()
                                 .where(
                                                 post.board.boardId.eq(boardId),
                                                 post.isNotice.eq(isNotice),
@@ -178,6 +193,9 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                         Pageable pageable) {
                 return queryFactory
                                 .selectFrom(post)
+                                .join(post.user).fetchJoin()
+                                .join(post.board).fetchJoin()
+                                .leftJoin(post.category).fetchJoin()
                                 .where(
                                                 post.board.boardId.eq(boardId),
                                                 post.isDeleted.eq(isDeleted),
@@ -192,6 +210,9 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
         public List<Post> findTrendingPosts(LocalDateTime since, List<Long> blockedUserIds, Pageable pageable) {
                 return queryFactory
                                 .selectFrom(post)
+                                .join(post.user).fetchJoin()
+                                .join(post.board).fetchJoin()
+                                .leftJoin(post.category).fetchJoin()
                                 .where(
                                                 post.createdAt.goe(since),
                                                 post.isDeleted.eq(false),
