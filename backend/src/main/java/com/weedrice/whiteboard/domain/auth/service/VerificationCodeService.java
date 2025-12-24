@@ -24,7 +24,7 @@ public class VerificationCodeService {
     @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
     public void sendVerificationCode(String email) {
         String code = generateRandomCode();
-        
+
         transactionTemplate.executeWithoutResult(status -> {
             LocalDateTime expiryDate = LocalDateTime.now().plusMinutes(5); // 5분 유효
 
@@ -37,7 +37,7 @@ public class VerificationCodeService {
             verificationCodeRepository.save(verificationCode);
         });
 
-        String subject = "[Whiteboard] 이메일 인증 코드";
+        String subject = "[noviIs] 이메일 인증 코드";
         String body = "<h1>이메일 인증 코드</h1><p>아래 코드를 입력하여 인증을 완료해주세요.</p><h3>" + code + "</h3>";
 
         emailService.sendEmail(email, subject, body);

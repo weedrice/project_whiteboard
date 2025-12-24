@@ -142,10 +142,10 @@ async function handleSignup() {
     return
   }
 
-  if (!verification.isVerified) {
-    toastStore.addToast(t('auth.emailNotVerified'), 'error')
-    return
-  }
+  // if (!verification.isVerified) {
+  //   toastStore.addToast(t('auth.emailNotVerified'), 'error')
+  //   return
+  // }
   if (isEmpty(form.value.displayName)) {
     toastStore.addToast(t('auth.placeholders.displayName'), 'error')
     return
@@ -203,7 +203,7 @@ async function handleSignup() {
         </div>
 
         <!-- Email Verification -->
-        <div>
+        <!-- <div>
           <div class="flex gap-2 items-start">
             <div class="flex-grow">
               <BaseInput id="email" v-model="form.email" name="email" type="email" required
@@ -252,6 +252,16 @@ async function handleSignup() {
             class="text-xs text-red-500 mt-1 ml-1">
             {{ t('auth.codeExpired') }}
           </p>
+        </div> -->
+
+        <!-- Email Input (Without Verification) -->
+        <div>
+          <BaseInput id="email" v-model="form.email" name="email" type="email" required
+            :placeholder="$t('auth.placeholders.newEmail')" :label="$t('common.email')" hideLabel>
+            <template #prefix>
+              <Mail class="h-5 w-5 text-gray-400" />
+            </template>
+          </BaseInput>
         </div>
 
         <div>

@@ -73,9 +73,9 @@ public class AuthService {
             throw new BusinessException(ErrorCode.DUPLICATE_EMAIL);
         }
 
-        if (!verificationCodeService.isVerified(request.getEmail())) {
-            throw new BusinessException(ErrorCode.EMAIL_NOT_VERIFIED);
-        }
+        // if (!verificationCodeService.isVerified(request.getEmail())) {
+        // throw new BusinessException(ErrorCode.EMAIL_NOT_VERIFIED);
+        // }
 
         User user = User.builder()
                 .loginId(request.getLoginId())
@@ -298,7 +298,7 @@ public class AuthService {
         });
 
         String resetLink = passwordResetFrontendUrl + rawToken;
-        String subject = "[Whiteboard] 비밀번호 재설정 링크";
+        String subject = "[noviIs] 비밀번호 재설정 링크";
         String body = "<h1>비밀번호 재설정</h1><p>아래 링크를 클릭하여 비밀번호를 재설정해주세요.</p><p><a href=\"" + resetLink + "\">" + resetLink
                 + "</a></p>";
 

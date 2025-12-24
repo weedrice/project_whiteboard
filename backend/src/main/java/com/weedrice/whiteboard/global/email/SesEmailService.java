@@ -33,8 +33,9 @@ public class SesEmailService implements EmailService {
                     .source(sender)
                     .build();
 
-            sesClient.sendEmail(request);
-            log.info("Email sent to: {}", to);
+            // sesClient.sendEmail(request);
+            // log.info("Email sent to: {}", to);
+            log.info("Email sending disabled. To: {}, Subject: {}, Body: {}", to, subject, body);
         } catch (SesException e) {
             log.error("Failed to send email to: {}", to, e);
             // TODO: ErrorCode.EMAIL_SEND_FAILED 추가 필요
