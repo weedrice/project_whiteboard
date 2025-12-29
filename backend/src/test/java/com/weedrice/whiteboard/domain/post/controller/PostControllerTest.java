@@ -80,7 +80,8 @@ class PostControllerTest {
 
     @BeforeEach
     void setUp() throws Exception {
-        customUserDetails = new CustomUserDetails(1L, "test@example.com", "password", Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER")));
+        customUserDetails = new CustomUserDetails(1L, "test@example.com", "password",
+                Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER")));
 
         user = User.builder().displayName("Test User").build();
         ReflectionTestUtils.setField(user, "userId", 1L);
@@ -93,7 +94,8 @@ class PostControllerTest {
         category = BoardCategory.builder().name("Cat").board(board).build();
         ReflectionTestUtils.setField(category, "categoryId", 1L);
 
-        post = Post.builder().title("Test Post").contents("Contents").user(user).board(board).category(category).build();
+        post = Post.builder().title("Test Post").contents("Contents").user(user).board(board).category(category)
+                .build();
         ReflectionTestUtils.setField(post, "postId", 1L);
         ReflectionTestUtils.setField(post, "createdAt", LocalDateTime.now());
 
@@ -116,13 +118,14 @@ class PostControllerTest {
         @DisplayName("게시글 목록 조회 성공")
         void getPosts_success() throws Exception {
             String boardUrl = "free";
-            Page<Post> postPage = new PageImpl<>(List.of(post));
+            PostSummary summary = PostSummary.from(post);
+            Page<PostSummary> summaryPage = new PageImpl<>(List.of(summary));
 
-            when(postService.getPosts(eq(boardUrl), any(), any(), any(Pageable.class))).thenReturn(postPage);
+            when(postService.getPosts(eq(boardUrl), any(), any(), any(), any(Pageable.class))).thenReturn(summaryPage);
 
             mockMvc.perform(get("/api/v1/boards/{boardUrl}/posts", boardUrl)
-                            .with(user(customUserDetails))
-                            .accept(MediaType.APPLICATION_JSON))
+                    .with(user(customUserDetails))
+                    .accept(MediaType.APPLICATION_JSON))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.success").value(true));
         }
@@ -134,8 +137,8 @@ class PostControllerTest {
             when(postService.getTrendingPosts(anyInt(), any())).thenReturn(List.of(summary));
 
             mockMvc.perform(get("/api/v1/posts/trending")
-                            .with(user(customUserDetails))
-                            .accept(MediaType.APPLICATION_JSON))
+                    .with(user(customUserDetails))
+                    .accept(MediaType.APPLICATION_JSON))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.success").value(true));
         }
@@ -149,8 +152,8 @@ class PostControllerTest {
             when(postService.getViewHistory(any(), eq(postId))).thenReturn(ViewHistory.builder().build());
 
             mockMvc.perform(get("/api/v1/posts/{postId}", postId)
-                            .with(user(customUserDetails))
-                            .accept(MediaType.APPLICATION_JSON))
+                    .with(user(customUserDetails))
+                    .accept(MediaType.APPLICATION_JSON))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.success").value(true));
         }
@@ -162,10 +165,10 @@ class PostControllerTest {
             ViewHistoryRequest request = new ViewHistoryRequest(100L, 0L);
 
             mockMvc.perform(put("/api/v1/posts/{postId}/history", postId)
-                            .with(user(customUserDetails))
-                            .with(csrf())
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(request)))
+                    .with(user(customUserDetails))
+                    .with(csrf())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(request)))
                     .andExpect(status().isOk());
         }
     }
@@ -177,16 +180,17 @@ class PostControllerTest {
         @DisplayName("게시글 생성 성공")
         void createPost_success() throws Exception {
             String boardUrl = "free";
-            PostCreateRequest request = new PostCreateRequest(null, "Title", "Content", List.of("tag"), false, false, false, null);
-            
+            PostCreateRequest request = new PostCreateRequest(null, "Title", "Content", List.of("tag"), false, false,
+                    false, null);
+
             when(postService.createPost(anyLong(), eq(boardUrl), any(PostCreateRequest.class))).thenReturn(post);
 
             mockMvc.perform(post("/api/v1/boards/{boardUrl}/posts", boardUrl)
-                            .with(user(customUserDetails))
-                            .with(csrf())
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .accept(MediaType.APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(request)))
+                    .with(user(customUserDetails))
+                    .with(csrf())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .accept(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(request)))
                     .andExpect(status().isCreated())
                     .andExpect(jsonPath("$.success").value(true));
         }
@@ -195,15 +199,16 @@ class PostControllerTest {
         @DisplayName("게시글 수정 성공")
         void updatePost_success() throws Exception {
             Long postId = 1L;
-            PostUpdateRequest request = new PostUpdateRequest(null, "Title", "Content", List.of("tag"), false, false, null);
+            PostUpdateRequest request = new PostUpdateRequest(null, "Title", "Content", List.of("tag"), false, false,
+                    null);
 
             when(postService.updatePost(anyLong(), eq(postId), any(PostUpdateRequest.class))).thenReturn(post);
 
             mockMvc.perform(put("/api/v1/posts/{postId}", postId)
-                            .with(user(customUserDetails))
-                            .with(csrf())
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(request)))
+                    .with(user(customUserDetails))
+                    .with(csrf())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(request)))
                     .andExpect(status().isOk());
         }
 
@@ -212,8 +217,8 @@ class PostControllerTest {
         void deletePost_success() throws Exception {
             Long postId = 1L;
             mockMvc.perform(delete("/api/v1/posts/{postId}", postId)
-                            .with(user(customUserDetails))
-                            .with(csrf()))
+                    .with(user(customUserDetails))
+                    .with(csrf()))
                     .andExpect(status().isOk());
         }
     }
@@ -226,13 +231,13 @@ class PostControllerTest {
         void likePost_success() throws Exception {
             Long postId = 1L;
             ReflectionTestUtils.setField(post, "likeCount", 1);
-            
+
             when(postService.getPostById(eq(postId), any())).thenReturn(post);
 
             mockMvc.perform(post("/api/v1/posts/{postId}/like", postId)
-                            .with(user(customUserDetails))
-                            .with(csrf())
-                            .accept(MediaType.APPLICATION_JSON))
+                    .with(user(customUserDetails))
+                    .with(csrf())
+                    .accept(MediaType.APPLICATION_JSON))
                     .andExpect(status().isCreated())
                     .andExpect(jsonPath("$.success").value(true));
         }
@@ -242,13 +247,13 @@ class PostControllerTest {
         void unlikePost_success() throws Exception {
             Long postId = 1L;
             ReflectionTestUtils.setField(post, "likeCount", 0);
-            
+
             when(postService.getPostById(eq(postId), any())).thenReturn(post);
 
             mockMvc.perform(delete("/api/v1/posts/{postId}/like", postId)
-                            .with(user(customUserDetails))
-                            .with(csrf())
-                            .accept(MediaType.APPLICATION_JSON))
+                    .with(user(customUserDetails))
+                    .with(csrf())
+                    .accept(MediaType.APPLICATION_JSON))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.success").value(true));
         }
@@ -260,10 +265,10 @@ class PostControllerTest {
             PostScrapRequest request = new PostScrapRequest("Remark");
 
             mockMvc.perform(post("/api/v1/posts/{postId}/scrap", postId)
-                            .with(user(customUserDetails))
-                            .with(csrf())
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(request)))
+                    .with(user(customUserDetails))
+                    .with(csrf())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(request)))
                     .andExpect(status().isCreated());
         }
 
@@ -272,8 +277,8 @@ class PostControllerTest {
         void unscrapPost_success() throws Exception {
             Long postId = 1L;
             mockMvc.perform(delete("/api/v1/posts/{postId}/scrap", postId)
-                            .with(user(customUserDetails))
-                            .with(csrf()))
+                    .with(user(customUserDetails))
+                    .with(csrf()))
                     .andExpect(status().isOk());
         }
 
@@ -281,10 +286,11 @@ class PostControllerTest {
         @DisplayName("내 스크랩 조회")
         void getMyScraps_success() throws Exception {
             Page<Scrap> page = Page.empty();
-            when(postService.getMyScraps(anyLong(), any())).thenReturn(page);
+            ScrapListResponse response = ScrapListResponse.from(page);
+            when(postService.getMyScraps(anyLong(), any())).thenReturn(response);
 
             mockMvc.perform(get("/api/v1/users/me/scraps")
-                            .with(user(customUserDetails)))
+                    .with(user(customUserDetails)))
                     .andExpect(status().isOk());
         }
     }
@@ -296,10 +302,11 @@ class PostControllerTest {
         @DisplayName("임시저장 목록 조회")
         void getMyDrafts_success() throws Exception {
             Page<DraftPost> page = Page.empty();
-            when(postService.getDraftPosts(anyLong(), any())).thenReturn(page);
+            DraftListResponse response = DraftListResponse.from(page);
+            when(postService.getDraftPosts(anyLong(), any())).thenReturn(response);
 
             mockMvc.perform(get("/api/v1/users/me/drafts")
-                            .with(user(customUserDetails)))
+                    .with(user(customUserDetails)))
                     .andExpect(status().isOk());
         }
 
@@ -310,12 +317,13 @@ class PostControllerTest {
             DraftPost draft = DraftPost.builder().title("Draft").user(user).board(board).build();
             ReflectionTestUtils.setField(draft, "draftId", 1L);
             ReflectionTestUtils.setField(draft, "modifiedAt", LocalDateTime.now());
-            
-            when(postService.getDraftPost(anyLong(), eq(draftId))).thenReturn(draft);
+
+            DraftResponse response = DraftResponse.from(draft);
+            when(postService.getDraftPost(anyLong(), eq(draftId))).thenReturn(response);
 
             mockMvc.perform(get("/api/v1/drafts/{draftId}", draftId)
-                            .with(user(customUserDetails))
-                            .accept(MediaType.APPLICATION_JSON))
+                    .with(user(customUserDetails))
+                    .accept(MediaType.APPLICATION_JSON))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.success").value(true));
         }
@@ -326,14 +334,14 @@ class PostControllerTest {
             PostDraftRequest request = new PostDraftRequest(null, "free", "Title", "Content", null);
             DraftPost draft = DraftPost.builder().title("Title").build();
             ReflectionTestUtils.setField(draft, "draftId", 1L);
-            
+
             when(postService.saveDraftPost(anyLong(), any())).thenReturn(draft);
 
             mockMvc.perform(post("/api/v1/drafts")
-                            .with(user(customUserDetails))
-                            .with(csrf())
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(request)))
+                    .with(user(customUserDetails))
+                    .with(csrf())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(request)))
                     .andExpect(status().isCreated());
         }
 
@@ -342,8 +350,8 @@ class PostControllerTest {
         void deleteDraft_success() throws Exception {
             Long draftId = 1L;
             mockMvc.perform(delete("/api/v1/drafts/{draftId}", draftId)
-                            .with(user(customUserDetails))
-                            .with(csrf()))
+                    .with(user(customUserDetails))
+                    .with(csrf()))
                     .andExpect(status().isOk());
         }
     }
@@ -352,10 +360,11 @@ class PostControllerTest {
     @DisplayName("게시글 버전 조회")
     void getPostVersions_success() throws Exception {
         Long postId = 1L;
-        when(postService.getPostVersions(postId)).thenReturn(Collections.emptyList());
+        List<PostVersionResponse> responses = Collections.emptyList();
+        when(postService.getPostVersions(postId)).thenReturn(responses);
 
         mockMvc.perform(get("/api/v1/posts/{postId}/versions", postId)
-                        .with(user(customUserDetails)))
+                .with(user(customUserDetails)))
                 .andExpect(status().isOk());
     }
 }

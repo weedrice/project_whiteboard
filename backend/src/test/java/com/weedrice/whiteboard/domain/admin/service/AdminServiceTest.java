@@ -1,5 +1,8 @@
 package com.weedrice.whiteboard.domain.admin.service;
 
+import com.weedrice.whiteboard.domain.admin.dto.AdminResponse;
+import com.weedrice.whiteboard.domain.admin.dto.IpBlockResponse;
+import com.weedrice.whiteboard.domain.admin.dto.SuperAdminUpdateResponse;
 import com.weedrice.whiteboard.domain.admin.dto.SuperAdminResponse;
 import com.weedrice.whiteboard.domain.admin.entity.Admin;
 import com.weedrice.whiteboard.domain.admin.entity.IpBlock;
@@ -65,11 +68,12 @@ class AdminServiceTest {
         when(adminRepository.save(any(Admin.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         // when
-        Admin createdAdmin = adminService.createAdmin(loginId, null, role);
+        // when
+        AdminResponse createdAdmin = adminService.createAdmin(loginId, null, role);
 
         // then
         assertThat(createdAdmin.getRole()).isEqualTo(role);
-        assertThat(createdAdmin.getUser()).isEqualTo(user);
+        assertThat(createdAdmin.getUser().getLoginId()).isEqualTo(user.getLoginId());
     }
 
     @Test
@@ -84,7 +88,8 @@ class AdminServiceTest {
         when(ipBlockRepository.save(any(IpBlock.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         // when
-        IpBlock ipBlock = adminService.blockIp(adminUserId, ipAddress, "Test", null);
+        // when
+        IpBlockResponse ipBlock = adminService.blockIp(adminUserId, ipAddress, "Test", null);
 
         // then
         assertThat(ipBlock.getIpAddress()).isEqualTo(ipAddress);
@@ -101,10 +106,11 @@ class AdminServiceTest {
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         // when
-        User superAdmin = adminService.createSuperAdmin(loginId);
+        // when
+        SuperAdminUpdateResponse superAdmin = adminService.createSuperAdmin(loginId);
 
         // then
-        assertThat(superAdmin.getIsSuperAdmin()).isEqualTo(true);
+        assertThat(superAdmin.isSuperAdmin()).isEqualTo(true);
     }
 
     @Test
@@ -118,10 +124,11 @@ class AdminServiceTest {
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         // when
-        User normalUser = adminService.deactiveSuperAdmin(loginId);
+        // when
+        SuperAdminUpdateResponse normalUser = adminService.deactiveSuperAdmin(loginId);
 
         // then
-        assertThat(normalUser.getIsSuperAdmin()).isEqualTo(false);
+        assertThat(normalUser.isSuperAdmin()).isEqualTo(false);
     }
 
     @Test
