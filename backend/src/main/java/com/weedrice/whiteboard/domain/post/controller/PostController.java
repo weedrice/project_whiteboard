@@ -47,36 +47,7 @@ public class PostController {
             searchService.recordSearch(userId, keyword);
         }
 
-        Page<Post> posts = postService.getPosts(boardUrl, categoryId, minLikes, userId, pageable);
-
-        List<PostSummary> summaries = new java.util.ArrayList<>();
-        long totalElements = posts.getTotalElements();
-        int pageNumber = posts.getNumber();
-        int pageSize = posts.getSize();
-
-        boolean isAscending = pageable.getSort().stream()
-                .anyMatch(order -> order.getProperty().equals("createdAt") && order.isAscending()
-                        || order.getProperty().equals("postId") && order.isAscending());
-
-        List<Long> postIds = posts.getContent().stream().map(Post::getPostId)
-                .collect(java.util.stream.Collectors.toList());
-        java.util.Set<Long> postIdsWithImages = postService.getPostIdsWithImages(postIds);
-
-        for (int i = 0; i < posts.getContent().size(); i++) {
-            Post post = posts.getContent().get(i);
-            PostSummary summary = PostSummary.from(post);
-            summary.setHasImage(postIdsWithImages.contains(post.getPostId()));
-
-            if (isAscending) {
-                summary.setRowNum(((long) pageNumber * pageSize) + i + 1);
-            } else {
-                summary.setRowNum(totalElements - ((long) pageNumber * pageSize) - i);
-            }
-            summaries.add(summary);
-        }
-
-        Page<PostSummary> summaryPage = new org.springframework.data.domain.PageImpl<>(summaries, pageable,
-                totalElements);
+        Page<PostSummary> summaryPage = postService.getPosts(boardUrl, categoryId, minLikes, userId, pageable);
 
         return ApiResponse.success(new PageResponse<>(summaryPage));
     }
@@ -94,17 +65,7 @@ public class PostController {
     public ApiResponse<PostResponse> getPost(@PathVariable Long postId,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         Long userId = (userDetails != null) ? userDetails.getUserId() : null;
-
-        Post post = postService.getPostById(postId, userId);
-        List<String> tags = postService.getTagsForPost(postId);
-        boolean isLiked = postService.isPostLikedByUser(postId, userId); // isLiked 값을 올바르게 가져옴
-        boolean isScrapped = postService.isPostScrappedByUser(postId, userId);
-        ViewHistory viewHistory = postService.getViewHistory(userId, postId); // ViewHistory를 올바르게 가져옴
-        List<String> imageUrls = postService.getPostImageUrls(postId);
-
-        boolean isAdmin = postService.isBoardAdmin(userId, post.getBoard().getBoardId());
-
-        return ApiResponse.success(PostResponse.from(post, tags, viewHistory, isLiked, isScrapped, imageUrls, isAdmin));
+        return ApiResponse.success(postService.getPostResponse(postId, userId));
     }
 
     @PutMapping("/posts/{postId}/history")
@@ -146,17 +107,13 @@ public class PostController {
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<Integer> likePost(@PathVariable Long postId,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        postService.likePost(userDetails.getUserId(), postId);
-        Post post = postService.getPostById(postId, null);
-        return ApiResponse.success(post.getLikeCount());
+        return ApiResponse.success(postService.likePost(userDetails.getUserId(), postId));
     }
 
     @DeleteMapping("/posts/{postId}/like")
     public ApiResponse<Integer> unlikePost(@PathVariable Long postId,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        postService.unlikePost(userDetails.getUserId(), postId);
-        Post post = postService.getPostById(postId, null);
-        return ApiResponse.success(post.getLikeCount());
+        return ApiResponse.success(postService.unlikePost(userDetails.getUserId(), postId));
     }
 
     @PostMapping("/posts/{postId}/scrap")
@@ -180,7 +137,7 @@ public class PostController {
     @GetMapping("/users/me/scraps")
     public ApiResponse<ScrapListResponse> getMyScraps(@AuthenticationPrincipal CustomUserDetails userDetails,
             @NonNull Pageable pageable) {
-        return ApiResponse.success(ScrapListResponse.from(postService.getMyScraps(userDetails.getUserId(), pageable)));
+        return ApiResponse.success(postService.getMyScraps(userDetails.getUserId(), pageable));
     }
 
     @GetMapping("/users/me/drafts")
@@ -188,13 +145,13 @@ public class PostController {
             @NonNull Pageable pageable,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         return ApiResponse
-                .success(DraftListResponse.from(postService.getDraftPosts(userDetails.getUserId(), pageable)));
+                .success(postService.getDraftPosts(userDetails.getUserId(), pageable));
     }
 
     @GetMapping("/drafts/{draftId}")
     public ApiResponse<DraftResponse> getDraft(@PathVariable Long draftId,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        return ApiResponse.success(DraftResponse.from(postService.getDraftPost(userDetails.getUserId(), draftId)));
+        return ApiResponse.success(postService.getDraftPost(userDetails.getUserId(), draftId));
     }
 
     @PostMapping("/drafts")
@@ -214,6 +171,6 @@ public class PostController {
 
     @GetMapping("/posts/{postId}/versions")
     public ApiResponse<List<PostVersionResponse>> getPostVersions(@PathVariable Long postId) {
-        return ApiResponse.success(PostVersionResponse.from(postService.getPostVersions(postId)));
+        return ApiResponse.success(postService.getPostVersions(postId));
     }
 }

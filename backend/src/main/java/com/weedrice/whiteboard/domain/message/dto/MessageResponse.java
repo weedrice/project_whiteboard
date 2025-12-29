@@ -27,7 +27,7 @@ public class MessageResponse {
         private Long messageId;
         private UserInfo partner; // 상대방 정보
         private String content;
-        private boolean isRead;
+        private Boolean isRead;
         private LocalDateTime createdAt;
     }
 
@@ -41,7 +41,8 @@ public class MessageResponse {
     public static MessageResponse from(Page<Message> messagePage, Long currentUserId) {
         List<MessageSummary> content = messagePage.getContent().stream()
                 .map(message -> {
-                    User partner = message.getSender().getUserId().equals(currentUserId) ? message.getReceiver() : message.getSender();
+                    User partner = message.getSender().getUserId().equals(currentUserId) ? message.getReceiver()
+                            : message.getSender();
                     return MessageSummary.builder()
                             .messageId(message.getMessageId())
                             .partner(UserInfo.builder()

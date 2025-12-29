@@ -7,15 +7,9 @@ import com.weedrice.whiteboard.domain.comment.service.CommentService;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.domain.user.dto.*;
-import com.weedrice.whiteboard.domain.user.entity.Role;
-import com.weedrice.whiteboard.domain.user.entity.User;
-import com.weedrice.whiteboard.domain.user.entity.UserNotificationSettings;
-import com.weedrice.whiteboard.domain.user.entity.UserSettings;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
 import com.weedrice.whiteboard.domain.user.service.UserService;
 import com.weedrice.whiteboard.domain.user.service.UserSettingsService;
-import com.weedrice.whiteboard.domain.point.entity.UserPoint;
-import com.weedrice.whiteboard.domain.point.repository.UserPointRepository;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
@@ -46,42 +40,24 @@ public class UserController {
         private final PostService postService;
         private final CommentService commentService;
         private final MessageSource messageSource;
-        private final UserPointRepository userPointRepository;
 
         @GetMapping("/me")
         public ResponseEntity<ApiResponse<MyInfoResponse>> getMyInfo(
                         @AuthenticationPrincipal CustomUserDetails userDetails) {
-                User user = userService.getMyInfo(userDetails.getUserId());
-                String role = user.getIsSuperAdmin() ? Role.SUPER_ADMIN : Role.USER;
-
-                Integer points = userPointRepository.findById(user.getUserId())
-                                .map(UserPoint::getCurrentPoint)
-                                .orElse(0);
-
-                MyInfoResponse response = new MyInfoResponse(user.getUserId(), user.getLoginId(), user.getEmail(),
-                                user.getDisplayName(), user.getProfileImageUrl(), user.getStatus(), role,
-                                user.getIsEmailVerified(), user.getCreatedAt(), user.getLastLoginAt(), points);
-                return ResponseEntity.ok(ApiResponse.success(response));
+                return ResponseEntity.ok(ApiResponse.success(userService.getMyInfo(userDetails.getUserId())));
         }
 
         @GetMapping("/{userId}")
         public ResponseEntity<ApiResponse<UserProfileResponse>> getUserProfile(@PathVariable Long userId) {
-                UserProfileResponse profile = userService.getUserProfile(userId);
-                UserProfileResponse response = new UserProfileResponse(profile.getUserId(), profile.getLoginId(),
-                                profile.getDisplayName(), profile.getProfileImageUrl(), profile.getCreatedAt(),
-                                profile.getLastLoginAt(), profile.getPostCount(), profile.getCommentCount());
-                return ResponseEntity.ok(ApiResponse.success(response));
+                return ResponseEntity.ok(ApiResponse.success(userService.getUserProfile(userId)));
         }
 
         @PutMapping("/me")
         public ResponseEntity<ApiResponse<UpdateProfileResponse>> updateMyProfile(
                         @Valid @RequestBody UpdateProfileRequest request,
                         @AuthenticationPrincipal CustomUserDetails userDetails) {
-                User user = userService.updateMyProfile(userDetails.getUserId(), request.getDisplayName(),
-                                request.getProfileImageUrl(), request.getProfileImageId());
-                UpdateProfileResponse response = new UpdateProfileResponse(user.getUserId(), user.getDisplayName(),
-                                user.getProfileImageUrl());
-                return ResponseEntity.ok(ApiResponse.success(response));
+                return ResponseEntity.ok(ApiResponse.success(userService.updateMyProfile(userDetails.getUserId(),
+                                request.getDisplayName(), request.getProfileImageUrl(), request.getProfileImageId())));
         }
 
         @PutMapping("/me/password")
@@ -108,45 +84,32 @@ public class UserController {
         @GetMapping("/me/settings")
         public ResponseEntity<ApiResponse<UserSettingsResponse>> getMySettings(
                         @AuthenticationPrincipal CustomUserDetails userDetails) {
-                UserSettings settings = userSettingsService.getSettings(userDetails.getUserId());
-                UserSettingsResponse response = new UserSettingsResponse(settings.getTheme(), settings.getLanguage(),
-                                settings.getTimezone(), settings.getHideNsfw());
-                return ResponseEntity.ok(ApiResponse.success(response));
+                return ResponseEntity.ok(ApiResponse.success(userSettingsService.getSettings(userDetails.getUserId())));
         }
 
         @PutMapping("/me/settings")
         public ResponseEntity<ApiResponse<UserSettingsResponse>> updateMySettings(
                         @Valid @RequestBody UpdateSettingsRequest request,
                         @AuthenticationPrincipal CustomUserDetails userDetails) {
-                UserSettings settings = userSettingsService.updateSettings(userDetails.getUserId(), request.getTheme(),
-                                request.getLanguage(), request.getTimezone(), request.getHideNsfw());
-                UserSettingsResponse response = new UserSettingsResponse(settings.getTheme(), settings.getLanguage(),
-                                settings.getTimezone(), settings.getHideNsfw());
-                return ResponseEntity.ok(ApiResponse.success(response));
+                return ResponseEntity.ok(ApiResponse.success(userSettingsService.updateSettings(userDetails.getUserId(),
+                                request.getTheme(), request.getLanguage(), request.getTimezone(),
+                                request.getHideNsfw())));
         }
 
         @GetMapping("/me/notification-settings")
         public ResponseEntity<ApiResponse<List<NotificationSettingResponse>>> getMyNotificationSettings(
                         @AuthenticationPrincipal CustomUserDetails userDetails) {
-                List<UserNotificationSettings> settings = userSettingsService
-                                .getNotificationSettings(userDetails.getUserId());
-                List<NotificationSettingResponse> response = settings.stream()
-                                .map(s -> new NotificationSettingResponse(s.getNotificationType(),
-                                                s.getIsEnabled()))
-                                .collect(Collectors.toList());
-                return ResponseEntity.ok(ApiResponse.success(response));
+                return ResponseEntity.ok(ApiResponse
+                                .success(userSettingsService.getNotificationSettings(userDetails.getUserId())));
         }
 
         @PutMapping("/me/notification-settings")
         public ResponseEntity<ApiResponse<NotificationSettingResponse>> updateMyNotificationSetting(
                         @Valid @RequestBody UpdateNotificationSettingRequest request,
                         @AuthenticationPrincipal CustomUserDetails userDetails) {
-                UserNotificationSettings setting = userSettingsService.updateNotificationSetting(
+                return ResponseEntity.ok(ApiResponse.success(userSettingsService.updateNotificationSetting(
                                 userDetails.getUserId(),
-                                request.getNotificationType(), request.getIsEnabled());
-                NotificationSettingResponse response = new NotificationSettingResponse(setting.getNotificationType(),
-                                setting.getIsEnabled());
-                return ResponseEntity.ok(ApiResponse.success(response));
+                                request.getNotificationType(), request.getIsEnabled())));
         }
 
         @PostMapping("/{userId}/block")
@@ -174,11 +137,8 @@ public class UserController {
         public ResponseEntity<ApiResponse<PageResponse<BlockedUserResponse>>> getBlockedUsers(
                         Pageable pageable,
                         @AuthenticationPrincipal CustomUserDetails userDetails) {
-                Page<UserBlockService.BlockedUserDto> blockedUsers = userBlockService.getBlockedUsers(
-                                userDetails.getUserId(),
+                Page<BlockedUserResponse> response = userBlockService.getBlockedUsers(userDetails.getUserId(),
                                 pageable);
-                Page<BlockedUserResponse> response = blockedUsers.map(dto -> new BlockedUserResponse(dto.getUserId(),
-                                dto.getLoginId(), dto.getDisplayName(), dto.getBlockedAt()));
                 return ResponseEntity.ok(ApiResponse.success(new PageResponse<>(response)));
         }
 
@@ -193,32 +153,14 @@ public class UserController {
         public ApiResponse<PageResponse<PostSummary>> getMyPosts(@AuthenticationPrincipal CustomUserDetails userDetails,
                         Pageable pageable) {
                 Objects.requireNonNull(pageable, "Pageable must not be null");
-                Page<com.weedrice.whiteboard.domain.post.entity.Post> posts = postService.getMyPosts(
-                                userDetails.getUserId(),
-                                pageable);
-
-                List<PostSummary> summaries = new java.util.ArrayList<>();
-                long totalElements = posts.getTotalElements();
-                int pageNumber = posts.getNumber();
-                int pageSize = posts.getSize();
-
-                for (int i = 0; i < posts.getContent().size(); i++) {
-                        com.weedrice.whiteboard.domain.post.entity.Post post = posts.getContent().get(i);
-                        PostSummary summary = PostSummary.from(post);
-                        summary.setRowNum(totalElements - ((long) pageNumber * pageSize) - i);
-                        summaries.add(summary);
-                }
-
-                Page<PostSummary> summaryPage = new org.springframework.data.domain.PageImpl<>(summaries, pageable,
-                                totalElements);
-                return ApiResponse.success(new PageResponse<>(summaryPage));
+                Page<PostSummary> response = postService.getMyPosts(userDetails.getUserId(), pageable);
+                return ApiResponse.success(new PageResponse<>(response));
         }
 
         @GetMapping("/me/comments")
         public ApiResponse<PageResponse<MyCommentResponse>> getMyComments(
                         @AuthenticationPrincipal CustomUserDetails userDetails, Pageable pageable) {
-                Page<MyCommentResponse> response = commentService.getMyComments(userDetails.getUserId(), pageable)
-                                .map(MyCommentResponse::from);
+                Page<MyCommentResponse> response = commentService.getMyComments(userDetails.getUserId(), pageable);
                 return ApiResponse.success(new PageResponse<>(response));
         }
 
@@ -229,17 +171,6 @@ public class UserController {
                 Objects.requireNonNull(pageable, "Pageable must not be null");
                 Long userId = Objects.requireNonNull(userDetails.getUserId(), "UserId must not be null");
                 Page<PostSummary> response = postService.getRecentlyViewedPosts(userId, pageable);
-
-                // Populate rowNum for View History
-                List<PostSummary> summaries = response.getContent();
-                long totalElements = response.getTotalElements();
-                int pageNumber = response.getNumber();
-                int pageSize = response.getSize();
-
-                for (int i = 0; i < summaries.size(); i++) {
-                        summaries.get(i).setRowNum(totalElements - ((long) pageNumber * pageSize) - i);
-                }
-
                 return ApiResponse.success(new PageResponse<>(response));
         }
 }

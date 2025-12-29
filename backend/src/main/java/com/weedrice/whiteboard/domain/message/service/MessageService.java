@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.message.service;
 
+import com.weedrice.whiteboard.domain.message.dto.MessageResponse;
 import com.weedrice.whiteboard.domain.message.entity.Message;
 import com.weedrice.whiteboard.domain.message.repository.MessageRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -49,18 +50,22 @@ public class MessageService {
         return messageRepository.save(message);
     }
 
-    public Page<Message> getReceivedMessages(Long userId, Pageable pageable) {
+    public MessageResponse getReceivedMessages(Long userId, Pageable pageable) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         List<Long> blockedUserIds = userBlockService.getBlockedUserIds(userId);
-        return messageRepository.findReceivedMessagesExcludingBlocked(user, false, blockedUserIds, pageable);
+        Page<Message> messages = messageRepository.findReceivedMessagesExcludingBlocked(user, false, blockedUserIds,
+                pageable);
+        return MessageResponse.from(messages, userId);
     }
 
-    public Page<Message> getSentMessages(Long userId, Pageable pageable) {
+    public MessageResponse getSentMessages(Long userId, Pageable pageable) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         List<Long> blockedUserIds = userBlockService.getBlockedUserIds(userId);
-        return messageRepository.findSentMessagesExcludingBlocked(user, false, blockedUserIds, pageable);
+        Page<Message> messages = messageRepository.findSentMessagesExcludingBlocked(user, false, blockedUserIds,
+                pageable);
+        return MessageResponse.from(messages, userId);
     }
 
     @Transactional
@@ -74,9 +79,9 @@ public class MessageService {
 
         // 차단 관계 확인
         if (userBlockService.isBlocked(userId, message.getSender().getUserId()) ||
-            userBlockService.isBlocked(message.getSender().getUserId(), userId) ||
-            userBlockService.isBlocked(userId, message.getReceiver().getUserId()) ||
-            userBlockService.isBlocked(message.getReceiver().getUserId(), userId)) {
+                userBlockService.isBlocked(message.getSender().getUserId(), userId) ||
+                userBlockService.isBlocked(userId, message.getReceiver().getUserId()) ||
+                userBlockService.isBlocked(message.getReceiver().getUserId(), userId)) {
             throw new BusinessException(ErrorCode.BLOCKED_BY_USER);
         }
 
@@ -86,6 +91,23 @@ public class MessageService {
         }
 
         return message;
+    }
+
+    @Transactional
+    public MessageResponse.MessageSummary getMessageSummary(Long userId, Long messageId) {
+        Message message = getMessage(userId, messageId);
+        User partner = message.getSender().getUserId().equals(userId) ? message.getReceiver() : message.getSender();
+
+        return MessageResponse.MessageSummary.builder()
+                .messageId(message.getMessageId())
+                .partner(MessageResponse.UserInfo.builder()
+                        .userId(partner.getUserId())
+                        .displayName(partner.getDisplayName())
+                        .build())
+                .content(message.getContent())
+                .isRead(message.getIsRead())
+                .createdAt(message.getCreatedAt())
+                .build();
     }
 
     @Transactional

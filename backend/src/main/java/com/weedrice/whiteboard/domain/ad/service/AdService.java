@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.ad.service;
 
+import com.weedrice.whiteboard.domain.ad.dto.AdResponse;
 import com.weedrice.whiteboard.domain.ad.entity.Ad;
 import com.weedrice.whiteboard.domain.ad.entity.AdClickLog;
 import com.weedrice.whiteboard.domain.ad.repository.AdClickLogRepository;
@@ -25,9 +26,24 @@ public class AdService {
     private final UserRepository userRepository;
 
     @Transactional
+    public AdResponse getAdResponse(String placement) {
+        Ad ad = getAd(placement);
+        if (ad == null) {
+            return null; // Or handle as needed, controller currently handles null implicitly by
+                         // returning success(null) if from() handles it, or from() might throw.
+                         // AdResponse.from(null) might be an issue. Let's check AdController.
+                         // AdController: return ApiResponse.success(AdResponse.from(ad));
+                         // If ad is null, AdResponse.from(ad) will likely throw NPE or return null.
+                         // Let's assume getAd returns null if no ad found.
+        }
+        return AdResponse.from(ad);
+    }
+
+    @Transactional
     public Ad getAd(String placement) {
         LocalDateTime now = LocalDateTime.now();
-        List<Ad> ads = adRepository.findByPlacementAndIsActiveAndStartDateBeforeAndEndDateAfter(placement, true, now, now);
+        List<Ad> ads = adRepository.findByPlacementAndIsActiveAndStartDateBeforeAndEndDateAfter(placement, true, now,
+                now);
         if (ads.isEmpty()) {
             return null;
         }

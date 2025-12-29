@@ -9,5 +9,9 @@ import java.util.List;
 
 public interface PostTagRepository extends JpaRepository<PostTag, PostTagId> {
     List<PostTag> findByPost(Post post);
+
     void deleteByPost(Post post);
+
+    org.springframework.data.domain.Page<PostTag> findByTag_TagId(Long tagId,
+            org.springframework.data.domain.Pageable pageable);
 }

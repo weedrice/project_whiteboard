@@ -2,7 +2,6 @@ package com.weedrice.whiteboard.domain.report.controller;
 
 import com.weedrice.whiteboard.domain.report.dto.ReportProcessRequest;
 import com.weedrice.whiteboard.domain.report.dto.ReportResponse;
-import com.weedrice.whiteboard.domain.report.entity.Report;
 import com.weedrice.whiteboard.domain.report.service.ReportService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
@@ -25,8 +24,7 @@ public class AdminReportController {
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String targetType,
             @PageableDefault(size = 20) Pageable pageable) {
-        Page<Report> reports = reportService.getReports(status, targetType, pageable);
-        Page<ReportResponse> response = reports.map(ReportResponse::from);
+        Page<ReportResponse> response = reportService.getReports(status, targetType, pageable);
         return ApiResponse.success(response);
     }
 
@@ -36,12 +34,11 @@ public class AdminReportController {
             @RequestBody ReportProcessRequest request,
             Authentication authentication) {
         Long adminUserId = ((CustomUserDetails) authentication.getPrincipal()).getUserId();
-        Report report = reportService.processReport(
+        ReportResponse response = reportService.processReport(
                 adminUserId,
                 reportId,
                 request.getStatus(),
-                request.getRemark()
-        );
-        return ApiResponse.success(ReportResponse.from(report));
+                request.getRemark());
+        return ApiResponse.success(response);
     }
 }

@@ -6,17 +6,17 @@ import com.weedrice.whiteboard.domain.board.dto.BoardUpdateRequest;
 import com.weedrice.whiteboard.domain.board.dto.CategoryRequest;
 import com.weedrice.whiteboard.domain.board.dto.CategoryResponse;
 import com.weedrice.whiteboard.domain.board.entity.Board;
-import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
+
 import com.weedrice.whiteboard.domain.board.service.BoardService;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
-import com.weedrice.whiteboard.domain.post.entity.Post;
+
 import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
-import com.weedrice.whiteboard.global.common.dto.PageResponse;
+
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Pageable;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -24,7 +24,6 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1/boards")
@@ -60,9 +59,7 @@ public class BoardController {
     public ApiResponse<List<PostSummary>> getNotices(@PathVariable String boardUrl,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         Long userId = (userDetails != null) ? userDetails.getUserId() : null;
-        List<Post> notices = postService.getNotices(boardUrl, userId);
-        List<PostSummary> response = notices.stream().map(PostSummary::from).collect(Collectors.toList());
-        return ApiResponse.success(response);
+        return ApiResponse.success(postService.getNoticeSummaries(boardUrl, userId));
     }
 
     @PostMapping
@@ -89,11 +86,7 @@ public class BoardController {
 
     @GetMapping("/{boardUrl}/categories")
     public ApiResponse<List<CategoryResponse>> getCategories(@PathVariable String boardUrl) {
-        List<BoardCategory> categories = boardService.getActiveCategories(boardUrl);
-        List<CategoryResponse> response = categories.stream()
-                .map(CategoryResponse::new)
-                .collect(Collectors.toList());
-        return ApiResponse.success(response);
+        return ApiResponse.success(boardService.getActiveCategories(boardUrl));
     }
 
     @PostMapping("/{boardUrl}/subscribe")
@@ -115,15 +108,13 @@ public class BoardController {
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<CategoryResponse> createCategory(@PathVariable String boardUrl,
             @Valid @RequestBody CategoryRequest request) {
-        BoardCategory category = boardService.createCategory(boardUrl, request);
-        return ApiResponse.success(new CategoryResponse(category));
+        return ApiResponse.success(boardService.createCategory(boardUrl, request));
     }
 
     @PutMapping("/categories/{categoryId}")
     public ApiResponse<CategoryResponse> updateCategory(@PathVariable Long categoryId,
             @Valid @RequestBody CategoryRequest request) {
-        BoardCategory category = boardService.updateCategory(categoryId, request);
-        return ApiResponse.success(new CategoryResponse(category));
+        return ApiResponse.success(boardService.updateCategory(categoryId, request));
     }
 
     @DeleteMapping("/categories/{categoryId}")

@@ -21,6 +21,6 @@ public class FeedController {
     @GetMapping
     public ApiResponse<FeedResponse> getMyFeeds(Authentication authentication, Pageable pageable) {
         Long userId = ((CustomUserDetails) authentication.getPrincipal()).getUserId();
-        return ApiResponse.success(FeedResponse.from(feedService.getUserFeeds(userId, pageable)));
+        return ApiResponse.success(feedService.getUserFeeds(userId, pageable));
     }
 }

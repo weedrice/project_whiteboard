@@ -34,6 +34,6 @@ public class TagController {
             Pageable pageable,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         Long userId = (userDetails != null) ? userDetails.getUserId() : null;
-        return ApiResponse.success(new PageResponse<>(postService.getPostsByTag(tagId, userId, pageable).map(PostSummary::from)));
+        return ApiResponse.success(new PageResponse<>(postService.getPostsByTag(tagId, userId, pageable)));
     }
 }

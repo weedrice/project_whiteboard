@@ -25,14 +25,14 @@ public class ShopController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         Pageable pageable = PageRequest.of(page, size);
-        return ApiResponse.success(ShopItemResponse.from(shopService.getShopItems(itemType, pageable)));
+        return ApiResponse.success(shopService.getShopItems(itemType, pageable));
     }
 
     @PostMapping("/items/{itemId}/purchase")
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<Long> purchaseItem(@PathVariable Long itemId, Authentication authentication) {
         Long userId = ((CustomUserDetails) authentication.getPrincipal()).getUserId();
-        return ApiResponse.success(shopService.purchaseItem(userId, itemId).getPurchaseId());
+        return ApiResponse.success(shopService.purchaseItem(userId, itemId));
     }
 
     @GetMapping("/me/purchases")
@@ -42,6 +42,6 @@ public class ShopController {
             Authentication authentication) {
         Long userId = ((CustomUserDetails) authentication.getPrincipal()).getUserId();
         Pageable pageable = PageRequest.of(page, size);
-        return ApiResponse.success(PurchaseHistoryResponse.from(shopService.getPurchaseHistories(userId, pageable)));
+        return ApiResponse.success(shopService.getPurchaseHistories(userId, pageable));
     }
 }

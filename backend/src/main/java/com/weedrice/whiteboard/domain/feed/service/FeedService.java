@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.feed.service;
 
+import com.weedrice.whiteboard.domain.feed.dto.FeedResponse;
 import com.weedrice.whiteboard.domain.feed.entity.UserFeed;
 import com.weedrice.whiteboard.domain.feed.repository.UserFeedRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -20,10 +21,11 @@ public class FeedService {
     private final UserFeedRepository userFeedRepository;
     private final UserRepository userRepository;
 
-    public Page<UserFeed> getUserFeeds(Long userId, Pageable pageable) {
+    public FeedResponse getUserFeeds(Long userId, Pageable pageable) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        return userFeedRepository.findByTargetUserOrderByCreatedAtDesc(user, pageable);
+        Page<UserFeed> feedPage = userFeedRepository.findByTargetUserOrderByCreatedAtDesc(user, pageable);
+        return FeedResponse.from(feedPage);
     }
 
     @Transactional

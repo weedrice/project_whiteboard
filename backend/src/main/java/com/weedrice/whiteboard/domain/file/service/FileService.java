@@ -1,5 +1,7 @@
 package com.weedrice.whiteboard.domain.file.service;
 
+import com.weedrice.whiteboard.domain.file.dto.FileSimpleResponse;
+import com.weedrice.whiteboard.domain.file.dto.FileUploadResponse;
 import com.weedrice.whiteboard.domain.file.entity.File;
 import com.weedrice.whiteboard.domain.file.repository.FileRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -26,7 +28,18 @@ public class FileService {
     private final org.springframework.transaction.support.TransactionTemplate transactionTemplate;
 
     @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
-    public File uploadFile(Long uploaderId, MultipartFile multipartFile) {
+    public FileUploadResponse uploadFile(Long uploaderId, MultipartFile multipartFile) {
+        File file = processUpload(uploaderId, multipartFile);
+        return FileUploadResponse.from(file);
+    }
+
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
+    public FileSimpleResponse uploadSimpleFile(Long uploaderId, MultipartFile multipartFile) {
+        File file = processUpload(uploaderId, multipartFile);
+        return FileSimpleResponse.from(file);
+    }
+
+    private File processUpload(Long uploaderId, MultipartFile multipartFile) {
         // 파일 유효성 검사 (크기, 형식 등)
         if (multipartFile.isEmpty()) {
             throw new BusinessException(ErrorCode.FILE_EMPTY);
@@ -36,7 +49,7 @@ public class FileService {
         }
 
         String storedFileName = fileStorageService.storeFile(multipartFile);
-        
+
         try {
             return transactionTemplate.execute(status -> {
                 User uploader = userRepository.findById(uploaderId)
@@ -101,7 +114,8 @@ public class FileService {
     }
 
     public Long getOneImageFileIdForPost(Long postId) {
-        return fileRepository.findFirstByRelatedIdAndRelatedTypeAndMimeTypeStartingWith(postId, "POST_CONTENT", "image/")
+        return fileRepository
+                .findFirstByRelatedIdAndRelatedTypeAndMimeTypeStartingWith(postId, "POST_CONTENT", "image/")
                 .map(File::getFileId)
                 .orElse(null);
     }

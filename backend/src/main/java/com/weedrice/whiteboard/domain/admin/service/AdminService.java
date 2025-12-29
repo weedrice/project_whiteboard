@@ -1,7 +1,10 @@
 package com.weedrice.whiteboard.domain.admin.service;
 
+import com.weedrice.whiteboard.domain.admin.dto.AdminResponse;
 import com.weedrice.whiteboard.domain.admin.dto.DashboardStatsDto;
+import com.weedrice.whiteboard.domain.admin.dto.IpBlockResponse;
 import com.weedrice.whiteboard.domain.admin.dto.SuperAdminResponse;
+import com.weedrice.whiteboard.domain.admin.dto.SuperAdminUpdateResponse;
 import com.weedrice.whiteboard.domain.admin.entity.IpBlock;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.admin.repository.IpBlockRepository;
@@ -37,7 +40,7 @@ public class AdminService {
 
     @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
     @Transactional
-    public Admin createAdmin(String loginId, Long boardId, String role) {
+    public AdminResponse createAdmin(String loginId, Long boardId, String role) {
 
         User user = userRepository.findByLoginId(loginId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
@@ -62,12 +65,14 @@ public class AdminService {
             throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
         }
 
-        return adminRepository.save(admin);
+        return AdminResponse.from(adminRepository.save(admin));
     }
 
     @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
-    public List<Admin> getAllAdmins() {
-        return adminRepository.findAll();
+    public List<AdminResponse> getAllAdmins() {
+        return adminRepository.findAll().stream()
+                .map(AdminResponse::from)
+                .toList();
     }
 
     @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
@@ -88,9 +93,9 @@ public class AdminService {
 
     @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
     @Transactional
-    public IpBlock blockIp(Long adminUserId, String ipAddress, String reason, LocalDateTime endDate) {
+    public IpBlockResponse blockIp(Long adminUserId, String ipAddress, String reason, LocalDateTime endDate) {
 
-        if(ipBlockRepository.findByIpAddress(ipAddress).isPresent()) {
+        if (ipBlockRepository.findByIpAddress(ipAddress).isPresent()) {
             throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE);
         }
 
@@ -107,7 +112,7 @@ public class AdminService {
                 .endDate(endDate)
                 .build();
 
-        return ipBlockRepository.save(ipBlock);
+        return IpBlockResponse.from(ipBlockRepository.save(ipBlock));
     }
 
     @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
@@ -119,8 +124,10 @@ public class AdminService {
     }
 
     @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
-    public List<IpBlock> getBlockedIps() {
-        return ipBlockRepository.findAll();
+    public List<IpBlockResponse> getBlockedIps() {
+        return ipBlockRepository.findAll().stream()
+                .map(IpBlockResponse::from)
+                .toList();
     }
 
     public boolean isIpBlocked(String ipAddress) {
@@ -147,7 +154,7 @@ public class AdminService {
 
     @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
     @Transactional
-    public User createSuperAdmin(@NotNull String loginId) {
+    public SuperAdminUpdateResponse createSuperAdmin(@NotNull String loginId) {
         User user = userRepository.findByLoginId(loginId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
@@ -156,21 +163,21 @@ public class AdminService {
         }
 
         user.grantSuperAdminRole();
-        return userRepository.save(user);
+        return SuperAdminUpdateResponse.from(userRepository.save(user));
     }
 
     @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
     @Transactional
-    public User deactiveSuperAdmin(@NotNull String loginId) {
+    public SuperAdminUpdateResponse deactiveSuperAdmin(@NotNull String loginId) {
         User user = userRepository.findByLoginId(loginId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
-        if(!user.getIsSuperAdmin()) {
+        if (!user.getIsSuperAdmin()) {
             throw new BusinessException(ErrorCode.INVALID_TARGET);
         }
 
         user.revokeSuperAdminRole();
-        return userRepository.save(user);
+        return SuperAdminUpdateResponse.from(userRepository.save(user));
     }
 
     @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")

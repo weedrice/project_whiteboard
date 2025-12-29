@@ -1,7 +1,7 @@
 package com.weedrice.whiteboard.domain.ad.controller;
 
 import com.weedrice.whiteboard.domain.ad.dto.AdResponse;
-import com.weedrice.whiteboard.domain.ad.entity.Ad;
+
 import com.weedrice.whiteboard.domain.ad.service.AdService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
@@ -19,8 +19,7 @@ public class AdController {
 
     @GetMapping
     public ApiResponse<AdResponse> getAd(@RequestParam String placement) {
-        Ad ad = adService.getAd(placement);
-        return ApiResponse.success(AdResponse.from(ad));
+        return ApiResponse.success(adService.getAdResponse(placement));
     }
 
     @PostMapping("/{adId}/click")

@@ -6,6 +6,7 @@ import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.search.dto.IntegratedSearchResponse;
 import com.weedrice.whiteboard.domain.search.dto.PopularKeywordDto;
+import com.weedrice.whiteboard.domain.search.dto.SearchPersonalizationResponse;
 import com.weedrice.whiteboard.domain.search.entity.SearchPersonalization;
 import com.weedrice.whiteboard.domain.search.entity.SearchStatistic;
 import com.weedrice.whiteboard.domain.search.repository.SearchPersonalizationRepository;
@@ -114,10 +115,11 @@ public class SearchService {
         });
     }
 
-    public Page<SearchPersonalization> getRecentSearches(Long userId, Pageable pageable) {
+    public SearchPersonalizationResponse getRecentSearches(Long userId, Pageable pageable) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        return searchPersonalizationRepository.findByUserOrderByCreatedAtDesc(user, pageable);
+        return SearchPersonalizationResponse
+                .from(searchPersonalizationRepository.findByUserOrderByCreatedAtDesc(user, pageable));
     }
 
     @Transactional

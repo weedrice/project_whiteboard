@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.notification.service;
 
+import com.weedrice.whiteboard.domain.notification.dto.NotificationResponse;
 import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
 import com.weedrice.whiteboard.domain.notification.entity.Notification;
 import com.weedrice.whiteboard.domain.notification.repository.NotificationRepository;
@@ -90,10 +91,11 @@ public class NotificationService {
         }
     }
 
-    public Page<Notification> getNotifications(Long userId, Pageable pageable) {
+    public NotificationResponse getNotifications(Long userId, Pageable pageable) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        return notificationRepository.findByUserOrderByCreatedAtDesc(user, pageable);
+        Page<Notification> notificationPage = notificationRepository.findByUserOrderByCreatedAtDesc(user, pageable);
+        return NotificationResponse.from(notificationPage);
     }
 
     @Transactional

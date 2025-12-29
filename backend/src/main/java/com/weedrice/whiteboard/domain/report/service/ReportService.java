@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.report.service;
 
 import com.weedrice.whiteboard.domain.admin.entity.Admin;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
+import com.weedrice.whiteboard.domain.report.dto.ReportResponse;
 import com.weedrice.whiteboard.domain.report.entity.Report;
 import com.weedrice.whiteboard.domain.report.repository.ReportRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -25,7 +26,7 @@ public class ReportService {
     private final AdminRepository adminRepository;
 
     @Transactional
-    public Report createReport(Long reporterId, String targetType, Long targetId, String reasonType, String remark,
+    public Long createReport(Long reporterId, String targetType, Long targetId, String reasonType, String remark,
             String contents) {
         User reporter = userRepository.findById(reporterId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
@@ -46,28 +47,31 @@ public class ReportService {
                 .remark(remark)
                 .contents(contents)
                 .build();
-        return reportRepository.save(report);
+        return reportRepository.save(report).getReportId();
     }
 
-    public Page<Report> getReports(String status, String targetType, Pageable pageable) {
+    public Page<ReportResponse> getReports(String status, String targetType, Pageable pageable) {
         SecurityUtils.validateSuperAdminPermission();
 
+        Page<Report> reports;
         if (status != null && !status.isEmpty() && targetType != null && !targetType.isEmpty()) {
-            return reportRepository.findByTargetTypeAndStatusOrderByCreatedAtDesc(targetType, status, pageable);
+            reports = reportRepository.findByTargetTypeAndStatusOrderByCreatedAtDesc(targetType, status, pageable);
         } else if (status != null && !status.isEmpty()) {
-            return reportRepository.findByStatusOrderByCreatedAtDesc(status, pageable);
+            reports = reportRepository.findByStatusOrderByCreatedAtDesc(status, pageable);
+        } else {
+            reports = reportRepository.findAll(pageable); // 모든 신고 조회
         }
-        return reportRepository.findAll(pageable); // 모든 신고 조회
+        return reports.map(ReportResponse::from);
     }
 
-    public Page<Report> getMyReports(Long userId, Pageable pageable) {
+    public Page<ReportResponse> getMyReports(Long userId, Pageable pageable) {
         User reporter = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        return reportRepository.findByReporterOrderByCreatedAtDesc(reporter, pageable);
+        return reportRepository.findByReporterOrderByCreatedAtDesc(reporter, pageable).map(ReportResponse::from);
     }
 
     @Transactional
-    public Report processReport(Long adminUserId, Long reportId, String status, String remark) {
+    public ReportResponse processReport(Long adminUserId, Long reportId, String status, String remark) {
         SecurityUtils.validateSuperAdminPermission();
 
         User adminUser = userRepository.findById(adminUserId)
@@ -80,6 +84,6 @@ public class ReportService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
 
         report.processReport(admin, status, remark);
-        return report;
+        return ReportResponse.from(report);
     }
 }

@@ -1,5 +1,7 @@
 package com.weedrice.whiteboard.domain.point.service;
 
+import com.weedrice.whiteboard.domain.point.dto.PointHistoryResponse;
+import com.weedrice.whiteboard.domain.point.dto.UserPointResponse;
 import com.weedrice.whiteboard.domain.point.entity.PointHistory;
 import com.weedrice.whiteboard.domain.point.entity.UserPoint;
 import com.weedrice.whiteboard.domain.point.repository.PointHistoryRepository;
@@ -25,21 +27,23 @@ public class PointService {
         private final PointHistoryRepository pointHistoryRepository;
         private final UserRepository userRepository;
 
-        public UserPoint getUserPoint(@NonNull Long userId) {
-                return userPointRepository.findByUserId(userId)
-                                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND)); // UserPoint는 User
-                                                                                                     // 생성 시 함께 생성되므로,
-                                                                                                     // User가 없으면
-                                                                                                     // UserPoint도 없음
+        public UserPointResponse getUserPoint(@NonNull Long userId) {
+                UserPoint userPoint = userPointRepository.findByUserId(userId)
+                                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+                return UserPointResponse.from(userPoint);
         }
 
-        public Page<PointHistory> getPointHistories(@NonNull Long userId, String type, @NonNull Pageable pageable) {
+        public PointHistoryResponse getPointHistories(@NonNull Long userId, String type, @NonNull Pageable pageable) {
                 User user = userRepository.findById(userId)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+                Page<PointHistory> historyPage;
                 if (type != null && !type.isEmpty()) {
-                        return pointHistoryRepository.findByUserAndTypeOrderByCreatedAtDesc(user, type, pageable);
+                        historyPage = pointHistoryRepository.findByUserAndTypeOrderByCreatedAtDesc(user, type,
+                                        pageable);
+                } else {
+                        historyPage = pointHistoryRepository.findByUserOrderByCreatedAtDesc(user, pageable);
                 }
-                return pointHistoryRepository.findByUserOrderByCreatedAtDesc(user, pageable);
+                return PointHistoryResponse.from(historyPage);
         }
 
         @Transactional

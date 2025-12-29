@@ -21,7 +21,7 @@ public class PointController {
     @GetMapping("/me")
     public ApiResponse<UserPointResponse> getMyPoints(Authentication authentication) {
         Long userId = ((CustomUserDetails) authentication.getPrincipal()).getUserId();
-        return ApiResponse.success(UserPointResponse.from(pointService.getUserPoint(userId)));
+        return ApiResponse.success(pointService.getUserPoint(userId));
     }
 
     @GetMapping("/me/history")
@@ -32,6 +32,6 @@ public class PointController {
             Authentication authentication) {
         Long userId = ((CustomUserDetails) authentication.getPrincipal()).getUserId();
         Pageable pageable = PageRequest.of(page, size);
-        return ApiResponse.success(PointHistoryResponse.from(pointService.getPointHistories(userId, type, pageable)));
+        return ApiResponse.success(pointService.getPointHistories(userId, type, pageable));
     }
 }

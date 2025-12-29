@@ -1,6 +1,8 @@
 package com.weedrice.whiteboard.domain.comment.service;
 
+import com.weedrice.whiteboard.domain.comment.dto.CommentListResponse;
 import com.weedrice.whiteboard.domain.comment.dto.CommentResponse;
+import com.weedrice.whiteboard.domain.comment.dto.MyCommentResponse;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.entity.CommentLike;
 import com.weedrice.whiteboard.domain.comment.entity.CommentLikeId;
@@ -98,8 +100,10 @@ public class CommentService {
         return new PageImpl<>(responseContent, pageable, parentComments.getTotalElements());
     }
 
-    public Page<Comment> getReplies(Long parentId, Pageable pageable) {
-        return commentRepository.findByParent_CommentIdAndIsDeletedOrderByCreatedAtAsc(parentId, false, pageable);
+    public CommentListResponse getReplies(Long parentId, Pageable pageable) {
+        Page<Comment> replies = commentRepository.findByParent_CommentIdAndIsDeletedOrderByCreatedAtAsc(parentId, false,
+                pageable);
+        return CommentListResponse.from(replies);
     }
 
     public CommentResponse getComment(Long commentId) {
@@ -108,10 +112,11 @@ public class CommentService {
         return CommentResponse.from(comment);
     }
 
-    public Page<Comment> getMyComments(Long userId, Pageable pageable) {
+    public Page<MyCommentResponse> getMyComments(Long userId, Pageable pageable) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        return commentRepository.findByUserAndIsDeletedOrderByCreatedAtDesc(user, false, pageable);
+        return commentRepository.findByUserAndIsDeletedOrderByCreatedAtDesc(user, false, pageable)
+                .map(MyCommentResponse::from);
     }
 
     @Transactional

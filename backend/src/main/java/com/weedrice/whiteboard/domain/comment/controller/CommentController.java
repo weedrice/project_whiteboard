@@ -38,8 +38,7 @@ public class CommentController {
     public ApiResponse<CommentListResponse> getReplies(
             @PathVariable Long commentId,
             Pageable pageable) {
-        Page<Comment> replies = commentService.getReplies(commentId, pageable);
-        return ApiResponse.success(CommentListResponse.from(replies));
+        return ApiResponse.success(commentService.getReplies(commentId, pageable));
     }
 
     @GetMapping("/comments/{commentId}")

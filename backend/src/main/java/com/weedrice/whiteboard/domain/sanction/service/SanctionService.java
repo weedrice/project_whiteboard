@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.sanction.service;
 
 import com.weedrice.whiteboard.domain.admin.entity.Admin;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
+import com.weedrice.whiteboard.domain.sanction.dto.SanctionResponse;
 import com.weedrice.whiteboard.domain.sanction.entity.Sanction;
 import com.weedrice.whiteboard.domain.sanction.repository.SanctionRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -27,7 +28,7 @@ public class SanctionService {
     private final AdminRepository adminRepository;
 
     @Transactional
-    public Sanction createSanction(Long adminUserId, Long targetUserId, String type, String remark, LocalDateTime endDate) {
+    public Long createSanction(Long adminUserId, Long targetUserId, String type, String remark, LocalDateTime endDate) {
         SecurityUtils.validateSuperAdminPermission();
 
         User adminUser = userRepository.findById(adminUserId)
@@ -50,21 +51,26 @@ public class SanctionService {
                 .startDate(LocalDateTime.now())
                 .endDate(endDate)
                 .build();
-        return sanctionRepository.save(sanction);
+        return sanctionRepository.save(sanction).getSanctionId();
     }
 
-    public Page<Sanction> getSanctions(Long targetUserId, Pageable pageable) {
+    public Page<SanctionResponse> getSanctions(Long targetUserId, Pageable pageable) {
         SecurityUtils.validateSuperAdminPermission();
 
+        Page<Sanction> sanctions;
         if (targetUserId != null) {
             User targetUser = userRepository.findById(targetUserId)
                     .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-            return sanctionRepository.findByTargetUser(targetUser, pageable);
+            sanctions = sanctionRepository.findByTargetUser(targetUser, pageable);
+        } else {
+            sanctions = sanctionRepository.findAll(pageable);
         }
-        return sanctionRepository.findAll(pageable);
+        return sanctions.map(SanctionResponse::from);
     }
 
     public boolean isUserBanned(User user) {
-        return sanctionRepository.findFirstByTargetUserAndTypeAndEndDateAfterOrderByEndDateDesc(user, "BAN", LocalDateTime.now()).isPresent();
+        return sanctionRepository
+                .findFirstByTargetUserAndTypeAndEndDateAfterOrderByEndDateDesc(user, "BAN", LocalDateTime.now())
+                .isPresent();
     }
 }

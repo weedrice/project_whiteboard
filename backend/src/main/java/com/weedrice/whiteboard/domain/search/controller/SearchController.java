@@ -49,16 +49,16 @@ public class SearchController {
         searchService.recordSearch(userId, q);
 
         Page<PostSummary> response = searchService.searchPosts(q, searchType, boardUrl, pageable, userId);
-        
+
         long totalElements = response.getTotalElements();
         int pageNumber = response.getNumber();
         int pageSize = response.getSize();
         List<PostSummary> content = response.getContent();
-        
+
         for (int i = 0; i < content.size(); i++) {
             content.get(i).setRowNum(totalElements - ((long) pageNumber * pageSize) - i);
         }
-        
+
         return ApiResponse.success(new PageResponse<>(response));
     }
 
@@ -74,11 +74,12 @@ public class SearchController {
     public ApiResponse<SearchPersonalizationResponse> getRecentSearches(
             Pageable pageable,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        return ApiResponse.success(SearchPersonalizationResponse.from(searchService.getRecentSearches(userDetails.getUserId(), pageable)));
+        return ApiResponse.success(searchService.getRecentSearches(userDetails.getUserId(), pageable));
     }
 
     @DeleteMapping("/recent/{logId}")
-    public ApiResponse<Void> deleteRecentSearch(@PathVariable Long logId, @AuthenticationPrincipal CustomUserDetails userDetails) {
+    public ApiResponse<Void> deleteRecentSearch(@PathVariable Long logId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
         searchService.deleteRecentSearch(userDetails.getUserId(), logId);
         return ApiResponse.success(null);
     }

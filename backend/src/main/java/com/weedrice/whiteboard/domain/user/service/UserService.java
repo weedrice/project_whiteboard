@@ -4,6 +4,8 @@ import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.file.service.FileService; // Add import
 import com.weedrice.whiteboard.domain.post.repository.PostRepository; // Import PostRepository
+import com.weedrice.whiteboard.domain.user.dto.MyInfoResponse;
+import com.weedrice.whiteboard.domain.user.dto.UpdateProfileResponse;
 import com.weedrice.whiteboard.domain.user.dto.UserProfileResponse;
 import com.weedrice.whiteboard.domain.user.entity.DisplayNameHistory;
 import com.weedrice.whiteboard.domain.user.entity.PasswordHistory;
@@ -36,8 +38,10 @@ public class UserService {
     private final PasswordHistoryRepository passwordHistoryRepository;
     private final PasswordEncoder passwordEncoder;
     private final UserSettingsRepository userSettingsRepository;
-    private final PostRepository postRepository; // Inject PostRepository
-    private final FileService fileService; // Inject FileService
+    private final PostRepository postRepository;
+    private final FileService fileService;
+    private final com.weedrice.whiteboard.domain.point.repository.UserPointRepository userPointRepository; // Inject
+                                                                                                           // UserPointRepository
 
     public Long findUserIdByLoginId(String loginId) {
         User user = userRepository.findByLoginId(loginId)
@@ -45,17 +49,37 @@ public class UserService {
         return user.getUserId();
     }
 
-    public User getMyInfo(Long userId) {
-        return userRepository.findById(userId)
+    public MyInfoResponse getMyInfo(Long userId) {
+        User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+        String role = user.getIsSuperAdmin() ? com.weedrice.whiteboard.domain.user.entity.Role.SUPER_ADMIN
+                : com.weedrice.whiteboard.domain.user.entity.Role.USER;
+        Integer points = userPointRepository.findById(user.getUserId())
+                .map(com.weedrice.whiteboard.domain.point.entity.UserPoint::getCurrentPoint)
+                .orElse(0);
+
+        return MyInfoResponse.builder()
+                .userId(user.getUserId())
+                .loginId(user.getLoginId())
+                .email(user.getEmail())
+                .displayName(user.getDisplayName())
+                .profileImageUrl(user.getProfileImageUrl())
+                .status(user.getStatus())
+                .role(role)
+                .isEmailVerified(user.getIsEmailVerified())
+                .createdAt(user.getCreatedAt())
+                .lastLoginAt(user.getLastLoginAt())
+                .points(points)
+                .build();
     }
 
     public UserProfileResponse getUserProfile(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
-        long postCount = postRepository.countByUserAndIsDeleted(user, false); // Calculate postCount
-        long commentCount = commentRepository.countByUser(user); // 댓글 수 계산
+        long postCount = postRepository.countByUserAndIsDeleted(user, false);
+        long commentCount = commentRepository.countByUser(user);
 
         return UserProfileResponse.builder()
                 .userId(user.getUserId())
@@ -70,7 +94,8 @@ public class UserService {
     }
 
     @Transactional
-    public User updateMyProfile(Long userId, String displayName, String profileImageUrl, Long profileImageId) {
+    public UpdateProfileResponse updateMyProfile(Long userId, String displayName, String profileImageUrl,
+            Long profileImageId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
@@ -95,7 +120,7 @@ public class UserService {
             fileService.associateFileWithEntity(profileImageId, user.getUserId(), "USER_PROFILE");
         }
 
-        return user;
+        return new UpdateProfileResponse(user.getUserId(), user.getDisplayName(), user.getProfileImageUrl());
     }
 
     @Transactional

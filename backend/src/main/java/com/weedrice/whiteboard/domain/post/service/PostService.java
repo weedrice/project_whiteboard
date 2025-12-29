@@ -9,12 +9,17 @@ import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.file.entity.File;
-import com.weedrice.whiteboard.domain.file.service.FileService; // Import FileService
+import com.weedrice.whiteboard.domain.file.service.FileService;
 import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
+import com.weedrice.whiteboard.domain.post.dto.DraftListResponse;
+import com.weedrice.whiteboard.domain.post.dto.DraftResponse;
 import com.weedrice.whiteboard.domain.post.dto.PostCreateRequest;
 import com.weedrice.whiteboard.domain.post.dto.PostDraftRequest;
-import com.weedrice.whiteboard.domain.post.dto.PostUpdateRequest;
+import com.weedrice.whiteboard.domain.post.dto.PostResponse; // Import PostResponse
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
+import com.weedrice.whiteboard.domain.post.dto.PostUpdateRequest;
+import com.weedrice.whiteboard.domain.post.dto.PostVersionResponse;
+import com.weedrice.whiteboard.domain.post.dto.ScrapListResponse;
 import com.weedrice.whiteboard.domain.post.dto.ViewHistoryRequest;
 import com.weedrice.whiteboard.domain.post.entity.*;
 import com.weedrice.whiteboard.domain.post.repository.*;
@@ -28,6 +33,7 @@ import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
@@ -63,11 +69,44 @@ public class PostService {
         private final UserBlockService userBlockService; // Inject UserBlockService
 
         // --- boardUrl 기반 public 메서드 (오버로드) ---
-        public Page<Post> getPosts(String boardUrl, Long categoryId, Integer minLikes, Long currentUserId,
+        public Page<PostSummary> getPosts(String boardUrl, Long categoryId, Integer minLikes, Long currentUserId,
                         @NonNull Pageable pageable) {
                 Board board = boardRepository.findByBoardUrl(boardUrl)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
-                return this.getPosts(board.getBoardId(), categoryId, minLikes, currentUserId, pageable);
+                Page<Post> posts = this.getPosts(board.getBoardId(), categoryId, minLikes, currentUserId, pageable);
+
+                List<PostSummary> summaries = new java.util.ArrayList<>();
+                long totalElements = posts.getTotalElements();
+                int pageNumber = posts.getNumber();
+                int pageSize = posts.getSize();
+
+                boolean isAscending = pageable.getSort().stream()
+                                .anyMatch(order -> order.getProperty().equals("createdAt") && order.isAscending()
+                                                || order.getProperty().equals("postId") && order.isAscending());
+
+                List<Long> postIds = posts.getContent().stream().map(Post::getPostId)
+                                .collect(Collectors.toList());
+                Set<Long> postIdsWithImages = getPostIdsWithImages(postIds);
+
+                for (int i = 0; i < posts.getContent().size(); i++) {
+                        Post post = posts.getContent().get(i);
+                        PostSummary summary = PostSummary.from(post);
+                        summary.setHasImage(postIdsWithImages.contains(post.getPostId()));
+
+                        if (isAscending) {
+                                summary.setRowNum(((long) pageNumber * pageSize) + i + 1);
+                        } else {
+                                summary.setRowNum(totalElements - ((long) pageNumber * pageSize) - i);
+                        }
+                        summaries.add(summary);
+                }
+
+                return new org.springframework.data.domain.PageImpl<>(summaries, pageable, totalElements);
+        }
+
+        public List<PostSummary> getNoticeSummaries(String boardUrl, Long currentUserId) {
+                List<Post> notices = getNotices(boardUrl, currentUserId);
+                return notices.stream().map(PostSummary::from).collect(Collectors.toList());
         }
 
         public List<Post> getNotices(String boardUrl, Long currentUserId) {
@@ -102,43 +141,40 @@ public class PostService {
                 return postRepository.findNoticesByBoardId(boardId, true, false, blockedUserIds);
         }
 
-        public Page<Post> getPostsByTag(Long tagId, Long currentUserId, @NonNull Pageable pageable) {
-                List<Long> blockedUserIds = null;
-                if (currentUserId != null) {
-                        blockedUserIds = userBlockService.getBlockedUserIds(currentUserId);
-                }
-                return postRepository.findByTagId(tagId, blockedUserIds, pageable);
-        }
+        public Page<PostSummary> getPostsByTag(Long tagId, Long currentUserId, @NonNull Pageable pageable) {
+                Page<com.weedrice.whiteboard.domain.tag.entity.PostTag> postTags = postTagRepository
+                                .findByTag_TagId(tagId, pageable);
 
-        public Page<Post> getMyPosts(@NonNull Long userId, @NonNull Pageable pageable) {
-                User user = userRepository.findById(userId)
-                                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-                return postRepository.findByUserAndIsDeleted(user, false, pageable);
-        }
+                List<Long> postIds = postTags.getContent().stream()
+                                .map(pt -> pt.getPost().getPostId())
+                                .collect(Collectors.toList());
 
-        // 최신 게시글 15개 조회 (BoardUrl 기반)
-        public List<PostSummary> getLatestPostsByBoard(Long boardId, int limit, Long currentUserId) {
-                Board board = boardRepository.findByBoardId(boardId)
-                                .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
-
-                List<Long> blockedUserIds = null;
-                if (currentUserId != null) {
-                        blockedUserIds = userBlockService.getBlockedUserIds(currentUserId);
-                }
-
-                List<Post> posts = postRepository.findLatestPostsByBoardId(board.getBoardId(), false, blockedUserIds,
-                                Pageable.ofSize(limit));
-
-                List<Long> postIds = posts.stream().map(Post::getPostId).collect(Collectors.toList());
                 Set<Long> postIdsWithImages = getPostIdsWithImages(postIds);
 
-                return posts.stream()
-                                .map(post -> {
-                                        PostSummary summary = PostSummary.from(post);
-                                        summary.setHasImage(postIdsWithImages.contains(post.getPostId()));
-                                        return summary;
-                                })
+                return postTags.map(pt -> {
+                        Post post = pt.getPost();
+                        PostSummary summary = PostSummary.from(post);
+                        summary.setHasImage(postIdsWithImages.contains(post.getPostId()));
+                        return summary;
+                });
+        }
+
+        public Page<PostSummary> getMyPosts(Long userId, @NonNull Pageable pageable) {
+                User user = userRepository.findById(userId)
+                                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+                Page<Post> posts = postRepository.findByUserAndIsDeleted(user, false, pageable);
+
+                List<Long> postIds = posts.getContent().stream()
+                                .map(Post::getPostId)
                                 .collect(Collectors.toList());
+
+                Set<Long> postIdsWithImages = getPostIdsWithImages(postIds);
+
+                return posts.map(post -> {
+                        PostSummary summary = PostSummary.from(post);
+                        summary.setHasImage(postIdsWithImages.contains(post.getPostId()));
+                        return summary;
+                });
         }
 
         public List<PostSummary> getTrendingPosts(Pageable pageable, Long currentUserId) {
@@ -186,19 +222,28 @@ public class PostService {
                 final Set<Long> finalLikedPostIds = likedPostIds;
                 final Set<Long> finalScrappedPostIds = scrappedPostIds;
                 final Set<String> finalSubscribedBoardUrls = subscribedBoardUrls;
-
                 return posts.stream()
-                                .map(post -> PostSummary.from(
-                                                post,
-                                                postIdsWithImages.contains(post.getPostId()) ? "/api/v1/files/"
-                                                                + fileService.getOneImageFileIdForPost(post.getPostId())
-                                                                : null,
-                                                post.getBoard().getIconUrl(),
-                                                finalLikedPostIds.contains(post.getPostId()),
-                                                finalScrappedPostIds.contains(post.getPostId()),
-                                                finalSubscribedBoardUrls.contains(post.getBoard().getBoardUrl()),
-                                                postIdsWithImages.contains(post.getPostId()))) // Add hasImage argument
+                                .map(post -> {
+                                        String summary = post.getContents().replaceAll("<[^>]*>", "").trim();
+                                        if (summary.length() > 1000) {
+                                                summary = summary.substring(0, 1000);
+                                        }
+                                        return PostSummary.from(
+                                                        post,
+                                                        postIdsWithImages.contains(post.getPostId()) ? "/api/v1/files/"
+                                                                        + fileService.getOneImageFileIdForPost(
+                                                                                        post.getPostId())
+                                                                        : null,
+                                                        post.getBoard().getIconUrl(),
+                                                        finalLikedPostIds.contains(post.getPostId()),
+                                                        finalScrappedPostIds.contains(post.getPostId()),
+                                                        finalSubscribedBoardUrls
+                                                                        .contains(post.getBoard().getBoardUrl()),
+                                                        postIdsWithImages.contains(post.getPostId()),
+                                                        summary);
+                                })
                                 .collect(Collectors.toList());
+
         }
 
         @Transactional
@@ -242,6 +287,19 @@ public class PostService {
                 }
 
                 return post;
+        }
+
+        @Transactional
+        public PostResponse getPostResponse(@NonNull Long postId, Long userId) {
+                Post post = getPostById(postId, userId);
+                List<String> tags = getTagsForPost(postId);
+                boolean isLiked = isPostLikedByUser(postId, userId);
+                boolean isScrapped = isPostScrappedByUser(postId, userId);
+                ViewHistory viewHistory = getViewHistory(userId, postId);
+                List<String> imageUrls = getPostImageUrls(postId);
+                boolean isAdmin = isBoardAdmin(userId, post.getBoard().getBoardId());
+
+                return PostResponse.from(post, tags, viewHistory, isLiked, isScrapped, imageUrls, isAdmin);
         }
 
         public boolean isPostLikedByUser(@NonNull Long postId, Long userId) {
@@ -417,7 +475,7 @@ public class PostService {
         }
 
         @Transactional
-        public void likePost(@NonNull Long userId, @NonNull Long postId) {
+        public int likePost(@NonNull Long userId, @NonNull Long postId) {
                 User user = userRepository.findById(userId)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
                 Post post = postRepository.findById(postId)
@@ -442,10 +500,12 @@ public class PostService {
                 String content = user.getDisplayName() + "님이 회원님의 게시글을 좋아합니다.";
                 NotificationEvent event = new NotificationEvent(post.getUser(), user, "LIKE", "POST", postId, content);
                 eventPublisher.publishEvent(event);
+
+                return post.getLikeCount();
         }
 
         @Transactional
-        public void unlikePost(@NonNull Long userId, @NonNull Long postId) {
+        public int unlikePost(@NonNull Long userId, @NonNull Long postId) {
                 Post post = postRepository.findById(postId)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
 
@@ -460,6 +520,8 @@ public class PostService {
 
                 postLikeRepository.deleteById(postLikeId);
                 post.decrementLikeCount();
+
+                return post.getLikeCount();
         }
 
         @Transactional
@@ -497,23 +559,26 @@ public class PostService {
                 scrapRepository.deleteById(scrapId);
         }
 
-        public Page<Scrap> getMyScraps(@NonNull Long userId, @NonNull Pageable pageable) {
+        public ScrapListResponse getMyScraps(@NonNull Long userId, @NonNull Pageable pageable) {
                 User user = userRepository.findById(userId)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-                return scrapRepository.findByUserOrderByCreatedAtDesc(user, pageable);
+                Page<Scrap> scrapPage = scrapRepository.findByUserOrderByCreatedAtDesc(user, pageable);
+                return ScrapListResponse.from(scrapPage);
         }
 
-        public Page<DraftPost> getDraftPosts(@NonNull Long userId, @NonNull Pageable pageable) {
+        public DraftListResponse getDraftPosts(@NonNull Long userId, @NonNull Pageable pageable) {
                 User user = userRepository.findById(userId)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-                return draftPostRepository.findByUserOrderByModifiedAtDesc(user, pageable);
+                Page<DraftPost> draftPage = draftPostRepository.findByUserOrderByModifiedAtDesc(user, pageable);
+                return DraftListResponse.from(draftPage);
         }
 
-        public DraftPost getDraftPost(@NonNull Long userId, @NonNull Long draftId) {
+        public DraftResponse getDraftPost(@NonNull Long userId, @NonNull Long draftId) {
                 User user = userRepository.findById(userId)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-                return draftPostRepository.findByDraftIdAndUser(draftId, user)
+                DraftPost draftPost = draftPostRepository.findByDraftIdAndUser(draftId, user)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+                return DraftResponse.from(draftPost);
         }
 
         @Transactional
@@ -566,8 +631,9 @@ public class PostService {
                 postVersionRepository.save(postVersion);
         }
 
-        public List<PostVersion> getPostVersions(@NonNull Long postId) {
-                return postVersionRepository.findByPost_PostIdOrderByCreatedAtDesc(postId);
+        public List<PostVersionResponse> getPostVersions(@NonNull Long postId) {
+                List<PostVersion> versions = postVersionRepository.findByPost_PostIdOrderByCreatedAtDesc(postId);
+                return PostVersionResponse.from(versions);
         }
 
         public List<String> getTagsForPost(@NonNull Long postId) {
@@ -622,5 +688,77 @@ public class PostService {
                 if (board == null)
                         return false;
                 return adminRepository.findByUserAndBoardAndIsActive(user, board, true).isPresent();
+        }
+
+        public List<PostSummary> getLatestPostsByBoard(Long boardId, int limit, Long currentUserId) {
+                Pageable pageable = PageRequest.of(0, limit, org.springframework.data.domain.Sort
+                                .by(org.springframework.data.domain.Sort.Direction.DESC, "createdAt"));
+
+                List<Long> blockedUserIds = null;
+                if (currentUserId != null) {
+                        blockedUserIds = userBlockService.getBlockedUserIds(currentUserId);
+                }
+
+                Page<Post> postPage = postRepository.findByBoardIdAndCategoryId(boardId, null, null, blockedUserIds,
+                                pageable);
+                List<Post> posts = postPage.getContent();
+
+                if (posts.isEmpty()) {
+                        return Collections.emptyList();
+                }
+
+                List<Long> postIds = posts.stream().map(Post::getPostId).collect(Collectors.toList());
+                List<Board> boards = posts.stream().map(Post::getBoard).distinct().collect(Collectors.toList());
+
+                Set<Long> postIdsWithImages = getPostIdsWithImages(postIds);
+
+                // Batch fetch user interactions if logged in
+                Set<Long> likedPostIds = new HashSet<>();
+                Set<Long> scrappedPostIds = new HashSet<>();
+                Set<String> subscribedBoardUrls = new HashSet<>();
+
+                if (currentUserId != null) {
+                        User user = userRepository.findById(currentUserId).orElse(null);
+                        if (user != null) {
+                                likedPostIds = postLikeRepository.findByUserAndPostIn(user, posts).stream()
+                                                .map(like -> like.getPost().getPostId())
+                                                .collect(Collectors.toSet());
+
+                                scrappedPostIds = scrapRepository.findByUserAndPostIn(user, posts).stream()
+                                                .map(scrap -> scrap.getPost().getPostId())
+                                                .collect(Collectors.toSet());
+
+                                subscribedBoardUrls = boardSubscriptionRepository.findByUserAndBoardIn(user, boards)
+                                                .stream()
+                                                .map(sub -> sub.getBoard().getBoardUrl())
+                                                .collect(Collectors.toSet());
+                        }
+                }
+
+                final Set<Long> finalLikedPostIds = likedPostIds;
+                final Set<Long> finalScrappedPostIds = scrappedPostIds;
+                final Set<String> finalSubscribedBoardUrls = subscribedBoardUrls;
+
+                return posts.stream()
+                                .map(post -> {
+                                        String summary = post.getContents().replaceAll("<[^>]*>", "").trim();
+                                        if (summary.length() > 1000) {
+                                                summary = summary.substring(0, 1000);
+                                        }
+                                        return PostSummary.from(
+                                                        post,
+                                                        postIdsWithImages.contains(post.getPostId()) ? "/api/v1/files/"
+                                                                        + fileService.getOneImageFileIdForPost(
+                                                                                        post.getPostId())
+                                                                        : null,
+                                                        post.getBoard().getIconUrl(),
+                                                        finalLikedPostIds.contains(post.getPostId()),
+                                                        finalScrappedPostIds.contains(post.getPostId()),
+                                                        finalSubscribedBoardUrls
+                                                                        .contains(post.getBoard().getBoardUrl()),
+                                                        postIdsWithImages.contains(post.getPostId()),
+                                                        summary);
+                                })
+                                .collect(Collectors.toList());
         }
 }

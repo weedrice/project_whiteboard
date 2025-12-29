@@ -1,6 +1,8 @@
 package com.weedrice.whiteboard.domain.shop.service;
 
 import com.weedrice.whiteboard.domain.point.service.PointService;
+import com.weedrice.whiteboard.domain.shop.dto.PurchaseHistoryResponse;
+import com.weedrice.whiteboard.domain.shop.dto.ShopItemResponse;
 import com.weedrice.whiteboard.domain.shop.entity.PurchaseHistory;
 import com.weedrice.whiteboard.domain.shop.entity.ShopItem;
 import com.weedrice.whiteboard.domain.shop.repository.PurchaseHistoryRepository;
@@ -25,11 +27,14 @@ public class ShopService {
     private final UserRepository userRepository;
     private final PointService pointService;
 
-    public Page<ShopItem> getShopItems(String itemType, Pageable pageable) {
+    public ShopItemResponse getShopItems(String itemType, Pageable pageable) {
+        Page<ShopItem> items;
         if (itemType != null && !itemType.isEmpty()) {
-            return shopItemRepository.findByIsActiveAndItemType(true, itemType, pageable);
+            items = shopItemRepository.findByIsActiveAndItemType(true, itemType, pageable);
+        } else {
+            items = shopItemRepository.findByIsActive(true, pageable);
         }
-        return shopItemRepository.findByIsActive(true, pageable);
+        return ShopItemResponse.from(items);
     }
 
     public ShopItem getShopItem(Long itemId) {
@@ -38,7 +43,7 @@ public class ShopService {
     }
 
     @Transactional
-    public PurchaseHistory purchaseItem(Long userId, Long itemId) {
+    public Long purchaseItem(Long userId, Long itemId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         ShopItem item = shopItemRepository.findById(itemId)
@@ -48,19 +53,20 @@ public class ShopService {
             throw new BusinessException(ErrorCode.ITEM_NOT_AVAILABLE);
         }
 
-        pointService.forceSubtractPoint(userId, item.getPrice(), item.getItemName() + " 구매", item.getItemId(), "SHOP_ITEM");
+        pointService.forceSubtractPoint(userId, item.getPrice(), item.getItemName() + " 구매", item.getItemId(),
+                "SHOP_ITEM");
 
         PurchaseHistory purchaseHistory = PurchaseHistory.builder()
                 .user(user)
                 .item(item)
                 .purchasedPrice(item.getPrice())
                 .build();
-        return purchaseHistoryRepository.save(purchaseHistory);
+        return purchaseHistoryRepository.save(purchaseHistory).getPurchaseId();
     }
 
-    public Page<PurchaseHistory> getPurchaseHistories(Long userId, Pageable pageable) {
+    public PurchaseHistoryResponse getPurchaseHistories(Long userId, Pageable pageable) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        return purchaseHistoryRepository.findByUserOrderByCreatedAtDesc(user, pageable);
+        return PurchaseHistoryResponse.from(purchaseHistoryRepository.findByUserOrderByCreatedAtDesc(user, pageable));
     }
 }

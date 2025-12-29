@@ -31,7 +31,7 @@ public class SanctionController {
                 request.getTargetUserId(),
                 request.getType(),
                 request.getRemark(),
-                request.getEndDate()).getSanctionId());
+                request.getEndDate()));
     }
 
     @GetMapping
@@ -40,6 +40,6 @@ public class SanctionController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         Pageable pageable = PageRequest.of(page, size);
-        return ApiResponse.success(sanctionService.getSanctions(userId, pageable).map(SanctionResponse::from));
+        return ApiResponse.success(sanctionService.getSanctions(userId, pageable));
     }
 }

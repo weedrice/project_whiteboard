@@ -123,9 +123,7 @@ public class BoardService {
                         isSubscribed = boardSubscriptionRepository.existsByUserAndBoard(currentUser, board);
                 }
 
-                List<CategoryResponse> categories = getActiveCategories(board.getBoardUrl()).stream()
-                                .map(CategoryResponse::new)
-                                .collect(Collectors.toList());
+                List<CategoryResponse> categories = getActiveCategories(board.getBoardUrl());
 
                 Long currentUserId = (userDetails instanceof CustomUserDetails)
                                 ? ((CustomUserDetails) userDetails).getUserId()
@@ -138,11 +136,13 @@ public class BoardService {
                                 latestPosts);
         }
 
-        public List<BoardCategory> getActiveCategories(String boardUrl) {
+        public List<CategoryResponse> getActiveCategories(String boardUrl) {
                 Board board = boardRepository.findByBoardUrl(boardUrl)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
                 return boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(board.getBoardId(),
-                                true);
+                                true).stream()
+                                .map(CategoryResponse::new)
+                                .collect(Collectors.toList());
         }
 
         @Transactional
@@ -288,7 +288,7 @@ public class BoardService {
         }
 
         @Transactional
-        public BoardCategory createCategory(String boardUrl, CategoryRequest request) {
+        public CategoryResponse createCategory(String boardUrl, CategoryRequest request) {
                 Board board = boardRepository.findByBoardUrl(boardUrl)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
 
@@ -300,11 +300,11 @@ public class BoardService {
                                 .sortOrder(request.getSortOrder())
                                 .minWriteRole(request.getMinWriteRole())
                                 .build();
-                return boardCategoryRepository.save(category);
+                return new CategoryResponse(boardCategoryRepository.save(category));
         }
 
         @Transactional
-        public BoardCategory updateCategory(Long categoryId, CategoryRequest request) {
+        public CategoryResponse updateCategory(Long categoryId, CategoryRequest request) {
                 if (categoryId == null) {
                         throw new BusinessException(ErrorCode.VALIDATION_ERROR, "Category ID cannot be null");
                 }
@@ -314,7 +314,7 @@ public class BoardService {
                 SecurityUtils.validateBoardAdminPermission(category.getBoard());
 
                 category.update(request.getName(), request.getSortOrder(), request.getMinWriteRole());
-                return category;
+                return new CategoryResponse(category);
         }
 
         @Transactional

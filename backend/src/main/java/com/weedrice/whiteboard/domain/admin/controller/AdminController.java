@@ -1,11 +1,10 @@
 package com.weedrice.whiteboard.domain.admin.controller;
 
 import com.weedrice.whiteboard.domain.admin.dto.*;
-import com.weedrice.whiteboard.domain.admin.entity.Admin;
-import com.weedrice.whiteboard.domain.admin.entity.IpBlock;
+
 import com.weedrice.whiteboard.domain.admin.service.AdminService;
 import com.weedrice.whiteboard.domain.user.entity.Role;
-import com.weedrice.whiteboard.domain.user.entity.User;
+
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
@@ -50,8 +49,7 @@ public class AdminController {
      */
     @PutMapping("/super/active")
     public ApiResponse<SuperAdminUpdateResponse> activeSuperAdmin(@Valid @RequestBody SuperAdminRequest request) {
-        User user = adminService.createSuperAdmin(request.getLoginId());
-        return ApiResponse.success(SuperAdminUpdateResponse.from(user));
+        return ApiResponse.success(adminService.createSuperAdmin(request.getLoginId()));
     }
 
     /**
@@ -65,8 +63,7 @@ public class AdminController {
      */
     @PutMapping("/super/deactive")
     public ApiResponse<SuperAdminUpdateResponse> deactiveSuperAdmin(@Valid @RequestBody SuperAdminRequest request) {
-        User user = adminService.deactiveSuperAdmin(request.getLoginId());
-        return ApiResponse.success(SuperAdminUpdateResponse.from(user));
+        return ApiResponse.success(adminService.deactiveSuperAdmin(request.getLoginId()));
     }
 
     /**
@@ -79,8 +76,8 @@ public class AdminController {
     @PostMapping("/admins")
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<AdminResponse> createAdmin(@Valid @RequestBody AdminCreateRequest request) {
-        Admin admin = adminService.createAdmin(request.getLoginId(), request.getBoardId(), request.getRole());
-        return ApiResponse.success(AdminResponse.from(admin));
+        return ApiResponse
+                .success(adminService.createAdmin(request.getLoginId(), request.getBoardId(), request.getRole()));
     }
 
     /**
@@ -90,8 +87,7 @@ public class AdminController {
      */
     @GetMapping("/admins")
     public ApiResponse<List<AdminResponse>> getAllAdmins() {
-        List<Admin> admins = adminService.getAllAdmins();
-        return ApiResponse.success(AdminResponse.from(admins));
+        return ApiResponse.success(adminService.getAllAdmins());
     }
 
     /**
@@ -132,9 +128,8 @@ public class AdminController {
             @Valid @RequestBody IpBlockRequest request,
             Authentication authentication) {
         Long adminUserId = ((CustomUserDetails) authentication.getPrincipal()).getUserId();
-        IpBlock ipBlock = adminService.blockIp(adminUserId, request.getIpAddress(), request.getReason(),
-                request.getEndDate());
-        return ApiResponse.success(IpBlockResponse.from(ipBlock));
+        return ApiResponse.success(adminService.blockIp(adminUserId, request.getIpAddress(), request.getReason(),
+                request.getEndDate()));
     }
 
     /**
@@ -156,8 +151,7 @@ public class AdminController {
      */
     @GetMapping("/ip-blocks")
     public ApiResponse<List<IpBlockResponse>> getBlockedIps() {
-        List<IpBlock> ipBlocks = adminService.getBlockedIps();
-        return ApiResponse.success(IpBlockResponse.from(ipBlocks));
+        return ApiResponse.success(adminService.getBlockedIps());
     }
 
     /**

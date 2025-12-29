@@ -10,8 +10,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Collections;
-
 @RestController
 @RequestMapping("/api/v1/notifications")
 @RequiredArgsConstructor
@@ -26,7 +24,7 @@ public class NotificationController {
             @RequestParam(defaultValue = "20") int size) {
         Long userId = ((CustomUserDetails) authentication.getPrincipal()).getUserId();
         Pageable pageable = PageRequest.of(page, size);
-        return ApiResponse.success(NotificationResponse.from(notificationService.getNotifications(userId, pageable)));
+        return ApiResponse.success(notificationService.getNotifications(userId, pageable));
     }
 
     @PutMapping("/{notificationId}/read")

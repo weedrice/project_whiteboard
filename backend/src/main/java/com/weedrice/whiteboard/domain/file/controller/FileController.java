@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.file.controller;
 
+import com.weedrice.whiteboard.domain.file.dto.FileSimpleResponse;
 import com.weedrice.whiteboard.domain.file.dto.FileUploadResponse;
 import com.weedrice.whiteboard.domain.file.entity.File;
 import com.weedrice.whiteboard.domain.file.service.FileService;
@@ -33,28 +34,22 @@ public class FileController {
             @RequestParam("file") MultipartFile multipartFile,
             Authentication authentication) {
         Long userId = ((CustomUserDetails) authentication.getPrincipal()).getUserId();
-        File file = fileService.uploadFile(userId, multipartFile);
-        return ApiResponse.success(FileUploadResponse.from(file));
+        return ApiResponse.success(fileService.uploadFile(userId, multipartFile));
     }
-    
+
     @PostMapping("/upload")
     @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse<java.util.Map<String, Object>> uploadSimple(
+    public ApiResponse<FileSimpleResponse> uploadSimple(
             @RequestParam("file") MultipartFile multipartFile,
             Authentication authentication) {
         Long userId = ((CustomUserDetails) authentication.getPrincipal()).getUserId();
-        File file = fileService.uploadFile(userId, multipartFile);
-        // Returns the proxy URL /api/v1/files/{fileId} which streams from S3
-        java.util.Map<String, Object> response = new java.util.HashMap<>();
-        response.put("url", "/api/v1/files/" + file.getFileId());
-        response.put("fileId", file.getFileId());
-        return ApiResponse.success(response);
+        return ApiResponse.success(fileService.uploadSimpleFile(userId, multipartFile));
     }
 
     @GetMapping("/{fileId}")
     public ResponseEntity<Resource> downloadFile(@PathVariable Long fileId) {
         File file = fileService.getFile(fileId);
-        
+
         // S3로부터 InputStream을 받아옴
         InputStream inputStream = fileStorageService.loadFile(file.getFilePath());
         Resource resource = new InputStreamResource(inputStream);
