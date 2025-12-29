@@ -26,8 +26,17 @@
             </div>
         </div>
 
-        <div v-if="loading" class="text-center py-10">
-            <BaseSpinner size="lg" />
+        <div v-if="loading" class="divide-y divide-gray-200 dark:divide-gray-700">
+            <div v-for="i in 5" :key="i" class="p-4 flex items-start">
+                <BaseSkeleton width="20px" height="20px" className="mr-4 mt-1" />
+                <div class="flex-1">
+                    <div class="flex justify-between mb-1">
+                        <BaseSkeleton width="100px" height="16px" />
+                        <BaseSkeleton width="80px" height="12px" />
+                    </div>
+                    <BaseSkeleton width="80%" height="16px" />
+                </div>
+            </div>
         </div>
 
         <div v-else-if="messages.length === 0" class="text-center py-10 text-gray-500 dark:text-gray-400">
@@ -121,7 +130,7 @@ import BaseModal from '@/components/common/ui/BaseModal.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseCheckbox from '@/components/common/ui/BaseCheckbox.vue'
 import BaseTextarea from '@/components/common/ui/BaseTextarea.vue'
-import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
+import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import Pagination from '@/components/common/ui/Pagination.vue'
 import PageSizeSelector from '@/components/common/widgets/PageSizeSelector.vue'
 import { useI18n } from 'vue-i18n'
@@ -264,4 +273,3 @@ onMounted(() => {
     fetchMessages()
 })
 </script>
-

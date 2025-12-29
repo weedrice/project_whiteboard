@@ -4,8 +4,19 @@
       <h2 class="text-2xl font-bold text-gray-900">{{ $t('user.blockList.title') }}</h2>
     </div>
 
-    <div v-if="loading" class="text-center py-8">
-      <p class="text-gray-500">{{ $t('common.loading') }}</p>
+    <div v-if="loading" class="bg-white shadow overflow-hidden sm:rounded-md">
+      <ul role="list" class="divide-y divide-gray-200">
+        <li v-for="i in 5" :key="i" class="px-4 py-4 sm:px-6 flex items-center justify-between">
+          <div class="flex items-center">
+            <BaseSkeleton width="2.5rem" height="2.5rem" rounded="rounded-full" className="mr-4" />
+            <div>
+              <BaseSkeleton width="100px" height="16px" className="mb-1" />
+              <BaseSkeleton width="150px" height="14px" />
+            </div>
+          </div>
+          <BaseSkeleton width="80px" height="32px" />
+        </li>
+      </ul>
     </div>
 
     <div v-else-if="blockedUsers.length === 0" class="text-center py-8 bg-gray-50 rounded-lg">
@@ -37,6 +48,7 @@
 import { ref, onMounted } from 'vue'
 import { userApi } from '@/api/user'
 import BlockButton from '@/components/user/BlockButton.vue'
+import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import { useI18n } from 'vue-i18n'
 import logger from '@/utils/logger'
 

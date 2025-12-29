@@ -6,7 +6,11 @@ import logger from '@/utils/logger'
 
 export const useThemeStore = defineStore('theme', () => {
     const authStore = useAuthStore()
-    const isDark = ref(localStorage.getItem('theme') === 'dark')
+
+    // Initialize theme: localStorage -> System Preference -> Light
+    const storedTheme = localStorage.getItem('theme')
+    const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+    const isDark = ref(storedTheme === 'dark' || (!storedTheme && systemDark))
 
     async function toggleTheme() {
         isDark.value = !isDark.value

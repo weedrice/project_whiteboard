@@ -44,7 +44,8 @@ import { formatDateOnly } from '@/utils/date'
       <div class="flex items-center space-x-3">
         <!-- Board Info -->
         <div class="flex-shrink-0">
-          <img v-if="post.boardIconUrl" :src="post.boardIconUrl" alt="Board Icon" class="h-8 w-8 rounded-full" />
+          <img v-if="post.boardIconUrl" :src="post.boardIconUrl" alt="Board Icon" class="h-8 w-8 rounded-full"
+            loading="lazy" />
           <div v-else class="h-8 w-8 rounded-full bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center">
             <span class="text-xs font-bold text-indigo-600 dark:text-indigo-300">{{ post.boardName?.substring(0, 1)
             }}</span>
@@ -71,11 +72,12 @@ import { formatDateOnly } from '@/utils/date'
     <div class="px-4 py-4 sm:px-6 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
       @click="router.push(`/board/${post.boardUrl}/post/${post.postId}`)">
       <h2 class="text-lg font-bold text-gray-900 dark:text-white mb-2">{{ post.title }}</h2>
-      <p class="text-sm text-gray-600 dark:text-gray-300 line-clamp-3 mb-4">{{ post.summary }}</p>
+      <p class="text-sm text-gray-600 dark:text-gray-300 line-clamp-[10] mb-4">{{ post.summary }}</p>
 
       <!-- Thumbnail if exists -->
-      <div v-if="post.thumbnailUrl" class="mb-4 rounded-lg overflow-hidden h-48 w-full bg-gray-100 dark:bg-gray-900">
-        <img :src="post.thumbnailUrl" alt="Post Thumbnail" class="w-full h-full object-cover" />
+      <div v-if="post.thumbnailUrl"
+        class="mb-4 rounded-lg overflow-hidden max-h-96 w-full bg-gray-100 dark:bg-gray-900">
+        <img :src="post.thumbnailUrl" alt="Post Thumbnail" class="w-full h-full object-cover" loading="lazy" />
       </div>
 
       <div class="flex items-center text-xs text-gray-500 dark:text-gray-400 space-x-4">
@@ -113,4 +115,3 @@ import { formatDateOnly } from '@/utils/date'
     </div>
   </BaseCard>
 </template>
-

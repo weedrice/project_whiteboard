@@ -4,6 +4,7 @@ import { userApi } from '@/api/user'
 import PostList from '@/components/board/PostList.vue'
 import Pagination from '@/components/common/ui/Pagination.vue'
 import PageSizeSelector from '@/components/common/widgets/PageSizeSelector.vue'
+import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import logger from '@/utils/logger'
 
 const scraps = ref([])
@@ -65,10 +66,18 @@ onMounted(() => {
         {{ $t('user.scrapList.empty') }}
       </div>
 
-      <div v-if="loading && scraps.length === 0" class="text-center py-10">
-        <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 mx-auto"></div>
+      <div v-if="loading && scraps.length === 0" class="space-y-4 p-4">
+        <div v-for="i in 5" :key="i"
+          class="flex justify-between items-center py-2 border-b border-gray-100 dark:border-gray-700 last:border-0">
+          <div class="w-full">
+            <BaseSkeleton width="70%" height="24px" className="mb-2" />
+            <div class="flex gap-2">
+              <BaseSkeleton width="40px" height="16px" />
+              <BaseSkeleton width="60px" height="16px" />
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 </template>
-

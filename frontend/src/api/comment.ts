@@ -1,5 +1,6 @@
 import api from './index'
 import type { ApiResponse, PageResponse, Comment, CommentPayload } from '@/types'
+export type { Comment, CommentPayload }
 
 export interface CommentParams {
     page?: number;

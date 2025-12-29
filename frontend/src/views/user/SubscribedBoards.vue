@@ -5,8 +5,17 @@
             </h3>
         </div>
 
-        <div v-if="loading" class="text-center py-10">
-            <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 mx-auto"></div>
+        <div v-if="loading" class="divide-y divide-gray-200 dark:divide-gray-700">
+            <div v-for="i in 5" :key="i" class="px-4 py-4 sm:px-6 flex justify-between items-center">
+                <div class="flex items-center flex-1">
+                    <BaseSkeleton width="20px" height="20px" className="mr-4" />
+                    <div class="flex-1">
+                        <BaseSkeleton width="120px" height="20px" className="mb-1" />
+                        <BaseSkeleton width="200px" height="16px" />
+                    </div>
+                </div>
+                <BaseSkeleton width="80px" height="32px" className="ml-4" />
+            </div>
         </div>
 
         <div v-else-if="boards.length === 0" class="text-center py-10 text-gray-500 dark:text-gray-400">
@@ -48,6 +57,7 @@ import draggable from 'vuedraggable'
 import { Menu } from 'lucide-vue-next'
 import logger from '@/utils/logger'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
+import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import { useConfirm } from '@/composables/useConfirm'
 
 const { t } = useI18n()
@@ -100,4 +110,3 @@ onMounted(() => {
     fetchSubscriptions()
 })
 </script>
-

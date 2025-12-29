@@ -81,6 +81,11 @@ export const useAuthStore = defineStore('auth', () => {
                     await logout()
                     return
                 }
+
+                // Sync theme from server
+                if (user.value?.theme) {
+                    themeStore.setTheme(user.value.theme)
+                }
             }
         } catch (error) {
             logger.error('Fetch user failed:', error)

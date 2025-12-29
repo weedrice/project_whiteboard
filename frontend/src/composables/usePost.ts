@@ -62,7 +62,27 @@ export function usePost() {
             mutationFn: async (postId: string | number) => {
                 return await postApi.likePost(postId)
             },
-            onSuccess: (_, postId) => {
+            onMutate: async (postId) => {
+                await queryClient.cancelQueries({ queryKey: ['post', postId] })
+                const previousPost = queryClient.getQueryData(['post', postId])
+
+                queryClient.setQueryData(['post', postId], (old: any) => {
+                    if (!old) return old
+                    return {
+                        ...old,
+                        liked: true,
+                        likeCount: (old.likeCount || 0) + 1
+                    }
+                })
+
+                return { previousPost }
+            },
+            onError: (err, postId, context) => {
+                if (context?.previousPost) {
+                    queryClient.setQueryData(['post', postId], context.previousPost)
+                }
+            },
+            onSettled: (_, __, postId) => {
                 queryClient.invalidateQueries({ queryKey: ['post', postId] })
             }
         })
@@ -74,7 +94,27 @@ export function usePost() {
             mutationFn: async (postId: string | number) => {
                 return await postApi.unlikePost(postId)
             },
-            onSuccess: (_, postId) => {
+            onMutate: async (postId) => {
+                await queryClient.cancelQueries({ queryKey: ['post', postId] })
+                const previousPost = queryClient.getQueryData(['post', postId])
+
+                queryClient.setQueryData(['post', postId], (old: any) => {
+                    if (!old) return old
+                    return {
+                        ...old,
+                        liked: false,
+                        likeCount: Math.max((old.likeCount || 0) - 1, 0)
+                    }
+                })
+
+                return { previousPost }
+            },
+            onError: (err, postId, context) => {
+                if (context?.previousPost) {
+                    queryClient.setQueryData(['post', postId], context.previousPost)
+                }
+            },
+            onSettled: (_, __, postId) => {
                 queryClient.invalidateQueries({ queryKey: ['post', postId] })
             }
         })
@@ -86,7 +126,26 @@ export function usePost() {
             mutationFn: async (postId: string | number) => {
                 return await postApi.scrapPost(postId)
             },
-            onSuccess: (_, postId) => {
+            onMutate: async (postId) => {
+                await queryClient.cancelQueries({ queryKey: ['post', postId] })
+                const previousPost = queryClient.getQueryData(['post', postId])
+
+                queryClient.setQueryData(['post', postId], (old: any) => {
+                    if (!old) return old
+                    return {
+                        ...old,
+                        scrapped: true
+                    }
+                })
+
+                return { previousPost }
+            },
+            onError: (err, postId, context) => {
+                if (context?.previousPost) {
+                    queryClient.setQueryData(['post', postId], context.previousPost)
+                }
+            },
+            onSettled: (_, __, postId) => {
                 queryClient.invalidateQueries({ queryKey: ['post', postId] })
             }
         })
@@ -98,7 +157,26 @@ export function usePost() {
             mutationFn: async (postId: string | number) => {
                 return await postApi.unscrapPost(postId)
             },
-            onSuccess: (_, postId) => {
+            onMutate: async (postId) => {
+                await queryClient.cancelQueries({ queryKey: ['post', postId] })
+                const previousPost = queryClient.getQueryData(['post', postId])
+
+                queryClient.setQueryData(['post', postId], (old: any) => {
+                    if (!old) return old
+                    return {
+                        ...old,
+                        scrapped: false
+                    }
+                })
+
+                return { previousPost }
+            },
+            onError: (err, postId, context) => {
+                if (context?.previousPost) {
+                    queryClient.setQueryData(['post', postId], context.previousPost)
+                }
+            },
+            onSettled: (_, __, postId) => {
                 queryClient.invalidateQueries({ queryKey: ['post', postId] })
             }
         })

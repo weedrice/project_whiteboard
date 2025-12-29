@@ -18,6 +18,7 @@ export const messages = {
       back: '뒤로',
       return: '돌아가기',
       or: '또는',
+      top: '맨 위로',
       report: '신고',
       share: '공유',
       copy: '복사하기',
@@ -285,6 +286,7 @@ export const messages = {
       postDetail: {
         back: '뒤로 가기',
         toList: '목록으로',
+        comments: '댓글로',
         spoilerWarning: '스포일러 주의!',
         spoilerTimer: '{time}초 후에 내용이 공개됩니다.',
         revealSpoiler: '지금 보기',

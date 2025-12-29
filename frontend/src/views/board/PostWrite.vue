@@ -48,6 +48,7 @@ const isLoading = computed(() => isBoardLoading.value || isCategoriesLoading.val
 const error = ref('')
 const fileIds = ref([])
 const editor = ref(null)
+const quillInstance = ref(null)
 
 const form = ref({
   categoryId: '',
@@ -104,19 +105,11 @@ const imageHandler = () => {
         const { url, fileId } = res.data.data
         fileIds.value.push(fileId)
 
-        let quill = null
-        if (editor.value) {
-          if (typeof editor.value.getQuill === 'function') {
-            quill = editor.value.getQuill()
-          } else {
-            quill = editor.value // Assuming it was overwritten by onEditorReady
-          }
-        }
-
-        if (quill) {
-          const range = quill.getSelection(true)
-          quill.insertEmbed(range.index, 'image', url)
-          quill.setSelection(range.index + 1)
+        if (quillInstance.value) {
+          const range = quillInstance.value.getSelection(true)
+          const index = range ? range.index : quillInstance.value.getLength()
+          quillInstance.value.insertEmbed(index, 'image', url)
+          quillInstance.value.setSelection(index + 1)
         }
       }
     } catch (err) {
@@ -127,7 +120,7 @@ const imageHandler = () => {
 }
 
 const onEditorReady = (quill) => {
-  editor.value = quill // Save quill instance ref if needed or just use payload
+  quillInstance.value = quill
   quill.getModule('toolbar').addHandler('image', imageHandler)
 }
 
@@ -335,4 +328,3 @@ async function handleSubmit() {
   /* blue-400 */
 }
 </style>
-

@@ -3,7 +3,31 @@
     <!-- Feed -->
     <div v-if="loading" class="space-y-6">
       <div v-for="i in 3" :key="i"
-        class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg h-96 animate-pulse">
+        class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 sm:px-6">
+        <!-- Header Skeleton -->
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center space-x-3">
+            <BaseSkeleton width="2rem" height="2rem" rounded="rounded-full" />
+            <div>
+              <BaseSkeleton width="80px" height="14px" className="mb-1" />
+              <BaseSkeleton width="60px" height="12px" />
+            </div>
+          </div>
+          <BaseSkeleton width="60px" height="28px" />
+        </div>
+        <!-- Content Skeleton -->
+        <div class="mb-4">
+          <BaseSkeleton width="90%" height="24px" className="mb-2" />
+          <BaseSkeleton width="100%" height="16px" className="mb-1" />
+          <BaseSkeleton width="80%" height="16px" className="mb-4" />
+          <BaseSkeleton width="100%" height="192px" rounded="rounded-lg" />
+        </div>
+        <!-- Footer Skeleton -->
+        <div class="flex justify-around pt-3 border-t border-gray-200 dark:border-gray-700">
+          <BaseSkeleton width="40px" height="20px" />
+          <BaseSkeleton width="40px" height="20px" />
+          <BaseSkeleton width="40px" height="20px" />
+        </div>
       </div>
     </div>
 
@@ -37,6 +61,7 @@ import { postApi } from '@/api/post'
 import { boardApi } from '@/api/board'
 import FeedCard from '@/components/feed/FeedCard.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
+import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useRouter } from 'vue-router'
 import logger from '@/utils/logger'
@@ -90,17 +115,23 @@ async function handleLike(post) {
     return
   }
 
+  const previousLiked = post.liked
+  const previousCount = post.likeCount
+
+  // Optimistic update
+  post.liked = !post.liked
+  post.likeCount += post.liked ? 1 : -1
+
   try {
-    if (post.liked) {
+    if (previousLiked) {
       await postApi.unlikePost(post.postId)
-      post.liked = false
-      post.likeCount--
     } else {
       await postApi.likePost(post.postId)
-      post.liked = true
-      post.likeCount++
     }
   } catch (error) {
+    // Revert
+    post.liked = previousLiked
+    post.likeCount = previousCount
     logger.error('Failed to toggle like:', error)
   }
 }
@@ -111,15 +142,20 @@ async function handleScrap(post) {
     return
   }
 
+  const previousScrapped = post.scrapped
+
+  // Optimistic update
+  post.scrapped = !post.scrapped
+
   try {
-    if (post.scrapped) {
+    if (previousScrapped) {
       await postApi.unscrapPost(post.postId)
-      post.scrapped = false
     } else {
       await postApi.scrapPost(post.postId)
-      post.scrapped = true
     }
   } catch (error) {
+    // Revert
+    post.scrapped = previousScrapped
     logger.error('Failed to toggle scrap:', error)
   }
 }
@@ -173,4 +209,3 @@ onUnmounted(() => {
   }
 })
 </script>
-

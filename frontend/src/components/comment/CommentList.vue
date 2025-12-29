@@ -8,7 +8,7 @@ import { useI18n } from 'vue-i18n'
 import logger from '@/utils/logger'
 import type { Comment } from '@/api/comment'
 import { useToastStore } from '@/stores/toast'
-import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
+import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import { useConfirm } from '@/composables/useConfirm'
 
 const toastStore = useToastStore()
@@ -69,8 +69,18 @@ function fetchComments() {
 
 
     <!-- Comment List -->
-    <div v-if="isLoading" class="text-center py-4">
-      <BaseSpinner />
+    <div v-if="isLoading" class="space-y-6">
+      <div v-for="i in 3" :key="i" class="flex space-x-3">
+        <BaseSkeleton width="2.5rem" height="2.5rem" rounded="rounded-full" />
+        <div class="flex-1 space-y-2">
+          <div class="flex items-center justify-between">
+            <BaseSkeleton width="100px" height="16px" />
+            <BaseSkeleton width="60px" height="14px" />
+          </div>
+          <BaseSkeleton width="100%" height="16px" />
+          <BaseSkeleton width="80%" height="16px" />
+        </div>
+      </div>
     </div>
 
     <div v-else class="space-y-6">
@@ -94,4 +104,3 @@ function fetchComments() {
     </div>
   </div>
 </template>
-

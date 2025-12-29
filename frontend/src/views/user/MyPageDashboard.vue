@@ -7,6 +7,7 @@ import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
 import ProfileEditor from '@/components/user/ProfileEditor.vue'
 import Pagination from '@/components/common/ui/Pagination.vue'
+import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import logger from '@/utils/logger'
 
 const profile = ref(null)
@@ -100,8 +101,27 @@ onMounted(async () => {
 
 <template>
   <div>
-    <div v-if="isLoading" class="text-center py-10">
-      <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 mx-auto"></div>
+    <div v-if="isLoading" class="space-y-6">
+      <!-- Profile Skeleton -->
+      <div class="max-w-[80%] mx-auto bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+        <div class="flex items-center mb-6">
+          <BaseSkeleton width="4rem" height="4rem" rounded="rounded-full" className="mr-4" />
+          <div class="flex-1">
+            <BaseSkeleton width="150px" height="24px" className="mb-2" />
+            <BaseSkeleton width="200px" height="16px" />
+          </div>
+        </div>
+        <div class="space-y-4">
+          <BaseSkeleton v-for="i in 4" :key="i" width="100%" height="40px" />
+        </div>
+      </div>
+      <!-- Posts Skeleton -->
+      <div class="max-w-[80%] mx-auto bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+        <BaseSkeleton width="120px" height="24px" className="mb-4" />
+        <div class="space-y-4">
+          <BaseSkeleton v-for="i in 3" :key="i" width="100%" height="60px" />
+        </div>
+      </div>
     </div>
 
     <div v-else-if="error" class="text-center py-10 text-red-500 dark:text-red-400">
@@ -123,7 +143,7 @@ onMounted(async () => {
               <div>
                 <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white">{{ profile.displayName }}</h3>
                 <p class="mt-1 max-w-2xl text-sm text-gray-500 dark:text-gray-400">{{ $t('user.profile.personalDetails')
-                  }}</p>
+                }}</p>
               </div>
             </div>
             <BaseButton @click="isEditModalOpen = true">{{ $t('user.profile.edit') }}</BaseButton>
@@ -136,7 +156,7 @@ onMounted(async () => {
                   {{ $t('user.profile.displayName') }}
                 </dt>
                 <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100 sm:mt-0 sm:col-span-2">{{ profile.displayName
-                  }}</dd>
+                }}</dd>
               </div>
               <div class="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
                 <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center">
@@ -247,4 +267,3 @@ onMounted(async () => {
     </div>
   </div>
 </template>
-

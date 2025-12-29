@@ -1,10 +1,11 @@
 ﻿<script setup>
-import { onMounted, watch, computed, defineAsyncComponent } from 'vue'
+import { onMounted, watch, computed, defineAsyncComponent, onErrorCaptured } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useThemeStore } from '@/stores/theme'
 import { userApi } from '@/api/user'
 import { useI18n } from 'vue-i18n'
+import { useToastStore } from '@/stores/toast'
 import ToastContainer from '@/components/common/widgets/ToastContainer.vue'
 import GlobalConfirmModal from '@/components/common/widgets/GlobalConfirmModal.vue'
 import GlobalPromptModal from '@/components/common/widgets/GlobalPromptModal.vue'
@@ -17,7 +18,8 @@ const AdminLayout = defineAsyncComponent(() => import('@/views/admin/AdminLayout
 
 const route = useRoute()
 const authStore = useAuthStore()
-const { locale } = useI18n()
+const { locale, t } = useI18n()
+const toastStore = useToastStore()
 
 const layout = computed(() => {
     return route.meta.layout === 'AdminLayout' ? AdminLayout : DefaultLayout
@@ -63,6 +65,12 @@ onMounted(() => {
         loadSettings()
     }
 })
+
+onErrorCaptured((err, instance, info) => {
+    logger.error('Global Error Captured:', err, info)
+    toastStore.addToast(t('common.error.unknown'), 'error')
+    return false // Prevent error from propagating further
+})
 </script>
 
 <template>
@@ -73,4 +81,3 @@ onMounted(() => {
     <GlobalConfirmModal />
     <GlobalPromptModal />
 </template>
-

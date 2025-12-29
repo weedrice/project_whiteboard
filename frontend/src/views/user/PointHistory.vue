@@ -4,6 +4,7 @@ import axios from '@/api'
 import Pagination from '@/components/common/ui/Pagination.vue'
 import PageSizeSelector from '@/components/common/widgets/PageSizeSelector.vue'
 import BaseBadge from '@/components/common/ui/BaseBadge.vue'
+import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import logger from '@/utils/logger'
 
 const history = ref([])
@@ -57,7 +58,16 @@ onMounted(() => {
         <PageSizeSelector v-model="size" @change="handleSizeChange" />
       </div>
       <ul role="list" class="divide-y divide-gray-200 dark:divide-gray-700">
-        <li v-for="item in history" :key="item.id"
+        <div v-if="loading && history.length === 0" class="divide-y divide-gray-200 dark:divide-gray-700">
+          <div v-for="i in 5" :key="i" class="px-4 py-4 sm:px-6 flex justify-between items-center">
+            <div class="flex flex-col flex-1">
+              <BaseSkeleton width="60%" height="20px" className="mb-1" />
+              <BaseSkeleton width="30%" height="14px" />
+            </div>
+            <BaseSkeleton width="60px" height="24px" rounded="rounded-full" />
+          </div>
+        </div>
+        <li v-else v-for="item in history" :key="item.id"
           class="px-4 py-4 sm:px-6 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200">
           <div class="flex items-center justify-between">
             <div class="flex flex-col">
@@ -86,4 +96,3 @@ onMounted(() => {
     </div>
   </div>
 </template>
-

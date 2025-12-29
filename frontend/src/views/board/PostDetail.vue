@@ -1,14 +1,15 @@
 ﻿<script setup>
-import { ref, onMounted, computed, watch, nextTick } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { usePost } from '@/composables/usePost'
 import { useAuthStore } from '@/stores/auth'
-import { User, Clock, ThumbsUp, MessageSquare, Eye, ArrowLeft, MoreHorizontal, Bookmark, AlertTriangle, Share2, Copy } from 'lucide-vue-next'
+import { User, Clock, ThumbsUp, MessageSquare, Eye, ArrowLeft, MoreHorizontal, Bookmark, AlertTriangle, Share2, Copy, ArrowUp, List } from 'lucide-vue-next'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseTextarea from '@/components/common/ui/BaseTextarea.vue'
 import BaseCard from '@/components/common/ui/BaseCard.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
+import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import CommentList from '@/components/comment/CommentList.vue'
 import PostTags from '@/components/tag/PostTags.vue'
 import UserMenu from '@/components/common/widgets/UserMenu.vue'
@@ -44,11 +45,20 @@ const isAuthor = computed(() => {
   return authStore.user && post.value && authStore.user.userId === post.value.author.userId
 })
 
+const processedContents = computed(() => {
+  if (!post.value || !post.value.contents) return ''
+  // Add loading="lazy" to all img tags that don't already have it
+  return post.value.contents.replace(/<img(?![^>]*\bloading=)([^>]+)>/gi, '<img loading="lazy"$1>')
+})
+
 const isAdmin = computed(() => authStore.isAdmin)
 
 const isBlurred = ref(false)
 const blurTimer = ref(null)
 const timeLeft = ref(5)
+
+const isLikeAnimating = ref(false)
+const isScrapAnimating = ref(false)
 
 const titleRef = ref(null)
 
@@ -74,6 +84,10 @@ async function handleLike() {
       onError: (err) => logger.error(t('board.postDetail.likeFailed'), err)
     })
   } else {
+    // Optimistic animation
+    isLikeAnimating.value = true
+    setTimeout(() => isLikeAnimating.value = false, 300)
+
     likeMutate(route.params.postId, {
       onError: (err) => logger.error(t('board.postDetail.likeFailed'), err)
     })
@@ -87,6 +101,10 @@ async function handleScrap() {
       onError: (err) => logger.error(t('board.postDetail.scrapFailed'), err)
     })
   } else {
+    // Optimistic animation
+    isScrapAnimating.value = true
+    setTimeout(() => isScrapAnimating.value = false, 300)
+
     scrapMutate(route.params.postId, {
       onError: (err) => logger.error(t('board.postDetail.scrapFailed'), err)
     })
@@ -194,12 +212,93 @@ function handleShare() {
     handleCopyUrl()
   }
 }
+
+const showFloatingNav = ref(false)
+const commentsRef = ref(null)
+
+let observer = null
+
+function setupObserver() {
+  if (observer) observer.disconnect()
+
+  if (titleRef.value) {
+    observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        showFloatingNav.value = !entry.isIntersecting
+      })
+    }, {
+      threshold: 0
+    })
+    observer.observe(titleRef.value)
+  }
+}
+
+onMounted(() => {
+  setupObserver()
+})
+
+onUnmounted(() => {
+  if (observer) observer.disconnect()
+})
+
+watch(() => post.value, () => {
+  nextTick(() => {
+    setupObserver()
+  })
+})
+
+function scrollToTop() {
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+function scrollToComments() {
+  if (commentsRef.value) {
+    const headerOffset = 100 // Adjust based on sticky header height if any
+    const elementPosition = commentsRef.value.getBoundingClientRect().top
+    const offsetPosition = elementPosition + window.pageYOffset - headerOffset
+
+    window.scrollTo({
+      top: offsetPosition,
+      behavior: 'smooth'
+    })
+  }
+}
+
+function goToList() {
+  if (post.value && post.value.board) {
+    router.push(`/board/${post.value.board.boardUrl}`)
+  } else {
+    router.back()
+  }
+}
 </script>
 
 <template>
   <BaseCard noPadding>
-    <div v-if="isLoading" class="text-center py-10">
-      <BaseSpinner size="lg" />
+    <div v-if="isLoading" class="px-4 py-5 sm:px-6">
+      <!-- Header Skeleton -->
+      <div class="flex items-center justify-between mb-4">
+        <BaseSkeleton width="80px" height="24px" />
+        <div class="flex space-x-2">
+          <BaseSkeleton width="60px" height="32px" />
+          <BaseSkeleton width="60px" height="32px" />
+        </div>
+      </div>
+      <div class="mt-4 space-y-3">
+        <BaseSkeleton width="70%" height="32px" />
+        <div class="flex space-x-4">
+          <BaseSkeleton width="100px" height="20px" />
+          <BaseSkeleton width="120px" height="20px" />
+          <BaseSkeleton width="60px" height="20px" />
+        </div>
+      </div>
+      <div class="mt-8 space-y-4">
+        <BaseSkeleton width="100%" height="20px" />
+        <BaseSkeleton width="100%" height="20px" />
+        <BaseSkeleton width="90%" height="20px" />
+        <BaseSkeleton width="95%" height="20px" />
+        <BaseSkeleton width="80%" height="20px" />
+      </div>
     </div>
 
     <div v-else-if="error" class="text-center py-10 text-red-500">
@@ -271,7 +370,7 @@ function handleShare() {
           </div>
         </div>
 
-        <div v-html="post.contents" class="ql-editor transition-all duration-500"
+        <div v-html="processedContents" class="ql-editor transition-all duration-500"
           :class="{ 'blur-md select-none': isBlurred }"></div>
 
         <!-- Spoiler Overlay -->
@@ -303,7 +402,7 @@ function handleShare() {
           class="flex flex-col items-center group cursor-pointer h-auto py-2"
           :class="{ 'text-indigo-600 dark:text-indigo-400': post.liked, 'text-gray-500 dark:text-gray-400': !post.liked, 'opacity-50 cursor-not-allowed': !authStore.isAuthenticated }">
           <div class="p-2 rounded-full group-hover:bg-indigo-50 dark:group-hover:bg-indigo-900/30 transition-colors">
-            <ThumbsUp class="h-6 w-6" :class="{ 'fill-current': post.liked }" />
+            <ThumbsUp class="h-6 w-6" :class="{ 'fill-current': post.liked, 'bounce-in': isLikeAnimating }" />
           </div>
           <span class="text-sm font-medium mt-1">{{ post.likeCount }}</span>
         </BaseButton>
@@ -312,7 +411,7 @@ function handleShare() {
           class="flex flex-col items-center group cursor-pointer h-auto py-2"
           :class="{ 'text-yellow-500': post.scrapped, 'text-gray-500 dark:text-gray-400': !post.scrapped, 'opacity-50 cursor-not-allowed': !authStore.isAuthenticated }">
           <div class="p-2 rounded-full group-hover:bg-yellow-50 dark:group-hover:bg-yellow-900/30 transition-colors">
-            <Bookmark class="h-6 w-6" :class="{ 'fill-current': post.scrapped }" />
+            <Bookmark class="h-6 w-6" :class="{ 'fill-current': post.scrapped, 'bounce-in': isScrapAnimating }" />
           </div>
           <span class="text-sm font-medium mt-1">{{ $t('common.scrap') }}</span>
         </BaseButton>
@@ -335,9 +434,33 @@ function handleShare() {
       </div>
 
       <!-- Comments Section -->
-      <div class="border-t border-gray-200 dark:border-gray-700 mt-8 p-4">
+      <div ref="commentsRef" class="border-t border-gray-200 dark:border-gray-700 mt-8 p-4">
         <CommentList :postId="post.postId" :boardUrl="post.board.boardUrl" />
       </div>
+
+      <!-- Floating Navigation -->
+      <Transition name="slide-fade">
+        <div v-show="showFloatingNav" class="fixed right-8 top-1/2 -translate-y-1/2 flex flex-col gap-2 z-50">
+
+          <button @click="scrollToTop"
+            class="p-3 bg-white dark:bg-gray-800 rounded-full shadow-lg border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200 group"
+            :title="$t('common.top')">
+            <ArrowUp class="w-5 h-5" />
+          </button>
+
+          <button @click="scrollToComments"
+            class="p-3 bg-white dark:bg-gray-800 rounded-full shadow-lg border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200 group"
+            :title="$t('board.postDetail.comments')">
+            <MessageSquare class="w-5 h-5" />
+          </button>
+
+          <button @click="goToList"
+            class="p-3 bg-white dark:bg-gray-800 rounded-full shadow-lg border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200 group"
+            :title="$t('board.postDetail.toList')">
+            <List class="w-5 h-5" />
+          </button>
+        </div>
+      </Transition>
 
       <!-- Report Modal -->
       <BaseModal :isOpen="showReportModal" :title="$t('common.report')" @close="showReportModal = false">
@@ -369,3 +492,34 @@ function handleShare() {
     </div>
   </BaseCard>
 </template>
+
+<style scoped>
+.bounce-in {
+  animation: bounce-in 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes bounce-in {
+  0% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.3);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+.slide-fade-enter-active,
+.slide-fade-leave-active {
+  transition: all 0.3s ease;
+}
+
+.slide-fade-enter-from,
+.slide-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-50%) translateX(20px);
+}
+</style>

@@ -10,6 +10,7 @@ import Pagination from '@/components/common/ui/Pagination.vue'
 import PageSizeSelector from '@/components/common/widgets/PageSizeSelector.vue'
 import logger from '@/utils/logger'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
+import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -87,8 +88,17 @@ import { formatDate } from '@/utils/date'
         </div>
       </div>
 
-      <div v-if="isLoading && notifications.length === 0" class="text-center py-10">
-        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto"></div>
+      <div v-if="isLoading && notifications.length === 0" class="divide-y divide-gray-200 dark:divide-gray-700">
+        <div v-for="i in 5" :key="i" class="px-4 py-4 sm:px-6 flex justify-between items-center">
+          <div class="flex items-center flex-1">
+            <BaseSkeleton width="2.5rem" height="2.5rem" rounded="rounded-full" className="mr-4" />
+            <div class="flex-1">
+              <BaseSkeleton width="120px" height="16px" className="mb-1" />
+              <BaseSkeleton width="200px" height="14px" />
+            </div>
+          </div>
+          <BaseSkeleton width="60px" height="16px" className="ml-4" />
+        </div>
       </div>
 
       <div v-else-if="notifications.length === 0" class="text-center py-10 text-gray-500 dark:text-gray-400">

@@ -10,6 +10,7 @@ import { useI18n } from 'vue-i18n'
 import Pagination from '@/components/common/ui/Pagination.vue' // Added Pagination
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
+import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -189,8 +190,42 @@ watch(() => route.params.boardUrl, () => {
 
 <template>
     <div>
-        <div v-if="isLoading && !board" class="text-center py-10">
-            <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 mx-auto"></div>
+        <div v-if="isLoading && !board" class="space-y-6">
+            <!-- Header Skeleton -->
+            <div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+                <div class="flex items-start">
+                    <BaseSkeleton width="5rem" height="5rem" rounded="rounded-full" className="mr-6 flex-shrink-0" />
+                    <div class="flex-1">
+                        <div class="flex justify-between items-start mb-2">
+                            <BaseSkeleton width="200px" height="32px" />
+                            <BaseSkeleton width="100px" height="32px" />
+                        </div>
+                        <div class="flex gap-4 mb-2">
+                            <BaseSkeleton width="80px" height="20px" />
+                            <BaseSkeleton width="100px" height="20px" />
+                        </div>
+                        <BaseSkeleton width="60%" height="20px" />
+                    </div>
+                </div>
+            </div>
+            <!-- List Skeleton -->
+            <div class="bg-white dark:bg-gray-800 shadow rounded-lg p-4">
+                <div class="flex space-x-4 mb-4 overflow-hidden">
+                    <BaseSkeleton v-for="i in 4" :key="i" width="60px" height="32px" />
+                </div>
+                <div class="space-y-4">
+                    <div v-for="i in 5" :key="i"
+                        class="flex justify-between items-center py-2 border-b border-gray-100 dark:border-gray-700 last:border-0">
+                        <div class="w-full">
+                            <BaseSkeleton width="70%" height="24px" className="mb-2" />
+                            <div class="flex gap-2">
+                                <BaseSkeleton width="40px" height="16px" />
+                                <BaseSkeleton width="60px" height="16px" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <div v-else-if="error" class="text-center py-10 text-red-500">
