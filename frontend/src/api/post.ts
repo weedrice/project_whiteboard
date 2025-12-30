@@ -31,7 +31,7 @@ export const postApi = {
     // Create a new post
     createPost: (boardUrl: string, data: PostCreateData) => api.post<ApiResponse<Post>>(`/boards/${boardUrl}/posts`, data),
 
-    // Get post details (placeholder for future)
+    // Get post details
     getPost: (postId: string | number, config?: AxiosRequestConfig) => api.get<ApiResponse<Post>>(`/posts/${postId}`, config),
 
     // Update post
@@ -39,6 +39,9 @@ export const postApi = {
 
     // Delete post
     deletePost: (postId: string | number) => api.delete<ApiResponse<void>>(`/posts/${postId}`),
+
+    // Increment post view count
+    incrementView: (postId: string | number) => api.post<ApiResponse<void>>(`/posts/${postId}/view`),
 
     // Like post
     likePost: (postId: string | number) => api.post<ApiResponse<void>>(`/posts/${postId}/like`),

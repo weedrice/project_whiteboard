@@ -10,7 +10,7 @@ export function usePost() {
         return useQuery({
             queryKey: ['post', postId],
             queryFn: async () => {
-                const { data } = await postApi.getPost(postId.value)
+                const { data } = await postApi.getPost(postId.value, { params: { incrementView: false } })
                 return data.data
             },
             enabled: computed(() => !!postId.value),

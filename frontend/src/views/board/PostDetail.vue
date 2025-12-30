@@ -2,6 +2,7 @@
 import { ref, onMounted, onUnmounted, computed, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { usePost } from '@/composables/usePost'
+import { postApi } from '@/api/post'
 import { useAuthStore } from '@/stores/auth'
 import { User, Clock, ThumbsUp, MessageSquare, Eye, ArrowLeft, MoreHorizontal, Bookmark, AlertTriangle, Share2, Copy, ArrowUp, List } from 'lucide-vue-next'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
@@ -38,6 +39,15 @@ const { mutate: unscrapMutate } = useUnscrapPost()
 const { mutate: reportMutate } = useReportPost()
 
 const error = computed(() => postError.value ? t('board.postDetail.loadFailed') : '')
+
+watch(() => route.params.postId, (newId) => {
+  if (newId) {
+    postApi.incrementView(newId).catch(err => {
+      // Ignore error or log it silently
+      console.error('Failed to increment view count', err)
+    })
+  }
+}, { immediate: true })
 
 import { formatDate } from '@/utils/date'
 

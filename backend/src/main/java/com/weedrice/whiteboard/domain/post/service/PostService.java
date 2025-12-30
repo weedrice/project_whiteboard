@@ -248,6 +248,11 @@ public class PostService {
 
         @Transactional
         public Post getPostById(@NonNull Long postId, Long userId) {
+                return getPostById(postId, userId, true);
+        }
+
+        @Transactional
+        public Post getPostById(@NonNull Long postId, Long userId, boolean incrementView) {
                 Post post = postRepository.findById(postId)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
 
@@ -276,14 +281,17 @@ public class PostService {
                         }
                 }
 
-                post.incrementViewCount();
+                if (incrementView) {
+                        post.incrementViewCount();
 
-                if (userId != null) {
-                        User user = userRepository.findById(userId)
-                                        .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-                        ViewHistory viewHistory = viewHistoryRepository.findByUserAndPost(user, post)
-                                        .orElseGet(() -> viewHistoryRepository.save(new ViewHistory(user, post)));
-                        viewHistory.updateView(null, 0);
+                        if (userId != null) {
+                                User user = userRepository.findById(userId)
+                                                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+                                ViewHistory viewHistory = viewHistoryRepository.findByUserAndPost(user, post)
+                                                .orElseGet(() -> viewHistoryRepository
+                                                                .save(new ViewHistory(user, post)));
+                                viewHistory.updateView(null, 0);
+                        }
                 }
 
                 return post;
@@ -291,7 +299,12 @@ public class PostService {
 
         @Transactional
         public PostResponse getPostResponse(@NonNull Long postId, Long userId) {
-                Post post = getPostById(postId, userId);
+                return getPostResponse(postId, userId, true);
+        }
+
+        @Transactional
+        public PostResponse getPostResponse(@NonNull Long postId, Long userId, boolean incrementView) {
+                Post post = getPostById(postId, userId, incrementView);
                 List<String> tags = getTagsForPost(postId);
                 boolean isLiked = isPostLikedByUser(postId, userId);
                 boolean isScrapped = isPostScrappedByUser(postId, userId);
@@ -343,6 +356,13 @@ public class PostService {
                 }
 
                 viewHistory.updateView(lastReadComment, request.getDurationMs() != null ? request.getDurationMs() : 0L);
+        }
+
+        @Transactional
+        public void incrementViewCount(@NonNull Long postId) {
+                Post post = postRepository.findById(postId)
+                                .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
+                post.incrementViewCount();
         }
 
         // ...

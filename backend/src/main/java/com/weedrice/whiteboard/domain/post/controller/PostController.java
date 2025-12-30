@@ -63,9 +63,16 @@ public class PostController {
 
     @GetMapping("/posts/{postId}")
     public ApiResponse<PostResponse> getPost(@PathVariable Long postId,
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @RequestParam(defaultValue = "true") boolean incrementView) {
         Long userId = (userDetails != null) ? userDetails.getUserId() : null;
-        return ApiResponse.success(postService.getPostResponse(postId, userId));
+        return ApiResponse.success(postService.getPostResponse(postId, userId, incrementView));
+    }
+
+    @PostMapping("/posts/{postId}/view")
+    public ApiResponse<Void> incrementPostView(@PathVariable Long postId) {
+        postService.incrementViewCount(postId);
+        return ApiResponse.success(null);
     }
 
     @PutMapping("/posts/{postId}/history")
