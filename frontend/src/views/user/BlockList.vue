@@ -1,11 +1,11 @@
 <template>
   <div class="space-y-6">
     <div class="flex justify-between items-center">
-      <h2 class="text-2xl font-bold text-gray-900">{{ $t('user.blockList.title') }}</h2>
+      <h2 class="text-2xl font-bold text-gray-900 dark:text-white">{{ $t('user.blockList.title') }}</h2>
     </div>
 
-    <div v-if="loading" class="bg-white shadow overflow-hidden sm:rounded-md">
-      <ul role="list" class="divide-y divide-gray-200">
+    <div v-if="loading" class="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-md">
+      <ul role="list" class="divide-y divide-gray-200 dark:divide-gray-700">
         <li v-for="i in 5" :key="i" class="px-4 py-4 sm:px-6 flex items-center justify-between">
           <div class="flex items-center">
             <BaseSkeleton width="2.5rem" height="2.5rem" rounded="rounded-full" className="mr-4" />
@@ -19,20 +19,22 @@
       </ul>
     </div>
 
-    <div v-else-if="blockedUsers.length === 0" class="text-center py-8 bg-gray-50 rounded-lg">
-      <p class="text-gray-500">{{ $t('user.blockList.empty') }}</p>
+    <div v-else-if="blockedUsers.length === 0" class="text-center py-8 bg-gray-50 dark:bg-gray-800 rounded-lg">
+      <p class="text-gray-500 dark:text-gray-400">{{ $t('user.blockList.empty') }}</p>
     </div>
 
-    <div v-else class="bg-white shadow overflow-hidden sm:rounded-md">
-      <ul role="list" class="divide-y divide-gray-200">
+    <div v-else class="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-md">
+      <ul role="list" class="divide-y divide-gray-200 dark:divide-gray-700">
         <li v-for="user in blockedUsers" :key="user.userId" class="px-4 py-4 sm:px-6 flex items-center justify-between">
           <div class="flex items-center">
-            <div class="flex-shrink-0 h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
-              <span class="text-gray-500 font-medium">{{ user.displayName.charAt(0).toUpperCase() }}</span>
+            <div
+              class="flex-shrink-0 h-10 w-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+              <span class="text-gray-500 dark:text-gray-400 font-medium">{{ user.displayName.charAt(0).toUpperCase()
+                }}</span>
             </div>
             <div class="ml-4">
-              <p class="text-sm font-medium text-gray-900">{{ user.displayName }}</p>
-              <p class="text-sm text-gray-500">{{ user.email }}</p>
+              <p class="text-sm font-medium text-gray-900 dark:text-white">{{ user.displayName }}</p>
+              <p class="text-sm text-gray-500 dark:text-gray-400">{{ user.email }}</p>
             </div>
           </div>
           <div>

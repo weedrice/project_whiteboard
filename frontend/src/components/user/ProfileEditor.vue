@@ -1,11 +1,11 @@
 ﻿<template>
-  <div class="bg-white shadow rounded-lg p-6">
-    <h3 class="text-lg font-medium leading-6 text-gray-900 mb-4">{{ $t('user.profile.edit') }}</h3>
+  <div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6 transition-colors duration-200">
+    <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-white mb-4">{{ $t('user.profile.edit') }}</h3>
     <form @submit.prevent="updateProfile" class="space-y-4">
       <!-- Image Upload -->
       <div class="flex items-center space-x-6">
-        <div class="shrink-0 border border-gray-200 rounded-full overflow-hidden h-16 w-16">
-          <img class="h-full w-full object-contain bg-white"
+        <div class="shrink-0 border border-gray-200 dark:border-gray-700 rounded-full overflow-hidden h-16 w-16">
+          <img class="h-full w-full object-contain bg-white dark:bg-gray-700"
             :src="previewImage || authStore.user?.profileImageUrl || 'https://via.placeholder.com/150'"
             alt="Current profile photo" />
         </div>
@@ -24,15 +24,66 @@
         </BaseButton>
       </div>
     </form>
+    <hr class="border-gray-200 dark:border-gray-700 my-6" />
+
+    <!-- Danger Zone -->
+    <div class="flex justify-end">
+      <BaseButton variant="danger" size="sm" class="text-xs" @click="showDeleteModal = true">
+        {{ $t('user.settings.deleteAccount') }}
+      </BaseButton>
+    </div>
   </div>
+
+  <!-- Delete Account Modal -->
+  <BaseModal :isOpen="showDeleteModal" :title="$t('user.settings.deleteAccount')" @close="showDeleteModal = false">
+    <div class="space-y-4">
+      <p class="text-sm text-gray-500">
+        {{ $t('user.settings.deleteAccountConfirmation') }}
+      </p>
+
+      <div class="bg-red-50 p-4 rounded-md">
+        <div class="flex">
+          <div class="shrink-0">
+            <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd"
+                d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                clip-rule="evenodd" />
+            </svg>
+          </div>
+          <div class="ml-3">
+            <h3 class="text-sm font-medium text-red-800">{{ $t('common.warning') }}</h3>
+            <div class="mt-2 text-sm text-red-700">
+              <p>{{ $t('user.settings.deleteAccountWarning') }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <BaseInput v-model="deletePassword" type="password" :label="$t('common.password')"
+        :placeholder="$t('auth.placeholders.password')" :error="deleteError" />
+    </div>
+    <template #footer>
+      <div class="flex justify-end space-x-3">
+        <BaseButton variant="secondary" @click="showDeleteModal = false">
+          {{ $t('common.cancel') }}
+        </BaseButton>
+        <BaseButton variant="danger" :loading="isDeleting" @click="handleDeleteAccount">
+          {{ $t('user.settings.deleteAccount') }}
+        </BaseButton>
+      </div>
+    </template>
+  </BaseModal>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive } from 'vue'
+import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseFileInput from '@/components/common/ui/BaseFileInput.vue'
+import BaseModal from '@/components/common/ui/BaseModal.vue'
 import { useUser } from '@/composables/useUser'
 import axios from '@/api' // Direct axios for file upload
 import logger from '@/utils/logger'
@@ -41,8 +92,11 @@ import { useToastStore } from '@/stores/toast'
 
 const authStore = useAuthStore()
 const toastStore = useToastStore()
-const { useUpdateMyProfile } = useUser()
+const router = useRouter()
+const { t } = useI18n()
+const { useUpdateMyProfile, useDeleteAccount } = useUser()
 const { mutate: updateProfileMutate, isPending: isUpdating } = useUpdateMyProfile()
+const { mutateAsync: deleteAccount, isPending: isDeleting } = useDeleteAccount()
 
 const loading = ref(false) // Local loading state for image processing + mutation
 const errors = reactive<Record<string, string>>({})
@@ -164,6 +218,34 @@ const updateProfile = async () => {
   } catch (error) {
     logger.error('Failed to process profile update:', error)
     loading.value = false
+  }
+}
+
+// Delete Account Logic
+const showDeleteModal = ref(false)
+const deletePassword = ref('')
+const deleteError = ref('')
+
+const handleDeleteAccount = async () => {
+  deleteError.value = ''
+  if (!deletePassword.value) {
+    deleteError.value = t('auth.passwordRequired')
+    return
+  }
+
+  try {
+    await deleteAccount(deletePassword.value)
+    showDeleteModal.value = false
+    await authStore.logout()
+    router.push('/')
+  } catch (error: any) {
+    logger.error('Failed to delete account:', error)
+    // Check if error response has message
+    if (error.response && error.response.data && error.response.data.message) {
+      deleteError.value = error.response.data.message
+    } else {
+      deleteError.value = t('common.errorOccurred')
+    }
   }
 }
 </script>

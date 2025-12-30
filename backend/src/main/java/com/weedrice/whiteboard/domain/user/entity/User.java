@@ -61,7 +61,7 @@ public class User extends BaseTimeEntity {
         this.displayName = displayName;
         this.status = "ACTIVE";
         this.isEmailVerified = false; // 기본값은 false
-        this.isSuperAdmin = false;   // 기본값은 일반 사용자
+        this.isSuperAdmin = false; // 기본값은 일반 사용자
     }
 
     public void updateLastLogin() {

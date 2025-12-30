@@ -27,6 +27,7 @@ public class UserSettingsService {
         private final UserSettingsRepository userSettingsRepository;
         private final UserNotificationSettingsRepository userNotificationSettingsRepository;
 
+        @Transactional
         public UserSettingsResponse getSettings(Long userId) {
                 User user = userRepository.findById(userId)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
