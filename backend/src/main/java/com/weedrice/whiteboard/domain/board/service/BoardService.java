@@ -212,11 +212,11 @@ public class BoardService {
                 UserPoint userPoint = userPointRepository.findById(creatorId)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
-                if (userPoint.getCurrentPoint() < 1000) {
+                if (userPoint.getCurrentPoint() < 500) {
                         throw new BusinessException(ErrorCode.INSUFFICIENT_POINTS);
                 }
 
-                userPoint.subtractPoint(1000);
+                userPoint.subtractPoint(500);
                 // userPointRepository.save(userPoint); // Dirty checking
 
                 Integer maxSortOrder = boardRepository.findMaxSortOrder();
@@ -235,7 +235,7 @@ public class BoardService {
                 pointHistoryRepository.save(PointHistory.builder()
                                 .user(creator)
                                 .type("SPEND")
-                                .amount(-1000)
+                                .amount(-500)
                                 .balanceAfter(userPoint.getCurrentPoint())
                                 .description("게시판 생성 (" + savedBoard.getBoardName() + ")")
                                 .relatedType("BOARD_CREATE")
