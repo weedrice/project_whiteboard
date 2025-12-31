@@ -1,13 +1,16 @@
 spring:
   application:
     name: noviis
-
+  jpa:
+    open-in-view: false
   messages:
     basename: messages
     encoding: UTF-8
-
   lifecycle:
     timeout-per-shutdown-phase: 30s
+
+app:
+  frontend-url: http://localhost:5173
 
 server:
   shutdown: graceful
