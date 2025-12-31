@@ -4,6 +4,12 @@ import router from '@/router'
 
 const { t } = i18n.global
 
+// Constants
+const API_PATHS = {
+    REFRESH: '/auth/refresh',
+    LOGIN: '/login'
+}
+
 // Extend InternalAxiosRequestConfig to include _retry property
 declare module 'axios' {
     export interface AxiosRequestConfig {
@@ -26,8 +32,15 @@ interface CustomAxiosRequestConfig extends InternalAxiosRequestConfig {
 }
 
 interface ApiErrorResponse {
-    message?: string;
-    code?: string;
+    status?: number
+    code?: string
+    message?: string
+    data?: any
+}
+
+interface FailedRequest {
+    resolve: (token: string | null) => void
+    reject: (error: any) => void
 }
 
 const api: AxiosInstance = axios.create({
@@ -55,6 +68,54 @@ api.interceptors.request.use(
     }
 )
 
+// Concurrency handling for token refresh
+let isRefreshing = false
+let failedQueue: FailedRequest[] = []
+
+const processQueue = (error: any, token: string | null = null) => {
+    failedQueue.forEach((prom) => {
+        if (error) {
+            prom.reject(error)
+        } else {
+            prom.resolve(token)
+        }
+    })
+    failedQueue = []
+}
+
+// Helper for error handling
+const handleApiError = (error: AxiosError, toastStore: any) => {
+    if (error.response) {
+        const status = error.response.status
+        const errorData = error.response.data as ApiErrorResponse | undefined
+        const message = errorData?.message || error.message
+
+        switch (status) {
+            case 400:
+                toastStore.addToast(message || t('common.messages.badRequest'), 'error', 3000, 'top-center')
+                break
+            case 403:
+                toastStore.addToast(message || t('common.messages.forbidden'), 'error', 3000, 'top-center')
+                break
+            case 404:
+                toastStore.addToast(message || t('common.messages.notFound'), 'error', 3000, 'top-center')
+                break
+            case 500:
+                toastStore.addToast(message || t('common.messages.serverError'), 'error', 3000, 'top-center')
+                break
+            default:
+                if (status !== 401) {
+                    toastStore.addToast(message || t('common.messages.unknown'), 'error', 3000, 'top-center')
+                }
+        }
+    } else if (error.request) {
+        // Network error
+        toastStore.addToast(error.message || t('common.messages.network'), 'error', 3000, 'top-center')
+    } else {
+        toastStore.addToast(error.message || t('common.messages.requestSetup'), 'error', 3000, 'top-center')
+    }
+}
+
 // Response Interceptor
 api.interceptors.response.use(
     (response: AxiosResponse) => {
@@ -68,20 +129,34 @@ api.interceptors.response.use(
 
         // If 401 and not already retrying
         if (error.response?.status === 401 && !originalRequest._retry && !originalRequest.skipAuthRefresh) {
+            if (isRefreshing) {
+                return new Promise<string | null>((resolve, reject) => {
+                    failedQueue.push({ resolve, reject })
+                })
+                    .then((token) => {
+                        if (originalRequest.headers && token) {
+                            originalRequest.headers.Authorization = `Bearer ${token}`
+                        }
+                        return api(originalRequest)
+                    })
+                    .catch((err) => {
+                        return Promise.reject(err)
+                    })
+            }
+
             originalRequest._retry = true
+            isRefreshing = true
 
             try {
                 const refreshToken = localStorage.getItem('refreshToken')
                 if (!refreshToken) {
-                    // No refresh token, cannot refresh. 
-                    // Clear access token if it exists (it's invalid/expired)
+                    // No refresh token, cannot refresh.
                     localStorage.removeItem('accessToken')
                     throw new Error('No refresh token')
                 }
 
                 // Use a separate instance or direct call to avoid infinite loop if refresh fails
-                // Here we assume the backend endpoint is /auth/refresh
-                const { data } = await axios.post(`${api.defaults.baseURL}/auth/refresh`, { refreshToken })
+                const { data } = await axios.post(`${api.defaults.baseURL}${API_PATHS.REFRESH}`, { refreshToken })
 
                 if (data.success) {
                     const newAccessToken = data.data.accessToken
@@ -95,35 +170,54 @@ api.interceptors.response.use(
                     // Pass skipAuthRefresh to prevent infinite loop if getMe fails
                     await authStore.fetchUser({ skipAuthRefresh: true })
 
+                    // Process queued requests
+                    processQueue(null, newAccessToken)
+
                     // Retry original request with new token
-                    originalRequest.headers.Authorization = `Bearer ${newAccessToken}`
+                    if (originalRequest.headers) {
+                        originalRequest.headers.Authorization = `Bearer ${newAccessToken}`
+                    }
                     return api(originalRequest)
+                } else {
+                    throw new Error('Refresh failed')
                 }
             } catch (refreshError) {
+                processQueue(refreshError, null)
+
                 const axiosRefreshError = refreshError as AxiosError
-                // refresh token이 유효하지 않거나(401/403) refresh API 자체가 실패한 경우에만 로그아웃
-                // 네트워크 에러 등 일시적 오류는 로그아웃하지 않음
                 const refreshStatus = axiosRefreshError.response?.status
 
                 // Check if we are already on the login page to avoid infinite redirect loop
-                const isLoginPage = window.location.pathname === '/login'
+                const isLoginPage = window.location.pathname === API_PATHS.LOGIN
 
                 if (refreshStatus === 401 || refreshStatus === 403 || !axiosRefreshError.response) {
-                    // 401/403: refresh token도 만료됨 → 로그아웃
-                    // !refreshError.response + refreshToken 만료: 실제 인증 문제일 가능성 높음
-                    // 하지만 네트워크 에러(!refreshError.response)는 구분이 어려우므로
-                    // refresh token 자체가 없는 경우에만 확실히 로그아웃
                     if (!localStorage.getItem('refreshToken') || refreshStatus === 401 || refreshStatus === 403) {
+                        const hadToken = !!localStorage.getItem('accessToken') || !!localStorage.getItem('refreshToken')
+
                         localStorage.removeItem('accessToken')
                         localStorage.removeItem('refreshToken')
 
+                        // Update auth store state
+                        const { useAuthStore } = await import('@/stores/auth')
+                        const authStore = useAuthStore()
+                        authStore.user = null
+                        authStore.accessToken = ''
+
                         if (!isLoginPage) {
-                            toastStore.addToast(t('common.messages.sessionExpired'), 'warning')
-                            window.location.href = '/login'
+                            // Only redirect if the current route requires authentication
+                            if (router.currentRoute.value.meta.requiresAuth) {
+                                toastStore.addToast(t('common.messages.sessionExpired'), 'warning')
+                                window.location.href = `${API_PATHS.LOGIN}?redirect=` + encodeURIComponent(window.location.pathname)
+                            } else if (hadToken) {
+                                // Only reload if we actually had a token (meaning we just logged out)
+                                window.location.reload()
+                            }
                         }
                     }
                 }
                 return Promise.reject(refreshError)
+            } finally {
+                isRefreshing = false
             }
         }
 
@@ -142,35 +236,7 @@ api.interceptors.response.use(
         }
 
         // Handle other common errors
-        if (error.response) {
-            const status = error.response.status
-            const errorData = error.response.data as ApiErrorResponse | undefined
-            const message = errorData?.message || error.message
-
-            switch (status) {
-                case 400:
-                    toastStore.addToast(message || t('common.messages.badRequest'), 'error', 3000, 'top-center')
-                    break
-                case 403:
-                    toastStore.addToast(message || t('common.messages.forbidden'), 'error', 3000, 'top-center')
-                    break
-                case 404:
-                    toastStore.addToast(message || t('common.messages.notFound'), 'error', 3000, 'top-center')
-                    break
-                case 500:
-                    toastStore.addToast(message || t('common.messages.serverError'), 'error', 3000, 'top-center')
-                    break
-                default:
-                    if (status !== 401) {
-                        toastStore.addToast(message || t('common.messages.unknown'), 'error', 3000, 'top-center')
-                    }
-            }
-        } else if (error.request) {
-            // Network error
-            toastStore.addToast(error.message || t('common.messages.network'), 'error', 3000, 'top-center')
-        } else {
-            toastStore.addToast(error.message || t('common.messages.requestSetup'), 'error', 3000, 'top-center')
-        }
+        handleApiError(error, toastStore)
 
         return Promise.reject(error)
     }
