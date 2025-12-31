@@ -7,6 +7,9 @@ export const configApi = {
     },
     getConfigs() {
         return api.get<ApiResponse<GlobalConfig[]>>('/configs')
+    },
+    getPublicConfigs() {
+        return api.get<ApiResponse<Record<string, string>>>('/configs/public')
     }
 }
 

@@ -6,6 +6,7 @@ import { useThemeStore } from '@/stores/theme'
 import { userApi } from '@/api/user'
 import { useI18n } from 'vue-i18n'
 import { useToastStore } from '@/stores/toast'
+import { useConfigStore } from '@/stores/config'
 import ToastContainer from '@/components/common/widgets/ToastContainer.vue'
 import GlobalConfirmModal from '@/components/common/widgets/GlobalConfirmModal.vue'
 import GlobalPromptModal from '@/components/common/widgets/GlobalPromptModal.vue'
@@ -60,7 +61,11 @@ watch(() => authStore.isAuthenticated, (newVal) => {
     }
 })
 
+
+const configStore = useConfigStore()
+
 onMounted(() => {
+    configStore.fetchPublicConfigs()
     if (authStore.isAuthenticated) {
         loadSettings()
     }

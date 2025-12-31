@@ -9,6 +9,7 @@ import { isEmpty } from '@/utils/validation'
 import logger from '@/utils/logger'
 import { useToastStore } from '@/stores/toast'
 import { useAuthStore } from '@/stores/auth'
+import { useConfigStore } from '@/stores/config'
 
 interface BoardData {
   boardName: string
@@ -46,9 +47,14 @@ const emit = defineEmits<{
 const { t } = useI18n()
 const toastStore = useToastStore()
 const authStore = useAuthStore()
+const configStore = useConfigStore()
 
 const userPoints = computed(() => authStore.user?.points || 0)
-const canCreate = computed(() => props.isEdit || userPoints.value >= 1000)
+const boardCreateCost = computed(() => {
+  const cost = configStore.getConfig('POINT_BOARD_CREATE_COST')
+  return cost ? parseInt(cost) : 500
+})
+const canCreate = computed(() => props.isEdit || userPoints.value >= boardCreateCost.value)
 
 const form = ref<BoardData>({ ...props.initialData })
 const selectedFile = ref<File | null>(null)
@@ -158,7 +164,7 @@ async function handleSubmit() {
     <div class="flex justify-end space-x-3 items-center">
       <div v-if="!isEdit" class="flex items-center mr-2 text-sm"
         :class="canCreate ? 'text-gray-600 dark:text-gray-400' : 'text-red-500 font-bold'">
-        <span>{{ $t('board.form.cost') }}: 1000 P</span>
+        <span>{{ $t('board.form.cost') }}: {{ boardCreateCost }} P</span>
         <span class="mx-2 text-gray-300">|</span>
         <span>{{ $t('board.form.currentPoints') }}: {{ userPoints }} P</span>
       </div>
