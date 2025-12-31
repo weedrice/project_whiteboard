@@ -14,6 +14,7 @@ import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.entity.UserSettings;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserSettingsRepository;
+import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
 import com.weedrice.whiteboard.global.common.util.ClientUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -33,6 +34,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -59,7 +61,8 @@ public class AuthService {
     private final VerificationCodeService verificationCodeService;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final EmailService emailService;
-    private final org.springframework.transaction.support.TransactionTemplate transactionTemplate;
+    private final GlobalConfigService globalConfigService;
+    private final TransactionTemplate transactionTemplate;
 
     @Value("${cloud.aws.password-reset.frontend-url}")
     private String passwordResetFrontendUrl;
@@ -92,16 +95,19 @@ public class AuthService {
                 .build();
         userSettingsRepository.save(userSettings);
 
-        // 포인트 정보 생성 (가입 축하금 500p)
+        // 포인트 정보 생성 (가입 축하금)
+        String signupBonusStr = globalConfigService.getConfig("POINT_SIGNUP_BONUS");
+        int signupBonus = signupBonusStr != null ? Integer.parseInt(signupBonusStr) : 500;
+
         UserPoint userPoint = UserPoint.builder().user(savedUser).build();
-        userPoint.addPoint(500);
+        userPoint.addPoint(signupBonus);
         userPointRepository.save(userPoint);
 
         pointHistoryRepository.save(PointHistory.builder()
                 .user(savedUser)
                 .type("EARN")
-                .amount(500)
-                .balanceAfter(500)
+                .amount(signupBonus)
+                .balanceAfter(signupBonus)
                 .description("회원가입 축하 포인트")
                 .relatedType("SIGNUP")
                 .relatedId(savedUser.getUserId())

@@ -4,4 +4,5 @@ import com.weedrice.whiteboard.global.common.entity.GlobalConfig;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface GlobalConfigRepository extends JpaRepository<GlobalConfig, String> {
+    java.util.List<GlobalConfig> findByConfigKeyStartingWith(String prefix);
 }

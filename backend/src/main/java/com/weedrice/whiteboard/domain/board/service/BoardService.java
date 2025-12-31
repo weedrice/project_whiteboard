@@ -10,8 +10,6 @@ import com.weedrice.whiteboard.domain.board.entity.BoardSubscriptionId;
 import com.weedrice.whiteboard.domain.board.repository.BoardCategoryRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository;
-import com.weedrice.whiteboard.domain.post.repository.DraftPostRepository;
-import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.point.entity.PointHistory;
 import com.weedrice.whiteboard.domain.point.entity.UserPoint;
 import com.weedrice.whiteboard.domain.point.repository.PointHistoryRepository;
@@ -19,6 +17,7 @@ import com.weedrice.whiteboard.domain.point.repository.UserPointRepository;
 import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
 import com.weedrice.whiteboard.global.common.util.SecurityUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -47,10 +46,9 @@ public class BoardService {
         private final UserRepository userRepository;
         private final AdminRepository adminRepository;
         private final PostService postService;
-        private final PostRepository postRepository;
-        private final DraftPostRepository draftPostRepository;
         private final UserPointRepository userPointRepository;
         private final PointHistoryRepository pointHistoryRepository;
+        private final GlobalConfigService globalConfigService;
 
         public List<BoardResponse> getActiveBoards(UserDetails userDetails) {
                 List<Board> boards = boardRepository.findByIsActiveOrderBySortOrderAsc(true);
@@ -212,11 +210,15 @@ public class BoardService {
                 UserPoint userPoint = userPointRepository.findById(creatorId)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
-                if (userPoint.getCurrentPoint() < 500) {
+                // 포인트 확인 및 차감 (게시판 생성 비용)
+                String boardCreateCostStr = globalConfigService.getConfig("POINT_BOARD_CREATE_COST");
+                int boardCreateCost = boardCreateCostStr != null ? Integer.parseInt(boardCreateCostStr) : 500;
+
+                if (userPoint.getCurrentPoint() < boardCreateCost) {
                         throw new BusinessException(ErrorCode.INSUFFICIENT_POINTS);
                 }
 
-                userPoint.subtractPoint(500);
+                userPoint.subtractPoint(boardCreateCost);
                 // userPointRepository.save(userPoint); // Dirty checking
 
                 Integer maxSortOrder = boardRepository.findMaxSortOrder();
@@ -235,7 +237,7 @@ public class BoardService {
                 pointHistoryRepository.save(PointHistory.builder()
                                 .user(creator)
                                 .type("SPEND")
-                                .amount(-500)
+                                .amount(-boardCreateCost)
                                 .balanceAfter(userPoint.getCurrentPoint())
                                 .description("게시판 생성 (" + savedBoard.getBoardName() + ")")
                                 .relatedType("BOARD_CREATE")

@@ -30,6 +30,11 @@ public class GlobalConfigService {
         return globalConfigRepository.findAll();
     }
 
+    public java.util.List<GlobalConfig> getPublicConfigs() {
+        // POINT_ 로 시작하는 설정값만 반환
+        return globalConfigRepository.findByConfigKeyStartingWith("POINT_");
+    }
+
     @Transactional
     public GlobalConfig createConfig(String key, String value, String description) {
         SecurityUtils.validateSuperAdminPermission();

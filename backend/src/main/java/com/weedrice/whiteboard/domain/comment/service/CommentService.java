@@ -18,6 +18,7 @@ import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService; // Import UserBlockService
+import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -46,7 +47,8 @@ public class CommentService {
     private final CommentClosureRepository commentClosureRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final PointService pointService;
-    private final UserBlockService userBlockService; // Inject UserBlockService
+    private final UserBlockService userBlockService;
+    private final GlobalConfigService globalConfigService;
 
     public Page<CommentResponse> getComments(Long postId, Long currentUserId, Pageable pageable) {
         Objects.requireNonNull(pageable, "Pageable must not be null");
@@ -164,7 +166,9 @@ public class CommentService {
             commentClosureRepository.createSelfClosure(savedComment.getCommentId());
         }
 
-        pointService.addPoint(userId, 10, "댓글 작성", savedComment.getCommentId(), "COMMENT");
+        String commentCreateRewardStr = globalConfigService.getConfig("POINT_COMMENT_CREATE_REWARD");
+        int commentCreateReward = commentCreateRewardStr != null ? Integer.parseInt(commentCreateRewardStr) : 10;
+        pointService.addPoint(userId, commentCreateReward, "댓글 작성", savedComment.getCommentId(), "COMMENT");
 
         if (parentComment != null) {
             String notificationContent = user.getDisplayName() + "님이 회원님의 댓글에 답글을 남겼습니다.";
@@ -226,7 +230,9 @@ public class CommentService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND)),
                 "DELETE", originalContent);
 
-        pointService.forceSubtractPoint(userId, 10, "댓글 삭제", commentId, "COMMENT");
+        String commentCreateRewardStr = globalConfigService.getConfig("POINT_COMMENT_CREATE_REWARD");
+        int commentCreateReward = commentCreateRewardStr != null ? Integer.parseInt(commentCreateRewardStr) : 10;
+        pointService.forceSubtractPoint(userId, commentCreateReward, "댓글 삭제", commentId, "COMMENT");
     }
 
     @Transactional
