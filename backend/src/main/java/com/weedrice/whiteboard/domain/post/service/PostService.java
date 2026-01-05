@@ -47,7 +47,7 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-@SuppressWarnings({"null"})
+@SuppressWarnings({ "null" })
 public class PostService {
 
     private final PostRepository postRepository;
@@ -72,7 +72,7 @@ public class PostService {
 
     // --- boardUrl 기반 public 메서드 (오버로드) ---
     public Page<PostSummary> getPosts(String boardUrl, Long categoryId, Integer minLikes, Long currentUserId,
-                                      @NonNull Pageable pageable) {
+            @NonNull Pageable pageable) {
         Board board = boardRepository.findByBoardUrl(boardUrl)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
         Page<Post> posts = this.getPosts(board.getBoardId(), categoryId, minLikes, currentUserId, pageable);
@@ -126,7 +126,7 @@ public class PostService {
 
     // --- 기존 boardId 기반 public/private 메서스 ---
     public Page<Post> getPosts(Long boardId, Long categoryId, Integer minLikes, Long currentUserId,
-                               @NonNull Pageable pageable) {
+            @NonNull Pageable pageable) {
         List<Long> blockedUserIds = null;
         if (currentUserId != null) {
             blockedUserIds = userBlockService.getBlockedUserIds(currentUserId);
@@ -172,11 +172,29 @@ public class PostService {
 
         Set<Long> postIdsWithImages = getPostIdsWithImages(postIds);
 
-        return posts.map(post -> {
+        long totalElements = posts.getTotalElements();
+        int pageNumber = posts.getNumber();
+        int pageSize = posts.getSize();
+
+        boolean isAscending = pageable.getSort().stream()
+                .anyMatch(order -> order.getProperty().equals("createdAt") && order.isAscending()
+                        || order.getProperty().equals("postId") && order.isAscending());
+
+        List<PostSummary> summaries = new ArrayList<>();
+        for (int i = 0; i < posts.getContent().size(); i++) {
+            Post post = posts.getContent().get(i);
             PostSummary summary = PostSummary.from(post);
             summary.setHasImage(postIdsWithImages.contains(post.getPostId()));
-            return summary;
-        });
+
+            if (isAscending) {
+                summary.setRowNum(((long) pageNumber * pageSize) + i + 1);
+            } else {
+                summary.setRowNum(totalElements - ((long) pageNumber * pageSize) - i);
+            }
+            summaries.add(summary);
+        }
+
+        return new PageImpl<>(summaries, pageable, totalElements);
     }
 
     public List<PostSummary> getTrendingPosts(Pageable pageable, Long currentUserId) {
@@ -234,7 +252,7 @@ public class PostService {
                             post,
                             postIdsWithImages.contains(post.getPostId()) ? "/api/v1/files/"
                                     + fileService.getOneImageFileIdForPost(
-                                    post.getPostId())
+                                            post.getPostId())
                                     : null,
                             post.getBoard().getIconUrl(),
                             finalLikedPostIds.contains(post.getPostId()),
@@ -646,7 +664,7 @@ public class PostService {
     }
 
     private void savePostVersion(Post post, User modifier, String versionType, String originalTitle,
-                                 String originalContents) {
+            String originalContents) {
         PostVersion postVersion = PostVersion.builder()
                 .post(post)
                 .modifier(modifier)
@@ -774,7 +792,7 @@ public class PostService {
                             post,
                             postIdsWithImages.contains(post.getPostId()) ? "/api/v1/files/"
                                     + fileService.getOneImageFileIdForPost(
-                                    post.getPostId())
+                                            post.getPostId())
                                     : null,
                             post.getBoard().getIconUrl(),
                             finalLikedPostIds.contains(post.getPostId()),
