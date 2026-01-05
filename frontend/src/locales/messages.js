@@ -159,6 +159,7 @@ export const messages = {
     },
     auth: {
       createAccount: '계정 만들기',
+      socialLogin: '소셜 로그인',
       createAccountTitle: '계정 만들기',
       signingIn: '로그인 중...',
       loginFailed: '로그인에 실패했습니다.',

@@ -44,6 +44,11 @@ const router = createRouter({
                     alias: '/find',
                     name: 'find-account',
                     component: () => import('@/views/auth/FindAccountPage.vue')
+                },
+                {
+                    path: 'oauth/callback',
+                    name: 'oauth-callback',
+                    component: () => import('@/views/auth/OAuthCallback.vue')
                 }
             ]
         },

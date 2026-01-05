@@ -95,6 +95,12 @@ export const useAuthStore = defineStore('auth', () => {
         }
     }
 
+    function setTokens(token: string, refreshToken: string) {
+        accessToken.value = token
+        localStorage.setItem('accessToken', token)
+        localStorage.setItem('refreshToken', refreshToken)
+    }
+
     return {
         user,
         accessToken,
@@ -102,6 +108,7 @@ export const useAuthStore = defineStore('auth', () => {
         isAdmin: computed(() => user.value?.role === 'ADMIN' || user.value?.role === 'SUPER_ADMIN'),
         login,
         logout,
-        fetchUser
+        fetchUser,
+        setTokens
     }
 })

@@ -3,6 +3,8 @@ package com.weedrice.whiteboard.global.config;
 import com.weedrice.whiteboard.global.security.JwtAuthenticationFilter;
 import com.weedrice.whiteboard.global.security.JwtAuthenticationEntryPoint;
 
+import com.weedrice.whiteboard.global.security.oauth.CustomOAuth2UserService;
+import com.weedrice.whiteboard.global.security.oauth.OAuth2SuccessHandler;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -32,6 +34,8 @@ public class SecurityConfig {
 
         private final JwtAuthenticationFilter jwtAuthenticationFilter;
         private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
+        private final CustomOAuth2UserService customOAuth2UserService;
+        private final OAuth2SuccessHandler oAuth2SuccessHandler;
 
         @Value("${app.frontend-url}")
         private String frontendUrl;
@@ -74,6 +78,10 @@ public class SecurityConfig {
                                                                 "/api/v1/posts/*/view" // 게시글 조회수 증가 허용
                                                 ).permitAll()
                                                 .anyRequest().authenticated())
+                                .oauth2Login(oauth2 -> oauth2
+                                                .userInfoEndpoint(userInfo -> userInfo
+                                                                .userService(customOAuth2UserService))
+                                                .successHandler(oAuth2SuccessHandler))
                                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
                 return http.build();

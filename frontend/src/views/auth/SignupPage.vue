@@ -154,7 +154,13 @@ async function handleSignup() {
   isLoading.value = true
 
   try {
-    const { data } = await authApi.signup(form.value)
+    const signupData = {
+      ...form.value,
+      provider: route.query.provider || null,
+      providerId: route.query.providerId || null
+    }
+
+    const { data } = await authApi.signup(signupData)
     if (data.success) {
       toastStore.addToast(t('auth.signupSuccess'), 'success')
       router.push('/login')
@@ -166,6 +172,20 @@ async function handleSignup() {
     isLoading.value = false
   }
 }
+
+import { onMounted } from 'vue'
+import { useRoute } from 'vue-router'
+
+const route = useRoute()
+
+onMounted(() => {
+  if (route.query.email) {
+    form.value.email = route.query.email
+  }
+  if (route.query.name) {
+    form.value.displayName = route.query.name
+  }
+})
 </script>
 
 <template>

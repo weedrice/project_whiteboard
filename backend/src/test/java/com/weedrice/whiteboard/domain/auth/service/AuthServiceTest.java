@@ -10,6 +10,7 @@ import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.point.repository.UserPointRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserSettingsRepository;
+import com.weedrice.whiteboard.domain.user.repository.SocialAccountRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import com.weedrice.whiteboard.global.security.JwtTokenProvider;
@@ -39,105 +40,125 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class AuthServiceTest {
 
-    @Mock
-    private UserRepository userRepository;
-    @Mock
-    private UserPointRepository userPointRepository;
-    @Mock
-    private UserSettingsRepository userSettingsRepository;
-    @Mock
-    private PasswordEncoder passwordEncoder;
-    @Mock
-    private JwtTokenProvider jwtTokenProvider;
-    @Mock
-    private AuthenticationManagerBuilder authenticationManagerBuilder;
-    @Mock
-    private RefreshTokenRepository refreshTokenRepository;
-    @Mock
-    private LoginHistoryRepository loginHistoryRepository;
+        @Mock
+        private UserRepository userRepository;
+        @Mock
+        private UserPointRepository userPointRepository;
+        @Mock
+        private UserSettingsRepository userSettingsRepository;
+        @Mock
+        private PasswordEncoder passwordEncoder;
+        @Mock
+        private JwtTokenProvider jwtTokenProvider;
+        @Mock
+        private AuthenticationManagerBuilder authenticationManagerBuilder;
+        @Mock
+        private RefreshTokenRepository refreshTokenRepository;
+        @Mock
+        private LoginHistoryRepository loginHistoryRepository;
+        @Mock
+        private SocialAccountRepository socialAccountRepository;
 
-    @InjectMocks
-    private AuthService authService;
+        @InjectMocks
+        private AuthService authService;
 
-    private User user;
+        private User user;
 
-    @BeforeEach
-    void setUp() {
-        user = User.builder()
-                .loginId("testuser")
-                .password("encodedPassword")
-                .email("test@example.com")
-                .displayName("Test User")
-                .build();
-    }
+        @BeforeEach
+        void setUp() {
+                user = User.builder()
+                                .loginId("testuser")
+                                .password("encodedPassword")
+                                .email("test@example.com")
+                                .displayName("Test User")
+                                .build();
+        }
 
-    @Test
-    @DisplayName("회원가입 성공")
-    void signup_success() {
-        // given
-        SignupRequest request = new SignupRequest("testuser", "password123", "test@example.com", "Test User");
+        @Test
+        @DisplayName("회원가입 성공")
+        void signup_success() {
+                // given
+                SignupRequest request = SignupRequest.builder()
+                                .loginId("testuser")
+                                .password("password123")
+                                .email("test@example.com")
+                                .displayName("Test User")
+                                .build();
 
-        when(userRepository.existsByLoginId(request.getLoginId())).thenReturn(false);
-        when(userRepository.existsByEmail(request.getEmail())).thenReturn(false);
-        when(passwordEncoder.encode(request.getPassword())).thenReturn("encodedPassword");
-        when(userRepository.save(any(User.class))).thenReturn(user);
+                when(userRepository.existsByLoginId(request.getLoginId())).thenReturn(false);
+                when(userRepository.existsByEmail(request.getEmail())).thenReturn(false);
+                when(passwordEncoder.encode(request.getPassword())).thenReturn("encodedPassword");
+                when(userRepository.save(any(User.class))).thenReturn(user);
 
-        // when
-        SignupResponse response = authService.signup(request);
+                // when
+                SignupResponse response = authService.signup(request);
 
-        // then
-        assertThat(response.getLoginId()).isEqualTo(request.getLoginId());
-        assertThat(response.getEmail()).isEqualTo(request.getEmail());
-        assertThat(response.getDisplayName()).isEqualTo(request.getDisplayName());
-    }
+                // then
+                assertThat(response.getLoginId()).isEqualTo(request.getLoginId());
+                assertThat(response.getEmail()).isEqualTo(request.getEmail());
+                assertThat(response.getDisplayName()).isEqualTo(request.getDisplayName());
+        }
 
-    @Test
-    @DisplayName("회원가입 실패 - 중복된 로그인 ID")
-    void signup_fail_duplicateLoginId() {
-        // given
-        SignupRequest request = new SignupRequest("testuser", "password123", "test@example.com", "Test User");
-        when(userRepository.existsByLoginId(request.getLoginId())).thenReturn(true);
+        @Test
+        @DisplayName("회원가입 실패 - 중복된 로그인 ID")
+        void signup_fail_duplicateLoginId() {
+                // given
+                SignupRequest request = SignupRequest.builder()
+                                .loginId("testuser")
+                                .password("password123")
+                                .email("test@example.com")
+                                .displayName("Test User")
+                                .build();
+                when(userRepository.existsByLoginId(request.getLoginId())).thenReturn(true);
 
-        // when & then
-        BusinessException exception = assertThrows(BusinessException.class, () -> authService.signup(request));
-        assertThat(exception.getErrorCode().getCode()).isEqualTo("U002");
-    }
+                // when & then
+                BusinessException exception = assertThrows(BusinessException.class, () -> authService.signup(request));
+                assertThat(exception.getErrorCode().getCode()).isEqualTo("U002");
+        }
 
-    @Test
-    @DisplayName("회원가입 실패 - 중복된 이메일")
-    void signup_fail_duplicateEmail() {
-        // given
-        SignupRequest request = new SignupRequest("testuser", "password123", "test@example.com", "Test User");
-        when(userRepository.existsByLoginId(request.getLoginId())).thenReturn(false);
-        when(userRepository.existsByEmail(request.getEmail())).thenReturn(true);
+        @Test
+        @DisplayName("회원가입 실패 - 중복된 이메일")
+        void signup_fail_duplicateEmail() {
+                // given
+                SignupRequest request = SignupRequest.builder()
+                                .loginId("testuser")
+                                .password("password123")
+                                .email("test@example.com")
+                                .displayName("Test User")
+                                .build();
+                when(userRepository.existsByLoginId(request.getLoginId())).thenReturn(false);
+                when(userRepository.existsByEmail(request.getEmail())).thenReturn(true);
 
-        // when & then
-        BusinessException exception = assertThrows(BusinessException.class, () -> authService.signup(request));
-        assertThat(exception.getErrorCode().getCode()).isEqualTo("U003");
-    }
+                // when & then
+                BusinessException exception = assertThrows(BusinessException.class, () -> authService.signup(request));
+                assertThat(exception.getErrorCode().getCode()).isEqualTo("U003");
+        }
 
-    @Test
-    @DisplayName("로그인 성공")
-    void login_success() {
-        // given
-        LoginRequest request = new LoginRequest("testuser", "password123");
-        CustomUserDetails userDetails = new CustomUserDetails(1L, "testuser", "encodedPassword", Collections.emptyList());
-        Authentication authentication = new UsernamePasswordAuthenticationToken(userDetails, null, Collections.emptyList());
-        AuthenticationManager authenticationManager = mock(AuthenticationManager.class);
-        HttpServletRequest httpServletRequest = mock(HttpServletRequest.class);
+        @Test
+        @DisplayName("로그인 성공")
+        void login_success() {
+                // given
+                LoginRequest request = new LoginRequest("testuser", "password123");
+                CustomUserDetails userDetails = new CustomUserDetails(1L, "testuser", "encodedPassword",
+                                Collections.emptyList());
+                Authentication authentication = new UsernamePasswordAuthenticationToken(userDetails, null,
+                                Collections.emptyList());
+                AuthenticationManager authenticationManager = mock(AuthenticationManager.class);
+                HttpServletRequest httpServletRequest = mock(HttpServletRequest.class);
 
-        when(authenticationManagerBuilder.getObject()).thenReturn(authenticationManager);
-        when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class))).thenReturn(authentication);
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(jwtTokenProvider.createAccessToken(authentication)).thenReturn("accessToken");
-        when(jwtTokenProvider.createRefreshToken(authentication)).thenReturn("refreshToken");
+                when(authenticationManagerBuilder.getObject()).thenReturn(authenticationManager);
+                when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
+                                .thenReturn(authentication);
+                when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+                when(jwtTokenProvider.createAccessToken(authentication)).thenReturn("accessToken");
+                when(jwtTokenProvider.createRefreshToken(authentication)).thenReturn("refreshToken");
 
-        // when
-        LoginResponse response = authService.login(request, httpServletRequest);
+                // when
+                LoginResponse response = authService.login(request, httpServletRequest);
 
-        // then
-        assertThat(response.getAccessToken()).isEqualTo("accessToken");
-        assertThat(response.getRefreshToken()).isEqualTo("refreshToken");
-        assertThat(response.getUser().getLoginId()).isEqualTo("testuser");
-    }
+                // then
+                assertThat(response.getAccessToken()).isEqualTo("accessToken");
+                assertThat(response.getRefreshToken()).isEqualTo("refreshToken");
+                assertThat(response.getUser().getLoginId()).isEqualTo("testuser");
+        }
 }

@@ -10,10 +10,12 @@ import com.weedrice.whiteboard.domain.point.entity.UserPoint;
 import com.weedrice.whiteboard.domain.point.repository.PointHistoryRepository;
 import com.weedrice.whiteboard.domain.point.repository.UserPointRepository;
 import com.weedrice.whiteboard.domain.user.entity.Role;
+import com.weedrice.whiteboard.domain.user.entity.SocialAccount;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.entity.UserSettings;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserSettingsRepository;
+import com.weedrice.whiteboard.domain.user.repository.SocialAccountRepository;
 import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
 import com.weedrice.whiteboard.global.common.util.ClientUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -58,6 +60,7 @@ public class AuthService {
     private final RefreshTokenRepository refreshTokenRepository;
     private final LoginHistoryRepository loginHistoryRepository;
     private final UserSettingsRepository userSettingsRepository;
+    private final SocialAccountRepository socialAccountRepository;
     private final VerificationCodeService verificationCodeService;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final EmailService emailService;
@@ -109,9 +112,18 @@ public class AuthService {
                 .amount(signupBonus)
                 .balanceAfter(signupBonus)
                 .description("회원가입 축하 포인트")
-                .relatedType("SIGNUP")
                 .relatedId(savedUser.getUserId())
                 .build());
+
+        // Save SocialAccount if provider info is present
+        if (request.getProvider() != null && request.getProviderId() != null) {
+            SocialAccount socialAccount = SocialAccount.builder()
+                    .user(savedUser)
+                    .provider(request.getProvider())
+                    .providerId(request.getProviderId())
+                    .build();
+            socialAccountRepository.save(socialAccount);
+        }
 
         return SignupResponse.builder()
                 .userId(savedUser.getUserId())
