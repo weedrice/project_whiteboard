@@ -12,11 +12,18 @@ import Footer from '@/components/layout/Footer.vue'
 import GlobalSearchBar from '@/components/search/GlobalSearchBar.vue'
 import AdBanner from '@/components/common/widgets/AdBanner.vue'
 
+import logoLight from '@/assets/noviis_logo.png'
+import logoDark from '@/assets/noviis_logo_dark.png'
+
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
 const themeStore = useThemeStore()
 const { useUnreadCount, connectToSse, closeSse } = useNotification()
+
+const logoSrc = computed(() => {
+  return themeStore.isDark ? logoDark : logoLight
+})
 
 const isNotificationOpen = ref(false)
 const activeDropdown = ref<string | null>(null) // 'subscription', 'all', 'notification', 'user'
@@ -97,7 +104,7 @@ onUnmounted(() => {
           <div class="flex">
             <div class="flex-shrink-0 flex items-center">
               <router-link to="/" class="flex items-center">
-                <img src="@/assets/noviis_logo.png" alt="Noviis Logo" class="h-8 w-auto" />
+                <img :src="logoSrc" alt="Noviis Logo" class="h-8 w-auto" />
               </router-link>
             </div>
             <div class="hidden sm:ml-6 sm:flex sm:space-x-4 items-center">
