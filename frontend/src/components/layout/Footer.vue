@@ -34,12 +34,12 @@ const commitHash = __COMMIT_HASH__
             :title="'Commit: ' + commitHash">
             {{ commitHash }}
           </span>
-          <!-- <a href="#" class="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300">
-            Terms
-          </a>
-          <a href="#" class="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300">
-            Privacy
-          </a> -->
+          <router-link to="/terms" class="text-sm text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-300">
+            서비스 약관
+          </router-link>
+          <router-link to="/privacy" class="text-sm text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-300">
+            개인정보 처리방침
+          </router-link>
         </div>
       </div>
     </div>
