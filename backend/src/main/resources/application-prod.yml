@@ -15,28 +15,28 @@ spring:
             scope:
               - user:email
               - read:user
-#          google:
-#            client-id: YOUR_GOOGLE_CLIENT_ID
-#            client-secret: YOUR_GOOGLE_CLIENT_SECRET
-#            scope:
-#              - email
-#              - profile
-#          discord:
-#            client-id: YOUR_DISCORD_CLIENT_ID
-#            client-secret: YOUR_DISCORD_CLIENT_SECRET
-#            scope:
-#              - identify
-#              - email
-#            client-name: Discord
-#            authorization-grant-type: authorization_code
-#            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+          google:
+            client-id: ${GOOGLE_CLIENT_ID}
+            client-secret: ${GOOGLE_CLIENT_SECRET}
+            scope:
+              - email
+              - profile
+          discord:
+            client-id: ${DISCORD_CLIENT_ID}
+            client-secret: ${DISCORD_CLIENT_SECRET}
+            scope:
+              - identify
+              - email
+            client-name: Discord
+            authorization-grant-type: authorization_code
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
 
-#        provider:
-#          discord:
-#            authorization-uri: https://discord.com/api/oauth2/authorize
-#            token-uri: https://discord.com/api/oauth2/token
-#            user-info-uri: https://discord.com/api/users/@me
-#            user-name-attribute: id
+        provider:
+          discord:
+            authorization-uri: https://discord.com/api/oauth2/authorize
+            token-uri: https://discord.com/api/oauth2/token
+            user-info-uri: https://discord.com/api/users/@me
+            user-name-attribute: id
 
   datasource:
     url: jdbc:postgresql://${DB_HOST}:5432/${DB_NAME}
