@@ -15,12 +15,14 @@ spring:
             scope:
               - user:email
               - read:user
+            redirect-uri: "${FRONTEND_URL}/login/oauth2/code/github"
           google:
             client-id: ${GOOGLE_CLIENT_ID}
             client-secret: ${GOOGLE_CLIENT_SECRET}
             scope:
               - email
               - profile
+            redirect-uri: "${FRONTEND_URL}/login/oauth2/code/google"
           discord:
             client-id: ${DISCORD_CLIENT_ID}
             client-secret: ${DISCORD_CLIENT_SECRET}
@@ -29,7 +31,7 @@ spring:
               - email
             client-name: Discord
             authorization-grant-type: authorization_code
-            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+            redirect-uri: "${FRONTEND_URL}/login/oauth2/code/discord"
 
         provider:
           discord:
@@ -69,7 +71,7 @@ logging:
     org.hibernate.type.descriptor.sql: INFO
 
 jwt:
-  secret: ${JWT_SECRET_PROD}
+  secret: ${JWT_SECRET}
   expiration: 1800000 # 30 mins
   refresh-token:
     expiration: 1209600000 # 14 days
