@@ -14,7 +14,7 @@ import ErrorBoundary from '@/components/common/ErrorBoundary.vue'
 import NetworkStatus from '@/components/common/NetworkStatus.vue'
 import logger from '@/utils/logger'
 import { useGlobalShortcuts } from '@/composables/useGlobalShortcuts'
-import { type UserSettings } from '@/types/user'
+import { UserSettings } from '@/types/user'
 
 // Import layouts
 import DefaultLayout from '@/components/layout/DefaultLayout.vue'
