@@ -59,7 +59,6 @@ watch(() => authStore.isAuthenticated, (newVal) => {
     } else {
         // Reset to defaults on logout
         themeStore.setTheme('LIGHT')
-        // locale.value = 'ko' // Optional: Keep last used or reset
     }
 })
 

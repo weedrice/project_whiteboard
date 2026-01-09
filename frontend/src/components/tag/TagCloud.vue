@@ -28,13 +28,12 @@
 import { ref, onMounted } from 'vue'
 import logger from '@/utils/logger'
 import type { Tag } from '@/api/tag'
-// import { tagApi } from '@/api/tag' // Uncomment when API is ready
+import { tagApi } from '@/api/tag'
 
 const tags = ref<Tag[]>([])
 const loading = ref(false)
 
-// Mock data for now as backend API might not be ready or empty
-// In real implementation, remove mock and rely on API
+// Mock data as fallback when backend API is not ready or empty
 const mockTags: Tag[] = [
   { name: 'Vue', count: 10 },
   { name: 'Vite', count: 8 },
@@ -46,14 +45,13 @@ const mockTags: Tag[] = [
 const fetchTags = async () => {
   loading.value = true
   try {
-    // const { data } = await tagApi.getTags()
-    // if (data.success) {
-    //   tags.value = data.data
-    // }
-    
-    // Using mock data for demonstration until API is confirmed
-    await new Promise(resolve => setTimeout(resolve, 500))
-    tags.value = mockTags
+    const { data } = await tagApi.getTags()
+    if (data.success && data.data && data.data.length > 0) {
+      tags.value = data.data
+    } else {
+      // Fallback to mock data if API returns empty result
+      tags.value = mockTags
+    }
   } catch (error) {
     logger.error('Failed to fetch tags:', error)
   } finally {

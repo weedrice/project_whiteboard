@@ -24,13 +24,6 @@ declare module 'axios' {
     }
 }
 
-interface CustomAxiosRequestConfig extends InternalAxiosRequestConfig {
-    _retry?: boolean;
-    redirectOnError?: boolean;
-    skipGlobalErrorHandler?: boolean;
-    skipAuthRefresh?: boolean;
-}
-
 import type { ErrorResponse, ValidationErrors } from '@/types/common'
 
 interface ApiErrorResponse {
@@ -159,7 +152,7 @@ api.interceptors.response.use(
         return response
     },
     async (error: AxiosError) => {
-        const originalRequest = error.config as CustomAxiosRequestConfig
+        const originalRequest = error.config as InternalAxiosRequestConfig
         // Import store dynamically to avoid circular dependency issues during initialization
         const { useToastStore } = await import('@/stores/toast')
         const toastStore = useToastStore()
