@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.auth.dto;
 
+import com.weedrice.whiteboard.global.validation.PasswordStrength;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
@@ -15,5 +16,6 @@ public class PasswordResetConfirmRequest {
 
     @NotBlank
     @Size(min = 8, max = 20)
+    @PasswordStrength
     private String newPassword;
 }

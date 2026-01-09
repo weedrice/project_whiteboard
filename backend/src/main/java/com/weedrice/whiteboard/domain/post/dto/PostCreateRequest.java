@@ -1,7 +1,7 @@
 package com.weedrice.whiteboard.domain.post.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-
+import com.weedrice.whiteboard.global.validation.NoHtml;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
@@ -19,9 +19,11 @@ public class PostCreateRequest {
 
     @NotBlank
     @Size(min = 2, max = 200)
+    @NoHtml
     private String title;
 
     @NotBlank
+    @Size(max = 50000, message = "본문은 50,000자를 초과할 수 없습니다")
     private String contents;
 
     private List<String> tags;

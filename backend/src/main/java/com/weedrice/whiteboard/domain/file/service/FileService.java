@@ -48,6 +48,47 @@ public class FileService {
             throw new BusinessException(ErrorCode.FILE_TOO_LARGE);
         }
 
+        // 파일 타입 검증
+        String mimeType = multipartFile.getContentType();
+        String originalFilename = multipartFile.getOriginalFilename();
+        
+        // 허용된 이미지 MIME 타입
+        String[] allowedImageTypes = {
+            "image/jpeg", "image/jpg", "image/png", "image/gif", 
+            "image/webp", "image/svg+xml"
+        };
+        
+        // 이미지 파일인지 확인
+        boolean isImage = false;
+        if (mimeType != null) {
+            for (String allowedType : allowedImageTypes) {
+                if (mimeType.equalsIgnoreCase(allowedType)) {
+                    isImage = true;
+                    break;
+                }
+            }
+        }
+        
+        // 확장자 검증
+        if (originalFilename != null) {
+            String extension = getFileExtension(originalFilename);
+            String[] allowedExtensions = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg"};
+            boolean hasValidExtension = false;
+            for (String allowedExt : allowedExtensions) {
+                if (extension.equalsIgnoreCase(allowedExt)) {
+                    hasValidExtension = true;
+                    break;
+                }
+            }
+            
+            // 이미지 파일이 아니거나 허용되지 않은 확장자인 경우
+            if (!isImage || !hasValidExtension) {
+                throw new BusinessException(ErrorCode.INVALID_FILE_TYPE);
+            }
+        } else if (!isImage) {
+            throw new BusinessException(ErrorCode.INVALID_FILE_TYPE);
+        }
+
         String storedFileName = fileStorageService.storeFile(multipartFile);
 
         try {
@@ -57,7 +98,7 @@ public class FileService {
 
                 String originalFileName = multipartFile.getOriginalFilename();
                 Long fileSize = multipartFile.getSize();
-                String mimeType = multipartFile.getContentType();
+                // mimeType은 이미 위에서 선언됨
 
                 File file = File.builder()
                         .filePath(storedFileName)
@@ -74,6 +115,20 @@ public class FileService {
             fileStorageService.deleteFile(storedFileName);
             throw e;
         }
+    }
+
+    /**
+     * 파일 확장자 추출
+     */
+    private String getFileExtension(String filename) {
+        if (filename == null) {
+            return "";
+        }
+        int lastDotIndex = filename.lastIndexOf('.');
+        if (lastDotIndex == -1) {
+            return "";
+        }
+        return filename.substring(lastDotIndex).toLowerCase();
     }
 
     @Transactional

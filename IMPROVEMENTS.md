@@ -482,6 +482,50 @@ tasks.named('jacocoTestCoverageVerification') {
 
 ---
 
+### 17. ✅ **입력 검증 강화** (완료)
+
+**구현 내용:**
+- ✅ 비밀번호 강도 검증: `@PasswordStrength` 커스텀 Validator 생성 (영문 대소문자, 숫자, 특수문자 중 최소 3종류 포함)
+- ✅ HTML 태그 검증: `@NoHtml` 커스텀 Validator 생성 (XSS 공격 방지)
+- ✅ 파일 타입 검증: `@ValidFileType` 커스텀 Validator 생성 (MIME 타입, 확장자, 크기 검증)
+- ✅ 입력 Sanitization: `InputSanitizer` 유틸리티 클래스 생성 (HTML 이스케이프, 태그 제거, 스크립트 제거)
+- ✅ 파일 업로드 검증 강화: FileService에서 이미지 파일만 허용, MIME 타입 및 확장자 검증
+- ✅ DTO 검증 강화: 주요 DTO에 커스텀 Validator 적용
+
+**주요 변경사항:**
+- `backend/src/main/java/com/weedrice/whiteboard/global/validation/PasswordStrength.java`: 비밀번호 강도 검증 어노테이션 (신규)
+- `backend/src/main/java/com/weedrice/whiteboard/global/validation/PasswordStrengthValidator.java`: 비밀번호 강도 검증 Validator (신규)
+- `backend/src/main/java/com/weedrice/whiteboard/global/validation/NoHtml.java`: HTML 태그 검증 어노테이션 (신규)
+- `backend/src/main/java/com/weedrice/whiteboard/global/validation/NoHtmlValidator.java`: HTML 태그 검증 Validator (신규)
+- `backend/src/main/java/com/weedrice/whiteboard/global/validation/ValidFileType.java`: 파일 타입 검증 어노테이션 (신규)
+- `backend/src/main/java/com/weedrice/whiteboard/global/validation/ValidFileTypeValidator.java`: 파일 타입 검증 Validator (신규)
+- `backend/src/main/java/com/weedrice/whiteboard/global/util/InputSanitizer.java`: 입력 Sanitization 유틸리티 (신규)
+- `backend/src/main/java/com/weedrice/whiteboard/domain/auth/dto/SignupRequest.java`: 비밀번호 강도, HTML 태그 검증 추가
+- `backend/src/main/java/com/weedrice/whiteboard/domain/auth/dto/PasswordResetByCodeRequest.java`: 비밀번호 강도, 인증 코드 형식 검증 추가
+- `backend/src/main/java/com/weedrice/whiteboard/domain/auth/dto/PasswordResetConfirmRequest.java`: 비밀번호 강도 검증 추가
+- `backend/src/main/java/com/weedrice/whiteboard/domain/user/dto/UpdatePasswordRequest.java`: 비밀번호 강도 검증 추가
+- `backend/src/main/java/com/weedrice/whiteboard/domain/post/dto/PostCreateRequest.java`: 제목 HTML 태그 차단, 본문 길이 제한 추가
+- `backend/src/main/java/com/weedrice/whiteboard/domain/post/dto/PostUpdateRequest.java`: 제목 HTML 태그 차단, 본문 길이 제한 추가
+- `backend/src/main/java/com/weedrice/whiteboard/domain/comment/dto/CommentCreateRequest.java`: 댓글 길이 제한 메시지 개선
+- `backend/src/main/java/com/weedrice/whiteboard/domain/comment/dto/CommentUpdateRequest.java`: 댓글 길이 제한 메시지 개선
+- `backend/src/main/java/com/weedrice/whiteboard/domain/user/dto/UpdateProfileRequest.java`: 표시 이름 HTML 태그 차단 추가
+- `backend/src/main/java/com/weedrice/whiteboard/domain/file/service/FileService.java`: 파일 타입 및 확장자 검증 강화
+
+**검증 규칙:**
+- **비밀번호**: 최소 8자, 영문 대소문자/숫자/특수문자 중 최소 3종류 포함
+- **HTML 태그**: 사용자 입력에서 HTML 태그, 스크립트 태그, 이벤트 핸들러 차단
+- **파일 업로드**: 이미지 파일만 허용 (JPEG, PNG, GIF, WebP, SVG), 최대 10MB
+- **입력 길이**: 게시글 본문 50,000자, 댓글 5,000자 제한
+
+**보안 개선 효과:**
+- XSS 공격 방지: HTML 태그 및 스크립트 태그 차단
+- 파일 업로드 보안: 악성 파일 업로드 방지
+- 데이터 무결성: 비밀번호 강도 검증으로 보안 강화
+
+**참고 문서:** `backend/VALIDATION_GUIDE.md`
+
+---
+
 ## 📋 우선순위별 실행 계획
 
 ### Phase 1 (단기 - 1-2주) - 즉시 개선 가능
@@ -505,6 +549,7 @@ tasks.named('jacocoTestCoverageVerification') {
 14. ✅ **프론트엔드 에러 처리 개선** - 사용자 경험
 15. ✅ **API Rate Limiting** - 보안 및 안정성 (완료)
 16. ✅ **N+1 쿼리 최적화** - 쿼리 성능 개선 (완료)
+17. ✅ **입력 검증 강화** - 보안 및 데이터 무결성 (완료)
 
 ---
 

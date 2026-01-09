@@ -10,7 +10,6 @@ import com.weedrice.whiteboard.domain.board.repository.BoardCategoryRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
-import com.weedrice.whiteboard.domain.file.entity.File;
 import com.weedrice.whiteboard.domain.file.service.FileService;
 import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
 import com.weedrice.whiteboard.domain.post.dto.DraftListResponse;
@@ -33,6 +32,7 @@ import com.weedrice.whiteboard.domain.user.service.UserBlockService; // Import U
 import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import com.weedrice.whiteboard.global.util.InputSanitizer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.*;
@@ -425,12 +425,15 @@ public class PostService {
             }
         }
 
+        // 본문에서 위험한 스크립트만 제거 (HTML 태그는 허용)
+        String sanitizedContents = InputSanitizer.sanitize(request.getContents());
+        
         Post post = Post.builder()
                 .board(board)
                 .user(user)
                 .category(category)
                 .title(request.getTitle())
-                .contents(request.getContents())
+                .contents(sanitizedContents)
                 .isNotice(request.isNotice())
                 .isNsfw(request.isNsfw())
                 .isSpoiler(request.isSpoiler())
@@ -475,7 +478,10 @@ public class PostService {
         String originalTitle = post.getTitle();
         String originalContents = post.getContents();
 
-        post.updatePost(category, request.getTitle(), request.getContents(), request.isNsfw(),
+        // 본문에서 위험한 스크립트만 제거 (HTML 태그는 허용)
+        String sanitizedContents = InputSanitizer.sanitize(request.getContents());
+
+        post.updatePost(category, request.getTitle(), sanitizedContents, request.isNsfw(),
                 request.isSpoiler());
         tagService.processTagsForPost(post, request.getTags());
 

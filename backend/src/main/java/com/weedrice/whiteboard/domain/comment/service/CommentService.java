@@ -21,6 +21,7 @@ import com.weedrice.whiteboard.domain.user.service.UserBlockService; // Import U
 import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import com.weedrice.whiteboard.global.util.InputSanitizer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
@@ -145,12 +146,15 @@ public class CommentService {
             depth = parentComment.getDepth() + 1;
         }
 
+        // 댓글 내용에서 HTML 태그 제거
+        String sanitizedContent = InputSanitizer.stripHtml(content);
+        
         Comment comment = Comment.builder()
                 .post(post)
                 .user(user)
                 .parent(parentComment)
                 .depth(depth)
-                .content(content)
+                .content(sanitizedContent)
                 .build();
 
         post.incrementCommentCount();
@@ -199,7 +203,9 @@ public class CommentService {
         }
 
         String originalContent = comment.getContent(); // Get original content before update
-        comment.updateContent(content);
+        // 댓글 내용에서 HTML 태그 제거
+        String sanitizedContent = InputSanitizer.stripHtml(content);
+        comment.updateContent(sanitizedContent);
 
         // Save CommentVersion for MODIFY
         saveCommentVersion(comment, userRepository.findById(userId)
