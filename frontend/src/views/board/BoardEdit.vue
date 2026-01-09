@@ -49,7 +49,7 @@ async function fetchBoard() {
       }
     }
   } catch (err) {
-    handleError(err, t('board.writePost.failLoad'))
+    handleError(err, t('board.loadFailed'))
     router.push(`/board/${boardUrl}`)
   } finally {
     isLoading.value = false
@@ -67,8 +67,8 @@ async function handleUpdate(formData) {
         router.push(`/board/${data.data.boardUrl}`)
       }
     } catch (err) {
-      error.value = t('board.form.failUpdate')
-      handleError(err, t('board.form.failUpdate'))
+      error.value = t('board.form.updateFailed')
+      handleError(err, t('board.form.updateFailed'))
       throw err
     }
   })
@@ -85,7 +85,7 @@ async function handleDelete() {
       router.push('/')
     }
   } catch (err) {
-    handleError(err, t('board.form.failDelete'))
+    handleError(err, t('board.form.deleteFailed'))
   }
 }
 
