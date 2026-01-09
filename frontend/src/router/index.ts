@@ -46,7 +46,8 @@ const router = createRouter({
                 {
                     path: 'oauth/callback',
                     name: 'oauth-callback',
-                    component: () => import('@/views/auth/OAuthCallback.vue')
+                    component: () => import('@/views/auth/OAuthCallback.vue'),
+                    meta: { guestOnly: false } // OAuth callback should not be blocked by guestOnly check
                 }
             ]
         },
@@ -249,7 +250,8 @@ router.beforeEach(async (to: RouteLocationNormalized, from: RouteLocationNormali
     } else if (to.meta.roles && !to.meta.roles.includes(authStore.user?.role || '')) {
         // Role check (e.g. SUPER_ADMIN)
         next({ name: 'home' })
-    } else if (to.meta.guestOnly && authStore.isAuthenticated) {
+    } else if (to.meta.guestOnly && authStore.isAuthenticated && to.name !== 'oauth-callback') {
+        // OAuth callback should be allowed even if authenticated (handles re-login scenarios)
         next({ name: 'home' })
     } else {
         next()
