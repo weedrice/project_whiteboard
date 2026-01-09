@@ -8,6 +8,7 @@ import { Check, Bell } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import Pagination from '@/components/common/ui/Pagination.vue'
 import PageSizeSelector from '@/components/common/widgets/PageSizeSelector.vue'
+import EmptyState from '@/components/common/ui/EmptyState.vue'
 import logger from '@/utils/logger'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
@@ -101,9 +102,11 @@ import { formatDate } from '@/utils/date'
         </div>
       </div>
 
-      <div v-else-if="notifications.length === 0" class="text-center py-10 text-gray-500 dark:text-gray-400">
-        {{ $t('notification.empty') }}
-      </div>
+      <EmptyState 
+        v-else-if="notifications.length === 0"
+        :title="$t('notification.empty')"
+        :icon="Bell"
+      />
 
       <ul v-else class="divide-y divide-gray-200 dark:divide-gray-700">
         <li v-for="notification in notifications" :key="notification.notificationId"

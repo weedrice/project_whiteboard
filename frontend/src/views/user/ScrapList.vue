@@ -5,6 +5,8 @@ import PostList from '@/components/board/PostList.vue'
 import Pagination from '@/components/common/ui/Pagination.vue'
 import PageSizeSelector from '@/components/common/widgets/PageSizeSelector.vue'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
+import EmptyState from '@/components/common/ui/EmptyState.vue'
+import { Bookmark } from 'lucide-vue-next'
 import logger from '@/utils/logger'
 
 const scraps = ref([])
@@ -62,9 +64,11 @@ onMounted(() => {
         </div>
       </div>
 
-      <div v-else-if="!loading" class="text-center py-10 text-gray-500 dark:text-gray-400">
-        {{ $t('user.scrapList.empty') }}
-      </div>
+      <EmptyState 
+        v-else-if="!loading"
+        :title="$t('user.scrapList.empty')"
+        :icon="Bookmark"
+      />
 
       <div v-if="loading && scraps.length === 0" class="space-y-4 p-4">
         <div v-for="i in 5" :key="i"

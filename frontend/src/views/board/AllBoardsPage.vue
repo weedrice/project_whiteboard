@@ -4,7 +4,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useBoard } from '@/composables/useBoard'
 import SubscribedBoardList from '@/components/board/SubscribedBoardList.vue'
 import BoardGrid from '@/components/board/BoardGrid.vue'
-import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
+import BoardListSkeleton from '@/components/common/ui/BoardListSkeleton.vue'
 
 const authStore = useAuthStore()
 const { useBoards } = useBoard()
@@ -22,15 +22,7 @@ const allBoards = computed(() => {
 <template>
   <div class="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
 
-    <div v-if="isLoading" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-      <div v-for="i in 6" :key="i" class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 flex items-center space-x-4">
-        <BaseSkeleton width="3rem" height="3rem" rounded="rounded-full" />
-        <div class="flex-1">
-          <BaseSkeleton width="60%" height="24px" className="mb-2" />
-          <BaseSkeleton width="90%" height="16px" />
-        </div>
-      </div>
-    </div>
+    <BoardListSkeleton v-if="isLoading" :count="6" />
 
     <div v-else-if="error" class="text-center py-20 text-red-500 dark:text-red-400">
       {{ error }}

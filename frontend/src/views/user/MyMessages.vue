@@ -43,9 +43,11 @@
             </div>
         </div>
 
-        <div v-else-if="messages.length === 0" class="text-center py-10 text-gray-500 dark:text-gray-400">
-            {{ $t('user.message.empty') }}
-        </div>
+        <EmptyState 
+            v-else-if="messages.length === 0"
+            :title="$t('user.message.empty')"
+            :icon="Mail"
+        />
 
         <ul v-else class="divide-y divide-gray-200 dark:divide-gray-700">
             <li v-for="msg in messages" :key="msg.messageId"
@@ -135,8 +137,10 @@ import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseCheckbox from '@/components/common/ui/BaseCheckbox.vue'
 import BaseTextarea from '@/components/common/ui/BaseTextarea.vue'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
+import EmptyState from '@/components/common/ui/EmptyState.vue'
 import Pagination from '@/components/common/ui/Pagination.vue'
 import PageSizeSelector from '@/components/common/widgets/PageSizeSelector.vue'
+import { Mail } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { useNotificationStore } from '@/stores/notification'
 import { useToastStore } from '@/stores/toast'

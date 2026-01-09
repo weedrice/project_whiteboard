@@ -1,47 +1,15 @@
 ﻿<template>
   <div class="max-w-2xl mx-auto py-8">
     <!-- Feed -->
-    <div v-if="loading" class="space-y-6">
-      <div v-for="i in 3" :key="i"
-        class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 sm:px-6">
-        <!-- Header Skeleton -->
-        <div class="flex items-center justify-between mb-4">
-          <div class="flex items-center space-x-3">
-            <BaseSkeleton width="2rem" height="2rem" rounded="rounded-full" />
-            <div>
-              <BaseSkeleton width="80px" height="14px" className="mb-1" />
-              <BaseSkeleton width="60px" height="12px" />
-            </div>
-          </div>
-          <BaseSkeleton width="60px" height="28px" />
-        </div>
-        <!-- Content Skeleton -->
-        <div class="mb-4">
-          <BaseSkeleton width="90%" height="24px" className="mb-2" />
-          <BaseSkeleton width="100%" height="16px" className="mb-1" />
-          <BaseSkeleton width="80%" height="16px" className="mb-4" />
-          <BaseSkeleton width="100%" height="192px" rounded="rounded-lg" />
-        </div>
-        <!-- Footer Skeleton -->
-        <div class="flex justify-around pt-3 border-t border-gray-200 dark:border-gray-700">
-          <BaseSkeleton width="40px" height="20px" />
-          <BaseSkeleton width="40px" height="20px" />
-          <BaseSkeleton width="40px" height="20px" />
-        </div>
-      </div>
-    </div>
+    <PostListSkeleton v-if="loading" :count="3" />
 
-    <div v-else-if="posts.length === 0"
-      class="text-center py-12 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg transition-colors duration-200">
-      <div class="mx-auto h-12 w-12 text-gray-400">
-        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-            d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-        </svg>
-      </div>
-      <h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">{{ $t('common.noData') }}</h3>
-      <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ $t('board.list.noPosts') }}</p>
-    </div>
+    <EmptyState 
+      v-else-if="posts.length === 0"
+      :title="$t('common.noData')"
+      :description="$t('board.list.noPosts')"
+      :icon="FileText"
+      container-class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg transition-colors duration-200"
+    />
 
     <div v-else>
       <FeedCard v-for="post in posts" :key="post.postId" :post="post" @like="handleLike" @scrap="handleScrap"
@@ -61,7 +29,9 @@ import { postApi } from '@/api/post'
 import { boardApi } from '@/api/board'
 import FeedCard from '@/components/feed/FeedCard.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
-import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
+import PostListSkeleton from '@/components/common/ui/PostListSkeleton.vue'
+import EmptyState from '@/components/common/ui/EmptyState.vue'
+import { FileText } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
 import { useRouter } from 'vue-router'
 import logger from '@/utils/logger'

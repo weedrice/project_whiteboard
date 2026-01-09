@@ -8,6 +8,7 @@ import BaseModal from '@/components/common/ui/BaseModal.vue'
 import ProfileEditor from '@/components/user/ProfileEditor.vue'
 import Pagination from '@/components/common/ui/Pagination.vue'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
+import EmptyState from '@/components/common/ui/EmptyState.vue'
 import logger from '@/utils/logger'
 
 const profile = ref(null)
@@ -213,9 +214,11 @@ onMounted(async () => {
                 @page-change="handleMyPostsPageChange" />
             </div>
           </div>
-          <div v-else class="text-center py-10 text-gray-500 dark:text-gray-400">
-            {{ $t('common.noData') }}
-          </div>
+          <EmptyState 
+            v-else
+            :title="$t('common.noData')"
+            :icon="FileText"
+          />
         </div>
 
         <!-- My Comments Section -->
@@ -255,9 +258,11 @@ onMounted(async () => {
                 @page-change="handleMyCommentsPageChange" />
             </div>
           </div>
-          <div v-else class="text-center py-10 text-gray-500 dark:text-gray-400">
-            {{ $t('common.noData') }}
-          </div>
+          <EmptyState 
+            v-else
+            :title="$t('common.noData')"
+            :icon="MessageSquare"
+          />
         </div>
       </div>
 

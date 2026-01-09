@@ -14,9 +14,13 @@
           <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 mx-auto"></div>
         </div>
 
-        <div v-else-if="posts.length === 0" class="text-center py-10 bg-white shadow rounded-lg">
-          <p class="text-gray-500">{{ $t('search.noResults') }}</p>
-        </div>
+        <EmptyState 
+          v-else-if="posts.length === 0"
+          :title="$t('search.noResults')"
+          :description="searchQuery ? $t('search.noResultsFor', { query: searchQuery }) : undefined"
+          :icon="Search"
+          container-class="bg-white dark:bg-gray-800 shadow rounded-lg"
+        />
 
         <div v-else class="space-y-4">
           <PostList :posts="posts" :showBoardName="true" :hideNoColumn="true" />
@@ -31,6 +35,8 @@ import { ref, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useSearch } from '@/composables/useSearch'
 import PostList from '@/components/board/PostList.vue'
+import EmptyState from '@/components/common/ui/EmptyState.vue'
+import { Search } from 'lucide-vue-next'
 
 const route = useRoute()
 const { useSearchPosts } = useSearch()

@@ -18,9 +18,11 @@
             </div>
         </div>
 
-        <div v-else-if="boards.length === 0" class="text-center py-10 text-gray-500 dark:text-gray-400">
-            {{ $t('user.subscriptions.empty') }}
-        </div>
+        <EmptyState 
+            v-else-if="boards.length === 0"
+            :title="$t('user.subscriptions.empty')"
+            :icon="Users"
+        />
 
         <draggable v-else v-model="boards" item-key="boardId" class="divide-y divide-gray-200 dark:divide-gray-700"
             tag="ul" handle=".handle" @end="handleDragEnd">
@@ -54,10 +56,11 @@ import { boardApi } from '@/api/board'
 import { useI18n } from 'vue-i18n'
 import { useToastStore } from '@/stores/toast'
 import draggable from 'vuedraggable'
-import { Menu } from 'lucide-vue-next'
+import { Menu, Users } from 'lucide-vue-next'
 import logger from '@/utils/logger'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
+import EmptyState from '@/components/common/ui/EmptyState.vue'
 import { useConfirm } from '@/composables/useConfirm'
 
 const { t } = useI18n()
