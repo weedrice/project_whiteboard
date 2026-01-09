@@ -89,6 +89,8 @@ import axios from '@/api' // Direct axios for file upload
 import logger from '@/utils/logger'
 import type { UserUpdatePayload } from '@/api/user'
 import { useToastStore } from '@/stores/toast'
+import { extractValidationErrors, extractErrorMessage, getFieldError } from '@/utils/errorHandler'
+import type { AxiosError } from 'axios'
 
 const authStore = useAuthStore()
 const toastStore = useToastStore()
@@ -204,13 +206,32 @@ const updateProfile = async () => {
         loading.value = false
       },
       onError: (error: Error) => {
-        const axiosError = error as Error & { response?: { data?: { message?: string } } }
+        const axiosError = error as AxiosError
         logger.error('Failed to update profile:', error)
-        if (axiosError.response?.data?.message) {
-          errors.displayName = axiosError.response.data.message
+        
+        // Validation 에러 처리
+        const validationErrors = extractValidationErrors(axiosError)
+        if (validationErrors) {
+          // 필드별 에러 설정
+          const displayNameError = getFieldError(validationErrors, 'displayName')
+          if (displayNameError) {
+            errors.displayName = displayNameError
+          }
+          
+          // 다른 필드 에러가 있으면 토스트로 표시
+          const otherErrors = Object.entries(validationErrors)
+            .filter(([key]) => key !== 'displayName')
+            .flatMap(([, messages]) => messages)
+          if (otherErrors.length > 0) {
+            toastStore.addToast(otherErrors[0], 'error')
+          }
         } else {
-          toastStore.addToast('Failed to update profile', 'error')
+          // 일반 에러 처리
+          const errorMessage = extractErrorMessage(axiosError)
+          errors.displayName = errorMessage
+          toastStore.addToast(errorMessage, 'error')
         }
+        
         loading.value = false
       }
     })
@@ -240,12 +261,21 @@ const handleDeleteAccount = async () => {
     router.push('/')
   } catch (error: any) {
     logger.error('Failed to delete account:', error)
-    // Check if error response has message
-    if (error.response && error.response.data && error.response.data.message) {
-      deleteError.value = error.response.data.message
-    } else {
-      deleteError.value = t('common.errorOccurred')
+    const axiosError = error as AxiosError
+    
+    // Validation 에러 처리 (비밀번호 필드)
+    const validationErrors = extractValidationErrors(axiosError)
+    if (validationErrors) {
+      const passwordError = getFieldError(validationErrors, 'password')
+      if (passwordError) {
+        deleteError.value = passwordError
+        return
+      }
     }
+    
+    // 일반 에러 처리
+    const errorMessage = extractErrorMessage(axiosError)
+    deleteError.value = errorMessage || t('common.errorOccurred')
   }
 }
 </script>

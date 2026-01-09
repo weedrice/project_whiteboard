@@ -31,7 +31,11 @@ interface CustomAxiosRequestConfig extends InternalAxiosRequestConfig {
     skipAuthRefresh?: boolean;
 }
 
+import type { ErrorResponse, ValidationErrors } from '@/types/common'
+
 interface ApiErrorResponse {
+    success?: boolean
+    error?: ErrorResponse
     status?: number
     code?: string
     message?: string
@@ -88,11 +92,29 @@ const handleApiError = (error: AxiosError, toastStore: any) => {
     if (error.response) {
         const status = error.response.status
         const errorData = error.response.data as ApiErrorResponse | undefined
-        const message = errorData?.message || error.message
+        
+        // ApiResponse 형태의 에러 응답 처리
+        const apiError = errorData?.error || errorData
+        const message = apiError?.message || errorData?.message || error.message
 
         switch (status) {
             case 400:
-                toastStore.addToast(message || t('common.messages.badRequest'), 'error', 3000, 'top-center')
+                // Validation 에러인 경우 details가 있을 수 있음
+                // Validation 에러는 필드별로 표시되므로 여기서는 요약 메시지만 표시
+                if (apiError?.details && typeof apiError.details === 'object') {
+                    // Validation 에러의 경우 첫 번째 필드의 첫 번째 에러만 토스트로 표시
+                    const validationErrors = apiError.details as ValidationErrors
+                    const firstField = Object.keys(validationErrors)[0]
+                    const firstError = firstField ? validationErrors[firstField]?.[0] : null
+                    toastStore.addToast(
+                        firstError || message || t('common.messages.badRequest'), 
+                        'error', 
+                        3000, 
+                        'top-center'
+                    )
+                } else {
+                    toastStore.addToast(message || t('common.messages.badRequest'), 'error', 3000, 'top-center')
+                }
                 break
             case 403:
                 toastStore.addToast(message || t('common.messages.forbidden'), 'error', 3000, 'top-center')
