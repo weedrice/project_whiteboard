@@ -37,7 +37,7 @@ interface ApiErrorResponse {
 
 interface FailedRequest {
     resolve: (token: string | null) => void
-    reject: (error: any) => void
+    reject: (error: unknown) => void
 }
 
 const api: AxiosInstance = axios.create({

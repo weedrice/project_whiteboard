@@ -62,11 +62,12 @@ import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import EmptyState from '@/components/common/ui/EmptyState.vue'
 import { useConfirm } from '@/composables/useConfirm'
+import type { Board } from '@/types'
 
 const { t } = useI18n()
 const toastStore = useToastStore()
 const { confirm } = useConfirm()
-const boards = ref([])
+const boards = ref<Board[]>([])
 const loading = ref(false)
 
 async function fetchSubscriptions() {

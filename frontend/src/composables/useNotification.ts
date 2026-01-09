@@ -98,11 +98,11 @@ export function useNotification() {
                 // This is a bit complex with dynamic params.
                 // A simple approach is to invalidate, but that triggers a refetch.
                 // To update cache directly:
-                queryClient.setQueriesData({ queryKey: ['notifications'] }, (oldData: any) => {
+                queryClient.setQueriesData({ queryKey: ['notifications'] }, (oldData: PageResponse<Notification> | undefined) => {
                     if (!oldData) return oldData
                     // Check if this is a PageResponse
                     if ('content' in oldData) {
-                        const pageData = oldData as PageResponse<Notification>
+                        const pageData = oldData
                         // Only prepend if it's the first page (usually we can't easily know from here without params)
                         // But commonly we want to see it.
                         // For simplicity, let's just invalidate to be safe and consistent.

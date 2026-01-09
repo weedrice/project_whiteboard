@@ -4,7 +4,7 @@
             @touchstart="handleTouchStart" @touchmove="handleTouchMove" @touchend="handleTouchEnd">
             <nav class="flex space-x-8 border-b border-gray-200 min-w-max relative" aria-label="Tabs">
                 <router-link v-for="(tab, index) in tabs" :key="tab.nameKey" :to="tab.href"
-                    :ref="el => { if (el) tabRefs[index] = (el as any).$el }"
+                    :ref="el => { if (el) tabRefs[index] = (el as ComponentPublicInstance).$el }"
                     class="whitespace-nowrap py-4 px-1 text-sm transition-colors duration-200" :class="[
                         isActive(tab.href)
                             ? 'text-indigo-600 dark:text-indigo-400 font-bold'
@@ -23,7 +23,7 @@
 
 <script setup lang="ts">
 import { useRoute, useRouter } from 'vue-router'
-import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onUnmounted, type ComponentPublicInstance } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 // User Navigation Component

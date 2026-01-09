@@ -10,18 +10,19 @@ import Pagination from '@/components/common/ui/Pagination.vue'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import EmptyState from '@/components/common/ui/EmptyState.vue'
 import logger from '@/utils/logger'
+import type { User as UserType, PostSummary, Comment } from '@/types'
 
-const profile = ref(null)
+const profile = ref<UserType | null>(null)
 
 // Posts pagination state
-const myPosts = ref([])
+const myPosts = ref<PostSummary[]>([])
 const myPostsTotalCount = ref(0)
 const myPostsCurrentPage = ref(0)
 const myPostsSize = ref(10) // 10 items per page
 const myPostsSort = ref('createdAt,desc')
 
 // Comments pagination state
-const myComments = ref([])
+const myComments = ref<Comment[]>([])
 const myCommentsTotalCount = ref(0)
 const myCommentsCurrentPage = ref(0)
 const myCommentsSize = ref(10) // 10 items per page

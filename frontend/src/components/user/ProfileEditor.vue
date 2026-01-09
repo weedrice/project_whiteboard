@@ -270,7 +270,7 @@ const handleDeleteAccount = async () => {
     showDeleteModal.value = false
     await authStore.logout()
     router.push('/')
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('Failed to delete account:', error)
     const axiosError = error as AxiosError
     

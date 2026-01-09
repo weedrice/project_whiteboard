@@ -42,8 +42,9 @@ import { FileText } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
 import { useRouter } from 'vue-router'
 import logger from '@/utils/logger'
+import type { PostSummary } from '@/types'
 
-const posts = ref([])
+const posts = ref<PostSummary[]>([])
 const loading = ref(true)
 const loadingMore = ref(false)
 const page = ref(0)
