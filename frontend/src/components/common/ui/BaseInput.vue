@@ -5,23 +5,31 @@
       {{ label }}
     </label>
     <div class="relative">
-      <div v-if="$slots.prefix" class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+      <div v-if="$slots.prefix" class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none" aria-hidden="true">
         <slot name="prefix"></slot>
       </div>
-      <input v-bind="{ ...$attrs, class: undefined, style: undefined }" :id="id" :type="type" :value="modelValue"
-        :placeholder="placeholder" :disabled="disabled"
+      <input v-bind="{ ...$attrs, class: undefined, style: undefined }" 
+        :id="id" 
+        :type="type" 
+        :value="modelValue"
+        :placeholder="placeholder" 
+        :disabled="disabled"
+        :aria-invalid="error ? 'true' : undefined"
+        :aria-describedby="error ? `${id}-error` : undefined"
         class="input-base disabled:bg-gray-100 disabled:text-gray-500 dark:disabled:bg-gray-600 dark:disabled:text-gray-400"
         :class="[
           { 'border-red-500 focus:border-red-500 focus:ring-red-500': error },
           { 'pl-10': $slots.prefix },
           { 'pr-10': $slots.suffix },
           inputClass
-        ]" @input="updateValue" @blur="$emit('blur', $event)" />
-      <div v-if="$slots.suffix" class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+        ]" 
+        @input="updateValue" 
+        @blur="$emit('blur', $event)" />
+      <div v-if="$slots.suffix" class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none" aria-hidden="true">
         <slot name="suffix"></slot>
       </div>
     </div>
-    <p v-if="error" class="text-sm text-red-600 dark:text-red-400">{{ error }}</p>
+    <p v-if="error" :id="`${id}-error`" class="text-sm text-red-600 dark:text-red-400" role="alert">{{ error }}</p>
   </div>
 </template>
 

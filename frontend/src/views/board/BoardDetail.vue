@@ -70,13 +70,26 @@ const categories = computed(() => {
 })
 
 const posts = computed(() => {
-    let p = [...(postsData.value?.content || [])]
+    const data = postsData.value?.content
+    if (!data || data.length === 0) return []
 
-    // Client-side sorting
+    // 정렬이 기본값('createdAt,desc')인 경우 서버에서 이미 정렬된 데이터 사용
+    // 서버 API는 항상 'createdAt,desc'로 정렬된 데이터를 반환
+    if (sort.value === 'createdAt,desc') {
+        // Merge notices if not searching and on first page
+        if (!isSearching.value && noticesData.value && page.value === 0) {
+            const n = noticesData.value.map(notice => ({ ...notice, isNotice: true }))
+            return [...n, ...data]
+        }
+        return data
+    }
+
+    // 정렬이 필요한 경우에만 클라이언트 사이드 정렬 수행
+    const sortedData = [...data]
     const [field, direction] = sort.value.split(',')
     const isAsc = direction === 'asc'
 
-    p.sort((a, b) => {
+    sortedData.sort((a, b) => {
         let valA = a[field]
         let valB = b[field]
 
@@ -93,19 +106,12 @@ const posts = computed(() => {
         return 0
     })
 
-    // Assign visual row numbers
-    const total = totalCount.value
-    const pageSize = size.value
-    const currentPage = page.value
-
-    // rowNum recalculation removed to keep original rowNum
-
     // Merge notices if not searching and on first page
     if (!isSearching.value && noticesData.value && page.value === 0) {
         const n = noticesData.value.map(notice => ({ ...notice, isNotice: true }))
-        return [...n, ...p]
+        return [...n, ...sortedData]
     }
-    return p
+    return sortedData
 })
 
 const totalCount = computed(() => postsData.value?.totalElements || 0)
