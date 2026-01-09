@@ -1,4 +1,4 @@
-﻿<script setup>
+﻿<script setup lang="ts">
 import { ref, onMounted, computed, watchEffect } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useBoard } from '@/composables/useBoard'

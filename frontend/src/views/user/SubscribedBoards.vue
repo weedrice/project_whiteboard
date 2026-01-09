@@ -49,7 +49,7 @@
     </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { userApi } from '@/api/user'
 import { boardApi } from '@/api/board'
@@ -62,6 +62,7 @@ import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import EmptyState from '@/components/common/ui/EmptyState.vue'
 import { useConfirm } from '@/composables/useConfirm'
+import { useErrorHandler } from '@/composables/useErrorHandler'
 import type { Board } from '@/types'
 
 const { t } = useI18n()

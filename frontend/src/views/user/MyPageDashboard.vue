@@ -1,4 +1,4 @@
-﻿<script setup>
+﻿<script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { userApi } from '@/api/user'
 import { User, Mail, Calendar, FileText, CheckCircle, XCircle, Clock, MessageSquare } from 'lucide-vue-next'

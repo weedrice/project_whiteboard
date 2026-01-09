@@ -1,4 +1,4 @@
-﻿<script setup>
+﻿<script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { usePost } from '@/composables/usePost'
