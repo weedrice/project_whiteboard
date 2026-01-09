@@ -15,8 +15,14 @@ import com.weedrice.whiteboard.domain.auth.dto.SignupRequest;
 import com.weedrice.whiteboard.domain.auth.dto.SignupResponse;
 import com.weedrice.whiteboard.domain.auth.dto.VerifyCodeRequest;
 import com.weedrice.whiteboard.domain.auth.service.AuthService;
-import com.weedrice.whiteboard.domain.auth.service.VerificationCodeService; // Import VerificationCodeService
+import com.weedrice.whiteboard.domain.auth.service.VerificationCodeService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
+import com.weedrice.whiteboard.global.common.annotation.ApiCommonResponses;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -27,17 +33,88 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
+@Tag(name = "인증", description = "회원가입, 로그인, 토큰 갱신 등 인증 관련 API")
 public class AuthController {
 
     private final AuthService authService;
     private final VerificationCodeService verificationCodeService; // Inject VerificationCodeService
 
+    @Operation(
+            summary = "회원가입",
+            description = "새로운 사용자를 등록합니다. 이메일 인증이 필요할 수 있습니다."
+    )
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "201",
+            description = "회원가입 성공",
+            content = @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = SignupResponse.class),
+                    examples = @ExampleObject(
+                            value = """
+                                    {
+                                      "success": true,
+                                      "data": {
+                                        "userId": 1,
+                                        "loginId": "user123",
+                                        "email": "user@example.com",
+                                        "displayName": "사용자"
+                                      }
+                                    }
+                                    """
+                    )
+            )
+    )
+    @ApiCommonResponses
     @PostMapping("/signup")
     public ResponseEntity<ApiResponse<SignupResponse>> signup(@Valid @RequestBody SignupRequest request) {
         SignupResponse response = authService.signup(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(response));
     }
 
+    @Operation(
+            summary = "로그인",
+            description = "로그인 ID와 비밀번호로 인증하고 JWT 토큰을 발급받습니다."
+    )
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "200",
+            description = "로그인 성공",
+            content = @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = LoginResponse.class),
+                    examples = @ExampleObject(
+                            value = """
+                                    {
+                                      "success": true,
+                                      "data": {
+                                        "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+                                        "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+                                        "tokenType": "Bearer",
+                                        "expiresIn": 1800
+                                      }
+                                    }
+                                    """
+                    )
+            )
+    )
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "401",
+            description = "로그인 실패 (잘못된 ID 또는 비밀번호)",
+            content = @Content(
+                    mediaType = "application/json",
+                    examples = @ExampleObject(
+                            value = """
+                                    {
+                                      "success": false,
+                                      "error": {
+                                        "code": "A003",
+                                        "message": "로그인에 실패했습니다."
+                                      }
+                                    }
+                                    """
+                    )
+            )
+    )
+    @ApiCommonResponses
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<LoginResponse>> login(@Valid @RequestBody LoginRequest request,
             HttpServletRequest httpServletRequest) {

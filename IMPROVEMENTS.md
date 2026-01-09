@@ -277,15 +277,27 @@ VITE_API_BASE_URL=http://localhost:8080
 
 ---
 
-### 9. **API 문서화 개선**
+### 9. ✅ **API 문서화 개선** (완료)
 
-**현재 상태:**
-- SpringDoc OpenAPI는 설정되어 있음
+**구현 내용:**
+- ✅ OpenAPI 설정 개선: 서버 정보, 태그, 연락처, 라이선스 정보 추가
+- ✅ 공통 응답 어노테이션: `@ApiCommonResponses`로 공통 에러 응답 자동 추가
+- ✅ 예시 응답 추가: `@ExampleObject`를 사용한 성공/에러 응답 예시
+- ✅ 에러 코드 문서화: `ERROR_CODES.md`에 모든 에러 코드 정리
+- ✅ API 버저닝 전략: `API_VERSIONING.md`에 버저닝 정책 문서화
+- ✅ API 문서화 가이드: `API_DOCUMENTATION.md`에 사용 방법 정리
+- ✅ 예시 컨트롤러: `AuthController`에 OpenAPI 어노테이션 추가 예시
 
-**개선 방안:**
-- API 버저닝 전략 명확화
-- 예시 응답 추가
-- 에러 코드 문서화
+**주요 변경사항:**
+- `backend/src/main/java/com/weedrice/whiteboard/global/config/OpenApiConfig.java`: OpenAPI 설정 대폭 개선
+- `backend/src/main/java/com/weedrice/whiteboard/global/common/annotation/ApiCommonResponses.java`: 공통 응답 어노테이션 (신규)
+- `backend/src/main/java/com/weedrice/whiteboard/domain/auth/controller/AuthController.java`: OpenAPI 어노테이션 추가 예시
+- `backend/src/main/resources/application-dev.yml`: SpringDoc 설정 추가
+
+**참고 문서:**
+- `backend/API_DOCUMENTATION.md`: API 문서화 가이드
+- `backend/ERROR_CODES.md`: 에러 코드 문서
+- `backend/API_VERSIONING.md`: API 버저닝 전략
 
 ---
 
