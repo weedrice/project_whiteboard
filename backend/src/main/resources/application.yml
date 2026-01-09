@@ -1,6 +1,10 @@
 spring:
   application:
     name: noviis
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
   jpa:
     open-in-view: false
   messages:
@@ -8,9 +12,10 @@ spring:
     encoding: UTF-8
   lifecycle:
     timeout-per-shutdown-phase: 30s
-
-app:
-  frontend-url: http://localhost:5173
+  cache:
+    type: caffeine
+    caffeine:
+      spec: maximumSize=1000,expireAfterWrite=10m
 
 server:
   shutdown: graceful

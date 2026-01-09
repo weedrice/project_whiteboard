@@ -289,15 +289,25 @@ VITE_API_BASE_URL=http://localhost:8080
 
 ---
 
-### 10. **프론트엔드 에러 처리 개선**
+### 10. ✅ **프론트엔드 에러 처리 개선** (완료)
 
-**현재 상태:**
-- Axios 인터셉터는 잘 구현되어 있음
+**구현 내용:**
+- ✅ 네트워크 오류 재시도 로직: `withRetry` 유틸리티, 지수 백오프
+- ✅ 오프라인 상태 감지: `useNetworkStatus` composable, `NetworkStatus` 컴포넌트
+- ✅ 에러 바운더리: `ErrorBoundary` 컴포넌트로 컴포넌트 레벨 에러 처리
+- ✅ TanStack Query 재시도 개선: 스마트 재시도 로직, 네트워크 재연결 시 자동 재요청
+- ✅ Axios 인터셉터 개선: 네트워크 오류 구분 및 명확한 메시지
+- ✅ 에러 처리 가이드 문서화 (`ERROR_HANDLING.md`)
 
-**개선 제안:**
-- 네트워크 오류 시 재시도 로직 추가
-- 오프라인 상태 감지 및 처리
-- 에러 바운더리 컴포넌트 추가
+**주요 변경사항:**
+- `frontend/src/utils/retry.ts`: 재시도 유틸리티 함수
+- `frontend/src/composables/useNetworkStatus.ts`: 네트워크 상태 모니터링
+- `frontend/src/components/common/ErrorBoundary.vue`: 에러 바운더리 컴포넌트
+- `frontend/src/components/common/NetworkStatus.vue`: 네트워크 상태 표시
+- `frontend/src/main.ts`: TanStack Query 재시도 설정 개선
+- `frontend/src/api/index.ts`: 네트워크 오류 처리 개선
+
+**참고 문서:** `frontend/ERROR_HANDLING.md`
 
 ---
 
@@ -361,27 +371,21 @@ tasks.named('jacocoTestCoverageVerification') {
 
 ---
 
-### 14. **프론트엔드 번들 크기 최적화**
+### 14. ✅ **프론트엔드 번들 크기 최적화** (완료)
 
-**제안:**
-- Vite 빌드 분석
-- 코드 스플리팅 확인
-- 불필요한 의존성 제거
+**구현 내용:**
+- ✅ 수동 청크 분할 (manualChunks): vendor-vue, vendor-query, vendor-editor, vendor-icons 등
+- ✅ 라우터 동적 import: AdminLayout, AdminDashboard 등 정적 import를 동적 import로 변경
+- ✅ 빌드 분석 도구: rollup-plugin-visualizer 추가
+- ✅ 빌드 최적화: esbuild minify, CSS 압축, 소스맵 조건부 생성
+- ✅ 번들 최적화 가이드 문서화 (`BUNDLE_OPTIMIZATION.md`)
 
-**예시:**
-```typescript
-// vite.config.ts
-build: {
-  rollupOptions: {
-    output: {
-      manualChunks: {
-        'vendor': ['vue', 'vue-router', 'pinia'],
-        'ui': ['lucide-vue-next']
-      }
-    }
-  }
-}
-```
+**주요 변경사항:**
+- `vite.config.ts`: manualChunks 설정, 빌드 최적화 옵션
+- `frontend/src/router/index.ts`: AdminLayout, AdminDashboard 동적 import
+- `package.json`: rollup-plugin-visualizer 추가, build:analyze 스크립트
+
+**참고 문서:** `frontend/BUNDLE_OPTIMIZATION.md`
 
 ---
 
@@ -411,7 +415,7 @@ build: {
 9. ✅ **로깅 개선** - 운영 모니터링 (완료)
 10. ✅ **성능 모니터링 및 메트릭** - 성능 추적
 11. ✅ **데이터베이스 인덱스 최적화** - 쿼리 성능
-12. ✅ **프론트엔드 번들 크기 최적화** - 로딩 속도
+12. ✅ **프론트엔드 번들 크기 최적화** - 로딩 속도 (완료)
 13. ✅ **API 문서화 개선** - 개발자 경험
 14. ✅ **프론트엔드 에러 처리 개선** - 사용자 경험
 

@@ -23,6 +23,15 @@ jobs:
         run: chmod +x gradlew
         working-directory: backend
 
+      - name: Run tests
+        run: ./gradlew test
+        working-directory: backend
+
+      - name: Generate test coverage report
+        run: ./gradlew jacocoTestReport
+        working-directory: backend
+        continue-on-error: true  # 커버리지 목표 미달 시에도 배포 진행
+
       - name: Build Spring Boot JAR
         run: ./gradlew clean bootJar
         working-directory: backend

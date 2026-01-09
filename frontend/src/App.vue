@@ -10,6 +10,8 @@ import { useConfigStore } from '@/stores/config'
 import ToastContainer from '@/components/common/widgets/ToastContainer.vue'
 import GlobalConfirmModal from '@/components/common/widgets/GlobalConfirmModal.vue'
 import GlobalPromptModal from '@/components/common/widgets/GlobalPromptModal.vue'
+import ErrorBoundary from '@/components/common/ErrorBoundary.vue'
+import NetworkStatus from '@/components/common/NetworkStatus.vue'
 import logger from '@/utils/logger'
 
 // Import layouts
@@ -79,10 +81,13 @@ onErrorCaptured((err, instance, info) => {
 </script>
 
 <template>
-    <component :is="layout">
-        <RouterView />
-    </component>
-    <ToastContainer />
-    <GlobalConfirmModal />
-    <GlobalPromptModal />
+    <ErrorBoundary>
+        <NetworkStatus />
+        <component :is="layout">
+            <RouterView />
+        </component>
+        <ToastContainer />
+        <GlobalConfirmModal />
+        <GlobalPromptModal />
+    </ErrorBoundary>
 </template>

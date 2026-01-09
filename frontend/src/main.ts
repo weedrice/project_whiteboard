@@ -41,8 +41,29 @@ const queryClient = new QueryClient({
     }),
     defaultOptions: {
         queries: {
-            retry: 1,
-            refetchOnWindowFocus: false
+            retry: (failureCount, error: any) => {
+                // 네트워크 오류나 5xx 서버 오류인 경우에만 재시도
+                if (!error.response) {
+                    // 네트워크 오류
+                    return failureCount < 2 // 최대 2번 재시도
+                }
+                const status = error.response?.status
+                if (status >= 500 && status < 600) {
+                    // 5xx 서버 오류
+                    return failureCount < 2
+                }
+                if (status === 429) {
+                    // Rate limiting
+                    return failureCount < 3
+                }
+                return false
+            },
+            retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000), // 지수 백오프, 최대 30초
+            refetchOnWindowFocus: false,
+            refetchOnReconnect: true // 네트워크 재연결 시 자동 재요청
+        },
+        mutations: {
+            retry: false // Mutation은 기본적으로 재시도하지 않음
         }
     }
 })

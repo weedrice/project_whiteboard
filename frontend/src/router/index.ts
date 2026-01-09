@@ -1,7 +1,8 @@
 import { createRouter, createWebHistory, type RouteLocationNormalized, type NavigationGuardNext } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import AdminLayout from '@/views/admin/AdminLayout.vue'
-import AdminDashboard from '@/views/admin/AdminDashboard.vue'
+// Admin 관련 컴포넌트는 동적 import로 변경하여 번들 크기 최적화
+// const AdminLayout = () => import('@/views/admin/AdminLayout.vue')
+// const AdminDashboard = () => import('@/views/admin/AdminDashboard.vue')
 
 // Extend RouteMeta interface
 declare module 'vue-router' {
@@ -157,7 +158,7 @@ const router = createRouter({
                 {
                     path: 'dashboard',
                     name: 'AdminDashboard',
-                    component: AdminDashboard
+                    component: () => import('@/views/admin/AdminDashboard.vue')
                 },
                 {
                     path: 'users',

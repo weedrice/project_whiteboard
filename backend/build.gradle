@@ -70,9 +70,35 @@ tasks.named('test') {
 tasks.named('jacocoTestReport') {
 	dependsOn tasks.named('test')
 	reports {
-		xml.required = false
+		xml.required = true  // CI/CD에서 사용 가능하도록 XML 리포트 활성화
 		csv.required = false
 		html.outputLocation = layout.buildDirectory.dir('reports/jacoco/html')
+	}
+	finalizedBy tasks.named('jacocoTestCoverageVerification')
+}
+
+// 테스트 커버리지 검증 작업
+tasks.named('jacocoTestCoverageVerification') {
+	dependsOn tasks.named('jacocoTestReport')
+	violationRules {
+		rule {
+			limit {
+				minimum = 0.50  // 최소 50% 커버리지 목표 (점진적으로 증가 예정)
+			}
+		}
+		// 특정 패키지 제외 (예: DTO, Entity 등)
+		rule {
+			element = 'PACKAGE'
+			excludes = [
+				'com.weedrice.whiteboard.domain.*.dto.*',
+				'com.weedrice.whiteboard.domain.*.entity.*',
+				'com.weedrice.whiteboard.global.common.dto.*',
+				'com.weedrice.whiteboard.global.common.entity.*'
+			]
+			limit {
+				minimum = 0.60  // 비즈니스 로직은 60% 이상
+			}
+		}
 	}
 }
 

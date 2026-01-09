@@ -131,8 +131,23 @@ const handleApiError = (error: AxiosError, toastStore: any) => {
                 }
         }
     } else if (error.request) {
-        // Network error
-        toastStore.addToast(error.message || t('common.messages.network'), 'error', 3000, 'top-center')
+        // Network error - 재시도 가능한 오류인지 확인
+        const isRetryable = !error.response && (
+            error.code === 'ECONNABORTED' || // Timeout
+            error.code === 'ERR_NETWORK' || // Network error
+            error.message?.includes('Network Error')
+        )
+        
+        if (isRetryable) {
+            toastStore.addToast(
+                t('common.messages.networkRetry') || 'Network error. Please check your connection and try again.',
+                'error',
+                5000,
+                'top-center'
+            )
+        } else {
+            toastStore.addToast(error.message || t('common.messages.network'), 'error', 3000, 'top-center')
+        }
     } else {
         toastStore.addToast(error.message || t('common.messages.requestSetup'), 'error', 3000, 'top-center')
     }
