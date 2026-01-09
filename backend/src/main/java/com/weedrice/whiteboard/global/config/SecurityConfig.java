@@ -90,11 +90,37 @@ public class SecurityConfig {
         @Bean
         public CorsConfigurationSource corsConfigurationSource() {
                 CorsConfiguration configuration = new CorsConfiguration();
+                
+                // 허용할 Origin 설정 (프론트엔드 URL)
                 configuration.setAllowedOrigins(Collections.singletonList(frontendUrl));
+                
+                // 허용할 HTTP 메서드 (프론트엔드에서 사용하는 모든 메서드)
                 configuration.setAllowedMethods(
                                 Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
-                configuration.setAllowedHeaders(Collections.singletonList("*"));
+                
+                // 허용할 헤더 (프론트엔드에서 실제로 사용하는 헤더만 명시)
+                // - Authorization: JWT 토큰 인증
+                // - Content-Type: JSON 및 multipart/form-data 요청
+                // - Accept: 응답 형식 지정 (선택적)
+                configuration.setAllowedHeaders(Arrays.asList(
+                                "Authorization",
+                                "Content-Type",
+                                "Accept"
+                ));
+                
+                // 클라이언트가 접근할 수 있는 응답 헤더
+                // - 필요시 커스텀 헤더 추가 가능 (예: X-Total-Count 등)
+                configuration.setExposedHeaders(Arrays.asList(
+                                "Content-Type",
+                                "Content-Length"
+                ));
+                
+                // 인증 정보(쿠키, Authorization 헤더) 허용
                 configuration.setAllowCredentials(true);
+                
+                // Preflight 요청 캐시 시간 (초 단위)
+                // 브라우저가 OPTIONS 요청을 캐시하는 시간
+                configuration.setMaxAge(3600L); // 1시간
 
                 UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
                 source.registerCorsConfiguration("/**", configuration);
