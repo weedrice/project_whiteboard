@@ -34,7 +34,7 @@ public class OpenApiConfig {
     private static final String API_VERSION = "v1";
     private static final String API_TITLE = "NoviIs Whiteboard API";
     private static final String API_DESCRIPTION = """
-            NoviIs Whiteboard 프로젝트의 백엔드 API 문서입니다.
+            NoviIs 프로젝트의 백엔드 API 문서입니다.
             
             ## 인증
             대부분의 API는 JWT 토큰 인증이 필요합니다. `/api/v1/auth/login` 또는 `/api/v1/auth/signup`을 통해 토큰을 발급받을 수 있습니다.

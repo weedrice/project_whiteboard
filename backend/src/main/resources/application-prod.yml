@@ -70,6 +70,14 @@ logging:
     org.hibernate.SQL: INFO
     org.hibernate.type.descriptor.sql: INFO
 
+# 프로덕션 환경에서는 Swagger UI 비활성화 (보안상의 이유)
+# API 문서는 내부 네트워크에서만 접근 가능하도록 설정 권장
+springdoc:
+  swagger-ui:
+    enabled: false  # Swagger UI 비활성화
+  api-docs:
+    enabled: true   # OpenAPI JSON은 활성화 (필요시 비활성화 가능)
+
 jwt:
   secret: ${JWT_SECRET}
   expiration: 1800000 # 30 mins
