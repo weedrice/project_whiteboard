@@ -32,25 +32,23 @@ const { useCreateComment, useUpdateComment } = useComment()
 const { mutate: createComment, isPending: isCreating } = useCreateComment()
 const { mutate: updateComment, isPending: isUpdating } = useUpdateComment()
 
+import { computed } from 'vue'
+
 const content = ref(props.initialContent)
-const isSubmitting = ref(false) // Keep local state for button disabled, or use isCreating/isUpdating
+const isSubmitting = computed(() => isCreating.value || isUpdating.value)
 
 async function handleSubmit() {
-  if (!content.value.trim()) return
-
-  isSubmitting.value = true
+  if (!content.value.trim() || isSubmitting.value) return
 
   if (props.commentId) {
     // Update existing comment
     updateComment({ commentId: props.commentId, data: { content: content.value } }, {
       onSuccess: () => {
         emit('success')
-        isSubmitting.value = false
       },
       onError: (err) => {
         logger.error('Failed to save comment:', err)
         toastStore.addToast(t('comment.saveFailed'), 'error')
-        isSubmitting.value = false
       }
     })
   } else {
@@ -63,12 +61,10 @@ async function handleSubmit() {
       onSuccess: () => {
         content.value = ''
         emit('success')
-        isSubmitting.value = false
       },
       onError: (err) => {
         logger.error('Failed to save comment:', err)
         toastStore.addToast(t('comment.saveFailed'), 'error')
-        isSubmitting.value = false
       }
     })
   }

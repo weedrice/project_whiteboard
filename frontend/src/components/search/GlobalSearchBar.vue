@@ -4,6 +4,9 @@ import { useRouter } from 'vue-router'
 import { useBoard } from '@/composables/useBoard'
 import { Search } from 'lucide-vue-next'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
+import { useDebounce } from '@/composables/useDebounce'
+import { getOptimizedBoardIconUrl, handleImageError } from '@/utils/image'
+import { DEBOUNCE_DELAY } from '@/utils/constants'
 import type { Board } from '@/types'
 
 const router = useRouter()
@@ -11,13 +14,14 @@ const { useBoards } = useBoard()
 const { data: boardsData } = useBoards()
 
 const searchQuery = ref('')
+const debouncedSearchQuery = useDebounce(searchQuery, DEBOUNCE_DELAY.SEARCH)
 const showDropdown = ref(false)
 const searchContainer = ref<HTMLElement | null>(null)
 
 const boards = computed(() => boardsData.value || [])
 const filteredBoards = computed(() => {
-  if (!searchQuery.value.trim()) return []
-  const query = searchQuery.value.toLowerCase()
+  if (!debouncedSearchQuery.value.trim()) return []
+  const query = debouncedSearchQuery.value.toLowerCase()
   return boards.value.filter((board: Board) =>
     board.boardName.toLowerCase().includes(query)
   )
@@ -38,7 +42,7 @@ const selectBoard = (boardUrl: string) => {
   router.push(`/board/${boardUrl}`)
 }
 
-// Watch for input changes
+// Watch for input changes (use debounced query for filtering, but show dropdown immediately)
 watch(searchQuery, () => {
   showDropdown.value = !!searchQuery.value.trim()
 })
@@ -86,7 +90,8 @@ onUnmounted(() => {
             <!-- Board Icon/Thumbnail -->
             <div
               class="flex-shrink-0 h-8 w-8 rounded bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold overflow-hidden border border-gray-200">
-              <img v-if="board.iconUrl" :src="board.iconUrl" class="h-full w-full object-contain bg-white" alt="" />
+              <img v-if="board.iconUrl" :src="getOptimizedBoardIconUrl(board.iconUrl)" class="h-full w-full object-contain bg-white" alt=""
+                @error="handleImageError($event)" />
               <span v-else class="text-xs">{{ board.boardName.substring(0, 1) }}</span>
             </div>
             <span class="text-sm text-gray-900 dark:text-white font-medium">{{ board.boardName }}</span>

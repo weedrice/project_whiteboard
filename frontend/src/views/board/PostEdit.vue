@@ -12,6 +12,7 @@ import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseSelect from '@/components/common/ui/BaseSelect.vue'
 import BaseCheckbox from '@/components/common/ui/BaseCheckbox.vue'
+import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import PostTags from '@/components/tag/PostTags.vue'
 import { useToastStore } from '@/stores/toast'
 
@@ -164,7 +165,7 @@ async function handleSubmit() {
     </div>
 
     <div v-if="isLoading" class="text-center py-10">
-      <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 mx-auto"></div>
+      <BaseSpinner size="lg" />
     </div>
 
     <form v-else @submit.prevent="handleSubmit"

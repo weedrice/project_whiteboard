@@ -10,6 +10,7 @@ import Pagination from '@/components/common/ui/Pagination.vue'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import EmptyState from '@/components/common/ui/EmptyState.vue'
 import { useErrorHandler } from '@/composables/useErrorHandler'
+import { getOptimizedProfileImageUrl, handleImageError } from '@/utils/image'
 import type { User as UserType, PostSummary, Comment } from '@/types'
 
 const profile = ref<UserType | null>(null)
@@ -133,8 +134,9 @@ onMounted(async () => {
         <div class="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg mb-6 transition-colors duration-200">
           <div class="px-4 py-5 sm:px-6 flex justify-between items-center">
             <div class="flex items-center">
-              <img v-if="profile.profileImageUrl" :src="profile.profileImageUrl" class="h-16 w-16 rounded-full mr-4"
-                alt="Profile" />
+              <img v-if="profile.profileImageUrl" :src="getOptimizedProfileImageUrl(profile.profileImageUrl)" class="h-16 w-16 rounded-full mr-4"
+                alt="Profile"
+                @error="handleImageError($event)" />
               <div v-else
                 class="h-16 w-16 rounded-full bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold text-2xl mr-4">
                 {{ profile.displayName?.[0] || 'U' }}

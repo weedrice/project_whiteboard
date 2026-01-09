@@ -6,8 +6,9 @@
       <div class="flex items-center space-x-6">
         <div class="shrink-0 border border-gray-200 dark:border-gray-700 rounded-full overflow-hidden h-16 w-16">
           <img class="h-full w-full object-contain bg-white dark:bg-gray-700"
-            :src="previewImage || authStore.user?.profileImageUrl || 'https://via.placeholder.com/150'"
-            alt="Current profile photo" />
+            :src="previewImage || getOptimizedProfileImageUrl(authStore.user?.profileImageUrl) || 'https://via.placeholder.com/150'"
+            alt="Current profile photo"
+            @error="handleImageError($event, 'https://via.placeholder.com/150')" />
         </div>
         <div class="flex-1">
           <BaseFileInput :label="$t('user.profile.choosePhoto')" accept="image/*" @change="handleFileChange"
@@ -91,6 +92,7 @@ import type { UserUpdatePayload } from '@/api/user'
 import { useToastStore } from '@/stores/toast'
 import { extractValidationErrors, extractErrorMessage, getFieldError } from '@/utils/errorHandler'
 import type { AxiosError } from 'axios'
+import { getOptimizedProfileImageUrl, handleImageError } from '@/utils/image'
 
 const authStore = useAuthStore()
 const toastStore = useToastStore()

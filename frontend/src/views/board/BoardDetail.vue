@@ -243,7 +243,8 @@ watch(() => route.params.boardUrl, () => {
             <div class="bg-white dark:bg-gray-800 shadow rounded-lg mb-6 p-6 transition-colors duration-200">
                 <div class="flex items-start">
                     <router-link :to="`/board/${board.boardUrl}`" class="flex-shrink-0 mr-6 cursor-pointer">
-                        <img v-if="board.iconUrl" :src="board.iconUrl" class="h-20 w-20 rounded-full" alt="" />
+                        <img v-if="board.iconUrl" :src="getOptimizedBoardIconUrl(board.iconUrl, 80)" class="h-20 w-20 rounded-full" alt=""
+                          @error="handleImageError($event)" />
                         <div v-else
                             class="h-20 w-20 rounded-full bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center">
                             <span class="text-indigo-600 dark:text-indigo-400 font-bold text-3xl">{{ board.boardName[0]

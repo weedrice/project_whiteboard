@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Users, User } from 'lucide-vue-next'
 import type { Board } from '@/api/board'
+import { getOptimizedBoardIconUrl, handleImageError } from '@/utils/image'
 
 defineProps<{
   board: Board
@@ -15,7 +16,8 @@ defineProps<{
     <div class="p-6">
       <div class="flex items-center">
         <div class="flex-shrink-0 h-12 w-12 rounded-md bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center text-indigo-600 dark:text-indigo-400 text-xl font-bold overflow-hidden border border-gray-200 dark:border-gray-600">
-          <img v-if="board.iconUrl" :src="board.iconUrl" class="h-full w-full object-contain bg-white dark:bg-gray-700" alt="" />
+          <img v-if="board.iconUrl" :src="getOptimizedBoardIconUrl(board.iconUrl)" class="h-full w-full object-contain bg-white dark:bg-gray-700" alt=""
+            @error="handleImageError($event)" />
           <span v-else>{{ board.boardName.substring(0, 1) }}</span>
         </div>
         <div class="ml-4">

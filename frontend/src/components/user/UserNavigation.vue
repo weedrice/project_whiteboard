@@ -25,6 +25,8 @@
 import { useRoute, useRouter } from 'vue-router'
 import { ref, computed, watch, nextTick, onMounted, onUnmounted, type ComponentPublicInstance } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useThrottleFn } from '@/composables/useThrottle'
+import { DEBOUNCE_DELAY } from '@/utils/constants'
 
 // User Navigation Component
 const route = useRoute()
@@ -97,16 +99,18 @@ watch(() => route.path, () => {
     nextTick(updateUnderline)
 })
 
+const throttledUpdateUnderline = useThrottleFn(updateUnderline, DEBOUNCE_DELAY.RESIZE)
+
 onMounted(() => {
     // Wait for refs to be populated
     nextTick(updateUnderline)
-    // Add resize listener to update underline position
-    window.addEventListener('resize', updateUnderline)
+    // Add resize listener to update underline position (throttled)
+    window.addEventListener('resize', throttledUpdateUnderline)
 })
 
 onUnmounted(() => {
     // Remove resize listener
-    window.removeEventListener('resize', updateUnderline)
+    window.removeEventListener('resize', throttledUpdateUnderline)
 })
 
 // Mobile Swipe Logic

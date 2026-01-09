@@ -10,8 +10,8 @@
           </p>
         </div>
 
-        <div v-if="loading" class="text-center py-10">
-          <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 mx-auto"></div>
+        <div v-if="isLoading" class="text-center py-10">
+          <BaseSpinner size="lg" />
         </div>
 
         <EmptyState 
@@ -36,6 +36,7 @@ import { useRoute } from 'vue-router'
 import { useSearch } from '@/composables/useSearch'
 import PostList from '@/components/board/PostList.vue'
 import EmptyState from '@/components/common/ui/EmptyState.vue'
+import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import { Search } from 'lucide-vue-next'
 
 const route = useRoute()

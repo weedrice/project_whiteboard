@@ -6,9 +6,10 @@ import CategoryManager from '@/components/board/CategoryManager.vue'
 import BoardForm from '@/components/board/BoardForm.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import { useI18n } from 'vue-i18n'
-import logger from '@/utils/logger'
 import { useToastStore } from '@/stores/toast'
 import { useConfirm } from '@/composables/useConfirm'
+import { useFormSubmit } from '@/composables/useFormSubmit'
+import { useErrorHandler } from '@/composables/useErrorHandler'
 
 const { t } = useI18n()
 const toastStore = useToastStore()
@@ -28,7 +29,8 @@ const form = ref({
 })
 
 const isLoading = ref(true)
-const isSubmitting = ref(false)
+const { isSubmitting, submit } = useFormSubmit()
+const { handleSilentError, handleError } = useErrorHandler()
 const error = ref('')
 
 async function fetchBoard() {
@@ -47,8 +49,7 @@ async function fetchBoard() {
       }
     }
   } catch (err) {
-    logger.error('Failed to load board:', err)
-    toastStore.addToast(t('board.writePost.failLoad'), 'error')
+    handleError(err, t('board.writePost.failLoad'))
     router.push(`/board/${boardUrl}`)
   } finally {
     isLoading.value = false
@@ -56,20 +57,21 @@ async function fetchBoard() {
 }
 
 async function handleUpdate(formData) {
-  isSubmitting.value = true
   error.value = ''
-  try {
-    const { data } = await boardApi.updateBoard(boardUrl, formData)
-    if (data.success) {
-      toastStore.addToast(t('board.form.successUpdate'), 'success')
-      router.push(`/board/${data.data.boardUrl}`)
+  
+  await submit(async () => {
+    try {
+      const { data } = await boardApi.updateBoard(boardUrl, formData)
+      if (data.success) {
+        toastStore.addToast(t('board.form.successUpdate'), 'success')
+        router.push(`/board/${data.data.boardUrl}`)
+      }
+    } catch (err) {
+      error.value = t('board.form.failUpdate')
+      handleError(err, t('board.form.failUpdate'))
+      throw err
     }
-  } catch (err) {
-    logger.error('Failed to update board:', err)
-    error.value = t('board.form.failUpdate')
-  } finally {
-    isSubmitting.value = false
-  }
+  })
 }
 
 async function handleDelete() {
@@ -83,8 +85,7 @@ async function handleDelete() {
       router.push('/')
     }
   } catch (err) {
-    logger.error('Failed to delete board:', err)
-    toastStore.addToast(t('board.form.failDelete'), 'error')
+    handleError(err, t('board.form.failDelete'))
   }
 }
 

@@ -44,8 +44,9 @@ import { formatDateOnly } from '@/utils/date'
       <div class="flex items-center space-x-3">
         <!-- Board Info -->
         <div class="flex-shrink-0">
-          <img v-if="post.boardIconUrl" :src="post.boardIconUrl" alt="Board Icon" class="h-8 w-8 rounded-full"
-            loading="lazy" />
+          <img v-if="post.boardIconUrl" :src="getOptimizedBoardIconUrl(post.boardIconUrl)" alt="Board Icon" class="h-8 w-8 rounded-full"
+            loading="lazy"
+            @error="handleImageError($event)" />
           <div v-else class="h-8 w-8 rounded-full bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center">
             <span class="text-xs font-bold text-indigo-600 dark:text-indigo-300">{{ post.boardName?.substring(0, 1)
             }}</span>
@@ -77,7 +78,8 @@ import { formatDateOnly } from '@/utils/date'
       <!-- Thumbnail if exists -->
       <div v-if="post.thumbnailUrl"
         class="mb-4 rounded-lg overflow-hidden max-h-96 w-full bg-gray-100 dark:bg-gray-900">
-        <img :src="post.thumbnailUrl" alt="Post Thumbnail" class="w-full h-full object-cover" loading="lazy" />
+        <img :src="getOptimizedPostImageUrl(post.thumbnailUrl)" alt="Post Thumbnail" class="w-full h-full object-cover" loading="lazy"
+          @error="handleImageError($event)" />
       </div>
 
       <div class="flex items-center text-xs text-gray-500 dark:text-gray-400 space-x-4">

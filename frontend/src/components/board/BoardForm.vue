@@ -6,10 +6,11 @@ import BaseTextarea from '@/components/common/ui/BaseTextarea.vue'
 import { useI18n } from 'vue-i18n'
 import { fileApi } from '@/api/file'
 import { isEmpty } from '@/utils/validation'
-import logger from '@/utils/logger'
 import { useToastStore } from '@/stores/toast'
 import { useAuthStore } from '@/stores/auth'
 import { useConfigStore } from '@/stores/config'
+import { useFormSubmit } from '@/composables/useFormSubmit'
+import { useErrorHandler } from '@/composables/useErrorHandler'
 
 interface BoardData {
   boardName: string
@@ -48,6 +49,8 @@ const { t } = useI18n()
 const toastStore = useToastStore()
 const authStore = useAuthStore()
 const configStore = useConfigStore()
+const { isSubmitting: localIsSubmitting, submit } = useFormSubmit()
+const { handleError } = useErrorHandler()
 
 const userPoints = computed(() => authStore.user?.points || 0)
 const boardCreateCost = computed(() => {
@@ -96,22 +99,26 @@ async function handleSubmit() {
     return
   }
 
-  let iconUrl = form.value.iconUrl
+  await submit(async () => {
+    let iconUrl = form.value.iconUrl
 
-  try {
-    if (selectedFile.value) {
-      const { data } = await fileApi.uploadFile(selectedFile.value)
-      if (data.success) {
-        iconUrl = data.data.url
+    try {
+      if (selectedFile.value) {
+        const { data } = await fileApi.uploadFile(selectedFile.value)
+        if (data.success) {
+          iconUrl = data.data.url
+        }
       }
-    }
 
-    emit('submit', { ...form.value, iconUrl })
-  } catch (err) {
-    logger.error('Failed to upload file:', err)
-    toastStore.addToast(t('board.form.failUpload'), 'error')
-  }
+      emit('submit', { ...form.value, iconUrl })
+    } catch (err) {
+      handleError(err, t('board.form.failUpload'))
+      throw err // Re-throw to prevent form submission
+    }
+  })
 }
+
+const isSubmitting = computed(() => props.isSubmitting || localIsSubmitting.value)
 
 // Cleanup preview image URL
 watch(previewImage, (newUrl, oldUrl) => {
