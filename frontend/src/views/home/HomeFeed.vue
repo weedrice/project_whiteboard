@@ -30,161 +30,79 @@
   </div>
 </template>
 
-<script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
-import { postApi } from '@/api/post'
-import { boardApi } from '@/api/board'
+<script setup lang="ts">
+import { computed, watch, ref } from 'vue'
+import { useTrendingPosts } from '@/composables/useTrendingPosts'
+import { usePost } from '@/composables/usePost'
+import { useBoard } from '@/composables/useBoard'
+import { useAuthGuard } from '@/composables/useAuthGuard'
+import { useIntersectionObserver } from '@/composables/useIntersectionObserverRef'
 import FeedCard from '@/components/feed/FeedCard.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import PostListSkeleton from '@/components/common/ui/PostListSkeleton.vue'
 import EmptyState from '@/components/common/ui/EmptyState.vue'
 import { FileText } from 'lucide-vue-next'
-import { useAuthStore } from '@/stores/auth'
-import { useRouter } from 'vue-router'
-import { useErrorHandler } from '@/composables/useErrorHandler'
 import type { PostSummary } from '@/types'
 
-const posts = ref<PostSummary[]>([])
-const loading = ref(true)
-const loadingMore = ref(false)
-const page = ref(0)
-const size = ref(10)
-const hasMore = ref(true)
-const sentinel = ref(null)
-const authStore = useAuthStore()
-const router = useRouter()
-const { handleSilentError } = useErrorHandler()
+// Infinite scroll for trending posts
+const { posts, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage } = useTrendingPosts(10)
 
-let observer = null
+// Mutations
+const { useLikePost, useUnlikePost, useScrapPost, useUnscrapPost } = usePost()
+const { useSubscribeBoard } = useBoard()
+const { requireAuth } = useAuthGuard()
 
-async function fetchTrendingPosts(isLoadMore = false) {
-  if (isLoadMore) {
-    loadingMore.value = true
+const likePost = useLikePost()
+const unlikePost = useUnlikePost()
+const scrapPost = useScrapPost()
+const unscrapPost = useUnscrapPost()
+const subscribeBoard = useSubscribeBoard()
+
+// Sentinel for infinite scroll
+const sentinel = ref<HTMLElement | null>(null)
+const { isIntersecting } = useIntersectionObserver(sentinel, {
+  rootMargin: '200px',
+  threshold: 0.1
+})
+
+// Auto-load next page when sentinel is visible
+watch([isIntersecting, hasNextPage, isFetchingNextPage], 
+  ([intersecting, hasNext, isFetching]) => {
+    if (intersecting && hasNext && !isFetching) {
+      fetchNextPage()
+    }
+  }
+)
+
+const loading = computed(() => isLoading.value)
+const loadingMore = computed(() => isFetchingNextPage.value)
+
+async function handleLike(post: PostSummary) {
+  if (!requireAuth()) return
+
+  if (post.liked) {
+    unlikePost.mutate(post.postId)
   } else {
-    loading.value = true
-  }
-
-  try {
-    const { data } = await postApi.getTrendingPosts(page.value, size.value)
-    if (data.success) {
-      const newPosts = data.data
-      if (newPosts.length < size.value) {
-        hasMore.value = false
-      }
-
-      if (isLoadMore) {
-        posts.value.push(...newPosts)
-      } else {
-        posts.value = newPosts
-      }
-
-      page.value++
-    }
-  } catch (error) {
-    handleSilentError(error, 'Failed to fetch trending posts')
-  } finally {
-    loading.value = false
-    loadingMore.value = false
+    likePost.mutate(post.postId)
   }
 }
 
-async function handleLike(post) {
-  if (!authStore.isAuthenticated) {
-    router.push('/login')
-    return
-  }
+async function handleScrap(post: PostSummary) {
+  if (!requireAuth()) return
 
-  const previousLiked = post.liked
-  const previousCount = post.likeCount
-
-  // Optimistic update
-  post.liked = !post.liked
-  post.likeCount += post.liked ? 1 : -1
-
-  try {
-    if (previousLiked) {
-      await postApi.unlikePost(post.postId)
-    } else {
-      await postApi.likePost(post.postId)
-    }
-  } catch (error) {
-    // Revert
-    post.liked = previousLiked
-    post.likeCount = previousCount
-    handleSilentError(error, 'Failed to toggle like')
+  if (post.scrapped) {
+    unscrapPost.mutate(post.postId)
+  } else {
+    scrapPost.mutate(post.postId)
   }
 }
 
-async function handleScrap(post) {
-  if (!authStore.isAuthenticated) {
-    router.push('/login')
-    return
-  }
+async function handleSubscribe(post: PostSummary) {
+  if (!requireAuth()) return
 
-  const previousScrapped = post.scrapped
-
-  // Optimistic update
-  post.scrapped = !post.scrapped
-
-  try {
-    if (previousScrapped) {
-      await postApi.unscrapPost(post.postId)
-    } else {
-      await postApi.scrapPost(post.postId)
-    }
-  } catch (error) {
-    // Revert
-    post.scrapped = previousScrapped
-    handleSilentError(error, 'Failed to toggle scrap')
-  }
-}
-
-async function handleSubscribe(post) {
-  if (!authStore.isAuthenticated) {
-    router.push('/login')
-    return
-  }
-
-  try {
-    const boardUrl = post.boardUrl
-    const subscribed = post.subscribed
-
-    if (subscribed) {
-      await boardApi.unsubscribeBoard(boardUrl)
-    } else {
-      await boardApi.subscribeBoard(boardUrl)
-    }
-
-    // Update all posts from the same board
-    posts.value.forEach(p => {
-      if (p.boardUrl === boardUrl) {
-        p.subscribed = !subscribed
-      }
-    })
-  } catch (error) {
-    logger.error('Failed to toggle subscription:', error)
-  }
-}
-
-onMounted(() => {
-  fetchTrendingPosts()
-
-  observer = new IntersectionObserver((entries) => {
-    if (entries[0].isIntersecting && hasMore.value && !loading.value && !loadingMore.value) {
-      fetchTrendingPosts(true)
-    }
-  }, {
-    rootMargin: '200px'
+  subscribeBoard.mutate({
+    boardUrl: post.boardUrl,
+    isSubscribed: post.subscribed || false
   })
-
-  if (sentinel.value) {
-    observer.observe(sentinel.value)
-  }
-})
-
-onUnmounted(() => {
-  if (observer) {
-    observer.disconnect()
-  }
-})
+}
 </script>

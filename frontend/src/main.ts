@@ -17,6 +17,8 @@ app.use(createPinia())
 app.use(router)
 app.use(i18n)
 
+import { QUERY_STALE_TIME } from '@/utils/constants'
+
 const queryClient = new QueryClient({
     queryCache: new QueryCache({
         onError: (error: Error, query) => {
@@ -42,6 +44,13 @@ const queryClient = new QueryClient({
     }),
     defaultOptions: {
         queries: {
+            // 기본 staleTime: 0 (항상 fresh로 간주)
+            // 개별 쿼리에서 필요에 따라 설정
+            staleTime: 0,
+            // 기본 gcTime: 5분 (이전 cacheTime)
+            gcTime: QUERY_STALE_TIME.SHORT,
+            // placeholderData로 이전 데이터 유지
+            placeholderData: (previousData) => previousData,
             retry: (failureCount, error: unknown) => {
                 // 네트워크 오류나 5xx 서버 오류인 경우에만 재시도
                 const axiosError = error as AxiosError
@@ -80,3 +89,8 @@ app.config.errorHandler = (err, instance, info) => {
 }
 
 app.mount('#app')
+
+// Web Vitals 성능 모니터링 (프로덕션 환경에서만)
+if (import.meta.env.PROD) {
+    reportWebVitals(logMetric)
+}

@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
 import { postApi, type PostCreateData, type PostUpdateData, type ReportData } from '@/api/post'
 import { computed, type Ref } from 'vue'
+import type { Post } from '@/types'
 
 export function usePost() {
     const queryClient = useQueryClient()
@@ -66,7 +67,7 @@ export function usePost() {
                 await queryClient.cancelQueries({ queryKey: ['post', postId] })
                 const previousPost = queryClient.getQueryData(['post', postId])
 
-                queryClient.setQueryData(['post', postId], (old: any) => {
+                queryClient.setQueryData<Post>(['post', postId], (old) => {
                     if (!old) return old
                     return {
                         ...old,
@@ -98,7 +99,7 @@ export function usePost() {
                 await queryClient.cancelQueries({ queryKey: ['post', postId] })
                 const previousPost = queryClient.getQueryData(['post', postId])
 
-                queryClient.setQueryData(['post', postId], (old: any) => {
+                queryClient.setQueryData<Post>(['post', postId], (old) => {
                     if (!old) return old
                     return {
                         ...old,
@@ -130,7 +131,7 @@ export function usePost() {
                 await queryClient.cancelQueries({ queryKey: ['post', postId] })
                 const previousPost = queryClient.getQueryData(['post', postId])
 
-                queryClient.setQueryData(['post', postId], (old: any) => {
+                queryClient.setQueryData<Post>(['post', postId], (old) => {
                     if (!old) return old
                     return {
                         ...old,
@@ -161,7 +162,7 @@ export function usePost() {
                 await queryClient.cancelQueries({ queryKey: ['post', postId] })
                 const previousPost = queryClient.getQueryData(['post', postId])
 
-                queryClient.setQueryData(['post', postId], (old: any) => {
+                queryClient.setQueryData<Post>(['post', postId], (old) => {
                     if (!old) return old
                     return {
                         ...old,
