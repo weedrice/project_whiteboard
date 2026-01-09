@@ -1,32 +1,56 @@
 ﻿<template>
   <div class="relative inline-block text-left">
     <div>
-      <button ref="buttonRef" type="button"
+      <button 
+        ref="buttonRef" 
+        type="button"
         class="inline-flex justify-center w-full rounded-md text-sm font-medium text-gray-700 dark:text-gray-200 hover:text-indigo-600 dark:hover:text-indigo-400 focus:outline-none"
-        :class="{ 'cursor-default hover:text-gray-700 dark:hover:text-gray-200': isSelf }" @click="toggleDropdown">
+        :class="{ 'cursor-default hover:text-gray-700 dark:hover:text-gray-200': isSelf }" 
+        @click="toggleDropdown"
+        @keydown="(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            toggleDropdown()
+          } else if (e.key === 'ArrowDown' && !isDropdownOpen) {
+            e.preventDefault()
+            openDropdown()
+          }
+        }"
+        :aria-haspopup="!isSelf"
+        :aria-expanded="isDropdownOpen"
+        :aria-controls="isDropdownOpen ? 'user-menu-dropdown' : undefined"
+        :disabled="isSelf">
         {{ displayName }}
       </button>
     </div>
 
     <Teleport to="body">
-      <div v-if="isDropdownOpen" :style="dropdownStyle"
+      <div 
+        v-if="isDropdownOpen" 
+        ref="dropdownRef"
+        :style="dropdownStyle"
+        @keydown="handleMenuKeyDown"
         class="absolute w-56 rounded-md shadow-lg bg-white dark:bg-gray-800 ring-1 ring-black ring-opacity-5 dark:ring-gray-700 focus:outline-none z-50 transition-colors duration-200"
-        role="menu" id="user-menu-dropdown" aria-orientation="vertical" aria-labelledby="menu-button">
+        role="menu" 
+        id="user-menu-dropdown" 
+        aria-orientation="vertical" 
+        aria-labelledby="menu-button">
         <div class="py-1" role="none">
-          <button v-if="!isSelf" @click="openMessageModal"
-            class="text-gray-700 dark:text-gray-200 block px-4 py-2 text-sm w-full text-left hover:bg-gray-100 dark:hover:bg-gray-700"
-            role="menuitem">
-            {{ $t('user.menu.sendMessage') }}
-          </button>
-          <button v-if="!isSelf" @click="openReportModal"
-            class="text-gray-700 dark:text-gray-200 block px-4 py-2 text-sm w-full text-left hover:bg-gray-100 dark:hover:bg-gray-700"
-            role="menuitem">
-            {{ $t('user.menu.report') }}
-          </button>
-          <button v-if="!isSelf" @click="handleBlockUser"
-            class="text-gray-700 dark:text-gray-200 block px-4 py-2 text-sm w-full text-left hover:bg-gray-100 dark:hover:bg-gray-700"
-            role="menuitem">
-            {{ $t('user.menu.block') }}
+          <button 
+            v-for="(item, index) in menuItems" 
+            :key="index"
+            @click="item.action"
+            @mouseenter="setSelectedIndex(index)"
+            :class="[
+              'text-gray-700 dark:text-gray-200 block px-4 py-2 text-sm w-full text-left',
+              index === selectedIndex
+                ? 'bg-indigo-50 dark:bg-indigo-900/20'
+                : 'hover:bg-gray-100 dark:hover:bg-gray-700'
+            ]"
+            role="menuitem"
+            :tabindex="index === selectedIndex ? 0 : -1"
+            :aria-selected="index === selectedIndex">
+            {{ item.label }}
           </button>
         </div>
       </div>
@@ -41,13 +65,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed, type CSSProperties } from 'vue'
+import { ref, onMounted, onUnmounted, computed, nextTick, type CSSProperties } from 'vue'
 import { userApi } from '@/api/user'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import logger from '@/utils/logger'
 import { useToastStore } from '@/stores/toast'
 import { useConfirm } from '@/composables/useConfirm'
+import { useKeyboardNavigation } from '@/composables/useKeyboardNavigation'
+import { useFocusTrap } from '@/composables/useFocusTrap'
 import MessageModal from '@/components/user/MessageModal.vue'
 import ReportModal from '@/components/report/ReportModal.vue'
 
@@ -70,7 +96,39 @@ const isSelf = computed(() => {
 })
 
 const buttonRef = ref<HTMLButtonElement | null>(null)
+const dropdownRef = ref<HTMLElement | null>(null)
 const dropdownStyle = ref<CSSProperties>({})
+
+// 메뉴 항목 배열
+const menuItems = computed(() => {
+  if (isSelf.value) return []
+  return [
+    { action: openMessageModal, label: t('user.menu.sendMessage') },
+    { action: openReportModal, label: t('user.menu.report') },
+    { action: handleBlockUser, label: t('user.menu.block') }
+  ]
+})
+
+// 키보드 네비게이션
+const { selectedIndex, handleKeyDown: handleMenuKeyDown, reset: resetMenuSelection } = useKeyboardNavigation(
+  menuItems,
+  {
+    onSelect: (index) => {
+      if (menuItems.value[index]) {
+        menuItems.value[index].action()
+      }
+    },
+    onEscape: () => {
+      closeDropdown()
+      buttonRef.value?.focus()
+    },
+    loop: true,
+    initialIndex: -1
+  }
+)
+
+// 포커스 트랩
+const { trapFocus, restoreFocus } = useFocusTrap(dropdownRef, isDropdownOpen)
 
 const toggleDropdown = () => {
   if (!authStore.user) return // Disable for guests
@@ -92,10 +150,16 @@ const openDropdown = () => {
     }
   }
   isDropdownOpen.value = true
+  resetMenuSelection()
+  nextTick(() => {
+    trapFocus()
+  })
 }
 
 const closeDropdown = () => {
   isDropdownOpen.value = false
+  restoreFocus()
+  resetMenuSelection()
 }
 
 const openMessageModal = () => {

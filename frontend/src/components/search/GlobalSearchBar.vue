@@ -1,10 +1,11 @@
 ﻿<script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted, computed } from 'vue'
+import { ref, watch, onMounted, onUnmounted, computed, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useBoard } from '@/composables/useBoard'
 import { Search } from 'lucide-vue-next'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import { useDebounce } from '@/composables/useDebounce'
+import { useKeyboardNavigation } from '@/composables/useKeyboardNavigation'
 import { getOptimizedBoardIconUrl, handleImageError } from '@/utils/image'
 import { DEBOUNCE_DELAY } from '@/utils/constants'
 import type { Board } from '@/types'
@@ -17,6 +18,7 @@ const searchQuery = ref('')
 const debouncedSearchQuery = useDebounce(searchQuery, DEBOUNCE_DELAY.SEARCH)
 const showDropdown = ref(false)
 const searchContainer = ref<HTMLElement | null>(null)
+const searchInputRef = ref<HTMLInputElement | null>(null)
 
 const boards = computed(() => boardsData.value || [])
 const filteredBoards = computed(() => {
@@ -26,6 +28,24 @@ const filteredBoards = computed(() => {
     board.boardName.toLowerCase().includes(query)
   )
 })
+
+// 키보드 네비게이션
+const { selectedIndex, handleKeyDown: handleDropdownKeyDown, reset: resetSelection, setSelectedIndex } = useKeyboardNavigation(
+  filteredBoards,
+  {
+    onSelect: (index) => {
+      if (filteredBoards.value[index]) {
+        selectBoard(filteredBoards.value[index].boardUrl)
+      }
+    },
+    onEscape: () => {
+      showDropdown.value = false
+      searchInputRef.value?.focus()
+    },
+    loop: true,
+    initialIndex: -1
+  }
+)
 
 // Handle search submission (Full Search)
 const handleSearch = () => {
@@ -45,12 +65,30 @@ const selectBoard = (boardUrl: string) => {
 // Watch for input changes (use debounced query for filtering, but show dropdown immediately)
 watch(searchQuery, () => {
   showDropdown.value = !!searchQuery.value.trim()
+  resetSelection()
+})
+
+// Watch for filtered boards changes to reset selection
+watch(filteredBoards, () => {
+  resetSelection()
 })
 
 // Click outside to close dropdown
 const handleClickOutside = (event: Event) => {
   if (searchContainer.value && !searchContainer.value.contains(event.target as Node)) {
     showDropdown.value = false
+    resetSelection()
+  }
+}
+
+// Input 키보드 이벤트 핸들러
+const handleInputKeyDown = (event: KeyboardEvent) => {
+  if (showDropdown.value && filteredBoards.value.length > 0) {
+    // 드롭다운이 열려있으면 드롭다운 네비게이션 사용
+    handleDropdownKeyDown(event)
+  } else if (event.key === 'Enter') {
+    // 드롭다운이 없으면 검색 실행
+    handleSearch()
   }
 }
 
@@ -66,7 +104,11 @@ onUnmounted(() => {
 <template>
   <div ref="searchContainer" class="relative w-full max-w-md">
     <div class="relative">
-      <BaseInput v-model="searchQuery" @keyup.enter="handleSearch" @focus="showDropdown = !!searchQuery.trim()"
+      <BaseInput 
+        ref="searchInputRef"
+        v-model="searchQuery" 
+        @keydown="handleInputKeyDown"
+        @focus="showDropdown = !!searchQuery.trim()"
         :placeholder="$t('search.placeholder')"
         inputClass="w-64 rounded-full pl-10 pr-4 py-2 border-gray-300 focus:ring-indigo-500 focus:border-transparent dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
         hideLabel>
@@ -84,9 +126,21 @@ onUnmounted(() => {
         <div class="px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700">
           {{ $t('search.boards') }}
         </div>
-        <ul>
-          <li v-for="board in filteredBoards" :key="board.boardUrl" @click="selectBoard(board.boardUrl)"
-            class="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer flex items-center space-x-3">
+        <ul role="listbox" aria-label="Board search results">
+          <li 
+            v-for="(board, index) in filteredBoards" 
+            :key="board.boardUrl" 
+            @click="selectBoard(board.boardUrl)"
+            @mouseenter="setSelectedIndex(index)"
+            :class="[
+              'px-4 py-2 cursor-pointer flex items-center space-x-3',
+              index === selectedIndex 
+                ? 'bg-indigo-50 dark:bg-indigo-900/20' 
+                : 'hover:bg-gray-100 dark:hover:bg-gray-700'
+            ]"
+            :aria-selected="index === selectedIndex"
+            role="option"
+            tabindex="-1">
             <!-- Board Icon/Thumbnail -->
             <div
               class="flex-shrink-0 h-8 w-8 rounded bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold overflow-hidden border border-gray-200">

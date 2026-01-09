@@ -2,14 +2,22 @@
     <div class="relative mb-6">
         <div ref="scrollContainer" class="overflow-x-auto scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0"
             @touchstart="handleTouchStart" @touchmove="handleTouchMove" @touchend="handleTouchEnd">
-            <nav class="flex space-x-8 border-b border-gray-200 min-w-max relative" aria-label="Tabs">
-                <router-link v-for="(tab, index) in tabs" :key="tab.nameKey" :to="tab.href"
+            <nav class="flex space-x-8 border-b border-gray-200 min-w-max relative" aria-label="Tabs" role="tablist">
+                <router-link 
+                    v-for="(tab, index) in tabs" 
+                    :key="tab.nameKey" 
+                    :to="tab.href"
                     :ref="el => { if (el) tabRefs[index] = (el as ComponentPublicInstance).$el }"
-                    class="whitespace-nowrap py-4 px-1 text-sm transition-colors duration-200" :class="[
+                    @keydown="(e) => handleTabKeyDown(e, index)"
+                    class="whitespace-nowrap py-4 px-1 text-sm transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 rounded-t" 
+                    :class="[
                         isActive(tab.href)
                             ? 'text-indigo-600 dark:text-indigo-400 font-bold'
                             : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 font-medium'
-                    ]" :aria-current="isActive(tab.href) ? 'page' : undefined">
+                    ]" 
+                    :aria-current="isActive(tab.href) ? 'page' : undefined"
+                    role="tab"
+                    :tabindex="isActive(tab.href) ? 0 : -1">
                     {{ $t(tab.nameKey) }}
                 </router-link>
 
@@ -65,6 +73,47 @@ function isActive(href: string) {
 const activeTabIndex = computed(() => {
     return tabs.findIndex(tab => isActive(tab.href))
 })
+
+// 키보드 네비게이션
+const handleTabKeyDown = (event: KeyboardEvent, currentIndex: number) => {
+    const tabCount = tabs.length
+    
+    switch (event.key) {
+        case 'ArrowLeft':
+            event.preventDefault()
+            const prevIndex = currentIndex > 0 ? currentIndex - 1 : (tabCount - 1)
+            router.push(tabs[prevIndex].href)
+            nextTick(() => {
+                tabRefs.value[prevIndex]?.focus()
+            })
+            break
+            
+        case 'ArrowRight':
+            event.preventDefault()
+            const nextIndex = currentIndex < tabCount - 1 ? currentIndex + 1 : 0
+            router.push(tabs[nextIndex].href)
+            nextTick(() => {
+                tabRefs.value[nextIndex]?.focus()
+            })
+            break
+            
+        case 'Home':
+            event.preventDefault()
+            router.push(tabs[0].href)
+            nextTick(() => {
+                tabRefs.value[0]?.focus()
+            })
+            break
+            
+        case 'End':
+            event.preventDefault()
+            router.push(tabs[tabCount - 1].href)
+            nextTick(() => {
+                tabRefs.value[tabCount - 1]?.focus()
+            })
+            break
+    }
+}
 
 const updateUnderline = () => {
     const index = activeTabIndex.value

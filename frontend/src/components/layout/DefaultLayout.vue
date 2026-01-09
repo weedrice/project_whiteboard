@@ -169,3 +169,14 @@ onUnmounted(() => {
     <Footer />
   </div>
 </template>
+
+<script setup lang="ts">
+const skipToMainContent = (event: Event) => {
+  event.preventDefault()
+  const mainContent = document.getElementById('main-content')
+  if (mainContent) {
+    mainContent.focus()
+    mainContent.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+}
+</script>

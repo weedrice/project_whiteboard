@@ -66,11 +66,28 @@ watch(() => authStore.isAuthenticated, (newVal) => {
 
 const configStore = useConfigStore()
 
+// 전역 단축키 초기화
+const { registerShortcut } = useGlobalShortcuts()
+
+// 검색바 포커스 단축키 (/) 등록
 onMounted(() => {
     configStore.fetchPublicConfigs()
     if (authStore.isAuthenticated) {
         loadSettings()
     }
+    
+    // / 키로 검색바 포커스
+    registerShortcut({
+        key: '/',
+        handler: () => {
+            const searchInput = document.querySelector('input[placeholder*="search" i], input[placeholder*="검색" i]') as HTMLInputElement
+            if (searchInput) {
+                searchInput.focus()
+                searchInput.select()
+            }
+        },
+        description: 'Focus search bar'
+    })
 })
 
 onErrorCaptured((err, instance, info) => {
