@@ -426,6 +426,33 @@ tasks.named('jacocoTestCoverageVerification') {
 
 ---
 
+### 16. ✅ **API Rate Limiting** (완료)
+
+**구현 내용:**
+- ✅ Bucket4j 라이브러리 통합: Token Bucket 알고리즘 기반 Rate Limiting
+- ✅ IP 기반 Rate Limiting: 익명 사용자 요청 제한 (100 req/min)
+- ✅ 사용자 기반 Rate Limiting: 인증된 사용자 요청 제한 (500 req/min)
+- ✅ 엔드포인트별 Rate Limiting: 인증 엔드포인트 더 엄격한 제한 (5 req/min)
+- ✅ Rate Limit 인터셉터: 요청 전 Rate Limit 체크
+- ✅ Rate Limit 문서화 (`RATE_LIMITING.md`)
+
+**주요 변경사항:**
+- `backend/build.gradle`: Bucket4j 의존성 추가
+- `backend/src/main/java/com/weedrice/whiteboard/global/ratelimit/RateLimitConfig.java`: Rate Limit 설정 (신규)
+- `backend/src/main/java/com/weedrice/whiteboard/global/ratelimit/RateLimitInterceptor.java`: Rate Limit 인터셉터 (신규)
+- `backend/src/main/java/com/weedrice/whiteboard/global/config/WebConfig.java`: Rate Limit 인터셉터 등록
+- `backend/src/main/java/com/weedrice/whiteboard/global/exception/ErrorCode.java`: RATE_LIMIT_EXCEEDED 에러 코드 추가
+- `backend/src/main/resources/application.yml`: Rate Limit 설정 추가
+
+**Rate Limit 설정:**
+- IP 기반 (익명): 100 requests/minute
+- 인증 엔드포인트: 5 requests/minute (무차별 대입 방지)
+- 일반 API: 200 requests/minute (IP) 또는 500 requests/minute (인증 사용자)
+
+**참고 문서:** `backend/RATE_LIMITING.md`
+
+---
+
 ## 📋 우선순위별 실행 계획
 
 ### Phase 1 (단기 - 1-2주) - 즉시 개선 가능
@@ -445,8 +472,9 @@ tasks.named('jacocoTestCoverageVerification') {
 10. ✅ **성능 모니터링 및 메트릭** - 성능 추적
 11. ✅ **데이터베이스 인덱스 최적화** - 쿼리 성능
 12. ✅ **프론트엔드 번들 크기 최적화** - 로딩 속도 (완료)
-13. ✅ **API 문서화 개선** - 개발자 경험
+13. ✅ **API 문서화 개선** - 개발자 경험 (완료)
 14. ✅ **프론트엔드 에러 처리 개선** - 사용자 경험
+15. ✅ **API Rate Limiting** - 보안 및 안정성 (완료)
 
 ---
 

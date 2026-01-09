@@ -43,3 +43,15 @@ springdoc:
     operations-sorter: alpha
     try-it-out-enabled: true
     # 프로덕션 환경에서는 비활성화하려면 application-prod.yml에서 override
+
+# Rate Limiting 설정
+rate-limit:
+  enabled: true
+  # IP 기반 기본 제한 (requests per minute)
+  default-limit: 100
+  # 인증 엔드포인트 제한 (무차별 대입 공격 방지)
+  auth-limit: 5
+  # 일반 API 엔드포인트 제한
+  api-limit: 200
+  # 인증된 사용자 제한
+  user-limit: 500
