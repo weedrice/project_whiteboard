@@ -156,7 +156,7 @@ async function handleSubmit() {
     },
     onError: (err) => {
       logger.error('Failed to create post:', err)
-      error.value = err.response?.data?.error?.message || t('board.writePost.failCreate')
+      error.value = err.response?.data?.error?.message || t('board.writePost.createFailed')
     }
   })
 }

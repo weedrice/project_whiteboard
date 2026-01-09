@@ -95,7 +95,7 @@ async function handleSubmit() {
   }
 
   if (!props.isEdit && !canCreate.value) {
-    toastStore.addToast(t('board.form.insufficientPoints'), 'error')
+    toastStore.addToast(t('board.form.insufficientPoints', { cost: boardCreateCost.value }), 'error')
     return
   }
 
@@ -112,7 +112,7 @@ async function handleSubmit() {
 
       emit('submit', { ...form.value, iconUrl })
     } catch (err) {
-      handleError(err, t('board.form.failUpload'))
+      handleError(err, t('board.form.uploadFailed'))
       throw err // Re-throw to prevent form submission
     }
   })

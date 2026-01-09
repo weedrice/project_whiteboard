@@ -148,7 +148,7 @@ async function handleSubmit() {
     },
     onError: (err) => {
       logger.error('Failed to update post:', err)
-      toastStore.addToast(t('board.writePost.failUpdate'), 'error')
+      toastStore.addToast(t('board.writePost.updateFailed'), 'error')
     }
   })
 }

@@ -24,8 +24,8 @@ async function handleCreate(formData) {
         router.push(`/board/${data.data.boardUrl}`)
       }
     } catch (err) {
-      error.value = (err as any).response?.data?.error?.message || t('board.form.failCreate')
-      handleError(err, t('board.form.failCreate'))
+      error.value = (err as any).response?.data?.error?.message || t('board.form.createFailed')
+      handleError(err, t('board.form.createFailed'))
       throw err
     }
   })
