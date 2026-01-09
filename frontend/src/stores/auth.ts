@@ -5,13 +5,15 @@ import { useThemeStore } from '@/stores/theme'
 import router from '@/router'
 import logger from '@/utils/logger'
 import { useToastStore } from '@/stores/toast'
+import { Storage } from '@/utils/storage'
 import type { User, LoginCredentials } from '@/types'
+import type { AxiosRequestConfig } from 'axios'
 
 
 
 export const useAuthStore = defineStore('auth', () => {
     const user = ref<User | null>(null)
-    const accessToken = ref<string | null>(localStorage.getItem('accessToken'))
+    const accessToken = ref<string | null>(Storage.getString('accessToken'))
     const isAuthenticated = computed(() => !!accessToken.value)
     const themeStore = useThemeStore()
     const toastStore = useToastStore()
@@ -25,8 +27,8 @@ export const useAuthStore = defineStore('auth', () => {
                 accessToken.value = token
                 user.value = userData
 
-                localStorage.setItem('accessToken', token)
-                localStorage.setItem('refreshToken', refreshToken)
+                Storage.setString('accessToken', token)
+                Storage.setString('refreshToken', refreshToken)
 
                 // Set theme from user settings
                 if (userData.theme) {
@@ -43,7 +45,7 @@ export const useAuthStore = defineStore('auth', () => {
 
     async function logout() {
         try {
-            const refreshToken = localStorage.getItem('refreshToken')
+            const refreshToken = Storage.getString('refreshToken')
             if (refreshToken) {
                 await authApi.logout(refreshToken)
             }
@@ -52,16 +54,16 @@ export const useAuthStore = defineStore('auth', () => {
         } finally {
             accessToken.value = null
             user.value = null
-            localStorage.removeItem('accessToken')
-            localStorage.removeItem('refreshToken')
+            Storage.remove('accessToken')
+            Storage.remove('refreshToken')
             themeStore.setTheme('LIGHT') // Reset to default on logout
             router.push('/login')
         }
     }
 
-    async function fetchUser(config?: any) {
+    async function fetchUser(config?: AxiosRequestConfig) {
         // Double check token existence
-        const token = localStorage.getItem('accessToken')
+        const token = Storage.getString('accessToken')
         if (!token) {
             accessToken.value = null
             user.value = null
@@ -77,7 +79,8 @@ export const useAuthStore = defineStore('auth', () => {
 
                 // Check for sanctions
                 if (user.value?.status === 'SANCTIONED') {
-                    toastStore.addToast('Your account has been sanctioned. You will be logged out.', 'error')
+                    const i18n = (await import('@/i18n')).default
+                    toastStore.addToast(i18n.global.t('user.sanctioned'), 'error')
                     await logout()
                     return
                 }
@@ -97,8 +100,8 @@ export const useAuthStore = defineStore('auth', () => {
 
     function setTokens(token: string, refreshToken: string) {
         accessToken.value = token
-        localStorage.setItem('accessToken', token)
-        localStorage.setItem('refreshToken', refreshToken)
+        Storage.setString('accessToken', token)
+        Storage.setString('refreshToken', refreshToken)
     }
 
     return {

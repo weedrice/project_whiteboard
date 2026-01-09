@@ -9,7 +9,12 @@ import './style.css'
 import { VueQueryPlugin, QueryClient, QueryCache, MutationCache } from '@tanstack/vue-query'
 import { useToastStore } from '@/stores/toast'
 import logger from '@/utils/logger'
+import { validateEnv } from '@/utils/env'
+import { reportWebVitals } from '@/utils/performance'
 import type { AxiosError } from 'axios'
+
+// 환경 변수 검증
+validateEnv()
 
 const app = createApp(App)
 
@@ -92,5 +97,9 @@ app.mount('#app')
 
 // Web Vitals 성능 모니터링 (프로덕션 환경에서만)
 if (import.meta.env.PROD) {
-    reportWebVitals(logMetric)
+    import('@/utils/performance').then(({ logMetric }) => {
+        reportWebVitals(logMetric)
+    }).catch(() => {
+        // web-vitals가 없는 경우 무시 (개발 환경 등)
+    })
 }

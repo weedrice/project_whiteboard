@@ -19,6 +19,7 @@ import logger from '@/utils/logger'
 import { useToastStore } from '@/stores/toast'
 import { useConfirm } from '@/composables/useConfirm'
 import { formatDate } from '@/utils/date'
+import { sanitizeQuillHtml } from '@/utils/sanitize'
 
 const route = useRoute()
 const router = useRouter()
@@ -56,8 +57,10 @@ const isAuthor = computed(() => {
 
 const processedContents = computed(() => {
   if (!post.value || !post.value.contents) return ''
+  // Sanitize HTML to prevent XSS attacks
+  const sanitized = sanitizeQuillHtml(post.value.contents)
   // Add loading="lazy" to all img tags that don't already have it
-  return post.value.contents.replace(/<img(?![^>]*\bloading=)([^>]+)>/gi, '<img loading="lazy"$1>')
+  return sanitized.replace(/<img(?![^>]*\bloading=)([^>]+)>/gi, '<img loading="lazy"$1>')
 })
 
 const isAdmin = computed(() => authStore.isAdmin)

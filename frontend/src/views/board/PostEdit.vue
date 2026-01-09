@@ -34,9 +34,9 @@ const { data: post, isLoading: isPostLoading } = usePostDetail(postId)
 const { mutate: updatePost, isLoading: isSubmitting } = useUpdatePost()
 
 const isLoading = computed(() => isBoardLoading.value || isCategoriesLoading.value || isPostLoading.value)
-const fileIds = ref([])
-const editor = ref(null)
-const quillInstance = ref(null)
+const fileIds = ref<number[]>([])
+const editor = ref<InstanceType<typeof QuillEditor> | null>(null)
+const quillInstance = ref<any>(null)
 
 const form = ref({
   title: '',

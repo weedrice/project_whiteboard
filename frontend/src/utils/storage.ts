@@ -129,4 +129,51 @@ export class Storage {
             return []
         }
     }
+
+    /**
+     * localStorage에서 문자열 값을 가져옵니다 (JSON 파싱 없이).
+     * 토큰 등 JSON이 아닌 문자열 값에 사용합니다.
+     * 
+     * @param key 저장소 키
+     * @param defaultValue 기본값 (키가 없을 경우 반환)
+     * @returns 저장된 문자열 값 또는 기본값
+     * 
+     * @example
+     * ```typescript
+     * const token = Storage.getString('accessToken', '')
+     * ```
+     */
+    static getString(key: string, defaultValue: string | null = null): string | null {
+        try {
+            const item = localStorage.getItem(key)
+            return item !== null ? item : defaultValue
+        } catch (error) {
+            logger.error(`Failed to get string from localStorage: ${key}`, error)
+            return defaultValue
+        }
+    }
+
+    /**
+     * localStorage에 문자열 값을 저장합니다 (JSON.stringify 없이).
+     * 토큰 등 JSON이 아닌 문자열 값에 사용합니다.
+     * 
+     * @param key 저장소 키
+     * @param value 저장할 문자열 값
+     * 
+     * @example
+     * ```typescript
+     * Storage.setString('accessToken', token)
+     * ```
+     */
+    static setString(key: string, value: string): void {
+        try {
+            localStorage.setItem(key, value)
+        } catch (error) {
+            logger.error(`Failed to set string to localStorage: ${key}`, error)
+            // QuotaExceededError 처리
+            if (error instanceof DOMException && error.name === 'QuotaExceededError') {
+                logger.warn('localStorage quota exceeded. Consider clearing old data.')
+            }
+        }
+    }
 }

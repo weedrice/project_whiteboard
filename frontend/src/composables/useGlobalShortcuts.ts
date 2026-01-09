@@ -157,6 +157,11 @@ export function useGlobalShortcuts() {
     // cleanup을 위해 저장
     onUnmounted(() => {
       document.removeEventListener('keydown', gKeyHandler)
+      // gKeyTimer cleanup
+      if (gKeyTimer) {
+        clearTimeout(gKeyTimer)
+        gKeyTimer = null
+      }
     })
   }
 

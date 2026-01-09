@@ -62,7 +62,7 @@
                             {{ msg.partner.displayName }}
                         </div>
                         <div class="text-xs text-gray-500 dark:text-gray-400">
-                            {{ new Date(msg.createdAt).toLocaleString() }}
+                            {{ formatDate(msg.createdAt) }}
                         </div>
                     </div>
                     <p class="mt-1 text-sm text-gray-900 dark:text-gray-100 line-clamp-1"
@@ -87,8 +87,7 @@
                         <span class="text-sm font-medium text-gray-900 dark:text-white">{{
                             selectedMessage.partner.displayName }}</span>
                     </div>
-                    <span class="text-xs text-gray-500 dark:text-gray-400">{{ new
-                        Date(selectedMessage.createdAt).toLocaleString() }}</span>
+                    <span class="text-xs text-gray-500 dark:text-gray-400">{{ formatDate(selectedMessage.createdAt) }}</span>
                 </div>
                 <div class="text-sm text-gray-900 dark:text-gray-100 whitespace-pre-wrap min-h-[100px]">
                     {{ selectedMessage.content }}
@@ -146,6 +145,7 @@ import { useNotificationStore } from '@/stores/notification'
 import { useToastStore } from '@/stores/toast'
 import { useConfirm } from '@/composables/useConfirm'
 import logger from '@/utils/logger'
+import { formatDate } from '@/utils/date'
 
 const { t } = useI18n()
 const notificationStore = useNotificationStore()

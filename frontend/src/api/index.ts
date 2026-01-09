@@ -1,6 +1,8 @@
 import axios, { AxiosError, type AxiosInstance, type AxiosRequestConfig, type AxiosResponse, type InternalAxiosRequestConfig } from 'axios'
 import i18n from '@/i18n'
 import router from '@/router'
+import { Storage } from '@/utils/storage'
+import { API } from '@/utils/constants'
 
 const { t } = i18n.global
 
@@ -41,8 +43,8 @@ interface FailedRequest {
 }
 
 const api: AxiosInstance = axios.create({
-    baseURL: import.meta.env.VITE_API_URL || '/api/v1',
-    timeout: 10000,
+    baseURL: API.BASE_URL,
+    timeout: API.TIMEOUT,
     headers: {
         'Content-Type': 'application/json',
     },
@@ -51,7 +53,7 @@ const api: AxiosInstance = axios.create({
 // Request Interceptor
 api.interceptors.request.use(
     (config: InternalAxiosRequestConfig) => {
-        const token = localStorage.getItem('accessToken')
+        const token = Storage.getString('accessToken')
         // Skip adding token for auth endpoints to avoid 401s with expired tokens on public endpoints
         const isAuthEndpoint = config.url?.includes('/auth/')
 
@@ -182,10 +184,10 @@ api.interceptors.response.use(
             isRefreshing = true
 
             try {
-                const refreshToken = localStorage.getItem('refreshToken')
+                const refreshToken = Storage.getString('refreshToken')
                 if (!refreshToken) {
                     // No refresh token, cannot refresh.
-                    localStorage.removeItem('accessToken')
+                    Storage.remove('accessToken')
                     throw new Error('No refresh token')
                 }
 
@@ -194,7 +196,7 @@ api.interceptors.response.use(
 
                 if (data.success) {
                     const newAccessToken = data.data.accessToken
-                    localStorage.setItem('accessToken', newAccessToken)
+                    Storage.setString('accessToken', newAccessToken)
 
                     // Update user state (permissions, etc.) with new token
                     const { useAuthStore } = await import('@/stores/auth')
@@ -225,11 +227,11 @@ api.interceptors.response.use(
                 const isLoginPage = window.location.pathname === API_PATHS.LOGIN
 
                 if (refreshStatus === 401 || refreshStatus === 403 || !axiosRefreshError.response) {
-                    if (!localStorage.getItem('refreshToken') || refreshStatus === 401 || refreshStatus === 403) {
-                        const hadToken = !!localStorage.getItem('accessToken') || !!localStorage.getItem('refreshToken')
+                    if (!Storage.getString('refreshToken') || refreshStatus === 401 || refreshStatus === 403) {
+                        const hadToken = !!Storage.getString('accessToken') || !!Storage.getString('refreshToken')
 
-                        localStorage.removeItem('accessToken')
-                        localStorage.removeItem('refreshToken')
+                        Storage.remove('accessToken')
+                        Storage.remove('refreshToken')
 
                         // Update auth store state
                         const { useAuthStore } = await import('@/stores/auth')

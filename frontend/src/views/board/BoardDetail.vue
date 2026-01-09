@@ -25,7 +25,7 @@ const searchQuery = ref('')
 const searchType = ref('TITLE_CONTENT')
 const isSearching = ref(false)
 const filterType = ref('all') // 'all', 'concept', or 'category'
-const activeFilterCategory = ref(null)
+const activeFilterCategory = ref<{ categoryId: number; name: string } | null>(null)
 const sort = ref('createdAt,desc')
 
 // Computed Params for Query

@@ -46,9 +46,9 @@ const filteredCategories = computed(() => {
 
 const isLoading = computed(() => isBoardLoading.value || isCategoriesLoading.value)
 const error = ref('')
-const fileIds = ref([])
-const editor = ref(null)
-const quillInstance = ref(null)
+const fileIds = ref<number[]>([])
+const editor = ref<InstanceType<typeof QuillEditor> | null>(null)
+const quillInstance = ref<any>(null)
 
 const form = ref({
   categoryId: '',

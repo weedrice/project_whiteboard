@@ -106,4 +106,5 @@ export const user: UserMessages = {
     unsubscribeSuccess: '구독이 취소되었습니다.',
     unsubscribeFailed: '구독 취소에 실패했습니다.',
   },
+  sanctioned: '계정이 제재되었습니다. 로그아웃됩니다.',
 }

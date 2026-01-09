@@ -8,6 +8,7 @@ import BaseSelect from '@/components/common/ui/BaseSelect.vue'
 import BaseCheckbox from '@/components/common/ui/BaseCheckbox.vue'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
+import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import logger from '@/utils/logger'
 import { useUser } from '@/composables/useUser'
 
@@ -105,7 +106,7 @@ const saveSettings = async () => {
 <template>
   <div class="max-w-2xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
     <div v-if="loading" class="text-center py-10">
-      <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 mx-auto"></div>
+      <BaseSpinner />
     </div>
 
     <div v-else class="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg transition-colors duration-200">

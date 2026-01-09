@@ -34,11 +34,20 @@ export function reportWebVitals(onPerfEntry?: ReportHandler) {
  * 성능 메트릭을 로깅하는 함수
  */
 export function logMetric(metric: Metric) {
-    const logger = console // 실제로는 logger 유틸리티 사용
-    logger.log(`[Performance] ${metric.name}:`, {
-        value: metric.value,
-        delta: metric.delta,
-        id: metric.id
+    // logger를 동적으로 import하여 순환 참조 방지
+    import('@/utils/logger').then(({ default: logger }) => {
+        logger.info(`[Web Vitals] ${metric.name}:`, {
+            value: metric.value,
+            delta: metric.delta,
+            id: metric.id
+        })
+    }).catch(() => {
+        // logger를 사용할 수 없는 경우 console 사용
+        console.log(`[Web Vitals] ${metric.name}:`, {
+            value: metric.value,
+            delta: metric.delta,
+            id: metric.id
+        })
     })
 }
 
