@@ -9,6 +9,7 @@ import './style.css'
 import { VueQueryPlugin, QueryClient, QueryCache, MutationCache } from '@tanstack/vue-query'
 import { useToastStore } from '@/stores/toast'
 import logger from '@/utils/logger'
+import type { AxiosError } from 'axios'
 
 const app = createApp(App)
 
@@ -41,14 +42,15 @@ const queryClient = new QueryClient({
     }),
     defaultOptions: {
         queries: {
-            retry: (failureCount, error: any) => {
+            retry: (failureCount, error: unknown) => {
                 // 네트워크 오류나 5xx 서버 오류인 경우에만 재시도
-                if (!error.response) {
+                const axiosError = error as AxiosError
+                if (!axiosError.response) {
                     // 네트워크 오류
                     return failureCount < 2 // 최대 2번 재시도
                 }
-                const status = error.response?.status
-                if (status >= 500 && status < 600) {
+                const status = axiosError.response?.status
+                if (status && status >= 500 && status < 600) {
                     // 5xx 서버 오류
                     return failureCount < 2
                 }

@@ -76,7 +76,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, watch, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
@@ -121,6 +121,10 @@ const handleFileChange = async (event: Event) => {
     try {
       const resizedImage = await resizeImage(file, 100, 100)
       selectedFile.value = resizedImage
+      // 이전 preview URL 정리
+      if (previewImage.value && previewImage.value.startsWith('blob:')) {
+        URL.revokeObjectURL(previewImage.value)
+      }
       previewImage.value = URL.createObjectURL(resizedImage)
     } catch (error) {
       logger.error('Image resize failed', error)
@@ -132,7 +136,8 @@ const handleFileChange = async (event: Event) => {
 const resizeImage = (file: File, maxWidth: number, maxHeight: number): Promise<File> => {
   return new Promise((resolve, reject) => {
     const img = new Image()
-    img.src = URL.createObjectURL(file)
+    const objectUrl = URL.createObjectURL(file)
+    img.src = objectUrl
     img.onload = () => {
       const canvas = document.createElement('canvas')
       let width = img.width
@@ -156,6 +161,8 @@ const resizeImage = (file: File, maxWidth: number, maxHeight: number): Promise<F
       if (ctx) {
         ctx.drawImage(img, 0, 0, width, height)
         canvas.toBlob((blob) => {
+          // Cleanup object URL
+          URL.revokeObjectURL(objectUrl)
           if (blob) {
             resolve(new File([blob], file.name, { type: file.type }))
           } else {
@@ -163,10 +170,14 @@ const resizeImage = (file: File, maxWidth: number, maxHeight: number): Promise<F
           }
         }, file.type)
       } else {
+        URL.revokeObjectURL(objectUrl)
         reject(new Error('Could not get canvas context'))
       }
     }
-    img.onerror = reject
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl)
+      reject(new Error('Image load failed'))
+    }
   })
 }
 
@@ -275,6 +286,21 @@ const handleDeleteAccount = async () => {
     
     // 일반 에러 처리
     const errorMessage = extractErrorMessage(axiosError)
+
+// Cleanup preview image URL
+watch(previewImage, (newUrl, oldUrl) => {
+  // 이전 URL 정리
+  if (oldUrl && oldUrl.startsWith('blob:')) {
+    URL.revokeObjectURL(oldUrl)
+  }
+})
+
+onUnmounted(() => {
+  // 컴포넌트 unmount 시 preview URL 정리
+  if (previewImage.value && previewImage.value.startsWith('blob:')) {
+    URL.revokeObjectURL(previewImage.value)
+  }
+})
     deleteError.value = errorMessage || t('common.errorOccurred')
   }
 }

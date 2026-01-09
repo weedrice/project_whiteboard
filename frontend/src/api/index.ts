@@ -69,7 +69,7 @@ api.interceptors.request.use(
 let isRefreshing = false
 let failedQueue: FailedRequest[] = []
 
-const processQueue = (error: any, token: string | null = null) => {
+const processQueue = (error: unknown, token: string | null = null) => {
     failedQueue.forEach((prom) => {
         if (error) {
             prom.reject(error)
@@ -81,7 +81,11 @@ const processQueue = (error: any, token: string | null = null) => {
 }
 
 // Helper for error handling
-const handleApiError = (error: AxiosError, toastStore: any) => {
+interface ToastStore {
+    addToast: (message: string, type?: 'info' | 'success' | 'warning' | 'error', duration?: number, position?: 'top-center' | 'bottom-center') => void
+}
+
+const handleApiError = (error: AxiosError, toastStore: ToastStore) => {
     if (error.response) {
         const status = error.response.status
         const errorData = error.response.data as ApiErrorResponse | undefined

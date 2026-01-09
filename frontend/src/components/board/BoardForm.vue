@@ -1,5 +1,5 @@
 ﻿<script setup lang="ts">
-import { ref, watch, computed } from 'vue'
+import { ref, watch, computed, onUnmounted } from 'vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseTextarea from '@/components/common/ui/BaseTextarea.vue'
@@ -73,6 +73,10 @@ const handleFileChange = (event: Event) => {
   const file = target.files?.[0]
   if (file) {
     selectedFile.value = file
+    // 이전 preview URL 정리
+    if (previewImage.value && previewImage.value.startsWith('blob:')) {
+      URL.revokeObjectURL(previewImage.value)
+    }
     previewImage.value = URL.createObjectURL(file)
   }
 }
@@ -108,6 +112,21 @@ async function handleSubmit() {
     toastStore.addToast(t('board.form.failUpload'), 'error')
   }
 }
+
+// Cleanup preview image URL
+watch(previewImage, (newUrl, oldUrl) => {
+  // 이전 URL 정리 (blob: URL인 경우만)
+  if (oldUrl && oldUrl.startsWith('blob:')) {
+    URL.revokeObjectURL(oldUrl)
+  }
+})
+
+onUnmounted(() => {
+  // 컴포넌트 unmount 시 preview URL 정리
+  if (previewImage.value && previewImage.value.startsWith('blob:')) {
+    URL.revokeObjectURL(previewImage.value)
+  }
+})
 </script>
 
 <template>

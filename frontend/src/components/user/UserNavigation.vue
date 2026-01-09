@@ -23,7 +23,7 @@
 
 <script setup lang="ts">
 import { useRoute, useRouter } from 'vue-router'
-import { ref, computed, watch, nextTick, onMounted } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 // User Navigation Component
@@ -102,6 +102,11 @@ onMounted(() => {
     nextTick(updateUnderline)
     // Add resize listener to update underline position
     window.addEventListener('resize', updateUnderline)
+})
+
+onUnmounted(() => {
+    // Remove resize listener
+    window.removeEventListener('resize', updateUnderline)
 })
 
 // Mobile Swipe Logic

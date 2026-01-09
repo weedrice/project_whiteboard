@@ -59,9 +59,16 @@ export function useNotification() {
     }
 
     let eventSource: EventSource | null = null
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null
 
     const connectToSse = () => {
         if (eventSource) return
+
+        // 기존 재연결 타이머 정리
+        if (reconnectTimer) {
+            clearTimeout(reconnectTimer)
+            reconnectTimer = null
+        }
 
         const authStore = useAuthStore()
         const token = authStore.accessToken
@@ -114,7 +121,11 @@ export function useNotification() {
             if (eventSource) {
                 eventSource.close()
                 eventSource = null
-                setTimeout(() => connectToSse(), 5000)
+                // 재연결 타이머 설정
+                reconnectTimer = setTimeout(() => {
+                    reconnectTimer = null
+                    connectToSse()
+                }, 5000)
             }
         }
     }
@@ -124,6 +135,12 @@ export function useNotification() {
     // But if we call connectToSse in a top-level component, it persists.
 
     const closeSse = () => {
+        // 재연결 타이머 정리
+        if (reconnectTimer) {
+            clearTimeout(reconnectTimer)
+            reconnectTimer = null
+        }
+        // SSE 연결 종료
         if (eventSource) {
             eventSource.close()
             eventSource = null

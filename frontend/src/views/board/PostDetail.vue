@@ -18,6 +18,7 @@ import { useI18n } from 'vue-i18n'
 import logger from '@/utils/logger'
 import { useToastStore } from '@/stores/toast'
 import { useConfirm } from '@/composables/useConfirm'
+import { formatDate } from '@/utils/date'
 
 const route = useRoute()
 const router = useRouter()
@@ -44,12 +45,10 @@ watch(() => route.params.postId, (newId) => {
   if (newId) {
     postApi.incrementView(newId).catch(err => {
       // Ignore error or log it silently
-      console.error('Failed to increment view count', err)
+      logger.warn('Failed to increment view count', err)
     })
   }
 }, { immediate: true })
-
-import { formatDate } from '@/utils/date'
 
 const isAuthor = computed(() => {
   return authStore.user && post.value && authStore.user.userId === post.value.author.userId
@@ -64,11 +63,13 @@ const processedContents = computed(() => {
 const isAdmin = computed(() => authStore.isAdmin)
 
 const isBlurred = ref(false)
-const blurTimer = ref(null)
+const blurTimer = ref<ReturnType<typeof setInterval> | null>(null)
 const timeLeft = ref(5)
 
 const isLikeAnimating = ref(false)
+const likeAnimationTimer = ref<ReturnType<typeof setTimeout> | null>(null)
 const isScrapAnimating = ref(false)
+const scrapAnimationTimer = ref<ReturnType<typeof setTimeout> | null>(null)
 
 const titleRef = ref(null)
 
@@ -96,7 +97,14 @@ async function handleLike() {
   } else {
     // Optimistic animation
     isLikeAnimating.value = true
-    setTimeout(() => isLikeAnimating.value = false, 300)
+    // 이전 타이머 정리
+    if (likeAnimationTimer.value) {
+      clearTimeout(likeAnimationTimer.value)
+    }
+    likeAnimationTimer.value = setTimeout(() => {
+      isLikeAnimating.value = false
+      likeAnimationTimer.value = null
+    }, 300)
 
     likeMutate(route.params.postId, {
       onError: (err) => logger.error(t('board.postDetail.likeFailed'), err)
@@ -113,7 +121,14 @@ async function handleScrap() {
   } else {
     // Optimistic animation
     isScrapAnimating.value = true
-    setTimeout(() => isScrapAnimating.value = false, 300)
+    // 이전 타이머 정리
+    if (scrapAnimationTimer.value) {
+      clearTimeout(scrapAnimationTimer.value)
+    }
+    scrapAnimationTimer.value = setTimeout(() => {
+      isScrapAnimating.value = false
+      scrapAnimationTimer.value = null
+    }, 300)
 
     scrapMutate(route.params.postId, {
       onError: (err) => logger.error(t('board.postDetail.scrapFailed'), err)
@@ -148,6 +163,10 @@ async function submitReport() {
 }
 
 function startBlurTimer() {
+  // 기존 타이머 정리
+  if (blurTimer.value) {
+    clearInterval(blurTimer.value)
+  }
   blurTimer.value = setInterval(() => {
     timeLeft.value--
     if (timeLeft.value <= 0) {
@@ -226,7 +245,7 @@ function handleShare() {
 const showFloatingNav = ref(false)
 const commentsRef = ref(null)
 
-let observer = null
+let observer: IntersectionObserver | null = null
 
 function setupObserver() {
   if (observer) observer.disconnect()
@@ -248,7 +267,24 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  if (observer) observer.disconnect()
+  // Observer 정리
+  if (observer) {
+    observer.disconnect()
+    observer = null
+  }
+  // 모든 타이머 정리
+  if (blurTimer.value) {
+    clearInterval(blurTimer.value)
+    blurTimer.value = null
+  }
+  if (likeAnimationTimer.value) {
+    clearTimeout(likeAnimationTimer.value)
+    likeAnimationTimer.value = null
+  }
+  if (scrapAnimationTimer.value) {
+    clearTimeout(scrapAnimationTimer.value)
+    scrapAnimationTimer.value = null
+  }
 })
 
 watch(() => post.value, () => {

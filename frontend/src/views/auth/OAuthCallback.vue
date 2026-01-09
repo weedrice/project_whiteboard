@@ -4,6 +4,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
 import { useI18n } from 'vue-i18n'
+import logger from '@/utils/logger'
 
 const router = useRouter()
 const route = useRoute()
@@ -26,7 +27,7 @@ onMounted(async () => {
       toastStore.addToast(t('auth.loginSuccess'), 'success')
       router.push('/')
     } catch (error) {
-      console.error('OAuth login failed:', error)
+      logger.error('OAuth login failed:', error)
       toastStore.addToast(t('auth.loginFailed'), 'error')
       router.push('/login')
     }
