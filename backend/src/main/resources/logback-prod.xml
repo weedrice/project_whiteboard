@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    프로덕션 환경용 로그 설정
+    - 구조화된 로깅 (JSON) 사용 가능
+    - 에러 로그 분리
+    - 성능 최적화
+-->
+<configuration>
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+
+    <!-- 커스텀 컨버터 등록 -->
+    <conversionRule conversionWord="maskedMsg" 
+                    converterClass="com.weedrice.whiteboard.global.log.converter.MaskedMessageConverter"/>
+
+    <!-- 로그 저장 경로 -->
+    <property name="LOG_DIR" value="/opt/app/logs"/>
+    
+    <!-- 프로덕션 로그 패턴 (간결하고 구조화) -->
+    <property name="LOG_PATTERN" 
+              value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%X{requestId:-}] %logger{36} - %maskedMsg%n"/>
+
+    <!-- Console Appender (표준 출력) -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>${LOG_PATTERN}</pattern>
+        </encoder>
+    </appender>
+
+    <!-- File Appender (일반 로그) -->
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_DIR}/whiteboard-active.log</file>
+        
+        <encoder>
+            <pattern>${LOG_PATTERN}</pattern>
+        </encoder>
+
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_DIR}/whiteboard-%d{yyyy-MM-dd_HH}.log</fileNamePattern>
+            <maxHistory>720</maxHistory> <!-- 30일 -->
+            <totalSizeCap>3GB</totalSizeCap>
+        </rollingPolicy>
+    </appender>
+
+    <!-- Error 로그 전용 Appender -->
+    <appender name="ERROR_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_DIR}/whiteboard-error.log</file>
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>ERROR</level>
+        </filter>
+        
+        <encoder>
+            <pattern>${LOG_PATTERN}</pattern>
+        </encoder>
+
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_DIR}/whiteboard-error-%d{yyyy-MM-dd}.log</fileNamePattern>
+            <maxHistory>90</maxHistory> <!-- 90일 -->
+            <totalSizeCap>1GB</totalSizeCap>
+        </rollingPolicy>
+    </appender>
+
+    <!-- 로그 레벨 및 Appender 적용 -->
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="FILE"/>
+        <appender-ref ref="ERROR_FILE"/>
+    </root>
+
+    <!-- 애플리케이션 로거 -->
+    <logger name="com.weedrice.whiteboard" level="INFO"/>
+    
+    <!-- 보안 관련 로거는 WARN 레벨로 -->
+    <logger name="org.springframework.security" level="WARN"/>
+    
+    <!-- Hibernate SQL 로깅 비활성화 (프로덕션) -->
+    <logger name="org.hibernate.SQL" level="WARN"/>
+    <logger name="org.hibernate.type.descriptor.sql" level="WARN"/>
+    
+    <!-- HTTP 요청 로깅 -->
+    <logger name="org.springframework.web" level="INFO"/>
+</configuration>
