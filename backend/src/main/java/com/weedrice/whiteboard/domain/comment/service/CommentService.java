@@ -109,7 +109,7 @@ public class CommentService {
     }
 
     public CommentResponse getComment(Long commentId) {
-        Comment comment = commentRepository.findById(commentId)
+        Comment comment = commentRepository.findByIdWithRelations(commentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
         return CommentResponse.from(comment);
     }

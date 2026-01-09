@@ -1,7 +1,6 @@
 package com.weedrice.whiteboard.domain.post.repository;
 
 import com.weedrice.whiteboard.domain.post.entity.Post;
-import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.lang.NonNull;
@@ -23,4 +22,10 @@ public interface PostRepositoryCustom {
     List<Post> findLatestPostsByBoardId(Long boardId, Boolean isDeleted, List<Long> blockedUserIds, Pageable pageable);
 
     List<Post> findTrendingPosts(LocalDateTime since, List<Long> blockedUserIds, Pageable pageable);
+
+    /**
+     * Post를 ID로 조회하면서 연관된 User, Board, Category를 함께 fetch join합니다.
+     * N+1 쿼리 문제를 방지하기 위해 사용합니다.
+     */
+    java.util.Optional<Post> findByIdWithRelations(@NonNull Long postId);
 }

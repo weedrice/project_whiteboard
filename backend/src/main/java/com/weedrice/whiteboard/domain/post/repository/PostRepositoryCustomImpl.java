@@ -245,6 +245,18 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                 return minLikes != null ? post.likeCount.goe(minLikes) : null;
         }
 
+        @Override
+        public java.util.Optional<Post> findByIdWithRelations(@NonNull Long postId) {
+                Post result = queryFactory
+                                .selectFrom(post)
+                                .join(post.user).fetchJoin()
+                                .join(post.board).fetchJoin()
+                                .leftJoin(post.category).fetchJoin()
+                                .where(post.postId.eq(postId))
+                                .fetchOne();
+                return java.util.Optional.ofNullable(result);
+        }
+
         private OrderSpecifier<?>[] getOrderSpecifiers(Pageable pageable) {
                 if (!pageable.getSort().isEmpty()) {
                         return pageable.getSort().stream().map(order -> {

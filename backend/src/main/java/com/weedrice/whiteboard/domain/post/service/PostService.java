@@ -273,7 +273,7 @@ public class PostService {
 
     @Transactional
     public Post getPostById(@NonNull Long postId, Long userId, boolean incrementView) {
-        Post post = postRepository.findById(postId)
+        Post post = postRepository.findByIdWithRelations(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
 
         if (userId != null) {

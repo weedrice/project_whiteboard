@@ -47,4 +47,17 @@ public class CommentRepositoryCustomImpl implements CommentRepositoryCustom {
 
         return new PageImpl<>(content, pageable, total != null ? total : 0L);
     }
+
+    @Override
+    public java.util.Optional<Comment> findByIdWithRelations(@org.springframework.lang.NonNull Long commentId) {
+        Comment result = queryFactory
+                .selectFrom(comment)
+                .join(comment.user).fetchJoin()
+                .join(comment.post).fetchJoin()
+                .join(comment.post.board).fetchJoin()
+                .leftJoin(comment.parent).fetchJoin()
+                .where(comment.commentId.eq(commentId))
+                .fetchOne();
+        return java.util.Optional.ofNullable(result);
+    }
 }

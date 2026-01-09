@@ -9,6 +9,16 @@ spring:
       max-request-size: 10MB
   jpa:
     open-in-view: false
+    properties:
+      hibernate:
+        # Batch Fetch Size 설정 (N+1 쿼리 최적화)
+        # 컬렉션을 조회할 때 한 번에 여러 개를 가져옵니다
+        jdbc:
+          batch_size: 50
+        # @BatchSize 어노테이션과 함께 사용
+        # 예: @BatchSize(size = 50)을 @OneToMany 컬렉션에 적용
+        order_inserts: true
+        order_updates: true
   messages:
     basename: messages
     encoding: UTF-8

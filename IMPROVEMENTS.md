@@ -383,6 +383,35 @@ tasks.named('jacocoTestCoverageVerification') {
 
 ---
 
+### 13-1. ✅ **N+1 쿼리 최적화** (완료)
+
+**구현 내용:**
+- ✅ Post 단일 조회 최적화: `PostRepositoryCustom.findByIdWithRelations()` 추가 (User, Board, Category fetch join)
+- ✅ Comment 조회 최적화: JPQL 쿼리에 fetch join 추가
+  - `findParentsWithChildrenOrNotDeleted`: User, Post, Board fetch join
+  - `findAllDescendants`: User, Post, Board fetch join
+  - `findByIdWithRelations`: User, Post, Board, Parent fetch join
+  - `findByUserAndIsDeletedOrderByCreatedAtDesc`: Post, Board fetch join
+- ✅ Batch Fetch Size 설정: `application.yml`에 Hibernate batch fetch size 설정 추가
+
+**주요 변경사항:**
+- `backend/src/main/java/com/weedrice/whiteboard/domain/post/repository/PostRepositoryCustom.java`: `findByIdWithRelations()` 메서드 추가
+- `backend/src/main/java/com/weedrice/whiteboard/domain/post/repository/PostRepositoryCustomImpl.java`: QueryDSL을 사용한 fetch join 구현
+- `backend/src/main/java/com/weedrice/whiteboard/domain/post/service/PostService.java`: `getPostById()`에서 `findByIdWithRelations()` 사용
+- `backend/src/main/java/com/weedrice/whiteboard/domain/comment/repository/CommentRepository.java`: JPQL 쿼리에 `JOIN FETCH` 및 `DISTINCT` 추가
+- `backend/src/main/java/com/weedrice/whiteboard/domain/comment/repository/CommentRepositoryCustom.java`: `findByIdWithRelations()` 메서드 추가
+- `backend/src/main/java/com/weedrice/whiteboard/domain/comment/repository/CommentRepositoryCustomImpl.java`: QueryDSL을 사용한 fetch join 구현
+- `backend/src/main/java/com/weedrice/whiteboard/domain/comment/service/CommentService.java`: `getComment()`에서 `findByIdWithRelations()` 사용
+- `backend/src/main/resources/application.yml`: Hibernate batch fetch size 설정 추가
+
+**성능 개선 효과:**
+- Post 단일 조회: 4번의 쿼리 → 1번의 쿼리
+- Comment 조회: N+1번의 쿼리 → 1번의 쿼리 (또는 배치 쿼리)
+
+**참고 문서:** `backend/N1_QUERY_OPTIMIZATION.md`
+
+---
+
 ### 14. ✅ **프론트엔드 번들 크기 최적화** (완료)
 
 **구현 내용:**
@@ -475,6 +504,7 @@ tasks.named('jacocoTestCoverageVerification') {
 13. ✅ **API 문서화 개선** - 개발자 경험 (완료)
 14. ✅ **프론트엔드 에러 처리 개선** - 사용자 경험
 15. ✅ **API Rate Limiting** - 보안 및 안정성 (완료)
+16. ✅ **N+1 쿼리 최적화** - 쿼리 성능 개선 (완료)
 
 ---
 
