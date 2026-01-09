@@ -9,7 +9,7 @@ import ProfileEditor from '@/components/user/ProfileEditor.vue'
 import Pagination from '@/components/common/ui/Pagination.vue'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import EmptyState from '@/components/common/ui/EmptyState.vue'
-import logger from '@/utils/logger'
+import { useErrorHandler } from '@/composables/useErrorHandler'
 import type { User as UserType, PostSummary, Comment } from '@/types'
 
 const profile = ref<UserType | null>(null)
@@ -28,7 +28,7 @@ const myCommentsCurrentPage = ref(0)
 const myCommentsSize = ref(10) // 10 items per page
 
 const isLoading = ref(true)
-const error = ref('')
+const error = ref<string | null>(null)
 const isEditModalOpen = ref(false)
 
 import { formatDate } from '@/utils/date'
@@ -40,8 +40,7 @@ async function fetchMyProfile() {
       profile.value = data.data
     }
   } catch (err) {
-    logger.error('Failed to load my profile:', err)
-    error.value = 'Failed to load profile details.'
+    handleSilentError(err, 'Failed to load my profile')
   }
 }
 
@@ -57,8 +56,7 @@ async function fetchMyPosts() {
       myPostsTotalCount.value = data.data.totalElements
     }
   } catch (err) {
-    logger.error('Failed to load my posts:', err)
-    error.value = 'Failed to load my posts.'
+    handleSilentError(err, 'Failed to load my posts')
   }
 }
 
@@ -70,8 +68,7 @@ async function fetchMyComments() {
       myCommentsTotalCount.value = data.data.totalElements
     }
   } catch (err) {
-    logger.error('Failed to load my comments:', err)
-    error.value = 'Failed to load my comments.'
+    handleSilentError(err, 'Failed to load my comments')
   }
 }
 

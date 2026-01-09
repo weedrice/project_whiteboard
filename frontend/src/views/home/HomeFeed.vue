@@ -41,7 +41,7 @@ import EmptyState from '@/components/common/ui/EmptyState.vue'
 import { FileText } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
 import { useRouter } from 'vue-router'
-import logger from '@/utils/logger'
+import { useErrorHandler } from '@/composables/useErrorHandler'
 import type { PostSummary } from '@/types'
 
 const posts = ref<PostSummary[]>([])
@@ -53,6 +53,7 @@ const hasMore = ref(true)
 const sentinel = ref(null)
 const authStore = useAuthStore()
 const router = useRouter()
+const { handleSilentError } = useErrorHandler()
 
 let observer = null
 
@@ -80,7 +81,7 @@ async function fetchTrendingPosts(isLoadMore = false) {
       page.value++
     }
   } catch (error) {
-    logger.error('Failed to fetch trending posts:', error)
+    handleSilentError(error, 'Failed to fetch trending posts')
   } finally {
     loading.value = false
     loadingMore.value = false
@@ -110,7 +111,7 @@ async function handleLike(post) {
     // Revert
     post.liked = previousLiked
     post.likeCount = previousCount
-    logger.error('Failed to toggle like:', error)
+    handleSilentError(error, 'Failed to toggle like')
   }
 }
 
@@ -134,7 +135,7 @@ async function handleScrap(post) {
   } catch (error) {
     // Revert
     post.scrapped = previousScrapped
-    logger.error('Failed to toggle scrap:', error)
+    handleSilentError(error, 'Failed to toggle scrap')
   }
 }
 

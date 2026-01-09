@@ -31,7 +31,7 @@ const fetchAd = async () => {
       ad.value = data.data
     }
   } catch (error) {
-    // console.error('Failed to load ad:', error)
+    logger.warn('Failed to load ad:', error)
     // 광고 로드 실패 시 기본값 설정
     ad.value = {
       adId: null,

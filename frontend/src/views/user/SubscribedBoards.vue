@@ -67,6 +67,7 @@ import type { Board } from '@/types'
 const { t } = useI18n()
 const toastStore = useToastStore()
 const { confirm } = useConfirm()
+const { handleSilentError, handleError } = useErrorHandler()
 const boards = ref<Board[]>([])
 const loading = ref(false)
 
@@ -78,7 +79,7 @@ async function fetchSubscriptions() {
             boards.value = data.data.content
         }
     } catch (error) {
-        logger.error(error)
+        handleSilentError(error, 'Failed to load subscriptions')
     } finally {
         loading.value = false
     }
@@ -94,8 +95,7 @@ async function handleUnsubscribe(board) {
             fetchSubscriptions() // Refresh list
         }
     } catch (error) {
-        logger.error(error)
-        toastStore.addToast(t('user.subscriptions.unsubscribeFailed'), 'error')
+        handleError(error, t('user.subscriptions.unsubscribeFailed'))
     }
 }
 
@@ -104,7 +104,7 @@ async function handleDragEnd() {
     try {
         await boardApi.updateSubscriptionOrder(boardUrls)
     } catch (error) {
-        logger.error('Failed to update order:', error)
+        handleSilentError(error, 'Failed to update subscription order')
         // Revert order if failed (optional, but good UX)
         fetchSubscriptions()
     }
