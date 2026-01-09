@@ -4,6 +4,7 @@ import com.weedrice.whiteboard.global.common.ApiResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.MDC;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.http.HttpStatus;
@@ -27,19 +28,45 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ApiResponse<Void>> handleBusinessException(BusinessException e, HttpServletRequest request) {
         String message = messageSource.getMessage(e.getErrorCode().getMessage(), null, LocaleContextHolder.getLocale());
+        MDC.put("errorCode", e.getErrorCode().getCode());
+        MDC.put("errorType", "BusinessException");
         log.warn("[{}] Business exception: {} - {}", request.getRequestURI(), e.getErrorCode().getCode(), message);
+        MDC.remove("errorCode");
+        MDC.remove("errorType");
         return ResponseEntity
                 .status(e.getErrorCode().getStatus())
                 .body(ApiResponse.error(e.getErrorCode().getCode(), message));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ApiResponse<Void>> handleValidationExceptions(MethodArgumentNotValidException e, HttpServletRequest request) {
-        String errorMessage = e.getBindingResult().getAllErrors().get(0).getDefaultMessage();
-        log.warn("[{}] Validation exception: {}", request.getRequestURI(), errorMessage);
+    public ResponseEntity<ApiResponse<Object>> handleValidationExceptions(MethodArgumentNotValidException e, HttpServletRequest request) {
+        // 모든 필드 에러를 수집
+        java.util.Map<String, java.util.List<String>> errors = new java.util.HashMap<>();
+        
+        e.getBindingResult().getFieldErrors().forEach(error -> {
+            String field = error.getField();
+            String message = error.getDefaultMessage();
+            errors.computeIfAbsent(field, k -> new java.util.ArrayList<>()).add(message);
+        });
+        
+        // 필드 에러가 없는 경우 (글로벌 에러)
+        if (errors.isEmpty()) {
+            e.getBindingResult().getGlobalErrors().forEach(error -> {
+                String objectName = error.getObjectName();
+                String message = error.getDefaultMessage();
+                errors.computeIfAbsent(objectName, k -> new java.util.ArrayList<>()).add(message);
+            });
+        }
+        
+        String summaryMessage = errors.isEmpty() 
+            ? "Validation failed" 
+            : String.format("Validation failed for %d field(s)", errors.size());
+        
+        log.warn("[{}] Validation exception: {} - {}", request.getRequestURI(), summaryMessage, errors);
+        
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.error(ErrorCode.VALIDATION_ERROR.getCode(), errorMessage));
+                .body(ApiResponse.error(ErrorCode.VALIDATION_ERROR.getCode(), summaryMessage, errors));
     }
 
     @ExceptionHandler({BadCredentialsException.class, UsernameNotFoundException.class})
@@ -71,7 +98,13 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleAllUncaughtException(Exception e, HttpServletRequest request) {
-        log.error("[{}] Unexpected exception occurred", request.getRequestURI(), e); // e를 인자로 넘기면 Stack Trace가 출력됨
+        MDC.put("errorType", e.getClass().getSimpleName());
+        MDC.put("errorMessage", e.getMessage());
+        log.error("[{}] Unexpected exception occurred: {} - {}", 
+                request.getRequestURI(), e.getClass().getSimpleName(), e.getMessage(), e);
+        MDC.remove("errorType");
+        MDC.remove("errorMessage");
+        
         String message = messageSource.getMessage(ErrorCode.INTERNAL_SERVER_ERROR.getMessage(), null, LocaleContextHolder.getLocale());
         return ResponseEntity
                 .status(HttpStatus.INTERNAL_SERVER_ERROR)

@@ -3,13 +3,30 @@
     <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
     <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
 
+    <!-- 커스텀 컨버터 등록 -->
+    <conversionRule conversionWord="maskedMsg" 
+                    converterClass="com.weedrice.whiteboard.global.log.converter.MaskedMessageConverter"/>
+
     <!-- 로그 저장 경로 및 패턴 설정 -->
     <property name="LOG_DIR" value="./logs"/>
-    <property name="LOG_PATTERN" value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"/>
+    
+    <!-- 기본 로그 패턴 (MDC 포함, 민감 정보 마스킹) -->
+    <property name="LOG_PATTERN" 
+              value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%X{requestId:-}] %logger{36} - %maskedMsg%n"/>
+    
+    <!-- JSON 로그 패턴 (프로덕션용, 선택적) -->
+    <property name="JSON_PATTERN" 
+              value='{"timestamp":"%d{yyyy-MM-dd HH:mm:ss.SSS}","level":"%level","thread":"%thread","requestId":"%X{requestId:-}","method":"%X{method:-}","uri":"%X{uri:-}","controller":"%X{controller:-}","handler":"%X{handler:-}","executionTime":"%X{executionTime:-}","logger":"%logger{36}","message":"%maskedMsg","exception":"%ex{short}","mdc":"%mdc"}%n'/>
 
-    <!-- RollingFileAppender 설정 -->
+    <!-- Console Appender (개발 환경용) -->
+    <appender name="CONSOLE_ENHANCED" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>${LOG_PATTERN}</pattern>
+        </encoder>
+    </appender>
+
+    <!-- File Appender (일반 텍스트 로그) -->
     <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <!-- 현재 기록 중인 로그 파일 -->
         <file>${LOG_DIR}/whiteboard-active.log</file>
         
         <encoder>
@@ -17,7 +34,6 @@
         </encoder>
 
         <!-- 롤링 정책: 시간 단위(Hourly) 분할 -->
-        <!-- Logback 설정상 6시간 단위 분할은 복잡하므로, 더 세밀한 분석이 가능한 1시간 단위로 설정했습니다. -->
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
             <fileNamePattern>${LOG_DIR}/whiteboard-%d{yyyy-MM-dd_HH}.log</fileNamePattern>
             <!-- 보관 기간: 30일 (24시간 * 30일 = 720시간) -->
@@ -27,13 +43,50 @@
         </rollingPolicy>
     </appender>
 
+    <!-- Error 로그 전용 Appender -->
+    <appender name="ERROR_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_DIR}/whiteboard-error.log</file>
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>ERROR</level>
+        </filter>
+        
+        <encoder>
+            <pattern>${LOG_PATTERN}</pattern>
+        </encoder>
+
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_DIR}/whiteboard-error-%d{yyyy-MM-dd}.log</fileNamePattern>
+            <maxHistory>90</maxHistory> <!-- 에러 로그는 90일 보관 -->
+            <totalSizeCap>1GB</totalSizeCap>
+        </rollingPolicy>
+    </appender>
+
     <!-- 로그 레벨 및 Appender 적용 -->
     <root level="INFO">
-        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="CONSOLE_ENHANCED"/>
         <appender-ref ref="FILE"/>
+        <appender-ref ref="ERROR_FILE"/>
     </root>
 
     <!-- 상세 로깅 설정 (application.yml 설정 반영) -->
-    <logger name="org.hibernate.SQL" level="DEBUG"/>
-    <logger name="org.hibernate.type.descriptor.sql" level="TRACE"/>
+    <!-- 개발 환경에서만 상세 SQL 로깅 -->
+    <springProfile name="dev">
+        <logger name="org.hibernate.SQL" level="DEBUG"/>
+        <logger name="org.hibernate.type.descriptor.sql" level="TRACE"/>
+    </springProfile>
+    
+    <!-- 프로덕션 환경에서는 SQL 로깅 최소화 -->
+    <springProfile name="prod">
+        <logger name="org.hibernate.SQL" level="WARN"/>
+        <logger name="org.hibernate.type.descriptor.sql" level="WARN"/>
+    </springProfile>
+    
+    <!-- 애플리케이션 로거 설정 -->
+    <logger name="com.weedrice.whiteboard" level="INFO"/>
+    
+    <!-- 보안 관련 로거는 WARN 레벨로 -->
+    <logger name="org.springframework.security" level="WARN"/>
+    
+    <!-- HTTP 요청 로깅 -->
+    <logger name="org.springframework.web" level="INFO"/>
 </configuration>
