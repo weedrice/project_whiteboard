@@ -21,7 +21,7 @@ export const authApi = {
     refreshToken: (refreshToken: string) => api.post<ApiResponse<{ accessToken: string, refreshToken: string }>>('/auth/refresh', { refreshToken }),
 
     // Get Current User
-    getMe: (config?: any) => api.get<ApiResponse<User>>('/users/me', config),
+    getMe: (config?: AxiosRequestConfig) => api.get<ApiResponse<User>>('/users/me', config),
 
     // Email Verification
     sendVerificationCode: (email: string) => api.post<ApiResponse<void>>('/auth/email/send-verification', { email }, { skipAuthRefresh: true }),

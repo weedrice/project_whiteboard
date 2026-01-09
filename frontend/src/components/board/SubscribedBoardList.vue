@@ -13,6 +13,7 @@ defineProps<{
       <router-link
         v-for="board in boards"
         :key="board.boardUrl"
+        v-memo="[board.boardUrl, board.boardName, board.iconUrl]"
         :to="`/board/${board.boardUrl}`"
         class="flex flex-col items-center group flex-shrink-0 min-w-[80px]"
       >

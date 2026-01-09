@@ -146,7 +146,7 @@ const router = createRouter({
         {
             path: '/board/:boardUrl/post/:postId/edit',
             name: 'post-edit',
-            component: () => import('@/views/board/PostEdit.vue'),
+            component: () => import(/* webpackChunkName: "post-editor" */ '@/views/board/PostEdit.vue'),
             meta: { requiresAuth: true }
         },
         {

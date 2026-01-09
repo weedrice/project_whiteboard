@@ -9,11 +9,10 @@ export interface NotificationParams {
 
 export const notificationApi = {
     // Get notifications
-    // Get notifications
     getNotifications: async (params: NotificationParams) => {
-        const response = await api.get<ApiResponse<PageResponse<any>>>('/notifications', { params })
+        const response = await api.get<ApiResponse<PageResponse<Notification>>>('/notifications', { params })
         if (response.data.success) {
-            response.data.data.content = response.data.data.content.map((n: any) => ({
+            response.data.data.content = response.data.data.content.map((n: Notification) => ({
                 ...n,
                 notificationId: n.notificationId || n.notification_id,
                 sourceType: n.sourceType || n.source_type,

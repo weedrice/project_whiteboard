@@ -84,9 +84,17 @@ function fetchComments() {
     </div>
 
     <div v-else class="space-y-6">
-      <CommentItem v-for="comment in comments" :key="comment.commentId" :comment="comment" :postId="postId"
-        :boardUrl="boardUrl" @reply-success="handleReplySuccess" @edit-success="handleEditSuccess"
-        @delete="handleDelete" />
+      <CommentItem 
+        v-for="comment in comments" 
+        :key="comment.commentId" 
+        v-memo="[comment.commentId, comment.content, comment.likeCount, comment.createdAt, comment.isDeleted]"
+        :comment="comment" 
+        :postId="postId"
+        :boardUrl="boardUrl" 
+        @reply-success="handleReplySuccess" 
+        @edit-success="handleEditSuccess"
+        @delete="handleDelete" 
+      />
 
       <div v-if="comments.length === 0" class="text-center text-gray-500 dark:text-gray-400 py-4">
         {{ $t('comment.empty') }}

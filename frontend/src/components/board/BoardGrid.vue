@@ -13,6 +13,7 @@ defineProps<{
       <BoardCard
         v-for="board in boards"
         :key="board.boardUrl"
+        v-memo="[board.boardUrl, board.boardName, board.iconUrl, board.isSubscribed, board.subscriberCount]"
         :board="board"
       />
     </div>
