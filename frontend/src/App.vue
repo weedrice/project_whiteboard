@@ -13,6 +13,7 @@ import GlobalPromptModal from '@/components/common/widgets/GlobalPromptModal.vue
 import ErrorBoundary from '@/components/common/ErrorBoundary.vue'
 import NetworkStatus from '@/components/common/NetworkStatus.vue'
 import logger from '@/utils/logger'
+import type { UserSettings } from '@/types/user'
 
 // Import layouts
 import DefaultLayout from '@/components/layout/DefaultLayout.vue'
@@ -30,7 +31,7 @@ const layout = computed(() => {
 
 const themeStore = useThemeStore()
 
-const applySettings = (settings) => {
+const applySettings = (settings: Partial<UserSettings>) => {
     if (settings.theme) {
         themeStore.setTheme(settings.theme)
     }

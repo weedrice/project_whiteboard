@@ -1,7 +1,7 @@
 /**
  * Checks if a value is empty (null, undefined, empty string, or empty array)
  */
-export const isEmpty = (value: any): boolean => {
+export const isEmpty = (value: unknown): boolean => {
     if (value === null || value === undefined) return true
     if (typeof value === 'string' && value.trim() === '') return true
     if (Array.isArray(value) && value.length === 0) return true
