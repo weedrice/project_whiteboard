@@ -12,15 +12,16 @@
     />
 
     <div v-else>
-      <FeedCard 
-        v-for="post in posts" 
-        :key="post.postId" 
-        v-memo="[post.postId, post.liked, post.scrapped, post.viewCount, post.commentCount, post.subscribed]"
-        :post="post" 
-        @like="handleLike" 
-        @scrap="handleScrap"
-        @subscribe="handleSubscribe" 
-      />
+      <template v-for="post in posts" :key="post?.postId">
+        <FeedCard 
+          v-if="post && post.postId"
+          v-memo="[post.postId, post.liked, post.scrapped, post.viewCount, post.commentCount, post.subscribed]"
+          :post="post" 
+          @like="handleLike" 
+          @scrap="handleScrap"
+          @subscribe="handleSubscribe" 
+        />
+      </template>
 
       <!-- Sentinel for infinite scroll -->
       <div ref="sentinel" class="h-10 flex justify-center items-center mt-4">

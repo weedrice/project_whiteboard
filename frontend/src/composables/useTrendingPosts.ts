@@ -35,9 +35,11 @@ export function useTrendingPosts(size: number = 10) {
         placeholderData: (previousData) => previousData
     })
 
-    // Flattened posts
+    // Flattened posts (filter out undefined/null values)
     const posts = computed(() => {
-        return query.data.value?.pages.flatMap(page => page.content) ?? []
+        return query.data.value?.pages
+            .flatMap(page => page.content)
+            .filter((post): post is PostSummary => post != null && post.postId != null) ?? []
     })
 
     return {

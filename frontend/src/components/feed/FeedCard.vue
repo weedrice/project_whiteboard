@@ -28,6 +28,11 @@ const props = defineProps<{
   post: FeedPost
 }>()
 
+// Validate post data
+if (!props.post || !props.post.postId) {
+  console.warn('FeedCard: Invalid post data', props.post)
+}
+
 const emit = defineEmits<{
   (e: 'like', post: FeedPost): void
   (e: 'scrap', post: FeedPost): void
@@ -35,10 +40,11 @@ const emit = defineEmits<{
 }>()
 
 import { formatDateOnly } from '@/utils/date'
+import { getOptimizedBoardIconUrl, getOptimizedPostImageUrl, handleImageError } from '@/utils/image'
 </script>
 
 <template>
-  <BaseCard noPadding class="mb-6">
+  <BaseCard v-if="post && post.postId" noPadding class="mb-6">
     <!-- Header -->
     <div class="px-4 py-4 sm:px-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
       <div class="flex items-center space-x-3">
