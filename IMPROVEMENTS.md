@@ -401,11 +401,28 @@ tasks.named('jacocoTestCoverageVerification') {
 
 ---
 
-### 15. **환경별 설정 분리**
+### 15. ✅ **환경별 설정 분리** (완료)
 
-**제안:**
-- 개발/스테이징/프로덕션 환경 명확히 분리
-- 환경 변수 검증 로직 추가
+**구현 내용:**
+- ✅ 환경 변수 검증 로직: 프로덕션 환경에서 필수 환경 변수 자동 검증
+- ✅ 환경 변수 가이드: `ENVIRONMENT_VARIABLES.md`에 상세 가이드 작성
+- ✅ 환경 변수 예시 파일: `env.example` 파일 생성
+- ✅ 프로파일 제어: `SPRING_PROFILES_ACTIVE` 환경 변수로 프로파일 제어
+
+**주요 변경사항:**
+- `backend/src/main/java/com/weedrice/whiteboard/global/config/EnvironmentValidator.java`: 환경 변수 검증 로직 (신규)
+- `backend/src/main/resources/application.yml`: 프로파일을 환경 변수로 제어
+- `backend/ENVIRONMENT_VARIABLES.md`: 환경 변수 가이드 문서 (신규)
+- `backend/env.example`: 환경 변수 예시 파일 (신규)
+
+**검증 대상:**
+- 데이터베이스 연결 정보 (DB_HOST, DB_NAME, DB_USER, DB_PASSWORD)
+- JWT Secret
+- OAuth 설정 (GitHub 필수, Google/Discord 선택적)
+- AWS 자격 증명 (S3, SES)
+- Frontend URL
+
+**참고 문서:** `backend/ENVIRONMENT_VARIABLES.md`
 
 ---
 

@@ -58,7 +58,27 @@ com.weedrice.whiteboard
 -   PostgreSQL (또는 H2 사용 시 설정 변경)
 
 ### 설정 (Configuration)
-`src/main/resources/application.yml` 파일에서 데이터베이스 및 JWT 설정을 확인하고 필요에 따라 수정하세요.
+
+#### 개발 환경
+`src/main/resources/application-dev.yml` 파일에서 데이터베이스 및 JWT 설정을 확인하고 필요에 따라 수정하세요.
+
+#### 프로덕션 환경
+프로덕션 환경에서는 환경 변수를 통해 설정을 관리합니다.
+
+1. **환경 변수 설정**
+   - `env.example` 파일을 참고하여 필요한 환경 변수를 설정하세요
+   - 자세한 내용은 [ENVIRONMENT_VARIABLES.md](./ENVIRONMENT_VARIABLES.md)를 참조하세요
+
+2. **필수 환경 변수**
+   - 데이터베이스: `DB_HOST`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`
+   - JWT: `JWT_SECRET`
+   - OAuth: `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` (필수), Google/Discord (선택적)
+   - AWS: `AWS_ACCESS_KEY`, `AWS_SECRET_KEY`, `AWS_SES_*`, `S3_BUCKET` 등
+   - Frontend: `FRONTEND_URL`
+
+3. **환경 변수 검증**
+   - 프로덕션 환경에서는 애플리케이션 시작 시 필수 환경 변수를 자동으로 검증합니다
+   - 필수 환경 변수가 누락된 경우 애플리케이션이 시작되지 않습니다
 
 ### 실행 (Run)
 ```bash
