@@ -11,6 +11,7 @@ import Pagination from '@/components/common/ui/Pagination.vue' // Added Paginati
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
+import { getOptimizedBoardIconUrl, handleImageError } from '@/utils/image'
 
 const { t } = useI18n()
 const route = useRoute()
