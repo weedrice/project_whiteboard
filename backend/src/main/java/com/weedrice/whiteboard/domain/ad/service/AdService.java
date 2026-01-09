@@ -47,8 +47,8 @@ public class AdService {
         if (ads.isEmpty()) {
             return null;
         }
-        // TODO: 여러 광고 중 하나를 선택하는 로직 (예: 랜덤, 가중치 등)
-        Ad ad = ads.get(0);
+        // 여러 광고 중 하나를 선택 (현재는 랜덤 선택, 향후 가중치 기반 선택으로 개선 가능)
+        Ad ad = ads.get((int) (Math.random() * ads.size()));
         ad.incrementImpressionCount();
         return ad;
     }

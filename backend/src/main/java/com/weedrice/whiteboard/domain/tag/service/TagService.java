@@ -53,10 +53,18 @@ public class TagService {
         }
     }
 
+    /**
+     * 인기 태그를 조회합니다.
+     * 현재는 전체 기간 기준으로 post_count가 높은 순으로 정렬합니다.
+     * 향후 일정 기간 내(예: 최근 30일) post_count를 기준으로 개선 가능합니다.
+     * 
+     * @return 인기 태그 목록 (최대 10개)
+     */
     public List<Tag> getPopularTags() {
-        // TODO: 인기 태그 조회 로직 (예: 일정 기간 내 post_count가 높은 태그)
-        // 현재는 단순히 post_count가 높은 순으로 정렬
+        // post_count가 높은 순으로 정렬하여 상위 10개 태그 반환
+        // 향후 개선: 일정 기간 내(예: 최근 30일) post_count를 기준으로 필터링
         return tagRepository.findAll().stream()
+                .filter(tag -> tag.getPostCount() > 0) // 사용된 태그만
                 .sorted((t1, t2) -> t2.getPostCount().compareTo(t1.getPostCount()))
                 .limit(10) // 상위 10개 태그
                 .collect(Collectors.toList());

@@ -2,6 +2,8 @@ package com.weedrice.whiteboard.domain.report.service;
 
 import com.weedrice.whiteboard.domain.admin.entity.Admin;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
+import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
+import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.report.dto.ReportResponse;
 import com.weedrice.whiteboard.domain.report.entity.Report;
 import com.weedrice.whiteboard.domain.report.repository.ReportRepository;
@@ -24,6 +26,8 @@ public class ReportService {
     private final ReportRepository reportRepository;
     private final UserRepository userRepository;
     private final AdminRepository adminRepository;
+    private final PostRepository postRepository;
+    private final CommentRepository commentRepository;
 
     @Transactional
     public Long createReport(Long reporterId, String targetType, Long targetId, String reasonType, String remark,
@@ -37,7 +41,8 @@ public class ReportService {
                     throw new BusinessException(ErrorCode.ALREADY_REPORTED);
                 });
 
-        // TODO: targetId와 targetType의 유효성 검사 (실제로 존재하는 게시글/댓글/사용자인지)
+        // targetId와 targetType의 유효성 검사 (실제로 존재하는 게시글/댓글/사용자인지)
+        validateTarget(targetType, targetId);
 
         Report report = Report.builder()
                 .reporter(reporter)
@@ -85,5 +90,32 @@ public class ReportService {
 
         report.processReport(admin, status, remark);
         return ReportResponse.from(report);
+    }
+
+    /**
+     * 신고 대상(targetType, targetId)의 유효성을 검사합니다.
+     * 
+     * @param targetType 신고 대상 타입 (POST, COMMENT, USER)
+     * @param targetId 신고 대상 ID
+     * @throws BusinessException 대상이 존재하지 않을 경우
+     */
+    private void validateTarget(String targetType, Long targetId) {
+        switch (targetType.toUpperCase()) {
+            case "POST":
+                postRepository.findById(targetId)
+                        .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
+                break;
+            case "COMMENT":
+                commentRepository.findById(targetId)
+                        .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
+                break;
+            case "USER":
+                userRepository.findById(targetId)
+                        .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+                break;
+            default:
+                throw new BusinessException(ErrorCode.INVALID_TARGET, 
+                        "Invalid target type: " + targetType + ". Must be POST, COMMENT, or USER.");
+        }
     }
 }
