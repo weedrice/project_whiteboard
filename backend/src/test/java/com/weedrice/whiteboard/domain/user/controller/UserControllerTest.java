@@ -3,6 +3,7 @@ package com.weedrice.whiteboard.domain.user.controller;
 import com.weedrice.whiteboard.domain.board.dto.BoardResponse;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.service.BoardService;
+import com.weedrice.whiteboard.domain.comment.dto.MyCommentResponse;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.service.CommentService;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
@@ -43,6 +44,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
@@ -65,6 +67,9 @@ class UserControllerTest {
 
         @Mock
         private CommentService commentService;
+
+        @Mock
+        private org.springframework.context.MessageSource messageSource;
 
         @InjectMocks
         private UserController userController;
@@ -97,6 +102,21 @@ class UserControllerTest {
                                 Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER")));
 
                 pageable = PageRequest.of(0, 10);
+
+                // MessageSource 기본 mock 설정 (lenient로 설정하여 사용하지 않는 테스트에서도 에러 발생하지 않도록)
+                lenient().when(messageSource.getMessage(anyString(), any(), any())).thenAnswer(invocation -> {
+                        String code = invocation.getArgument(0);
+                        if ("success.user.passwordChanged".equals(code)) {
+                                return "비밀번호가 변경되었습니다.";
+                        } else if ("success.user.accountDeleted".equals(code)) {
+                                return "회원 탈퇴가 완료되었습니다.";
+                        } else if ("success.user.blocked".equals(code)) {
+                                return "차단되었습니다.";
+                        } else if ("success.user.unblocked".equals(code)) {
+                                return "차단이 해제되었습니다.";
+                        }
+                        return code;
+                });
         }
 
         @Nested
@@ -107,7 +127,19 @@ class UserControllerTest {
                 @DisplayName("내 정보 조회 API 성공")
                 void getMyInfo_success() {
                         // given
-                        given(userService.getMyInfo(1L)).willReturn(testUser);
+                        MyInfoResponse myInfoResponse = MyInfoResponse.builder()
+                                        .userId(1L)
+                                        .loginId("testuser")
+                                        .displayName("Test User")
+                                        .email("test@example.com")
+                                        .status("ACTIVE")
+                                        .role("USER")
+                                        .isEmailVerified(true)
+                                        .createdAt(LocalDateTime.now())
+                                        .lastLoginAt(LocalDateTime.now())
+                                        .points(0)
+                                        .build();
+                        given(userService.getMyInfo(1L)).willReturn(myInfoResponse);
 
                         // when
                         ResponseEntity<ApiResponse<MyInfoResponse>> response = userController
@@ -131,8 +163,19 @@ class UserControllerTest {
                 @DisplayName("슈퍼 관리자 정보 조회 시 역할 확인")
                 void getMyInfo_superAdmin_success() {
                         // given
-                        ReflectionTestUtils.setField(testUser, "isSuperAdmin", true);
-                        given(userService.getMyInfo(1L)).willReturn(testUser);
+                        MyInfoResponse myInfoResponse = MyInfoResponse.builder()
+                                        .userId(1L)
+                                        .loginId("testuser")
+                                        .displayName("Test User")
+                                        .email("test@example.com")
+                                        .status("ACTIVE")
+                                        .role("SUPER_ADMIN")
+                                        .isEmailVerified(true)
+                                        .createdAt(LocalDateTime.now())
+                                        .lastLoginAt(LocalDateTime.now())
+                                        .points(0)
+                                        .build();
+                        given(userService.getMyInfo(1L)).willReturn(myInfoResponse);
 
                         // when
                         ResponseEntity<ApiResponse<MyInfoResponse>> response = userController
@@ -151,17 +194,12 @@ class UserControllerTest {
                         request.setProfileImageUrl("https://example.com/image.jpg");
                         request.setProfileImageId(100L);
 
-                        User updatedUser = User.builder()
-                                        .loginId("testuser")
-                                        .displayName("Updated Name")
-                                        .email("test@example.com")
-                                        .build();
-                        ReflectionTestUtils.setField(updatedUser, "userId", 1L);
-                        ReflectionTestUtils.setField(updatedUser, "profileImageUrl", "https://example.com/image.jpg");
+                        UpdateProfileResponse updateProfileResponse = new UpdateProfileResponse(
+                                        1L, "Updated Name", "https://example.com/image.jpg");
 
                         given(userService.updateMyProfile(eq(1L), eq("Updated Name"),
                                         eq("https://example.com/image.jpg"), eq(100L)))
-                                        .willReturn(updatedUser);
+                                        .willReturn(updateProfileResponse);
 
                         // when
                         ResponseEntity<ApiResponse<UpdateProfileResponse>> response = userController
@@ -256,8 +294,8 @@ class UserControllerTest {
                 @DisplayName("내 설정 조회 API 성공")
                 void getMySettings_success() {
                         // given
-                        UserSettings settings = UserSettings.builder().user(testUser).build();
-                        given(userSettingsService.getSettings(1L)).willReturn(settings);
+                        UserSettingsResponse settingsResponse = new UserSettingsResponse("LIGHT", "ko", "Asia/Seoul", true);
+                        given(userSettingsService.getSettings(1L)).willReturn(settingsResponse);
 
                         // when
                         ResponseEntity<ApiResponse<UserSettingsResponse>> response = userController
@@ -282,12 +320,11 @@ class UserControllerTest {
                         request.setTimezone("America/New_York");
                         request.setHideNsfw(false);
 
-                        UserSettings updatedSettings = UserSettings.builder().user(testUser).build();
-                        updatedSettings.updateSettings("DARK", "en", "America/New_York", false);
+                        UserSettingsResponse updatedSettingsResponse = new UserSettingsResponse("DARK", "en", "America/New_York", false);
 
                         given(userSettingsService.updateSettings(eq(1L), eq("DARK"), eq("en"), eq("America/New_York"),
                                         eq(false)))
-                                        .willReturn(updatedSettings);
+                                        .willReturn(updatedSettingsResponse);
 
                         // when
                         ResponseEntity<ApiResponse<UserSettingsResponse>> response = userController
@@ -304,16 +341,8 @@ class UserControllerTest {
                 @DisplayName("알림 설정 조회 API 성공")
                 void getMyNotificationSettings_success() {
                         // given
-                        UserNotificationSettings setting1 = UserNotificationSettings.builder()
-                                        .userId(1L)
-                                        .notificationType("COMMENT")
-                                        .isEnabled(true)
-                                        .build();
-                        UserNotificationSettings setting2 = UserNotificationSettings.builder()
-                                        .userId(1L)
-                                        .notificationType("LIKE")
-                                        .isEnabled(false)
-                                        .build();
+                        NotificationSettingResponse setting1 = new NotificationSettingResponse("COMMENT", true);
+                        NotificationSettingResponse setting2 = new NotificationSettingResponse("LIKE", false);
 
                         given(userSettingsService.getNotificationSettings(1L)).willReturn(List.of(setting1, setting2));
 
@@ -337,14 +366,10 @@ class UserControllerTest {
                         request.setNotificationType("COMMENT");
                         request.setIsEnabled(false);
 
-                        UserNotificationSettings updatedSetting = UserNotificationSettings.builder()
-                                        .userId(1L)
-                                        .notificationType("COMMENT")
-                                        .isEnabled(false)
-                                        .build();
+                        NotificationSettingResponse updatedSettingResponse = new NotificationSettingResponse("COMMENT", false);
 
                         given(userSettingsService.updateNotificationSetting(1L, "COMMENT", false))
-                                        .willReturn(updatedSetting);
+                                        .willReturn(updatedSettingResponse);
 
                         // when
                         ResponseEntity<ApiResponse<NotificationSettingResponse>> response = userController
@@ -402,9 +427,9 @@ class UserControllerTest {
                 @DisplayName("차단 목록 조회 API 성공")
                 void getBlockedUsers_success() {
                         // given
-                        UserBlockService.BlockedUserDto blockedUser = new UserBlockService.BlockedUserDto(
+                        BlockedUserResponse blockedUser = new BlockedUserResponse(
                                         2L, "blockeduser", "Blocked User", LocalDateTime.now());
-                        Page<UserBlockService.BlockedUserDto> blockedPage = new PageImpl<>(
+                        Page<BlockedUserResponse> blockedPage = new PageImpl<>(
                                         List.of(blockedUser), pageable, 1);
 
                         given(userBlockService.getBlockedUsers(1L, pageable)).willReturn(blockedPage);
@@ -480,7 +505,8 @@ class UserControllerTest {
                         ReflectionTestUtils.setField(post, "isNsfw", false);
                         ReflectionTestUtils.setField(post, "isSpoiler", false);
 
-                        Page<Post> postPage = new PageImpl<>(List.of(post), pageable, 1);
+                        PostSummary postSummary = PostSummary.from(post);
+                        Page<PostSummary> postPage = new PageImpl<>(List.of(postSummary), pageable, 1);
 
                         given(postService.getMyPosts(1L, pageable)).willReturn(postPage);
 
@@ -522,7 +548,8 @@ class UserControllerTest {
                         ReflectionTestUtils.setField(comment, "createdAt", LocalDateTime.now());
                         ReflectionTestUtils.setField(comment, "likeCount", 0);
 
-                        Page<Comment> commentPage = new PageImpl<>(List.of(comment), pageable, 1);
+                        MyCommentResponse myCommentResponse = MyCommentResponse.from(comment);
+                        Page<MyCommentResponse> commentPage = new PageImpl<>(List.of(myCommentResponse), pageable, 1);
 
                         given(commentService.getMyComments(1L, pageable)).willReturn(commentPage);
 

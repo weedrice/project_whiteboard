@@ -13,6 +13,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.Optional;
 
@@ -28,6 +29,8 @@ class NotificationServiceTest {
     private NotificationRepository notificationRepository;
     @Mock
     private UserRepository userRepository;
+    @Mock
+    private TransactionTemplate transactionTemplate;
 
     @InjectMocks
     private NotificationService notificationService;
@@ -60,6 +63,10 @@ class NotificationServiceTest {
     void handleNotificationEvent_success() {
         // given
         NotificationEvent event = new NotificationEvent(user, actor, "LIKE", "POST", 1L, "Test Notification");
+        when(transactionTemplate.execute(any())).thenAnswer(invocation -> {
+            org.springframework.transaction.support.TransactionCallback<Notification> callback = invocation.getArgument(0);
+            return callback.doInTransaction(null);
+        });
         when(notificationRepository.save(any(Notification.class))).thenReturn(notification);
 
         // when

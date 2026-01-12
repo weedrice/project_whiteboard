@@ -65,14 +65,20 @@ class ShopServiceTest {
         Long itemId = 1L;
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(shopItemRepository.findById(itemId)).thenReturn(Optional.of(shopItem));
-        when(purchaseHistoryRepository.save(any(PurchaseHistory.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        PurchaseHistory savedPurchaseHistory = PurchaseHistory.builder()
+                .user(user)
+                .item(shopItem)
+                .purchasedPrice(shopItem.getPrice())
+                .build();
+        ReflectionTestUtils.setField(savedPurchaseHistory, "purchaseId", 1L);
+        when(purchaseHistoryRepository.save(any(PurchaseHistory.class))).thenReturn(savedPurchaseHistory);
 
         // when
-        PurchaseHistory purchaseHistory = shopService.purchaseItem(userId, itemId);
+        Long purchaseId = shopService.purchaseItem(userId, itemId);
 
         // then
+        assertThat(purchaseId).isNotNull();
         verify(pointService).forceSubtractPoint(anyLong(), anyInt(), anyString(), anyLong(), anyString());
-        assertThat(purchaseHistory.getItem().getItemName()).isEqualTo("Test Item");
-        assertThat(purchaseHistory.getPurchasedPrice()).isEqualTo(100);
+        verify(purchaseHistoryRepository).save(any(PurchaseHistory.class));
     }
 }

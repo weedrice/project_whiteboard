@@ -3,7 +3,10 @@ package com.weedrice.whiteboard.domain.user.service;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.file.service.FileService;
+import com.weedrice.whiteboard.domain.point.repository.UserPointRepository;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
+import com.weedrice.whiteboard.domain.user.dto.MyInfoResponse;
+import com.weedrice.whiteboard.domain.user.dto.UpdateProfileResponse;
 import com.weedrice.whiteboard.domain.user.dto.UserProfileResponse;
 import com.weedrice.whiteboard.domain.user.entity.PasswordHistory;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -57,6 +60,8 @@ class UserServiceTest {
     private PostRepository postRepository;
     @Mock
     private FileService fileService;
+    @Mock
+    private UserPointRepository userPointRepository;
 
     @InjectMocks
     private UserService userService;
@@ -108,12 +113,14 @@ class UserServiceTest {
         // given
         Long userId = 1L;
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(userPointRepository.findById(userId)).thenReturn(Optional.empty());
 
         // when
-        User foundUser = userService.getMyInfo(userId);
+        MyInfoResponse myInfoResponse = userService.getMyInfo(userId);
 
         // then
-        assertThat(foundUser).isEqualTo(user);
+        assertThat(myInfoResponse.getUserId()).isEqualTo(userId);
+        assertThat(myInfoResponse.getLoginId()).isEqualTo(user.getLoginId());
     }
 
     @Test
@@ -144,10 +151,10 @@ class UserServiceTest {
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
 
         // when
-        User updatedUser = userService.updateMyProfile(userId, newDisplayName, null, null);
+        UpdateProfileResponse updateProfileResponse = userService.updateMyProfile(userId, newDisplayName, null, null);
 
         // then
-        assertThat(updatedUser.getDisplayName()).isEqualTo(newDisplayName);
+        assertThat(updateProfileResponse.getDisplayName()).isEqualTo(newDisplayName);
         verify(displayNameHistoryRepository).save(any());
     }
 
@@ -175,10 +182,10 @@ class UserServiceTest {
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
 
         // when
-        User updatedUser = userService.updateMyProfile(userId,null, newProfileImageUrl, null);
+        UpdateProfileResponse updateProfileResponse = userService.updateMyProfile(userId, null, newProfileImageUrl, null);
 
         // then
-        assertThat(updatedUser.getProfileImageUrl()).isEqualTo(newProfileImageUrl);
+        assertThat(updateProfileResponse.getProfileImageUrl()).isEqualTo(newProfileImageUrl);
     }
 
     @Test

@@ -2,6 +2,9 @@ package com.weedrice.whiteboard.domain.report.service;
 
 import com.weedrice.whiteboard.domain.admin.entity.Admin;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
+import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
+import com.weedrice.whiteboard.domain.post.repository.PostRepository;
+import com.weedrice.whiteboard.domain.report.dto.ReportResponse;
 import com.weedrice.whiteboard.domain.report.entity.Report;
 import com.weedrice.whiteboard.domain.report.repository.ReportRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -38,6 +41,10 @@ class ReportServiceTest {
     private UserRepository userRepository;
     @Mock
     private AdminRepository adminRepository;
+    @Mock
+    private PostRepository postRepository;
+    @Mock
+    private CommentRepository commentRepository;
 
     @InjectMocks
     private ReportService reportService;
@@ -57,6 +64,7 @@ class ReportServiceTest {
         ReflectionTestUtils.setField(adminUser, "userId", 2L);
 
         admin = Admin.builder().user(adminUser).build();
+        ReflectionTestUtils.setField(admin, "adminId", 1L);
         report = Report.builder()
                 .reporter(reporter)
                 .targetType("POST")
@@ -77,15 +85,23 @@ class ReportServiceTest {
     void createReport_success() {
         // given
         Long reporterId = 1L;
+        Long targetId = 1L;
         when(userRepository.findById(reporterId)).thenReturn(Optional.of(reporter));
         when(reportRepository.findByReporterAndTargetTypeAndTargetId(any(User.class), anyString(), anyLong())).thenReturn(Optional.empty());
+        when(postRepository.findById(targetId)).thenReturn(Optional.of(com.weedrice.whiteboard.domain.post.entity.Post.builder()
+                .board(com.weedrice.whiteboard.domain.board.entity.Board.builder().build())
+                .user(reporter)
+                .title("Test")
+                .contents("Test")
+                .build()));
+        ReflectionTestUtils.setField(report, "reportId", 1L);
         when(reportRepository.save(any(Report.class))).thenReturn(report);
 
         // when
-        Report createdReport = reportService.createReport(reporterId, "POST", 1L, "SPAM", null, null);
+        Long createdReportId = reportService.createReport(reporterId, "POST", targetId, "SPAM", null, null);
 
         // then
-        assertThat(createdReport.getTargetType()).isEqualTo("POST");
+        assertThat(createdReportId).isNotNull();
         verify(reportRepository).save(any(Report.class));
     }
 
@@ -102,10 +118,10 @@ class ReportServiceTest {
         when(reportRepository.findById(reportId)).thenReturn(Optional.of(report));
 
         // when
-        Report processedReport = reportService.processReport(adminUserId, reportId, status, "Test Remark");
+        ReportResponse processedReport = reportService.processReport(adminUserId, reportId, status, "Test Remark");
 
         // then
         assertThat(processedReport.getStatus()).isEqualTo(status);
-        assertThat(processedReport.getAdmin()).isEqualTo(admin);
+        assertThat(processedReport.getAdminId()).isNotNull();
     }
 }

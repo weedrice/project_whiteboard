@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.file.service;
 
+import com.weedrice.whiteboard.domain.file.dto.FileUploadResponse;
 import com.weedrice.whiteboard.domain.file.entity.File;
 import com.weedrice.whiteboard.domain.file.repository.FileRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -12,6 +13,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Optional;
@@ -29,6 +31,8 @@ class FileServiceTest {
     private UserRepository userRepository;
     @Mock
     private FileStorageService fileStorageService;
+    @Mock
+    private TransactionTemplate transactionTemplate;
 
     @InjectMocks
     private FileService fileService;
@@ -39,24 +43,28 @@ class FileServiceTest {
         // given
         Long uploaderId = 1L;
         User uploader = User.builder().build();
-        MultipartFile multipartFile = new MockMultipartFile("file", "test.txt", "text/plain", "test data".getBytes());
+        MultipartFile multipartFile = new MockMultipartFile("file", "test.jpg", "image/jpeg", "test data".getBytes());
         File file = File.builder()
-                .filePath("storedFileName.txt")
-                .originalName("test.txt")
+                .filePath("storedFileName.jpg")
+                .originalName("test.jpg")
                 .fileSize(10L)
-                .mimeType("text/plain")
+                .mimeType("image/jpeg")
                 .uploader(uploader)
                 .build();
 
         when(userRepository.findById(uploaderId)).thenReturn(Optional.of(uploader));
-        when(fileStorageService.storeFile(multipartFile)).thenReturn("storedFileName.txt");
+        when(fileStorageService.storeFile(multipartFile)).thenReturn("storedFileName.jpg");
+        when(transactionTemplate.execute(any())).thenAnswer(invocation -> {
+            org.springframework.transaction.support.TransactionCallback<File> callback = invocation.getArgument(0);
+            return callback.doInTransaction(null);
+        });
         when(fileRepository.save(any(File.class))).thenReturn(file);
 
         // when
-        File uploadedFile = fileService.uploadFile(uploaderId, multipartFile);
+        FileUploadResponse uploadedFile = fileService.uploadFile(uploaderId, multipartFile);
 
         // then
-        assertThat(uploadedFile.getOriginalName()).isEqualTo("test.txt");
-        assertThat(uploadedFile.getFilePath()).isEqualTo("storedFileName.txt");
+        assertThat(uploadedFile.getOriginalName()).isEqualTo("test.jpg");
+        assertThat(uploadedFile.getStoredName()).isEqualTo("storedFileName.jpg");
     }
 }

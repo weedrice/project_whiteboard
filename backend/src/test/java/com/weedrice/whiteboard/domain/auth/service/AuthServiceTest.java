@@ -11,9 +11,15 @@ import com.weedrice.whiteboard.domain.point.repository.UserPointRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserSettingsRepository;
 import com.weedrice.whiteboard.domain.user.repository.SocialAccountRepository;
+import com.weedrice.whiteboard.domain.point.repository.PointHistoryRepository;
+import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
+import com.weedrice.whiteboard.global.email.EmailService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import com.weedrice.whiteboard.global.security.JwtTokenProvider;
+import com.weedrice.whiteboard.domain.auth.service.VerificationCodeService;
+import com.weedrice.whiteboard.domain.auth.repository.PasswordResetTokenRepository;
+import org.springframework.transaction.support.TransactionTemplate;
 import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -34,6 +40,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -44,6 +51,8 @@ class AuthServiceTest {
         private UserRepository userRepository;
         @Mock
         private UserPointRepository userPointRepository;
+        @Mock
+        private PointHistoryRepository pointHistoryRepository;
         @Mock
         private UserSettingsRepository userSettingsRepository;
         @Mock
@@ -58,6 +67,16 @@ class AuthServiceTest {
         private LoginHistoryRepository loginHistoryRepository;
         @Mock
         private SocialAccountRepository socialAccountRepository;
+        @Mock
+        private VerificationCodeService verificationCodeService;
+        @Mock
+        private PasswordResetTokenRepository passwordResetTokenRepository;
+        @Mock
+        private EmailService emailService;
+        @Mock
+        private GlobalConfigService globalConfigService;
+        @Mock
+        private TransactionTemplate transactionTemplate;
 
         @InjectMocks
         private AuthService authService;
@@ -88,7 +107,14 @@ class AuthServiceTest {
                 when(userRepository.existsByLoginId(request.getLoginId())).thenReturn(false);
                 when(userRepository.existsByEmail(request.getEmail())).thenReturn(false);
                 when(passwordEncoder.encode(request.getPassword())).thenReturn("encodedPassword");
+                when(globalConfigService.getConfig(anyString())).thenReturn("500");
                 when(userRepository.save(any(User.class))).thenReturn(user);
+                when(userSettingsRepository.save(any(com.weedrice.whiteboard.domain.user.entity.UserSettings.class)))
+                        .thenAnswer(invocation -> invocation.getArgument(0));
+                when(userPointRepository.save(any(com.weedrice.whiteboard.domain.point.entity.UserPoint.class)))
+                        .thenAnswer(invocation -> invocation.getArgument(0));
+                when(pointHistoryRepository.save(any(com.weedrice.whiteboard.domain.point.entity.PointHistory.class)))
+                        .thenAnswer(invocation -> invocation.getArgument(0));
 
                 // when
                 SignupResponse response = authService.signup(request);

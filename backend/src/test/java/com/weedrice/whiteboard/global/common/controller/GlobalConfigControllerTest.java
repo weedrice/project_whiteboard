@@ -9,9 +9,12 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MockMvc;
@@ -35,7 +38,11 @@ import jakarta.servlet.http.HttpServletResponse;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 
-@WebMvcTest(controllers = GlobalConfigController.class, excludeFilters = @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = com.weedrice.whiteboard.global.config.WebConfig.class))
+@WebMvcTest(controllers = GlobalConfigController.class, 
+    excludeFilters = {
+        @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = com.weedrice.whiteboard.global.config.WebConfig.class),
+        @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = com.weedrice.whiteboard.global.config.SecurityConfig.class)
+    })
 class GlobalConfigControllerTest {
 
     @Autowired
@@ -57,7 +64,25 @@ class GlobalConfigControllerTest {
     private com.weedrice.whiteboard.domain.admin.interceptor.IpBlockInterceptor ipBlockInterceptor;
 
     @MockBean
+    private com.weedrice.whiteboard.global.security.RefererCheckInterceptor refererCheckInterceptor;
+
+    @MockBean
+    private com.weedrice.whiteboard.global.ratelimit.RateLimitInterceptor rateLimitInterceptor;
+
+    @MockBean
     private org.springframework.data.jpa.mapping.JpaMetamodelMappingContext jpaMetamodelMappingContext;
+
+    @MockBean
+    private com.weedrice.whiteboard.domain.user.repository.UserRepository userRepository;
+
+    @MockBean
+    private com.weedrice.whiteboard.domain.admin.repository.AdminRepository adminRepository;
+
+    @MockBean
+    private com.weedrice.whiteboard.global.security.oauth.CustomOAuth2UserService customOAuth2UserService;
+
+    @MockBean
+    private com.weedrice.whiteboard.global.security.oauth.OAuth2SuccessHandler oAuth2SuccessHandler;
 
     private CustomUserDetails adminUser;
 
@@ -66,7 +91,23 @@ class GlobalConfigControllerTest {
         adminUser = new CustomUserDetails(1L, "admin", "password",
                 Collections.singletonList(new SimpleGrantedAuthority("ROLE_SUPER_ADMIN")));
 
+        // UserRepository mock 설정 (SecurityUtils에서 사용)
+        com.weedrice.whiteboard.domain.user.entity.User user = com.weedrice.whiteboard.domain.user.entity.User.builder()
+                .loginId("admin")
+                .displayName("Admin")
+                .build();
+        org.springframework.test.util.ReflectionTestUtils.setField(user, "userId", 1L);
+        org.springframework.test.util.ReflectionTestUtils.setField(user, "isSuperAdmin", true);
+        when(userRepository.findById(1L)).thenReturn(java.util.Optional.of(user));
+
+        // SecurityUtils 초기화 (static 필드 설정)
+        com.weedrice.whiteboard.global.common.util.SecurityUtils securityUtils = 
+            new com.weedrice.whiteboard.global.common.util.SecurityUtils(userRepository, adminRepository);
+        securityUtils.init();
+
         when(ipBlockInterceptor.preHandle(any(), any(), any())).thenReturn(true);
+        when(refererCheckInterceptor.preHandle(any(), any(), any())).thenReturn(true);
+        when(rateLimitInterceptor.preHandle(any(), any(), any())).thenReturn(true);
 
         doAnswer(invocation -> {
             HttpServletRequest request = invocation.getArgument(0);

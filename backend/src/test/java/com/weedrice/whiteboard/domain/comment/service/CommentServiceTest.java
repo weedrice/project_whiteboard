@@ -12,6 +12,8 @@ import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.domain.user.service.UserBlockService;
+import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -52,6 +54,10 @@ class CommentServiceTest {
     private CommentClosureRepository commentClosureRepository;
     @Mock
     private PointService pointService;
+    @Mock
+    private UserBlockService userBlockService;
+    @Mock
+    private GlobalConfigService globalConfigService;
 
     @InjectMocks
     private CommentService commentService;

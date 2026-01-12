@@ -23,6 +23,8 @@ import com.weedrice.whiteboard.domain.tag.repository.PostTagRepository;
 import com.weedrice.whiteboard.domain.tag.service.TagService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.domain.user.service.UserBlockService;
+import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
@@ -35,6 +37,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -45,6 +48,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.lenient;
 
 @ExtendWith(MockitoExtension.class)
 class PostServiceTest {
@@ -83,6 +87,10 @@ class PostServiceTest {
     private FileService fileService;
     @Mock
     private BoardSubscriptionRepository boardSubscriptionRepository;
+    @Mock
+    private UserBlockService userBlockService;
+    @Mock
+    private GlobalConfigService globalConfigService;
 
     @InjectMocks
     private PostService postService;
@@ -94,6 +102,9 @@ class PostServiceTest {
 
     @BeforeEach
     void setUp() {
+        // GlobalConfigService 기본 mock 설정 - lenient()로 설정하여 일부 테스트에서 사용되지 않아도 허용
+        lenient().when(globalConfigService.getConfig(anyString())).thenReturn("50");
+        
         user = User.builder().loginId("testuser").displayName("Test User").build();
         ReflectionTestUtils.setField(user, "userId", 1L);
 
@@ -170,7 +181,8 @@ class PostServiceTest {
     @Test
     @DisplayName("게시글 조회 성공 - ID로 조회")
     void getPostById_success() {
-        when(postRepository.findById(1L)).thenReturn(Optional.of(post));
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+        when(userBlockService.getBlockedUserIds(1L)).thenReturn(Collections.emptyList());
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(viewHistoryRepository.findByUserAndPost(user, post)).thenReturn(Optional.empty());
         when(viewHistoryRepository.save(any(ViewHistory.class))).thenAnswer(i -> i.getArgument(0));
@@ -190,8 +202,10 @@ class PostServiceTest {
         // Mock user who is NOT author, NOT admin, NOT superadmin
         User otherUser = User.builder().loginId("other").build();
         ReflectionTestUtils.setField(otherUser, "userId", 2L);
+        ReflectionTestUtils.setField(otherUser, "isSuperAdmin", false);
 
-        when(postRepository.findById(1L)).thenReturn(Optional.of(post));
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+        when(userBlockService.getBlockedUserIds(2L)).thenReturn(Collections.emptyList());
         when(userRepository.findById(2L)).thenReturn(Optional.of(otherUser));
         when(adminRepository.findByUserAndBoardAndIsActive(otherUser, board, true)).thenReturn(Optional.empty());
 
@@ -204,29 +218,31 @@ class PostServiceTest {
     @DisplayName("게시글 목록 조회 - BoardUrl")
     void getPosts_byBoardUrl() {
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
-        when(postRepository.findByBoardIdAndCategoryId(eq(1L), any(), any(), any())).thenReturn(Page.empty());
+        // currentUserId가 null이므로 userBlockService가 호출되지 않음
+        // Page.empty()인 경우 getPostIdsWithImages가 빈 리스트를 받아 fileService가 호출되지 않음
+        when(postRepository.findByBoardIdAndCategoryId(eq(1L), any(), any(), any(), any(Pageable.class))).thenReturn(Page.empty());
 
-        postService.getPosts("free", null, null, Pageable.unpaged());
+        postService.getPosts("free", null, null, null, Pageable.unpaged());
 
-        verify(postRepository).findByBoardIdAndCategoryId(eq(1L), any(), any(), any());
+        verify(postRepository).findByBoardIdAndCategoryId(eq(1L), any(), any(), any(), any(Pageable.class));
     }
 
     @Test
     @DisplayName("인기 게시글 조회 - 로그인 사용자")
     void getTrendingPosts_loggedIn() {
-        when(postRepository.findTrendingPosts(any(LocalDateTime.class), any(Pageable.class)))
+        when(userBlockService.getBlockedUserIds(1L)).thenReturn(Collections.emptyList());
+        when(postRepository.findTrendingPosts(any(LocalDateTime.class), anyList(), any(Pageable.class)))
                 .thenReturn(List.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         
-        File file = File.builder().relatedId(1L).relatedType("POST_CONTENT").mimeType("image/jpeg").build();
-        ReflectionTestUtils.setField(file, "fileId", 10L);
-        when(fileService.getFilesByRelatedEntityIn(anyList(), eq("POST_CONTENT"))).thenReturn(List.of(file));
+        when(fileService.getRelatedIdsWithImages(anyList(), eq("POST_CONTENT"))).thenReturn(List.of(1L));
+        when(fileService.getOneImageFileIdForPost(1L)).thenReturn(10L);
         
         when(postLikeRepository.findByUserAndPostIn(user, List.of(post))).thenReturn(Collections.emptyList());
         when(scrapRepository.findByUserAndPostIn(user, List.of(post))).thenReturn(Collections.emptyList());
         when(boardSubscriptionRepository.findByUserAndBoardIn(eq(user), anyList())).thenReturn(Collections.emptyList());
 
-        List<PostSummary> result = postService.getTrendingPosts(10, 1L);
+        List<PostSummary> result = postService.getTrendingPosts(PageRequest.of(0, 10), 1L);
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getThumbnailUrl()).isEqualTo("/api/v1/files/10");
@@ -430,10 +446,11 @@ class PostServiceTest {
     @DisplayName("공지사항 조회")
     void getNotices_success() {
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
-        when(postRepository.findByBoard_BoardIdAndIsNoticeAndIsDeletedOrderByCreatedAtDesc(1L, true, false))
+        // currentUserId가 null이므로 userBlockService가 호출되지 않음, blockedUserIds는 null
+        when(postRepository.findNoticesByBoardId(eq(1L), eq(true), eq(false), isNull()))
             .thenReturn(List.of(post));
             
-        List<Post> notices = postService.getNotices("free");
+        List<Post> notices = postService.getNotices("free", null);
         
         assertThat(notices).hasSize(1);
     }
@@ -441,11 +458,13 @@ class PostServiceTest {
     @Test
     @DisplayName("태그별 게시글 조회")
     void getPostsByTag_success() {
-        when(postRepository.findByTagId(eq(1L), any(Pageable.class))).thenReturn(Page.empty());
+        when(postTagRepository.findByTag_TagId(eq(1L), any(Pageable.class))).thenReturn(Page.empty());
+        // Page.empty()인 경우 getPostIdsWithImages가 빈 리스트를 받아 fileService가 호출되지 않음
+        lenient().when(fileService.getRelatedIdsWithImages(anyList(), eq("POST_CONTENT"))).thenReturn(Collections.emptyList());
         
-        postService.getPostsByTag(1L, Pageable.unpaged());
+        postService.getPostsByTag(1L, null, Pageable.unpaged());
         
-        verify(postRepository).findByTagId(eq(1L), any(Pageable.class));
+        verify(postTagRepository).findByTag_TagId(eq(1L), any(Pageable.class));
     }
     
     @Test
@@ -453,6 +472,8 @@ class PostServiceTest {
     void getMyPosts_success() {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(postRepository.findByUserAndIsDeleted(eq(user), eq(false), any(Pageable.class))).thenReturn(Page.empty());
+        // Page.empty()인 경우 getPostIdsWithImages가 빈 리스트를 받아 fileService가 호출되지 않음
+        lenient().when(fileService.getRelatedIdsWithImages(anyList(), eq("POST_CONTENT"))).thenReturn(Collections.emptyList());
         
         postService.getMyPosts(1L, Pageable.unpaged());
         

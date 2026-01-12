@@ -13,6 +13,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
@@ -41,9 +42,12 @@ class JwtTokenProviderTest {
     private long refreshTokenValidity = 7200000;
     private Key signingKey; // Declare signingKey
 
+    @Mock
+    private CustomUserDetailsService customUserDetailsService;
+
     @BeforeEach
     void setUp() {
-        jwtTokenProvider = new JwtTokenProvider(secretKey, accessTokenValidity, refreshTokenValidity);
+        jwtTokenProvider = new JwtTokenProvider(secretKey, accessTokenValidity, refreshTokenValidity, customUserDetailsService);
         signingKey = Keys.hmacShaKeyFor(Decoders.BASE64.decode(secretKey)); // Initialize signingKey
     }
 
@@ -92,6 +96,7 @@ class JwtTokenProviderTest {
         when(authentication.getAuthorities()).thenReturn((java.util.Collection) Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER")));
         when(authentication.getName()).thenReturn("testuser");
         String token = jwtTokenProvider.createAccessToken(authentication);
+        when(customUserDetailsService.loadUserByUsername("testuser")).thenReturn(userDetails);
 
         // when
         Authentication auth = jwtTokenProvider.getAuthentication(token);
@@ -187,7 +192,7 @@ class JwtTokenProviderTest {
     @DisplayName("만료된 토큰 검증 실패")
     void validateToken_expired() {
         // given
-        JwtTokenProvider shortLivedProvider = new JwtTokenProvider(secretKey, 1, 1);
+        JwtTokenProvider shortLivedProvider = new JwtTokenProvider(secretKey, 1, 1, customUserDetailsService);
         Authentication authentication = mock(Authentication.class);
         CustomUserDetails userDetails = new CustomUserDetails(1L, "testuser", "password", Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER")));
         when(authentication.getPrincipal()).thenReturn(userDetails);

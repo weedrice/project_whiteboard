@@ -74,14 +74,21 @@ class SanctionServiceTest {
         when(userRepository.findById(adminUserId)).thenReturn(Optional.of(adminUser));
         when(adminRepository.findByUserAndIsActive(adminUser, true)).thenReturn(Optional.of(admin));
         when(userRepository.findById(targetUserId)).thenReturn(Optional.of(targetUser));
-        when(sanctionRepository.save(any(Sanction.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        Sanction savedSanction = Sanction.builder()
+                .targetUser(targetUser)
+                .admin(admin)
+                .type(type)
+                .remark("Test")
+                .startDate(java.time.LocalDateTime.now())
+                .build();
+        ReflectionTestUtils.setField(savedSanction, "sanctionId", 1L);
+        when(sanctionRepository.save(any(Sanction.class))).thenReturn(savedSanction);
 
         // when
-        Sanction sanction = sanctionService.createSanction(adminUserId, targetUserId, type, "Test", null);
+        Long sanctionId = sanctionService.createSanction(adminUserId, targetUserId, type, "Test", null);
 
         // then
-        assertThat(sanction.getType()).isEqualTo(type);
-        assertThat(sanction.getTargetUser()).isEqualTo(targetUser);
+        assertThat(sanctionId).isNotNull();
         assertThat(targetUser.getStatus()).isEqualTo("SUSPENDED");
         verify(sanctionRepository).save(any(Sanction.class));
     }

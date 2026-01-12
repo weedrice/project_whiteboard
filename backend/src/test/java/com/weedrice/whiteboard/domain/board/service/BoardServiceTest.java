@@ -14,6 +14,9 @@ import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.domain.point.repository.UserPointRepository;
+import com.weedrice.whiteboard.domain.point.repository.PointHistoryRepository;
+import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
@@ -34,6 +37,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -57,6 +61,12 @@ class BoardServiceTest {
     private PostRepository postRepository;
     @Mock
     private DraftPostRepository draftPostRepository;
+    @Mock
+    private UserPointRepository userPointRepository;
+    @Mock
+    private PointHistoryRepository pointHistoryRepository;
+    @Mock
+    private GlobalConfigService globalConfigService;
 
     @InjectMocks
     private BoardService boardService;
@@ -91,7 +101,7 @@ class BoardServiceTest {
         when(boardRepository.findByBoardUrl(board.getBoardUrl())).thenReturn(Optional.of(board));
         when(boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(board.getBoardId(), true)).thenReturn(Collections.emptyList());
         when(adminRepository.findByBoardAndRole(any(), any())).thenReturn(Optional.empty());
-        when(postService.getLatestPostsByBoard(anyLong(), anyInt())).thenReturn(Collections.emptyList());
+        when(postService.getLatestPostsByBoard(anyLong(), anyInt(), any())).thenReturn(Collections.emptyList());
 
         // when
         List<BoardResponse> activeBoards = boardService.getActiveBoards(null);
@@ -142,10 +152,20 @@ class BoardServiceTest {
         // given
         Long creatorId = 1L;
         BoardCreateRequest request = new BoardCreateRequest("New Board", "new-board", "New Description", null);
+        com.weedrice.whiteboard.domain.point.entity.UserPoint userPoint = 
+                com.weedrice.whiteboard.domain.point.entity.UserPoint.builder().user(user).build();
+        ReflectionTestUtils.setField(userPoint, "currentPoint", 1000);
+        
         when(userRepository.findById(creatorId)).thenReturn(Optional.of(user));
         when(boardRepository.existsByBoardName(request.getBoardName())).thenReturn(false);
         when(boardRepository.existsByBoardUrl(request.getBoardUrl())).thenReturn(false);
+        when(userPointRepository.findById(creatorId)).thenReturn(Optional.of(userPoint));
+        when(globalConfigService.getConfig(anyString())).thenReturn("500");
         when(boardRepository.save(any(Board.class))).thenReturn(board);
+        when(boardCategoryRepository.save(any(com.weedrice.whiteboard.domain.board.entity.BoardCategory.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(adminRepository.save(any(com.weedrice.whiteboard.domain.admin.entity.Admin.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
         when(boardRepository.findMaxSortOrder()).thenReturn(0);
 
         // when

@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.user.service;
 
+import com.weedrice.whiteboard.domain.user.dto.BlockedUserResponse;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.entity.UserBlock;
 import com.weedrice.whiteboard.domain.user.repository.UserBlockRepository;
@@ -138,7 +139,7 @@ class UserBlockServiceTest {
         when(userBlockRepository.findByUserOrderByCreatedAtDesc(user, pageable)).thenReturn(page);
 
         // when
-        Page<UserBlockService.BlockedUserDto> result = userBlockService.getBlockedUsers(userId, pageable);
+        Page<BlockedUserResponse> result = userBlockService.getBlockedUsers(userId, pageable);
 
         // then
         assertThat(result.getContent()).hasSize(1);

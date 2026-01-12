@@ -26,6 +26,6 @@ class ExceptionTest {
         ErrorCode errorCode = ErrorCode.USER_NOT_FOUND;
         assertThat(errorCode.getStatus()).isEqualTo(HttpStatus.NOT_FOUND);
         assertThat(errorCode.getCode()).isEqualTo("U001");
-        assertThat(errorCode.getMessage()).isEqualTo("User Not Found");
+        assertThat(errorCode.getMessage()).isEqualTo("error.user.notFound");
     }
 }

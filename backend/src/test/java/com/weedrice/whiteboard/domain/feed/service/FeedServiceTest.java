@@ -9,8 +9,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 
+import java.util.Collections;
 import java.util.Optional;
 
 import static org.mockito.Mockito.verify;
@@ -34,7 +37,9 @@ class FeedServiceTest {
         Long userId = 1L;
         User user = User.builder().build();
         Pageable pageable = Pageable.unpaged();
+        Page<com.weedrice.whiteboard.domain.feed.entity.UserFeed> feedPage = new PageImpl<>(Collections.emptyList(), pageable, 0);
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(userFeedRepository.findByTargetUserOrderByCreatedAtDesc(user, pageable)).thenReturn(feedPage);
 
         // when
         feedService.getUserFeeds(userId, pageable);

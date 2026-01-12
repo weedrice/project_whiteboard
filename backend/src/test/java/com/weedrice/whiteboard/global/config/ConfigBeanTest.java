@@ -15,11 +15,17 @@ import static org.assertj.core.api.Assertions.assertThat;
     "cloud.aws.credentials.secret-key=test-secret",
     "cloud.aws.region.static=us-east-1",
     "cloud.aws.s3.bucket=test-bucket",
+    "cloud.aws.ses.credentials.access-key=test-ses-access",
+    "cloud.aws.ses.credentials.secret-key=test-ses-secret",
     "jwt.secret=c2VjcmV0LWtleS1mb3ItdGVzdGluZy1wdXJwb3Nlcy1vbmx5LWRvLW5vdC11c2UtaW4tcHJvZHVjdGlvbg==",
     "jwt.expiration=3600000",
     "jwt.refresh-token.expiration=7200000",
-    "file.upload-dir=uploads"
-})
+    "file.upload-dir=uploads",
+    "app.frontend-url=http://localhost:5173"
+}, 
+    classes = {S3Config.class},
+    webEnvironment = SpringBootTest.WebEnvironment.NONE
+)
 @ActiveProfiles("test")
 class ConfigBeanTest {
 
@@ -29,20 +35,8 @@ class ConfigBeanTest {
     @Test
     @DisplayName("S3Client 빈 등록 확인")
     void s3ClientBeanExists() {
-        // Need to provide properties for S3Config to load correctly if validation is strict.
-        // Assuming test properties or relaxed binding. If fails, we'll mock.
-        // For unit testing configuration classes, simple verification of bean presence is good.
-        // S3Client creation might fail without valid credentials in properties.
-        // Let's check if it exists if it's conditional, otherwise this test requires env vars.
-        
-        // Actually, creating S3Client requires credentials.
-        // If we don't have them in test.properties, this might fail.
-        // Let's assume there is a test configuration or skip if complex.
-        
-        // A better approach for Unit testing Config classes is checking the method logic itself
-        // or using a specific profile with dummy values.
+        // S3Client 빈이 등록되어 있는지 확인
+        S3Client s3Client = applicationContext.getBean(S3Client.class);
+        assertThat(s3Client).isNotNull();
     }
-    
-    // Instead of full SpringBootTest which loads everything, let's test specific configs if possible.
-    // QuerydslConfig requires EntityManager.
 }

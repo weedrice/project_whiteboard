@@ -51,6 +51,7 @@ class MessageServiceTest {
         String content = "Hello!";
         when(userRepository.findById(senderId)).thenReturn(Optional.of(sender));
         when(userRepository.findById(receiverId)).thenReturn(Optional.of(receiver));
+        when(userBlockService.isBlocked(senderId, receiverId)).thenReturn(false);
         when(userBlockService.isBlocked(receiverId, senderId)).thenReturn(false);
         when(messageRepository.save(any(Message.class))).thenAnswer(invocation -> invocation.getArgument(0));
 

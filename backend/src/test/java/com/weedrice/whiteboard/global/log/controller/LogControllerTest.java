@@ -53,6 +53,12 @@ class LogControllerTest {
     private com.weedrice.whiteboard.domain.admin.interceptor.IpBlockInterceptor ipBlockInterceptor;
 
     @MockBean
+    private com.weedrice.whiteboard.global.security.RefererCheckInterceptor refererCheckInterceptor;
+
+    @MockBean
+    private com.weedrice.whiteboard.global.ratelimit.RateLimitInterceptor rateLimitInterceptor;
+
+    @MockBean
     private org.springframework.data.jpa.mapping.JpaMetamodelMappingContext jpaMetamodelMappingContext;
 
     private CustomUserDetails adminUser;
@@ -62,6 +68,8 @@ class LogControllerTest {
         adminUser = new CustomUserDetails(1L, "admin", "password", Collections.singletonList(new SimpleGrantedAuthority("ROLE_SUPER_ADMIN")));
 
         when(ipBlockInterceptor.preHandle(any(), any(), any())).thenReturn(true);
+        when(refererCheckInterceptor.preHandle(any(), any(), any())).thenReturn(true);
+        when(rateLimitInterceptor.preHandle(any(), any(), any())).thenReturn(true);
 
         doAnswer(invocation -> {
             HttpServletRequest request = invocation.getArgument(0);

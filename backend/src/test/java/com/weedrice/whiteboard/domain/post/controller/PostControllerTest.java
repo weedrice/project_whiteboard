@@ -7,7 +7,6 @@ import com.weedrice.whiteboard.domain.post.dto.*;
 import com.weedrice.whiteboard.domain.post.entity.DraftPost;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.entity.Scrap;
-import com.weedrice.whiteboard.domain.post.entity.ViewHistory;
 import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.domain.search.service.SearchService;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -19,9 +18,10 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.FilterType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -45,7 +45,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import static org.mockito.Mockito.doAnswer;
 
-@WebMvcTest(PostController.class)
+@WebMvcTest(controllers = PostController.class,
+    excludeFilters = @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = com.weedrice.whiteboard.global.config.WebConfig.class))
 class PostControllerTest {
 
     @Autowired
@@ -71,6 +72,12 @@ class PostControllerTest {
 
     @MockBean
     private org.springframework.data.jpa.mapping.JpaMetamodelMappingContext jpaMetamodelMappingContext;
+
+    @MockBean
+    private com.weedrice.whiteboard.global.security.RefererCheckInterceptor refererCheckInterceptor;
+
+    @MockBean
+    private com.weedrice.whiteboard.global.ratelimit.RateLimitInterceptor rateLimitInterceptor;
 
     private CustomUserDetails customUserDetails;
     private User user;
@@ -100,6 +107,8 @@ class PostControllerTest {
         ReflectionTestUtils.setField(post, "createdAt", LocalDateTime.now());
 
         when(ipBlockInterceptor.preHandle(any(), any(), any())).thenReturn(true);
+        when(refererCheckInterceptor.preHandle(any(), any(), any())).thenReturn(true);
+        when(rateLimitInterceptor.preHandle(any(), any(), any())).thenReturn(true);
 
         // Stub doFilter to allow request to proceed
         doAnswer(invocation -> {
@@ -122,6 +131,7 @@ class PostControllerTest {
             Page<PostSummary> summaryPage = new PageImpl<>(List.of(summary));
 
             when(postService.getPosts(eq(boardUrl), any(), any(), any(), any(Pageable.class))).thenReturn(summaryPage);
+            // keyword가 null이므로 searchService.recordSearch는 호출되지 않음
 
             mockMvc.perform(get("/api/v1/boards/{boardUrl}/posts", boardUrl)
                     .with(user(customUserDetails))
@@ -134,7 +144,7 @@ class PostControllerTest {
         @DisplayName("인기 게시글 목록 조회 성공")
         void getTrendingPosts_success() throws Exception {
             PostSummary summary = PostSummary.from(post);
-            when(postService.getTrendingPosts(anyInt(), any())).thenReturn(List.of(summary));
+            when(postService.getTrendingPosts(any(Pageable.class), anyLong())).thenReturn(List.of(summary));
 
             mockMvc.perform(get("/api/v1/posts/trending")
                     .with(user(customUserDetails))
@@ -147,9 +157,12 @@ class PostControllerTest {
         @DisplayName("단일 게시글 조회 성공")
         void getPost_success() throws Exception {
             Long postId = 1L;
-            when(postService.getPostById(eq(postId), any())).thenReturn(post);
-            when(postService.getTagsForPost(eq(postId))).thenReturn(List.of("tag"));
-            when(postService.getViewHistory(any(), eq(postId))).thenReturn(ViewHistory.builder().build());
+            PostResponse postResponse = PostResponse.builder()
+                    .postId(postId)
+                    .title("Test Post")
+                    .contents("Contents")
+                    .build();
+            when(postService.getPostResponse(eq(postId), any(), anyBoolean())).thenReturn(postResponse);
 
             mockMvc.perform(get("/api/v1/posts/{postId}", postId)
                     .with(user(customUserDetails))
@@ -230,9 +243,7 @@ class PostControllerTest {
         @DisplayName("좋아요 성공")
         void likePost_success() throws Exception {
             Long postId = 1L;
-            ReflectionTestUtils.setField(post, "likeCount", 1);
-
-            when(postService.getPostById(eq(postId), any())).thenReturn(post);
+            when(postService.likePost(anyLong(), eq(postId))).thenReturn(1);
 
             mockMvc.perform(post("/api/v1/posts/{postId}/like", postId)
                     .with(user(customUserDetails))
@@ -246,9 +257,7 @@ class PostControllerTest {
         @DisplayName("좋아요 취소 성공")
         void unlikePost_success() throws Exception {
             Long postId = 1L;
-            ReflectionTestUtils.setField(post, "likeCount", 0);
-
-            when(postService.getPostById(eq(postId), any())).thenReturn(post);
+            when(postService.unlikePost(anyLong(), eq(postId))).thenReturn(0);
 
             mockMvc.perform(delete("/api/v1/posts/{postId}/like", postId)
                     .with(user(customUserDetails))

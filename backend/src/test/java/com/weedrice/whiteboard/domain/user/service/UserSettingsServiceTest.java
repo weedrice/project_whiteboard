@@ -1,5 +1,7 @@
 package com.weedrice.whiteboard.domain.user.service;
 
+import com.weedrice.whiteboard.domain.user.dto.NotificationSettingResponse;
+import com.weedrice.whiteboard.domain.user.dto.UserSettingsResponse;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.entity.UserNotificationSettings;
 import com.weedrice.whiteboard.domain.user.entity.UserNotificationSettingsId;
@@ -60,10 +62,11 @@ class UserSettingsServiceTest {
         when(userSettingsRepository.findById(userId)).thenReturn(Optional.of(userSettings));
 
         // when
-        UserSettings foundSettings = userSettingsService.getSettings(userId);
+        UserSettingsResponse foundSettings = userSettingsService.getSettings(userId);
 
         // then
-        assertThat(foundSettings).isEqualTo(userSettings);
+        assertThat(foundSettings.getTheme()).isEqualTo(userSettings.getTheme());
+        assertThat(foundSettings.getLanguage()).isEqualTo(userSettings.getLanguage());
     }
 
     @Test
@@ -76,10 +79,9 @@ class UserSettingsServiceTest {
         when(userSettingsRepository.save(any(UserSettings.class))).thenAnswer(i -> i.getArgument(0));
 
         // when
-        UserSettings foundSettings = userSettingsService.getSettings(userId);
+        UserSettingsResponse foundSettings = userSettingsService.getSettings(userId);
 
         // then
-        assertThat(foundSettings.getUser()).isEqualTo(user);
         assertThat(foundSettings.getTheme()).isEqualTo("LIGHT"); // Default
         verify(userSettingsRepository).save(any(UserSettings.class));
     }
@@ -105,13 +107,13 @@ class UserSettingsServiceTest {
         when(userSettingsRepository.save(any(UserSettings.class))).thenAnswer(i -> i.getArgument(0));
 
         // when
-        UserSettings updatedSettings = userSettingsService.updateSettings(userId, "DARK", "en", "UTC", false);
+        UserSettingsResponse updatedSettings = userSettingsService.updateSettings(userId, "DARK", "en", "UTC", false);
 
         // then
         assertThat(updatedSettings.getTheme()).isEqualTo("DARK");
         assertThat(updatedSettings.getLanguage()).isEqualTo("en");
         assertThat(updatedSettings.getTimezone()).isEqualTo("UTC");
-        assertThat(updatedSettings.getHideNsfw()).isFalse();
+        assertThat(updatedSettings.isHideNsfw()).isFalse();
     }
 
     @Test
@@ -127,13 +129,13 @@ class UserSettingsServiceTest {
         when(userSettingsRepository.save(any(UserSettings.class))).thenAnswer(i -> i.getArgument(0));
 
         // when
-        UserSettings updatedSettings = userSettingsService.updateSettings(userId, "DARK", "en", null, null);
+        UserSettingsResponse updatedSettings = userSettingsService.updateSettings(userId, "DARK", "en", null, null);
 
         // then
         assertThat(updatedSettings.getTheme()).isEqualTo("DARK");
         assertThat(updatedSettings.getLanguage()).isEqualTo("en");
         assertThat(updatedSettings.getTimezone()).isEqualTo(originalTimezone);
-        assertThat(updatedSettings.getHideNsfw()).isEqualTo(originalHideNsfw);
+        assertThat(updatedSettings.isHideNsfw()).isEqualTo(originalHideNsfw);
     }
 
     @Test
@@ -147,7 +149,7 @@ class UserSettingsServiceTest {
         when(userSettingsRepository.save(any(UserSettings.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         // when
-        UserSettings updatedSettings = userSettingsService.updateSettings(userId, newTheme, "en", "UTC", false);
+        UserSettingsResponse updatedSettings = userSettingsService.updateSettings(userId, newTheme, "en", "UTC", false);
 
         // then
         assertThat(updatedSettings.getTheme()).isEqualTo(newTheme);
@@ -167,7 +169,7 @@ class UserSettingsServiceTest {
         when(userNotificationSettingsRepository.findByUserId(userId)).thenReturn(Collections.singletonList(notificationSetting));
 
         // when
-        List<UserNotificationSettings> settings = userSettingsService.getNotificationSettings(userId);
+        List<NotificationSettingResponse> settings = userSettingsService.getNotificationSettings(userId);
 
         // then
         assertThat(settings).hasSize(1);
@@ -188,10 +190,10 @@ class UserSettingsServiceTest {
         when(userNotificationSettingsRepository.save(any(UserNotificationSettings.class))).thenAnswer(i -> i.getArgument(0));
 
         // when
-        UserNotificationSettings updatedSetting = userSettingsService.updateNotificationSetting(userId, notificationType, false);
+        NotificationSettingResponse updatedSetting = userSettingsService.updateNotificationSetting(userId, notificationType, false);
 
         // then
-        assertThat(updatedSetting.getIsEnabled()).isFalse();
+        assertThat(updatedSetting.isEnabled()).isFalse();
     }
 
     @Test
@@ -208,10 +210,10 @@ class UserSettingsServiceTest {
         when(userNotificationSettingsRepository.save(any(UserNotificationSettings.class))).thenAnswer(i -> i.getArgument(0));
 
         // when
-        UserNotificationSettings updatedSetting = userSettingsService.updateNotificationSetting(userId, notificationType, false);
+        NotificationSettingResponse updatedSetting = userSettingsService.updateNotificationSetting(userId, notificationType, false);
 
         // then
-        assertThat(updatedSetting.getIsEnabled()).isFalse();
+        assertThat(updatedSetting.isEnabled()).isFalse();
         verify(userNotificationSettingsRepository).save(any(UserNotificationSettings.class));
     }
 
