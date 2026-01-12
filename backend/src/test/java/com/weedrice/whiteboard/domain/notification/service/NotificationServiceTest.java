@@ -90,4 +90,39 @@ class NotificationServiceTest {
         // then
         assertThat(notification.getIsRead()).isEqualTo(true);
     }
+
+    @Test
+    @DisplayName("알림 목록 조회 성공")
+    void getNotifications_success() {
+        // given
+        Long userId = 1L;
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(0, 10);
+        org.springframework.data.domain.Page<Notification> notificationPage = new org.springframework.data.domain.PageImpl<>(
+                java.util.Collections.singletonList(notification), pageable, 1);
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(notificationRepository.findByUserOrderByCreatedAtDesc(user, pageable)).thenReturn(notificationPage);
+
+        // when
+        com.weedrice.whiteboard.domain.notification.dto.NotificationResponse response = notificationService
+                .getNotifications(userId, pageable);
+
+        // then
+        assertThat(response).isNotNull();
+        verify(userRepository).findById(userId);
+    }
+
+    @Test
+    @DisplayName("읽지 않은 알림 개수 조회 성공")
+    void getUnreadNotificationCount_success() {
+        // given
+        Long userId = 1L;
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(notificationRepository.countByUserAndIsRead(user, false)).thenReturn(5L);
+
+        // when
+        long count = notificationService.getUnreadNotificationCount(userId);
+
+        // then
+        assertThat(count).isEqualTo(5L);
+    }
 }

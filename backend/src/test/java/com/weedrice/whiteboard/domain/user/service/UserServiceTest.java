@@ -25,6 +25,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -442,5 +443,40 @@ class UserServiceTest {
         assertThat(foundSettings.getUser()).isEqualTo(user);
         // Default values can be checked if they are defined in the entity
         assertThat(foundSettings.getTheme()).isEqualTo("LIGHT"); // Assuming "light" is default
+    }
+
+    @Test
+    @DisplayName("사용자 검색 - 빈 결과")
+    void searchUsers_empty() {
+        // given
+        String keyword = "nonexistent";
+        Pageable pageable = PageRequest.of(0, 10);
+        Page<User> emptyPage = new PageImpl<>(Collections.emptyList(), pageable, 0);
+        when(userRepository.findByDisplayNameContainingIgnoreCase(keyword, pageable)).thenReturn(emptyPage);
+
+        // when
+        Page<User> result = userService.searchUsers(keyword, pageable);
+
+        // then
+        assertThat(result.getContent()).isEmpty();
+        verify(userRepository).findByDisplayNameContainingIgnoreCase(keyword, pageable);
+    }
+
+    @Test
+    @DisplayName("내 댓글 목록 조회 - 빈 결과")
+    void getMyComments_empty() {
+        // given
+        Long userId = 1L;
+        Pageable pageable = PageRequest.of(0, 10);
+        Page<Comment> emptyPage = new PageImpl<>(Collections.emptyList(), pageable, 0);
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(commentRepository.findByUserAndIsDeletedOrderByCreatedAtDesc(user, false, pageable)).thenReturn(emptyPage);
+
+        // when
+        Page<Comment> result = userService.getMyComments(userId, pageable);
+
+        // then
+        assertThat(result.getContent()).isEmpty();
+        verify(commentRepository).findByUserAndIsDeletedOrderByCreatedAtDesc(user, false, pageable);
     }
 }

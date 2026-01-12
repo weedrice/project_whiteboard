@@ -124,4 +124,23 @@ class ReportServiceTest {
         assertThat(processedReport.getStatus()).isEqualTo(status);
         assertThat(processedReport.getAdminId()).isNotNull();
     }
+
+    @Test
+    @DisplayName("내 신고 목록 조회 성공")
+    void getMyReports_success() {
+        // given
+        Long userId = 1L;
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(0, 10);
+        org.springframework.data.domain.Page<Report> reportPage = new org.springframework.data.domain.PageImpl<>(
+                java.util.Collections.singletonList(report), pageable, 1);
+        when(userRepository.findById(userId)).thenReturn(Optional.of(reporter));
+        when(reportRepository.findByReporterOrderByCreatedAtDesc(reporter, pageable)).thenReturn(reportPage);
+
+        // when
+        org.springframework.data.domain.Page<ReportResponse> result = reportService.getMyReports(userId, pageable);
+
+        // then
+        assertThat(result.getContent()).isNotEmpty();
+        verify(userRepository).findById(userId);
+    }
 }

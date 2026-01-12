@@ -44,6 +44,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doNothing;
 
 @WebMvcTest(controllers = PostController.class,
     excludeFilters = @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = com.weedrice.whiteboard.global.config.WebConfig.class))
@@ -183,6 +184,18 @@ class PostControllerTest {
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(request)))
                     .andExpect(status().isOk());
+        }
+
+        @Test
+        @DisplayName("조회수 증가 성공")
+        void incrementPostView_success() throws Exception {
+            Long postId = 1L;
+            doAnswer(invocation -> null).when(postService).incrementViewCount(eq(postId));
+
+            mockMvc.perform(post("/api/v1/posts/{postId}/view", postId)
+                    .with(csrf()))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true));
         }
     }
 

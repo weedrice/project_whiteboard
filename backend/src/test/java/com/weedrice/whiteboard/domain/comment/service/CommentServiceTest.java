@@ -154,4 +154,101 @@ class CommentServiceTest {
         // then
         verify(commentLikeRepository).deleteById(any());
     }
+
+    @Test
+    @DisplayName("댓글 목록 조회 성공")
+    void getComments_success() {
+        // given
+        Long postId = 1L;
+        Long currentUserId = 1L;
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(0, 10);
+        org.springframework.data.domain.Page<Comment> commentPage = new org.springframework.data.domain.PageImpl<>(
+                java.util.Collections.singletonList(comment), pageable, 1);
+
+        when(userBlockService.getBlockedUserIds(currentUserId)).thenReturn(java.util.Collections.emptyList());
+        when(commentRepository.findParentsWithChildrenOrNotDeleted(postId, pageable)).thenReturn(commentPage);
+        when(commentRepository.findAllDescendants(any())).thenReturn(java.util.Collections.emptyList());
+
+        // when
+        org.springframework.data.domain.Page<com.weedrice.whiteboard.domain.comment.dto.CommentResponse> response = commentService
+                .getComments(postId, currentUserId, pageable);
+
+        // then
+        assertThat(response).isNotNull();
+        verify(commentRepository).findParentsWithChildrenOrNotDeleted(postId, pageable);
+    }
+
+    @Test
+    @DisplayName("댓글 조회 성공")
+    void getComment_success() {
+        // given
+        Long commentId = 1L;
+        when(commentRepository.findByIdWithRelations(commentId)).thenReturn(Optional.of(comment));
+
+        // when
+        com.weedrice.whiteboard.domain.comment.dto.CommentResponse response = commentService.getComment(commentId);
+
+        // then
+        assertThat(response).isNotNull();
+        verify(commentRepository).findByIdWithRelations(commentId);
+    }
+
+    @Test
+    @DisplayName("답글 목록 조회 성공")
+    void getReplies_success() {
+        // given
+        Long parentId = 1L;
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(0, 10);
+        org.springframework.data.domain.Page<Comment> repliesPage = new org.springframework.data.domain.PageImpl<>(
+                java.util.Collections.singletonList(comment), pageable, 1);
+
+        when(commentRepository.findByParent_CommentIdAndIsDeletedOrderByCreatedAtAsc(parentId, false, pageable))
+                .thenReturn(repliesPage);
+
+        // when
+        com.weedrice.whiteboard.domain.comment.dto.CommentListResponse response = commentService.getReplies(parentId,
+                pageable);
+
+        // then
+        assertThat(response).isNotNull();
+        verify(commentRepository).findByParent_CommentIdAndIsDeletedOrderByCreatedAtAsc(parentId, false, pageable);
+    }
+
+    @Test
+    @DisplayName("내 댓글 목록 조회 성공")
+    void getMyComments_success() {
+        // given
+        Long userId = 1L;
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(0, 10);
+        org.springframework.data.domain.Page<Comment> commentPage = new org.springframework.data.domain.PageImpl<>(
+                java.util.Collections.singletonList(comment), pageable, 1);
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(commentRepository.findByUserAndIsDeletedOrderByCreatedAtDesc(user, false, pageable))
+                .thenReturn(commentPage);
+
+        // when
+        org.springframework.data.domain.Page<com.weedrice.whiteboard.domain.comment.dto.MyCommentResponse> response = commentService
+                .getMyComments(userId, pageable);
+
+        // then
+        assertThat(response).isNotNull();
+        verify(userRepository).findById(userId);
+    }
+
+    @Test
+    @DisplayName("댓글 삭제 성공")
+    void deleteComment_success() {
+        // given
+        Long userId = 1L;
+        Long commentId = 1L;
+        when(commentRepository.findById(commentId)).thenReturn(Optional.of(comment));
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+
+        // when
+        commentService.deleteComment(userId, commentId);
+
+        // then
+        verify(commentRepository).findById(commentId);
+    }
 }

@@ -79,4 +79,76 @@ class PointServiceTest {
         verify(userPointRepository).save(any(UserPoint.class));
         verify(pointHistoryRepository).save(any());
     }
+
+    @Test
+    @DisplayName("사용자 포인트 조회 성공")
+    void getUserPoint_success() {
+        // given
+        Long userId = 1L;
+        userPoint.addPoint(500);
+        when(userPointRepository.findByUserId(userId)).thenReturn(Optional.of(userPoint));
+
+        // when
+        com.weedrice.whiteboard.domain.point.dto.UserPointResponse response = pointService.getUserPoint(userId);
+
+        // then
+        assertThat(response).isNotNull();
+        assertThat(response.getCurrentPoint()).isEqualTo(500);
+        verify(userPointRepository).findByUserId(userId);
+    }
+
+    @Test
+    @DisplayName("포인트 내역 조회 성공 - 전체")
+    void getPointHistories_success_all() {
+        // given
+        Long userId = 1L;
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(0, 10);
+        com.weedrice.whiteboard.domain.point.entity.PointHistory history = com.weedrice.whiteboard.domain.point.entity.PointHistory.builder()
+                .user(user)
+                .type("EARN")
+                .amount(100)
+                .balanceAfter(100)
+                .description("Test")
+                .build();
+        org.springframework.data.domain.Page<com.weedrice.whiteboard.domain.point.entity.PointHistory> historyPage = new org.springframework.data.domain.PageImpl<>(
+                java.util.Collections.singletonList(history), pageable, 1);
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(pointHistoryRepository.findByUserOrderByCreatedAtDesc(user, pageable)).thenReturn(historyPage);
+
+        // when
+        com.weedrice.whiteboard.domain.point.dto.PointHistoryResponse response = pointService.getPointHistories(userId, null, pageable);
+
+        // then
+        assertThat(response).isNotNull();
+        verify(userRepository).findById(userId);
+    }
+
+    @Test
+    @DisplayName("포인트 내역 조회 성공 - 타입별")
+    void getPointHistories_success_byType() {
+        // given
+        Long userId = 1L;
+        String type = "EARN";
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(0, 10);
+        com.weedrice.whiteboard.domain.point.entity.PointHistory history = com.weedrice.whiteboard.domain.point.entity.PointHistory.builder()
+                .user(user)
+                .type("EARN")
+                .amount(100)
+                .balanceAfter(100)
+                .description("Test")
+                .build();
+        org.springframework.data.domain.Page<com.weedrice.whiteboard.domain.point.entity.PointHistory> historyPage = new org.springframework.data.domain.PageImpl<>(
+                java.util.Collections.singletonList(history), pageable, 1);
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(pointHistoryRepository.findByUserAndTypeOrderByCreatedAtDesc(user, type, pageable)).thenReturn(historyPage);
+
+        // when
+        com.weedrice.whiteboard.domain.point.dto.PointHistoryResponse response = pointService.getPointHistories(userId, type, pageable);
+
+        // then
+        assertThat(response).isNotNull();
+        verify(pointHistoryRepository).findByUserAndTypeOrderByCreatedAtDesc(user, type, pageable);
+    }
 }

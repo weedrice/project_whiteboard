@@ -42,6 +42,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -186,5 +187,20 @@ class AuthServiceTest {
                 assertThat(response.getAccessToken()).isEqualTo("accessToken");
                 assertThat(response.getRefreshToken()).isEqualTo("refreshToken");
                 assertThat(response.getUser().getLoginId()).isEqualTo("testuser");
+        }
+
+        @Test
+        @DisplayName("로그인 ID 찾기 성공")
+        void findLoginId_success() {
+                // given
+                String email = "test@example.com";
+                when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
+
+                // when
+                com.weedrice.whiteboard.domain.auth.dto.FindIdResponse response = authService.findLoginId(email);
+
+                // then
+                assertThat(response.getLoginId()).isEqualTo("testuser");
+                verify(userRepository).findByEmail(email);
         }
 }

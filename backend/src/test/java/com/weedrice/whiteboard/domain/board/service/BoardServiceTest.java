@@ -177,4 +177,64 @@ class BoardServiceTest {
         verify(boardCategoryRepository).save(any());
         verify(adminRepository).save(any());
     }
+
+    @Test
+    @DisplayName("인기 게시판 목록 조회 성공")
+    void getTopBoards_success() {
+        // given
+        when(boardRepository.findTopBoardsByPostCount(any())).thenReturn(Collections.singletonList(board));
+        when(boardRepository.findByBoardUrl(board.getBoardUrl())).thenReturn(Optional.of(board));
+        when(boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(board.getBoardId(), true)).thenReturn(Collections.emptyList());
+        when(adminRepository.findByBoardAndRole(any(), any())).thenReturn(Optional.empty());
+        when(postService.getLatestPostsByBoard(anyLong(), anyInt(), any())).thenReturn(Collections.emptyList());
+
+        // when
+        List<BoardResponse> boards = boardService.getTopBoards(null);
+
+        // then
+        assertThat(boards).hasSize(1);
+        verify(boardRepository).findTopBoardsByPostCount(any());
+    }
+
+    @Test
+    @DisplayName("게시판 상세 조회 성공")
+    void getBoardDetails_success() {
+        // given
+        String boardUrl = "test-board";
+        when(boardRepository.findByBoardUrl(boardUrl)).thenReturn(Optional.of(board));
+        when(boardSubscriptionRepository.countByBoard(board)).thenReturn(5L);
+        when(boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(board.getBoardId(), true)).thenReturn(Collections.emptyList());
+        when(adminRepository.findByBoardAndRole(any(), any())).thenReturn(Optional.empty());
+        when(postService.getLatestPostsByBoard(anyLong(), anyInt(), any())).thenReturn(Collections.emptyList());
+
+        // when
+        BoardResponse response = boardService.getBoardDetails(boardUrl, null);
+
+        // then
+        assertThat(response).isNotNull();
+        assertThat(response.getBoardName()).isEqualTo("Test Board");
+    }
+
+    @Test
+    @DisplayName("게시판 구독 해제 성공")
+    void unsubscribeBoard_success() {
+        // given
+        Long userId = 1L;
+        String boardUrl = "test-board";
+        BoardSubscription subscription = BoardSubscription.builder()
+                .user(user)
+                .board(board)
+                .role("MEMBER")
+                .sortOrder(1)
+                .build();
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(boardRepository.findByBoardUrl(boardUrl)).thenReturn(Optional.of(board));
+        when(boardSubscriptionRepository.findById(any(BoardSubscriptionId.class))).thenReturn(Optional.of(subscription));
+
+        // when
+        boardService.unsubscribeBoard(userId, boardUrl);
+
+        // then
+        verify(boardSubscriptionRepository).delete(any());
+    }
 }

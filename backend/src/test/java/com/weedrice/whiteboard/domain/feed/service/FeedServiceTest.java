@@ -47,4 +47,18 @@ class FeedServiceTest {
         // then
         verify(userFeedRepository).findByTargetUserOrderByCreatedAtDesc(user, pageable);
     }
+
+    @Test
+    @DisplayName("사용자 피드 조회 - 사용자 없음")
+    void getUserFeeds_userNotFound() {
+        // given
+        Long userId = 999L;
+        Pageable pageable = Pageable.unpaged();
+        when(userRepository.findById(userId)).thenReturn(Optional.empty());
+
+        // when & then
+        org.junit.jupiter.api.Assertions.assertThrows(
+                com.weedrice.whiteboard.global.exception.BusinessException.class,
+                () -> feedService.getUserFeeds(userId, pageable));
+    }
 }

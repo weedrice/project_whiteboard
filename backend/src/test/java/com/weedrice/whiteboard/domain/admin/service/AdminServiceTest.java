@@ -149,4 +149,120 @@ class AdminServiceTest {
         assertThat(superAdmins.get(0).getLoginId()).isEqualTo("super1");
         assertThat(superAdmins.get(1).getLoginId()).isEqualTo("super2");
     }
+
+    @Test
+    @DisplayName("모든 관리자 목록 조회 성공")
+    void getAllAdmins_success() {
+        // given
+        when(adminRepository.findByIsActive(true)).thenReturn(List.of(admin));
+
+        // when
+        List<AdminResponse> admins = adminService.getAllAdmins();
+
+        // then
+        assertThat(admins).hasSize(1);
+        verify(adminRepository).findByIsActive(true);
+    }
+
+    @Test
+    @DisplayName("관리자 비활성화 성공")
+    void deactivateAdmin_success() {
+        // given
+        Long adminId = 1L;
+        when(adminRepository.findById(adminId)).thenReturn(Optional.of(admin));
+
+        // when
+        adminService.deactivateAdmin(adminId);
+
+        // then
+        verify(adminRepository).save(any(Admin.class));
+    }
+
+    @Test
+    @DisplayName("관리자 활성화 성공")
+    void activateAdmin_success() {
+        // given
+        Long adminId = 1L;
+        when(adminRepository.findById(adminId)).thenReturn(Optional.of(admin));
+
+        // when
+        adminService.activateAdmin(adminId);
+
+        // then
+        verify(adminRepository).save(any(Admin.class));
+    }
+
+    @Test
+    @DisplayName("IP 차단 해제 성공")
+    void unblockIp_success() {
+        // given
+        String ipAddress = "127.0.0.1";
+        com.weedrice.whiteboard.domain.admin.entity.IpBlock ipBlock = com.weedrice.whiteboard.domain.admin.entity.IpBlock.builder()
+                .ipAddress(ipAddress)
+                .reason("Test")
+                .build();
+        when(ipBlockRepository.findByIpAddress(ipAddress)).thenReturn(Optional.of(ipBlock));
+
+        // when
+        adminService.unblockIp(ipAddress);
+
+        // then
+        verify(ipBlockRepository).delete(ipBlock);
+    }
+
+    @Test
+    @DisplayName("차단된 IP 목록 조회 성공")
+    void getBlockedIps_success() {
+        // given
+        com.weedrice.whiteboard.domain.admin.entity.IpBlock ipBlock = com.weedrice.whiteboard.domain.admin.entity.IpBlock.builder()
+                .ipAddress("127.0.0.1")
+                .reason("Test")
+                .build();
+        when(ipBlockRepository.findAll()).thenReturn(List.of(ipBlock));
+
+        // when
+        List<IpBlockResponse> blockedIps = adminService.getBlockedIps();
+
+        // then
+        assertThat(blockedIps).hasSize(1);
+        assertThat(blockedIps.get(0).getIpAddress()).isEqualTo("127.0.0.1");
+    }
+
+    @Test
+    @DisplayName("IP 차단 여부 확인 성공")
+    void isIpBlocked_success() {
+        // given
+        String ipAddress = "127.0.0.1";
+        com.weedrice.whiteboard.domain.admin.entity.IpBlock ipBlock = com.weedrice.whiteboard.domain.admin.entity.IpBlock.builder()
+                .ipAddress(ipAddress)
+                .reason("Test")
+                .build();
+        when(ipBlockRepository.findByIpAddress(ipAddress)).thenReturn(Optional.of(ipBlock));
+
+        // when
+        boolean isBlocked = adminService.isIpBlocked(ipAddress);
+
+        // then
+        assertThat(isBlocked).isTrue();
+    }
+
+    @Test
+    @DisplayName("대시보드 통계 조회 성공")
+    void getDashboardStats_success() {
+        // given
+        when(postRepository.count()).thenReturn(100L);
+        when(reportRepository.countByStatus("PENDING")).thenReturn(5L);
+        when(userRepository.count()).thenReturn(50L);
+        when(boardRepository.count()).thenReturn(10L);
+        when(adminRepository.count()).thenReturn(3L);
+
+        // when
+        com.weedrice.whiteboard.domain.admin.dto.DashboardStatsDto stats = adminService.getDashboardStats();
+
+        // then
+        assertThat(stats).isNotNull();
+        verify(postRepository).count();
+        verify(reportRepository).countByStatus("PENDING");
+        verify(userRepository).count();
+    }
 }

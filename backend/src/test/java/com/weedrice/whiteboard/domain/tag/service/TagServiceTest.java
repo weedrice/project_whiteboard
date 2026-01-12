@@ -17,6 +17,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Optional;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
@@ -100,5 +101,27 @@ class TagServiceTest {
         // then
         verify(postTagRepository, times(1)).save(any(PostTag.class));
         verify(postTagRepository, times(1)).delete(postTagToRemove);
+    }
+
+    @Test
+    @DisplayName("인기 태그 조회 성공")
+    void getPopularTags_success() {
+        // given
+        Tag tag1 = new Tag("tag1");
+        tag1.incrementPostCount();
+        tag1.incrementPostCount();
+        Tag tag2 = new Tag("tag2");
+        tag2.incrementPostCount();
+        Tag tag3 = new Tag("tag3"); // postCount가 0인 태그는 제외됨
+        
+        when(tagRepository.findAll()).thenReturn(java.util.Arrays.asList(tag1, tag2, tag3));
+
+        // when
+        java.util.List<Tag> popularTags = tagService.getPopularTags();
+
+        // then
+        assertThat(popularTags).hasSize(2);
+        assertThat(popularTags.get(0).getTagName()).isEqualTo("tag1");
+        verify(tagRepository).findAll();
     }
 }
