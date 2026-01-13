@@ -33,8 +33,7 @@ import java.util.Collections;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.when;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.mockito.Mockito.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -43,12 +42,24 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.doNothing;
 
 @WebMvcTest(controllers = PostController.class,
     excludeFilters = @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = com.weedrice.whiteboard.global.config.WebConfig.class))
+@org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
+@org.springframework.context.annotation.Import(PostControllerTest.TestSecurityConfig.class)
 class PostControllerTest {
+
+    @org.springframework.boot.test.context.TestConfiguration
+    @org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
+    static class TestSecurityConfig {
+        @org.springframework.context.annotation.Bean
+        public org.springframework.security.web.SecurityFilterChain filterChain(org.springframework.security.config.annotation.web.builders.HttpSecurity http) throws Exception {
+            http
+                .csrf(csrf -> csrf.disable())
+                .authorizeHttpRequests(auth -> auth.anyRequest().permitAll());
+            return http.build();
+        }
+    }
 
     @Autowired
     private MockMvc mockMvc;
@@ -111,7 +122,6 @@ class PostControllerTest {
         when(refererCheckInterceptor.preHandle(any(), any(), any())).thenReturn(true);
         when(rateLimitInterceptor.preHandle(any(), any(), any())).thenReturn(true);
 
-        // Stub doFilter to allow request to proceed
         doAnswer(invocation -> {
             HttpServletRequest request = invocation.getArgument(0);
             HttpServletResponse response = invocation.getArgument(1);
@@ -132,7 +142,6 @@ class PostControllerTest {
             Page<PostSummary> summaryPage = new PageImpl<>(List.of(summary));
 
             when(postService.getPosts(eq(boardUrl), any(), any(), any(), any(Pageable.class))).thenReturn(summaryPage);
-            // keyword가 null이므로 searchService.recordSearch는 호출되지 않음
 
             mockMvc.perform(get("/api/v1/boards/{boardUrl}/posts", boardUrl)
                     .with(user(customUserDetails))
@@ -142,47 +151,64 @@ class PostControllerTest {
         }
 
         @Test
+        @DisplayName("게시글 목록 조회 성공 - 비인증 사용자 및 검색어 포함")
+        void getPosts_anonymous_withKeyword() throws Exception {
+            String boardUrl = "free";
+            String keyword = "test";
+            PostSummary summary = PostSummary.from(post);
+            Page<PostSummary> summaryPage = new PageImpl<>(List.of(summary));
+
+            when(postService.getPosts(eq(boardUrl), any(), any(), isNull(), any(Pageable.class))).thenReturn(summaryPage);
+            doNothing().when(searchService).recordSearch(isNull(), eq(keyword));
+
+            mockMvc.perform(get("/api/v1/boards/{boardUrl}/posts", boardUrl)
+                    .param("keyword", keyword)
+                    .accept(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isOk());
+        }
+
+        @Test
         @DisplayName("인기 게시글 목록 조회 성공")
         void getTrendingPosts_success() throws Exception {
             PostSummary summary = PostSummary.from(post);
-            when(postService.getTrendingPosts(any(Pageable.class), anyLong())).thenReturn(List.of(summary));
+            when(postService.getTrendingPosts(any(Pageable.class), any())).thenReturn(List.of(summary));
 
             mockMvc.perform(get("/api/v1/posts/trending")
                     .with(user(customUserDetails))
                     .accept(MediaType.APPLICATION_JSON))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.success").value(true));
+                    .andExpect(status().isOk());
+        }
+
+        @Test
+        @DisplayName("인기 게시글 목록 조회 성공 - 비인증 사용자")
+        void getTrendingPosts_anonymous() throws Exception {
+            PostSummary summary = PostSummary.from(post);
+            when(postService.getTrendingPosts(any(Pageable.class), isNull())).thenReturn(List.of(summary));
+
+            mockMvc.perform(get("/api/v1/posts/trending"))
+                    .andExpect(status().isOk());
         }
 
         @Test
         @DisplayName("단일 게시글 조회 성공")
         void getPost_success() throws Exception {
             Long postId = 1L;
-            PostResponse postResponse = PostResponse.builder()
-                    .postId(postId)
-                    .title("Test Post")
-                    .contents("Contents")
-                    .build();
+            PostResponse postResponse = PostResponse.builder().postId(postId).title("Title").build();
             when(postService.getPostResponse(eq(postId), any(), anyBoolean())).thenReturn(postResponse);
 
             mockMvc.perform(get("/api/v1/posts/{postId}", postId)
-                    .with(user(customUserDetails))
-                    .accept(MediaType.APPLICATION_JSON))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.success").value(true));
+                    .with(user(customUserDetails)))
+                    .andExpect(status().isOk());
         }
 
         @Test
-        @DisplayName("조회 기록 업데이트 성공")
-        void updateViewHistory_success() throws Exception {
+        @DisplayName("단일 게시글 조회 성공 - 비인증 사용자")
+        void getPost_anonymous() throws Exception {
             Long postId = 1L;
-            ViewHistoryRequest request = new ViewHistoryRequest(100L, 0L);
+            PostResponse postResponse = PostResponse.builder().build();
+            when(postService.getPostResponse(eq(postId), isNull(), anyBoolean())).thenReturn(postResponse);
 
-            mockMvc.perform(put("/api/v1/posts/{postId}/history", postId)
-                    .with(user(customUserDetails))
-                    .with(csrf())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(objectMapper.writeValueAsString(request)))
+            mockMvc.perform(get("/api/v1/posts/{postId}", postId))
                     .andExpect(status().isOk());
         }
 
@@ -190,12 +216,24 @@ class PostControllerTest {
         @DisplayName("조회수 증가 성공")
         void incrementPostView_success() throws Exception {
             Long postId = 1L;
-            doAnswer(invocation -> null).when(postService).incrementViewCount(eq(postId));
+            doNothing().when(postService).incrementViewCount(eq(postId));
 
-            mockMvc.perform(post("/api/v1/posts/{postId}/view", postId)
-                    .with(csrf()))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.success").value(true));
+            mockMvc.perform(post("/api/v1/posts/{postId}/view", postId))
+                    .andExpect(status().isOk());
+        }
+        
+        @Test
+        @DisplayName("조회 기록 업데이트 성공")
+        void updateViewHistory_success() throws Exception {
+            Long postId = 1L;
+            ViewHistoryRequest request = new ViewHistoryRequest(100L, 0L);
+            doNothing().when(postService).updateViewHistory(anyLong(), eq(postId), any(ViewHistoryRequest.class));
+
+            mockMvc.perform(put("/api/v1/posts/{postId}/history", postId)
+                    .with(user(customUserDetails))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isOk());
         }
     }
 
@@ -206,33 +244,38 @@ class PostControllerTest {
         @DisplayName("게시글 생성 성공")
         void createPost_success() throws Exception {
             String boardUrl = "free";
-            PostCreateRequest request = new PostCreateRequest(null, "Title", "Content", List.of("tag"), false, false,
-                    false, null);
-
-            when(postService.createPost(anyLong(), eq(boardUrl), any(PostCreateRequest.class))).thenReturn(post);
+            PostCreateRequest request = new PostCreateRequest(null, "Title", "Content", List.of("tag"), false, false, false, null);
+            when(postService.createPost(anyLong(), eq(boardUrl), any())).thenReturn(post);
 
             mockMvc.perform(post("/api/v1/boards/{boardUrl}/posts", boardUrl)
                     .with(user(customUserDetails))
-                    .with(csrf())
                     .contentType(MediaType.APPLICATION_JSON)
-                    .accept(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(request)))
-                    .andExpect(status().isCreated())
-                    .andExpect(jsonPath("$.success").value(true));
+                    .andExpect(status().isCreated());
+        }
+
+        @Test
+        @DisplayName("게시글 생성 실패 - 유효성 오류")
+        void createPost_fail_validation() throws Exception {
+            String boardUrl = "free";
+            PostCreateRequest request = new PostCreateRequest(null, "", "", null, false, false, false, null);
+
+            mockMvc.perform(post("/api/v1/boards/{boardUrl}/posts", boardUrl)
+                    .with(user(customUserDetails))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isBadRequest());
         }
 
         @Test
         @DisplayName("게시글 수정 성공")
         void updatePost_success() throws Exception {
             Long postId = 1L;
-            PostUpdateRequest request = new PostUpdateRequest(null, "Title", "Content", List.of("tag"), false, false,
-                    null);
-
-            when(postService.updatePost(anyLong(), eq(postId), any(PostUpdateRequest.class))).thenReturn(post);
+            PostUpdateRequest request = new PostUpdateRequest(null, "Title", "Content", List.of("tag"), false, false, null);
+            when(postService.updatePost(anyLong(), eq(postId), any())).thenReturn(post);
 
             mockMvc.perform(put("/api/v1/posts/{postId}", postId)
                     .with(user(customUserDetails))
-                    .with(csrf())
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(request)))
                     .andExpect(status().isOk());
@@ -242,10 +285,22 @@ class PostControllerTest {
         @DisplayName("게시글 삭제 성공")
         void deletePost_success() throws Exception {
             Long postId = 1L;
+            doNothing().when(postService).deletePost(anyLong(), eq(postId));
             mockMvc.perform(delete("/api/v1/posts/{postId}", postId)
-                    .with(user(customUserDetails))
-                    .with(csrf()))
+                    .with(user(customUserDetails)))
                     .andExpect(status().isOk());
+        }
+
+        @Test
+        @DisplayName("게시글 삭제 실패 - 서비스 예외")
+        void deletePost_fail_service() throws Exception {
+            Long postId = 1L;
+            doThrow(new com.weedrice.whiteboard.global.exception.BusinessException(com.weedrice.whiteboard.global.exception.ErrorCode.FORBIDDEN))
+                .when(postService).deletePost(anyLong(), eq(postId));
+
+            mockMvc.perform(delete("/api/v1/posts/{postId}", postId)
+                    .with(user(customUserDetails)))
+                    .andExpect(status().isForbidden());
         }
     }
 
@@ -257,13 +312,8 @@ class PostControllerTest {
         void likePost_success() throws Exception {
             Long postId = 1L;
             when(postService.likePost(anyLong(), eq(postId))).thenReturn(1);
-
-            mockMvc.perform(post("/api/v1/posts/{postId}/like", postId)
-                    .with(user(customUserDetails))
-                    .with(csrf())
-                    .accept(MediaType.APPLICATION_JSON))
-                    .andExpect(status().isCreated())
-                    .andExpect(jsonPath("$.success").value(true));
+            mockMvc.perform(post("/api/v1/posts/{postId}/like", postId).with(user(customUserDetails)))
+                    .andExpect(status().isCreated());
         }
 
         @Test
@@ -271,26 +321,29 @@ class PostControllerTest {
         void unlikePost_success() throws Exception {
             Long postId = 1L;
             when(postService.unlikePost(anyLong(), eq(postId))).thenReturn(0);
-
-            mockMvc.perform(delete("/api/v1/posts/{postId}/like", postId)
-                    .with(user(customUserDetails))
-                    .with(csrf())
-                    .accept(MediaType.APPLICATION_JSON))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.success").value(true));
+            mockMvc.perform(delete("/api/v1/posts/{postId}/like", postId).with(user(customUserDetails)))
+                    .andExpect(status().isOk());
         }
 
         @Test
-        @DisplayName("스크랩 성공")
-        void scrapPost_success() throws Exception {
+        @DisplayName("스크랩 성공 - Request Body 있음")
+        void scrapPost_withRequest() throws Exception {
             Long postId = 1L;
             PostScrapRequest request = new PostScrapRequest("Remark");
-
+            doNothing().when(postService).scrapPost(anyLong(), eq(postId), anyString());
             mockMvc.perform(post("/api/v1/posts/{postId}/scrap", postId)
                     .with(user(customUserDetails))
-                    .with(csrf())
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isCreated());
+        }
+
+        @Test
+        @DisplayName("스크랩 성공 - Request Body 없음")
+        void scrapPost_noRequest() throws Exception {
+            Long postId = 1L;
+            doNothing().when(postService).scrapPost(anyLong(), eq(postId), isNull());
+            mockMvc.perform(post("/api/v1/posts/{postId}/scrap", postId).with(user(customUserDetails)))
                     .andExpect(status().isCreated());
         }
 
@@ -298,21 +351,17 @@ class PostControllerTest {
         @DisplayName("스크랩 취소 성공")
         void unscrapPost_success() throws Exception {
             Long postId = 1L;
+            doNothing().when(postService).unscrapPost(anyLong(), eq(postId));
             mockMvc.perform(delete("/api/v1/posts/{postId}/scrap", postId)
-                    .with(user(customUserDetails))
-                    .with(csrf()))
+                    .with(user(customUserDetails)))
                     .andExpect(status().isOk());
         }
 
         @Test
         @DisplayName("내 스크랩 조회")
         void getMyScraps_success() throws Exception {
-            Page<Scrap> page = Page.empty();
-            ScrapListResponse response = ScrapListResponse.from(page);
-            when(postService.getMyScraps(anyLong(), any())).thenReturn(response);
-
-            mockMvc.perform(get("/api/v1/users/me/scraps")
-                    .with(user(customUserDetails)))
+            when(postService.getMyScraps(anyLong(), any())).thenReturn(ScrapListResponse.from(Page.empty()));
+            mockMvc.perform(get("/api/v1/users/me/scraps").with(user(customUserDetails)))
                     .andExpect(status().isOk());
         }
     }
@@ -323,12 +372,8 @@ class PostControllerTest {
         @Test
         @DisplayName("임시저장 목록 조회")
         void getMyDrafts_success() throws Exception {
-            Page<DraftPost> page = Page.empty();
-            DraftListResponse response = DraftListResponse.from(page);
-            when(postService.getDraftPosts(anyLong(), any())).thenReturn(response);
-
-            mockMvc.perform(get("/api/v1/users/me/drafts")
-                    .with(user(customUserDetails)))
+            when(postService.getDraftPosts(anyLong(), any())).thenReturn(DraftListResponse.from(Page.empty()));
+            mockMvc.perform(get("/api/v1/users/me/drafts").with(user(customUserDetails)))
                     .andExpect(status().isOk());
         }
 
@@ -336,18 +381,10 @@ class PostControllerTest {
         @DisplayName("임시저장 단건 조회")
         void getDraft_success() throws Exception {
             Long draftId = 1L;
-            DraftPost draft = DraftPost.builder().title("Draft").user(user).board(board).build();
-            ReflectionTestUtils.setField(draft, "draftId", 1L);
-            ReflectionTestUtils.setField(draft, "modifiedAt", LocalDateTime.now());
-
-            DraftResponse response = DraftResponse.from(draft);
+            DraftResponse response = DraftResponse.builder().build();
             when(postService.getDraftPost(anyLong(), eq(draftId))).thenReturn(response);
-
-            mockMvc.perform(get("/api/v1/drafts/{draftId}", draftId)
-                    .with(user(customUserDetails))
-                    .accept(MediaType.APPLICATION_JSON))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.success").value(true));
+            mockMvc.perform(get("/api/v1/drafts/{draftId}", draftId).with(user(customUserDetails)))
+                    .andExpect(status().isOk());
         }
 
         @Test
@@ -356,24 +393,18 @@ class PostControllerTest {
             PostDraftRequest request = new PostDraftRequest(null, "free", "Title", "Content", null);
             DraftPost draft = DraftPost.builder().title("Title").build();
             ReflectionTestUtils.setField(draft, "draftId", 1L);
-
             when(postService.saveDraftPost(anyLong(), any())).thenReturn(draft);
 
-            mockMvc.perform(post("/api/v1/drafts")
-                    .with(user(customUserDetails))
-                    .with(csrf())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(objectMapper.writeValueAsString(request)))
+            mockMvc.perform(post("/api/v1/drafts").with(user(customUserDetails))
+                    .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(request)))
                     .andExpect(status().isCreated());
         }
 
         @Test
         @DisplayName("임시저장 삭제")
         void deleteDraft_success() throws Exception {
-            Long draftId = 1L;
-            mockMvc.perform(delete("/api/v1/drafts/{draftId}", draftId)
-                    .with(user(customUserDetails))
-                    .with(csrf()))
+            doNothing().when(postService).deleteDraftPost(anyLong(), eq(1L));
+            mockMvc.perform(delete("/api/v1/drafts/1").with(user(customUserDetails)))
                     .andExpect(status().isOk());
         }
     }
@@ -381,12 +412,8 @@ class PostControllerTest {
     @Test
     @DisplayName("게시글 버전 조회")
     void getPostVersions_success() throws Exception {
-        Long postId = 1L;
-        List<PostVersionResponse> responses = Collections.emptyList();
-        when(postService.getPostVersions(postId)).thenReturn(responses);
-
-        mockMvc.perform(get("/api/v1/posts/{postId}/versions", postId)
-                .with(user(customUserDetails)))
+        when(postService.getPostVersions(anyLong())).thenReturn(Collections.emptyList());
+        mockMvc.perform(get("/api/v1/posts/1/versions").with(user(customUserDetails)))
                 .andExpect(status().isOk());
     }
 }

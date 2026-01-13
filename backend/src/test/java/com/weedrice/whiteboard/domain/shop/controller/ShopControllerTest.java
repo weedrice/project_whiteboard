@@ -35,7 +35,21 @@ import static org.mockito.Mockito.doAnswer;
         @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = com.weedrice.whiteboard.global.config.WebConfig.class),
         @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = com.weedrice.whiteboard.global.config.SecurityConfig.class)
     })
+@org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
+@org.springframework.context.annotation.Import(ShopControllerTest.TestSecurityConfig.class)
 class ShopControllerTest {
+
+    @org.springframework.boot.test.context.TestConfiguration
+    @org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
+    static class TestSecurityConfig {
+        @org.springframework.context.annotation.Bean
+        public org.springframework.security.web.SecurityFilterChain filterChain(org.springframework.security.config.annotation.web.builders.HttpSecurity http) throws Exception {
+            http
+                .csrf(csrf -> csrf.disable())
+                .authorizeHttpRequests(auth -> auth.anyRequest().permitAll());
+            return http.build();
+        }
+    }
 
     @Autowired
     private MockMvc mockMvc;
@@ -91,8 +105,7 @@ class ShopControllerTest {
         // when & then
         mockMvc.perform(get("/api/v1/shop/items")
                         .param("page", "0")
-                        .param("size", "20")
-                        .with(csrf()))
+                        .param("size", "20"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
     }
@@ -101,12 +114,11 @@ class ShopControllerTest {
     @DisplayName("아이템 구매 성공")
     void purchaseItem_returnsSuccess() throws Exception {
         // given
-        when(shopService.purchaseItem(eq(1L), eq(1L))).thenReturn(1L);
+        when(shopService.purchaseItem(any(), eq(1L))).thenReturn(1L);
 
         // when & then
         mockMvc.perform(post("/api/v1/shop/items/{itemId}/purchase", 1L)
-                        .with(user(customUserDetails))
-                        .with(csrf()))
+                        .with(user(customUserDetails)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data").value(1L));
@@ -117,14 +129,13 @@ class ShopControllerTest {
     void getMyPurchaseHistories_returnsSuccess() throws Exception {
         // given
         PurchaseHistoryResponse response = PurchaseHistoryResponse.builder().build();
-        when(shopService.getPurchaseHistories(eq(1L), any())).thenReturn(response);
+        when(shopService.getPurchaseHistories(any(), any())).thenReturn(response);
 
         // when & then
         mockMvc.perform(get("/api/v1/shop/me/purchases")
                         .param("page", "0")
                         .param("size", "20")
-                        .with(user(customUserDetails))
-                        .with(csrf()))
+                        .with(user(customUserDetails)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
     }

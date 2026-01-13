@@ -45,7 +45,21 @@ import static org.mockito.Mockito.when;
         @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = com.weedrice.whiteboard.global.config.WebConfig.class),
         @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = com.weedrice.whiteboard.global.config.SecurityConfig.class)
     })
+@org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
+@org.springframework.context.annotation.Import(TagControllerTest.TestSecurityConfig.class)
 class TagControllerTest {
+
+    @org.springframework.boot.test.context.TestConfiguration
+    @org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
+    static class TestSecurityConfig {
+        @org.springframework.context.annotation.Bean
+        public org.springframework.security.web.SecurityFilterChain filterChain(org.springframework.security.config.annotation.web.builders.HttpSecurity http) throws Exception {
+            http
+                .csrf(csrf -> csrf.disable())
+                .authorizeHttpRequests(auth -> auth.anyRequest().permitAll());
+            return http.build();
+        }
+    }
 
     @Autowired
     private MockMvc mockMvc;
@@ -110,8 +124,7 @@ class TagControllerTest {
 
         // when & then
         mockMvc.perform(get("/api/v1/tags")
-                        .with(anonymous())
-                        .with(csrf()))
+                        .with(anonymous()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.tags").isArray());
@@ -126,14 +139,13 @@ class TagControllerTest {
         PostSummary postSummary = PostSummary.builder().build();
         Page<PostSummary> page = new PageImpl<>(List.of(postSummary), pageRequest, 1);
 
-        when(postService.getPostsByTag(eq(tagId), eq(1L), any())).thenReturn(page);
+        when(postService.getPostsByTag(eq(tagId), any(), any())).thenReturn(page);
 
         // when & then
         mockMvc.perform(get("/api/v1/tags/{tagId}/posts", tagId)
                         .param("page", "0")
                         .param("size", "10")
-                        .with(user(customUserDetails))
-                        .with(csrf()))
+                        .with(user(customUserDetails)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.content").isArray());
@@ -154,8 +166,7 @@ class TagControllerTest {
         mockMvc.perform(get("/api/v1/tags/{tagId}/posts", tagId)
                         .param("page", "0")
                         .param("size", "10")
-                        .with(anonymous())
-                        .with(csrf()))
+                        .with(anonymous()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.content").isArray());

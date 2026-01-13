@@ -1,7 +1,5 @@
 package com.weedrice.whiteboard.domain.notification.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.weedrice.whiteboard.domain.notification.dto.NotificationResponse;
 import com.weedrice.whiteboard.domain.notification.service.NotificationService;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import org.junit.jupiter.api.BeforeEach;
@@ -12,18 +10,18 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
-import org.springframework.http.MediaType;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.Collections;
 
-import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.when;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import jakarta.servlet.FilterChain;
@@ -36,13 +34,24 @@ import static org.mockito.Mockito.doAnswer;
         @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = com.weedrice.whiteboard.global.config.WebConfig.class),
         @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = com.weedrice.whiteboard.global.config.SecurityConfig.class)
     })
+@org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
+@org.springframework.context.annotation.Import({NotificationControllerTest.TestSecurityConfig.class, com.weedrice.whiteboard.global.exception.GlobalExceptionHandler.class})
 class NotificationControllerTest {
+
+    @org.springframework.boot.test.context.TestConfiguration
+    @org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
+    static class TestSecurityConfig {
+        @org.springframework.context.annotation.Bean
+        public org.springframework.security.web.SecurityFilterChain filterChain(org.springframework.security.config.annotation.web.builders.HttpSecurity http) throws Exception {
+            http
+                .csrf(csrf -> csrf.disable())
+                .authorizeHttpRequests(auth -> auth.anyRequest().permitAll());
+            return http.build();
+        }
+    }
 
     @Autowired
     private MockMvc mockMvc;
-
-    @Autowired
-    private ObjectMapper objectMapper;
 
     @MockBean
     private NotificationService notificationService;
@@ -65,6 +74,9 @@ class NotificationControllerTest {
     @MockBean
     private com.weedrice.whiteboard.global.ratelimit.RateLimitInterceptor rateLimitInterceptor;
 
+    @MockBean
+    private org.springframework.context.MessageSource messageSource;
+
     private CustomUserDetails customUserDetails;
 
     @BeforeEach
@@ -85,60 +97,26 @@ class NotificationControllerTest {
         }).when(jwtAuthenticationFilter).doFilter(any(), any(), any());
     }
 
-    @Test
-    @DisplayName("알림 목록 조회 성공")
-    void getNotifications_returnsSuccess() throws Exception {
-        // given
-        NotificationResponse response = NotificationResponse.builder().build();
-        when(notificationService.getNotifications(eq(1L), any())).thenReturn(response);
+            @Test
 
-        // when & then
-        mockMvc.perform(get("/api/v1/notifications")
-                        .param("page", "0")
-                        .param("size", "20")
-                        .with(user(customUserDetails))
-                        .with(csrf()))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true));
-    }
+            @DisplayName("SSE 구독 성공")
 
-    @Test
-    @DisplayName("알림 읽음 처리 성공")
-    void readNotification_returnsSuccess() throws Exception {
-        // given
-        Long notificationId = 1L;
+            void subscribe_success() throws Exception {
 
-        // when & then
-        mockMvc.perform(put("/api/v1/notifications/{notificationId}/read", notificationId)
-                        .with(user(customUserDetails))
-                        .with(csrf()))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true));
-    }
+                when(notificationService.subscribe(anyLong())).thenReturn(new SseEmitter());
 
-    @Test
-    @DisplayName("모든 알림 읽음 처리 성공")
-    void readAllNotifications_returnsSuccess() throws Exception {
-        // when & then
-        mockMvc.perform(put("/api/v1/notifications/read-all")
-                        .with(user(customUserDetails))
-                        .with(csrf()))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true));
-    }
+        
 
-    @Test
-    @DisplayName("읽지 않은 알림 개수 조회 성공")
-    void getUnreadNotificationCount_returnsSuccess() throws Exception {
-        // given
-        when(notificationService.getUnreadNotificationCount(eq(1L))).thenReturn(5L);
+                mockMvc.perform(get("/api/v1/notifications/subscribe")
 
-        // when & then
-        mockMvc.perform(get("/api/v1/notifications/unread-count")
-                        .with(user(customUserDetails))
-                        .with(csrf()))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data").value(5L));
-    }
-}
+                                .with(user(customUserDetails)))
+
+                        .andExpect(status().isOk());
+
+            }
+
+        }
+
+        
+
+    

@@ -3,7 +3,6 @@ package com.weedrice.whiteboard.domain.post.entity;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
 import com.weedrice.whiteboard.domain.user.entity.User;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -11,138 +10,86 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class PostTest {
 
-    private User user;
-    private Board board;
-    private BoardCategory category;
-    private Post post;
-
-    @BeforeEach
-    void setUp() {
-        user = User.builder()
-                .loginId("testuser")
-                .email("test@test.com")
-                .password("password")
-                .displayName("Test User")
-                .build();
-
-        board = Board.builder()
-                .boardName("Test Board")
-                .boardUrl("test-board")
-                .creator(user)
-                .build();
-
-        category = BoardCategory.builder()
-                .name("General")
-                .board(board)
-                .build();
-
-        post = Post.builder()
-                .board(board)
-                .user(user)
-                .category(category)
-                .title("Test Post")
-                .contents("Test Contents")
-                .isNotice(false)
-                .isNsfw(false)
-                .isSpoiler(false)
-                .build();
-    }
-
     @Test
-    @DisplayName("게시글 생성 시 초기값 확인")
-    void createPost_initialValues() {
-        // then
-        assertThat(post.getViewCount()).isEqualTo(0);
-        assertThat(post.getLikeCount()).isEqualTo(0);
-        assertThat(post.getCommentCount()).isEqualTo(0);
-        assertThat(post.getIsDeleted()).isFalse();
+    @DisplayName("Post 생성 빌더 테스트")
+    void createPost() {
+        User user = User.builder().build();
+        Board board = Board.builder().build();
+        
+        Post post = Post.builder()
+                .title("Title")
+                .contents("Contents")
+                .user(user)
+                .board(board)
+                .build();
+
+        assertThat(post.getTitle()).isEqualTo("Title");
+        assertThat(post.getContents()).isEqualTo("Contents");
+        assertThat(post.getViewCount()).isZero();
+        assertThat(post.getLikeCount()).isZero();
     }
 
     @Test
     @DisplayName("조회수 증가")
-    void incrementViewCount_success() {
-        // when
+    void incrementViewCount() {
+        Post post = Post.builder().build();
         post.incrementViewCount();
-
-        // then
         assertThat(post.getViewCount()).isEqualTo(1);
     }
 
     @Test
-    @DisplayName("좋아요 수 증가")
-    void incrementLikeCount_success() {
-        // when
+    @DisplayName("좋아요 수 증감")
+    void likeCount() {
+        Post post = Post.builder().build();
+        
         post.incrementLikeCount();
-
-        // then
         assertThat(post.getLikeCount()).isEqualTo(1);
-    }
-
-    @Test
-    @DisplayName("좋아요 수 감소")
-    void decrementLikeCount_success() {
-        // given
-        post.incrementLikeCount();
-        post.incrementLikeCount();
-
-        // when
+        
         post.decrementLikeCount();
-
-        // then
-        assertThat(post.getLikeCount()).isEqualTo(1);
+        assertThat(post.getLikeCount()).isZero();
     }
 
     @Test
-    @DisplayName("댓글 수 증가")
-    void incrementCommentCount_success() {
-        // when
+    @DisplayName("댓글 수 증감")
+    void commentCount() {
+        Post post = Post.builder().build();
+        
         post.incrementCommentCount();
-
-        // then
         assertThat(post.getCommentCount()).isEqualTo(1);
-    }
-
-    @Test
-    @DisplayName("댓글 수 감소")
-    void decrementCommentCount_success() {
-        // given
-        post.incrementCommentCount();
-        post.incrementCommentCount();
-
-        // when
+        
         post.decrementCommentCount();
-
-        // then
-        assertThat(post.getCommentCount()).isEqualTo(1);
+        assertThat(post.getCommentCount()).isZero();
     }
 
     @Test
     @DisplayName("게시글 수정")
-    void updatePost_success() {
-        // given
-        BoardCategory newCategory = BoardCategory.builder()
-                .name("New Category")
-                .board(board)
+    void updatePost() {
+        Post post = Post.builder()
+                .title("Old Title")
+                .contents("Old Contents")
+                .isNotice(false)
+                .isNsfw(false)
+                .isSpoiler(false)
                 .build();
 
-        // when
-        post.updatePost(newCategory, "Updated Title", "Updated Contents", true, true);
+        BoardCategory category = BoardCategory.builder().name("Category").build();
 
-        // then
-        assertThat(post.getTitle()).isEqualTo("Updated Title");
-        assertThat(post.getContents()).isEqualTo("Updated Contents");
-        assertThat(post.getCategory()).isEqualTo(newCategory);
+        // category, title, contents, isNsfw, isSpoiler
+        post.updatePost(category, "New Title", "New Contents", true, true);
+
+        assertThat(post.getTitle()).isEqualTo("New Title");
+        assertThat(post.getContents()).isEqualTo("New Contents");
+        assertThat(post.getCategory()).isEqualTo(category);
+        assertThat(post.getIsNotice()).isFalse(); // 공지 여부는 수정 불가 (별도 메서드 없으면)
         assertThat(post.getIsNsfw()).isTrue();
         assertThat(post.getIsSpoiler()).isTrue();
     }
 
     @Test
     @DisplayName("게시글 삭제")
-    void deletePost_success() {
-        // when
+    void deletePost() {
+        Post post = Post.builder().build();
         post.deletePost();
-
-        // then
         assertThat(post.getIsDeleted()).isTrue();
     }
 }

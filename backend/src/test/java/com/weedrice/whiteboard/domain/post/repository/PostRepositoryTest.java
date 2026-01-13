@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.post.repository;
 
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
+import com.weedrice.whiteboard.domain.file.entity.File;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.global.config.QuerydslConfig;
@@ -14,7 +15,11 @@ import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 
+import java.time.LocalDateTime;
+import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -91,5 +96,127 @@ class PostRepositoryTest {
         // then
         assertThat(posts.getContent()).isNotEmpty();
         assertThat(posts.getContent().get(0).getUser()).isEqualTo(user);
+    }
+
+    @Test
+    @DisplayName("사용자별 게시글 개수 조회 성공")
+    void countByUser_success() {
+        // when
+        long count = postRepository.countByUserAndIsDeleted(user, false);
+
+        // then
+        assertThat(count).isGreaterThan(0);
+    }
+
+    @Test
+    @DisplayName("게시판별 공지사항 조회 성공")
+    void findByBoardAndIsNotice_success() {
+        // when
+        List<Post> notices = postRepository.findByBoard_BoardIdAndIsNoticeAndIsDeletedOrderByCreatedAtDesc(
+                board.getBoardId(), true, false);
+
+        // then
+        assertThat(notices).isNotNull();
+    }
+
+    @Test
+    @DisplayName("특정 날짜 이후 게시글 조회 성공")
+    void findByCreatedAtAfter_success() {
+        // given
+        LocalDateTime yesterday = LocalDateTime.now().minusDays(1);
+
+        // when
+        List<Post> posts = postRepository.findByCreatedAtAfterAndIsDeleted(yesterday, false);
+
+        // then
+        assertThat(posts).isNotEmpty();
+    }
+
+    @Test
+    @DisplayName("게시판 삭제 시 게시글 삭제 성공")
+    void deleteByBoard_success() {
+        // when
+        postRepository.deleteByBoard(board);
+        entityManager.flush();
+        entityManager.clear();
+
+        // then
+        Optional<Post> found = postRepository.findById(post.getPostId());
+        assertThat(found).isEmpty();
+    }
+
+    @Test
+    @DisplayName("게시판 ID와 카테고리 ID로 게시글 조회 성공")
+    void findByBoardIdAndCategoryId_success() {
+        // given
+        PageRequest pageRequest = PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "createdAt"));
+
+        // when
+        Page<Post> result = postRepository.findByBoardIdAndCategoryId(
+                board.getBoardId(), category.getCategoryId(), null, null, pageRequest);
+
+        // then
+        assertThat(result.getContent()).hasSize(1);
+        assertThat(result.getContent().get(0).getTitle()).isEqualTo("Test Post");
+    }
+
+    @Test
+    @DisplayName("키워드로 게시글 검색 성공")
+    void searchPostsByKeyword_success() {
+        // given
+        PageRequest pageRequest = PageRequest.of(0, 10);
+
+        // when
+        Page<Post> result = postRepository.searchPostsByKeyword("Test", null, pageRequest);
+
+        // then
+        assertThat(result.getContent()).isNotEmpty();
+        assertThat(result.getContent().get(0).getTitle()).contains("Test");
+    }
+
+    @Test
+    @DisplayName("복합 조건으로 게시글 검색 성공")
+    void searchPosts_success() {
+        // given
+        PageRequest pageRequest = PageRequest.of(0, 10);
+
+        // when
+        Page<Post> result = postRepository.searchPosts(
+                "Test", "TITLE", "test-board", null, pageRequest);
+
+        // then
+        assertThat(result.getContent()).isNotEmpty();
+        assertThat(result.getContent().get(0).getTitle()).isEqualTo("Test Post");
+    }
+
+    @Test
+    @DisplayName("인기 게시글 조회 성공 (이미지 포함)")
+    void findTrendingPosts_success() {
+        // given
+        File file = File.builder()
+                .originalName("test.jpg")
+                .mimeType("image/jpeg")
+                .fileSize(1024L)
+                .filePath("/uploads/test.jpg")
+                .uploader(user)
+                .relatedType("POST_CONTENT")
+                .relatedId(post.getPostId())
+                .build();
+        entityManager.persist(file);
+        
+        post.incrementViewCount();
+        post.incrementLikeCount();
+        entityManager.persist(post);
+        entityManager.flush();
+
+        PageRequest pageRequest = PageRequest.of(0, 10);
+        LocalDateTime since = LocalDateTime.now().minusDays(7);
+
+        // when
+        List<Post> trendingPosts = postRepository.findTrendingPosts(since, Collections.emptyList(), pageRequest);
+
+        // then
+        assertThat(trendingPosts).isNotEmpty();
+        assertThat(trendingPosts.get(0).getPostId()).isEqualTo(post.getPostId());
     }
 }

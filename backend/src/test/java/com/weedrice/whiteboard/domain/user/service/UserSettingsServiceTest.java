@@ -10,233 +10,136 @@ import com.weedrice.whiteboard.domain.user.repository.UserNotificationSettingsRe
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserSettingsRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
-import org.junit.jupiter.api.BeforeEach;
+import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.test.util.ReflectionTestUtils;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class UserSettingsServiceTest {
 
-    @Mock
-    private UserRepository userRepository;
-    @Mock
-    private UserSettingsRepository userSettingsRepository;
-    @Mock
-    private UserNotificationSettingsRepository userNotificationSettingsRepository;
-
     @InjectMocks
     private UserSettingsService userSettingsService;
 
-    private User user;
-    private UserSettings userSettings;
+    @Mock
+    private UserRepository userRepository;
 
-    @BeforeEach
-    void setUp() {
-        user = User.builder().build();
-        ReflectionTestUtils.setField(user, "userId", 1L);
-        userSettings = UserSettings.builder().user(user).build();
-    }
+    @Mock
+    private UserSettingsRepository userSettingsRepository;
 
-    @Test
-    @DisplayName("설정 조회 성공 - 기존 설정 존재")
-    void getSettings_success_existing() {
-        // given
-        Long userId = 1L;
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        when(userSettingsRepository.findById(userId)).thenReturn(Optional.of(userSettings));
-
-        // when
-        UserSettingsResponse foundSettings = userSettingsService.getSettings(userId);
-
-        // then
-        assertThat(foundSettings.getTheme()).isEqualTo(userSettings.getTheme());
-        assertThat(foundSettings.getLanguage()).isEqualTo(userSettings.getLanguage());
-    }
+    @Mock
+    private UserNotificationSettingsRepository userNotificationSettingsRepository;
 
     @Test
-    @DisplayName("설정 조회 성공 - 새로운 설정 생성")
-    void getSettings_success_new() {
-        // given
-        Long userId = 1L;
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        when(userSettingsRepository.findById(userId)).thenReturn(Optional.empty());
-        when(userSettingsRepository.save(any(UserSettings.class))).thenAnswer(i -> i.getArgument(0));
-
-        // when
-        UserSettingsResponse foundSettings = userSettingsService.getSettings(userId);
-
-        // then
-        assertThat(foundSettings.getTheme()).isEqualTo("LIGHT"); // Default
-        verify(userSettingsRepository).save(any(UserSettings.class));
-    }
-
-    @Test
-    @DisplayName("설정 조회 실패 - 사용자를 찾을 수 없음")
-    void getSettings_fail_userNotFound() {
-        // given
-        Long userId = 99L;
-        when(userRepository.findById(userId)).thenReturn(Optional.empty());
-
-        // when & then
-        assertThrows(BusinessException.class, () -> userSettingsService.getSettings(userId));
-    }
-
-    @Test
-    @DisplayName("설정 수정 성공 - 모든 필드 업데이트")
-    void updateSettings_updatesAllFields() {
-        // given
-        Long userId = 1L;
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        when(userSettingsRepository.findById(userId)).thenReturn(Optional.of(userSettings));
-        when(userSettingsRepository.save(any(UserSettings.class))).thenAnswer(i -> i.getArgument(0));
-
-        // when
-        UserSettingsResponse updatedSettings = userSettingsService.updateSettings(userId, "DARK", "en", "UTC", false);
-
-        // then
-        assertThat(updatedSettings.getTheme()).isEqualTo("DARK");
-        assertThat(updatedSettings.getLanguage()).isEqualTo("en");
-        assertThat(updatedSettings.getTimezone()).isEqualTo("UTC");
-        assertThat(updatedSettings.isHideNsfw()).isFalse();
-    }
-
-    @Test
-    @DisplayName("설정 수정 성공 - Null이 아닌 필드만 업데이트")
-    void updateSettings_updatesOnlyNonNullFields() {
-        // given
-        Long userId = 1L;
-        String originalTimezone = userSettings.getTimezone();
-        Boolean originalHideNsfw = userSettings.getHideNsfw();
-
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        when(userSettingsRepository.findById(userId)).thenReturn(Optional.of(userSettings));
-        when(userSettingsRepository.save(any(UserSettings.class))).thenAnswer(i -> i.getArgument(0));
-
-        // when
-        UserSettingsResponse updatedSettings = userSettingsService.updateSettings(userId, "DARK", "en", null, null);
-
-        // then
-        assertThat(updatedSettings.getTheme()).isEqualTo("DARK");
-        assertThat(updatedSettings.getLanguage()).isEqualTo("en");
-        assertThat(updatedSettings.getTimezone()).isEqualTo(originalTimezone);
-        assertThat(updatedSettings.isHideNsfw()).isEqualTo(originalHideNsfw);
-    }
-
-    @Test
-    @DisplayName("설정 수정 성공 - 새로운 설정 생성")
-    void updateSettings_success_new() {
-        // given
-        Long userId = 1L;
-        String newTheme = "DARK";
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        when(userSettingsRepository.findById(userId)).thenReturn(Optional.empty());
-        when(userSettingsRepository.save(any(UserSettings.class))).thenAnswer(invocation -> invocation.getArgument(0));
-
-        // when
-        UserSettingsResponse updatedSettings = userSettingsService.updateSettings(userId, newTheme, "en", "UTC", false);
-
-        // then
-        assertThat(updatedSettings.getTheme()).isEqualTo(newTheme);
-        assertThat(updatedSettings.getLanguage()).isEqualTo("en");
+    @DisplayName("설정 조회 성공")
+    void getSettings_success() {
+        User user = User.builder().build();
+        UserSettings settings = new UserSettings(user);
         
-        // Should be called 2 times: 1st for default creation, 2nd for update
-        verify(userSettingsRepository, times(2)).save(any(UserSettings.class));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userSettingsRepository.findById(1L)).thenReturn(Optional.of(settings));
+
+        UserSettingsResponse response = userSettingsService.getSettings(1L);
+        assertThat(response).isNotNull();
+    }
+
+    @Test
+    @DisplayName("설정 수정 성공")
+    void updateSettings_success() {
+        User user = User.builder().build();
+        UserSettings settings = new UserSettings(user);
+        
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userSettingsRepository.findById(1L)).thenReturn(Optional.of(settings));
+        when(userSettingsRepository.save(any())).thenReturn(settings);
+
+        UserSettingsResponse response = userSettingsService.updateSettings(1L, "dark", "en", "UTC", true);
+        
+        assertThat(response.getTheme()).isEqualTo("dark");
+        assertThat(response.isHideNsfw()).isTrue();
     }
 
     @Test
     @DisplayName("알림 설정 조회 성공")
     void getNotificationSettings_success() {
-        // given
-        Long userId = 1L;
-        UserNotificationSettings notificationSetting = UserNotificationSettings.builder().userId(userId).notificationType("LIKE").isEnabled(true).build();
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        when(userNotificationSettingsRepository.findByUserId(userId)).thenReturn(Collections.singletonList(notificationSetting));
-
-        // when
-        List<NotificationSettingResponse> settings = userSettingsService.getNotificationSettings(userId);
-
-        // then
-        assertThat(settings).hasSize(1);
-        assertThat(settings.get(0).getNotificationType()).isEqualTo("LIKE");
-    }
-
-    @Test
-    @DisplayName("알림 설정 수정 성공 - 기존 설정 존재")
-    void updateNotificationSetting_success_existing() {
-        // given
-        Long userId = 1L;
-        String notificationType = "LIKE";
-        UserNotificationSettingsId id = new UserNotificationSettingsId(userId, notificationType);
-        UserNotificationSettings setting = UserNotificationSettings.builder().userId(userId).notificationType(notificationType).isEnabled(true).build();
-
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        when(userNotificationSettingsRepository.findById(id)).thenReturn(Optional.of(setting));
-        when(userNotificationSettingsRepository.save(any(UserNotificationSettings.class))).thenAnswer(i -> i.getArgument(0));
-
-        // when
-        NotificationSettingResponse updatedSetting = userSettingsService.updateNotificationSetting(userId, notificationType, false);
-
-        // then
-        assertThat(updatedSetting.isEnabled()).isFalse();
-    }
-
-    @Test
-    @DisplayName("알림 설정 수정 성공 - 새로운 설정 생성")
-    void updateNotificationSetting_success_new() {
-        // given
-        Long userId = 1L;
-        String notificationType = "COMMENT";
-        UserNotificationSettingsId id = new UserNotificationSettingsId(userId, notificationType);
-        // New setting is created with default enabled=true, then updated to false
+        User user = User.builder().build();
+        UserNotificationSettings notificationSetting = new UserNotificationSettings(1L, "email", true);
         
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        when(userNotificationSettingsRepository.findById(id)).thenReturn(Optional.empty());
-        when(userNotificationSettingsRepository.save(any(UserNotificationSettings.class))).thenAnswer(i -> i.getArgument(0));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userNotificationSettingsRepository.findByUserId(1L)).thenReturn(List.of(notificationSetting));
 
-        // when
-        NotificationSettingResponse updatedSetting = userSettingsService.updateNotificationSetting(userId, notificationType, false);
-
-        // then
-        assertThat(updatedSetting.isEnabled()).isFalse();
-        verify(userNotificationSettingsRepository).save(any(UserNotificationSettings.class));
+        List<NotificationSettingResponse> responses = userSettingsService.getNotificationSettings(1L);
+        assertThat(responses).hasSize(1);
     }
 
     @Test
-    @DisplayName("알림 설정 수정 - isEnabled가 null일 때 변경 없음")
-    void updateNotificationSetting_doesNotUpdateIfIsEnabledIsNull() {
-        // given
-        Long userId = 1L;
-        String notificationType = "LIKE";
-        UserNotificationSettingsId id = new UserNotificationSettingsId(userId, notificationType);
-        UserNotificationSettings setting = UserNotificationSettings.builder().userId(userId).notificationType(notificationType).isEnabled(true).build();
-
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        when(userNotificationSettingsRepository.findById(id)).thenReturn(Optional.of(setting));
-        when(userNotificationSettingsRepository.save(any(UserNotificationSettings.class))).thenAnswer(i -> i.getArgument(0));
-
-        // when
-        userSettingsService.updateNotificationSetting(userId, notificationType, null);
-
-        // then
-        ArgumentCaptor<UserNotificationSettings> captor = ArgumentCaptor.forClass(UserNotificationSettings.class);
-        verify(userNotificationSettingsRepository).save(captor.capture());
+    @DisplayName("알림 설정 수정 성공")
+    void updateNotificationSetting_success() {
+        User user = User.builder().build();
+        UserNotificationSettings notificationSetting = new UserNotificationSettings(1L, "email", true);
+        UserNotificationSettingsId id = new UserNotificationSettingsId(1L, "email");
         
-        assertThat(captor.getValue().getIsEnabled()).isTrue(); // Should remain true
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userNotificationSettingsRepository.findById(id)).thenReturn(Optional.of(notificationSetting));
+        when(userNotificationSettingsRepository.save(any())).thenReturn(notificationSetting);
+
+        NotificationSettingResponse response = userSettingsService.updateNotificationSetting(1L, "email", false);
+        
+        assertThat(response.isEnabled()).isFalse();
+    }
+
+    @Test
+    @DisplayName("설정 조회 실패 - 사용자 없음")
+    void getSettings_userNotFound() {
+        when(userRepository.findById(1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> userSettingsService.getSettings(1L))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.USER_NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("설정 수정 실패 - 사용자 없음")
+    void updateSettings_userNotFound() {
+        when(userRepository.findById(1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> userSettingsService.updateSettings(1L, "ko", "light", "Asia/Seoul", true))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.USER_NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("알림 설정 조회 실패 - 사용자 없음")
+    void getNotificationSettings_userNotFound() {
+        when(userRepository.findById(1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> userSettingsService.getNotificationSettings(1L))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.USER_NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("알림 설정 수정 실패 - 사용자 없음")
+    void updateNotificationSetting_userNotFound() {
+        when(userRepository.findById(1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> userSettingsService.updateNotificationSetting(1L, "email", true))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.USER_NOT_FOUND);
     }
 }

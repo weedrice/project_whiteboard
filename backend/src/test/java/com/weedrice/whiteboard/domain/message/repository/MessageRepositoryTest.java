@@ -13,9 +13,13 @@ import org.springframework.data.domain.PageRequest;
 
 import java.util.Optional;
 
+import com.weedrice.whiteboard.global.config.QuerydslConfig;
+import org.springframework.context.annotation.Import;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 @DataJpaTest
+@Import(QuerydslConfig.class)
 class MessageRepositoryTest {
 
     @Autowired
@@ -78,5 +82,29 @@ class MessageRepositoryTest {
         // then
         assertThat(messages.getContent()).isNotEmpty();
         assertThat(messages.getContent().get(0).getReceiver()).isEqualTo(receiver);
+    }
+
+    @Test
+    @DisplayName("발신자별 메시지 목록 조회 성공")
+    void findBySender_success() {
+        // given
+        PageRequest pageRequest = PageRequest.of(0, 10);
+
+        // when
+        Page<Message> messages = messageRepository.findBySenderAndIsDeletedBySender(sender, false, pageRequest);
+
+        // then
+        assertThat(messages.getContent()).isNotEmpty();
+        assertThat(messages.getContent().get(0).getSender()).isEqualTo(sender);
+    }
+
+    @Test
+    @DisplayName("수신자별 읽지 않은 메시지 개수 조회 성공")
+    void countUnreadMessages_success() {
+        // when
+        long count = messageRepository.countByReceiverAndIsReadAndIsDeletedByReceiver(receiver, false, false);
+
+        // then
+        assertThat(count).isGreaterThanOrEqualTo(0);
     }
 }

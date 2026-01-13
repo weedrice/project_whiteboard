@@ -13,6 +13,7 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
 import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.mockito.ArgumentMatchers.*;
@@ -31,6 +32,10 @@ import static org.mockito.Mockito.doAnswer;
     excludeFilters = {
         @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = com.weedrice.whiteboard.global.config.WebConfig.class),
         @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = com.weedrice.whiteboard.global.config.SecurityConfig.class)
+    },
+    excludeAutoConfiguration = {
+        org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class,
+        org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration.class
     })
 class AuthControllerTest {
 
@@ -83,11 +88,12 @@ class AuthControllerTest {
     @DisplayName("회원가입 성공")
     void signup_returnsSuccess() throws Exception {
         // given
-        SignupRequest request = new SignupRequest();
-        org.springframework.test.util.ReflectionTestUtils.setField(request, "email", "test@example.com");
-        org.springframework.test.util.ReflectionTestUtils.setField(request, "loginId", "testuser");
-        org.springframework.test.util.ReflectionTestUtils.setField(request, "password", "password123");
-        org.springframework.test.util.ReflectionTestUtils.setField(request, "displayName", "Test User");
+        SignupRequest request = SignupRequest.builder()
+                .email("test@example.com")
+                .loginId("testuser")
+                .password("Password123!")
+                .displayName("Test User")
+                .build();
         SignupResponse response = SignupResponse.builder()
                 .userId(1L)
                 .loginId("testuser")
@@ -99,8 +105,7 @@ class AuthControllerTest {
         // when & then
         mockMvc.perform(post("/api/v1/auth/signup")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request))
-                        .with(csrf()))
+                        .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.userId").value(1L));
@@ -121,8 +126,7 @@ class AuthControllerTest {
         // when & then
         mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request))
-                        .with(csrf()))
+                        .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.accessToken").value("access-token"));
@@ -144,8 +148,7 @@ class AuthControllerTest {
         // when & then
         mockMvc.perform(post("/api/v1/auth/refresh")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request))
-                        .with(csrf()))
+                        .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.accessToken").value("new-access-token"));

@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.comment.repository;
 
+import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -29,6 +30,7 @@ class CommentRepositoryTest {
     private CommentRepository commentRepository;
 
     private User user;
+    private Board board;
     private Post post;
     private Comment comment;
 
@@ -42,10 +44,18 @@ class CommentRepositoryTest {
                 .build();
         entityManager.persist(user);
 
+        board = Board.builder()
+                .boardName("Test Board")
+                .boardUrl("test-board")
+                .creator(user)
+                .build();
+        entityManager.persist(board);
+
         post = Post.builder()
                 .title("Test Post")
                 .contents("Test Contents")
                 .user(user)
+                .board(board)
                 .build();
         entityManager.persist(post);
 
@@ -53,6 +63,7 @@ class CommentRepositoryTest {
                 .content("Test Comment")
                 .user(user)
                 .post(post)
+                .depth(0)
                 .build();
         entityManager.persist(comment);
         entityManager.flush();

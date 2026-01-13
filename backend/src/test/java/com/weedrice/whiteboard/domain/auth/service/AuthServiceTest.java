@@ -194,6 +194,7 @@ class AuthServiceTest {
         void findLoginId_success() {
                 // given
                 String email = "test@example.com";
+                when(verificationCodeService.isVerified(email)).thenReturn(true);
                 when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
 
                 // when
@@ -201,6 +202,7 @@ class AuthServiceTest {
 
                 // then
                 assertThat(response.getLoginId()).isEqualTo("testuser");
+                verify(verificationCodeService).isVerified(email);
                 verify(userRepository).findByEmail(email);
         }
 }

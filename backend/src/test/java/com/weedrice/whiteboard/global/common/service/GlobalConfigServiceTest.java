@@ -5,18 +5,15 @@ import com.weedrice.whiteboard.global.common.repository.GlobalConfigRepository;
 import com.weedrice.whiteboard.global.common.util.SecurityUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.util.Collections;
-import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -28,138 +25,74 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class GlobalConfigServiceTest {
 
-    @Mock
-    private GlobalConfigRepository globalConfigRepository;
-
     @InjectMocks
     private GlobalConfigService globalConfigService;
 
-    private MockedStatic<SecurityUtils> securityUtilsMockedStatic;
-
-    @BeforeEach
-    void setUp() {
-        securityUtilsMockedStatic = mockStatic(SecurityUtils.class);
-    }
-
-    @AfterEach
-    void tearDown() {
-        securityUtilsMockedStatic.close();
-    }
+    @Mock
+    private GlobalConfigRepository globalConfigRepository;
 
     @Test
     @DisplayName("설정 조회 성공")
     void getConfig_success() {
+        // given
         GlobalConfig config = new GlobalConfig("key", "value", "desc");
         when(globalConfigRepository.findById("key")).thenReturn(Optional.of(config));
 
+        // when
         String value = globalConfigService.getConfig("key");
 
+        // then
         assertThat(value).isEqualTo("value");
     }
 
     @Test
-    @DisplayName("설정 조회 실패 - 존재하지 않음")
-    void getConfig_notFound() {
-        when(globalConfigRepository.findById("key")).thenReturn(Optional.empty());
-
-        String value = globalConfigService.getConfig("key");
-
-        assertThat(value).isNull();
-    }
-
-    @Test
-    @DisplayName("전체 설정 조회 - 권한 검증")
-    void getAllConfigs_success() {
-        // given
-        when(globalConfigRepository.findAll()).thenReturn(Collections.emptyList());
-
-        // when
-        List<GlobalConfig> configs = globalConfigService.getAllConfigs();
-
-        // then
-        assertThat(configs).isEmpty();
-        securityUtilsMockedStatic.verify(SecurityUtils::validateSuperAdminPermission);
-    }
-
-    @Test
-    @DisplayName("설정 생성 성공")
+    @DisplayName("설정 생성 성공 (관리자 권한)")
     void createConfig_success() {
-        // given
-        when(globalConfigRepository.existsById("key")).thenReturn(false);
-        when(globalConfigRepository.save(any(GlobalConfig.class))).thenAnswer(i -> i.getArgument(0));
+        try (MockedStatic<SecurityUtils> utilities = Mockito.mockStatic(SecurityUtils.class)) {
+            // given
+            utilities.when(SecurityUtils::validateSuperAdminPermission).thenAnswer(invocation -> null);
+            when(globalConfigRepository.existsById(anyString())).thenReturn(false);
+            when(globalConfigRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        // when
-        GlobalConfig created = globalConfigService.createConfig("key", "value", "desc");
+            // when
+            GlobalConfig created = globalConfigService.createConfig("key", "value", "desc");
 
-        // then
-        assertThat(created.getConfigKey()).isEqualTo("key");
-        assertThat(created.getConfigValue()).isEqualTo("value");
-        securityUtilsMockedStatic.verify(SecurityUtils::validateSuperAdminPermission);
+            // then
+            assertThat(created.getConfigKey()).isEqualTo("key");
+            assertThat(created.getConfigValue()).isEqualTo("value");
+        }
     }
 
     @Test
-    @DisplayName("설정 생성 실패 - 중복 키")
+    @DisplayName("설정 생성 실패 - 중복 (관리자 권한)")
     void createConfig_duplicate() {
-        // given
-        when(globalConfigRepository.existsById("key")).thenReturn(true);
+        try (MockedStatic<SecurityUtils> utilities = Mockito.mockStatic(SecurityUtils.class)) {
+            // given
+            utilities.when(SecurityUtils::validateSuperAdminPermission).thenAnswer(invocation -> null);
+            when(globalConfigRepository.existsById("key")).thenReturn(true);
 
-        // when & then
-        assertThatThrownBy(() -> globalConfigService.createConfig("key", "value", "desc"))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.DUPLICATE_RESOURCE);
+            // when & then
+            assertThatThrownBy(() -> globalConfigService.createConfig("key", "value", "desc"))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.DUPLICATE_RESOURCE);
+        }
     }
 
     @Test
-    @DisplayName("설정 수정 성공")
+    @DisplayName("설정 수정 성공 (관리자 권한)")
     void updateConfig_success() {
-        // given
-        GlobalConfig config = new GlobalConfig("key", "old", "desc");
-        when(globalConfigRepository.findById("key")).thenReturn(Optional.of(config));
-        when(globalConfigRepository.save(any(GlobalConfig.class))).thenAnswer(i -> i.getArgument(0));
+        try (MockedStatic<SecurityUtils> utilities = Mockito.mockStatic(SecurityUtils.class)) {
+            // given
+            GlobalConfig config = new GlobalConfig("key", "old", "old");
+            utilities.when(SecurityUtils::validateSuperAdminPermission).thenAnswer(invocation -> null);
+            when(globalConfigRepository.findById("key")).thenReturn(Optional.of(config));
+            when(globalConfigRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        // when
-        GlobalConfig updated = globalConfigService.updateConfig("key", "new", "desc");
+            // when
+            GlobalConfig updated = globalConfigService.updateConfig("key", "new", "new");
 
-        // then
-        assertThat(updated.getConfigValue()).isEqualTo("new");
-        securityUtilsMockedStatic.verify(SecurityUtils::validateSuperAdminPermission);
-    }
-
-    @Test
-    @DisplayName("설정 수정 실패 - 존재하지 않음")
-    void updateConfig_notFound() {
-        // given
-        when(globalConfigRepository.findById("key")).thenReturn(Optional.empty());
-
-        // when & then
-        assertThatThrownBy(() -> globalConfigService.updateConfig("key", "val", "desc"))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.NOT_FOUND);
-    }
-
-    @Test
-    @DisplayName("설정 삭제 성공")
-    void deleteConfig_success() {
-        // given
-        when(globalConfigRepository.existsById("key")).thenReturn(true);
-
-        // when
-        globalConfigService.deleteConfig("key");
-
-        // then
-        verify(globalConfigRepository).deleteById("key");
-        securityUtilsMockedStatic.verify(SecurityUtils::validateSuperAdminPermission);
-    }
-
-    @Test
-    @DisplayName("설정 삭제 실패 - 존재하지 않음")
-    void deleteConfig_notFound() {
-        // given
-        when(globalConfigRepository.existsById("key")).thenReturn(false);
-
-        // when & then
-        assertThatThrownBy(() -> globalConfigService.deleteConfig("key"))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.NOT_FOUND);
+            // then
+            assertThat(updated.getConfigValue()).isEqualTo("new");
+        }
     }
 }

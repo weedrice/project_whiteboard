@@ -48,7 +48,21 @@ import static org.mockito.Mockito.when;
         @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = com.weedrice.whiteboard.global.config.WebConfig.class),
         @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = com.weedrice.whiteboard.global.config.SecurityConfig.class)
     })
+@org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
+@org.springframework.context.annotation.Import(SearchControllerTest.TestSecurityConfig.class)
 class SearchControllerTest {
+
+    @org.springframework.boot.test.context.TestConfiguration
+    @org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
+    static class TestSecurityConfig {
+        @org.springframework.context.annotation.Bean
+        public org.springframework.security.web.SecurityFilterChain filterChain(org.springframework.security.config.annotation.web.builders.HttpSecurity http) throws Exception {
+            http
+                .csrf(csrf -> csrf.disable())
+                .authorizeHttpRequests(auth -> auth.anyRequest().permitAll());
+            return http.build();
+        }
+    }
 
     @Autowired
     private MockMvc mockMvc;
@@ -98,8 +112,8 @@ class SearchControllerTest {
     }
 
     @Test
-    @DisplayName("통합 검색 성공")
-    void integratedSearch_returnsSuccess() throws Exception {
+    @DisplayName("통합 검색 성공 - 비인증 사용자")
+    void integratedSearch_anonymous() throws Exception {
         // given
         String query = "test";
         org.springframework.data.domain.Page<PostSummary> emptyPostPage = new PageImpl<>(List.of());
@@ -107,16 +121,33 @@ class SearchControllerTest {
         org.springframework.data.domain.Page<com.weedrice.whiteboard.domain.user.dto.UserSummary> emptyUserPage = new PageImpl<>(List.of());
         IntegratedSearchResponse response = IntegratedSearchResponse.from(emptyPostPage, emptyCommentPage, emptyUserPage, query);
         
-        when(searchService.integratedSearch(eq(query), eq(1L))).thenReturn(response);
-        doNothing().when(searchService).recordSearch(eq(1L), eq(query));
+        when(searchService.integratedSearch(eq(query), isNull())).thenReturn(response);
+        doNothing().when(searchService).recordSearch(isNull(), eq(query));
 
         // when & then
         mockMvc.perform(get("/api/v1/search")
+                        .param("q", query))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("게시글 검색 성공 - 비인증 사용자")
+    void searchPosts_anonymous() throws Exception {
+        // given
+        String query = "test";
+        PageRequest pageRequest = PageRequest.of(0, 10);
+        PostSummary postSummary = PostSummary.builder().build();
+        Page<PostSummary> page = new PageImpl<>(List.of(postSummary), pageRequest, 1);
+
+        when(searchService.searchPosts(eq(query), isNull(), any(), any(), any())).thenReturn(page);
+        doNothing().when(searchService).recordSearch(isNull(), eq(query));
+
+        // when & then
+        mockMvc.perform(get("/api/v1/search/posts")
                         .param("q", query)
-                        .with(user(customUserDetails))
-                        .with(csrf()))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true));
+                        .param("page", "0")
+                        .param("size", "10"))
+                .andExpect(status().isOk());
     }
 
     @Test
@@ -128,16 +159,15 @@ class SearchControllerTest {
         PostSummary postSummary = PostSummary.builder().build();
         Page<PostSummary> page = new PageImpl<>(List.of(postSummary), pageRequest, 1);
 
-        when(searchService.searchPosts(eq(query), any(), any(), any(), eq(1L))).thenReturn(page);
-        doNothing().when(searchService).recordSearch(eq(1L), eq(query));
+        when(searchService.searchPosts(eq(query), any(), any(), any(), any())).thenReturn(page);
+        doNothing().when(searchService).recordSearch(any(), eq(query));
 
         // when & then
         mockMvc.perform(get("/api/v1/search/posts")
                         .param("q", query)
                         .param("page", "0")
                         .param("size", "10")
-                        .with(user(customUserDetails))
-                        .with(csrf()))
+                        .with(user(customUserDetails)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.content").isArray());
@@ -157,8 +187,7 @@ class SearchControllerTest {
         mockMvc.perform(get("/api/v1/search/popular")
                         .param("period", "DAILY")
                         .param("limit", "10")
-                        .with(anonymous())
-                        .with(csrf()))
+                        .with(anonymous()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.keywords").isArray());
@@ -170,14 +199,13 @@ class SearchControllerTest {
         // given
         org.springframework.data.domain.Page<com.weedrice.whiteboard.domain.search.entity.SearchPersonalization> emptyPage = new PageImpl<>(List.of());
         SearchPersonalizationResponse response = SearchPersonalizationResponse.from(emptyPage);
-        when(searchService.getRecentSearches(eq(1L), any())).thenReturn(response);
+        when(searchService.getRecentSearches(any(), any())).thenReturn(response);
 
         // when & then
         mockMvc.perform(get("/api/v1/search/recent")
                         .param("page", "0")
                         .param("size", "10")
-                        .with(user(customUserDetails))
-                        .with(csrf()))
+                        .with(user(customUserDetails)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
     }
@@ -187,12 +215,11 @@ class SearchControllerTest {
     void deleteRecentSearch_returnsSuccess() throws Exception {
         // given
         Long logId = 1L;
-        doNothing().when(searchService).deleteRecentSearch(eq(1L), eq(logId));
+        doNothing().when(searchService).deleteRecentSearch(any(), eq(logId));
 
         // when & then
         mockMvc.perform(delete("/api/v1/search/recent/{logId}", logId)
-                        .with(user(customUserDetails))
-                        .with(csrf()))
+                        .with(user(customUserDetails)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
     }
@@ -201,12 +228,11 @@ class SearchControllerTest {
     @DisplayName("모든 최근 검색어 삭제 성공")
     void deleteAllRecentSearches_returnsSuccess() throws Exception {
         // given
-        doNothing().when(searchService).deleteAllRecentSearches(eq(1L));
+        doNothing().when(searchService).deleteAllRecentSearches(any());
 
         // when & then
         mockMvc.perform(delete("/api/v1/search/recent")
-                        .with(user(customUserDetails))
-                        .with(csrf()))
+                        .with(user(customUserDetails)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
     }

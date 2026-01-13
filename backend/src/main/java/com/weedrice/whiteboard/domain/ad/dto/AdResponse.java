@@ -2,16 +2,9 @@ package com.weedrice.whiteboard.domain.ad.dto;
 
 import com.weedrice.whiteboard.domain.ad.entity.Ad;
 import lombok.Builder;
-import lombok.Getter;
 
-@Getter
 @Builder
-public class AdResponse {
-    private Long adId;
-    private String title;
-    private String imageUrl;
-    private String targetUrl;
-    private String placement;
+public record AdResponse(Long adId, String title, String imageUrl, String targetUrl, String placement) {
 
     public static AdResponse from(Ad ad) {
         if (ad == null) {

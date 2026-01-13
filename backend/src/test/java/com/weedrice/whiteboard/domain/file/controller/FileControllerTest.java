@@ -14,8 +14,6 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
-import org.springframework.core.io.InputStreamResource;
-import org.springframework.core.io.Resource;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -27,7 +25,6 @@ import java.util.Collections;
 
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.when;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -43,7 +40,21 @@ import static org.mockito.Mockito.doAnswer;
         @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = com.weedrice.whiteboard.global.config.WebConfig.class),
         @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = com.weedrice.whiteboard.global.config.SecurityConfig.class)
     })
+@org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
+@org.springframework.context.annotation.Import({FileControllerTest.TestSecurityConfig.class, com.weedrice.whiteboard.global.exception.GlobalExceptionHandler.class})
 class FileControllerTest {
+
+    @org.springframework.boot.test.context.TestConfiguration
+    @org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
+    static class TestSecurityConfig {
+        @org.springframework.context.annotation.Bean
+        public org.springframework.security.web.SecurityFilterChain filterChain(org.springframework.security.config.annotation.web.builders.HttpSecurity http) throws Exception {
+            http
+                .csrf(csrf -> csrf.disable())
+                .authorizeHttpRequests(auth -> auth.anyRequest().permitAll());
+            return http.build();
+        }
+    }
 
     @Autowired
     private MockMvc mockMvc;
@@ -72,6 +83,9 @@ class FileControllerTest {
     @MockBean
     private com.weedrice.whiteboard.global.ratelimit.RateLimitInterceptor rateLimitInterceptor;
 
+    @MockBean
+    private org.springframework.context.MessageSource messageSource;
+
     private CustomUserDetails customUserDetails;
 
     @BeforeEach
@@ -95,16 +109,13 @@ class FileControllerTest {
     @Test
     @DisplayName("파일 업로드 성공")
     void uploadFile_returnsSuccess() throws Exception {
-        // given
         MockMultipartFile file = new MockMultipartFile("file", "test.txt", "text/plain", "test content".getBytes());
         FileUploadResponse response = FileUploadResponse.builder().build();
-        when(fileService.uploadFile(eq(1L), any())).thenReturn(response);
+        when(fileService.uploadFile(any(), any())).thenReturn(response);
 
-        // when & then
         mockMvc.perform(multipart("/api/v1/files")
                         .file(file)
-                        .with(user(customUserDetails))
-                        .with(csrf()))
+                        .with(user(customUserDetails)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.success").value(true));
     }
@@ -112,16 +123,13 @@ class FileControllerTest {
     @Test
     @DisplayName("간단 파일 업로드 성공")
     void uploadSimple_returnsSuccess() throws Exception {
-        // given
         MockMultipartFile file = new MockMultipartFile("file", "test.txt", "text/plain", "test content".getBytes());
         FileSimpleResponse response = FileSimpleResponse.builder().build();
-        when(fileService.uploadSimpleFile(eq(1L), any())).thenReturn(response);
+        when(fileService.uploadSimpleFile(any(), any())).thenReturn(response);
 
-        // when & then
         mockMvc.perform(multipart("/api/v1/files/upload")
                         .file(file)
-                        .with(user(customUserDetails))
-                        .with(csrf()))
+                        .with(user(customUserDetails)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.success").value(true));
     }
@@ -129,7 +137,6 @@ class FileControllerTest {
     @Test
     @DisplayName("파일 다운로드 성공")
     void downloadFile_returnsSuccess() throws Exception {
-        // given
         Long fileId = 1L;
         File file = File.builder().build();
         ReflectionTestUtils.setField(file, "fileId", fileId);
@@ -140,10 +147,30 @@ class FileControllerTest {
         when(fileService.getFile(eq(fileId))).thenReturn(file);
         when(fileStorageService.loadFile(anyString())).thenReturn(new ByteArrayInputStream("test content".getBytes()));
 
-        // when & then
-        mockMvc.perform(get("/api/v1/files/{fileId}", fileId)
-                        .with(csrf()))
+        mockMvc.perform(get("/api/v1/files/{fileId}", fileId))
                 .andExpect(status().isOk())
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("Content-Disposition", "attachment; filename=\"test.txt\""));
+    }
+
+    @Test
+    @DisplayName("파일 다운로드 실패 - 파일 없음")
+    void downloadFile_notFound() throws Exception {
+        Long fileId = 99L;
+        when(fileService.getFile(fileId)).thenThrow(new com.weedrice.whiteboard.global.exception.BusinessException(com.weedrice.whiteboard.global.exception.ErrorCode.NOT_FOUND));
+
+        mockMvc.perform(get("/api/v1/files/{fileId}", fileId))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("파일 업로드 실패 - 파일 비어있음")
+    void uploadFile_empty() throws Exception {
+        MockMultipartFile file = new MockMultipartFile("file", "", "text/plain", new byte[0]);
+        when(fileService.uploadFile(any(), any())).thenThrow(new com.weedrice.whiteboard.global.exception.BusinessException(com.weedrice.whiteboard.global.exception.ErrorCode.FILE_EMPTY));
+
+        mockMvc.perform(multipart("/api/v1/files")
+                        .file(file)
+                        .with(user(customUserDetails)))
+                .andExpect(status().isBadRequest());
     }
 }

@@ -26,6 +26,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -154,14 +155,14 @@ class AdminServiceTest {
     @DisplayName("모든 관리자 목록 조회 성공")
     void getAllAdmins_success() {
         // given
-        when(adminRepository.findByIsActive(true)).thenReturn(List.of(admin));
+        when(adminRepository.findAll()).thenReturn(List.of(admin));
 
         // when
         List<AdminResponse> admins = adminService.getAllAdmins();
 
         // then
         assertThat(admins).hasSize(1);
-        verify(adminRepository).findByIsActive(true);
+        verify(adminRepository).findAll();
     }
 
     @Test
@@ -175,7 +176,7 @@ class AdminServiceTest {
         adminService.deactivateAdmin(adminId);
 
         // then
-        verify(adminRepository).save(any(Admin.class));
+        assertThat(admin.getIsActive()).isFalse();
     }
 
     @Test
@@ -183,13 +184,14 @@ class AdminServiceTest {
     void activateAdmin_success() {
         // given
         Long adminId = 1L;
+        admin.deactivate(); // 먼저 비활성화
         when(adminRepository.findById(adminId)).thenReturn(Optional.of(admin));
 
         // when
         adminService.activateAdmin(adminId);
 
         // then
-        verify(adminRepository).save(any(Admin.class));
+        assertThat(admin.getIsActive()).isTrue();
     }
 
     @Test
@@ -217,6 +219,7 @@ class AdminServiceTest {
         com.weedrice.whiteboard.domain.admin.entity.IpBlock ipBlock = com.weedrice.whiteboard.domain.admin.entity.IpBlock.builder()
                 .ipAddress("127.0.0.1")
                 .reason("Test")
+                .admin(admin)
                 .build();
         when(ipBlockRepository.findAll()).thenReturn(List.of(ipBlock));
 
@@ -237,7 +240,8 @@ class AdminServiceTest {
                 .ipAddress(ipAddress)
                 .reason("Test")
                 .build();
-        when(ipBlockRepository.findByIpAddress(ipAddress)).thenReturn(Optional.of(ipBlock));
+        when(ipBlockRepository.findByIpAddressAndEndDateAfterOrEndDateIsNull(eq(ipAddress), any(java.time.LocalDateTime.class)))
+                .thenReturn(Optional.of(ipBlock));
 
         // when
         boolean isBlocked = adminService.isIpBlocked(ipAddress);
@@ -253,16 +257,19 @@ class AdminServiceTest {
         when(postRepository.count()).thenReturn(100L);
         when(reportRepository.countByStatus("PENDING")).thenReturn(5L);
         when(userRepository.count()).thenReturn(50L);
-        when(boardRepository.count()).thenReturn(10L);
-        when(adminRepository.count()).thenReturn(3L);
+        when(userRepository.countByLastLoginAtAfter(any(java.time.LocalDateTime.class))).thenReturn(10L);
 
         // when
         com.weedrice.whiteboard.domain.admin.dto.DashboardStatsDto stats = adminService.getDashboardStats();
 
         // then
         assertThat(stats).isNotNull();
+        assertThat(stats.getTotalUsers()).isEqualTo(50L);
+        assertThat(stats.getTotalPosts()).isEqualTo(100L);
+        assertThat(stats.getPendingReports()).isEqualTo(5L);
         verify(postRepository).count();
         verify(reportRepository).countByStatus("PENDING");
         verify(userRepository).count();
+        verify(userRepository).countByLastLoginAtAfter(any(java.time.LocalDateTime.class));
     }
 }

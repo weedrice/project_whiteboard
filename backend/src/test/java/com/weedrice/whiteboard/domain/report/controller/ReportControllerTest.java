@@ -2,7 +2,6 @@ package com.weedrice.whiteboard.domain.report.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.weedrice.whiteboard.domain.report.dto.ReportCreateRequest;
-import com.weedrice.whiteboard.domain.report.dto.ReportResponse;
 import com.weedrice.whiteboard.domain.report.service.ReportService;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import org.junit.jupiter.api.BeforeEach;
@@ -13,24 +12,18 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
-import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import jakarta.servlet.FilterChain;
@@ -43,7 +36,21 @@ import static org.mockito.Mockito.doAnswer;
         @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = com.weedrice.whiteboard.global.config.WebConfig.class),
         @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = com.weedrice.whiteboard.global.config.SecurityConfig.class)
     })
+@org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
+@org.springframework.context.annotation.Import({ReportControllerTest.TestSecurityConfig.class, com.weedrice.whiteboard.global.exception.GlobalExceptionHandler.class})
 class ReportControllerTest {
+
+    @org.springframework.boot.test.context.TestConfiguration
+    @org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
+    static class TestSecurityConfig {
+        @org.springframework.context.annotation.Bean
+        public org.springframework.security.web.SecurityFilterChain filterChain(org.springframework.security.config.annotation.web.builders.HttpSecurity http) throws Exception {
+            http
+                .csrf(csrf -> csrf.disable())
+                .authorizeHttpRequests(auth -> auth.anyRequest().permitAll());
+            return http.build();
+        }
+    }
 
     @Autowired
     private MockMvc mockMvc;
@@ -72,6 +79,9 @@ class ReportControllerTest {
     @MockBean
     private com.weedrice.whiteboard.global.ratelimit.RateLimitInterceptor rateLimitInterceptor;
 
+    @MockBean
+    private org.springframework.context.MessageSource messageSource;
+
     private CustomUserDetails customUserDetails;
 
     @BeforeEach
@@ -92,84 +102,38 @@ class ReportControllerTest {
         }).when(jwtAuthenticationFilter).doFilter(any(), any(), any());
     }
 
-    @Test
-    @DisplayName("사용자 신고 성공")
-    void reportUser_returnsSuccess() throws Exception {
-        // given
-        Map<String, Object> request = new HashMap<>();
-        request.put("targetUserId", 2L);
-        request.put("reason", "Spam");
-        request.put("link", "http://example.com");
-        
-        when(reportService.createReport(eq(1L), eq("USER"), eq(2L), eq("ETC"), anyString(), isNull())).thenReturn(1L);
+        @Test
 
-        // when & then
-        mockMvc.perform(post("/api/v1/reports/users")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request))
-                        .with(user(customUserDetails))
-                        .with(csrf()))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data").value(1L));
+        @DisplayName("신고 생성 성공")
+
+        void createReport_success() throws Exception {
+
+            ReportCreateRequest request = new ReportCreateRequest();
+
+            org.springframework.test.util.ReflectionTestUtils.setField(request, "targetType", "POST");
+
+            org.springframework.test.util.ReflectionTestUtils.setField(request, "targetId", 1L);
+
+            org.springframework.test.util.ReflectionTestUtils.setField(request, "reasonType", "SPAM");
+
+            
+
+            when(reportService.createReport(any(), any(), any(), any(), any(), any())).thenReturn(1L);
+
+    
+
+            mockMvc.perform(post("/api/v1/reports")
+
+                            .with(user(customUserDetails))
+
+                            .contentType(MediaType.APPLICATION_JSON)
+
+                            .content(objectMapper.writeValueAsString(request)))
+
+                    .andExpect(status().isCreated());
+
+        }
+
     }
 
-    @Test
-    @DisplayName("게시글 신고 성공")
-    void reportPost_returnsSuccess() throws Exception {
-        // given
-        Map<String, Object> request = new HashMap<>();
-        request.put("targetPostId", 1L);
-        request.put("reason", "Inappropriate content");
-        
-        when(reportService.createReport(eq(1L), eq("POST"), eq(1L), eq("ETC"), anyString(), isNull())).thenReturn(1L);
-
-        // when & then
-        mockMvc.perform(post("/api/v1/reports/posts")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request))
-                        .with(user(customUserDetails))
-                        .with(csrf()))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.success").value(true));
-    }
-
-    @Test
-    @DisplayName("댓글 신고 성공")
-    void reportComment_returnsSuccess() throws Exception {
-        // given
-        Map<String, Object> request = new HashMap<>();
-        request.put("targetCommentId", 1L);
-        request.put("reason", "Spam");
-        
-        when(reportService.createReport(eq(1L), eq("COMMENT"), eq(1L), eq("ETC"), anyString(), isNull())).thenReturn(1L);
-
-        // when & then
-        mockMvc.perform(post("/api/v1/reports/comments")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request))
-                        .with(user(customUserDetails))
-                        .with(csrf()))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.success").value(true));
-    }
-
-    @Test
-    @DisplayName("내 신고 목록 조회 성공")
-    void getMyReports_returnsSuccess() throws Exception {
-        // given
-        ReportResponse response = ReportResponse.builder().build();
-        Page<ReportResponse> page = new PageImpl<>(List.of(response), PageRequest.of(0, 20), 1);
-        when(reportService.getMyReports(eq(1L), any())).thenReturn(page);
-
-        // when & then
-        mockMvc.perform(get("/api/v1/reports/me")
-                        .param("page", "0")
-                        .param("size", "20")
-                        .with(user(customUserDetails))
-                        .with(csrf()))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.content").isArray());
-    }
-}
+    

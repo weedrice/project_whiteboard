@@ -35,6 +35,10 @@ import static org.mockito.Mockito.doAnswer;
     excludeFilters = {
         @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = com.weedrice.whiteboard.global.config.WebConfig.class),
         @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = com.weedrice.whiteboard.global.config.SecurityConfig.class)
+    },
+    excludeAutoConfiguration = {
+        org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class,
+        org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration.class
     })
 class CommonCodeControllerTest {
 
@@ -88,8 +92,7 @@ class CommonCodeControllerTest {
         when(commonCodeService.getAllCommonCodes()).thenReturn(List.of(response));
 
         // when & then
-        mockMvc.perform(get("/api/v1/common-codes")
-                        .with(csrf()))
+        mockMvc.perform(get("/api/v1/common-codes"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data").isArray());
@@ -104,8 +107,7 @@ class CommonCodeControllerTest {
         when(commonCodeService.getCommonCode(eq(typeCode))).thenReturn(response);
 
         // when & then
-        mockMvc.perform(get("/api/v1/common-codes/{typeCode}", typeCode)
-                        .with(csrf()))
+        mockMvc.perform(get("/api/v1/common-codes/{typeCode}", typeCode))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
     }
@@ -119,8 +121,7 @@ class CommonCodeControllerTest {
         when(commonCodeService.getCommonCodeDetails(eq(typeCode))).thenReturn(List.of(response));
 
         // when & then
-        mockMvc.perform(get("/api/v1/common-codes/{typeCode}/details", typeCode)
-                        .with(csrf()))
+        mockMvc.perform(get("/api/v1/common-codes/{typeCode}/details", typeCode))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data").isArray());

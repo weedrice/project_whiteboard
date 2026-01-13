@@ -13,9 +13,13 @@ import org.springframework.data.domain.PageRequest;
 
 import java.util.Optional;
 
+import com.weedrice.whiteboard.global.config.QuerydslConfig;
+import org.springframework.context.annotation.Import;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 @DataJpaTest
+@Import(QuerydslConfig.class)
 class ReportRepositoryTest {
 
     @Autowired

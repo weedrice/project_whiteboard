@@ -42,7 +42,21 @@ import static org.mockito.Mockito.doAnswer;
         @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = com.weedrice.whiteboard.global.config.WebConfig.class),
         @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = com.weedrice.whiteboard.global.config.SecurityConfig.class)
     })
+@org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
+@org.springframework.context.annotation.Import(SanctionControllerTest.TestSecurityConfig.class)
 class SanctionControllerTest {
+
+    @org.springframework.boot.test.context.TestConfiguration
+    @org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
+    static class TestSecurityConfig {
+        @org.springframework.context.annotation.Bean
+        public org.springframework.security.web.SecurityFilterChain filterChain(org.springframework.security.config.annotation.web.builders.HttpSecurity http) throws Exception {
+            http
+                .csrf(csrf -> csrf.disable())
+                .authorizeHttpRequests(auth -> auth.anyRequest().permitAll());
+            return http.build();
+        }
+    }
 
     @Autowired
     private MockMvc mockMvc;
@@ -101,14 +115,13 @@ class SanctionControllerTest {
         org.springframework.test.util.ReflectionTestUtils.setField(request, "remark", "Test sanction");
         org.springframework.test.util.ReflectionTestUtils.setField(request, "endDate", LocalDateTime.now().plusDays(7));
         
-        when(sanctionService.createSanction(eq(1L), eq(2L), anyString(), anyString(), any())).thenReturn(1L);
+        when(sanctionService.createSanction(any(), eq(2L), anyString(), anyString(), any())).thenReturn(1L);
 
         // when & then
         mockMvc.perform(post("/api/v1/admin/sanctions")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request))
-                        .with(user(customUserDetails))
-                        .with(csrf()))
+                        .with(user(customUserDetails)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data").value(1L));
@@ -125,8 +138,7 @@ class SanctionControllerTest {
         // when & then
         mockMvc.perform(get("/api/v1/admin/sanctions")
                         .param("page", "0")
-                        .param("size", "20")
-                        .with(csrf()))
+                        .param("size", "20"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.content").isArray());
