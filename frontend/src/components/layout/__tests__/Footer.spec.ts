@@ -3,15 +3,26 @@ import { mount } from '@vue/test-utils'
 import Footer from '../Footer.vue'
 import { createPinia, setActivePinia } from 'pinia'
 import { useThemeStore } from '@/stores/theme'
+import { createRouter, createMemoryHistory } from 'vue-router'
+
+const router = createRouter({
+    history: createMemoryHistory(),
+    routes: [
+        { path: '/terms', component: { template: '<div>Terms</div>' } },
+        { path: '/privacy', component: { template: '<div>Privacy</div>' } }
+    ]
+})
 
 describe('Footer', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
         setActivePinia(createPinia())
+        await router.push('/')
     })
 
-    it('renders current year and app name', () => {
+    it('renders current year and app name', async () => {
         const wrapper = mount(Footer, {
             global: {
+                plugins: [router],
                 mocks: {
                     $t: (msg: string) => {
                         if (msg === 'common.appName') return 'Test App'
@@ -30,6 +41,7 @@ describe('Footer', () => {
     it('toggles theme on button click', async () => {
         const wrapper = mount(Footer, {
             global: {
+                plugins: [router],
                 mocks: {
                     $t: (msg: string) => msg
                 }

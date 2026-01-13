@@ -10,7 +10,8 @@ vi.mock('vue-i18n', () => ({
             const translations: Record<string, string> = {
                 'common.confirm': 'Confirm',
                 'common.yes': 'Yes',
-                'common.no': 'No'
+                'common.no': 'No',
+                'common.noValue': 'No'
             }
             return translations[key] || key
         })

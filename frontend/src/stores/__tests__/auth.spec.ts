@@ -40,6 +40,14 @@ vi.mock('@/utils/logger', () => ({
     }
 }))
 
+vi.mock('@/utils/storage', () => ({
+    Storage: {
+        getString: vi.fn((key: string) => localStorage.getItem(key)),
+        setString: vi.fn((key: string, value: string) => localStorage.setItem(key, value)),
+        remove: vi.fn((key: string) => localStorage.removeItem(key))
+    }
+}))
+
 describe('Auth Store', () => {
     let store: ReturnType<typeof useAuthStore>
 
@@ -140,6 +148,7 @@ describe('Auth Store', () => {
         })
 
         it('fetches user successfully', async () => {
+            localStorage.setItem('accessToken', 'token')
             store.accessToken = 'token'
             const mockUser = { id: 1, username: 'test', role: 'USER' }
             vi.mocked(authApi.getMe).mockResolvedValue({
@@ -153,11 +162,21 @@ describe('Auth Store', () => {
 
 
         it('handles sanctioned user', async () => {
+            localStorage.setItem('accessToken', 'token')
             store.accessToken = 'token'
             const mockUser = { id: 1, username: 'test', role: 'USER', status: 'SANCTIONED' }
             vi.mocked(authApi.getMe).mockResolvedValue({
                 data: { success: true, data: mockUser }
             } as any)
+
+            // Mock i18n
+            vi.mock('@/i18n', () => ({
+                default: {
+                    global: {
+                        t: (key: string) => key
+                    }
+                }
+            }))
 
             await store.fetchUser()
 
@@ -167,6 +186,7 @@ describe('Auth Store', () => {
         })
 
         it('does not logout on fetch error (handled by interceptor)', async () => {
+            localStorage.setItem('accessToken', 'token')
             store.accessToken = 'token'
             vi.mocked(authApi.getMe).mockRejectedValue(new Error('Invalid token'))
 

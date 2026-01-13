@@ -5,21 +5,43 @@ import { postApi } from '@/api/post'
 
 // Mock vue-query
 const mockInvalidateQueries = vi.fn()
+const mockCancelQueries = vi.fn()
+const mockGetQueryData = vi.fn()
+const mockSetQueryData = vi.fn()
 vi.mock('@tanstack/vue-query', () => ({
     useQueryClient: vi.fn(() => ({
-        invalidateQueries: mockInvalidateQueries
+        invalidateQueries: mockInvalidateQueries,
+        cancelQueries: mockCancelQueries,
+        getQueryData: mockGetQueryData,
+        setQueryData: mockSetQueryData
     })),
     useQuery: vi.fn(({ queryFn }) => {
-        // Execute queryFn immediately for testing
-        const data = queryFn()
-        return { data: ref(data) }
+        // Execute queryFn immediately for testing (handle async)
+        const dataRef = ref(null)
+        Promise.resolve(queryFn()).then(value => {
+            dataRef.value = value
+        })
+        return { data: dataRef, isLoading: ref(false), error: ref(null) }
     }),
-    useMutation: vi.fn(({ mutationFn, onSuccess }) => {
+    useMutation: vi.fn(({ mutationFn, onMutate, onSuccess, onError, onSettled }) => {
         return {
             mutate: async (variables: any) => {
-                const result = await mutationFn(variables)
-                if (onSuccess) onSuccess(result, variables, undefined)
-                return result
+                let context
+                let error: any
+                try {
+                    if (onMutate) {
+                        context = await onMutate(variables)
+                    }
+                    const result = await mutationFn(variables)
+                    if (onSuccess) onSuccess(result, variables, context)
+                    return result
+                } catch (err) {
+                    error = err
+                    if (onError) onError(error, variables, context)
+                    throw error
+                } finally {
+                    if (onSettled) onSettled(undefined, error, variables, context)
+                }
             }
         }
     })
@@ -50,10 +72,10 @@ describe('usePost', () => {
         const postId = ref(1)
         const { data } = usePostDetail(postId)
 
-        // Wait for the async queryFn to resolve in the mock
-        const resolvedData = await data.value
-        expect(resolvedData).toEqual({ id: 1, title: 'Test Post' })
-        expect(postApi.getPost).toHaveBeenCalledWith(1)
+        // Wait for the async queryFn to resolve
+        await new Promise(resolve => setTimeout(resolve, 10))
+        expect(data.value).toEqual({ id: 1, title: 'Test Post' })
+        expect(postApi.getPost).toHaveBeenCalledWith(1, { params: { incrementView: false } })
     })
 
     it('creates a post', async () => {

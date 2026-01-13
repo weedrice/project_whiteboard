@@ -13,6 +13,9 @@ export default defineConfig({
             '@': fileURLToPath(new URL('./src', import.meta.url))
         },
     },
+    define: {
+        __COMMIT_HASH__: JSON.stringify('test-hash')
+    },
     test: {
         environment: 'jsdom',
         exclude: [...configDefaults.exclude, 'e2e/**'],

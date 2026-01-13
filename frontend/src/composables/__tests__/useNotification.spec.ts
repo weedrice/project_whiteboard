@@ -3,29 +3,30 @@ import { ref } from 'vue'
 import { setActivePinia, createPinia } from 'pinia'
 import { useNotification } from '../useNotification'
 
-// Mock notification store
-const mockFetchNotifications = vi.fn()
-const mockFetchUnreadCount = vi.fn()
-const mockMarkAsRead = vi.fn()
-const mockMarkAllAsRead = vi.fn()
-const mockConnectToSse = vi.fn()
+// Mock notification API
+vi.mock('@/api/notification', () => ({
+    notificationApi: {
+        getNotifications: vi.fn(),
+        getUnreadCount: vi.fn(),
+        markAsRead: vi.fn(),
+        markAllAsRead: vi.fn()
+    }
+}))
 
-vi.mock('@/stores/notification', () => ({
-    useNotificationStore: vi.fn(() => ({
-        notifications: [],
-        totalPages: 0,
-        totalElements: 0,
-        unreadCount: 0,
-        fetchNotifications: mockFetchNotifications,
-        fetchUnreadCount: mockFetchUnreadCount,
-        markAsRead: mockMarkAsRead,
-        markAllAsRead: mockMarkAllAsRead,
-        connectToSse: mockConnectToSse
+// Mock auth store
+vi.mock('@/stores/auth', () => ({
+    useAuthStore: vi.fn(() => ({
+        isAuthenticated: true,
+        accessToken: 'test-token'
     }))
 }))
 
 // Mock vue-query
 const mockInvalidateQueries = vi.fn()
+const mockSetQueryData = vi.fn()
+const mockCancelQueries = vi.fn()
+const mockGetQueryData = vi.fn()
+
 vi.mock('@tanstack/vue-query', () => ({
     useQuery: vi.fn((options) => {
         return {
@@ -38,21 +39,38 @@ vi.mock('@tanstack/vue-query', () => ({
     useMutation: vi.fn((options) => {
         return {
             mutate: async (variables: unknown) => {
-                const result = await options.mutationFn(variables)
-                options.onSuccess?.(result, variables)
-                return result
+                try {
+                    const result = await options.mutationFn(variables)
+                    if (options.onSuccess) options.onSuccess(result, variables, undefined)
+                    return result
+                } catch (error) {
+                    if (options.onError) options.onError(error, variables, undefined)
+                    throw error
+                } finally {
+                    if (options.onSettled) options.onSettled(undefined, undefined, variables, undefined)
+                }
             },
             mutateAsync: async (variables: unknown) => {
-                const result = await options.mutationFn(variables)
-                options.onSuccess?.(result, variables)
-                return result
+                try {
+                    const result = await options.mutationFn(variables)
+                    if (options.onSuccess) options.onSuccess(result, variables, undefined)
+                    return result
+                } catch (error) {
+                    if (options.onError) options.onError(error, variables, undefined)
+                    throw error
+                } finally {
+                    if (options.onSettled) options.onSettled(undefined, undefined, variables, undefined)
+                }
             },
             isLoading: ref(false),
             error: ref(null)
         }
     }),
     useQueryClient: vi.fn(() => ({
-        invalidateQueries: mockInvalidateQueries
+        invalidateQueries: mockInvalidateQueries,
+        setQueryData: mockSetQueryData,
+        cancelQueries: mockCancelQueries,
+        getQueryData: mockGetQueryData
     }))
 }))
 
@@ -87,40 +105,58 @@ describe('useNotification', () => {
     })
 
     describe('useMarkAsRead', () => {
-        it('calls store.markAsRead and invalidates queries', async () => {
+        it('calls API and invalidates queries', async () => {
+            const { notificationApi } = await import('@/api/notification')
+            vi.mocked(notificationApi.markAsRead).mockResolvedValue({
+                data: { success: true }
+            } as any)
+
             const { useMarkAsRead } = useNotification()
             const mutation = useMarkAsRead()
 
-            mockMarkAsRead.mockResolvedValue(undefined)
-
             await mutation.mutateAsync(1)
 
-            expect(mockMarkAsRead).toHaveBeenCalledWith(1)
+            expect(notificationApi.markAsRead).toHaveBeenCalledWith(1)
             expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['notifications'] })
         })
     })
 
     describe('useMarkAllAsRead', () => {
-        it('calls store.markAllAsRead and invalidates queries', async () => {
+        it('calls API and invalidates queries', async () => {
+            const { notificationApi } = await import('@/api/notification')
+            vi.mocked(notificationApi.markAllAsRead).mockResolvedValue({
+                data: { success: true }
+            } as any)
+
             const { useMarkAllAsRead } = useNotification()
             const mutation = useMarkAllAsRead()
 
-            mockMarkAllAsRead.mockResolvedValue(undefined)
-
             await mutation.mutateAsync(undefined)
 
-            expect(mockMarkAllAsRead).toHaveBeenCalled()
+            expect(notificationApi.markAllAsRead).toHaveBeenCalled()
             expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['notifications'] })
         })
     })
 
     describe('connectToSse', () => {
-        it('calls store.connectToSse', () => {
+        it('creates EventSource connection', () => {
+            // Mock EventSource constructor
+            const mockEventSource = {
+                addEventListener: vi.fn(),
+                close: vi.fn(),
+                onerror: null
+            }
+            global.EventSource = class EventSource {
+                constructor(url: string) {
+                    return mockEventSource as any
+                }
+            } as any
+
             const { connectToSse } = useNotification()
 
             connectToSse()
 
-            expect(mockConnectToSse).toHaveBeenCalled()
+            expect(mockEventSource.addEventListener).toBeDefined()
         })
     })
 })

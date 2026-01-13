@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
-import Pagination from '../Pagination.vue'
+import Pagination from '../ui/Pagination.vue'
 
 describe('Pagination', () => {
     it('renders correct number of pages', () => {

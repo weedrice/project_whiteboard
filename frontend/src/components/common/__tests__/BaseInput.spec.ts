@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
-import BaseInput from '../BaseInput.vue'
+import BaseInput from '../ui/BaseInput.vue'
 
 describe('BaseInput', () => {
     it('renders label when provided', () => {
