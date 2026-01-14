@@ -51,8 +51,8 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
                 if (socialAccountOptional.isPresent()) {
                         User user = socialAccountOptional.get().getUser();
                         // Update profile if needed
-                        user.updateDisplayName(extractAttributes.getName());
-                        user.updateProfileImage(extractAttributes.getPicture());
+                        // user.updateDisplayName(extractAttributes.getName());
+                        // user.updateProfileImage(extractAttributes.getPicture());
 
                         return new CustomOAuth2User(
                                         user,
