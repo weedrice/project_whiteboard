@@ -216,7 +216,7 @@ const router = createRouter({
         },
         {
             path: '/:pathMatch(.*)*',
-            redirect: '/'
+            redirect: { name: 'error', query: { status: '404' } }
         }
     ],
 })
@@ -255,6 +255,22 @@ router.beforeEach(async (to: RouteLocationNormalized, from: RouteLocationNormali
         next({ name: 'home' })
     } else {
         next()
+    }
+})
+
+router.onError((error) => {
+    // ChunkLoadError: 네트워크 문제로 청크 로딩 실패 시
+    if (error.message.includes('Failed to fetch dynamically imported module') || error.message.includes('Importing a module script failed')) {
+        window.location.reload()
+    } else {
+        console.error('Router Error:', error)
+        router.push({
+            name: 'error',
+            query: {
+                status: '500',
+                message: error.message || 'Navigation Error'
+            }
+        })
     }
 })
 

@@ -8,6 +8,13 @@ vi.mock('@/stores/auth', () => ({
     useAuthStore: vi.fn()
 }))
 
+// Mock View Components to prevent API calls during routing
+vi.mock('@/views/user/MyPage.vue', () => ({ default: { template: '<div>MyPage</div>' } }))
+vi.mock('@/views/user/MyPageDashboard.vue', () => ({ default: { template: '<div>MyPageDashboard</div>' } }))
+vi.mock('@/views/home/HomeFeed.vue', () => ({ default: { template: '<div>HomeFeed</div>' } }))
+vi.mock('@/views/auth/LoginPage.vue', () => ({ default: { template: '<div>LoginPage</div>' } }))
+vi.mock('@/views/admin/AdminDashboard.vue', () => ({ default: { template: '<div>AdminDashboard</div>' } }))
+
 describe('Router Navigation Guards', () => {
     let mockAuthStore: any
 
