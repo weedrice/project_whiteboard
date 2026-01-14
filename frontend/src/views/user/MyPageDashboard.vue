@@ -103,7 +103,7 @@ onMounted(async () => {
   <div>
     <div v-if="isLoading" class="space-y-6">
       <!-- Profile Skeleton -->
-      <div class="max-w-[80%] mx-auto bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+      <div class="max-w-full mx-auto bg-white dark:bg-gray-800 shadow rounded-lg p-6">
         <div class="flex items-center mb-6">
           <BaseSkeleton width="4rem" height="4rem" rounded="rounded-full" className="mr-4" />
           <div class="flex-1">
@@ -116,7 +116,7 @@ onMounted(async () => {
         </div>
       </div>
       <!-- Posts Skeleton -->
-      <div class="max-w-[80%] mx-auto bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+      <div class="max-w-full mx-auto bg-white dark:bg-gray-800 shadow rounded-lg p-6">
         <BaseSkeleton width="120px" height="24px" className="mb-4" />
         <div class="space-y-4">
           <BaseSkeleton v-for="i in 3" :key="i" width="100%" height="60px" />
@@ -130,13 +130,12 @@ onMounted(async () => {
 
     <div v-else>
       <!-- Profile Section -->
-      <div class="max-w-[80%] mx-auto">
+      <div class="max-w-full mx-auto">
         <div class="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg mb-6 transition-colors duration-200">
           <div class="px-4 py-5 sm:px-6 flex justify-between items-center">
             <div class="flex items-center">
-              <img v-if="profile.profileImageUrl" :src="getOptimizedProfileImageUrl(profile.profileImageUrl)" class="h-16 w-16 rounded-full mr-4"
-                alt="Profile"
-                @error="handleImageError($event)" />
+              <img v-if="profile.profileImageUrl" :src="getOptimizedProfileImageUrl(profile.profileImageUrl)"
+                class="h-16 w-16 rounded-full mr-4" alt="Profile" @error="handleImageError($event)" />
               <div v-else
                 class="h-16 w-16 rounded-full bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold text-2xl mr-4">
                 {{ profile.displayName?.[0] || 'U' }}
@@ -198,7 +197,7 @@ onMounted(async () => {
       </div>
 
       <!-- My Posts Section -->
-      <div class="max-w-[80%] mx-auto">
+      <div class="max-w-full mx-auto">
         <div
           class="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg mb-6 pb-6 transition-colors duration-200">
           <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700 flex items-center">
@@ -214,11 +213,7 @@ onMounted(async () => {
                 @page-change="handleMyPostsPageChange" />
             </div>
           </div>
-          <EmptyState 
-            v-else
-            :title="$t('common.noData')"
-            :icon="FileText"
-          />
+          <EmptyState v-else :title="$t('common.noData')" :icon="FileText" />
         </div>
 
         <!-- My Comments Section -->
@@ -258,11 +253,7 @@ onMounted(async () => {
                 @page-change="handleMyCommentsPageChange" />
             </div>
           </div>
-          <EmptyState 
-            v-else
-            :title="$t('common.noData')"
-            :icon="MessageSquare"
-          />
+          <EmptyState v-else :title="$t('common.noData')" :icon="MessageSquare" />
         </div>
       </div>
 
