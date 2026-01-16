@@ -6,6 +6,16 @@ import BoardForm from '@/components/board/BoardForm.vue'
 import { useI18n } from 'vue-i18n'
 import { useFormSubmit } from '@/composables/useFormSubmit'
 import { useErrorHandler } from '@/composables/useErrorHandler'
+import type { BoardCreateData } from '@/types'
+
+interface BoardData {
+  boardName: string
+  boardUrl: string
+  description: string
+  iconUrl: string
+  sortOrder: number
+  allowNsfw: boolean
+}
 
 const { t } = useI18n()
 const router = useRouter()
@@ -14,12 +24,12 @@ const { handleError } = useErrorHandler()
 
 const error = ref('')
 
-async function handleCreate(formData) {
+async function handleCreate(formData: BoardData) {
   error.value = ''
   
   await submit(async () => {
     try {
-      const { data } = await boardApi.createBoard(formData)
+      const { data } = await boardApi.createBoard(formData as BoardCreateData)
       if (data.success) {
         router.push(`/board/${data.data.boardUrl}`)
       }

@@ -12,12 +12,14 @@ interface PostsParams {
 interface CategoryCreateData {
     name: string
     sortOrder?: number
+    minWriteRole?: string
 }
 
 interface CategoryUpdateData {
     name?: string
     sortOrder?: number
     isActive?: boolean
+    minWriteRole?: string
 }
 
 export const boardApi = {

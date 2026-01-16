@@ -17,9 +17,8 @@ type ReportHandler = (metric: Metric) => void
  */
 export function reportWebVitals(onPerfEntry?: ReportHandler) {
     if (onPerfEntry && onPerfEntry instanceof Function) {
-        import('web-vitals').then(({ onCLS, onFID, onFCP, onLCP, onTTFB, onINP }) => {
+        import('web-vitals').then(({ onCLS, onFCP, onLCP, onTTFB, onINP }) => {
             onCLS(onPerfEntry)
-            onFID(onPerfEntry)
             onFCP(onPerfEntry)
             onLCP(onPerfEntry)
             onTTFB(onPerfEntry)

@@ -27,7 +27,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import logger from '@/utils/logger'
-import type { Tag } from '@/api/tag'
+import type { Tag } from '@/types'
 import { tagApi } from '@/api/tag'
 
 const tags = ref<Tag[]>([])
@@ -65,8 +65,8 @@ const calculateFontSize = (count: number) => {
   
   if (tags.value.length === 0) return `${minSize}rem`
 
-  const maxCount = Math.max(...tags.value.map(t => t.count))
-  const minCount = Math.min(...tags.value.map(t => t.count))
+  const maxCount = Math.max(...tags.value.map((t: Tag) => t.count))
+  const minCount = Math.min(...tags.value.map((t: Tag) => t.count))
   
   if (maxCount === minCount) return `${minSize}rem`
   

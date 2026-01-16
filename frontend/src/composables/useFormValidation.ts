@@ -61,8 +61,8 @@ export type ValidationRules<T extends Record<string, unknown>> = {
 export function useFormValidation<T extends Record<string, unknown>>(
     rules: ValidationRules<T>
 ) {
-    const errors = reactive<Partial<Record<keyof T, string>>>({})
-    const touched = reactive<Partial<Record<keyof T, boolean>>>({})
+    const errors = reactive<Record<string, string | undefined>>({}) as Record<keyof T, string | undefined>
+    const touched = reactive<Record<string, boolean | undefined>>({}) as Record<keyof T, boolean | undefined>
 
     /**
      * 단일 필드 검증

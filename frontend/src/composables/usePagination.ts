@@ -61,12 +61,12 @@ export function usePagination<T>(
                 ...additionalParams
             }
             
-            const { data } = await fetchFn(params)
-            
-            if (data.success) {
-                items.value = data.data.content
-                totalCount.value = data.data.totalElements
-                totalPages.value = data.data.totalPages
+            const result = await fetchFn(params)
+
+            if (result.success) {
+                items.value = result.data.content
+                totalCount.value = result.data.totalElements
+                totalPages.value = result.data.totalPages
             } else {
                 error.value = 'Failed to load data.'
             }

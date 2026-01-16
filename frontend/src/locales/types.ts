@@ -483,6 +483,7 @@ export interface UserMessages {
     unsubscribeSuccess: string
     unsubscribeFailed: string
   }
+  sanctioned: string
 }
 
 // 신고 메시지 타입

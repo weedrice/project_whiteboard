@@ -28,7 +28,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useSearch } from '@/composables/useSearch'
-import type { PopularKeyword } from '@/api/search'
+import type { PopularKeyword } from '@/types'
 
 const { usePopularKeywords } = useSearch()
 const { data: keywordsData, isLoading: loading } = usePopularKeywords()

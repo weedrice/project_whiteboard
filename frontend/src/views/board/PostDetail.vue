@@ -31,7 +31,7 @@ const { confirm } = useConfirm()
 
 const { usePostDetail, useDeletePost, useLikePost, useUnlikePost, useScrapPost, useUnscrapPost, useReportPost } = usePost()
 
-const postId = computed(() => route.params.postId)
+const postId = computed(() => route.params.postId as string)
 const { data: post, isLoading, error: postError } = usePostDetail(postId)
 
 // SEO
@@ -64,7 +64,7 @@ const error = computed(() => postError.value ? t('board.postDetail.loadFailed') 
 
 watch(() => route.params.postId, (newId) => {
   if (newId) {
-    postApi.incrementView(newId).catch(err => {
+    postApi.incrementView(newId as string | number).catch(err => {
       // Ignore error or log it silently
       logger.warn('Failed to increment view count', err)
     })
@@ -94,15 +94,15 @@ const likeAnimationTimer = ref<ReturnType<typeof setTimeout> | null>(null)
 const isScrapAnimating = ref(false)
 const scrapAnimationTimer = ref<ReturnType<typeof setTimeout> | null>(null)
 
-const titleRef = ref(null)
+const titleRef = ref<HTMLElement | null>(null)
 
 async function handleDelete() {
   const isConfirmed = await confirm(t('common.messages.confirmDelete'))
   if (!isConfirmed) return
 
-  deleteMutate(route.params.postId, {
+  deleteMutate(route.params.postId as string | number, {
     onSuccess: () => {
-      router.push(`/board/${post.value.board.boardUrl}`)
+      router.push(`/board/${post.value?.board.boardUrl}`)
     },
     onError: (err) => {
       logger.error('Failed to delete post:', err)
@@ -112,9 +112,9 @@ async function handleDelete() {
 }
 
 async function handleLike() {
-  if (!authStore.isAuthenticated) return
+  if (!authStore.isAuthenticated || !post.value) return
   if (post.value.liked) {
-    unlikeMutate(route.params.postId, {
+    unlikeMutate(route.params.postId as string | number, {
       onError: (err) => logger.error(t('board.postDetail.likeFailed'), err)
     })
   } else {
@@ -129,16 +129,16 @@ async function handleLike() {
       likeAnimationTimer.value = null
     }, 300)
 
-    likeMutate(route.params.postId, {
+    likeMutate(route.params.postId as string | number, {
       onError: (err) => logger.error(t('board.postDetail.likeFailed'), err)
     })
   }
 }
 
 async function handleScrap() {
-  if (!authStore.isAuthenticated) return
+  if (!authStore.isAuthenticated || !post.value) return
   if (post.value.scrapped) {
-    unscrapMutate(route.params.postId, {
+    unscrapMutate(route.params.postId as string | number, {
       onError: (err) => logger.error(t('board.postDetail.scrapFailed'), err)
     })
   } else {
@@ -153,7 +153,7 @@ async function handleScrap() {
       scrapAnimationTimer.value = null
     }, 300)
 
-    scrapMutate(route.params.postId, {
+    scrapMutate(route.params.postId as string | number, {
       onError: (err) => logger.error(t('board.postDetail.scrapFailed'), err)
     })
   }
@@ -173,7 +173,7 @@ async function submitReport() {
     return
   }
 
-  reportMutate({ targetPostId: route.params.postId, reason: reportReason.value }, {
+  reportMutate({ targetPostId: route.params.postId as string | number, reason: reportReason.value }, {
     onSuccess: () => {
       toastStore.addToast(t('board.postDetail.reportSuccess'), 'success')
       showReportModal.value = false
@@ -253,7 +253,7 @@ function handleCopyUrl() {
 }
 
 function handleShare() {
-  if (navigator.share) {
+  if (navigator.share && post.value) {
     navigator.share({
       title: post.value.title,
       url: currentUrl.value,
@@ -266,7 +266,7 @@ function handleShare() {
 }
 
 const showFloatingNav = ref(false)
-const commentsRef = ref(null)
+const commentsRef = ref<HTMLElement | null>(null)
 
 let observer: IntersectionObserver | null = null
 

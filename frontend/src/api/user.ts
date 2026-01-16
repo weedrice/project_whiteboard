@@ -19,6 +19,7 @@ export interface UserUpdatePayload {
 interface PaginationParams {
     page?: number
     size?: number
+    sort?: string
 }
 
 export interface NotificationSettingsPayload {

@@ -1,4 +1,5 @@
 import api from './index'
+import type { AxiosRequestConfig } from 'axios'
 import type { LoginCredentials, SignupData, ApiResponse, LoginResponse, User } from '@/types'
 
 interface PasswordResetData {

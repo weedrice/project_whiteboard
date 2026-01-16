@@ -1,5 +1,5 @@
 <template>
-  <div class="flex flex-col gap-1" :class="$attrs.class" :style="$attrs.style">
+  <div class="flex flex-col gap-1" :class="$attrs.class as string" :style="$attrs.style as any">
     <label v-if="label && !hideLabel" :for="id" class="text-sm font-medium text-gray-700 dark:text-gray-200"
       :class="labelClass">
       {{ label }}

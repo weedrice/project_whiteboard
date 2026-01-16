@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import BoardCard from './BoardCard.vue'
-import type { Board } from '@/api/board'
+import type { Board } from '@/types'
 
 defineProps<{
   boards: Board[]

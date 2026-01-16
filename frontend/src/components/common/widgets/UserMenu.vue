@@ -92,7 +92,7 @@ const isMessageModalOpen = ref(false)
 const isReportModalOpen = ref(false)
 
 const isSelf = computed(() => {
-  return authStore.user && authStore.user.userId === props.userId
+  return !!(authStore.user && authStore.user.userId === props.userId)
 })
 
 const buttonRef = ref<HTMLButtonElement | null>(null)
@@ -110,7 +110,7 @@ const menuItems = computed(() => {
 })
 
 // 키보드 네비게이션
-const { selectedIndex, handleKeyDown: handleMenuKeyDown, reset: resetMenuSelection } = useKeyboardNavigation(
+const { selectedIndex, handleKeyDown: handleMenuKeyDown, setSelectedIndex, reset: resetMenuSelection } = useKeyboardNavigation(
   menuItems,
   {
     onSelect: (index) => {

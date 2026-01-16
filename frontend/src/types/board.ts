@@ -15,6 +15,9 @@ export interface Board {
     isSubscribed?: boolean
     createdAt: string
     modifiedAt?: string
+    categories?: Category[]
+    adminUserId?: number
+    adminDisplayName?: string
 }
 
 export interface BoardCreateData {
@@ -60,6 +63,7 @@ export interface Post {
         boardName: string
         boardUrl: string
         iconUrl?: string
+        isAdmin?: boolean
     }
     category?: Category
     tags?: string[]
@@ -82,4 +86,24 @@ export interface PostSummary {
     category?: Category
     thumbnailUrl?: string
     createdAt: string
+    liked?: boolean
+    scrapped?: boolean
+    subscribed?: boolean
+    boardUrl?: string
+    boardName?: string
+    boardIconUrl?: string
+    authorName?: string
+    summary?: string
+}
+
+// FeedPost extends PostSummary with required feed-specific fields
+export interface FeedPost extends Omit<PostSummary, 'liked' | 'scrapped' | 'subscribed' | 'boardUrl' | 'boardName' | 'authorName'> {
+    boardUrl: string | number
+    boardName: string
+    boardIconUrl?: string
+    authorName: string
+    liked: boolean
+    scrapped: boolean
+    subscribed: boolean
+    summary?: string
 }

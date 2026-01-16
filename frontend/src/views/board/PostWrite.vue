@@ -22,14 +22,14 @@ const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 const toastStore = useToastStore()
-const boardUrl = computed(() => route.params.boardUrl)
+const boardUrl = computed(() => route.params.boardUrl as string)
 
 const { useBoardDetail, useBoardCategories } = useBoard()
 const { useCreatePost } = usePost()
 
 const { data: board, isLoading: isBoardLoading } = useBoardDetail(boardUrl)
 const { data: categories, isLoading: isCategoriesLoading } = useBoardCategories(boardUrl)
-const { mutate: createPost, isLoading: isSubmitting } = useCreatePost()
+const { mutate: createPost, isPending: isSubmitting } = useCreatePost()
 
 const filteredCategories = computed(() => {
   if (!categories.value) return []
@@ -51,10 +51,10 @@ const editor = ref<InstanceType<typeof QuillEditor> | null>(null)
 const quillInstance = ref<any>(null)
 
 const form = ref({
-  categoryId: '',
+  categoryId: '' as string | number,
   title: '',
   contents: '',
-  tags: [], // Array of strings
+  tags: [] as string[], // Array of strings
   isNsfw: false,
   isSpoiler: false,
   isNotice: false
@@ -88,6 +88,7 @@ const imageHandler = () => {
   input.click()
 
   input.onchange = async () => {
+    if (!input.files) return
     const file = input.files[0]
     if (!file) return
 
@@ -119,7 +120,7 @@ const imageHandler = () => {
   }
 }
 
-const onEditorReady = (quill) => {
+const onEditorReady = (quill: any) => {
   quillInstance.value = quill
   quill.getModule('toolbar').addHandler('image', imageHandler)
 }
@@ -140,7 +141,7 @@ async function handleSubmit() {
   error.value = ''
 
   const payload = {
-    categoryId: form.value.categoryId,
+    categoryId: typeof form.value.categoryId === 'string' ? parseInt(form.value.categoryId) || 0 : form.value.categoryId,
     title: form.value.title,
     contents: form.value.contents,
     tags: form.value.tags,
@@ -154,7 +155,7 @@ async function handleSubmit() {
     onSuccess: () => {
       router.push(`/board/${boardUrl.value}`)
     },
-    onError: (err) => {
+    onError: (err: any) => {
       logger.error('Failed to create post:', err)
       error.value = err.response?.data?.error?.message || t('board.writePost.createFailed')
     }

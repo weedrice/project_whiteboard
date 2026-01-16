@@ -43,7 +43,7 @@ import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import PostListSkeleton from '@/components/common/ui/PostListSkeleton.vue'
 import EmptyState from '@/components/common/ui/EmptyState.vue'
 import { FileText } from 'lucide-vue-next'
-import type { PostSummary } from '@/types'
+import type { FeedPost } from '@/types'
 import { useHead } from '@unhead/vue'
 
 useHead({
@@ -88,7 +88,7 @@ watch([isIntersecting, hasNextPage, isFetchingNextPage],
 const loading = computed(() => isLoading.value)
 const loadingMore = computed(() => isFetchingNextPage.value)
 
-async function handleLike(post: PostSummary) {
+async function handleLike(post: FeedPost) {
   if (!requireAuth()) return
 
   if (post.liked) {
@@ -98,7 +98,7 @@ async function handleLike(post: PostSummary) {
   }
 }
 
-async function handleScrap(post: PostSummary) {
+async function handleScrap(post: FeedPost) {
   if (!requireAuth()) return
 
   if (post.scrapped) {
@@ -108,12 +108,12 @@ async function handleScrap(post: PostSummary) {
   }
 }
 
-async function handleSubscribe(post: PostSummary) {
+async function handleSubscribe(post: FeedPost) {
   if (!requireAuth()) return
 
   subscribeBoard.mutate({
-    boardUrl: post.boardUrl,
-    isSubscribed: post.subscribed || false
+    boardUrl: post.boardUrl as string,
+    isSubscribed: post.subscribed
   })
 }
 </script>

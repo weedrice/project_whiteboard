@@ -12,6 +12,13 @@ export interface Comment {
     children?: Comment[]
     createdAt: string
     modifiedAt?: string
+    // Post info when fetching user's comments
+    post?: {
+        postId: number
+        title: string
+        boardUrl: string
+        boardName: string
+    }
 }
 
 export type CommentResponse = Comment

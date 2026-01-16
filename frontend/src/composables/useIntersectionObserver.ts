@@ -41,10 +41,14 @@ import { ref, watch, onUnmounted, type Ref } from 'vue'
  * ```
  */
 export function useIntersectionObserver(
-    callback: (isIntersecting: boolean) => void,
+    callbackOrTargetRef: ((isIntersecting: boolean) => void) | Ref<HTMLElement | null>,
     options?: IntersectionObserverInit
 ) {
-    const targetRef = ref<HTMLElement | null>(null)
+    // Support both callback style and ref style usage
+    const isRefStyle = typeof callbackOrTargetRef !== 'function'
+    const targetRef = isRefStyle ? callbackOrTargetRef : ref<HTMLElement | null>(null)
+    const callback = isRefStyle ? undefined : callbackOrTargetRef
+    const isIntersecting = ref(false)
     let observer: IntersectionObserver | null = null
 
     /**
@@ -60,7 +64,10 @@ export function useIntersectionObserver(
 
         observer = new IntersectionObserver((entries) => {
             entries.forEach((entry) => {
-                callback(entry.isIntersecting)
+                isIntersecting.value = entry.isIntersecting
+                if (callback) {
+                    callback(entry.isIntersecting)
+                }
             })
         }, options)
 
@@ -94,6 +101,7 @@ export function useIntersectionObserver(
     return {
         targetRef,
         observe,
-        unobserve
+        unobserve,
+        isIntersecting
     }
 }

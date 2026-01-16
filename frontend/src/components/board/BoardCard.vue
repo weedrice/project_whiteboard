@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Users, User } from 'lucide-vue-next'
-import type { Board } from '@/api/board'
+import type { Board } from '@/types'
 import { getOptimizedBoardIconUrl, handleImageError } from '@/utils/image'
 
 defineProps<{

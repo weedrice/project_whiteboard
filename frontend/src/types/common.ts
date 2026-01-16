@@ -30,5 +30,6 @@ export interface PageResponse<T> {
 export interface Code {
     code: string
     name: string
+    value?: string
     sortOrder?: number
 }

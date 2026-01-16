@@ -10,6 +10,16 @@ import { useToastStore } from '@/stores/toast'
 import { useConfirm } from '@/composables/useConfirm'
 import { useFormSubmit } from '@/composables/useFormSubmit'
 import { useErrorHandler } from '@/composables/useErrorHandler'
+import type { BoardUpdateData } from '@/types'
+
+interface BoardData {
+  boardName: string
+  boardUrl: string
+  description: string
+  iconUrl: string
+  sortOrder: number
+  allowNsfw: boolean
+}
 
 const { t } = useI18n()
 const toastStore = useToastStore()
@@ -17,7 +27,7 @@ const { confirm } = useConfirm()
 
 const route = useRoute()
 const router = useRouter()
-const boardUrl = route.params.boardUrl
+const boardUrl = route.params.boardUrl as string
 
 const form = ref({
   boardName: '',
@@ -42,7 +52,7 @@ async function fetchBoard() {
       form.value = {
         boardName: board.boardName,
         boardUrl: board.boardUrl,
-        description: board.description,
+        description: board.description || '',
         iconUrl: board.iconUrl || '',
         sortOrder: board.sortOrder || 0,
         allowNsfw: board.allowNsfw || false
@@ -56,12 +66,12 @@ async function fetchBoard() {
   }
 }
 
-async function handleUpdate(formData) {
+async function handleUpdate(formData: BoardData) {
   error.value = ''
   
   await submit(async () => {
     try {
-      const { data } = await boardApi.updateBoard(boardUrl, formData)
+      const { data } = await boardApi.updateBoard(boardUrl, formData as BoardUpdateData)
       if (data.success) {
         toastStore.addToast(t('board.form.successUpdate'), 'success')
         router.push(`/board/${data.data.boardUrl}`)

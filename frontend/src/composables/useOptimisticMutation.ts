@@ -8,8 +8,8 @@ export interface OptimisticUpdateOptions<TData, TVariables> {
     /**
      * 업데이트할 쿼리 키
      */
-    queryKey: QueryKey
-    
+    queryKey: QueryKey | ((variables: TVariables) => QueryKey)
+
     /**
      * Optimistic update 함수
      * @param variables mutation 변수
@@ -17,16 +17,16 @@ export interface OptimisticUpdateOptions<TData, TVariables> {
      * @returns 업데이트된 데이터
      */
     optimisticUpdate: (variables: TVariables, previousData: TData | undefined) => TData
-    
+
     /**
      * 에러 발생 시 롤백할 이전 데이터
      */
-    onError?: (error: unknown, variables: TVariables, previousData: TData | undefined) => void
-    
+    onErrorCallback?: (error: unknown, variables: TVariables, previousData: TData | undefined) => void
+
     /**
      * 성공 시 무효화할 추가 쿼리 키들
      */
-    invalidateQueries?: QueryKey[]
+    invalidateQueries?: QueryKey[] | ((variables: TVariables) => QueryKey[])
 }
 
 /**
@@ -47,11 +47,11 @@ export interface OptimisticUpdateOptions<TData, TVariables> {
  * ```
  */
 export function useOptimisticMutation<TData = unknown, TVariables = unknown, TError = unknown>(
-    mutationFn: (variables: TVariables) => Promise<any>,
-    options: OptimisticUpdateOptions<TData, TVariables> & Omit<UseMutationOptions<any, TError, TVariables>, 'mutationFn' | 'onMutate' | 'onError' | 'onSettled'>
+    mutationFn: (variables: TVariables) => Promise<unknown>,
+    options: OptimisticUpdateOptions<TData, TVariables>
 ) {
     const queryClient = useQueryClient()
-    const { queryKey, optimisticUpdate, onError, invalidateQueries = [] } = options
+    const { queryKey, optimisticUpdate, onErrorCallback, invalidateQueries = [] } = options
 
     return useMutation({
         mutationFn,
@@ -73,32 +73,31 @@ export function useOptimisticMutation<TData = unknown, TVariables = unknown, TEr
             // 롤백을 위한 컨텍스트 반환
             return { previousData, queryKey: resolvedQueryKey }
         },
-        onError: (error: TError, variables: TVariables, context) => {
+        onError: (error: TError, variables: TVariables, context: { previousData: TData | undefined; queryKey: QueryKey } | undefined) => {
             // 에러 발생 시 이전 데이터로 롤백
             if (context?.previousData !== undefined && context?.queryKey) {
                 queryClient.setQueryData(context.queryKey, context.previousData)
             }
 
             // 커스텀 에러 핸들러 호출
-            if (onError) {
-                onError(error, variables, context?.previousData)
+            if (onErrorCallback) {
+                onErrorCallback(error, variables, context?.previousData)
             }
         },
-        onSettled: (data, error, variables, context) => {
+        onSettled: (_data: unknown, _error: TError | null, variables: TVariables, context: { previousData: TData | undefined; queryKey: QueryKey } | undefined) => {
             const resolvedQueryKey = context?.queryKey || (typeof queryKey === 'function' ? queryKey(variables) : queryKey)
-            
+
             // 성공/실패 여부와 관계없이 쿼리 무효화
             queryClient.invalidateQueries({ queryKey: resolvedQueryKey })
-            
+
             // 추가 쿼리들도 무효화
-            const resolvedInvalidateQueries = typeof invalidateQueries === 'function' 
-                ? invalidateQueries(variables) 
+            const resolvedInvalidateQueries = typeof invalidateQueries === 'function'
+                ? invalidateQueries(variables)
                 : invalidateQueries
-            
-            resolvedInvalidateQueries.forEach(key => {
+
+            resolvedInvalidateQueries.forEach((key: QueryKey) => {
                 queryClient.invalidateQueries({ queryKey: key })
             })
-        },
-        ...options
+        }
     })
 }

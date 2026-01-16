@@ -22,8 +22,8 @@ const route = useRoute()
 const router = useRouter()
 const toastStore = useToastStore()
 
-const boardUrl = computed(() => route.params.boardUrl)
-const postId = computed(() => route.params.postId)
+const boardUrl = computed(() => route.params.boardUrl as string)
+const postId = computed(() => route.params.postId as string)
 
 const { useBoardDetail, useBoardCategories } = useBoard()
 const { usePostDetail, useUpdatePost } = usePost()
@@ -31,7 +31,7 @@ const { usePostDetail, useUpdatePost } = usePost()
 const { data: board, isLoading: isBoardLoading } = useBoardDetail(boardUrl)
 const { data: categories, isLoading: isCategoriesLoading } = useBoardCategories(boardUrl)
 const { data: post, isLoading: isPostLoading } = usePostDetail(postId)
-const { mutate: updatePost, isLoading: isSubmitting } = useUpdatePost()
+const { mutate: updatePost, isPending: isSubmitting } = useUpdatePost()
 
 const isLoading = computed(() => isBoardLoading.value || isCategoriesLoading.value || isPostLoading.value)
 const fileIds = ref<number[]>([])
@@ -41,8 +41,8 @@ const quillInstance = ref<any>(null)
 const form = ref({
   title: '',
   content: '',
-  categoryId: '',
-  tags: [],
+  categoryId: '' as string | number,
+  tags: [] as string[],
   isNsfw: false,
   isSpoiler: false
 })
@@ -75,6 +75,7 @@ const imageHandler = () => {
   input.click()
 
   input.onchange = async () => {
+    if (!input.files) return
     const file = input.files[0]
     if (!file) return
 
@@ -106,7 +107,7 @@ const imageHandler = () => {
   }
 }
 
-const onEditorReady = (quill) => {
+const onEditorReady = (quill: any) => {
   quillInstance.value = quill
   quill.getModule('toolbar').addHandler('image', imageHandler)
 }
@@ -116,8 +117,8 @@ watchEffect(() => {
     form.value = {
       title: post.value.title,
       content: post.value.contents,
-      categoryId: post.value.category?.categoryId || '',
-      tags: post.value.tags || [],
+      categoryId: post.value.category?.categoryId || 0,
+      tags: post.value.tags?.map((t: { name?: string } | string) => typeof t === 'string' ? t : (t.name || '')) || [],
       isNsfw: post.value.isNsfw,
       isSpoiler: post.value.isSpoiler
     }
@@ -131,16 +132,14 @@ async function handleSubmit() {
   }
 
   const payload = {
-    ...form.value,
+    title: form.value.title,
+    categoryId: typeof form.value.categoryId === 'string' ? parseInt(form.value.categoryId) || 0 : form.value.categoryId,
     tags: form.value.tags,
     contents: form.value.content, // API expects 'contents'
     isNsfw: board.value?.allowNsfw ? form.value.isNsfw : false,
     isSpoiler: form.value.isSpoiler, // Explicitly include isSpoiler
     fileIds: fileIds.value // Send collected fileIds
   }
-
-  // Remove 'content' key as we mapped it to 'contents'
-  delete payload.content
 
   updatePost({ postId: postId.value, data: payload }, {
     onSuccess: () => {
@@ -173,7 +172,7 @@ async function handleSubmit() {
       <div class="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
 
         <!-- Category -->
-        <div class="sm:col-span-3" v-if="categories.length > 0">
+        <div class="sm:col-span-3" v-if="categories && categories.length > 0">
           <BaseSelect id="category" v-model="form.categoryId" :label="$t('common.category')">
             <option value="" disabled>{{ $t('board.writePost.selectCategory') }}</option>
             <option v-for="category in categories" :key="category.categoryId" :value="category.categoryId">

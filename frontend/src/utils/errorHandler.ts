@@ -8,6 +8,7 @@ interface ApiErrorResponse {
     code?: string
     message?: string
     data?: any
+    details?: ValidationErrors | Record<string, unknown>
 }
 
 /**

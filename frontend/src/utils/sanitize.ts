@@ -12,15 +12,16 @@ import DOMPurify from 'dompurify'
  * const safeHtml = sanitizeHtml(userInput)
  * ```
  */
-export function sanitizeHtml(html: string, options?: DOMPurify.Config): string {
-    return DOMPurify.sanitize(html, {
+export function sanitizeHtml(html: string, options?: Record<string, unknown>): string {
+    const config = {
         // 기본 옵션: 이미지, 링크, 기본 포맷팅 허용
         ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'u', 's', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'blockquote', 'code', 'pre', 'a', 'img'],
         ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class', 'loading'],
         // 링크는 http/https만 허용
         ALLOW_DATA_ATTR: false,
         ...options
-    })
+    }
+    return DOMPurify.sanitize(html, config)
 }
 
 /**

@@ -21,7 +21,7 @@ const authStore = useAuthStore()
 const { useBoardDetail, useBoardPosts, useBoardNotices, useSubscribeBoard } = useBoard()
 
 // Queries
-const boardUrl = computed(() => route.params.boardUrl)
+const boardUrl = computed(() => route.params.boardUrl as string)
 const { data: board, isLoading: isBoardLoading, error: boardError } = useBoardDetail(boardUrl)
 
 // SEO
@@ -48,7 +48,15 @@ const sort = ref('createdAt,desc')
 
 // Computed Params for Query
 const queryParams = computed(() => {
-    const params = {
+    const params: {
+        page: number
+        size: number
+        sort: string
+        q?: string
+        searchType?: string
+        minLikes?: number
+        categoryId?: number
+    } = {
         page: page.value,
         size: size.value,
         sort: 'createdAt,desc',
@@ -58,8 +66,12 @@ const queryParams = computed(() => {
         params.q = searchQuery.value
         params.searchType = searchType.value
     } else {
-        params.minLikes = filterType.value === 'concept' ? 5 : null
-        params.categoryId = filterType.value === 'category' ? activeFilterCategory.value : null
+        if (filterType.value === 'concept') {
+            params.minLikes = 5
+        }
+        if (filterType.value === 'category' && activeFilterCategory.value) {
+            params.categoryId = activeFilterCategory.value.categoryId
+        }
     }
     return params
 })
@@ -67,8 +79,8 @@ const queryParams = computed(() => {
 // Initialize search from route query
 watch(() => route.query, (newQuery) => {
     if (newQuery.q && newQuery.type) {
-        searchQuery.value = newQuery.q
-        searchType.value = newQuery.type
+        searchQuery.value = String(newQuery.q)
+        searchType.value = String(newQuery.type)
         isSearching.value = true
     }
 }, { immediate: true })
@@ -83,7 +95,7 @@ const { mutate: subscribeMutate } = useSubscribeBoard()
 
 // Computed Data
 const categories = computed(() => {
-    return board.value?.categories.filter(cat => cat.name !== '일반') || []
+    return board.value?.categories?.filter(cat => cat.name !== '일반') || []
 })
 
 const posts = computed(() => {
@@ -107,8 +119,8 @@ const posts = computed(() => {
     const isAsc = direction === 'asc'
 
     sortedData.sort((a, b) => {
-        let valA = a[field]
-        let valB = b[field]
+        let valA: string | number = ''
+        let valB: string | number = ''
 
         if (field === 'author') {
             valA = a.author?.displayName || ''
@@ -116,6 +128,15 @@ const posts = computed(() => {
         } else if (field === 'category') {
             valA = a.category?.name || ''
             valB = b.category?.name || ''
+        } else if (field === 'viewCount' || field === 'likeCount' || field === 'commentCount') {
+            valA = (a as unknown as Record<string, number>)[field] || 0
+            valB = (b as unknown as Record<string, number>)[field] || 0
+        } else if (field === 'createdAt') {
+            valA = a.createdAt || ''
+            valB = b.createdAt || ''
+        } else if (field === 'title') {
+            valA = a.title || ''
+            valB = b.title || ''
         }
 
         if (valA < valB) return isAsc ? -1 : 1
@@ -140,7 +161,7 @@ const canWrite = computed(() => {
     if (!authStore.isAuthenticated || !board.value) return false
 
     // Find general category
-    const generalCategory = board.value.categories.find(c => c.name === '일반')
+    const generalCategory = board.value.categories?.find(c => c.name === '일반')
     if (!generalCategory) return true // Fallback if no general category
 
     const minRole = generalCategory.minWriteRole || 'USER'
@@ -165,7 +186,7 @@ function clearSearch() {
     page.value = 0
 }
 
-function toggleFilter(type, categoryId = null) {
+function toggleFilter(type: string, categoryId: number | null = null) {
     if (type === 'all') {
         if (filterType.value === 'all' && activeFilterCategory.value === null) return
         filterType.value = 'all'
@@ -175,16 +196,18 @@ function toggleFilter(type, categoryId = null) {
         filterType.value = 'concept'
         activeFilterCategory.value = null
     } else if (type === 'category' && categoryId !== null) {
-        if (filterType.value === 'category' && activeFilterCategory.value === categoryId) return
+        if (filterType.value === 'category' && activeFilterCategory.value?.categoryId === categoryId) return
         filterType.value = 'category'
-        activeFilterCategory.value = categoryId
+        // Find category from categories list
+        const category = categories.value.find(c => c.categoryId === categoryId)
+        activeFilterCategory.value = category || null
     } else {
         return
     }
     page.value = 0
 }
 
-function handleSortChange(newSort) {
+function handleSortChange(newSort: string) {
     sort.value = newSort
     page.value = 0
 }
@@ -193,11 +216,11 @@ function handleSubscribe() {
     if (!board.value) return
     subscribeMutate({
         boardUrl: board.value.boardUrl,
-        isSubscribed: board.value.isSubscribed
+        isSubscribed: board.value.isSubscribed ?? false
     })
 }
 
-function handlePageChange(newPage) {
+function handlePageChange(newPage: number) {
     page.value = newPage
 }
 
@@ -331,8 +354,8 @@ watch(() => route.params.boardUrl, () => {
                     </BaseButton>
                     <BaseButton v-for="category in categories" :key="category.categoryId"
                         @click="toggleFilter('category', category.categoryId)" size="sm"
-                        :variant="filterType === 'category' && activeFilterCategory === category.categoryId ? 'primary' : 'ghost'"
-                        :class="filterType === 'category' && activeFilterCategory === category.categoryId ? '!bg-indigo-100 !text-indigo-700 dark:!bg-indigo-900/50 dark:!text-indigo-300' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'"
+                        :variant="filterType === 'category' && activeFilterCategory?.categoryId === category.categoryId ? 'primary' : 'ghost'"
+                        :class="filterType === 'category' && activeFilterCategory?.categoryId === category.categoryId ? '!bg-indigo-100 !text-indigo-700 dark:!bg-indigo-900/50 dark:!text-indigo-300' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'"
                         class="whitespace-nowrap">
                         {{ category.name }}
                     </BaseButton>

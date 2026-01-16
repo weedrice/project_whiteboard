@@ -1,14 +1,14 @@
 ﻿<template>
-    <div class="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div class="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
         <div class="max-w-md w-full space-y-8 text-center">
             <div>
-                <h2 class="mt-6 text-center text-9xl font-extrabold text-gray-900">
+                <h2 class="mt-6 text-center text-9xl font-extrabold text-gray-900 dark:text-white">
                     {{ status }}
                 </h2>
-                <h2 class="mt-4 text-3xl font-bold text-gray-900">
+                <h2 class="mt-4 text-3xl font-bold text-gray-900 dark:text-white">
                     {{ title }}
                 </h2>
-                <p class="mt-2 text-sm text-gray-600">
+                <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
                     {{ message }}
                 </p>
             </div>
@@ -51,4 +51,3 @@ const goHome = () => {
     router.push('/')
 }
 </script>
-

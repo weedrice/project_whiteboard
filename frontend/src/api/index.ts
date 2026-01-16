@@ -35,6 +35,7 @@ interface ApiErrorResponse {
     code?: string
     message?: string
     data?: unknown
+    details?: ValidationErrors | Record<string, unknown>
 }
 
 interface FailedRequest {

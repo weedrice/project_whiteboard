@@ -3,26 +3,9 @@ import { ThumbsUp, MessageSquare, Bookmark, User, Eye } from 'lucide-vue-next'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseCard from '@/components/common/ui/BaseCard.vue'
 import { useRouter } from 'vue-router'
+import type { FeedPost } from '@/types'
 
 const router = useRouter()
-
-interface FeedPost {
-  postId: number
-  boardUrl: string | number
-  boardName: string
-  boardIconUrl?: string
-  title: string
-  summary?: string
-  authorName: string
-  createdAt: string
-  viewCount: number
-  likeCount: number
-  commentCount: number
-  thumbnailUrl?: string
-  liked: boolean
-  scrapped: boolean
-  subscribed: boolean
-}
 
 const props = defineProps<{
   post: FeedPost

@@ -13,6 +13,8 @@ import { useErrorHandler } from '@/composables/useErrorHandler'
 import { getOptimizedProfileImageUrl, handleImageError } from '@/utils/image'
 import type { User as UserType, PostSummary, Comment } from '@/types'
 
+const { handleSilentError } = useErrorHandler()
+
 const profile = ref<UserType | null>(null)
 
 // Posts pagination state
@@ -73,17 +75,17 @@ async function fetchMyComments() {
   }
 }
 
-function handleMyPostsPageChange(page) {
+function handleMyPostsPageChange(page: number) {
   myPostsCurrentPage.value = page
   fetchMyPosts()
 }
 
-function handleMyPostsSortChange(newSort) {
+function handleMyPostsSortChange(newSort: string) {
   myPostsSort.value = newSort
   fetchMyPosts()
 }
 
-function handleMyCommentsPageChange(page) {
+function handleMyCommentsPageChange(page: number) {
   myCommentsCurrentPage.value = page
   fetchMyComments()
 }
@@ -134,14 +136,14 @@ onMounted(async () => {
         <div class="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg mb-6 transition-colors duration-200">
           <div class="px-4 py-5 sm:px-6 flex justify-between items-center">
             <div class="flex items-center">
-              <img v-if="profile.profileImageUrl" :src="getOptimizedProfileImageUrl(profile.profileImageUrl)"
+              <img v-if="profile?.profileImageUrl" :src="getOptimizedProfileImageUrl(profile.profileImageUrl)"
                 class="h-16 w-16 rounded-full mr-4" alt="Profile" @error="handleImageError($event)" />
               <div v-else
                 class="h-16 w-16 rounded-full bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold text-2xl mr-4">
-                {{ profile.displayName?.[0] || 'U' }}
+                {{ profile?.displayName?.[0] || 'U' }}
               </div>
               <div>
-                <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white">{{ profile.displayName }}</h3>
+                <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white">{{ profile?.displayName }}</h3>
                 <p class="mt-1 max-w-2xl text-sm text-gray-500 dark:text-gray-400">{{ $t('user.profile.personalDetails')
                 }}</p>
               </div>
@@ -155,7 +157,7 @@ onMounted(async () => {
                   <User class="h-4 w-4 mr-2" />
                   {{ $t('user.profile.displayName') }}
                 </dt>
-                <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100 sm:mt-0 sm:col-span-2">{{ profile.displayName
+                <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100 sm:mt-0 sm:col-span-2">{{ profile?.displayName
                 }}</dd>
               </div>
               <div class="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
@@ -164,8 +166,8 @@ onMounted(async () => {
                   {{ $t('user.profile.email') }}
                 </dt>
                 <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100 sm:mt-0 sm:col-span-2">
-                  {{ profile.email }}
-                  <span v-if="profile.isEmailVerified"
+                  {{ profile?.email }}
+                  <span v-if="profile?.isEmailVerified"
                     class="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-400">
                     <CheckCircle class="h-3 w-3 mr-1" /> {{ $t('user.profile.verified') }}
                   </span>
@@ -181,7 +183,7 @@ onMounted(async () => {
                   {{ $t('user.profile.joined') }}
                 </dt>
                 <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100 sm:mt-0 sm:col-span-2">{{
-                  formatDate(profile.createdAt) }}</dd>
+                  formatDate(profile?.createdAt) }}</dd>
               </div>
               <div class="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
                 <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center">
@@ -189,7 +191,7 @@ onMounted(async () => {
                   {{ $t('user.profile.lastLogin') }}
                 </dt>
                 <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100 sm:mt-0 sm:col-span-2">{{
-                  formatDate(profile.lastLoginAt) }}</dd>
+                  formatDate(profile?.lastLoginAt) }}</dd>
               </div>
             </dl>
           </div>

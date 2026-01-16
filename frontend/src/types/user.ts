@@ -9,8 +9,10 @@ export interface User {
     bio?: string
     profileImageUrl?: string
     theme?: 'LIGHT' | 'DARK'
+    isEmailVerified?: boolean
     createdAt: string
     modifiedAt?: string
+    lastLoginAt?: string
     points?: number
 }
 
