@@ -56,7 +56,7 @@ export const useAuthStore = defineStore('auth', () => {
             user.value = null
             Storage.remove('accessToken')
             Storage.remove('refreshToken')
-            themeStore.setTheme('LIGHT') // Reset to default on logout
+            // themeStore.setTheme('LIGHT') // Reset to default on logout -> Removed to persist theme
             router.push('/login')
         }
     }
