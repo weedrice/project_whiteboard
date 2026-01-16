@@ -44,6 +44,16 @@ import PostListSkeleton from '@/components/common/ui/PostListSkeleton.vue'
 import EmptyState from '@/components/common/ui/EmptyState.vue'
 import { FileText } from 'lucide-vue-next'
 import type { PostSummary } from '@/types'
+import { useHead } from '@unhead/vue'
+
+useHead({
+  title: 'Home',
+  meta: [
+    { name: 'description', content: 'Discover trending posts and discussions on noviIs.' },
+    { property: 'og:title', content: 'Home | noviIs' },
+    { property: 'og:description', content: 'Discover trending posts and discussions on noviIs.' }
+  ]
+})
 
 // Infinite scroll for trending posts
 const { posts, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage } = useTrendingPosts(10)

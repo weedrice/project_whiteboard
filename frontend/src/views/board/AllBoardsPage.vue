@@ -6,9 +6,20 @@ import SubscribedBoardList from '@/components/board/SubscribedBoardList.vue'
 import BoardGrid from '@/components/board/BoardGrid.vue'
 import BoardListSkeleton from '@/components/common/ui/BoardListSkeleton.vue'
 
+import { useHead } from '@unhead/vue'
+
 const authStore = useAuthStore()
 const { useBoards } = useBoard()
 const { data: boards, isLoading, error } = useBoards()
+
+useHead({
+  title: 'All Boards',
+  meta: [
+    { name: 'description', content: 'Browse all available boards and communities on noviIs.' },
+    { property: 'og:title', content: 'All Boards | noviIs' },
+    { property: 'og:description', content: 'Browse all available boards and communities on noviIs.' }
+  ]
+})
 
 const subscribedBoards = computed(() => {
   return boards.value?.filter(board => board.isSubscribed) || []

@@ -20,6 +20,7 @@ import { useToastStore } from '@/stores/toast'
 import { useConfirm } from '@/composables/useConfirm'
 import { formatDate } from '@/utils/date'
 import { sanitizeQuillHtml } from '@/utils/sanitize'
+import { useHead } from '@unhead/vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -32,6 +33,25 @@ const { usePostDetail, useDeletePost, useLikePost, useUnlikePost, useScrapPost, 
 
 const postId = computed(() => route.params.postId)
 const { data: post, isLoading, error: postError } = usePostDetail(postId)
+
+// SEO
+useHead({
+  title: computed(() => post.value?.title || 'Post'),
+  meta: [
+    { name: 'description', content: computed(() => {
+      if (!post.value?.contents) return 'Post content'
+      const text = post.value.contents.replace(/<[^>]*>/g, '').slice(0, 160)
+      return text + (text.length >= 160 ? '...' : '')
+    })},
+    { property: 'og:title', content: computed(() => `${post.value?.title || 'Post'} | noviIs`) },
+    { property: 'og:description', content: computed(() => {
+      if (!post.value?.contents) return 'Post content'
+      const text = post.value.contents.replace(/<[^>]*>/g, '').slice(0, 160)
+      return text + (text.length >= 160 ? '...' : '')
+    })},
+    { property: 'og:type', content: 'article' }
+  ]
+})
 
 const { mutate: deleteMutate } = useDeletePost()
 const { mutate: likeMutate } = useLikePost()

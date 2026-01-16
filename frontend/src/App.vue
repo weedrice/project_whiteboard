@@ -15,6 +15,18 @@ import NetworkStatus from '@/components/common/NetworkStatus.vue'
 import logger from '@/utils/logger'
 import { useGlobalShortcuts } from '@/composables/useGlobalShortcuts'
 import { UserSettings } from '@/types/user'
+import { useHead } from '@unhead/vue'
+
+// Global SEO Configuration
+useHead({
+    titleTemplate: '%s | noviIs',
+    title: 'Home', // Default title
+    meta: [
+        { name: 'description', content: 'noviIs - A modern community platform' },
+        { property: 'og:site_name', content: 'noviIs' },
+        { property: 'og:type', content: 'website' }
+    ]
+})
 
 // Import layouts
 import DefaultLayout from '@/components/layout/DefaultLayout.vue'

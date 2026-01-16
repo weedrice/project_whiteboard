@@ -12,12 +12,29 @@ import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import { getOptimizedBoardIconUrl, handleImageError } from '@/utils/image'
+import { useHead } from '@unhead/vue'
 
 const { t } = useI18n()
 const route = useRoute()
 const authStore = useAuthStore()
 
 const { useBoardDetail, useBoardPosts, useBoardNotices, useSubscribeBoard } = useBoard()
+
+// Queries
+const boardUrl = computed(() => route.params.boardUrl)
+const { data: board, isLoading: isBoardLoading, error: boardError } = useBoardDetail(boardUrl)
+
+// SEO
+useHead({
+    title: computed(() => board.value?.boardName || 'Board'),
+    meta: [
+        { name: 'description', content: computed(() => board.value?.description || 'Board posts and discussions') },
+        { property: 'og:title', content: computed(() => `${board.value?.boardName || 'Board'} | noviIs`) },
+        { property: 'og:description', content: computed(() => board.value?.description || 'Board posts and discussions') }
+    ]
+})
+
+// State
 
 // State
 const page = ref(0)
@@ -57,8 +74,7 @@ watch(() => route.query, (newQuery) => {
 }, { immediate: true })
 
 // Queries
-const boardUrl = computed(() => route.params.boardUrl)
-const { data: board, isLoading: isBoardLoading, error: boardError } = useBoardDetail(boardUrl)
+// boardUrl, board, isBoardLoading, boardError are already defined above
 const { data: postsData, isLoading: isPostsLoading } = useBoardPosts(boardUrl, queryParams, isSearching)
 const { data: noticesData } = useBoardNotices(boardUrl)
 

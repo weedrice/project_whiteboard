@@ -16,11 +16,15 @@ import type { AxiosError } from 'axios'
 // 환경 변수 검증
 validateEnv()
 
+import { createUnhead, headSymbol } from '@unhead/vue'
+
 const app = createApp(App)
+const head = createUnhead()
 
 app.use(createPinia())
 app.use(router)
 app.use(i18n)
+app.provide(headSymbol, head)
 
 import { QUERY_STALE_TIME } from '@/utils/constants'
 
@@ -55,7 +59,7 @@ const queryClient = new QueryClient({
             // 기본 gcTime: 5분 (이전 cacheTime)
             gcTime: QUERY_STALE_TIME.SHORT,
             // placeholderData로 이전 데이터 유지
-            placeholderData: (previousData) => previousData,
+            placeholderData: (previousData: unknown) => previousData,
             retry: (failureCount, error: unknown) => {
                 // 네트워크 오류나 5xx 서버 오류인 경우에만 재시도
                 const axiosError = error as AxiosError
