@@ -12,6 +12,8 @@ public interface BoardRepository extends JpaRepository<Board, Long> {
 
     List<Board> findByIsActiveOrderBySortOrderAsc(Boolean isActive);
 
+    List<Board> findByBoardNameContainingIgnoreCaseAndIsActiveTrue(String keyword);
+
     boolean existsByBoardName(String boardName);
 
     boolean existsByBoardUrl(String boardUrl); // 추가

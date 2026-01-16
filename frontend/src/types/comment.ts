@@ -14,6 +14,8 @@ export interface Comment {
     modifiedAt?: string
 }
 
+export type CommentResponse = Comment
+
 export interface CommentPayload {
     content: string
     parentId?: number | null

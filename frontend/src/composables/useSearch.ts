@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/vue-query'
-import { searchApi, type SearchParams, type PopularKeyword } from '@/api/search'
+import { searchApi } from '@/api/search'
+import type { SearchParams, PopularKeyword } from '@/types'
 import { computed, type Ref } from 'vue'
 import { QUERY_STALE_TIME } from '@/utils/constants'
 
@@ -14,6 +15,18 @@ export function useSearch() {
             },
             enabled: computed(() => !!params.value.q || !!params.value.keyword),
             placeholderData: (previousData) => previousData // keepPreviousData renamed/changed in v5
+        })
+    }
+
+    const useIntegratedSearch = (params: Ref<SearchParams>) => {
+        return useQuery({
+            queryKey: ['search', 'integrated', params],
+            queryFn: async () => {
+                const { data } = await searchApi.search(params.value)
+                return data.data
+            },
+            enabled: computed(() => !!params.value.q),
+            placeholderData: (previousData) => previousData
         })
     }
 
@@ -39,6 +52,7 @@ export function useSearch() {
 
     return {
         useSearchPosts,
+        useIntegratedSearch,
         usePopularKeywords
     }
 }

@@ -1,5 +1,5 @@
 ﻿<script setup>
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { Lock, User } from 'lucide-vue-next'
@@ -18,6 +18,13 @@ const loginId = ref('')
 const password = ref('')
 const error = ref('')
 const isLoading = ref(false)
+
+watch(loginId, (newValue) => {
+  const filtered = newValue.replace(/[^a-zA-Z0-9]/g, '')
+  if (newValue !== filtered) {
+    loginId.value = filtered
+  }
+})
 
 async function handleLogin() {
   error.value = ''

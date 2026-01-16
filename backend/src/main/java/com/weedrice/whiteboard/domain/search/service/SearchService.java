@@ -32,6 +32,12 @@ import com.weedrice.whiteboard.domain.user.service.UserBlockService; // Import U
 
 // ...
 
+import com.weedrice.whiteboard.domain.board.dto.BoardSummary;
+import com.weedrice.whiteboard.domain.board.entity.Board;
+import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
+
+// ...
+
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -42,6 +48,7 @@ public class SearchService {
     private final UserRepository userRepository;
     private final PostRepository postRepository;
     private final CommentRepository commentRepository;
+    private final BoardRepository boardRepository; // Inject BoardRepository
     private final UserBlockService userBlockService; // Inject UserBlockService
 
     private final com.weedrice.whiteboard.domain.file.service.FileService fileService; // Inject FileService
@@ -91,7 +98,12 @@ public class SearchService {
         Page<UserSummary> users = userRepository.findByDisplayNameContainingIgnoreCase(keyword, previewPageable)
                 .map(UserSummary::from);
 
-        return IntegratedSearchResponse.from(posts, comments, users, keyword);
+        List<BoardSummary> boards = boardRepository.findByBoardNameContainingIgnoreCaseAndIsActiveTrue(keyword)
+                .stream()
+                .map(BoardSummary::from)
+                .collect(Collectors.toList());
+
+        return IntegratedSearchResponse.from(posts, comments, users, boards, keyword);
     }
 
     public Page<PostSummary> searchPosts(String keyword, String searchType, String boardUrl, Pageable pageable,
