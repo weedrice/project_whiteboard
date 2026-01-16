@@ -73,6 +73,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                                 .where(
                                                 keywordExpression,
                                                 post.isDeleted.eq(false),
+                                                post.board.isActive.eq(true),
                                                 notBlockedCondition(blockedUserIds))
                                 .offset(pageable.getOffset())
                                 .limit(pageable.getPageSize())
@@ -85,6 +86,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                                 .where(
                                                 keywordExpression,
                                                 post.isDeleted.eq(false),
+                                                post.board.isActive.eq(true),
                                                 notBlockedCondition(blockedUserIds))
                                 .fetchOne();
 
@@ -122,6 +124,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                                                 searchCondition,
                                                 boardCondition,
                                                 post.isDeleted.eq(false),
+                                                post.board.isActive.eq(true),
                                                 notBlockedCondition(blockedUserIds))
                                 .offset(pageable.getOffset())
                                 .limit(pageable.getPageSize())
@@ -135,6 +138,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                                                 searchCondition,
                                                 boardCondition,
                                                 post.isDeleted.eq(false),
+                                                post.board.isActive.eq(true),
                                                 notBlockedCondition(blockedUserIds))
                                 .fetchOne();
 

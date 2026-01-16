@@ -203,7 +203,7 @@ class PostRepositoryTest {
                 .relatedId(post.getPostId())
                 .build();
         entityManager.persist(file);
-        
+
         post.incrementViewCount();
         post.incrementLikeCount();
         entityManager.persist(post);
@@ -218,5 +218,80 @@ class PostRepositoryTest {
         // then
         assertThat(trendingPosts).isNotEmpty();
         assertThat(trendingPosts.get(0).getPostId()).isEqualTo(post.getPostId());
+    }
+
+    @Test
+    @DisplayName("비활성 게시판의 게시글은 키워드 검색에서 제외됨")
+    void searchPostsByKeyword_inactiveBoard_excluded() {
+        // given
+        Board inactiveBoard = Board.builder()
+                .boardName("Inactive Board")
+                .boardUrl("inactive-board")
+                .creator(user)
+                .build();
+        inactiveBoard.deactivate();
+        entityManager.persist(inactiveBoard);
+
+        BoardCategory inactiveCategory = BoardCategory.builder()
+                .name("General")
+                .board(inactiveBoard)
+                .build();
+        entityManager.persist(inactiveCategory);
+
+        Post inactivePost = Post.builder()
+                .title("Inactive Post")
+                .contents("Inactive Contents")
+                .user(user)
+                .board(inactiveBoard)
+                .category(inactiveCategory)
+                .build();
+        entityManager.persist(inactivePost);
+        entityManager.flush();
+
+        PageRequest pageRequest = PageRequest.of(0, 10);
+
+        // when
+        Page<Post> result = postRepository.searchPostsByKeyword("Inactive", null, pageRequest);
+
+        // then
+        assertThat(result.getContent()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("비활성 게시판의 게시글은 복합 조건 검색에서 제외됨")
+    void searchPosts_inactiveBoard_excluded() {
+        // given
+        Board inactiveBoard = Board.builder()
+                .boardName("Inactive Board 2")
+                .boardUrl("inactive-board-2")
+                .creator(user)
+                .build();
+        inactiveBoard.deactivate();
+        entityManager.persist(inactiveBoard);
+
+        BoardCategory inactiveCategory = BoardCategory.builder()
+                .name("General")
+                .board(inactiveBoard)
+                .build();
+        entityManager.persist(inactiveCategory);
+
+        Post inactivePost = Post.builder()
+                .title("Inactive Post 2")
+                .contents("Inactive Contents 2")
+                .user(user)
+                .board(inactiveBoard)
+                .category(inactiveCategory)
+                .build();
+        entityManager.persist(inactivePost);
+        entityManager.flush();
+
+        PageRequest pageRequest = PageRequest.of(0, 10);
+
+        // when
+        Page<Post> result = postRepository.searchPosts(
+                "Inactive", "TITLE", null, null, pageRequest);
+
+        // then
+        assertThat(result.getContent()).isEmpty();
     }
 }

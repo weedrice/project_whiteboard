@@ -117,16 +117,26 @@ class SearchControllerTest {
         // given
         String query = "test";
         org.springframework.data.domain.Page<PostSummary> emptyPostPage = new PageImpl<>(List.of());
-        org.springframework.data.domain.Page<com.weedrice.whiteboard.domain.comment.dto.CommentResponse> emptyCommentPage = new PageImpl<>(List.of());
-        org.springframework.data.domain.Page<com.weedrice.whiteboard.domain.user.dto.UserSummary> emptyUserPage = new PageImpl<>(List.of());
-        IntegratedSearchResponse response = IntegratedSearchResponse.from(emptyPostPage, emptyCommentPage, emptyUserPage, java.util.Collections.emptyList(), query);
-        
+        org.springframework.data.domain.Page<com.weedrice.whiteboard.domain.comment.dto.CommentResponse> emptyCommentPage = new PageImpl<>(
+                List.of());
+        org.springframework.data.domain.Page<com.weedrice.whiteboard.domain.user.dto.UserSummary> emptyUserPage = new PageImpl<>(
+                List.of());
+        IntegratedSearchResponse response = IntegratedSearchResponse.from(emptyPostPage, emptyCommentPage,
+                emptyUserPage, java.util.Collections.emptyList(), query);
+
         when(searchService.integratedSearch(eq(query), isNull())).thenReturn(response);
         doNothing().when(searchService).recordSearch(isNull(), eq(query));
 
         // when & then
         mockMvc.perform(get("/api/v1/search")
+                .param("q", query)
+                .with(anonymous()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+    }
 
+    @Test
+    @DisplayName("게시글 검색 성공 - 익명 사용자")
     void searchPosts_anonymous() throws Exception {
         // given
         String query = "test";

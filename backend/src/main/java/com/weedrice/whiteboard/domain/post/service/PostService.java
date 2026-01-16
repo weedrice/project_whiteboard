@@ -75,6 +75,27 @@ public class PostService {
             @NonNull Pageable pageable) {
         Board board = boardRepository.findByBoardUrl(boardUrl)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
+
+        if (!board.getIsActive()) {
+            boolean isSuperAdmin = false;
+            boolean isBoardAdmin = false;
+            boolean isCreator = false;
+
+            if (currentUserId != null) {
+                User currentUser = userRepository.findById(currentUserId)
+                        .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+                isSuperAdmin = currentUser.getIsSuperAdmin();
+                isBoardAdmin = adminRepository.findByUserAndBoardAndIsActive(currentUser, board, true)
+                        .isPresent();
+                isCreator = board.getCreator().getUserId().equals(currentUser.getUserId());
+            }
+
+            if (!isSuperAdmin && !isBoardAdmin && !isCreator) {
+                throw new BusinessException(ErrorCode.BOARD_NOT_FOUND);
+            }
+        }
+
         Page<Post> posts = this.getPosts(board.getBoardId(), categoryId, minLikes, currentUserId, pageable);
 
         List<PostSummary> summaries = new ArrayList<>();
@@ -114,6 +135,27 @@ public class PostService {
     public List<Post> getNotices(String boardUrl, Long currentUserId) {
         Board board = boardRepository.findByBoardUrl(boardUrl)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
+
+        if (!board.getIsActive()) {
+            boolean isSuperAdmin = false;
+            boolean isBoardAdmin = false;
+            boolean isCreator = false;
+
+            if (currentUserId != null) {
+                User currentUser = userRepository.findById(currentUserId)
+                        .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+                isSuperAdmin = currentUser.getIsSuperAdmin();
+                isBoardAdmin = adminRepository.findByUserAndBoardAndIsActive(currentUser, board, true)
+                        .isPresent();
+                isCreator = board.getCreator().getUserId().equals(currentUser.getUserId());
+            }
+
+            if (!isSuperAdmin && !isBoardAdmin && !isCreator) {
+                throw new BusinessException(ErrorCode.BOARD_NOT_FOUND);
+            }
+        }
+
         return this.getNotices(board.getBoardId(), currentUserId);
     }
 
@@ -427,7 +469,7 @@ public class PostService {
 
         // 본문에서 위험한 스크립트만 제거 (HTML 태그는 허용)
         String sanitizedContents = InputSanitizer.sanitize(request.getContents());
-        
+
         Post post = Post.builder()
                 .board(board)
                 .user(user)

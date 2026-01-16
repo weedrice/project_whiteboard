@@ -104,7 +104,7 @@ class PostServiceTest {
     void setUp() {
         // GlobalConfigService 기본 mock 설정 - lenient()로 설정하여 일부 테스트에서 사용되지 않아도 허용
         lenient().when(globalConfigService.getConfig(anyString())).thenReturn("50");
-        
+
         user = User.builder().loginId("testuser").displayName("Test User").build();
         ReflectionTestUtils.setField(user, "userId", 1L);
 
@@ -117,7 +117,8 @@ class PostServiceTest {
         category = BoardCategory.builder().name("General").board(board).build();
         ReflectionTestUtils.setField(category, "categoryId", 1L);
 
-        post = Post.builder().title("Test Post").contents("Test Contents").user(user).board(board).category(category).build();
+        post = Post.builder().title("Test Post").contents("Test Contents").user(user).board(board).category(category)
+                .build();
         ReflectionTestUtils.setField(post, "postId", 1L);
         ReflectionTestUtils.setField(post, "likeCount", 0);
         ReflectionTestUtils.setField(post, "viewCount", 0);
@@ -128,8 +129,9 @@ class PostServiceTest {
     @Test
     @DisplayName("게시글 생성 성공 - BoardUrl 사용")
     void createPost_withBoardUrl_success() {
-        PostCreateRequest request = new PostCreateRequest(null, "New Post", "New Contents", Collections.emptyList(), false, false, false, List.of(1L, 2L));
-        
+        PostCreateRequest request = new PostCreateRequest(null, "New Post", "New Contents", Collections.emptyList(),
+                false, false, false, List.of(1L, 2L));
+
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
@@ -150,8 +152,9 @@ class PostServiceTest {
     @Test
     @DisplayName("게시글 생성 성공 - 카테고리 포함")
     void createPost_withCategory_success() {
-        PostCreateRequest request = new PostCreateRequest(1L, "New Post", "New Contents", Collections.emptyList(), false, false, false, null);
-        
+        PostCreateRequest request = new PostCreateRequest(1L, "New Post", "New Contents", Collections.emptyList(),
+                false, false, false, null);
+
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
         when(boardCategoryRepository.findById(1L)).thenReturn(Optional.of(category));
@@ -165,8 +168,9 @@ class PostServiceTest {
     @Test
     @DisplayName("게시글 생성 실패 - 공지사항 권한 없음")
     void createPost_notice_forbidden() {
-        PostCreateRequest request = new PostCreateRequest(null, "Notice", "Contents", Collections.emptyList(), true, false, false, null);
-        
+        PostCreateRequest request = new PostCreateRequest(null, "Notice", "Contents", Collections.emptyList(), true,
+                false, false, null);
+
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
         when(adminRepository.findByUserAndBoardAndIsActive(user, board, true)).thenReturn(Optional.empty());
@@ -198,7 +202,7 @@ class PostServiceTest {
     @DisplayName("게시글 조회 실패 - 비활성 게시판, 권한 없음")
     void getPostById_inactiveBoard_forbidden() {
         ReflectionTestUtils.setField(board, "isActive", false);
-        
+
         // Mock user who is NOT author, NOT admin, NOT superadmin
         User otherUser = User.builder().loginId("other").build();
         ReflectionTestUtils.setField(otherUser, "userId", 2L);
@@ -211,7 +215,8 @@ class PostServiceTest {
 
         assertThatThrownBy(() -> postService.getPostById(1L, 2L))
                 .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND); // Security requirement often masks as Not Found
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND); // Security requirement often masks
+                                                                                     // as Not Found
     }
 
     @Test
@@ -220,11 +225,31 @@ class PostServiceTest {
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
         // currentUserId가 null이므로 userBlockService가 호출되지 않음
         // Page.empty()인 경우 getPostIdsWithImages가 빈 리스트를 받아 fileService가 호출되지 않음
-        when(postRepository.findByBoardIdAndCategoryId(eq(1L), any(), any(), any(), any(Pageable.class))).thenReturn(Page.empty());
+        when(postRepository.findByBoardIdAndCategoryId(eq(1L), any(), any(), any(), any(Pageable.class)))
+                .thenReturn(Page.empty());
 
         postService.getPosts("free", null, null, null, Pageable.unpaged());
 
         verify(postRepository).findByBoardIdAndCategoryId(eq(1L), any(), any(), any(), any(Pageable.class));
+    }
+
+    @Test
+    @DisplayName("게시글 목록 조회 실패 - 비활성 게시판, 권한 없음")
+    void getPosts_inactiveBoard_forbidden() {
+        ReflectionTestUtils.setField(board, "isActive", false);
+        when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
+
+        // Mock user who is NOT author, NOT admin, NOT superadmin
+        User otherUser = User.builder().loginId("other").build();
+        ReflectionTestUtils.setField(otherUser, "userId", 2L);
+        ReflectionTestUtils.setField(otherUser, "isSuperAdmin", false);
+
+        when(userRepository.findById(2L)).thenReturn(Optional.of(otherUser));
+        when(adminRepository.findByUserAndBoardAndIsActive(otherUser, board, true)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> postService.getPosts("free", null, null, 2L, Pageable.unpaged()))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.BOARD_NOT_FOUND);
     }
 
     @Test
@@ -234,10 +259,10 @@ class PostServiceTest {
         when(postRepository.findTrendingPosts(any(LocalDateTime.class), anyList(), any(Pageable.class)))
                 .thenReturn(List.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        
+
         when(fileService.getRelatedIdsWithImages(anyList(), eq("POST_CONTENT"))).thenReturn(List.of(1L));
         when(fileService.getOneImageFileIdForPost(1L)).thenReturn(10L);
-        
+
         when(postLikeRepository.findByUserAndPostIn(user, List.of(post))).thenReturn(Collections.emptyList());
         when(scrapRepository.findByUserAndPostIn(user, List.of(post))).thenReturn(Collections.emptyList());
         when(boardSubscriptionRepository.findByUserAndBoardIn(eq(user), anyList())).thenReturn(Collections.emptyList());
@@ -253,8 +278,9 @@ class PostServiceTest {
     @Test
     @DisplayName("게시글 수정 성공")
     void updatePost_success() {
-        PostUpdateRequest request = new PostUpdateRequest(null, "Updated Title", "Updated Contents", Collections.emptyList(), false, false, List.of(5L));
-        
+        PostUpdateRequest request = new PostUpdateRequest(null, "Updated Title", "Updated Contents",
+                Collections.emptyList(), false, false, List.of(5L));
+
         when(postRepository.findById(1L)).thenReturn(Optional.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
 
@@ -270,7 +296,7 @@ class PostServiceTest {
     void updatePost_forbidden() {
         PostUpdateRequest request = new PostUpdateRequest(null, "Title", "Content", null, false, false, null);
         when(postRepository.findById(1L)).thenReturn(Optional.of(post));
-        
+
         assertThatThrownBy(() -> postService.updatePost(2L, 1L, request))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
@@ -283,7 +309,7 @@ class PostServiceTest {
     void deletePost_success() {
         when(postRepository.findById(1L)).thenReturn(Optional.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        
+
         Tag tag = Tag.builder().tagName("Tag1").build();
         PostTag postTag = PostTag.builder().post(post).tag(tag).build();
         when(postTagRepository.findByPost(post)).thenReturn(List.of(postTag));
@@ -388,7 +414,7 @@ class PostServiceTest {
     void saveDraftPost_update() {
         DraftPost existingDraft = DraftPost.builder().user(user).board(board).title("Old").build();
         PostDraftRequest request = new PostDraftRequest(10L, "free", "New Title", "New Content", null);
-        
+
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
         when(draftPostRepository.findByDraftIdAndUser(10L, user)).thenReturn(Optional.of(existingDraft));
@@ -410,9 +436,9 @@ class PostServiceTest {
 
         verify(draftPostRepository).delete(existingDraft);
     }
-    
+
     // --- View History ---
-    
+
     @Test
     @DisplayName("조회 기록 업데이트 - 신규")
     void updateViewHistory_new() {
@@ -427,16 +453,16 @@ class PostServiceTest {
 
         verify(viewHistoryRepository).save(any(ViewHistory.class));
     }
-    
+
     @Test
     @DisplayName("최근 본 게시글 조회")
     void getRecentlyViewedPosts() {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(viewHistoryRepository.findByUserOrderByModifiedAtDesc(eq(user), any(Pageable.class)))
-            .thenReturn(Page.empty());
-            
+                .thenReturn(Page.empty());
+
         postService.getRecentlyViewedPosts(1L, Pageable.unpaged());
-        
+
         verify(viewHistoryRepository).findByUserOrderByModifiedAtDesc(eq(user), any(Pageable.class));
     }
 
@@ -448,11 +474,30 @@ class PostServiceTest {
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
         // currentUserId가 null이므로 userBlockService가 호출되지 않음, blockedUserIds는 null
         when(postRepository.findNoticesByBoardId(eq(1L), eq(true), eq(false), isNull()))
-            .thenReturn(List.of(post));
-            
+                .thenReturn(List.of(post));
+
         List<Post> notices = postService.getNotices("free", null);
-        
+
         assertThat(notices).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("공지사항 조회 실패 - 비활성 게시판, 권한 없음")
+    void getNotices_inactiveBoard_forbidden() {
+        ReflectionTestUtils.setField(board, "isActive", false);
+        when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
+
+        // Mock user who is NOT author, NOT admin, NOT superadmin
+        User otherUser = User.builder().loginId("other").build();
+        ReflectionTestUtils.setField(otherUser, "userId", 2L);
+        ReflectionTestUtils.setField(otherUser, "isSuperAdmin", false);
+
+        when(userRepository.findById(2L)).thenReturn(Optional.of(otherUser));
+        when(adminRepository.findByUserAndBoardAndIsActive(otherUser, board, true)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> postService.getNotices("free", 2L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.BOARD_NOT_FOUND);
     }
 
     @Test
@@ -460,38 +505,40 @@ class PostServiceTest {
     void getPostsByTag_success() {
         when(postTagRepository.findByTag_TagId(eq(1L), any(Pageable.class))).thenReturn(Page.empty());
         // Page.empty()인 경우 getPostIdsWithImages가 빈 리스트를 받아 fileService가 호출되지 않음
-        lenient().when(fileService.getRelatedIdsWithImages(anyList(), eq("POST_CONTENT"))).thenReturn(Collections.emptyList());
-        
+        lenient().when(fileService.getRelatedIdsWithImages(anyList(), eq("POST_CONTENT")))
+                .thenReturn(Collections.emptyList());
+
         postService.getPostsByTag(1L, null, Pageable.unpaged());
-        
+
         verify(postTagRepository).findByTag_TagId(eq(1L), any(Pageable.class));
     }
-    
+
     @Test
     @DisplayName("내 게시글 조회")
     void getMyPosts_success() {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(postRepository.findByUserAndIsDeleted(eq(user), eq(false), any(Pageable.class))).thenReturn(Page.empty());
         // Page.empty()인 경우 getPostIdsWithImages가 빈 리스트를 받아 fileService가 호출되지 않음
-        lenient().when(fileService.getRelatedIdsWithImages(anyList(), eq("POST_CONTENT"))).thenReturn(Collections.emptyList());
-        
+        lenient().when(fileService.getRelatedIdsWithImages(anyList(), eq("POST_CONTENT")))
+                .thenReturn(Collections.emptyList());
+
         postService.getMyPosts(1L, Pageable.unpaged());
-        
+
         verify(postRepository).findByUserAndIsDeleted(eq(user), eq(false), any(Pageable.class));
     }
-    
+
     @Test
     @DisplayName("게시글 이미지 URL 조회")
     void getPostImageUrls() {
         File file = File.builder().mimeType("image/png").build();
         ReflectionTestUtils.setField(file, "fileId", 123L);
         when(fileService.getFilesByRelatedEntity(1L, "POST_CONTENT")).thenReturn(List.of(file));
-        
+
         List<String> urls = postService.getPostImageUrls(1L);
-        
+
         assertThat(urls).contains("/api/v1/files/123");
     }
-    
+
     @Test
     @DisplayName("게시글 버전 조회")
     void getPostVersions() {
@@ -595,7 +642,7 @@ class PostServiceTest {
     void getDraftPosts_success() {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(draftPostRepository.findByUserOrderByModifiedAtDesc(eq(user), any(Pageable.class)))
-            .thenReturn(Page.empty());
+                .thenReturn(Page.empty());
 
         DraftListResponse response = postService.getDraftPosts(1L, Pageable.unpaged());
 
@@ -623,8 +670,8 @@ class PostServiceTest {
         when(draftPostRepository.findByDraftIdAndUser(10L, user)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> postService.getDraftPost(1L, 10L))
-            .isInstanceOf(BusinessException.class)
-            .hasFieldOrPropertyWithValue("errorCode", ErrorCode.NOT_FOUND);
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.NOT_FOUND);
     }
 
     // --- Tags ---
@@ -699,7 +746,7 @@ class PostServiceTest {
     void getLatestPostsByBoard_loggedIn() {
         when(userBlockService.getBlockedUserIds(1L)).thenReturn(Collections.emptyList());
         when(postRepository.findByBoardIdAndCategoryId(eq(1L), isNull(), isNull(), anyList(), any(Pageable.class)))
-            .thenReturn(new PageImpl<>(List.of(post)));
+                .thenReturn(new PageImpl<>(List.of(post)));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(fileService.getRelatedIdsWithImages(anyList(), eq("POST_CONTENT"))).thenReturn(List.of(1L));
         when(fileService.getOneImageFileIdForPost(1L)).thenReturn(20L);
@@ -717,7 +764,7 @@ class PostServiceTest {
     @DisplayName("게시판 최신 게시글 조회 - 비로그인 사용자")
     void getLatestPostsByBoard_notLoggedIn() {
         when(postRepository.findByBoardIdAndCategoryId(eq(1L), isNull(), isNull(), isNull(), any(Pageable.class)))
-            .thenReturn(new PageImpl<>(List.of(post)));
+                .thenReturn(new PageImpl<>(List.of(post)));
         when(fileService.getRelatedIdsWithImages(anyList(), eq("POST_CONTENT"))).thenReturn(Collections.emptyList());
 
         List<PostSummary> result = postService.getLatestPostsByBoard(1L, 5, null);
@@ -729,7 +776,7 @@ class PostServiceTest {
     @DisplayName("게시판 최신 게시글 조회 - 결과 없음")
     void getLatestPostsByBoard_empty() {
         when(postRepository.findByBoardIdAndCategoryId(eq(1L), isNull(), isNull(), isNull(), any(Pageable.class)))
-            .thenReturn(Page.empty());
+                .thenReturn(Page.empty());
 
         List<PostSummary> result = postService.getLatestPostsByBoard(1L, 5, null);
 
@@ -748,8 +795,8 @@ class PostServiceTest {
         when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
 
         assertThatThrownBy(() -> postService.createPost(1L, 1L, request))
-            .isInstanceOf(BusinessException.class)
-            .hasFieldOrPropertyWithValue("errorCode", ErrorCode.BOARD_NOT_FOUND);
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.BOARD_NOT_FOUND);
     }
 
     @Test
@@ -764,8 +811,8 @@ class PostServiceTest {
         when(boardCategoryRepository.findById(1L)).thenReturn(Optional.of(category));
 
         assertThatThrownBy(() -> postService.createPost(1L, 1L, request))
-            .isInstanceOf(BusinessException.class)
-            .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
     }
 
     @Test
@@ -781,8 +828,8 @@ class PostServiceTest {
         when(adminRepository.findByUserAndBoardAndIsActive(user, board, true)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> postService.createPost(1L, 1L, request))
-            .isInstanceOf(BusinessException.class)
-            .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
     }
 
     @Test
@@ -794,8 +841,8 @@ class PostServiceTest {
         when(postRepository.findById(1L)).thenReturn(Optional.of(post));
 
         assertThatThrownBy(() -> postService.updatePost(1L, 1L, request))
-            .isInstanceOf(BusinessException.class)
-            .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
     }
 
     @Test
@@ -806,8 +853,8 @@ class PostServiceTest {
         when(postRepository.findById(1L)).thenReturn(Optional.of(post));
 
         assertThatThrownBy(() -> postService.deletePost(1L, 1L))
-            .isInstanceOf(BusinessException.class)
-            .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
     }
 
     @Test
@@ -819,8 +866,8 @@ class PostServiceTest {
         when(postRepository.findById(1L)).thenReturn(Optional.of(post));
 
         assertThatThrownBy(() -> postService.likePost(1L, 1L))
-            .isInstanceOf(BusinessException.class)
-            .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
     }
 
     @Test
@@ -831,8 +878,8 @@ class PostServiceTest {
         when(postRepository.findById(1L)).thenReturn(Optional.of(post));
 
         assertThatThrownBy(() -> postService.unlikePost(1L, 1L))
-            .isInstanceOf(BusinessException.class)
-            .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
     }
 
     @Test
@@ -844,8 +891,8 @@ class PostServiceTest {
         when(postRepository.findById(1L)).thenReturn(Optional.of(post));
 
         assertThatThrownBy(() -> postService.scrapPost(1L, 1L, "remark"))
-            .isInstanceOf(BusinessException.class)
-            .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
     }
 
     @Test
@@ -855,8 +902,8 @@ class PostServiceTest {
         when(userBlockService.getBlockedUserIds(2L)).thenReturn(List.of(1L));
 
         assertThatThrownBy(() -> postService.getPostById(1L, 2L))
-            .isInstanceOf(BusinessException.class)
-            .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
     }
 
     @Test
@@ -920,7 +967,7 @@ class PostServiceTest {
     void getNoticeSummaries_success() {
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
         when(postRepository.findNoticesByBoardId(eq(1L), eq(true), eq(false), isNull()))
-            .thenReturn(List.of(post));
+                .thenReturn(List.of(post));
 
         List<PostSummary> summaries = postService.getNoticeSummaries("free", null);
 
