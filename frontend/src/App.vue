@@ -71,8 +71,12 @@ watch(() => authStore.isAuthenticated, (newVal) => {
     if (newVal) {
         loadSettings()
     } else {
-        // Reset to defaults on logout
-        themeStore.setTheme('LIGHT')
+        // On logout, restore theme from localStorage (theme store will read it on next access)
+        // Don't force LIGHT theme to preserve user's localStorage preference
+        const storedTheme = localStorage.getItem('theme')
+        if (storedTheme) {
+            themeStore.setTheme(storedTheme === 'dark' ? 'DARK' : 'LIGHT')
+        }
     }
 })
 
