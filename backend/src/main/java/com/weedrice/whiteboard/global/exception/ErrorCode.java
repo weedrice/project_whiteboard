@@ -82,7 +82,13 @@ public enum ErrorCode {
     FILE_LOAD_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "F005", "error.file.loadError"),
 
     // Email
-    EMAIL_SEND_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "E001", "error.email.sendFailed");
+    EMAIL_SEND_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "E001", "error.email.sendFailed"),
+
+    // Emoticon
+    EMOTICON_NOT_FOUND(HttpStatus.NOT_FOUND, "EM001", "error.emoticon.notFound"),
+    EMOTICON_ALREADY_PURCHASED(HttpStatus.CONFLICT, "EM002", "error.emoticon.alreadyPurchased"),
+    EMOTICON_CANNOT_PURCHASE_OWN(HttpStatus.BAD_REQUEST, "EM003", "error.emoticon.cannotPurchaseOwn"),
+    EMOTICON_IMAGE_NOT_FOUND(HttpStatus.NOT_FOUND, "EM004", "error.emoticon.imageNotFound");
 
     private final HttpStatus status;
     private final String code;

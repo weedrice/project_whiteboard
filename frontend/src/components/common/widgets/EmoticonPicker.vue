@@ -1,0 +1,361 @@
+<script setup lang="ts">
+import { ref, computed, watch } from 'vue'
+import { useQuery } from '@tanstack/vue-query'
+import { emoticonApi } from '@/api/emoticon'
+import type { EmoticonMaster, EmoticonImage } from '@/types/emoticon'
+import { X, ArrowLeft, Search, Smile } from 'lucide-vue-next'
+
+const props = defineProps<{
+  show: boolean
+}>()
+
+const emit = defineEmits<{
+  (e: 'select', image: EmoticonImage): void
+  (e: 'close'): void
+}>()
+
+const selectedEmoticon = ref<EmoticonMaster | null>(null)
+const selectedEmoticonId = ref<number | null>(null)
+const searchKeyword = ref('')
+const isLoadingDetail = ref(false)
+
+// 구매한 이모티콘 목록 조회
+const { data: purchasedEmoticons, isLoading } = useQuery({
+  queryKey: ['emoticons', 'purchased', 'picker'],
+  queryFn: async () => {
+    const { data } = await emoticonApi.getPurchasedEmoticons({ size: 100 })
+    return data.data.content
+  },
+  enabled: () => props.show
+})
+
+// 검색 필터링
+const filteredEmoticons = computed(() => {
+  if (!purchasedEmoticons.value) return []
+  if (!searchKeyword.value.trim()) return purchasedEmoticons.value
+  
+  const keyword = searchKeyword.value.toLowerCase()
+  return purchasedEmoticons.value.filter(emoticon => 
+    emoticon.name.toLowerCase().includes(keyword) ||
+    emoticon.tags?.some(tag => tag.toLowerCase().includes(keyword))
+  )
+})
+
+// 선택된 이모티콘의 이미지 목록
+const selectedImages = computed(() => {
+  return selectedEmoticon.value?.images || []
+})
+
+const handleEmoticonClick = async (emoticon: EmoticonMaster) => {
+  // 상세 정보 조회 (이미지 포함)
+  isLoadingDetail.value = true
+  selectedEmoticonId.value = emoticon.emoticonId
+  
+  try {
+    const { data } = await emoticonApi.getEmoticon(emoticon.emoticonId)
+    selectedEmoticon.value = data.data
+  } catch (error) {
+    console.error('Failed to load emoticon detail:', error)
+  } finally {
+    isLoadingDetail.value = false
+  }
+}
+
+const handleImageClick = (image: EmoticonImage) => {
+  emit('select', image)
+}
+
+const goBack = () => {
+  selectedEmoticon.value = null
+  selectedEmoticonId.value = null
+}
+
+const close = () => {
+  selectedEmoticon.value = null
+  selectedEmoticonId.value = null
+  searchKeyword.value = ''
+  emit('close')
+}
+
+// 팝업이 닫힐 때 상태 초기화
+watch(() => props.show, (newVal) => {
+  if (!newVal) {
+    selectedEmoticon.value = null
+    selectedEmoticonId.value = null
+    searchKeyword.value = ''
+  }
+})
+</script>
+
+<template>
+  <div v-if="show" class="emoticon-picker">
+    <!-- 헤더 -->
+    <div class="picker-header">
+      <button v-if="selectedEmoticonId" @click="goBack" class="back-btn">
+        <ArrowLeft class="w-4 h-4" />
+      </button>
+      <span class="header-title">
+        {{ selectedEmoticon?.name || '노비콘' }}
+      </span>
+      <button @click="close" class="close-btn">
+        <X class="w-4 h-4" />
+      </button>
+    </div>
+
+    <!-- 컨텐츠 -->
+    <div class="picker-content">
+      <!-- 이모티콘 상세 (이미지 목록) -->
+      <template v-if="selectedEmoticonId">
+        <!-- 상세 로딩 중 -->
+        <div v-if="isLoadingDetail" class="loading-state">
+          <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-500"></div>
+        </div>
+        <!-- 이미지 그리드 -->
+        <div v-else-if="selectedEmoticon" class="images-grid">
+          <button
+            v-for="image in selectedImages"
+            :key="image.imageId"
+            @click="handleImageClick(image)"
+            class="image-btn"
+          >
+            <img :src="image.imageUrl" :alt="selectedEmoticon.name" />
+          </button>
+        </div>
+      </template>
+
+      <!-- 이모티콘 목록 -->
+      <template v-else-if="!selectedEmoticonId">
+        <!-- 검색 -->
+        <div class="search-area">
+          <div class="relative">
+            <Search class="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              v-model="searchKeyword"
+              type="text"
+              placeholder="검색..."
+              class="search-input"
+            />
+          </div>
+        </div>
+
+        <!-- 로딩 -->
+        <div v-if="isLoading" class="loading-state">
+          <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-500"></div>
+        </div>
+
+        <!-- 빈 상태 -->
+        <div v-else-if="!filteredEmoticons?.length" class="empty-state">
+          <Smile class="w-8 h-8 text-gray-400 mb-2" />
+          <p v-if="purchasedEmoticons?.length === 0">구매한 노비콘이 없습니다</p>
+          <p v-else>검색 결과가 없습니다</p>
+        </div>
+
+        <!-- 이모티콘 목록 -->
+        <div v-else class="emoticons-grid">
+          <button
+            v-for="emoticon in filteredEmoticons"
+            :key="emoticon.emoticonId"
+            @click="handleEmoticonClick(emoticon)"
+            class="emoticon-btn"
+          >
+            <img
+              :src="emoticon.thumbnailUrl || emoticon.images?.[0]?.imageUrl"
+              :alt="emoticon.name"
+            />
+            <span class="emoticon-name">{{ emoticon.name }}</span>
+          </button>
+        </div>
+      </template>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.emoticon-picker {
+  position: absolute;
+  top: 42px; /* toolbar 높이 바로 아래 */
+  right: 0;
+  width: 320px;
+  max-height: 350px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.dark .emoticon-picker {
+  background: #1f2937;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+.picker-header {
+  display: flex;
+  align-items: center;
+  padding: 12px;
+  border-bottom: 1px solid #e5e7eb;
+  gap: 8px;
+}
+
+.dark .picker-header {
+  border-bottom-color: #374151;
+}
+
+.header-title {
+  flex: 1;
+  font-weight: 600;
+  font-size: 14px;
+  color: #1f2937;
+}
+
+.dark .header-title {
+  color: #f3f4f6;
+}
+
+.back-btn,
+.close-btn {
+  padding: 4px;
+  border-radius: 4px;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.back-btn:hover,
+.close-btn:hover {
+  background: #f3f4f6;
+  color: #1f2937;
+}
+
+.dark .back-btn:hover,
+.dark .close-btn:hover {
+  background: #374151;
+  color: #f3f4f6;
+}
+
+.picker-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+}
+
+.search-area {
+  margin-bottom: 12px;
+}
+
+.search-input {
+  width: 100%;
+  padding: 8px 8px 8px 32px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.search-input:focus {
+  border-color: #6366f1;
+}
+
+.dark .search-input {
+  background: #374151;
+  border-color: #4b5563;
+  color: #f3f4f6;
+}
+
+.dark .search-input:focus {
+  border-color: #6366f1;
+}
+
+.loading-state {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 40px 0;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 0;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.emoticons-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.emoticon-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.emoticon-btn:hover {
+  background: #f3f4f6;
+}
+
+.dark .emoticon-btn:hover {
+  background: #374151;
+}
+
+.emoticon-btn img {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  border-radius: 4px;
+}
+
+.emoticon-name {
+  margin-top: 4px;
+  font-size: 11px;
+  color: #6b7280;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.dark .emoticon-name {
+  color: #9ca3af;
+}
+
+.images-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.image-btn {
+  padding: 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.image-btn:hover {
+  background: #f3f4f6;
+}
+
+.dark .image-btn:hover {
+  background: #374151;
+}
+
+.image-btn img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: contain;
+}
+</style>

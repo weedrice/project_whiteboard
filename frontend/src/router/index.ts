@@ -114,6 +114,23 @@ const router = createRouter({
             component: () => import('@/views/board/BoardCreate.vue'),
             meta: { requiresAuth: true }
         },
+        // 노비콘 (이모티콘) 관련 라우트
+        {
+            path: '/emoticons',
+            name: 'emoticon-list',
+            component: () => import('@/views/emoticon/EmoticonList.vue')
+        },
+        {
+            path: '/emoticons/register',
+            name: 'emoticon-register',
+            component: () => import('@/views/emoticon/EmoticonRegister.vue'),
+            meta: { requiresAuth: true }
+        },
+        {
+            path: '/emoticons/:emoticonId',
+            name: 'emoticon-detail',
+            component: () => import('@/views/emoticon/EmoticonDetail.vue')
+        },
         {
             path: '/boards',
             name: 'all-boards',

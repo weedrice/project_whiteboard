@@ -1,5 +1,5 @@
-﻿<script setup lang="ts">
-import { ref, onMounted, computed, watchEffect } from 'vue'
+<script setup lang="ts">
+import { ref, computed, watchEffect } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useBoard } from '@/composables/useBoard'
 import { usePost } from '@/composables/usePost'
@@ -15,6 +15,9 @@ import BaseCheckbox from '@/components/common/ui/BaseCheckbox.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import PostTags from '@/components/tag/PostTags.vue'
 import { useToastStore } from '@/stores/toast'
+import EmoticonPicker from '@/components/common/widgets/EmoticonPicker.vue'
+import { registerEmoticonBlot } from '@/utils/emoticon-blot'
+import type { EmoticonImage } from '@/types/emoticon'
 
 const { t } = useI18n()
 
@@ -37,6 +40,7 @@ const isLoading = computed(() => isBoardLoading.value || isCategoriesLoading.val
 const fileIds = ref<number[]>([])
 const editor = ref<InstanceType<typeof QuillEditor> | null>(null)
 const quillInstance = ref<any>(null)
+const showEmoticonPicker = ref(false)
 
 const form = ref({
   title: '',
@@ -65,7 +69,7 @@ const toolbarOptions = [
   [{ 'align': [] }],
 
   ['clean'],                                         // remove formatting
-  ['link', 'image', 'video']
+  ['link', 'image', 'video', 'emoticon']
 ]
 
 const imageHandler = () => {
@@ -107,9 +111,32 @@ const imageHandler = () => {
   }
 }
 
+const emoticonHandler = () => {
+  showEmoticonPicker.value = !showEmoticonPicker.value
+}
+
+const handleEmoticonSelect = (image: EmoticonImage) => {
+  if (quillInstance.value) {
+    const range = quillInstance.value.getSelection(true)
+    const index = range ? range.index : quillInstance.value.getLength()
+    quillInstance.value.insertEmbed(index, 'emoticon', {
+      src: image.imageUrl,
+      alt: ':emoticon:'
+    })
+    quillInstance.value.setSelection(index + 1)
+  }
+  showEmoticonPicker.value = false
+}
+
 const onEditorReady = (quill: any) => {
   quillInstance.value = quill
+  
+  // Quill 인스턴스에서 Quill 클래스 가져와서 emoticon blot 등록
+  const Quill = quill.constructor
+  registerEmoticonBlot(Quill)
+  
   quill.getModule('toolbar').addHandler('image', imageHandler)
+  quill.getModule('toolbar').addHandler('emoticon', emoticonHandler)
 }
 
 watchEffect(() => {
@@ -190,9 +217,14 @@ async function handleSubmit() {
         <div class="sm:col-span-6">
           <label for="content" class="block text-sm font-medium text-gray-700 dark:text-gray-300">{{
             $t('common.content') }}</label>
-          <div class="mt-1 h-96">
+          <div class="mt-1 h-96 relative">
             <QuillEditor ref="editor" :toolbar="toolbarOptions" theme="snow" contentType="html"
               v-model:content="form.content" @ready="onEditorReady" />
+            <EmoticonPicker 
+              :show="showEmoticonPicker" 
+              @select="handleEmoticonSelect"
+              @close="showEmoticonPicker = false" 
+            />
           </div>
         </div>
 
@@ -225,3 +257,28 @@ async function handleSubmit() {
     </form>
   </div>
 </template>
+
+<style>
+/* Emoticon button icon */
+.ql-emoticon {
+  width: 24px !important;
+  height: 24px !important;
+}
+
+.ql-snow .ql-toolbar button.ql-emoticon::before,
+.ql-snow.ql-toolbar button.ql-emoticon::before {
+  content: '😊';
+  font-size: 16px;
+  line-height: 1;
+}
+
+.ql-snow .ql-toolbar button.ql-emoticon:hover,
+.ql-snow.ql-toolbar button.ql-emoticon:hover {
+  color: #06c;
+}
+
+.dark .ql-snow .ql-toolbar button.ql-emoticon:hover,
+.dark .ql-snow.ql-toolbar button.ql-emoticon:hover {
+  color: #60a5fa;
+}
+</style>

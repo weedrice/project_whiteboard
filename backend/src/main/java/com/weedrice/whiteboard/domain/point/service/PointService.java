@@ -93,4 +93,43 @@ public class PointService {
                                 .build();
                 pointHistoryRepository.save(history);
         }
+
+        /**
+         * 구매를 위한 포인트 차감 (type = SPEND)
+         */
+        @Transactional
+        public void spendPoint(@NonNull Long userId, int amount, String description, Long relatedId,
+                        String relatedType) {
+                User user = userRepository.findById(userId)
+                                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+                UserPoint userPoint = userPointRepository.findByUserId(userId)
+                                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND, "포인트 정보를 찾을 수 없습니다."));
+
+                if (userPoint.getCurrentPoint() < amount) {
+                        throw new BusinessException(ErrorCode.INSUFFICIENT_POINTS);
+                }
+
+                userPoint.subtractPoint(amount);
+                userPointRepository.save(userPoint);
+
+                PointHistory history = PointHistory.builder()
+                                .user(user)
+                                .type("SPEND")
+                                .amount(-amount)
+                                .balanceAfter(userPoint.getCurrentPoint())
+                                .description(description)
+                                .relatedId(relatedId)
+                                .relatedType(relatedType)
+                                .build();
+                pointHistoryRepository.save(history);
+        }
+
+        /**
+         * 현재 포인트 잔액 확인
+         */
+        public int getCurrentBalance(@NonNull Long userId) {
+                return userPointRepository.findByUserId(userId)
+                                .map(UserPoint::getCurrentPoint)
+                                .orElse(0);
+        }
 }

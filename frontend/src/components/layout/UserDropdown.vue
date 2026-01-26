@@ -2,7 +2,7 @@
 import { ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { User, LogOut, Settings, CreditCard, FileText, Clock, AlertTriangle, PlusSquare, ChevronDown, Bell, LayoutDashboard, Mail, Star, Slash } from 'lucide-vue-next'
+import { User, LogOut, Settings, CreditCard, FileText, Clock, AlertTriangle, PlusSquare, ChevronDown, Bell, LayoutDashboard, Mail, Star, Slash, Smile } from 'lucide-vue-next'
 import axios from '@/api'
 import logger from '@/utils/logger'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
@@ -185,6 +185,13 @@ onMounted(() => {
           <PlusSquare
             class="mr-3 h-4 w-4 text-gray-400 group-hover:text-gray-500 dark:text-gray-500 dark:group-hover:text-gray-400" />
           {{ $t('layout.menu.createBoard') }}
+        </router-link>
+        <router-link to="/emoticons"
+          class="group flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
+          @click="emit('toggle')">
+          <Smile
+            class="mr-3 h-4 w-4 text-gray-400 group-hover:text-gray-500 dark:text-gray-500 dark:group-hover:text-gray-400" />
+          노비콘
         </router-link>
       </div>
 

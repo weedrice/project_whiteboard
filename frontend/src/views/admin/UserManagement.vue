@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { useAdmin } from '@/composables/useAdmin'
 import { Search, MoreVertical, Shield, Ban, VolumeX, Eye } from 'lucide-vue-next'
@@ -135,4 +135,3 @@ const columns = computed(() => [
     <UserDetailModal :isOpen="isDetailModalOpen" :user="selectedUser" @close="isDetailModalOpen = false" />
   </div>
 </template>
-
