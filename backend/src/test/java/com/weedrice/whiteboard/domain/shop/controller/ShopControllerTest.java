@@ -2,10 +2,14 @@ package com.weedrice.whiteboard.domain.shop.controller;
 
 import com.weedrice.whiteboard.domain.shop.dto.PurchaseHistoryResponse;
 import com.weedrice.whiteboard.domain.shop.dto.ShopItemResponse;
+import com.weedrice.whiteboard.domain.shop.entity.ShopItem;
 import com.weedrice.whiteboard.domain.shop.service.ShopService;
+import com.weedrice.whiteboard.global.exception.BusinessException;
+import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -18,6 +22,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.util.Collections;
 
 import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
@@ -37,6 +42,7 @@ import static org.mockito.Mockito.doAnswer;
     })
 @org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
 @org.springframework.context.annotation.Import(ShopControllerTest.TestSecurityConfig.class)
+@DisplayName("ShopController 테스트")
 class ShopControllerTest {
 
     @org.springframework.boot.test.context.TestConfiguration
@@ -105,7 +111,9 @@ class ShopControllerTest {
         // when & then
         mockMvc.perform(get("/api/v1/shop/items")
                         .param("page", "0")
-                        .param("size", "20"))
+                        .param("size", "20")
+                        .with(user(customUserDetails))
+                        .with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
     }
@@ -138,5 +146,237 @@ class ShopControllerTest {
                         .with(user(customUserDetails)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
+    }
+
+    @Nested
+    @DisplayName("EMOTICON 아이템 조회 API")
+    class GetEmoticonItems {
+
+        @Test
+        @DisplayName("EMOTICON 타입 필터로 아이템 조회 성공")
+        void getShopItems_withEmoticonType() throws Exception {
+            // given
+            ShopItemResponse response = ShopItemResponse.builder().build();
+            when(shopService.getShopItems(eq("EMOTICON"), any())).thenReturn(response);
+
+            // when & then
+            mockMvc.perform(get("/api/v1/shop/items")
+                            .param("itemType", "EMOTICON")
+                            .param("page", "0")
+                            .param("size", "20")
+                            .with(user(customUserDetails))
+                            .with(csrf()))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true));
+
+            verify(shopService).getShopItems(eq("EMOTICON"), any());
+        }
+
+        @Test
+        @DisplayName("itemType 파라미터 없이 전체 아이템 조회")
+        void getShopItems_withoutItemType() throws Exception {
+            // given
+            ShopItemResponse response = ShopItemResponse.builder().build();
+            when(shopService.getShopItems(isNull(), any())).thenReturn(response);
+
+            // when & then
+            mockMvc.perform(get("/api/v1/shop/items")
+                            .param("page", "0")
+                            .param("size", "20")
+                            .with(user(customUserDetails))
+                            .with(csrf()))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true));
+
+            verify(shopService).getShopItems(isNull(), any());
+        }
+
+        @Test
+        @DisplayName("DECORATION 타입 필터로 아이템 조회")
+        void getShopItems_withDecorationType() throws Exception {
+            // given
+            ShopItemResponse response = ShopItemResponse.builder().build();
+            when(shopService.getShopItems(eq("DECORATION"), any())).thenReturn(response);
+
+            // when & then
+            mockMvc.perform(get("/api/v1/shop/items")
+                            .param("itemType", "DECORATION")
+                            .param("page", "0")
+                            .param("size", "20")
+                            .with(user(customUserDetails))
+                            .with(csrf()))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true));
+
+            verify(shopService).getShopItems(eq("DECORATION"), any());
+        }
+
+        @Test
+        @DisplayName("기본 페이징 값으로 아이템 조회")
+        void getShopItems_withDefaultPaging() throws Exception {
+            // given
+            ShopItemResponse response = ShopItemResponse.builder().build();
+            when(shopService.getShopItems(any(), any())).thenReturn(response);
+
+            // when & then
+            mockMvc.perform(get("/api/v1/shop/items")
+                            .with(user(customUserDetails))
+                            .with(csrf()))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true));
+        }
+    }
+
+    @Nested
+    @DisplayName("EMOTICON 아이템 구매 API")
+    class PurchaseEmoticonItem {
+
+        @Test
+        @DisplayName("EMOTICON 아이템 구매 성공")
+        void purchaseEmoticonItem_success() throws Exception {
+            // given
+            Long emoticonItemId = 5L;
+            when(shopService.purchaseItem(eq(1L), eq(emoticonItemId))).thenReturn(100L);
+
+            // when & then
+            mockMvc.perform(post("/api/v1/shop/items/{itemId}/purchase", emoticonItemId)
+                            .with(user(customUserDetails))
+                            .with(csrf()))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.success").value(true))
+                    .andExpect(jsonPath("$.data").value(100L));
+
+            verify(shopService).purchaseItem(1L, emoticonItemId);
+        }
+
+        @Test
+        @DisplayName("인증 없이 EMOTICON 구매 시 401 에러")
+        void purchaseEmoticonItem_unauthorized() throws Exception {
+            // when & then
+            mockMvc.perform(post("/api/v1/shop/items/{itemId}/purchase", 1L)
+                            .with(csrf()))
+                    .andExpect(status().isUnauthorized());
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 EMOTICON 아이템 구매 시 에러")
+        void purchaseEmoticonItem_notFound() throws Exception {
+            // given
+            Long nonExistentItemId = 999L;
+            when(shopService.purchaseItem(eq(1L), eq(nonExistentItemId)))
+                    .thenThrow(new BusinessException(ErrorCode.ITEM_NOT_AVAILABLE));
+
+            // when & then
+            mockMvc.perform(post("/api/v1/shop/items/{itemId}/purchase", nonExistentItemId)
+                            .with(user(customUserDetails))
+                            .with(csrf()))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.success").value(false));
+        }
+
+        @Test
+        @DisplayName("포인트 부족으로 EMOTICON 구매 실패")
+        void purchaseEmoticonItem_insufficientPoints() throws Exception {
+            // given
+            Long itemId = 5L;
+            when(shopService.purchaseItem(eq(1L), eq(itemId)))
+                    .thenThrow(new BusinessException(ErrorCode.INSUFFICIENT_POINTS));
+
+            // when & then
+            mockMvc.perform(post("/api/v1/shop/items/{itemId}/purchase", itemId)
+                            .with(user(customUserDetails))
+                            .with(csrf()))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.success").value(false));
+        }
+    }
+
+    @Nested
+    @DisplayName("EMOTICON 구매 이력 조회 API")
+    class GetEmoticonPurchaseHistory {
+
+        @Test
+        @DisplayName("EMOTICON 포함 구매 이력 조회 성공")
+        void getMyPurchaseHistories_withEmoticons() throws Exception {
+            // given
+            PurchaseHistoryResponse response = PurchaseHistoryResponse.builder().build();
+            when(shopService.getPurchaseHistories(eq(1L), any())).thenReturn(response);
+
+            // when & then
+            mockMvc.perform(get("/api/v1/shop/me/purchases")
+                            .param("page", "0")
+                            .param("size", "10")
+                            .with(user(customUserDetails))
+                            .with(csrf()))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true));
+
+            verify(shopService).getPurchaseHistories(eq(1L), any());
+        }
+
+        @Test
+        @DisplayName("인증 없이 구매 이력 조회 시 401 에러")
+        void getMyPurchaseHistories_unauthorized() throws Exception {
+            // when & then
+            mockMvc.perform(get("/api/v1/shop/me/purchases")
+                            .with(csrf()))
+                    .andExpect(status().isUnauthorized());
+        }
+
+        @Test
+        @DisplayName("사용자를 찾을 수 없을 때 에러")
+        void getMyPurchaseHistories_userNotFound() throws Exception {
+            // given
+            when(shopService.getPurchaseHistories(eq(1L), any()))
+                    .thenThrow(new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+            // when & then
+            mockMvc.perform(get("/api/v1/shop/me/purchases")
+                            .with(user(customUserDetails))
+                            .with(csrf()))
+                    .andExpect(status().isNotFound())
+                    .andExpect(jsonPath("$.success").value(false));
+        }
+    }
+
+    @Nested
+    @DisplayName("페이징 파라미터 테스트")
+    class PagingParameterTest {
+
+        @Test
+        @DisplayName("커스텀 페이지 사이즈로 EMOTICON 조회")
+        void getEmoticonItems_customPageSize() throws Exception {
+            // given
+            ShopItemResponse response = ShopItemResponse.builder().build();
+            when(shopService.getShopItems(eq("EMOTICON"), any())).thenReturn(response);
+
+            // when & then
+            mockMvc.perform(get("/api/v1/shop/items")
+                            .param("itemType", "EMOTICON")
+                            .param("page", "2")
+                            .param("size", "5")
+                            .with(user(customUserDetails))
+                            .with(csrf()))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true));
+        }
+
+        @Test
+        @DisplayName("대용량 페이지 사이즈로 조회")
+        void getEmoticonItems_largePageSize() throws Exception {
+            // given
+            ShopItemResponse response = ShopItemResponse.builder().build();
+            when(shopService.getShopItems(eq("EMOTICON"), any())).thenReturn(response);
+
+            // when & then
+            mockMvc.perform(get("/api/v1/shop/items")
+                            .param("itemType", "EMOTICON")
+                            .param("page", "0")
+                            .param("size", "100")
+                            .with(user(customUserDetails))
+                            .with(csrf()))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true));
+        }
     }
 }
