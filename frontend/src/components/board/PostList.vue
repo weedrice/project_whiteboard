@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 // defineProps and defineEmits are compiler macros and don't need to be imported
 import { MessageSquare, ThumbsUp, User, Clock, Image as ImageIcon, ArrowUp, ArrowDown } from 'lucide-vue-next'
 import UserMenu from '@/components/common/widgets/UserMenu.vue'
@@ -138,7 +138,11 @@ const columns = computed(() => {
         </template>
 
         <template #cell-boardName="{ item }">
-          {{ item.boardName || '-' }}
+          <router-link v-if="item.boardUrl" :to="`/board/${item.boardUrl}`"
+            class="hover:text-indigo-600 dark:hover:text-indigo-400 text-gray-700 dark:text-gray-300">
+            {{ item.boardName || '-' }}
+          </router-link>
+          <span v-else>{{ item.boardName || '-' }}</span>
         </template>
 
         <template #cell-title="{ item }">

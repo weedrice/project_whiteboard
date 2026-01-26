@@ -9,7 +9,7 @@
                     :to="tab.href"
                     :ref="el => { if (el) tabRefs[index] = (el as ComponentPublicInstance).$el }"
                     @keydown="(e) => handleTabKeyDown(e, index)"
-                    class="whitespace-nowrap py-4 px-1 text-sm transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 rounded-t" 
+                    class="whitespace-nowrap py-4 px-1 text-sm transition-colors duration-200 focus:outline-none rounded-t" 
                     :class="[
                         isActive(tab.href)
                             ? 'text-indigo-600 dark:text-indigo-400 font-bold'

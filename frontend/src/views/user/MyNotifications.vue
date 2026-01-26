@@ -1,4 +1,4 @@
-﻿<script setup>
+<script setup>
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useNotification } from '@/composables/useNotification'
@@ -133,7 +133,7 @@ import { formatDate } from '@/utils/date'
               <div class="ml-2 flex-shrink-0 flex flex-col items-end">
                 <p
                   class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-400 mb-1">
-                  {{ notification.sourceType }}
+                  {{ notification.sourceType === 'POST' ? '게시글' : notification.sourceType === 'COMMENT' ? '댓글' : notification.sourceType }}
                 </p>
                 <p class="text-xs text-gray-500 dark:text-gray-400">
                   {{ formatDate(notification.createdAt) }}

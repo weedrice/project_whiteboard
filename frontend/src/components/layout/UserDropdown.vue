@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
@@ -88,28 +88,25 @@ onMounted(() => {
         </router-link>
       </div>
 
-      <!-- Group 1: Admin, MyInfo, Points, Settings -->
-      <div class="py-1 border-b border-gray-100 dark:border-gray-700">
-        <router-link v-if="authStore.user?.role === 'SUPER_ADMIN'" to="/admin/dashboard"
+      <!-- Group 1: Admin (conditional) -->
+      <div v-if="authStore.user?.role === 'SUPER_ADMIN'" class="py-1 border-b border-gray-100 dark:border-gray-700">
+        <router-link to="/admin/dashboard"
           class="group flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
           @click="emit('toggle')">
           <LayoutDashboard
             class="mr-3 h-4 w-4 text-gray-400 group-hover:text-gray-500 dark:text-gray-500 dark:group-hover:text-gray-400" />
           {{ $t('layout.menu.admin') }}
         </router-link>
+      </div>
+
+      <!-- Group 2: MyPage, Settings, Notifications, Messages, Points -->
+      <div class="py-1 border-b border-gray-100 dark:border-gray-700">
         <router-link to="/mypage"
           class="group flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
           @click="emit('toggle')">
           <User
             class="mr-3 h-4 w-4 text-gray-400 group-hover:text-gray-500 dark:text-gray-500 dark:group-hover:text-gray-400" />
           {{ $t('common.myPage') }}
-        </router-link>
-        <router-link to="/mypage/points"
-          class="group flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
-          @click="emit('toggle')">
-          <CreditCard
-            class="mr-3 h-4 w-4 text-gray-400 group-hover:text-gray-500 dark:text-gray-500 dark:group-hover:text-gray-400" />
-          {{ $t('common.points') }}
         </router-link>
         <router-link to="/mypage/settings"
           class="group flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
@@ -118,10 +115,13 @@ onMounted(() => {
             class="mr-3 h-4 w-4 text-gray-400 group-hover:text-gray-500 dark:text-gray-500 dark:group-hover:text-gray-400" />
           {{ $t('common.settings') }}
         </router-link>
-      </div>
-
-      <!-- Group 2: Messages, Notifications -->
-      <div class="py-1 border-b border-gray-100 dark:border-gray-700">
+        <router-link to="/mypage/notifications"
+          class="group flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
+          @click="emit('toggle')">
+          <Bell
+            class="mr-3 h-4 w-4 text-gray-400 group-hover:text-gray-500 dark:text-gray-500 dark:group-hover:text-gray-400" />
+          {{ $t('common.notifications') }}
+        </router-link>
         <router-link to="/mypage/messages"
           class="group flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
           @click="emit('toggle')">
@@ -129,12 +129,12 @@ onMounted(() => {
             class="mr-3 h-4 w-4 text-gray-400 group-hover:text-gray-500 dark:text-gray-500 dark:group-hover:text-gray-400" />
           {{ $t('common.mailbox') }}
         </router-link>
-        <router-link to="/mypage/notifications"
+        <router-link to="/mypage/points"
           class="group flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
           @click="emit('toggle')">
-          <Bell
+          <CreditCard
             class="mr-3 h-4 w-4 text-gray-400 group-hover:text-gray-500 dark:text-gray-500 dark:group-hover:text-gray-400" />
-          {{ $t('common.notifications') }}
+          {{ $t('common.points') }}
         </router-link>
       </div>
 
@@ -156,7 +156,7 @@ onMounted(() => {
         </router-link>
       </div>
 
-      <!-- Group 4: Recent, Reports, Create Board -->
+      <!-- Group 4: Recent, Reports, Blocked, Create Board -->
       <div class="py-1 border-b border-gray-100 dark:border-gray-700">
         <router-link to="/mypage/recent"
           class="group flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
