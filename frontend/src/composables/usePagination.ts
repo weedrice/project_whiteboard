@@ -52,7 +52,7 @@ export function usePagination<T>(
     const fetch = async (additionalParams: Record<string, unknown> = {}) => {
         loading.value = true
         error.value = null
-        
+
         try {
             const params: PaginationParams = {
                 page: page.value,
@@ -60,7 +60,7 @@ export function usePagination<T>(
                 ...(sort.value && { sort: sort.value }),
                 ...additionalParams
             }
-            
+
             const result = await fetchFn(params)
 
             if (result.success) {
@@ -68,11 +68,11 @@ export function usePagination<T>(
                 totalCount.value = result.data.totalElements
                 totalPages.value = result.data.totalPages
             } else {
-                error.value = 'Failed to load data.'
+                error.value = '데이터를 불러오는데 실패했습니다.'
             }
         } catch (err) {
             logger.error('Failed to fetch paginated data:', err)
-            error.value = 'Failed to load data.'
+            error.value = '데이터를 불러오는데 실패했습니다.'
         } finally {
             loading.value = false
         }
@@ -130,7 +130,7 @@ export function usePagination<T>(
         totalPages,
         loading,
         error,
-        
+
         // Methods
         fetch,
         handlePageChange,

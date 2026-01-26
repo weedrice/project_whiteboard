@@ -97,6 +97,11 @@ export const user: UserMessages = {
     confirm: '{name}님을 차단하시겠습니까?',
     success: '{name}님을 차단했습니다.',
     failed: '차단에 실패했습니다.',
+    unblock: '차단 해제',
+    blockButton: '차단',
+    unblockConfirm: '이 사용자의 차단을 해제하시겠습니까?',
+    blockConfirm: '이 사용자를 차단하시겠습니까?',
+    processFailed: '처리에 실패했습니다.',
   },
   subscriptions: {
     title: '구독한 게시판',

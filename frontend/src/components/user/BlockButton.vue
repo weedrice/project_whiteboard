@@ -1,6 +1,6 @@
 ﻿<template>
   <BaseButton :variant="isBlocked ? 'secondary' : 'danger'" size="sm" @click="toggleBlock" :disabled="loading">
-    {{ isBlocked ? 'Unblock' : 'Block' }}
+    {{ isBlocked ? $t('user.block.unblock') : $t('user.block.blockButton') }}
   </BaseButton>
 </template>
 
@@ -11,7 +11,9 @@ import { userApi } from '@/api/user'
 import logger from '@/utils/logger'
 import { useToastStore } from '@/stores/toast'
 import { useConfirm } from '@/composables/useConfirm'
+import { useI18n } from 'vue-i18n'
 
+const { t } = useI18n()
 const toastStore = useToastStore()
 const { confirm } = useConfirm()
 
@@ -30,7 +32,7 @@ const isBlocked = ref(props.initialBlocked)
 const loading = ref(false)
 
 const toggleBlock = async () => {
-  const isConfirmed = await confirm(isBlocked.value ? 'Unblock this user?' : 'Block this user?')
+  const isConfirmed = await confirm(isBlocked.value ? t('user.block.unblockConfirm') : t('user.block.blockConfirm'))
   if (!isConfirmed) return
 
   loading.value = true
@@ -45,10 +47,9 @@ const toggleBlock = async () => {
     emit('block-change', isBlocked.value)
   } catch (error) {
     logger.error('Failed to toggle block:', error)
-    toastStore.addToast('Failed to process request', 'error')
+    toastStore.addToast(t('user.block.processFailed'), 'error')
   } finally {
     loading.value = false
   }
 }
 </script>
-

@@ -90,6 +90,11 @@ export interface CommonMessages {
     saveSuccess: string
     saveFailed: string
     noResults: string
+    fileSizeExceeded: string
+    processImageFailed: string
+    profileUpdated: string
+    loadFailed: string
+    processFailed: string
   }
   network: {
     offline: string
@@ -219,6 +224,7 @@ export interface AuthMessages {
   emailNotVerified: string
   passwordMismatch: string
   verificationFailed: string
+  sendCodeFailed: string
   validation: {
     passwordStrength: string
     loginIdFormat: string
@@ -474,6 +480,11 @@ export interface UserMessages {
     confirm: string
     success: string
     failed: string
+    unblock: string
+    blockButton: string
+    unblockConfirm: string
+    blockConfirm: string
+    processFailed: string
   }
   subscriptions: {
     title: string

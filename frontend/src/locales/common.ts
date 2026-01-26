@@ -85,6 +85,11 @@ export const common: CommonMessages = {
     saveSuccess: '저장되었습니다.',
     saveFailed: '저장에 실패했습니다.',
     noResults: '검색 결과가 없습니다.',
+    fileSizeExceeded: '파일 크기가 10MB를 초과합니다.',
+    processImageFailed: '이미지 처리에 실패했습니다.',
+    profileUpdated: '프로필이 수정되었습니다.',
+    loadFailed: '데이터를 불러오는데 실패했습니다.',
+    processFailed: '처리에 실패했습니다.',
   },
   network: {
     offline: '오프라인 상태입니다. 인터넷 연결을 확인해주세요.',

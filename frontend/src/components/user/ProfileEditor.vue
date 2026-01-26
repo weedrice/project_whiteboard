@@ -7,8 +7,7 @@
         <div class="shrink-0 border border-gray-200 dark:border-gray-700 rounded-full overflow-hidden h-16 w-16">
           <img class="h-full w-full object-contain bg-white dark:bg-gray-700"
             :src="previewImage || getOptimizedProfileImageUrl(authStore.user?.profileImageUrl) || 'https://via.placeholder.com/150'"
-            alt="Current profile photo"
-            @error="handleImageError($event, 'https://via.placeholder.com/150')" />
+            alt="Current profile photo" @error="handleImageError($event, 'https://via.placeholder.com/150')" />
         </div>
         <div class="flex-1">
           <BaseFileInput :label="$t('user.profile.choosePhoto')" accept="image/*" @change="handleFileChange"
@@ -116,7 +115,7 @@ const handleFileChange = async (event: Event) => {
   const file = target.files?.[0]
   if (file) {
     if (file.size > 10 * 1024 * 1024) {
-      toastStore.addToast('File size exceeds 10MB limit.', 'warning')
+      toastStore.addToast(t('common.messages.fileSizeExceeded'), 'warning')
       return
     }
 
@@ -130,7 +129,7 @@ const handleFileChange = async (event: Event) => {
       previewImage.value = URL.createObjectURL(resizedImage)
     } catch (error) {
       logger.error('Image resize failed', error)
-      toastStore.addToast('Failed to process image.', 'error')
+      toastStore.addToast(t('common.messages.processImageFailed'), 'error')
     }
   }
 }
@@ -215,13 +214,13 @@ const updateProfile = async () => {
     updateProfileMutate(payload, {
       onSuccess: async () => {
         await authStore.fetchUser()
-        toastStore.addToast('Profile updated successfully', 'success')
+        toastStore.addToast(t('common.messages.profileUpdated'), 'success')
         loading.value = false
       },
       onError: (error: Error) => {
         const axiosError = error as AxiosError
         logger.error('Failed to update profile:', error)
-        
+
         // Validation 에러 처리
         const validationErrors = extractValidationErrors(axiosError)
         if (validationErrors) {
@@ -230,7 +229,7 @@ const updateProfile = async () => {
           if (displayNameError) {
             errors.displayName = displayNameError
           }
-          
+
           // 다른 필드 에러가 있으면 토스트로 표시
           const otherErrors = Object.entries(validationErrors)
             .filter(([key]) => key !== 'displayName')
@@ -244,7 +243,7 @@ const updateProfile = async () => {
           errors.displayName = errorMessage
           toastStore.addToast(errorMessage, 'error')
         }
-        
+
         loading.value = false
       }
     })
@@ -275,7 +274,7 @@ const handleDeleteAccount = async () => {
   } catch (error: unknown) {
     logger.error('Failed to delete account:', error)
     const axiosError = error as AxiosError
-    
+
     // Validation 에러 처리 (비밀번호 필드)
     const validationErrors = extractValidationErrors(axiosError)
     if (validationErrors) {
@@ -285,24 +284,24 @@ const handleDeleteAccount = async () => {
         return
       }
     }
-    
+
     // 일반 에러 처리
     const errorMessage = extractErrorMessage(axiosError)
 
-// Cleanup preview image URL
-watch(previewImage, (newUrl, oldUrl) => {
-  // 이전 URL 정리
-  if (oldUrl && oldUrl.startsWith('blob:')) {
-    URL.revokeObjectURL(oldUrl)
-  }
-})
+    // Cleanup preview image URL
+    watch(previewImage, (newUrl, oldUrl) => {
+      // 이전 URL 정리
+      if (oldUrl && oldUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(oldUrl)
+      }
+    })
 
-onUnmounted(() => {
-  // 컴포넌트 unmount 시 preview URL 정리
-  if (previewImage.value && previewImage.value.startsWith('blob:')) {
-    URL.revokeObjectURL(previewImage.value)
-  }
-})
+    onUnmounted(() => {
+      // 컴포넌트 unmount 시 preview URL 정리
+      if (previewImage.value && previewImage.value.startsWith('blob:')) {
+        URL.revokeObjectURL(previewImage.value)
+      }
+    })
     deleteError.value = errorMessage || t('common.errorOccurred')
   }
 }

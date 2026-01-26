@@ -78,7 +78,7 @@ async function sendVerificationCode() {
       toastStore.addToast(t('auth.codeSent'), 'success')
     }
   } catch (err) {
-    const message = err.response?.data?.error?.message || 'Failed to send verification code'
+    const message = err.response?.data?.error?.message || t('auth.sendCodeFailed')
     toastStore.addToast(message, 'error')
   } finally {
     verification.loading = false
