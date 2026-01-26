@@ -16,7 +16,14 @@ export function useNetworkStatus() {
             wasOffline.value = true
             // 페이지 새로고침 (선택적)
             // window.location.reload()
+        } else if (!isOnline.value) {
+            // 온라인에서 오프라인으로 전환 시 wasOffline 리셋
+            wasOffline.value = false
         }
+    }
+
+    const resetWasOffline = () => {
+        wasOffline.value = false
     }
 
     onMounted(() => {
@@ -32,6 +39,7 @@ export function useNetworkStatus() {
     return {
         isOnline,
         wasOffline,
-        isOffline: computed(() => !isOnline.value)
+        isOffline: computed(() => !isOnline.value),
+        resetWasOffline
     }
 }

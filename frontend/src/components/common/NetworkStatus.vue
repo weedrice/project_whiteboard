@@ -18,17 +18,33 @@
 <script setup lang="ts">
 import { useNetworkStatus } from '@/composables/useNetworkStatus'
 import { useI18n } from 'vue-i18n'
-import { watch } from 'vue'
+import { watch, onUnmounted } from 'vue'
 
-const { isOnline, isOffline, wasOffline } = useNetworkStatus()
+const { isOnline, isOffline, wasOffline, resetWasOffline } = useNetworkStatus()
 const { t } = useI18n()
 
+let timeoutId: ReturnType<typeof setTimeout> | null = null
+
 // 온라인 상태로 복귀 시 일정 시간 후 메시지 숨김
-watch(isOnline, (newValue) => {
-    if (newValue && wasOffline.value) {
-        setTimeout(() => {
-            // wasOffline은 useNetworkStatus에서 관리
+watch([isOnline, wasOffline], ([newIsOnline, newWasOffline]) => {
+    // 기존 타이머가 있으면 클리어
+    if (timeoutId) {
+        clearTimeout(timeoutId)
+        timeoutId = null
+    }
+
+    if (newIsOnline && newWasOffline) {
+        // 3초 후 메시지 숨김
+        timeoutId = setTimeout(() => {
+            resetWasOffline()
+            timeoutId = null
         }, 3000)
+    }
+})
+
+onUnmounted(() => {
+    if (timeoutId) {
+        clearTimeout(timeoutId)
     }
 })
 </script>
