@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useAdmin } from '@/composables/useAdmin'
 import { Shield } from 'lucide-vue-next'
