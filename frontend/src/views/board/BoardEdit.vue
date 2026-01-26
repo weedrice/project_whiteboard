@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { boardApi } from '@/api/board'
@@ -10,6 +10,7 @@ import { useToastStore } from '@/stores/toast'
 import { useConfirm } from '@/composables/useConfirm'
 import { useFormSubmit } from '@/composables/useFormSubmit'
 import { useErrorHandler } from '@/composables/useErrorHandler'
+import { useBoard } from '@/composables/useBoard'
 import type { BoardUpdateData } from '@/types'
 
 interface BoardData {
@@ -41,6 +42,9 @@ const form = ref({
 const isLoading = ref(true)
 const { isSubmitting, submit } = useFormSubmit()
 const { handleSilentError, handleError } = useErrorHandler()
+const { useUpdateBoard, useDeleteBoard } = useBoard()
+const { mutateAsync: updateBoard } = useUpdateBoard()
+const { mutateAsync: deleteBoard } = useDeleteBoard()
 const error = ref('')
 
 async function fetchBoard() {
@@ -71,11 +75,9 @@ async function handleUpdate(formData: BoardData) {
   
   await submit(async () => {
     try {
-      const { data } = await boardApi.updateBoard(boardUrl, formData as BoardUpdateData)
-      if (data.success) {
-        toastStore.addToast(t('board.form.successUpdate'), 'success')
-        router.push(`/board/${data.data.boardUrl}`)
-      }
+      const board = await updateBoard({ boardUrl, data: formData as BoardUpdateData })
+      toastStore.addToast(t('board.form.successUpdate'), 'success')
+      router.push(`/board/${board.boardUrl}`)
     } catch (err) {
       error.value = t('board.form.updateFailed')
       handleError(err, t('board.form.updateFailed'))
@@ -89,11 +91,9 @@ async function handleDelete() {
   if (!isConfirmed) return
 
   try {
-    const { data } = await boardApi.deleteBoard(boardUrl)
-    if (data.success) {
-      toastStore.addToast(t('board.form.successDelete'), 'success')
-      router.push('/')
-    }
+    await deleteBoard(boardUrl)
+    toastStore.addToast(t('board.form.successDelete'), 'success')
+    router.push('/')
   } catch (err) {
     handleError(err, t('board.form.deleteFailed'))
   }

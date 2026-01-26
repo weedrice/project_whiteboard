@@ -1,8 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
 import { boardApi } from '@/api/board'
+import { userApi } from '@/api/user'
 import { searchApi } from '@/api/search'
 import { computed, type Ref } from 'vue'
-import type { PageResponse, PostSummary } from '@/types'
+import type { PageResponse, PostSummary, Board } from '@/types'
 import { QUERY_STALE_TIME } from '@/utils/constants'
 
 interface BoardPostParams {
@@ -26,6 +27,22 @@ export function useBoard() {
                 return data.data
             },
             staleTime: QUERY_STALE_TIME.MEDIUM, // 5 minutes
+        })
+    }
+
+    // Fetch subscribed boards
+    const useSubscribedBoards = (size: number = 10, enabled?: Ref<boolean> | boolean) => {
+        const enabledValue = enabled !== undefined 
+            ? (typeof enabled === 'boolean' ? computed(() => enabled) : enabled)
+            : computed(() => false)
+        return useQuery({
+            queryKey: ['boards', 'subscriptions', size],
+            queryFn: async () => {
+                const { data } = await userApi.getMySubscriptions({ size })
+                return data.data.content as Board[]
+            },
+            staleTime: QUERY_STALE_TIME.MEDIUM, // 5 minutes
+            enabled: enabledValue,
         })
     }
 
@@ -86,6 +103,7 @@ export function useBoard() {
                 // Invalidate board details and boards list to refresh subscription status
                 queryClient.invalidateQueries({ queryKey: ['board', boardUrl] })
                 queryClient.invalidateQueries({ queryKey: ['boards'] })
+                queryClient.invalidateQueries({ queryKey: ['boards', 'subscriptions'] })
             }
         })
     }
@@ -102,12 +120,62 @@ export function useBoard() {
         })
     }
 
+    // Create board mutation
+    const useCreateBoard = () => {
+        return useMutation({
+            mutationFn: async (data: any) => {
+                const { data: response } = await boardApi.createBoard(data)
+                return response.data
+            },
+            onSuccess: () => {
+                // Invalidate boards list and subscriptions to refresh header dropdowns
+                queryClient.invalidateQueries({ queryKey: ['boards'] })
+                queryClient.invalidateQueries({ queryKey: ['boards', 'subscriptions'] })
+            }
+        })
+    }
+
+    // Update board mutation
+    const useUpdateBoard = () => {
+        return useMutation({
+            mutationFn: async ({ boardUrl, data }: { boardUrl: string, data: any }) => {
+                const { data: response } = await boardApi.updateBoard(boardUrl, data)
+                return response.data
+            },
+            onSuccess: (_, { boardUrl }) => {
+                // Invalidate board details, boards list, and subscriptions
+                queryClient.invalidateQueries({ queryKey: ['board', boardUrl] })
+                queryClient.invalidateQueries({ queryKey: ['boards'] })
+                queryClient.invalidateQueries({ queryKey: ['boards', 'subscriptions'] })
+            }
+        })
+    }
+
+    // Delete board mutation
+    const useDeleteBoard = () => {
+        return useMutation({
+            mutationFn: async (boardUrl: string) => {
+                const { data: response } = await boardApi.deleteBoard(boardUrl)
+                return response.data
+            },
+            onSuccess: () => {
+                // Invalidate boards list and subscriptions to refresh header dropdowns
+                queryClient.invalidateQueries({ queryKey: ['boards'] })
+                queryClient.invalidateQueries({ queryKey: ['boards', 'subscriptions'] })
+            }
+        })
+    }
+
     return {
         useBoards,
+        useSubscribedBoards,
         useBoardDetail,
         useBoardPosts,
         useBoardNotices,
         useSubscribeBoard,
-        useBoardCategories
+        useBoardCategories,
+        useCreateBoard,
+        useUpdateBoard,
+        useDeleteBoard
     }
 }

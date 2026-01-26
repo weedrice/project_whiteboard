@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { boardApi } from '@/api/board'
 import BoardForm from '@/components/board/BoardForm.vue'
 import { useI18n } from 'vue-i18n'
 import { useFormSubmit } from '@/composables/useFormSubmit'
 import { useErrorHandler } from '@/composables/useErrorHandler'
+import { useBoard } from '@/composables/useBoard'
 import type { BoardCreateData } from '@/types'
 
 interface BoardData {
@@ -21,6 +21,8 @@ const { t } = useI18n()
 const router = useRouter()
 const { isSubmitting, submit } = useFormSubmit()
 const { handleError } = useErrorHandler()
+const { useCreateBoard } = useBoard()
+const { mutateAsync: createBoard } = useCreateBoard()
 
 const error = ref('')
 
@@ -29,10 +31,8 @@ async function handleCreate(formData: BoardData) {
   
   await submit(async () => {
     try {
-      const { data } = await boardApi.createBoard(formData as BoardCreateData)
-      if (data.success) {
-        router.push(`/board/${data.data.boardUrl}`)
-      }
+      const board = await createBoard(formData as BoardCreateData)
+      router.push(`/board/${board.boardUrl}`)
     } catch (err) {
       error.value = (err as any).response?.data?.error?.message || t('board.form.createFailed')
       handleError(err, t('board.form.createFailed'))

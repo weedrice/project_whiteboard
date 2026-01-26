@@ -1,10 +1,9 @@
-﻿<script setup lang="ts">
-import { ref, watch } from 'vue'
+<script setup lang="ts">
+import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ChevronDown, List } from 'lucide-vue-next'
-import axios from '@/api'
 import { useAuthStore } from '@/stores/auth'
-import logger from '@/utils/logger'
+import { useBoard } from '@/composables/useBoard'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 
 const props = defineProps<{
@@ -19,55 +18,38 @@ const emit = defineEmits<{
 const router = useRouter()
 const authStore = useAuthStore()
 const dropdownRef = ref<HTMLElement | null>(null)
-const items = ref<any[]>([])
-const loading = ref(false)
+const { useBoards, useSubscribedBoards } = useBoard()
 
-const toggleDropdown = () => {
-  emit('toggle')
-}
+// Computed to determine if subscriptions query should be enabled
+const shouldFetchSubscriptions = computed(() => {
+  return props.type === 'subscription' && props.isOpen && authStore.isAuthenticated
+})
 
-// Watch isOpen to fetch items when opened
-watch(() => props.isOpen, (newVal) => {
-  if (newVal && items.value.length === 0) {
-    fetchItems()
+// Use TanStack Query for data fetching
+const { data: allBoards, isLoading: loadingAll } = useBoards()
+const { data: subscribedBoards, isLoading: loadingSubscriptions } = useSubscribedBoards(10, shouldFetchSubscriptions)
+
+// Computed values for items and loading state
+const items = computed(() => {
+  if (props.type === 'subscription') {
+    return subscribedBoards.value || []
+  } else {
+    return allBoards.value || []
   }
 })
 
-const fetchItems = async () => {
-  loading.value = true
-  try {
-    let response
-    if (props.type === 'subscription') {
-      response = await axios.get('/users/me/subscriptions', { params: { size: 10 } })
-    } else {
-      response = await axios.get('/boards')
-    }
+const loading = computed(() => {
+  return props.type === 'subscription' ? loadingSubscriptions.value : loadingAll.value
+})
 
-    if (response.data.success) {
-      if (props.type === 'subscription') {
-        items.value = response.data.data.content
-      } else {
-        items.value = response.data.data
-      }
-    }
-  } catch (error) {
-    logger.error('Failed to fetch boards:', error)
-  } finally {
-    loading.value = false
-  }
+const toggleDropdown = () => {
+  emit('toggle')
 }
 
 const handleMoreClick = () => {
   emit('toggle') // Close dropdown
   router.push('/boards')
 }
-
-// Re-fetch subscriptions if user logs in/out and dropdown is open
-watch(() => authStore.isAuthenticated, (newVal) => {
-  if (newVal && props.type === 'subscription' && props.isOpen) {
-    fetchItems()
-  }
-})
 </script>
 
 <template>

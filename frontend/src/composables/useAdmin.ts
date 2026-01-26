@@ -231,21 +231,37 @@ export function useAdmin() {
     const useCreateBoard = () => {
         return useMutation({
             mutationFn: (data: BoardCreateData) => adminApi.createBoard(data),
-            onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'boards'] })
+            onSuccess: () => {
+                // Invalidate both admin boards and general boards list to refresh header dropdowns
+                queryClient.invalidateQueries({ queryKey: ['admin', 'boards'] })
+                queryClient.invalidateQueries({ queryKey: ['boards'] })
+                queryClient.invalidateQueries({ queryKey: ['boards', 'subscriptions'] })
+            }
         })
     }
 
     const useUpdateBoard = () => {
         return useMutation({
             mutationFn: ({ boardUrl, data }: { boardUrl: string, data: BoardUpdateData }) => adminApi.updateBoard(boardUrl, data),
-            onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'boards'] })
+            onSuccess: (_, { boardUrl }) => {
+                // Invalidate both admin boards and general boards list to refresh header dropdowns
+                queryClient.invalidateQueries({ queryKey: ['admin', 'boards'] })
+                queryClient.invalidateQueries({ queryKey: ['board', boardUrl] })
+                queryClient.invalidateQueries({ queryKey: ['boards'] })
+                queryClient.invalidateQueries({ queryKey: ['boards', 'subscriptions'] })
+            }
         })
     }
 
     const useDeleteBoard = () => {
         return useMutation({
             mutationFn: (boardUrl: string) => adminApi.deleteBoard(boardUrl),
-            onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'boards'] })
+            onSuccess: () => {
+                // Invalidate both admin boards and general boards list to refresh header dropdowns
+                queryClient.invalidateQueries({ queryKey: ['admin', 'boards'] })
+                queryClient.invalidateQueries({ queryKey: ['boards'] })
+                queryClient.invalidateQueries({ queryKey: ['boards', 'subscriptions'] })
+            }
         })
     }
 
