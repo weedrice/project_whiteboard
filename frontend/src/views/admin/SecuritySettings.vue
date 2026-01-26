@@ -1,13 +1,15 @@
-﻿<script setup>
+<script setup>
 import { ref, computed } from 'vue'
 import { useAdmin } from '@/composables/useAdmin'
 import { Shield } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { useToastStore } from '@/stores/toast'
 import IpBlockList from '@/components/admin/IpBlockList.vue'
+import IpBlockDetailModal from '@/components/admin/IpBlockDetailModal.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import { useConfirm } from '@/composables/useConfirm'
+import type { IpBlock } from '@/types'
 
 const { t } = useI18n()
 const toastStore = useToastStore()
@@ -22,6 +24,14 @@ const { mutateAsync: blockIp } = useBlockIp()
 const { mutateAsync: unblockIp } = useUnblockIp()
 
 const ipBlocks = computed(() => ipBlocksData.value || [])
+
+const isDetailModalOpen = ref(false)
+const selectedIpBlock = ref<IpBlock | null>(null)
+
+function openDetailModal(ipBlock: IpBlock) {
+  selectedIpBlock.value = ipBlock
+  isDetailModalOpen.value = true
+}
 
 async function handleBlockIp() {
     if (!newIp.value || !blockReason.value) return
@@ -78,7 +88,11 @@ async function handleUnblockIp(ipAddress) {
         </div>
 
         <!-- IP Block List -->
-        <IpBlockList :ip-blocks="ipBlocks" @unblock="handleUnblockIp" />
+        <IpBlockList :ip-blocks="ipBlocks" @unblock="handleUnblockIp" @viewDetail="openDetailModal" />
+
+        <!-- IP Block Detail Modal -->
+        <IpBlockDetailModal :isOpen="isDetailModalOpen" :ipBlock="selectedIpBlock"
+          @close="isDetailModalOpen = false" />
     </div>
 </template>
 

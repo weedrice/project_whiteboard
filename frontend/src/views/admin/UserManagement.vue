@@ -1,7 +1,7 @@
-﻿<script setup>
+<script setup>
 import { ref, computed, watch } from 'vue'
 import { useAdmin } from '@/composables/useAdmin'
-import { Search, MoreVertical, Shield, Ban, VolumeX } from 'lucide-vue-next'
+import { Search, MoreVertical, Shield, Ban, VolumeX, Eye } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import logger from '@/utils/logger'
 import { useToastStore } from '@/stores/toast'
@@ -9,8 +9,10 @@ import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseBadge from '@/components/common/ui/BaseBadge.vue'
 import BaseTable from '@/components/common/ui/BaseTable.vue'
+import UserDetailModal from '@/components/admin/UserDetailModal.vue'
 import { useConfirm } from '@/composables/useConfirm'
 import { usePrompt } from '@/composables/usePrompt'
+import type { User } from '@/types'
 
 const { t } = useI18n()
 const toastStore = useToastStore()
@@ -34,6 +36,14 @@ const { mutateAsync: sanctionUser } = useSanctionUser()
 
 const users = computed(() => usersData.value?.content || [])
 const totalCount = computed(() => usersData.value?.totalElements || 0)
+
+const isDetailModalOpen = ref(false)
+const selectedUser = ref<User | null>(null)
+
+function openDetailModal(user: User) {
+  selectedUser.value = user
+  isDetailModalOpen.value = true
+}
 
 async function handleStatusChange(user, status) {
   const isConfirmed = await confirm(t('admin.users.messages.confirmStatusChange', { status }))
@@ -102,6 +112,11 @@ const columns = computed(() => [
 
         <template #cell-actions="{ item }">
           <div class="flex justify-end space-x-2">
+            <BaseButton @click="openDetailModal(item)" variant="ghost" size="sm"
+              class="p-1 text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300"
+              :title="t('common.viewDetail')">
+              <Eye class="h-4 w-4" />
+            </BaseButton>
             <BaseButton @click="handleSanction(item, 'BAN')" variant="ghost" size="sm"
               class="p-1 text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
               :title="t('admin.users.actions.ban')">
@@ -116,6 +131,8 @@ const columns = computed(() => [
         </template>
       </BaseTable>
     </div>
+
+    <UserDetailModal :isOpen="isDetailModalOpen" :user="selectedUser" @close="isDetailModalOpen = false" />
   </div>
 </template>
 

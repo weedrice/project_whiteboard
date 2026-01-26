@@ -4,8 +4,10 @@ import { useAdmin } from '@/composables/useAdmin'
 import { useI18n } from 'vue-i18n'
 import { useToastStore } from '@/stores/toast'
 import ReportList from '@/components/admin/ReportList.vue'
+import ReportDetailModal from '@/components/admin/ReportDetailModal.vue'
 import SanctionModal from '@/components/admin/SanctionModal.vue'
 import { useConfirm } from '@/composables/useConfirm'
+import type { Report } from '@/types'
 
 const { t } = useI18n()
 const toastStore = useToastStore()
@@ -26,6 +28,14 @@ const reports = computed(() => reportsData.value?.content || [])
 
 const isModalOpen = ref(false)
 const selectedUser = ref(null)
+
+const isDetailModalOpen = ref(false)
+const selectedReport = ref<Report | null>(null)
+
+function openDetailModal(report: Report) {
+  selectedReport.value = report
+  isDetailModalOpen.value = true
+}
 
 function openSanctionModal(report) {
   // Assuming report has targetUser or similar field. 
@@ -78,7 +88,11 @@ async function handleReject(report) {
       </div>
     </div>
 
-    <ReportList :reports="reports" @resolve="handleResolve" @reject="handleReject" @sanction="openSanctionModal" />
+    <ReportList :reports="reports" @resolve="handleResolve" @reject="handleReject" @sanction="openSanctionModal"
+      @viewDetail="openDetailModal" />
+
+    <ReportDetailModal :isOpen="isDetailModalOpen" :report="selectedReport"
+      @close="isDetailModalOpen = false" />
 
     <SanctionModal :isOpen="isModalOpen" :user="selectedUser" @close="isModalOpen = false" @sanctioned="refreshList" />
   </div>
