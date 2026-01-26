@@ -82,9 +82,9 @@ describe('usePost', () => {
         const { useCreatePost } = usePost()
         const mutation = useCreatePost()
 
-        const result = await mutation.mutate({ boardUrl: 'free', data: { title: 'New Post' } })
+        const result = await mutation.mutate({ boardUrl: 'free', data: { title: 'New Post', contents: 'Post content' } })
         expect(result).toEqual({ data: { id: 2, title: 'New Post' } })
-        expect(postApi.createPost).toHaveBeenCalledWith('free', { title: 'New Post' })
+        expect(postApi.createPost).toHaveBeenCalledWith('free', { title: 'New Post', contents: 'Post content' })
         expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['board', 'free', 'posts'] })
     })
 
@@ -144,7 +144,7 @@ describe('usePost', () => {
     })
 
     it('reports a post', async () => {
-        const reportData = { targetType: 'POST', targetId: 1, reason: 'Spam' }
+        const reportData = { targetPostId: 1, reason: 'Spam' }
         vi.mocked(postApi.reportPost).mockResolvedValue({ data: { success: true } } as any)
 
         const { useReportPost } = usePost()

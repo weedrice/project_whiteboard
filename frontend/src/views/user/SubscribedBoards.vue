@@ -1,4 +1,4 @@
-﻿<template>
+<template>
     <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden transition-colors duration-200">
         <div class="px-4 py-5 sm:px-6">
             <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-white">{{ $t('user.subscriptions.title') }}
@@ -75,7 +75,7 @@ const loading = ref(false)
 async function fetchSubscriptions() {
     loading.value = true
     try {
-        const { data } = await userApi.getMySubscriptions()
+        const { data } = await userApi.getMySubscriptions({ page: 0, size: 100 })
         if (data.success) {
             boards.value = data.data.content
         }
@@ -86,7 +86,7 @@ async function fetchSubscriptions() {
     }
 }
 
-async function handleUnsubscribe(board) {
+async function handleUnsubscribe(board: Board) {
     const isConfirmed = await confirm(t('user.subscriptions.unsubscribeConfirm'))
     if (!isConfirmed) return
     try {

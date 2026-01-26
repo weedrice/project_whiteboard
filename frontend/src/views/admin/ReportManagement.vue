@@ -27,7 +27,7 @@ const { mutateAsync: resolveReport } = useResolveReport()
 const reports = computed(() => reportsData.value?.content || [])
 
 const isModalOpen = ref(false)
-const selectedUser = ref(null)
+const selectedUser = ref<{ id: number; name: string } | null>(null)
 
 const isDetailModalOpen = ref(false)
 const selectedReport = ref<Report | null>(null)
@@ -37,7 +37,7 @@ function openDetailModal(report: Report) {
   isDetailModalOpen.value = true
 }
 
-function openSanctionModal(report) {
+function openSanctionModal(report: Report) {
   // Assuming report has targetUser or similar field. 
   // Based on previous ReportList.vue, it was report.targetUser.
   // However, the new ReportList component passes 'report' object.
@@ -56,7 +56,7 @@ function refreshList() {
   refetch()
 }
 
-async function handleResolve(report) {
+async function handleResolve(report: Report) {
   const isConfirmed = await confirm(t('admin.reports.messages.confirmResolve'))
   if (!isConfirmed) return
   try {
@@ -67,7 +67,7 @@ async function handleResolve(report) {
   }
 }
 
-async function handleReject(report) {
+async function handleReject(report: Report) {
   const isConfirmed = await confirm(t('admin.reports.messages.confirmReject'))
   if (!isConfirmed) return
   try {
@@ -94,6 +94,6 @@ async function handleReject(report) {
     <ReportDetailModal :isOpen="isDetailModalOpen" :report="selectedReport"
       @close="isDetailModalOpen = false" />
 
-    <SanctionModal :isOpen="isModalOpen" :user="selectedUser" @close="isModalOpen = false" @sanctioned="refreshList" />
+    <SanctionModal v-if="selectedUser" :isOpen="isModalOpen" :user="selectedUser" @close="isModalOpen = false" @sanctioned="refreshList" />
   </div>
 </template>

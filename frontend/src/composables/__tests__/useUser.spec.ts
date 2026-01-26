@@ -173,9 +173,9 @@ describe('useUser', () => {
             const { useUpdateNotificationSettings } = useUser()
             const mutation = useUpdateNotificationSettings()
 
-            await mutation.mutateAsync({ emailNotification: true })
+            await mutation.mutateAsync({ notificationType: 'EMAIL', isEnabled: true })
 
-            expect(userApi.updateNotificationSettings).toHaveBeenCalledWith({ emailNotification: true })
+            expect(userApi.updateNotificationSettings).toHaveBeenCalledWith({ notificationType: 'EMAIL', isEnabled: true })
             expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['user', 'notification-settings'] })
         })
 

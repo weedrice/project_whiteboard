@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="max-w-2xl mx-auto py-8">
     <!-- Feed -->
     <PostListSkeleton v-if="loading" :count="3" />
@@ -56,7 +56,28 @@ useHead({
 })
 
 // Infinite scroll for trending posts
-const { posts, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage } = useTrendingPosts(10)
+const { posts: rawPosts, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage } = useTrendingPosts(10)
+
+// Convert PostSummary to FeedPost
+const posts = computed<FeedPost[]>(() => {
+  return rawPosts.value
+    .filter((post): post is FeedPost => {
+      return post != null && 
+        post.postId != null && 
+        post.boardUrl != null && 
+        post.boardName != null && 
+        post.authorName != null
+    })
+    .map((post) => ({
+      ...post,
+      boardUrl: post.boardUrl!,
+      boardName: post.boardName!,
+      authorName: post.authorName!,
+      liked: post.liked ?? false,
+      scrapped: post.scrapped ?? false,
+      subscribed: post.subscribed ?? false
+    } as FeedPost))
+})
 
 // Mutations
 const { useLikePost, useUnlikePost, useScrapPost, useUnscrapPost } = usePost()

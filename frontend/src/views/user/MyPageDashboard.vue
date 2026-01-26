@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { userApi } from '@/api/user'
 import { User, Mail, Calendar, FileText, CheckCircle, XCircle, Clock, MessageSquare } from 'lucide-vue-next'
@@ -183,7 +183,7 @@ onMounted(async () => {
                   {{ $t('user.profile.joined') }}
                 </dt>
                 <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100 sm:mt-0 sm:col-span-2">{{
-                  formatDate(profile?.createdAt) }}</dd>
+                  profile?.createdAt ? formatDate(profile.createdAt) : '' }}</dd>
               </div>
               <div class="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
                 <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center">
@@ -191,7 +191,7 @@ onMounted(async () => {
                   {{ $t('user.profile.lastLogin') }}
                 </dt>
                 <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100 sm:mt-0 sm:col-span-2">{{
-                  formatDate(profile?.lastLoginAt) }}</dd>
+                  profile?.lastLoginAt ? formatDate(profile.lastLoginAt) : '' }}</dd>
               </div>
             </dl>
           </div>
@@ -229,7 +229,7 @@ onMounted(async () => {
             <ul role="list" class="divide-y divide-gray-200 dark:divide-gray-700">
               <li v-for="comment in myComments" :key="comment.commentId"
                 class="px-4 py-4 sm:px-6 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200">
-                <router-link :to="`/board/${comment.post.boardUrl}/post/${comment.post.postId}`" class="block">
+                <router-link v-if="comment.post" :to="`/board/${comment.post.boardUrl}/post/${comment.post.postId}`" class="block">
                   <div class="flex items-center justify-between">
                     <div class="flex items-center">
                       <span
@@ -247,6 +247,10 @@ onMounted(async () => {
                     <p class="text-sm text-gray-900 dark:text-gray-300 line-clamp-2">{{ comment.content }}</p>
                   </div>
                 </router-link>
+                <div v-else class="block">
+                  <p class="text-sm text-gray-500 dark:text-gray-400">{{ t('user.comments.deletedPost') }}</p>
+                  <p class="text-sm text-gray-900 dark:text-gray-300 line-clamp-2 mt-1">{{ comment.content }}</p>
+                </div>
               </li>
             </ul>
             <div class="mt-4 flex justify-center pb-6">

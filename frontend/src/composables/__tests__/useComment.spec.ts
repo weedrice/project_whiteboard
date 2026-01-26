@@ -74,10 +74,10 @@ describe('useComment', () => {
 
             await mutation.mutateAsync({
                 postId: 1,
-                data: { contents: 'Test comment' }
+                data: { content: 'Test comment' }
             })
 
-            expect(commentApi.createComment).toHaveBeenCalledWith(1, { contents: 'Test comment' })
+            expect(commentApi.createComment).toHaveBeenCalledWith(1, { content: 'Test comment' })
         })
 
         it('invalidates queries on success', async () => {
@@ -88,7 +88,7 @@ describe('useComment', () => {
 
             await mutation.mutateAsync({
                 postId: 123,
-                data: { contents: 'New comment' }
+                data: { content: 'New comment' }
             })
 
             expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['comments', 123] })
@@ -105,10 +105,10 @@ describe('useComment', () => {
 
             await mutation.mutateAsync({
                 commentId: 5,
-                data: { contents: 'Updated content' }
+                data: { content: 'Updated content' }
             })
 
-            expect(commentApi.updateComment).toHaveBeenCalledWith(5, { contents: 'Updated content' })
+            expect(commentApi.updateComment).toHaveBeenCalledWith(5, { content: 'Updated content' })
         })
 
         it('invalidates comments queries on success', async () => {
@@ -119,7 +119,7 @@ describe('useComment', () => {
 
             await mutation.mutateAsync({
                 commentId: 5,
-                data: { contents: 'Updated' }
+                data: { content: 'Updated' }
             })
 
             expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['comments'] })

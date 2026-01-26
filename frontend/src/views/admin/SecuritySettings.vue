@@ -45,7 +45,7 @@ async function handleBlockIp() {
     }
 }
 
-async function handleUnblockIp(ipAddress) {
+async function handleUnblockIp(ipAddress: string) {
     const isConfirmed = await confirm(t('admin.security.messages.confirmUnblock', { ip: ipAddress }))
     if (!isConfirmed) return
     try {

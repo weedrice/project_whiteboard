@@ -22,7 +22,6 @@ const statusVariant = computed(() => {
   switch (props.user.status) {
     case 'ACTIVE':
       return 'success'
-    case 'SUSPENDED':
     case 'SANCTIONED':
       return 'danger'
     case 'INACTIVE':

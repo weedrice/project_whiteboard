@@ -45,7 +45,7 @@ function openDetailModal(user: User) {
   isDetailModalOpen.value = true
 }
 
-async function handleStatusChange(user, status) {
+async function handleStatusChange(user: User, status: User['status']) {
   const isConfirmed = await confirm(t('admin.users.messages.confirmStatusChange', { status }))
   if (!isConfirmed) return
   try {
@@ -56,7 +56,7 @@ async function handleStatusChange(user, status) {
   }
 }
 
-async function handleSanction(user, type) {
+async function handleSanction(user: User, type: 'BAN' | 'MUTE') {
   const reason = await prompt(t('admin.users.messages.enterReason', { type }), t('admin.users.messages.sanctionTitle', { type }))
   if (!reason) return
 
@@ -79,7 +79,7 @@ const columns = computed(() => [
   { key: 'email', label: t('common.email'), width: '20%' },
   { key: 'status', label: t('admin.users.table.status'), width: '15%' },
   { key: 'createdAt', label: t('admin.users.table.joinedAt'), width: '15%' },
-  { key: 'actions', label: '', align: 'right', width: '10%' }
+  { key: 'actions', label: '', align: 'right' as const, width: '10%' }
 ])
 </script>
 
@@ -104,7 +104,7 @@ const columns = computed(() => [
     <div class="mt-8">
       <BaseTable :columns="columns" :items="users" :loading="isLoading" :emptyText="t('common.noData')">
         <template #cell-status="{ item }">
-          <BaseBadge :variant="item.status === 'ACTIVE' ? 'success' : item.status === 'SUSPENDED' ? 'danger' : 'gray'"
+          <BaseBadge :variant="item.status === 'ACTIVE' ? 'success' : item.status === 'SANCTIONED' ? 'danger' : 'gray'"
             size="sm">
             {{ t(`admin.users.status.${item.status}`) }}
           </BaseBadge>

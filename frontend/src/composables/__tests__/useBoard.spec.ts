@@ -107,10 +107,8 @@ describe('useBoard', () => {
 
             const result = useBoardPosts(boardUrl, params, isSearching)
 
-            // Execute the queryFn
-            if (result._queryFn) {
-                await result._queryFn()
-            }
+            // Wait for query to execute
+            await result.refetch()
 
             expect(searchApi.searchPosts).toHaveBeenCalledWith({
                 page: 0,
@@ -132,10 +130,8 @@ describe('useBoard', () => {
 
             const result = useBoardPosts(boardUrl, params, isSearching)
 
-            // Execute the queryFn
-            if (result._queryFn) {
-                await result._queryFn()
-            }
+            // Wait for query to execute
+            await result.refetch()
 
             expect(boardApi.getPosts).toHaveBeenCalledWith('free', { page: 0, size: 10 })
         })
