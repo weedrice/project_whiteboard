@@ -11,12 +11,14 @@ vi.mock('@tanstack/vue-query', () => ({
         invalidateQueries: mockInvalidateQueries
     })),
     useQuery: vi.fn(({ queryFn }) => {
+        const refetchFn = vi.fn(async () => {
+            if (queryFn) await queryFn()
+        })
         return {
             data: ref(null),
             isLoading: ref(false),
             error: ref(null),
-            refetch: vi.fn(),
-            _queryFn: queryFn
+            refetch: refetchFn
         }
     }),
     useMutation: vi.fn(({ mutationFn, onSuccess }) => {
