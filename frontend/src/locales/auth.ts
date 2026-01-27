@@ -36,6 +36,7 @@ export const auth: AuthMessages = {
   },
   email: '이메일',
   login: '로그인',
+  loginSuccess: '로그인되었습니다.',
   emailNotVerified: '이메일 인증이 필요합니다.',
   passwordMismatch: '비밀번호가 일치하지 않습니다.',
   verificationFailed: '인증에 실패했습니다.',

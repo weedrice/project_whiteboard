@@ -94,7 +94,7 @@ const roleVariant = computed(() => {
             <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ t('admin.users.detail.emailVerified') }}</dt>
             <dd class="mt-1">
               <BaseBadge :variant="user.isEmailVerified ? 'success' : 'gray'" size="sm">
-                {{ user.isEmailVerified ? t('common.yes') : t('common.no') }}
+                {{ user.isEmailVerified ? t('common.yes') : t('common.noValue') }}
               </BaseBadge>
             </dd>
           </div>

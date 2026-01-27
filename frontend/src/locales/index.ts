@@ -8,6 +8,7 @@ import { comment } from './comment'
 import { notification } from './notification'
 import { user } from './user'
 import { report } from './report'
+import { emoticon } from './emoticon'
 import { admin } from './admin'
 
 /**
@@ -35,6 +36,7 @@ export const messages: LocaleMessages = {
     notification,
     user,
     report,
+    emoticon,
     admin,
   },
 }

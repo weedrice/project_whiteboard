@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { boardApi } from '@/api/board'
 import { Trash2, Edit2, Check, X, Plus, GripVertical } from 'lucide-vue-next'
@@ -26,11 +26,11 @@ interface Category {
   minWriteRole: string
 }
 
-const roles = [
-  { value: 'USER', label: 'User' },
-  { value: 'BOARD_ADMIN', label: 'Board Admin' },
-  { value: 'SUPER_ADMIN', label: 'Super Admin' }
-]
+const roles = computed(() => [
+  { value: 'USER', label: t('admin.users.role.USER') },
+  { value: 'BOARD_ADMIN', label: t('admin.users.role.BOARD_ADMIN') },
+  { value: 'SUPER_ADMIN', label: t('admin.users.role.SUPER_ADMIN') }
+])
 
 const categories = ref<Category[]>([])
 const isLoading = ref(true)

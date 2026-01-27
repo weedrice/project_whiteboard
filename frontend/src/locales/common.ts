@@ -14,6 +14,8 @@ export const common: CommonMessages = {
   edit: '수정',
   close: '닫기',
   post: '게시글',
+  comment: '댓글',
+  user: '사용자',
   previous: '이전',
   next: '다음',
   back: '뒤로',
@@ -150,6 +152,7 @@ export const common: CommonMessages = {
     daysAgo: '{count}일 전',
   },
   viewAll: '모두 보기',
+  viewDetail: '상세 보기',
   sent: '전송됨',
   languages: {
     ko: '한국어',

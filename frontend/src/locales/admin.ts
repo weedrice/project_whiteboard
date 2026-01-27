@@ -26,6 +26,18 @@ export const admin: AdminMessages = {
     title: '사용자 관리',
     description: '전체 사용자 목록을 조회하고 관리합니다.',
     searchPlaceholder: '사용자 검색 (ID, 이메일)',
+    detail: {
+      title: '사용자 상세',
+      basicInfo: '기본 정보',
+      status: '상태',
+      role: '역할',
+      emailVerified: '이메일 인증',
+      dateInfo: '날짜 정보',
+      createdAt: '가입일',
+      modifiedAt: '수정일',
+      lastLoginAt: '마지막 로그인',
+      bio: '소개',
+    },
     table: {
       nickname: '닉네임',
       email: '이메일',
@@ -36,6 +48,14 @@ export const admin: AdminMessages = {
       ACTIVE: '활동 중',
       SUSPENDED: '정지됨',
       DELETED: '삭제됨',
+      SANCTIONED: '제재됨',
+      INACTIVE: '비활성',
+    },
+    role: {
+      USER: '일반 사용자',
+      ADMIN: '관리자',
+      SUPER_ADMIN: '최고 관리자',
+      BOARD_ADMIN: '게시판 관리자',
     },
     actions: {
       ban: '차단',
@@ -49,6 +69,25 @@ export const admin: AdminMessages = {
       sanctionTitle: '{type} 처리',
       sanctionComplete: '{type} 처리가 완료되었습니다.',
       sanctionFailed: '제재 처리 실패',
+    },
+  },
+  sanction: {
+    title: '제재 처리',
+    userLabel: '대상 사용자',
+    reason: '사유',
+    description: '상세 설명',
+    descriptionPlaceholder: '추가 내용을 입력하세요.',
+    duration: '기간 (일)',
+    durationHint: '비워두면 영구 차단 (9999일)입니다.',
+    cancel: '취소',
+    processing: '처리 중...',
+    submit: '제재',
+    success: '{name} 사용자를 제재했습니다.',
+    reasons: {
+      SPAM: '스팸',
+      ABUSIVE_LANGUAGE: '욕설/비방',
+      INAPPROPRIATE_CONTENT: '부적절한 콘텐츠',
+      OTHER: '기타',
     },
   },
   admins: {
@@ -76,6 +115,10 @@ export const admin: AdminMessages = {
   reports: {
     title: '신고 관리',
     description: '접수된 신고 내역을 확인하고 처리합니다.',
+    detail: {
+      title: '신고 상세',
+      reportInfo: '신고 정보',
+    },
     table: {
       reporter: '신고자',
       createdAt: '접수일',
@@ -102,6 +145,10 @@ export const admin: AdminMessages = {
   security: {
     title: '보안 설정',
     description: 'IP 차단 등 시스템 보안 설정을 관리합니다.',
+    detail: {
+      title: 'IP 차단 상세',
+      blockInfo: '차단 정보',
+    },
     addTitle: 'IP 차단 추가',
     ipAddress: 'IP 주소',
     ipPlaceholder: '예: 192.168.0.1',

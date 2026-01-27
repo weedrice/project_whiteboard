@@ -7,8 +7,10 @@ import { useAuthStore } from '@/stores/auth'
 import { useHead } from '@unhead/vue'
 import { ArrowLeft, ShoppingCart, Tag, Calendar, User, TrendingUp, Pencil } from 'lucide-vue-next'
 import { useToastStore } from '@/stores/toast'
+import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 
+const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
@@ -41,12 +43,12 @@ const { data: purchaseStatus } = useQuery({
 const { mutate: purchase, isPending: isPurchasing } = useMutation({
   mutationFn: () => emoticonApi.purchaseEmoticon(emoticonId.value),
   onSuccess: () => {
-    toastStore.addToast('노비콘을 구매했습니다!', 'success')
+    toastStore.addToast(t('emoticon.purchase.success'), 'success')
     queryClient.invalidateQueries({ queryKey: ['emoticon', emoticonId] })
     queryClient.invalidateQueries({ queryKey: ['emoticon', emoticonId, 'purchased'] })
   },
   onError: (error: any) => {
-    const message = error.response?.data?.error?.message || '구매에 실패했습니다.'
+    const message = error.response?.data?.error?.message || t('emoticon.purchase.failed')
     toastStore.addToast(message, 'error')
   }
 })
@@ -69,10 +71,10 @@ const canPurchase = computed(() => {
 
 // 구매 버튼 텍스트
 const purchaseButtonText = computed(() => {
-  if (!authStore.isAuthenticated) return '로그인 필요'
-  if (purchaseStatus.value?.purchased) return '구매 완료'
-  if (emoticon.value?.creatorId === authStore.user?.userId) return '내가 등록한 노비콘'
-  return `${purchaseStatus.value?.price || 100}P로 구매하기`
+  if (!authStore.isAuthenticated) return t('emoticon.purchase.button.loginRequired')
+  if (purchaseStatus.value?.purchased) return t('emoticon.purchase.button.purchased')
+  if (emoticon.value?.creatorId === authStore.user?.userId) return t('emoticon.purchase.button.myEmoticon')
+  return t('emoticon.purchase.button.buyWithPrice', { price: purchaseStatus.value?.price || 100 })
 })
 
 // 목록으로 이동
@@ -88,7 +90,7 @@ const goToEdit = () => {
 // 구매 처리
 const handlePurchase = () => {
   if (!canPurchase.value) return
-  if (confirm('100포인트를 사용하여 이 노비콘을 구매하시겠습니까?')) {
+  if (confirm(t('emoticon.purchase.confirm'))) {
     purchase()
   }
 }
@@ -244,7 +246,7 @@ useHead({
           size="lg"
         >
           <ShoppingCart class="w-4 h-4 mr-2" />
-          {{ isPurchasing ? '구매 중...' : purchaseButtonText }}
+          {{ isPurchasing ? $t('emoticon.purchase.purchasing') : purchaseButtonText }}
         </BaseButton>
       </div>
     </div>

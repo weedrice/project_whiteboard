@@ -6,8 +6,10 @@ import { fileApi } from '@/api/file'
 import { useHead } from '@unhead/vue'
 import { ArrowLeft, Upload, X, Plus } from 'lucide-vue-next'
 import { useToastStore } from '@/stores/toast'
+import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 
+const { t } = useI18n()
 const router = useRouter()
 const toastStore = useToastStore()
 
@@ -99,7 +101,7 @@ const handleThumbnailSelect = async (event: Event) => {
 
   // 이미지 파일 검증
   if (!file.type.startsWith('image/')) {
-    toastStore.addToast('이미지 파일만 업로드 가능합니다.', 'error')
+    toastStore.addToast(t('emoticon.validation.imageOnly'), 'error')
     return
   }
 
@@ -110,7 +112,7 @@ const handleThumbnailSelect = async (event: Event) => {
   await new Promise<void>((resolve) => {
     img.onload = () => {
       if (img.width > 500 || img.height > 500) {
-        toastStore.addToast(`이미지 크기가 500x500px를 초과합니다. (${img.width}x${img.height})`, 'error')
+        toastStore.addToast(t('emoticon.validation.imageSizeExceeded', { width: img.width, height: img.height }), 'error')
         URL.revokeObjectURL(preview)
       } else {
         thumbnailFile.value = file
@@ -119,7 +121,7 @@ const handleThumbnailSelect = async (event: Event) => {
       resolve()
     }
     img.onerror = () => {
-      toastStore.addToast('이미지를 로드할 수 없습니다.', 'error')
+      toastStore.addToast(t('emoticon.validation.imageLoadFailed'), 'error')
       URL.revokeObjectURL(preview)
       resolve()
     }
@@ -147,7 +149,7 @@ const handleEmoticonSelect = async (event: Event) => {
 
   const remainingSlots = 100 - emoticonPreviews.value.length
   if (remainingSlots <= 0) {
-    toastStore.addToast('최대 100개까지 업로드 가능합니다.', 'error')
+    toastStore.addToast(t('emoticon.validation.maxImages'), 'error')
     return
   }
 
@@ -156,7 +158,7 @@ const handleEmoticonSelect = async (event: Event) => {
   for (const file of filesToAdd) {
     // 이미지 파일 검증
     if (!file.type.startsWith('image/')) {
-      toastStore.addToast(`${file.name}은(는) 이미지 파일이 아닙니다.`, 'error')
+      toastStore.addToast(t('emoticon.validation.notImage', { name: file.name }), 'error')
       continue
     }
 
@@ -167,7 +169,7 @@ const handleEmoticonSelect = async (event: Event) => {
     await new Promise<void>((resolve) => {
       img.onload = () => {
         if (img.width > 500 || img.height > 500) {
-          toastStore.addToast(`${file.name}의 크기가 500x500px를 초과합니다. (${img.width}x${img.height})`, 'error')
+          toastStore.addToast(t('emoticon.validation.imageSizeExceededNamed', { name: file.name, width: img.width, height: img.height }), 'error')
           URL.revokeObjectURL(preview)
         } else {
           emoticonPreviews.value.push({ 
@@ -180,7 +182,7 @@ const handleEmoticonSelect = async (event: Event) => {
         resolve()
       }
       img.onerror = () => {
-        toastStore.addToast(`${file.name}을(를) 로드할 수 없습니다.`, 'error')
+        toastStore.addToast(t('emoticon.validation.loadFailedNamed', { name: file.name }), 'error')
         URL.revokeObjectURL(preview)
         resolve()
       }
@@ -208,7 +210,7 @@ const addTag = () => {
   const tag = tagInput.value.trim().replace(/^#/, '')
   if (tag && !tags.value.includes(tag)) {
     if (tags.value.length >= 10) {
-      toastStore.addToast('태그는 최대 10개까지 추가 가능합니다.', 'error')
+      toastStore.addToast(t('emoticon.validation.maxTags'), 'error')
       return
     }
     tags.value.push(tag)
@@ -281,10 +283,10 @@ const handleSubmit = async () => {
       imageUrls
     })
 
-    toastStore.addToast('노비콘이 등록되었습니다!', 'success')
+    toastStore.addToast(t('emoticon.register.created'), 'success')
     router.push({ name: 'emoticon-list' })
   } catch (error: any) {
-    const message = error.response?.data?.error?.message || '등록에 실패했습니다.'
+    const message = error.response?.data?.error?.message || t('emoticon.register.failed')
     toastStore.addToast(message, 'error')
   } finally {
     isSubmitting.value = false

@@ -42,6 +42,9 @@ export const user: UserMessages = {
     rejected: '반려됨',
     targetType: '신고',
   },
+  comments: {
+    deletedPost: '해당 게시글이 삭제되었습니다.',
+  },
   blockList: {
     title: '차단 사용자 목록',
     empty: '차단된 사용자가 없습니다.',

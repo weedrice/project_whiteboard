@@ -19,6 +19,8 @@ export interface CommonMessages {
   edit: string
   close: string
   post: string
+  comment: string
+  user: string
   previous: string
   next: string
   back: string
@@ -155,6 +157,7 @@ export interface CommonMessages {
     daysAgo: string
   }
   viewAll: string
+  viewDetail: string
   sent: string
   languages: {
     ko: string
@@ -221,6 +224,7 @@ export interface AuthMessages {
   }
   email: string
   login: string
+  loginSuccess: string
   emailNotVerified: string
   passwordMismatch: string
   verificationFailed: string
@@ -425,6 +429,9 @@ export interface UserMessages {
     rejected: string
     targetType: string
   }
+  comments: {
+    deletedPost: string
+  }
   blockList: {
     title: string
     empty: string
@@ -512,6 +519,41 @@ export interface ReportMessages {
   }
 }
 
+// 노비콘(이모티콘) 메시지 타입
+export interface EmoticonMessages {
+  purchase: {
+    success: string
+    failed: string
+    confirm: string
+    purchasing: string
+    button: {
+      loginRequired: string
+      purchased: string
+      myEmoticon: string
+      buyWithPrice: string
+    }
+  }
+  edit: {
+    noPermission: string
+    updated: string
+    failed: string
+  }
+  register: {
+    created: string
+    failed: string
+  }
+  validation: {
+    imageOnly: string
+    imageLoadFailed: string
+    imageSizeExceeded: string
+    imageSizeExceededNamed: string
+    notImage: string
+    loadFailedNamed: string
+    maxImages: string
+    maxTags: string
+  }
+}
+
 // 관리자 메시지 타입
 export interface AdminMessages {
   layout: {
@@ -539,6 +581,18 @@ export interface AdminMessages {
     title: string
     description: string
     searchPlaceholder: string
+    detail: {
+      title: string
+      basicInfo: string
+      status: string
+      role: string
+      emailVerified: string
+      dateInfo: string
+      createdAt: string
+      modifiedAt: string
+      lastLoginAt: string
+      bio: string
+    }
     table: {
       nickname: string
       email: string
@@ -549,6 +603,14 @@ export interface AdminMessages {
       ACTIVE: string
       SUSPENDED: string
       DELETED: string
+      SANCTIONED: string
+      INACTIVE: string
+    }
+    role: {
+      USER: string
+      ADMIN: string
+      SUPER_ADMIN: string
+      BOARD_ADMIN: string
     }
     actions: {
       ban: string
@@ -562,6 +624,25 @@ export interface AdminMessages {
       sanctionTitle: string
       sanctionComplete: string
       sanctionFailed: string
+    }
+  }
+  sanction: {
+    title: string
+    userLabel: string
+    reason: string
+    description: string
+    descriptionPlaceholder: string
+    duration: string
+    durationHint: string
+    cancel: string
+    processing: string
+    submit: string
+    success: string
+    reasons: {
+      SPAM: string
+      ABUSIVE_LANGUAGE: string
+      INAPPROPRIATE_CONTENT: string
+      OTHER: string
     }
   }
   admins: {
@@ -589,6 +670,10 @@ export interface AdminMessages {
   reports: {
     title: string
     description: string
+    detail: {
+      title: string
+      reportInfo: string
+    }
     table: {
       reporter: string
       createdAt: string
@@ -615,6 +700,10 @@ export interface AdminMessages {
   security: {
     title: string
     description: string
+    detail: {
+      title: string
+      blockInfo: string
+    }
     addTitle: string
     ipAddress: string
     ipPlaceholder: string
@@ -680,6 +769,7 @@ export interface Messages {
   notification: NotificationMessages
   user: UserMessages
   report: ReportMessages
+  emoticon: EmoticonMessages
   admin: AdminMessages
 }
 
