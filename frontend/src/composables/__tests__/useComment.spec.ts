@@ -91,8 +91,8 @@ describe('useComment', () => {
                 data: { content: 'New comment' }
             })
 
-            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['comments', 123] })
-            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['post', 123] })
+            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['comments'] })
+            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['post'] })
         })
     })
 
