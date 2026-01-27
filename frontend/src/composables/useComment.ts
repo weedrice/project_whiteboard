@@ -24,9 +24,10 @@ export function useComment() {
             mutationFn: async ({ postId, data }: { postId: string | number, data: CommentPayload }) => {
                 return await commentApi.createComment(postId, data)
             },
-            onSuccess: (_, { postId }) => {
-                queryClient.invalidateQueries({ queryKey: ['comments', postId] })
-                queryClient.invalidateQueries({ queryKey: ['post', postId] }) // Update comment count in post detail
+            onSuccess: () => {
+                // 부분 매칭으로 모든 comments/post 쿼리 invalidate
+                queryClient.invalidateQueries({ queryKey: ['comments'] })
+                queryClient.invalidateQueries({ queryKey: ['post'] })
             }
         })
     }

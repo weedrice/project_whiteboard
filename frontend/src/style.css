@@ -150,4 +150,10 @@ html {
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
+
+  /* Comment Emoticon */
+  .comment-emoticon {
+    @apply inline-block w-[100px] h-[100px] object-contain align-middle;
+  }
+
 }

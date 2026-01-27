@@ -1,5 +1,5 @@
 ﻿<script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { User as UserIcon, CornerDownRight } from 'lucide-vue-next'
 import UserMenu from '@/components/common/widgets/UserMenu.vue'
 import CommentForm from './CommentForm.vue'
@@ -47,6 +47,22 @@ function handleEditSuccess() {
 function handleDelete() {
   emit('delete', props.comment)
 }
+
+// 이모티콘 마크다운을 이미지로 변환
+const renderedContent = computed(() => {
+  if (!props.comment.content) return ''
+
+  // ![emoticon](URL) 패턴을 img 태그로 변환
+  const emoticonPattern = /!\[emoticon\]\(([^)]+)\)/g
+  return props.comment.content.replace(emoticonPattern, '<img src="$1" class="comment-emoticon" alt="emoticon" />')
+})
+
+// 순수 이모티콘 댓글인지 확인 (이모티콘만 포함된 댓글)
+const isEmoticonOnly = computed(() => {
+  if (!props.comment.content) return false
+  const emoticonPattern = /^!\[emoticon\]\([^)]+\)$/
+  return emoticonPattern.test(props.comment.content.trim())
+})
 </script>
 
 <template>
@@ -72,7 +88,7 @@ function handleDelete() {
           <UserMenu v-if="!comment.isDeleted" :user-id="comment.author.userId"
             :display-name="comment.author.displayName" />
           <span v-else class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ $t('common.messages.unknown')
-            }}</span>
+          }}</span>
           <p class="text-sm text-gray-500 dark:text-gray-400">{{ formatDate(comment.createdAt) }}</p>
         </div>
 
@@ -83,10 +99,11 @@ function handleDelete() {
         </div>
 
         <!-- Comment Text -->
-        <p v-else class="text-sm text-gray-700 dark:text-gray-300"
-          :class="{ 'text-gray-400 italic': comment.isDeleted }">
-          {{ comment.isDeleted ? $t('comment.deleted') : comment.content }}
+        <p v-else-if="comment.isDeleted" class="text-sm text-gray-400 italic">
+          {{ $t('comment.deleted') }}
         </p>
+        <p v-else-if="isEmoticonOnly" v-html="renderedContent" class="text-sm"></p>
+        <p v-else v-html="renderedContent" class="text-sm text-gray-700 dark:text-gray-300"></p>
 
         <!-- Actions -->
         <div v-if="!comment.isDeleted" class="mt-2 flex items-center space-x-2">
@@ -96,7 +113,7 @@ function handleDelete() {
           </button>
 
           <template v-if="authStore.user?.userId === comment.author.userId">
-            <button @click="isEditing = !isEditing"
+            <button v-if="!isEmoticonOnly" @click="isEditing = !isEditing"
               class="text-xs text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200 font-medium ml-2">
               {{ $t('common.edit') }}
             </button>
@@ -123,4 +140,3 @@ function handleDelete() {
     </div>
   </div>
 </template>
-

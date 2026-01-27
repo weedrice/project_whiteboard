@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useComment } from '@/composables/useComment'
 import { useAuthStore } from '@/stores/auth'
@@ -84,16 +84,16 @@ function fetchComments() {
     </div>
 
     <div v-else class="space-y-6">
-      <CommentItem 
-        v-for="comment in comments" 
-        :key="comment.commentId" 
-        v-memo="[comment.commentId, comment.content, comment.likeCount, comment.createdAt, comment.isDeleted]"
-        :comment="comment" 
+      <CommentItem
+        v-for="comment in comments"
+        :key="comment.commentId"
+        v-memo="[comment.commentId, comment.content, comment.likeCount, comment.createdAt, comment.isDeleted, comment.children]"
+        :comment="comment"
         :postId="postId"
-        :boardUrl="boardUrl" 
-        @reply-success="handleReplySuccess" 
+        :boardUrl="boardUrl"
+        @reply-success="handleReplySuccess"
         @edit-success="handleEditSuccess"
-        @delete="handleDelete" 
+        @delete="handleDelete"
       />
 
       <div v-if="comments.length === 0" class="text-center text-gray-500 dark:text-gray-400 py-4">

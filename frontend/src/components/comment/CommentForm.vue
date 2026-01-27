@@ -7,8 +7,13 @@ import type { CommentPayload } from '@/api/comment'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseTextarea from '@/components/common/ui/BaseTextarea.vue'
 import { useToastStore } from '@/stores/toast'
+import { useAuthStore } from '@/stores/auth'
+import EmoticonPicker from '@/components/common/widgets/EmoticonPicker.vue'
+import type { EmoticonImage } from '@/types/emoticon'
+import { Smile } from 'lucide-vue-next'
 
 const toastStore = useToastStore()
+const authStore = useAuthStore()
 
 const { t } = useI18n()
 
@@ -36,6 +41,32 @@ import { computed } from 'vue'
 
 const content = ref(props.initialContent)
 const isSubmitting = computed(() => isCreating.value || isUpdating.value)
+const showEmoticonPicker = ref(false)
+
+// 이모티콘 선택 시 바로 댓글 등록
+const handleEmoticonSelect = (image: EmoticonImage) => {
+  showEmoticonPicker.value = false
+  
+  if (isSubmitting.value) return
+  
+  // 이모티콘 이미지를 마크다운 형식으로 댓글 내용에 설정
+  const emoticonContent = `![emoticon](${image.imageUrl})`
+  
+  const payload: CommentPayload = {
+    content: emoticonContent,
+    parentId: props.parentId ? Number(props.parentId) : null
+  }
+  
+  createComment({ postId: props.postId, data: payload }, {
+    onSuccess: () => {
+      emit('success')
+    },
+    onError: (err) => {
+      logger.error('Failed to post emoticon comment:', err)
+      toastStore.addToast(t('comment.saveFailed'), 'error')
+    }
+  })
+}
 
 async function handleSubmit() {
   if (!content.value.trim() || isSubmitting.value) return
@@ -73,18 +104,51 @@ async function handleSubmit() {
 
 <template>
   <form @submit.prevent="handleSubmit" class="mt-4">
-    <div>
+    <div class="relative">
       <BaseTextarea id="comment" v-model="content" rows="3"
         :placeholder="parentId ? $t('comment.writeReply') : $t('comment.writeComment')" required hideLabel />
+      
+      <!-- 이모티콘 피커 -->
+      <EmoticonPicker 
+        :show="showEmoticonPicker" 
+        @select="handleEmoticonSelect"
+        @close="showEmoticonPicker = false" 
+      />
     </div>
-    <div class="mt-3 flex items-center justify-end">
-      <BaseButton v-if="parentId" type="button" @click="emit('cancel')" variant="secondary" class="mr-3">
-        {{ $t('common.cancel') }}
-      </BaseButton>
-      <BaseButton type="submit" :loading="isSubmitting" variant="primary">
-        {{ isSubmitting ? $t('comment.posting') : (parentId ? $t('comment.reply') : $t('comment.postComment')) }}
-      </BaseButton>
+    <div class="mt-3 flex items-center justify-between">
+      <!-- 이모티콘 버튼 -->
+      <div>
+        <button
+          v-if="authStore.isAuthenticated && !commentId"
+          type="button"
+          @click="showEmoticonPicker = !showEmoticonPicker"
+          class="inline-flex items-center px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+          :class="{ 'text-indigo-600 dark:text-indigo-400 bg-gray-100 dark:bg-gray-700': showEmoticonPicker }"
+          title="노비콘"
+        >
+          <Smile class="w-5 h-5" />
+        </button>
+      </div>
+      
+      <div class="flex items-center">
+        <BaseButton v-if="parentId" type="button" @click="emit('cancel')" variant="secondary" class="mr-3">
+          {{ $t('common.cancel') }}
+        </BaseButton>
+        <BaseButton type="submit" :loading="isSubmitting" variant="primary">
+          {{ isSubmitting ? $t('comment.posting') : (parentId ? $t('comment.reply') : $t('comment.postComment')) }}
+        </BaseButton>
+      </div>
     </div>
   </form>
 </template>
 
+<style scoped>
+/* 이모티콘 피커 위치 조정 */
+:deep(.emoticon-picker) {
+  top: auto;
+  bottom: 100%;
+  margin-bottom: 8px;
+  left: 0;
+  right: auto;
+}
+</style>
