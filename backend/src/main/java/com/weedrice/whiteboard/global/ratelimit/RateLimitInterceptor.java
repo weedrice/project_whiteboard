@@ -13,9 +13,11 @@ import org.springframework.lang.NonNull;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
+import org.springframework.context.MessageSource;
 import org.springframework.web.servlet.HandlerInterceptor;
 
 import java.io.IOException;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -38,6 +40,7 @@ public class RateLimitInterceptor implements HandlerInterceptor {
     private final Map<String, Bucket> userBuckets;
     private final RateLimitConfig rateLimitConfig;
     private final ObjectMapper objectMapper;
+    private final MessageSource messageSource;
 
     // IP 기반 버킷 저장소
     private final Map<String, Bucket> ipBuckets = new ConcurrentHashMap<>();
@@ -58,7 +61,7 @@ public class RateLimitInterceptor implements HandlerInterceptor {
         
         if (!bucket.tryConsume(1)) {
             log.warn("Rate limit exceeded for path: {}, IP: {}", path, getClientIp(request));
-            sendRateLimitError(response);
+            sendRateLimitError(request, response);
             return false;
         }
 
@@ -126,13 +129,16 @@ public class RateLimitInterceptor implements HandlerInterceptor {
     /**
      * Rate Limit 초과 시 에러 응답 전송
      */
-    private void sendRateLimitError(HttpServletResponse response) throws IOException {
+    private void sendRateLimitError(HttpServletRequest request, HttpServletResponse response) throws IOException {
         response.setStatus(429); // 429 Too Many Requests
         response.setContentType("application/json;charset=UTF-8");
         
+        Locale locale = request.getLocale() != null ? request.getLocale() : Locale.getDefault();
+        String message = messageSource.getMessage("error.common.rateLimitExceeded", null, locale);
+        
         ApiResponse<?> errorResponse = ApiResponse.error(
             ErrorCode.RATE_LIMIT_EXCEEDED.getCode(),
-            "Too many requests. Please try again later."
+            message
         );
         
         objectMapper.writeValue(response.getWriter(), errorResponse);

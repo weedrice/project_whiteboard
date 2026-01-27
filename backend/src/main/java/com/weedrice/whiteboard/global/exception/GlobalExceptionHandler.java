@@ -58,9 +58,9 @@ public class GlobalExceptionHandler {
             });
         }
         
-        String summaryMessage = errors.isEmpty() 
-            ? "Validation failed" 
-            : String.format("Validation failed for %d field(s)", errors.size());
+        String summaryMessage = errors.isEmpty()
+            ? messageSource.getMessage("error.common.validationFailedSummary", null, LocaleContextHolder.getLocale())
+            : messageSource.getMessage("error.common.validationFailedSummaryFields", new Object[]{errors.size()}, LocaleContextHolder.getLocale());
         
         log.warn("[{}] Validation exception: {} - {}", request.getRequestURI(), summaryMessage, errors);
         
