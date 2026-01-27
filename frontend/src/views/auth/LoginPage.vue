@@ -1,6 +1,6 @@
-﻿<script setup>
-import { ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+<script setup>
+import { ref, watch, onMounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { Lock, User } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
@@ -12,7 +12,31 @@ const { t } = useI18n()
 const toastStore = useToastStore()
 
 const router = useRouter()
+const route = useRoute()
 const authStore = useAuthStore()
+
+const LOGIN_REDIRECT_KEY = 'loginRedirect'
+
+function isSafeRedirect(path: unknown): path is string {
+  return typeof path === 'string' && path.startsWith('/') && !path.startsWith('//')
+}
+
+function getRedirectTarget(): string | null {
+  const fromQuery = route.query.redirect
+  const fromStorage = sessionStorage.getItem(LOGIN_REDIRECT_KEY)
+  return isSafeRedirect(fromQuery) ? fromQuery : (isSafeRedirect(fromStorage) ? fromStorage : null)
+}
+
+function clearRedirectStorage(): void {
+  sessionStorage.removeItem(LOGIN_REDIRECT_KEY)
+}
+
+onMounted(() => {
+  const redirect = route.query.redirect
+  if (isSafeRedirect(redirect)) {
+    sessionStorage.setItem(LOGIN_REDIRECT_KEY, redirect)
+  }
+})
 
 const loginId = ref('')
 const password = ref('')
@@ -45,7 +69,9 @@ async function handleLogin() {
       loginId: loginId.value,
       password: password.value
     })
-    router.push('/')
+    const redirect = getRedirectTarget()
+    clearRedirectStorage()
+    router.push(redirect || '/')
   } catch (err) {
     const message = err.response?.data?.error?.message || t('auth.loginFailed')
     toastStore.addToast(message, 'error', 3000, 'top-center')

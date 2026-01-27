@@ -12,6 +12,12 @@ const authStore = useAuthStore()
 const toastStore = useToastStore()
 const { t } = useI18n()
 
+const LOGIN_REDIRECT_KEY = 'loginRedirect'
+
+function isSafeRedirect(path: unknown): path is string {
+  return typeof path === 'string' && path.startsWith('/') && !path.startsWith('//')
+}
+
 onMounted(async () => {
   const accessToken = route.query.accessToken
   const refreshToken = route.query.refreshToken
@@ -25,7 +31,9 @@ onMounted(async () => {
       await authStore.fetchUser()
       
       toastStore.addToast(t('auth.loginSuccess'), 'success')
-      router.push('/')
+      const redirect = sessionStorage.getItem(LOGIN_REDIRECT_KEY)
+      sessionStorage.removeItem(LOGIN_REDIRECT_KEY)
+      router.push(isSafeRedirect(redirect) ? redirect : '/')
     } catch (error) {
       logger.error('OAuth login failed:', error)
       toastStore.addToast(t('auth.loginFailed'), 'error')
