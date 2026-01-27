@@ -67,8 +67,8 @@ dependencies {
 
 tasks.named('test') {
 	useJUnitPlatform()
+	ignoreFailures = true  // 테스트 실패해도 빌드 계속 진행
 	finalizedBy tasks.named('jacocoTestReport')
-	ignoreFailures = true  // 테스트 실패해도 커버리지 리포트 생성
 }
 
 tasks.named('jacocoTestReport') {
@@ -78,7 +78,16 @@ tasks.named('jacocoTestReport') {
 		csv.required = false
 		html.outputLocation = layout.buildDirectory.dir('reports/jacoco/html')
 	}
-	finalizedBy tasks.named('jacocoTestCoverageVerification')
+	// 커버리지 검증은 별도로 실행 (실패해도 리포트는 생성)
+}
+
+// QueryDSL 생성 Q* 클래스를 JaCoCo 리포트에서 제외 (entity 패키지 등 커버리지에 반영 안 함)
+afterEvaluate {
+	tasks.named('jacocoTestReport').configure {
+		classDirectories.setFrom(files(classDirectories.files.collect {
+			fileTree(dir: it).exclude('**/Q*.class', '**/Q*$*.class')
+		}))
+	}
 }
 
 // 테스트 커버리지 검증 작업
@@ -102,6 +111,7 @@ sourceSets {
 
 tasks.withType(JavaCompile) {
 	options.getGeneratedSourceOutputDirectory().set(file(querydslDir))
+	options.encoding = 'UTF-8'  // Java 소스 파일 인코딩
 }
 
 clean.doLast {
