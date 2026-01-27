@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
@@ -19,8 +19,10 @@ function isSafeRedirect(path: unknown): path is string {
 }
 
 onMounted(async () => {
-  const accessToken = route.query.accessToken
-  const refreshToken = route.query.refreshToken
+  const rawAccess = route.query.accessToken
+  const rawRefresh = route.query.refreshToken
+  const accessToken = Array.isArray(rawAccess) ? rawAccess[0] : rawAccess
+  const refreshToken = Array.isArray(rawRefresh) ? rawRefresh[0] : rawRefresh
 
   if (accessToken && refreshToken) {
     try {

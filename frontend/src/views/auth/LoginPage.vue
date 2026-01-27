@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { ref, watch, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
@@ -72,9 +72,11 @@ async function handleLogin() {
     const redirect = getRedirectTarget()
     clearRedirectStorage()
     router.push(redirect || '/')
-  } catch (err) {
-    const message = err.response?.data?.error?.message || t('auth.loginFailed')
-    toastStore.addToast(message, 'error', 3000, 'top-center')
+  } catch (err: unknown) {
+    const msg = err && typeof err === 'object' && 'response' in err
+      ? (err as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message
+      : undefined
+    toastStore.addToast(msg || t('auth.loginFailed'), 'error', 3000, 'top-center')
   } finally {
     isLoading.value = false
   }
