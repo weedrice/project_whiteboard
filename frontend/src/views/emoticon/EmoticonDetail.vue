@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
 import { emoticonApi } from '@/api/emoticon'
 import { useAuthStore } from '@/stores/auth'
 import { useHead } from '@unhead/vue'
-import { ArrowLeft, ShoppingCart, Tag, Calendar, User, TrendingUp } from 'lucide-vue-next'
+import { ArrowLeft, ShoppingCart, Tag, Calendar, User, TrendingUp, Pencil } from 'lucide-vue-next'
 import { useToastStore } from '@/stores/toast'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 
@@ -51,6 +51,13 @@ const { mutate: purchase, isPending: isPurchasing } = useMutation({
   }
 })
 
+// 등록자 여부
+const isOwner = computed(() => {
+  if (!authStore.isAuthenticated) return false
+  if (!emoticon.value) return false
+  return emoticon.value.creatorId === authStore.user?.userId
+})
+
 // 구매 가능 여부
 const canPurchase = computed(() => {
   if (!authStore.isAuthenticated) return false
@@ -71,6 +78,11 @@ const purchaseButtonText = computed(() => {
 // 목록으로 이동
 const goToList = () => {
   router.push({ name: 'emoticon-list' })
+}
+
+// 수정 페이지로 이동
+const goToEdit = () => {
+  router.push({ name: 'emoticon-edit', params: { emoticonId: emoticonId.value } })
 }
 
 // 구매 처리
@@ -151,7 +163,17 @@ useHead({
 
           <!-- 정보 -->
           <div class="flex-1">
-            <h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-4">{{ emoticon.name }}</h1>
+            <div class="flex items-start justify-between mb-4">
+              <h1 class="text-2xl font-bold text-gray-900 dark:text-white">{{ emoticon.name }}</h1>
+              <button
+                v-if="isOwner"
+                @click="goToEdit"
+                class="inline-flex items-center px-3 py-1.5 text-sm bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 rounded-lg hover:bg-indigo-200 dark:hover:bg-indigo-900/50 transition-colors"
+              >
+                <Pencil class="w-4 h-4 mr-1" />
+                수정
+              </button>
+            </div>
             
             <div class="space-y-2 text-sm">
               <div class="flex items-center text-gray-600 dark:text-gray-400">
