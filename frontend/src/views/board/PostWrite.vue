@@ -175,8 +175,9 @@ async function handleSubmit() {
   }
 
   createPost({ boardUrl: boardUrl.value, data: payload }, {
-    onSuccess: () => {
-      router.push(`/board/${boardUrl.value}`)
+    onSuccess: (response) => {
+      const postId = response.data.data
+      router.push(`/board/${boardUrl.value}/post/${postId}`)
     },
     onError: (err: any) => {
       logger.error('Failed to create post:', err)
