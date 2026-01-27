@@ -611,6 +611,7 @@ export interface AdminMessages {
       ADMIN: string
       SUPER_ADMIN: string
       BOARD_ADMIN: string
+      MODERATOR: string
     }
     actions: {
       ban: string

@@ -62,7 +62,7 @@ export function useAdmin() {
             queryKey: ['admin', 'admins'],
             queryFn: async () => {
                 const { data } = await adminApi.getAdmins()
-                return data.data
+                return data?.data ?? []
             }
         })
     }
@@ -89,7 +89,7 @@ export function useAdmin() {
             queryKey: ['admin', 'super'],
             queryFn: async () => {
                 const { data } = await adminApi.getSuperAdmin()
-                return data.data
+                return Array.isArray(data?.data) ? data.data : []
             }
         })
     }

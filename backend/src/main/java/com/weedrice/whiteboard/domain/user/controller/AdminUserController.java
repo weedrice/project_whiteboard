@@ -1,7 +1,6 @@
 package com.weedrice.whiteboard.domain.user.controller;
 
 import com.weedrice.whiteboard.domain.user.dto.UserAdminResponse;
-import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.service.UserService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import lombok.RequiredArgsConstructor;
@@ -22,9 +21,10 @@ public class AdminUserController {
     @GetMapping
     public ApiResponse<Page<UserAdminResponse>> searchUsers(
             @RequestParam(required = false) String keyword,
+            @RequestParam(required = false, name = "q") String q,
             @PageableDefault(size = 20) Pageable pageable) {
-        Page<User> users = userService.searchUsers(keyword, pageable);
-        Page<UserAdminResponse> response = users.map(UserAdminResponse::from);
+        String searchKeyword = (keyword != null && !keyword.isBlank()) ? keyword : q;
+        Page<UserAdminResponse> response = userService.searchUsersForAdmin(searchKeyword, pageable);
         return ApiResponse.success(response);
     }
 

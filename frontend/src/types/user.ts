@@ -4,7 +4,8 @@ export interface User {
     loginId: string
     displayName: string
     email: string
-    role: 'USER' | 'ADMIN' | 'SUPER_ADMIN' | 'BOARD_ADMIN'
+    role?: 'USER' | 'ADMIN' | 'SUPER_ADMIN' | 'BOARD_ADMIN' | 'MODERATOR'
+    isSuperAdmin?: boolean
     status: 'ACTIVE' | 'INACTIVE' | 'SANCTIONED' | 'DELETED'
     bio?: string
     profileImageUrl?: string

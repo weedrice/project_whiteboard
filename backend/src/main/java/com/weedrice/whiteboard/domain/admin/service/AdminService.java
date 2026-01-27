@@ -69,6 +69,7 @@ public class AdminService {
     }
 
     @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
+    @Transactional(readOnly = true)
     public List<AdminResponse> getAllAdmins() {
         return adminRepository.findAll().stream()
                 .map(AdminResponse::from)
@@ -124,6 +125,7 @@ public class AdminService {
     }
 
     @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
+    @Transactional(readOnly = true)
     public List<IpBlockResponse> getBlockedIps() {
         return ipBlockRepository.findAll().stream()
                 .map(IpBlockResponse::from)

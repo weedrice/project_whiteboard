@@ -31,17 +31,30 @@ const statusVariant = computed(() => {
   }
 })
 
+const safeRole = computed(() => {
+  const u = props.user
+  if (u?.role) return u.role
+  if (u?.isSuperAdmin) return 'SUPER_ADMIN'
+  return 'USER'
+})
+
 const roleVariant = computed(() => {
-  if (!props.user) return 'gray'
-  switch (props.user.role) {
+  const role = safeRole.value
+  switch (role) {
     case 'SUPER_ADMIN':
       return 'danger'
     case 'ADMIN':
     case 'BOARD_ADMIN':
+    case 'MODERATOR':
       return 'warning'
     default:
       return 'gray'
   }
+})
+
+const roleLabel = computed(() => {
+  const role = safeRole.value
+  return t(`admin.users.role.${role}`)
 })
 </script>
 
@@ -82,7 +95,7 @@ const roleVariant = computed(() => {
             <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ t('admin.users.detail.role') }}</dt>
             <dd class="mt-1">
               <BaseBadge :variant="roleVariant" size="sm">
-                {{ t(`admin.users.role.${user.role}`) }}
+                {{ roleLabel }}
               </BaseBadge>
             </dd>
           </div>

@@ -10,6 +10,7 @@ import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseBadge from '@/components/common/ui/BaseBadge.vue'
 import BaseTable from '@/components/common/ui/BaseTable.vue'
 import UserDetailModal from '@/components/admin/UserDetailModal.vue'
+import { formatDate } from '@/utils/date'
 import { useConfirm } from '@/composables/useConfirm'
 import { usePrompt } from '@/composables/usePrompt'
 import type { User } from '@/types'
@@ -57,12 +58,13 @@ async function handleStatusChange(user: User, status: User['status']) {
 }
 
 async function handleSanction(user: User, type: 'BAN' | 'MUTE') {
-  const reason = await prompt(t('admin.users.messages.enterReason', { type }), t('admin.users.messages.sanctionTitle', { type }))
+  const typeLabel = type === 'BAN' ? t('admin.users.actions.ban') : t('admin.users.actions.mute')
+  const reason = await prompt(t('admin.users.messages.enterReason', { type: typeLabel }), t('admin.users.messages.sanctionTitle', { type: typeLabel }))
   if (!reason) return
 
   try {
     await sanctionUser({ userId: user.userId, type, reason })
-    toastStore.addToast(t('admin.users.messages.sanctionComplete', { type }), 'success')
+    toastStore.addToast(t('admin.users.messages.sanctionComplete', { type: typeLabel }), 'success')
   } catch (err) {
     // Error handled globally
   }
@@ -108,6 +110,10 @@ const columns = computed(() => [
             size="sm">
             {{ t(`admin.users.status.${item.status}`) }}
           </BaseBadge>
+        </template>
+
+        <template #cell-createdAt="{ item }">
+          {{ formatDate(item.createdAt) }}
         </template>
 
         <template #cell-actions="{ item }">

@@ -94,10 +94,16 @@ class AdminUserControllerTest {
     @DisplayName("사용자 검색 성공")
     void searchUsers_returnsSuccess() throws Exception {
         // given
-        User user = User.builder().build();
-        org.springframework.test.util.ReflectionTestUtils.setField(user, "userId", 1L);
-        Page<User> userPage = new PageImpl<>(List.of(user), PageRequest.of(0, 20), 1);
-        when(userService.searchUsers(any(), any())).thenReturn(userPage);
+        UserAdminResponse resp = UserAdminResponse.builder()
+                .userId(1L)
+                .loginId("login1")
+                .email("a@b.com")
+                .displayName("user1")
+                .status("ACTIVE")
+                .role("USER")
+                .build();
+        Page<UserAdminResponse> responsePage = new PageImpl<>(List.of(resp), PageRequest.of(0, 20), 1);
+        when(userService.searchUsersForAdmin(any(), any())).thenReturn(responsePage);
 
         // when & then
         mockMvc.perform(get("/api/v1/admin/users")
@@ -108,7 +114,8 @@ class AdminUserControllerTest {
                         .with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.content").isArray());
+                .andExpect(jsonPath("$.data.content").isArray())
+                .andExpect(jsonPath("$.data.content[0].role").value("USER"));
     }
 
     @Test

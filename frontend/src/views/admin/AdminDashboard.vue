@@ -12,9 +12,9 @@ const { data: statsData } = useDashboardStats()
 const stats = computed(() => {
     const data = statsData.value || {}
     return [
-      { name: t('admin.dashboard.totalUsers'), stat: data.totalUsers || '0', icon: Users, change: '0%', changeType: 'increase' },
-      { name: t('admin.dashboard.pendingReports'), stat: data.pendingReports || '0', icon: FileText, change: '0%', changeType: 'decrease' },
-      { name: t('admin.dashboard.blockedIps'), stat: data.blockedIps || '0', icon: ShieldAlert, change: '0%', changeType: 'increase' },
+      { name: t('admin.dashboard.totalUsers'), stat: data.totalUsers || '0', icon: Users, change: '0%', changeType: 'increase', path: '/admin/users' },
+      { name: t('admin.dashboard.pendingReports'), stat: data.pendingReports || '0', icon: FileText, change: '0%', changeType: 'decrease', path: '/admin/reports' },
+      { name: t('admin.dashboard.blockedIps'), stat: data.blockedIps || '0', icon: ShieldAlert, change: '0%', changeType: 'increase', path: '/admin/security' },
     ]
 })
 
@@ -48,9 +48,9 @@ const recentActivity = ref([])
         </div>
         <div class="bg-gray-50 dark:bg-gray-700 px-5 py-3">
           <div class="text-sm">
-            <a href="#" class="font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300">
+            <router-link :to="item.path" class="font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300">
               {{ t('admin.dashboard.viewDetail') }}
-            </a>
+            </router-link>
           </div>
         </div>
       </div>

@@ -56,6 +56,7 @@ export const admin: AdminMessages = {
       ADMIN: '관리자',
       SUPER_ADMIN: '최고 관리자',
       BOARD_ADMIN: '게시판 관리자',
+      MODERATOR: '운영자',
     },
     actions: {
       ban: '차단',

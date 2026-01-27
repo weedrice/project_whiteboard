@@ -16,6 +16,7 @@ import com.weedrice.whiteboard.domain.user.repository.DisplayNameHistoryReposito
 import com.weedrice.whiteboard.domain.user.repository.PasswordHistoryRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserSettingsRepository;
+import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.junit.jupiter.api.DisplayName;
@@ -64,6 +65,8 @@ class UserServiceTest {
     private FileService fileService;
     @Mock
     private UserPointRepository userPointRepository;
+    @Mock
+    private AdminRepository adminRepository;
 
     @Test
     @DisplayName("로그인 ID로 사용자 ID 조회 성공")

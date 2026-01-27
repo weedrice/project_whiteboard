@@ -17,10 +17,11 @@ public class UserAdminResponse {
     private String status;
     private Boolean isEmailVerified;
     private Boolean isSuperAdmin;
+    private String role; // USER, SUPER_ADMIN, BOARD_ADMIN, MODERATOR
     private LocalDateTime createdAt;
     private LocalDateTime lastLoginAt;
 
-    public static UserAdminResponse from(User user) {
+    public static UserAdminResponse from(User user, String role) {
         return UserAdminResponse.builder()
                 .userId(user.getUserId())
                 .loginId(user.getLoginId())
@@ -30,6 +31,7 @@ public class UserAdminResponse {
                 .status(user.getStatus())
                 .isEmailVerified(user.getIsEmailVerified())
                 .isSuperAdmin(user.getIsSuperAdmin())
+                .role(role)
                 .createdAt(user.getCreatedAt())
                 .lastLoginAt(user.getLastLoginAt())
                 .build();

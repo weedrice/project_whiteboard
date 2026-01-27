@@ -5,6 +5,7 @@ import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseTable from '@/components/common/ui/BaseTable.vue'
 import BaseBadge from '@/components/common/ui/BaseBadge.vue'
 import { computed } from 'vue'
+import { formatDate } from '@/utils/date'
 import type { Report } from '@/types'
 
 const { t } = useI18n()
@@ -55,6 +56,10 @@ const columns = computed(() => [
           size="sm">
           {{ t(`admin.reports.status.${item.status}`) }}
         </BaseBadge>
+      </template>
+
+      <template #cell-createdAt="{ item }">
+        {{ formatDate(item.createdAt) }}
       </template>
 
       <template #cell-actions="{ item }">

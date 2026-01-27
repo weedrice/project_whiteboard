@@ -1,14 +1,14 @@
-﻿<script setup>
+<script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useAdmin } from '@/composables/useAdmin'
 import { UserPlus, UserMinus, Shield } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
-import logger from '@/utils/logger'
 import { useToastStore } from '@/stores/toast'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseTable from '@/components/common/ui/BaseTable.vue'
 import BaseBadge from '@/components/common/ui/BaseBadge.vue'
+import { formatDate } from '@/utils/date'
 
 const { t } = useI18n()
 const toastStore = useToastStore()
@@ -35,24 +35,26 @@ const { mutateAsync: updateSuperAdminStatus } = useUpdateSuperAdminStatus()
 
 // Computed
 const superAdmins = computed(() => {
-  return (superAdminsData.value || []).map(admin => ({
-    ...admin,
-    type: 'SUPER',
-    isActive: admin.active === true
-  }))
+  return (superAdminsData.value || []).map((admin: Record<string, unknown>) => {
+    const superAdmin = admin.superAdmin ?? admin.isSuperAdmin ?? false
+    return {
+      ...admin,
+      type: 'SUPER',
+      superAdmin,
+      isActive: superAdmin
+    }
+  })
 })
 
 const boardAdmins = computed(() => {
-  return (boardAdminsData.value || []).map(admin => ({
+  return (boardAdminsData.value || []).map((admin: Record<string, unknown>) => ({
     ...admin,
     type: 'BOARD',
-    isActive: admin.active === true
+    isActive: admin.isActive ?? admin.active ?? false
   }))
 })
 
 const isLoading = computed(() => isSuperAdminsLoading.value || isBoardAdminsLoading.value)
-
-import { formatDate } from '@/utils/date'
 
 async function handleCreateSuperAdmin() {
   if (!newSuperAdminLoginId.value) {

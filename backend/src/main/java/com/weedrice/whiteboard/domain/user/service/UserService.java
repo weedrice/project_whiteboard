@@ -15,16 +15,21 @@ import com.weedrice.whiteboard.domain.user.repository.DisplayNameHistoryReposito
 import com.weedrice.whiteboard.domain.user.repository.PasswordHistoryRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserSettingsRepository;
+import com.weedrice.whiteboard.domain.user.dto.UserAdminResponse;
+import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
+import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -40,8 +45,8 @@ public class UserService {
     private final UserSettingsRepository userSettingsRepository;
     private final PostRepository postRepository;
     private final FileService fileService;
-    private final com.weedrice.whiteboard.domain.point.repository.UserPointRepository userPointRepository; // Inject
-                                                                                                           // UserPointRepository
+    private final com.weedrice.whiteboard.domain.point.repository.UserPointRepository userPointRepository;
+    private final AdminRepository adminRepository;
 
     public Long findUserIdByLoginId(String loginId) {
         User user = userRepository.findByLoginId(loginId)
@@ -169,6 +174,29 @@ public class UserService {
 
     public Page<User> searchUsers(String keyword, Pageable pageable) {
         return userRepository.searchUsers(keyword, pageable);
+    }
+
+    /**
+     * 관리자용 사용자 검색. 각 사용자에 대해 역할(role)을 산출하여 UserAdminResponse로 반환한다.
+     * SUPER_ADMIN &gt; BOARD_ADMIN/MODERATOR(활성 Admin 보유) &gt; USER 순으로 결정.
+     */
+    public Page<UserAdminResponse> searchUsersForAdmin(String keyword, Pageable pageable) {
+        Page<User> users = userRepository.searchUsers(keyword, pageable);
+        List<UserAdminResponse> list = new ArrayList<>();
+        for (User user : users) {
+            String role = resolveRoleForAdmin(user);
+            list.add(UserAdminResponse.from(user, role));
+        }
+        return new PageImpl<>(list, pageable, users.getTotalElements());
+    }
+
+    private String resolveRoleForAdmin(User user) {
+        if (Boolean.TRUE.equals(user.getIsSuperAdmin())) {
+            return Role.SUPER_ADMIN;
+        }
+        return adminRepository.findByUserAndIsActive(user, true)
+                .map(a -> a.getRole())
+                .orElse(Role.USER);
     }
 
     @Transactional
