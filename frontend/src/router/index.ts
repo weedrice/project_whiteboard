@@ -132,6 +132,12 @@ const router = createRouter({
             component: () => import('@/views/emoticon/EmoticonDetail.vue')
         },
         {
+            path: '/emoticons/:emoticonId/edit',
+            name: 'emoticon-edit',
+            component: () => import('@/views/emoticon/EmoticonEdit.vue'),
+            meta: { requiresAuth: true }
+        },
+        {
             path: '/boards',
             name: 'all-boards',
             component: () => import('@/views/board/AllBoardsPage.vue')

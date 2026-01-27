@@ -5,7 +5,7 @@ import { useBoard } from '@/composables/useBoard'
 import { usePost } from '@/composables/usePost'
 import PostTags from '@/components/tag/PostTags.vue'
 import { useI18n } from 'vue-i18n'
-import { QuillEditor } from '@vueup/vue-quill'
+import { QuillEditor, Quill } from '@vueup/vue-quill'
 import '@vueup/vue-quill/dist/vue-quill.snow.css'
 import axios from '@/api'
 import logger from '@/utils/logger'
@@ -18,6 +18,9 @@ import { useToastStore } from '@/stores/toast'
 import EmoticonPicker from '@/components/common/widgets/EmoticonPicker.vue'
 import { registerEmoticonBlot } from '@/utils/emoticon-blot'
 import type { EmoticonImage } from '@/types/emoticon'
+
+// 컴포넌트 마운트 전에 Blot 등록 (툴바 초기화 전에 완료되어야 함)
+registerEmoticonBlot(Quill)
 
 const { t } = useI18n()
 
@@ -48,7 +51,6 @@ const filteredCategories = computed(() => {
 })
 
 const isLoading = computed(() => isBoardLoading.value || isCategoriesLoading.value)
-const error = ref('')
 const fileIds = ref<number[]>([])
 const editor = ref<InstanceType<typeof QuillEditor> | null>(null)
 const quillInstance = ref<any>(null)
@@ -144,10 +146,6 @@ const handleEmoticonSelect = (image: EmoticonImage) => {
 const onEditorReady = (quill: any) => {
   quillInstance.value = quill
   
-  // Quill 인스턴스에서 Quill 클래스 가져와서 emoticon blot 등록
-  const Quill = quill.constructor
-  registerEmoticonBlot(Quill)
-  
   quill.getModule('toolbar').addHandler('image', imageHandler)
   quill.getModule('toolbar').addHandler('emoticon', emoticonHandler)
 }
@@ -160,12 +158,10 @@ watchEffect(() => {
 })
 
 async function handleSubmit() {
-  if (!form.value.title || !form.value.contents || !form.value.categoryId) {
+  if (!form.value.title || !form.value.categoryId) {
     toastStore.addToast(t('board.writePost.validation'), 'error')
     return
   }
-
-  error.value = ''
 
   const payload = {
     categoryId: typeof form.value.categoryId === 'string' ? parseInt(form.value.categoryId) || 0 : form.value.categoryId,
@@ -184,7 +180,7 @@ async function handleSubmit() {
     },
     onError: (err: any) => {
       logger.error('Failed to create post:', err)
-      error.value = err.response?.data?.error?.message || t('board.writePost.createFailed')
+      // 에러 메시지는 API 인터셉터에서 토스트로 처리됨
     }
   })
 }
@@ -206,14 +202,6 @@ async function handleSubmit() {
 
     <form v-else @submit.prevent="handleSubmit"
       class="space-y-6 bg-white dark:bg-gray-800 shadow px-4 py-5 sm:rounded-lg sm:p-6 transition-colors duration-200">
-      <div v-if="error" class="rounded-md bg-red-50 p-4">
-        <div class="flex">
-          <div class="ml-3">
-            <h3 class="text-sm font-medium text-red-800">{{ error }}</h3>
-          </div>
-        </div>
-      </div>
-
       <div class="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
         <div class="sm:col-span-3">
           <BaseSelect id="category" v-model="form.categoryId" :label="$t('common.category')">
@@ -362,9 +350,18 @@ async function handleSubmit() {
 }
 
 /* Emoticon button icon */
-.ql-emoticon {
+button.ql-emoticon {
   width: 24px !important;
   height: 24px !important;
+}
+
+/* Emoticon image in content */
+img.ql-emoticon {
+  width: 100px !important;
+  height: 100px !important;
+  vertical-align: middle;
+  display: inline;
+  margin: 0 4px;
 }
 
 .ql-snow .ql-toolbar button.ql-emoticon::before,

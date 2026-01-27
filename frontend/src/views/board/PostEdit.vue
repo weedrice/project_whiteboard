@@ -4,7 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useBoard } from '@/composables/useBoard'
 import { usePost } from '@/composables/usePost'
 import { useI18n } from 'vue-i18n'
-import { QuillEditor } from '@vueup/vue-quill'
+import { QuillEditor, Quill } from '@vueup/vue-quill'
 import '@vueup/vue-quill/dist/vue-quill.snow.css'
 import axios from '@/api'
 import logger from '@/utils/logger'
@@ -18,6 +18,9 @@ import { useToastStore } from '@/stores/toast'
 import EmoticonPicker from '@/components/common/widgets/EmoticonPicker.vue'
 import { registerEmoticonBlot } from '@/utils/emoticon-blot'
 import type { EmoticonImage } from '@/types/emoticon'
+
+// 컴포넌트 마운트 전에 Blot 등록 (툴바 초기화 전에 완료되어야 함)
+registerEmoticonBlot(Quill)
 
 const { t } = useI18n()
 
@@ -131,10 +134,6 @@ const handleEmoticonSelect = (image: EmoticonImage) => {
 const onEditorReady = (quill: any) => {
   quillInstance.value = quill
   
-  // Quill 인스턴스에서 Quill 클래스 가져와서 emoticon blot 등록
-  const Quill = quill.constructor
-  registerEmoticonBlot(Quill)
-  
   quill.getModule('toolbar').addHandler('image', imageHandler)
   quill.getModule('toolbar').addHandler('emoticon', emoticonHandler)
 }
@@ -153,7 +152,7 @@ watchEffect(() => {
 })
 
 async function handleSubmit() {
-  if (!form.value.title || !form.value.content) {
+  if (!form.value.title) {
     toastStore.addToast(t('board.writePost.validation'), 'error')
     return
   }
@@ -174,7 +173,7 @@ async function handleSubmit() {
     },
     onError: (err) => {
       logger.error('Failed to update post:', err)
-      toastStore.addToast(t('board.writePost.updateFailed'), 'error')
+      // 에러 메시지는 API 인터셉터에서 토스트로 처리됨
     }
   })
 }
@@ -260,9 +259,18 @@ async function handleSubmit() {
 
 <style>
 /* Emoticon button icon */
-.ql-emoticon {
+button.ql-emoticon {
   width: 24px !important;
   height: 24px !important;
+}
+
+/* Emoticon image in content */
+img.ql-emoticon {
+  width: 100px !important;
+  height: 100px !important;
+  vertical-align: middle;
+  display: inline;
+  margin: 0 4px;
 }
 
 .ql-snow .ql-toolbar button.ql-emoticon::before,

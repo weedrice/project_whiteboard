@@ -18,11 +18,10 @@ public class PostUpdateRequest {
     private Long categoryId;
 
     @NotBlank
-    @Size(min = 2, max = 200)
+    @Size(min = 1, max = 200)
     @NoHtml
     private String title;
 
-    @NotBlank
     @Size(max = 50000, message = "본문은 50,000자를 초과할 수 없습니다")
     private String contents;
 
