@@ -7,6 +7,7 @@ import type { SanctionData, PageResponse, User, Report } from '@/types'
 interface AdminCreateData {
     loginId: string
     boardId?: number
+    role?: string
 }
 
 interface UserSearchParams {

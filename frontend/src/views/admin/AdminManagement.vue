@@ -33,25 +33,43 @@ const { mutateAsync: createAdmin } = useCreateAdmin()
 const { mutateAsync: updateAdminStatus } = useUpdateAdminStatus()
 const { mutateAsync: updateSuperAdminStatus } = useUpdateSuperAdminStatus()
 
-// Computed
-const superAdmins = computed(() => {
-  return (superAdminsData.value || []).map((admin: Record<string, unknown>) => {
-    const superAdmin = admin.superAdmin ?? admin.isSuperAdmin ?? false
-    return {
-      ...admin,
-      type: 'SUPER',
-      superAdmin,
-      isActive: superAdmin
-    }
-  })
+interface SuperAdminRow {
+  type: 'SUPER'
+  superAdmin: boolean
+  isActive: boolean
+  loginId?: string
+  displayName?: string
+  createdAt?: string
+  [key: string]: unknown
+}
+
+interface BoardAdminRow {
+  type: 'BOARD'
+  isActive: boolean
+  adminId?: number
+  loginId?: string
+  displayName?: string
+  user?: { loginId?: string; displayName?: string }
+  board?: { boardName?: string; boardId?: number }
+  createdAt?: string
+  [key: string]: unknown
+}
+
+const superAdmins = computed<SuperAdminRow[]>(() => {
+  const list = (superAdminsData.value || []) as unknown[]
+  return list.map((admin) => {
+    const a = admin as Record<string, unknown>
+    const superAdmin = !!(a.superAdmin ?? a.isSuperAdmin)
+    return { ...a, type: 'SUPER' as const, superAdmin, isActive: superAdmin }
+  }) as SuperAdminRow[]
 })
 
-const boardAdmins = computed(() => {
-  return (boardAdminsData.value || []).map((admin: Record<string, unknown>) => ({
-    ...admin,
-    type: 'BOARD',
-    isActive: admin.isActive ?? admin.active ?? false
-  }))
+const boardAdmins = computed<BoardAdminRow[]>(() => {
+  const list = (boardAdminsData.value || []) as unknown[]
+  return list.map((admin) => {
+    const a = admin as Record<string, unknown>
+    return { ...a, type: 'BOARD' as const, isActive: !!(a.isActive ?? a.active) }
+  }) as BoardAdminRow[]
 })
 
 const isLoading = computed(() => isSuperAdminsLoading.value || isBoardAdminsLoading.value)
@@ -76,7 +94,7 @@ async function handleCreateBoardAdmin() {
     return
   }
   try {
-    await createAdmin({ loginId: newBoardAdminLoginId.value, role: 'BOARD_ADMIN', boardId: newBoardId.value })
+    await createAdmin({ loginId: newBoardAdminLoginId.value, role: 'BOARD_ADMIN', boardId: Number(newBoardId.value) })
     toastStore.addToast(t('admin.admins.messages.added'), 'success')
     newBoardAdminLoginId.value = ''
     newBoardId.value = ''
@@ -85,15 +103,16 @@ async function handleCreateBoardAdmin() {
   }
 }
 
-async function toggleAdminStatus(admin) {
+async function toggleAdminStatus(admin: SuperAdminRow | BoardAdminRow) {
   try {
     if (admin.type === 'SUPER') {
       const action = admin.superAdmin ? 'deactivate' : 'activate'
-      await updateSuperAdminStatus({ loginId: admin.loginId, action })
+      const loginId = admin.loginId ?? (admin as Record<string, unknown>).loginId
+      await updateSuperAdminStatus({ loginId: String(loginId ?? ''), action })
     } else {
-      // Board Admin
       const action = admin.isActive ? 'deactivate' : 'activate'
-      await updateAdminStatus({ adminId: admin.adminId, action })
+      const adminId = admin.adminId ?? (admin as Record<string, unknown>).adminId
+      await updateAdminStatus({ adminId: adminId as string | number, action })
     }
     toastStore.addToast(t('admin.admins.messages.statusChanged'), 'success')
   } catch (err) {
@@ -101,7 +120,7 @@ async function toggleAdminStatus(admin) {
   }
 }
 
-const superAdminColumns = [
+const superAdminColumns: { key: string; label: string; width: string; align?: 'left' | 'center' | 'right' }[] = [
   { key: 'loginId', label: t('common.loginId'), width: '20%' },
   { key: 'displayName', label: t('common.name'), width: '20%' },
   { key: 'status', label: t('common.status'), width: '15%' },
@@ -109,7 +128,7 @@ const superAdminColumns = [
   { key: 'actions', label: '', align: 'right', width: '20%' }
 ]
 
-const boardAdminColumns = [
+const boardAdminColumns: { key: string; label: string; width: string; align?: 'left' | 'center' | 'right' }[] = [
   { key: 'loginId', label: t('common.loginId'), width: '15%' },
   { key: 'displayName', label: t('common.name'), width: '15%' },
   { key: 'boardName', label: t('common.board'), width: '25%' },
@@ -198,13 +217,13 @@ const boardAdminColumns = [
         </template>
 
         <template #cell-createdAt="{ item }">
-          {{ formatDate(item.createdAt) }}
+          {{ formatDate((item as SuperAdminRow).createdAt ?? '') }}
         </template>
 
         <template #cell-actions="{ item }">
-          <BaseButton @click="toggleAdminStatus(item)" variant="ghost" size="sm"
+          <BaseButton @click="toggleAdminStatus(item as SuperAdminRow)" variant="ghost" size="sm"
             class="p-1 text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300">
-            {{ item.superAdmin ? t('common.deactivate') : t('common.activate') }}
+            {{ (item as SuperAdminRow).superAdmin ? t('common.deactivate') : t('common.activate') }}
           </BaseButton>
         </template>
       </BaseTable>
@@ -217,31 +236,31 @@ const boardAdminColumns = [
       <BaseTable :columns="boardAdminColumns" :items="boardAdmins" :loading="isBoardAdminsLoading"
         :emptyText="t('common.noData')">
         <template #cell-loginId="{ item }">
-          {{ item.user?.loginId || '-' }}
+          {{ (item as BoardAdminRow).user?.loginId || (item as BoardAdminRow).loginId || '-' }}
         </template>
 
         <template #cell-displayName="{ item }">
-          {{ item.user?.displayName || '-' }}
+          {{ (item as BoardAdminRow).user?.displayName || (item as BoardAdminRow).displayName || '-' }}
         </template>
 
         <template #cell-boardName="{ item }">
-          {{ item.board?.boardName || '-' }} (ID: {{ item.board?.boardId || 'N/A' }})
+          {{ (item as BoardAdminRow).board?.boardName || '-' }} (ID: {{ (item as BoardAdminRow).board?.boardId ?? 'N/A' }})
         </template>
 
         <template #cell-status="{ item }">
-          <BaseBadge :variant="item.isActive ? 'success' : 'danger'" size="sm">
-            {{ item.isActive ? t('common.active') : t('common.inactive') }}
+          <BaseBadge :variant="(item as BoardAdminRow).isActive ? 'success' : 'danger'" size="sm">
+            {{ (item as BoardAdminRow).isActive ? t('common.active') : t('common.inactive') }}
           </BaseBadge>
         </template>
 
         <template #cell-createdAt="{ item }">
-          {{ formatDate(item.createdAt) }}
+          {{ formatDate((item as BoardAdminRow).createdAt ?? '') }}
         </template>
 
         <template #cell-actions="{ item }">
-          <BaseButton @click="toggleAdminStatus(item)" variant="ghost" size="sm"
+          <BaseButton @click="toggleAdminStatus(item as BoardAdminRow)" variant="ghost" size="sm"
             class="p-1 text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300">
-            {{ item.isActive ? t('common.deactivate') : t('common.activate') }}
+            {{ (item as BoardAdminRow).isActive ? t('common.deactivate') : t('common.activate') }}
           </BaseButton>
         </template>
       </BaseTable>

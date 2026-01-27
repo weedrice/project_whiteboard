@@ -5,6 +5,7 @@ import type { ApiResponse, PageResponse, User, Report, GlobalConfig, IpBlock, Bo
 interface AdminCreateData {
     loginId: string
     boardId?: number
+    role?: string
 }
 
 interface SuperAdminData {

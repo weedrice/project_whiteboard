@@ -57,7 +57,7 @@ const emit = defineEmits<{ (e: 'close'): void; (e: 'sanctioned'): void }>()
 
 const toastStore = useToastStore()
 const { useSanctionUser } = useAdmin()
-const { mutateAsync: sanctionUser, isLoading: loading } = useSanctionUser()
+const { mutateAsync: sanctionUser, isPending: loading } = useSanctionUser()
 
 const form = reactive({
   reason: 'SPAM',
@@ -69,9 +69,11 @@ async function submitSanction() {
   if (!props.user) return
 
   try {
+    const userId = props.user.userId ?? props.user.id ?? 0
     await sanctionUser({
-      userId: props.user.userId ?? props.user.id!,
-      ...form
+      userId,
+      type: 'BAN',
+      reason: form.description || form.reason
     })
 
     const name = props.user.displayName || props.user.nickname || props.user.name || '해당 사용자'

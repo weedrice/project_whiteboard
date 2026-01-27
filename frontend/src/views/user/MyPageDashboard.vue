@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { userApi } from '@/api/user'
 import { User, Mail, Calendar, FileText, CheckCircle, XCircle, Clock, MessageSquare } from 'lucide-vue-next'
 import PostList from '@/components/board/PostList.vue'
@@ -13,6 +14,7 @@ import { useErrorHandler } from '@/composables/useErrorHandler'
 import { getOptimizedProfileImageUrl, handleImageError } from '@/utils/image'
 import type { User as UserType, PostSummary, Comment } from '@/types'
 
+const { t } = useI18n()
 const { handleSilentError } = useErrorHandler()
 
 const profile = ref<UserType | null>(null)
@@ -259,7 +261,7 @@ onMounted(async () => {
                 @page-change="handleMyCommentsPageChange" />
             </div>
           </div>
-          <EmptyState v-else :title="$t('common.noData')" :icon="MessageSquare" />
+          <EmptyState v-else :title="t('common.noData')" :icon="MessageSquare" />
         </div>
       </div>
 
