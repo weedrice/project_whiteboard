@@ -33,9 +33,9 @@ const { data: purchasedEmoticons, isLoading } = useQuery({
 const filteredEmoticons = computed(() => {
   if (!purchasedEmoticons.value) return []
   if (!searchKeyword.value.trim()) return purchasedEmoticons.value
-  
+
   const keyword = searchKeyword.value.toLowerCase()
-  return purchasedEmoticons.value.filter(emoticon => 
+  return purchasedEmoticons.value.filter(emoticon =>
     emoticon.name.toLowerCase().includes(keyword) ||
     emoticon.tags?.some(tag => tag.toLowerCase().includes(keyword))
   )
@@ -50,7 +50,7 @@ const handleEmoticonClick = async (emoticon: EmoticonMaster) => {
   // 상세 정보 조회 (이미지 포함)
   isLoadingDetail.value = true
   selectedEmoticonId.value = emoticon.emoticonId
-  
+
   try {
     const { data } = await emoticonApi.getEmoticon(emoticon.emoticonId)
     selectedEmoticon.value = data.data
@@ -112,12 +112,8 @@ watch(() => props.show, (newVal) => {
         </div>
         <!-- 이미지 그리드 -->
         <div v-else-if="selectedEmoticon" class="images-grid">
-          <button
-            v-for="image in selectedImages"
-            :key="image.imageId"
-            @click="handleImageClick(image)"
-            class="image-btn"
-          >
+          <button v-for="image in selectedImages" :key="image.imageId" @click="handleImageClick(image)"
+            class="image-btn">
             <img :src="image.imageUrl" :alt="selectedEmoticon.name" />
           </button>
         </div>
@@ -129,12 +125,7 @@ watch(() => props.show, (newVal) => {
         <div class="search-area">
           <div class="relative">
             <Search class="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input
-              v-model="searchKeyword"
-              type="text"
-              placeholder="검색..."
-              class="search-input"
-            />
+            <input v-model="searchKeyword" type="text" placeholder="검색..." class="search-input" />
           </div>
         </div>
 
@@ -152,16 +143,9 @@ watch(() => props.show, (newVal) => {
 
         <!-- 이모티콘 목록 -->
         <div v-else class="emoticons-grid">
-          <button
-            v-for="emoticon in filteredEmoticons"
-            :key="emoticon.emoticonId"
-            @click="handleEmoticonClick(emoticon)"
-            class="emoticon-btn"
-          >
-            <img
-              :src="emoticon.thumbnailUrl || emoticon.images?.[0]?.imageUrl"
-              :alt="emoticon.name"
-            />
+          <button v-for="emoticon in filteredEmoticons" :key="emoticon.emoticonId"
+            @click="handleEmoticonClick(emoticon)" class="emoticon-btn">
+            <img :src="emoticon.thumbnailUrl || emoticon.images?.[0]?.imageUrl" :alt="emoticon.name" />
             <span class="emoticon-name">{{ emoticon.name }}</span>
           </button>
         </div>
@@ -173,10 +157,11 @@ watch(() => props.show, (newVal) => {
 <style scoped>
 .emoticon-picker {
   position: absolute;
-  top: 42px; /* toolbar 높이 바로 아래 */
+  top: 42px;
+  /* toolbar 높이 바로 아래 */
   right: 0;
-  width: 320px;
-  max-height: 350px;
+  width: 400px;
+  max-height: 450px;
   background: white;
   border-radius: 8px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
@@ -311,8 +296,8 @@ watch(() => props.show, (newVal) => {
 }
 
 .emoticon-btn img {
-  width: 48px;
-  height: 48px;
+  width: 64px;
+  height: 64px;
   object-fit: contain;
   border-radius: 4px;
 }

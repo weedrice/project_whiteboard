@@ -151,9 +151,19 @@ html {
     scrollbar-width: none;
   }
 
-  /* Comment Emoticon */
+  /* Comment Emoticon - baseline에 맞춰 텍스트와 같은 밑줄에 정렬 */
   .comment-emoticon {
-    @apply inline-block w-[100px] h-[100px] object-contain align-middle;
+    @apply inline-block w-[100px] h-[100px] object-contain align-baseline;
+  }
+
+  /*
+   * Quill 이모티콘 (에디터·본문 표시 공통)
+   * Blot이 노드 생성 시 넣는 인라인 스타일을 덮어 baseline 정렬을 강제합니다.
+   */
+  .ql-editor img.ql-emoticon,
+  img.ql-emoticon {
+    vertical-align: baseline !important;
+    display: inline-block !important;
   }
 
 }

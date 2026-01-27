@@ -25,8 +25,8 @@ export const registerEmoticonBlot = (Quill: any) => {
             node.setAttribute('draggable', 'false')
             node.style.width = '100px'
             node.style.height = '100px'
-            node.style.verticalAlign = 'middle'
-            node.style.display = 'inline'
+            node.style.verticalAlign = 'baseline'
+            node.style.display = 'inline-block'
             node.style.margin = '0 4px'
             return node
         }

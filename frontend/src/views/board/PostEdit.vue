@@ -264,12 +264,12 @@ button.ql-emoticon {
   height: 24px !important;
 }
 
-/* Emoticon image in content */
+/* Emoticon image in content - baseline에 맞춰 텍스트와 같은 밑줄에 정렬 */
 img.ql-emoticon {
   width: 100px !important;
   height: 100px !important;
-  vertical-align: middle;
-  display: inline;
+  vertical-align: baseline;
+  display: inline-block;
   margin: 0 4px;
 }
 

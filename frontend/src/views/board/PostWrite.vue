@@ -145,7 +145,7 @@ const handleEmoticonSelect = (image: EmoticonImage) => {
 
 const onEditorReady = (quill: any) => {
   quillInstance.value = quill
-  
+
   quill.getModule('toolbar').addHandler('image', imageHandler)
   quill.getModule('toolbar').addHandler('emoticon', emoticonHandler)
 }
@@ -223,11 +223,8 @@ async function handleSubmit() {
           <div class="mt-1 h-96 relative">
             <QuillEditor ref="editor" :toolbar="toolbarOptions" theme="snow" contentType="html"
               v-model:content="form.contents" @ready="onEditorReady" />
-            <EmoticonPicker 
-              :show="showEmoticonPicker" 
-              @select="handleEmoticonSelect"
-              @close="showEmoticonPicker = false" 
-            />
+            <EmoticonPicker :show="showEmoticonPicker" @select="handleEmoticonSelect"
+              @close="showEmoticonPicker = false" />
           </div>
         </div>
 
@@ -356,12 +353,12 @@ button.ql-emoticon {
   height: 24px !important;
 }
 
-/* Emoticon image in content */
+/* Emoticon image in content - baseline에 맞춰 텍스트와 같은 밑줄에 정렬 */
 img.ql-emoticon {
   width: 100px !important;
   height: 100px !important;
-  vertical-align: middle;
-  display: inline;
+  vertical-align: baseline;
+  display: inline-block;
   margin: 0 4px;
 }
 
