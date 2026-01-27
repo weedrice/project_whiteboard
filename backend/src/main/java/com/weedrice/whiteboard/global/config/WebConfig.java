@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.global.config;
 
 import com.weedrice.whiteboard.domain.admin.interceptor.IpBlockInterceptor;
 import com.weedrice.whiteboard.global.ratelimit.RateLimitInterceptor;
+import com.weedrice.whiteboard.global.ratelimit.RateLimitProperties;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
@@ -16,6 +17,7 @@ public class WebConfig implements WebMvcConfigurer {
     private final IpBlockInterceptor ipBlockInterceptor;
     private final com.weedrice.whiteboard.global.security.RefererCheckInterceptor refererCheckInterceptor;
     private final RateLimitInterceptor rateLimitInterceptor;
+    private final RateLimitProperties rateLimitProperties;
 
     @Value("${file.upload-dir:uploads}")
     private String uploadDir;
@@ -26,10 +28,12 @@ public class WebConfig implements WebMvcConfigurer {
         registry.addInterceptor(ipBlockInterceptor)
                 .addPathPatterns("/**"); // 모든 경로에 대해 인터셉터 적용
 
-        // Rate Limiting 인터셉터 (IP 차단 후, Referer 체크 전)
-        registry.addInterceptor(rateLimitInterceptor)
-                .addPathPatterns("/api/**") // API 경로에 대해 Rate Limiting 적용
-                .order(1); // IP 차단 후 실행
+        // Rate Limiting 인터셉터 (rate-limit.enabled=true일 때만 적용)
+        if (rateLimitProperties.isEnabled()) {
+            registry.addInterceptor(rateLimitInterceptor)
+                    .addPathPatterns("/api/**")
+                    .order(1);
+        }
 
         // Referer 체크 인터셉터
         registry.addInterceptor(refererCheckInterceptor)
