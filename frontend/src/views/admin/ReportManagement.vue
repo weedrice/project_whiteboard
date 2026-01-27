@@ -38,17 +38,9 @@ function openDetailModal(report: Report) {
 }
 
 function openSanctionModal(report: Report) {
-  // Assuming report has targetUser or similar field. 
-  // Based on previous ReportList.vue, it was report.targetUser.
-  // However, the new ReportList component passes 'report' object.
-  // We need to ensure we pass the user object correctly.
-  // Let's assume report.targetUser exists as per previous code.
-  // If report is about a post/comment, we might need to extract the author.
-  // For now, let's use report.targetUser if available, or try to find a user field.
-  // Looking at ReportList.vue (component), it displays report.reporterDisplayName and report.targetType.
-  // It doesn't explicitly show targetUser.
-  // But let's assume the API response includes targetUser info.
-  selectedUser.value = report.targetUser || { id: report.targetId, name: 'Unknown' }
+  // Report has targetId; targetType may be USER/POST/COMMENT. Sanction modal expects user id and name.
+  // API does not return targetUser, so we use targetId as user id and a placeholder name.
+  selectedUser.value = { id: report.targetId, name: 'Unknown' }
   isModalOpen.value = true
 }
 

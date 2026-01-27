@@ -43,7 +43,7 @@ import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import PostListSkeleton from '@/components/common/ui/PostListSkeleton.vue'
 import EmptyState from '@/components/common/ui/EmptyState.vue'
 import { FileText } from 'lucide-vue-next'
-import type { FeedPost } from '@/types'
+import type { FeedPost, PostSummary } from '@/types'
 import { useHead } from '@unhead/vue'
 
 useHead({
@@ -58,25 +58,25 @@ useHead({
 // Infinite scroll for trending posts
 const { posts: rawPosts, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage } = useTrendingPosts(10)
 
-// Convert PostSummary to FeedPost
+// Convert PostSummary to FeedPost (filter required fields, then map)
 const posts = computed<FeedPost[]>(() => {
   return rawPosts.value
-    .filter((post): post is FeedPost => {
-      return post != null && 
-        post.postId != null && 
-        post.boardUrl != null && 
-        post.boardName != null && 
-        post.authorName != null
-    })
-    .map((post) => ({
+    .filter((post): post is PostSummary & { boardUrl: string; boardName: string; authorName: string } =>
+      post != null &&
+      post.postId != null &&
+      post.boardUrl != null &&
+      post.boardName != null &&
+      post.authorName != null
+    )
+    .map((post): FeedPost => ({
       ...post,
-      boardUrl: post.boardUrl!,
-      boardName: post.boardName!,
-      authorName: post.authorName!,
+      boardUrl: post.boardUrl,
+      boardName: post.boardName,
+      authorName: post.authorName,
       liked: post.liked ?? false,
       scrapped: post.scrapped ?? false,
       subscribed: post.subscribed ?? false
-    } as FeedPost))
+    }))
 })
 
 // Mutations
