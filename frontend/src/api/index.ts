@@ -197,7 +197,11 @@ api.interceptors.response.use(
 
                 if (data.success) {
                     const newAccessToken = data.data.accessToken
+                    const newRefreshToken = data.data.refreshToken
                     Storage.setString('accessToken', newAccessToken)
+                    if (newRefreshToken) {
+                        Storage.setString('refreshToken', newRefreshToken)
+                    }
 
                     // Update user state (permissions, etc.) with new token
                     const { useAuthStore } = await import('@/stores/auth')

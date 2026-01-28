@@ -149,6 +149,11 @@ public class AuthService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
+        // 사용자 상태 검증 (SUSPENDED, DELETED 사용자는 로그인 불가)
+        if (!"ACTIVE".equals(user.getStatus())) {
+            throw new BusinessException(ErrorCode.USER_NOT_ACTIVE);
+        }
+
         String accessToken = jwtTokenProvider.createAccessToken(authentication);
         String refreshToken = jwtTokenProvider.createRefreshToken(authentication);
         String refreshTokenHash = hashTokenSha256(refreshToken);
@@ -156,17 +161,16 @@ public class AuthService {
         String ipAddress = ClientUtils.getIp(httpServletRequest);
         String userAgent = httpServletRequest.getHeader("User-Agent");
 
-        // Refresh Token 저장
+        // Refresh Token 저장 (만료일은 jwt.refresh-token.expiration 설정값 사용)
+        long refreshDays = jwtTokenProvider.getRefreshTokenValidityInMilliseconds() / (1000 * 60 * 60 * 24);
         RefreshToken rt = RefreshToken.builder()
                 .user(user)
                 .tokenHash(refreshTokenHash)
                 .ipAddress(ipAddress)
                 .deviceInfo(userAgent)
-                .expiresAt(LocalDateTime.now().plusDays(14))
+                .expiresAt(LocalDateTime.now().plusDays(refreshDays))
                 .build();
-        if (rt != null) {
-            refreshTokenRepository.save(rt);
-        }
+        refreshTokenRepository.save(rt);
 
         // 로그인 기록 저장
         LoginHistory loginHistory = LoginHistory.success(user, request.getLoginId(), ipAddress, userAgent);
@@ -208,10 +212,18 @@ public class AuthService {
     @Transactional
     public RefreshResponse refresh(RefreshRequest request) {
         String oldRefreshToken = request.getRefreshToken();
+        
+        // 1. JWT 자체의 유효성 검증 (서명, 만료일 등)
+        if (!jwtTokenProvider.validateToken(oldRefreshToken)) {
+            throw new BusinessException(ErrorCode.INVALID_REFRESH_TOKEN);
+        }
+        
+        // 2. DB에서 refresh token 조회
         String oldRefreshTokenHash = hashTokenSha256(oldRefreshToken);
         RefreshToken rt = refreshTokenRepository.findByTokenHash(oldRefreshTokenHash)
                 .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_REFRESH_TOKEN));
 
+        // 3. DB의 상태 검증 (revoked, expired)
         if (!rt.isValid()) {
             throw new BusinessException(ErrorCode.EXPIRED_REFRESH_TOKEN);
         }
