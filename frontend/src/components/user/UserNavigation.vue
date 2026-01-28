@@ -87,7 +87,7 @@ const handleTabKeyDown = (event: KeyboardEvent, currentIndex: number) => {
                 tabRefs.value[prevIndex]?.focus()
             })
             break
-            
+
         case 'ArrowRight':
             event.preventDefault()
             const nextIndex = currentIndex < tabCount - 1 ? currentIndex + 1 : 0
@@ -150,16 +150,43 @@ watch(() => route.path, () => {
 
 const throttledUpdateUnderline = useThrottleFn(updateUnderline, DEBOUNCE_DELAY.RESIZE)
 
+function isInputFocused(): boolean {
+    const el = document.activeElement
+    if (!el) return false
+    const tag = (el as HTMLElement).tagName?.toLowerCase()
+    if (tag === 'input' || tag === 'textarea' || tag === 'select') return true
+    if ((el as HTMLElement).getAttribute?.('contenteditable') === 'true') return true
+    if ((el as HTMLElement).closest?.('.ql-editor')) return true
+    return false
+}
+
+function handleDocumentKeyDown(e: KeyboardEvent) {
+    if (isInputFocused() || e.ctrlKey || e.altKey || e.metaKey) return
+    const idx = activeTabIndex.value
+    if (idx === -1) return
+    const n = tabs.length
+    if (e.key === '[' || e.key === '{') {
+        e.preventDefault()
+        const prev = idx > 0 ? idx - 1 : n - 1
+        router.push(tabs[prev].href)
+    } else if (e.key === ']' || e.key === '}') {
+        e.preventDefault()
+        const next = idx < n - 1 ? idx + 1 : 0
+        router.push(tabs[next].href)
+    }
+}
+
 onMounted(() => {
     // Wait for refs to be populated
     nextTick(updateUnderline)
     // Add resize listener to update underline position (throttled)
     window.addEventListener('resize', throttledUpdateUnderline)
+    document.addEventListener('keydown', handleDocumentKeyDown)
 })
 
 onUnmounted(() => {
-    // Remove resize listener
     window.removeEventListener('resize', throttledUpdateUnderline)
+    document.removeEventListener('keydown', handleDocumentKeyDown)
 })
 
 // Mobile Swipe Logic

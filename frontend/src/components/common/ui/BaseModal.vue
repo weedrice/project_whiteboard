@@ -1,13 +1,8 @@
 ﻿<template>
   <Teleport to="body">
-    <div v-if="isOpen" 
-      class="modal-overlay" 
-      @click.self="close"
-      role="dialog"
-      aria-modal="true"
-      :aria-labelledby="titleId"
-      :aria-describedby="descriptionId">
-      <div class="modal-container" ref="modalRef">
+    <div v-if="isOpen" class="modal-overlay" @click.self="close" role="dialog" aria-modal="true"
+      :aria-labelledby="titleId" :aria-describedby="descriptionId">
+      <div :class="['modal-container', sizeClass]" ref="modalRef">
         <!-- Modal content -->
         <div class="modal-content">
           <!-- Modal header -->
@@ -15,11 +10,7 @@
             <h3 :id="titleId" class="text-xl font-medium text-gray-900 dark:text-white">
               {{ title || 'Modal' }}
             </h3>
-            <BaseButton 
-              @click="close" 
-              variant="ghost" 
-              size="sm" 
-              class="ml-auto p-1.5 rounded-lg"
+            <BaseButton @click="close" variant="ghost" size="sm" class="ml-auto p-1.5 rounded-lg"
               :aria-label="$t('common.close') || 'Close modal'">
               <svg aria-hidden="true" class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"
                 xmlns="http://www.w3.org/2000/svg">
@@ -45,18 +36,33 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import { useI18n } from 'vue-i18n'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   isOpen: boolean
   title?: string
-}>()
+  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | 'full'
+}>(), {
+  size: 'md'
+})
 
 const emit = defineEmits<{
   (e: 'close'): void
 }>()
+
+const sizeClass = computed(() => {
+  const sizes: Record<string, string> = {
+    'sm': 'max-w-sm',
+    'md': 'max-w-md',
+    'lg': 'max-w-lg',
+    'xl': 'max-w-xl',
+    '2xl': 'max-w-2xl',
+    'full': 'max-w-[90vw]'
+  }
+  return sizes[props.size] || 'max-w-md'
+})
 
 const { t } = useI18n()
 const modalRef = ref<HTMLElement | null>(null)
@@ -74,7 +80,7 @@ const handleKeyDown = (event: KeyboardEvent) => {
   if (event.key === 'Escape' && props.isOpen) {
     close()
   }
-  
+
   // Focus trap: Tab key within modal
   if (event.key === 'Tab' && props.isOpen && modalRef.value) {
     const focusableElements = modalRef.value.querySelectorAll<HTMLElement>(
@@ -98,7 +104,7 @@ watch(() => props.isOpen, (isOpen) => {
   if (isOpen) {
     // Store previously focused element
     previouslyFocusedElement = document.activeElement as HTMLElement
-    
+
     nextTick(() => {
       // Focus first focusable element in modal
       if (modalRef.value) {
@@ -107,14 +113,14 @@ watch(() => props.isOpen, (isOpen) => {
         )
         focusableElements[0]?.focus()
       }
-      
+
       // Prevent body scroll when modal is open
       document.body.style.overflow = 'hidden'
     })
   } else {
     // Restore body scroll
     document.body.style.overflow = ''
-    
+
     // Restore focus to previously focused element
     if (previouslyFocusedElement) {
       previouslyFocusedElement.focus()
@@ -133,4 +139,3 @@ onUnmounted(() => {
   document.body.style.overflow = ''
 })
 </script>
-

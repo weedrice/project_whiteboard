@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watchEffect } from 'vue'
+import { ref, computed, watchEffect, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useBoard } from '@/composables/useBoard'
 import { usePost } from '@/composables/usePost'
@@ -15,6 +15,7 @@ import BaseCheckbox from '@/components/common/ui/BaseCheckbox.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import PostTags from '@/components/tag/PostTags.vue'
 import { useToastStore } from '@/stores/toast'
+import { useConfirm } from '@/composables/useConfirm'
 import EmoticonPicker from '@/components/common/widgets/EmoticonPicker.vue'
 import { registerEmoticonBlot } from '@/utils/emoticon-blot'
 import type { EmoticonImage } from '@/types/emoticon'
@@ -27,6 +28,7 @@ const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const toastStore = useToastStore()
+const { confirm } = useConfirm()
 
 const boardUrl = computed(() => route.params.boardUrl as string)
 const postId = computed(() => route.params.postId as string)
@@ -133,7 +135,7 @@ const handleEmoticonSelect = (image: EmoticonImage) => {
 
 const onEditorReady = (quill: any) => {
   quillInstance.value = quill
-  
+
   quill.getModule('toolbar').addHandler('image', imageHandler)
   quill.getModule('toolbar').addHandler('emoticon', emoticonHandler)
 }
@@ -177,6 +179,40 @@ async function handleSubmit() {
     }
   })
 }
+
+// 수정 취소 (confirm 후)
+async function handleCancel() {
+  const isConfirmed = await confirm(t('common.messages.confirmDelete'))
+  if (!isConfirmed) return
+  router.back()
+}
+
+// 키보드 단축키 핸들러
+const handleKeyDown = async (event: KeyboardEvent) => {
+  const { key, ctrlKey, metaKey } = event
+
+  // Ctrl+Enter: 저장
+  if ((ctrlKey || metaKey) && key === 'Enter') {
+    event.preventDefault()
+    handleSubmit()
+    return
+  }
+
+  // Esc: 취소 (confirm 후)
+  if (key === 'Escape') {
+    event.preventDefault()
+    await handleCancel()
+    return
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('keydown', handleKeyDown)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('keydown', handleKeyDown)
+})
 </script>
 
 <template>
@@ -219,11 +255,8 @@ async function handleSubmit() {
           <div class="mt-1 h-96 relative">
             <QuillEditor ref="editor" :toolbar="toolbarOptions" theme="snow" contentType="html"
               v-model:content="form.content" @ready="onEditorReady" />
-            <EmoticonPicker 
-              :show="showEmoticonPicker" 
-              @select="handleEmoticonSelect"
-              @close="showEmoticonPicker = false" 
-            />
+            <EmoticonPicker :show="showEmoticonPicker" @select="handleEmoticonSelect"
+              @close="showEmoticonPicker = false" />
           </div>
         </div>
 

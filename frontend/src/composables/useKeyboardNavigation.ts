@@ -25,9 +25,10 @@ export function useKeyboardNavigation<T>(
     onEscape?: () => void
     loop?: boolean // true면 마지막에서 다음으로 첫 번째로 이동
     initialIndex?: number
+    enableNumberKeys?: boolean // true면 1-9, 0 키로 항목 선택 가능
   } = {}
 ) {
-  const { onSelect, onEscape, loop = true, initialIndex = -1 } = options
+  const { onSelect, onEscape, loop = true, initialIndex = -1, enableNumberKeys = false } = options
 
   const selectedIndex = ref(initialIndex)
 
@@ -80,6 +81,23 @@ export function useKeyboardNavigation<T>(
         event.preventDefault()
         if (onEscape) {
           onEscape()
+        }
+        break
+
+      default:
+        // 숫자키 처리 (1-9: 인덱스 0-8, 0: 인덱스 9)
+        if (enableNumberKeys && event.key >= '0' && event.key <= '9') {
+          let index = -1
+          if (event.key >= '1' && event.key <= '9') {
+            index = parseInt(event.key) - 1
+          } else if (event.key === '0') {
+            index = 9
+          }
+
+          if (index >= 0 && index < itemCount && onSelect) {
+            event.preventDefault()
+            onSelect(index)
+          }
         }
         break
     }

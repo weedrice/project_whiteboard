@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watchEffect } from 'vue'
+import { ref, computed, watchEffect, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useBoard } from '@/composables/useBoard'
 import { usePost } from '@/composables/usePost'
@@ -15,6 +15,7 @@ import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseSelect from '@/components/common/ui/BaseSelect.vue'
 import BaseCheckbox from '@/components/common/ui/BaseCheckbox.vue'
 import { useToastStore } from '@/stores/toast'
+import { useConfirm } from '@/composables/useConfirm'
 import EmoticonPicker from '@/components/common/widgets/EmoticonPicker.vue'
 import { registerEmoticonBlot } from '@/utils/emoticon-blot'
 import type { EmoticonImage } from '@/types/emoticon'
@@ -28,6 +29,7 @@ const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 const toastStore = useToastStore()
+const { confirm } = useConfirm()
 const boardUrl = computed(() => route.params.boardUrl as string)
 
 const { useBoardDetail, useBoardCategories } = useBoard()
@@ -185,6 +187,43 @@ async function handleSubmit() {
     }
   })
 }
+
+// 작성 취소 (confirm 후)
+async function handleCancel() {
+  const hasContent = form.value.title.trim() || form.value.contents.trim()
+  if (hasContent) {
+    const isConfirmed = await confirm(t('common.messages.confirmDelete'))
+    if (!isConfirmed) return
+  }
+  router.back()
+}
+
+// 키보드 단축키 핸들러
+const handleKeyDown = async (event: KeyboardEvent) => {
+  const { key, ctrlKey, metaKey } = event
+
+  // Ctrl+Enter: 제출
+  if ((ctrlKey || metaKey) && key === 'Enter') {
+    event.preventDefault()
+    handleSubmit()
+    return
+  }
+
+  // Esc: 취소 (confirm 후)
+  if (key === 'Escape') {
+    event.preventDefault()
+    await handleCancel()
+    return
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('keydown', handleKeyDown)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('keydown', handleKeyDown)
+})
 </script>
 
 <template>

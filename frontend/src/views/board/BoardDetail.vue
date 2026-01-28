@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue'
-import { useRoute } from 'vue-router'
+import { ref, watch, computed, onMounted, onUnmounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useBoard } from '@/composables/useBoard'
 import PostList from '@/components/board/PostList.vue'
 import { Search, X, PlusCircle, Settings, User } from 'lucide-vue-next'
@@ -16,6 +16,7 @@ import { useHead } from '@unhead/vue'
 
 const { t } = useI18n()
 const route = useRoute()
+const router = useRouter()
 const authStore = useAuthStore()
 
 const { useBoardDetail, useBoardPosts, useBoardNotices, useSubscribeBoard } = useBoard()
@@ -45,6 +46,7 @@ const isSearching = ref(false)
 const filterType = ref('all') // 'all', 'concept', or 'category'
 const activeFilterCategory = ref<{ categoryId: number; name: string } | null>(null)
 const sort = ref('createdAt,desc')
+const searchInputRef = ref<HTMLInputElement | null>(null)
 
 // Computed Params for Query
 const queryParams = computed(() => {
@@ -232,6 +234,90 @@ watch(() => route.params.boardUrl, () => {
     activeFilterCategory.value = null
     page.value = 0
 })
+
+// 입력 필드 확인
+const isInputFocused = (): boolean => {
+    const activeElement = document.activeElement
+    if (!activeElement) return false
+    const tagName = activeElement.tagName.toLowerCase()
+    if (tagName === 'input' || tagName === 'textarea' || tagName === 'select') return true
+    if (activeElement.getAttribute('contenteditable') === 'true') return true
+    return false
+}
+
+// 키보드 단축키 핸들러
+const handleKeyDown = (event: KeyboardEvent) => {
+    const { key, shiftKey, ctrlKey, altKey, metaKey } = event
+
+    if (ctrlKey || altKey || metaKey) return
+    if (isInputFocused()) return
+
+    // Shift 조합
+    if (shiftKey) {
+        if (key === '[' || key === '{') {
+            event.preventDefault()
+            page.value = 0
+            return
+        }
+        if (key === ']' || key === '}') {
+            event.preventDefault()
+            if (totalPages.value > 0) {
+                page.value = totalPages.value - 1
+            }
+            return
+        }
+        return
+    }
+
+    switch (key) {
+        case ']':
+            if (page.value < totalPages.value - 1) {
+                event.preventDefault()
+                page.value++
+            }
+            break
+
+        case '[':
+            if (page.value > 0) {
+                event.preventDefault()
+                page.value--
+            }
+            break
+
+        case 'n':
+        case 'N':
+            if (canWrite.value && board.value) {
+                event.preventDefault()
+                router.push(`/board/${board.value.boardUrl}/write`)
+            }
+            break
+
+        case 'f':
+        case 'F':
+            if (authStore.isAuthenticated) {
+                event.preventDefault()
+                handleSubscribe()
+            }
+            break
+
+        case '/':
+            event.preventDefault()
+            // 검색창에 포커스
+            const searchInput = document.querySelector('input[type="text"]') as HTMLInputElement
+            if (searchInput) {
+                searchInput.focus()
+            }
+            break
+    }
+}
+
+onMounted(() => {
+    document.addEventListener('keydown', handleKeyDown)
+})
+
+onUnmounted(() => {
+    document.removeEventListener('keydown', handleKeyDown)
+})
 </script>
 
 <template>
@@ -283,12 +369,12 @@ watch(() => route.params.boardUrl, () => {
             <div class="bg-white dark:bg-gray-800 shadow rounded-lg mb-6 p-6 transition-colors duration-200">
                 <div class="flex items-start">
                     <router-link :to="`/board/${board.boardUrl}`" class="flex-shrink-0 mr-6 cursor-pointer">
-                        <img v-if="board.iconUrl" :src="getOptimizedBoardIconUrl(board.iconUrl, 80)" class="h-20 w-20 rounded-full" alt=""
-                          @error="handleImageError($event)" />
+                        <img v-if="board.iconUrl" :src="getOptimizedBoardIconUrl(board.iconUrl, 80)"
+                            class="h-20 w-20 rounded-full" alt="" @error="handleImageError($event)" />
                         <div v-else
                             class="h-20 w-20 rounded-full bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center">
                             <span class="text-indigo-600 dark:text-indigo-400 font-bold text-3xl">{{ board.boardName[0]
-                            }}</span>
+                                }}</span>
                         </div>
                     </router-link>
                     <div class="flex-1 min-h-[5rem] flex flex-col justify-between">
@@ -375,33 +461,33 @@ watch(() => route.params.boardUrl, () => {
                 <div class="flex-1 min-w-0 hidden sm:block" aria-hidden="true"></div>
                 <div class="w-full sm:w-auto flex justify-center shrink-0">
                     <div class="list-search-row">
-                    <div class="list-search-group">
-                        <select v-model="searchType" class="list-search-select-inline">
-                            <option value="TITLE_CONTENT">{{ $t('board.detail.searchType.titleContent') }}</option>
-                            <option value="TITLE">{{ $t('board.detail.searchType.title') }}</option>
-                            <option value="CONTENT">{{ $t('board.detail.searchType.content') }}</option>
-                            <option value="AUTHOR">{{ $t('board.detail.searchType.author') }}</option>
-                            <option value="TAG">{{ $t('board.detail.searchType.tag') }}</option>
-                        </select>
-                        <div class="list-search-input-inner">
-                            <BaseInput v-model="searchQuery" @keyup.enter="handleSearch"
-                                :placeholder="$t('board.detail.searchPlaceholder')"
-                                inputClass="list-search-input" hideLabel>
-                                <template #prefix>
-                                    <Search class="h-5 w-5 text-gray-400" />
-                                </template>
-                                <template #suffix>
-                                    <button v-if="isSearching" type="button" @click="clearSearch"
-                                        class="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 cursor-pointer">
-                                        <X class="h-5 w-5" />
-                                    </button>
-                                </template>
-                            </BaseInput>
+                        <div class="list-search-group">
+                            <select v-model="searchType" class="list-search-select-inline">
+                                <option value="TITLE_CONTENT">{{ $t('board.detail.searchType.titleContent') }}</option>
+                                <option value="TITLE">{{ $t('board.detail.searchType.title') }}</option>
+                                <option value="CONTENT">{{ $t('board.detail.searchType.content') }}</option>
+                                <option value="AUTHOR">{{ $t('board.detail.searchType.author') }}</option>
+                                <option value="TAG">{{ $t('board.detail.searchType.tag') }}</option>
+                            </select>
+                            <div class="list-search-input-inner">
+                                <BaseInput v-model="searchQuery" @keyup.enter="handleSearch"
+                                    :placeholder="$t('board.detail.searchPlaceholder')" inputClass="list-search-input"
+                                    hideLabel>
+                                    <template #prefix>
+                                        <Search class="h-5 w-5 text-gray-400" />
+                                    </template>
+                                    <template #suffix>
+                                        <button v-if="isSearching" type="button" @click="clearSearch"
+                                            class="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 cursor-pointer">
+                                            <X class="h-5 w-5" />
+                                        </button>
+                                    </template>
+                                </BaseInput>
+                            </div>
+                            <BaseButton @click="handleSearch" variant="secondary" type="button" class="list-search-btn">
+                                {{ $t('search.doSearch') }}
+                            </BaseButton>
                         </div>
-                        <BaseButton @click="handleSearch" variant="secondary" type="button" class="list-search-btn">
-                            {{ $t('search.doSearch') }}
-                        </BaseButton>
-                    </div>
                     </div>
                 </div>
 

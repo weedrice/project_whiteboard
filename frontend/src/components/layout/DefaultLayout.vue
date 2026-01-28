@@ -3,6 +3,7 @@ import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useThemeStore } from '@/stores/theme'
+import { useKeyboardStore } from '@/stores/keyboard'
 import { useNotification } from '@/composables/useNotification'
 import { Search, Bell, Moon, Sun } from 'lucide-vue-next'
 import NotificationDropdown from '@/components/notification/NotificationDropdown.vue'
@@ -11,6 +12,7 @@ import BoardDropdown from '@/components/layout/BoardDropdown.vue'
 import Footer from '@/components/layout/Footer.vue'
 import GlobalSearchBar from '@/components/search/GlobalSearchBar.vue'
 import AdBanner from '@/components/common/widgets/AdBanner.vue'
+import KeyboardShortcutsModal from '@/components/common/KeyboardShortcutsModal.vue'
 
 import logoLight from '@/assets/noviis_logo.png'
 import logoDark from '@/assets/noviis_logo_dark.png'
@@ -19,6 +21,7 @@ const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
 const themeStore = useThemeStore()
+const keyboardStore = useKeyboardStore()
 const { useUnreadCount, connectToSse, closeSse } = useNotification()
 
 const logoSrc = computed(() => {
@@ -48,31 +51,37 @@ const toggleNotification = () => {
   if (isNotificationOpen.value) {
     isNotificationOpen.value = false
     activeDropdown.value = null
+    keyboardStore.closeDropdown()
   } else {
     closeAllDropdowns()
     isNotificationOpen.value = true
     activeDropdown.value = 'notification'
+    keyboardStore.setOpenDropdown('notification', [])
   }
 }
 
 const toggleDropdown = (name: string) => {
   if (activeDropdown.value === name) {
     activeDropdown.value = null
+    keyboardStore.closeDropdown()
   } else {
     closeAllDropdowns()
     activeDropdown.value = name
+    // BoardDropdown과 UserDropdown은 자체적으로 keyboardStore 등록
   }
 }
 
 const closeAllDropdowns = () => {
   isNotificationOpen.value = false
   activeDropdown.value = null
+  keyboardStore.closeDropdown()
 }
 
 // Expose to children
 const setActiveDropdown = (name: string) => {
   if (activeDropdown.value === name) {
     activeDropdown.value = null
+    keyboardStore.closeDropdown()
   } else {
     isNotificationOpen.value = false
     activeDropdown.value = name
@@ -86,13 +95,133 @@ const handleClickOutside = (event: Event) => {
   }
 }
 
+// 입력 필드 확인
+const isInputFocused = (): boolean => {
+  const activeElement = document.activeElement
+  if (!activeElement) return false
+  const tagName = activeElement.tagName.toLowerCase()
+  if (tagName === 'input' || tagName === 'textarea' || tagName === 'select') return true
+  if (activeElement.getAttribute('contenteditable') === 'true') return true
+  if (activeElement.closest('.ql-editor')) return true
+  return false
+}
+
+// 전역 키보드 단축키 핸들러
+const handleKeyDown = (event: KeyboardEvent) => {
+  const { key, shiftKey, ctrlKey, altKey, metaKey } = event
+
+  // 드롭다운 열린 상태에서 ESC
+  if (key === 'Escape') {
+    if (activeDropdown.value || isNotificationOpen.value) {
+      event.preventDefault()
+      closeAllDropdowns()
+      return
+    }
+    if (keyboardStore.isShortcutsModalOpen) {
+      event.preventDefault()
+      keyboardStore.closeShortcutsModal()
+      return
+    }
+    return
+  }
+
+  // 단축키 모달 열린 상태에서는 다른 단축키 무시
+  if (keyboardStore.isShortcutsModalOpen) return
+
+  // 드롭다운 열린 상태에서는 숫자키 이외 무시 (숫자키는 컴포넌트에서 처리)
+  if (activeDropdown.value || isNotificationOpen.value) return
+
+  // 입력 필드에서는 전역 단축키 비활성화
+  if (isInputFocused()) return
+
+  // Ctrl/Meta 조합
+  if (ctrlKey || metaKey) {
+    if (key === 'k' || key === 'K') {
+      event.preventDefault()
+      router.push('/search')
+      return
+    }
+    return
+  }
+
+  // Alt 조합
+  if (altKey) {
+    if (key === 'n' || key === 'N') {
+      if (authStore.isAuthenticated) {
+        event.preventDefault()
+        router.push('/mypage/notifications')
+      }
+      return
+    }
+    return
+  }
+
+  // Shift 조합
+  if (shiftKey) {
+    if (key === 'B') {
+      event.preventDefault()
+      router.push('/boards')
+      return
+    }
+    // Shift+/ (?)로 단축키 도움말 열기
+    if (key === '/' || key === '?') {
+      event.preventDefault()
+      keyboardStore.toggleShortcutsModal()
+      return
+    }
+    return
+  }
+
+  // 단일 키
+  switch (key) {
+    case 's':
+      if (authStore.isAuthenticated) {
+        event.preventDefault()
+        setActiveDropdown('subscription')
+      }
+      break
+
+    case 'b':
+      event.preventDefault()
+      setActiveDropdown('all')
+      break
+
+    case 'h':
+      event.preventDefault()
+      router.push('/')
+      break
+
+    case 'm':
+      if (authStore.isAuthenticated) {
+        event.preventDefault()
+        setActiveDropdown('user')
+      }
+      break
+
+    case 'd':
+      event.preventDefault()
+      themeStore.toggleTheme()
+      break
+
+    case 'q':
+      if (authStore.isAuthenticated) {
+        event.preventDefault()
+        authStore.logout()
+        router.push('/')
+      }
+      break
+  }
+}
+
 onMounted(() => {
   document.addEventListener('click', handleClickOutside)
+  document.addEventListener('keydown', handleKeyDown)
 })
 
 onUnmounted(() => {
   closeSse()
   document.removeEventListener('click', handleClickOutside)
+  document.removeEventListener('keydown', handleKeyDown)
 })
 
 const skipToMainContent = (event: Event) => {
@@ -176,5 +305,8 @@ const skipToMainContent = (event: Event) => {
     </main>
 
     <Footer />
+
+    <!-- Keyboard Shortcuts Modal -->
+    <KeyboardShortcutsModal />
   </div>
 </template>

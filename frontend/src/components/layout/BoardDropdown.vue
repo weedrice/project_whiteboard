@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ChevronDown, List } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
 import { useBoard } from '@/composables/useBoard'
+import { useKeyboardStore, type DropdownItem } from '@/stores/keyboard'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 
 const props = defineProps<{
@@ -17,6 +18,7 @@ const emit = defineEmits<{
 
 const router = useRouter()
 const authStore = useAuthStore()
+const keyboardStore = useKeyboardStore()
 const dropdownRef = ref<HTMLElement | null>(null)
 const { useBoards, useSubscribedBoards } = useBoard()
 
@@ -42,6 +44,18 @@ const loading = computed(() => {
   return props.type === 'subscription' ? loadingSubscriptions.value : loadingAll.value
 })
 
+// 최대 10개까지 숫자 배지 표시
+const displayItems = computed(() => {
+  return items.value.slice(0, 10)
+})
+
+// 숫자 배지 표시 (1-9, 0)
+const getNumberBadge = (index: number): string => {
+  if (index < 9) return String(index + 1)
+  if (index === 9) return '0'
+  return ''
+}
+
 const toggleDropdown = () => {
   emit('toggle')
 }
@@ -50,6 +64,58 @@ const handleMoreClick = () => {
   emit('toggle') // Close dropdown
   router.push('/boards')
 }
+
+const navigateToBoard = (boardUrl: string) => {
+  emit('toggle')
+  router.push(`/board/${boardUrl}`)
+}
+
+// 드롭다운 열릴 때 keyboard store에 항목 등록
+watch(() => props.isOpen, (isOpen) => {
+  if (isOpen) {
+    const dropdownItems: DropdownItem[] = displayItems.value.map((board) => ({
+      label: board.boardName,
+      action: () => navigateToBoard(board.boardUrl),
+    }))
+    keyboardStore.setOpenDropdown(props.type, dropdownItems)
+  }
+}, { immediate: true })
+
+// 키보드 이벤트 핸들러
+const handleKeyDown = (event: KeyboardEvent) => {
+  if (!props.isOpen) return
+
+  // ESC로 닫기
+  if (event.key === 'Escape') {
+    event.preventDefault()
+    emit('toggle')
+    keyboardStore.closeDropdown()
+    return
+  }
+
+  // 숫자키로 선택
+  if (event.key >= '0' && event.key <= '9') {
+    let index = -1
+    if (event.key >= '1' && event.key <= '9') {
+      index = parseInt(event.key) - 1
+    } else if (event.key === '0') {
+      index = 9
+    }
+
+    if (index >= 0 && index < displayItems.value.length) {
+      event.preventDefault()
+      navigateToBoard(displayItems.value[index].boardUrl)
+    }
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('keydown', handleKeyDown)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('keydown', handleKeyDown)
+})
 </script>
 
 <template>
@@ -69,11 +135,14 @@ const handleMoreClick = () => {
 
       <div v-else-if="items.length > 0">
         <div class="max-h-96 overflow-y-auto">
-          <router-link v-for="board in items" :key="board.boardUrl" :to="`/board/${board.boardUrl}`"
-            class="group flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
-            @click="emit('toggle')">
+          <button v-for="(board, index) in displayItems" :key="board.boardUrl" @click="navigateToBoard(board.boardUrl)"
+            class="group flex items-center justify-between w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white">
             <span class="truncate">{{ board.boardName }}</span>
-          </router-link>
+            <kbd v-if="index < 10"
+              class="ml-2 px-1.5 py-0.5 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded">
+              {{ getNumberBadge(index) }}
+            </kbd>
+          </button>
         </div>
 
         <div v-if="type === 'all'" class="border-t border-gray-100 dark:border-gray-700 pt-1">

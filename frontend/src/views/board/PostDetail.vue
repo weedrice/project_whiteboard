@@ -38,17 +38,21 @@ const { data: post, isLoading, error: postError } = usePostDetail(postId)
 useHead({
   title: computed(() => post.value?.title || 'Post'),
   meta: [
-    { name: 'description', content: computed(() => {
-      if (!post.value?.contents) return 'Post content'
-      const text = post.value.contents.replace(/<[^>]*>/g, '').slice(0, 160)
-      return text + (text.length >= 160 ? '...' : '')
-    })},
+    {
+      name: 'description', content: computed(() => {
+        if (!post.value?.contents) return 'Post content'
+        const text = post.value.contents.replace(/<[^>]*>/g, '').slice(0, 160)
+        return text + (text.length >= 160 ? '...' : '')
+      })
+    },
     { property: 'og:title', content: computed(() => `${post.value?.title || 'Post'} | noviIs`) },
-    { property: 'og:description', content: computed(() => {
-      if (!post.value?.contents) return 'Post content'
-      const text = post.value.contents.replace(/<[^>]*>/g, '').slice(0, 160)
-      return text + (text.length >= 160 ? '...' : '')
-    })},
+    {
+      property: 'og:description', content: computed(() => {
+        if (!post.value?.contents) return 'Post content'
+        const text = post.value.contents.replace(/<[^>]*>/g, '').slice(0, 160)
+        return text + (text.length >= 160 ? '...' : '')
+      })
+    },
     { property: 'og:type', content: 'article' }
   ]
 })
@@ -285,31 +289,6 @@ function setupObserver() {
   }
 }
 
-onMounted(() => {
-  setupObserver()
-})
-
-onUnmounted(() => {
-  // Observer 정리
-  if (observer) {
-    observer.disconnect()
-    observer = null
-  }
-  // 모든 타이머 정리
-  if (blurTimer.value) {
-    clearInterval(blurTimer.value)
-    blurTimer.value = null
-  }
-  if (likeAnimationTimer.value) {
-    clearTimeout(likeAnimationTimer.value)
-    likeAnimationTimer.value = null
-  }
-  if (scrapAnimationTimer.value) {
-    clearTimeout(scrapAnimationTimer.value)
-    scrapAnimationTimer.value = null
-  }
-})
-
 watch(() => post.value, () => {
   nextTick(() => {
     setupObserver()
@@ -340,6 +319,113 @@ function goToList() {
     router.back()
   }
 }
+
+// 입력 필드 확인
+const isInputFocused = (): boolean => {
+  const activeElement = document.activeElement
+  if (!activeElement) return false
+  const tagName = activeElement.tagName.toLowerCase()
+  if (tagName === 'input' || tagName === 'textarea' || tagName === 'select') return true
+  if (activeElement.getAttribute('contenteditable') === 'true') return true
+  if (activeElement.closest('.ql-editor')) return true
+  return false
+}
+
+// 키보드 단축키 핸들러
+const handleKeyDown = (event: KeyboardEvent) => {
+  const { key, shiftKey, ctrlKey, altKey, metaKey } = event
+
+  if (ctrlKey || altKey || metaKey) return
+  if (isInputFocused()) return
+
+  // Shift 조합
+  if (shiftKey) {
+    if (key === 'S') {
+      // 스크랩 (S와 충돌하므로 Shift 사용)
+      if (authStore.isAuthenticated && post.value) {
+        event.preventDefault()
+        handleScrap()
+      }
+      return
+    }
+    if (key === 'Y') {
+      // 공유
+      event.preventDefault()
+      handleShare()
+      return
+    }
+    return
+  }
+
+  switch (key) {
+    case 'c':
+      // 댓글 영역으로 이동 (플로팅 네비 함수 재사용)
+      event.preventDefault()
+      scrollToComments()
+      break
+
+    case 'u':
+      // 목록으로 이동 (플로팅 네비 함수 재사용)
+      event.preventDefault()
+      goToList()
+      break
+
+    case 'l':
+      // 좋아요
+      if (authStore.isAuthenticated && post.value) {
+        event.preventDefault()
+        handleLike()
+      }
+      break
+
+    case 'y':
+      // URL 복사
+      event.preventDefault()
+      handleCopyUrl()
+      break
+
+    case 'e':
+      // 수정 (작성자만)
+      if (isAuthor.value && post.value) {
+        event.preventDefault()
+        router.push(`/board/${post.value.board.boardUrl}/post/${post.value.postId}/edit`)
+      }
+      break
+
+    case 'Escape':
+      // 목록으로 이동
+      event.preventDefault()
+      goToList()
+      break
+  }
+}
+
+onMounted(() => {
+  setupObserver()
+  document.addEventListener('keydown', handleKeyDown)
+})
+
+onUnmounted(() => {
+  // Observer 정리
+  if (observer) {
+    observer.disconnect()
+    observer = null
+  }
+  // 모든 타이머 정리
+  if (blurTimer.value) {
+    clearInterval(blurTimer.value)
+    blurTimer.value = null
+  }
+  if (likeAnimationTimer.value) {
+    clearTimeout(likeAnimationTimer.value)
+    likeAnimationTimer.value = null
+  }
+  if (scrapAnimationTimer.value) {
+    clearTimeout(scrapAnimationTimer.value)
+    scrapAnimationTimer.value = null
+  }
+  document.removeEventListener('keydown', handleKeyDown)
+})
 </script>
 
 <template>

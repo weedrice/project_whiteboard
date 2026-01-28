@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, onUnmounted, watch, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useKeyboardStore, type DropdownItem } from '@/stores/keyboard'
 import { User, LogOut, Settings, CreditCard, FileText, Clock, AlertTriangle, PlusSquare, ChevronDown, Bell, LayoutDashboard, Mail, Star, Slash, Smile } from 'lucide-vue-next'
 import axios from '@/api'
 import logger from '@/utils/logger'
@@ -9,6 +10,7 @@ import BaseButton from '@/components/common/ui/BaseButton.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
+const keyboardStore = useKeyboardStore()
 
 const props = withDefaults(defineProps<{
   isOpen?: boolean
@@ -43,14 +45,71 @@ const handleLogout = async () => {
   router.push('/')
 }
 
-watch(() => props.isOpen, (newVal) => {
-  if (newVal) {
+// 숫자키로 선택 가능한 메뉴 항목들 (관리자, 게시판 만들기, 노비콘 제외)
+const menuItems = computed(() => [
+  { key: '1', route: '/mypage', label: 'common.myPage' },
+  { key: '2', route: '/mypage/settings', label: 'common.settings' },
+  { key: '3', route: '/mypage/notifications', label: 'common.notifications' },
+  { key: '4', route: '/mypage/messages', label: 'common.mailbox' },
+  { key: '5', route: '/mypage/points', label: 'common.points' },
+  { key: '6', route: '/mypage/scraps', label: 'common.scrap' },
+  { key: '7', route: '/mypage/subscriptions', label: 'user.tabs.subscriptions' },
+  { key: '8', route: '/mypage/recent', label: 'layout.menu.recent' },
+  { key: '9', route: '/mypage/reports', label: 'layout.menu.reports' },
+  { key: '0', route: '/mypage/blocked', label: 'user.tabs.blocked' },
+])
+
+const navigateTo = (route: string) => {
+  emit('toggle')
+  router.push(route)
+}
+
+// 드롭다운 열릴 때 keyboard store에 항목 등록
+watch(() => props.isOpen, (isOpen) => {
+  if (isOpen) {
     fetchPoints()
+    const dropdownItems: DropdownItem[] = menuItems.value.map((item) => ({
+      label: item.label,
+      action: () => navigateTo(item.route),
+    }))
+    keyboardStore.setOpenDropdown('user', dropdownItems)
   }
-})
+}, { immediate: true })
+
+// 키보드 이벤트 핸들러
+const handleKeyDown = (event: KeyboardEvent) => {
+  if (!props.isOpen) return
+
+  // ESC로 닫기
+  if (event.key === 'Escape') {
+    event.preventDefault()
+    emit('toggle')
+    keyboardStore.closeDropdown()
+    return
+  }
+
+  // 숫자키로 선택 (1-9: 인덱스 0-8, 0: 인덱스 9)
+  if (event.key >= '0' && event.key <= '9') {
+    let index = -1
+    if (event.key >= '1' && event.key <= '9') {
+      index = parseInt(event.key) - 1
+    } else if (event.key === '0') {
+      index = 9
+    }
+
+    if (index >= 0 && index < menuItems.value.length) {
+      event.preventDefault()
+      navigateTo(menuItems.value[index].route)
+    }
+  }
+}
 
 onMounted(() => {
-  fetchPoints()
+  document.addEventListener('keydown', handleKeyDown)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('keydown', handleKeyDown)
 })
 </script>
 
@@ -102,82 +161,122 @@ onMounted(() => {
       <!-- Group 2: MyPage, Settings, Notifications, Messages, Points -->
       <div class="py-1 border-b border-gray-100 dark:border-gray-700">
         <router-link to="/mypage"
-          class="group flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
+          class="group flex items-center justify-between px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
           @click="emit('toggle')">
-          <User
-            class="mr-3 h-4 w-4 text-gray-400 group-hover:text-gray-500 dark:text-gray-500 dark:group-hover:text-gray-400" />
-          {{ $t('common.myPage') }}
+          <div class="flex items-center">
+            <User
+              class="mr-3 h-4 w-4 text-gray-400 group-hover:text-gray-500 dark:text-gray-500 dark:group-hover:text-gray-400" />
+            {{ $t('common.myPage') }}
+          </div>
+          <kbd
+            class="px-1.5 py-0.5 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded">1</kbd>
         </router-link>
         <router-link to="/mypage/settings"
-          class="group flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
+          class="group flex items-center justify-between px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
           @click="emit('toggle')">
-          <Settings
-            class="mr-3 h-4 w-4 text-gray-400 group-hover:text-gray-500 dark:text-gray-500 dark:group-hover:text-gray-400" />
-          {{ $t('common.settings') }}
+          <div class="flex items-center">
+            <Settings
+              class="mr-3 h-4 w-4 text-gray-400 group-hover:text-gray-500 dark:text-gray-500 dark:group-hover:text-gray-400" />
+            {{ $t('common.settings') }}
+          </div>
+          <kbd
+            class="px-1.5 py-0.5 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded">2</kbd>
         </router-link>
         <router-link to="/mypage/notifications"
-          class="group flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
+          class="group flex items-center justify-between px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
           @click="emit('toggle')">
-          <Bell
-            class="mr-3 h-4 w-4 text-gray-400 group-hover:text-gray-500 dark:text-gray-500 dark:group-hover:text-gray-400" />
-          {{ $t('common.notifications') }}
+          <div class="flex items-center">
+            <Bell
+              class="mr-3 h-4 w-4 text-gray-400 group-hover:text-gray-500 dark:text-gray-500 dark:group-hover:text-gray-400" />
+            {{ $t('common.notifications') }}
+          </div>
+          <kbd
+            class="px-1.5 py-0.5 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded">3</kbd>
         </router-link>
         <router-link to="/mypage/messages"
-          class="group flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
+          class="group flex items-center justify-between px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
           @click="emit('toggle')">
-          <Mail
-            class="mr-3 h-4 w-4 text-gray-400 group-hover:text-gray-500 dark:text-gray-500 dark:group-hover:text-gray-400" />
-          {{ $t('common.mailbox') }}
+          <div class="flex items-center">
+            <Mail
+              class="mr-3 h-4 w-4 text-gray-400 group-hover:text-gray-500 dark:text-gray-500 dark:group-hover:text-gray-400" />
+            {{ $t('common.mailbox') }}
+          </div>
+          <kbd
+            class="px-1.5 py-0.5 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded">4</kbd>
         </router-link>
         <router-link to="/mypage/points"
-          class="group flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
+          class="group flex items-center justify-between px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
           @click="emit('toggle')">
-          <CreditCard
-            class="mr-3 h-4 w-4 text-gray-400 group-hover:text-gray-500 dark:text-gray-500 dark:group-hover:text-gray-400" />
-          {{ $t('common.points') }}
+          <div class="flex items-center">
+            <CreditCard
+              class="mr-3 h-4 w-4 text-gray-400 group-hover:text-gray-500 dark:text-gray-500 dark:group-hover:text-gray-400" />
+            {{ $t('common.points') }}
+          </div>
+          <kbd
+            class="px-1.5 py-0.5 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded">5</kbd>
         </router-link>
       </div>
 
       <!-- Group 3: Scraps, Subscriptions -->
       <div class="py-1 border-b border-gray-100 dark:border-gray-700">
         <router-link to="/mypage/scraps"
-          class="group flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
+          class="group flex items-center justify-between px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
           @click="emit('toggle')">
-          <FileText
-            class="mr-3 h-4 w-4 text-gray-400 group-hover:text-gray-500 dark:text-gray-500 dark:group-hover:text-gray-400" />
-          {{ $t('common.scrap') }}
+          <div class="flex items-center">
+            <FileText
+              class="mr-3 h-4 w-4 text-gray-400 group-hover:text-gray-500 dark:text-gray-500 dark:group-hover:text-gray-400" />
+            {{ $t('common.scrap') }}
+          </div>
+          <kbd
+            class="px-1.5 py-0.5 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded">6</kbd>
         </router-link>
         <router-link to="/mypage/subscriptions"
-          class="group flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
+          class="group flex items-center justify-between px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
           @click="emit('toggle')">
-          <Star
-            class="mr-3 h-4 w-4 text-gray-400 group-hover:text-gray-500 dark:text-gray-500 dark:group-hover:text-gray-400" />
-          {{ $t('user.tabs.subscriptions') }}
+          <div class="flex items-center">
+            <Star
+              class="mr-3 h-4 w-4 text-gray-400 group-hover:text-gray-500 dark:text-gray-500 dark:group-hover:text-gray-400" />
+            {{ $t('user.tabs.subscriptions') }}
+          </div>
+          <kbd
+            class="px-1.5 py-0.5 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded">7</kbd>
         </router-link>
       </div>
 
       <!-- Group 4: Recent, Reports, Blocked, Create Board -->
       <div class="py-1 border-b border-gray-100 dark:border-gray-700">
         <router-link to="/mypage/recent"
-          class="group flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
+          class="group flex items-center justify-between px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
           @click="emit('toggle')">
-          <Clock
-            class="mr-3 h-4 w-4 text-gray-400 group-hover:text-gray-500 dark:text-gray-500 dark:group-hover:text-gray-400" />
-          {{ $t('layout.menu.recent') }}
+          <div class="flex items-center">
+            <Clock
+              class="mr-3 h-4 w-4 text-gray-400 group-hover:text-gray-500 dark:text-gray-500 dark:group-hover:text-gray-400" />
+            {{ $t('layout.menu.recent') }}
+          </div>
+          <kbd
+            class="px-1.5 py-0.5 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded">8</kbd>
         </router-link>
         <router-link to="/mypage/reports"
-          class="group flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
+          class="group flex items-center justify-between px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
           @click="emit('toggle')">
-          <AlertTriangle
-            class="mr-3 h-4 w-4 text-gray-400 group-hover:text-gray-500 dark:text-gray-500 dark:group-hover:text-gray-400" />
-          {{ $t('layout.menu.reports') }}
+          <div class="flex items-center">
+            <AlertTriangle
+              class="mr-3 h-4 w-4 text-gray-400 group-hover:text-gray-500 dark:text-gray-500 dark:group-hover:text-gray-400" />
+            {{ $t('layout.menu.reports') }}
+          </div>
+          <kbd
+            class="px-1.5 py-0.5 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded">9</kbd>
         </router-link>
         <router-link to="/mypage/blocked"
-          class="group flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
+          class="group flex items-center justify-between px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
           @click="emit('toggle')">
-          <Slash
-            class="mr-3 h-4 w-4 text-gray-400 group-hover:text-gray-500 dark:text-gray-500 dark:group-hover:text-gray-400" />
-          {{ $t('user.tabs.blocked') }}
+          <div class="flex items-center">
+            <Slash
+              class="mr-3 h-4 w-4 text-gray-400 group-hover:text-gray-500 dark:text-gray-500 dark:group-hover:text-gray-400" />
+            {{ $t('user.tabs.blocked') }}
+          </div>
+          <kbd
+            class="px-1.5 py-0.5 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded">0</kbd>
         </router-link>
         <router-link to="/board/create"
           class="group flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
@@ -207,4 +306,3 @@ onMounted(() => {
     </div>
   </div>
 </template>
-

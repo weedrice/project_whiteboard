@@ -185,6 +185,47 @@ export interface LayoutMessages {
     createBoard: string
   }
   banner: string
+  shortcuts: {
+    title: string
+    global: string
+    dropdown: string
+    boardList: string
+    postDetail: string
+    writeEdit: string
+    help: string
+    home: string
+    search: string
+    darkMode: string
+    allBoards: string
+    allBoardsPage: string
+    subscribedBoards: string
+    myPage: string
+    notifications: string
+    selectItem: string
+    closeDropdown: string
+    navigate: string
+    select: string
+    nextPage: string
+    prevPage: string
+    lastPage: string
+    firstPage: string
+    write: string
+    subscribe: string
+    focusSearch: string
+    comments: string
+    toList: string
+    like: string
+    scrap: string
+    copyUrl: string
+    share: string
+    edit: string
+    submit: string
+    cancel: string
+    logout: string
+    mypageTabs: string
+    nextTab: string
+    prevTab: string
+  }
 }
 
 // 인증 메시지 타입

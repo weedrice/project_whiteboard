@@ -89,6 +89,18 @@ const handleClickOutside = (event: Event) => {
 
 // Input 키보드 이벤트 핸들러
 const handleInputKeyDown = (event: KeyboardEvent) => {
+  // ESC: 포커스 해제
+  if (event.key === 'Escape') {
+    event.preventDefault()
+    showDropdown.value = false
+    resetSelection()
+    // BaseInput 컴포넌트이므로 activeElement에서 blur
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur()
+    }
+    return
+  }
+
   if (showDropdown.value && filteredBoards.value.length > 0) {
     // If Enter is pressed and no item is selected, perform full search
     if (event.key === 'Enter' && selectedIndex.value === -1) {

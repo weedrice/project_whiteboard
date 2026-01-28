@@ -120,9 +120,11 @@ html {
   .list-search-row {
     @apply flex max-w-md w-full flex-1 min-w-0;
   }
+
   .list-search-group {
     @apply flex flex-1 min-w-0 items-stretch rounded-md overflow-hidden border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-indigo-500;
   }
+
   .list-search-select-inline {
     @apply h-10 min-h-10 pl-3 pr-8 text-sm text-gray-900 dark:text-white bg-transparent rounded-none rounded-l-md cursor-pointer focus:ring-0 focus:ring-offset-0 focus:outline-none shrink-0 border-r border-gray-300 dark:border-gray-600;
     appearance: none;
@@ -130,29 +132,36 @@ html {
     background-position: right 0.5rem center;
     background-repeat: no-repeat;
   }
+
   .dark .list-search-select-inline {
     color-scheme: dark;
   }
+
   .list-search-select-inline option {
     @apply bg-white dark:bg-gray-700 text-gray-900 dark:text-white;
   }
+
   .list-search-input-inner {
     @apply relative flex-1 min-w-0 flex min-h-0;
   }
-  .list-search-input-inner > * {
+
+  .list-search-input-inner>* {
     flex: 1 1 0%;
     min-width: 0;
   }
+
   .list-search-input {
     @apply rounded-none bg-transparent h-10 min-h-10 py-2 box-border focus:ring-0 focus:ring-offset-0 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500;
     border: none !important;
     box-shadow: none !important;
     outline: none;
   }
+
   .list-search-input:focus {
     outline: none;
     box-shadow: none;
   }
+
   .list-search-btn {
     @apply rounded-none h-10 min-h-10 py-0 px-4 bg-transparent hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 font-medium shrink-0 transition-colors border-l border-gray-300 dark:border-gray-600;
     border-top: none !important;
@@ -183,7 +192,7 @@ html {
   }
 
   .modal-footer {
-    @apply flex items-center p-6 space-x-2 border-t border-gray-200 rounded-b dark:border-gray-700;
+    @apply flex items-center justify-end w-full p-6 space-x-2 border-t border-gray-200 rounded-b dark:border-gray-700;
   }
 
   /* Utilities */
