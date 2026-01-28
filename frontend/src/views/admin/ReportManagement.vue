@@ -54,6 +54,7 @@ async function handleResolve(report: Report) {
   try {
     await resolveReport({ reportId: report.reportId, data: { status: 'RESOLVED' } })
     toastStore.addToast(t('admin.reports.messages.resolved'), 'success')
+    refetch()
   } catch (err) {
     // Error handled globally
   }
@@ -65,6 +66,7 @@ async function handleReject(report: Report) {
   try {
     await resolveReport({ reportId: report.reportId, data: { status: 'REJECTED' } })
     toastStore.addToast(t('admin.reports.messages.rejected'), 'success')
+    refetch()
   } catch (err) {
     // Error handled globally
   }

@@ -14,6 +14,10 @@ public class ReportResponse {
     private String reporterDisplayName;
     private String targetType;
     private Long targetId;
+    /** 대상 표시명 (USER: 닉네임, POST/COMMENT: null이면 targetType #targetId로 표시) */
+    private String targetDisplayName;
+    /** 대상 로그인 ID (USER일 때만 사용, 닉네임/ID 형태 표기용) */
+    private String targetLoginId;
     private String reasonType;
     private String remark;
     private String status;
@@ -29,6 +33,8 @@ public class ReportResponse {
                 .reporterDisplayName(report.getReporter().getDisplayName())
                 .targetType(report.getTargetType())
                 .targetId(report.getTargetId())
+                .targetDisplayName(null)
+                .targetLoginId(null)
                 .reasonType(report.getReasonType())
                 .remark(report.getRemark())
                 .status(report.getStatus())

@@ -34,21 +34,59 @@ function onSanction(report: Report) {
 }
 
 const columns = computed(() => [
-  { key: 'reportId', label: t('common.id'), width: '10%' },
-  { key: 'reporterDisplayName', label: t('admin.reports.table.reporter'), width: '15%' },
-  { key: 'target', label: t('common.target'), width: '20%' },
-  { key: 'contents', label: t('common.reason'), width: '25%' },
-  { key: 'status', label: t('common.status'), width: '10%' },
-  { key: 'createdAt', label: t('common.createdAt'), width: '10%' },
-  { key: 'actions', label: '', align: 'right' as const, width: '10%' }
+  { key: 'reportId', label: t('common.id'), width: '5%', align: 'center' as const },
+  { key: 'reporterDisplayName', label: t('admin.reports.table.reporter'), width: '8%', align: 'center' as const },
+  { key: 'targetType', label: t('admin.reports.targetType'), width: '5%', align: 'center' as const },
+  // 대상: 아이디 (줄바꿈) 닉네임, 폭은 조금만 사용
+  { key: 'target', label: t('common.target'), width: '10%', align: 'center' as const },
+  // 대상 콘텐츠 ID, 신고 유형 영역은 폭을 줄임
+  { key: 'contents', label: t('admin.reports.targetContentId'), width: '7%', align: 'center' as const },
+  { key: 'reasonType', label: t('admin.reports.reasonType'), width: '7%', align: 'center' as const },
+  // 줄인 폭은 사유(remark)에 몰아주기 + 좌측 정렬
+  { key: 'remark', label: t('admin.reports.remark'), width: '28%', align: 'left' as const },
+  { key: 'status', label: t('common.status'), width: '8%', align: 'center' as const },
+  { key: 'createdAt', label: t('common.createdAt'), width: '10%', align: 'center' as const },
+  { key: 'actions', label: '', align: 'center' as const, width: '10%' }
 ])
 </script>
 
 <template>
   <div class="mt-8">
     <BaseTable :columns="columns" :items="reports" :emptyText="t('common.noData')">
+      <template #cell-targetType="{ item }">
+        {{ item.targetType }}
+      </template>
+
       <template #cell-target="{ item }">
-        {{ item.targetType }} #{{ item.targetId }}
+        <span
+          class="inline-flex flex-col max-w-full"
+          :title="item.targetDisplayName != null && item.targetLoginId != null ? `${item.targetDisplayName}\n${item.targetLoginId}` : `${item.targetType} #${item.targetId}`"
+        >
+          <template v-if="item.targetDisplayName != null && item.targetLoginId != null">
+            <!-- 닉네임 -->
+            <span class="text-xs font-medium">{{ item.targetDisplayName }}</span>
+            <!-- ID -->
+            <span class="text-[11px] text-gray-500 dark:text-gray-400">{{ item.targetLoginId }}</span>
+          </template>
+          <template v-else>
+            <span class="text-xs">{{ item.targetType }} #{{ item.targetId }}</span>
+          </template>
+        </span>
+      </template>
+
+      <template #cell-reasonType="{ item }">
+        {{ item.reasonType || '-' }}
+      </template>
+
+      <template #cell-contents="{ item }">
+        <span v-if="item.targetType === 'POST' || item.targetType === 'COMMENT'">{{ item.targetId }}</span>
+        <span v-else class="text-gray-400">-</span>
+      </template>
+
+      <template #cell-remark="{ item }">
+        <span class="inline-block max-w-full truncate" :title="item.remark || ''">
+          {{ item.remark || '-' }}
+        </span>
       </template>
 
       <template #cell-status="{ item }">
@@ -63,7 +101,7 @@ const columns = computed(() => [
       </template>
 
       <template #cell-actions="{ item }">
-        <div class="flex justify-end space-x-2">
+        <div class="flex justify-center space-x-2">
           <BaseButton @click="$emit('viewDetail', item)" variant="ghost" size="sm"
             :title="t('common.viewDetail')"
             class="p-1 text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300">

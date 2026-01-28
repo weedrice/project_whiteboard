@@ -5,10 +5,12 @@ import com.weedrice.whiteboard.domain.report.dto.ReportResponse;
 import com.weedrice.whiteboard.domain.report.service.ReportService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
+import com.weedrice.whiteboard.domain.user.entity.Role;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
@@ -19,6 +21,7 @@ public class AdminReportController {
 
     private final ReportService reportService;
 
+    @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
     @GetMapping
     public ApiResponse<Page<ReportResponse>> getReports(
             @RequestParam(required = false) String status,
@@ -28,6 +31,7 @@ public class AdminReportController {
         return ApiResponse.success(response);
     }
 
+    @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
     @PutMapping("/{reportId}")
     public ApiResponse<ReportResponse> processReport(
             @PathVariable Long reportId,

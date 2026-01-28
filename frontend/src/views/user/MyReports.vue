@@ -1,4 +1,4 @@
-﻿<script setup>
+<script setup>
 import { ref, onMounted } from 'vue'
 import { reportApi } from '@/api/report'
 import Pagination from '@/components/common/ui/Pagination.vue'
@@ -70,7 +70,7 @@ onMounted(() => {
             <div class="flex flex-col">
               <p class="text-sm font-medium text-indigo-600 dark:text-indigo-400 truncate">
                 {{ $t('report.types.' + report.targetType.toLowerCase()) }} {{ $t('user.reportList.targetType') }} - {{
-                  report.reason }}
+                  report.reasonType || report.contents || '-' }}
               </p>
               <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
                 {{ formatDate(report.createdAt) }}
@@ -79,10 +79,10 @@ onMounted(() => {
             <div class="flex items-center">
               <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full" :class="{
                 'bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-400': report.status === 'PENDING',
-                'bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-400': report.status === 'PROCESSED',
+                'bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-400': report.status === 'RESOLVED',
                 'bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-400': report.status === 'REJECTED'
               }">
-                {{ report.status === 'PENDING' ? $t('user.reportList.pending') : (report.status === 'PROCESSED' ?
+                {{ report.status === 'PENDING' ? $t('user.reportList.pending') : (report.status === 'RESOLVED' ?
                   $t('user.reportList.processed') : $t('user.reportList.rejected')) }}
               </span>
             </div>

@@ -116,6 +116,10 @@ export const admin: AdminMessages = {
   reports: {
     title: '신고 관리',
     description: '접수된 신고 내역을 확인하고 처리합니다.',
+    targetType: '대상 유형',
+    reasonType: '신고 유형',
+    targetContentId: '대상 콘텐츠 ID',
+    remark: '사유',
     detail: {
       title: '신고 상세',
       reportInfo: '신고 정보',

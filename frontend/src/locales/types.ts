@@ -712,6 +712,10 @@ export interface AdminMessages {
   reports: {
     title: string
     description: string
+    targetType: string
+    reasonType: string
+    targetContentId: string
+    remark: string
     detail: {
       title: string
       reportInfo: string

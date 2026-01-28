@@ -66,7 +66,17 @@ const targetTypeLabel = computed(() => {
           <div>
             <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ t('common.target') }}</dt>
             <dd class="mt-1 text-sm text-gray-900 dark:text-white">
-              {{ targetTypeLabel }} #{{ report.targetId }}
+              <template v-if="report.targetDisplayName != null && report.targetLoginId != null">
+                <div class="flex flex-col">
+                  <!-- 닉네임 -->
+                  <span>{{ report.targetDisplayName }}</span>
+                  <!-- ID -->
+                  <span class="text-xs text-gray-500 dark:text-gray-400">{{ report.targetLoginId }}</span>
+                </div>
+              </template>
+              <template v-else>
+                {{ targetTypeLabel }} #{{ report.targetId }}
+              </template>
             </dd>
           </div>
           <div>
@@ -84,14 +94,26 @@ const targetTypeLabel = computed(() => {
         </dl>
       </div>
 
-      <!-- 신고 사유 -->
+      <!-- 신고 유형 / 대상 콘텐츠 ID -->
       <div>
         <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">
-          {{ t('common.reason') }}
+          {{ t('admin.reports.reasonType') }}
         </h3>
-        <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-          <p class="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{{ report.reason }}</p>
-        </div>
+        <dl class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div v-if="report.reasonType">
+            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ t('admin.reports.reasonType') }}</dt>
+            <dd class="mt-0.5 text-sm text-gray-900 dark:text-white">{{ report.reasonType }}</dd>
+          </div>
+          <div v-if="report.targetType === 'POST' || report.targetType === 'COMMENT'">
+            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ t('admin.reports.targetContentId') }}</dt>
+            <dd class="mt-0.5 text-sm text-gray-900 dark:text-white">{{ report.targetId }}</dd>
+          </div>
+        </dl>
+      </div>
+      <!-- 사유 (처리 비고) -->
+      <div class="border-t border-gray-200 dark:border-gray-600 pt-4">
+        <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">{{ t('admin.reports.remark') }}</h3>
+        <p class="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{{ report.remark || '-' }}</p>
       </div>
     </div>
   </BaseModal>

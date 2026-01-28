@@ -194,7 +194,7 @@ public class UserService {
         if (Boolean.TRUE.equals(user.getIsSuperAdmin())) {
             return Role.SUPER_ADMIN;
         }
-        return adminRepository.findByUserAndIsActive(user, true)
+        return adminRepository.findFirstByUserAndIsActiveOrderByAdminIdAsc(user, true)
                 .map(a -> a.getRole())
                 .orElse(Role.USER);
     }

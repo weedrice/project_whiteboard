@@ -1,7 +1,5 @@
 package com.weedrice.whiteboard.domain.report.service;
 
-import com.weedrice.whiteboard.domain.admin.entity.Admin;
-import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.report.dto.ReportResponse;
@@ -9,7 +7,6 @@ import com.weedrice.whiteboard.domain.report.entity.Report;
 import com.weedrice.whiteboard.domain.report.repository.ReportRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
-import com.weedrice.whiteboard.global.common.util.SecurityUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -25,7 +22,6 @@ public class ReportService {
 
     private final ReportRepository reportRepository;
     private final UserRepository userRepository;
-    private final AdminRepository adminRepository;
     private final PostRepository postRepository;
     private final CommentRepository commentRepository;
 
@@ -56,8 +52,6 @@ public class ReportService {
     }
 
     public Page<ReportResponse> getReports(String status, String targetType, Pageable pageable) {
-        SecurityUtils.validateSuperAdminPermission();
-
         Page<Report> reports;
         if (status != null && !status.isEmpty() && targetType != null && !targetType.isEmpty()) {
             reports = reportRepository.findByTargetTypeAndStatusOrderByCreatedAtDesc(targetType, status, pageable);
@@ -66,30 +60,53 @@ public class ReportService {
         } else {
             reports = reportRepository.findAll(pageable); // 모든 신고 조회
         }
-        return reports.map(ReportResponse::from);
+        return reports.map(this::toResponse);
     }
 
     public Page<ReportResponse> getMyReports(Long userId, Pageable pageable) {
         User reporter = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        return reportRepository.findByReporterOrderByCreatedAtDesc(reporter, pageable).map(ReportResponse::from);
+        return reportRepository.findByReporterOrderByCreatedAtDesc(reporter, pageable).map(this::toResponse);
+    }
+
+    /** 대상(USER)의 닉네임/로그인ID를 채운 ReportResponse 생성 */
+    private ReportResponse toResponse(Report report) {
+        String targetDisplayName = null;
+        String targetLoginId = null;
+        if ("USER".equalsIgnoreCase(report.getTargetType())) {
+            var targetUser = userRepository.findById(report.getTargetId());
+            if (targetUser.isPresent()) {
+                targetDisplayName = targetUser.get().getDisplayName();
+                targetLoginId = targetUser.get().getLoginId();
+            }
+        }
+        return ReportResponse.builder()
+                .reportId(report.getReportId())
+                .reporterId(report.getReporter().getUserId())
+                .reporterDisplayName(report.getReporter().getDisplayName())
+                .targetType(report.getTargetType())
+                .targetId(report.getTargetId())
+                .targetDisplayName(targetDisplayName)
+                .targetLoginId(targetLoginId)
+                .reasonType(report.getReasonType())
+                .remark(report.getRemark())
+                .status(report.getStatus())
+                .contents(report.getContents())
+                .createdAt(report.getCreatedAt())
+                .updatedAt(report.getModifiedAt())
+                .adminId(report.getAdmin() != null ? report.getAdmin().getAdminId() : null)
+                .build();
     }
 
     @Transactional
     public ReportResponse processReport(Long adminUserId, Long reportId, String status, String remark) {
-        SecurityUtils.validateSuperAdminPermission();
-
-        User adminUser = userRepository.findById(adminUserId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-
-        // Admin 테이블에 존재하면 가져오고, 없으면 null (슈퍼 관리자는 Admin 테이블에 없을 수 있음)
-        Admin admin = adminRepository.findByUserAndIsActive(adminUser, true).orElse(null);
-
         Report report = reportRepository.findById(reportId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
 
-        report.processReport(admin, status, remark);
-        return ReportResponse.from(report);
+        // 현재 신고 처리는 SUPER_ADMIN 전용이므로 Admin 엔티티를 따로 조회하지 않고, 처리자 정보는 remark 등에만 남긴다.
+        report.processReport(null, status, remark);
+        reportRepository.save(report);
+        return toResponse(report);
     }
 
     /**
