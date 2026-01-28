@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { ref, watch, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useBoard } from '@/composables/useBoard'
@@ -364,45 +364,48 @@ watch(() => route.params.boardUrl, () => {
                     :current-sort="sort" @update:sort="handleSortChange" />
                 <!-- Pagination -->
                 <div class="px-4 py-3 border-t border-gray-200 dark:border-gray-700 flex justify-center"
-                    v-if="totalPages > 1">
+                    v-if="totalPages >= 1">
                     <Pagination :currentPage="page" :totalPages="totalPages" @page-change="handlePageChange" />
                 </div>
             </div>
 
-            <!-- Search Bar & Write Button -->
+            <!-- Search Bar (가운데) & Write Button (오른쪽) -->
             <div
-                class="mt-4 px-4 py-4 sm:px-6 bg-gray-50 dark:bg-gray-800 rounded-lg flex flex-col sm:flex-row justify-between items-center gap-4 transition-colors duration-200">
-                <div class="flex max-w-lg w-full">
-                    <select v-model="searchType"
-                        class="block pl-3 pr-8 py-2 text-base border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white mr-2 cursor-pointer shadow-sm transition-colors duration-200">
-                        <option value="TITLE_CONTENT">{{ $t('board.detail.searchType.titleContent') }}</option>
-                        <option value="TITLE">{{ $t('board.detail.searchType.title') }}</option>
-                        <option value="CONTENT">{{ $t('board.detail.searchType.content') }}</option>
-                        <option value="AUTHOR">{{ $t('board.detail.searchType.author') }}</option>
-                        <option value="TAG">{{ $t('board.detail.searchType.tag') }}</option>
-                    </select>
-                    <div class="relative flex-grow">
-                        <BaseInput v-model="searchQuery" @keyup.enter="handleSearch"
-                            :placeholder="$t('board.detail.searchPlaceholder')"
-                            inputClass="rounded-l-md rounded-r-none border-r-0" hideLabel>
-                            <template #prefix>
-                                <Search class="h-5 w-5 text-gray-400" />
-                            </template>
-                            <template #suffix>
-                                <button v-if="isSearching" type="button" @click="clearSearch"
-                                    class="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 cursor-pointer">
-                                    <X class="h-5 w-5" />
-                                </button>
-                            </template>
-                        </BaseInput>
+                class="mt-4 px-4 py-4 sm:px-6 bg-gray-50 dark:bg-gray-800 rounded-lg flex flex-col sm:flex-row items-center gap-4 transition-colors duration-200">
+                <div class="flex-1 min-w-0 hidden sm:block" aria-hidden="true"></div>
+                <div class="w-full sm:w-auto flex justify-center shrink-0">
+                    <div class="list-search-row">
+                    <div class="list-search-group">
+                        <select v-model="searchType" class="list-search-select-inline">
+                            <option value="TITLE_CONTENT">{{ $t('board.detail.searchType.titleContent') }}</option>
+                            <option value="TITLE">{{ $t('board.detail.searchType.title') }}</option>
+                            <option value="CONTENT">{{ $t('board.detail.searchType.content') }}</option>
+                            <option value="AUTHOR">{{ $t('board.detail.searchType.author') }}</option>
+                            <option value="TAG">{{ $t('board.detail.searchType.tag') }}</option>
+                        </select>
+                        <div class="list-search-input-inner">
+                            <BaseInput v-model="searchQuery" @keyup.enter="handleSearch"
+                                :placeholder="$t('board.detail.searchPlaceholder')"
+                                inputClass="list-search-input" hideLabel>
+                                <template #prefix>
+                                    <Search class="h-5 w-5 text-gray-400" />
+                                </template>
+                                <template #suffix>
+                                    <button v-if="isSearching" type="button" @click="clearSearch"
+                                        class="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 cursor-pointer">
+                                        <X class="h-5 w-5" />
+                                    </button>
+                                </template>
+                            </BaseInput>
+                        </div>
+                        <BaseButton @click="handleSearch" variant="secondary" type="button" class="list-search-btn">
+                            {{ $t('search.doSearch') }}
+                        </BaseButton>
                     </div>
-                    <BaseButton @click="handleSearch" variant="secondary"
-                        class="rounded-l-none border-l-0 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600">
-                        {{ $t('search.doSearch') }}
-                    </BaseButton>
+                    </div>
                 </div>
 
-                <div class="w-full sm:w-auto flex justify-end">
+                <div class="flex-1 min-w-0 w-full sm:w-auto flex justify-end">
                     <router-link v-if="canWrite" :to="`/board/${board.boardUrl}/write`"
                         class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 whitespace-nowrap">
                         <PlusCircle class="-ml-1 mr-2 h-5 w-5" />

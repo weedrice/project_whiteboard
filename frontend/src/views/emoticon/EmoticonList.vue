@@ -287,58 +287,53 @@ const periodLabels = {
       </div>
     </section>
 
-    <!-- 검색 및 등록 영역 -->
+    <!-- 검색 바 (가운데) & 등록 버튼 (오른쪽) - 게시글 목록과 동일 레이아웃 -->
     <div class="mt-4 px-4 py-4 sm:px-6 bg-gray-50 dark:bg-gray-800 rounded-lg transition-colors duration-200">
       <div class="flex flex-col sm:flex-row items-center gap-4">
-        <!-- 검색 바 (가운데) -->
-        <div class="flex-1 flex justify-center">
-          <div class="flex items-stretch w-full max-w-md">
-            <select 
-              v-model="searchType"
-              class="h-10 pl-3 pr-8 text-base border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-l-md rounded-r-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white border-r-0 cursor-pointer shadow-sm transition-colors duration-200"
-            >
-              <option value="ALL">전체</option>
-              <option value="NAME">이름</option>
-              <option value="CREATOR">등록자</option>
-              <option value="TAG">태그</option>
-            </select>
-            <div class="relative flex-grow">
-              <BaseInput 
-                v-model="searchInput" 
-                @keyup.enter="handleSearch"
-                placeholder="검색어를 입력하세요"
-                inputClass="rounded-none border-r-0 h-10" 
-                hideLabel
-              >
-                <template #prefix>
-                  <Search class="h-5 w-5 text-gray-400" />
-                </template>
-                <template #suffix>
-                  <button 
-                    v-if="isSearching" 
-                    type="button" 
-                    @click="clearSearch"
-                    class="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 cursor-pointer"
-                  >
-                    <X class="h-5 w-5" />
-                  </button>
-                </template>
-              </BaseInput>
+        <div class="flex-1 min-w-0 hidden sm:block" aria-hidden="true"></div>
+        <div class="w-full sm:w-auto flex justify-center shrink-0">
+          <div class="list-search-row">
+            <div class="list-search-group">
+              <select v-model="searchType" class="list-search-select-inline">
+                <option value="ALL">전체</option>
+                <option value="NAME">이름</option>
+                <option value="CREATOR">등록자</option>
+                <option value="TAG">태그</option>
+              </select>
+              <div class="list-search-input-inner">
+                <BaseInput
+                  v-model="searchInput"
+                  @keyup.enter="handleSearch"
+                  placeholder="검색어를 입력하세요"
+                  inputClass="list-search-input"
+                  hideLabel
+                >
+                  <template #prefix>
+                    <Search class="h-5 w-5 text-gray-400" />
+                  </template>
+                  <template #suffix>
+                    <button
+                      v-if="isSearching"
+                      type="button"
+                      @click="clearSearch"
+                      class="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 cursor-pointer"
+                    >
+                      <X class="h-5 w-5" />
+                    </button>
+                  </template>
+                </BaseInput>
+              </div>
+              <BaseButton @click="handleSearch" variant="secondary" type="button" class="list-search-btn">
+                검색
+              </BaseButton>
             </div>
-            <BaseButton 
-              @click="handleSearch" 
-              variant="secondary"
-              class="h-10 rounded-l-none border-l-0 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 px-4"
-            >
-              검색
-            </BaseButton>
           </div>
         </div>
 
         <!-- 등록 버튼 (우측) -->
-        <div class="flex-shrink-0">
-          <router-link 
-            v-if="authStore.isAuthenticated" 
+        <div class="flex-1 min-w-0 w-full sm:w-auto flex justify-end">
+          <router-link
+            v-if="authStore.isAuthenticated"
             to="/emoticons/register"
             class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 whitespace-nowrap"
           >
