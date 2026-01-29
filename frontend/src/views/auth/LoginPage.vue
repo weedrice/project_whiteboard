@@ -89,7 +89,7 @@ async function handleLogin() {
       <h2 class="text-3xl font-extrabold text-gray-900 dark:text-white">
         {{ $t('common.login') }}
       </h2>
-      <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
+      <p class="mt-2 text-xs sm:text-sm text-gray-600 dark:text-gray-400">
         {{ $t('common.or') }}
         <router-link to="/signup"
           class="font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300">
@@ -120,7 +120,7 @@ async function handleLogin() {
 
       <div class="w-[80%] mx-auto flex justify-end">
         <router-link v-if="false" to="/find"
-          class="text-sm text-gray-600 hover:text-indigo-500 dark:text-gray-400 dark:hover:text-indigo-400">
+          class="text-xs sm:text-sm text-gray-600 hover:text-indigo-500 dark:text-gray-400 dark:hover:text-indigo-400">
           {{ $t('auth.findIdPassword') }}
         </router-link>
       </div>
@@ -136,7 +136,7 @@ async function handleLogin() {
           <div class="absolute inset-0 flex items-center">
             <div class="w-full border-t border-gray-300 dark:border-gray-600"></div>
           </div>
-          <div class="relative flex justify-center text-sm">
+          <div class="relative flex justify-center text-xs sm:text-sm">
             <span class="px-2 bg-white dark:bg-gray-800 text-gray-500">
               {{ $t('auth.socialLogin') }}
             </span>

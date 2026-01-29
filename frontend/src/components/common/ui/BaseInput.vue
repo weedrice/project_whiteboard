@@ -1,6 +1,6 @@
 <template>
   <div class="flex flex-col gap-1" :class="$attrs.class as string" :style="$attrs.style as any">
-    <label v-if="label && !hideLabel" :for="id" class="text-sm font-medium text-gray-700 dark:text-gray-200"
+    <label v-if="label && !hideLabel" :for="id" class="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-200"
       :class="labelClass">
       {{ label }}
     </label>
@@ -29,7 +29,7 @@
         <slot name="suffix"></slot>
       </div>
     </div>
-    <p v-if="error" :id="`${id}-error`" class="text-sm text-red-600 dark:text-red-400" role="alert">{{ error }}</p>
+    <p v-if="error" :id="`${id}-error`" class="text-xs sm:text-sm text-red-600 dark:text-red-400" role="alert">{{ error }}</p>
   </div>
 </template>
 
