@@ -158,10 +158,10 @@ watch(() => props.show, (newVal) => {
 .emoticon-picker {
   position: absolute;
   top: 42px;
-  /* toolbar 높이 바로 아래 */
   right: 0;
-  width: 400px;
-  max-height: 450px;
+  width: min(400px, calc(100vw - 24px));
+  max-width: 100%;
+  max-height: min(450px, 80vh);
   background: white;
   border-radius: 8px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
@@ -169,6 +169,16 @@ watch(() => props.show, (newVal) => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+@media (max-width: 639px) {
+  .emoticon-picker {
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    width: min(360px, calc(100vw - 16px));
+    max-height: min(420px, 75vh);
+  }
 }
 
 .dark .emoticon-picker {
@@ -179,9 +189,16 @@ watch(() => props.show, (newVal) => {
 .picker-header {
   display: flex;
   align-items: center;
-  padding: 12px;
+  padding: 10px 12px;
   border-bottom: 1px solid #e5e7eb;
   gap: 8px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 639px) {
+  .picker-header {
+    padding: 8px 10px;
+  }
 }
 
 .dark .picker-header {
@@ -193,6 +210,16 @@ watch(() => props.show, (newVal) => {
   font-weight: 600;
   font-size: 14px;
   color: #1f2937;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 639px) {
+  .header-title {
+    font-size: 13px;
+  }
 }
 
 .dark .header-title {
@@ -224,6 +251,13 @@ watch(() => props.show, (newVal) => {
   flex: 1;
   overflow-y: auto;
   padding: 12px;
+  min-height: 0;
+}
+
+@media (max-width: 639px) {
+  .picker-content {
+    padding: 8px 10px;
+  }
 }
 
 .search-area {
@@ -277,6 +311,13 @@ watch(() => props.show, (newVal) => {
   gap: 8px;
 }
 
+@media (max-width: 639px) {
+  .emoticons-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+  }
+}
+
 .emoticon-btn {
   display: flex;
   flex-direction: column;
@@ -285,6 +326,13 @@ watch(() => props.show, (newVal) => {
   border-radius: 8px;
   cursor: pointer;
   transition: background-color 0.2s;
+}
+
+@media (max-width: 639px) {
+  .emoticon-btn {
+    padding: 6px;
+    border-radius: 6px;
+  }
 }
 
 .emoticon-btn:hover {
@@ -302,6 +350,13 @@ watch(() => props.show, (newVal) => {
   border-radius: 4px;
 }
 
+@media (max-width: 639px) {
+  .emoticon-btn img {
+    width: 48px;
+    height: 48px;
+  }
+}
+
 .emoticon-name {
   margin-top: 4px;
   font-size: 11px;
@@ -313,6 +368,13 @@ watch(() => props.show, (newVal) => {
   max-width: 100%;
 }
 
+@media (max-width: 639px) {
+  .emoticon-name {
+    font-size: 10px;
+    margin-top: 2px;
+  }
+}
+
 .dark .emoticon-name {
   color: #9ca3af;
 }
@@ -321,6 +383,13 @@ watch(() => props.show, (newVal) => {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 8px;
+}
+
+@media (max-width: 639px) {
+  .images-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+  }
 }
 
 .image-btn {
@@ -342,5 +411,12 @@ watch(() => props.show, (newVal) => {
   width: 100%;
   aspect-ratio: 1;
   object-fit: contain;
+}
+
+@media (max-width: 639px) {
+  .image-btn {
+    padding: 4px;
+    border-radius: 4px;
+  }
 }
 </style>

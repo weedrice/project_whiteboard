@@ -227,24 +227,25 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="w-full">
-    <div class="md:flex md:items-center md:justify-between mb-6">
+  <div class="w-full max-w-full overflow-x-hidden">
+    <div class="md:flex md:items-center md:justify-between mb-4 sm:mb-6 ml-2 sm:ml-0">
       <div class="flex-1 min-w-0">
-        <h2 class="text-3xl font-bold leading-7 text-gray-900 dark:text-white sm:text-3xl sm:truncate">
+        <h2 class="text-xl font-bold leading-tight text-gray-900 dark:text-white sm:text-3xl sm:leading-8 sm:truncate">
           {{ $t('board.writePost.createTitle') }}
         </h2>
       </div>
     </div>
 
-    <div v-if="isLoading" class="text-center py-10">
-      <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 mx-auto"></div>
+    <div v-if="isLoading" class="text-center py-6 sm:py-10">
+      <div class="animate-spin rounded-full h-8 w-8 sm:h-10 sm:w-10 border-b-2 border-indigo-600 mx-auto"></div>
     </div>
 
     <form v-else @submit.prevent="handleSubmit"
-      class="space-y-6 bg-white dark:bg-gray-800 shadow px-4 py-5 sm:rounded-lg sm:p-6 transition-colors duration-200">
-      <div class="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
+      class="space-y-4 sm:space-y-6 bg-white dark:bg-gray-800 shadow px-3 py-4 sm:rounded-lg sm:px-6 sm:py-6 transition-colors duration-200">
+      <div class="grid grid-cols-1 gap-y-4 gap-x-3 sm:grid-cols-6 sm:gap-y-6 sm:gap-x-4">
         <div class="sm:col-span-3">
-          <BaseSelect id="category" v-model="form.categoryId" :label="$t('common.category')">
+          <BaseSelect id="category" v-model="form.categoryId" :label="$t('common.category')"
+            labelClass="text-[11px] sm:text-sm" inputClass="!text-xs !py-2 sm:!text-sm sm:!py-2">
             <option v-for="category in filteredCategories" :key="category.categoryId" :value="category.categoryId">
               {{ category.name }}
             </option>
@@ -253,13 +254,14 @@ onUnmounted(() => {
 
         <div class="sm:col-span-6">
           <BaseInput id="title" v-model="form.title" name="title" type="text" required
-            :placeholder="$t('board.writePost.placeholder.title')" :label="$t('common.title')" />
+            :placeholder="$t('board.writePost.placeholder.title')" :label="$t('common.title')"
+            labelClass="text-[11px] sm:text-sm" inputClass="!text-xs !py-2 sm:!text-sm sm:!py-2" />
         </div>
 
         <div class="sm:col-span-6">
-          <label for="contents" class="block text-sm font-medium text-gray-700 dark:text-gray-300">{{
+          <label for="contents" class="block text-[11px] font-medium text-gray-700 dark:text-gray-300 sm:text-sm">{{
             $t('common.content') }}</label>
-          <div class="mt-1 h-96 relative">
+          <div class="mt-1 h-80 min-h-[260px] sm:h-96 relative overflow-hidden rounded border border-gray-200 dark:border-gray-600">
             <QuillEditor ref="editor" :toolbar="toolbarOptions" theme="snow" contentType="html"
               v-model:content="form.contents" @ready="onEditorReady" />
             <EmoticonPicker :show="showEmoticonPicker" @select="handleEmoticonSelect"
@@ -267,31 +269,54 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <div class="sm:col-span-6 mt-12">
-          <label for="tags" class="block text-sm font-medium text-gray-700 dark:text-gray-300">{{ $t('common.tags')
+        <div class="sm:col-span-6 mt-4 pt-3 sm:mt-6 sm:pt-0 border-t border-gray-100 dark:border-gray-700 sm:border-0">
+          <label for="tags" class="block text-[11px] font-medium text-gray-700 dark:text-gray-300 sm:text-sm">{{ $t('common.tags')
           }}</label>
-          <div class="mt-1">
+          <div class="mt-1 sm:max-w-md">
             <PostTags v-model="form.tags" />
           </div>
         </div>
 
         <div class="sm:col-span-6">
-          <BaseCheckbox v-if="board?.isAdmin" id="isNotice" v-model="form.isNotice" :label="$t('common.notice')"
-            :description="$t('board.writePost.noticeDesc')" class="mb-4" />
+          <!-- 모바일: 공지/NSFW/스포일러 가로 배치, 설명 숨김 -->
+          <div class="flex flex-row flex-wrap gap-4 sm:hidden items-center">
+            <label v-if="board?.isAdmin" class="inline-flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" v-model="form.isNotice"
+                class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600" />
+              <span class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ $t('common.notice') }}</span>
+            </label>
+            <label v-if="board?.allowNsfw" class="inline-flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" v-model="form.isNsfw"
+                class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600" />
+              <span class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ $t('board.writePost.nsfw') }}</span>
+            </label>
+            <label class="inline-flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" v-model="form.isSpoiler"
+                class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600" />
+              <span class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ $t('board.writePost.spoiler') }}</span>
+            </label>
+          </div>
+          <!-- 데스크톱: 기존 체크박스(설명 포함) -->
+          <div class="hidden sm:block">
+            <BaseCheckbox v-if="board?.isAdmin" id="isNotice" v-model="form.isNotice" :label="$t('common.notice')"
+              :description="$t('board.writePost.noticeDesc')" class="mb-3 sm:mb-4" />
 
-          <BaseCheckbox v-if="board?.allowNsfw" id="isNsfw" v-model="form.isNsfw" :label="$t('board.writePost.nsfw')"
-            :description="$t('board.writePost.nsfwDesc')" />
+            <BaseCheckbox v-if="board?.allowNsfw" id="isNsfw" v-model="form.isNsfw" :label="$t('board.writePost.nsfw')"
+              :description="$t('board.writePost.nsfwDesc')" />
 
-          <BaseCheckbox id="isSpoiler" v-model="form.isSpoiler" :label="$t('board.writePost.spoiler')"
-            :description="$t('board.writePost.spoilerDesc')" class="mt-4" />
+            <BaseCheckbox id="isSpoiler" v-model="form.isSpoiler" :label="$t('board.writePost.spoiler')"
+              :description="$t('board.writePost.spoilerDesc')" class="mt-3 sm:mt-4" />
+          </div>
         </div>
       </div>
 
-      <div class="flex justify-end space-x-3">
-        <BaseButton type="button" variant="secondary" @click="router.back()">
+      <div class="flex justify-end gap-2 sm:gap-3 pt-1">
+        <BaseButton type="button" variant="secondary" size="sm" class="!text-xs !px-3 !py-2 sm:!text-sm sm:!px-4 sm:!py-2"
+          @click="router.back()">
           {{ $t('common.cancel') }}
         </BaseButton>
-        <BaseButton type="submit" variant="primary" :loading="isSubmitting">
+        <BaseButton type="submit" variant="primary" size="sm" class="!text-xs !px-3 !py-2 sm:!text-sm sm:!px-4 sm:!py-2"
+          :loading="isSubmitting">
           {{ isSubmitting ? $t('board.writePost.submitting') : $t('common.submit') }}
         </BaseButton>
       </div>
@@ -300,6 +325,41 @@ onUnmounted(() => {
 </template>
 
 <style>
+/* Quill mobile sizing */
+@media (max-width: 639px) {
+  .ql-toolbar.ql-snow {
+    padding: 6px 8px;
+  }
+  .ql-toolbar.ql-snow .ql-formats {
+    margin-right: 8px;
+  }
+  .ql-toolbar.ql-snow button {
+    width: 26px;
+    padding: 2px 3px;
+  }
+  .ql-container.ql-snow {
+    font-size: 16px; /* avoid iOS zoom on focus */
+  }
+  .ql-editor {
+    min-height: 240px;
+    padding: 8px 12px;
+  }
+  /* 모바일에서만 툴바 일부 요소 제거 (글꼴·크기·색·정렬·스크립트·들여쓰기·방향·인용/코드블록) */
+  .ql-toolbar.ql-snow .ql-formats:has(.ql-picker.ql-size),
+  .ql-toolbar.ql-snow .ql-formats:has(.ql-picker.ql-header),
+  .ql-toolbar.ql-snow .ql-formats:has(.ql-picker.ql-color),
+  .ql-toolbar.ql-snow .ql-formats:has(.ql-picker.ql-background),
+  .ql-toolbar.ql-snow .ql-formats:has(.ql-picker.ql-font),
+  .ql-toolbar.ql-snow .ql-formats:has(.ql-picker.ql-align),
+  .ql-toolbar.ql-snow .ql-formats:has(.ql-picker.ql-script),
+  .ql-toolbar.ql-snow .ql-formats:has(.ql-picker.ql-indent),
+  .ql-toolbar.ql-snow .ql-formats:has(.ql-picker.ql-direction),
+  .ql-toolbar.ql-snow .ql-formats:has(button.ql-blockquote),
+  .ql-toolbar.ql-snow .ql-formats:has(button.ql-code-block) {
+    display: none !important;
+  }
+}
+
 /* Quill Dark Mode Overrides */
 .dark .ql-toolbar.ql-snow {
   border-color: #4b5563;

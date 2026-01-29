@@ -1,12 +1,16 @@
 <template>
   <div class="space-y-2">
     <div v-if="!readOnly" class="flex flex-wrap gap-2 items-center">
-      <div class="relative">
+      <div class="relative flex-1 min-w-0 flex items-center gap-2">
         <input v-model="newTag" @keydown.enter.prevent="addTag" @keydown.comma.prevent="addTag" type="text"
           :placeholder="$t('board.tags.placeholder')"
-          class="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400" />
+          class="flex-1 min-w-0 px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400" />
+        <button type="button" @click="addTag"
+          class="sm:hidden flex-shrink-0 px-3 py-1.5 text-xs font-medium rounded-full border border-indigo-600 dark:border-indigo-500 text-indigo-600 dark:text-indigo-400 bg-transparent hover:bg-indigo-50 dark:hover:bg-indigo-900/30 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          {{ $t('common.add') }}
+        </button>
       </div>
-      <span class="text-xs text-gray-500 dark:text-gray-400">{{ $t('board.tags.help') }}</span>
+      <span class="hidden sm:inline text-xs text-gray-500 dark:text-gray-400">{{ $t('board.tags.help') }}</span>
     </div>
 
     <div class="flex flex-wrap gap-2">
