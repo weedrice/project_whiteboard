@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useNotification } from '@/composables/useNotification'
@@ -61,7 +61,7 @@ async function handleNotificationClick(notification: Notification) {
       </BaseButton>
     </div>
 
-    <div class="max-h-96 overflow-y-auto">
+    <div class="notification-scroll max-h-96 overflow-y-auto">
       <div v-if="isLoading && notifications.length === 0" class="px-4 py-4 text-center">
         <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-indigo-600 mx-auto"></div>
       </div>
@@ -109,3 +109,33 @@ async function handleNotificationClick(notification: Notification) {
     </div>
   </div>
 </template>
+
+<style scoped>
+/* 스크롤 영역 다크모드: 스크롤바 색상 */
+.notification-scroll {
+  scrollbar-color: rgb(209 213 219) transparent;
+}
+.dark .notification-scroll {
+  scrollbar-color: rgb(75 85 99) rgb(31 41 55);
+}
+/* WebKit (Chrome, Safari, Edge) */
+.notification-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.notification-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.notification-scroll::-webkit-scrollbar-thumb {
+  border-radius: 3px;
+  background: rgb(209 213 219);
+}
+.dark .notification-scroll::-webkit-scrollbar-track {
+  background: rgb(31 41 55);
+}
+.dark .notification-scroll::-webkit-scrollbar-thumb {
+  background: rgb(75 85 99);
+}
+.dark .notification-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgb(107 114 128);
+}
+</style>

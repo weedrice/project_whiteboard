@@ -281,7 +281,9 @@ export interface AuthMessages {
 export interface BoardMessages {
   list: {
     subscribed: string
+    subscribedShort: string
     all: string
+    allShort: string
     noSubscribed: string
     noBoards: string
     noPosts: string

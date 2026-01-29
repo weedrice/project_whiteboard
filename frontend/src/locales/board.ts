@@ -3,7 +3,9 @@ import type { BoardMessages } from './types'
 export const board: BoardMessages = {
   list: {
     subscribed: '구독한 게시판',
+    subscribedShort: '구독',
     all: '전체 게시판',
+    allShort: '전체',
     noSubscribed: '구독 중인 게시판이 없습니다.',
     noBoards: '게시판이 없습니다.',
     noPosts: '최근 게시글이 없습니다.',

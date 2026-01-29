@@ -129,8 +129,11 @@ export function useKeyboardShortcuts(handlers: KeyboardShortcutHandlers = {}) {
         // 단일 키
         switch (key) {
             case '?':
-                event.preventDefault()
-                keyboardStore.toggleShortcutsModal()
+                // 모바일(640px 미만)에서는 단축키 도움말 숨김
+                if (window.innerWidth >= 640) {
+                    event.preventDefault()
+                    keyboardStore.toggleShortcutsModal()
+                }
                 break
 
             case 's':

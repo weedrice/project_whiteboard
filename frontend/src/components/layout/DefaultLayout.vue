@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
@@ -30,6 +30,9 @@ const logoSrc = computed(() => {
 
 const isNotificationOpen = ref(false)
 const activeDropdown = ref<string | null>(null) // 'subscription', 'all', 'notification', 'user'
+
+// 모바일 여부 (Tailwind sm 미만: 640px 미만) — 단축키 도움말 등 모바일에서 숨김용
+const isMobile = ref(typeof window !== 'undefined' && window.innerWidth < 640)
 
 // Fetch unread count
 const { data: unreadCount } = useUnreadCount()
@@ -163,8 +166,8 @@ const handleKeyDown = (event: KeyboardEvent) => {
       router.push('/boards')
       return
     }
-    // Shift+/ (?)로 단축키 도움말 열기
-    if (key === '/' || key === '?') {
+    // Shift+/ (?)로 단축키 도움말 열기 (모바일에서는 숨김)
+    if ((key === '/' || key === '?') && !isMobile.value) {
       event.preventDefault()
       keyboardStore.toggleShortcutsModal()
       return
@@ -213,12 +216,25 @@ const handleKeyDown = (event: KeyboardEvent) => {
   }
 }
 
+const mediaQuery = typeof window !== 'undefined' ? window.matchMedia('(max-width: 639px)') : null
+const updateIsMobile = () => {
+  if (mediaQuery) {
+    isMobile.value = mediaQuery.matches
+    if (mediaQuery.matches) keyboardStore.closeShortcutsModal()
+  }
+}
+
 onMounted(() => {
+  if (mediaQuery) {
+    isMobile.value = mediaQuery.matches
+    mediaQuery.addEventListener('change', updateIsMobile)
+  }
   document.addEventListener('click', handleClickOutside)
   document.addEventListener('keydown', handleKeyDown)
 })
 
 onUnmounted(() => {
+  if (mediaQuery) mediaQuery.removeEventListener('change', updateIsMobile)
   closeSse()
   document.removeEventListener('click', handleClickOutside)
   document.removeEventListener('keydown', handleKeyDown)
@@ -241,12 +257,15 @@ const skipToMainContent = (event: Event) => {
         <div class="flex justify-between h-16">
           <div class="flex">
             <div class="flex-shrink-0 flex items-center">
-              <router-link to="/" class="flex items-center">
-                <img :src="logoSrc" alt="Noviis Logo" class="h-8 w-auto" />
+              <router-link to="/" class="flex items-center" aria-label="Noviis Home">
+                <!-- 모바일: favicon만 -->
+                <img src="/favicon.ico" alt="" class="h-7 w-7 md:hidden" />
+                <!-- 데스크톱: 풀 로고 -->
+                <img :src="logoSrc" alt="Noviis Logo" class="h-8 w-auto hidden md:block" />
               </router-link>
             </div>
-            <div class="hidden sm:ml-6 sm:flex sm:space-x-4 items-center">
-              <!-- Navigation Dropdowns -->
+            <div class="flex ml-2 sm:ml-6 space-x-1 sm:space-x-4 items-center">
+              <!-- Navigation Dropdowns: 모바일에서도 구독/전체 드롭다운 노출 -->
               <BoardDropdown v-if="authStore.isAuthenticated" type="subscription"
                 :isOpen="activeDropdown === 'subscription'" @toggle="setActiveDropdown('subscription')" />
               <BoardDropdown type="all" :isOpen="activeDropdown === 'all'" @toggle="setActiveDropdown('all')" />
@@ -258,8 +277,8 @@ const skipToMainContent = (event: Event) => {
               <GlobalSearchBar />
             </div>
 
-            <!-- Notification Dropdown -->
-            <div v-if="authStore.isAuthenticated" class="relative">
+            <!-- Notification Dropdown: 모바일에서는 숨김 -->
+            <div v-if="authStore.isAuthenticated" class="hidden sm:block relative">
               <button @click.stop="toggleNotification"
                 class="bg-white dark:bg-gray-800 p-1 rounded-full text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:focus:ring-offset-gray-800">
                 <span class="sr-only">View notifications</span>
@@ -277,12 +296,13 @@ const skipToMainContent = (event: Event) => {
             <div v-if="authStore.isAuthenticated" class="flex items-center space-x-4">
               <UserDropdown :isOpen="activeDropdown === 'user'" @toggle="setActiveDropdown('user')" />
             </div>
-            <div v-else class="flex items-center space-x-4">
+            <div v-else class="flex items-center space-x-2 sm:space-x-4">
               <router-link to="/login"
-                class="text-gray-500 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white px-3 py-2 rounded-md text-sm font-medium">{{
+                class="text-gray-500 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white border border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500 px-2 py-1.5 rounded-md text-xs font-medium sm:px-3 sm:py-2 sm:text-sm">{{
                   $t('common.login') }}</router-link>
+              <!-- 모바일에서는 로그인 화면에서 회원가입 가능하므로 숨김 -->
               <router-link to="/signup"
-                class="bg-indigo-600 text-white hover:bg-indigo-700 px-4 py-2 rounded-md text-sm font-medium">{{
+                class="hidden sm:inline-block bg-indigo-600 text-white hover:bg-indigo-700 px-2.5 py-1.5 rounded-md text-xs font-medium sm:px-4 sm:py-2 sm:text-sm">{{
                   $t('auth.signup') }}</router-link>
             </div>
           </div>
@@ -306,7 +326,7 @@ const skipToMainContent = (event: Event) => {
 
     <Footer />
 
-    <!-- Keyboard Shortcuts Modal -->
-    <KeyboardShortcutsModal />
+    <!-- Keyboard Shortcuts Modal: 모바일에서는 숨김 -->
+    <KeyboardShortcutsModal v-if="!isMobile" />
   </div>
 </template>

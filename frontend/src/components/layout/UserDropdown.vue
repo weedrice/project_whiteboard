@@ -126,7 +126,7 @@ onUnmounted(() => {
         </span>
       </div>
       <span class="hidden md:block font-medium">{{ authStore.user?.displayName || authStore.user?.loginId }}</span>
-      <ChevronDown class="h-4 w-4 text-gray-500 dark:text-gray-400" />
+      <ChevronDown class="hidden sm:inline-block h-4 w-4 text-gray-500 dark:text-gray-400" />
     </button>
 
     <div v-if="isOpen"
@@ -169,7 +169,7 @@ onUnmounted(() => {
             {{ $t('common.myPage') }}
           </div>
           <kbd
-            class="px-1.5 py-0.5 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded">1</kbd>
+            class="hidden sm:inline-block px-1.5 py-0.5 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded">1</kbd>
         </router-link>
         <router-link to="/mypage/settings"
           class="group flex items-center justify-between px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
@@ -180,7 +180,7 @@ onUnmounted(() => {
             {{ $t('common.settings') }}
           </div>
           <kbd
-            class="px-1.5 py-0.5 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded">2</kbd>
+            class="hidden sm:inline-block px-1.5 py-0.5 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded">2</kbd>
         </router-link>
         <router-link to="/mypage/notifications"
           class="group flex items-center justify-between px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
@@ -191,7 +191,7 @@ onUnmounted(() => {
             {{ $t('common.notifications') }}
           </div>
           <kbd
-            class="px-1.5 py-0.5 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded">3</kbd>
+            class="hidden sm:inline-block px-1.5 py-0.5 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded">3</kbd>
         </router-link>
         <router-link to="/mypage/messages"
           class="group flex items-center justify-between px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
@@ -202,7 +202,7 @@ onUnmounted(() => {
             {{ $t('common.mailbox') }}
           </div>
           <kbd
-            class="px-1.5 py-0.5 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded">4</kbd>
+            class="hidden sm:inline-block px-1.5 py-0.5 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded">4</kbd>
         </router-link>
         <router-link to="/mypage/points"
           class="group flex items-center justify-between px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
@@ -213,7 +213,7 @@ onUnmounted(() => {
             {{ $t('common.points') }}
           </div>
           <kbd
-            class="px-1.5 py-0.5 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded">5</kbd>
+            class="hidden sm:inline-block px-1.5 py-0.5 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded">5</kbd>
         </router-link>
       </div>
 
@@ -228,7 +228,7 @@ onUnmounted(() => {
             {{ $t('common.scrap') }}
           </div>
           <kbd
-            class="px-1.5 py-0.5 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded">6</kbd>
+            class="hidden sm:inline-block px-1.5 py-0.5 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded">6</kbd>
         </router-link>
         <router-link to="/mypage/subscriptions"
           class="group flex items-center justify-between px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
@@ -239,7 +239,7 @@ onUnmounted(() => {
             {{ $t('user.tabs.subscriptions') }}
           </div>
           <kbd
-            class="px-1.5 py-0.5 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded">7</kbd>
+            class="hidden sm:inline-block px-1.5 py-0.5 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded">7</kbd>
         </router-link>
       </div>
 
@@ -254,7 +254,7 @@ onUnmounted(() => {
             {{ $t('layout.menu.recent') }}
           </div>
           <kbd
-            class="px-1.5 py-0.5 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded">8</kbd>
+            class="hidden sm:inline-block px-1.5 py-0.5 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded">8</kbd>
         </router-link>
         <router-link to="/mypage/reports"
           class="group flex items-center justify-between px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
@@ -265,7 +265,7 @@ onUnmounted(() => {
             {{ $t('layout.menu.reports') }}
           </div>
           <kbd
-            class="px-1.5 py-0.5 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded">9</kbd>
+            class="hidden sm:inline-block px-1.5 py-0.5 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded">9</kbd>
         </router-link>
         <router-link to="/mypage/blocked"
           class="group flex items-center justify-between px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
@@ -276,7 +276,7 @@ onUnmounted(() => {
             {{ $t('user.tabs.blocked') }}
           </div>
           <kbd
-            class="px-1.5 py-0.5 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded">0</kbd>
+            class="hidden sm:inline-block px-1.5 py-0.5 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded">0</kbd>
         </router-link>
         <router-link to="/board/create"
           class="group flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"

@@ -121,10 +121,12 @@ onUnmounted(() => {
 <template>
   <div class="relative" ref="dropdownRef">
     <BaseButton @click.stop="toggleDropdown" variant="ghost"
-      class="flex items-center space-x-1 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 px-3 py-2 rounded-md text-sm font-medium focus:outline-none">
-      <span v-if="type === 'subscription'">{{ $t('board.list.subscribed') }}</span>
-      <span v-else>{{ $t('board.list.all') }}</span>
-      <ChevronDown class="h-4 w-4" />
+      class="flex items-center space-x-1 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 px-2 py-1.5 sm:px-3 sm:py-2 rounded-md text-xs sm:text-sm font-medium focus:outline-none whitespace-nowrap min-w-0">
+      <span v-if="type === 'subscription'" class="sm:hidden">{{ $t('board.list.subscribedShort') }}</span>
+      <span v-if="type === 'subscription'" class="hidden sm:inline">{{ $t('board.list.subscribed') }}</span>
+      <span v-if="type === 'all'" class="sm:hidden">{{ $t('board.list.allShort') }}</span>
+      <span v-if="type === 'all'" class="hidden sm:inline">{{ $t('board.list.all') }}</span>
+      <ChevronDown class="hidden sm:inline-block h-4 w-4 flex-shrink-0" />
     </BaseButton>
 
     <div v-if="isOpen"
@@ -139,7 +141,7 @@ onUnmounted(() => {
             class="group flex items-center justify-between w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white">
             <span class="truncate">{{ board.boardName }}</span>
             <kbd v-if="index < 10"
-              class="ml-2 px-1.5 py-0.5 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded">
+              class="hidden sm:inline-block ml-2 px-1.5 py-0.5 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded">
               {{ getNumberBadge(index) }}
             </kbd>
           </button>
