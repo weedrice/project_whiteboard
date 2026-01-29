@@ -12,14 +12,14 @@
     <div class="flex flex-wrap gap-2">
       <template v-for="(tag, index) in modelValue" :key="index">
         <router-link v-if="readOnly && boardUrl" :to="{ path: `/board/${boardUrl}`, query: { q: tag, type: 'TAG' } }"
-          class="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors cursor-pointer">
+          class="inline-flex items-center px-2 py-0.5 rounded-full text-xs sm:text-sm font-medium bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors cursor-pointer">
           #{{ tag }}
         </router-link>
         <span v-else
-          class="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200">
+          class="inline-flex items-center px-2 py-0.5 sm:px-2.5 sm:py-0.5 rounded-full text-xs sm:text-sm font-medium bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200">
           #{{ tag }}
           <button v-if="!readOnly" @click="removeTag(index)" type="button"
-            class="ml-1.5 inline-flex items-center justify-center h-4 w-4 rounded-full text-blue-400 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-800 hover:text-blue-500 dark:hover:text-blue-100 focus:outline-none">
+            class="ml-1 sm:ml-1.5 inline-flex items-center justify-center h-3 w-3 sm:h-4 sm:w-4 rounded-full text-blue-400 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-800 hover:text-blue-500 dark:hover:text-blue-100 focus:outline-none">
             <span class="sr-only">{{ $t('board.tags.remove') }}</span>
             <svg class="h-2 w-2" stroke="currentColor" fill="none" viewBox="0 0 8 8">
               <path stroke-linecap="round" stroke-width="1.5" d="M1 1l6 6m0-6L1 7" />

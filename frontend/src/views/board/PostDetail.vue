@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { usePost } from '@/composables/usePost'
@@ -238,8 +238,6 @@ watch(post, (newPost, oldPost) => {
           if (element) {
             element.scrollIntoView({ behavior: 'smooth' })
           }
-        } else if (titleRef.value) {
-          titleRef.value.scrollIntoView({ behavior: 'smooth' })
         }
       })
     }
@@ -248,12 +246,30 @@ watch(post, (newPost, oldPost) => {
 
 const currentUrl = computed(() => window.location.origin + route.fullPath)
 
-function handleCopyUrl() {
+const showCopyHint = ref(false)
+let copyHintTimer: ReturnType<typeof setTimeout> | null = null
+
+function handleCopyUrl(showToast = true) {
   navigator.clipboard.writeText(currentUrl.value).then(() => {
-    toastStore.addToast(t('common.messages.urlCopied'), 'success')
+    if (showToast) {
+      toastStore.addToast(t('common.messages.urlCopied'), 'success')
+    } else {
+      showCopyHint.value = true
+      if (copyHintTimer) clearTimeout(copyHintTimer)
+      copyHintTimer = setTimeout(() => {
+        showCopyHint.value = false
+        copyHintTimer = null
+      }, 1500)
+      ;(document.activeElement as HTMLElement)?.blur()
+    }
   }).catch(err => {
     logger.error('Failed to copy URL:', err)
   })
+}
+
+function onUrlBarClick() {
+  if (typeof window !== 'undefined' && window.innerWidth >= 640) return
+  handleCopyUrl(false)
 }
 
 function handleShare() {
@@ -278,12 +294,16 @@ function setupObserver() {
   if (observer) observer.disconnect()
 
   if (titleRef.value) {
+    // 모바일에서는 플로팅 버튼을 더 일찍 표시 (rootMargin으로 감지 영역 축소)
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 640
+    const rootMargin = isMobile ? '0px 0px -45% 0px' : '0px'
     observer = new IntersectionObserver((entries) => {
       entries.forEach((entry) => {
         showFloatingNav.value = !entry.isIntersecting
       })
     }, {
-      threshold: 0
+      threshold: 0,
+      rootMargin
     })
     observer.observe(titleRef.value)
   }
@@ -294,6 +314,14 @@ watch(() => post.value, () => {
     setupObserver()
   })
 })
+
+// 모바일 리사이즈 시 플로팅 네비 감지 영역 갱신
+function onResize() {
+  if (titleRef.value && observer) {
+    observer.disconnect()
+    setupObserver()
+  }
+}
 
 function scrollToTop() {
   window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -313,7 +341,10 @@ function scrollToComments() {
 }
 
 function goToList() {
-  if (post.value && post.value.board) {
+  const listEl = document.getElementById('board-post-list')
+  if (listEl) {
+    listEl.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  } else if (post.value?.board) {
     router.push(`/board/${post.value.board.boardUrl}`)
   } else {
     router.back()
@@ -403,9 +434,11 @@ const handleKeyDown = (event: KeyboardEvent) => {
 onMounted(() => {
   setupObserver()
   document.addEventListener('keydown', handleKeyDown)
+  window.addEventListener('resize', onResize)
 })
 
 onUnmounted(() => {
+  window.removeEventListener('resize', onResize)
   // Observer 정리
   if (observer) {
     observer.disconnect()
@@ -424,30 +457,34 @@ onUnmounted(() => {
     clearTimeout(scrapAnimationTimer.value)
     scrapAnimationTimer.value = null
   }
+  if (copyHintTimer) {
+    clearTimeout(copyHintTimer)
+    copyHintTimer = null
+  }
   document.removeEventListener('keydown', handleKeyDown)
 })
 </script>
 
 <template>
   <BaseCard noPadding>
-    <div v-if="isLoading" class="px-4 py-5 sm:px-6">
+    <div v-if="isLoading" class="px-3 py-4 sm:px-6 sm:py-5">
       <!-- Header Skeleton -->
-      <div class="flex items-center justify-between mb-4">
+      <div class="flex items-center justify-between mb-3 sm:mb-4">
         <BaseSkeleton width="80px" height="24px" />
-        <div class="flex space-x-2">
+        <div class="flex gap-1.5 sm:space-x-2">
           <BaseSkeleton width="60px" height="32px" />
           <BaseSkeleton width="60px" height="32px" />
         </div>
       </div>
-      <div class="mt-4 space-y-3">
-        <BaseSkeleton width="70%" height="32px" />
-        <div class="flex space-x-4">
+      <div class="mt-3 sm:mt-4 space-y-2 sm:space-y-3">
+        <BaseSkeleton width="70%" height="28px" />
+        <div class="flex gap-3 sm:space-x-4">
           <BaseSkeleton width="100px" height="20px" />
           <BaseSkeleton width="120px" height="20px" />
           <BaseSkeleton width="60px" height="20px" />
         </div>
       </div>
-      <div class="mt-8 space-y-4">
+      <div class="mt-6 sm:mt-8 space-y-3 sm:space-y-4">
         <BaseSkeleton width="100%" height="20px" />
         <BaseSkeleton width="100%" height="20px" />
         <BaseSkeleton width="90%" height="20px" />
@@ -456,10 +493,10 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <div v-else-if="error" class="text-center py-10 text-red-500">
+    <div v-else-if="error" class="text-center py-8 sm:py-10 text-sm sm:text-base text-red-500 px-3">
       {{ error }}
-      <div class="mt-4">
-        <BaseButton @click="router.back()" variant="ghost">
+      <div class="mt-3 sm:mt-4">
+        <BaseButton @click="router.back()" variant="ghost" size="sm">
           {{ $t('common.back') }}
         </BaseButton>
       </div>
@@ -467,16 +504,16 @@ onUnmounted(() => {
 
     <div v-else-if="post">
       <!-- Header -->
-      <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
-        <div class="flex items-center justify-between">
+      <div class="px-3 py-4 sm:px-6 sm:py-5 border-b border-gray-200 dark:border-gray-700">
+        <div class="flex items-center justify-between gap-2">
           <BaseButton @click="router.push(`/board/${post.board.boardUrl}`)" variant="ghost" size="sm">
-            <ArrowLeft class="h-4 w-4 mr-1" />
+            <ArrowLeft class="hidden sm:inline-block h-4 w-4 mr-1" />
             {{ $t('board.postDetail.toList') }}
           </BaseButton>
 
-          <div class="flex space-x-2">
+          <div class="flex gap-1.5 sm:space-x-2">
             <router-link v-if="isAuthor" :to="`/board/${post.board.boardUrl}/post/${post.postId}/edit`"
-              class="inline-flex items-center px-3 py-1.5 border border-gray-300 dark:border-gray-600 shadow-sm text-xs font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 cursor-pointer transition-colors duration-200">
+              class="inline-flex items-center justify-center px-2 py-1.5 sm:px-3 sm:py-1.5 border border-gray-300 dark:border-gray-600 shadow-sm text-xs sm:text-sm font-medium rounded-md leading-4 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 cursor-pointer transition-colors duration-200">
               {{ $t('common.edit') }}
             </router-link>
             <BaseButton v-if="isAuthor || isAdmin || post.board.isAdmin" @click="handleDelete" variant="danger"
@@ -486,23 +523,23 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <div class="mt-4">
-          <h1 class="text-2xl font-bold text-gray-900 dark:text-white" ref="titleRef">{{ post.title }}</h1>
-          <div class="mt-2 flex items-center text-sm text-gray-500 dark:text-gray-400 space-x-4">
-            <div class="flex items-center">
-              <User class="h-4 w-4 mr-1" />
-              <UserMenu :user-id="post.author.userId" :display-name="post.author.displayName" />
+        <div class="mt-3 sm:mt-4">
+          <h1 class="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white break-words" ref="titleRef">{{ post.title }}</h1>
+          <div class="mt-1.5 sm:mt-2 flex flex-wrap items-center text-xs sm:text-sm text-gray-500 dark:text-gray-400 gap-x-3 gap-y-1 sm:space-x-4 sm:gap-0">
+            <div class="flex items-center text-inherit">
+              <User class="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1 flex-shrink-0" />
+              <UserMenu :user-id="post.author.userId" :display-name="post.author.displayName" size="inherit" />
             </div>
             <div class="flex items-center">
-              <Clock class="h-4 w-4 mr-1" />
+              <Clock class="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1 flex-shrink-0" />
               {{ formatDate(post.createdAt) }}
             </div>
             <div class="flex items-center">
-              <Eye class="h-4 w-4 mr-1" />
+              <Eye class="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1 flex-shrink-0" />
               {{ post.viewCount }}
             </div>
             <div class="flex items-center">
-              <MessageSquare class="h-4 w-4 mr-1" />
+              <MessageSquare class="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1 flex-shrink-0" />
               {{ post.commentCount }}
             </div>
           </div>
@@ -512,14 +549,28 @@ onUnmounted(() => {
 
       <!-- Content -->
       <div
-        class="px-4 py-5 sm:p-6 min-h-[200px] prose dark:prose-invert max-w-none relative text-gray-900 dark:text-gray-100">
+        class="px-3 py-4 sm:px-6 sm:py-5 min-h-[160px] sm:min-h-[200px] prose prose-sm sm:prose-base dark:prose-invert max-w-none relative text-gray-900 dark:text-gray-100 text-sm sm:text-base">
 
-        <!-- URL Copy -->
-        <div class="flex justify-end mb-4 not-prose">
-          <div class="flex items-center space-x-2 bg-gray-100 dark:bg-gray-700 rounded-md px-3 py-1.5">
-            <span class="text-[10px] text-gray-500 dark:text-gray-400 select-all">{{ currentUrl }}</span>
-            <div class="h-3 w-px bg-gray-300 dark:bg-gray-600 mx-1"></div>
-            <BaseButton @click="handleCopyUrl" variant="ghost" size="sm" class="text-xs">
+        <!-- URL Copy (모바일: 주소 탭 시 복사 + 작은 메시지, 데스크톱: 복사 버튼) -->
+        <div class="flex justify-end mb-3 sm:mb-4 not-prose relative">
+          <Transition name="fade">
+            <span v-if="showCopyHint"
+              class="absolute right-0 -top-6 sm:hidden text-[10px] text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30 px-2 py-1 rounded shadow-sm whitespace-nowrap z-10">
+              {{ $t('common.messages.urlCopied') }}
+            </span>
+          </Transition>
+          <div
+            class="flex items-center gap-1 sm:space-x-2 bg-gray-100 dark:bg-gray-700 rounded-md px-2 py-1 sm:px-3 sm:py-1.5 max-w-full min-w-0 cursor-pointer sm:cursor-default active:bg-gray-200 dark:active:bg-gray-600 sm:active:bg-transparent transition-colors"
+            role="button"
+            tabindex="0"
+            :aria-label="$t('common.messages.urlCopied')"
+            @click="onUrlBarClick"
+            @keydown.enter="onUrlBarClick"
+            @keydown.space.prevent="onUrlBarClick"
+          >
+            <span class="text-[9px] sm:text-[10px] text-gray-500 dark:text-gray-400 select-all truncate">{{ currentUrl }}</span>
+            <div class="hidden sm:block h-3 w-px bg-gray-300 dark:bg-gray-600 flex-shrink-0"></div>
+            <BaseButton @click.stop="handleCopyUrl(true)" variant="ghost" size="sm" class="hidden sm:!inline-flex !px-2 !py-1 !text-[10px] sm:!text-xs flex-shrink-0">
               {{ $t('common.copy') }}
             </BaseButton>
           </div>
@@ -530,89 +581,91 @@ onUnmounted(() => {
 
         <!-- Spoiler Overlay -->
         <div v-if="isBlurred"
-          class="absolute inset-0 flex flex-col items-center justify-center z-10 bg-white/50 dark:bg-black/50">
+          class="absolute inset-0 flex flex-col items-center justify-center z-10 bg-white/50 dark:bg-black/50 px-3">
           <div
-            class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg text-center border border-gray-200 dark:border-gray-700">
-            <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-2">{{ $t('board.postDetail.spoilerWarning') }}
+            class="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg shadow-lg text-center border border-gray-200 dark:border-gray-700 max-w-full flex flex-col items-center">
+            <h3 class="text-base sm:text-lg font-bold text-gray-900 dark:text-white mb-1.5 sm:mb-2">{{ $t('board.postDetail.spoilerWarning') }}
             </h3>
-            <p class="text-gray-600 dark:text-gray-300 mb-4">{{ $t('board.postDetail.spoilerTimer', { time: timeLeft })
+            <p class="text-sm sm:text-base text-gray-600 dark:text-gray-300 mb-3 sm:mb-4">{{ $t('board.postDetail.spoilerTimer', { time: timeLeft })
             }}</p>
-            <BaseButton @click="revealSpoiler" variant="primary">
+            <div class="flex justify-center w-full">
+            <BaseButton @click="revealSpoiler" variant="primary" size="sm">
               {{ $t('board.postDetail.revealSpoiler') }}
             </BaseButton>
+            </div>
           </div>
         </div>
       </div>
 
       <!-- Tags -->
       <div v-if="post.tags && post.tags.length > 0"
-        class="px-4 py-4 sm:px-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+        class="px-3 py-3 sm:px-6 sm:py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
         <PostTags :modelValue="post.tags" :readOnly="true" :boardUrl="post.board.boardUrl" />
       </div>
 
       <!-- Stats & Actions -->
       <div
-        class="px-4 py-4 sm:px-6 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex items-center justify-center space-x-8 transition-colors duration-200">
+        class="px-3 py-3 sm:px-6 sm:py-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex items-center justify-center gap-4 sm:gap-0 sm:space-x-8 transition-colors duration-200">
         <BaseButton @click="handleLike" :disabled="!authStore.isAuthenticated" variant="ghost"
-          class="flex flex-col items-center group cursor-pointer h-auto py-2"
+          class="flex flex-col items-center group cursor-pointer h-auto py-1.5 sm:py-2"
           :class="{ 'text-indigo-600 dark:text-indigo-400': post.liked, 'text-gray-500 dark:text-gray-400': !post.liked, 'opacity-50 cursor-not-allowed': !authStore.isAuthenticated }">
-          <div class="p-2 rounded-full group-hover:bg-indigo-50 dark:group-hover:bg-indigo-900/30 transition-colors">
-            <ThumbsUp class="h-6 w-6" :class="{ 'fill-current': post.liked, 'bounce-in': isLikeAnimating }" />
+          <div class="p-1.5 sm:p-2 rounded-full group-hover:bg-indigo-50 dark:group-hover:bg-indigo-900/30 transition-colors">
+            <ThumbsUp class="h-5 w-5 sm:h-6 sm:w-6" :class="{ 'fill-current': post.liked, 'bounce-in': isLikeAnimating }" />
           </div>
-          <span class="text-sm font-medium mt-1">{{ post.likeCount }}</span>
+          <span class="text-xs sm:text-sm font-medium mt-0.5 sm:mt-1">{{ post.likeCount }}</span>
         </BaseButton>
 
         <BaseButton @click="handleScrap" :disabled="!authStore.isAuthenticated" variant="ghost"
-          class="flex flex-col items-center group cursor-pointer h-auto py-2"
+          class="flex flex-col items-center group cursor-pointer h-auto py-1.5 sm:py-2"
           :class="{ 'text-yellow-500': post.scrapped, 'text-gray-500 dark:text-gray-400': !post.scrapped, 'opacity-50 cursor-not-allowed': !authStore.isAuthenticated }">
-          <div class="p-2 rounded-full group-hover:bg-yellow-50 dark:group-hover:bg-yellow-900/30 transition-colors">
-            <Bookmark class="h-6 w-6" :class="{ 'fill-current': post.scrapped, 'bounce-in': isScrapAnimating }" />
+          <div class="p-1.5 sm:p-2 rounded-full group-hover:bg-yellow-50 dark:group-hover:bg-yellow-900/30 transition-colors">
+            <Bookmark class="h-5 w-5 sm:h-6 sm:w-6" :class="{ 'fill-current': post.scrapped, 'bounce-in': isScrapAnimating }" />
           </div>
-          <span class="text-sm font-medium mt-1">{{ $t('common.scrap') }}</span>
+          <span class="text-xs sm:text-sm font-medium mt-0.5 sm:mt-1">{{ $t('common.scrap') }}</span>
         </BaseButton>
 
         <BaseButton @click="handleShare" variant="ghost"
-          class="flex flex-col items-center group cursor-pointer text-gray-500 dark:text-gray-400 h-auto py-2">
-          <div class="p-2 rounded-full group-hover:bg-indigo-50 dark:group-hover:bg-indigo-900/30 transition-colors">
-            <Share2 class="h-6 w-6" />
+          class="flex flex-col items-center group cursor-pointer text-gray-500 dark:text-gray-400 h-auto py-1.5 sm:py-2">
+          <div class="p-1.5 sm:p-2 rounded-full group-hover:bg-indigo-50 dark:group-hover:bg-indigo-900/30 transition-colors">
+            <Share2 class="h-5 w-5 sm:h-6 sm:w-6" />
           </div>
-          <span class="text-sm font-medium mt-1">{{ $t('common.share') }}</span>
+          <span class="text-xs sm:text-sm font-medium mt-0.5 sm:mt-1">{{ $t('common.share') }}</span>
         </BaseButton>
 
         <BaseButton v-if="authStore.isAuthenticated && !isAuthor" @click="handleReport" variant="ghost"
-          class="flex flex-col items-center group cursor-pointer text-gray-500 dark:text-gray-400 h-auto py-2">
-          <div class="p-2 rounded-full group-hover:bg-red-50 dark:group-hover:bg-red-900/30 transition-colors">
-            <AlertTriangle class="h-6 w-6" />
+          class="flex flex-col items-center group cursor-pointer text-gray-500 dark:text-gray-400 h-auto py-1.5 sm:py-2">
+          <div class="p-1.5 sm:p-2 rounded-full group-hover:bg-red-50 dark:group-hover:bg-red-900/30 transition-colors">
+            <AlertTriangle class="h-5 w-5 sm:h-6 sm:w-6" />
           </div>
-          <span class="text-sm font-medium mt-1">{{ $t('common.report') }}</span>
+          <span class="text-xs sm:text-sm font-medium mt-0.5 sm:mt-1">{{ $t('common.report') }}</span>
         </BaseButton>
       </div>
 
       <!-- Comments Section -->
-      <div ref="commentsRef" class="border-t border-gray-200 dark:border-gray-700 mt-8 p-4">
+      <div ref="commentsRef" class="border-t border-gray-200 dark:border-gray-700 mt-6 sm:mt-8 px-3 py-4 sm:p-4">
         <CommentList :postId="post.postId" :boardUrl="post.board.boardUrl" />
       </div>
 
       <!-- Floating Navigation -->
       <Transition name="slide-fade">
-        <div v-show="showFloatingNav" class="fixed right-8 top-1/2 -translate-y-1/2 flex flex-col gap-2 z-50">
+        <div v-show="showFloatingNav" class="fixed right-4 sm:right-8 top-1/2 -translate-y-1/2 flex flex-col gap-1.5 sm:gap-2 z-50">
 
           <button @click="scrollToTop"
-            class="p-3 bg-white dark:bg-gray-800 rounded-full shadow-lg border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200 group"
+            class="p-2 sm:p-3 bg-white dark:bg-gray-800 rounded-full shadow-lg border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200 group"
             :title="$t('common.top')">
-            <ArrowUp class="w-5 h-5" />
+            <ArrowUp class="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
 
           <button @click="scrollToComments"
-            class="p-3 bg-white dark:bg-gray-800 rounded-full shadow-lg border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200 group"
+            class="p-2 sm:p-3 bg-white dark:bg-gray-800 rounded-full shadow-lg border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200 group"
             :title="$t('board.postDetail.comments')">
-            <MessageSquare class="w-5 h-5" />
+            <MessageSquare class="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
 
           <button @click="goToList"
-            class="p-3 bg-white dark:bg-gray-800 rounded-full shadow-lg border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200 group"
+            class="p-2 sm:p-3 bg-white dark:bg-gray-800 rounded-full shadow-lg border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200 group"
             :title="$t('board.postDetail.toList')">
-            <List class="w-5 h-5" />
+            <List class="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
         </div>
       </Transition>
@@ -634,11 +687,11 @@ onUnmounted(() => {
           </div>
         </div>
         <template #footer>
-          <div class="flex justify-end space-x-3">
-            <BaseButton @click="showReportModal = false" variant="secondary">
+          <div class="flex justify-end gap-2 sm:space-x-3">
+            <BaseButton @click="showReportModal = false" variant="secondary" size="sm">
               {{ $t('common.cancel') }}
             </BaseButton>
-            <BaseButton @click="submitReport" variant="danger">
+            <BaseButton @click="submitReport" variant="danger" size="sm">
               {{ $t('common.submit') }}
             </BaseButton>
           </div>
@@ -649,6 +702,15 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
 .bounce-in {
   animation: bounce-in 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }

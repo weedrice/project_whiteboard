@@ -1,11 +1,11 @@
-﻿<template>
+<template>
   <div class="relative inline-block text-left">
     <div>
       <button 
         ref="buttonRef" 
         type="button"
-        class="inline-flex justify-center w-full rounded-md text-sm font-medium text-gray-700 dark:text-gray-200 hover:text-indigo-600 dark:hover:text-indigo-400 focus:outline-none"
-        :class="{ 'cursor-default hover:text-gray-700 dark:hover:text-gray-200': isSelf }" 
+        class="inline-flex justify-center w-full rounded-md font-medium text-gray-700 dark:text-gray-200 hover:text-indigo-600 dark:hover:text-indigo-400 focus:outline-none"
+        :class="[{ 'cursor-default hover:text-gray-700 dark:hover:text-gray-200': isSelf }, size === 'xs' ? 'text-xs' : size === 'inherit' ? 'text-inherit' : 'text-sm']" 
         @click="toggleDropdown"
         @keydown="(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
@@ -82,10 +82,13 @@ const authStore = useAuthStore()
 const toastStore = useToastStore()
 const { confirm } = useConfirm()
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   userId: number
   displayName: string
-}>()
+  size?: 'default' | 'xs' | 'inherit'
+}>(), {
+  size: 'default'
+})
 
 const isDropdownOpen = ref(false)
 const isMessageModalOpen = ref(false)

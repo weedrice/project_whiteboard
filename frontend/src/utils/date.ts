@@ -67,6 +67,29 @@ export function formatRelativeDate(dateString: string): string {
  * Example: "2023-10-27T10:00:00" -> "2023. 10. 27."
  * Uses Intl.DateTimeFormat for better performance and consistency.
  */
+/**
+ * 짧은 날짜+시간 (모바일용): YY.MM.DD HH:MI
+ * Example: "2024-01-29T14:30:00" -> "24.01.29 14:30"
+ */
+export function formatDateShort(dateString: string | number[]): string {
+    if (!dateString) return ''
+
+    let date: Date
+    if (Array.isArray(dateString)) {
+        const [year, month, day, hour, minute] = dateString
+        date = new Date(Date.UTC(year, month - 1, day, hour, minute || 0, 0))
+    } else {
+        date = new Date(dateString)
+    }
+
+    const yy = String(date.getFullYear()).slice(-2)
+    const mm = String(date.getMonth() + 1).padStart(2, '0')
+    const dd = String(date.getDate()).padStart(2, '0')
+    const hh = String(date.getHours()).padStart(2, '0')
+    const mi = String(date.getMinutes()).padStart(2, '0')
+    return `${yy}.${mm}.${dd} ${hh}:${mi}`
+}
+
 export function formatDateOnly(dateString: string | number[]): string {
     if (!dateString) return ''
     

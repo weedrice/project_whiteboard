@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // defineProps and defineEmits are compiler macros and don't need to be imported
-import { MessageSquare, ThumbsUp, User, Clock, Image as ImageIcon, ArrowUp, ArrowDown } from 'lucide-vue-next'
+import { MessageSquare, ThumbsUp, User, Clock, Image as ImageIcon, ArrowUp, ArrowDown, Eye } from 'lucide-vue-next'
 import UserMenu from '@/components/common/widgets/UserMenu.vue'
 import BaseTable from '@/components/common/ui/BaseTable.vue'
 import { computed } from 'vue'
@@ -37,6 +37,7 @@ const props = withDefaults(defineProps<{
   page?: number
   size?: number
   currentSort?: string
+  currentPostId?: string
   showBoardName?: boolean
   hideNoColumn?: boolean
 }>(), {
@@ -47,6 +48,24 @@ const props = withDefaults(defineProps<{
   showBoardName: false,
   hideNoColumn: false
 })
+
+function isCurrentPost(item: Post): boolean {
+  return String(item.postId) === String(props.currentPostId ?? '')
+}
+
+function onPostClick(event: Event, item: Post) {
+  if (isCurrentPost(item)) {
+    event.preventDefault()
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+}
+
+function onTitleClick(event: Event, item: Post) {
+  if (isCurrentPost(item)) {
+    event.preventDefault()
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+}
 
 import { formatRelativeDate } from '@/utils/date'
 
@@ -130,8 +149,61 @@ const columns = computed(() => {
 
 <template>
   <div class="card">
-    <div class="table-container">
-      <BaseTable :columns="columns" :items="posts" :emptyText="$t('board.list.noPosts')" @sort="handleSort">
+    <!-- Mobile: 제목·날짜 상단, 글쓴이·조회·추천 하단 (번호 없음, 공지 배경 구분) -->
+    <div class="sm:hidden divide-y divide-gray-200 dark:divide-gray-700">
+      <template v-if="posts.length === 0">
+        <div class="px-4 py-8 text-center text-xs text-gray-500 dark:text-gray-400">
+          {{ $t('board.list.noPosts') }}
+        </div>
+      </template>
+      <router-link
+        v-for="(item, index) in posts"
+        :key="item.postId"
+        :to="boardUrl || item.boardUrl ? `/board/${boardUrl || item.boardUrl}/post/${item.postId}` : {}"
+        :class="[
+          'block px-3 py-3 transition-colors',
+          item.isNotice ? 'bg-gray-100/80 dark:bg-gray-700/40 hover:bg-gray-200/80 dark:hover:bg-gray-700/60' : 'hover:bg-gray-50 dark:hover:bg-gray-700/50',
+          isCurrentPost(item) ? 'bg-indigo-50 dark:bg-indigo-900/20 ring-1 ring-inset ring-indigo-200 dark:ring-indigo-700' : ''
+        ]"
+        active-class=""
+        @click="(e) => onPostClick(e, item)"
+      >
+        <div class="flex items-center gap-2 min-w-0">
+          <span class="flex-1 min-w-0 truncate text-xs text-gray-900 dark:text-white">
+            <span v-if="item.category && item.category.name !== '일반'" class="badge badge-gray mr-1 text-[10px]">{{ item.category.name }}</span>
+            <span v-if="item.isNotice" class="badge badge-red mr-1 text-[10px]">{{ $t('common.notice') }}</span>
+            <span v-if="item.hasImage" class="mr-0.5 inline-flex text-gray-400"><ImageIcon class="h-3.5 w-3.5" /></span>
+            {{ item.title }}
+            <span v-if="item.commentCount > 0" class="text-indigo-600 dark:text-indigo-400">[{{ item.commentCount }}]</span>
+          </span>
+          <span class="flex-shrink-0 text-[10px] text-gray-500 dark:text-gray-400">{{ formatRelativeDate(item.createdAt) }}</span>
+        </div>
+        <div class="flex items-center gap-3 mt-1.5 text-[10px] text-gray-500 dark:text-gray-400">
+          <span class="flex items-center gap-0.5">
+            <User class="h-3 w-3" />
+            {{ item.author?.displayName || '-' }}
+          </span>
+          <span class="flex items-center gap-0.5">
+            <Eye class="h-3 w-3" />
+            {{ item.viewCount }}
+          </span>
+          <span class="flex items-center gap-0.5">
+            <ThumbsUp class="h-3 w-3" />
+            {{ item.likeCount }}
+          </span>
+        </div>
+      </router-link>
+    </div>
+
+    <!-- Desktop: 테이블 -->
+    <div class="hidden sm:block table-container">
+      <BaseTable
+        :columns="columns"
+        :items="posts"
+        :emptyText="$t('board.list.noPosts')"
+        :rowClass="(item) => isCurrentPost(item) ? 'post-list-row-current' : ''"
+        @sort="handleSort"
+      >
         <template #cell-postId="{ item }">
           <span v-if="item.isNotice" class="font-bold text-red-600 dark:text-red-400">{{ $t('common.notice') }}</span>
           <span v-else>{{ item.rowNum }}</span>
@@ -149,11 +221,12 @@ const columns = computed(() => {
           <div class="flex items-center h-full">
             <router-link :to="`/board/${boardUrl || item.boardUrl}/post/${item.postId}`"
               class="hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center h-full w-full"
-              v-if="boardUrl || item.boardUrl">
-              <span v-if="item.category && item.category.name !== '일반'" class="badge badge-gray mr-2">
+              v-if="boardUrl || item.boardUrl"
+              @click="(e) => onTitleClick(e, item)">
+              <span v-if="item.category && item.category.name !== '일반'" class="badge badge-gray mr-1.5 sm:mr-2 text-[10px] sm:text-xs">
                 {{ item.category.name }}
               </span>
-              <span v-if="item.isNotice" class="badge badge-red mr-2">
+              <span v-if="item.isNotice" class="badge badge-red mr-1.5 sm:mr-2 text-[10px] sm:text-xs">
                 {{ $t('common.notice') }}
               </span>
               <span v-if="item.hasImage" class="mr-1 text-gray-400 flex items-center">
@@ -161,7 +234,7 @@ const columns = computed(() => {
               </span>
               <span class="truncate">{{ item.title }}</span>
               <span v-if="item.commentCount > 0"
-                class="ml-1 text-indigo-600 dark:text-indigo-400 text-xs flex items-center">
+                class="ml-1 text-indigo-600 dark:text-indigo-400 text-[10px] sm:text-xs flex items-center">
                 [{{ item.commentCount }}]
               </span>
             </router-link>
@@ -191,3 +264,24 @@ const columns = computed(() => {
     </div>
   </div>
 </template>
+
+<style scoped>
+:deep(.post-list-row-current) {
+  position: relative;
+}
+:deep(.post-list-row-current)::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  z-index: -1;
+  background-color: rgb(238 242 255);
+  box-shadow: inset 0 0 0 1px rgb(199 210 254);
+}
+:global(.dark) :deep(.post-list-row-current)::before {
+  background-color: rgb(49 46 129 / 0.2);
+  box-shadow: inset 0 0 0 1px rgb(67 56 202 / 0.5);
+}
+</style>

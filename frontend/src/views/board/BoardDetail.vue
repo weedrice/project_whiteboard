@@ -3,7 +3,7 @@ import { ref, watch, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useBoard } from '@/composables/useBoard'
 import PostList from '@/components/board/PostList.vue'
-import { Search, X, PlusCircle, Settings, User } from 'lucide-vue-next'
+import { Search, X, PlusCircle, User } from 'lucide-vue-next'
 import UserMenu from '@/components/common/widgets/UserMenu.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useI18n } from 'vue-i18n'
@@ -23,6 +23,7 @@ const { useBoardDetail, useBoardPosts, useBoardNotices, useSubscribeBoard } = us
 
 // Queries
 const boardUrl = computed(() => route.params.boardUrl as string)
+const currentPostId = computed(() => route.params.postId as string | undefined)
 const { data: board, isLoading: isBoardLoading, error: boardError } = useBoardDetail(boardUrl)
 
 // SEO
@@ -366,90 +367,90 @@ onUnmounted(() => {
 
         <div v-else-if="board">
             <!-- Board Header -->
-            <div class="bg-white dark:bg-gray-800 shadow rounded-lg mb-6 p-6 transition-colors duration-200">
+            <div class="bg-white dark:bg-gray-800 shadow rounded-lg mb-2 sm:mb-6 p-4 sm:p-6 transition-colors duration-200">
                 <div class="flex items-start">
-                    <router-link :to="`/board/${board.boardUrl}`" class="flex-shrink-0 mr-6 cursor-pointer">
+                    <router-link :to="`/board/${board.boardUrl}`" class="flex-shrink-0 mr-4 sm:mr-6 cursor-pointer">
                         <img v-if="board.iconUrl" :src="getOptimizedBoardIconUrl(board.iconUrl, 80)"
-                            class="h-20 w-20 rounded-full" alt="" @error="handleImageError($event)" />
+                            class="h-14 w-14 sm:h-20 sm:w-20 rounded-full" alt="" @error="handleImageError($event)" />
                         <div v-else
-                            class="h-20 w-20 rounded-full bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center">
-                            <span class="text-indigo-600 dark:text-indigo-400 font-bold text-3xl">{{ board.boardName[0]
+                            class="h-14 w-14 sm:h-20 sm:w-20 rounded-full bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center">
+                            <span class="text-indigo-600 dark:text-indigo-400 font-bold text-xl sm:text-3xl">{{ board.boardName[0]
                                 }}</span>
                         </div>
                     </router-link>
                     <div class="flex-1 min-h-[5rem] flex flex-col justify-between">
-                        <div class="flex flex-col sm:flex-row justify-between items-start gap-2">
-                            <router-link :to="`/board/${board.boardUrl}`" class="hover:underline cursor-pointer">
-                                <h1 class="text-2xl font-bold text-gray-900 dark:text-white break-all">{{
+                        <div class="flex flex-row justify-between items-center gap-2 min-w-0">
+                            <router-link :to="`/board/${board.boardUrl}`" class="hover:underline cursor-pointer min-w-0 flex-1">
+                                <h1 class="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white truncate">{{
                                     board.boardName }}</h1>
                             </router-link>
-                            <div class="flex space-x-2 flex-shrink-0">
+                            <div class="flex gap-1.5 sm:gap-2 flex-shrink-0">
                                 <BaseButton v-if="authStore.isAuthenticated" @click="handleSubscribe" size="sm"
                                     :variant="board.isSubscribed ? 'secondary' : 'primary'"
                                     class="cursor-pointer transition-colors duration-200">
                                     {{ board.isSubscribed ? $t('common.unsubscribe') : $t('common.subscribe') }}
                                 </BaseButton>
                                 <router-link v-if="board.isAdmin" :to="`/board/${board.boardUrl}/edit`"
-                                    class="inline-flex items-center px-3 py-1.5 border border-gray-300 dark:border-gray-600 shadow-sm text-xs font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 cursor-pointer transition-colors duration-200">
-                                    <Settings class="-ml-1 mr-1 h-4 w-4" />
+                                    class="inline-flex items-center justify-center px-2 py-1.5 sm:px-3 sm:py-2 border border-gray-300 dark:border-gray-600 shadow-sm text-xs sm:text-sm font-medium rounded-md leading-4 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 cursor-pointer transition-colors duration-200">
                                     {{ $t('common.manage') }}
                                 </router-link>
                             </div>
                         </div>
                         <div
-                            class="flex flex-wrap items-center text-sm text-gray-500 dark:text-gray-400 gap-4 mt-2 sm:mt-0">
+                            class="flex flex-wrap items-center text-xs sm:text-sm text-gray-500 dark:text-gray-400 gap-3 sm:gap-4 mt-2 sm:mt-0">
                             <span class="flex items-center">
-                                <User class="h-4 w-4 mr-1" />
+                                <User class="hidden sm:block h-4 w-4 mr-1 flex-shrink-0" />
                                 {{ $t('common.subscribers') }} {{ board.subscriberCount || 0 }}
                             </span>
                             <span class="flex items-center">
                                 <span class="font-medium mr-1">{{ $t('common.admin') }}</span>
-                                <UserMenu v-if="board.adminUserId" :user-id="board.adminUserId"
-                                    :display-name="board.adminDisplayName || $t('common.defaultAdminName')" />
-                                <span v-else>{{ board.adminDisplayName || $t('board.detail.defaultAdminName') }}</span>
+                                <template v-if="board.adminUserId">
+                                    <span class="text-[11px] sm:text-sm">
+                                        <UserMenu :user-id="board.adminUserId"
+                                            :display-name="board.adminDisplayName || $t('common.defaultAdminName')" size="inherit" />
+                                    </span>
+                                </template>
+                                <span v-else class="text-[11px] sm:text-sm">{{ board.adminDisplayName || $t('board.detail.defaultAdminName') }}</span>
                             </span>
                         </div>
-                        <p class="text-sm text-gray-500 dark:text-gray-400 line-clamp-1 mt-1">{{ board.description }}
+                        <p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 line-clamp-1 mt-1">{{ board.description }}
                         </p>
                     </div>
                 </div>
             </div>
 
             <!-- Post Detail Router View -->
-            <div class="mb-6">
+            <div class="mb-3 sm:mb-6">
                 <router-view></router-view>
             </div>
 
 
 
             <!-- Filters & Post List -->
-            <div class="bg-white dark:bg-gray-800 shadow rounded-lg transition-colors duration-200">
+            <div id="board-post-list" class="bg-white dark:bg-gray-800 shadow rounded-lg transition-colors duration-200">
                 <div
-                    class="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex space-x-4 overflow-x-auto scrollbar-hide">
+                    class="px-3 sm:px-4 py-2 sm:py-3 border-b border-gray-200 dark:border-gray-700 flex gap-1.5 sm:gap-2 overflow-x-auto scrollbar-hide">
                     <BaseButton @click="toggleFilter('all')" size="sm"
                         :variant="filterType === 'all' ? 'primary' : 'ghost'"
-                        :class="filterType === 'all' ? '!bg-indigo-100 !text-indigo-700 dark:!bg-indigo-900/50 dark:!text-indigo-300' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'"
-                        class="whitespace-nowrap">
+                        :class="[filterType === 'all' ? '!bg-indigo-100 !text-indigo-700 dark:!bg-indigo-900/50 dark:!text-indigo-300' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200', 'whitespace-nowrap']">
                         {{ $t('board.detail.filter.all') }}
                     </BaseButton>
                     <BaseButton @click="toggleFilter('concept')" size="sm"
                         :variant="filterType === 'concept' ? 'primary' : 'ghost'"
-                        :class="filterType === 'concept' ? '!bg-indigo-100 !text-indigo-700 dark:!bg-indigo-900/50 dark:!text-indigo-300' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'"
-                        class="whitespace-nowrap">
+                        :class="[filterType === 'concept' ? '!bg-indigo-100 !text-indigo-700 dark:!bg-indigo-900/50 dark:!text-indigo-300' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200', 'whitespace-nowrap']">
                         {{ $t('board.detail.filter.concept') }}
                     </BaseButton>
                     <BaseButton v-for="category in categories" :key="category.categoryId"
                         @click="toggleFilter('category', category.categoryId)" size="sm"
                         :variant="filterType === 'category' && activeFilterCategory?.categoryId === category.categoryId ? 'primary' : 'ghost'"
-                        :class="filterType === 'category' && activeFilterCategory?.categoryId === category.categoryId ? '!bg-indigo-100 !text-indigo-700 dark:!bg-indigo-900/50 dark:!text-indigo-300' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'"
-                        class="whitespace-nowrap">
+                        :class="[filterType === 'category' && activeFilterCategory?.categoryId === category.categoryId ? '!bg-indigo-100 !text-indigo-700 dark:!bg-indigo-900/50 dark:!text-indigo-300' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200', 'whitespace-nowrap']">
                         {{ category.name }}
                     </BaseButton>
                 </div>
                 <PostList :posts="posts" :boardUrl="board.boardUrl" :totalCount="totalCount" :page="page" :size="size"
-                    :current-sort="sort" @update:sort="handleSortChange" />
+                    :current-sort="sort" :currentPostId="currentPostId" @update:sort="handleSortChange" />
                 <!-- Pagination -->
-                <div class="px-4 py-3 border-t border-gray-200 dark:border-gray-700 flex justify-center"
+                <div class="px-3 sm:px-4 py-2 sm:py-3 border-t border-gray-200 dark:border-gray-700 flex justify-center"
                     v-if="totalPages >= 1">
                     <Pagination :currentPage="page" :totalPages="totalPages" @page-change="handlePageChange" />
                 </div>
@@ -457,9 +458,9 @@ onUnmounted(() => {
 
             <!-- Search Bar (가운데) & Write Button (오른쪽) -->
             <div
-                class="mt-4 px-4 py-4 sm:px-6 bg-gray-50 dark:bg-gray-800 rounded-lg flex flex-col sm:flex-row items-center gap-4 transition-colors duration-200">
+                class="mt-2 sm:mt-4 px-3 sm:px-6 py-3 sm:py-4 bg-gray-50 dark:bg-gray-800 rounded-lg flex flex-col sm:flex-row items-center gap-3 sm:gap-4 transition-colors duration-200">
                 <div class="flex-1 min-w-0 hidden sm:block" aria-hidden="true"></div>
-                <div class="w-full sm:w-auto flex justify-center shrink-0">
+                <div class="w-full sm:w-auto flex justify-center shrink-0 list-search-mobile">
                     <div class="list-search-row">
                         <div class="list-search-group">
                             <select v-model="searchType" class="list-search-select-inline">
@@ -474,11 +475,11 @@ onUnmounted(() => {
                                     :placeholder="$t('board.detail.searchPlaceholder')" inputClass="list-search-input"
                                     hideLabel>
                                     <template #prefix>
-                                        <Search class="h-5 w-5 text-gray-400" />
+                                        <Search class="hidden sm:block h-5 w-5 text-gray-400" />
                                     </template>
                                     <template #suffix>
                                         <button v-if="isSearching" type="button" @click="clearSearch"
-                                            class="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 cursor-pointer">
+                                            class="hidden sm:flex text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 cursor-pointer items-center">
                                             <X class="h-5 w-5" />
                                         </button>
                                     </template>
@@ -493,8 +494,8 @@ onUnmounted(() => {
 
                 <div class="flex-1 min-w-0 w-full sm:w-auto flex justify-end">
                     <router-link v-if="canWrite" :to="`/board/${board.boardUrl}/write`"
-                        class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 whitespace-nowrap">
-                        <PlusCircle class="-ml-1 mr-2 h-5 w-5" />
+                        class="inline-flex items-center justify-center px-2 py-1.5 sm:px-4 sm:py-2 border border-transparent text-xs sm:text-sm font-medium rounded-md shadow-sm leading-4 text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 whitespace-nowrap">
+                        <PlusCircle class="hidden sm:inline-block -ml-1 mr-2 h-5 w-5" />
                         {{ $t('common.write') }}
                     </router-link>
                 </div>

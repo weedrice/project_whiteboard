@@ -64,12 +64,12 @@ function fetchComments() {
 </script>
 
 <template>
-  <div class="mt-8">
-    <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-6">{{ $t('comment.title') }}</h3>
+  <div class="mt-6 sm:mt-8">
+    <h3 class="text-base sm:text-lg font-medium text-gray-900 dark:text-gray-100 mb-4 sm:mb-6">{{ $t('comment.title') }}</h3>
 
 
     <!-- Comment List -->
-    <div v-if="isLoading" class="space-y-6">
+    <div v-if="isLoading" class="space-y-4 sm:space-y-6">
       <div v-for="i in 3" :key="i" class="flex space-x-3">
         <BaseSkeleton width="2.5rem" height="2.5rem" rounded="rounded-full" />
         <div class="flex-1 space-y-2">
@@ -83,7 +83,7 @@ function fetchComments() {
       </div>
     </div>
 
-    <div v-else class="space-y-6">
+    <div v-else class="space-y-4 sm:space-y-6">
       <CommentItem
         v-for="comment in comments"
         :key="comment.commentId"
@@ -96,16 +96,16 @@ function fetchComments() {
         @delete="handleDelete"
       />
 
-      <div v-if="comments.length === 0" class="text-center text-gray-500 dark:text-gray-400 py-4">
+      <div v-if="comments.length === 0" class="text-center text-xs sm:text-sm text-gray-500 dark:text-gray-400 py-3 sm:py-4">
         {{ $t('comment.empty') }}
       </div>
     </div>
 
     <!-- New Comment Form -->
-    <div v-if="authStore.isAuthenticated" class="mt-8 mb-8">
+    <div v-if="authStore.isAuthenticated" class="mt-6 sm:mt-8 mb-6 sm:mb-8">
       <CommentForm :postId="postId" @success="fetchComments" />
     </div>
-    <div v-else class="mt-8 mb-8 text-sm text-gray-500 dark:text-gray-400">
+    <div v-else class="mt-6 sm:mt-8 mb-6 sm:mb-8 text-xs sm:text-sm text-gray-500 dark:text-gray-400">
       <router-link to="/login"
         class="text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300">{{
           $t('common.login') }}</router-link> {{ $t('comment.loginRequired', { login: '' }) }}

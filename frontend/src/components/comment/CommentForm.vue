@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { ref } from 'vue'
 import { useComment } from '@/composables/useComment'
 import { useI18n } from 'vue-i18n'
@@ -103,7 +103,7 @@ async function handleSubmit() {
 </script>
 
 <template>
-  <form @submit.prevent="handleSubmit" class="mt-4">
+  <form @submit.prevent="handleSubmit" class="mt-3 sm:mt-4 text-sm sm:text-base">
     <div class="relative">
       <BaseTextarea id="comment" v-model="content" rows="3"
         :placeholder="parentId ? $t('comment.writeReply') : $t('comment.writeComment')" required hideLabel />
@@ -122,20 +122,20 @@ async function handleSubmit() {
           v-if="authStore.isAuthenticated && !commentId"
           type="button"
           @click="showEmoticonPicker = !showEmoticonPicker"
-          class="inline-flex items-center px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+          class="inline-flex items-center justify-center px-2 py-1.5 sm:px-3 sm:py-1.5 text-xs sm:text-sm text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
           :class="{ 'text-indigo-600 dark:text-indigo-400 bg-gray-100 dark:bg-gray-700': showEmoticonPicker }"
           title="노비콘"
         >
-          <Smile class="w-5 h-5" />
+          <Smile class="w-4 h-4 sm:w-5 sm:h-5" />
         </button>
       </div>
       
       <div class="flex items-center">
-        <BaseButton v-if="parentId" type="button" @click="emit('cancel')" variant="secondary" class="mr-3">
+        <BaseButton v-if="parentId" type="button" @click="emit('cancel')" variant="secondary" size="sm" class="mr-3">
           {{ $t('common.cancel') }}
         </BaseButton>
-        <BaseButton type="submit" :loading="isSubmitting" variant="primary">
-          {{ isSubmitting ? $t('comment.posting') : (parentId ? $t('comment.reply') : $t('comment.postComment')) }}
+        <BaseButton type="submit" :loading="isSubmitting" variant="primary" size="sm">
+          {{ isSubmitting ? $t('comment.posting') : (parentId ? $t('comment.reply') : $t('common.submit')) }}
         </BaseButton>
       </div>
     </div>

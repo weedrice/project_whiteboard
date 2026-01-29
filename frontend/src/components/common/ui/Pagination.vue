@@ -1,20 +1,21 @@
-﻿<template>
-  <nav v-if="totalPages >= 1" class="flex items-center justify-center space-x-1" aria-label="Pagination">
-    <BaseButton :disabled="currentPage === 0" @click="$emit('page-change', currentPage - 1)" variant="secondary">
+<template>
+  <nav v-if="totalPages >= 1" class="flex items-center justify-center gap-0.5 sm:space-x-1 text-xs sm:text-sm" aria-label="Pagination">
+    <BaseButton :disabled="currentPage === 0" @click="$emit('page-change', currentPage - 1)" variant="secondary" size="sm">
       {{ $t('common.previous') }}
     </BaseButton>
 
     <template v-for="page in displayedPages" :key="page">
-      <span v-if="page === '...'" class="px-3 py-2 text-gray-500 dark:text-gray-400">...</span>
+      <span v-if="page === '...'" class="px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm text-gray-500 dark:text-gray-400">...</span>
       <BaseButton v-else @click="$emit('page-change', (page as number) - 1)"
         :variant="currentPage === (page as number) - 1 ? 'primary' : 'secondary'"
+        size="sm"
         :class="currentPage === (page as number) - 1 ? 'z-10' : ''">
         {{ page }}
       </BaseButton>
     </template>
 
     <BaseButton :disabled="currentPage === totalPages - 1" @click="$emit('page-change', currentPage + 1)"
-      variant="secondary">
+      variant="secondary" size="sm">
       {{ $t('common.next') }}
     </BaseButton>
   </nav>
