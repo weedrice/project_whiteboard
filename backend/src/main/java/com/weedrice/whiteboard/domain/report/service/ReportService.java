@@ -103,8 +103,9 @@ public class ReportService {
         Report report = reportRepository.findById(reportId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
 
-        // 현재 신고 처리는 SUPER_ADMIN 전용이므로 Admin 엔티티를 따로 조회하지 않고, 처리자 정보는 remark 등에만 남긴다.
-        report.processReport(null, status, remark);
+        // 현재 신고 처리는 SUPER_ADMIN 전용이므로 Admin 엔티티를 따로 조회하지 않고,
+        // 상태(status)만 변경하며 최초 신고 사유(remark)는 덮어쓰지 않는다.
+        report.processReport(null, status, null);
         reportRepository.save(report);
         return toResponse(report);
     }

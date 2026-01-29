@@ -67,6 +67,7 @@ public class Report extends BaseTimeEntity {
     public void processReport(Admin admin, String status, String remark) {
         this.admin = admin;
         this.status = status;
-        this.remark = remark;
+        // 최초 신고 시 입력된 remark(사유)는 유지하고, 승인/반려 시에는 덮어쓰지 않는다.
+        // admin용 사유를 따로 저장하려면 별도 필드를 추가해야 함.
     }
 }
