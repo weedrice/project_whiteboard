@@ -212,7 +212,7 @@ onMounted(async () => {
           <div v-if="myPosts.length > 0">
             <PostList :posts="myPosts" :totalCount="myPostsTotalCount" :page="myPostsCurrentPage" :size="myPostsSize"
               :current-sort="myPostsSort" :show-board-name="true" @update:sort="handleMyPostsSortChange" />
-            <div class="mt-4 flex justify-center">
+            <div class="bg-gray-50 dark:bg-gray-900/50 px-4 py-4 sm:px-6 flex justify-center">
               <Pagination :current-page="myPostsCurrentPage" :total-pages="Math.ceil(myPostsTotalCount / myPostsSize)"
                 @page-change="handleMyPostsPageChange" />
             </div>
@@ -255,7 +255,7 @@ onMounted(async () => {
                 </div>
               </li>
             </ul>
-            <div class="mt-4 flex justify-center pb-6">
+            <div class="bg-gray-50 dark:bg-gray-900/50 px-4 py-4 sm:px-6 flex justify-center">
               <Pagination :current-page="myCommentsCurrentPage"
                 :total-pages="Math.ceil(myCommentsTotalCount / myCommentsSize)"
                 @page-change="handleMyCommentsPageChange" />

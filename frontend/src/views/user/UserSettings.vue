@@ -1,4 +1,4 @@
-﻿<script setup>
+<script setup>
 import { ref, onMounted, reactive, watchEffect, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
@@ -13,6 +13,7 @@ import logger from '@/utils/logger'
 import { useUser } from '@/composables/useUser'
 
 import { useThemeStore } from '@/stores/theme'
+import { Settings } from 'lucide-vue-next'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -110,6 +111,10 @@ const saveSettings = async () => {
     </div>
 
     <div v-else class="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg transition-colors duration-200">
+      <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700 flex items-center">
+        <Settings class="h-5 w-5 mr-2 text-gray-500 dark:text-gray-400" />
+        <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white">{{ $t('common.settings') }}</h3>
+      </div>
       <div class="px-4 py-5 sm:p-6 space-y-6">
         <!-- General Settings -->
         <div>

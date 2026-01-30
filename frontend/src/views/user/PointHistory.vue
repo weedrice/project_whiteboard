@@ -1,10 +1,12 @@
-﻿<script setup>
+<script setup>
 import { ref, onMounted } from 'vue'
 import axios from '@/api'
 import Pagination from '@/components/common/ui/Pagination.vue'
 import PageSizeSelector from '@/components/common/widgets/PageSizeSelector.vue'
 import BaseBadge from '@/components/common/ui/BaseBadge.vue'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
+import EmptyState from '@/components/common/ui/EmptyState.vue'
+import { Coins } from 'lucide-vue-next'
 import logger from '@/utils/logger'
 
 const history = ref([])
@@ -54,20 +56,28 @@ onMounted(() => {
   <div class="max-w-2xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
     <div class="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg transition-colors duration-200">
       <div class="px-4 py-5 sm:px-6 flex justify-between items-center border-b border-gray-200 dark:border-gray-700">
-        <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-white">{{ $t('user.tabs.points') }}</h3>
+        <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white flex items-center">
+          <Coins class="h-5 w-5 mr-2 text-gray-500 dark:text-gray-400" />
+          {{ $t('user.tabs.points') }}
+        </h3>
         <PageSizeSelector v-model="size" @change="handleSizeChange" />
       </div>
-      <ul role="list" class="divide-y divide-gray-200 dark:divide-gray-700">
-        <div v-if="loading && history.length === 0" class="divide-y divide-gray-200 dark:divide-gray-700">
-          <div v-for="i in 5" :key="i" class="px-4 py-4 sm:px-6 flex justify-between items-center">
-            <div class="flex flex-col flex-1">
-              <BaseSkeleton width="60%" height="20px" className="mb-1" />
-              <BaseSkeleton width="30%" height="14px" />
-            </div>
-            <BaseSkeleton width="60px" height="24px" rounded="rounded-full" />
+      <div v-if="loading && history.length === 0" class="divide-y divide-gray-200 dark:divide-gray-700">
+        <div v-for="i in 5" :key="i" class="px-4 py-4 sm:px-6 flex justify-between items-center">
+          <div class="flex flex-col flex-1">
+            <BaseSkeleton width="60%" height="20px" className="mb-1" />
+            <BaseSkeleton width="30%" height="14px" />
           </div>
+          <BaseSkeleton width="60px" height="24px" rounded="rounded-full" />
         </div>
-        <li v-else v-for="item in history" :key="item.id"
+      </div>
+      <EmptyState
+        v-else-if="history.length === 0"
+        :title="$t('user.pointsHistory.empty')"
+        :icon="Coins"
+      />
+      <ul v-else role="list" class="divide-y divide-gray-200 dark:divide-gray-700">
+        <li v-for="item in history" :key="item.id"
           class="px-4 py-4 sm:px-6 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200">
           <div class="flex items-center justify-between">
             <div class="flex flex-col">
@@ -84,9 +94,6 @@ onMounted(() => {
               </BaseBadge>
             </div>
           </div>
-        </li>
-        <li v-if="history.length === 0 && !loading" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
-          {{ $t('user.pointsHistory.empty') }}
         </li>
       </ul>
 

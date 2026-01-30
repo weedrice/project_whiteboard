@@ -48,7 +48,7 @@ interface Tab {
 
 const tabs: Tab[] = [
     { nameKey: 'common.myPage', href: '/mypage' },
-    { nameKey: 'user.tabs.settings', href: '/mypage/settings' },
+    // { nameKey: 'user.tabs.settings', href: '/mypage/settings' }, // 숨김
     { nameKey: 'common.notifications', href: '/mypage/notifications' },
     { nameKey: 'common.mailbox', href: '/mypage/messages' },
     { nameKey: 'common.points', href: '/mypage/points' },

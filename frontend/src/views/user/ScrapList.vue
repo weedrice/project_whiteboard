@@ -1,4 +1,4 @@
-﻿<script setup>
+<script setup>
 import { ref, onMounted } from 'vue'
 import { userApi } from '@/api/user'
 import PostList from '@/components/board/PostList.vue'
@@ -53,26 +53,14 @@ onMounted(() => {
   <div class="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
     <div class="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg transition-colors duration-200">
       <div class="px-4 py-5 sm:px-6 flex justify-between items-center border-b border-gray-200 dark:border-gray-700">
-        <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-white">{{ $t('user.tabs.scraps') }}</h3>
+        <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white flex items-center">
+          <Bookmark class="h-5 w-5 mr-2 text-gray-500 dark:text-gray-400" />
+          {{ $t('user.tabs.scraps') }}
+        </h3>
         <PageSizeSelector v-model="size" @change="handleSizeChange" />
       </div>
-      <div v-if="scraps.length > 0">
-        <PostList :posts="scraps" :show-board-name="true" :hide-no-column="true" />
-
-        <div class="mt-4 flex justify-center pb-6">
-          <Pagination :current-page="page" :total-pages="totalPages" @page-change="handlePageChange" />
-        </div>
-      </div>
-
-      <EmptyState 
-        v-else-if="!loading"
-        :title="$t('user.scrapList.empty')"
-        :icon="Bookmark"
-      />
-
-      <div v-if="loading && scraps.length === 0" class="space-y-4 p-4">
-        <div v-for="i in 5" :key="i"
-          class="flex justify-between items-center py-2 border-b border-gray-100 dark:border-gray-700 last:border-0">
+      <div v-if="loading && scraps.length === 0" class="divide-y divide-gray-200 dark:divide-gray-700">
+        <div v-for="i in 5" :key="i" class="px-4 py-4 sm:px-6 flex justify-between items-center">
           <div class="w-full">
             <BaseSkeleton width="70%" height="24px" className="mb-2" />
             <div class="flex gap-2">
@@ -80,6 +68,17 @@ onMounted(() => {
               <BaseSkeleton width="60px" height="16px" />
             </div>
           </div>
+        </div>
+      </div>
+      <EmptyState
+        v-else-if="scraps.length === 0"
+        :title="$t('user.scrapList.empty')"
+        :icon="Bookmark"
+      />
+      <div v-else>
+        <PostList :posts="scraps" :show-board-name="true" :hide-no-column="true" />
+        <div class="bg-gray-50 dark:bg-gray-900/50 px-4 py-4 sm:px-6 flex justify-center">
+          <Pagination :current-page="page" :total-pages="totalPages" @page-change="handlePageChange" />
         </div>
       </div>
     </div>

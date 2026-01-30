@@ -1,9 +1,10 @@
 <template>
-    <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden transition-colors duration-200">
-        <div class="px-4 py-5 sm:px-6">
-            <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-white">{{ $t('user.subscriptions.title') }}
-            </h3>
-        </div>
+    <div class="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+        <div class="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg transition-colors duration-200">
+            <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700 flex items-center">
+                <Users class="h-5 w-5 mr-2 text-gray-500 dark:text-gray-400" />
+                <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white">{{ $t('user.subscriptions.title') }}</h3>
+            </div>
 
         <div v-if="loading" class="divide-y divide-gray-200 dark:divide-gray-700">
             <div v-for="i in 5" :key="i" class="px-4 py-4 sm:px-6 flex justify-between items-center">
@@ -46,6 +47,7 @@
                 </li>
             </template>
         </draggable>
+        </div>
     </div>
 </template>
 

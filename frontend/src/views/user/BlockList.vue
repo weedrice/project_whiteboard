@@ -1,12 +1,13 @@
 <template>
-  <div class="space-y-6">
-    <div class="flex justify-between items-center">
-      <h2 class="text-2xl font-bold text-gray-900 dark:text-white">{{ $t('user.blockList.title') }}</h2>
-    </div>
+  <div class="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+    <div class="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg transition-colors duration-200">
+      <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700 flex items-center">
+        <UserX class="h-5 w-5 mr-2 text-gray-500 dark:text-gray-400" />
+        <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white">{{ $t('user.blockList.title') }}</h3>
+      </div>
 
-    <div v-if="loading" class="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-md">
-      <ul role="list" class="divide-y divide-gray-200 dark:divide-gray-700">
-        <li v-for="i in 5" :key="i" class="px-4 py-4 sm:px-6 flex items-center justify-between">
+      <div v-if="loading" class="divide-y divide-gray-200 dark:divide-gray-700">
+        <div v-for="i in 5" :key="i" class="px-4 py-4 sm:px-6 flex items-center justify-between">
           <div class="flex items-center">
             <BaseSkeleton width="2.5rem" height="2.5rem" rounded="rounded-full" className="mr-4" />
             <div>
@@ -15,17 +16,17 @@
             </div>
           </div>
           <BaseSkeleton width="80px" height="32px" />
-        </li>
-      </ul>
-    </div>
+        </div>
+      </div>
 
-    <div v-else-if="blockedUsers.length === 0" class="text-center py-8 bg-gray-50 dark:bg-gray-800 rounded-lg">
-      <p class="text-gray-500 dark:text-gray-400">{{ $t('user.blockList.empty') }}</p>
-    </div>
+      <EmptyState
+        v-else-if="blockedUsers.length === 0"
+        :title="$t('user.blockList.empty')"
+        :icon="UserX"
+      />
 
-    <div v-else class="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-md">
-      <ul role="list" class="divide-y divide-gray-200 dark:divide-gray-700">
-        <li v-for="user in blockedUsers" :key="user.userId" class="px-4 py-4 sm:px-6 flex items-center justify-between">
+      <ul v-else role="list" class="divide-y divide-gray-200 dark:divide-gray-700">
+        <li v-for="user in blockedUsers" :key="user.userId" class="px-4 py-4 sm:px-6 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200">
           <div class="flex items-center">
             <div
               class="flex-shrink-0 h-10 w-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
@@ -51,6 +52,8 @@ import { ref, onMounted } from 'vue'
 import { userApi } from '@/api/user'
 import BlockButton from '@/components/user/BlockButton.vue'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
+import EmptyState from '@/components/common/ui/EmptyState.vue'
+import { UserX } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import logger from '@/utils/logger'
 

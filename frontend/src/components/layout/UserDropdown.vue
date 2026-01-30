@@ -3,7 +3,7 @@ import { ref, onMounted, onUnmounted, watch, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useKeyboardStore, type DropdownItem } from '@/stores/keyboard'
-import { User, LogOut, Settings, CreditCard, FileText, Clock, AlertTriangle, PlusSquare, ChevronDown, Bell, LayoutDashboard, Mail, Star, Slash, Smile } from 'lucide-vue-next'
+import { User, LogOut, CreditCard, FileText, Clock, AlertTriangle, PlusSquare, ChevronDown, Bell, LayoutDashboard, Mail, Star, Slash, Smile } from 'lucide-vue-next'
 import axios from '@/api'
 import logger from '@/utils/logger'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
@@ -48,15 +48,16 @@ const handleLogout = async () => {
 // 숫자키로 선택 가능한 메뉴 항목들 (관리자, 게시판 만들기, 노비콘 제외)
 const menuItems = computed(() => [
   { key: '1', route: '/mypage', label: 'common.myPage' },
-  { key: '2', route: '/mypage/settings', label: 'common.settings' },
-  { key: '3', route: '/mypage/notifications', label: 'common.notifications' },
-  { key: '4', route: '/mypage/messages', label: 'common.mailbox' },
-  { key: '5', route: '/mypage/points', label: 'common.points' },
-  { key: '6', route: '/mypage/scraps', label: 'common.scrap' },
-  { key: '7', route: '/mypage/subscriptions', label: 'user.tabs.subscriptions' },
-  { key: '8', route: '/mypage/recent', label: 'layout.menu.recent' },
-  { key: '9', route: '/mypage/reports', label: 'layout.menu.reports' },
-  { key: '0', route: '/mypage/blocked', label: 'user.tabs.blocked' },
+  // { key: '2', route: '/mypage/settings', label: 'common.settings' }, // 숨김
+  { key: '2', route: '/mypage/notifications', label: 'common.notifications' },
+  { key: '3', route: '/mypage/messages', label: 'common.mailbox' },
+  { key: '4', route: '/mypage/points', label: 'common.points' },
+  { key: '5', route: '/mypage/scraps', label: 'common.scrap' },
+  { key: '6', route: '/mypage/subscriptions', label: 'user.tabs.subscriptions' },
+  { key: '7', route: '/mypage/recent', label: 'layout.menu.recent' },
+  { key: '8', route: '/mypage/reports', label: 'layout.menu.reports' },
+  { key: '9', route: '/mypage/blocked', label: 'user.tabs.blocked' },
+  // 게시판 생성은 단축키 미연결
 ])
 
 const navigateTo = (route: string) => {
@@ -158,7 +159,7 @@ onUnmounted(() => {
         </router-link>
       </div>
 
-      <!-- Group 2: MyPage, Settings, Notifications, Messages, Points -->
+      <!-- Group 2: MyPage, Notifications, Messages, Points (표시 설정 숨김) -->
       <div class="py-1 border-b border-gray-100 dark:border-gray-700">
         <router-link to="/mypage"
           class="group flex items-center justify-between px-3 py-2.5 sm:py-2 min-h-[40px] sm:min-h-0 text-xs sm:text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 active:bg-gray-100 dark:active:bg-gray-600 hover:text-gray-900 dark:hover:text-white touch-manipulation"
@@ -171,17 +172,6 @@ onUnmounted(() => {
           <kbd
             class="hidden sm:inline-block px-1.5 py-0.5 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded">1</kbd>
         </router-link>
-        <router-link to="/mypage/settings"
-          class="group flex items-center justify-between px-3 py-2.5 sm:py-2 min-h-[40px] sm:min-h-0 text-xs sm:text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 active:bg-gray-100 dark:active:bg-gray-600 hover:text-gray-900 dark:hover:text-white touch-manipulation"
-          @click="emit('toggle')">
-          <div class="flex items-center">
-            <Settings
-              class="mr-2.5 sm:mr-3 h-3 w-3 sm:h-4 sm:w-4 text-gray-400 group-hover:text-gray-500 dark:text-gray-500 dark:group-hover:text-gray-400 flex-shrink-0" />
-            {{ $t('common.settings') }}
-          </div>
-          <kbd
-            class="hidden sm:inline-block px-1.5 py-0.5 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded">2</kbd>
-        </router-link>
         <router-link to="/mypage/notifications"
           class="group flex items-center justify-between px-3 py-2.5 sm:py-2 min-h-[40px] sm:min-h-0 text-xs sm:text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 active:bg-gray-100 dark:active:bg-gray-600 hover:text-gray-900 dark:hover:text-white touch-manipulation"
           @click="emit('toggle')">
@@ -191,7 +181,7 @@ onUnmounted(() => {
             {{ $t('common.notifications') }}
           </div>
           <kbd
-            class="hidden sm:inline-block px-1.5 py-0.5 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded">3</kbd>
+            class="hidden sm:inline-block px-1.5 py-0.5 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded">2</kbd>
         </router-link>
         <router-link to="/mypage/messages"
           class="group flex items-center justify-between px-3 py-2.5 sm:py-2 min-h-[40px] sm:min-h-0 text-xs sm:text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 active:bg-gray-100 dark:active:bg-gray-600 hover:text-gray-900 dark:hover:text-white touch-manipulation"
@@ -202,7 +192,7 @@ onUnmounted(() => {
             {{ $t('common.mailbox') }}
           </div>
           <kbd
-            class="hidden sm:inline-block px-1.5 py-0.5 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded">4</kbd>
+            class="hidden sm:inline-block px-1.5 py-0.5 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded">3</kbd>
         </router-link>
         <router-link to="/mypage/points"
           class="group flex items-center justify-between px-3 py-2.5 sm:py-2 min-h-[40px] sm:min-h-0 text-xs sm:text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 active:bg-gray-100 dark:active:bg-gray-600 hover:text-gray-900 dark:hover:text-white touch-manipulation"
@@ -213,7 +203,7 @@ onUnmounted(() => {
             {{ $t('common.points') }}
           </div>
           <kbd
-            class="hidden sm:inline-block px-1.5 py-0.5 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded">5</kbd>
+            class="hidden sm:inline-block px-1.5 py-0.5 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded">4</kbd>
         </router-link>
       </div>
 
@@ -228,7 +218,7 @@ onUnmounted(() => {
             {{ $t('common.scrap') }}
           </div>
           <kbd
-            class="hidden sm:inline-block px-1.5 py-0.5 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded">6</kbd>
+            class="hidden sm:inline-block px-1.5 py-0.5 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded">5</kbd>
         </router-link>
         <router-link to="/mypage/subscriptions"
           class="group flex items-center justify-between px-3 py-2.5 sm:py-2 min-h-[40px] sm:min-h-0 text-xs sm:text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 active:bg-gray-100 dark:active:bg-gray-600 hover:text-gray-900 dark:hover:text-white touch-manipulation"
@@ -239,7 +229,7 @@ onUnmounted(() => {
             {{ $t('user.tabs.subscriptions') }}
           </div>
           <kbd
-            class="hidden sm:inline-block px-1.5 py-0.5 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded">7</kbd>
+            class="hidden sm:inline-block px-1.5 py-0.5 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded">6</kbd>
         </router-link>
       </div>
 
@@ -254,7 +244,7 @@ onUnmounted(() => {
             {{ $t('layout.menu.recent') }}
           </div>
           <kbd
-            class="hidden sm:inline-block px-1.5 py-0.5 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded">8</kbd>
+            class="hidden sm:inline-block px-1.5 py-0.5 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded">7</kbd>
         </router-link>
         <router-link to="/mypage/reports"
           class="group flex items-center justify-between px-3 py-2.5 sm:py-2 min-h-[40px] sm:min-h-0 text-xs sm:text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 active:bg-gray-100 dark:active:bg-gray-600 hover:text-gray-900 dark:hover:text-white touch-manipulation"
@@ -265,7 +255,7 @@ onUnmounted(() => {
             {{ $t('layout.menu.reports') }}
           </div>
           <kbd
-            class="hidden sm:inline-block px-1.5 py-0.5 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded">9</kbd>
+            class="hidden sm:inline-block px-1.5 py-0.5 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded">8</kbd>
         </router-link>
         <router-link to="/mypage/blocked"
           class="group flex items-center justify-between px-3 py-2.5 sm:py-2 min-h-[40px] sm:min-h-0 text-xs sm:text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 active:bg-gray-100 dark:active:bg-gray-600 hover:text-gray-900 dark:hover:text-white touch-manipulation"
@@ -276,7 +266,7 @@ onUnmounted(() => {
             {{ $t('user.tabs.blocked') }}
           </div>
           <kbd
-            class="hidden sm:inline-block px-1.5 py-0.5 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded">0</kbd>
+            class="hidden sm:inline-block px-1.5 py-0.5 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded">9</kbd>
         </router-link>
         <router-link to="/board/create"
           class="group flex items-center px-3 py-2.5 sm:py-2 min-h-[40px] sm:min-h-0 text-xs sm:text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 active:bg-gray-100 dark:active:bg-gray-600 hover:text-gray-900 dark:hover:text-white touch-manipulation"

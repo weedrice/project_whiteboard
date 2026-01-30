@@ -1,8 +1,11 @@
-﻿<template>
-    <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden transition-colors duration-200">
-        <div class="px-4 py-5 sm:px-6 flex justify-between items-center">
-            <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-white">{{ $t('user.message.boxTitle') }}
-            </h3>
+<template>
+    <div class="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+        <div class="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg transition-colors duration-200">
+            <div class="px-4 py-5 sm:px-6 flex justify-between items-center border-b border-gray-200 dark:border-gray-700">
+                <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white flex items-center">
+                    <Mail class="h-5 w-5 mr-2 text-gray-500 dark:text-gray-400" />
+                    {{ $t('user.message.boxTitle') }}
+                </h3>
             <div class="flex items-center space-x-4">
                 <PageSizeSelector v-model="size" @change="handleSizeChange" />
                 <BaseButton v-if="selectedMessages.length > 0" @click="deleteSelectedMessages" variant="danger"
@@ -73,7 +76,7 @@
             </li>
         </ul>
 
-        <div v-if="messages.length > 0" class="mt-4 flex justify-center pb-6">
+        <div v-if="messages.length > 0" class="bg-gray-50 dark:bg-gray-900/50 px-4 py-4 sm:px-6 flex justify-center">
             <Pagination :current-page="page" :total-pages="totalPages" @page-change="handlePageChange" />
         </div>
 
@@ -125,6 +128,7 @@
             </div>
         </BaseModal>
 
+        </div>
     </div>
 </template>
 
