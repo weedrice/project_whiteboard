@@ -2,7 +2,7 @@
   <div class="space-y-2">
     <div v-if="!readOnly" class="flex flex-wrap gap-2 items-center">
       <div class="relative flex-1 min-w-0 flex items-center gap-2">
-        <input v-model="newTag" @keydown.enter.prevent="addTag" @keydown.comma.prevent="addTag" type="text"
+        <input v-model="newTag" @keydown.enter.prevent="addTag" type="text"
           :placeholder="$t('board.tags.placeholder')"
           class="flex-1 min-w-0 px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400" />
         <button type="button" @click="addTag"

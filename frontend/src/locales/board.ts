@@ -111,7 +111,7 @@ export const board: BoardMessages = {
     spoilerDesc: '스포일러를 포함합니다.',
     placeholder: {
       title: '제목을 입력하세요',
-      tags: '쉼표로 구분된 태그 (예: vue, javascript)',
+      tags: '태그 입력 후 Enter',
     },
     submitting: '등록 중...',
     update: '수정 완료',
@@ -124,7 +124,7 @@ export const board: BoardMessages = {
   },
   tags: {
     placeholder: '태그 추가...',
-    help: 'Enter 또는 쉼표로 추가',
+    help: 'Enter로 추가',
     remove: '태그 삭제',
   },
 }
