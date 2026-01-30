@@ -157,8 +157,8 @@ import Pagination from '@/components/common/ui/Pagination.vue'
 import PageSizeSelector from '@/components/common/widgets/PageSizeSelector.vue'
 import { Mail } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
-import { useNotificationStore } from '@/stores/notification'
 import { useToastStore } from '@/stores/toast'
+import type { Message } from '@/types'
 import type { AxiosError } from 'axios'
 import { useConfirm } from '@/composables/useConfirm'
 import { extractErrorResponse } from '@/utils/errorHandler'
@@ -166,22 +166,21 @@ import logger from '@/utils/logger'
 import { formatDate } from '@/utils/date'
 
 const { t } = useI18n()
-const notificationStore = useNotificationStore()
 const toastStore = useToastStore()
 const { confirm } = useConfirm()
 
-const viewType = ref('received') // 'received' | 'sent'
-const messages = ref([])
+const viewType = ref<'received' | 'sent'>('received')
+const messages = ref<Message[]>([])
 const loading = ref(false)
-const selectedMessage = ref(null)
-const selectedMessages = ref([])
+const selectedMessage = ref<Message | null>(null)
+const selectedMessages = ref<number[]>([])
 
 const page = ref(0)
 const size = ref(15)
 const totalPages = ref(0)
 
 const isReplyModalOpen = ref(false)
-const replyTarget = ref(null)
+const replyTarget = ref<Message | null>(null)
 const replyContent = ref('')
 const isSending = ref(false)
 /** 차단 관계로 인해 상세/읽음 API가 실패한 쪽지인지 (답장 클릭 시에만 토스트 표시용) */
@@ -211,7 +210,7 @@ async function fetchMessages() {
     }
 }
 
-function handlePageChange(newPage) {
+function handlePageChange(newPage: number) {
     page.value = newPage
     fetchMessages()
 }
@@ -221,7 +220,7 @@ function handleSizeChange() {
     fetchMessages()
 }
 
-function toggleSelection(messageId) {
+function toggleSelection(messageId: number) {
     const index = selectedMessages.value.indexOf(messageId)
     if (index === -1) {
         selectedMessages.value.push(messageId)
@@ -230,20 +229,19 @@ function toggleSelection(messageId) {
     }
 }
 
-function changeViewType(type) {
+function changeViewType(type: 'received' | 'sent') {
     viewType.value = type
     page.value = 0
     fetchMessages()
 }
 
-async function openMessage(msg) {
+async function openMessage(msg: Message) {
     messageFromBlockedUser.value = false
     selectedMessage.value = msg
     if (viewType.value === 'received' && !msg.read) {
         try {
             await messageApi.getMessage(msg.messageId, { skipGlobalErrorHandler: true })
             msg.read = true
-            notificationStore.fetchUnreadCount()
         } catch (error) {
             const errRes = extractErrorResponse(error as AxiosError)
             if (errRes?.code === BLOCKED_BY_USER_CODE) {
@@ -270,7 +268,7 @@ async function deleteSelectedMessages() {
     }
 }
 
-function startReply(msg) {
+function startReply(msg: Message) {
     if (messageFromBlockedUser.value) {
         toastStore.addToast(t('user.message.blockedByUser'), 'error')
         return
@@ -288,6 +286,7 @@ function closeReplyModal() {
 
 async function sendReply() {
     if (!replyContent.value.trim()) return
+    if (!replyTarget.value) return
     isSending.value = true
     try {
         const { data } = await messageApi.sendMessage(
@@ -302,10 +301,10 @@ async function sendReply() {
     } catch (error) {
         logger.error('Failed to send reply:', error)
         const errRes = extractErrorResponse(error as AxiosError)
-        const message = errRes?.code === BLOCKED_BY_USER_CODE
+        const toastMessage = errRes?.code === BLOCKED_BY_USER_CODE
             ? t('user.message.blockedByUser')
             : t('user.message.sendFailed')
-        toastStore.addToast(message, 'error')
+        toastStore.addToast(toastMessage, 'error')
     } finally {
         isSending.value = false
     }
