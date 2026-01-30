@@ -1,15 +1,14 @@
 <template>
     <div class="relative mb-6">
-        <div ref="scrollContainer" class="overflow-x-auto scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0"
-            @touchstart="handleTouchStart" @touchmove="handleTouchMove" @touchend="handleTouchEnd">
-            <nav class="flex space-x-8 border-b border-gray-200 min-w-max relative" aria-label="Tabs" role="tablist">
+        <div ref="scrollContainer" class="overflow-x-auto scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0 scroll-smooth">
+            <nav class="flex space-x-4 sm:space-x-6 md:space-x-8 border-b border-gray-200 dark:border-gray-700 min-w-max relative" aria-label="Tabs" role="tablist">
                 <router-link 
                     v-for="(tab, index) in tabs" 
                     :key="tab.nameKey" 
                     :to="tab.href"
                     :ref="el => { if (el) tabRefs[index] = (el as ComponentPublicInstance).$el }"
                     @keydown="(e) => handleTabKeyDown(e, index)"
-                    class="whitespace-nowrap py-4 px-1 text-sm transition-colors duration-200 focus:outline-none rounded-t" 
+                    class="whitespace-nowrap py-3 sm:py-4 px-1 text-xs sm:text-sm min-h-[44px] min-w-[44px] flex items-center justify-center transition-colors duration-200 focus:outline-none rounded-t touch-manipulation" 
                     :class="[
                         isActive(tab.href)
                             ? 'text-indigo-600 dark:text-indigo-400 font-bold'
@@ -115,6 +114,16 @@ const handleTabKeyDown = (event: KeyboardEvent, currentIndex: number) => {
     }
 }
 
+const scrollTabToCenter = (el: HTMLElement) => {
+    if (!scrollContainer.value) return
+    const container = scrollContainer.value
+    const containerWidth = container.clientWidth
+    const elLeft = el.offsetLeft
+    const elWidth = el.offsetWidth
+    const scrollTarget = elLeft - (containerWidth / 2) + (elWidth / 2)
+    container.scrollTo({ left: Math.max(0, scrollTarget), behavior: 'smooth' })
+}
+
 const updateUnderline = () => {
     const index = activeTabIndex.value
     if (index !== -1 && tabRefs.value[index]) {
@@ -125,8 +134,10 @@ const updateUnderline = () => {
             opacity: 1
         }
 
-        // Scroll into view if needed (for mobile)
-        if (scrollContainer.value) {
+        // 모바일: 선택된 탭을 화면 중앙으로 스크롤 (애니메이션)
+        if (scrollContainer.value && window.innerWidth < 640) {
+            scrollTabToCenter(el)
+        } else if (scrollContainer.value) {
             const container = scrollContainer.value
             const scrollLeft = container.scrollLeft
             const containerWidth = container.clientWidth
@@ -189,41 +200,6 @@ onUnmounted(() => {
     document.removeEventListener('keydown', handleDocumentKeyDown)
 })
 
-// Mobile Swipe Logic
-const touchStartX = ref(0)
-const touchStartY = ref(0)
-
-const handleTouchStart = (e: TouchEvent) => {
-    touchStartX.value = e.touches[0].clientX
-    touchStartY.value = e.touches[0].clientY
-}
-
-const handleTouchMove = (e: TouchEvent) => {
-    // Optional: prevent default if horizontal swipe is detected to stop vertical scroll
-    // But usually better to let browser handle it unless it's a dedicated slider
-}
-
-const handleTouchEnd = (e: TouchEvent) => {
-    const touchEndX = e.changedTouches[0].clientX
-    const touchEndY = e.changedTouches[0].clientY
-
-    const diffX = touchStartX.value - touchEndX
-    const diffY = touchStartY.value - touchEndY
-
-    // Threshold for swipe
-    if (Math.abs(diffX) > 50 && Math.abs(diffY) < 50) {
-        const currentIndex = activeTabIndex.value
-        if (diffX > 0) {
-            // Swipe Left -> Next Tab
-            if (currentIndex < tabs.length - 1) {
-                router.push(tabs[currentIndex + 1].href)
-            }
-        } else {
-            // Swipe Right -> Prev Tab
-            if (currentIndex > 0) {
-                router.push(tabs[currentIndex - 1].href)
-            }
-        }
-    }
-}
+// 모바일에서는 탭 영역 드래그(가로 스크롤) 시 탭 이동이 되지 않도록
+// 스와이프로 탭 변경 기능 비활성화 (탭 클릭만 허용)
 </script>

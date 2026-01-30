@@ -1,8 +1,8 @@
 <template>
-    <div class="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-4xl mx-auto py-4 sm:py-6 md:py-8 px-4 sm:px-6 lg:px-8">
         <div class="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg transition-colors duration-200">
-            <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700 flex items-center">
-                <Users class="h-5 w-5 mr-2 text-gray-500 dark:text-gray-400" />
+            <div class="px-4 py-4 sm:py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700 flex items-center">
+                <Users class="h-5 w-5 mr-2 text-gray-500 dark:text-gray-400 flex-shrink-0" />
                 <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white">{{ $t('user.subscriptions.title') }}</h3>
             </div>
 
@@ -26,22 +26,26 @@
         />
 
         <draggable v-else v-model="boards" item-key="boardId" class="divide-y divide-gray-200 dark:divide-gray-700"
-            tag="ul" handle=".handle" @end="handleDragEnd">
+            tag="ul" :handle="isMobile ? undefined : '.handle'" :disabled="isMobile" @end="handleDragEnd">
             <template #item="{ element: board }">
                 <li
-                    class="px-4 py-4 sm:px-6 hover:bg-gray-50 dark:hover:bg-gray-700 flex justify-between items-center bg-white dark:bg-gray-800 transition-colors duration-200">
-                    <div class="flex items-center flex-1 cursor-pointer">
+                    class="px-3 py-3 sm:px-6 sm:py-4 hover:bg-gray-50 dark:hover:bg-gray-700 flex flex-row items-center justify-between gap-2 sm:gap-3 bg-white dark:bg-gray-800 transition-colors duration-200">
+                    <div class="flex items-center flex-1 cursor-pointer min-w-0" @click="$router.push(`/board/${board.boardUrl}`)">
                         <div
-                            class="handle mr-4 cursor-move text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300">
+                            v-if="!isMobile"
+                            class="handle mr-3 sm:mr-4 p-2 -m-2 cursor-move text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center"
+                            @click.stop>
                             <Menu class="h-5 w-5" />
                         </div>
-                        <div class="flex-1" @click="$router.push(`/board/${board.boardUrl}`)">
+                        <div class="flex-1 min-w-0 py-1 sm:py-0">
                             <div class="text-sm font-medium text-indigo-600 dark:text-indigo-400 truncate">{{
                                 board.boardName }}</div>
-                            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ board.description }}</p>
+                            <p class="mt-0.5 sm:mt-1 text-xs sm:text-sm text-gray-500 dark:text-gray-400 line-clamp-1 sm:line-clamp-2">{{ board.description }}</p>
                         </div>
                     </div>
-                    <BaseButton @click="handleUnsubscribe(board)" variant="danger" size="sm" class="ml-4">
+                    <BaseButton @click="handleUnsubscribe(board)" variant="danger" size="sm"
+                        class="flex-shrink-0 px-2 py-1.5 sm:px-4 sm:py-2 text-[11px] sm:text-sm min-h-0 h-7 sm:min-h-[40px] rounded-md sm:rounded-lg touch-manipulation"
+                        @click.stop>
                         {{ $t('user.subscriptions.unsubscribe') }}
                     </BaseButton>
                 </li>
@@ -52,7 +56,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { userApi } from '@/api/user'
 import { boardApi } from '@/api/board'
 import { useI18n } from 'vue-i18n'
@@ -73,6 +77,11 @@ const { confirm } = useConfirm()
 const { handleSilentError, handleError } = useErrorHandler()
 const boards = ref<Board[]>([])
 const loading = ref(false)
+const isMobile = ref(typeof window !== 'undefined' && window.innerWidth < 640)
+
+function updateIsMobile() {
+  isMobile.value = window.innerWidth < 640
+}
 
 async function fetchSubscriptions() {
     loading.value = true
@@ -115,5 +124,10 @@ async function handleDragEnd() {
 
 onMounted(() => {
     fetchSubscriptions()
+    window.addEventListener('resize', updateIsMobile)
+})
+
+onUnmounted(() => {
+    window.removeEventListener('resize', updateIsMobile)
 })
 </script>

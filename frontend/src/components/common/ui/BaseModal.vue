@@ -1,8 +1,8 @@
-﻿<template>
+<template>
   <Teleport to="body">
     <div v-if="isOpen" class="modal-overlay" @click.self="close" role="dialog" aria-modal="true"
       :aria-labelledby="titleId" :aria-describedby="descriptionId">
-      <div :class="['modal-container', sizeClass]" ref="modalRef">
+      <div :class="['modal-container', sizeClass, { 'modal-container-mobile-full': mobileFull && !mobileFitContent, 'modal-container-mobile-fit': mobileFitContent }]" ref="modalRef">
         <!-- Modal content -->
         <div class="modal-content">
           <!-- Modal header -->
@@ -44,8 +44,12 @@ const props = withDefaults(defineProps<{
   isOpen: boolean
   title?: string
   size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | 'full'
+  mobileFull?: boolean
+  mobileFitContent?: boolean
 }>(), {
-  size: 'md'
+  size: 'md',
+  mobileFull: false,
+  mobileFitContent: false
 })
 
 const emit = defineEmits<{

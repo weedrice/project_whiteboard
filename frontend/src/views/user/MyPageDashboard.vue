@@ -17,6 +17,13 @@ import type { User as UserType, PostSummary, Comment } from '@/types'
 const { t } = useI18n()
 const { handleSilentError } = useErrorHandler()
 
+// 이모티콘 마크다운을 이미지로 변환 (내 댓글 목록용)
+function renderCommentContent(content: string | undefined): string {
+  if (!content) return ''
+  const emoticonPattern = /!\[emoticon\]\(([^)]+)\)/g
+  return content.replace(emoticonPattern, '<img src="$1" class="comment-emoticon comment-emoticon-list" alt="emoticon" />')
+}
+
 const profile = ref<UserType | null>(null)
 
 // Posts pagination state
@@ -136,21 +143,21 @@ onMounted(async () => {
       <!-- Profile Section -->
       <div class="max-w-full mx-auto">
         <div class="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg mb-6 transition-colors duration-200">
-          <div class="px-4 py-5 sm:px-6 flex justify-between items-center">
-            <div class="flex items-center">
+          <div class="px-4 py-4 sm:py-5 sm:px-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+            <div class="flex items-center min-w-0 flex-1">
               <img v-if="profile?.profileImageUrl" :src="getOptimizedProfileImageUrl(profile.profileImageUrl)"
-                class="h-16 w-16 rounded-full mr-4" alt="Profile" @error="handleImageError($event)" />
+                class="h-16 w-16 rounded-full mr-4 flex-shrink-0" alt="Profile" @error="handleImageError($event)" />
               <div v-else
-                class="h-16 w-16 rounded-full bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold text-2xl mr-4">
+                class="h-16 w-16 rounded-full bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold text-2xl mr-4 flex-shrink-0">
                 {{ profile?.displayName?.[0] || 'U' }}
               </div>
-              <div>
-                <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white">{{ profile?.displayName }}</h3>
+              <div class="min-w-0">
+                <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white truncate">{{ profile?.displayName }}</h3>
                 <p class="mt-1 max-w-2xl text-sm text-gray-500 dark:text-gray-400">{{ $t('user.profile.personalDetails')
                 }}</p>
               </div>
             </div>
-            <BaseButton @click="isEditModalOpen = true">{{ $t('user.profile.edit') }}</BaseButton>
+            <BaseButton @click="isEditModalOpen = true" class="w-full sm:w-auto min-h-[44px] sm:min-h-0 flex items-center justify-center">{{ $t('user.profile.edit') }}</BaseButton>
           </div>
           <div class="border-t border-gray-200 dark:border-gray-700 px-4 py-5 sm:p-0">
             <dl class="sm:divide-y sm:divide-gray-200 dark:sm:divide-gray-700">
@@ -204,8 +211,8 @@ onMounted(async () => {
       <div class="max-w-full mx-auto">
         <div
           class="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg mb-6 pb-6 transition-colors duration-200">
-          <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700 flex items-center">
-            <FileText class="h-5 w-5 text-gray-500 dark:text-gray-400 mr-2" />
+          <div class="px-4 py-4 sm:py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700 flex items-center">
+            <FileText class="h-5 w-5 text-gray-500 dark:text-gray-400 mr-2 flex-shrink-0" />
             <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white">{{ $t('user.myPosts') }}</h3>
           </div>
 
@@ -222,36 +229,38 @@ onMounted(async () => {
 
         <!-- My Comments Section -->
         <div class="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg transition-colors duration-200">
-          <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700 flex items-center">
-            <MessageSquare class="h-5 w-5 text-gray-500 dark:text-gray-400 mr-2" />
+          <div class="px-4 py-4 sm:py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700 flex items-center">
+            <MessageSquare class="h-5 w-5 text-gray-500 dark:text-gray-400 mr-2 flex-shrink-0" />
             <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white">{{ $t('user.myComments') }}</h3>
           </div>
 
           <div v-if="myComments.length > 0">
             <ul role="list" class="divide-y divide-gray-200 dark:divide-gray-700">
               <li v-for="comment in myComments" :key="comment.commentId"
-                class="px-4 py-4 sm:px-6 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200">
+                class="px-4 py-4 sm:px-6 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200 min-h-[44px]">
                 <router-link v-if="comment.post" :to="`/board/${comment.post.boardUrl}/post/${comment.post.postId}`" class="block">
-                  <div class="flex items-center justify-between">
-                    <div class="flex items-center">
+                  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+                    <div class="flex flex-wrap items-center gap-2 min-w-0">
                       <span
-                        class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 mr-2">
+                        class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 flex-shrink-0">
                         {{ comment.post.boardName }}
                       </span>
-                      <p class="text-sm font-medium text-indigo-600 dark:text-indigo-400 truncate">
+                      <p class="text-sm font-medium text-indigo-600 dark:text-indigo-400 truncate min-w-0">
                         {{ comment.post.title }}
                       </p>
                     </div>
-                    <p class="ml-2 flex-shrink-0 font-normal text-gray-500 dark:text-gray-400 text-xs">{{
+                    <p class="flex-shrink-0 font-normal text-gray-500 dark:text-gray-400 text-xs">{{
                       formatDate(comment.createdAt) }}</p>
                   </div>
-                  <div class="mt-1 sm:flex sm:justify-between">
-                    <p class="text-sm text-gray-900 dark:text-gray-300 line-clamp-2">{{ comment.content }}</p>
+                  <div class="mt-1 comment-content-list">
+                    <p class="text-sm text-gray-900 dark:text-gray-300 line-clamp-2" v-html="renderCommentContent(comment.content) || comment.content"></p>
                   </div>
                 </router-link>
                 <div v-else class="block">
                   <p class="text-sm text-gray-500 dark:text-gray-400">{{ t('user.comments.deletedPost') }}</p>
-                  <p class="text-sm text-gray-900 dark:text-gray-300 line-clamp-2 mt-1">{{ comment.content }}</p>
+                  <div class="comment-content-list mt-1">
+                    <p class="text-sm text-gray-900 dark:text-gray-300 line-clamp-2" v-html="renderCommentContent(comment.content) || comment.content"></p>
+                  </div>
                 </div>
               </li>
             </ul>
@@ -265,7 +274,8 @@ onMounted(async () => {
         </div>
       </div>
 
-      <BaseModal :isOpen="isEditModalOpen" :title="$t('user.profile.edit')" @close="isEditModalOpen = false">
+      <BaseModal :isOpen="isEditModalOpen" :title="$t('user.profile.edit')" @close="isEditModalOpen = false"
+        mobile-full mobile-fit-content>
         <ProfileEditor @close="isEditModalOpen = false" />
       </BaseModal>
     </div>

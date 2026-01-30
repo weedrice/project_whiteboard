@@ -215,6 +215,40 @@ html {
     @apply relative w-full max-w-md h-full md:h-auto;
   }
 
+  @media (max-width: 639px) {
+    .modal-container-mobile-full {
+      @apply max-w-none w-full h-full max-h-full rounded-none;
+    }
+
+    .modal-container-mobile-full:not(.modal-container-mobile-fit) .modal-content {
+      @apply min-h-full rounded-none flex flex-col;
+    }
+
+    .modal-container-mobile-full:not(.modal-container-mobile-fit) .modal-body {
+      @apply flex-1 overflow-y-auto overflow-x-hidden;
+    }
+
+    /* 모바일에서 콘텐츠에 맞춘 높이 (프로필 수정 등) */
+    .modal-container-mobile-fit {
+      @apply max-w-none w-full max-h-[90vh] h-auto rounded-none my-auto;
+    }
+
+    .modal-container-mobile-fit .modal-content {
+      @apply rounded-none flex flex-col max-h-[90vh];
+    }
+
+    .modal-container-mobile-fit .modal-body {
+      @apply overflow-y-auto overflow-x-hidden flex-shrink-0;
+    }
+  }
+
+  @media (min-width: 640px) {
+    .modal-container-mobile-full,
+    .modal-container-mobile-fit {
+      @apply max-w-md h-auto;
+    }
+  }
+
   .modal-content {
     @apply relative bg-white rounded-lg shadow dark:bg-gray-800 border dark:border-gray-700;
   }
@@ -224,7 +258,7 @@ html {
   }
 
   .modal-body {
-    @apply p-6 space-y-6 text-gray-700 dark:text-gray-300;
+    @apply p-4 sm:p-6 space-y-4 sm:space-y-6 text-gray-700 dark:text-gray-300;
   }
 
   .modal-footer {
@@ -244,6 +278,15 @@ html {
   /* Comment Emoticon - baseline에 맞춰 텍스트와 같은 밑줄에 정렬 */
   .comment-emoticon {
     @apply inline-block w-[100px] h-[100px] object-contain align-baseline;
+  }
+
+  /* 내 댓글 목록 등 컴팩트 리스트용 이모티콘 */
+  .comment-emoticon-list {
+    @apply w-12 h-12 sm:w-16 sm:h-16;
+  }
+
+  .comment-content-list .comment-emoticon-list {
+    vertical-align: middle;
   }
 
   /*

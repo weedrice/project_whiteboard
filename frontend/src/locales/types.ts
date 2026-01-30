@@ -426,6 +426,7 @@ export interface CommentMessages {
 export interface NotificationMessages {
   title: string
   markAllRead: string
+  markAllReadShort?: string
   empty: string
 }
 

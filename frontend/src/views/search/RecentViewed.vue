@@ -1,4 +1,4 @@
-﻿<script setup>
+<script setup>
 import { ref, computed } from 'vue'
 import { useUser } from '@/composables/useUser'
 import PostList from '@/components/board/PostList.vue'
@@ -31,11 +31,13 @@ const handleSizeChange = () => {
 </script>
 
 <template>
-  <div class="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+  <div class="max-w-7xl mx-auto py-4 sm:py-6 md:py-8 px-4 sm:px-6 lg:px-8">
     <div class="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg mb-6 transition-colors duration-200">
-      <div class="px-4 py-5 sm:px-6 flex justify-between items-center border-b border-gray-200 dark:border-gray-700">
+      <div class="px-4 py-4 sm:py-5 sm:px-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 border-b border-gray-200 dark:border-gray-700">
           <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-white">{{ $t('user.tabs.recent') }}</h3>
-          <PageSizeSelector v-model="size" @change="handleSizeChange" />
+          <div class="hidden sm:block">
+            <PageSizeSelector v-model="size" @change="handleSizeChange" />
+          </div>
       </div>
       <div v-if="posts.length > 0">
         <PostList 

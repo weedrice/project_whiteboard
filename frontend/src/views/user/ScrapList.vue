@@ -50,14 +50,16 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+  <div class="max-w-7xl mx-auto py-4 sm:py-6 md:py-8 px-4 sm:px-6 lg:px-8">
     <div class="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg transition-colors duration-200">
-      <div class="px-4 py-5 sm:px-6 flex justify-between items-center border-b border-gray-200 dark:border-gray-700">
+      <div class="px-4 py-4 sm:py-5 sm:px-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 border-b border-gray-200 dark:border-gray-700">
         <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white flex items-center">
-          <Bookmark class="h-5 w-5 mr-2 text-gray-500 dark:text-gray-400" />
+          <Bookmark class="h-5 w-5 mr-2 text-gray-500 dark:text-gray-400 flex-shrink-0" />
           {{ $t('user.tabs.scraps') }}
         </h3>
-        <PageSizeSelector v-model="size" @change="handleSizeChange" />
+        <div class="hidden sm:block">
+          <PageSizeSelector v-model="size" @change="handleSizeChange" />
+        </div>
       </div>
       <div v-if="loading && scraps.length === 0" class="divide-y divide-gray-200 dark:divide-gray-700">
         <div v-for="i in 5" :key="i" class="px-4 py-4 sm:px-6 flex justify-between items-center">

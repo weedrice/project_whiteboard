@@ -1,15 +1,16 @@
-﻿<template>
-  <div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6 transition-colors duration-200">
-    <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-white mb-4">{{ $t('user.profile.edit') }}</h3>
-    <form @submit.prevent="updateProfile" class="space-y-4">
+<template>
+  <div class="bg-transparent dark:bg-transparent shadow-none rounded-lg p-0 sm:p-6 sm:bg-white sm:dark:bg-gray-800 sm:shadow transition-colors duration-200">
+    <form @submit.prevent="updateProfile" class="space-y-3 sm:space-y-4">
       <!-- Image Upload -->
-      <div class="flex items-center space-x-6">
-        <div class="shrink-0 border border-gray-200 dark:border-gray-700 rounded-full overflow-hidden h-16 w-16">
-          <img class="h-full w-full object-contain bg-white dark:bg-gray-700"
-            :src="previewImage || getOptimizedProfileImageUrl(authStore.user?.profileImageUrl) || 'https://via.placeholder.com/150'"
-            alt="Current profile photo" @error="handleImageError($event, 'https://via.placeholder.com/150')" />
+      <div class="flex flex-col sm:flex-row sm:items-center gap-3 sm:space-x-6">
+        <div class="flex justify-center sm:justify-start">
+          <div class="shrink-0 border-2 border-gray-200 dark:border-gray-700 rounded-full overflow-hidden h-16 w-16">
+            <img class="h-full w-full object-contain bg-white dark:bg-gray-700"
+              :src="previewImage || getOptimizedProfileImageUrl(authStore.user?.profileImageUrl) || 'https://via.placeholder.com/150'"
+              alt="Current profile photo" @error="handleImageError($event, 'https://via.placeholder.com/150')" />
+          </div>
         </div>
-        <div class="flex-1">
+        <div class="flex-1 w-full">
           <BaseFileInput :label="$t('user.profile.choosePhoto')" accept="image/*" @change="handleFileChange"
             :placeholder="$t('user.profile.choosePhotoPlaceholder')" />
         </div>
@@ -18,17 +19,17 @@
       <BaseInput :label="$t('user.profile.displayName')" v-model="form.displayName" :error="errors.displayName"
         :placeholder="$t('user.profile.displayNamePlaceholder')" />
 
-      <div class="flex justify-end">
-        <BaseButton type="submit" :loading="loading">
+      <div class="flex flex-col gap-2 sm:flex-row sm:justify-end pt-2">
+        <BaseButton type="submit" :loading="loading" class="w-full sm:w-auto min-h-[48px]">
           {{ loading ? $t('common.saving') : $t('common.save') }}
         </BaseButton>
       </div>
     </form>
-    <hr class="border-gray-200 dark:border-gray-700 my-6" />
+    <hr class="border-gray-200 dark:border-gray-700 my-4 sm:my-6" />
 
     <!-- Danger Zone -->
-    <div class="flex justify-end">
-      <BaseButton variant="danger" size="sm" class="text-xs" @click="showDeleteModal = true">
+    <div class="flex justify-center sm:justify-end">
+      <BaseButton variant="danger" size="sm" class="w-full sm:w-auto min-h-[44px] text-xs" @click="showDeleteModal = true">
         {{ $t('user.settings.deleteAccount') }}
       </BaseButton>
     </div>
