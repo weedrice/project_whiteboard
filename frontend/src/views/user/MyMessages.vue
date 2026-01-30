@@ -144,7 +144,7 @@
     </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, watch, onMounted } from 'vue'
 import { messageApi, BLOCKED_BY_USER_CODE } from '@/api/message'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
