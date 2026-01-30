@@ -45,7 +45,7 @@ useHead({
         return text + (text.length >= 160 ? '...' : '')
       })
     },
-    { property: 'og:title', content: computed(() => `${post.value?.title || 'Post'} | noviIs`) },
+    { property: 'og:title', content: computed(() => `${post.value?.title || 'Post'} | 노비스`) },
     {
       property: 'og:description', content: computed(() => {
         if (!post.value?.contents) return 'Post content'

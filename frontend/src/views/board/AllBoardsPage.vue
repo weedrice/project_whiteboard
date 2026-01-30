@@ -15,9 +15,9 @@ const { data: boards, isLoading, error } = useBoards()
 useHead({
   title: 'All Boards',
   meta: [
-    { name: 'description', content: 'Browse all available boards and communities on noviIs.' },
-    { property: 'og:title', content: 'All Boards | noviIs' },
-    { property: 'og:description', content: 'Browse all available boards and communities on noviIs.' }
+    { name: 'description', content: '노비스에서 모든 게시판과 커뮤니티를 둘러보세요.' },
+    { property: 'og:title', content: '전체 게시판 | 노비스' },
+    { property: 'og:description', content: '노비스에서 모든 게시판과 커뮤니티를 둘러보세요.' }
   ]
 })
 

@@ -2,7 +2,7 @@ import type { CommonMessages } from './types'
 
 export const common: CommonMessages = {
   advertisement: '광고',
-  appName: 'NoviIs',
+  appName: '노비스',
   loading: '로딩 중...',
   noData: '데이터가 없습니다.',
   loadMore: '더 보기',

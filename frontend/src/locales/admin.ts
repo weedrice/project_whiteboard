@@ -2,7 +2,7 @@ import type { AdminMessages } from './types'
 
 export const admin: AdminMessages = {
   layout: {
-    title: 'NoviIs 관리자',
+    title: '노비스 관리자',
   },
   menu: {
     dashboard: '대시보드',

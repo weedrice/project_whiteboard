@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { onMounted, watch, computed, defineAsyncComponent, onErrorCaptured } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
@@ -19,11 +19,11 @@ import { useHead } from '@unhead/vue'
 
 // Global SEO Configuration
 useHead({
-    titleTemplate: '%s | noviIs',
-    title: 'Home', // Default title
+    titleTemplate: '%s | 노비스',
+    title: '홈',
     meta: [
-        { name: 'description', content: 'noviIs - A modern community platform' },
-        { property: 'og:site_name', content: 'noviIs' },
+        { name: 'description', content: '노비스 - 다양한 주제의 게시판에서 인기 게시글을 발견하고, 의견을 나누는 커뮤니티. 지금 가입하고 관심 게시판을 구독하세요.' },
+        { property: 'og:site_name', content: '노비스' },
         { property: 'og:type', content: 'website' }
     ]
 })

@@ -31,7 +31,7 @@ useHead({
     title: computed(() => board.value?.boardName || 'Board'),
     meta: [
         { name: 'description', content: computed(() => board.value?.description || 'Board posts and discussions') },
-        { property: 'og:title', content: computed(() => `${board.value?.boardName || 'Board'} | noviIs`) },
+        { property: 'og:title', content: computed(() => `${board.value?.boardName || 'Board'} | 노비스`) },
         { property: 'og:description', content: computed(() => board.value?.description || 'Board posts and discussions') }
     ]
 })

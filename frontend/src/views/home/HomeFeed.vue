@@ -47,11 +47,11 @@ import type { FeedPost, PostSummary } from '@/types'
 import { useHead } from '@unhead/vue'
 
 useHead({
-  title: 'Home',
+  title: '홈',
   meta: [
-    { name: 'description', content: 'Discover trending posts and discussions on noviIs.' },
-    { property: 'og:title', content: 'Home | noviIs' },
-    { property: 'og:description', content: 'Discover trending posts and discussions on noviIs.' }
+    { name: 'description', content: '노비스 - 다양한 주제의 게시판에서 인기 게시글을 발견하고, 의견을 나누는 커뮤니티. 지금 가입하고 관심 게시판을 구독하세요.' },
+    { property: 'og:title', content: '노비스' },
+    { property: 'og:description', content: '노비스 - 다양한 주제의 게시판에서 인기 게시글을 발견하고, 의견을 나누는 커뮤니티. 지금 가입하고 관심 게시판을 구독하세요.' }
   ]
 })
 
