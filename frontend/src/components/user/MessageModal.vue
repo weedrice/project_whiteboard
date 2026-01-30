@@ -23,6 +23,7 @@ import BaseTextarea from '@/components/common/ui/BaseTextarea.vue'
 import { useI18n } from 'vue-i18n'
 import logger from '@/utils/logger'
 import { useToastStore } from '@/stores/toast'
+import type { AxiosError } from 'axios'
 import { messageApi, BLOCKED_BY_USER_CODE } from '@/api/message'
 import { extractErrorResponse } from '@/utils/errorHandler'
 
@@ -55,7 +56,7 @@ const handleSendMessage = async () => {
         }
     } catch (error) {
         logger.error('Failed to send message:', error)
-        const errRes = extractErrorResponse(error)
+        const errRes = extractErrorResponse(error as AxiosError)
         const message = errRes?.code === BLOCKED_BY_USER_CODE
             ? t('user.message.blockedByUser')
             : t('user.message.sendFailed')

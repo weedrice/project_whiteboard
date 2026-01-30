@@ -159,6 +159,7 @@ import { Mail } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { useNotificationStore } from '@/stores/notification'
 import { useToastStore } from '@/stores/toast'
+import type { AxiosError } from 'axios'
 import { useConfirm } from '@/composables/useConfirm'
 import { extractErrorResponse } from '@/utils/errorHandler'
 import logger from '@/utils/logger'
@@ -244,7 +245,7 @@ async function openMessage(msg) {
             msg.read = true
             notificationStore.fetchUnreadCount()
         } catch (error) {
-            const errRes = extractErrorResponse(error)
+            const errRes = extractErrorResponse(error as AxiosError)
             if (errRes?.code === BLOCKED_BY_USER_CODE) {
                 messageFromBlockedUser.value = true
             } else {
@@ -300,7 +301,7 @@ async function sendReply() {
         }
     } catch (error) {
         logger.error('Failed to send reply:', error)
-        const errRes = extractErrorResponse(error)
+        const errRes = extractErrorResponse(error as AxiosError)
         const message = errRes?.code === BLOCKED_BY_USER_CODE
             ? t('user.message.blockedByUser')
             : t('user.message.sendFailed')
