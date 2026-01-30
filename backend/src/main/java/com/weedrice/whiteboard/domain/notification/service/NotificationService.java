@@ -11,10 +11,15 @@ import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.event.TransactionalEventListener;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+
+import java.io.IOException;
+import java.util.ArrayList;
 
 @Service
 @RequiredArgsConstructor
@@ -25,7 +30,7 @@ public class NotificationService {
     private final UserRepository userRepository;
     private final org.springframework.transaction.support.TransactionTemplate transactionTemplate;
 
-    private final java.util.Map<Long, org.springframework.web.servlet.mvc.method.annotation.SseEmitter> emitters = new java.util.concurrent.ConcurrentHashMap<>();
+    private final java.util.Map<Long, SseEmitter> emitters = new java.util.concurrent.ConcurrentHashMap<>();
 
     // @TransactionalEventListener 메서드에 @Transactional을 붙일 경우 REQUIRES_NEW 또는
     // NOT_SUPPORTED를 명시해야 함
@@ -56,9 +61,8 @@ public class NotificationService {
     }
 
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public org.springframework.web.servlet.mvc.method.annotation.SseEmitter subscribe(Long userId) {
-        org.springframework.web.servlet.mvc.method.annotation.SseEmitter emitter = new org.springframework.web.servlet.mvc.method.annotation.SseEmitter(
-                Long.MAX_VALUE);
+    public SseEmitter subscribe(Long userId) {
+        SseEmitter emitter = new SseEmitter(Long.MAX_VALUE);
         emitters.put(userId, emitter);
 
         emitter.onCompletion(() -> emitters.remove(userId));
@@ -67,25 +71,47 @@ public class NotificationService {
 
         // 503 Service Unavailable 방지를 위한 더미 데이터 전송
         try {
-            emitter.send(org.springframework.web.servlet.mvc.method.annotation.SseEmitter.event()
+            emitter.send(SseEmitter.event()
                     .name("connect")
                     .data("connected!"));
-        } catch (java.io.IOException e) {
+        } catch (IOException e) {
             emitters.remove(userId);
         }
 
         return emitter;
     }
 
+    /**
+     * 프록시/로드밸런서 유휴 타임아웃으로 연결이 끊기는 것을 방지하기 위해
+     * 주기적으로 SSE comment(heartbeat)를 전송합니다.
+     * ERR_INCOMPLETE_CHUNKED_ENCODING 방지.
+     */
+    @Scheduled(fixedRate = 25_000) // 25초마다
+    public void sendHeartbeat() {
+        if (emitters.isEmpty()) {
+            return;
+        }
+        for (Long userId : new ArrayList<>(emitters.keySet())) {
+            SseEmitter emitter = emitters.get(userId);
+            if (emitter != null) {
+                try {
+                    emitter.send(SseEmitter.event().comment("heartbeat"));
+                } catch (IOException e) {
+                    emitters.remove(userId);
+                }
+            }
+        }
+    }
+
     private void sendNotificationToUser(Long userId, Notification notification) {
-        org.springframework.web.servlet.mvc.method.annotation.SseEmitter emitter = emitters.get(userId);
+        SseEmitter emitter = emitters.get(userId);
         if (emitter != null) {
             try {
-                emitter.send(org.springframework.web.servlet.mvc.method.annotation.SseEmitter.event()
+                emitter.send(SseEmitter.event()
                         .name("notification")
                         .data(com.weedrice.whiteboard.domain.notification.dto.NotificationResponse.NotificationSummary
                                 .from(notification)));
-            } catch (java.io.IOException e) {
+            } catch (IOException e) {
                 emitters.remove(userId);
             }
         }

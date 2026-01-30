@@ -1,9 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
+import { authApi } from '@/api/auth'
 import { notificationApi, type NotificationParams } from '@/api/notification'
 import type { Notification, PageResponse } from '@/types'
 import { type Ref, computed } from 'vue'
 import logger from '@/utils/logger'
 import { useAuthStore } from '@/stores/auth'
+import { Storage } from '@/utils/storage'
 
 export function useNotification() {
     const queryClient = useQueryClient()
@@ -117,16 +119,34 @@ export function useNotification() {
             }
         })
 
-        eventSource.onerror = (error) => {
+        eventSource.onerror = async () => {
             if (eventSource) {
                 eventSource.close()
                 eventSource = null
-                // 재연결 타이머 설정
-                reconnectTimer = setTimeout(() => {
-                    reconnectTimer = null
-                    connectToSse()
-                }, 5000)
             }
+
+            // 401 등 토큰 만료 시 refresh token으로 새 JWT 발급 후 재연결
+            const refreshToken = Storage.getString('refreshToken')
+            if (refreshToken) {
+                try {
+                    const { data } = await authApi.refreshToken(refreshToken)
+                    const authStore = useAuthStore()
+                    authStore.setTokens(data.data.accessToken, data.data.refreshToken)
+                    reconnectTimer = setTimeout(() => {
+                        reconnectTimer = null
+                        connectToSse()
+                    }, 1000)
+                    return
+                } catch (e) {
+                    logger.warn('SSE reconnect: refresh failed', e)
+                }
+            }
+
+            // refresh 실패 또는 refresh token 없음: 일정 시간 후 재시도(네트워크 복구 대응)
+            reconnectTimer = setTimeout(() => {
+                reconnectTimer = null
+                connectToSse()
+            }, 5000)
         }
     }
 

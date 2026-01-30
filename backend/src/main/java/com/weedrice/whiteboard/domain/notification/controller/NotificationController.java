@@ -9,6 +9,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 @RestController
 @RequestMapping("/api/v1/notifications")
@@ -48,7 +49,7 @@ public class NotificationController {
     }
 
     @GetMapping(value = "/stream", produces = org.springframework.http.MediaType.TEXT_EVENT_STREAM_VALUE)
-    public org.springframework.web.servlet.mvc.method.annotation.SseEmitter subscribe(Authentication authentication) {
+    public SseEmitter subscribe(Authentication authentication) {
         Long userId = ((CustomUserDetails) authentication.getPrincipal()).getUserId();
         return notificationService.subscribe(userId);
     }
