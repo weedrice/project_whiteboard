@@ -88,7 +88,9 @@ watch(() => props.show, (newVal) => {
 </script>
 
 <template>
-  <div v-if="show" class="emoticon-picker">
+  <!-- 팝업 밖 클릭 시 닫기 위한 투명 백드롭 -->
+  <div v-if="show" class="emoticon-picker-backdrop" @click="close" aria-hidden="true" />
+  <div v-if="show" class="emoticon-picker" @click.stop>
     <!-- 헤더 -->
     <div class="picker-header">
       <button v-if="selectedEmoticonId" @click="goBack" class="back-btn">
@@ -155,6 +157,13 @@ watch(() => props.show, (newVal) => {
 </template>
 
 <style scoped>
+.emoticon-picker-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 99;
+  cursor: default;
+}
+
 .emoticon-picker {
   position: absolute;
   top: 42px;
