@@ -1,3 +1,4 @@
+import type { AxiosRequestConfig } from 'axios'
 import api from './index'
 import type { ApiResponse, PageResponse, Message } from '@/types'
 
@@ -6,12 +7,18 @@ interface MessageParams {
     size?: number
 }
 
+const BLOCKED_BY_USER_CODE = 'U009'
+
 export const messageApi = {
-    sendMessage: (receiverId: string | number, content: string) => api.post<ApiResponse<Message>>(`/messages`, { receiverId, content }),
+    sendMessage: (receiverId: string | number, content: string, config?: AxiosRequestConfig) =>
+        api.post<ApiResponse<Message>>(`/messages`, { receiverId, content }, config),
     getReceivedMessages: (params: MessageParams) => api.get<ApiResponse<PageResponse<Message>>>('/messages/received', { params }),
     getSentMessages: (params: MessageParams) => api.get<ApiResponse<PageResponse<Message>>>('/messages/sent', { params }),
     getUnreadCount: () => api.get<ApiResponse<number>>('/messages/unread-count'),
-    getMessage: (messageId: string | number) => api.get<ApiResponse<Message>>(`/messages/${messageId}`),
+    getMessage: (messageId: string | number, config?: AxiosRequestConfig) =>
+        api.get<ApiResponse<Message>>(`/messages/${messageId}`, config),
     deleteMessage: (messageId: string | number) => api.delete<ApiResponse<void>>(`/messages/${messageId}`),
     deleteMessages: (messageIds: (string | number)[]) => api.delete<ApiResponse<void>>('/messages', { data: messageIds }),
 }
+
+export { BLOCKED_BY_USER_CODE }

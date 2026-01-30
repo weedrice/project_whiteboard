@@ -10,7 +10,7 @@ const bottomToasts = computed(() => toastStore.toasts.filter(t => t.position ===
 </script>
 
 <template>
-  <div aria-live="assertive" class="pointer-events-none fixed inset-0 z-50">
+  <div aria-live="assertive" class="pointer-events-none fixed inset-0 z-[9999]">
     <!-- Top Center Container -->
     <div class="absolute top-0 left-0 right-0 flex flex-col items-center space-y-4 p-6">
       <TransitionGroup enter-active-class="transform ease-out duration-300 transition"

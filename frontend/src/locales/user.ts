@@ -87,6 +87,7 @@ export const user: UserMessages = {
     inputContent: '내용을 입력해주세요.',
     sendSuccess: '쪽지가 전송되었습니다.',
     sendFailed: '쪽지 전송에 실패했습니다.',
+    blockedByUser: '해당 사용자에 의해 차단되었습니다.',
     boxTitle: '쪽지함',
     received: '받은 쪽지',
     sent: '보낸 쪽지',

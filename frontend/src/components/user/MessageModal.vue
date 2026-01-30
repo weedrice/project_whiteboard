@@ -16,7 +16,6 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { messageApi } from '@/api/message'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
@@ -24,6 +23,8 @@ import BaseTextarea from '@/components/common/ui/BaseTextarea.vue'
 import { useI18n } from 'vue-i18n'
 import logger from '@/utils/logger'
 import { useToastStore } from '@/stores/toast'
+import { messageApi, BLOCKED_BY_USER_CODE } from '@/api/message'
+import { extractErrorResponse } from '@/utils/errorHandler'
 
 const { t } = useI18n()
 const toastStore = useToastStore()
@@ -46,7 +47,7 @@ const handleSendMessage = async () => {
     }
     isSendingMessage.value = true
     try {
-        const { data } = await messageApi.sendMessage(props.userId, messageContent.value)
+        const { data } = await messageApi.sendMessage(props.userId, messageContent.value, { skipGlobalErrorHandler: true })
         if (data.success) {
             toastStore.addToast(t('user.message.sendSuccess'), 'success')
             messageContent.value = ''
@@ -54,7 +55,11 @@ const handleSendMessage = async () => {
         }
     } catch (error) {
         logger.error('Failed to send message:', error)
-        toastStore.addToast(t('user.message.sendFailed'), 'error')
+        const errRes = extractErrorResponse(error)
+        const message = errRes?.code === BLOCKED_BY_USER_CODE
+            ? t('user.message.blockedByUser')
+            : t('user.message.sendFailed')
+        toastStore.addToast(message, 'error')
     } finally {
         isSendingMessage.value = false
     }

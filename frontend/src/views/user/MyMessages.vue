@@ -146,7 +146,7 @@
 
 <script setup>
 import { ref, watch, onMounted } from 'vue'
-import { messageApi } from '@/api/message'
+import { messageApi, BLOCKED_BY_USER_CODE } from '@/api/message'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseCheckbox from '@/components/common/ui/BaseCheckbox.vue'
@@ -160,6 +160,7 @@ import { useI18n } from 'vue-i18n'
 import { useNotificationStore } from '@/stores/notification'
 import { useToastStore } from '@/stores/toast'
 import { useConfirm } from '@/composables/useConfirm'
+import { extractErrorResponse } from '@/utils/errorHandler'
 import logger from '@/utils/logger'
 import { formatDate } from '@/utils/date'
 
@@ -182,6 +183,8 @@ const isReplyModalOpen = ref(false)
 const replyTarget = ref(null)
 const replyContent = ref('')
 const isSending = ref(false)
+/** 차단 관계로 인해 상세/읽음 API가 실패한 쪽지인지 (답장 클릭 시에만 토스트 표시용) */
+const messageFromBlockedUser = ref(false)
 
 async function fetchMessages() {
     loading.value = true
@@ -233,14 +236,20 @@ function changeViewType(type) {
 }
 
 async function openMessage(msg) {
+    messageFromBlockedUser.value = false
     selectedMessage.value = msg
     if (viewType.value === 'received' && !msg.read) {
         try {
-            await messageApi.getMessage(msg.messageId)
+            await messageApi.getMessage(msg.messageId, { skipGlobalErrorHandler: true })
             msg.read = true
             notificationStore.fetchUnreadCount()
         } catch (error) {
-            logger.error('Failed to mark as read:', error)
+            const errRes = extractErrorResponse(error)
+            if (errRes?.code === BLOCKED_BY_USER_CODE) {
+                messageFromBlockedUser.value = true
+            } else {
+                logger.error('Failed to mark as read:', error)
+            }
         }
     }
 }
@@ -261,6 +270,10 @@ async function deleteSelectedMessages() {
 }
 
 function startReply(msg) {
+    if (messageFromBlockedUser.value) {
+        toastStore.addToast(t('user.message.blockedByUser'), 'error')
+        return
+    }
     replyTarget.value = msg
     selectedMessage.value = null
     isReplyModalOpen.value = true
@@ -276,14 +289,22 @@ async function sendReply() {
     if (!replyContent.value.trim()) return
     isSending.value = true
     try {
-        const { data } = await messageApi.sendMessage(replyTarget.value.partner.userId, replyContent.value)
+        const { data } = await messageApi.sendMessage(
+            replyTarget.value.partner.userId,
+            replyContent.value,
+            { skipGlobalErrorHandler: true }
+        )
         if (data.success) {
             toastStore.addToast(t('user.message.sendSuccess'), 'success')
             closeReplyModal()
         }
     } catch (error) {
         logger.error('Failed to send reply:', error)
-        toastStore.addToast(t('user.message.sendFailed'), 'error')
+        const errRes = extractErrorResponse(error)
+        const message = errRes?.code === BLOCKED_BY_USER_CODE
+            ? t('user.message.blockedByUser')
+            : t('user.message.sendFailed')
+        toastStore.addToast(message, 'error')
     } finally {
         isSending.value = false
     }
@@ -291,6 +312,10 @@ async function sendReply() {
 
 watch(viewType, () => {
     fetchMessages()
+})
+
+watch(selectedMessage, (val) => {
+    if (!val) messageFromBlockedUser.value = false
 })
 
 onMounted(() => {

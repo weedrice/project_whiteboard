@@ -518,6 +518,7 @@ export interface UserMessages {
     inputContent: string
     sendSuccess: string
     sendFailed: string
+    blockedByUser: string
     boxTitle: string
     received: string
     sent: string
