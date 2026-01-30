@@ -11,9 +11,9 @@ const commitHash = __COMMIT_HASH__
 
 <template>
   <footer
-    class="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 mt-auto pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+    class="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 mt-auto pb-[max(0.5rem,env(safe-area-inset-bottom))]"
   >
-    <div class="max-w-7xl mx-auto py-2 sm:py-3 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-7xl mx-auto py-1.5 sm:py-2 px-4 sm:px-6 lg:px-8">
       <!-- 모바일: 1.다크모드|Github 2.서비스약관|개인정보 3.저작권 / PC: 저작권(왼쪽) | 다크모드|Github|Commit|약관|개인정보(오른쪽) -->
       <div class="flex flex-col md:flex-row justify-between items-center gap-0.5 md:gap-0">
         <!-- 저작권: 모바일에서는 맨 아래(order-3), PC에서는 왼쪽 -->
@@ -33,7 +33,7 @@ const commitHash = __COMMIT_HASH__
               @click="themeStore.toggleTheme()"
               variant="ghost"
               size="sm"
-              class="min-h-[44px] min-w-[44px] p-0 rounded-full touch-manipulation flex items-center justify-center shrink-0"
+              class="min-h-[36px] min-w-[36px] p-0 rounded-full touch-manipulation flex items-center justify-center shrink-0"
               :title="themeStore.isDark ? $t('common.footer.switchToLight') : $t('common.footer.switchToDark')"
             >
               <Sun v-if="themeStore.isDark" class="h-5 w-5" />
@@ -44,7 +44,7 @@ const commitHash = __COMMIT_HASH__
               href="https://github.com/weedrice/project_whiteboard"
               target="_blank"
               rel="noopener noreferrer"
-              class="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 min-h-[44px] px-3 py-1 md:py-0 inline-flex items-center justify-center rounded-md touch-manipulation active:bg-gray-100 dark:active:bg-gray-700 text-sm"
+              class="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 min-h-[36px] px-2 py-1 md:py-0 inline-flex items-center justify-center rounded-md touch-manipulation active:bg-gray-100 dark:active:bg-gray-700 text-sm"
             >
               <span class="sr-only">{{ $t('common.footer.github') }}</span>
               {{ $t('common.footer.github') }}
@@ -59,17 +59,17 @@ const commitHash = __COMMIT_HASH__
           </span>
           <span class="text-gray-300 dark:text-gray-600 pl-3 hidden sm:inline" aria-hidden="true">|</span>
           <!-- 2행(모바일): 서비스 약관 | 개인정보 처리방침 (첫째줄과 간격 최소화) -->
-          <nav class="flex justify-center items-center gap-x-2 md:contents -mt-1 md:mt-0" aria-label="Footer navigation">
+          <nav class="flex justify-center items-center gap-x-1 md:contents -mt-0.5 md:mt-0" aria-label="Footer navigation">
             <router-link
               to="/terms"
-              class="text-sm text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-300 py-1.5 px-3 md:py-2.5 min-h-[44px] inline-flex items-center justify-center rounded-md touch-manipulation active:bg-gray-100 dark:active:bg-gray-700 md:pl-3"
+              class="text-sm text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-300 py-1 px-2 md:py-1.5 min-h-[36px] inline-flex items-center justify-center rounded-md touch-manipulation active:bg-gray-100 dark:active:bg-gray-700 md:pl-3"
             >
               서비스 약관
             </router-link>
             <span class="text-gray-300 dark:text-gray-600 md:ml-2" aria-hidden="true">|</span>
             <router-link
               to="/privacy"
-              class="text-sm text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-300 py-1.5 px-3 md:py-2.5 min-h-[44px] inline-flex items-center justify-center rounded-md touch-manipulation active:bg-gray-100 dark:active:bg-gray-700"
+              class="text-sm text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-300 py-1 px-2 md:py-1.5 min-h-[36px] inline-flex items-center justify-center rounded-md touch-manipulation active:bg-gray-100 dark:active:bg-gray-700"
             >
               개인정보 처리방침
             </router-link>
