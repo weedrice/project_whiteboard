@@ -334,7 +334,7 @@ const showNotice = computed(() => props.mode === 'create' && board.value?.isAdmi
 
       <div class="flex justify-end gap-2 sm:gap-3 pt-1">
         <BaseButton type="button" variant="secondary" size="sm" class="!text-xs !px-3 !py-2 sm:!text-sm sm:!px-4 sm:!py-2"
-          @click="router.back()">
+          @click="handleCancel()">
           {{ $t('common.cancel') }}
         </BaseButton>
         <BaseButton type="submit" variant="primary" size="sm" class="!text-xs !px-3 !py-2 sm:!text-sm sm:!px-4 sm:!py-2"

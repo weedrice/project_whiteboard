@@ -45,14 +45,14 @@ export function useGlobalShortcuts() {
    * 키보드 이벤트 핸들러
    */
   const handleKeyDown = (event: KeyboardEvent) => {
-    // 입력 필드에 포커스가 있으면 단축키 무시 (일부 예외)
+    // 입력 필드에 포커스가 있으면 단축키 무시 (Escape만 예외: 모달/드롭다운 닫기 등)
     const target = event.target as HTMLElement
-    const isInputFocused = target.tagName === 'INPUT' || 
-                          target.tagName === 'TEXTAREA' || 
-                          target.isContentEditable
+    const isInputFocused = target.tagName === 'INPUT' ||
+                          target.tagName === 'TEXTAREA' ||
+                          target.isContentEditable ||
+                          !!target.closest?.('.ql-editor')
 
-    // 입력 필드에서도 작동해야 하는 단축키 (예: Escape, /)
-    const alwaysActiveKeys = ['Escape', '/', '?']
+    const alwaysActiveKeys = ['Escape']
     if (isInputFocused && !alwaysActiveKeys.includes(event.key)) {
       return
     }

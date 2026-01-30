@@ -109,6 +109,7 @@ const columns = computed(() => {
   cols.push({
     key: 'title',
     label: t('common.title'),
+    width: props.showBoardName ? '28%' : '38%',
     align: 'left' as const
   })
 
@@ -218,35 +219,37 @@ const columns = computed(() => {
         </template>
 
         <template #cell-title="{ item }">
-          <div class="flex items-center h-full">
+          <div class="flex items-center h-full min-w-0 overflow-hidden">
             <router-link :to="`/board/${boardUrl || item.boardUrl}/post/${item.postId}`"
-              class="hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center h-full w-full"
+              class="hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center h-full min-w-0 flex-1 overflow-hidden"
               v-if="boardUrl || item.boardUrl"
               @click="(e) => onTitleClick(e, item)">
-              <span v-if="item.category && item.category.name !== '일반'" class="badge badge-gray mr-1.5 sm:mr-2 text-[10px] sm:text-xs">
+              <span v-if="item.category && item.category.name !== '일반'" class="badge badge-gray mr-1.5 sm:mr-2 text-[10px] sm:text-xs flex-shrink-0">
                 {{ item.category.name }}
               </span>
-              <span v-if="item.isNotice" class="badge badge-red mr-1.5 sm:mr-2 text-[10px] sm:text-xs">
+              <span v-if="item.isNotice" class="badge badge-red mr-1.5 sm:mr-2 text-[10px] sm:text-xs flex-shrink-0">
                 {{ $t('common.notice') }}
               </span>
-              <span v-if="item.hasImage" class="mr-1 text-gray-400 flex items-center">
+              <span v-if="item.hasImage" class="mr-1 text-gray-400 flex items-center flex-shrink-0">
                 <ImageIcon class="h-4 w-4" />
               </span>
-              <span class="truncate">{{ item.title }}</span>
+              <span class="truncate min-w-0">{{ item.title }}</span>
               <span v-if="item.commentCount > 0"
-                class="ml-1 text-indigo-600 dark:text-indigo-400 text-[10px] sm:text-xs flex items-center">
+                class="ml-1 text-indigo-600 dark:text-indigo-400 text-[10px] sm:text-xs flex-shrink-0">
                 [{{ item.commentCount }}]
               </span>
             </router-link>
-            <span v-else class="text-gray-400 flex items-center h-full cursor-not-allowed w-full"
+            <span v-else class="text-gray-400 flex items-center h-full cursor-not-allowed min-w-0 overflow-hidden"
               :title="$t('board.invalidUrl')">
-              <span class="truncate">{{ item.title }}</span>
+              <span class="truncate min-w-0">{{ item.title }}</span>
             </span>
           </div>
         </template>
 
         <template #cell-author="{ item }">
-          <UserMenu v-if="item.author" :user-id="item.author.userId" :display-name="item.author.displayName" />
+          <span class="inline-block min-w-0 max-w-full overflow-hidden">
+            <UserMenu v-if="item.author" :user-id="item.author.userId" :display-name="item.author.displayName" />
+          </span>
         </template>
 
         <template #cell-createdAt="{ item }">
@@ -266,22 +269,20 @@ const columns = computed(() => {
 </template>
 
 <style scoped>
-:deep(.post-list-row-current) {
-  position: relative;
-}
-:deep(.post-list-row-current)::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  bottom: 0;
-  z-index: -1;
+/* 현재 읽는 글 하이라이트: td에만 배경 적용, 셀별 테두리 없음(한 줄로 보이게) */
+:deep(.post-list-row-current td) {
   background-color: rgb(238 242 255);
-  box-shadow: inset 0 0 0 1px rgb(199 210 254);
 }
-:global(.dark) :deep(.post-list-row-current)::before {
-  background-color: rgb(49 46 129 / 0.2);
-  box-shadow: inset 0 0 0 1px rgb(67 56 202 / 0.5);
+:deep(.post-list-row-current td:first-child) {
+  border-left: 4px solid rgb(99 102 241);
+}
+</style>
+<style>
+/* 다크모드: 별도 비-scoped 블록으로 적용 (scoped + :global 조합 시 미적용 이슈 방지) */
+html.dark .post-list-row-current td {
+  background-color: rgb(49 46 129 / 0.35);
+}
+html.dark .post-list-row-current td:first-child {
+  border-left-color: rgb(129 140 248);
 }
 </style>

@@ -62,7 +62,7 @@ const queryParams = computed(() => {
     } = {
         page: page.value,
         size: size.value,
-        sort: 'createdAt,desc',
+        sort: sort.value,
     }
 
     if (isSearching.value) {

@@ -39,7 +39,10 @@ const alignClass = (align?: string) => {
     <div
         class="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg border border-gray-200 dark:border-gray-700">
         <div class="overflow-x-auto">
-            <table class="min-w-full table-fixed divide-y divide-gray-200 dark:divide-gray-700">
+            <table class="min-w-full table-fixed divide-y divide-gray-200 dark:divide-gray-700" style="table-layout: fixed;">
+                <colgroup>
+                    <col v-for="col in columns" :key="col.key" :style="{ width: col.width || 'auto' }" />
+                </colgroup>
                 <thead class="bg-gray-50 dark:bg-gray-700">
                     <tr>
                         <th v-for="col in columns" :key="col.key" scope="col"
@@ -67,7 +70,7 @@ const alignClass = (align?: string) => {
                             {{ emptyText }}
                         </td>
                     </tr>
-                    <tr v-else v-for="(item, index) in items" :key="index"
+                    <tr v-else v-for="(item, index) in items" :key="(item as any).postId ?? index"
                         class="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-150"
                         :class="rowClass?.(item) || ''"
                         @click="emit('row-click', item)">
