@@ -398,6 +398,8 @@ export interface BoardMessages {
     updateFailed: string
     loadFailed: string
     validation: string
+    discardEditConfirm: string
+    discardCreateConfirm: string
     tags: string
   }
   tags: {

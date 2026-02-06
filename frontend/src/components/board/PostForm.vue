@@ -226,7 +226,10 @@ function handleSubmit() {
 async function handleCancel() {
   const hasContent = form.value.title.trim() || form.value.content.trim()
   if (hasContent) {
-    const isConfirmed = await confirm(t('common.messages.confirmDelete'))
+    const message = props.mode === 'edit'
+      ? t('board.writePost.discardEditConfirm')
+      : t('board.writePost.discardCreateConfirm')
+    const isConfirmed = await confirm(message)
     if (!isConfirmed) return
   }
   router.back()
@@ -365,6 +368,26 @@ const showNotice = computed(() => props.mode === 'create' && board.value?.isAdmi
   flex: 1;
   min-height: 0;
   overflow: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #d1d5db #e5e7eb;
+}
+.quill-editor-wrapper :deep(.ql-container.ql-snow::-webkit-scrollbar) {
+  width: 10px;
+}
+.quill-editor-wrapper :deep(.ql-container.ql-snow::-webkit-scrollbar-track) {
+  background: #e5e7eb;
+}
+.quill-editor-wrapper :deep(.ql-container.ql-snow::-webkit-scrollbar-thumb) {
+  background: #9ca3af;
+  border-radius: 5px;
+}
+.quill-editor-wrapper :deep(.ql-container.ql-snow::-webkit-scrollbar-thumb:hover) {
+  background: #6b7280;
+}
+/* 본문 영역이 컨테이너를 채우도록 하여 아래 빈 공간 제거 */
+.quill-editor-wrapper :deep(.ql-editor) {
+  min-height: 100%;
+  box-sizing: border-box;
 }
 </style>
 
@@ -391,6 +414,12 @@ const showNotice = computed(() => props.mode === 'create' && board.value?.isAdmi
 }
 .dark .ql-toolbar.ql-snow { border-color: #4b5563; background-color: #1f2937; }
 .dark .ql-container.ql-snow { border-color: #4b5563; background-color: #1f2937; color: #f3f4f6; }
+.dark .quill-editor-wrapper .ql-container.ql-snow {
+  scrollbar-color: #6b7280 #374151;
+}
+.dark .quill-editor-wrapper .ql-container.ql-snow::-webkit-scrollbar-track { background: #374151; }
+.dark .quill-editor-wrapper .ql-container.ql-snow::-webkit-scrollbar-thumb { background: #6b7280; }
+.dark .quill-editor-wrapper .ql-container.ql-snow::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
 .dark .ql-snow .ql-stroke { stroke: #9ca3af; }
 .dark .ql-snow .ql-fill { fill: #9ca3af; }
 .dark .ql-snow .ql-picker { color: #9ca3af; }

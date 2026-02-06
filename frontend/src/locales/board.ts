@@ -120,6 +120,8 @@ export const board: BoardMessages = {
     updateFailed: '게시글 수정에 실패했습니다.',
     loadFailed: '게시글 정보를 불러오는데 실패했습니다.',
     validation: '필수 항목을 모두 입력해주세요.',
+    discardEditConfirm: '수정 내용을 취소하시겠습니까?',
+    discardCreateConfirm: '작성 내용을 취소하시겠습니까?',
     tags: '태그',
   },
   tags: {
