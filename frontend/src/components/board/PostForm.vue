@@ -300,7 +300,7 @@ const showNotice = computed(() => props.mode === 'create' && board.value?.isAdmi
         <div class="sm:col-span-6">
           <label for="content" class="block text-[11px] font-medium text-gray-700 dark:text-gray-300 sm:text-sm">{{
             $t('common.content') }}</label>
-          <div class="mt-1 h-80 min-h-[260px] sm:h-96 relative overflow-hidden rounded border border-gray-200 dark:border-gray-600">
+          <div class="quill-editor-wrapper mt-1 h-80 min-h-[260px] sm:h-96 relative flex flex-col overflow-hidden rounded border border-gray-200 dark:border-gray-600">
             <QuillEditor ref="editor" :toolbar="toolbarOptions" theme="snow" contentType="html"
               v-model:content="form.content" @ready="onEditorReady" />
             <EmoticonPicker :show="showEmoticonPicker" @select="handleEmoticonSelect"
@@ -347,6 +347,25 @@ const showNotice = computed(() => props.mode === 'create' && board.value?.isAdmi
 </template>
 
 <style scoped>
+.quill-editor-wrapper {
+  display: flex;
+  flex-direction: column;
+}
+/* Quill 루트(툴바+컨테이너 감싼 div)가 남은 높이를 채우고 flex로 배치되도록 */
+.quill-editor-wrapper > * {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.quill-editor-wrapper :deep(.ql-toolbar.ql-snow) {
+  flex-shrink: 0;
+}
+.quill-editor-wrapper :deep(.ql-container.ql-snow) {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
 </style>
 
 <style>
