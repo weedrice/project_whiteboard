@@ -303,9 +303,11 @@ const showNotice = computed(() => props.mode === 'create' && board.value?.isAdmi
         <div class="sm:col-span-6">
           <label for="content" class="block text-[11px] font-medium text-gray-700 dark:text-gray-300 sm:text-sm">{{
             $t('common.content') }}</label>
-          <div class="quill-editor-wrapper mt-1 h-80 min-h-[260px] sm:h-96 relative flex flex-col overflow-hidden rounded border border-gray-200 dark:border-gray-600">
-            <QuillEditor ref="editor" :toolbar="toolbarOptions" theme="snow" contentType="html"
-              v-model:content="form.content" @ready="onEditorReady" />
+          <div class="quill-editor-wrapper mt-1 h-80 min-h-[260px] sm:h-96 relative overflow-hidden rounded border border-gray-200 dark:border-gray-600">
+            <div class="quill-editor-inner quill-flex-container">
+              <QuillEditor ref="editor" :toolbar="toolbarOptions" theme="snow" contentType="html"
+                v-model:content="form.content" @ready="onEditorReady" />
+            </div>
             <EmoticonPicker :show="showEmoticonPicker" @select="handleEmoticonSelect"
               @close="showEmoticonPicker = false" />
           </div>
@@ -354,15 +356,29 @@ const showNotice = computed(() => props.mode === 'create' && board.value?.isAdmi
   display: flex;
   flex-direction: column;
 }
-/* Quill 루트(툴바+컨테이너 감싼 div)가 남은 높이를 채우고 flex로 배치되도록 */
-.quill-editor-wrapper > * {
+.quill-editor-inner {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+/* 툴바+컨테이너의 공통 부모(또는 Quill 루트)가 flex로 높이 배분 */
+.quill-editor-inner.quill-flex-container {
+  display: flex;
+  flex-direction: column;
+}
+/* Quill이 단일 루트로 렌더할 때만 해당 루트에 flex 적용 (다중 루트 시 툴바가 flex:1 받는 것 방지) */
+.quill-editor-inner.quill-flex-container > *:only-child {
   flex: 1;
   min-height: 0;
   display: flex;
   flex-direction: column;
 }
+/* 툴바: float 기반 레이아웃 유지, 높이만 고정 */
 .quill-editor-wrapper :deep(.ql-toolbar.ql-snow) {
   flex-shrink: 0;
+  width: 100%;
+  display: block;
+  box-sizing: border-box;
 }
 .quill-editor-wrapper :deep(.ql-container.ql-snow) {
   flex: 1;
@@ -384,7 +400,6 @@ const showNotice = computed(() => props.mode === 'create' && board.value?.isAdmi
 .quill-editor-wrapper :deep(.ql-container.ql-snow::-webkit-scrollbar-thumb:hover) {
   background: #6b7280;
 }
-/* 본문 영역이 컨테이너를 채우도록 하여 아래 빈 공간 제거 */
 .quill-editor-wrapper :deep(.ql-editor) {
   min-height: 100%;
   box-sizing: border-box;
