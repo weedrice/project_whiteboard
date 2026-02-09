@@ -169,7 +169,7 @@ class EmoticonServiceTest {
         void getEmoticonDetail_success() {
             when(emoticonMasterRepository.findByIdWithImages(1L)).thenReturn(Optional.of(emoticonMaster));
 
-            EmoticonMasterDto result = emoticonService.getEmoticonDetail(1L);
+            EmoticonMasterDto result = emoticonService.getEmoticonDetail(1L, null);
 
             assertThat(result).isNotNull();
             assertThat(result.getEmoticonId()).isEqualTo(1L);
@@ -182,7 +182,7 @@ class EmoticonServiceTest {
         void getEmoticonDetail_notFound() {
             when(emoticonMasterRepository.findByIdWithImages(999L)).thenReturn(Optional.empty());
 
-            assertThatThrownBy(() -> emoticonService.getEmoticonDetail(999L))
+            assertThatThrownBy(() -> emoticonService.getEmoticonDetail(999L, null))
                     .isInstanceOf(BusinessException.class)
                     .satisfies(ex -> {
                         BusinessException be = (BusinessException) ex;

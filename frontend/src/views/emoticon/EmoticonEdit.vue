@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
 import { emoticonApi } from '@/api/emoticon'
 import { fileApi } from '@/api/file'
 import { useHead } from '@unhead/vue'
-import { ArrowLeft, Upload, X, Plus } from 'lucide-vue-next'
+import { ArrowLeft, Upload, X, Plus, EyeOff, Eye } from 'lucide-vue-next'
 import { useToastStore } from '@/stores/toast'
 import { useAuthStore } from '@/stores/auth'
 import { useI18n } from 'vue-i18n'
@@ -82,6 +82,32 @@ watch([emoticon, () => authStore.user], ([emoticonData, user]) => {
     router.push({ name: 'emoticon-detail', params: { emoticonId: emoticonId.value } })
   }
 })
+
+// 숨김/표시 전환
+const { mutate: toggleVisibility, isPending: isToggling } = useMutation({
+  mutationFn: () => emoticonApi.toggleVisibility(emoticonId.value),
+  onSuccess: (res) => {
+    const isNowActive = res.data.data.isActive
+    toastStore.addToast(
+      isNowActive ? t('emoticon.visibility.showSuccess') : t('emoticon.visibility.hiddenSuccess'),
+      'success'
+    )
+    queryClient.invalidateQueries({ queryKey: ['emoticon', emoticonId] })
+    queryClient.invalidateQueries({ queryKey: ['emoticons'] })
+  },
+  onError: (err: any) => {
+    const message = err.response?.data?.error?.message || t('emoticon.edit.failed')
+    toastStore.addToast(message, 'error')
+  }
+})
+
+const handleToggleVisibility = () => {
+  if (!emoticon.value) return
+  const verb = emoticon.value.isActive ? t('emoticon.visibility.hideConfirm') : t('emoticon.visibility.showConfirm')
+  if (confirm(verb)) {
+    toggleVisibility()
+  }
+}
 
 const MAX_FILE_SIZE_BYTES = 1024 * 1024 // 1MB
 
@@ -444,6 +470,33 @@ const goToDetail = () => {
 
     <!-- 폼 -->
     <form v-else-if="emoticon" @submit.prevent="handleSubmit" class="space-y-8">
+      <!-- 숨김/표시 전환 (등록자만) -->
+      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+        <div class="flex items-center justify-between">
+          <div>
+            <span
+              v-if="!emoticon.isActive"
+              class="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium bg-gray-200 text-gray-700 dark:bg-gray-600 dark:text-gray-300"
+            >
+              {{ $t('emoticon.visibility.hidden') }}
+            </span>
+            <span v-else class="text-sm text-gray-500 dark:text-gray-400">현재 판매 중입니다</span>
+          </div>
+          <button
+            type="button"
+            @click="handleToggleVisibility"
+            :disabled="isToggling"
+            :class="emoticon.isActive
+              ? 'inline-flex items-center px-3 py-1.5 text-sm text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-colors'
+              : 'inline-flex items-center px-3 py-1.5 text-sm text-green-700 dark:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors'"
+          >
+            <EyeOff v-if="emoticon.isActive" class="w-4 h-4 mr-1" />
+            <Eye v-else class="w-4 h-4 mr-1" />
+            {{ emoticon.isActive ? $t('emoticon.visibility.hide') : $t('emoticon.visibility.show') }}
+          </button>
+        </div>
+      </div>
+
       <!-- 이모티콘 이름과 썸네일 -->
       <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
         <div class="flex flex-col md:flex-row gap-6">

@@ -586,6 +586,15 @@ export interface EmoticonMessages {
     updated: string
     failed: string
   }
+  visibility: {
+    hide: string
+    show: string
+    hideConfirm: string
+    showConfirm: string
+    hidden: string
+    hiddenSuccess: string
+    showSuccess: string
+  }
   register: {
     created: string
     failed: string

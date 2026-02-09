@@ -72,10 +72,21 @@ public class EmoticonService {
 
     /**
      * 이모티콘 상세 조회 (이미지 포함)
+     * 숨김 처리된 경우: 등록자 또는 구매자만 조회 가능
      */
-    public EmoticonMasterDto getEmoticonDetail(Long emoticonId) {
+    public EmoticonMasterDto getEmoticonDetail(Long emoticonId, Long userId) {
         EmoticonMaster master = emoticonMasterRepository.findByIdWithImages(emoticonId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.EMOTICON_NOT_FOUND));
+
+        // 숨김 처리된 경우, 등록자 또는 구매자만 접근 가능
+        if (!"Y".equals(master.getIsActive()) && userId != null) {
+            if (!master.isOwner(userId) && !emoticonMasterRepository.canUseEmoticon(userId, emoticonId)) {
+                throw new BusinessException(ErrorCode.EMOTICON_NOT_FOUND);
+            }
+        } else if (!"Y".equals(master.getIsActive()) && userId == null) {
+            throw new BusinessException(ErrorCode.EMOTICON_NOT_FOUND);
+        }
+
         return EmoticonMasterDto.from(master);
     }
 
@@ -129,6 +140,27 @@ public class EmoticonService {
                 request.getName() != null ? request.getName() : master.getName(),
                 request.getThumbnailUrl() != null ? request.getThumbnailUrl() : master.getThumbnailUrl(),
                 request.getTags() != null ? request.getTags() : master.getTags());
+
+        return EmoticonMasterDto.from(master);
+    }
+
+    /**
+     * 노비콘 숨김/표시 전환 (판매 중단 시 사용, 구매자는 계속 이용 가능)
+     */
+    @Transactional
+    public EmoticonMasterDto toggleVisibility(Long userId, Long emoticonId) {
+        EmoticonMaster master = emoticonMasterRepository.findByIdWithImages(emoticonId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.EMOTICON_NOT_FOUND));
+
+        if (!master.isOwner(userId)) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "숨김/표시 변경 권한이 없습니다.");
+        }
+
+        if ("Y".equals(master.getIsActive())) {
+            master.deactivate();
+        } else {
+            master.activate();
+        }
 
         return EmoticonMasterDto.from(master);
     }
@@ -289,6 +321,11 @@ public class EmoticonService {
         // 본인이 등록한 이모티콘인지 확인
         if (emoticon.isOwner(userId)) {
             throw new BusinessException(ErrorCode.EMOTICON_CANNOT_PURCHASE_OWN);
+        }
+
+        // 숨김 처리된 노비콘은 구매 불가
+        if (!"Y".equals(emoticon.getIsActive())) {
+            throw new BusinessException(ErrorCode.EMOTICON_HIDDEN);
         }
 
         // 포인트 차감 (포인트 부족 시 INSUFFICIENT_POINTS 예외 발생)

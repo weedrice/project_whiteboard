@@ -88,7 +88,8 @@ public enum ErrorCode {
     EMOTICON_NOT_FOUND(HttpStatus.NOT_FOUND, "EM001", "error.emoticon.notFound"),
     EMOTICON_ALREADY_PURCHASED(HttpStatus.CONFLICT, "EM002", "error.emoticon.alreadyPurchased"),
     EMOTICON_CANNOT_PURCHASE_OWN(HttpStatus.BAD_REQUEST, "EM003", "error.emoticon.cannotPurchaseOwn"),
-    EMOTICON_IMAGE_NOT_FOUND(HttpStatus.NOT_FOUND, "EM004", "error.emoticon.imageNotFound");
+    EMOTICON_IMAGE_NOT_FOUND(HttpStatus.NOT_FOUND, "EM004", "error.emoticon.imageNotFound"),
+    EMOTICON_HIDDEN(HttpStatus.BAD_REQUEST, "EM005", "error.emoticon.hidden");
 
     private final HttpStatus status;
     private final String code;

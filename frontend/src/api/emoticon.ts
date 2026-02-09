@@ -71,6 +71,13 @@ export const emoticonApi = {
     },
 
     /**
+     * 노비콘 숨김/표시 전환 (판매 중단 시 사용)
+     */
+    toggleVisibility(emoticonId: number) {
+        return api.patch<{ data: EmoticonMaster }>(`/emoticons/${emoticonId}/visibility`)
+    },
+
+    /**
      * 이모티콘 삭제
      */
     deleteEmoticon(emoticonId: number) {

@@ -92,10 +92,14 @@ public class EmoticonController {
 
     /**
      * 이모티콘 상세 조회
+     * 숨김 처리된 경우: 등록자 또는 구매자만 조회 가능
      */
     @GetMapping("/{emoticonId}")
-    public ApiResponse<EmoticonMasterDto> getEmoticonDetail(@PathVariable Long emoticonId) {
-        return ApiResponse.success(emoticonService.getEmoticonDetail(emoticonId));
+    public ApiResponse<EmoticonMasterDto> getEmoticonDetail(
+            @PathVariable Long emoticonId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        Long userId = userDetails != null ? userDetails.getUserId() : null;
+        return ApiResponse.success(emoticonService.getEmoticonDetail(emoticonId, userId));
     }
 
     /**
@@ -118,6 +122,16 @@ public class EmoticonController {
             @PathVariable Long emoticonId,
             @Valid @RequestBody EmoticonUpdateRequest request) {
         return ApiResponse.success(emoticonService.updateEmoticon(userDetails.getUserId(), emoticonId, request));
+    }
+
+    /**
+     * 노비콘 숨김/표시 전환 (판매 중단 시 사용)
+     */
+    @PatchMapping("/{emoticonId}/visibility")
+    public ApiResponse<EmoticonMasterDto> toggleVisibility(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable Long emoticonId) {
+        return ApiResponse.success(emoticonService.toggleVisibility(userDetails.getUserId(), emoticonId));
     }
 
     /**

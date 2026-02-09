@@ -18,6 +18,15 @@ export const emoticon: EmoticonMessages = {
     updated: '노비콘이 수정되었습니다!',
     failed: '수정에 실패했습니다.',
   },
+  visibility: {
+    hide: '판매 숨기기',
+    show: '다시 판매하기',
+    hideConfirm: '이 노비콘을 더 이상 판매하지 않겠습니까? 이미 구매한 사용자는 계속 사용할 수 있습니다.',
+    showConfirm: '이 노비콘을 다시 판매하시겠습니까?',
+    hidden: '판매 중단',
+    hiddenSuccess: '판매가 숨김 처리되었습니다.',
+    showSuccess: '다시 판매됩니다.',
+  },
   register: {
     created: '노비콘이 등록되었습니다!',
     failed: '등록에 실패했습니다.',

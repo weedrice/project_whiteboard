@@ -161,7 +161,7 @@ class EmoticonControllerTest {
         @DisplayName("이모티콘 상세 조회 성공")
         void getEmoticonDetail_success() throws Exception {
             EmoticonMasterDto dto = EmoticonMasterDto.builder().emoticonId(1L).name("테스트 이모티콘").build();
-            when(emoticonService.getEmoticonDetail(1L)).thenReturn(dto);
+            when(emoticonService.getEmoticonDetail(1L, null)).thenReturn(dto);
 
             mockMvc.perform(get("/api/v1/emoticons/{emoticonId}", 1L)
                             .with(csrf()))
@@ -170,13 +170,13 @@ class EmoticonControllerTest {
                     .andExpect(jsonPath("$.data.emoticonId").value(1))
                     .andExpect(jsonPath("$.data.name").value("테스트 이모티콘"));
 
-            verify(emoticonService).getEmoticonDetail(1L);
+            verify(emoticonService).getEmoticonDetail(1L, null);
         }
 
         @Test
         @DisplayName("이모티콘 상세 조회 - 존재하지 않으면 404")
         void getEmoticonDetail_notFound() throws Exception {
-            when(emoticonService.getEmoticonDetail(999L))
+            when(emoticonService.getEmoticonDetail(999L, null))
                     .thenThrow(new BusinessException(ErrorCode.EMOTICON_NOT_FOUND));
 
             mockMvc.perform(get("/api/v1/emoticons/{emoticonId}", 999L)

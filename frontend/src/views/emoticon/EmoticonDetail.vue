@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
 import { emoticonApi } from '@/api/emoticon'
 import { useAuthStore } from '@/stores/auth'
 import { useHead } from '@unhead/vue'
-import { ArrowLeft, ShoppingCart, Tag, Calendar, User, TrendingUp, Pencil } from 'lucide-vue-next'
+import { ArrowLeft, ShoppingCart, Tag, Calendar, User, TrendingUp, Pencil, EyeOff, Eye } from 'lucide-vue-next'
 import { useToastStore } from '@/stores/toast'
 import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
@@ -60,10 +60,11 @@ const isOwner = computed(() => {
   return emoticon.value.creatorId === authStore.user?.userId
 })
 
-// 구매 가능 여부
+// 구매 가능 여부 (숨김 처리된 노비콘은 구매 불가)
 const canPurchase = computed(() => {
   if (!authStore.isAuthenticated) return false
   if (!emoticon.value) return false
+  if (!emoticon.value.isActive) return false
   if (purchaseStatus.value?.purchased) return false
   if (emoticon.value.creatorId === authStore.user?.userId) return false
   return true
@@ -92,6 +93,33 @@ const handlePurchase = () => {
   if (!canPurchase.value) return
   if (confirm(t('emoticon.purchase.confirm'))) {
     purchase()
+  }
+}
+
+// 숨김/표시 전환 mutation
+const { mutate: toggleVisibility, isPending: isToggling } = useMutation({
+  mutationFn: () => emoticonApi.toggleVisibility(emoticonId.value),
+  onSuccess: (res) => {
+    const isNowActive = res.data.data.isActive
+    toastStore.addToast(
+      isNowActive ? t('emoticon.visibility.showSuccess') : t('emoticon.visibility.hiddenSuccess'),
+      'success'
+    )
+    queryClient.invalidateQueries({ queryKey: ['emoticon', emoticonId] })
+    queryClient.invalidateQueries({ queryKey: ['emoticon', emoticonId, 'purchased'] })
+    queryClient.invalidateQueries({ queryKey: ['emoticons'] })
+  },
+  onError: (err: any) => {
+    const message = err.response?.data?.error?.message || t('emoticon.edit.failed')
+    toastStore.addToast(message, 'error')
+  }
+})
+
+const handleToggleVisibility = () => {
+  if (!emoticon.value) return
+  const verb = emoticon.value.isActive ? t('emoticon.visibility.hideConfirm') : t('emoticon.visibility.showConfirm')
+  if (confirm(verb)) {
+    toggleVisibility()
   }
 }
 
@@ -165,16 +193,36 @@ useHead({
 
           <!-- 정보 -->
           <div class="flex-1">
-            <div class="flex items-start justify-between mb-4">
-              <h1 class="text-2xl font-bold text-gray-900 dark:text-white">{{ emoticon.name }}</h1>
-              <button
-                v-if="isOwner"
-                @click="goToEdit"
-                class="inline-flex items-center px-3 py-1.5 text-sm bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 rounded-lg hover:bg-indigo-200 dark:hover:bg-indigo-900/50 transition-colors"
-              >
-                <Pencil class="w-4 h-4 mr-1" />
-                수정
-              </button>
+            <div class="flex items-start justify-between mb-4 gap-2 flex-wrap">
+              <div class="flex items-center gap-2 flex-wrap">
+                <h1 class="text-2xl font-bold text-gray-900 dark:text-white">{{ emoticon.name }}</h1>
+                <span
+                  v-if="!emoticon.isActive"
+                  class="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium bg-gray-200 text-gray-700 dark:bg-gray-600 dark:text-gray-300"
+                >
+                  {{ $t('emoticon.visibility.hidden') }}
+                </span>
+              </div>
+              <div v-if="isOwner" class="flex items-center gap-2">
+                <button
+                  @click="handleToggleVisibility"
+                  :disabled="isToggling"
+                  :class="emoticon.isActive
+                    ? 'inline-flex items-center px-3 py-1.5 text-sm bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 rounded-lg hover:bg-amber-200 dark:hover:bg-amber-900/50 transition-colors'
+                    : 'inline-flex items-center px-3 py-1.5 text-sm bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 rounded-lg hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors'"
+                >
+                  <EyeOff v-if="emoticon.isActive" class="w-4 h-4 mr-1" />
+                  <Eye v-else class="w-4 h-4 mr-1" />
+                  {{ emoticon.isActive ? $t('emoticon.visibility.hide') : $t('emoticon.visibility.show') }}
+                </button>
+                <button
+                  @click="goToEdit"
+                  class="inline-flex items-center px-3 py-1.5 text-sm bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 rounded-lg hover:bg-indigo-200 dark:hover:bg-indigo-900/50 transition-colors"
+                >
+                  <Pencil class="w-4 h-4 mr-1" />
+                  수정
+                </button>
+              </div>
             </div>
             
             <div class="space-y-2 text-sm">
