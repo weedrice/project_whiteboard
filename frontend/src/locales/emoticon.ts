@@ -27,6 +27,8 @@ export const emoticon: EmoticonMessages = {
     imageLoadFailed: '이미지를 로드할 수 없습니다.',
     imageSizeExceeded: '이미지 크기가 500x500px를 초과합니다. ({width}x{height})',
     imageSizeExceededNamed: '{name}의 크기가 500x500px를 초과합니다. ({width}x{height})',
+    fileSizeExceeded: '노비콘 GIF는 1MB 이하로 업로드해주세요.',
+    fileSizeExceededNamed: '{name}의 용량이 1MB를 초과합니다. 노비콘 GIF는 1MB 이하로 업로드해주세요.',
     notImage: '{name}은(는) 이미지 파일이 아닙니다.',
     loadFailedNamed: '{name}을(를) 로드할 수 없습니다.',
     maxImages: '최대 100개까지 업로드 가능합니다.',

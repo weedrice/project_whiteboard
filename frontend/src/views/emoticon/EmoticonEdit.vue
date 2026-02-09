@@ -83,9 +83,20 @@ watch([emoticon, () => authStore.user], ([emoticonData, user]) => {
   }
 })
 
+const MAX_FILE_SIZE_BYTES = 1024 * 1024 // 1MB
+
 // 이미지 리사이징 함수 (100px 이하로)
+// GIF는 Canvas 리사이징 시 애니메이션 손실 → 원본 그대로 반환
 const resizeImage = (file: File, maxSize: number = 100): Promise<Blob> => {
   return new Promise((resolve, reject) => {
+    // GIF는 Canvas가 첫 프레임만 캡처하므로 애니메이션 손실 → 원본 그대로 사용
+    if (file.type === 'image/gif') {
+      file.arrayBuffer().then(buffer => {
+        resolve(new Blob([buffer], { type: 'image/gif' }))
+      }).catch(reject)
+      return
+    }
+
     const img = new Image()
     const reader = new FileReader()
 
@@ -156,6 +167,12 @@ const handleThumbnailSelect = async (event: Event) => {
     return
   }
 
+  // GIF는 리사이징 시 애니메이션 손실 → 1MB 용량 제한만 적용 (일반 이미지는 리사이징으로 작아짐)
+  if (file.type === 'image/gif' && file.size > MAX_FILE_SIZE_BYTES) {
+    toastStore.addToast(t('emoticon.validation.fileSizeExceeded'), 'error')
+    return
+  }
+
   // 500x500px 제한 확인
   const img = new Image()
   const preview = URL.createObjectURL(file)
@@ -204,6 +221,12 @@ const handleEmoticonSelect = async (event: Event) => {
     // 이미지 파일 검증
     if (!file.type.startsWith('image/')) {
       toastStore.addToast(t('emoticon.validation.notImage', { name: file.name }), 'error')
+      continue
+    }
+
+    // GIF는 리사이징 시 애니메이션 손실 → 1MB 용량 제한만 적용 (일반 이미지는 리사이징으로 작아짐)
+    if (file.type === 'image/gif' && file.size > MAX_FILE_SIZE_BYTES) {
+      toastStore.addToast(t('emoticon.validation.fileSizeExceededNamed', { name: file.name }), 'error')
       continue
     }
 
@@ -323,8 +346,10 @@ const handleSubmit = async () => {
         const item = newEmoticonPreviews.value[i]
         
         // 저장된 크기 정보 사용 (이미지 재로드 불필요)
+        // GIF는 리사이징 시 애니메이션 손실 → 원본 그대로 업로드
         let fileToUpload: File | Blob = item.file
-        const needsResize = item.width > 100 || item.height > 100
+        const isGif = item.file.type === 'image/gif'
+        const needsResize = !isGif && (item.width > 100 || item.height > 100)
         
         if (needsResize) {
           fileToUpload = await resizeImage(item.file, 100)

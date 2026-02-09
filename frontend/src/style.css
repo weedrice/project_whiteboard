@@ -293,12 +293,14 @@ html {
 
   /*
    * Quill 이모티콘 (에디터·본문 표시 공통)
-   * Blot이 노드 생성 시 넣는 인라인 스타일을 덮어 baseline 정렬을 강제합니다.
+   * 100x100px 표시, object-contain으로 비율 유지, GIF 애니메이션도 유지됨
    */
   .ql-editor img.ql-emoticon,
   img.ql-emoticon {
+    @apply inline-block object-contain align-baseline;
+    width: 100px !important;
+    height: 100px !important;
     vertical-align: baseline !important;
-    display: inline-block !important;
   }
 
 }

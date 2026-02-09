@@ -59,9 +59,13 @@ public class FileController {
             contentType = "application/octet-stream";
         }
 
+        // 이미지 파일은 inline으로 표시 (브라우저에서 직접 보기)
+        // 그 외 파일은 attachment로 다운로드
+        String disposition = contentType.startsWith("image/") ? "inline" : "attachment";
+
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(contentType))
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + file.getOriginalName() + "\"")
+                .header(HttpHeaders.CONTENT_DISPOSITION, disposition + "; filename=\"" + file.getOriginalName() + "\"")
                 .body(resource);
     }
 }

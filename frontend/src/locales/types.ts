@@ -595,6 +595,8 @@ export interface EmoticonMessages {
     imageLoadFailed: string
     imageSizeExceeded: string
     imageSizeExceededNamed: string
+    fileSizeExceeded: string
+    fileSizeExceededNamed: string
     notImage: string
     loadFailedNamed: string
     maxImages: string
