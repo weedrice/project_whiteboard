@@ -8,6 +8,7 @@ import com.weedrice.whiteboard.domain.emoticon.entity.EmoticonMaster;
 import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonImageRepository;
 import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonMasterRepository;
 import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonPurchaseRepository;
+import com.weedrice.whiteboard.domain.file.service.FileService;
 import com.weedrice.whiteboard.domain.point.service.PointService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
@@ -49,6 +50,8 @@ class EmoticonServiceTest {
     private UserRepository userRepository;
     @Mock
     private PointService pointService;
+    @Mock
+    private FileService fileService;
 
     @InjectMocks
     private EmoticonService emoticonService;
@@ -520,7 +523,7 @@ class EmoticonServiceTest {
         @Test
         @DisplayName("이모티콘 삭제 성공")
         void deleteEmoticon_success() {
-            when(emoticonMasterRepository.findById(1L)).thenReturn(Optional.of(emoticonMaster));
+            when(emoticonMasterRepository.findByIdWithImages(1L)).thenReturn(Optional.of(emoticonMaster));
 
             emoticonService.deleteEmoticon(1L, 1L);
 
@@ -530,7 +533,7 @@ class EmoticonServiceTest {
         @Test
         @DisplayName("이모티콘 삭제 - 소유자가 아니면 FORBIDDEN")
         void deleteEmoticon_forbidden() {
-            when(emoticonMasterRepository.findById(1L)).thenReturn(Optional.of(emoticonMaster));
+            when(emoticonMasterRepository.findByIdWithImages(1L)).thenReturn(Optional.of(emoticonMaster));
 
             assertThatThrownBy(() -> emoticonService.deleteEmoticon(2L, 1L))
                     .isInstanceOf(BusinessException.class)
@@ -540,7 +543,7 @@ class EmoticonServiceTest {
         @Test
         @DisplayName("이모티콘 삭제 - 존재하지 않으면 EMOTICON_NOT_FOUND")
         void deleteEmoticon_notFound() {
-            when(emoticonMasterRepository.findById(999L)).thenReturn(Optional.empty());
+            when(emoticonMasterRepository.findByIdWithImages(999L)).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> emoticonService.deleteEmoticon(1L, 999L))
                     .isInstanceOf(BusinessException.class)

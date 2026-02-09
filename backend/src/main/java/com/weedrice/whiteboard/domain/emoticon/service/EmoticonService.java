@@ -9,6 +9,7 @@ import com.weedrice.whiteboard.domain.emoticon.entity.EmoticonPurchase;
 import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonImageRepository;
 import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonMasterRepository;
 import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonPurchaseRepository;
+import com.weedrice.whiteboard.domain.file.service.FileService;
 import com.weedrice.whiteboard.domain.point.service.PointService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
@@ -37,6 +38,7 @@ public class EmoticonService {
     private final EmoticonPurchaseRepository emoticonPurchaseRepository;
     private final UserRepository userRepository;
     private final PointService pointService;
+    private final FileService fileService;
 
     /**
      * 활성화된 이모티콘 목록 조회
@@ -166,16 +168,32 @@ public class EmoticonService {
     }
 
     /**
-     * 이모티콘 삭제
+     * 이모티콘 삭제 (DB + S3 파일)
      */
     @Transactional
     public void deleteEmoticon(Long userId, Long emoticonId) {
-        EmoticonMaster master = emoticonMasterRepository.findById(emoticonId)
+        EmoticonMaster master = emoticonMasterRepository.findByIdWithImages(emoticonId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.EMOTICON_NOT_FOUND));
 
         // 소유자 확인
         if (!master.isOwner(userId)) {
             throw new BusinessException(ErrorCode.FORBIDDEN, "삭제 권한이 없습니다.");
+        }
+
+        // S3 파일 삭제 (썸네일 + 이미지)
+        if (master.getThumbnailUrl() != null) {
+            Long fileId = FileService.extractFileIdFromUrl(master.getThumbnailUrl());
+            if (fileId != null) {
+                fileService.deleteFileWithStorage(fileId);
+            }
+        }
+        if (master.getImages() != null) {
+            for (EmoticonImage image : master.getImages()) {
+                Long fileId = FileService.extractFileIdFromUrl(image.getImageUrl());
+                if (fileId != null) {
+                    fileService.deleteFileWithStorage(fileId);
+                }
+            }
         }
 
         emoticonMasterRepository.delete(master);
@@ -205,7 +223,7 @@ public class EmoticonService {
     }
 
     /**
-     * 이미지 삭제
+     * 이미지 삭제 (DB + S3)
      */
     @Transactional
     public void deleteImage(Long userId, Long imageId) {
@@ -214,6 +232,12 @@ public class EmoticonService {
 
         if (!image.getEmoticonMaster().isOwner(userId)) {
             throw new BusinessException(ErrorCode.FORBIDDEN, "삭제 권한이 없습니다.");
+        }
+
+        // S3 파일 삭제
+        Long fileId = FileService.extractFileIdFromUrl(image.getImageUrl());
+        if (fileId != null) {
+            fileService.deleteFileWithStorage(fileId);
         }
 
         emoticonImageRepository.delete(image);

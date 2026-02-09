@@ -174,4 +174,38 @@ public class FileService {
                 .map(File::getFileId)
                 .orElse(null);
     }
+
+    /**
+     * URL에서 fileId 추출 (/api/v1/files/123 또는 /files/123 형식)
+     * @return fileId 또는 null (추출 불가 시)
+     */
+    public static Long extractFileIdFromUrl(String url) {
+        if (url == null || url.isBlank()) return null;
+        // /files/123 또는 /api/v1/files/123 패턴
+        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("/files/(\\d+)(?:\\?|$|/)");
+        java.util.regex.Matcher matcher = pattern.matcher(url);
+        if (matcher.find()) {
+            try {
+                return Long.parseLong(matcher.group(1));
+            } catch (NumberFormatException e) {
+                return null;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 파일 삭제 (DB + S3) - fileId로 조회된 파일만 삭제
+     * @return 삭제 성공 여부 (파일 없으면 false)
+     */
+    @Transactional
+    public boolean deleteFileWithStorage(Long fileId) {
+        return fileRepository.findById(fileId)
+                .map(file -> {
+                    fileStorageService.deleteFile(file.getFilePath());
+                    fileRepository.delete(file);
+                    return true;
+                })
+                .orElse(false);
+    }
 }
