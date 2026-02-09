@@ -274,6 +274,7 @@ export interface AuthMessages {
     passwordStrength: string
     loginIdFormat: string
     emailFormat: string
+    displayNameLength: string
   }
 }
 

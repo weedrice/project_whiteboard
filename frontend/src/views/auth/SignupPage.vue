@@ -1,5 +1,5 @@
 ﻿<script setup>
-import { ref, reactive, onUnmounted } from 'vue'
+import { ref, reactive, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { authApi } from '@/api/auth'
 import { Lock, User, Mail, Smile, ChevronLeft, CheckCircle } from 'lucide-vue-next'
@@ -7,7 +7,7 @@ import { useI18n } from 'vue-i18n'
 import { useToastStore } from '@/stores/toast'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
-import { isEmpty, isValidEmail, isValidLoginId, isValidPassword } from '@/utils/validation'
+import { isEmpty, isValidEmail, isValidLoginId, isValidPassword, isValidDisplayName } from '@/utils/validation'
 
 const { t } = useI18n()
 const toastStore = useToastStore()
@@ -19,6 +19,88 @@ const form = ref({
   password: '',
   email: '',
   displayName: ''
+})
+
+// 필드별 에러 메시지
+const fieldErrors = reactive({
+  loginId: '',
+  password: '',
+  email: '',
+  displayName: ''
+})
+
+// 필드가 한 번이라도 수정되었는지 추적
+const touched = reactive({
+  loginId: false,
+  password: false,
+  email: false,
+  displayName: false
+})
+
+// 실시간 validation 함수들
+function validateLoginId() {
+  if (!touched.loginId) return
+  if (isEmpty(form.value.loginId)) {
+    fieldErrors.loginId = ''
+  } else if (!isValidLoginId(form.value.loginId)) {
+    fieldErrors.loginId = t('auth.validation.loginIdFormat')
+  } else {
+    fieldErrors.loginId = ''
+  }
+}
+
+function validatePassword() {
+  if (!touched.password) return
+  if (isEmpty(form.value.password)) {
+    fieldErrors.password = ''
+  } else if (!isValidPassword(form.value.password)) {
+    fieldErrors.password = t('auth.validation.passwordStrength')
+  } else {
+    fieldErrors.password = ''
+  }
+}
+
+function validateEmail() {
+  if (!touched.email) return
+  if (isEmpty(form.value.email)) {
+    fieldErrors.email = ''
+  } else if (!isValidEmail(form.value.email)) {
+    fieldErrors.email = t('auth.validation.emailFormat')
+  } else {
+    fieldErrors.email = ''
+  }
+}
+
+function validateDisplayName() {
+  if (!touched.displayName) return
+  if (isEmpty(form.value.displayName)) {
+    fieldErrors.displayName = ''
+  } else if (!isValidDisplayName(form.value.displayName)) {
+    fieldErrors.displayName = t('auth.validation.displayNameLength')
+  } else {
+    fieldErrors.displayName = ''
+  }
+}
+
+// watch로 실시간 validation
+watch(() => form.value.loginId, () => {
+  touched.loginId = true
+  validateLoginId()
+})
+
+watch(() => form.value.password, () => {
+  touched.password = true
+  validatePassword()
+})
+
+watch(() => form.value.email, () => {
+  touched.email = true
+  validateEmail()
+})
+
+watch(() => form.value.displayName, () => {
+  touched.displayName = true
+  validateDisplayName()
 })
 
 const verification = reactive({
@@ -115,37 +197,35 @@ async function verifyCode() {
 async function handleSignup() {
   error.value = ''
 
+  // 모든 필드를 touched로 표시하고 전체 validation 수행
+  touched.loginId = true
+  touched.password = true
+  touched.email = true
+  touched.displayName = true
+
+  validateLoginId()
+  validatePassword()
+  validateEmail()
+  validateDisplayName()
+
+  // 에러가 있으면 중단
+  if (fieldErrors.loginId || fieldErrors.password || fieldErrors.email || fieldErrors.displayName) {
+    return
+  }
+
+  // 빈 필드 체크
   if (isEmpty(form.value.loginId)) {
     toastStore.addToast(t('auth.placeholders.loginId'), 'error')
     return
   }
-  if (!isValidLoginId(form.value.loginId)) {
-    toastStore.addToast(t('auth.validation.loginIdFormat'), 'error')
-    return
-  }
-
   if (isEmpty(form.value.password)) {
     toastStore.addToast(t('auth.placeholders.password'), 'error')
     return
   }
-  if (!isValidPassword(form.value.password)) {
-    toastStore.addToast(t('auth.validation.passwordStrength'), 'error')
-    return
-  }
-
   if (isEmpty(form.value.email)) {
     toastStore.addToast(t('auth.placeholders.newEmail'), 'error')
     return
   }
-  if (!isValidEmail(form.value.email)) {
-    toastStore.addToast(t('auth.validation.emailFormat'), 'error')
-    return
-  }
-
-  // if (!verification.isVerified) {
-  //   toastStore.addToast(t('auth.emailNotVerified'), 'error')
-  //   return
-  // }
   if (isEmpty(form.value.displayName)) {
     toastStore.addToast(t('auth.placeholders.displayName'), 'error')
     return
@@ -212,6 +292,9 @@ onMounted(() => {
               <User class="h-5 w-5 text-gray-400" />
             </template>
           </BaseInput>
+          <p v-if="fieldErrors.loginId" class="text-xs text-red-500 mt-1 ml-1">
+            {{ fieldErrors.loginId }}
+          </p>
         </div>
         <div>
           <BaseInput id="password" v-model="form.password" name="password" type="password" required
@@ -220,6 +303,9 @@ onMounted(() => {
               <Lock class="h-5 w-5 text-gray-400" />
             </template>
           </BaseInput>
+          <p v-if="fieldErrors.password" class="text-xs text-red-500 mt-1 ml-1">
+            {{ fieldErrors.password }}
+          </p>
         </div>
 
         <!-- Email Verification -->
@@ -282,6 +368,9 @@ onMounted(() => {
               <Mail class="h-5 w-5 text-gray-400" />
             </template>
           </BaseInput>
+          <p v-if="fieldErrors.email" class="text-xs text-red-500 mt-1 ml-1">
+            {{ fieldErrors.email }}
+          </p>
         </div>
 
         <div>
@@ -291,6 +380,9 @@ onMounted(() => {
               <Smile class="h-5 w-5 text-gray-400" />
             </template>
           </BaseInput>
+          <p v-if="fieldErrors.displayName" class="text-xs text-red-500 mt-1 ml-1">
+            {{ fieldErrors.displayName }}
+          </p>
         </div>
       </div>
 

@@ -42,8 +42,9 @@ export const auth: AuthMessages = {
   verificationFailed: '인증에 실패했습니다.',
   sendCodeFailed: '인증 코드 발송에 실패했습니다.',
   validation: {
-    passwordStrength: '비밀번호는 영문, 숫자를 포함하여 8자 이상이어야 합니다.',
-    loginIdFormat: '아이디 형식이 올바르지 않습니다.',
-    emailFormat: '이메일 형식이 올바르지 않습니다.'
+    passwordStrength: '비밀번호는 8~20자이며, 영대문자/영소문자/숫자/특수문자 중 3종류 이상을 포함해야 합니다.',
+    loginIdFormat: '아이디는 4~30자의 영문, 숫자, 언더스코어(_)만 사용 가능합니다.',
+    emailFormat: '이메일 형식이 올바르지 않습니다.',
+    displayNameLength: '닉네임은 2~50자여야 합니다.'
   }
 }
