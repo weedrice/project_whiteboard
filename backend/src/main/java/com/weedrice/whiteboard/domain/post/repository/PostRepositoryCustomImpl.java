@@ -212,6 +212,18 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
 
         @Override
         public List<Post> findTrendingPosts(LocalDateTime since, List<Long> blockedUserIds, Pageable pageable) {
+                // 이미지 첨부 파일이 있는 게시글 조건
+                BooleanExpression hasAttachedImage = queryFactory.selectOne()
+                                .from(file)
+                                .where(
+                                                file.relatedId.eq(post.postId),
+                                                file.relatedType.eq("POST_CONTENT"),
+                                                file.mimeType.like("image/%"))
+                                .exists();
+
+                // 본문에 img 태그가 있는 게시글 조건
+                BooleanExpression hasImgTagInContent = post.contents.containsIgnoreCase("<img");
+
                 return queryFactory
                                 .selectFrom(post)
                                 .join(post.user).fetchJoin()
@@ -221,13 +233,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                                                 post.createdAt.goe(since),
                                                 post.isDeleted.eq(false),
                                                 notBlockedCondition(blockedUserIds),
-                                                queryFactory.selectOne()
-                                                                .from(file)
-                                                                .where(
-                                                                                file.relatedId.eq(post.postId),
-                                                                                file.relatedType.eq("POST_CONTENT"),
-                                                                                file.mimeType.like("image/%"))
-                                                                .exists())
+                                                hasAttachedImage.or(hasImgTagInContent))
                                 .orderBy(post.viewCount.multiply(1).add(post.likeCount.multiply(10)).desc()) // (조회수 * 1
                                                                                                              // + 좋아요 *
                                                                                                              // 10)

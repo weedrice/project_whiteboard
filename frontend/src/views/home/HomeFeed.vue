@@ -3,24 +3,15 @@
     <!-- Feed -->
     <PostListSkeleton v-if="loading" :count="3" />
 
-    <EmptyState 
-      v-else-if="posts.length === 0"
-      :title="$t('common.noData')"
-      :description="$t('board.list.noPosts')"
+    <EmptyState v-else-if="posts.length === 0" :title="$t('common.noData')" :description="$t('board.list.noPosts')"
       :icon="FileText"
-      container-class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg transition-colors duration-200"
-    />
+      container-class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg transition-colors duration-200" />
 
     <div v-else>
       <template v-for="post in posts" :key="post?.postId">
-        <FeedCard 
-          v-if="post && post.postId"
+        <FeedCard v-if="post && post.postId"
           v-memo="[post.postId, post.liked, post.scrapped, post.viewCount, post.commentCount, post.subscribed]"
-          :post="post" 
-          @like="handleLike" 
-          @scrap="handleScrap"
-          @subscribe="handleSubscribe" 
-        />
+          :post="post" @like="handleLike" @scrap="handleScrap" @subscribe="handleSubscribe" />
       </template>
 
       <!-- Sentinel for infinite scroll -->
@@ -61,18 +52,18 @@ const { posts: rawPosts, isLoading, isFetchingNextPage, hasNextPage, fetchNextPa
 // Convert PostSummary to FeedPost (filter required fields, then map)
 const posts = computed<FeedPost[]>(() => {
   return rawPosts.value
-    .filter((post): post is PostSummary & { boardUrl: string; boardName: string; authorName: string } =>
+    .filter((post): post is PostSummary & { boardUrl: string; boardName: string } =>
       post != null &&
       post.postId != null &&
       post.boardUrl != null &&
       post.boardName != null &&
-      post.authorName != null
+      (post.authorName != null || post.author?.displayName != null)
     )
     .map((post): FeedPost => ({
       ...post,
       boardUrl: post.boardUrl,
       boardName: post.boardName,
-      authorName: post.authorName,
+      authorName: post.authorName ?? post.author?.displayName ?? '',
       liked: post.liked ?? false,
       scrapped: post.scrapped ?? false,
       subscribed: post.subscribed ?? false
@@ -98,7 +89,7 @@ const { isIntersecting } = useIntersectionObserver(sentinel, {
 })
 
 // Auto-load next page when sentinel is visible
-watch([isIntersecting, hasNextPage, isFetchingNextPage], 
+watch([isIntersecting, hasNextPage, isFetchingNextPage],
   ([intersecting, hasNext, isFetching]) => {
     if (intersecting && hasNext && !isFetching) {
       fetchNextPage()

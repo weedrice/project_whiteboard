@@ -13,7 +13,23 @@ export function useTrendingPosts(size: number = 10) {
         queryFn: async ({ pageParam = 0 }) => {
             const { data } = await postApi.getTrendingPosts(pageParam as number, size)
             if (data.success) {
-                return data.data
+                // API가 List를 직접 반환하는 경우 PageResponse 형태로 변환
+                const responseData = data.data
+                if (Array.isArray(responseData)) {
+                    // List 응답을 PageResponse로 래핑
+                    return {
+                        content: responseData,
+                        totalElements: responseData.length,
+                        totalPages: 1,
+                        size: responseData.length,
+                        number: pageParam as number,
+                        first: true,
+                        last: true, // List 응답이면 더 이상 페이지 없음
+                        empty: responseData.length === 0
+                    } as PageResponse<PostSummary>
+                }
+                // PageResponse 형태인 경우 그대로 반환
+                return responseData as PageResponse<PostSummary>
             }
             return {
                 content: [],

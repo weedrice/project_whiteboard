@@ -42,6 +42,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Service
@@ -290,18 +292,37 @@ public class PostService {
                     if (summary.length() > 1000) {
                         summary = summary.substring(0, 1000);
                     }
+                    // 썸네일 URL 결정: 첨부파일 이미지 > 본문 img 태그
+                    String thumbnailUrl = null;
+                    boolean hasImage = false;
+
+                    if (postIdsWithImages.contains(post.getPostId())) {
+                        // 첨부파일 이미지가 있는 경우
+                        Long fileId = fileService.getOneImageFileIdForPost(post.getPostId());
+                        if (fileId != null) {
+                            thumbnailUrl = "/api/v1/files/" + fileId;
+                            hasImage = true;
+                        }
+                    }
+
+                    if (thumbnailUrl == null) {
+                        // 첨부파일 이미지가 없으면 본문에서 img 태그 추출
+                        String contentImageUrl = extractFirstImageUrlFromContent(post.getContents());
+                        if (contentImageUrl != null) {
+                            thumbnailUrl = contentImageUrl;
+                            hasImage = true;
+                        }
+                    }
+
                     return PostSummary.from(
                             post,
-                            postIdsWithImages.contains(post.getPostId()) ? "/api/v1/files/"
-                                    + fileService.getOneImageFileIdForPost(
-                                            post.getPostId())
-                                    : null,
+                            thumbnailUrl,
                             post.getBoard().getIconUrl(),
                             finalLikedPostIds.contains(post.getPostId()),
                             finalScrappedPostIds.contains(post.getPostId()),
                             finalSubscribedBoardUrls
                                     .contains(post.getBoard().getBoardUrl()),
-                            postIdsWithImages.contains(post.getPostId()),
+                            hasImage,
                             summary);
                 })
                 .collect(Collectors.toList());
@@ -836,20 +857,66 @@ public class PostService {
                     if (summary.length() > 1000) {
                         summary = summary.substring(0, 1000);
                     }
+                    // 썸네일 URL 결정: 첨부파일 이미지 > 본문 img 태그
+                    String thumbnailUrl = null;
+                    boolean hasImage = false;
+
+                    if (postIdsWithImages.contains(post.getPostId())) {
+                        Long fileId = fileService.getOneImageFileIdForPost(post.getPostId());
+                        if (fileId != null) {
+                            thumbnailUrl = "/api/v1/files/" + fileId;
+                            hasImage = true;
+                        }
+                    }
+
+                    if (thumbnailUrl == null) {
+                        String contentImageUrl = extractFirstImageUrlFromContent(post.getContents());
+                        if (contentImageUrl != null) {
+                            thumbnailUrl = contentImageUrl;
+                            hasImage = true;
+                        }
+                    }
+
                     return PostSummary.from(
                             post,
-                            postIdsWithImages.contains(post.getPostId()) ? "/api/v1/files/"
-                                    + fileService.getOneImageFileIdForPost(
-                                            post.getPostId())
-                                    : null,
+                            thumbnailUrl,
                             post.getBoard().getIconUrl(),
                             finalLikedPostIds.contains(post.getPostId()),
                             finalScrappedPostIds.contains(post.getPostId()),
                             finalSubscribedBoardUrls
                                     .contains(post.getBoard().getBoardUrl()),
-                            postIdsWithImages.contains(post.getPostId()),
+                            hasImage,
                             summary);
                 })
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * 본문 HTML에서 첫 번째 img 태그의 src URL을 추출합니다.
+     * 
+     * @param content HTML 본문
+     * @return 첫 번째 이미지 URL, 없으면 null
+     */
+    private String extractFirstImageUrlFromContent(String content) {
+        if (content == null || content.isEmpty()) {
+            return null;
+        }
+
+        // <img ... src="..." ... > 또는 <img ... src='...' ... > 패턴 매칭
+        Pattern pattern = Pattern.compile("<img[^>]+src\\s*=\\s*[\"']([^\"']+)[\"']", Pattern.CASE_INSENSITIVE);
+        Matcher matcher = pattern.matcher(content);
+
+        if (matcher.find()) {
+            String url = matcher.group(1);
+            // HTML 엔티티 디코딩 (&amp; -> &, &lt; -> <, etc.)
+            url = url.replace("&amp;", "&")
+                    .replace("&lt;", "<")
+                    .replace("&gt;", ">")
+                    .replace("&quot;", "\"")
+                    .replace("&#39;", "'");
+            return url;
+        }
+
+        return null;
     }
 }

@@ -29,15 +29,17 @@ import { getOptimizedBoardIconUrl, getOptimizedPostImageUrl, handleImageError } 
 <template>
   <BaseCard v-if="post && post.postId" noPadding class="mb-6">
     <!-- Header -->
-    <div class="px-3 sm:px-6 py-3 sm:py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+    <div
+      class="px-3 sm:px-6 py-3 sm:py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
       <div class="flex items-center space-x-2 sm:space-x-3">
         <!-- Board Info -->
         <div class="flex-shrink-0">
-          <img v-if="post.boardIconUrl" :src="getOptimizedBoardIconUrl(post.boardIconUrl)" alt="Board Icon" class="h-7 w-7 sm:h-8 sm:w-8 rounded-full"
-            loading="lazy"
-            @error="handleImageError($event)" />
-          <div v-else class="h-7 w-7 sm:h-8 sm:w-8 rounded-full bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center">
-            <span class="text-[10px] sm:text-xs font-bold text-indigo-600 dark:text-indigo-300">{{ post.boardName?.substring(0, 1)
+          <img v-if="post.boardIconUrl" :src="getOptimizedBoardIconUrl(post.boardIconUrl)" alt="Board Icon"
+            class="h-7 w-7 sm:h-8 sm:w-8 rounded-full" loading="lazy" @error="handleImageError($event)" />
+          <div v-else
+            class="h-7 w-7 sm:h-8 sm:w-8 rounded-full bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center">
+            <span class="text-[10px] sm:text-xs font-bold text-indigo-600 dark:text-indigo-300">{{
+              post.boardName?.substring(0, 1)
             }}</span>
           </div>
         </div>
@@ -62,16 +64,15 @@ import { getOptimizedBoardIconUrl, getOptimizedPostImageUrl, handleImageError } 
     <div class="px-4 py-4 sm:px-6 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
       @click="router.push(`/board/${post.boardUrl}/post/${post.postId}`)">
       <h2 class="text-base sm:text-lg font-bold text-gray-900 dark:text-white mb-2">{{ post.title }}</h2>
-      <p class="text-xs sm:text-sm text-gray-600 dark:text-gray-300 line-clamp-[10] mb-4">{{ post.summary }}</p>
 
-      <!-- Thumbnail if exists - fixed height block so image stays vertically centered -->
-      <div v-if="post.thumbnailUrl"
-        class="mb-4 rounded-lg overflow-hidden w-full bg-gray-100 dark:bg-gray-900 h-[160px] sm:h-[220px] flex items-center justify-center">
+      <!-- Thumbnail if exists - responsive sizing without fixed height -->
+      <div v-if="post.thumbnailUrl" class="mb-4 rounded-lg overflow-hidden">
         <img :src="getOptimizedPostImageUrl(post.thumbnailUrl)" alt="Post Thumbnail"
-          class="max-w-full max-h-[140px] sm:max-h-[200px] w-auto h-auto object-contain"
-          loading="lazy"
+          class="max-w-full max-h-[300px] sm:max-h-[400px] w-auto h-auto" loading="lazy"
           @error="handleImageError($event)" />
       </div>
+
+      <p class="text-xs sm:text-sm text-gray-600 dark:text-gray-300 line-clamp-[10] mb-4">{{ post.summary }}</p>
 
       <div class="flex items-center text-[11px] sm:text-xs text-gray-500 dark:text-gray-400 space-x-4">
         <div class="flex items-center">
