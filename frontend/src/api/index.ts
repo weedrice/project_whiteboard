@@ -88,6 +88,15 @@ interface ToastStore {
     addToast: (message: string, type?: 'info' | 'success' | 'warning' | 'error', duration?: number, position?: 'top-center' | 'bottom-center') => void
 }
 
+/** Axios 기본 메시지(예: "Request Failed with status code 502")면 서버 에러 문구로 치환 */
+const normalizeErrorMessage = (message: string | undefined): string => {
+    if (!message) return t('common.messages.serverError')
+    if (/^Request Failed with status code \d{3}$/.test(message)) {
+        return t('common.messages.serverError')
+    }
+    return message
+}
+
 const handleApiError = (error: AxiosError, toastStore: ToastStore) => {
     if (error.response) {
         const status = error.response.status
@@ -95,7 +104,8 @@ const handleApiError = (error: AxiosError, toastStore: ToastStore) => {
         
         // ApiResponse 형태의 에러 응답 처리
         const apiError = errorData?.error || errorData
-        const message = apiError?.message || errorData?.message || error.message
+        const rawMessage = apiError?.message || errorData?.message || error.message
+        const message = normalizeErrorMessage(rawMessage)
 
         switch (status) {
             case 400:
@@ -146,10 +156,10 @@ const handleApiError = (error: AxiosError, toastStore: ToastStore) => {
                 'top-center'
             )
         } else {
-            toastStore.addToast(error.message || t('common.messages.network'), 'error', 3000, 'top-center')
+            toastStore.addToast(normalizeErrorMessage(error.message) || t('common.messages.network'), 'error', 3000, 'top-center')
         }
     } else {
-        toastStore.addToast(error.message || t('common.messages.requestSetup'), 'error', 3000, 'top-center')
+        toastStore.addToast(normalizeErrorMessage(error.message) || t('common.messages.requestSetup'), 'error', 3000, 'top-center')
     }
 }
 
