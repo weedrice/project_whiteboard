@@ -143,12 +143,14 @@ async function handleSubmit() {
 </template>
 
 <style scoped>
-/* 이모티콘 피커 위치 조정 */
-:deep(.emoticon-picker) {
-  top: auto;
-  bottom: 100%;
-  margin-bottom: 8px;
-  left: 0;
-  right: auto;
+/* 이모티콘 피커 위치 조정 (데스크톱만: 댓글 입력창 위쪽) / 모바일은 피커 내부 fixed 중앙 유지 */
+@media (min-width: 640px) {
+  :deep(.emoticon-picker) {
+    top: auto;
+    bottom: 100%;
+    margin-bottom: 8px;
+    left: 0;
+    right: auto;
+  }
 }
 </style>

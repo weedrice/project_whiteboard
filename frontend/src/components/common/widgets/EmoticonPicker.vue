@@ -180,13 +180,16 @@ watch(() => props.show, (newVal) => {
   overflow: hidden;
 }
 
+/* 모바일: 뷰포트 기준 고정 위치로 화면 밖 이탈 방지 */
 @media (max-width: 639px) {
   .emoticon-picker {
+    position: fixed;
+    top: 50%;
     left: 50%;
     right: auto;
-    transform: translateX(-50%);
-    width: min(360px, calc(100vw - 16px));
-    max-height: min(420px, 75vh);
+    transform: translate(-50%, -50%);
+    width: min(360px, calc(100vw - 24px));
+    max-height: min(420px, calc(100vh - 32px));
   }
 }
 
