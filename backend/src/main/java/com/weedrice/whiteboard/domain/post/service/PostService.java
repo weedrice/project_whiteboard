@@ -314,6 +314,24 @@ public class PostService {
                         }
                     }
 
+                    // Feed용: 본문 HTML 앞부분(약 5줄), 최초 미디어(이미지/비디오) 결정
+                    String contentsExcerpt = truncateHtmlForExcerpt(post.getContents(), FEED_EXCERPT_MAX_LENGTH);
+                    String firstVideoUrl = extractFirstVideoEmbedFromContent(post.getContents());
+                    int imgPos = indexOfFirstImageInContent(post.getContents());
+                    int videoPos = indexOfFirstVideoInContent(post.getContents());
+                    String firstMediaType = null;
+                    String firstMediaUrl = null;
+                    if (imgPos >= 0 && (videoPos < 0 || imgPos < videoPos)) {
+                        firstMediaType = "image";
+                        firstMediaUrl = thumbnailUrl;
+                    } else if (videoPos >= 0) {
+                        firstMediaType = "video";
+                        firstMediaUrl = firstVideoUrl;
+                    } else if (thumbnailUrl != null) {
+                        firstMediaType = "image";
+                        firstMediaUrl = thumbnailUrl;
+                    }
+
                     return PostSummary.from(
                             post,
                             thumbnailUrl,
@@ -323,7 +341,10 @@ public class PostService {
                             finalSubscribedBoardUrls
                                     .contains(post.getBoard().getBoardUrl()),
                             hasImage,
-                            summary);
+                            summary,
+                            contentsExcerpt,
+                            firstMediaType,
+                            firstMediaUrl);
                 })
                 .collect(Collectors.toList());
 
@@ -886,14 +907,70 @@ public class PostService {
                             finalSubscribedBoardUrls
                                     .contains(post.getBoard().getBoardUrl()),
                             hasImage,
-                            summary);
+                            summary,
+                            null,
+                            null,
+                            null);
                 })
                 .collect(Collectors.toList());
     }
 
+    private static final int FEED_EXCERPT_MAX_LENGTH = 800;
+
+    /**
+     * Feed용: HTML 본문을 태그를 유지한 채로 잘라 약 5줄 분량으로 만듭니다.
+     */
+    private String truncateHtmlForExcerpt(String content, int maxLen) {
+        if (content == null || content.isEmpty()) return null;
+        content = content.trim();
+        if (content.length() <= maxLen) return content;
+        String cut = content.substring(0, maxLen);
+        int lastClose = cut.lastIndexOf('>');
+        int lastTag = cut.lastIndexOf('<');
+        if (lastClose > lastTag && lastClose >= 0) {
+            return cut.substring(0, lastClose + 1);
+        }
+        return cut;
+    }
+
+    /**
+     * 본문에서 첫 번째 비디오 embed(iframe youtube/vimeo)의 src를 추출합니다.
+     */
+    private String extractFirstVideoEmbedFromContent(String content) {
+        if (content == null || content.isEmpty()) return null;
+        Pattern pattern = Pattern.compile(
+            "<iframe[^>]+src\\s*=\\s*[\"']([^\"']*(?:youtube\\.com/embed|vimeo\\.com)[^\"']*)[\"']",
+            Pattern.CASE_INSENSITIVE);
+        Matcher matcher = pattern.matcher(content);
+        if (matcher.find()) {
+            String url = matcher.group(1)
+                .replace("&amp;", "&")
+                .replace("&lt;", "<")
+                .replace("&gt;", ">")
+                .replace("&quot;", "\"")
+                .replace("&#39;", "'");
+            return url;
+        }
+        return null;
+    }
+
+    /** 본문에서 첫 번째 img 태그의 등장 위치(인덱스). 없으면 -1. */
+    private int indexOfFirstImageInContent(String content) {
+        if (content == null) return -1;
+        int i = content.toLowerCase().indexOf("<img");
+        return i;
+    }
+
+    /** 본문에서 첫 번째 비디오 iframe의 등장 위치. 없으면 -1. */
+    private int indexOfFirstVideoInContent(String content) {
+        if (content == null) return -1;
+        int i = content.toLowerCase().indexOf("<iframe");
+        return i;
+    }
+
     /**
      * 본문 HTML에서 첫 번째 img 태그의 src URL을 추출합니다.
-     * 
+     *
      * @param content HTML 본문
      * @return 첫 번째 이미지 URL, 없으면 null
      */

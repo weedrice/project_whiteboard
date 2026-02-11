@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.post.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import lombok.Builder;
 import lombok.Getter;
@@ -21,6 +22,7 @@ public class PostSummary {
     private int commentCount;
     private boolean isNotice;
     private boolean isNsfw;
+    @JsonProperty("isSpoiler")
     private boolean isSpoiler;
     private LocalDateTime createdAt;
     private String boardUrl;
@@ -32,6 +34,12 @@ public class PostSummary {
     private boolean isSubscribed;
     private boolean hasImage;
     private String summary;
+    /** Feed용: HTML 본문 앞부분 (약 5줄 분량, 태그 유지) */
+    private String contentsExcerpt;
+    /** Feed용: 본문에서 최초로 등장하는 미디어 타입 - "image" | "video" | null */
+    private String firstMediaType;
+    /** Feed용: 최초 미디어 URL (이미지 src 또는 iframe embed src) */
+    private String firstMediaUrl;
 
     @Getter
     @Builder
@@ -53,11 +61,12 @@ public class PostSummary {
         if (summary.length() > 1000) {
             summary = summary.substring(0, 1000);
         }
-        return from(post, null, null, false, false, false, false, summary);
+        return from(post, null, null, false, false, false, false, summary, null, null, null);
     }
 
     public static PostSummary from(Post post, String thumbnailUrl, String boardIconUrl, boolean isLiked,
-            boolean isScrapped, boolean isSubscribed, boolean hasImage, String summary) {
+            boolean isScrapped, boolean isSubscribed, boolean hasImage, String summary,
+            String contentsExcerpt, String firstMediaType, String firstMediaUrl) {
         return PostSummary.builder()
                 .postId(post.getPostId())
                 .title(post.getTitle())
@@ -86,6 +95,9 @@ public class PostSummary {
                 .isSubscribed(isSubscribed)
                 .hasImage(hasImage)
                 .summary(summary)
+                .contentsExcerpt(contentsExcerpt)
+                .firstMediaType(firstMediaType)
+                .firstMediaUrl(firstMediaUrl)
                 .build();
     }
 }

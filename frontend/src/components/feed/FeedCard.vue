@@ -1,9 +1,13 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { ThumbsUp, MessageSquare, Bookmark, User, Eye } from 'lucide-vue-next'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseCard from '@/components/common/ui/BaseCard.vue'
 import { useRouter } from 'vue-router'
 import type { FeedPost } from '@/types'
+import { formatDateOnly } from '@/utils/date'
+import { getOptimizedBoardIconUrl, getOptimizedPostImageUrl, handleImageError } from '@/utils/image'
+import { sanitizeQuillHtml } from '@/utils/sanitize'
 
 const router = useRouter()
 
@@ -11,19 +15,38 @@ const props = defineProps<{
   post: FeedPost
 }>()
 
-// Validate post data
-if (!props.post || !props.post.postId) {
-  console.warn('FeedCard: Invalid post data', props.post)
-}
-
 const emit = defineEmits<{
   (e: 'like', post: FeedPost): void
   (e: 'scrap', post: FeedPost): void
   (e: 'subscribe', post: FeedPost): void
 }>()
 
-import { formatDateOnly } from '@/utils/date'
-import { getOptimizedBoardIconUrl, getOptimizedPostImageUrl, handleImageError } from '@/utils/image'
+if (!props.post || !props.post.postId) {
+  console.warn('FeedCard: Invalid post data', props.post)
+}
+
+/** Feed용 본문: HTML 발췌에서 이미지·비디오 제거 후 sanitize (하단 본문에는 미디어 미노출) */
+const bodyHtml = computed(() => {
+  const excerpt = props.post?.contentsExcerpt
+  if (!excerpt) return null
+  let html = sanitizeQuillHtml(excerpt)
+  html = html.replace(/<img[^>]*>/gi, '')
+  html = html.replace(/<iframe[^>]*>[\s\S]*?<\/iframe>/gi, '')
+  html = html.replace(/<div[^>]*\bclass="[^"]*tiptap-video-wrapper[^"]*"[^>]*>[\s\S]*?<\/div>/gi, '')
+  return html
+})
+
+/** 최초 미디어가 비디오인지 */
+const showFirstVideo = computed(() => props.post?.firstMediaType === 'video' && props.post?.firstMediaUrl)
+
+/** 최초 미디어가 이미지이거나 thumbnailUrl이 있을 때 표시할 이미지 URL */
+const showFirstImageUrl = computed(() => {
+  if (props.post?.firstMediaType === 'image' && props.post?.firstMediaUrl) return props.post.firstMediaUrl
+  return props.post?.thumbnailUrl
+})
+
+/** 스포일러 여부 (API가 spoiler 또는 isSpoiler로 올 수 있음) */
+const isSpoiler = computed(() => Boolean(props.post?.isSpoiler ?? (props.post as { spoiler?: boolean })?.spoiler))
 </script>
 
 <template>
@@ -32,7 +55,6 @@ import { getOptimizedBoardIconUrl, getOptimizedPostImageUrl, handleImageError } 
     <div
       class="px-3 sm:px-6 py-3 sm:py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
       <div class="flex items-center space-x-2 sm:space-x-3">
-        <!-- Board Info -->
         <div class="flex-shrink-0">
           <img v-if="post.boardIconUrl" :src="getOptimizedBoardIconUrl(post.boardIconUrl)" alt="Board Icon"
             class="h-7 w-7 sm:h-8 sm:w-8 rounded-full" loading="lazy" @error="handleImageError($event)" />
@@ -65,14 +87,29 @@ import { getOptimizedBoardIconUrl, getOptimizedPostImageUrl, handleImageError } 
       @click="router.push(`/board/${post.boardUrl}/post/${post.postId}`)">
       <h2 class="text-base sm:text-lg font-bold text-gray-900 dark:text-white mb-2">{{ post.title }}</h2>
 
-      <!-- Thumbnail if exists - responsive sizing without fixed height -->
-      <div v-if="post.thumbnailUrl" class="mb-4 rounded-lg overflow-hidden">
-        <img :src="getOptimizedPostImageUrl(post.thumbnailUrl)" alt="Post Thumbnail"
-          class="max-w-full max-h-[300px] sm:max-h-[400px] w-auto h-auto" loading="lazy"
-          @error="handleImageError($event)" />
-      </div>
+      <!-- 스포일러면 최상단 이미지/비디오 + 본문 전체 블러 -->
+      <div :class="{ 'feed-card-spoiler': isSpoiler }" class="mb-4">
+        <!-- First media: video면 비디오, 아니면 이미지 -->
+        <div v-if="showFirstVideo" class="feed-card-first-video mb-4 rounded-lg overflow-hidden">
+          <iframe
+            :src="post.firstMediaUrl"
+            title="Video"
+            frameborder="0"
+            allowfullscreen
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            class="feed-card-video-iframe"
+          />
+        </div>
+        <div v-else-if="showFirstImageUrl" class="mb-4 rounded-lg overflow-hidden">
+          <img :src="getOptimizedPostImageUrl(showFirstImageUrl)" alt="Post"
+            class="max-w-full max-h-[300px] sm:max-h-[400px] w-auto h-auto object-contain" loading="lazy"
+            @error="handleImageError($event)" />
+        </div>
 
-      <p class="text-xs sm:text-sm text-gray-600 dark:text-gray-300 line-clamp-[10] mb-4">{{ post.summary }}</p>
+        <!-- Body: 본문 HTML 5줄 또는 summary -->
+        <div v-if="bodyHtml" class="feed-card-body prose-feed line-clamp-5 text-xs sm:text-sm text-gray-600 dark:text-gray-300" v-html="bodyHtml" />
+        <p v-else class="text-xs sm:text-sm text-gray-600 dark:text-gray-300 line-clamp-5">{{ post.summary }}</p>
+      </div>
 
       <div class="flex items-center text-[11px] sm:text-xs text-gray-500 dark:text-gray-400 space-x-4">
         <div class="flex items-center">
@@ -109,3 +146,67 @@ import { getOptimizedBoardIconUrl, getOptimizedPostImageUrl, handleImageError } 
     </div>
   </BaseCard>
 </template>
+
+<style scoped>
+.feed-card-spoiler {
+  filter: blur(10px);
+  user-select: none;
+  pointer-events: none;
+  transform: translateZ(0);
+  min-height: 4rem; /* 본문이 비어 있어도 블러 영역이 보이도록 */
+}
+</style>
+
+<style>
+/* Feed 본문 HTML: 리스트·비디오 등 (v-html) */
+.feed-card-body.prose-feed ul {
+  list-style-type: disc;
+  padding-left: 1.5em;
+  margin: 0.5em 0;
+}
+.feed-card-body.prose-feed ul ul {
+  list-style-type: circle;
+}
+.feed-card-body.prose-feed ol {
+  list-style-type: decimal;
+  padding-left: 1.5em;
+  margin: 0.5em 0;
+}
+.feed-card-body.prose-feed ol ol {
+  list-style-type: lower-alpha;
+}
+.feed-card-body.prose-feed li {
+  display: list-item;
+  margin: 0.25em 0;
+}
+.feed-card-body.prose-feed :deep(.tiptap-video-wrapper) {
+  position: relative;
+  padding-bottom: 56.25%;
+  height: 0;
+  overflow: hidden;
+  max-width: 100%;
+  margin: 0.5em 0;
+}
+.feed-card-body.prose-feed :deep(.tiptap-video-wrapper iframe) {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+/* Feed 첫 비디오(최초 미디어가 비디오일 때) */
+.feed-card-first-video {
+  position: relative;
+  padding-bottom: 56.25%;
+  height: 0;
+  overflow: hidden;
+  max-width: 100%;
+}
+.feed-card-video-iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+</style>

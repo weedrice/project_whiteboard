@@ -94,6 +94,12 @@ export interface PostSummary {
     boardIconUrl?: string
     authorName?: string
     summary?: string
+    /** Feed용: HTML 본문 앞부분(약 5줄) */
+    contentsExcerpt?: string
+    /** Feed용: 최초 미디어 타입 'image' | 'video' */
+    firstMediaType?: string
+    /** Feed용: 최초 미디어 URL */
+    firstMediaUrl?: string
 }
 
 // FeedPost extends PostSummary with required feed-specific fields
@@ -106,4 +112,7 @@ export interface FeedPost extends Omit<PostSummary, 'liked' | 'scrapped' | 'subs
     scrapped: boolean
     subscribed: boolean
     summary?: string
+    contentsExcerpt?: string
+    firstMediaType?: string
+    firstMediaUrl?: string
 }
