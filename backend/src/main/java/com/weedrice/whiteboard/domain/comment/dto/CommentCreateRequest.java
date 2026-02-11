@@ -11,7 +11,7 @@ import lombok.NoArgsConstructor;
 public class CommentCreateRequest {
     private Long parentId;
     @NotBlank
-    @Size(min = 1, max = 5000, message = "댓글은 1자 이상 5,000자 이하여야 합니다")
+    @Size(min = 1, max = 1000, message = "댓글은 1자 이상 1,000자 이하여야 합니다")
     @NoHtml
     private String content;
 }

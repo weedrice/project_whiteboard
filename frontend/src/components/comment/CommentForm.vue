@@ -105,7 +105,7 @@ async function handleSubmit() {
 <template>
   <form @submit.prevent="handleSubmit" class="mt-3 sm:mt-4 text-sm sm:text-base">
     <div class="relative">
-      <BaseTextarea id="comment" v-model="content" rows="3"
+      <BaseTextarea id="comment" v-model="content" rows="3" maxlength="1000"
         :placeholder="parentId ? $t('comment.writeReply') : $t('comment.writeComment')" required hideLabel />
       
       <!-- 이모티콘 피커 -->

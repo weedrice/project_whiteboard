@@ -22,7 +22,7 @@ public class PostCreateRequest {
     @NoHtml
     private String title;
 
-    @Size(max = 50000, message = "본문은 50,000자를 초과할 수 없습니다")
+    @Size(max = 100000, message = "본문은 100,000자를 초과할 수 없습니다")
     private String contents;
 
     private List<String> tags;
