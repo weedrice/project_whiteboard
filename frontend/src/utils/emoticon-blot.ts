@@ -22,7 +22,6 @@ export const registerEmoticonBlot = (Quill: any) => {
             node.setAttribute('src', value.src)
             node.setAttribute('alt', value.alt || ':emoticon:')
             node.setAttribute('class', 'ql-emoticon')
-            node.setAttribute('draggable', 'false')
             node.style.width = '100px'
             node.style.height = '100px'
             node.style.verticalAlign = 'baseline'

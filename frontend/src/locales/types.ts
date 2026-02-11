@@ -401,7 +401,13 @@ export interface BoardMessages {
     validation: string
     discardEditConfirm: string
     discardCreateConfirm: string
+    leaveConfirm: string
     tags: string
+    viewHtmlSource: string
+    htmlSourceTitle: string
+    htmlSourcePlaceholder: string
+    visualMode: string
+    videoUrlRequired: string
   }
   tags: {
     placeholder: string

@@ -740,3 +740,22 @@ onUnmounted(() => {
   transform: translateY(-50%) translateX(20px);
 }
 </style>
+
+<!-- TipTap 비디오 embed 표시 (v-html 본문 내) -->
+<style>
+.ql-editor .tiptap-video-wrapper {
+  position: relative;
+  padding-bottom: 56.25%;
+  height: 0;
+  overflow: hidden;
+  max-width: 100%;
+  margin: 0.75em 0;
+}
+.ql-editor .tiptap-video-wrapper iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+</style>

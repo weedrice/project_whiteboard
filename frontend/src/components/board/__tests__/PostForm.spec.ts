@@ -42,13 +42,6 @@ vi.mock('@/composables/useConfirm', () => ({
   useConfirm: () => ({ confirm: vi.fn().mockResolvedValue(false) })
 }))
 
-vi.mock('@vueup/vue-quill', () => ({
-  QuillEditor: { template: '<div class="quill-editor-stub"></div>' },
-  Quill: {}
-}))
-
-vi.mock('@/utils/emoticon-blot', () => ({ registerEmoticonBlot: vi.fn() }))
-
 vi.mock('@/api', () => ({ default: { post: vi.fn() } }))
 vi.mock('@/utils/logger', () => ({ default: { error: vi.fn() } }))
 
@@ -62,7 +55,8 @@ const globalMountOptions = {
       BaseCheckbox: true,
       BaseSpinner: true,
       PostTags: true,
-      EmoticonPicker: true
+      EmoticonPicker: true,
+      PostEditorTipTap: true
     }
   }
 }

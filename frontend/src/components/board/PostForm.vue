@@ -1,13 +1,9 @@
 <script setup lang="ts">
-import { ref, computed, watchEffect, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, watchEffect, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useBoard } from '@/composables/useBoard'
 import { usePost } from '@/composables/usePost'
 import { useI18n } from 'vue-i18n'
-import { QuillEditor, Quill } from '@vueup/vue-quill'
-import '@vueup/vue-quill/dist/vue-quill.snow.css'
-import axios from '@/api'
-import logger from '@/utils/logger'
 import { useAuthStore } from '@/stores/auth'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
@@ -16,12 +12,9 @@ import BaseCheckbox from '@/components/common/ui/BaseCheckbox.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import PostTags from '@/components/tag/PostTags.vue'
 import { useToastStore } from '@/stores/toast'
-import { useConfirm } from '@/composables/useConfirm'
 import EmoticonPicker from '@/components/common/widgets/EmoticonPicker.vue'
-import { registerEmoticonBlot } from '@/utils/emoticon-blot'
-import type { EmoticonImage } from '@/types/emoticon'
-
-registerEmoticonBlot(Quill)
+import PostEditorTipTap from '@/components/board/PostEditorTipTap.vue'
+import logger from '@/utils/logger'
 
 const props = defineProps<{
   mode: 'create' | 'edit'
@@ -32,7 +25,6 @@ const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 const toastStore = useToastStore()
-const { confirm } = useConfirm()
 
 const boardUrl = computed(() => route.params.boardUrl as string)
 const postId = computed(() => route.params.postId as string)
@@ -67,16 +59,14 @@ const filteredCategories = computed(() => {
   })
 })
 
-const fileIds = ref<number[]>([])
-const editor = ref<InstanceType<typeof QuillEditor> | null>(null)
-const quillInstance = ref<any>(null)
+const tiptapEditorRef = ref<InstanceType<typeof PostEditorTipTap> | null>(null)
 const showEmoticonPicker = ref(false)
 const showVideoPopover = ref(false)
 const videoUrl = ref('')
-const quillEditorWrapperRef = ref<HTMLElement | null>(null)
+const editorWrapperRef = ref<HTMLElement | null>(null)
 const videoPopoverStyle = ref<{ top: string; left: string }>({ top: '0', left: '0' })
-/** PC에서 비디오 버튼 클릭 시, 클릭 좌표 저장 (팝오버 위치용) */
-const lastVideoButtonClick = ref<{ x: number; y: number } | null>(null)
+/** 에디터 표시 모드: 보기(WYSIWYG) | HTML 원본 */
+const editorViewMode = ref<'visual' | 'html'>('visual')
 
 const form = ref({
   title: '',
@@ -88,56 +78,46 @@ const form = ref({
   isNotice: false
 })
 
-const toolbarOptions = [
-  ['bold', 'italic', 'underline', 'strike'],
-  ['blockquote', 'code-block'],
-  [{ 'header': 1 }, { 'header': 2 }],
-  [{ 'list': 'ordered' }, { 'list': 'bullet' }],
-  [{ 'script': 'sub' }, { 'script': 'super' }],
-  [{ 'indent': '-1' }, { 'indent': '+1' }],
-  [{ 'direction': 'rtl' }],
-  [{ 'size': ['small', false, 'large', 'huge'] }],
-  [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
-  [{ 'color': [] }, { 'background': [] }],
-  [{ 'font': [] }],
-  [{ 'align': [] }],
-  ['clean'],
-  ['link', 'image', 'video', 'emoticon']
-]
+type FormSnapshot = typeof form.value
+const initialFormSnapshot = ref<FormSnapshot | null>(null)
+const lastEditPostId = ref<string | null>(null)
 
-const imageHandler = () => {
-  const input = document.createElement('input')
-  input.setAttribute('type', 'file')
-  input.setAttribute('accept', 'image/*')
-  input.click()
-  input.onchange = async () => {
-    if (!input.files) return
-    const file = input.files[0]
-    if (!file) return
-    const formData = new FormData()
-    formData.append('file', file)
-    try {
-      const res = await axios.post('/files/upload', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      })
-      if (res.data.success) {
-        const { url, fileId } = res.data.data
-        fileIds.value.push(fileId)
-        if (quillInstance.value) {
-          const range = quillInstance.value.getSelection(true)
-          const index = range ? range.index : quillInstance.value.getLength()
-          quillInstance.value.insertEmbed(index, 'image', url)
-          quillInstance.value.setSelection(index + 1)
-        }
-      }
-    } catch (err) {
-      logger.error('Image upload failed:', err)
-      toastStore.addToast(t('common.messages.uploadFailed'), 'error')
-    }
+function copyFormSnapshot(src: FormSnapshot): FormSnapshot {
+  return {
+    title: src.title,
+    content: src.content,
+    categoryId: src.categoryId,
+    tags: [...(src.tags || [])],
+    isNsfw: src.isNsfw,
+    isSpoiler: src.isSpoiler,
+    isNotice: src.isNotice
   }
 }
 
-/** YouTube/Vimeo URL을 embed URL로 변환 (Quill 기본 동작과 동일) */
+function isFormDirty(): boolean {
+  const init = initialFormSnapshot.value
+  if (!init) return false
+  const f = form.value
+  if (f.title !== init.title || f.content !== init.content || f.isNsfw !== init.isNsfw || f.isSpoiler !== init.isSpoiler || f.isNotice !== init.isNotice) return true
+  const catEqual = String(f.categoryId) === String(init.categoryId)
+  if (!catEqual) return true
+  if (f.tags.length !== init.tags.length) return true
+  return f.tags.some((t, i) => t !== init.tags[i])
+}
+
+const isDirty = computed(() => isFormDirty())
+
+const leaveConfirmMessage = computed(() => t('board.writePost.leaveConfirm') || '사이트에서 나가시겠습니까? 변경사항이 저장되지 않을 수 있습니다.')
+
+function onBeforeUnload(e: BeforeUnloadEvent) {
+  if (isDirty.value) {
+    e.preventDefault()
+    e.returnValue = leaveConfirmMessage.value
+    return leaveConfirmMessage.value
+  }
+}
+
+/** YouTube/Vimeo URL을 embed URL로 변환 */
 function toEmbedVideoUrl(url: string): string {
   const trimmed = (url || '').trim()
   if (!trimmed) return ''
@@ -155,24 +135,10 @@ function isMobileView(): boolean {
 }
 
 function openVideoPopover() {
-  const clickPos = lastVideoButtonClick.value
-  lastVideoButtonClick.value = null
-
   if (typeof window === 'undefined') {
     videoPopoverStyle.value = { top: '300px', left: '400px' }
-    videoUrl.value = ''
-    showVideoPopover.value = true
-    return
-  }
-
-  if (!isMobileView() && clickPos) {
-    videoPopoverStyle.value = {
-      top: `${clickPos.y + 8}px`,
-      left: `${clickPos.x}px`
-    }
-  } else {
-    if (!quillEditorWrapperRef.value) return
-    const toolbar = quillEditorWrapperRef.value.querySelector('.ql-toolbar')
+  } else if (!isMobileView() && editorWrapperRef.value) {
+    const toolbar = editorWrapperRef.value.querySelector('.tiptap-toolbar')
     if (toolbar) {
       const rect = toolbar.getBoundingClientRect()
       videoPopoverStyle.value = {
@@ -180,10 +146,16 @@ function openVideoPopover() {
         left: `${rect.left + rect.width / 2}px`
       }
     } else {
-      const cx = window.innerWidth / 2
-      const cy = window.innerHeight / 2
-      videoPopoverStyle.value = { top: `${cy}px`, left: `${cx}px` }
+      const rect = editorWrapperRef.value.getBoundingClientRect()
+      videoPopoverStyle.value = {
+        top: `${rect.top + 60}px`,
+        left: `${rect.left + rect.width / 2}px`
+      }
     }
+  } else {
+    const cx = window.innerWidth / 2
+    const cy = window.innerHeight / 2
+    videoPopoverStyle.value = { top: `${cy}px`, left: `${cx}px` }
   }
   videoUrl.value = ''
   showVideoPopover.value = true
@@ -200,73 +172,60 @@ function insertVideoFromPopover() {
     toastStore.addToast(t('board.writePost.videoUrlRequired') || '동영상 URL을 입력해 주세요.', 'error')
     return
   }
-  if (quillInstance.value) {
-    const range = quillInstance.value.getSelection(true)
-    const index = range ? range.index : quillInstance.value.getLength()
-    quillInstance.value.insertEmbed(index, 'video', embedUrl)
-    quillInstance.value.setSelection(index + 1)
-  }
+  tiptapEditorRef.value?.setVideo(embedUrl)
   closeVideoPopover()
 }
 
-const videoHandler = () => {
-  openVideoPopover()
-}
-
-const emoticonHandler = () => {
-  showEmoticonPicker.value = !showEmoticonPicker.value
-}
-
-const handleEmoticonSelect = (image: EmoticonImage) => {
-  if (quillInstance.value) {
-    const range = quillInstance.value.getSelection(true)
-    const index = range ? range.index : quillInstance.value.getLength()
-    quillInstance.value.insertEmbed(index, 'emoticon', {
-      src: image.imageUrl,
-      alt: ':emoticon:'
-    })
-    quillInstance.value.setSelection(index + 1)
-  }
+function handleEmoticonSelect(image: import('@/types/emoticon').EmoticonImage) {
+  tiptapEditorRef.value?.setEmoticon(image)
   showEmoticonPicker.value = false
 }
 
-const onEditorReady = (quill: any) => {
-  quillInstance.value = quill
-  const toolbar = quill.getModule('toolbar')
-  toolbar.addHandler('image', imageHandler)
-  toolbar.addHandler('video', videoHandler)
-  toolbar.addHandler('emoticon', emoticonHandler)
-  const videoBtn = toolbar.container?.querySelector?.('button.ql-video')
-  if (videoBtn) {
-    videoBtn.addEventListener('mousedown', (e: MouseEvent) => {
-      lastVideoButtonClick.value = { x: e.clientX, y: e.clientY }
-    })
-  }
-}
-
-// Edit: fill form from post
+// Edit: fill form from post and set initial snapshot once per post
 watchEffect(() => {
   if (props.mode === 'edit' && post.value) {
-    form.value = {
-      title: post.value.title,
-      content: post.value.contents,
-      categoryId: post.value.category?.categoryId ?? '',
-      tags: post.value.tags?.map((t: { name?: string } | string) => typeof t === 'string' ? t : (t.name ?? '')) ?? [],
-      isNsfw: post.value.isNsfw,
-      isSpoiler: post.value.isSpoiler,
-      isNotice: false
+    const id = String(post.value.postId)
+    if (lastEditPostId.value !== id) {
+      lastEditPostId.value = id
+      form.value = {
+        title: post.value.title,
+        content: post.value.contents,
+        categoryId: post.value.category?.categoryId ?? '',
+        tags: post.value.tags?.map((t: { name?: string } | string) => typeof t === 'string' ? t : (t.name ?? '')) ?? [],
+        isNsfw: post.value.isNsfw,
+        isSpoiler: post.value.isSpoiler,
+        isNotice: false
+      }
+      initialFormSnapshot.value = copyFormSnapshot(form.value)
     }
   }
 })
 
-// Create: default category
+// Create: default category and set initial snapshot once ready
+const createInitialSet = ref(false)
 watchEffect(() => {
-  if (props.mode === 'create' && filteredCategories.value?.length && !form.value.categoryId) {
-    form.value.categoryId = filteredCategories.value[0].categoryId
+  if (props.mode === 'create' && filteredCategories.value?.length) {
+    if (!form.value.categoryId) form.value.categoryId = filteredCategories.value[0].categoryId
+    if (!createInitialSet.value) {
+      createInitialSet.value = true
+      nextTick(() => {
+        if (!initialFormSnapshot.value) initialFormSnapshot.value = copyFormSnapshot(form.value)
+      })
+    }
   }
 })
+// Create: when loading finishes, ensure initial snapshot is set (e.g. no categories case)
+watch(isLoading, (loading) => {
+  if (props.mode === 'create' && !loading && !initialFormSnapshot.value) {
+    nextTick(() => {
+      if (!initialFormSnapshot.value) initialFormSnapshot.value = copyFormSnapshot(form.value)
+    })
+  }
+}, { immediate: true })
 
 function buildPayload() {
+  const fileIdsRef = tiptapEditorRef.value?.fileIds
+  const fileIdsArray = (fileIdsRef && typeof fileIdsRef === 'object' && 'value' in fileIdsRef ? fileIdsRef.value : []) as number[]
   return {
     title: form.value.title,
     categoryId: typeof form.value.categoryId === 'string' ? parseInt(form.value.categoryId) || 0 : form.value.categoryId,
@@ -275,7 +234,7 @@ function buildPayload() {
     isNsfw: board.value?.allowNsfw ? form.value.isNsfw : false,
     isSpoiler: form.value.isSpoiler,
     ...(props.mode === 'create' && { isNotice: form.value.isNotice }),
-    fileIds: fileIds.value
+    fileIds: fileIdsArray
   }
 }
 
@@ -313,15 +272,8 @@ function handleSubmit() {
   }
 }
 
-async function handleCancel() {
-  const hasContent = form.value.title.trim() || form.value.content.trim()
-  if (hasContent) {
-    const message = props.mode === 'edit'
-      ? t('board.writePost.discardEditConfirm')
-      : t('board.writePost.discardCreateConfirm')
-    const isConfirmed = await confirm(message)
-    if (!isConfirmed) return
-  }
+function handleCancel() {
+  // 확인은 라우트 가드(onBeforeRouteLeave)에서만 한 번 수행 (중복 팝업 방지)
   router.back()
 }
 
@@ -333,6 +285,16 @@ function handleKeyDown(event: KeyboardEvent) {
     return
   }
   if (key === 'Escape') {
+    if (showVideoPopover.value) {
+      event.preventDefault()
+      closeVideoPopover()
+      return
+    }
+    if (showEmoticonPicker.value) {
+      event.preventDefault()
+      showEmoticonPicker.value = false
+      return
+    }
     event.preventDefault()
     handleCancel()
   }
@@ -340,9 +302,21 @@ function handleKeyDown(event: KeyboardEvent) {
 
 onMounted(() => {
   document.addEventListener('keydown', handleKeyDown)
+  window.addEventListener('beforeunload', onBeforeUnload)
+  if (props.mode === 'create') {
+    nextTick(() => {
+      if (!initialFormSnapshot.value) initialFormSnapshot.value = copyFormSnapshot(form.value)
+    })
+  }
 })
 onUnmounted(() => {
   document.removeEventListener('keydown', handleKeyDown)
+  window.removeEventListener('beforeunload', onBeforeUnload)
+})
+
+defineExpose({
+  hasUnsavedChanges: () => isFormDirty(),
+  getLeaveConfirmMessage: () => leaveConfirmMessage.value
 })
 
 const pageTitle = computed(() =>
@@ -391,47 +365,77 @@ const showNotice = computed(() => props.mode === 'create' && board.value?.isAdmi
         </div>
 
         <div class="sm:col-span-6">
-          <label for="content" class="block text-[11px] font-medium text-gray-700 dark:text-gray-300 sm:text-sm">{{
+          <label for="content" class="block text-[11px] font-medium text-gray-700 dark:text-gray-300 sm:text-sm mb-1">{{
             $t('common.content') }}</label>
-          <div ref="quillEditorWrapperRef" class="quill-editor-wrapper mt-1 h-80 min-h-[260px] sm:h-96 relative overflow-hidden rounded border border-gray-200 dark:border-gray-600">
-            <div class="quill-editor-inner quill-flex-container">
-              <QuillEditor ref="editor" :toolbar="toolbarOptions" theme="snow" contentType="html"
-                v-model:content="form.content" @ready="onEditorReady" />
+          <div class="editor-area-container mt-1 h-80 min-h-[260px] sm:h-96 rounded border border-gray-200 dark:border-gray-600 overflow-hidden flex flex-col">
+            <div class="editor-area-toggle-row">
+              <button
+                type="button"
+                class="editor-view-toggle-btn"
+                :class="{ active: editorViewMode === 'visual' }"
+                @click="editorViewMode = 'visual'"
+              >
+                {{ $t('board.writePost.visualMode') }}
+              </button>
+              <button
+                type="button"
+                class="editor-view-toggle-btn"
+                :class="{ active: editorViewMode === 'html' }"
+                @click="editorViewMode = 'html'"
+              >
+                {{ $t('board.writePost.viewHtmlSource') }}
+              </button>
             </div>
-            <!-- 비디오 URL 입력 팝오버: 툴바 아래 고정 위치로 표시 -->
-            <Teleport to="body">
-              <div v-if="showVideoPopover" class="video-url-popover-mask" @click.self="closeVideoPopover">
-                <div
-                  class="video-url-popover"
-                  :style="{
-                    top: videoPopoverStyle.top,
-                    left: videoPopoverStyle.left
-                  }"
-                  role="dialog"
-                  aria-label="동영상 URL 입력"
-                >
-                  <span class="video-url-popover-label">동영상 URL:</span>
-                  <input
-                    v-model="videoUrl"
-                    type="url"
-                    class="video-url-popover-input"
-                    :placeholder="'YouTube / Vimeo URL'"
-                    @keydown.enter="insertVideoFromPopover"
-                    @keydown.escape="closeVideoPopover"
-                  />
-                  <div class="video-url-popover-actions">
-                    <BaseButton type="button" variant="secondary" size="sm" @click="closeVideoPopover">
-                      {{ $t('common.cancel') }}
-                    </BaseButton>
-                    <BaseButton type="button" variant="primary" size="sm" @click="insertVideoFromPopover">
-                      {{ $t('common.confirm') || '확인' }}
-                    </BaseButton>
+            <div v-if="editorViewMode === 'visual'" ref="editorWrapperRef" class="tiptap-editor-wrapper flex-1 min-h-0 relative overflow-hidden border-t border-gray-200 dark:border-gray-600 flex flex-col">
+              <PostEditorTipTap
+                ref="tiptapEditorRef"
+                v-model="form.content"
+                @open-video="openVideoPopover"
+                @open-emoticon="showEmoticonPicker = true"
+              />
+              <Teleport to="body">
+                <div v-if="showVideoPopover" class="video-url-popover-mask" @click.self="closeVideoPopover">
+                  <div
+                    class="video-url-popover"
+                    :style="{
+                      top: videoPopoverStyle.top,
+                      left: videoPopoverStyle.left
+                    }"
+                    role="dialog"
+                    aria-label="동영상 URL 입력"
+                  >
+                    <span class="video-url-popover-label">동영상 URL:</span>
+                    <input
+                      v-model="videoUrl"
+                      type="url"
+                      class="video-url-popover-input"
+                      :placeholder="'YouTube / Vimeo URL'"
+                      @keydown.enter="insertVideoFromPopover"
+                      @keydown.escape="closeVideoPopover"
+                    />
+                    <div class="video-url-popover-actions">
+                      <BaseButton type="button" variant="secondary" size="sm" @click="closeVideoPopover">
+                        {{ $t('common.cancel') }}
+                      </BaseButton>
+                      <BaseButton type="button" variant="primary" size="sm" @click="insertVideoFromPopover">
+                        {{ $t('common.confirm') || '확인' }}
+                      </BaseButton>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </Teleport>
-            <EmoticonPicker :show="showEmoticonPicker" @select="handleEmoticonSelect"
-              @close="showEmoticonPicker = false" />
+              </Teleport>
+              <EmoticonPicker :show="showEmoticonPicker" @select="handleEmoticonSelect"
+                @close="showEmoticonPicker = false" />
+            </div>
+            <div v-if="editorViewMode === 'html'" class="html-source-editor-wrap flex-1 min-h-0 overflow-hidden border-t border-gray-200 dark:border-gray-600">
+              <textarea
+                id="content"
+                v-model="form.content"
+                class="html-source-textarea"
+                :placeholder="$t('board.writePost.htmlSourcePlaceholder')"
+                spellcheck="false"
+              />
+            </div>
           </div>
         </div>
 
@@ -474,130 +478,13 @@ const showNotice = computed(() => props.mode === 'create' && board.value?.isAdmi
 </template>
 
 <style scoped>
-.quill-editor-wrapper {
+.tiptap-editor-wrapper {
   display: flex;
   flex-direction: column;
-}
-.quill-editor-inner {
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
-}
-/* 툴바+컨테이너의 공통 부모(또는 Quill 루트)가 flex로 높이 배분 */
-.quill-editor-inner.quill-flex-container {
-  display: flex;
-  flex-direction: column;
-}
-/* Quill이 단일 루트로 렌더할 때만 해당 루트에 flex 적용 (다중 루트 시 툴바가 flex:1 받는 것 방지) */
-.quill-editor-inner.quill-flex-container > *:only-child {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-/* 툴바: float 기반 레이아웃 유지, 높이만 고정 */
-.quill-editor-wrapper :deep(.ql-toolbar.ql-snow) {
-  flex-shrink: 0;
-  width: 100%;
-  display: block;
-  box-sizing: border-box;
-}
-.quill-editor-wrapper :deep(.ql-container.ql-snow) {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
-  scrollbar-width: thin;
-  scrollbar-color: #d1d5db #e5e7eb;
-}
-.quill-editor-wrapper :deep(.ql-container.ql-snow::-webkit-scrollbar) {
-  width: 10px;
-}
-.quill-editor-wrapper :deep(.ql-container.ql-snow::-webkit-scrollbar-track) {
-  background: #e5e7eb;
-}
-.quill-editor-wrapper :deep(.ql-container.ql-snow::-webkit-scrollbar-thumb) {
-  background: #9ca3af;
-  border-radius: 5px;
-}
-.quill-editor-wrapper :deep(.ql-container.ql-snow::-webkit-scrollbar-thumb:hover) {
-  background: #6b7280;
-}
-.quill-editor-wrapper :deep(.ql-editor) {
-  min-height: 100%;
-  box-sizing: border-box;
 }
 </style>
 
 <style>
-@media (max-width: 639px) {
-  .ql-toolbar.ql-snow { padding: 6px 8px; }
-  .ql-toolbar.ql-snow .ql-formats { margin-right: 8px; }
-  .ql-toolbar.ql-snow button { width: 26px; padding: 2px 3px; }
-  .ql-container.ql-snow { font-size: 16px; }
-  .ql-editor { min-height: 240px; padding: 8px 12px; }
-  .ql-toolbar.ql-snow .ql-formats:has(.ql-picker.ql-size),
-  .ql-toolbar.ql-snow .ql-formats:has(.ql-picker.ql-header),
-  .ql-toolbar.ql-snow .ql-formats:has(.ql-picker.ql-color),
-  .ql-toolbar.ql-snow .ql-formats:has(.ql-picker.ql-background),
-  .ql-toolbar.ql-snow .ql-formats:has(.ql-picker.ql-font),
-  .ql-toolbar.ql-snow .ql-formats:has(.ql-picker.ql-align),
-  .ql-toolbar.ql-snow .ql-formats:has(.ql-picker.ql-script),
-  .ql-toolbar.ql-snow .ql-formats:has(.ql-picker.ql-indent),
-  .ql-toolbar.ql-snow .ql-formats:has(.ql-picker.ql-direction),
-  .ql-toolbar.ql-snow .ql-formats:has(button.ql-blockquote),
-  .ql-toolbar.ql-snow .ql-formats:has(button.ql-code-block) {
-    display: none !important;
-  }
-}
-.dark .ql-toolbar.ql-snow { border-color: #4b5563; background-color: #1f2937; }
-.dark .ql-container.ql-snow { border-color: #4b5563; background-color: #1f2937; color: #f3f4f6; }
-.dark .quill-editor-wrapper .ql-container.ql-snow {
-  scrollbar-color: #6b7280 #374151;
-}
-.dark .quill-editor-wrapper .ql-container.ql-snow::-webkit-scrollbar-track { background: #374151; }
-.dark .quill-editor-wrapper .ql-container.ql-snow::-webkit-scrollbar-thumb { background: #6b7280; }
-.dark .quill-editor-wrapper .ql-container.ql-snow::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
-.dark .ql-snow .ql-stroke { stroke: #9ca3af; }
-.dark .ql-snow .ql-fill { fill: #9ca3af; }
-.dark .ql-snow .ql-picker { color: #9ca3af; }
-.dark .ql-snow .ql-picker-options { background-color: #1f2937; border-color: #4b5563; }
-.dark .ql-snow .ql-picker-item { color: #9ca3af; }
-.dark .ql-snow .ql-picker-item:hover { color: #f3f4f6; }
-.dark .ql-snow .ql-picker-item.ql-selected { color: #60a5fa; }
-.dark .ql-snow.ql-toolbar button:hover .ql-stroke,
-.dark .ql-snow.ql-toolbar button.ql-active .ql-stroke,
-.dark .ql-snow .ql-picker-label:hover .ql-stroke,
-.dark .ql-snow .ql-picker-label.ql-active .ql-stroke,
-.dark .ql-snow .ql-picker-item:hover .ql-stroke,
-.dark .ql-snow .ql-picker-item.ql-selected .ql-stroke,
-.dark .ql-snow.ql-toolbar button:hover .ql-stroke-miter,
-.dark .ql-snow.ql-toolbar button.ql-active .ql-stroke-miter,
-.dark .ql-snow .ql-picker-label:hover .ql-stroke-miter,
-.dark .ql-snow .ql-picker-label.ql-active .ql-stroke-miter,
-.dark .ql-snow .ql-picker-item:hover .ql-stroke-miter,
-.dark .ql-snow .ql-picker-item.ql-selected .ql-stroke-miter { stroke: #60a5fa; }
-.dark .ql-snow.ql-toolbar button:hover .ql-fill,
-.dark .ql-snow.ql-toolbar button.ql-active .ql-fill,
-.dark .ql-snow .ql-picker-label:hover .ql-fill,
-.dark .ql-snow .ql-picker-label.ql-active .ql-fill,
-.dark .ql-snow .ql-picker-item:hover .ql-fill,
-.dark .ql-snow .ql-picker-item.ql-selected .ql-fill,
-.dark .ql-snow.ql-toolbar button:hover .ql-fill-miter,
-.dark .ql-snow.ql-toolbar button.ql-active .ql-fill-miter,
-.dark .ql-snow .ql-picker-label:hover .ql-fill-miter,
-.dark .ql-snow .ql-picker-label.ql-active .ql-fill-miter,
-.dark .ql-snow .ql-picker-item:hover .ql-fill-miter,
-.dark .ql-snow .ql-picker-item.ql-selected .ql-fill-miter { fill: #60a5fa; }
-button.ql-emoticon { width: 24px !important; height: 24px !important; }
-img.ql-emoticon {
-  width: 100px !important; height: 100px !important;
-  vertical-align: baseline; display: inline-block; margin: 0 4px;
-}
-.ql-snow .ql-toolbar button.ql-emoticon::before,
-.ql-snow.ql-toolbar button.ql-emoticon::before { content: '😊'; font-size: 16px; line-height: 1; }
-.ql-snow .ql-toolbar button.ql-emoticon:hover { color: #06c; }
-.dark .ql-snow .ql-toolbar button.ql-emoticon:hover { color: #60a5fa; }
-
 /* 비디오 URL 팝오버: 툴바 아래 고정 위치 */
 .video-url-popover-mask {
   position: fixed;
@@ -651,4 +538,76 @@ img.ql-emoticon {
   justify-content: flex-end;
   gap: 8px;
 }
+
+/* 에디터 영역 컨테이너 (전환 탭 + 본문) */
+.editor-area-container {
+  background: #fff;
+}
+.dark .editor-area-container {
+  background: #1f2937;
+}
+.editor-area-toggle-row {
+  display: flex;
+  flex-shrink: 0;
+  gap: 2px;
+  padding: 6px 8px 0;
+  border-bottom: 1px solid #e5e7eb;
+  background: #f9fafb;
+}
+.dark .editor-area-toggle-row {
+  border-color: #4b5563;
+  background: #374151;
+}
+.editor-view-toggle-btn {
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #6b7280;
+  background: transparent;
+  border: none;
+  border-radius: 6px 6px 0 0;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.dark .editor-view-toggle-btn { color: #9ca3af; }
+.editor-view-toggle-btn:hover { color: #111827; background: #f3f4f6; }
+.dark .editor-view-toggle-btn:hover { color: #f3f4f6; background: #4b5563; }
+.editor-view-toggle-btn.active {
+  color: #fff;
+  background: #4f46e5;
+}
+.dark .editor-view-toggle-btn.active { background: #6366f1; }
+
+/* HTML 원본 텍스트 영역 */
+.html-source-editor-wrap {
+  background: #fff;
+}
+.dark .html-source-editor-wrap {
+  background: #1f2937;
+}
+.html-source-textarea {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 240px;
+  padding: 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+  color: #111827;
+  background: transparent;
+  border: none;
+  outline: none;
+  resize: none;
+  white-space: pre-wrap;
+  word-break: break-all;
+  box-sizing: border-box;
+}
+.dark .html-source-textarea {
+  color: #e5e7eb;
+}
+.html-source-textarea::placeholder {
+  color: #9ca3af;
+}
+.dark .html-source-textarea::placeholder { color: #6b7280; }
 </style>
