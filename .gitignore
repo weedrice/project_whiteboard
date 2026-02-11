@@ -5,6 +5,7 @@ Thumbs.db
 # Editor settings
 .vscode/
 .idea/
+.jdk/
 *.iml
 *.ipr
 *.iws
