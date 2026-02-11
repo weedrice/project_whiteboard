@@ -254,6 +254,7 @@ function handleSubmit() {
     createPost({ boardUrl: boardUrl.value, data: payload }, {
       onSuccess: (response) => {
         const newPostId = response.data.data
+        initialFormSnapshot.value = copyFormSnapshot(form.value)
         router.push(`/board/${boardUrl.value}/post/${newPostId}`)
       },
       onError: (err) => {
@@ -263,6 +264,7 @@ function handleSubmit() {
   } else {
     updatePost({ postId: postId.value, data: payload }, {
       onSuccess: () => {
+        initialFormSnapshot.value = copyFormSnapshot(form.value)
         router.push(`/board/${boardUrl.value}/post/${postId.value}`)
       },
       onError: (err) => {

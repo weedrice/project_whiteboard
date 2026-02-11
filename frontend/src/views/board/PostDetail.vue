@@ -741,8 +741,28 @@ onUnmounted(() => {
 }
 </style>
 
-<!-- TipTap 비디오 embed 표시 (v-html 본문 내) -->
+<!-- 본문 스타일: 리스트(ul/ol) + TipTap 비디오 embed -->
 <style>
+.ql-editor ul {
+  list-style-type: disc;
+  padding-left: 1.5em;
+  margin: 0.5em 0;
+}
+.ql-editor ul ul {
+  list-style-type: circle;
+}
+.ql-editor ol {
+  list-style-type: decimal;
+  padding-left: 1.5em;
+  margin: 0.5em 0;
+}
+.ql-editor ol ol {
+  list-style-type: lower-alpha;
+}
+.ql-editor li {
+  display: list-item;
+  margin: 0.25em 0;
+}
 .ql-editor .tiptap-video-wrapper {
   position: relative;
   padding-bottom: 56.25%;

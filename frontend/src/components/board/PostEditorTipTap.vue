@@ -675,6 +675,27 @@ onBeforeUnmount(() => {
   flex: 1;
   min-height: 100%;
 }
+/* 리스트(ul/ol) 표시: 불릿·번호가 보이도록 */
+.tiptap-editor-wrap .ProseMirror ul {
+  list-style-type: disc;
+  padding-left: 1.5em;
+  margin: 0.5em 0;
+}
+.tiptap-editor-wrap .ProseMirror ul ul {
+  list-style-type: circle;
+}
+.tiptap-editor-wrap .ProseMirror ol {
+  list-style-type: decimal;
+  padding-left: 1.5em;
+  margin: 0.5em 0;
+}
+.tiptap-editor-wrap .ProseMirror ol ol {
+  list-style-type: lower-alpha;
+}
+.tiptap-editor-wrap .ProseMirror li {
+  display: list-item;
+  margin: 0.25em 0;
+}
 /* 표 테두리: 라이트/다크 테마에 맞춤 */
 .tiptap-editor-wrap .ProseMirror table {
   border-collapse: collapse;
