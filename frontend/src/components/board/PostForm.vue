@@ -71,6 +71,12 @@ const fileIds = ref<number[]>([])
 const editor = ref<InstanceType<typeof QuillEditor> | null>(null)
 const quillInstance = ref<any>(null)
 const showEmoticonPicker = ref(false)
+const showVideoPopover = ref(false)
+const videoUrl = ref('')
+const quillEditorWrapperRef = ref<HTMLElement | null>(null)
+const videoPopoverStyle = ref<{ top: string; left: string }>({ top: '0', left: '0' })
+/** PC에서 비디오 버튼 클릭 시, 클릭 좌표 저장 (팝오버 위치용) */
+const lastVideoButtonClick = ref<{ x: number; y: number } | null>(null)
 
 const form = ref({
   title: '',
@@ -131,6 +137,82 @@ const imageHandler = () => {
   }
 }
 
+/** YouTube/Vimeo URL을 embed URL로 변환 (Quill 기본 동작과 동일) */
+function toEmbedVideoUrl(url: string): string {
+  const trimmed = (url || '').trim()
+  if (!trimmed) return ''
+  const yt = trimmed.match(/^(?:(https?):\/\/)?(?:(?:www|m)\.)?youtube\.com\/watch.*v=([a-zA-Z0-9_-]+)/) ||
+    trimmed.match(/^(?:(https?):\/\/)?(?:(?:www|m)\.)?youtu\.be\/([a-zA-Z0-9_-]+)/)
+  if (yt) return (yt[1] || 'https') + '://www.youtube.com/embed/' + yt[2] + '?showinfo=0'
+  const vimeo = trimmed.match(/^(?:(https?):\/\/)?(?:www\.)?vimeo\.com\/(\d+)/)
+  if (vimeo) return (vimeo[1] || 'https') + '://player.vimeo.com/video/' + vimeo[2] + '/'
+  return trimmed
+}
+
+function isMobileView(): boolean {
+  if (typeof window === 'undefined') return false
+  return window.matchMedia('(max-width: 767px)').matches
+}
+
+function openVideoPopover() {
+  const clickPos = lastVideoButtonClick.value
+  lastVideoButtonClick.value = null
+
+  if (typeof window === 'undefined') {
+    videoPopoverStyle.value = { top: '300px', left: '400px' }
+    videoUrl.value = ''
+    showVideoPopover.value = true
+    return
+  }
+
+  if (!isMobileView() && clickPos) {
+    videoPopoverStyle.value = {
+      top: `${clickPos.y + 8}px`,
+      left: `${clickPos.x}px`
+    }
+  } else {
+    if (!quillEditorWrapperRef.value) return
+    const toolbar = quillEditorWrapperRef.value.querySelector('.ql-toolbar')
+    if (toolbar) {
+      const rect = toolbar.getBoundingClientRect()
+      videoPopoverStyle.value = {
+        top: `${rect.bottom + 8}px`,
+        left: `${rect.left + rect.width / 2}px`
+      }
+    } else {
+      const cx = window.innerWidth / 2
+      const cy = window.innerHeight / 2
+      videoPopoverStyle.value = { top: `${cy}px`, left: `${cx}px` }
+    }
+  }
+  videoUrl.value = ''
+  showVideoPopover.value = true
+}
+
+function closeVideoPopover() {
+  showVideoPopover.value = false
+  videoUrl.value = ''
+}
+
+function insertVideoFromPopover() {
+  const embedUrl = toEmbedVideoUrl(videoUrl.value)
+  if (!embedUrl) {
+    toastStore.addToast(t('board.writePost.videoUrlRequired') || '동영상 URL을 입력해 주세요.', 'error')
+    return
+  }
+  if (quillInstance.value) {
+    const range = quillInstance.value.getSelection(true)
+    const index = range ? range.index : quillInstance.value.getLength()
+    quillInstance.value.insertEmbed(index, 'video', embedUrl)
+    quillInstance.value.setSelection(index + 1)
+  }
+  closeVideoPopover()
+}
+
+const videoHandler = () => {
+  openVideoPopover()
+}
+
 const emoticonHandler = () => {
   showEmoticonPicker.value = !showEmoticonPicker.value
 }
@@ -150,8 +232,16 @@ const handleEmoticonSelect = (image: EmoticonImage) => {
 
 const onEditorReady = (quill: any) => {
   quillInstance.value = quill
-  quill.getModule('toolbar').addHandler('image', imageHandler)
-  quill.getModule('toolbar').addHandler('emoticon', emoticonHandler)
+  const toolbar = quill.getModule('toolbar')
+  toolbar.addHandler('image', imageHandler)
+  toolbar.addHandler('video', videoHandler)
+  toolbar.addHandler('emoticon', emoticonHandler)
+  const videoBtn = toolbar.container?.querySelector?.('button.ql-video')
+  if (videoBtn) {
+    videoBtn.addEventListener('mousedown', (e: MouseEvent) => {
+      lastVideoButtonClick.value = { x: e.clientX, y: e.clientY }
+    })
+  }
 }
 
 // Edit: fill form from post
@@ -303,11 +393,43 @@ const showNotice = computed(() => props.mode === 'create' && board.value?.isAdmi
         <div class="sm:col-span-6">
           <label for="content" class="block text-[11px] font-medium text-gray-700 dark:text-gray-300 sm:text-sm">{{
             $t('common.content') }}</label>
-          <div class="quill-editor-wrapper mt-1 h-80 min-h-[260px] sm:h-96 relative overflow-hidden rounded border border-gray-200 dark:border-gray-600">
+          <div ref="quillEditorWrapperRef" class="quill-editor-wrapper mt-1 h-80 min-h-[260px] sm:h-96 relative overflow-hidden rounded border border-gray-200 dark:border-gray-600">
             <div class="quill-editor-inner quill-flex-container">
               <QuillEditor ref="editor" :toolbar="toolbarOptions" theme="snow" contentType="html"
                 v-model:content="form.content" @ready="onEditorReady" />
             </div>
+            <!-- 비디오 URL 입력 팝오버: 툴바 아래 고정 위치로 표시 -->
+            <Teleport to="body">
+              <div v-if="showVideoPopover" class="video-url-popover-mask" @click.self="closeVideoPopover">
+                <div
+                  class="video-url-popover"
+                  :style="{
+                    top: videoPopoverStyle.top,
+                    left: videoPopoverStyle.left
+                  }"
+                  role="dialog"
+                  aria-label="동영상 URL 입력"
+                >
+                  <span class="video-url-popover-label">동영상 URL:</span>
+                  <input
+                    v-model="videoUrl"
+                    type="url"
+                    class="video-url-popover-input"
+                    :placeholder="'YouTube / Vimeo URL'"
+                    @keydown.enter="insertVideoFromPopover"
+                    @keydown.escape="closeVideoPopover"
+                  />
+                  <div class="video-url-popover-actions">
+                    <BaseButton type="button" variant="secondary" size="sm" @click="closeVideoPopover">
+                      {{ $t('common.cancel') }}
+                    </BaseButton>
+                    <BaseButton type="button" variant="primary" size="sm" @click="insertVideoFromPopover">
+                      {{ $t('common.confirm') || '확인' }}
+                    </BaseButton>
+                  </div>
+                </div>
+              </div>
+            </Teleport>
             <EmoticonPicker :show="showEmoticonPicker" @select="handleEmoticonSelect"
               @close="showEmoticonPicker = false" />
           </div>
@@ -475,4 +597,58 @@ img.ql-emoticon {
 .ql-snow.ql-toolbar button.ql-emoticon::before { content: '😊'; font-size: 16px; line-height: 1; }
 .ql-snow .ql-toolbar button.ql-emoticon:hover { color: #06c; }
 .dark .ql-snow .ql-toolbar button.ql-emoticon:hover { color: #60a5fa; }
+
+/* 비디오 URL 팝오버: 툴바 아래 고정 위치 */
+.video-url-popover-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: transparent;
+}
+.video-url-popover {
+  position: fixed;
+  transform: translateX(-50%);
+  margin-top: 0;
+  min-width: 320px;
+  max-width: 90vw;
+  padding: 12px 14px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  z-index: 10000;
+}
+.dark .video-url-popover {
+  background: #1f2937;
+  border-color: #4b5563;
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.3);
+}
+.video-url-popover-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  color: #374151;
+  margin-bottom: 6px;
+}
+.dark .video-url-popover-label { color: #d1d5db; }
+.video-url-popover-input {
+  display: block;
+  width: 100%;
+  padding: 8px 10px;
+  font-size: 14px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  margin-bottom: 10px;
+  box-sizing: border-box;
+}
+.dark .video-url-popover-input {
+  background: #374151;
+  border-color: #4b5563;
+  color: #f3f4f6;
+}
+.video-url-popover-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
 </style>
