@@ -2,7 +2,6 @@
 import { ref, onMounted, onUnmounted, computed, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { usePost } from '@/composables/usePost'
-import { postApi } from '@/api/post'
 import { useAuthStore } from '@/stores/auth'
 import { User, Clock, ThumbsUp, MessageSquare, Eye, ArrowLeft, MoreHorizontal, Bookmark, AlertTriangle, Share2, Copy, ArrowUp, List } from 'lucide-vue-next'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
@@ -66,14 +65,7 @@ const { mutate: reportMutate } = useReportPost()
 
 const error = computed(() => postError.value ? t('board.postDetail.loadFailed') : '')
 
-watch(() => route.params.postId, (newId) => {
-  if (newId) {
-    postApi.incrementView(newId as string | number).catch(err => {
-      // Ignore error or log it silently
-      logger.warn('Failed to increment view count', err)
-    })
-  }
-}, { immediate: true })
+// 조회수·최근 읽은 글은 usePostDetail의 getPost(incrementView: true) 한 번으로 처리됨. 별도 incrementView 호출 제거.
 
 const isAuthor = computed(() => {
   return authStore.user && post.value && authStore.user.userId === post.value.author.userId

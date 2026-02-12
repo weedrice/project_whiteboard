@@ -107,12 +107,12 @@ export function usePost() {
         })
     }
 
-    // Fetch single post details
+    // Fetch single post details (incrementView: true → 조회수 증가 + 로그인 시 최근 읽은 글에 반영)
     const usePostDetail = (postId: Ref<string | number>, options = {}) => {
         return useQuery({
             queryKey: ['post', postId],
             queryFn: async () => {
-                const { data } = await postApi.getPost(postId.value, { params: { incrementView: false } })
+                const { data } = await postApi.getPost(postId.value, { params: { incrementView: true } })
                 return data.data
             },
             enabled: computed(() => !!postId.value),

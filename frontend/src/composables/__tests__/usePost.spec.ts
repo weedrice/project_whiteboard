@@ -79,7 +79,7 @@ describe('usePost', () => {
         // Wait for the async queryFn to resolve
         await new Promise(resolve => setTimeout(resolve, 10))
         expect(data.value).toEqual({ id: 1, title: 'Test Post' })
-        expect(postApi.getPost).toHaveBeenCalledWith(1, { params: { incrementView: false } })
+        expect(postApi.getPost).toHaveBeenCalledWith(1, { params: { incrementView: true } })
     })
 
     it('creates a post', async () => {
