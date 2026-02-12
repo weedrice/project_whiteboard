@@ -5,9 +5,12 @@
       <div class="flex flex-col sm:flex-row sm:items-center gap-3 sm:space-x-6">
         <div class="flex justify-center sm:justify-start">
           <div class="shrink-0 border-2 border-gray-200 dark:border-gray-700 rounded-full overflow-hidden h-16 w-16">
-            <img class="h-full w-full object-contain bg-white dark:bg-gray-700"
-              :src="previewImage || getOptimizedProfileImageUrl(authStore.user?.profileImageUrl) || 'https://via.placeholder.com/150'"
-              alt="Current profile photo" @error="handleImageError($event, 'https://via.placeholder.com/150')" />
+            <img v-if="profileImageDisplayUrl" class="h-full w-full object-contain bg-white dark:bg-gray-700"
+              :src="profileImageDisplayUrl" alt="Current profile photo" @error="profileImageError = true" />
+            <div v-else
+              class="h-full w-full rounded-full bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold text-2xl">
+              {{ (form.displayName || authStore.user?.displayName)?.[0] || 'U' }}
+            </div>
           </div>
         </div>
         <div class="flex-1 w-full">
@@ -77,7 +80,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, watch, onUnmounted } from 'vue'
+import { ref, reactive, computed, watch, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
@@ -92,7 +95,7 @@ import type { UserUpdatePayload } from '@/api/user'
 import { useToastStore } from '@/stores/toast'
 import { extractValidationErrors, extractErrorMessage, getFieldError } from '@/utils/errorHandler'
 import type { AxiosError } from 'axios'
-import { getOptimizedProfileImageUrl, handleImageError } from '@/utils/image'
+import { getOptimizedProfileImageUrl } from '@/utils/image'
 
 const authStore = useAuthStore()
 const toastStore = useToastStore()
@@ -106,9 +109,20 @@ const loading = ref(false) // Local loading state for image processing + mutatio
 const errors = reactive<Record<string, string>>({})
 const selectedFile = ref<File | null>(null)
 const previewImage = ref<string | null>(null)
+const profileImageError = ref(false)
+
+const profileImageDisplayUrl = computed(() => {
+  if (previewImage.value) return previewImage.value
+  if (profileImageError.value || !authStore.user?.profileImageUrl) return ''
+  return getOptimizedProfileImageUrl(authStore.user.profileImageUrl)
+})
 
 const form = reactive({
   displayName: authStore.user?.displayName || ''
+})
+
+watch(() => authStore.user?.profileImageUrl, () => {
+  profileImageError.value = false
 })
 
 const handleFileChange = async (event: Event) => {
