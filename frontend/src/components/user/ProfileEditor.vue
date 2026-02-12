@@ -1,29 +1,32 @@
 <template>
   <div class="bg-transparent dark:bg-transparent shadow-none rounded-lg p-0 sm:p-6 sm:bg-white sm:dark:bg-gray-800 sm:shadow transition-colors duration-200">
     <form @submit.prevent="updateProfile" class="space-y-3 sm:space-y-4">
-      <!-- Image Upload -->
-      <div class="flex flex-col sm:flex-row sm:items-center gap-3 sm:space-x-6">
-        <div class="flex justify-center sm:justify-start">
-          <div class="shrink-0 border-2 border-gray-200 dark:border-gray-700 rounded-full overflow-hidden h-16 w-16">
+      <!-- 프로필 사진 + 닉네임 (사진 선택 baseline = 닉네임 입력 baseline) -->
+      <div class="flex flex-col sm:flex-row sm:items-stretch gap-3 sm:gap-6">
+        <div class="flex flex-col items-center shrink-0 sm:min-h-[88px]">
+          <button type="button" class="shrink-0 border-2 border-gray-200 dark:border-gray-700 rounded-full overflow-hidden h-16 w-16 cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+            @click="fileInputRef?.click()">
             <img v-if="profileImageDisplayUrl" class="h-full w-full object-contain bg-white dark:bg-gray-700"
               :src="profileImageDisplayUrl" alt="Current profile photo" @error="profileImageError = true" />
             <div v-else
               class="h-full w-full rounded-full bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold text-2xl">
               {{ (form.displayName || authStore.user?.displayName)?.[0] || 'U' }}
             </div>
-          </div>
+          </button>
+          <button type="button" class="mt-1.5 sm:mt-auto text-xs text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400"
+            @click="fileInputRef?.click()">
+            {{ $t('user.profile.choosePhoto') }}
+          </button>
+          <input ref="fileInputRef" type="file" class="sr-only" accept="image/*" @change="handleFileChange" />
         </div>
-        <div class="flex-1 w-full">
-          <BaseFileInput :label="$t('user.profile.choosePhoto')" accept="image/*" @change="handleFileChange"
-            :placeholder="$t('user.profile.choosePhotoPlaceholder')" />
+        <div class="flex-1 w-full min-w-0">
+          <BaseInput :label="$t('user.profile.displayName')" v-model="form.displayName" :error="errors.displayName"
+            :placeholder="$t('user.profile.displayNamePlaceholder')" />
         </div>
       </div>
 
-      <BaseInput :label="$t('user.profile.displayName')" v-model="form.displayName" :error="errors.displayName"
-        :placeholder="$t('user.profile.displayNamePlaceholder')" />
-
       <div class="flex flex-col gap-2 sm:flex-row sm:justify-end pt-2">
-        <BaseButton type="submit" :loading="loading" class="w-full sm:w-auto min-h-[48px]">
+        <BaseButton type="submit" :loading="loading" class="w-full sm:w-auto h-11 min-h-[44px]">
           {{ loading ? $t('common.saving') : $t('common.save') }}
         </BaseButton>
       </div>
@@ -32,7 +35,7 @@
 
     <!-- Danger Zone -->
     <div class="flex justify-center sm:justify-end">
-      <BaseButton variant="danger" size="sm" class="w-full sm:w-auto min-h-[44px] text-xs" @click="showDeleteModal = true">
+      <BaseButton variant="danger" size="sm" class="w-full sm:w-auto py-1.5 px-3 text-xs min-h-0" @click="showDeleteModal = true">
         {{ $t('user.settings.deleteAccount') }}
       </BaseButton>
     </div>
@@ -46,19 +49,16 @@
       </p>
 
       <div class="bg-red-50 p-4 rounded-md">
-        <div class="flex">
-          <div class="shrink-0">
+        <div class="flex items-center">
+          <div class="shrink-0 flex items-center justify-center">
             <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
               <path fill-rule="evenodd"
                 d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
                 clip-rule="evenodd" />
             </svg>
           </div>
-          <div class="ml-3">
-            <h3 class="text-sm font-medium text-red-800">{{ $t('common.warning') }}</h3>
-            <div class="mt-2 text-sm text-red-700">
-              <p>{{ $t('user.settings.deleteAccountWarning') }}</p>
-            </div>
+          <div class="ml-3 min-w-0 flex-1">
+            <p class="text-[13px] text-red-700 text-left">{{ $t('user.settings.deleteAccountWarning') }}</p>
           </div>
         </div>
       </div>
@@ -86,7 +86,6 @@ import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
-import BaseFileInput from '@/components/common/ui/BaseFileInput.vue'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
 import { useUser } from '@/composables/useUser'
 import axios from '@/api' // Direct axios for file upload
@@ -107,6 +106,7 @@ const { mutateAsync: deleteAccount, isPending: isDeleting } = useDeleteAccount()
 
 const loading = ref(false) // Local loading state for image processing + mutation
 const errors = reactive<Record<string, string>>({})
+const fileInputRef = ref<HTMLInputElement | null>(null)
 const selectedFile = ref<File | null>(null)
 const previewImage = ref<string | null>(null)
 const profileImageError = ref(false)
