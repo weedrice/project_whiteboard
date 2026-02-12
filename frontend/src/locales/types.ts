@@ -185,6 +185,11 @@ export interface LayoutMessages {
     createBoard: string
   }
   banner: string
+  recentBoards: {
+    title: string
+    empty: string
+    clear: string
+  }
   shortcuts: {
     title: string
     global: string

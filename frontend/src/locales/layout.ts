@@ -8,6 +8,11 @@ export const layout: LayoutMessages = {
     createBoard: '게시판 만들기',
   },
   banner: '배너 영역',
+  recentBoards: {
+    title: '최근 방문 게시판',
+    empty: '최근 방문한 게시판이 없습니다.',
+    clear: '초기화',
+  },
   shortcuts: {
     title: '키보드 단축키',
     global: '전역',

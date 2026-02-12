@@ -13,6 +13,7 @@ import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import { getOptimizedBoardIconUrl, handleImageError } from '@/utils/image'
 import { useHead } from '@unhead/vue'
+import { useRecentBoards } from '@/composables/useRecentBoards'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -20,6 +21,7 @@ const router = useRouter()
 const authStore = useAuthStore()
 
 const { useBoardDetail, useBoardPosts, useBoardNotices, useSubscribeBoard } = useBoard()
+const { addRecentBoard } = useRecentBoards()
 
 // Queries
 const boardUrl = computed(() => route.params.boardUrl as string)
@@ -236,6 +238,17 @@ watch(() => route.params.boardUrl, () => {
     page.value = 0
 })
 
+// 게시판 데이터 로드 시 최근 방문 기록 추가
+watch(board, (newBoard) => {
+    if (newBoard) {
+        addRecentBoard({
+            boardUrl: newBoard.boardUrl,
+            boardName: newBoard.boardName,
+            iconUrl: newBoard.iconUrl,
+        })
+    }
+}, { immediate: true })
+
 // 입력 필드 확인
 const isInputFocused = (): boolean => {
     const activeElement = document.activeElement
@@ -367,20 +380,23 @@ onUnmounted(() => {
 
         <div v-else-if="board">
             <!-- Board Header -->
-            <div class="bg-white dark:bg-gray-800 shadow rounded-lg mb-2 sm:mb-6 p-4 sm:p-6 transition-colors duration-200">
+            <div
+                class="bg-white dark:bg-gray-800 shadow rounded-lg mb-2 sm:mb-6 p-4 sm:p-6 transition-colors duration-200">
                 <div class="flex items-start">
                     <router-link :to="`/board/${board.boardUrl}`" class="flex-shrink-0 mr-4 sm:mr-6 cursor-pointer">
                         <img v-if="board.iconUrl" :src="getOptimizedBoardIconUrl(board.iconUrl, 80)"
                             class="h-14 w-14 sm:h-20 sm:w-20 rounded-full" alt="" @error="handleImageError($event)" />
                         <div v-else
                             class="h-14 w-14 sm:h-20 sm:w-20 rounded-full bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center">
-                            <span class="text-indigo-600 dark:text-indigo-400 font-bold text-xl sm:text-3xl">{{ board.boardName[0]
+                            <span class="text-indigo-600 dark:text-indigo-400 font-bold text-xl sm:text-3xl">{{
+                                board.boardName[0]
                                 }}</span>
                         </div>
                     </router-link>
                     <div class="flex-1 min-h-[5rem] flex flex-col justify-between">
                         <div class="flex flex-row justify-between items-center gap-2 min-w-0">
-                            <router-link :to="`/board/${board.boardUrl}`" class="hover:underline cursor-pointer min-w-0 flex-1">
+                            <router-link :to="`/board/${board.boardUrl}`"
+                                class="hover:underline cursor-pointer min-w-0 flex-1">
                                 <h1 class="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white truncate">{{
                                     board.boardName }}</h1>
                             </router-link>
@@ -407,13 +423,16 @@ onUnmounted(() => {
                                 <template v-if="board.adminUserId">
                                     <span class="text-[11px] sm:text-sm">
                                         <UserMenu :user-id="board.adminUserId"
-                                            :display-name="board.adminDisplayName || $t('common.defaultAdminName')" size="inherit" />
+                                            :display-name="board.adminDisplayName || $t('common.defaultAdminName')"
+                                            size="inherit" />
                                     </span>
                                 </template>
-                                <span v-else class="text-[11px] sm:text-sm">{{ board.adminDisplayName || $t('board.detail.defaultAdminName') }}</span>
+                                <span v-else class="text-[11px] sm:text-sm">{{ board.adminDisplayName ||
+                                    $t('board.detail.defaultAdminName') }}</span>
                             </span>
                         </div>
-                        <p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 line-clamp-1 mt-1">{{ board.description }}
+                        <p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 line-clamp-1 mt-1">{{
+                            board.description }}
                         </p>
                     </div>
                 </div>
@@ -427,7 +446,8 @@ onUnmounted(() => {
 
 
             <!-- Filters & Post List -->
-            <div id="board-post-list" class="bg-white dark:bg-gray-800 shadow rounded-lg transition-colors duration-200">
+            <div id="board-post-list"
+                class="bg-white dark:bg-gray-800 shadow rounded-lg transition-colors duration-200">
                 <div
                     class="px-3 sm:px-4 py-2 sm:py-3 border-b border-gray-200 dark:border-gray-700 flex gap-1.5 sm:gap-2 overflow-x-auto scrollbar-hide">
                     <BaseButton @click="toggleFilter('all')" size="sm"

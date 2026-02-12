@@ -10,6 +10,7 @@ html {
 }
 
 @layer base {
+
   /* 색상 추상화 (Design Tokens) - :root에 두어 파서 경고 방지 */
   :root {
     --color-primary: var(--color-indigo-600);
@@ -193,12 +194,14 @@ html {
       padding-right: 1.5rem;
       font-size: 0.75rem;
     }
+
     .list-search-mobile .list-search-input {
       height: 2rem;
       min-height: 2rem;
       padding: 0.25rem 0.5rem;
       font-size: 0.75rem;
     }
+
     .list-search-mobile .list-search-btn {
       height: 2rem;
       min-height: 2rem;
@@ -245,6 +248,7 @@ html {
   }
 
   @media (min-width: 640px) {
+
     .modal-container-mobile-full,
     .modal-container-mobile-fit {
       @apply max-w-md h-auto;
@@ -301,6 +305,125 @@ html {
     width: 100px !important;
     height: 100px !important;
     vertical-align: baseline !important;
+  }
+
+  /* Recent Boards Bar */
+  .recent-boards-bar {
+    @apply bg-white/80 backdrop-blur-sm border-b border-gray-200 transition-colors duration-200;
+  }
+
+  .dark .recent-boards-bar {
+    @apply bg-gray-800/80 border-gray-700;
+  }
+
+  .recent-boards-inner {
+    @apply flex items-center gap-2 py-1.5 overflow-hidden;
+  }
+
+  .recent-boards-label {
+    @apply text-xs font-medium text-gray-400 whitespace-nowrap shrink-0;
+  }
+
+  .dark .recent-boards-label {
+    @apply text-gray-500;
+  }
+
+  /* 모바일에서 라벨 숨김 */
+  @media (max-width: 639px) {
+    .recent-boards-label {
+      display: none;
+    }
+  }
+
+  .recent-boards-list {
+    @apply flex items-center gap-1.5 overflow-x-auto flex-1 min-w-0;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .recent-boards-list::-webkit-scrollbar {
+    display: none;
+  }
+
+  .recent-board-chip {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap shrink-0 bg-gray-100 text-gray-700 transition-all duration-200 cursor-pointer;
+    text-decoration: none;
+  }
+
+  .dark .recent-board-chip {
+    @apply bg-gray-700/70 text-gray-300;
+  }
+
+  .recent-board-chip:hover {
+    @apply bg-indigo-50 text-indigo-700;
+  }
+
+  .dark .recent-board-chip:hover {
+    @apply bg-indigo-900/30 text-indigo-300;
+  }
+
+  .recent-board-icon {
+    @apply h-4 w-4 rounded-full object-cover shrink-0;
+  }
+
+  .recent-board-icon-fallback {
+    @apply h-4 w-4 rounded-full bg-indigo-100 text-indigo-600 font-bold flex items-center justify-center shrink-0;
+    font-size: 10px;
+  }
+
+  .dark .recent-board-icon-fallback {
+    @apply bg-indigo-900/50 text-indigo-400;
+  }
+
+  .recent-board-name {
+    @apply truncate;
+    max-width: 80px;
+  }
+
+  @media (min-width: 640px) {
+    .recent-board-name {
+      max-width: 120px;
+    }
+  }
+
+  .recent-board-remove {
+    @apply opacity-0 text-gray-400 transition-opacity duration-150 p-0.5 rounded-full cursor-pointer;
+  }
+
+  .recent-board-chip:hover .recent-board-remove {
+    opacity: 1;
+  }
+
+  .recent-board-remove:hover {
+    @apply text-red-500 bg-red-50;
+  }
+
+  .dark .recent-board-remove:hover {
+    @apply text-red-400 bg-red-900/30;
+  }
+
+  .recent-boards-clear {
+    @apply text-gray-400 whitespace-nowrap shrink-0 cursor-pointer transition-colors duration-150;
+    font-size: 10px;
+  }
+
+  .dark .recent-boards-clear {
+    @apply text-gray-500;
+  }
+
+  .recent-boards-clear:hover {
+    @apply text-red-500;
+  }
+
+  .dark .recent-boards-clear:hover {
+    @apply text-red-400;
+  }
+
+  /* 모바일에서는 삭제 버튼 항상 표시 (터치 환경) */
+  @media (max-width: 639px) {
+    .recent-board-remove {
+      opacity: 1;
+    }
   }
 
 }

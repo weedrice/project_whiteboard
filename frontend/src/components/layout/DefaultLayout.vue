@@ -13,6 +13,7 @@ import Footer from '@/components/layout/Footer.vue'
 import GlobalSearchBar from '@/components/search/GlobalSearchBar.vue'
 import AdBanner from '@/components/common/widgets/AdBanner.vue'
 import KeyboardShortcutsModal from '@/components/common/KeyboardShortcutsModal.vue'
+import RecentBoardsBar from '@/components/layout/RecentBoardsBar.vue'
 
 import logoLight from '@/assets/noviis_logo.png'
 import logoDark from '@/assets/noviis_logo_dark.png'
@@ -309,6 +310,8 @@ const skipToMainContent = (event: Event) => {
         </div>
       </div>
     </nav>
+
+    <RecentBoardsBar />
 
     <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8 flex-grow w-full">
       <!-- Left Sidebar Ad (Fixed to viewport, centered vertically) -->
