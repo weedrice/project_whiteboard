@@ -408,6 +408,20 @@ export interface BoardMessages {
     htmlSourcePlaceholder: string
     visualMode: string
     videoUrlRequired: string
+    linkUrlPrompt: string
+    linkDisplayText: string
+    linkInsert: string
+    linkRemove: string
+    fontSize: string
+    lineHeight: string
+    alignLeft: string
+    alignCenter: string
+    alignRight: string
+    alignJustify: string
+    tableRows: string
+    tableCols: string
+    tableHeaderRow: string
+    tableInsert: string
   }
   tags: {
     placeholder: string

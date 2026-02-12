@@ -100,7 +100,7 @@ watch(
     if (!editor.value) return
     const current = editor.value.getHTML()
     if (val !== current) {
-      editor.value.commands.setContent(val || '', false)
+      editor.value.commands.setContent(val || '', { emitUpdate: false })
     }
   }
 )
@@ -191,7 +191,7 @@ function applyBulletList() {
   if (!e) return
   const saved = savedListSelection.value
   if (saved) {
-    e.chain().focus().setTextSelection(saved.from, saved.to).toggleBulletList().run()
+    e.chain().focus().setTextSelection({ from: saved.from, to: saved.to }).toggleBulletList().run()
     savedListSelection.value = null
   } else {
     e.chain().focus().toggleBulletList().run()
@@ -203,7 +203,7 @@ function applyOrderedList() {
   if (!e) return
   const saved = savedListSelection.value
   if (saved) {
-    e.chain().focus().setTextSelection(saved.from, saved.to).toggleOrderedList().run()
+    e.chain().focus().setTextSelection({ from: saved.from, to: saved.to }).toggleOrderedList().run()
     savedListSelection.value = null
   } else {
     e.chain().focus().toggleOrderedList().run()
@@ -355,7 +355,7 @@ onBeforeUnmount(() => {
       <select
         class="tiptap-select text-xs"
         :value="editor.getAttributes('textStyle').fontSize || ''"
-        @change="(e) => { const v = (e.target as HTMLSelectElement).value; v ? editor.chain().focus().setFontSize(v).run() : editor.chain().focus().unsetFontSize().run() }"
+        @change="(e) => { const v = (e.target as HTMLSelectElement).value; v ? editor?.chain().focus().setFontSize(v).run() : editor?.chain().focus().unsetFontSize().run() }"
       >
         <option value="">{{ t('board.writePost.fontSize') || '크기' }}</option>
         <option v-for="s in fontSizes" :key="s" :value="s">{{ s }}</option>
@@ -364,7 +364,7 @@ onBeforeUnmount(() => {
       <select
         class="tiptap-select text-xs"
         :value="editor.getAttributes('textStyle').lineHeight || ''"
-        @change="(e) => { const v = (e.target as HTMLSelectElement).value; v ? editor.chain().focus().setLineHeight(v).run() : editor.chain().focus().unsetLineHeight().run() }"
+        @change="(e) => { const v = (e.target as HTMLSelectElement).value; v ? editor?.chain().focus().setLineHeight(v).run() : editor?.chain().focus().unsetLineHeight().run() }"
       >
         <option value="">{{ t('board.writePost.lineHeight') || '줄간격' }}</option>
         <option v-for="h in lineHeights" :key="h" :value="h">{{ h }}</option>
@@ -385,7 +385,7 @@ onBeforeUnmount(() => {
           type="color"
           :value="editor.getAttributes('highlight').color || '#fef08a'"
           class="tiptap-color-input w-6 h-6 cursor-pointer"
-          @input="(e) => editor.chain().focus().setHighlight({ color: (e.target as HTMLInputElement).value }).run()"
+          @input="(e) => editor?.chain().focus().setHighlight({ color: (e.target as HTMLInputElement).value }).run()"
         >
       </div>
       <span class="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-0.5" />
