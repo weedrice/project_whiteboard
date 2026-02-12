@@ -277,6 +277,13 @@ router.beforeEach(async (to: RouteLocationNormalized, from: RouteLocationNormali
         return
     }
 
+    // 로그인/회원가입 페이지 진입 시 이전 페이지 경로를 저장 (로그인 후 해당 페이지로 리다이렉트)
+    if (to.meta.guestOnly && to.name !== 'oauth-callback' && !authStore.isAuthenticated) {
+        if (from.name && !from.meta.guestOnly) {
+            sessionStorage.setItem('loginRedirect', from.fullPath)
+        }
+    }
+
     if (to.meta.requiresAuth && !authStore.isAuthenticated) {
         next({ name: 'login', query: { redirect: to.fullPath } })
     } else if (to.meta.roles && !to.meta.roles.includes(authStore.user?.role || '')) {
