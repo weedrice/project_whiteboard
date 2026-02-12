@@ -301,10 +301,6 @@ const skipToMainContent = (event: Event) => {
               <router-link to="/login"
                 class="text-gray-500 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white border border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500 px-2 py-1.5 rounded-md text-xs font-medium sm:px-3 sm:py-2 sm:text-sm">{{
                   $t('common.login') }}</router-link>
-              <!-- 모바일에서는 로그인 화면에서 회원가입 가능하므로 숨김 -->
-              <router-link to="/signup"
-                class="hidden sm:inline-block bg-indigo-600 text-white hover:bg-indigo-700 px-2.5 py-1.5 rounded-md text-xs font-medium sm:px-4 sm:py-2 sm:text-sm">{{
-                  $t('auth.signup') }}</router-link>
             </div>
           </div>
         </div>
