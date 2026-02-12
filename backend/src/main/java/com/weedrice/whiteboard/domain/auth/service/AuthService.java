@@ -149,9 +149,9 @@ public class AuthService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
-        // 사용자 상태 검증 (SUSPENDED, DELETED 사용자는 로그인 불가)
+        // 사용자 상태 검증 (SUSPENDED, DELETED 사용자는 로그인 불가 - 메시지는 로그인 실패와 동일하게 노출)
         if (!"ACTIVE".equals(user.getStatus())) {
-            throw new BusinessException(ErrorCode.USER_NOT_ACTIVE);
+            throw new BusinessException(ErrorCode.LOGIN_FAILED);
         }
 
         String accessToken = jwtTokenProvider.createAccessToken(authentication);
