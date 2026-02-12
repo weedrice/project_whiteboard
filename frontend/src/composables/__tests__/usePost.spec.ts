@@ -8,12 +8,16 @@ const mockInvalidateQueries = vi.fn()
 const mockCancelQueries = vi.fn()
 const mockGetQueryData = vi.fn()
 const mockSetQueryData = vi.fn()
+const mockGetQueriesData = vi.fn().mockReturnValue([])
+const mockSetQueriesData = vi.fn()
 vi.mock('@tanstack/vue-query', () => ({
     useQueryClient: vi.fn(() => ({
         invalidateQueries: mockInvalidateQueries,
         cancelQueries: mockCancelQueries,
         getQueryData: mockGetQueryData,
-        setQueryData: mockSetQueryData
+        setQueryData: mockSetQueryData,
+        getQueriesData: mockGetQueriesData,
+        setQueriesData: mockSetQueriesData
     })),
     useQuery: vi.fn(({ queryFn }) => {
         // Execute queryFn immediately for testing (handle async)
@@ -113,7 +117,9 @@ describe('usePost', () => {
 
         await mutation.mutate(1)
         expect(postApi.likePost).toHaveBeenCalledWith(1)
+        // invalidatePostCaches를 통해 3가지 캐시 무효화 확인
         expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['post', 1] })
+        expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['posts'] })
     })
 
     it('unlikes a post', async () => {
@@ -123,6 +129,7 @@ describe('usePost', () => {
         await mutation.mutate(1)
         expect(postApi.unlikePost).toHaveBeenCalledWith(1)
         expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['post', 1] })
+        expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['posts'] })
     })
 
     it('scraps a post', async () => {
@@ -132,6 +139,7 @@ describe('usePost', () => {
         await mutation.mutate(1)
         expect(postApi.scrapPost).toHaveBeenCalledWith(1)
         expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['post', 1] })
+        expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['posts'] })
     })
 
     it('unscraps a post', async () => {
@@ -141,6 +149,7 @@ describe('usePost', () => {
         await mutation.mutate(1)
         expect(postApi.unscrapPost).toHaveBeenCalledWith(1)
         expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['post', 1] })
+        expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['posts'] })
     })
 
     it('reports a post', async () => {

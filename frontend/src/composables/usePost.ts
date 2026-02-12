@@ -6,6 +6,107 @@ import type { Post } from '@/types'
 export function usePost() {
     const queryClient = useQueryClient()
 
+    // --- Optimistic Update 헬퍼 ---
+
+    // 모든 게시글 캐시(상세, 트렌딩, 게시판 목록)에서 특정 postId의 데이터를 업데이트
+    function updatePostInAllCaches(postId: string | number, updater: (post: any) => any) {
+        // 1. 게시글 상세 캐시
+        queryClient.setQueryData<Post>(['post', postId], (old) => {
+            if (!old) return old
+            return updater(old)
+        })
+
+        // 2. 트렌딩 피드 등 게시글 목록 캐시 (InfiniteQuery 구조)
+        queryClient.setQueriesData<any>(
+            { queryKey: ['posts'] },
+            (old: any) => {
+                if (!old?.pages) return old
+                return {
+                    ...old,
+                    pages: old.pages.map((page: any) => ({
+                        ...page,
+                        content: Array.isArray(page.content)
+                            ? page.content.map((p: any) =>
+                                String(p.postId) === String(postId) ? updater(p) : p
+                            )
+                            : page.content
+                    }))
+                }
+            }
+        )
+
+        // 3. 게시판별 게시글 목록 캐시
+        queryClient.getQueriesData({ queryKey: ['board'] }).forEach(([key]) => {
+            const keyArr = key as unknown[]
+            if (!keyArr.includes('posts')) return
+            queryClient.setQueryData(key, (old: any) => {
+                if (!old) return old
+                // InfiniteQuery 구조
+                if (old.pages) {
+                    return {
+                        ...old,
+                        pages: old.pages.map((page: any) => ({
+                            ...page,
+                            content: Array.isArray(page.content)
+                                ? page.content.map((p: any) =>
+                                    String(p.postId) === String(postId) ? updater(p) : p
+                                )
+                                : page.content
+                        }))
+                    }
+                }
+                // 일반 PageResponse 구조
+                if (old.content && Array.isArray(old.content)) {
+                    return {
+                        ...old,
+                        content: old.content.map((p: any) =>
+                            String(p.postId) === String(postId) ? updater(p) : p
+                        )
+                    }
+                }
+                return old
+            })
+        })
+    }
+
+    // 롤백을 위한 스냅샷 저장
+    function savePostCacheSnapshots(postId: string | number) {
+        return {
+            postDetail: queryClient.getQueryData(['post', postId]),
+            postsQueries: queryClient.getQueriesData({ queryKey: ['posts'] }),
+            boardQueries: queryClient.getQueriesData({ queryKey: ['board'] })
+                .filter(([key]) => (key as unknown[]).includes('posts'))
+        }
+    }
+
+    // 스냅샷 복원 (에러 시 롤백)
+    function restorePostCacheSnapshots(
+        postId: string | number,
+        snapshots: ReturnType<typeof savePostCacheSnapshots>
+    ) {
+        if (snapshots.postDetail !== undefined) {
+            queryClient.setQueryData(['post', postId], snapshots.postDetail)
+        }
+        snapshots.postsQueries.forEach(([key, data]) => {
+            queryClient.setQueryData(key, data)
+        })
+        snapshots.boardQueries.forEach(([key, data]) => {
+            queryClient.setQueryData(key, data)
+        })
+    }
+
+    // 관련 캐시 무효화 (서버 상태와 동기화)
+    function invalidatePostCaches(postId: string | number) {
+        queryClient.invalidateQueries({ queryKey: ['post', postId] })
+        queryClient.invalidateQueries({ queryKey: ['posts'] })
+        queryClient.invalidateQueries({
+            predicate: (query) => {
+                const key = query.queryKey
+                return Array.isArray(key) && key[0] === 'board' && key.includes('posts')
+            }
+        })
+    }
+
     // Fetch single post details
     const usePostDetail = (postId: Ref<string | number>, options = {}) => {
         return useQuery({
@@ -65,26 +166,24 @@ export function usePost() {
             },
             onMutate: async (postId) => {
                 await queryClient.cancelQueries({ queryKey: ['post', postId] })
-                const previousPost = queryClient.getQueryData(['post', postId])
+                await queryClient.cancelQueries({ queryKey: ['posts'] })
+                const snapshots = savePostCacheSnapshots(postId)
 
-                queryClient.setQueryData<Post>(['post', postId], (old) => {
-                    if (!old) return old
-                    return {
-                        ...old,
-                        liked: true,
-                        likeCount: (old.likeCount || 0) + 1
-                    }
-                })
+                updatePostInAllCaches(postId, (old: any) => ({
+                    ...old,
+                    liked: true,
+                    likeCount: (old.likeCount || 0) + 1
+                }))
 
-                return { previousPost }
+                return { snapshots }
             },
-            onError: (err, postId, context) => {
-                if (context?.previousPost) {
-                    queryClient.setQueryData(['post', postId], context.previousPost)
+            onError: (_err, postId, context) => {
+                if (context?.snapshots) {
+                    restorePostCacheSnapshots(postId, context.snapshots)
                 }
             },
             onSettled: (_, __, postId) => {
-                queryClient.invalidateQueries({ queryKey: ['post', postId] })
+                invalidatePostCaches(postId)
             }
         })
     }
@@ -97,26 +196,24 @@ export function usePost() {
             },
             onMutate: async (postId) => {
                 await queryClient.cancelQueries({ queryKey: ['post', postId] })
-                const previousPost = queryClient.getQueryData(['post', postId])
+                await queryClient.cancelQueries({ queryKey: ['posts'] })
+                const snapshots = savePostCacheSnapshots(postId)
 
-                queryClient.setQueryData<Post>(['post', postId], (old) => {
-                    if (!old) return old
-                    return {
-                        ...old,
-                        liked: false,
-                        likeCount: Math.max((old.likeCount || 0) - 1, 0)
-                    }
-                })
+                updatePostInAllCaches(postId, (old: any) => ({
+                    ...old,
+                    liked: false,
+                    likeCount: Math.max((old.likeCount || 0) - 1, 0)
+                }))
 
-                return { previousPost }
+                return { snapshots }
             },
-            onError: (err, postId, context) => {
-                if (context?.previousPost) {
-                    queryClient.setQueryData(['post', postId], context.previousPost)
+            onError: (_err, postId, context) => {
+                if (context?.snapshots) {
+                    restorePostCacheSnapshots(postId, context.snapshots)
                 }
             },
             onSettled: (_, __, postId) => {
-                queryClient.invalidateQueries({ queryKey: ['post', postId] })
+                invalidatePostCaches(postId)
             }
         })
     }
@@ -129,25 +226,23 @@ export function usePost() {
             },
             onMutate: async (postId) => {
                 await queryClient.cancelQueries({ queryKey: ['post', postId] })
-                const previousPost = queryClient.getQueryData(['post', postId])
+                await queryClient.cancelQueries({ queryKey: ['posts'] })
+                const snapshots = savePostCacheSnapshots(postId)
 
-                queryClient.setQueryData<Post>(['post', postId], (old) => {
-                    if (!old) return old
-                    return {
-                        ...old,
-                        scrapped: true
-                    }
-                })
+                updatePostInAllCaches(postId, (old: any) => ({
+                    ...old,
+                    scrapped: true
+                }))
 
-                return { previousPost }
+                return { snapshots }
             },
-            onError: (err, postId, context) => {
-                if (context?.previousPost) {
-                    queryClient.setQueryData(['post', postId], context.previousPost)
+            onError: (_err, postId, context) => {
+                if (context?.snapshots) {
+                    restorePostCacheSnapshots(postId, context.snapshots)
                 }
             },
             onSettled: (_, __, postId) => {
-                queryClient.invalidateQueries({ queryKey: ['post', postId] })
+                invalidatePostCaches(postId)
             }
         })
     }
@@ -160,25 +255,23 @@ export function usePost() {
             },
             onMutate: async (postId) => {
                 await queryClient.cancelQueries({ queryKey: ['post', postId] })
-                const previousPost = queryClient.getQueryData(['post', postId])
+                await queryClient.cancelQueries({ queryKey: ['posts'] })
+                const snapshots = savePostCacheSnapshots(postId)
 
-                queryClient.setQueryData<Post>(['post', postId], (old) => {
-                    if (!old) return old
-                    return {
-                        ...old,
-                        scrapped: false
-                    }
-                })
+                updatePostInAllCaches(postId, (old: any) => ({
+                    ...old,
+                    scrapped: false
+                }))
 
-                return { previousPost }
+                return { snapshots }
             },
-            onError: (err, postId, context) => {
-                if (context?.previousPost) {
-                    queryClient.setQueryData(['post', postId], context.previousPost)
+            onError: (_err, postId, context) => {
+                if (context?.snapshots) {
+                    restorePostCacheSnapshots(postId, context.snapshots)
                 }
             },
             onSettled: (_, __, postId) => {
-                queryClient.invalidateQueries({ queryKey: ['post', postId] })
+                invalidatePostCaches(postId)
             }
         })
     }
