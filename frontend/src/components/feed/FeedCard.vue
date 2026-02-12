@@ -33,6 +33,8 @@ const bodyHtml = computed(() => {
   html = html.replace(/<img[^>]*>/gi, '')
   html = html.replace(/<iframe[^>]*>[\s\S]*?<\/iframe>/gi, '')
   html = html.replace(/<div[^>]*\bclass="[^"]*tiptap-video-wrapper[^"]*"[^>]*>[\s\S]*?<\/div>/gi, '')
+  const textOnly = html.replace(/<[^>]+>/g, '').trim()
+  if (!textOnly) return null
   return html
 })
 

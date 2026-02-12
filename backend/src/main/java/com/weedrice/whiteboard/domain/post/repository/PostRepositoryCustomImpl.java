@@ -223,6 +223,8 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
 
                 // 본문에 img 태그가 있는 게시글 조건
                 BooleanExpression hasImgTagInContent = post.contents.containsIgnoreCase("<img");
+                // 본문에 비디오 embed(iframe)가 있는 게시글 조건
+                BooleanExpression hasVideoInContent = post.contents.containsIgnoreCase("<iframe");
 
                 return queryFactory
                                 .selectFrom(post)
@@ -233,7 +235,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                                                 post.createdAt.goe(since),
                                                 post.isDeleted.eq(false),
                                                 notBlockedCondition(blockedUserIds),
-                                                hasAttachedImage.or(hasImgTagInContent))
+                                                hasAttachedImage.or(hasImgTagInContent).or(hasVideoInContent))
                                 .orderBy(post.viewCount.multiply(1).add(post.likeCount.multiply(10)).desc()) // (조회수 * 1
                                                                                                              // + 좋아요 *
                                                                                                              // 10)
