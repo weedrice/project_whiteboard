@@ -211,14 +211,15 @@ function revealSpoiler() {
 }
 
 watch(() => route.hash, (newHash) => {
-  if (newHash) {
-    nextTick(() => {
-      const element = document.querySelector(newHash)
-      if (element) {
-        element.scrollIntoView({ behavior: 'smooth' })
-      }
-    })
-  }
+  if (!newHash) return
+  nextTick(() => {
+    if (newHash === '#comments') {
+      scrollToCommentsAfterImagesLoad()
+      return
+    }
+    const element = document.querySelector(newHash)
+    if (element) element.scrollIntoView({ behavior: 'smooth' })
+  })
 })
 
 watch(post, (newPost, oldPost) => {
@@ -232,12 +233,15 @@ watch(post, (newPost, oldPost) => {
     // Only scroll if it's a new post (different ID) or initial load
     if (!oldPost || newPost.postId !== oldPost.postId) {
       nextTick(() => {
+        const hash = route.hash
+        if (hash === '#comments') {
+          scrollToCommentsAfterImagesLoad()
+          return
+        }
         window.scrollTo(0, 0)
-        if (route.hash) {
-          const element = document.querySelector(route.hash)
-          if (element) {
-            element.scrollIntoView({ behavior: 'smooth' })
-          }
+        if (hash) {
+          const element = document.querySelector(hash)
+          if (element) element.scrollIntoView({ behavior: 'smooth' })
         }
       })
     }
@@ -287,6 +291,7 @@ function handleShare() {
 
 const showFloatingNav = ref(false)
 const commentsRef = ref<HTMLElement | null>(null)
+const contentRef = ref<HTMLElement | null>(null)
 
 let observer: IntersectionObserver | null = null
 
@@ -327,6 +332,29 @@ function scrollToTop() {
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
+/** 본문(contentRef) 내 이미지 로드 완료 후 resolve. lazy 이미지는 즉시 로드 시작하도록 트리거. */
+function waitForImagesInContent(): Promise<void> {
+  const container = contentRef.value
+  if (!container) return Promise.resolve()
+
+  const imgs = container.querySelectorAll<HTMLImageElement>('img')
+  if (imgs.length === 0) return Promise.resolve()
+
+  const IMAGE_LOAD_TIMEOUT_MS = 8000
+  const promises = Array.from(imgs).map((img) => {
+    if (img.complete) return Promise.resolve()
+    if (img.loading === 'lazy') img.loading = 'eager'
+    return Promise.race([
+      new Promise<void>((resolve) => {
+        img.onload = () => resolve()
+        img.onerror = () => resolve()
+      }),
+      new Promise<void>((resolve) => setTimeout(resolve, IMAGE_LOAD_TIMEOUT_MS))
+    ])
+  })
+  return Promise.all(promises).then(() => {})
+}
+
 function scrollToComments() {
   if (commentsRef.value) {
     const headerOffset = 100 // Adjust based on sticky header height if any
@@ -338,6 +366,13 @@ function scrollToComments() {
       behavior: 'smooth'
     })
   }
+}
+
+/** 이미지 로드까지 기다린 뒤 댓글 영역으로 스크롤 (전체 글 높이 확정 후 정확한 위치) */
+function scrollToCommentsAfterImagesLoad() {
+  waitForImagesInContent().then(() => {
+    nextTick(() => scrollToComments())
+  })
 }
 
 function goToList() {
@@ -547,8 +582,8 @@ onUnmounted(() => {
       </div>
 
 
-      <!-- Content -->
-      <div
+      <!-- Content (ref for waiting images before scroll-to-comments) -->
+      <div ref="contentRef"
         class="px-3 py-4 sm:px-6 sm:py-5 min-h-[160px] sm:min-h-[200px] prose prose-sm sm:prose-base dark:prose-invert max-w-none relative text-gray-900 dark:text-gray-100 text-sm sm:text-base">
 
         <!-- URL Copy (모바일: 주소 탭 시 복사 + 작은 메시지, 데스크톱: 복사 버튼) -->
@@ -641,8 +676,8 @@ onUnmounted(() => {
         </BaseButton>
       </div>
 
-      <!-- Comments Section -->
-      <div ref="commentsRef" class="border-t border-gray-200 dark:border-gray-700 mt-6 sm:mt-8 px-3 py-4 sm:p-4">
+      <!-- Comments Section (id for hash scroll from feed comment button) -->
+      <div id="comments" ref="commentsRef" class="border-t border-gray-200 dark:border-gray-700 mt-6 sm:mt-8 px-3 py-4 sm:p-4">
         <CommentList :postId="post.postId" :boardUrl="post.board.boardUrl" />
       </div>
 
