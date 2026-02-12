@@ -36,6 +36,9 @@ import EmptyState from '@/components/common/ui/EmptyState.vue'
 import { FileText } from 'lucide-vue-next'
 import type { FeedPost, PostSummary } from '@/types'
 import { useHead } from '@unhead/vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 useHead({
   title: '홈',
@@ -122,6 +125,8 @@ async function handleScrap(post: FeedPost) {
 
 async function handleSubscribe(post: FeedPost) {
   if (!requireAuth()) return
+
+  if (post.subscribed && !window.confirm(t('user.subscriptions.unsubscribeConfirm'))) return
 
   subscribeBoard.mutate({
     boardUrl: post.boardUrl as string,

@@ -219,6 +219,7 @@ function handleSortChange(newSort: string) {
 
 function handleSubscribe() {
     if (!board.value) return
+    if (board.value.isSubscribed && !window.confirm(t('user.subscriptions.unsubscribeConfirm'))) return
     subscribeMutate({
         boardUrl: board.value.boardUrl,
         isSubscribed: board.value.isSubscribed ?? false

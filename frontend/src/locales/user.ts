@@ -111,7 +111,7 @@ export const user: UserMessages = {
     title: '구독한 게시판',
     empty: '구독한 게시판이 없습니다.',
     unsubscribe: '구독 취소',
-    unsubscribeConfirm: '정말 구독을 취소하시겠습니까?',
+    unsubscribeConfirm: '정말 구독 취소하시겠습니까?',
     unsubscribeSuccess: '구독이 취소되었습니다.',
     unsubscribeFailed: '구독 취소에 실패했습니다.',
   },
