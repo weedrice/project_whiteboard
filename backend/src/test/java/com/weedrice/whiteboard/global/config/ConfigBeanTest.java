@@ -16,7 +16,6 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.ses.SesClient;
 
 import java.util.concurrent.Executor;
 
@@ -27,18 +26,15 @@ import static org.assertj.core.api.Assertions.assertThat;
     "cloud.aws.credentials.secret-key=test-secret",
     "cloud.aws.region.static=us-east-1",
     "cloud.aws.s3.bucket=test-bucket",
-    "cloud.aws.ses.credentials.access-key=test-ses-access",
-    "cloud.aws.ses.credentials.secret-key=test-ses-secret",
-    "cloud.aws.ses.sender=test@example.com",
     "jwt.secret=c2VjcmV0LWtleS1mb3ItdGVzdGluZy1wdXJwb3Nlcy1vbmx5LWRvLW5vdC11c2UtaW4tcHJvZHVjdGlvbg==",
     "jwt.expiration=3600000",
     "jwt.refresh-token.expiration=7200000",
     "file.upload-dir=uploads",
     "app.frontend-url=http://localhost:5173"
-}, 
+},
     classes = {
-        S3Config.class, WebConfig.class, AsyncConfig.class, 
-        CacheConfig.class, MessageConfig.class, SesConfig.class, 
+        S3Config.class, WebConfig.class, AsyncConfig.class,
+        CacheConfig.class, MessageConfig.class,
         OpenApiConfig.class
     },
     webEnvironment = SpringBootTest.WebEnvironment.NONE
@@ -63,13 +59,6 @@ class ConfigBeanTest {
     void s3ClientBeanExists() {
         S3Client s3Client = applicationContext.getBean(S3Client.class);
         assertThat(s3Client).isNotNull();
-    }
-
-    @Test
-    @DisplayName("SesClient 빈 등록 확인")
-    void sesClientBeanExists() {
-        SesClient sesClient = applicationContext.getBean(SesClient.class);
-        assertThat(sesClient).isNotNull();
     }
 
     @Test
