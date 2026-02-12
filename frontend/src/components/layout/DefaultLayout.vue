@@ -258,8 +258,8 @@ const skipToMainContent = (event: Event) => {
           <div class="flex">
             <div class="flex-shrink-0 flex items-center">
               <router-link to="/" class="flex items-center" aria-label="노비스 홈">
-                <!-- 모바일: favicon만 -->
-                <img src="/favicon.ico" alt="" class="h-7 w-7 md:hidden" />
+                <!-- 모바일: favicon (다크모드 대응) -->
+                <img :src="themeStore.isDark ? '/favicon_dark.ico' : '/favicon.ico'" alt="" class="h-7 w-7 md:hidden" />
                 <!-- 데스크톱: 풀 로고 -->
                 <img :src="logoSrc" alt="노비스" class="h-8 w-auto hidden md:block" />
               </router-link>
