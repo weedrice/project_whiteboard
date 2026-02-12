@@ -49,9 +49,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return bearerToken.substring(7);
         }
 
-        String token = request.getParameter("token");
-        if (StringUtils.hasText(token)) {
-            return token;
+        // SSE 스트림 엔드포인트에서만 query parameter 토큰 허용
+        // (EventSource API는 커스텀 헤더 설정이 불가하므로 query parameter로 토큰 전달)
+        if (request.getRequestURI().endsWith("/stream")) {
+            String token = request.getParameter("token");
+            if (StringUtils.hasText(token)) {
+                return token;
+            }
         }
 
         return null;

@@ -27,7 +27,7 @@ Spring Framework 및 라이브러리 설정을 담당합니다.
 ### 1.4 `security`
 인증(Authentication) 및 인가(Authorization) 관련 구현체입니다.
 - **JwtTokenProvider.java**: JWT 토큰 생성, 검증, 파싱을 담당합니다.
-- **JwtAuthenticationFilter.java**: 요청 헤더에서 JWT를 추출하여 인증 정보를 SecurityContext에 저장하는 필터입니다.
+- **JwtAuthenticationFilter.java**: 요청 헤더에서 JWT를 추출하여 인증 정보를 SecurityContext에 저장하는 필터입니다. 토큰은 `Authorization: Bearer` 헤더에서 추출하며, SSE 스트림 엔드포인트(`/stream`)에서만 query parameter(`?token=`)로도 허용합니다(EventSource API는 커스텀 헤더 설정 불가).
 - **CustomUserDetails.java**: Spring Security의 `UserDetails` 구현체로, 인증된 사용자의 정보를 담습니다.
 
 ### 1.5 `log`
