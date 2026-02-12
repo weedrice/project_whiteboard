@@ -55,10 +55,12 @@ const api: AxiosInstance = axios.create({
 api.interceptors.request.use(
     (config: InternalAxiosRequestConfig) => {
         const token = Storage.getString('accessToken')
-        // Skip adding token for auth endpoints to avoid 401s with expired tokens on public endpoints
+        // Skip adding token for auth endpoints to avoid 401s with expired tokens on public endpoints.
+        // 단, 이메일 인증 발송/검증은 로그인 상태에서도 호출되므로(마이페이지) 토큰을 붙여서 서버가 중복 검사 가능하도록 함.
         const isAuthEndpoint = config.url?.includes('/auth/')
+        const isEmailVerificationApi = config.url?.includes('/auth/email/send-verification') || config.url?.includes('/auth/email/verify')
 
-        if (token && !isAuthEndpoint) {
+        if (token && (!isAuthEndpoint || isEmailVerificationApi)) {
             config.headers.Authorization = `Bearer ${token}`
         }
         return config

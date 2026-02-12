@@ -1,4 +1,4 @@
-﻿<script setup>
+<script setup>
 import { ref, reactive, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { authApi } from '@/api/auth'
@@ -198,7 +198,7 @@ async function sendVerificationCode() {
 
   verification.loading = true
   try {
-    const { data } = await authApi.sendVerificationCode(form.value.email)
+    const { data } = await authApi.sendVerificationCode(form.value.email, true)
     if (data.success) {
       verification.isCodeSent = true
       startTimer()

@@ -80,6 +80,10 @@ public class User extends BaseTimeEntity {
         this.profileImageUrl = profileImageUrl;
     }
 
+    public void updateEmail(String email) {
+        this.email = email;
+    }
+
     public void updatePassword(String newPassword) {
         this.password = newPassword;
     }

@@ -276,6 +276,7 @@ export interface AuthMessages {
   verificationFailed: string
   verificationRequired: string
   sendCodeFailed: string
+  emailRequired: string
   validation: {
     passwordStrength: string
     loginIdFormat: string

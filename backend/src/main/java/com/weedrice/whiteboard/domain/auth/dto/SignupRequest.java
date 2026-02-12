@@ -27,8 +27,8 @@ public class SignupRequest {
     @PasswordStrength
     private String password;
 
-    @NotBlank
-    @Email
+    @NotBlank(message = "{validation.email.required}")
+    @Email(message = "{validation.email.format}")
     @NoHtml
     private String email;
 

@@ -29,7 +29,7 @@
         <slot name="suffix"></slot>
       </div>
     </div>
-    <p v-if="error" :id="`${id}-error`" class="text-xs sm:text-sm text-red-600 dark:text-red-400" role="alert">{{ error }}</p>
+    <p v-if="error && !hideErrorText" :id="`${id}-error`" class="text-xs sm:text-sm text-red-600 dark:text-red-400" role="alert">{{ error }}</p>
   </div>
 </template>
 
@@ -49,6 +49,8 @@ const props = withDefaults(defineProps<{
   labelClass?: string
   inputClass?: string
   hideLabel?: boolean
+  /** true면 input만 에러 스타일 적용, 에러 문구는 렌더하지 않음 (부모에서 별도 표시용) */
+  hideErrorText?: boolean
 }>(), {
   id: () => `input-${Math.random().toString(36).substr(2, 9)}`,
   label: '',
@@ -59,7 +61,8 @@ const props = withDefaults(defineProps<{
   error: '',
   labelClass: '',
   inputClass: '',
-  hideLabel: false
+  hideLabel: false,
+  hideErrorText: false
 })
 
 const emit = defineEmits<{

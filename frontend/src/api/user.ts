@@ -43,6 +43,9 @@ export const userApi = {
     deleteAccount(password: string) {
         return api.delete<ApiResponse<void>>('/users/me', { data: { password } }) // DELETE usually sends data in config
     },
+    verifyEmail(payload: { email: string, code: string }) {
+        return api.post<ApiResponse<void>>('/users/me/email-verification', payload)
+    },
     // Settings
     getUserSettings() {
         return api.get<ApiResponse<UserSettings>>('/users/me/settings')

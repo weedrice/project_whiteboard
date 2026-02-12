@@ -2,6 +2,8 @@ package com.weedrice.whiteboard.domain.auth.service;
 
 import com.weedrice.whiteboard.domain.auth.entity.VerificationCode;
 import com.weedrice.whiteboard.domain.auth.repository.VerificationCodeRepository;
+import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.email.EmailService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -10,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Optional;
 import java.util.Random;
 
 @Service
@@ -18,11 +21,34 @@ import java.util.Random;
 public class VerificationCodeService {
 
     private final VerificationCodeRepository verificationCodeRepository;
+    private final UserRepository userRepository;
     private final EmailService emailService;
     private final org.springframework.transaction.support.TransactionTemplate transactionTemplate;
 
+    /**
+     * 이메일 인증 코드 발송.
+     * 중복 검사는 is_email_verified=Y인 사용자만 대상으로 함 (미인증 이메일은 변경·재인증 가능).
+     * @param email 수신 이메일 (형식 검증은 DTO @Email에서 수행)
+     * @param forSignup true이면 회원가입용 - 이미 인증 완료된 이메일이면 DUPLICATE_EMAIL throw
+     * @param currentUserId 로그인한 사용자 ID (마이페이지 등). null이면 비로그인. 마이페이지인 경우 해당 이메일을 인증 완료한 다른 회원이 있으면 DUPLICATE_EMAIL throw
+     */
     @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
-    public void sendVerificationCode(String email) {
+    public void sendVerificationCode(String email, boolean forSignup, Long currentUserId) {
+        if (forSignup) {
+            if (userRepository.existsByEmailAndIsEmailVerifiedTrue(email)) {
+                throw new BusinessException(ErrorCode.DUPLICATE_EMAIL);
+            }
+        } else if (currentUserId != null) {
+            // 마이페이지 등: 해당 이메일을 이미 인증 완료한 다른 회원이 있으면 중복 에러, 본인이거나 미인증 계정이면 허용
+            Optional<User> existing = userRepository.findByEmail(email);
+            if (existing.isPresent()) {
+                User other = existing.get();
+                if (!other.getUserId().equals(currentUserId) && Boolean.TRUE.equals(other.getIsEmailVerified())) {
+                    throw new BusinessException(ErrorCode.DUPLICATE_EMAIL);
+                }
+            }
+        }
+
         String code = generateRandomCode();
 
         transactionTemplate.executeWithoutResult(status -> {

@@ -7,7 +7,7 @@
 - 로그인: Spring Security 인증, Access/Refresh Token 발급, Refresh Token SHA-256 해시 저장(ip/디바이스/만료), 로그인 이력 기록 및 `last_login_at` 갱신.
 - 로그아웃: 전달받은 Refresh Token 해시를 찾아 폐기 상태로 변경.
 - 토큰 재발급: 저장된 Refresh Token 유효성 검증 후 폐기, 동일 기기 정보로 새 토큰 발급.
-- 이메일 인증: 인증 코드 발송·검증, 비밀번호 재설정 후 인증 상태 초기화.
+- 이메일 인증: 인증 코드 발송(@Async 비동기)·검증. 검증 성공 시 해당 이메일의 유저가 존재하면 `isEmailVerified`를 true로 업데이트. 비밀번호 재설정 후 인증 상태 초기화.
 - 계정 찾기/재설정: 인증된 이메일로 로그인 ID 찾기, 재설정 링크/코드 발송 및 토큰 유효성 검증 뒤 비밀번호 변경.
 
 ## 2. API Endpoints

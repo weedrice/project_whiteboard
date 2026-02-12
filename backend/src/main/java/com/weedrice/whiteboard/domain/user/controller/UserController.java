@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.user.controller;
 
+import com.weedrice.whiteboard.domain.auth.dto.VerifyCodeRequest; // Import VerifyCodeRequest
 import com.weedrice.whiteboard.domain.board.dto.BoardResponse;
 import com.weedrice.whiteboard.domain.board.service.BoardService;
 import com.weedrice.whiteboard.domain.comment.dto.MyCommentResponse;
@@ -58,6 +59,14 @@ public class UserController {
                         @AuthenticationPrincipal CustomUserDetails userDetails) {
                 return ResponseEntity.ok(ApiResponse.success(userService.updateMyProfile(userDetails.getUserId(),
                                 request.getDisplayName(), request.getProfileImageUrl(), request.getProfileImageId())));
+        }
+
+        @PostMapping("/me/email-verification")
+        public ResponseEntity<ApiResponse<Void>> verifyEmail(
+                        @Valid @RequestBody VerifyCodeRequest request,
+                        @AuthenticationPrincipal CustomUserDetails userDetails) {
+                userService.verifyAndChangeEmail(userDetails.getUserId(), request.getEmail(), request.getCode());
+                return ResponseEntity.ok(ApiResponse.success(null));
         }
 
         @PutMapping("/me/password")

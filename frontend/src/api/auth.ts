@@ -24,8 +24,9 @@ export const authApi = {
     // Get Current User
     getMe: (config?: AxiosRequestConfig) => api.get<ApiResponse<User>>('/users/me', config),
 
-    // Email Verification
-    sendVerificationCode: (email: string) => api.post<ApiResponse<void>>('/auth/email/send-verification', { email }, { skipAuthRefresh: true }),
+    // Email Verification (forSignup: true면 회원가입용, 이미 가입된 이메일이면 서버에서 중복 에러)
+    sendVerificationCode: (email: string, forSignup?: boolean) =>
+        api.post<ApiResponse<void>>('/auth/email/send-verification', { email, forSignup: forSignup ?? false }, { skipAuthRefresh: true }),
     verifyCode: (email: string, code: string) => api.post<ApiResponse<boolean>>('/auth/email/verify', { email, code }, { skipAuthRefresh: true }),
 
     // Find ID

@@ -106,7 +106,7 @@ class AuthServiceTest {
                                 .build();
 
                 when(userRepository.existsByLoginId(request.getLoginId())).thenReturn(false);
-                when(userRepository.existsByEmail(request.getEmail())).thenReturn(false);
+                when(userRepository.existsByEmailAndIsEmailVerifiedTrue(request.getEmail())).thenReturn(false);
                 when(passwordEncoder.encode(request.getPassword())).thenReturn("encodedPassword");
                 when(globalConfigService.getConfig(anyString())).thenReturn("500");
                 when(userRepository.save(any(User.class))).thenReturn(user);
@@ -154,7 +154,7 @@ class AuthServiceTest {
                                 .displayName("Test User")
                                 .build();
                 when(userRepository.existsByLoginId(request.getLoginId())).thenReturn(false);
-                when(userRepository.existsByEmail(request.getEmail())).thenReturn(true);
+                when(userRepository.existsByEmailAndIsEmailVerifiedTrue(request.getEmail())).thenReturn(true);
 
                 // when & then
                 BusinessException exception = assertThrows(BusinessException.class, () -> authService.signup(request));

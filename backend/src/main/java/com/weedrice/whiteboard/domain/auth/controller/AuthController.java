@@ -18,6 +18,7 @@ import com.weedrice.whiteboard.domain.auth.service.AuthService;
 import com.weedrice.whiteboard.domain.auth.service.VerificationCodeService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.annotation.ApiCommonResponses;
+import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
@@ -28,6 +29,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -136,8 +138,13 @@ public class AuthController {
 
     @PostMapping("/email/send-verification")
     public ResponseEntity<ApiResponse<Void>> sendVerificationCode(
-            @Valid @RequestBody EmailVerificationRequest request) {
-        verificationCodeService.sendVerificationCode(request.getEmail());
+            @Valid @RequestBody EmailVerificationRequest request,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        Long currentUserId = userDetails != null ? userDetails.getUserId() : null;
+        verificationCodeService.sendVerificationCode(
+                request.getEmail(),
+                Boolean.TRUE.equals(request.getForSignup()),
+                currentUserId);
         return ResponseEntity.ok(ApiResponse.success(null));
     }
 

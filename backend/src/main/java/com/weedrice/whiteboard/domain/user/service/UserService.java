@@ -18,6 +18,7 @@ import com.weedrice.whiteboard.domain.user.repository.UserSettingsRepository;
 import com.weedrice.whiteboard.domain.user.dto.UserAdminResponse;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.user.entity.Role;
+import com.weedrice.whiteboard.domain.auth.service.VerificationCodeService; // Import VerificationCodeService
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -47,6 +48,7 @@ public class UserService {
     private final FileService fileService;
     private final com.weedrice.whiteboard.domain.point.repository.UserPointRepository userPointRepository;
     private final AdminRepository adminRepository;
+    private final VerificationCodeService verificationCodeService; // Inject VerificationCodeService
 
     public Long findUserIdByLoginId(String loginId) {
         User user = userRepository.findByLoginId(loginId)
@@ -226,6 +228,28 @@ public class UserService {
 
         settings.updateSettings(theme, language, timezone, hideNsfw);
         return settings;
+    }
+
+    @Transactional
+    public void verifyAndChangeEmail(Long userId, String email, String code) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+        // 이미 사용 중인 이메일인지 확인 (본인 이메일 제외)
+        if (!user.getEmail().equals(email) && userRepository.findByEmail(email).isPresent()) {
+            throw new BusinessException(ErrorCode.DUPLICATE_EMAIL); // Need to check if DUPLICATE_EMAIL exists or use
+                                                                    // VALIDATION_ERROR
+        }
+
+        // 코드 검증
+        verificationCodeService.verifyCode(email, code);
+
+        // 이메일 변경 및 인증 상태 업데이트
+        if (!user.getEmail().equals(email)) {
+            user.updateEmail(email);
+        }
+
+        user.verifyEmail();
     }
 
     public UserSettings getSettings(Long userId) {

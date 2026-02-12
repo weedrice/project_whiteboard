@@ -1,21 +1,25 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { userApi } from '@/api/user'
-import { User, Mail, Calendar, FileText, CheckCircle, XCircle, Clock, MessageSquare } from 'lucide-vue-next'
+import { User, Mail, Calendar, FileText, CheckCircle, XCircle, Clock, MessageSquare, ShieldCheck } from 'lucide-vue-next'
+import { authApi } from '@/api/auth'
 import PostList from '@/components/board/PostList.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
+import BaseInput from '@/components/common/ui/BaseInput.vue'
 import ProfileEditor from '@/components/user/ProfileEditor.vue'
 import Pagination from '@/components/common/ui/Pagination.vue'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import EmptyState from '@/components/common/ui/EmptyState.vue'
 import { useErrorHandler } from '@/composables/useErrorHandler'
+import { useToastStore } from '@/stores/toast'
 import { getOptimizedProfileImageUrl, handleImageError } from '@/utils/image'
 import type { User as UserType, PostSummary, Comment } from '@/types'
 
 const { t } = useI18n()
 const { handleSilentError } = useErrorHandler()
+const toastStore = useToastStore()
 
 // 이모티콘 마크다운을 이미지로 변환 (내 댓글 목록용)
 function renderCommentContent(content: string | undefined): string {
@@ -99,6 +103,142 @@ function handleMyCommentsPageChange(page: number) {
   fetchMyComments()
 }
 
+// Email Verification
+const isVerifyModalOpen = ref(false)
+const emailVerification = reactive({
+  email: '',
+  code: '',
+  isCodeSent: false,
+  isVerified: false,
+  loading: false,
+  timeLeft: 0,
+  resendCooldown: 0
+})
+let verifyTimerInterval: ReturnType<typeof setInterval> | null = null
+let verifyResendInterval: ReturnType<typeof setInterval> | null = null
+
+function openVerifyModal() {
+  emailVerification.email = profile.value?.email || ''
+  emailVerification.code = ''
+  emailVerification.isCodeSent = false
+  emailVerification.isVerified = false
+  emailVerification.loading = false
+  emailVerification.timeLeft = 0
+  emailVerification.resendCooldown = 0
+  stopVerifyTimer()
+  stopVerifyResendCooldown()
+  isVerifyModalOpen.value = true
+}
+
+function startVerifyTimer() {
+  stopVerifyTimer()
+  emailVerification.timeLeft = 300
+  verifyTimerInterval = setInterval(() => {
+    if (emailVerification.timeLeft > 0) {
+      emailVerification.timeLeft--
+    } else {
+      stopVerifyTimer()
+    }
+  }, 1000)
+}
+
+function stopVerifyTimer() {
+  if (verifyTimerInterval) {
+    clearInterval(verifyTimerInterval)
+    verifyTimerInterval = null
+  }
+}
+
+function startVerifyResendCooldown() {
+  stopVerifyResendCooldown()
+  emailVerification.resendCooldown = 60
+  verifyResendInterval = setInterval(() => {
+    if (emailVerification.resendCooldown > 0) {
+      emailVerification.resendCooldown--
+    } else {
+      stopVerifyResendCooldown()
+    }
+  }, 1000)
+}
+
+function stopVerifyResendCooldown() {
+  if (verifyResendInterval) {
+    clearInterval(verifyResendInterval)
+    verifyResendInterval = null
+  }
+}
+
+function formatVerifyTime(seconds: number) {
+  const m = Math.floor(seconds / 60)
+  const s = seconds % 60
+  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
+}
+
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+function isValidEmail(email: string): boolean {
+  return email.trim().length > 0 && emailRegex.test(email.trim())
+}
+
+async function sendVerifyCode() {
+  const trimmed = emailVerification.email.trim()
+  if (!trimmed) {
+    toastStore.addToast(t('auth.emailRequired'), 'error')
+    return
+  }
+  if (!isValidEmail(trimmed)) {
+    toastStore.addToast(t('auth.validation.emailFormat'), 'error')
+    return
+  }
+
+  emailVerification.loading = true
+  try {
+    const { data } = await authApi.sendVerificationCode(emailVerification.email)
+    if (data.success) {
+      emailVerification.isCodeSent = true
+      startVerifyTimer()
+      startVerifyResendCooldown()
+      toastStore.addToast(t('auth.codeSent'), 'success')
+    }
+  } catch (err: any) {
+    const message = err.response?.data?.error?.message || t('auth.sendCodeFailed')
+    toastStore.addToast(message, 'error')
+    emailVerification.resendCooldown = 0
+    stopVerifyResendCooldown()
+  } finally {
+    emailVerification.loading = false
+  }
+}
+
+async function verifyEmailCode() {
+  if (!emailVerification.code || !emailVerification.email) return
+
+  if (emailVerification.timeLeft <= 0) {
+    toastStore.addToast(t('auth.codeExpired'), 'error')
+    return
+  }
+
+  emailVerification.loading = true
+  try {
+    const { data } = await userApi.verifyEmail({
+      email: emailVerification.email,
+      code: emailVerification.code
+    })
+    if (data.success) {
+      emailVerification.isVerified = true
+      stopVerifyTimer()
+      toastStore.addToast(t('auth.codeVerified'), 'success')
+      // 프로필 새로고침
+      await fetchMyProfile()
+      isVerifyModalOpen.value = false
+    }
+  } catch (err: any) {
+    const message = err.response?.data?.error?.message || t('auth.verificationFailed')
+    toastStore.addToast(message, 'error')
+  } finally {
+    emailVerification.loading = false
+  }
+}
+
 onMounted(async () => {
   isLoading.value = true
   await Promise.all([
@@ -107,6 +247,11 @@ onMounted(async () => {
     fetchMyComments()
   ])
   isLoading.value = false
+})
+
+onUnmounted(() => {
+  stopVerifyTimer()
+  stopVerifyResendCooldown()
 })
 </script>
 
@@ -152,12 +297,15 @@ onMounted(async () => {
                 {{ profile?.displayName?.[0] || 'U' }}
               </div>
               <div class="min-w-0">
-                <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white truncate">{{ profile?.displayName }}</h3>
+                <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white truncate">{{ profile?.displayName
+                }}</h3>
                 <p class="mt-1 max-w-2xl text-sm text-gray-500 dark:text-gray-400">{{ $t('user.profile.personalDetails')
                 }}</p>
               </div>
             </div>
-            <BaseButton @click="isEditModalOpen = true" class="w-full sm:w-auto min-h-[44px] sm:min-h-0 flex items-center justify-center">{{ $t('user.profile.edit') }}</BaseButton>
+            <BaseButton @click="isEditModalOpen = true"
+              class="w-full sm:w-auto min-h-[44px] sm:min-h-0 flex items-center justify-center">{{
+                $t('user.profile.edit') }}</BaseButton>
           </div>
           <div class="border-t border-gray-200 dark:border-gray-700 px-4 py-5 sm:p-0">
             <dl class="sm:divide-y sm:divide-gray-200 dark:sm:divide-gray-700">
@@ -180,10 +328,10 @@ onMounted(async () => {
                     class="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-400">
                     <CheckCircle class="h-3 w-3 mr-1" /> {{ $t('user.profile.verified') }}
                   </span>
-                  <span v-else
-                    class="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-400">
+                  <button v-else @click="openVerifyModal" type="button"
+                    class="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-800/50 transition-colors cursor-pointer">
                     <XCircle class="h-3 w-3 mr-1" /> {{ $t('user.profile.notVerified') }}
-                  </span>
+                  </button>
                 </dd>
               </div>
               <div class="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
@@ -238,7 +386,8 @@ onMounted(async () => {
             <ul role="list" class="divide-y divide-gray-200 dark:divide-gray-700">
               <li v-for="comment in myComments" :key="comment.commentId"
                 class="px-4 py-4 sm:px-6 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200 min-h-[44px]">
-                <router-link v-if="comment.post" :to="`/board/${comment.post.boardUrl}/post/${comment.post.postId}`" class="block">
+                <router-link v-if="comment.post" :to="`/board/${comment.post.boardUrl}/post/${comment.post.postId}`"
+                  class="block">
                   <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
                     <div class="flex flex-wrap items-center gap-2 min-w-0">
                       <span
@@ -253,13 +402,15 @@ onMounted(async () => {
                       formatDate(comment.createdAt) }}</p>
                   </div>
                   <div class="mt-1 comment-content-list">
-                    <p class="text-sm text-gray-900 dark:text-gray-300 line-clamp-2" v-html="renderCommentContent(comment.content) || comment.content"></p>
+                    <p class="text-sm text-gray-900 dark:text-gray-300 line-clamp-2"
+                      v-html="renderCommentContent(comment.content) || comment.content"></p>
                   </div>
                 </router-link>
                 <div v-else class="block">
                   <p class="text-sm text-gray-500 dark:text-gray-400">{{ t('user.comments.deletedPost') }}</p>
                   <div class="comment-content-list mt-1">
-                    <p class="text-sm text-gray-900 dark:text-gray-300 line-clamp-2" v-html="renderCommentContent(comment.content) || comment.content"></p>
+                    <p class="text-sm text-gray-900 dark:text-gray-300 line-clamp-2"
+                      v-html="renderCommentContent(comment.content) || comment.content"></p>
                   </div>
                 </div>
               </li>
@@ -274,9 +425,69 @@ onMounted(async () => {
         </div>
       </div>
 
-      <BaseModal :isOpen="isEditModalOpen" :title="$t('user.profile.edit')" @close="isEditModalOpen = false"
-        mobile-full mobile-fit-content>
+      <BaseModal :isOpen="isEditModalOpen" :title="$t('user.profile.edit')" @close="isEditModalOpen = false" mobile-full
+        mobile-fit-content>
         <ProfileEditor @close="isEditModalOpen = false" />
+      </BaseModal>
+
+      <!-- Email Verification Modal -->
+      <BaseModal :isOpen="isVerifyModalOpen" :title="$t('auth.emailNotVerified')" @close="isVerifyModalOpen = false">
+        <div class="space-y-6 p-4">
+          <!-- Email Input & Send Button (에러 시에도 버튼는 입력창 baseline에 맞춤) -->
+          <div class="flex flex-col">
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              {{ t('user.profile.email') }}
+            </label>
+            <div class="flex gap-2 items-end">
+              <div class="flex-1 min-w-0">
+                <BaseInput v-model="emailVerification.email" :placeholder="t('auth.emailPlaceholder')"
+                  :disabled="emailVerification.isCodeSent" inputClass="h-11 min-h-[44px]" hideLabel
+                  :error="emailVerification.email.trim() && !isValidEmail(emailVerification.email) ? t('auth.validation.emailFormat') : ''"
+                  hideErrorText />
+              </div>
+              <BaseButton @click="sendVerifyCode"
+                :disabled="emailVerification.loading || (emailVerification.isCodeSent && emailVerification.resendCooldown > 0) || !isValidEmail(emailVerification.email.trim())"
+                :loading="emailVerification.loading" class="h-11 min-h-[44px] shrink-0">
+                <span v-if="emailVerification.isCodeSent && emailVerification.resendCooldown > 0">
+                  {{ formatVerifyTime(emailVerification.resendCooldown) }}
+                </span>
+                <span v-else>
+                  {{ emailVerification.isCodeSent ? t('auth.resendCode') : t('auth.sendCode') }}
+                </span>
+              </BaseButton>
+            </div>
+            <p v-if="emailVerification.email.trim() && !isValidEmail(emailVerification.email)"
+              class="text-xs sm:text-sm text-red-600 dark:text-red-400 mt-1" role="alert">
+              {{ t('auth.validation.emailFormat') }}
+            </p>
+          </div>
+
+          <!-- Code Input area -->
+          <div v-if="emailVerification.isCodeSent" class="space-y-4">
+            <div class="relative">
+              <BaseInput v-model="emailVerification.code" :placeholder="t('auth.codePlaceholder')" hideLabel
+                :disabled="emailVerification.timeLeft <= 0">
+                <template #prefix>
+                  <ShieldCheck class="h-5 w-5 text-gray-400" />
+                </template>
+              </BaseInput>
+              <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium"
+                :class="emailVerification.timeLeft <= 60 ? 'text-red-500' : 'text-gray-500'">
+                {{ formatVerifyTime(emailVerification.timeLeft) }}
+              </span>
+            </div>
+
+            <p v-if="emailVerification.timeLeft <= 0" class="text-xs text-red-500">
+              {{ t('auth.codeExpired') }}
+            </p>
+
+            <BaseButton @click="verifyEmailCode"
+              :disabled="emailVerification.loading || emailVerification.timeLeft <= 0 || !emailVerification.code"
+              :loading="emailVerification.loading" variant="primary" class="w-full">
+              {{ t('auth.verifyCode') }}
+            </BaseButton>
+          </div>
+        </div>
       </BaseModal>
     </div>
   </div>

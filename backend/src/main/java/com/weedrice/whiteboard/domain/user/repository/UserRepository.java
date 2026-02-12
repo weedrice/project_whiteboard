@@ -12,6 +12,10 @@ public interface UserRepository extends JpaRepository<User, Long>, UserRepositor
     Optional<User> findByLoginId(String loginId);
     boolean existsByLoginId(String loginId);
     boolean existsByEmail(String email);
+
+    /** 이메일 중복 검사 시 사용 - 인증 완료(is_email_verified=Y)인 사용자만 대상 */
+    boolean existsByEmailAndIsEmailVerifiedTrue(String email);
+
     Optional<User> findByEmail(String email);
     long countByLastLoginAtAfter(java.time.LocalDateTime lastLoginAt);
     Page<User> findByDisplayNameContainingIgnoreCaseAndStatus(String displayName, String status, Pageable pageable);
