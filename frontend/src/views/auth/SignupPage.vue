@@ -17,6 +17,7 @@ const router = useRouter()
 const form = ref({
   loginId: '',
   password: '',
+  passwordConfirm: '',
   email: '',
   displayName: ''
 })
@@ -25,6 +26,7 @@ const form = ref({
 const fieldErrors = reactive({
   loginId: '',
   password: '',
+  passwordConfirm: '',
   email: '',
   displayName: ''
 })
@@ -33,6 +35,7 @@ const fieldErrors = reactive({
 const touched = reactive({
   loginId: false,
   password: false,
+  passwordConfirm: false,
   email: false,
   displayName: false
 })
@@ -57,6 +60,21 @@ function validatePassword() {
     fieldErrors.password = t('auth.validation.passwordStrength')
   } else {
     fieldErrors.password = ''
+  }
+  // 비밀번호가 변경되면 확인 필드도 재검증
+  if (touched.passwordConfirm) {
+    validatePasswordConfirm()
+  }
+}
+
+function validatePasswordConfirm() {
+  if (!touched.passwordConfirm) return
+  if (isEmpty(form.value.passwordConfirm)) {
+    fieldErrors.passwordConfirm = ''
+  } else if (form.value.password !== form.value.passwordConfirm) {
+    fieldErrors.passwordConfirm = t('auth.passwordMismatch')
+  } else {
+    fieldErrors.passwordConfirm = ''
   }
 }
 
@@ -93,6 +111,11 @@ watch(() => form.value.password, () => {
   validatePassword()
 })
 
+watch(() => form.value.passwordConfirm, () => {
+  touched.passwordConfirm = true
+  validatePasswordConfirm()
+})
+
 watch(() => form.value.email, () => {
   touched.email = true
   validateEmail()
@@ -108,10 +131,12 @@ const verification = reactive({
   isCodeSent: false,
   isVerified: false,
   loading: false,
-  timeLeft: 0
+  timeLeft: 0,
+  resendCooldown: 0
 })
 
 let timerInterval = null
+let resendInterval = null
 
 const error = ref('')
 const isLoading = ref(false)
@@ -135,6 +160,25 @@ function stopTimer() {
   }
 }
 
+function startResendCooldown() {
+  stopResendCooldown()
+  verification.resendCooldown = 60 // 60초 쿨다운
+  resendInterval = setInterval(() => {
+    if (verification.resendCooldown > 0) {
+      verification.resendCooldown--
+    } else {
+      stopResendCooldown()
+    }
+  }, 1000)
+}
+
+function stopResendCooldown() {
+  if (resendInterval) {
+    clearInterval(resendInterval)
+    resendInterval = null
+  }
+}
+
 function formatTime(seconds) {
   const m = Math.floor(seconds / 60)
   const s = seconds % 60
@@ -143,6 +187,7 @@ function formatTime(seconds) {
 
 onUnmounted(() => {
   stopTimer()
+  stopResendCooldown()
 })
 
 async function sendVerificationCode() {
@@ -157,11 +202,15 @@ async function sendVerificationCode() {
     if (data.success) {
       verification.isCodeSent = true
       startTimer()
+      startResendCooldown()
       toastStore.addToast(t('auth.codeSent'), 'success')
     }
   } catch (err) {
     const message = err.response?.data?.error?.message || t('auth.sendCodeFailed')
     toastStore.addToast(message, 'error')
+    // 실패 시 즉시 재발송 가능하도록 쿨다운 초기화
+    verification.resendCooldown = 0
+    stopResendCooldown()
   } finally {
     verification.loading = false
   }
@@ -200,16 +249,18 @@ async function handleSignup() {
   // 모든 필드를 touched로 표시하고 전체 validation 수행
   touched.loginId = true
   touched.password = true
+  touched.passwordConfirm = true
   touched.email = true
   touched.displayName = true
 
   validateLoginId()
   validatePassword()
+  validatePasswordConfirm()
   validateEmail()
   validateDisplayName()
 
   // 에러가 있으면 중단
-  if (fieldErrors.loginId || fieldErrors.password || fieldErrors.email || fieldErrors.displayName) {
+  if (fieldErrors.loginId || fieldErrors.password || fieldErrors.passwordConfirm || fieldErrors.email || fieldErrors.displayName) {
     return
   }
 
@@ -222,6 +273,14 @@ async function handleSignup() {
     toastStore.addToast(t('auth.placeholders.password'), 'error')
     return
   }
+  if (isEmpty(form.value.passwordConfirm)) {
+    toastStore.addToast(t('auth.newPasswordConfirm'), 'error')
+    return
+  }
+  if (form.value.password !== form.value.passwordConfirm) {
+    toastStore.addToast(t('auth.passwordMismatch'), 'error')
+    return
+  }
   if (isEmpty(form.value.email)) {
     toastStore.addToast(t('auth.placeholders.newEmail'), 'error')
     return
@@ -231,11 +290,18 @@ async function handleSignup() {
     return
   }
 
+  // 이메일 인증 여부 체크
+  if (!verification.isVerified) {
+    toastStore.addToast(t('auth.verificationRequired'), 'error')
+    return
+  }
+
   isLoading.value = true
 
   try {
+    const { passwordConfirm, ...formData } = form.value
     const signupData = {
-      ...form.value,
+      ...formData,
       provider: route.query.provider || null,
       providerId: route.query.providerId || null
     }
@@ -247,7 +313,7 @@ async function handleSignup() {
     }
   } catch (err) {
     const message = err.response?.data?.error?.message || t('auth.signupFailed')
-    toastStore.addToast(message, 'error', 3000, 'top-center')
+    toastStore.addToast(message, 'error')
   } finally {
     isLoading.value = false
   }
@@ -307,33 +373,50 @@ onMounted(() => {
             {{ fieldErrors.password }}
           </p>
         </div>
+        <div>
+          <BaseInput id="password-confirm" v-model="form.passwordConfirm" name="passwordConfirm" type="password"
+            required :placeholder="$t('auth.newPasswordConfirm')" :label="$t('auth.newPasswordConfirm')" hideLabel>
+            <template #prefix>
+              <Lock class="h-5 w-5 text-gray-400" />
+            </template>
+          </BaseInput>
+          <p v-if="fieldErrors.passwordConfirm" class="text-xs text-red-500 mt-1 ml-1">
+            {{ fieldErrors.passwordConfirm }}
+          </p>
+        </div>
 
         <!-- Email Verification -->
-        <!-- <div>
+        <div>
           <div class="flex gap-2 items-start">
             <div class="flex-grow">
               <BaseInput id="email" v-model="form.email" name="email" type="email" required
                 :placeholder="$t('auth.placeholders.newEmail')" :label="$t('common.email')" hideLabel
-                :disabled="verification.isCodeSent && verification.timeLeft > 0">
+                :disabled="verification.isVerified">
                 <template #prefix>
                   <Mail class="h-5 w-5 text-gray-400" />
                 </template>
               </BaseInput>
             </div>
-            <BaseButton type="button" @click="sendVerificationCode"
-              :disabled="(verification.isCodeSent && verification.timeLeft > 0) || verification.loading"
-              :loading="verification.loading && !verification.isCodeSent">
-              <span v-if="verification.isCodeSent && verification.timeLeft > 0">
+            <BaseButton v-if="!verification.isVerified" type="button" @click="sendVerificationCode"
+              :disabled="verification.resendCooldown > 0 || verification.loading" :loading="verification.loading">
+              <span v-if="verification.resendCooldown > 0">
                 {{ t('common.sent') }}
               </span>
-              <span v-else-if="verification.isCodeSent && verification.timeLeft <= 0">
+              <span v-else-if="verification.isCodeSent">
                 {{ t('auth.resendCode') }}
               </span>
               <span v-else>
                 {{ t('auth.sendCode') }}
               </span>
             </BaseButton>
+            <span v-else class="flex items-center text-green-500 text-sm font-medium whitespace-nowrap py-2 px-3">
+              <CheckCircle class="h-4 w-4 mr-1" />
+              {{ t('auth.codeVerified') }}
+            </span>
           </div>
+          <p v-if="fieldErrors.email" class="text-xs text-red-500 mt-1 ml-1">
+            {{ fieldErrors.email }}
+          </p>
 
           <div v-if="verification.isCodeSent && !verification.isVerified"
             class="flex gap-2 items-start mt-4 animate-fade-in-down">
@@ -349,27 +432,14 @@ onMounted(() => {
                 {{ formatTime(verification.timeLeft) }}
               </span>
             </div>
-            <BaseButton type="button" @click="verifyCode"
-              :disabled="verification.loading || verification.timeLeft <= 0" :loading="verification.loading">
+            <BaseButton type="button" @click="verifyCode" :disabled="verification.loading || verification.timeLeft <= 0"
+              :loading="verification.loading">
               {{ t('auth.verifyCode') }}
             </BaseButton>
           </div>
           <p v-if="verification.isCodeSent && verification.timeLeft <= 0 && !verification.isVerified"
             class="text-xs text-red-500 mt-1 ml-1">
             {{ t('auth.codeExpired') }}
-          </p>
-        </div> -->
-
-        <!-- Email Input (Without Verification) -->
-        <div>
-          <BaseInput id="email" v-model="form.email" name="email" type="email" required
-            :placeholder="$t('auth.placeholders.newEmail')" :label="$t('common.email')" hideLabel>
-            <template #prefix>
-              <Mail class="h-5 w-5 text-gray-400" />
-            </template>
-          </BaseInput>
-          <p v-if="fieldErrors.email" class="text-xs text-red-500 mt-1 ml-1">
-            {{ fieldErrors.email }}
           </p>
         </div>
 

@@ -18,19 +18,25 @@ Spring Framework 및 라이브러리 설정을 담당합니다.
 - **QuerydslConfig.java**: QueryDSL `JPAQueryFactory` 빈 등록.
 - **OpenApiConfig.java**: Swagger/OpenAPI 문서 설정.
 
-### 1.3 `exception`
+### 1.3 `email`
+이메일 발송을 담당합니다. Google Workspace SMTP (앱 비밀번호 방식)를 사용합니다.
+- **EmailService.java**: 이메일 발송 인터페이스.
+- **SmtpEmailService.java**: `JavaMailSender`를 사용한 SMTP 이메일 서비스 구현체. `spring.mail.*` 설정을 사용합니다. `@Async`로 비동기 처리되어 API 응답을 블로킹하지 않습니다. 발송 실패 시 서버 로그에 기록됩니다.
+- **사용처**: 회원가입 이메일 인증 코드 발송 (`VerificationCodeService`), 비밀번호 재설정 링크 발송 (`AuthService`).
+
+### 1.4 `exception`
 전역 예외 처리 전략을 정의합니다.
 - **ErrorCode.java**: 애플리케이션에서 발생하는 모든 에러 코드와 메시지를 정의한 Enum입니다.
 - **BusinessException.java**: 비즈니스 로직에서 발생하는 예외의 기본 클래스입니다.
 - **GlobalExceptionHandler.java**: `@ControllerAdvice`를 사용하여 애플리케이션 전역에서 발생하는 예외를 포착하고 표준 `ApiResponse` 포맷으로 변환합니다.
 
-### 1.4 `security`
+### 1.5 `security`
 인증(Authentication) 및 인가(Authorization) 관련 구현체입니다.
 - **JwtTokenProvider.java**: JWT 토큰 생성, 검증, 파싱을 담당합니다.
 - **JwtAuthenticationFilter.java**: 요청 헤더에서 JWT를 추출하여 인증 정보를 SecurityContext에 저장하는 필터입니다. 토큰은 `Authorization: Bearer` 헤더에서 추출하며, SSE 스트림 엔드포인트(`/stream`)에서만 query parameter(`?token=`)로도 허용합니다(EventSource API는 커스텀 헤더 설정 불가).
 - **CustomUserDetails.java**: Spring Security의 `UserDetails` 구현체로, 인증된 사용자의 정보를 담습니다.
 
-### 1.5 `log`
+### 1.6 `log`
 시스템 로깅 및 감사 로그 처리를 담당합니다.
 - AOP를 활용한 요청/응답 로깅 등을 수행할 수 있습니다.
 

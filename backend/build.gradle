@@ -59,10 +59,12 @@ dependencies {
 	testRuntimeOnly 'com.h2database:h2'
 	testImplementation 'org.springframework.boot:spring-boot-autoconfigure' // Add this line
 
-	// AWS SDK v2
+	// Spring Mail (Google SMTP)
+	implementation 'org.springframework.boot:spring-boot-starter-mail'
+
+	// AWS SDK v2 (S3 only)
 	implementation platform('software.amazon.awssdk:bom:2.21.1')
 	implementation 'software.amazon.awssdk:s3'
-	implementation 'software.amazon.awssdk:ses'
 }
 
 tasks.named('test') {

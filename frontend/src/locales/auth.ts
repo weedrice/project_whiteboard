@@ -40,6 +40,7 @@ export const auth: AuthMessages = {
   emailNotVerified: '이메일 인증이 필요합니다.',
   passwordMismatch: '비밀번호가 일치하지 않습니다.',
   verificationFailed: '인증에 실패했습니다.',
+  verificationRequired: '이메일 인증을 완료해주세요.',
   sendCodeFailed: '인증 코드 발송에 실패했습니다.',
   validation: {
     passwordStrength: '비밀번호는 8~20자이며, 영대문자/영소문자/숫자/특수문자 중 3종류 이상을 포함해야 합니다.',

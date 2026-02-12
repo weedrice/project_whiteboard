@@ -79,9 +79,9 @@ public class AuthService {
             throw new BusinessException(ErrorCode.DUPLICATE_EMAIL);
         }
 
-        // if (!verificationCodeService.isVerified(request.getEmail())) {
-        // throw new BusinessException(ErrorCode.EMAIL_NOT_VERIFIED);
-        // }
+        if (!verificationCodeService.isVerified(request.getEmail())) {
+            throw new BusinessException(ErrorCode.EMAIL_NOT_VERIFIED);
+        }
 
         User user = User.builder()
                 .loginId(request.getLoginId())
@@ -212,12 +212,12 @@ public class AuthService {
     @Transactional
     public RefreshResponse refresh(RefreshRequest request) {
         String oldRefreshToken = request.getRefreshToken();
-        
+
         // 1. JWT 자체의 유효성 검증 (서명, 만료일 등)
         if (!jwtTokenProvider.validateToken(oldRefreshToken)) {
             throw new BusinessException(ErrorCode.INVALID_REFRESH_TOKEN);
         }
-        
+
         // 2. DB에서 refresh token 조회
         String oldRefreshTokenHash = hashTokenSha256(oldRefreshToken);
         RefreshToken rt = refreshTokenRepository.findByTokenHash(oldRefreshTokenHash)

@@ -63,6 +63,24 @@ spring:
         default_batch_fetch_size: 100
     database: postgresql
     database-platform: org.hibernate.dialect.PostgreSQLDialect
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_APP_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+          ssl:
+            protocols: TLSv1.2
+            trust: smtp.gmail.com
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
 
 logging:
   level:
@@ -92,11 +110,6 @@ cloud:
     credentials:
       access-key: ${AWS_ACCESS_KEY}
       secret-key: ${AWS_SECRET_KEY}
-    ses:
-      credentials:
-        access-key: ${AWS_SES_ACCESS_KEY}
-        secret-key: ${AWS_SES_SECRET_KEY}
-      sender: ${AWS_SES_SENDER}
     region:
       static: ${AWS_S3_REGION}
     s3:

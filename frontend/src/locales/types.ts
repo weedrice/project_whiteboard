@@ -274,6 +274,7 @@ export interface AuthMessages {
   emailNotVerified: string
   passwordMismatch: string
   verificationFailed: string
+  verificationRequired: string
   sendCodeFailed: string
   validation: {
     passwordStrength: string
