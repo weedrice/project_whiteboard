@@ -90,10 +90,11 @@ interface ToastStore {
     addToast: (message: string, type?: 'info' | 'success' | 'warning' | 'error', duration?: number, position?: 'top-center' | 'bottom-center') => void
 }
 
-/** Axios 기본 메시지(예: "Request Failed with status code 502")면 서버 에러 문구로 치환 */
+/** Axios 기본 메시지(예: "Request failed with status code 500/502")면 공통 서버 에러 문구로 치환 */
 const normalizeErrorMessage = (message: string | undefined): string => {
     if (!message) return t('common.messages.serverError')
-    if (/^Request Failed with status code \d{3}$/.test(message)) {
+    const trimmed = message.trim()
+    if (/request failed with status code \d{3}/i.test(trimmed)) {
         return t('common.messages.serverError')
     }
     return message
@@ -135,7 +136,10 @@ const handleApiError = (error: AxiosError, toastStore: ToastStore) => {
                 toastStore.addToast(message || t('common.messages.notFound'), 'error', 3000, 'top-center')
                 break
             case 500:
-                toastStore.addToast(message || t('common.messages.serverError'), 'error', 3000, 'top-center')
+            case 502:
+            case 503:
+            case 504:
+                toastStore.addToast(t('common.messages.serverError'), 'error', 3000, 'top-center')
                 break
             default:
                 if (status !== 401) {
