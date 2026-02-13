@@ -24,7 +24,7 @@ describe('Toast Store', () => {
                 message: 'Test message',
                 type: 'info',
                 duration: 3000,
-                position: 'bottom-center'
+                position: 'top-center'
             })
         })
 
