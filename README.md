@@ -29,10 +29,14 @@ cd project_whiteboard
 ### 2. 백엔드 실행 (Backend)
 ```bash
 cd backend
+# Windows (PowerShell / CMD)
+.\gradlew bootRun
+# Linux / Mac
 ./gradlew bootRun
 ```
 
 ### 3. 프론트엔드 실행 (Frontend)
+Node.js 20.19+ 또는 22.12+ 필요 (각 프로젝트의 상세 요구사항은 해당 README 참조)
 ```bash
 cd frontend
 npm install

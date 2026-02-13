@@ -24,10 +24,12 @@ src
 │   ├── admin       # 관리자용 컴포넌트
 │   ├── board       # 게시판 관련 컴포넌트
 │   ├── common      # 공통 컴포넌트 (UI, Widgets)
+│   ├── feed        # 피드 관련 컴포넌트
 │   ├── layout      # 레이아웃 컴포넌트 (Header, Footer)
 │   ├── notification# 알림 컴포넌트
 │   └── user        # 사용자 관련 컴포넌트
 ├── composables     # Vue Composables (Hooks)
+├── extensions      # TipTap 에디터 확장
 ├── locales         # 다국어 리소스 (i18n)
 ├── router          # 라우터 설정
 ├── stores          # Pinia 스토어
@@ -38,6 +40,7 @@ src
     ├── auth        # 인증 페이지
     ├── board       # 게시판 페이지
     ├── common      # 공통 페이지 (에러 등)
+    ├── emoticon    # 이모티콘 페이지
     ├── home        # 홈 화면
     ├── search      # 검색 페이지
     └── user        # 사용자 페이지
@@ -47,6 +50,7 @@ src
 
 -   **반응형 디자인**: 데스크탑 및 모바일 환경 지원.
 -   **다크 모드**: 시스템 설정 또는 사용자 선택에 따른 테마 전환.
+-   **이모티콘**: 커스텀 이모티콘 등록/수정 및 게시글/댓글 활용.
 -   **실시간 알림**: SSE를 통한 실시간 알림 수신 및 UI 업데이트.
 -   **다국어 지원**: 한국어 및 영어 지원 (확장 가능).
 -   **에디터**: 게시글 작성을 위한 WYSIWYG 에디터 통합.
@@ -55,7 +59,7 @@ src
 ## 🚀 시작하기 (Getting Started)
 
 ### 전제 조건 (Prerequisites)
--   Node.js 18 이상
+-   Node.js 20.19 이상 또는 22.12 이상
 -   npm 또는 yarn
 
 ### 설치 (Installation)
