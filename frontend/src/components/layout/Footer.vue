@@ -14,7 +14,7 @@ const commitHash = __COMMIT_HASH__
     class="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 mt-auto pb-[max(0.5rem,env(safe-area-inset-bottom))]"
   >
     <div class="max-w-7xl mx-auto py-1.5 sm:py-2 px-4 sm:px-6 lg:px-8">
-      <!-- 모바일: 1.다크모드|Github 2.서비스약관|개인정보 3.저작권 / PC: 저작권(왼쪽) | 다크모드|Github|Commit|약관|개인정보(오른쪽) -->
+      <!-- 모바일: 1.다크모드 2.서비스약관|개인정보 3.저작권 / PC: 저작권(왼쪽) | 다크모드|Commit|약관|개인정보(오른쪽) -->
       <div class="flex flex-col md:flex-row justify-between items-center gap-0.5 md:gap-0">
         <!-- 저작권: 모바일에서는 맨 아래(order-3), PC에서는 왼쪽 -->
         <p
@@ -23,11 +23,11 @@ const commitHash = __COMMIT_HASH__
           &copy; {{ currentYear }} {{ $t('common.appName') }}. {{ $t('common.footer.rights') }}
         </p>
 
-        <!-- 모바일: 2줄(다크모드|Github / 서비스약관|개인정보) / PC: 한 줄 -->
+        <!-- 모바일: 2줄(다크모드 / 서비스약관|개인정보) / PC: 한 줄 -->
         <div
           class="flex flex-col md:flex-row flex-nowrap justify-center items-center gap-0 md:gap-0 order-1 md:order-2 w-full md:w-auto"
         >
-          <!-- 1행: 다크모드 | Github -->
+          <!-- 1행: 다크모드 -->
           <div class="flex justify-center items-center gap-x-2 md:contents shrink-0">
             <BaseButton
               @click="themeStore.toggleTheme()"
@@ -39,16 +39,6 @@ const commitHash = __COMMIT_HASH__
               <Sun v-if="themeStore.isDark" class="h-5 w-5" />
               <Moon v-else class="h-5 w-5" />
             </BaseButton>
-            <span class="text-gray-300 dark:text-gray-600 md:ml-2" aria-hidden="true">|</span>
-            <a
-              href="https://github.com/weedrice/project_whiteboard"
-              target="_blank"
-              rel="noopener noreferrer"
-              class="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 min-h-[36px] px-2 py-1 md:py-0 inline-flex items-center justify-center rounded-md touch-manipulation active:bg-gray-100 dark:active:bg-gray-700 text-sm"
-            >
-              <span class="sr-only">{{ $t('common.footer.github') }}</span>
-              {{ $t('common.footer.github') }}
-            </a>
           </div>
           <span class="text-gray-300 dark:text-gray-600 pl-3 hidden sm:inline md:ml-2" aria-hidden="true">|</span>
           <span
