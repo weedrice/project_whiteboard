@@ -72,8 +72,10 @@ public class RateLimitInterceptor implements HandlerInterceptor {
      * Rate Limiting을 적용할 버킷 결정
      */
     private Bucket resolveBucket(HttpServletRequest request, String path) {
-        // 인증 엔드포인트는 더 엄격한 제한
-        if (path.startsWith("/api/v1/auth/")) {
+        // 인증 엔드포인트는 더 엄격한 제한 (refresh, logout 제외)
+        if (path.startsWith("/api/v1/auth/")
+                && !"/api/v1/auth/refresh".equals(path)
+                && !"/api/v1/auth/logout".equals(path)) {
             return authBucket;
         }
 
