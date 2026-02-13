@@ -2,7 +2,9 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import type { AxiosError } from 'axios'
 import { authApi } from '@/api/auth'
+import { extractErrorResponse } from '@/utils/errorHandler'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import { useToastStore } from '@/stores/toast'
@@ -30,11 +32,12 @@ async function handleSendResetLink() {
       toastStore.addToast(t('auth.resetLinkSent'), 'success')
     }
   } catch (error) {
-    if (error?.response?.data?.error?.code === 'A009') {
+    const errRes = extractErrorResponse(error as AxiosError)
+    if (errRes?.code === 'A009') {
       toastStore.addToast(t('auth.userDeleted'), 'info')
       router.push(`/signup?email=${encodeURIComponent(email.value.trim())}`)
     } else {
-      const message = error?.response?.data?.error?.message || t('auth.verificationFailed')
+      const message = errRes?.message || t('auth.verificationFailed')
       toastStore.addToast(message, 'error')
     }
   } finally {
