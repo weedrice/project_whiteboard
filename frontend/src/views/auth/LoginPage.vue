@@ -44,7 +44,7 @@ const error = ref('')
 const isLoading = ref(false)
 
 watch(loginId, (newValue) => {
-  const filtered = newValue.replace(/[^a-zA-Z0-9]/g, '')
+  const filtered = newValue.replace(/[^a-zA-Z0-9_]/g, '')
   if (newValue !== filtered) {
     loginId.value = filtered
   }
