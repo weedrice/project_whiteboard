@@ -59,6 +59,9 @@ public enum ErrorCode {
     INVALID_PASSWORD_RESET_TOKEN(HttpStatus.BAD_REQUEST, "A004", "error.auth.invalidPasswordResetToken"),
     EXPIRED_PASSWORD_RESET_TOKEN(HttpStatus.BAD_REQUEST, "A005", "error.auth.expiredPasswordResetToken"),
     USED_PASSWORD_RESET_TOKEN(HttpStatus.BAD_REQUEST, "A006", "error.auth.usedPasswordResetToken"),
+    USER_NOT_FOUND_BY_LOGIN_ID(HttpStatus.NOT_FOUND, "A007", "error.auth.userNotFoundByLoginId"),
+    USER_NOT_FOUND_BY_EMAIL(HttpStatus.NOT_FOUND, "A008", "error.auth.userNotFoundByEmail"),
+    USER_DELETED(HttpStatus.GONE, "A009", "error.auth.userDeleted"),
 
     // Report
     ALREADY_REPORTED(HttpStatus.BAD_REQUEST, "R001", "error.report.alreadyReported"),

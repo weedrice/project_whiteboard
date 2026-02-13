@@ -27,7 +27,10 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ApiResponse<Void>> handleBusinessException(BusinessException e, HttpServletRequest request) {
-        String message = messageSource.getMessage(e.getErrorCode().getMessage(), null, LocaleContextHolder.getLocale());
+        // Custom message (2-arg constructor) takes precedence over message key
+        String message = (e.getMessage() != null && !e.getMessage().equals(e.getErrorCode().getMessage()))
+                ? e.getMessage()
+                : messageSource.getMessage(e.getErrorCode().getMessage(), null, LocaleContextHolder.getLocale());
         MDC.put("errorCode", e.getErrorCode().getCode());
         MDC.put("errorType", "BusinessException");
         log.warn("[{}] Business exception: {} - {}", request.getRequestURI(), e.getErrorCode().getCode(), message);

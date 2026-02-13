@@ -43,6 +43,11 @@ const touched = reactive({
 // 실시간 validation 함수들
 function validateLoginId() {
   if (!touched.loginId) return
+  // 재가입 모드: 인증 전에는 마스킹된 값이 있어 패턴 검사 스킵
+  if (isReregister.value && !verification.isVerified) {
+    fieldErrors.loginId = ''
+    return
+  }
   if (isEmpty(form.value.loginId)) {
     fieldErrors.loginId = ''
   } else if (!isValidLoginId(form.value.loginId)) {
@@ -140,6 +145,7 @@ let resendInterval = null
 
 const error = ref('')
 const isLoading = ref(false)
+const isReregister = ref(false) // 탈퇴 계정 재가입 모드
 
 function startTimer() {
   stopTimer()
@@ -198,6 +204,16 @@ async function sendVerificationCode() {
 
   verification.loading = true
   try {
+    // 인증코드 발송 전 DB 조회: 재가입(DELETED) vs 신규가입 판단
+    const checkRes = await authApi.checkEmailForReregister(form.value.email)
+    if (checkRes.data.success && checkRes.data.data?.canReregister && checkRes.data.data?.maskedLoginId) {
+      isReregister.value = true
+      form.value.loginId = checkRes.data.data.maskedLoginId
+    } else {
+      isReregister.value = false
+      form.value.loginId = ''
+    }
+
     const { data } = await authApi.sendVerificationCode(form.value.email, true)
     if (data.success) {
       verification.isCodeSent = true
@@ -208,7 +224,6 @@ async function sendVerificationCode() {
   } catch (err) {
     const message = err.response?.data?.error?.message || t('auth.sendCodeFailed')
     toastStore.addToast(message, 'error')
-    // 실패 시 즉시 재발송 가능하도록 쿨다운 초기화
     verification.resendCooldown = 0
     stopResendCooldown()
   } finally {
@@ -218,7 +233,7 @@ async function sendVerificationCode() {
 
 async function verifyCode() {
   if (!verification.code) {
-    toastStore.addToast(t('auth.codePlaceholder'), 'error')
+    toastStore.addToast(t('auth.codeInvalid'), 'error')
     return
   }
 
@@ -234,6 +249,11 @@ async function verifyCode() {
       verification.isVerified = true
       stopTimer()
       toastStore.addToast(t('auth.codeVerified'), 'success')
+      // 재가입 시: 인증 완료 후 loginId 마스킹 해제 (Jackson은 isReregister를 reregister로 직렬화할 수 있음)
+      const resp = data.data
+      if ((resp?.isReregister || resp?.reregister) && resp?.loginId) {
+        form.value.loginId = resp.loginId
+      }
     }
   } catch (err) {
     const message = err.response?.data?.error?.message || t('auth.verificationFailed')
@@ -296,6 +316,12 @@ async function handleSignup() {
     return
   }
 
+  // 재가입 시: 마스킹 해제(인증 완료 후 loginId 표시)되어야 회원가입 가능
+  if (isReregister.value && form.value.loginId.includes('*')) {
+    toastStore.addToast(t('auth.verificationRequired'), 'error')
+    return
+  }
+
   isLoading.value = true
 
   try {
@@ -324,12 +350,24 @@ import { useRoute } from 'vue-router'
 
 const route = useRoute()
 
-onMounted(() => {
+onMounted(async () => {
   if (route.query.email) {
-    form.value.email = route.query.email
+    form.value.email = String(route.query.email)
   }
   if (route.query.name) {
-    form.value.displayName = route.query.name
+    form.value.displayName = String(route.query.name)
+  }
+  // 재가입 진입: 탈퇴 계정 이메일인 경우 마스킹된 loginId 조회
+  if (route.query.email) {
+    try {
+      const { data } = await authApi.checkEmailForReregister(String(route.query.email))
+      if (data.success && data.data?.canReregister && data.data?.maskedLoginId) {
+        isReregister.value = true
+        form.value.loginId = data.data.maskedLoginId
+      }
+    } catch {
+      // 조회 실패 시 일반 가입으로 진행
+    }
   }
 })
 </script>
@@ -353,7 +391,8 @@ onMounted(() => {
       <div class="space-y-4 w-[80%] mx-auto">
         <div>
           <BaseInput id="login-id" v-model="form.loginId" name="loginId" type="text" required
-            :placeholder="$t('auth.placeholders.loginId')" :label="$t('common.loginId')" hideLabel>
+            :placeholder="$t('auth.placeholders.loginId')" :label="$t('common.loginId')" hideLabel
+            :disabled="isReregister">
             <template #prefix>
               <User class="h-5 w-5 text-gray-400" />
             </template>
@@ -391,7 +430,7 @@ onMounted(() => {
             <div class="flex-grow">
               <BaseInput id="email" v-model="form.email" name="email" type="email" required
                 :placeholder="$t('auth.placeholders.newEmail')" :label="$t('common.email')" hideLabel
-                :disabled="verification.isVerified">
+                :disabled="verification.isVerified || verification.isCodeSent">
                 <template #prefix>
                   <Mail class="h-5 w-5 text-gray-400" />
                 </template>
@@ -458,7 +497,8 @@ onMounted(() => {
 
 
       <div class="flex justify-center mt-8">
-        <BaseButton type="submit" :loading="isLoading" class="w-[80%]" variant="primary">
+        <BaseButton type="submit" :loading="isLoading" class="w-[80%]" variant="primary"
+          :disabled="isReregister && form.loginId.includes('*')">
           {{ $t('auth.signup') }}
         </BaseButton>
       </div>

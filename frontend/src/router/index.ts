@@ -53,6 +53,18 @@ const router = createRouter({
                     component: () => import('@/views/auth/FindAccountPage.vue')
                 },
                 {
+                    path: 'forgot-password',
+                    name: 'forgot-password',
+                    component: () => import('@/views/auth/ForgotPasswordPage.vue')
+                },
+                {
+                    path: 'reset-password',
+                    name: 'reset-password',
+                    alias: '/reset-password',
+                    component: () => import('@/views/auth/ResetPasswordPage.vue'),
+                    meta: { guestOnly: false }
+                },
+                {
                     path: 'oauth/callback',
                     name: 'oauth-callback',
                     component: () => import('@/views/auth/OAuthCallback.vue'),

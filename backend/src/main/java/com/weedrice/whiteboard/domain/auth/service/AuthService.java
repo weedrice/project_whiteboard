@@ -72,11 +72,21 @@ public class AuthService {
 
     @Transactional
     public SignupResponse signup(SignupRequest request) {
+        var existingUserOpt = userRepository.findByEmail(request.getEmail());
+
+        if (existingUserOpt.isPresent()) {
+            User existingUser = existingUserOpt.get();
+            if ("ACTIVE".equals(existingUser.getStatus())) {
+                throw new BusinessException(ErrorCode.DUPLICATE_EMAIL);
+            }
+            if ("DELETED".equals(existingUser.getStatus())) {
+                return reregister(existingUser, request);
+            }
+            throw new BusinessException(ErrorCode.DUPLICATE_EMAIL);
+        }
+
         if (userRepository.existsByLoginId(request.getLoginId())) {
             throw new BusinessException(ErrorCode.DUPLICATE_LOGIN_ID);
-        }
-        if (userRepository.existsByEmailAndIsEmailVerifiedTrue(request.getEmail())) {
-            throw new BusinessException(ErrorCode.DUPLICATE_EMAIL);
         }
 
         if (!verificationCodeService.isVerified(request.getEmail())) {
@@ -130,6 +140,34 @@ public class AuthService {
                 .loginId(savedUser.getLoginId())
                 .email(savedUser.getEmail())
                 .displayName(savedUser.getDisplayName())
+                .build();
+    }
+
+    private SignupResponse reregister(User existingUser, SignupRequest request) {
+        if (!verificationCodeService.isVerified(request.getEmail())) {
+            throw new BusinessException(ErrorCode.EMAIL_NOT_VERIFIED);
+        }
+
+        existingUser.activate();
+        existingUser.updatePassword(passwordEncoder.encode(request.getPassword()));
+        existingUser.updateDisplayName(request.getDisplayName());
+        existingUser.verifyEmail();
+        userRepository.save(existingUser);
+
+        if (request.getProvider() != null && request.getProviderId() != null) {
+            SocialAccount socialAccount = SocialAccount.builder()
+                    .user(existingUser)
+                    .provider(request.getProvider())
+                    .providerId(request.getProviderId())
+                    .build();
+            socialAccountRepository.save(socialAccount);
+        }
+
+        return SignupResponse.builder()
+                .userId(existingUser.getUserId())
+                .loginId(existingUser.getLoginId())
+                .email(existingUser.getEmail())
+                .displayName(existingUser.getDisplayName())
                 .build();
     }
 
@@ -277,6 +315,35 @@ public class AuthService {
                 .build();
     }
 
+    /**
+     * 재가입 가능 여부 및 마스킹된 loginId 조회.
+     * DELETED 계정인 경우에만 canReregister=true, maskedLoginId 반환.
+     */
+    public ReregisterCheckResponse checkEmailForReregister(String email) {
+        return userRepository.findByEmail(email)
+                .filter(user -> "DELETED".equals(user.getStatus()))
+                .map(user -> ReregisterCheckResponse.builder()
+                        .canReregister(true)
+                        .maskedLoginId(maskLoginId(user.getLoginId()))
+                        .build())
+                .orElse(ReregisterCheckResponse.builder().canReregister(false).build());
+    }
+
+    /**
+     * loginId 마스킹: 앞 2자 + **** + 뒤 2자. 4자 이하면 ****.
+     */
+    private String maskLoginId(String loginId) {
+        if (loginId == null || loginId.isEmpty()) {
+            return "****";
+        }
+        if (loginId.length() <= 4) {
+            return "****";
+        }
+        String start = loginId.substring(0, 2);
+        String end = loginId.substring(loginId.length() - 2);
+        return start + "****" + end;
+    }
+
     private String hashTokenSha256(String token) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
@@ -300,7 +367,10 @@ public class AuthService {
             throw new BusinessException(ErrorCode.EMAIL_NOT_VERIFIED);
         }
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND)); // Or EMAIL_NOT_REGISTERED
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        if ("DELETED".equals(user.getStatus())) {
+            throw new BusinessException(ErrorCode.USER_DELETED);
+        }
         return new FindIdResponse(user.getLoginId());
     }
 
@@ -315,6 +385,9 @@ public class AuthService {
         transactionTemplate.executeWithoutResult(status -> {
             User user = userRepository.findByEmail(email)
                     .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+            if ("DELETED".equals(user.getStatus())) {
+                throw new BusinessException(ErrorCode.USER_DELETED);
+            }
 
             String hashedToken = hashTokenSha256(rawToken);
             LocalDateTime expiryDate = LocalDateTime.now().plusHours(1); // 1시간 유효
@@ -333,6 +406,43 @@ public class AuthService {
                 + "</a></p>";
 
         emailService.sendEmail(email, subject, body);
+    }
+
+    /**
+     * 이메일로 비밀번호 초기화 링크 발송.
+     * is_email_verified와 관계없이 해당 이메일로 등록된 사용자에게 발송.
+     */
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
+    public void sendPasswordResetLinkByEmail(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND_BY_EMAIL));
+
+        if ("DELETED".equals(user.getStatus())) {
+            throw new BusinessException(ErrorCode.USER_DELETED);
+        }
+
+        String rawToken = UUID.randomUUID().toString();
+
+        transactionTemplate.executeWithoutResult(status -> {
+            String hashedToken = hashTokenSha256(rawToken);
+            LocalDateTime expiryDate = LocalDateTime.now().plusHours(1);
+
+            PasswordResetToken passwordResetToken = PasswordResetToken.builder()
+                    .token(hashedToken)
+                    .user(user)
+                    .expiryDate(expiryDate)
+                    .build();
+            passwordResetTokenRepository.save(passwordResetToken);
+        });
+
+        String resetLink = passwordResetFrontendUrl + rawToken;
+        String subject = "[noviIs] 비밀번호 재설정";
+        String body = "<h1>비밀번호 재설정</h1>"
+                + "<p>해당 이메일로 등록된 ID: <strong>" + user.getLoginId() + "</strong></p>"
+                + "<p>아래 링크를 클릭하여 비밀번호를 재설정해주세요.</p>"
+                + "<p><a href=\"" + resetLink + "\">비밀번호 재설정 링크</a></p>";
+
+        emailService.sendEmail(user.getEmail(), subject, body);
     }
 
     @Transactional
@@ -367,6 +477,9 @@ public class AuthService {
 
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        if ("DELETED".equals(user.getStatus())) {
+            throw new BusinessException(ErrorCode.USER_DELETED);
+        }
 
         user.updatePassword(passwordEncoder.encode(newPassword));
         userRepository.save(user);

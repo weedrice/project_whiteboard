@@ -10,10 +10,12 @@ import com.weedrice.whiteboard.domain.auth.dto.PasswordResetByCodeRequest;
 import com.weedrice.whiteboard.domain.auth.dto.PasswordResetConfirmRequest;
 import com.weedrice.whiteboard.domain.auth.dto.PasswordResetRequest;
 import com.weedrice.whiteboard.domain.auth.dto.RefreshRequest;
+import com.weedrice.whiteboard.domain.auth.dto.ReregisterCheckResponse;
 import com.weedrice.whiteboard.domain.auth.dto.RefreshResponse;
 import com.weedrice.whiteboard.domain.auth.dto.SignupRequest;
 import com.weedrice.whiteboard.domain.auth.dto.SignupResponse;
 import com.weedrice.whiteboard.domain.auth.dto.VerifyCodeRequest;
+import com.weedrice.whiteboard.domain.auth.dto.VerifyCodeResponse;
 import com.weedrice.whiteboard.domain.auth.service.AuthService;
 import com.weedrice.whiteboard.domain.auth.service.VerificationCodeService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
@@ -149,9 +151,9 @@ public class AuthController {
     }
 
     @PostMapping("/email/verify")
-    public ResponseEntity<ApiResponse<Void>> verifyCode(@Valid @RequestBody VerifyCodeRequest request) {
-        verificationCodeService.verifyCode(request.getEmail(), request.getCode());
-        return ResponseEntity.ok(ApiResponse.success(null));
+    public ResponseEntity<ApiResponse<VerifyCodeResponse>> verifyCode(@Valid @RequestBody VerifyCodeRequest request) {
+        VerifyCodeResponse response = verificationCodeService.verifyCode(request.getEmail(), request.getCode());
+        return ResponseEntity.ok(ApiResponse.success(response));
     }
 
     @PostMapping("/find-id")
@@ -160,9 +162,25 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
+    @Operation(summary = "재가입 이메일 확인", description = "해당 이메일이 탈퇴(DELETED) 계정인지 확인하고, 재가입 가능 시 마스킹된 loginId를 반환합니다.")
+    @GetMapping("/reregister/check-email")
+    public ResponseEntity<ApiResponse<ReregisterCheckResponse>> checkEmailForReregister(
+            @RequestParam @jakarta.validation.constraints.Email String email) {
+        ReregisterCheckResponse response = authService.checkEmailForReregister(email);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
     @PostMapping("/password/send-reset-link")
     public ResponseEntity<ApiResponse<Void>> sendPasswordResetLink(@Valid @RequestBody PasswordResetRequest request) {
         authService.sendPasswordResetLink(request.getEmail());
+        return ResponseEntity.ok(ApiResponse.success(null));
+    }
+
+    @Operation(summary = "비밀번호 초기화 링크 발송 (이메일 입력)", description = "이메일을 입력받아 해당 이메일로 등록된 ID와 비밀번호 초기화 링크를 발송합니다.")
+    @PostMapping("/password/send-reset-link-by-email")
+    public ResponseEntity<ApiResponse<Void>> sendPasswordResetLinkByEmail(
+            @Valid @RequestBody PasswordResetRequest request) {
+        authService.sendPasswordResetLinkByEmail(request.getEmail());
         return ResponseEntity.ok(ApiResponse.success(null));
     }
 

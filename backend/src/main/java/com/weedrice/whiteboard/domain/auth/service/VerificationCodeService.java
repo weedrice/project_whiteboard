@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.auth.service;
 
+import com.weedrice.whiteboard.domain.auth.dto.VerifyCodeResponse;
 import com.weedrice.whiteboard.domain.auth.entity.VerificationCode;
 import com.weedrice.whiteboard.domain.auth.repository.VerificationCodeRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -35,15 +36,22 @@ public class VerificationCodeService {
     @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
     public void sendVerificationCode(String email, boolean forSignup, Long currentUserId) {
         if (forSignup) {
-            if (userRepository.existsByEmailAndIsEmailVerifiedTrue(email)) {
-                throw new BusinessException(ErrorCode.DUPLICATE_EMAIL);
-            }
-        } else if (currentUserId != null) {
-            // 마이페이지 등: 해당 이메일을 이미 인증 완료한 다른 회원이 있으면 중복 에러, 본인이거나 미인증 계정이면 허용
+            // ACTIVE 사용자 이메일만 중복. DELETED는 재가입 허용으로 통과
             Optional<User> existing = userRepository.findByEmail(email);
             if (existing.isPresent()) {
                 User other = existing.get();
-                if (!other.getUserId().equals(currentUserId) && Boolean.TRUE.equals(other.getIsEmailVerified())) {
+                if ("ACTIVE".equals(other.getStatus()) && Boolean.TRUE.equals(other.getIsEmailVerified())) {
+                    throw new BusinessException(ErrorCode.DUPLICATE_EMAIL);
+                }
+            }
+        } else if (currentUserId != null) {
+            // 마이페이지: ACTIVE+인증완료인 다른 회원 이메일이면 중복. 본인이거나 DELETED/미인증은 허용
+            Optional<User> existing = userRepository.findByEmail(email);
+            if (existing.isPresent()) {
+                User other = existing.get();
+                if (!other.getUserId().equals(currentUserId)
+                        && "ACTIVE".equals(other.getStatus())
+                        && Boolean.TRUE.equals(other.getIsEmailVerified())) {
                     throw new BusinessException(ErrorCode.DUPLICATE_EMAIL);
                 }
             }
@@ -70,9 +78,9 @@ public class VerificationCodeService {
     }
 
     @Transactional
-    public void verifyCode(String email, String code) {
+    public VerifyCodeResponse verifyCode(String email, String code) {
         VerificationCode verificationCode = verificationCodeRepository.findTopByEmailOrderByCreatedAtDesc(email)
-                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "인증 코드를 찾을 수 없습니다."));
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "인증 코드를 찾을 수 없습니다. 이메일을 변경하셨다면 다시 인증 코드를 발송해주세요."));
 
         if (verificationCode.isExpired()) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "만료된 인증 코드입니다.");
@@ -83,6 +91,16 @@ public class VerificationCodeService {
         }
 
         verificationCode.verify();
+
+        // 재가입 시: DELETED 사용자 이메일이면 loginId 반환 (마스킹 해제용)
+        return userRepository.findByEmail(email)
+                .filter(user -> "DELETED".equals(user.getStatus()))
+                .map(user -> VerifyCodeResponse.builder()
+                        .verified(true)
+                        .loginId(user.getLoginId())
+                        .isReregister(true)
+                        .build())
+                .orElse(VerifyCodeResponse.builder().verified(true).isReregister(false).build());
     }
 
     public boolean isVerified(String email) {

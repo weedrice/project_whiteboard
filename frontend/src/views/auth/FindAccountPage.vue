@@ -1,4 +1,4 @@
-﻿<script setup>
+<script setup>
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
@@ -67,7 +67,7 @@ const handleSendCode = async () => {
 
 const handleVerifyCode = async () => {
     if (!form.code) {
-        toastStore.addToast(t('auth.codePlaceholder'), 'error')
+        toastStore.addToast(t('auth.codeInvalid'), 'error')
         return
     }
 
@@ -83,7 +83,8 @@ const handleVerifyCode = async () => {
             }
         }
     } catch (error) {
-        // Error handled
+        const message = error?.response?.data?.error?.message || t('auth.verificationFailed')
+        toastStore.addToast(message, 'error')
     } finally {
         status.loading = false
     }
@@ -96,7 +97,13 @@ const findId = async () => {
             status.foundId = data.data.loginId
         }
     } catch (error) {
-        // Error handled
+        if (error?.response?.data?.error?.code === 'A009') {
+            toastStore.addToast(t('auth.userDeleted'), 'info')
+            router.push(`/signup?email=${encodeURIComponent(form.email)}`)
+        } else {
+            const message = error?.response?.data?.error?.message || t('auth.verificationFailed')
+            toastStore.addToast(message, 'error')
+        }
     }
 }
 
@@ -118,7 +125,13 @@ const handleResetPassword = async () => {
             router.push('/login')
         }
     } catch (error) {
-        // Error handled
+        if (error?.response?.data?.error?.code === 'A009') {
+            toastStore.addToast(t('auth.userDeleted'), 'info')
+            router.push(`/signup?email=${encodeURIComponent(form.email)}`)
+        } else {
+            const message = error?.response?.data?.error?.message || t('auth.verificationFailed')
+            toastStore.addToast(message, 'error')
+        }
     } finally {
         status.loading = false
     }
@@ -136,15 +149,9 @@ const handleResetPassword = async () => {
             </router-link>
         </div>
 
-        <div class="text-center mb-8">
-            <h2 class="text-2xl font-bold text-gray-900 dark:text-white">
-                {{ t('auth.findAccount') }}
-            </h2>
-        </div>
-
         <div class="w-[80%] mx-auto">
             <!-- Tabs -->
-            <div class="flex border-b border-gray-200 dark:border-gray-700 mb-8">
+            <div class="flex border-b border-gray-200 dark:border-gray-700 mb-6">
                 <BaseButton @click="switchTab('id')" variant="ghost" class="flex-1 rounded-b-none border-b-2"
                     :class="activeTab === 'id' ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'">
                     <User class="w-4 h-4 mr-2" />

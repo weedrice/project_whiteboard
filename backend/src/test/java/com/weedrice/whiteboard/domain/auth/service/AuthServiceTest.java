@@ -19,6 +19,8 @@ import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import com.weedrice.whiteboard.global.security.JwtTokenProvider;
 import com.weedrice.whiteboard.domain.auth.service.VerificationCodeService;
 import com.weedrice.whiteboard.domain.auth.repository.PasswordResetTokenRepository;
+import com.weedrice.whiteboard.global.exception.ErrorCode;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.support.TransactionTemplate;
 import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.BeforeEach;
@@ -41,6 +43,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -92,6 +95,7 @@ class AuthServiceTest {
                                 .email("test@example.com")
                                 .displayName("Test User")
                                 .build();
+                ReflectionTestUtils.setField(authService, "passwordResetFrontendUrl", "http://localhost:5173/reset-password?token=");
         }
 
         @Test
@@ -105,8 +109,9 @@ class AuthServiceTest {
                                 .displayName("Test User")
                                 .build();
 
+                when(userRepository.findByEmail(request.getEmail())).thenReturn(Optional.empty());
                 when(userRepository.existsByLoginId(request.getLoginId())).thenReturn(false);
-                when(userRepository.existsByEmailAndIsEmailVerifiedTrue(request.getEmail())).thenReturn(false);
+                when(verificationCodeService.isVerified(request.getEmail())).thenReturn(true);
                 when(passwordEncoder.encode(request.getPassword())).thenReturn("encodedPassword");
                 when(globalConfigService.getConfig(anyString())).thenReturn("500");
                 when(userRepository.save(any(User.class))).thenReturn(user);
@@ -136,6 +141,7 @@ class AuthServiceTest {
                                 .email("test@example.com")
                                 .displayName("Test User")
                                 .build();
+                when(userRepository.findByEmail(request.getEmail())).thenReturn(Optional.empty());
                 when(userRepository.existsByLoginId(request.getLoginId())).thenReturn(true);
 
                 // when & then
@@ -153,8 +159,14 @@ class AuthServiceTest {
                                 .email("test@example.com")
                                 .displayName("Test User")
                                 .build();
-                when(userRepository.existsByLoginId(request.getLoginId())).thenReturn(false);
-                when(userRepository.existsByEmailAndIsEmailVerifiedTrue(request.getEmail())).thenReturn(true);
+                User activeUser = User.builder()
+                                .loginId("other")
+                                .email("test@example.com")
+                                .displayName("Other")
+                                .password("pwd")
+                                .build();
+                ReflectionTestUtils.setField(activeUser, "status", "ACTIVE");
+                when(userRepository.findByEmail(request.getEmail())).thenReturn(Optional.of(activeUser));
 
                 // when & then
                 BusinessException exception = assertThrows(BusinessException.class, () -> authService.signup(request));
@@ -204,5 +216,49 @@ class AuthServiceTest {
                 assertThat(response.getLoginId()).isEqualTo("testuser");
                 verify(verificationCodeService).isVerified(email);
                 verify(userRepository).findByEmail(email);
+        }
+
+        @Test
+        @DisplayName("비밀번호 초기화 링크 발송 (이메일 입력) - 성공")
+        void sendPasswordResetLinkByEmail_success() {
+                // given
+                String email = "test@example.com";
+                when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
+                when(passwordResetTokenRepository.save(any(com.weedrice.whiteboard.domain.auth.entity.PasswordResetToken.class)))
+                        .thenAnswer(invocation -> invocation.getArgument(0));
+
+                // when
+                authService.sendPasswordResetLinkByEmail(email);
+
+                // then
+                verify(userRepository).findByEmail(email);
+                verify(emailService).sendEmail(eq("test@example.com"), anyString(), anyString());
+        }
+
+        @Test
+        @DisplayName("비밀번호 초기화 링크 발송 (이메일 입력) - 사용자 없음")
+        void sendPasswordResetLinkByEmail_userNotFound() {
+                // given
+                String email = "unknown@example.com";
+                when(userRepository.findByEmail(email)).thenReturn(Optional.empty());
+
+                // when & then
+                BusinessException exception = assertThrows(BusinessException.class,
+                        () -> authService.sendPasswordResetLinkByEmail(email));
+                assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.USER_NOT_FOUND_BY_EMAIL);
+        }
+
+        @Test
+        @DisplayName("비밀번호 초기화 링크 발송 (이메일 입력) - DELETED 사용자")
+        void sendPasswordResetLinkByEmail_deletedUser() {
+                // given
+                String email = "test@example.com";
+                ReflectionTestUtils.setField(user, "status", "DELETED");
+                when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
+
+                // when & then
+                BusinessException exception = assertThrows(BusinessException.class,
+                        () -> authService.sendPasswordResetLinkByEmail(email));
+                assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.USER_DELETED);
         }
 }

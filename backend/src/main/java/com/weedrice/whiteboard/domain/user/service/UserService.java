@@ -235,10 +235,13 @@ public class UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
-        // 이미 사용 중인 이메일인지 확인 (본인 이메일 제외)
-        if (!user.getEmail().equals(email) && userRepository.findByEmail(email).isPresent()) {
-            throw new BusinessException(ErrorCode.DUPLICATE_EMAIL); // Need to check if DUPLICATE_EMAIL exists or use
-                                                                    // VALIDATION_ERROR
+        // 이미 ACTIVE 사용 중인 이메일인지 확인 (본인 이메일 제외). DELETED 이메일은 재사용 가능
+        if (!user.getEmail().equals(email)) {
+            userRepository.findByEmail(email).ifPresent(other -> {
+                if ("ACTIVE".equals(other.getStatus())) {
+                    throw new BusinessException(ErrorCode.DUPLICATE_EMAIL);
+                }
+            });
         }
 
         // 코드 검증

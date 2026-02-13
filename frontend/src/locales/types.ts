@@ -255,12 +255,22 @@ export interface AuthMessages {
   codeExpired: string
   codeVerified: string
   codePlaceholder: string
+  codeInvalid: string
   yourIdIs: string
   resetPassword: string
   newPassword: string
   newPasswordConfirm: string
   passwordResetSuccess: string
   findIdPassword: string
+  forgotPassword: string
+  forgotPasswordDescription: string
+  sendResetLink: string
+  resetLinkSent: string
+  invalidResetLink: string
+  resetPasswordTitle: string
+  userNotFoundByLoginId: string
+  userDeleted: string
+  reregisterGuidance: string
   placeholders: {
     loginId: string
     password: string

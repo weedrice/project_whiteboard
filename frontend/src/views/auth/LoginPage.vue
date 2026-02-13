@@ -119,8 +119,10 @@ async function handleLogin() {
       </div>
 
       <div class="w-[80%] mx-auto flex justify-end">
-        <router-link v-if="false" to="/find"
-          class="text-xs sm:text-sm text-gray-600 hover:text-indigo-500 dark:text-gray-400 dark:hover:text-indigo-400">
+        <router-link
+          to="/auth/forgot-password"
+          class="text-xs sm:text-sm text-gray-600 hover:text-indigo-500 dark:text-gray-400 dark:hover:text-indigo-400"
+        >
           {{ $t('auth.findIdPassword') }}
         </router-link>
       </div>
