@@ -8,6 +8,7 @@ import { ArrowLeft, Upload, X, Plus } from 'lucide-vue-next'
 import { useToastStore } from '@/stores/toast'
 import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
+import { extractErrorMessage } from '@/utils/errorHandler'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -310,8 +311,8 @@ const handleSubmit = async () => {
 
     toastStore.addToast(t('emoticon.register.created'), 'success')
     router.push({ name: 'emoticon-list' })
-  } catch (error: any) {
-    const message = error.response?.data?.error?.message || t('emoticon.register.failed')
+  } catch (error: unknown) {
+    const message = extractErrorMessage(error) || t('emoticon.register.failed')
     toastStore.addToast(message, 'error')
   } finally {
     isSubmitting.value = false

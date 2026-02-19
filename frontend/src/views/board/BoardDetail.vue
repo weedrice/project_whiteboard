@@ -15,6 +15,7 @@ import { getOptimizedBoardIconUrl, handleImageError } from '@/utils/image'
 import { useHead } from '@unhead/vue'
 import { useRecentBoards } from '@/composables/useRecentBoards'
 import { isInputFocused } from '@/utils/keyboard'
+import type { PostSummary } from '@/types'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -50,7 +51,44 @@ const isSearching = ref(false)
 const filterType = ref('all') // 'all', 'concept', or 'category'
 const activeFilterCategory = ref<{ categoryId: number; name: string } | null>(null)
 const sort = ref('createdAt,desc')
-const searchInputRef = ref<HTMLInputElement | null>(null)
+const searchInputElementId = 'board-search-input'
+
+type SortField = 'author' | 'category' | 'viewCount' | 'likeCount' | 'commentCount' | 'createdAt' | 'title'
+
+const resolveSortField = (field: string): SortField => {
+    switch (field) {
+        case 'author':
+        case 'category':
+        case 'viewCount':
+        case 'likeCount':
+        case 'commentCount':
+        case 'createdAt':
+        case 'title':
+            return field
+        default:
+            return 'createdAt'
+    }
+}
+
+const getSortValue = (post: PostSummary, field: SortField): string | number => {
+    switch (field) {
+        case 'author':
+            return post.author?.displayName || ''
+        case 'category':
+            return post.category?.name || ''
+        case 'viewCount':
+            return post.viewCount || 0
+        case 'likeCount':
+            return post.likeCount || 0
+        case 'commentCount':
+            return post.commentCount || 0
+        case 'title':
+            return post.title || ''
+        case 'createdAt':
+        default:
+            return post.createdAt || ''
+    }
+}
 
 // Computed Params for Query
 const queryParams = computed(() => {
@@ -121,29 +159,13 @@ const posts = computed(() => {
 
     // 정렬이 필요한 경우에만 클라이언트 사이드 정렬 수행
     const sortedData = [...data]
-    const [field, direction] = sort.value.split(',')
+    const [rawField, direction] = sort.value.split(',')
+    const field = resolveSortField(rawField)
     const isAsc = direction === 'asc'
 
     sortedData.sort((a, b) => {
-        let valA: string | number = ''
-        let valB: string | number = ''
-
-        if (field === 'author') {
-            valA = a.author?.displayName || ''
-            valB = b.author?.displayName || ''
-        } else if (field === 'category') {
-            valA = a.category?.name || ''
-            valB = b.category?.name || ''
-        } else if (field === 'viewCount' || field === 'likeCount' || field === 'commentCount') {
-            valA = (a as unknown as Record<string, number>)[field] || 0
-            valB = (b as unknown as Record<string, number>)[field] || 0
-        } else if (field === 'createdAt') {
-            valA = a.createdAt || ''
-            valB = b.createdAt || ''
-        } else if (field === 'title') {
-            valA = a.title || ''
-            valB = b.title || ''
-        }
+        const valA = getSortValue(a, field)
+        const valB = getSortValue(b, field)
 
         if (valA < valB) return isAsc ? -1 : 1
         if (valA > valB) return isAsc ? 1 : -1
@@ -311,7 +333,7 @@ const handleKeyDown = (event: KeyboardEvent) => {
         case '/':
             event.preventDefault()
             // 검색창에 포커스
-            const searchInput = document.querySelector('input[type="text"]') as HTMLInputElement
+            const searchInput = document.getElementById(searchInputElementId) as HTMLInputElement | null
             if (searchInput) {
                 searchInput.focus()
             }
@@ -486,6 +508,7 @@ onUnmounted(() => {
                             </select>
                             <div class="list-search-input-inner">
                                 <BaseInput v-model="searchQuery" @keyup.enter="handleSearch"
+                                    :id="searchInputElementId"
                                     :placeholder="$t('board.detail.searchPlaceholder')" inputClass="list-search-input"
                                     hideLabel>
                                     <template #prefix>
@@ -493,6 +516,7 @@ onUnmounted(() => {
                                     </template>
                                     <template #suffix>
                                         <button v-if="isSearching" type="button" @click="clearSearch"
+                                            :aria-label="t('layout.recentBoards.clear')"
                                             class="hidden sm:flex text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 cursor-pointer items-center">
                                             <X class="h-5 w-5" />
                                         </button>

@@ -25,7 +25,7 @@
         ]" 
         @input="updateValue" 
         @blur="$emit('blur', $event)" />
-      <div v-if="$slots.suffix" class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none" aria-hidden="true">
+      <div v-if="$slots.suffix" class="absolute inset-y-0 right-0 pr-3 flex items-center">
         <slot name="suffix"></slot>
       </div>
     </div>

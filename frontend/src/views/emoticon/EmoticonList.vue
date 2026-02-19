@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useQuery } from '@tanstack/vue-query'
 import { emoticonApi } from '@/api/emoticon'
@@ -8,7 +8,7 @@ import { useHead } from '@unhead/vue'
 import { Search, X, PlusCircle, TrendingUp } from 'lucide-vue-next'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
-import type { EmoticonMaster } from '@/types/emoticon'
+import type { EmoticonSearchParams } from '@/types/emoticon'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -27,7 +27,7 @@ const currentPage = ref(0)
 const pageSize = 20
 const searchKeyword = ref('')
 const searchInput = ref('')
-const searchType = ref('ALL') // ALL, NAME, CREATOR, TAG
+const searchType = ref<NonNullable<EmoticonSearchParams['searchType']>>('ALL') // ALL, NAME, CREATOR, TAG
 const isSearching = ref(false)
 
 // 인기 이모티콘 조회
@@ -40,10 +40,10 @@ const { data: popularEmoticons, isLoading: popularLoading } = useQuery({
 })
 
 // 전체 이모티콘 조회
-const { data: emoticonsPage, isLoading: emoticonsLoading, refetch } = useQuery({
+const { data: emoticonsPage, isLoading: emoticonsLoading } = useQuery({
   queryKey: ['emoticons', 'list', currentPage, sortBy, searchKeyword, searchType],
   queryFn: async () => {
-    const params: Record<string, any> = {
+    const params: EmoticonSearchParams = {
       page: currentPage.value,
       size: pageSize,
       sortBy: sortBy.value
@@ -96,10 +96,6 @@ const goToDetail = (emoticonId: number) => {
 }
 
 // 등록 페이지 이동
-const goToRegister = () => {
-  router.push({ name: 'emoticon-register' })
-}
-
 // 기간 버튼 텍스트
 const periodLabels = {
   daily: '일간',
@@ -316,6 +312,7 @@ const periodLabels = {
                       v-if="isSearching"
                       type="button"
                       @click="clearSearch"
+                      aria-label="Clear search"
                       class="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 cursor-pointer"
                     >
                       <X class="h-5 w-5" />

@@ -220,16 +220,8 @@ function handleSizeChange() {
     fetchMessages()
 }
 
-function toggleSelection(messageId: number) {
-    const index = selectedMessages.value.indexOf(messageId)
-    if (index === -1) {
-        selectedMessages.value.push(messageId)
-    } else {
-        selectedMessages.value.splice(index, 1)
-    }
-}
-
 function changeViewType(type: 'received' | 'sent') {
+    if (viewType.value === type) return
     viewType.value = type
     page.value = 0
     fetchMessages()
@@ -309,10 +301,6 @@ async function sendReply() {
         isSending.value = false
     }
 }
-
-watch(viewType, () => {
-    fetchMessages()
-})
 
 watch(selectedMessage, (val) => {
     if (!val) messageFromBlockedUser.value = false

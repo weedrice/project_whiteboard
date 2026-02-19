@@ -43,9 +43,9 @@
                             <p class="mt-0.5 sm:mt-1 text-xs sm:text-sm text-gray-500 dark:text-gray-400 line-clamp-1 sm:line-clamp-2">{{ board.description }}</p>
                         </div>
                     </div>
-                    <BaseButton @click="handleUnsubscribe(board)" variant="danger" size="sm"
+                    <BaseButton @click.stop="handleUnsubscribe(board)" variant="danger" size="sm"
                         class="flex-shrink-0 px-2 py-1.5 sm:px-4 sm:py-2 text-[11px] sm:text-sm min-h-0 h-7 sm:min-h-[40px] rounded-md sm:rounded-lg touch-manipulation"
-                        @click.stop>
+                        >
                         {{ $t('user.subscriptions.unsubscribe') }}
                     </BaseButton>
                 </li>
@@ -63,7 +63,6 @@ import { useI18n } from 'vue-i18n'
 import { useToastStore } from '@/stores/toast'
 import draggable from 'vuedraggable'
 import { Menu, Users } from 'lucide-vue-next'
-import logger from '@/utils/logger'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import EmptyState from '@/components/common/ui/EmptyState.vue'

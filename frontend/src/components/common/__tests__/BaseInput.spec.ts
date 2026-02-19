@@ -41,4 +41,20 @@ describe('BaseInput', () => {
         })
         expect(wrapper.find('input').attributes('disabled')).toBeDefined()
     })
+
+    it('keeps suffix slot accessible for assistive technology', () => {
+        const wrapper = mount(BaseInput, {
+            slots: {
+                suffix: '<button type="button" aria-label="Clear search">x</button>'
+            }
+        })
+
+        const suffixContainer = wrapper.findAll('div').find((node) =>
+            node.classes().includes('absolute') && node.classes().includes('right-0')
+        )
+
+        expect(suffixContainer).toBeDefined()
+        expect(suffixContainer?.attributes('aria-hidden')).toBeUndefined()
+        expect(wrapper.find('button[aria-label=\"Clear search\"]').exists()).toBe(true)
+    })
 })
