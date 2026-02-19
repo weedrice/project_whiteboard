@@ -28,7 +28,7 @@ export const useConfigStore = defineStore('config', {
                     return data.data.configValue
                 }
                 return null
-            } catch (error) {
+            } catch (error: unknown) {
                 this.error = error as Error
                 logger.error(`Failed to fetch config ${key}:`, error)
                 return null
@@ -47,7 +47,7 @@ export const useConfigStore = defineStore('config', {
                         this.configs[config.configKey] = config.configValue
                     })
                 }
-            } catch (error) {
+            } catch (error: unknown) {
                 this.error = error as Error
                 logger.error('Failed to fetch all configs:', error)
             } finally {
@@ -62,7 +62,7 @@ export const useConfigStore = defineStore('config', {
                 if (data.success && data.data) {
                     this.configs = { ...this.configs, ...data.data }
                 }
-            } catch (error) {
+            } catch (error: unknown) {
                 this.error = error as Error
                 logger.error('Failed to fetch public configs:', error)
             } finally {

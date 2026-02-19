@@ -37,7 +37,7 @@ export const useAuthStore = defineStore('auth', () => {
 
                 return true
             }
-        } catch (error) {
+        } catch (error: unknown) {
             logger.error('Login failed:', error)
             throw error
         }
@@ -49,7 +49,7 @@ export const useAuthStore = defineStore('auth', () => {
             if (refreshToken) {
                 await authApi.logout(refreshToken)
             }
-        } catch (error) {
+        } catch (error: unknown) {
             logger.error('Logout failed:', error)
         } finally {
             accessToken.value = null
@@ -90,7 +90,7 @@ export const useAuthStore = defineStore('auth', () => {
                     themeStore.setTheme(user.value.theme)
                 }
             }
-        } catch (error) {
+        } catch (error: unknown) {
             logger.error('Fetch user failed:', error)
             // 401 에러는 axios 인터셉터에서 refresh token으로 처리함
             // 여기서는 로그만 남기고, 인터셉터가 refresh 실패 시 로그아웃 처리

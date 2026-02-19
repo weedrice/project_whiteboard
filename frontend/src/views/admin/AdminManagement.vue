@@ -83,7 +83,7 @@ async function handleCreateSuperAdmin() {
     await updateSuperAdminStatus({ loginId: newSuperAdminLoginId.value, action: 'activate' })
     toastStore.addToast(t('admin.admins.messages.added'), 'success')
     newSuperAdminLoginId.value = ''
-  } catch (err) {
+  } catch {
     // Error handled globally
   }
 }
@@ -98,7 +98,7 @@ async function handleCreateBoardAdmin() {
     toastStore.addToast(t('admin.admins.messages.added'), 'success')
     newBoardAdminLoginId.value = ''
     newBoardId.value = ''
-  } catch (err) {
+  } catch {
     // Error handled globally
   }
 }
@@ -115,7 +115,7 @@ async function toggleAdminStatus(admin: SuperAdminRow | BoardAdminRow) {
       await updateAdminStatus({ adminId: adminId as string | number, action })
     }
     toastStore.addToast(t('admin.admins.messages.statusChanged'), 'success')
-  } catch (err) {
+  } catch {
     // Error handled globally
   }
 }
@@ -244,7 +244,8 @@ const boardAdminColumns: { key: string; label: string; width: string; align?: 'l
         </template>
 
         <template #cell-boardName="{ item }">
-          {{ (item as BoardAdminRow).board?.boardName || '-' }} (ID: {{ (item as BoardAdminRow).board?.boardId ?? 'N/A' }})
+          {{ (item as BoardAdminRow).board?.boardName || '-' }} (ID: {{ (item as BoardAdminRow).board?.boardId ?? 'N/A'
+          }})
         </template>
 
         <template #cell-status="{ item }">
@@ -267,4 +268,3 @@ const boardAdminColumns: { key: string; label: string; width: string; align?: 'l
     </div>
   </div>
 </template>
-

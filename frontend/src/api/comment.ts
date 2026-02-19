@@ -1,6 +1,10 @@
 import api from './index'
 import type { ApiResponse, PageResponse, Comment, CommentPayload } from '@/types'
 export type { Comment, CommentPayload }
+export type CommentWithNavigation = Comment & {
+    boardUrl?: string
+    postId?: number
+}
 
 export interface CommentParams {
     page?: number;
@@ -21,5 +25,5 @@ export const commentApi = {
     // Update a comment
     updateComment: (commentId: string | number, data: CommentPayload) => api.put<ApiResponse<Comment>>(`/comments/${commentId}`, data),
 
-    getComment: (commentId: string | number) => api.get<ApiResponse<Comment>>(`/comments/${commentId}`)
+    getComment: (commentId: string | number) => api.get<ApiResponse<CommentWithNavigation>>(`/comments/${commentId}`)
 }

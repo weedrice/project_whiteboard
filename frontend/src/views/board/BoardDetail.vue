@@ -14,6 +14,7 @@ import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import { getOptimizedBoardIconUrl, handleImageError } from '@/utils/image'
 import { useHead } from '@unhead/vue'
 import { useRecentBoards } from '@/composables/useRecentBoards'
+import { isInputFocused } from '@/utils/keyboard'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -250,15 +251,7 @@ watch(board, (newBoard) => {
     }
 }, { immediate: true })
 
-// 입력 필드 확인
-const isInputFocused = (): boolean => {
-    const activeElement = document.activeElement
-    if (!activeElement) return false
-    const tagName = activeElement.tagName.toLowerCase()
-    if (tagName === 'input' || tagName === 'textarea' || tagName === 'select') return true
-    if (activeElement.getAttribute('contenteditable') === 'true') return true
-    return false
-}
+
 
 // 키보드 단축키 핸들러
 const handleKeyDown = (event: KeyboardEvent) => {
@@ -391,7 +384,7 @@ onUnmounted(() => {
                             class="h-14 w-14 sm:h-20 sm:w-20 rounded-full bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center">
                             <span class="text-indigo-600 dark:text-indigo-400 font-bold text-xl sm:text-3xl">{{
                                 board.boardName[0]
-                                }}</span>
+                            }}</span>
                         </div>
                     </router-link>
                     <div class="flex-1 min-h-[5rem] flex flex-col justify-between">

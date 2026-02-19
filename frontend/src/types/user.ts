@@ -27,6 +27,8 @@ export interface UserSummary {
 export interface UserSettings {
     theme: 'LIGHT' | 'DARK'
     language: 'KO' | 'EN'
+    timezone?: string
+    hideNsfw?: boolean
     emailNotification: boolean
     pushNotification: boolean
 }

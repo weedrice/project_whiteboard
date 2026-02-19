@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
@@ -6,6 +6,8 @@ import { authApi } from '@/api/auth'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import { useToastStore } from '@/stores/toast'
+import { extractErrorMessage } from '@/utils/errorHandler'
+import axios from 'axios'
 import { Mail, ChevronLeft, Key, User, CheckCircle } from 'lucide-vue-next'
 
 const { t } = useI18n()
@@ -40,7 +42,7 @@ const resetState = () => {
     status.loading = false
 }
 
-const switchTab = (tab) => {
+const switchTab = (tab: string) => {
     activeTab.value = tab
     resetState()
 }
@@ -58,7 +60,7 @@ const handleSendCode = async () => {
             status.isCodeSent = true
             toastStore.addToast(t('auth.codeSent'), 'success')
         }
-    } catch (error) {
+    } catch {
         // Error handled by global interceptor or toast
     } finally {
         status.loading = false
@@ -82,8 +84,8 @@ const handleVerifyCode = async () => {
                 findId()
             }
         }
-    } catch (error) {
-        const message = error?.response?.data?.error?.message || t('auth.verificationFailed')
+    } catch (error: unknown) {
+        const message = extractErrorMessage(error) || t('auth.verificationFailed')
         toastStore.addToast(message, 'error')
     } finally {
         status.loading = false
@@ -96,12 +98,12 @@ const findId = async () => {
         if (data.success) {
             status.foundId = data.data.loginId
         }
-    } catch (error) {
-        if (error?.response?.data?.error?.code === 'A009') {
+    } catch (error: unknown) {
+        if (axios.isAxiosError(error) && error.response?.data?.error?.code === 'A009') {
             toastStore.addToast(t('auth.userDeleted'), 'info')
             router.push(`/signup?email=${encodeURIComponent(form.email)}`)
         } else {
-            const message = error?.response?.data?.error?.message || t('auth.verificationFailed')
+            const message = extractErrorMessage(error) || t('auth.verificationFailed')
             toastStore.addToast(message, 'error')
         }
     }
@@ -124,12 +126,12 @@ const handleResetPassword = async () => {
             toastStore.addToast(t('auth.passwordResetSuccess'), 'success')
             router.push('/login')
         }
-    } catch (error) {
-        if (error?.response?.data?.error?.code === 'A009') {
+    } catch (error: unknown) {
+        if (axios.isAxiosError(error) && error.response?.data?.error?.code === 'A009') {
             toastStore.addToast(t('auth.userDeleted'), 'info')
             router.push(`/signup?email=${encodeURIComponent(form.email)}`)
         } else {
-            const message = error?.response?.data?.error?.message || t('auth.verificationFailed')
+            const message = extractErrorMessage(error) || t('auth.verificationFailed')
             toastStore.addToast(message, 'error')
         }
     } finally {

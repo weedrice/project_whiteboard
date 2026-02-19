@@ -1,5 +1,6 @@
 import { onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { isInputFocused } from '@/utils/keyboard'
 
 interface ShortcutConfig {
   key: string
@@ -46,14 +47,8 @@ export function useGlobalShortcuts() {
    */
   const handleKeyDown = (event: KeyboardEvent) => {
     // 입력 필드에 포커스가 있으면 단축키 무시 (Escape만 예외: 모달/드롭다운 닫기 등)
-    const target = event.target as HTMLElement
-    const isInputFocused = target.tagName === 'INPUT' ||
-                          target.tagName === 'TEXTAREA' ||
-                          target.isContentEditable ||
-                          !!target.closest?.('.ql-editor')
-
     const alwaysActiveKeys = ['Escape']
-    if (isInputFocused && !alwaysActiveKeys.includes(event.key)) {
+    if (isInputFocused() && !alwaysActiveKeys.includes(event.key)) {
       return
     }
 
@@ -102,11 +97,7 @@ export function useGlobalShortcuts() {
     let gKeyTimer: ReturnType<typeof setTimeout> | null = null
 
     const handleGKey = (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement
-      const isInputFocused = target.tagName === 'INPUT' || 
-                            target.tagName === 'TEXTAREA' || 
-                            target.isContentEditable
-      if (!isInputFocused) {
+      if (!isInputFocused()) {
         gKeyPressed = true
         if (gKeyTimer) clearTimeout(gKeyTimer)
         gKeyTimer = setTimeout(() => {

@@ -1,21 +1,17 @@
 <template>
     <div class="relative mb-6">
         <div ref="scrollContainer" class="overflow-x-auto scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0 scroll-smooth">
-            <nav class="flex space-x-4 sm:space-x-6 md:space-x-8 border-b border-gray-200 dark:border-gray-700 min-w-max relative" aria-label="Tabs" role="tablist">
-                <router-link 
-                    v-for="(tab, index) in tabs" 
-                    :key="tab.nameKey" 
-                    :to="tab.href"
+            <nav class="flex space-x-4 sm:space-x-6 md:space-x-8 border-b border-gray-200 dark:border-gray-700 min-w-max relative"
+                aria-label="Tabs" role="tablist">
+                <router-link v-for="(tab, index) in tabs" :key="tab.nameKey" :to="tab.href"
                     :ref="el => { if (el) tabRefs[index] = (el as ComponentPublicInstance).$el }"
                     @keydown="(e) => handleTabKeyDown(e, index)"
-                    class="whitespace-nowrap py-3 sm:py-4 px-1 text-xs sm:text-sm min-h-[44px] min-w-[44px] flex items-center justify-center transition-colors duration-200 focus:outline-none rounded-t touch-manipulation" 
+                    class="whitespace-nowrap py-3 sm:py-4 px-1 text-xs sm:text-sm min-h-[44px] min-w-[44px] flex items-center justify-center transition-colors duration-200 focus:outline-none rounded-t touch-manipulation"
                     :class="[
                         isActive(tab.href)
                             ? 'text-indigo-600 dark:text-indigo-400 font-bold'
                             : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 font-medium'
-                    ]" 
-                    :aria-current="isActive(tab.href) ? 'page' : undefined"
-                    role="tab"
+                    ]" :aria-current="isActive(tab.href) ? 'page' : undefined" role="tab"
                     :tabindex="isActive(tab.href) ? 0 : -1">
                     {{ $t(tab.nameKey) }}
                 </router-link>
@@ -34,6 +30,7 @@ import { ref, computed, watch, nextTick, onMounted, onUnmounted, type ComponentP
 import { useI18n } from 'vue-i18n'
 import { useThrottleFn } from '@/composables/useThrottle'
 import { DEBOUNCE_DELAY } from '@/utils/constants'
+import { isInputFocused } from '@/utils/keyboard'
 
 // User Navigation Component
 const route = useRoute()
@@ -76,7 +73,7 @@ const activeTabIndex = computed(() => {
 // 키보드 네비게이션
 const handleTabKeyDown = (event: KeyboardEvent, currentIndex: number) => {
     const tabCount = tabs.length
-    
+
     switch (event.key) {
         case 'ArrowLeft':
             event.preventDefault()
@@ -95,7 +92,7 @@ const handleTabKeyDown = (event: KeyboardEvent, currentIndex: number) => {
                 tabRefs.value[nextIndex]?.focus()
             })
             break
-            
+
         case 'Home':
             event.preventDefault()
             router.push(tabs[0].href)
@@ -103,7 +100,7 @@ const handleTabKeyDown = (event: KeyboardEvent, currentIndex: number) => {
                 tabRefs.value[0]?.focus()
             })
             break
-            
+
         case 'End':
             event.preventDefault()
             router.push(tabs[tabCount - 1].href)
@@ -161,15 +158,7 @@ watch(() => route.path, () => {
 
 const throttledUpdateUnderline = useThrottleFn(updateUnderline, DEBOUNCE_DELAY.RESIZE)
 
-function isInputFocused(): boolean {
-    const el = document.activeElement
-    if (!el) return false
-    const tag = (el as HTMLElement).tagName?.toLowerCase()
-    if (tag === 'input' || tag === 'textarea' || tag === 'select') return true
-    if ((el as HTMLElement).getAttribute?.('contenteditable') === 'true') return true
-    if ((el as HTMLElement).closest?.('.ql-editor')) return true
-    return false
-}
+
 
 function handleDocumentKeyDown(e: KeyboardEvent) {
     if (isInputFocused() || e.ctrlKey || e.altKey || e.metaKey) return

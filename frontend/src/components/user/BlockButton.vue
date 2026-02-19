@@ -45,7 +45,7 @@ const toggleBlock = async () => {
       isBlocked.value = true
     }
     emit('block-change', isBlocked.value)
-  } catch (error) {
+  } catch (error: unknown) {
     logger.error('Failed to toggle block:', error)
     toastStore.addToast(t('user.block.processFailed'), 'error')
   } finally {

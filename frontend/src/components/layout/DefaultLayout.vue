@@ -14,6 +14,7 @@ import GlobalSearchBar from '@/components/search/GlobalSearchBar.vue'
 import AdBanner from '@/components/common/widgets/AdBanner.vue'
 import KeyboardShortcutsModal from '@/components/common/KeyboardShortcutsModal.vue'
 import RecentBoardsBar from '@/components/layout/RecentBoardsBar.vue'
+import { isInputFocused } from '@/utils/keyboard'
 
 import logoLight from '@/assets/noviis_logo.png'
 import logoDark from '@/assets/noviis_logo_dark.png'
@@ -99,16 +100,7 @@ const handleClickOutside = (event: Event) => {
   }
 }
 
-// 입력 필드 확인
-const isInputFocused = (): boolean => {
-  const activeElement = document.activeElement
-  if (!activeElement) return false
-  const tagName = activeElement.tagName.toLowerCase()
-  if (tagName === 'input' || tagName === 'textarea' || tagName === 'select') return true
-  if (activeElement.getAttribute('contenteditable') === 'true') return true
-  if (activeElement.closest('.ql-editor')) return true
-  return false
-}
+
 
 // 전역 키보드 단축키 핸들러
 const handleKeyDown = (event: KeyboardEvent) => {

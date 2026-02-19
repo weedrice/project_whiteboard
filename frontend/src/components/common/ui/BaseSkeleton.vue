@@ -1,21 +1,14 @@
-<script setup>
-defineProps({
-    width: {
-        type: String,
-        default: '100%'
-    },
-    height: {
-        type: String,
-        default: '1rem'
-    },
-    rounded: {
-        type: String,
-        default: 'rounded-md'
-    },
-    className: {
-        type: String,
-        default: ''
-    }
+<script setup lang="ts">
+withDefaults(defineProps<{
+    width?: string
+    height?: string
+    rounded?: string
+    className?: string
+}>(), {
+    width: '100%',
+    height: '1rem',
+    rounded: 'rounded-md',
+    className: ''
 })
 </script>
 

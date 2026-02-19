@@ -24,7 +24,7 @@ export class Storage {
                 return defaultValue
             }
             return JSON.parse(item) as T
-        } catch (error) {
+        } catch (error: unknown) {
             logger.error(`Failed to get item from localStorage: ${key}`, error)
             return defaultValue
         }
@@ -45,7 +45,7 @@ export class Storage {
     static set<T>(key: string, value: T): void {
         try {
             localStorage.setItem(key, JSON.stringify(value))
-        } catch (error) {
+        } catch (error: unknown) {
             logger.error(`Failed to set item to localStorage: ${key}`, error)
             // QuotaExceededError 처리
             if (error instanceof DOMException && error.name === 'QuotaExceededError') {
@@ -67,7 +67,7 @@ export class Storage {
     static remove(key: string): void {
         try {
             localStorage.removeItem(key)
-        } catch (error) {
+        } catch (error: unknown) {
             logger.error(`Failed to remove item from localStorage: ${key}`, error)
         }
     }
@@ -83,7 +83,7 @@ export class Storage {
     static clear(): void {
         try {
             localStorage.clear()
-        } catch (error) {
+        } catch (error: unknown) {
             logger.error('Failed to clear localStorage', error)
         }
     }
@@ -104,7 +104,7 @@ export class Storage {
     static has(key: string): boolean {
         try {
             return localStorage.getItem(key) !== null
-        } catch (error) {
+        } catch (error: unknown) {
             logger.error(`Failed to check item in localStorage: ${key}`, error)
             return false
         }
@@ -124,7 +124,7 @@ export class Storage {
     static keys(): string[] {
         try {
             return Object.keys(localStorage)
-        } catch (error) {
+        } catch (error: unknown) {
             logger.error('Failed to get keys from localStorage', error)
             return []
         }
@@ -147,7 +147,7 @@ export class Storage {
         try {
             const item = localStorage.getItem(key)
             return item !== null ? item : defaultValue
-        } catch (error) {
+        } catch (error: unknown) {
             logger.error(`Failed to get string from localStorage: ${key}`, error)
             return defaultValue
         }
@@ -168,7 +168,7 @@ export class Storage {
     static setString(key: string, value: string): void {
         try {
             localStorage.setItem(key, value)
-        } catch (error) {
+        } catch (error: unknown) {
             logger.error(`Failed to set string to localStorage: ${key}`, error)
             // QuotaExceededError 처리
             if (error instanceof DOMException && error.name === 'QuotaExceededError') {

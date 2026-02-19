@@ -15,6 +15,9 @@ import EmptyState from '@/components/common/ui/EmptyState.vue'
 import { useErrorHandler } from '@/composables/useErrorHandler'
 import { useToastStore } from '@/stores/toast'
 import { getOptimizedProfileImageUrl, handleImageError } from '@/utils/image'
+import { extractErrorMessage } from '@/utils/errorHandler'
+import { formatDate } from '@/utils/date'
+import { isValidEmail } from '@/utils/validation'
 import type { User as UserType, PostSummary, Comment } from '@/types'
 
 const { t } = useI18n()
@@ -47,7 +50,7 @@ const isLoading = ref(true)
 const error = ref<string | null>(null)
 const isEditModalOpen = ref(false)
 
-import { formatDate } from '@/utils/date'
+
 
 async function fetchMyProfile() {
   try {
@@ -55,7 +58,7 @@ async function fetchMyProfile() {
     if (data.success) {
       profile.value = data.data
     }
-  } catch (err) {
+  } catch (err: unknown) {
     handleSilentError(err, 'Failed to load my profile')
   }
 }
@@ -71,7 +74,7 @@ async function fetchMyPosts() {
       myPosts.value = data.data.content
       myPostsTotalCount.value = data.data.totalElements
     }
-  } catch (err) {
+  } catch (err: unknown) {
     handleSilentError(err, 'Failed to load my posts')
   }
 }
@@ -83,7 +86,7 @@ async function fetchMyComments() {
       myComments.value = data.data.content
       myCommentsTotalCount.value = data.data.totalElements
     }
-  } catch (err) {
+  } catch (err: unknown) {
     handleSilentError(err, 'Failed to load my comments')
   }
 }
@@ -174,10 +177,7 @@ function formatVerifyTime(seconds: number) {
   return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
 }
 
-const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-function isValidEmail(email: string): boolean {
-  return email.trim().length > 0 && emailRegex.test(email.trim())
-}
+
 
 async function sendVerifyCode() {
   const trimmed = emailVerification.email.trim()
@@ -199,8 +199,8 @@ async function sendVerifyCode() {
       startVerifyResendCooldown()
       toastStore.addToast(t('auth.codeSent'), 'success')
     }
-  } catch (err: any) {
-    const message = err.response?.data?.error?.message || t('auth.sendCodeFailed')
+  } catch (err: unknown) {
+    const message = extractErrorMessage(err) || t('auth.sendCodeFailed')
     toastStore.addToast(message, 'error')
     emailVerification.resendCooldown = 0
     stopVerifyResendCooldown()
@@ -231,8 +231,8 @@ async function verifyEmailCode() {
       await fetchMyProfile()
       isVerifyModalOpen.value = false
     }
-  } catch (err: any) {
-    const message = err.response?.data?.error?.message || t('auth.verificationFailed')
+  } catch (err: unknown) {
+    const message = extractErrorMessage(err) || t('auth.verificationFailed')
     toastStore.addToast(message, 'error')
   } finally {
     emailVerification.loading = false

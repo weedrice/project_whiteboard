@@ -29,8 +29,8 @@ const isDetailModalOpen = ref(false)
 const selectedIpBlock = ref<IpBlock | null>(null)
 
 function openDetailModal(ipBlock: IpBlock) {
-  selectedIpBlock.value = ipBlock
-  isDetailModalOpen.value = true
+    selectedIpBlock.value = ipBlock
+    isDetailModalOpen.value = true
 }
 
 async function handleBlockIp() {
@@ -40,7 +40,7 @@ async function handleBlockIp() {
         toastStore.addToast(t('admin.security.messages.blocked'), 'success')
         newIp.value = ''
         blockReason.value = ''
-    } catch (err) {
+    } catch {
         // Error handled globally
     }
 }
@@ -51,7 +51,7 @@ async function handleUnblockIp(ipAddress: string) {
     try {
         await unblockIp(ipAddress)
         toastStore.addToast(t('admin.security.messages.unblocked'), 'success')
-    } catch (err) {
+    } catch {
         // Error handled globally
     }
 }
@@ -91,8 +91,6 @@ async function handleUnblockIp(ipAddress: string) {
         <IpBlockList :ip-blocks="ipBlocks" @unblock="handleUnblockIp" @viewDetail="openDetailModal" />
 
         <!-- IP Block Detail Modal -->
-        <IpBlockDetailModal :isOpen="isDetailModalOpen" :ipBlock="selectedIpBlock"
-          @close="isDetailModalOpen = false" />
+        <IpBlockDetailModal :isOpen="isDetailModalOpen" :ipBlock="selectedIpBlock" @close="isDetailModalOpen = false" />
     </div>
 </template>
-

@@ -3,6 +3,7 @@ import i18n from '@/i18n'
 import router from '@/router'
 import { Storage } from '@/utils/storage'
 import { API } from '@/utils/constants'
+import { normalizeApiErrorMessage } from '@/utils/errorHandler'
 
 const { t } = i18n.global
 
@@ -90,25 +91,15 @@ interface ToastStore {
     addToast: (message: string, type?: 'info' | 'success' | 'warning' | 'error', duration?: number, position?: 'top-center' | 'bottom-center') => void
 }
 
-/** Axios 기본 메시지(예: "Request failed with status code 500/502")면 공통 서버 에러 문구로 치환 */
-const normalizeErrorMessage = (message: string | undefined): string => {
-    if (!message) return t('common.messages.serverError')
-    const trimmed = message.trim()
-    if (/request failed with status code \d{3}/i.test(trimmed)) {
-        return t('common.messages.serverError')
-    }
-    return message
-}
-
 const handleApiError = (error: AxiosError, toastStore: ToastStore) => {
     if (error.response) {
         const status = error.response.status
         const errorData = error.response.data as ApiErrorResponse | undefined
-        
+
         // ApiResponse 형태의 에러 응답 처리
         const apiError = errorData?.error || errorData
         const rawMessage = apiError?.message || errorData?.message || error.message
-        const message = normalizeErrorMessage(rawMessage)
+        const message = normalizeApiErrorMessage(rawMessage)
 
         switch (status) {
             case 400:
@@ -120,9 +111,9 @@ const handleApiError = (error: AxiosError, toastStore: ToastStore) => {
                     const firstField = Object.keys(validationErrors)[0]
                     const firstError = firstField ? validationErrors[firstField]?.[0] : null
                     toastStore.addToast(
-                        firstError || message || t('common.messages.badRequest'), 
-                        'error', 
-                        3000, 
+                        firstError || message || t('common.messages.badRequest'),
+                        'error',
+                        3000,
                         'top-center'
                     )
                 } else {
@@ -153,7 +144,7 @@ const handleApiError = (error: AxiosError, toastStore: ToastStore) => {
             error.code === 'ERR_NETWORK' || // Network error
             error.message?.includes('Network Error')
         )
-        
+
         if (isRetryable) {
             toastStore.addToast(
                 t('common.messages.networkRetry') || 'Network error. Please check your connection and try again.',
@@ -162,10 +153,10 @@ const handleApiError = (error: AxiosError, toastStore: ToastStore) => {
                 'top-center'
             )
         } else {
-            toastStore.addToast(normalizeErrorMessage(error.message) || t('common.messages.network'), 'error', 3000, 'top-center')
+            toastStore.addToast(normalizeApiErrorMessage(error.message) || t('common.messages.network'), 'error', 3000, 'top-center')
         }
     } else {
-        toastStore.addToast(normalizeErrorMessage(error.message) || t('common.messages.requestSetup'), 'error', 3000, 'top-center')
+        toastStore.addToast(normalizeApiErrorMessage(error.message) || t('common.messages.requestSetup'), 'error', 3000, 'top-center')
     }
 }
 

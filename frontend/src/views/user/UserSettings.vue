@@ -1,22 +1,19 @@
-<script setup>
-import { ref, onMounted, reactive, watchEffect, computed, watch } from 'vue'
+<script setup lang="ts">
+import { ref, reactive, watchEffect, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useThemeStore } from '@/stores/theme'
+import { useUser } from '@/composables/useUser'
+import { type NotificationSettingsPayload } from '@/api/user'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseSelect from '@/components/common/ui/BaseSelect.vue'
 import BaseCheckbox from '@/components/common/ui/BaseCheckbox.vue'
-import BaseModal from '@/components/common/ui/BaseModal.vue'
-import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
-import logger from '@/utils/logger'
-import { useUser } from '@/composables/useUser'
-
-import { useThemeStore } from '@/stores/theme'
 import { Settings } from 'lucide-vue-next'
+import logger from '@/utils/logger'
+import type { UserSettings } from '@/types'
 
 const { t } = useI18n()
-const router = useRouter()
 const authStore = useAuthStore()
 const { useUserSettings, useUpdateUserSettings, useNotificationSettings, useUpdateNotificationSettings } = useUser()
 const themeStore = useThemeStore()
@@ -32,7 +29,12 @@ const saving = computed(() => isUpdatingSettings.value || isUpdatingNotif.value)
 const message = ref('')
 const isError = ref(false)
 
-const userSettingsForm = reactive({
+const userSettingsForm = reactive<{
+  theme: 'LIGHT' | 'DARK'
+  language: string
+  timezone: string
+  hideNsfw: boolean
+}>({
   theme: 'LIGHT',
   language: 'ko',
   timezone: 'Asia/Seoul',
@@ -53,8 +55,8 @@ watchEffect(() => {
   }
   if (notificationData.value) {
     const notifList = notificationData.value
-    const emailSetting = notifList.find(s => s.notificationType === 'EMAIL')
-    const pushSetting = notifList.find(s => s.notificationType === 'PUSH')
+    const emailSetting = notifList.find((s: NotificationSettingsPayload) => s.notificationType === 'EMAIL')
+    const pushSetting = notifList.find((s: NotificationSettingsPayload) => s.notificationType === 'PUSH')
 
     if (emailSetting) notificationSettings.emailNotifications = emailSetting.isEnabled
     if (pushSetting) notificationSettings.pushNotifications = pushSetting.isEnabled
@@ -73,7 +75,7 @@ const saveSettings = async () => {
     // Update General Settings
     await updateSettings({
       theme: userSettingsForm.theme,
-      language: userSettingsForm.language,
+      language: userSettingsForm.language as UserSettings['language'],
       timezone: userSettingsForm.timezone,
       hideNsfw: userSettingsForm.hideNsfw
     })
@@ -94,7 +96,7 @@ const saveSettings = async () => {
     themeStore.setTheme(userSettingsForm.theme)
 
     message.value = t('user.settings.saved')
-  } catch (error) {
+  } catch (error: unknown) {
     logger.error('Failed to save settings:', error)
     message.value = t('user.settings.failed')
     isError.value = true

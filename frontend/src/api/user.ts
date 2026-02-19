@@ -22,6 +22,10 @@ interface PaginationParams {
     sort?: string
 }
 
+export interface BlockedUserSummary extends UserSummary {
+    email?: string
+}
+
 export interface NotificationSettingsPayload {
     notificationType: string
     isEnabled: boolean
@@ -54,7 +58,7 @@ export const userApi = {
         return api.put<ApiResponse<UserSettings>>('/users/me/settings', data)
     },
     getNotificationSettings() {
-        return api.get<ApiResponse<NotificationSettingsPayload>>('/users/me/notification-settings')
+        return api.get<ApiResponse<NotificationSettingsPayload[]>>('/users/me/notification-settings')
     },
     updateNotificationSettings(data: NotificationSettingsPayload) {
         return api.put<ApiResponse<NotificationSettingsPayload>>('/users/me/notification-settings', data)
@@ -67,7 +71,7 @@ export const userApi = {
         return api.delete<ApiResponse<void>>(`/users/${userId}/block`)
     },
     getBlockList() {
-        return api.get<ApiResponse<UserSummary[]>>('/users/me/blocks')
+        return api.get<ApiResponse<PageResponse<BlockedUserSummary> | BlockedUserSummary[]>>('/users/me/blocks')
     },
     // Activity
     getMyPosts(params: PaginationParams) {

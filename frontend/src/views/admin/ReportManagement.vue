@@ -55,7 +55,7 @@ async function handleResolve(report: Report) {
     await resolveReport({ reportId: report.reportId, data: { status: 'RESOLVED' } })
     toastStore.addToast(t('admin.reports.messages.resolved'), 'success')
     refetch()
-  } catch (err) {
+  } catch {
     // Error handled globally
   }
 }
@@ -67,7 +67,7 @@ async function handleReject(report: Report) {
     await resolveReport({ reportId: report.reportId, data: { status: 'REJECTED' } })
     toastStore.addToast(t('admin.reports.messages.rejected'), 'success')
     refetch()
-  } catch (err) {
+  } catch {
     // Error handled globally
   }
 }
@@ -85,9 +85,9 @@ async function handleReject(report: Report) {
     <ReportList :reports="reports" @resolve="handleResolve" @reject="handleReject" @sanction="openSanctionModal"
       @viewDetail="openDetailModal" />
 
-    <ReportDetailModal :isOpen="isDetailModalOpen" :report="selectedReport"
-      @close="isDetailModalOpen = false" />
+    <ReportDetailModal :isOpen="isDetailModalOpen" :report="selectedReport" @close="isDetailModalOpen = false" />
 
-    <SanctionModal v-if="selectedUser" :isOpen="isModalOpen" :user="selectedUser" @close="isModalOpen = false" @sanctioned="refreshList" />
+    <SanctionModal v-if="selectedUser" :isOpen="isModalOpen" :user="selectedUser" @close="isModalOpen = false"
+      @sanctioned="refreshList" />
   </div>
 </template>

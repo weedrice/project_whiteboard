@@ -1,6 +1,6 @@
-<script setup>
-import { ref, reactive, onUnmounted, watch } from 'vue'
-import { useRouter } from 'vue-router'
+<script setup lang="ts">
+import { ref, reactive, onMounted, onUnmounted, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { authApi } from '@/api/auth'
 import { Lock, User, Mail, Smile, ChevronLeft, CheckCircle } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
@@ -8,11 +8,13 @@ import { useToastStore } from '@/stores/toast'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import { isEmpty, isValidEmail, isValidLoginId, isValidPassword, isValidDisplayName } from '@/utils/validation'
+import { extractErrorMessage } from '@/utils/errorHandler'
 
 const { t } = useI18n()
 const toastStore = useToastStore()
 
 const router = useRouter()
+const route = useRoute()
 
 const form = ref({
   loginId: '',
@@ -140,8 +142,8 @@ const verification = reactive({
   resendCooldown: 0
 })
 
-let timerInterval = null
-let resendInterval = null
+let timerInterval: ReturnType<typeof setInterval> | null = null
+let resendInterval: ReturnType<typeof setInterval> | null = null
 
 const error = ref('')
 const isLoading = ref(false)
@@ -185,7 +187,7 @@ function stopResendCooldown() {
   }
 }
 
-function formatTime(seconds) {
+function formatTime(seconds: number): string {
   const m = Math.floor(seconds / 60)
   const s = seconds % 60
   return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
@@ -221,8 +223,8 @@ async function sendVerificationCode() {
       startResendCooldown()
       toastStore.addToast(t('auth.codeSent'), 'success')
     }
-  } catch (err) {
-    const message = err.response?.data?.error?.message || t('auth.sendCodeFailed')
+  } catch (err: unknown) {
+    const message = extractErrorMessage(err) || t('auth.sendCodeFailed')
     toastStore.addToast(message, 'error')
     verification.resendCooldown = 0
     stopResendCooldown()
@@ -255,8 +257,8 @@ async function verifyCode() {
         form.value.loginId = resp.loginId
       }
     }
-  } catch (err) {
-    const message = err.response?.data?.error?.message || t('auth.verificationFailed')
+  } catch (err: unknown) {
+    const message = extractErrorMessage(err) || t('auth.verificationFailed')
     toastStore.addToast(message, 'error')
   } finally {
     verification.loading = false
@@ -328,8 +330,8 @@ async function handleSignup() {
     const { passwordConfirm, ...formData } = form.value
     const signupData = {
       ...formData,
-      provider: route.query.provider || null,
-      providerId: route.query.providerId || null
+      provider: (route.query.provider as string) || null,
+      providerId: (route.query.providerId as string) || null
     }
 
     const { data } = await authApi.signup(signupData)
@@ -337,18 +339,13 @@ async function handleSignup() {
       toastStore.addToast(t('auth.signupSuccess'), 'success')
       router.push('/login')
     }
-  } catch (err) {
-    const message = err.response?.data?.error?.message || t('auth.signupFailed')
+  } catch (err: unknown) {
+    const message = extractErrorMessage(err) || t('auth.signupFailed')
     toastStore.addToast(message, 'error')
   } finally {
     isLoading.value = false
   }
 }
-
-import { onMounted } from 'vue'
-import { useRoute } from 'vue-router'
-
-const route = useRoute()
 
 onMounted(async () => {
   if (route.query.email) {

@@ -114,7 +114,7 @@ export function useNotification() {
                 })
                 queryClient.invalidateQueries({ queryKey: ['notifications'] })
 
-            } catch (error) {
+            } catch (error: unknown) {
                 logger.error('Failed to parse SSE notification:', error)
             }
         })
@@ -137,7 +137,7 @@ export function useNotification() {
                         connectToSse()
                     }, 1000)
                     return
-                } catch (e) {
+                } catch (e: unknown) {
                     logger.warn('SSE reconnect: refresh failed', e)
                 }
             }

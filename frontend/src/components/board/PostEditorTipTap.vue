@@ -303,7 +303,7 @@ async function onImageChange(e: Event) {
       fileIds.value.push(fileId)
       editor.value?.chain().focus().setImage({ src: url }).run()
     }
-  } catch (err) {
+  } catch (err: unknown) {
     logger.error('Image upload failed:', err)
     toastStore.addToast(t('common.messages.uploadFailed'), 'error')
   }

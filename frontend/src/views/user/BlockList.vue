@@ -19,20 +19,17 @@
         </div>
       </div>
 
-      <EmptyState
-        v-else-if="blockedUsers.length === 0"
-        :title="$t('user.blockList.empty')"
-        :icon="UserX"
-      />
+      <EmptyState v-else-if="blockedUsers.length === 0" :title="$t('user.blockList.empty')" :icon="UserX" />
 
       <ul v-else role="list" class="divide-y divide-gray-200 dark:divide-gray-700">
-        <li v-for="user in blockedUsers" :key="user.userId" class="px-4 py-4 sm:px-6 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200">
+        <li v-for="user in blockedUsers" :key="user.userId"
+          class="px-4 py-4 sm:px-6 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200">
           <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div class="flex items-center min-w-0 flex-1">
               <div
                 class="flex-shrink-0 h-10 w-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
                 <span class="text-gray-500 dark:text-gray-400 font-medium">{{ user.displayName.charAt(0).toUpperCase()
-                  }}</span>
+                }}</span>
               </div>
               <div class="ml-4 min-w-0">
                 <p class="text-sm font-medium text-gray-900 dark:text-white truncate">{{ user.displayName }}</p>
@@ -49,9 +46,9 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { userApi } from '@/api/user'
+import { userApi, type BlockedUserSummary } from '@/api/user'
 import BlockButton from '@/components/user/BlockButton.vue'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import EmptyState from '@/components/common/ui/EmptyState.vue'
@@ -61,7 +58,7 @@ import logger from '@/utils/logger'
 
 const { t } = useI18n()
 
-const blockedUsers = ref([])
+const blockedUsers = ref<BlockedUserSummary[]>([])
 const loading = ref(false)
 
 const fetchBlockedUsers = async () => {
@@ -69,9 +66,12 @@ const fetchBlockedUsers = async () => {
   try {
     const { data } = await userApi.getBlockList()
     if (data.success) {
-      blockedUsers.value = data.data.content
+      const payload = data.data
+      blockedUsers.value = Array.isArray(payload)
+        ? payload
+        : payload.content
     }
-  } catch (error) {
+  } catch (error: unknown) {
     logger.error('Failed to fetch blocked users:', error)
   } finally {
     loading.value = false

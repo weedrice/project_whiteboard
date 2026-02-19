@@ -6,6 +6,8 @@ export interface VerifyCodeResponse {
     verified: boolean
     loginId?: string
     isReregister: boolean
+    /** Jackson이 isReregister를 reregister로 직렬화할 수 있음 */
+    reregister?: boolean
 }
 
 export interface ReregisterCheckResponse {

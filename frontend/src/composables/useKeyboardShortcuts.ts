@@ -3,31 +3,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { useKeyboardStore } from '@/stores/keyboard'
 import { useAuthStore } from '@/stores/auth'
 import { useThemeStore } from '@/stores/theme'
-
-/**
- * 입력 필드가 포커스되어 있는지 확인
- */
-function isInputFocused(): boolean {
-    const activeElement = document.activeElement
-    if (!activeElement) return false
-
-    const tagName = activeElement.tagName.toLowerCase()
-    if (tagName === 'input' || tagName === 'textarea' || tagName === 'select') {
-        return true
-    }
-
-    // contenteditable 요소 확인
-    if (activeElement.getAttribute('contenteditable') === 'true') {
-        return true
-    }
-
-    // Quill 에디터 확인
-    if (activeElement.closest('.ql-editor')) {
-        return true
-    }
-
-    return false
-}
+import { isInputFocused } from '@/utils/keyboard'
 
 export interface KeyboardShortcutHandlers {
     // 드롭다운 토글 함수들

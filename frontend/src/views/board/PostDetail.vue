@@ -20,6 +20,7 @@ import { useConfirm } from '@/composables/useConfirm'
 import { formatDate } from '@/utils/date'
 import { sanitizeQuillHtml } from '@/utils/sanitize'
 import { useHead } from '@unhead/vue'
+import { isInputFocused } from '@/utils/keyboard'
 
 const route = useRoute()
 const router = useRouter()
@@ -256,7 +257,7 @@ function handleCopyUrl(showToast = true) {
         showCopyHint.value = false
         copyHintTimer = null
       }, 1500)
-      ;(document.activeElement as HTMLElement)?.blur()
+        ; (document.activeElement as HTMLElement)?.blur()
     }
   }).catch(err => {
     logger.error('Failed to copy URL:', err)
@@ -344,14 +345,14 @@ function waitForImagesInContent(): Promise<void> {
       new Promise<void>((resolve) => setTimeout(resolve, IMAGE_LOAD_TIMEOUT_MS))
     ])
   })
-  return Promise.all(promises).then(() => {})
+  return Promise.all(promises).then(() => { })
 }
 
 function scrollToComments() {
   if (commentsRef.value) {
     const headerOffset = 100 // Adjust based on sticky header height if any
     const elementPosition = commentsRef.value.getBoundingClientRect().top
-    const offsetPosition = elementPosition + window.pageYOffset - headerOffset
+    const offsetPosition = elementPosition + window.scrollY - headerOffset
 
     window.scrollTo({
       top: offsetPosition,
@@ -378,16 +379,7 @@ function goToList() {
   }
 }
 
-// 입력 필드 확인
-const isInputFocused = (): boolean => {
-  const activeElement = document.activeElement
-  if (!activeElement) return false
-  const tagName = activeElement.tagName.toLowerCase()
-  if (tagName === 'input' || tagName === 'textarea' || tagName === 'select') return true
-  if (activeElement.getAttribute('contenteditable') === 'true') return true
-  if (activeElement.closest('.ql-editor')) return true
-  return false
-}
+
 
 // 키보드 단축키 핸들러
 const handleKeyDown = (event: KeyboardEvent) => {
@@ -551,8 +543,10 @@ onUnmounted(() => {
         </div>
 
         <div class="mt-3 sm:mt-4">
-          <h1 class="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white break-words" ref="titleRef">{{ post.title }}</h1>
-          <div class="mt-1.5 sm:mt-2 flex flex-wrap items-center text-xs sm:text-sm text-gray-500 dark:text-gray-400 gap-x-3 gap-y-1 sm:space-x-4 sm:gap-0">
+          <h1 class="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white break-words" ref="titleRef">{{
+            post.title }}</h1>
+          <div
+            class="mt-1.5 sm:mt-2 flex flex-wrap items-center text-xs sm:text-sm text-gray-500 dark:text-gray-400 gap-x-3 gap-y-1 sm:space-x-4 sm:gap-0">
             <div class="flex items-center text-inherit">
               <User class="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1 flex-shrink-0" />
               <UserMenu :user-id="post.author.userId" :display-name="post.author.displayName" size="inherit" />
@@ -588,16 +582,13 @@ onUnmounted(() => {
           </Transition>
           <div
             class="flex items-center gap-1 sm:space-x-2 bg-gray-100 dark:bg-gray-700 rounded-md px-2 py-1 sm:px-3 sm:py-1.5 max-w-full min-w-0 cursor-pointer sm:cursor-default active:bg-gray-200 dark:active:bg-gray-600 sm:active:bg-transparent transition-colors"
-            role="button"
-            tabindex="0"
-            :aria-label="$t('common.messages.urlCopied')"
-            @click="onUrlBarClick"
-            @keydown.enter="onUrlBarClick"
-            @keydown.space.prevent="onUrlBarClick"
-          >
-            <span class="text-[9px] sm:text-[10px] text-gray-500 dark:text-gray-400 select-all truncate">{{ currentUrl }}</span>
+            role="button" tabindex="0" :aria-label="$t('common.messages.urlCopied')" @click="onUrlBarClick"
+            @keydown.enter="onUrlBarClick" @keydown.space.prevent="onUrlBarClick">
+            <span class="text-[9px] sm:text-[10px] text-gray-500 dark:text-gray-400 select-all truncate">{{ currentUrl
+              }}</span>
             <div class="hidden sm:block h-3 w-px bg-gray-300 dark:bg-gray-600 flex-shrink-0"></div>
-            <BaseButton @click.stop="handleCopyUrl(true)" variant="ghost" size="sm" class="hidden sm:!inline-flex !px-2 !py-1 !text-[10px] sm:!text-xs flex-shrink-0">
+            <BaseButton @click.stop="handleCopyUrl(true)" variant="ghost" size="sm"
+              class="hidden sm:!inline-flex !px-2 !py-1 !text-[10px] sm:!text-xs flex-shrink-0">
               {{ $t('common.copy') }}
             </BaseButton>
           </div>
@@ -611,14 +602,16 @@ onUnmounted(() => {
           class="absolute inset-0 flex flex-col items-center justify-center z-10 bg-white/50 dark:bg-black/50 px-3">
           <div
             class="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg shadow-lg text-center border border-gray-200 dark:border-gray-700 max-w-full flex flex-col items-center">
-            <h3 class="text-base sm:text-lg font-bold text-gray-900 dark:text-white mb-1.5 sm:mb-2">{{ $t('board.postDetail.spoilerWarning') }}
+            <h3 class="text-base sm:text-lg font-bold text-gray-900 dark:text-white mb-1.5 sm:mb-2">{{
+              $t('board.postDetail.spoilerWarning') }}
             </h3>
-            <p class="text-sm sm:text-base text-gray-600 dark:text-gray-300 mb-3 sm:mb-4">{{ $t('board.postDetail.spoilerTimer', { time: timeLeft })
-            }}</p>
+            <p class="text-sm sm:text-base text-gray-600 dark:text-gray-300 mb-3 sm:mb-4">{{
+              $t('board.postDetail.spoilerTimer', { time: timeLeft })
+              }}</p>
             <div class="flex justify-center w-full">
-            <BaseButton @click="revealSpoiler" variant="primary" size="sm">
-              {{ $t('board.postDetail.revealSpoiler') }}
-            </BaseButton>
+              <BaseButton @click="revealSpoiler" variant="primary" size="sm">
+                {{ $t('board.postDetail.revealSpoiler') }}
+              </BaseButton>
             </div>
           </div>
         </div>
@@ -636,8 +629,10 @@ onUnmounted(() => {
         <BaseButton @click="handleLike" :disabled="!authStore.isAuthenticated" variant="ghost"
           class="flex flex-col items-center group cursor-pointer h-auto py-1.5 sm:py-2"
           :class="{ 'text-indigo-600 dark:text-indigo-400': post.liked, 'text-gray-500 dark:text-gray-400': !post.liked, 'opacity-50 cursor-not-allowed': !authStore.isAuthenticated }">
-          <div class="p-1.5 sm:p-2 rounded-full group-hover:bg-indigo-50 dark:group-hover:bg-indigo-900/30 transition-colors">
-            <ThumbsUp class="h-5 w-5 sm:h-6 sm:w-6" :class="{ 'fill-current': post.liked, 'bounce-in': isLikeAnimating }" />
+          <div
+            class="p-1.5 sm:p-2 rounded-full group-hover:bg-indigo-50 dark:group-hover:bg-indigo-900/30 transition-colors">
+            <ThumbsUp class="h-5 w-5 sm:h-6 sm:w-6"
+              :class="{ 'fill-current': post.liked, 'bounce-in': isLikeAnimating }" />
           </div>
           <span class="text-xs sm:text-sm font-medium mt-0.5 sm:mt-1">{{ post.likeCount }}</span>
         </BaseButton>
@@ -645,15 +640,18 @@ onUnmounted(() => {
         <BaseButton @click="handleScrap" :disabled="!authStore.isAuthenticated" variant="ghost"
           class="flex flex-col items-center group cursor-pointer h-auto py-1.5 sm:py-2"
           :class="{ 'text-yellow-500': post.scrapped, 'text-gray-500 dark:text-gray-400': !post.scrapped, 'opacity-50 cursor-not-allowed': !authStore.isAuthenticated }">
-          <div class="p-1.5 sm:p-2 rounded-full group-hover:bg-yellow-50 dark:group-hover:bg-yellow-900/30 transition-colors">
-            <Bookmark class="h-5 w-5 sm:h-6 sm:w-6" :class="{ 'fill-current': post.scrapped, 'bounce-in': isScrapAnimating }" />
+          <div
+            class="p-1.5 sm:p-2 rounded-full group-hover:bg-yellow-50 dark:group-hover:bg-yellow-900/30 transition-colors">
+            <Bookmark class="h-5 w-5 sm:h-6 sm:w-6"
+              :class="{ 'fill-current': post.scrapped, 'bounce-in': isScrapAnimating }" />
           </div>
           <span class="text-xs sm:text-sm font-medium mt-0.5 sm:mt-1">{{ $t('common.scrap') }}</span>
         </BaseButton>
 
         <BaseButton @click="handleShare" variant="ghost"
           class="flex flex-col items-center group cursor-pointer text-gray-500 dark:text-gray-400 h-auto py-1.5 sm:py-2">
-          <div class="p-1.5 sm:p-2 rounded-full group-hover:bg-indigo-50 dark:group-hover:bg-indigo-900/30 transition-colors">
+          <div
+            class="p-1.5 sm:p-2 rounded-full group-hover:bg-indigo-50 dark:group-hover:bg-indigo-900/30 transition-colors">
             <Share2 class="h-5 w-5 sm:h-6 sm:w-6" />
           </div>
           <span class="text-xs sm:text-sm font-medium mt-0.5 sm:mt-1">{{ $t('common.share') }}</span>
@@ -669,13 +667,15 @@ onUnmounted(() => {
       </div>
 
       <!-- Comments Section (id for hash scroll from feed comment button) -->
-      <div id="comments" ref="commentsRef" class="border-t border-gray-200 dark:border-gray-700 mt-6 sm:mt-8 px-3 py-4 sm:p-4">
+      <div id="comments" ref="commentsRef"
+        class="border-t border-gray-200 dark:border-gray-700 mt-6 sm:mt-8 px-3 py-4 sm:p-4">
         <CommentList :postId="post.postId" :boardUrl="post.board.boardUrl" />
       </div>
 
       <!-- Floating Navigation -->
       <Transition name="slide-fade">
-        <div v-show="showFloatingNav" class="fixed right-4 sm:right-8 top-1/2 -translate-y-1/2 flex flex-col gap-1.5 sm:gap-2 z-50">
+        <div v-show="showFloatingNav"
+          class="fixed right-4 sm:right-8 top-1/2 -translate-y-1/2 flex flex-col gap-1.5 sm:gap-2 z-50">
 
           <button @click="scrollToTop"
             class="p-2 sm:p-3 bg-white dark:bg-gray-800 rounded-full shadow-lg border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200 group"
@@ -733,6 +733,7 @@ onUnmounted(() => {
 .fade-leave-active {
   transition: opacity 0.2s ease;
 }
+
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
@@ -775,21 +776,26 @@ onUnmounted(() => {
   padding-left: 1.5em;
   margin: 0.5em 0;
 }
+
 .ql-editor ul ul {
   list-style-type: circle;
 }
+
 .ql-editor ol {
   list-style-type: decimal;
   padding-left: 1.5em;
   margin: 0.5em 0;
 }
+
 .ql-editor ol ol {
   list-style-type: lower-alpha;
 }
+
 .ql-editor li {
   display: list-item;
   margin: 0.25em 0;
 }
+
 .ql-editor .tiptap-video-wrapper {
   position: relative;
   padding-bottom: 56.25%;
@@ -798,6 +804,7 @@ onUnmounted(() => {
   max-width: 100%;
   margin: 0.75em 0;
 }
+
 .ql-editor .tiptap-video-wrapper iframe {
   position: absolute;
   top: 0;

@@ -8,25 +8,36 @@ export function usePost() {
 
     // --- Optimistic Update 헬퍼 ---
 
+    // 캐시 조작용 인터페이스
+    interface InfiniteQueryData {
+        pages: Array<{ content: Partial<Post>[];[key: string]: unknown }>
+        pageParams: unknown[]
+    }
+
+    interface PageQueryData {
+        content: Partial<Post>[]
+        [key: string]: unknown
+    }
+
     // 모든 게시글 캐시(상세, 트렌딩, 게시판 목록)에서 특정 postId의 데이터를 업데이트
-    function updatePostInAllCaches(postId: string | number, updater: (post: any) => any) {
+    function updatePostInAllCaches(postId: string | number, updater: (post: Partial<Post>) => Partial<Post>) {
         // 1. 게시글 상세 캐시
         queryClient.setQueryData<Post>(['post', postId], (old) => {
             if (!old) return old
-            return updater(old)
+            return updater(old) as Post
         })
 
         // 2. 트렌딩 피드 등 게시글 목록 캐시 (InfiniteQuery 구조)
-        queryClient.setQueriesData<any>(
+        queryClient.setQueriesData<InfiniteQueryData>(
             { queryKey: ['posts'] },
-            (old: any) => {
+            (old) => {
                 if (!old?.pages) return old
                 return {
                     ...old,
-                    pages: old.pages.map((page: any) => ({
+                    pages: old.pages.map((page) => ({
                         ...page,
                         content: Array.isArray(page.content)
-                            ? page.content.map((p: any) =>
+                            ? page.content.map((p) =>
                                 String(p.postId) === String(postId) ? updater(p) : p
                             )
                             : page.content
@@ -39,16 +50,16 @@ export function usePost() {
         queryClient.getQueriesData({ queryKey: ['board'] }).forEach(([key]) => {
             const keyArr = key as unknown[]
             if (!keyArr.includes('posts')) return
-            queryClient.setQueryData(key, (old: any) => {
+            queryClient.setQueryData(key, (old: InfiniteQueryData | PageQueryData | undefined) => {
                 if (!old) return old
                 // InfiniteQuery 구조
-                if (old.pages) {
+                if ('pages' in old && old.pages) {
                     return {
                         ...old,
-                        pages: old.pages.map((page: any) => ({
+                        pages: (old as InfiniteQueryData).pages.map((page) => ({
                             ...page,
                             content: Array.isArray(page.content)
-                                ? page.content.map((p: any) =>
+                                ? page.content.map((p) =>
                                     String(p.postId) === String(postId) ? updater(p) : p
                                 )
                                 : page.content
@@ -56,10 +67,10 @@ export function usePost() {
                     }
                 }
                 // 일반 PageResponse 구조
-                if (old.content && Array.isArray(old.content)) {
+                if ('content' in old && Array.isArray(old.content)) {
                     return {
                         ...old,
-                        content: old.content.map((p: any) =>
+                        content: old.content.map((p) =>
                             String(p.postId) === String(postId) ? updater(p) : p
                         )
                     }
@@ -169,7 +180,7 @@ export function usePost() {
                 await queryClient.cancelQueries({ queryKey: ['posts'] })
                 const snapshots = savePostCacheSnapshots(postId)
 
-                updatePostInAllCaches(postId, (old: any) => ({
+                updatePostInAllCaches(postId, (old) => ({
                     ...old,
                     liked: true,
                     likeCount: (old.likeCount || 0) + 1
@@ -199,7 +210,7 @@ export function usePost() {
                 await queryClient.cancelQueries({ queryKey: ['posts'] })
                 const snapshots = savePostCacheSnapshots(postId)
 
-                updatePostInAllCaches(postId, (old: any) => ({
+                updatePostInAllCaches(postId, (old) => ({
                     ...old,
                     liked: false,
                     likeCount: Math.max((old.likeCount || 0) - 1, 0)
@@ -229,7 +240,7 @@ export function usePost() {
                 await queryClient.cancelQueries({ queryKey: ['posts'] })
                 const snapshots = savePostCacheSnapshots(postId)
 
-                updatePostInAllCaches(postId, (old: any) => ({
+                updatePostInAllCaches(postId, (old) => ({
                     ...old,
                     scrapped: true
                 }))
@@ -258,7 +269,7 @@ export function usePost() {
                 await queryClient.cancelQueries({ queryKey: ['posts'] })
                 const snapshots = savePostCacheSnapshots(postId)
 
-                updatePostInAllCaches(postId, (old: any) => ({
+                updatePostInAllCaches(postId, (old) => ({
                     ...old,
                     scrapped: false
                 }))

@@ -70,7 +70,7 @@ export function usePagination<T>(
             } else {
                 error.value = '데이터를 불러오는데 실패했습니다.'
             }
-        } catch (err) {
+        } catch (err: unknown) {
             logger.error('Failed to fetch paginated data:', err)
             error.value = '데이터를 불러오는데 실패했습니다.'
         } finally {

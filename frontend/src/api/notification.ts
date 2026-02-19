@@ -1,5 +1,5 @@
 import api from './index'
-import type { ApiResponse, Notification, NotificationActor, PageResponse } from '@/types'
+import type { ApiResponse, Notification, PageResponse } from '@/types'
 import type { AxiosResponse } from 'axios'
 
 export interface NotificationParams {
@@ -33,28 +33,38 @@ interface NotificationRaw {
     targetUrl?: string;
 }
 
+function normalizeNotification(raw: NotificationRaw): Notification {
+    return {
+        notificationId: raw.notificationId || raw.notification_id || 0,
+        sourceType: raw.sourceType || raw.source_type || 'SYSTEM',
+        sourceId: raw.sourceId || raw.source_id || 0,
+        isRead: raw.isRead === true || raw.is_read === true || raw.is_read === 'Y',
+        createdAt: raw.createdAt || raw.created_at || '',
+        message: raw.message || '',
+        actor: {
+            userId: raw.actor?.userId || raw.actor?.user_id || 0,
+            displayName: raw.actor?.displayName || raw.actor?.display_name || '',
+            profileImageUrl: raw.actor?.profileImageUrl || raw.actor?.profile_image_url
+        },
+        targetUrl: raw.targetUrl
+    }
+}
+
 export const notificationApi = {
     // Get notifications
-    getNotifications: async (params: NotificationParams) => {
+    getNotifications: async (params: NotificationParams): Promise<AxiosResponse<ApiResponse<PageResponse<Notification>>>> => {
         const response = await api.get<ApiResponse<PageResponse<NotificationRaw>>>('/notifications', { params })
-        if (response.data.success) {
-            response.data.data.content = response.data.data.content.map((n: NotificationRaw) => ({
-                ...n,
-                notificationId: n.notificationId || n.notification_id || 0,
-                sourceType: n.sourceType || n.source_type || 'SYSTEM',
-                sourceId: n.sourceId || n.source_id || 0,
-                isRead: n.isRead === true || n.is_read === true || n.is_read === 'Y',
-                createdAt: n.createdAt || n.created_at || '',
-                message: n.message || '',
-                actor: {
-                    ...n.actor,
-                    userId: n.actor?.userId || n.actor?.user_id || 0,
-                    displayName: n.actor?.displayName || n.actor?.display_name || '',
-                    profileImageUrl: n.actor?.profileImageUrl || n.actor?.profile_image_url
+        const normalizedResponse: AxiosResponse<ApiResponse<PageResponse<Notification>>> = {
+            ...response,
+            data: {
+                ...response.data,
+                data: {
+                    ...response.data.data,
+                    content: (response.data.data.content || []).map(normalizeNotification)
                 }
-            })) as Notification[]
+            }
         }
-        return response as unknown as AxiosResponse<ApiResponse<PageResponse<Notification>>>
+        return normalizedResponse
     },
 
     // Mark as read

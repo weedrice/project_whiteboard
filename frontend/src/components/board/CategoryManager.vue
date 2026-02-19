@@ -52,7 +52,7 @@ async function fetchCategories() {
     if (data.success) {
       categories.value = data.data.sort((a: Category, b: Category) => a.sortOrder - b.sortOrder)
     }
-  } catch (err) {
+  } catch (err: unknown) {
     logger.error('Failed to load categories:', err)
     error.value = t('board.category.loadFailed')
   } finally {
@@ -74,7 +74,7 @@ async function handleAdd() {
       newCategoryName.value = ''
       newCategoryRole.value = 'USER'
     }
-  } catch (err) {
+  } catch (err: unknown) {
     logger.error('Failed to create category:', err)
     toastStore.addToast(t('board.category.createFailed'), 'error')
   }
@@ -89,7 +89,7 @@ async function handleDelete(categoryId: number) {
     if (data.success) {
       categories.value = categories.value.filter(c => c.categoryId !== categoryId)
     }
-  } catch (err) {
+  } catch (err: unknown) {
     logger.error('Failed to delete category:', err)
     toastStore.addToast(t('board.category.deleteFailed'), 'error')
   }
@@ -124,7 +124,7 @@ async function saveEdit(category: Category) {
       }
       cancelEdit()
     }
-  } catch (err) {
+  } catch (err: unknown) {
     logger.error('Failed to update category:', err)
     toastStore.addToast(t('board.category.updateFailed'), 'error')
   }
@@ -173,7 +173,7 @@ async function onDrop(index: number) {
       })
     })
     await Promise.all(updatePromises)
-  } catch (err) {
+  } catch (err: unknown) {
     logger.error('Failed to reorder categories:', err)
     toastStore.addToast(t('board.category.orderFailed'), 'error')
     fetchCategories() // Revert changes

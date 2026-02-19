@@ -1,4 +1,4 @@
-import type { AxiosError } from 'axios'
+import axios, { type AxiosError } from 'axios'
 import type { ErrorResponse, ValidationErrors } from '@/types/common'
 import i18n from '@/i18n'
 
@@ -45,21 +45,34 @@ export function extractValidationErrors(error: AxiosError): ValidationErrors | n
 }
 
 /**
- * Axios 에러에서 에러 메시지를 추출합니다.
+ * 에러에서 에러 메시지를 추출합니다.
+ * Axios 에러뿐만 아니라 unknown 타입도 안전하게 처리합니다.
  * Axios 기본 문구(예: "Request failed with status code 500")는 공통 서버 에러 메시지로 치환됩니다.
- * @param error Axios 에러 객체
+ * @param error 에러 객체 (AxiosError, Error, 또는 unknown)
  * @returns 에러 메시지
  */
-export function extractErrorMessage(error: AxiosError): string {
-    if (!error.response) {
-        return normalizeApiErrorMessage(error.message) || t('common.messages.serverError')
+export function extractErrorMessage(error: unknown): string {
+    if (axios.isAxiosError(error)) {
+        if (!error.response) {
+            return normalizeApiErrorMessage(error.message) || t('common.messages.serverError')
+        }
+
+        const errorData = error.response.data as ApiErrorResponse | undefined
+        const apiError = errorData?.error || errorData
+        const raw = apiError?.message || errorData?.message || error.message || 'An error occurred'
+
+        return normalizeApiErrorMessage(raw)
     }
 
-    const errorData = error.response.data as ApiErrorResponse | undefined
-    const apiError = errorData?.error || errorData
-    const raw = apiError?.message || errorData?.message || error.message || 'An error occurred'
+    if (error instanceof Error) {
+        return error.message
+    }
 
-    return normalizeApiErrorMessage(raw)
+    if (typeof error === 'string') {
+        return error
+    }
+
+    return t('common.messages.serverError')
 }
 
 /**

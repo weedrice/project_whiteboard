@@ -9,6 +9,7 @@ import { ArrowLeft, ShoppingCart, Tag, Calendar, User, TrendingUp, Pencil, EyeOf
 import { useToastStore } from '@/stores/toast'
 import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
+import { extractErrorMessage } from '@/utils/errorHandler'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -47,8 +48,8 @@ const { mutate: purchase, isPending: isPurchasing } = useMutation({
     queryClient.invalidateQueries({ queryKey: ['emoticon', emoticonId] })
     queryClient.invalidateQueries({ queryKey: ['emoticon', emoticonId, 'purchased'] })
   },
-  onError: (error: any) => {
-    const message = error.response?.data?.error?.message || t('emoticon.purchase.failed')
+  onError: (error: unknown) => {
+    const message = extractErrorMessage(error) || t('emoticon.purchase.failed')
     toastStore.addToast(message, 'error')
   }
 })
@@ -109,8 +110,8 @@ const { mutate: toggleVisibility, isPending: isToggling } = useMutation({
     queryClient.invalidateQueries({ queryKey: ['emoticon', emoticonId, 'purchased'] })
     queryClient.invalidateQueries({ queryKey: ['emoticons'] })
   },
-  onError: (err: any) => {
-    const message = err.response?.data?.error?.message || t('emoticon.edit.failed')
+  onError: (err: unknown) => {
+    const message = extractErrorMessage(err) || t('emoticon.edit.failed')
     toastStore.addToast(message, 'error')
   }
 })
@@ -142,10 +143,8 @@ useHead({
   <div class="max-w-5xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
     <!-- 뒤로가기 버튼 -->
     <div class="mb-6">
-      <button
-        @click="goToList"
-        class="inline-flex items-center text-sm text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
-      >
+      <button @click="goToList"
+        class="inline-flex items-center text-sm text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
         <ArrowLeft class="w-4 h-4 mr-1" />
         목록으로
       </button>
@@ -179,12 +178,8 @@ useHead({
           <!-- 썸네일 -->
           <div class="flex-shrink-0">
             <div class="w-40 h-40 bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden">
-              <img
-                v-if="emoticon.thumbnailUrl"
-                :src="emoticon.thumbnailUrl"
-                :alt="emoticon.name"
-                class="w-full h-full object-contain"
-              />
+              <img v-if="emoticon.thumbnailUrl" :src="emoticon.thumbnailUrl" :alt="emoticon.name"
+                class="w-full h-full object-contain" />
               <div v-else class="w-full h-full flex items-center justify-center text-gray-400">
                 No Image
               </div>
@@ -196,35 +191,28 @@ useHead({
             <div class="flex items-start justify-between mb-4 gap-2 flex-wrap">
               <div class="flex items-center gap-2 flex-wrap">
                 <h1 class="text-2xl font-bold text-gray-900 dark:text-white">{{ emoticon.name }}</h1>
-                <span
-                  v-if="!emoticon.isActive"
-                  class="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium bg-gray-200 text-gray-700 dark:bg-gray-600 dark:text-gray-300"
-                >
+                <span v-if="!emoticon.isActive"
+                  class="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium bg-gray-200 text-gray-700 dark:bg-gray-600 dark:text-gray-300">
                   {{ $t('emoticon.visibility.hidden') }}
                 </span>
               </div>
               <div v-if="isOwner" class="flex items-center gap-2">
-                <button
-                  @click="handleToggleVisibility"
-                  :disabled="isToggling"
+                <button @click="handleToggleVisibility" :disabled="isToggling"
                   :class="emoticon.isActive
                     ? 'inline-flex items-center px-3 py-1.5 text-sm bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 rounded-lg hover:bg-amber-200 dark:hover:bg-amber-900/50 transition-colors'
-                    : 'inline-flex items-center px-3 py-1.5 text-sm bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 rounded-lg hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors'"
-                >
+                    : 'inline-flex items-center px-3 py-1.5 text-sm bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 rounded-lg hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors'">
                   <EyeOff v-if="emoticon.isActive" class="w-4 h-4 mr-1" />
                   <Eye v-else class="w-4 h-4 mr-1" />
                   {{ emoticon.isActive ? $t('emoticon.visibility.hide') : $t('emoticon.visibility.show') }}
                 </button>
-                <button
-                  @click="goToEdit"
-                  class="inline-flex items-center px-3 py-1.5 text-sm bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 rounded-lg hover:bg-indigo-200 dark:hover:bg-indigo-900/50 transition-colors"
-                >
+                <button @click="goToEdit"
+                  class="inline-flex items-center px-3 py-1.5 text-sm bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 rounded-lg hover:bg-indigo-200 dark:hover:bg-indigo-900/50 transition-colors">
                   <Pencil class="w-4 h-4 mr-1" />
                   수정
                 </button>
               </div>
             </div>
-            
+
             <div class="space-y-2 text-sm">
               <div class="flex items-center text-gray-600 dark:text-gray-400">
                 <User class="w-4 h-4 mr-2" />
@@ -248,19 +236,14 @@ useHead({
         <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
           이모티콘 목록 <span class="text-sm font-normal text-gray-500">({{ emoticon.images?.length || 0 }}개)</span>
         </h2>
-        
-        <div v-if="emoticon.images && emoticon.images.length > 0" class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-3">
-          <div
-            v-for="image in emoticon.images"
-            :key="image.imageId"
+
+        <div v-if="emoticon.images && emoticon.images.length > 0"
+          class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-3">
+          <div v-for="image in emoticon.images" :key="image.imageId"
             class="aspect-square bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden"
-            style="width: 100px; height: 100px;"
-          >
-            <img
-              :src="image.imageUrl"
-              :alt="`${emoticon.name} - ${image.sortOrder + 1}`"
-              class="w-full h-full object-contain"
-            />
+            style="width: 100px; height: 100px;">
+            <img :src="image.imageUrl" :alt="`${emoticon.name} - ${image.sortOrder + 1}`"
+              class="w-full h-full object-contain" />
           </div>
         </div>
         <div v-else class="text-center py-8 text-gray-500 dark:text-gray-400">
@@ -269,17 +252,15 @@ useHead({
       </div>
 
       <!-- 태그 -->
-      <div v-if="emoticon.tags && emoticon.tags.length > 0" class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-8">
+      <div v-if="emoticon.tags && emoticon.tags.length > 0"
+        class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-8">
         <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
           <Tag class="w-4 h-4 mr-2" />
           태그
         </h2>
         <div class="flex flex-wrap gap-2">
-          <span
-            v-for="tag in emoticon.tags"
-            :key="tag"
-            class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300"
-          >
+          <span v-for="tag in emoticon.tags" :key="tag"
+            class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300">
             #{{ tag }}
           </span>
         </div>
@@ -287,12 +268,8 @@ useHead({
 
       <!-- 구매 버튼 -->
       <div class="flex justify-end">
-        <BaseButton
-          @click="handlePurchase"
-          :disabled="!canPurchase || isPurchasing"
-          :variant="canPurchase ? 'primary' : 'secondary'"
-          size="lg"
-        >
+        <BaseButton @click="handlePurchase" :disabled="!canPurchase || isPurchasing"
+          :variant="canPurchase ? 'primary' : 'secondary'" size="lg">
           <ShoppingCart class="w-4 h-4 mr-2" />
           {{ isPurchasing ? $t('emoticon.purchase.purchasing') : purchaseButtonText }}
         </BaseButton>

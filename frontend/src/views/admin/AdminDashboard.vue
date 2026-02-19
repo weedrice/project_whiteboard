@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useAdmin } from '@/composables/useAdmin'
 import { Users, FileText, ShieldAlert, Activity } from 'lucide-vue-next'
@@ -9,13 +9,20 @@ const { useDashboardStats } = useAdmin()
 
 const { data: statsData } = useDashboardStats()
 
+
+interface DashboardStats {
+  totalUsers?: number
+  pendingReports?: number
+  blockedIps?: number
+}
+
 const stats = computed(() => {
-    const data = statsData.value || {}
-    return [
-      { name: t('admin.dashboard.totalUsers'), stat: data.totalUsers || '0', icon: Users, change: '0%', changeType: 'increase', path: '/admin/users' },
-      { name: t('admin.dashboard.pendingReports'), stat: data.pendingReports || '0', icon: FileText, change: '0%', changeType: 'decrease', path: '/admin/reports' },
-      { name: t('admin.dashboard.blockedIps'), stat: data.blockedIps || '0', icon: ShieldAlert, change: '0%', changeType: 'increase', path: '/admin/security' },
-    ]
+  const data: DashboardStats = statsData.value || {}
+  return [
+    { name: t('admin.dashboard.totalUsers'), stat: data.totalUsers || '0', icon: Users, change: '0%', changeType: 'increase', path: '/admin/users' },
+    { name: t('admin.dashboard.pendingReports'), stat: data.pendingReports || '0', icon: FileText, change: '0%', changeType: 'decrease', path: '/admin/reports' },
+    { name: t('admin.dashboard.blockedIps'), stat: data.blockedIps || '0', icon: ShieldAlert, change: '0%', changeType: 'increase', path: '/admin/security' },
+  ]
 })
 
 const recentActivity = ref([])
@@ -24,9 +31,10 @@ const recentActivity = ref([])
 <template>
   <div>
     <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">{{ t('admin.dashboard.title') }}</h1>
-    
+
     <div class="mt-4 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-      <div v-for="item in stats" :key="item.name" class="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg border border-transparent dark:border-gray-700">
+      <div v-for="item in stats" :key="item.name"
+        class="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg border border-transparent dark:border-gray-700">
         <div class="p-5">
           <div class="flex items-center">
             <div class="flex-shrink-0">
@@ -48,7 +56,8 @@ const recentActivity = ref([])
         </div>
         <div class="bg-gray-50 dark:bg-gray-700 px-5 py-3">
           <div class="text-sm">
-            <router-link :to="item.path" class="font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300">
+            <router-link :to="item.path"
+              class="font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300">
               {{ t('admin.dashboard.viewDetail') }}
             </router-link>
           </div>
@@ -58,7 +67,8 @@ const recentActivity = ref([])
 
     <div class="mt-8">
       <h2 class="text-lg font-medium text-gray-900 dark:text-white">{{ t('admin.dashboard.recentActivity') }}</h2>
-      <div class="mt-4 bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-md border border-transparent dark:border-gray-700">
+      <div
+        class="mt-4 bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-md border border-transparent dark:border-gray-700">
         <ul role="list" class="divide-y divide-gray-200 dark:divide-gray-700">
           <li v-if="recentActivity.length === 0" class="px-4 py-4 sm:px-6 text-center text-gray-500 dark:text-gray-400">
             {{ t('admin.dashboard.noActivity') }}

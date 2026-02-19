@@ -52,7 +52,7 @@ async function handleStatusChange(user: User, status: User['status']) {
   try {
     await updateUserStatus({ userId: user.userId, status })
     toastStore.addToast(t('admin.users.messages.statusChanged'), 'success')
-  } catch (err) {
+  } catch {
     // Error handled globally
   }
 }
@@ -65,7 +65,7 @@ async function handleSanction(user: User, type: 'BAN' | 'MUTE') {
   try {
     await sanctionUser({ userId: user.userId, type, reason })
     toastStore.addToast(t('admin.users.messages.sanctionComplete', { type: typeLabel }), 'success')
-  } catch (err) {
+  } catch {
     // Error handled globally
   }
 }

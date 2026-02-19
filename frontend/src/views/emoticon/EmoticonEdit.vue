@@ -11,6 +11,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import type { EmoticonImage } from '@/types/emoticon'
+import { extractErrorMessage } from '@/utils/errorHandler'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -95,8 +96,8 @@ const { mutate: toggleVisibility, isPending: isToggling } = useMutation({
     queryClient.invalidateQueries({ queryKey: ['emoticon', emoticonId] })
     queryClient.invalidateQueries({ queryKey: ['emoticons'] })
   },
-  onError: (err: any) => {
-    const message = err.response?.data?.error?.message || t('emoticon.edit.failed')
+  onError: (err: unknown) => {
+    const message = extractErrorMessage(err) || t('emoticon.edit.failed')
     toastStore.addToast(message, 'error')
   }
 })
@@ -132,7 +133,7 @@ const resizeImage = (file: File, maxSize: number = 100): Promise<Blob> => {
 
     img.onload = () => {
       let { width, height } = img
-      
+
       // 이미 충분히 작으면 그대로 반환 (Blob로 변환)
       if (width <= maxSize && height <= maxSize) {
         file.arrayBuffer().then(buffer => {
@@ -154,14 +155,14 @@ const resizeImage = (file: File, maxSize: number = 100): Promise<Blob> => {
       canvas.width = width
       canvas.height = height
       const ctx = canvas.getContext('2d')
-      
+
       if (!ctx) {
         reject(new Error('Canvas context not available'))
         return
       }
 
       ctx.drawImage(img, 0, 0, width, height)
-      
+
       canvas.toBlob(
         (blob) => {
           if (blob) {
@@ -202,7 +203,7 @@ const handleThumbnailSelect = async (event: Event) => {
   // 500x500px 제한 확인
   const img = new Image()
   const preview = URL.createObjectURL(file)
-  
+
   await new Promise<void>((resolve) => {
     img.onload = () => {
       if (img.width > 500 || img.height > 500) {
@@ -242,7 +243,7 @@ const handleEmoticonSelect = async (event: Event) => {
   }
 
   const filesToAdd = Array.from(files).slice(0, remainingSlots)
-  
+
   for (const file of filesToAdd) {
     // 이미지 파일 검증
     if (!file.type.startsWith('image/')) {
@@ -259,18 +260,18 @@ const handleEmoticonSelect = async (event: Event) => {
     // 500x500px 제한 확인 및 크기 정보 저장
     const img = new Image()
     const preview = URL.createObjectURL(file)
-    
+
     await new Promise<void>((resolve) => {
       img.onload = () => {
         if (img.width > 500 || img.height > 500) {
           toastStore.addToast(t('emoticon.validation.imageSizeExceededNamed', { name: file.name, width: img.width, height: img.height }), 'error')
           URL.revokeObjectURL(preview)
         } else {
-          newEmoticonPreviews.value.push({ 
-            file, 
-            preview, 
-            width: img.width, 
-            height: img.height 
+          newEmoticonPreviews.value.push({
+            file,
+            preview,
+            width: img.width,
+            height: img.height
           })
         }
         resolve()
@@ -340,9 +341,9 @@ const totalImageCount = computed(() => {
 
 // 폼 유효성 검사
 const isFormValid = computed(() => {
-  return emoticonName.value.trim() !== '' && 
-         thumbnailPreview.value !== null &&
-         totalImageCount.value > 0
+  return emoticonName.value.trim() !== '' &&
+    thumbnailPreview.value !== null &&
+    totalImageCount.value > 0
 })
 
 // 수정 처리
@@ -367,33 +368,33 @@ const handleSubmit = async () => {
     // 3. 새 이미지 업로드 및 추가
     if (newEmoticonPreviews.value.length > 0) {
       uploadProgress.value = { current: 0, total: newEmoticonPreviews.value.length }
-      
+
       for (let i = 0; i < newEmoticonPreviews.value.length; i++) {
         const item = newEmoticonPreviews.value[i]
-        
+
         // 저장된 크기 정보 사용 (이미지 재로드 불필요)
         // GIF는 리사이징 시 애니메이션 손실 → 원본 그대로 업로드
         let fileToUpload: File | Blob = item.file
         const isGif = item.file.type === 'image/gif'
         const needsResize = !isGif && (item.width > 100 || item.height > 100)
-        
+
         if (needsResize) {
           fileToUpload = await resizeImage(item.file, 100)
           // 리사이징 후 메모리 정리를 위해 작은 딜레이
           await new Promise(resolve => setTimeout(resolve, 50))
         }
-        
+
         // File 객체로 변환 (Blob인 경우)
-        const uploadFile = fileToUpload instanceof File 
-          ? fileToUpload 
+        const uploadFile = fileToUpload instanceof File
+          ? fileToUpload
           : new File([fileToUpload], item.file.name, { type: item.file.type || 'image/png' })
-        
+
         const response = await fileApi.uploadFile(uploadFile)
         await emoticonApi.addImage(emoticonId.value, response.data.data.url)
-        
+
         // 진행 상태 업데이트
         uploadProgress.value.current = i + 1
-        
+
         // UI가 블로킹되지 않도록 작은 딜레이 추가 (마지막 항목 제외)
         if (i < newEmoticonPreviews.value.length - 1) {
           await new Promise(resolve => setTimeout(resolve, 20))
@@ -414,8 +415,8 @@ const handleSubmit = async () => {
 
     toastStore.addToast(t('emoticon.edit.updated'), 'success')
     router.push({ name: 'emoticon-detail', params: { emoticonId: emoticonId.value } })
-  } catch (error: any) {
-    const message = error.response?.data?.error?.message || t('emoticon.edit.failed')
+  } catch (error: unknown) {
+    const message = extractErrorMessage(error) || t('emoticon.edit.failed')
     toastStore.addToast(message, 'error')
   } finally {
     isSubmitting.value = false
@@ -437,10 +438,8 @@ const goToDetail = () => {
         <h1 class="text-2xl font-bold text-gray-900 dark:text-white">노비콘 수정</h1>
         <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">노비콘 정보를 수정합니다.</p>
       </div>
-      <button
-        @click="goToDetail"
-        class="inline-flex items-center text-sm text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
-      >
+      <button @click="goToDetail"
+        class="inline-flex items-center text-sm text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
         <ArrowLeft class="w-4 h-4 mr-1" />
         뒤로
       </button>
@@ -474,22 +473,16 @@ const goToDetail = () => {
       <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
         <div class="flex items-center justify-between">
           <div>
-            <span
-              v-if="!emoticon.isActive"
-              class="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium bg-gray-200 text-gray-700 dark:bg-gray-600 dark:text-gray-300"
-            >
+            <span v-if="!emoticon.isActive"
+              class="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium bg-gray-200 text-gray-700 dark:bg-gray-600 dark:text-gray-300">
               {{ $t('emoticon.visibility.hidden') }}
             </span>
             <span v-else class="text-sm text-gray-500 dark:text-gray-400">현재 판매 중입니다</span>
           </div>
-          <button
-            type="button"
-            @click="handleToggleVisibility"
-            :disabled="isToggling"
+          <button type="button" @click="handleToggleVisibility" :disabled="isToggling"
             :class="emoticon.isActive
               ? 'inline-flex items-center px-3 py-1.5 text-sm text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-colors'
-              : 'inline-flex items-center px-3 py-1.5 text-sm text-green-700 dark:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors'"
-          >
+              : 'inline-flex items-center px-3 py-1.5 text-sm text-green-700 dark:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors'">
             <EyeOff v-if="emoticon.isActive" class="w-4 h-4 mr-1" />
             <Eye v-else class="w-4 h-4 mr-1" />
             {{ emoticon.isActive ? $t('emoticon.visibility.hide') : $t('emoticon.visibility.show') }}
@@ -505,33 +498,21 @@ const goToDetail = () => {
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               썸네일 이미지 <span class="text-red-500">*</span>
             </label>
-            <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">대표 이미지로 노비콘 목록에 표시됩니다. 500x500px 이하의 이미지만 업로드 가능합니다.</p>
-            
+            <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">대표 이미지로 노비콘 목록에 표시됩니다. 500x500px 이하의 이미지만 업로드
+              가능합니다.</p>
+
             <div class="relative inline-block">
-              <img
-                v-if="thumbnailPreview"
-                :src="thumbnailPreview"
-                alt="썸네일 미리보기"
+              <img v-if="thumbnailPreview" :src="thumbnailPreview" alt="썸네일 미리보기"
                 class="w-32 h-32 object-contain bg-gray-100 dark:bg-gray-700 rounded-lg cursor-pointer hover:opacity-80 transition-opacity"
-                @click="changeThumbnail"
-                title="클릭하여 이미지 변경"
-              />
-              <div v-else class="w-32 h-32 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center text-gray-400">
+                @click="changeThumbnail" title="클릭하여 이미지 변경" />
+              <div v-else
+                class="w-32 h-32 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center text-gray-400">
                 No Image
               </div>
-              <input
-                ref="thumbnailInput"
-                type="file"
-                accept="image/*"
-                @change="handleThumbnailSelect"
-                class="hidden"
-              />
-              <button
-                type="button"
-                @click="changeThumbnail"
+              <input ref="thumbnailInput" type="file" accept="image/*" @change="handleThumbnailSelect" class="hidden" />
+              <button type="button" @click="changeThumbnail"
                 class="absolute -bottom-2 -right-2 w-8 h-8 bg-indigo-500 text-white rounded-full flex items-center justify-center hover:bg-indigo-600 shadow-md"
-                title="썸네일 변경"
-              >
+                title="썸네일 변경">
                 <Upload class="w-4 h-4" />
               </button>
             </div>
@@ -542,13 +523,8 @@ const goToDetail = () => {
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               이모티콘 이름 <span class="text-red-500">*</span>
             </label>
-            <input
-              v-model="emoticonName"
-              type="text"
-              maxlength="100"
-              placeholder="이모티콘 이름을 입력하세요"
-              class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            />
+            <input v-model="emoticonName" type="text" maxlength="100" placeholder="이모티콘 이름을 입력하세요"
+              class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-transparent" />
           </div>
         </div>
       </div>
@@ -566,85 +542,54 @@ const goToDetail = () => {
         <!-- 이미지 그리드 -->
         <div class="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 gap-2 mb-4">
           <!-- 기존 이미지 -->
-          <div
-            v-for="image in existingImages"
-            :key="'existing-' + image.imageId"
-            class="relative"
-            :class="{ 'opacity-40': imagesToDelete.includes(image.imageId) }"
-          >
-            <img
-              :src="image.imageUrl"
-              :alt="`이모티콘 ${image.sortOrder + 1}`"
+          <div v-for="image in existingImages" :key="'existing-' + image.imageId" class="relative"
+            :class="{ 'opacity-40': imagesToDelete.includes(image.imageId) }">
+            <img :src="image.imageUrl" :alt="`이모티콘 ${image.sortOrder + 1}`"
               class="w-full aspect-square object-contain bg-gray-100 dark:bg-gray-700 rounded"
-              style="width: 100px; height: 100px;"
-            />
-            <button
-              v-if="!imagesToDelete.includes(image.imageId)"
-              type="button"
+              style="width: 100px; height: 100px;" />
+            <button v-if="!imagesToDelete.includes(image.imageId)" type="button"
               @click="markImageForDeletion(image.imageId)"
               class="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 text-xs"
-              title="삭제"
-            >
+              title="삭제">
               <X class="w-3 h-3" />
             </button>
-            <button
-              v-else
-              type="button"
-              @click="unmarkImageForDeletion(image.imageId)"
+            <button v-else type="button" @click="unmarkImageForDeletion(image.imageId)"
               class="absolute -top-1 -right-1 w-5 h-5 bg-gray-500 text-white rounded-full flex items-center justify-center hover:bg-gray-600 text-xs"
-              title="삭제 취소"
-            >
+              title="삭제 취소">
               <Plus class="w-3 h-3" />
             </button>
           </div>
 
           <!-- 새로 추가할 이미지 -->
-          <div
-            v-for="(item, index) in newEmoticonPreviews"
-            :key="'new-' + index"
-            class="relative"
-          >
-            <img
-              :src="item.preview"
-              :alt="`새 이모티콘 ${index + 1}`"
+          <div v-for="(item, index) in newEmoticonPreviews" :key="'new-' + index" class="relative">
+            <img :src="item.preview" :alt="`새 이모티콘 ${index + 1}`"
               class="w-full aspect-square object-contain bg-green-50 dark:bg-green-900/20 rounded border-2 border-green-400"
-              style="width: 100px; height: 100px;"
-            />
-            <button
-              type="button"
-              @click="removeNewEmoticonImage(index)"
-              class="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 text-xs"
-            >
+              style="width: 100px; height: 100px;" />
+            <button type="button" @click="removeNewEmoticonImage(index)"
+              class="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 text-xs">
               <X class="w-3 h-3" />
             </button>
           </div>
 
           <!-- 추가 버튼 -->
           <div v-if="totalImageCount < 100">
-            <input
-              ref="emoticonInput"
-              type="file"
-              accept="image/*"
-              multiple
-              @change="handleEmoticonSelect"
-              class="hidden"
-            />
-            <button
-              type="button"
-              @click="emoticonInput?.click()"
+            <input ref="emoticonInput" type="file" accept="image/*" multiple @change="handleEmoticonSelect"
+              class="hidden" />
+            <button type="button" @click="emoticonInput?.click()"
               class="w-full aspect-square border-2 border-dashed border-gray-300 dark:border-gray-600 rounded flex flex-col items-center justify-center text-gray-500 dark:text-gray-400 hover:border-indigo-500 hover:text-indigo-500 transition-colors"
-              style="width: 100px; height: 100px;"
-            >
+              style="width: 100px; height: 100px;">
               <Plus class="w-6 h-6" />
             </button>
           </div>
         </div>
 
         <!-- 변경 안내 -->
-        <div v-if="imagesToDelete.length > 0 || newEmoticonPreviews.length > 0" class="text-xs text-gray-500 dark:text-gray-400 mt-2">
+        <div v-if="imagesToDelete.length > 0 || newEmoticonPreviews.length > 0"
+          class="text-xs text-gray-500 dark:text-gray-400 mt-2">
           <span v-if="imagesToDelete.length > 0" class="text-red-500">{{ imagesToDelete.length }}개 삭제 예정</span>
           <span v-if="imagesToDelete.length > 0 && newEmoticonPreviews.length > 0"> · </span>
-          <span v-if="newEmoticonPreviews.length > 0" class="text-green-500">{{ newEmoticonPreviews.length }}개 추가 예정</span>
+          <span v-if="newEmoticonPreviews.length > 0" class="text-green-500">{{ newEmoticonPreviews.length }}개 추가
+            예정</span>
         </div>
       </div>
 
@@ -657,30 +602,19 @@ const goToDetail = () => {
         <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">검색에 사용될 태그를 입력하세요.</p>
 
         <div class="flex gap-2 mb-4">
-          <input
-            v-model="tagInput"
-            @keydown.enter.prevent="addTag"
-            type="text"
-            placeholder="태그 입력 후 Enter"
-            class="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-          />
+          <input v-model="tagInput" @keydown.enter.prevent="addTag" type="text" placeholder="태그 입력 후 Enter"
+            class="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-transparent" />
           <BaseButton type="button" @click="addTag" variant="secondary">
             추가
           </BaseButton>
         </div>
 
         <div v-if="tags.length > 0" class="flex flex-wrap gap-2">
-          <span
-            v-for="(tag, index) in tags"
-            :key="index"
-            class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300"
-          >
+          <span v-for="(tag, index) in tags" :key="index"
+            class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300">
             #{{ tag }}
-            <button
-              type="button"
-              @click="removeTag(index)"
-              class="ml-1 text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-200"
-            >
+            <button type="button" @click="removeTag(index)"
+              class="ml-1 text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-200">
               <X class="w-3 h-3" />
             </button>
           </span>
@@ -696,12 +630,7 @@ const goToDetail = () => {
           <BaseButton type="button" @click="goToDetail" variant="secondary" size="lg">
             취소
           </BaseButton>
-          <BaseButton
-            type="submit"
-            :disabled="!isFormValid || isSubmitting"
-            variant="primary"
-            size="lg"
-          >
+          <BaseButton type="submit" :disabled="!isFormValid || isSubmitting" variant="primary" size="lg">
             {{ isSubmitting ? '수정 중...' : '수정하기' }}
           </BaseButton>
         </div>

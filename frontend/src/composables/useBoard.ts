@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
 import { boardApi } from '@/api/board'
+import type { BoardCreateData, BoardUpdateData } from '@/types'
 import { userApi } from '@/api/user'
 import { searchApi } from '@/api/search'
 import { computed, type Ref } from 'vue'
@@ -32,7 +33,7 @@ export function useBoard() {
 
     // Fetch subscribed boards
     const useSubscribedBoards = (size: number = 10, enabled?: Ref<boolean> | boolean) => {
-        const enabledValue = enabled !== undefined 
+        const enabledValue = enabled !== undefined
             ? (typeof enabled === 'boolean' ? computed(() => enabled) : enabled)
             : computed(() => false)
         return useQuery({
@@ -123,7 +124,7 @@ export function useBoard() {
     // Create board mutation
     const useCreateBoard = () => {
         return useMutation({
-            mutationFn: async (data: any) => {
+            mutationFn: async (data: BoardCreateData) => {
                 const { data: response } = await boardApi.createBoard(data)
                 return response.data
             },
@@ -138,7 +139,7 @@ export function useBoard() {
     // Update board mutation
     const useUpdateBoard = () => {
         return useMutation({
-            mutationFn: async ({ boardUrl, data }: { boardUrl: string, data: any }) => {
+            mutationFn: async ({ boardUrl, data }: { boardUrl: string, data: BoardUpdateData }) => {
                 const { data: response } = await boardApi.updateBoard(boardUrl, data)
                 return response.data
             },

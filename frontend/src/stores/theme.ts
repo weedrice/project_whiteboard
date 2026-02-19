@@ -20,7 +20,7 @@ export const useThemeStore = defineStore('theme', () => {
                 await userApi.updateUserSettings({
                     theme: isDark.value ? 'DARK' : 'LIGHT'
                 })
-            } catch (error) {
+            } catch (error: unknown) {
                 logger.error('Failed to save theme setting:', error)
             }
         }

@@ -57,7 +57,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useSearch } from '@/composables/useSearch'
@@ -70,12 +70,12 @@ import { getOptimizedBoardIconUrl, handleImageError } from '@/utils/image'
 const route = useRoute()
 const { useIntegratedSearch } = useSearch()
 
-const query = computed(() => route.query.q)
+const query = computed(() => (route.query.q as string) || '')
 const params = computed(() => ({
   q: query.value,
   page: 0,
   size: 20,
-  t: route.query.t // Include timestamp to force refetch
+  t: route.query.t as string | undefined // Include timestamp to force refetch
 }))
 
 const { data: searchData, isLoading } = useIntegratedSearch(params)

@@ -62,7 +62,7 @@ async function fetchBoard() {
         allowNsfw: board.allowNsfw || false
       }
     }
-  } catch (err) {
+  } catch (err: unknown) {
     handleError(err, t('board.loadFailed'))
     router.push(`/board/${boardUrl}`)
   } finally {
@@ -72,13 +72,13 @@ async function fetchBoard() {
 
 async function handleUpdate(formData: BoardData) {
   error.value = ''
-  
+
   await submit(async () => {
     try {
       const board = await updateBoard({ boardUrl, data: formData as BoardUpdateData })
       toastStore.addToast(t('board.form.successUpdate'), 'success')
       router.push(`/board/${board.boardUrl}`)
-    } catch (err) {
+    } catch (err: unknown) {
       error.value = t('board.form.updateFailed')
       handleError(err, t('board.form.updateFailed'))
       throw err
@@ -94,7 +94,7 @@ async function handleDelete() {
     await deleteBoard(boardUrl)
     toastStore.addToast(t('board.form.successDelete'), 'success')
     router.push('/')
-  } catch (err) {
+  } catch (err: unknown) {
     handleError(err, t('board.form.deleteFailed'))
   }
 }

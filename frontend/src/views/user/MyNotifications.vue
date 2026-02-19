@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useNotification } from '@/composables/useNotification'
@@ -9,9 +9,11 @@ import { useI18n } from 'vue-i18n'
 import Pagination from '@/components/common/ui/Pagination.vue'
 import PageSizeSelector from '@/components/common/widgets/PageSizeSelector.vue'
 import EmptyState from '@/components/common/ui/EmptyState.vue'
-import logger from '@/utils/logger'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
+import { formatDate } from '@/utils/date'
+import logger from '@/utils/logger'
+import type { Notification } from '@/types'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -32,7 +34,7 @@ const { mutate: markAllAsRead } = useMarkAllAsRead()
 const notifications = computed(() => notificationsData.value?.content || [])
 const totalPages = computed(() => notificationsData.value?.totalPages || 0)
 
-function handlePageChange(newPage) {
+function handlePageChange(newPage: number) {
   page.value = newPage
 }
 
@@ -40,7 +42,7 @@ function handleSizeChange() {
   page.value = 0
 }
 
-async function handleNotificationClick(notification) {
+async function handleNotificationClick(notification: Notification) {
   if (!notification.isRead) {
     markAsRead(notification.notificationId)
   }
@@ -52,31 +54,35 @@ async function handleNotificationClick(notification) {
         if (data.success && data.data.board) {
           router.push(`/board/${data.data.board.boardUrl}/post/${notification.sourceId}`)
         }
-      } catch (err) {
+      } catch (err: unknown) {
         logger.error('Failed to navigate to post:', err)
       }
     } else if (notification.sourceType === 'COMMENT') {
       try {
         const { data } = await commentApi.getComment(notification.sourceId)
         if (data.success) {
-          const { boardUrl, postId } = data.data
-          router.push(`/board/${boardUrl}/post/${postId}#comment-${notification.sourceId}`)
+          const comment = data.data
+          const boardUrl = comment.post?.boardUrl ?? comment.boardUrl
+          const postId = comment.post?.postId ?? comment.postId
+          if (boardUrl && postId) {
+            router.push(`/board/${boardUrl}/post/${postId}#comment-${notification.sourceId}`)
+          }
         }
-      } catch (err) {
+      } catch (err: unknown) {
         logger.error('Failed to navigate to comment:', err)
       }
     }
   }
 }
-
-import { formatDate } from '@/utils/date'
 </script>
 
 <template>
   <div class="max-w-4xl mx-auto py-3 sm:py-6 md:py-8 px-3 sm:px-6 lg:px-8">
     <div class="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg transition-colors duration-200">
-      <div class="px-3 py-3 sm:py-5 sm:px-6 flex flex-row justify-between items-center gap-2 border-b border-gray-200 dark:border-gray-700">
-        <h3 class="text-base sm:text-lg leading-6 font-medium text-gray-900 dark:text-white flex items-center flex-1 min-w-0">
+      <div
+        class="px-3 py-3 sm:py-5 sm:px-6 flex flex-row justify-between items-center gap-2 border-b border-gray-200 dark:border-gray-700">
+        <h3
+          class="text-base sm:text-lg leading-6 font-medium text-gray-900 dark:text-white flex items-center flex-1 min-w-0">
           <Bell class="h-4 w-4 sm:h-5 sm:w-5 mr-2 text-gray-500 dark:text-gray-400 flex-shrink-0" />
           {{ $t('notification.title') }}
         </h3>
@@ -84,7 +90,8 @@ import { formatDate } from '@/utils/date'
           <div class="hidden sm:block">
             <PageSizeSelector v-model="size" @change="handleSizeChange" />
           </div>
-          <BaseButton @click="markAllAsRead" size="sm" variant="secondary" class="min-h-[36px] sm:min-h-0 text-xs sm:text-sm">
+          <BaseButton @click="() => markAllAsRead()" size="sm" variant="secondary"
+            class="min-h-[36px] sm:min-h-0 text-xs sm:text-sm">
             <Check class="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1 text-green-500" />
             <span class="sm:hidden">{{ $t('notification.markAllReadShort') || $t('notification.markAllRead') }}</span>
             <span class="hidden sm:inline">{{ $t('notification.markAllRead') }}</span>
@@ -102,25 +109,24 @@ import { formatDate } from '@/utils/date'
         </div>
       </div>
 
-      <EmptyState 
-        v-else-if="notifications.length === 0"
-        :title="$t('notification.empty')"
-        :icon="Bell"
-      />
+      <EmptyState v-else-if="notifications.length === 0" :title="$t('notification.empty')" :icon="Bell" />
 
       <ul v-else class="divide-y divide-gray-200 dark:divide-gray-700">
         <li v-for="notification in notifications" :key="notification.notificationId"
           class="hover:bg-gray-50 dark:hover:bg-gray-700 transition duration-150 ease-in-out"
           :class="{ 'bg-blue-50 dark:bg-blue-900/20': !notification.isRead }">
-          <a href="#" @click.prevent="handleNotificationClick(notification)" class="block px-3 py-3 sm:px-6 sm:py-4 min-h-[48px] active:bg-gray-100 dark:active:bg-gray-600">
+          <a href="#" @click.prevent="handleNotificationClick(notification)"
+            class="block px-3 py-3 sm:px-6 sm:py-4 min-h-[48px] active:bg-gray-100 dark:active:bg-gray-600">
             <div class="flex flex-row items-center justify-between gap-3">
               <div class="min-w-0 flex-1">
                 <div class="flex items-center justify-between gap-2 mb-0.5">
                   <span class="text-[11px] text-gray-500 dark:text-gray-400 flex-shrink-0">
                     {{ formatDate(notification.createdAt) }}
                   </span>
-                  <span class="px-2 py-0.5 text-[11px] font-semibold rounded-full bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-400 flex-shrink-0">
-                    {{ notification.sourceType === 'POST' ? '게시글' : notification.sourceType === 'COMMENT' ? '댓글' : notification.sourceType }}
+                  <span
+                    class="px-2 py-0.5 text-[11px] font-semibold rounded-full bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-400 flex-shrink-0">
+                    {{ notification.sourceType === 'POST' ? '게시글' : notification.sourceType === 'COMMENT' ? '댓글' :
+                      notification.sourceType }}
                   </span>
                 </div>
                 <div class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 line-clamp-2">

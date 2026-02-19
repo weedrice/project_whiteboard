@@ -1,4 +1,4 @@
-﻿<script setup>
+﻿<script setup lang="ts">
 import { ref, reactive, watch } from 'vue'
 import { useAdmin } from '@/composables/useAdmin'
 import { Save, Trash2 } from 'lucide-vue-next'
@@ -6,10 +6,10 @@ import { useI18n } from 'vue-i18n'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
-import logger from '@/utils/logger'
 import { useToastStore } from '@/stores/toast'
 import BaseTable from '@/components/common/ui/BaseTable.vue'
 import { useConfirm } from '@/composables/useConfirm'
+import { formatDate } from '@/utils/date'
 
 
 const { t } = useI18n()
@@ -17,7 +17,15 @@ const toastStore = useToastStore()
 const { confirm } = useConfirm()
 const { useConfigs, useUpdateConfig, useCreateConfig, useDeleteConfig } = useAdmin()
 
-const configs = ref([])
+interface ConfigItem {
+  configKey: string
+  configValue: string
+  description: string
+  createdAt: string
+  modifiedAt: string
+}
+
+const configs = ref<ConfigItem[]>([])
 const isModalOpen = ref(false)
 const newConfig = reactive({
   key: '',
@@ -36,13 +44,11 @@ watch(configsData, (newData) => {
   }
 }, { immediate: true })
 
-import { formatDate } from '@/utils/date'
-
-async function handleSave(config) {
+async function handleSave(config: ConfigItem) {
   try {
     await updateConfig({ key: config.configKey, value: config.configValue, description: config.description })
     toastStore.addToast(t('admin.settings.messages.saved'), 'success')
-  } catch (err) {
+  } catch {
     // Error handled globally
   }
 }
@@ -61,18 +67,18 @@ async function handleCreateConfig() {
     newConfig.key = ''
     newConfig.value = ''
     newConfig.description = ''
-  } catch (err) {
+  } catch {
     // Error handled globally
   }
 }
 
-async function handleDelete(key) {
+async function handleDelete(key: string) {
   const isConfirmed = await confirm(t('common.confirmDelete'))
   if (!isConfirmed) return
   try {
     await deleteConfig(key)
     toastStore.addToast(t('common.deleted'), 'success')
-  } catch (err) {
+  } catch {
     // Error handled globally
   }
 }
@@ -83,7 +89,7 @@ const columns = [
   { key: 'configValue', label: t('common.value'), width: '25%' },
   { key: 'createdAt', label: t('common.createdAt'), width: '15%' },
   { key: 'modifiedAt', label: t('common.updatedAt'), width: '15%' },
-  { key: 'actions', label: '', align: 'right', width: '5%' }
+  { key: 'actions', label: '', align: 'right' as const, width: '5%' }
 ]
 </script>
 
@@ -156,4 +162,3 @@ const columns = [
     </BaseModal>
   </div>
 </template>
-
