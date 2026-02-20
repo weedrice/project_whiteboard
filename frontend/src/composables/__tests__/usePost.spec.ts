@@ -1,165 +1,428 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { computed, ref } from 'vue'
 import { usePost } from '../usePost'
-import { ref } from 'vue'
 import { postApi } from '@/api/post'
 
-// Mock vue-query
-const mockInvalidateQueries = vi.fn()
-const mockCancelQueries = vi.fn()
-const mockGetQueryData = vi.fn()
-const mockSetQueryData = vi.fn()
-const mockGetQueriesData = vi.fn().mockReturnValue([])
-const mockSetQueriesData = vi.fn()
+type QueryKey = unknown[]
+type StoreEntry = { key: QueryKey; data: unknown }
+
+const mocks = vi.hoisted(() => {
+    const queryStore = new Map<string, StoreEntry>()
+    const queryOptions: Array<Record<string, unknown>> = []
+
+    const keyToString = (key: QueryKey) => JSON.stringify(key)
+
+    const getQueryData = vi.fn((key: QueryKey) => queryStore.get(keyToString(key))?.data)
+
+    const setQueryData = vi.fn((key: QueryKey, updater: unknown) => {
+        const keyStr = keyToString(key)
+        const oldValue = queryStore.get(keyStr)?.data
+        const nextValue =
+            typeof updater === 'function'
+                ? (updater as (old: unknown) => unknown)(oldValue)
+                : updater
+        queryStore.set(keyStr, { key, data: nextValue })
+        return nextValue
+    })
+
+    const getQueriesData = vi.fn((filters: { queryKey?: QueryKey }) => {
+        const prefix = filters.queryKey ?? []
+        return Array.from(queryStore.values())
+            .filter(({ key }) => prefix.every((segment, index) => key[index] === segment))
+            .map(({ key, data }) => [key, data] as [QueryKey, unknown])
+    })
+
+    const setQueriesData = vi.fn((filters: { queryKey?: QueryKey }, updater: (old: unknown) => unknown) => {
+        const prefix = filters.queryKey ?? []
+        const entries = Array.from(queryStore.values()).filter(({ key }) =>
+            prefix.every((segment, index) => key[index] === segment),
+        )
+        entries.forEach(({ key, data }) => {
+            queryStore.set(keyToString(key), { key, data: updater(data) })
+        })
+    })
+
+    return {
+        queryStore,
+        queryOptions,
+        keyToString,
+        getQueryData,
+        setQueryData,
+        getQueriesData,
+        setQueriesData,
+        cancelQueries: vi.fn(),
+        invalidateQueries: vi.fn(),
+    }
+})
+
 vi.mock('@tanstack/vue-query', () => ({
     useQueryClient: vi.fn(() => ({
-        invalidateQueries: mockInvalidateQueries,
-        cancelQueries: mockCancelQueries,
-        getQueryData: mockGetQueryData,
-        setQueryData: mockSetQueryData,
-        getQueriesData: mockGetQueriesData,
-        setQueriesData: mockSetQueriesData
+        getQueryData: mocks.getQueryData,
+        setQueryData: mocks.setQueryData,
+        getQueriesData: mocks.getQueriesData,
+        setQueriesData: mocks.setQueriesData,
+        cancelQueries: mocks.cancelQueries,
+        invalidateQueries: mocks.invalidateQueries,
     })),
-    useQuery: vi.fn(({ queryFn }) => {
-        // Execute queryFn immediately for testing (handle async)
-        const dataRef = ref(null)
-        Promise.resolve(queryFn()).then(value => {
-            dataRef.value = value
-        })
-        return { data: dataRef, isLoading: ref(false), error: ref(null) }
-    }),
-    useMutation: vi.fn(({ mutationFn, onMutate, onSuccess, onError, onSettled }) => {
+    useQuery: vi.fn((options) => {
+        mocks.queryOptions.push(options)
         return {
-            mutate: async (variables: any) => {
-                let context
-                let error: any
-                try {
-                    if (onMutate) {
-                        context = await onMutate(variables)
-                    }
-                    const result = await mutationFn(variables)
-                    if (onSuccess) onSuccess(result, variables, context)
-                    return result
-                } catch (err) {
-                    error = err
-                    if (onError) onError(error, variables, context)
-                    throw error
-                } finally {
-                    if (onSettled) onSettled(undefined, error, variables, context)
+            data: ref(null),
+            isLoading: ref(false),
+            error: ref(null),
+        }
+    }),
+    useMutation: vi.fn(({ mutationFn, onMutate, onSuccess, onError, onSettled }) => ({
+        mutate: async (variables: unknown) => {
+            let context: unknown
+            let error: unknown
+            try {
+                if (onMutate) {
+                    context = await onMutate(variables)
+                }
+                const result = await mutationFn(variables)
+                if (onSuccess) {
+                    onSuccess(result, variables, context)
+                }
+                return result
+            } catch (err) {
+                error = err
+                if (onError) {
+                    onError(err, variables, context)
+                }
+                throw err
+            } finally {
+                if (onSettled) {
+                    onSettled(undefined, error, variables, context)
                 }
             }
-        }
-    })
+        },
+    })),
 }))
 
-// Mock postApi
 vi.mock('@/api/post', () => ({
     postApi: {
-        getPost: vi.fn().mockResolvedValue({ data: { data: { id: 1, title: 'Test Post' } } }),
-        createPost: vi.fn().mockResolvedValue({ data: { id: 2, title: 'New Post' } }),
-        updatePost: vi.fn().mockResolvedValue({ data: { id: 1, title: 'Updated Post' } }),
-        deletePost: vi.fn().mockResolvedValue({ success: true }),
-        likePost: vi.fn().mockResolvedValue({ success: true }),
-        unlikePost: vi.fn().mockResolvedValue({ success: true }),
-        scrapPost: vi.fn().mockResolvedValue({ success: true }),
-        unscrapPost: vi.fn().mockResolvedValue({ success: true }),
-        reportPost: vi.fn().mockResolvedValue({ data: { success: true } })
-    }
+        getPost: vi.fn(),
+        createPost: vi.fn(),
+        updatePost: vi.fn(),
+        deletePost: vi.fn(),
+        likePost: vi.fn(),
+        unlikePost: vi.fn(),
+        scrapPost: vi.fn(),
+        unscrapPost: vi.fn(),
+        reportPost: vi.fn(),
+    },
 }))
+
+const seedQueryData = (key: QueryKey, data: unknown) => {
+    mocks.queryStore.set(mocks.keyToString(key), { key, data })
+}
+
+const getQueryDataValue = (key: QueryKey) => mocks.queryStore.get(mocks.keyToString(key))?.data
 
 describe('usePost', () => {
     beforeEach(() => {
         vi.clearAllMocks()
+        mocks.queryStore.clear()
+        mocks.queryOptions.length = 0
     })
 
-    it('fetches post detail', async () => {
+    it('registers post detail query and fetches post data with incrementView', async () => {
+        vi.mocked(postApi.getPost).mockResolvedValueOnce({
+            data: { data: { postId: 1, title: 'Test Post' } },
+        } as never)
+
         const { usePostDetail } = usePost()
         const postId = ref(1)
-        const { data } = usePostDetail(postId)
+        usePostDetail(postId)
 
-        // Wait for the async queryFn to resolve
-        await new Promise(resolve => setTimeout(resolve, 10))
-        expect(data.value).toEqual({ id: 1, title: 'Test Post' })
+        const query = mocks.queryOptions.at(-1)!
+        expect(query.queryKey).toEqual(['post', postId])
+        expect((query.enabled as ReturnType<typeof computed>).value).toBe(true)
+
+        const result = await (query.queryFn as () => Promise<unknown>)()
+        expect(result).toEqual({ postId: 1, title: 'Test Post' })
         expect(postApi.getPost).toHaveBeenCalledWith(1, { params: { incrementView: true } })
     })
 
-    it('creates a post', async () => {
+    it('disables post detail query when postId is falsy', () => {
+        const { usePostDetail } = usePost()
+        const postId = ref(0)
+        usePostDetail(postId)
+
+        const query = mocks.queryOptions.at(-1)!
+        expect((query.enabled as ReturnType<typeof computed>).value).toBe(false)
+    })
+
+    it('invalidates board post list after create', async () => {
+        vi.mocked(postApi.createPost).mockResolvedValueOnce({ data: { postId: 2 } } as never)
+
         const { useCreatePost } = usePost()
         const mutation = useCreatePost()
+        await mutation.mutate({ boardUrl: 'free', data: { title: 'new', contents: 'body' } })
 
-        const result = await mutation.mutate({ boardUrl: 'free', data: { title: 'New Post', contents: 'Post content' } })
-        expect(result).toEqual({ data: { id: 2, title: 'New Post' } })
-        expect(postApi.createPost).toHaveBeenCalledWith('free', { title: 'New Post', contents: 'Post content' })
-        expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['board', 'free', 'posts'] })
+        expect(postApi.createPost).toHaveBeenCalledWith('free', { title: 'new', contents: 'body' })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['board', 'free', 'posts'] })
     })
 
-    it('updates a post', async () => {
+    it('invalidates post detail after update', async () => {
+        vi.mocked(postApi.updatePost).mockResolvedValueOnce({ data: { postId: 1 } } as never)
+
         const { useUpdatePost } = usePost()
         const mutation = useUpdatePost()
+        await mutation.mutate({ postId: 1, data: { title: 'updated' } })
 
-        const result = await mutation.mutate({ postId: 1, data: { title: 'Updated Post' } })
-        expect(result).toEqual({ data: { id: 1, title: 'Updated Post' } })
-        expect(postApi.updatePost).toHaveBeenCalledWith(1, { title: 'Updated Post' })
-        expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['post', 1] })
+        expect(postApi.updatePost).toHaveBeenCalledWith(1, { title: 'updated' })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['post', 1] })
     })
 
-    it('deletes a post', async () => {
+    it('invalidates board queries after delete', async () => {
+        vi.mocked(postApi.deletePost).mockResolvedValueOnce({ data: { success: true } } as never)
+
         const { useDeletePost } = usePost()
         const mutation = useDeletePost()
-
         await mutation.mutate(1)
+
         expect(postApi.deletePost).toHaveBeenCalledWith(1)
-        expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['board'] })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['board'] })
     })
 
-    it('likes a post', async () => {
+    it('applies optimistic like updates across all caches and invalidates on settle', async () => {
+        vi.mocked(postApi.likePost).mockResolvedValueOnce({ data: { success: true } } as never)
+
+        seedQueryData(['post', 1], { postId: 1, likeCount: 2, liked: false })
+        seedQueryData(['posts'], {
+            pages: [
+                { content: [{ postId: 1, likeCount: 2, liked: false }, { postId: 2, likeCount: 7, liked: false }] },
+                { content: 'not-an-array' },
+            ],
+            pageParams: [],
+        })
+        seedQueryData(['board', 'free', 'posts'], {
+            pages: [{ content: [{ postId: 1, likeCount: 2, liked: false }, { postId: 99, likeCount: 10, liked: false }] }],
+            pageParams: [],
+        })
+        seedQueryData(['board', 'hot', 'posts'], {
+            content: [{ postId: 1, likeCount: 2, liked: false }],
+        })
+        seedQueryData(['board', 'free', 'meta'], { anything: true })
+
+        const { useLikePost } = usePost()
+        const mutation = useLikePost()
+        await mutation.mutate(1)
+
+        expect(mocks.cancelQueries).toHaveBeenCalledWith({ queryKey: ['post', 1] })
+        expect(mocks.cancelQueries).toHaveBeenCalledWith({ queryKey: ['posts'] })
+        expect(getQueryDataValue(['post', 1])).toMatchObject({ liked: true, likeCount: 3 })
+        expect((getQueryDataValue(['posts']) as any).pages[0].content[0]).toMatchObject({ liked: true, likeCount: 3 })
+        expect((getQueryDataValue(['posts']) as any).pages[0].content[1]).toMatchObject({ postId: 2, likeCount: 7, liked: false })
+        expect((getQueryDataValue(['posts']) as any).pages[1].content).toBe('not-an-array')
+        expect((getQueryDataValue(['board', 'free', 'posts']) as any).pages[0].content[0]).toMatchObject({ liked: true, likeCount: 3 })
+        expect((getQueryDataValue(['board', 'free', 'posts']) as any).pages[0].content[1]).toMatchObject({ postId: 99, likeCount: 10, liked: false })
+        expect((getQueryDataValue(['board', 'hot', 'posts']) as any).content[0]).toMatchObject({ liked: true, likeCount: 3 })
+        expect(postApi.likePost).toHaveBeenCalledWith(1)
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['post', 1] })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['posts'] })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({
+            predicate: expect.any(Function),
+        })
+    })
+
+    it('handles missing/unsupported cache shapes during optimistic like update', async () => {
+        vi.mocked(postApi.likePost).mockResolvedValueOnce({ data: { success: true } } as never)
+
+        seedQueryData(['posts'], {
+            pages: [{ content: [{ postId: 2, likeCount: 10 }, { postId: 1, liked: false }] }],
+            pageParams: [],
+        })
+        seedQueryData(['posts', 'recent'], { content: [{ postId: 1 }] })
+        seedQueryData(['board', 'mix', 'posts'], {
+            pages: [{ content: 'not-an-array' }],
+            pageParams: [],
+        })
+        seedQueryData(['board', 'page', 'posts'], {
+            content: [{ postId: 2, liked: false }, { postId: 1, liked: false }],
+        })
+        seedQueryData(['board', 'empty', 'posts'], undefined)
+        seedQueryData(['board', 'odd', 'posts'], { anything: true })
+
+        const { useLikePost } = usePost()
+        await useLikePost().mutate(1)
+
+        expect((getQueryDataValue(['posts']) as any).pages[0].content[0]).toMatchObject({
+            postId: 2,
+            likeCount: 10,
+        })
+        expect((getQueryDataValue(['posts']) as any).pages[0].content[1]).toMatchObject({
+            postId: 1,
+            liked: true,
+            likeCount: 1,
+        })
+        expect(getQueryDataValue(['posts', 'recent'])).toEqual({ content: [{ postId: 1 }] })
+        expect((getQueryDataValue(['board', 'page', 'posts']) as any).content[0]).toMatchObject({ postId: 2, liked: false })
+        expect((getQueryDataValue(['board', 'page', 'posts']) as any).content[1]).toMatchObject({ postId: 1, liked: true })
+        expect(getQueryDataValue(['board', 'mix', 'posts'])).toEqual({
+            pages: [{ content: 'not-an-array' }],
+            pageParams: [],
+        })
+        expect(getQueryDataValue(['board', 'empty', 'posts'])).toBeUndefined()
+        expect(getQueryDataValue(['board', 'odd', 'posts'])).toEqual({ anything: true })
+
+        const predicate = mocks.invalidateQueries.mock.calls.find((call) => call[0]?.predicate)?.[0]?.predicate as
+            | ((query: { queryKey: unknown }) => boolean)
+            | undefined
+        expect(predicate).toBeTypeOf('function')
+        expect(predicate?.({ queryKey: ['board', 'free', 'posts'] })).toBe(true)
+        expect(predicate?.({ queryKey: ['board', 'free', 'meta'] })).toBe(false)
+        expect(predicate?.({ queryKey: 'not-array' })).toBe(false)
+    })
+
+    it('rolls back optimistic like update when API call fails', async () => {
+        vi.mocked(postApi.likePost).mockRejectedValueOnce(new Error('like failed'))
+
+        const snapshot = { postId: 1, likeCount: 4, liked: false }
+        seedQueryData(['post', 1], snapshot)
+        seedQueryData(['posts'], {
+            pages: [{ content: [{ postId: 1, likeCount: 4, liked: false }] }],
+            pageParams: [],
+        })
+        seedQueryData(['board', 'free', 'posts'], {
+            content: [{ postId: 1, likeCount: 4, liked: false }],
+        })
+
         const { useLikePost } = usePost()
         const mutation = useLikePost()
 
-        await mutation.mutate(1)
-        expect(postApi.likePost).toHaveBeenCalledWith(1)
-        // invalidatePostCaches를 통해 3가지 캐시 무효화 확인
-        expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['post', 1] })
-        expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['posts'] })
+        await expect(mutation.mutate(1)).rejects.toThrow('like failed')
+
+        expect(getQueryDataValue(['post', 1])).toEqual(snapshot)
+        expect((getQueryDataValue(['posts']) as any).pages[0].content[0]).toMatchObject({
+            likeCount: 4,
+            liked: false,
+        })
+        expect((getQueryDataValue(['board', 'free', 'posts']) as any).content[0]).toMatchObject({
+            likeCount: 4,
+            liked: false,
+        })
     })
 
-    it('unlikes a post', async () => {
+    it('unlikes without dropping below zero', async () => {
+        vi.mocked(postApi.unlikePost).mockResolvedValueOnce({ data: { success: true } } as never)
+        seedQueryData(['post', 1], { postId: 1, likeCount: 0, liked: true })
+
         const { useUnlikePost } = usePost()
         const mutation = useUnlikePost()
-
         await mutation.mutate(1)
-        expect(postApi.unlikePost).toHaveBeenCalledWith(1)
-        expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['post', 1] })
-        expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['posts'] })
+
+        expect(getQueryDataValue(['post', 1])).toMatchObject({ likeCount: 0, liked: false })
     })
 
-    it('scraps a post', async () => {
+    it('rolls back optimistic unlike update when API call fails', async () => {
+        vi.mocked(postApi.unlikePost).mockRejectedValueOnce(new Error('unlike failed'))
+        seedQueryData(['post', 1], { postId: 1, likeCount: 3, liked: true })
+        seedQueryData(['posts'], {
+            pages: [{ content: [{ postId: 1, likeCount: 3, liked: true }] }],
+            pageParams: [],
+        })
+
+        const { useUnlikePost } = usePost()
+        await expect(useUnlikePost().mutate(1)).rejects.toThrow('unlike failed')
+
+        expect(getQueryDataValue(['post', 1])).toMatchObject({ postId: 1, likeCount: 3, liked: true })
+        expect((getQueryDataValue(['posts']) as any).pages[0].content[0]).toMatchObject({
+            postId: 1,
+            likeCount: 3,
+            liked: true,
+        })
+    })
+
+    it('applies optimistic scrap/unscrap updates and supports rollback', async () => {
+        seedQueryData(['post', 1], { postId: 1, scrapped: false })
+        seedQueryData(['posts'], {
+            pages: [{ content: [{ postId: 1, scrapped: false }] }],
+            pageParams: [],
+        })
+        seedQueryData(['board', 'free', 'posts'], {
+            content: [{ postId: 1, scrapped: false }],
+        })
+
+        vi.mocked(postApi.scrapPost).mockResolvedValueOnce({ data: { success: true } } as never)
         const { useScrapPost } = usePost()
-        const mutation = useScrapPost()
+        await useScrapPost().mutate(1)
+        expect(getQueryDataValue(['post', 1])).toMatchObject({ scrapped: true })
 
-        await mutation.mutate(1)
-        expect(postApi.scrapPost).toHaveBeenCalledWith(1)
-        expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['post', 1] })
-        expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['posts'] })
-    })
-
-    it('unscraps a post', async () => {
+        vi.mocked(postApi.unscrapPost).mockRejectedValueOnce(new Error('unscrap failed'))
         const { useUnscrapPost } = usePost()
-        const mutation = useUnscrapPost()
-
-        await mutation.mutate(1)
-        expect(postApi.unscrapPost).toHaveBeenCalledWith(1)
-        expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['post', 1] })
-        expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['posts'] })
+        await expect(useUnscrapPost().mutate(1)).rejects.toThrow('unscrap failed')
+        expect(getQueryDataValue(['post', 1])).toMatchObject({ scrapped: true })
     })
 
-    it('reports a post', async () => {
-        const reportData = { targetPostId: 1, reason: 'Spam' }
-        vi.mocked(postApi.reportPost).mockResolvedValue({ data: { success: true } } as any)
+    it('rolls back optimistic scrap update when API call fails', async () => {
+        seedQueryData(['post', 1], { postId: 1, scrapped: false })
+        seedQueryData(['posts'], {
+            pages: [{ content: [{ postId: 1, scrapped: false }] }],
+            pageParams: [],
+        })
+        vi.mocked(postApi.scrapPost).mockRejectedValueOnce(new Error('scrap failed'))
+
+        const { useScrapPost } = usePost()
+        await expect(useScrapPost().mutate(1)).rejects.toThrow('scrap failed')
+
+        expect(getQueryDataValue(['post', 1])).toMatchObject({ postId: 1, scrapped: false })
+        expect((getQueryDataValue(['posts']) as any).pages[0].content[0]).toMatchObject({
+            postId: 1,
+            scrapped: false,
+        })
+    })
+
+    it('keeps rollback paths safe when onMutate fails before snapshot creation', async () => {
+        const cancelError = new Error('cancel failed')
+        mocks.cancelQueries
+            .mockRejectedValueOnce(cancelError)
+            .mockRejectedValueOnce(cancelError)
+            .mockRejectedValueOnce(cancelError)
+            .mockRejectedValueOnce(cancelError)
+
+        const { useLikePost, useUnlikePost, useScrapPost, useUnscrapPost } = usePost()
+
+        await expect(useLikePost().mutate(1)).rejects.toThrow('cancel failed')
+        await expect(useUnlikePost().mutate(1)).rejects.toThrow('cancel failed')
+        await expect(useScrapPost().mutate(1)).rejects.toThrow('cancel failed')
+        await expect(useUnscrapPost().mutate(1)).rejects.toThrow('cancel failed')
+    })
+
+    it('rolls back post list caches even when post detail snapshot is undefined', async () => {
+        vi.mocked(postApi.likePost).mockRejectedValueOnce(new Error('like failed without detail'))
+        seedQueryData(['posts'], {
+            pages: [{ content: [{ postId: 1, likeCount: 2, liked: false }] }],
+            pageParams: [],
+        })
+        seedQueryData(['board', 'free', 'posts'], {
+            content: [{ postId: 1, likeCount: 2, liked: false }],
+        })
+
+        const { useLikePost } = usePost()
+        await expect(useLikePost().mutate(1)).rejects.toThrow('like failed without detail')
+
+        expect((getQueryDataValue(['posts']) as any).pages[0].content[0]).toMatchObject({
+            postId: 1,
+            likeCount: 2,
+            liked: false,
+        })
+        expect((getQueryDataValue(['board', 'free', 'posts']) as any).content[0]).toMatchObject({
+            postId: 1,
+            likeCount: 2,
+            liked: false,
+        })
+    })
+
+    it('calls report post API', async () => {
+        vi.mocked(postApi.reportPost).mockResolvedValueOnce({ data: { success: true } } as never)
+        const payload = { targetPostId: 1, reason: 'spam' }
 
         const { useReportPost } = usePost()
-        const mutation = useReportPost()
+        await useReportPost().mutate(payload)
 
-        await mutation.mutate(reportData)
-        expect(postApi.reportPost).toHaveBeenCalledWith(reportData)
+        expect(postApi.reportPost).toHaveBeenCalledWith(payload)
     })
 })

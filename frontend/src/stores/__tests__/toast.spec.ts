@@ -72,6 +72,24 @@ describe('Toast Store', () => {
 
             expect(store.toasts).toHaveLength(1)
         })
+
+        it('debounces duplicate error messages within 5 seconds', () => {
+            store.addToast('same error', 'error', 0)
+            store.addToast('same error', 'error', 0)
+
+            expect(store.toasts).toHaveLength(1)
+            expect(store.toasts[0].message).toBe('same error')
+        })
+
+        it('allows stale error messages again after debounce window and prunes old cache entries', () => {
+            store.addToast('old error', 'error', 0)
+            vi.advanceTimersByTime(6000)
+
+            store.addToast('new error', 'error', 0)
+            store.addToast('old error', 'error', 0)
+
+            expect(store.toasts.map((t) => t.message)).toEqual(['old error', 'new error', 'old error'])
+        })
     })
 
     describe('removeToast', () => {

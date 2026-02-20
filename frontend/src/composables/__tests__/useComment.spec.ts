@@ -15,8 +15,10 @@ vi.mock('@/api/comment', () => ({
 
 // Mock vue-query
 const mockInvalidateQueries = vi.fn()
+const mockQueryOptions: Array<Record<string, unknown>> = []
 vi.mock('@tanstack/vue-query', () => ({
     useQuery: vi.fn((options) => {
+        mockQueryOptions.push(options)
         return {
             data: ref(null),
             isLoading: ref(false),
@@ -48,19 +50,43 @@ vi.mock('@tanstack/vue-query', () => ({
 describe('useComment', () => {
     beforeEach(() => {
         vi.clearAllMocks()
+        mockQueryOptions.length = 0
     })
 
     describe('useComments', () => {
-        it('returns query hooks', () => {
+        it('fetches comments with enabled/placeholder query options', async () => {
+            vi.mocked(commentApi.getComments).mockResolvedValueOnce({
+                data: {
+                    data: {
+                        content: [{ commentId: 1, content: 'hello' }],
+                    },
+                },
+            } as never)
+
             const { useComments } = useComment()
             const postId = ref(1)
             const params = ref({ page: 0, size: 10 })
 
-            const result = useComments(postId, params)
+            useComments(postId, params)
+            const options = mockQueryOptions[0]
+            const result = await (options.queryFn as () => Promise<unknown>)()
 
-            expect(result).toHaveProperty('data')
-            expect(result).toHaveProperty('isLoading')
-            expect(result).toHaveProperty('error')
+            expect(options.queryKey).toEqual(['comments', postId, params])
+            expect((options.enabled as { value: boolean }).value).toBe(true)
+            expect((options.placeholderData as (prev: unknown) => unknown)('keep')).toBe('keep')
+            expect(commentApi.getComments).toHaveBeenCalledWith(1, { page: 0, size: 10 })
+            expect(result).toEqual({ content: [{ commentId: 1, content: 'hello' }] })
+        })
+
+        it('disables comments query when postId is falsy', () => {
+            const { useComments } = useComment()
+            const postId = ref(0)
+            const params = ref({ page: 0, size: 10 })
+
+            useComments(postId, params)
+            const options = mockQueryOptions[0]
+
+            expect((options.enabled as { value: boolean }).value).toBe(false)
         })
     })
 

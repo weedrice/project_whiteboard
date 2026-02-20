@@ -35,8 +35,10 @@ vi.mock('@/api/admin', () => ({
 
 // Mock vue-query
 const mockInvalidateQueries = vi.fn()
+const mockQueryOptions: Array<Record<string, unknown>> = []
 vi.mock('@tanstack/vue-query', () => ({
     useQuery: vi.fn((options) => {
+        mockQueryOptions.push(options)
         return {
             data: ref(null),
             isLoading: ref(false),
@@ -68,6 +70,7 @@ vi.mock('@tanstack/vue-query', () => ({
 describe('useAdmin', () => {
     beforeEach(() => {
         vi.clearAllMocks()
+        mockQueryOptions.length = 0
     })
 
     describe('Admin Management', () => {
@@ -77,6 +80,22 @@ describe('useAdmin', () => {
 
             expect(result).toHaveProperty('data')
             expect(result).toHaveProperty('isLoading')
+        })
+
+        it('useAdmins queryFn returns api data and empty fallback', async () => {
+            const { useAdmins } = useAdmin()
+
+            vi.mocked(adminApi.getAdmins)
+                .mockResolvedValueOnce({ data: { data: [{ adminId: 1 }] } } as any)
+                .mockResolvedValueOnce({ data: null } as any)
+
+            useAdmins()
+            const firstQuery = mockQueryOptions.at(-1) as { queryFn: () => Promise<unknown> }
+            await expect(firstQuery.queryFn()).resolves.toEqual([{ adminId: 1 }])
+
+            useAdmins()
+            const secondQuery = mockQueryOptions.at(-1) as { queryFn: () => Promise<unknown> }
+            await expect(secondQuery.queryFn()).resolves.toEqual([])
         })
 
         it('useCreateAdmin calls adminApi.createAdmin', async () => {
@@ -124,6 +143,22 @@ describe('useAdmin', () => {
             expect(result).toHaveProperty('isLoading')
         })
 
+        it('useSuperAdmins queryFn handles array and non-array payloads', async () => {
+            const { useSuperAdmins } = useAdmin()
+
+            vi.mocked(adminApi.getSuperAdmin)
+                .mockResolvedValueOnce({ data: { data: [{ loginId: 'super' }] } } as any)
+                .mockResolvedValueOnce({ data: { data: { loginId: 'not-array' } } } as any)
+
+            useSuperAdmins()
+            const firstQuery = mockQueryOptions.at(-1) as { queryFn: () => Promise<unknown> }
+            await expect(firstQuery.queryFn()).resolves.toEqual([{ loginId: 'super' }])
+
+            useSuperAdmins()
+            const secondQuery = mockQueryOptions.at(-1) as { queryFn: () => Promise<unknown> }
+            await expect(secondQuery.queryFn()).resolves.toEqual([])
+        })
+
         it('useUpdateSuperAdminStatus calls activate API', async () => {
             const { useUpdateSuperAdminStatus } = useAdmin()
             const mutation = useUpdateSuperAdminStatus()
@@ -156,6 +191,23 @@ describe('useAdmin', () => {
 
             expect(result).toHaveProperty('data')
             expect(result).toHaveProperty('isLoading')
+        })
+
+        it('useUsers queryFn forwards params and preserves placeholder data', async () => {
+            const { useUsers } = useAdmin()
+            const params = ref({ page: 2, size: 5, q: 'john' })
+            const response = { content: [{ userId: 1 }], number: 2, size: 5, totalElements: 1 }
+            vi.mocked(adminApi.getUsers).mockResolvedValueOnce({ data: { data: response } } as any)
+
+            useUsers(params)
+            const query = mockQueryOptions.at(-1) as {
+                queryFn: () => Promise<unknown>
+                placeholderData: (prev: unknown) => unknown
+            }
+
+            await expect(query.queryFn()).resolves.toEqual(response)
+            expect(adminApi.getUsers).toHaveBeenCalledWith(params.value)
+            expect(query.placeholderData('prev-users')).toBe('prev-users')
         })
 
         it('useUpdateUserStatus calls adminApi', async () => {
@@ -192,6 +244,23 @@ describe('useAdmin', () => {
             expect(result).toHaveProperty('isLoading')
         })
 
+        it('useReports queryFn forwards params and preserves placeholder data', async () => {
+            const { useReports } = useAdmin()
+            const params = ref({ page: 1, size: 20 })
+            const response = { content: [{ reportId: 7 }], number: 1, size: 20, totalElements: 1 }
+            vi.mocked(adminApi.getReports).mockResolvedValueOnce({ data: { data: response } } as any)
+
+            useReports(params)
+            const query = mockQueryOptions.at(-1) as {
+                queryFn: () => Promise<unknown>
+                placeholderData: (prev: unknown) => unknown
+            }
+
+            await expect(query.queryFn()).resolves.toEqual(response)
+            expect(adminApi.getReports).toHaveBeenCalledWith(params.value)
+            expect(query.placeholderData('prev-reports')).toBe('prev-reports')
+        })
+
         it('useResolveReport calls adminApi.resolveReport', async () => {
             const { useResolveReport } = useAdmin()
             const mutation = useResolveReport()
@@ -212,6 +281,15 @@ describe('useAdmin', () => {
 
             expect(result).toHaveProperty('data')
             expect(result).toHaveProperty('isLoading')
+        })
+
+        it('useIpBlocks queryFn returns api data', async () => {
+            const { useIpBlocks } = useAdmin()
+            vi.mocked(adminApi.getIpBlocks).mockResolvedValueOnce({ data: { data: [{ ipAddress: '1.1.1.1' }] } } as any)
+
+            useIpBlocks()
+            const query = mockQueryOptions.at(-1) as { queryFn: () => Promise<unknown> }
+            await expect(query.queryFn()).resolves.toEqual([{ ipAddress: '1.1.1.1' }])
         })
 
         it('useBlockIp calls adminApi.blockIp', async () => {
@@ -246,6 +324,15 @@ describe('useAdmin', () => {
 
             expect(result).toHaveProperty('data')
             expect(result).toHaveProperty('isLoading')
+        })
+
+        it('useConfigs queryFn returns api data', async () => {
+            const { useConfigs } = useAdmin()
+            vi.mocked(adminApi.getConfigs).mockResolvedValueOnce({ data: { data: [{ key: 'site.name' }] } } as any)
+
+            useConfigs()
+            const query = mockQueryOptions.at(-1) as { queryFn: () => Promise<unknown> }
+            await expect(query.queryFn()).resolves.toEqual([{ key: 'site.name' }])
         })
 
         it('useCreateConfig calls adminApi.createConfig', async () => {
@@ -293,6 +380,15 @@ describe('useAdmin', () => {
             expect(result).toHaveProperty('data')
             expect(result).toHaveProperty('isLoading')
         })
+
+        it('useDashboardStats queryFn returns stats payload', async () => {
+            const { useDashboardStats } = useAdmin()
+            vi.mocked(adminApi.getDashboardStats).mockResolvedValueOnce({ data: { data: { users: 10 } } } as any)
+
+            useDashboardStats()
+            const query = mockQueryOptions.at(-1) as { queryFn: () => Promise<unknown> }
+            await expect(query.queryFn()).resolves.toEqual({ users: 10 })
+        })
     })
 
     describe('Board Management', () => {
@@ -302,6 +398,15 @@ describe('useAdmin', () => {
 
             expect(result).toHaveProperty('data')
             expect(result).toHaveProperty('isLoading')
+        })
+
+        it('useAdminBoards queryFn returns board list', async () => {
+            const { useAdminBoards } = useAdmin()
+            vi.mocked(adminApi.getBoards).mockResolvedValueOnce({ data: { data: [{ boardUrl: 'free' }] } } as any)
+
+            useAdminBoards()
+            const query = mockQueryOptions.at(-1) as { queryFn: () => Promise<unknown> }
+            await expect(query.queryFn()).resolves.toEqual([{ boardUrl: 'free' }])
         })
 
         it('useCreateBoard calls adminApi.createBoard', async () => {

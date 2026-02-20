@@ -36,4 +36,28 @@ describe('BaseButton', () => {
         expect(wrapper.attributes('disabled')).toBeDefined()
         expect(wrapper.classes()).toContain('opacity-50')
     })
+
+    it('applies large size class and full width class', () => {
+        const wrapper = mount(BaseButton, {
+            props: {
+                size: 'lg',
+                fullWidth: true,
+            },
+        })
+
+        expect(wrapper.classes()).toContain('w-full')
+        expect(wrapper.classes()).toContain('px-6')
+        expect(wrapper.classes()).toContain('py-3')
+        expect(wrapper.classes()).toContain('text-base')
+    })
+
+    it('falls back to primary variant for unknown variant values', () => {
+        const wrapper = mount(BaseButton, {
+            props: {
+                variant: 'not-supported' as any,
+            },
+        })
+
+        expect(wrapper.classes()).toContain('btn-primary')
+    })
 })

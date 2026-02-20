@@ -39,6 +39,30 @@ describe('errorHandler', () => {
         expect(combineValidationErrors(validationErrors, ' | ')).toBe('Invalid email format | Too short')
     })
 
+    it('returns null when validation details are missing or invalid', () => {
+        const noResponseError = {} as AxiosError
+        const invalidDetailsError = {
+            response: {
+                data: {
+                    error: {
+                        details: ['not-object'],
+                    },
+                },
+            },
+        } as AxiosError
+        const rootDetailsError = {
+            response: {
+                data: {
+                    details: { name: ['required'] },
+                },
+            },
+        } as AxiosError
+
+        expect(extractValidationErrors(noResponseError)).toBeNull()
+        expect(extractValidationErrors(invalidDetailsError)).toBeNull()
+        expect(extractValidationErrors(rootDetailsError)).toEqual({ name: ['required'] })
+    })
+
     it('extracts message and structured error response safely', () => {
         const axiosError = {
             isAxiosError: true,
@@ -60,6 +84,42 @@ describe('errorHandler', () => {
             message: 'Validation failed',
             details: { field: ['required'] },
         })
+    })
+
+    it('handles axios errors without response and fallback paths', () => {
+        const axiosErrorWithoutResponse = {
+            isAxiosError: true,
+            message: 'Request failed with status code 500',
+        } as AxiosError
+        const axiosErrorWithoutMessage = {
+            isAxiosError: true,
+            response: {
+                data: {},
+            },
+            message: '',
+        } as AxiosError
+
+        expect(extractErrorMessage(axiosErrorWithoutResponse)).toBe(i18n.global.t('common.messages.serverError'))
+        expect(extractErrorMessage(axiosErrorWithoutMessage)).toBe('An error occurred')
+    })
+
+    it('returns null for incomplete error response and handles empty validation helpers', () => {
+        const incompleteError = {
+            response: {
+                data: {
+                    error: {
+                        code: 'BAD_REQUEST',
+                    },
+                },
+            },
+        } as AxiosError
+        const noResponseError = {} as AxiosError
+
+        expect(extractErrorResponse(noResponseError)).toBeNull()
+        expect(extractErrorResponse(incompleteError)).toBeNull()
+        expect(getFieldError(null, 'email')).toBeNull()
+        expect(getFieldError({ email: [] }, 'email')).toBeNull()
+        expect(combineValidationErrors(null)).toBe('')
     })
 
     it('falls back for non-axios unknown errors', () => {

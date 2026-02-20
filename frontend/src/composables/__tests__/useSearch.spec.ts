@@ -1,123 +1,113 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { ref } from 'vue'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { computed, ref } from 'vue'
 import { useSearch } from '../useSearch'
 import { searchApi } from '@/api/search'
+import { QUERY_STALE_TIME } from '@/utils/constants'
 
-// Store queryFn to test it
-let capturedQueryFn: (() => Promise<unknown>) | null = null
-
-// Mock vue-query
-const mockUseQuery = vi.fn((options) => {
-    capturedQueryFn = options.queryFn
-    return {
-        data: ref(null),
-        isLoading: ref(false),
-        error: ref(null),
-        refetch: vi.fn(),
-        _queryKey: options.queryKey
-    }
+const mocks = vi.hoisted(() => {
+    const queryOptions: Array<Record<string, unknown>> = []
+    return { queryOptions }
 })
 
 vi.mock('@tanstack/vue-query', () => ({
-    useQuery: (options: unknown) => mockUseQuery(options),
-    useQueryClient: vi.fn(() => ({
-        invalidateQueries: vi.fn()
-    }))
+    useQuery: vi.fn((options: Record<string, unknown>) => {
+        mocks.queryOptions.push(options)
+        return {
+            data: ref(null),
+            isLoading: ref(false),
+            error: ref(null),
+            refetch: async () => {
+                if (options.queryFn) {
+                    return await (options.queryFn as () => Promise<unknown>)()
+                }
+                return null
+            },
+        }
+    }),
 }))
 
 vi.mock('@/api/search', () => ({
     searchApi: {
-        searchPosts: vi.fn()
-    }
+        search: vi.fn(),
+        searchPosts: vi.fn(),
+    },
 }))
 
 describe('useSearch', () => {
     beforeEach(() => {
         vi.clearAllMocks()
-        capturedQueryFn = null
+        mocks.queryOptions.length = 0
     })
 
-    describe('useSearchPosts', () => {
-        it('returns query hooks', () => {
-            const { useSearchPosts } = useSearch()
-            const params = ref({ q: 'test' })
+    it('fetches search posts and supports q/keyword enabled conditions', async () => {
+        vi.mocked(searchApi.searchPosts).mockResolvedValueOnce({
+            data: { data: { content: [{ postId: 1 }] } },
+        } as never)
 
-            const result = useSearchPosts(params)
+        const { useSearchPosts } = useSearch()
+        const params = ref({ q: 'vue', page: 0, size: 20 })
+        useSearchPosts(params as never)
 
-            expect(result).toHaveProperty('data')
-            expect(result).toHaveProperty('isLoading')
-            expect(result).toHaveProperty('error')
-        })
+        const options = mocks.queryOptions.at(-1)!
+        expect(options.queryKey).toEqual(['search', 'posts', params])
+        expect((options.enabled as ReturnType<typeof computed>).value).toBe(true)
+        expect((options.placeholderData as (prev: unknown) => unknown)('prev')).toBe('prev')
 
-        it('is called with search query params', () => {
-            const { useSearchPosts } = useSearch()
-            const params = ref({ q: 'vue' })
+        const result = await (options.queryFn as () => Promise<unknown>)()
+        expect(searchApi.searchPosts).toHaveBeenCalledWith({ q: 'vue', page: 0, size: 20 })
+        expect(result).toEqual({ content: [{ postId: 1 }] })
 
-            useSearchPosts(params)
+        const keywordParams = ref({ keyword: 'vite' })
+        useSearchPosts(keywordParams as never)
+        const keywordOptions = mocks.queryOptions.at(-1)!
+        expect((keywordOptions.enabled as ReturnType<typeof computed>).value).toBe(true)
 
-            expect(mockUseQuery).toHaveBeenCalled()
-        })
-
-        it('queryFn calls searchApi.searchPosts with params', async () => {
-            vi.mocked(searchApi.searchPosts).mockResolvedValue({
-                data: { data: { content: [{ id: 1, title: 'Test' }] } }
-            } as any)
-
-            const { useSearchPosts } = useSearch()
-            const params = ref({ q: 'test', page: 0, size: 10 })
-
-            useSearchPosts(params)
-
-            expect(capturedQueryFn).toBeDefined()
-            const result = await capturedQueryFn!()
-
-            expect(searchApi.searchPosts).toHaveBeenCalledWith({ q: 'test', page: 0, size: 10 })
-            expect(result).toEqual({ content: [{ id: 1, title: 'Test' }] })
-        })
+        const disabledParams = ref({})
+        useSearchPosts(disabledParams as never)
+        const disabledOptions = mocks.queryOptions.at(-1)!
+        expect((disabledOptions.enabled as ReturnType<typeof computed>).value).toBe(false)
     })
 
-    describe('usePopularKeywords', () => {
-        it('returns query hooks', () => {
-            const { usePopularKeywords } = useSearch()
+    it('fetches integrated search and uses q-only enabled condition', async () => {
+        vi.mocked(searchApi.search).mockResolvedValueOnce({
+            data: { data: { posts: [{ postId: 2 }], boards: [] } },
+        } as never)
 
-            const result = usePopularKeywords()
+        const { useIntegratedSearch } = useSearch()
+        const params = ref({ q: 'pinia', size: 5 })
+        useIntegratedSearch(params as never)
 
-            expect(result).toHaveProperty('data')
-            expect(result).toHaveProperty('isLoading')
-            expect(result).toHaveProperty('error')
-        })
+        const options = mocks.queryOptions.at(-1)!
+        expect(options.queryKey).toEqual(['search', 'integrated', params])
+        expect((options.enabled as ReturnType<typeof computed>).value).toBe(true)
+        expect((options.placeholderData as (prev: unknown) => unknown)('keep')).toBe('keep')
 
-        it('is called for popular keywords', () => {
-            vi.clearAllMocks()
-            const { usePopularKeywords } = useSearch()
+        const result = await (options.queryFn as () => Promise<unknown>)()
+        expect(searchApi.search).toHaveBeenCalledWith({ q: 'pinia', size: 5 })
+        expect(result).toEqual({ posts: [{ postId: 2 }], boards: [] })
 
-            usePopularKeywords()
+        const disabledParams = ref({ keyword: 'only-keyword' })
+        useIntegratedSearch(disabledParams as never)
+        const disabledOptions = mocks.queryOptions.at(-1)!
+        expect((disabledOptions.enabled as ReturnType<typeof computed>).value).toBe(false)
+    })
 
-            expect(mockUseQuery).toHaveBeenCalled()
-        })
+    it('returns mocked popular keywords with medium staleTime', async () => {
+        vi.useFakeTimers()
 
-        it('queryFn returns mock popular keywords', async () => {
-            vi.useFakeTimers()
+        const { usePopularKeywords } = useSearch()
+        usePopularKeywords()
+        const options = mocks.queryOptions.at(-1)!
+        expect(options.queryKey).toEqual(['search', 'popular'])
+        expect(options.staleTime).toBe(QUERY_STALE_TIME.MEDIUM)
 
-            const { usePopularKeywords } = useSearch()
+        const promise = (options.queryFn as () => Promise<unknown>)()
+        await vi.advanceTimersByTimeAsync(500)
+        const result = await promise as Array<{ keyword: string; count: number }>
 
-            usePopularKeywords()
+        expect(result).toHaveLength(5)
+        expect(result[0]).toEqual({ keyword: 'Vue 3', count: 120 })
 
-            expect(capturedQueryFn).toBeDefined()
-
-            // Start the async operation
-            const resultPromise = capturedQueryFn!()
-
-            // Fast-forward past the 500ms delay
-            await vi.advanceTimersByTimeAsync(500)
-
-            const result = await resultPromise as { keyword: string, count: number }[]
-
-            expect(result).toHaveLength(5)
-            expect(result[0]).toHaveProperty('keyword')
-            expect(result[0]).toHaveProperty('count')
-
-            vi.useRealTimers()
-        })
+        vi.useRealTimers()
     })
 })

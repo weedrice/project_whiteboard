@@ -73,4 +73,54 @@ describe('Pagination', () => {
         const nextButton = buttons[buttons.length - 1]
         expect(nextButton.attributes('disabled')).toBeDefined()
     })
+
+    it('emits previous and next page changes when navigation buttons are enabled', async () => {
+        const wrapper = mount(Pagination, {
+            props: {
+                currentPage: 2,
+                totalPages: 5,
+            },
+            global: {
+                mocks: {
+                    $t: (msg: string) => msg,
+                },
+            },
+        })
+
+        const buttons = wrapper.findAll('button')
+        await buttons[0].trigger('click')
+        await buttons[buttons.length - 1].trigger('click')
+
+        expect(wrapper.emitted('page-change')?.[0]).toEqual([1])
+        expect(wrapper.emitted('page-change')?.[1]).toEqual([3])
+    })
+
+    it('renders ellipsis for large page ranges and hides nav when totalPages is zero', () => {
+        const wrapper = mount(Pagination, {
+            props: {
+                currentPage: 9,
+                totalPages: 20,
+            },
+            global: {
+                mocks: {
+                    $t: (msg: string) => msg,
+                },
+            },
+        })
+
+        expect(wrapper.text()).toContain('...')
+
+        const hiddenWrapper = mount(Pagination, {
+            props: {
+                currentPage: 0,
+                totalPages: 0,
+            },
+            global: {
+                mocks: {
+                    $t: (msg: string) => msg,
+                },
+            },
+        })
+        expect(hiddenWrapper.find('nav').exists()).toBe(false)
+    })
 })

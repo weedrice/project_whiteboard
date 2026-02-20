@@ -83,6 +83,14 @@ describe('Confirm Store', () => {
             expect(store.message).toBe('')
             expect(store.title).toBe('')
         })
+
+        it('just closes when confirm is called without pending promise', () => {
+            store.confirm()
+
+            expect(store.isOpen).toBe(false)
+            expect(store.title).toBe('')
+            expect(store.message).toBe('')
+        })
     })
 
     describe('cancel', () => {
@@ -102,6 +110,14 @@ describe('Confirm Store', () => {
             await promise
 
             expect(store.isOpen).toBe(false)
+            expect(store.message).toBe('')
+        })
+
+        it('just closes when cancel is called without pending promise', () => {
+            store.cancel()
+
+            expect(store.isOpen).toBe(false)
+            expect(store.title).toBe('')
             expect(store.message).toBe('')
         })
     })

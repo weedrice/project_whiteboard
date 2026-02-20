@@ -11,6 +11,7 @@ vi.mock('@/utils/logger', () => ({
 }))
 
 import { Storage as StorageUtil } from '@/utils/storage'
+import logger from '@/utils/logger'
 
 describe('Storage', () => {
     beforeEach(() => {
@@ -64,5 +65,48 @@ describe('Storage', () => {
         expect(() => StorageUtil.setString('x', '1')).not.toThrow()
 
         spy.mockRestore()
+    })
+
+    it('logs quota warning when localStorage quota is exceeded', () => {
+        const storageProto = Object.getPrototypeOf(window.localStorage) as globalThis.Storage
+        const quotaError = new DOMException('quota', 'QuotaExceededError')
+        const spy = vi.spyOn(storageProto, 'setItem').mockImplementation(() => {
+            throw quotaError
+        })
+
+        StorageUtil.set('profile', { id: 1 })
+        StorageUtil.setString('token', 'abc')
+
+        expect(logger.warn).toHaveBeenCalledTimes(2)
+        spy.mockRestore()
+    })
+
+    it('fails safely when remove, clear, has and keys operations throw', () => {
+        const storageProto = Object.getPrototypeOf(window.localStorage) as globalThis.Storage
+        const removeSpy = vi.spyOn(storageProto, 'removeItem').mockImplementation(() => {
+            throw new Error('remove failed')
+        })
+        const clearSpy = vi.spyOn(storageProto, 'clear').mockImplementation(() => {
+            throw new Error('clear failed')
+        })
+        const getSpy = vi.spyOn(storageProto, 'getItem').mockImplementation(() => {
+            throw new Error('has failed')
+        })
+        const objectKeysSpy = vi.spyOn(Object, 'keys').mockImplementation((obj: object) => {
+            if (obj === localStorage) {
+                throw new Error('keys failed')
+            }
+            return []
+        })
+
+        expect(() => StorageUtil.remove('x')).not.toThrow()
+        expect(() => StorageUtil.clear()).not.toThrow()
+        expect(StorageUtil.has('x')).toBe(false)
+        expect(StorageUtil.keys()).toEqual([])
+
+        removeSpy.mockRestore()
+        clearSpy.mockRestore()
+        getSpy.mockRestore()
+        objectKeysSpy.mockRestore()
     })
 })

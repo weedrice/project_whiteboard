@@ -3,6 +3,7 @@ import { setActivePinia, createPinia } from 'pinia'
 import { useAuthStore } from '../auth'
 import { authApi } from '@/api/auth'
 import { useThemeStore } from '@/stores/theme'
+import logger from '@/utils/logger'
 
 // Mock dependencies
 vi.mock('@/api/auth', () => ({
@@ -99,6 +100,26 @@ describe('Auth Store', () => {
             expect(store.accessToken).toBeNull()
             expect(store.user).toBeNull()
         })
+
+        it('returns undefined and keeps state when success flag is false', async () => {
+            vi.mocked(authApi.login).mockResolvedValue({
+                data: {
+                    success: false,
+                    data: {
+                        accessToken: 'ignored-token',
+                        refreshToken: 'ignored-refresh',
+                        user: { id: 1, username: 'ignored', role: 'USER' }
+                    }
+                }
+            } as any)
+
+            const result = await store.login({ loginId: 'test', password: 'password' })
+
+            expect(result).toBeUndefined()
+            expect(store.accessToken).toBeNull()
+            expect(store.user).toBeNull()
+            expect(localStorage.getItem('accessToken')).toBeNull()
+        })
     })
 
     describe('logout', () => {
@@ -151,6 +172,22 @@ describe('Auth Store', () => {
             expect(store.user).toEqual(mockUser)
         })
 
+        it('hydrates access token from storage and syncs theme', async () => {
+            localStorage.setItem('accessToken', 'stored-token')
+            store.accessToken = null
+            const mockUser = { id: 1, username: 'test', role: 'USER', theme: 'DARK' }
+            vi.mocked(authApi.getMe).mockResolvedValue({
+                data: { success: true, data: mockUser }
+            } as any)
+
+            await store.fetchUser({ headers: { 'x-test': '1' } })
+
+            expect(store.accessToken).toBe('stored-token')
+            expect(authApi.getMe).toHaveBeenCalledWith({ headers: { 'x-test': '1' } })
+            expect(store.user).toEqual(mockUser)
+            expect(mockSetTheme).toHaveBeenCalledWith('DARK')
+        })
+
 
         it('handles sanctioned user', async () => {
             localStorage.setItem('accessToken', 'token')
@@ -185,6 +222,17 @@ describe('Auth Store', () => {
             // fetchUser now only logs the error, interceptor handles logout
             // Token should remain as interceptor is mocked
             expect(store.accessToken).toBe('token')
+            expect(logger.error).toHaveBeenCalledWith('Fetch user failed:', expect.any(Error))
+        })
+    })
+
+    describe('setTokens', () => {
+        it('updates reactive token and persists both tokens', () => {
+            store.setTokens('new-access', 'new-refresh')
+
+            expect(store.accessToken).toBe('new-access')
+            expect(localStorage.getItem('accessToken')).toBe('new-access')
+            expect(localStorage.getItem('refreshToken')).toBe('new-refresh')
         })
     })
 

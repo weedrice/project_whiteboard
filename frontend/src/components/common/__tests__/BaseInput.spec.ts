@@ -57,4 +57,25 @@ describe('BaseInput', () => {
         expect(suffixContainer?.attributes('aria-hidden')).toBeUndefined()
         expect(wrapper.find('button[aria-label=\"Clear search\"]').exists()).toBe(true)
     })
+
+    it('emits blur and renders prefix slot as aria-hidden decoration', async () => {
+        const wrapper = mount(BaseInput, {
+            props: {
+                id: 'search-input',
+            },
+            slots: {
+                prefix: '<span data-testid="prefix-icon">icon</span>',
+            },
+        })
+
+        const input = wrapper.get('input')
+        await input.trigger('blur')
+
+        const prefixContainer = wrapper.findAll('div').find((node) =>
+            node.classes().includes('absolute') && node.classes().includes('left-0'),
+        )
+        expect(prefixContainer?.attributes('aria-hidden')).toBe('true')
+        expect(wrapper.find('[data-testid="prefix-icon"]').exists()).toBe(true)
+        expect(wrapper.emitted('blur')).toHaveLength(1)
+    })
 })
