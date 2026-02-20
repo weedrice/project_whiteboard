@@ -21,7 +21,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onErrorCaptured, provide, inject } from 'vue'
+import { ref, onErrorCaptured, provide } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
@@ -51,24 +51,30 @@ const errorStack = ref<string>('')
 const title = ref(t('common.error.unknown'))
 const message = ref(t('common.error.defaultMessage'))
 
+const isChunkLoadError = (err: Error | null) => {
+    if (!err) return false
+    return (
+        err.name === 'ChunkLoadError'
+        || err.message.includes('Loading chunk')
+        || err.message.includes('Failed to fetch dynamically imported module')
+        || err.message.includes('Importing a module script failed')
+    )
+}
+
 onErrorCaptured((err: Error, instance: any, info: string) => {
     hasError.value = true
     error.value = err
     errorInfo.value = info
     errorStack.value = err.stack || err.toString()
 
-    // 에러 로깅
     logger.error('ErrorBoundary caught error:', err, info)
 
-    // 커스텀 fallback 호출
     if (props.fallback) {
         props.fallback(err, instance, info)
     }
 
-    // 부모에게 에러 전달
     emit('error', err, instance, info)
 
-    // 에러 타입에 따른 메시지 설정
     if (err.name === 'ChunkLoadError' || err.message.includes('Loading chunk')) {
         title.value = t('common.error.chunkLoadError')
         message.value = t('common.error.chunkLoadErrorDescription')
@@ -80,29 +86,35 @@ onErrorCaptured((err: Error, instance: any, info: string) => {
         message.value = err.message || t('common.error.defaultMessage')
     }
 
-    // 에러가 전파되지 않도록 false 반환
     return false
 })
 
-const handleRetry = () => {
-    hasError.value = false
-    error.value = null
-    errorInfo.value = ''
-    errorStack.value = ''
-    // 페이지 새로고침
-    window.location.reload()
-}
-
-const handleGoHome = () => {
-    router.push('/')
-}
-
-// 에러 리셋 함수 제공 (자식 컴포넌트에서 사용 가능)
 const resetError = () => {
     hasError.value = false
     error.value = null
     errorInfo.value = ''
     errorStack.value = ''
+}
+
+const handleRetry = async () => {
+    const shouldReload = isChunkLoadError(error.value)
+    resetError()
+
+    if (shouldReload) {
+        window.location.reload()
+        return
+    }
+
+    try {
+        await router.replace(router.currentRoute.value.fullPath)
+    } catch (retryError: unknown) {
+        logger.warn('ErrorBoundary soft retry failed; falling back to reload.', retryError)
+        window.location.reload()
+    }
+}
+
+const handleGoHome = () => {
+    router.push('/')
 }
 
 provide('resetError', resetError)

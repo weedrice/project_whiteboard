@@ -5,6 +5,7 @@ import { useThemeStore } from '@/stores/theme'
 import router from '@/router'
 import logger from '@/utils/logger'
 import { useToastStore } from '@/stores/toast'
+import i18n from '@/i18n'
 import { Storage } from '@/utils/storage'
 import type { User, LoginCredentials } from '@/types'
 import type { AxiosRequestConfig } from 'axios'
@@ -79,7 +80,6 @@ export const useAuthStore = defineStore('auth', () => {
 
                 // Check for sanctions
                 if (user.value?.status === 'SANCTIONED') {
-                    const i18n = (await import('@/i18n')).default
                     toastStore.addToast(i18n.global.t('user.sanctioned'), 'error')
                     await logout()
                     return

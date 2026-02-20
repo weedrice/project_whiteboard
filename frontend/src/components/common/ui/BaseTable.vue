@@ -1,5 +1,4 @@
-<script setup lang="ts" generic="T extends Record<string, any>">
-import { computed } from 'vue'
+<script setup lang="ts" generic="T extends object">
 
 export interface TableColumn {
     key: string
@@ -9,16 +8,20 @@ export interface TableColumn {
     sortable?: boolean
 }
 
+type RowKeyResolver<TItem> = Extract<keyof TItem, string> | ((item: TItem, index: number) => string | number)
+
 const props = withDefaults(defineProps<{
     columns: TableColumn[]
     items: T[]
     loading?: boolean
     emptyText?: string
     rowClass?: (item: T) => string
+    rowKey?: RowKeyResolver<T>
 }>(), {
     loading: false,
     emptyText: 'No data available',
-    rowClass: undefined
+    rowClass: undefined,
+    rowKey: undefined
 })
 
 const emit = defineEmits<{
@@ -32,6 +35,33 @@ const alignClass = (align?: string) => {
         case 'right': return 'text-right'
         default: return 'text-left'
     }
+}
+
+const getRowKey = (item: T, index: number): string | number => {
+    if (typeof props.rowKey === 'function') {
+        return props.rowKey(item, index)
+    }
+
+    const record = item as Record<string, unknown>
+
+    if (typeof props.rowKey === 'string') {
+        const resolvedKey = record[props.rowKey]
+        if (typeof resolvedKey === 'string' || typeof resolvedKey === 'number') {
+            return resolvedKey
+        }
+    }
+
+    const defaultKey = record.id ?? record.postId
+    if (typeof defaultKey === 'string' || typeof defaultKey === 'number') {
+        return defaultKey
+    }
+
+    return index
+}
+
+const getCellValue = (item: T, key: string): unknown => {
+    const record = item as Record<string, unknown>
+    return record[key]
 }
 </script>
 
@@ -70,15 +100,15 @@ const alignClass = (align?: string) => {
                             {{ emptyText }}
                         </td>
                     </tr>
-                    <tr v-else v-for="(item, index) in items" :key="(item as any).postId ?? index"
+                    <tr v-else v-for="(item, index) in items" :key="getRowKey(item, index)"
                         class="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-150"
                         :class="rowClass?.(item) || ''"
                         @click="emit('row-click', item)">
                         <td v-for="col in columns" :key="col.key"
                             class="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900 dark:text-white min-w-0 overflow-hidden align-middle"
                             :class="alignClass(col.align)">
-                            <slot :name="`cell-${col.key}`" :item="item" :value="item[col.key]">
-                                {{ item[col.key] }}
+                            <slot :name="`cell-${col.key}`" :item="item" :value="getCellValue(item, col.key)">
+                                {{ getCellValue(item, col.key) }}
                             </slot>
                         </td>
                     </tr>

@@ -8,6 +8,7 @@ import type { FeedPost } from '@/types'
 import { formatDateOnly } from '@/utils/date'
 import { getOptimizedBoardIconUrl, getOptimizedPostImageUrl, handleImageError } from '@/utils/image'
 import { sanitizeQuillHtml } from '@/utils/sanitize'
+import logger from '@/utils/logger'
 
 const router = useRouter()
 
@@ -22,7 +23,7 @@ const emit = defineEmits<{
 }>()
 
 if (!props.post || !props.post.postId) {
-  console.warn('FeedCard: Invalid post data', props.post)
+  logger.warn('FeedCard: Invalid post data', props.post)
 }
 
 /** Feed용 본문: HTML 발췌에서 이미지·비디오 제거 후 sanitize (하단 본문에는 미디어 미노출) */

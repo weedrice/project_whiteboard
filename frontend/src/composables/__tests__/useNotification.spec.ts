@@ -1,9 +1,8 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { ref } from 'vue'
 import { setActivePinia, createPinia } from 'pinia'
 import { useNotification } from '../useNotification'
 
-// Mock notification API
 vi.mock('@/api/notification', () => ({
     notificationApi: {
         getNotifications: vi.fn(),
@@ -13,22 +12,20 @@ vi.mock('@/api/notification', () => ({
     }
 }))
 
-// Mock auth store
 vi.mock('@/stores/auth', () => ({
     useAuthStore: vi.fn(() => ({
         isAuthenticated: true,
-        accessToken: 'test-token'
+        accessToken: 'test-token',
+        setTokens: vi.fn()
     }))
 }))
 
-// Mock vue-query
 const mockInvalidateQueries = vi.fn()
 const mockSetQueryData = vi.fn()
-const mockCancelQueries = vi.fn()
-const mockGetQueryData = vi.fn()
+const mockSetQueriesData = vi.fn()
 
 vi.mock('@tanstack/vue-query', () => ({
-    useQuery: vi.fn((options) => {
+    useQuery: vi.fn(() => {
         return {
             data: ref(null),
             isLoading: ref(false),
@@ -69,8 +66,7 @@ vi.mock('@tanstack/vue-query', () => ({
     useQueryClient: vi.fn(() => ({
         invalidateQueries: mockInvalidateQueries,
         setQueryData: mockSetQueryData,
-        cancelQueries: mockCancelQueries,
-        getQueryData: mockGetQueryData
+        setQueriesData: mockSetQueriesData
     }))
 }))
 
@@ -78,6 +74,10 @@ describe('useNotification', () => {
     beforeEach(() => {
         setActivePinia(createPinia())
         vi.clearAllMocks()
+    })
+
+    afterEach(() => {
+        vi.unstubAllGlobals()
     })
 
     describe('useNotifications', () => {
@@ -139,24 +139,24 @@ describe('useNotification', () => {
     })
 
     describe('connectToSse', () => {
-        it('creates EventSource connection', () => {
-            // Mock EventSource constructor
-            const mockEventSource = {
-                addEventListener: vi.fn(),
-                close: vi.fn(),
-                onerror: null
-            }
-            global.EventSource = class EventSource {
-                constructor(url: string) {
-                    return mockEventSource as any
-                }
-            } as any
+        it('opens stream with authorization header and no query token', () => {
+            const fetchMock = vi.fn(() => new Promise<Response>(() => undefined))
+            vi.stubGlobal('fetch', fetchMock)
 
-            const { connectToSse } = useNotification()
-
+            const { connectToSse, closeSse } = useNotification()
             connectToSse()
 
-            expect(mockEventSource.addEventListener).toBeDefined()
+            expect(fetchMock).toHaveBeenCalledTimes(1)
+            expect(fetchMock).toHaveBeenCalledWith(
+                '/api/v1/notifications/stream',
+                expect.objectContaining({
+                    headers: expect.objectContaining({
+                        Authorization: 'Bearer test-token'
+                    })
+                })
+            )
+
+            closeSse()
         })
     })
 })

@@ -1,6 +1,8 @@
 import axios, { AxiosError, type AxiosInstance, type AxiosRequestConfig, type AxiosResponse, type InternalAxiosRequestConfig } from 'axios'
 import i18n from '@/i18n'
 import router from '@/router'
+import { useAuthStore } from '@/stores/auth'
+import { useToastStore } from '@/stores/toast'
 import { Storage } from '@/utils/storage'
 import { API } from '@/utils/constants'
 import { normalizeApiErrorMessage } from '@/utils/errorHandler'
@@ -86,12 +88,7 @@ const processQueue = (error: unknown, token: string | null = null) => {
     failedQueue = []
 }
 
-// Helper for error handling
-interface ToastStore {
-    addToast: (message: string, type?: 'info' | 'success' | 'warning' | 'error', duration?: number, position?: 'top-center' | 'bottom-center') => void
-}
-
-const handleApiError = (error: AxiosError, toastStore: ToastStore) => {
+const handleApiError = (error: AxiosError, toastStore: ReturnType<typeof useToastStore>) => {
     if (error.response) {
         const status = error.response.status
         const errorData = error.response.data as ApiErrorResponse | undefined
@@ -167,8 +164,6 @@ api.interceptors.response.use(
     },
     async (error: AxiosError) => {
         const originalRequest = error.config as InternalAxiosRequestConfig
-        // Import store dynamically to avoid circular dependency issues during initialization
-        const { useToastStore } = await import('@/stores/toast')
         const toastStore = useToastStore()
 
         // If 401 and not already retrying
@@ -211,7 +206,6 @@ api.interceptors.response.use(
                     }
 
                     // Update user state (permissions, etc.) with new token
-                    const { useAuthStore } = await import('@/stores/auth')
                     const authStore = useAuthStore()
                     authStore.accessToken = newAccessToken
 
@@ -240,25 +234,21 @@ api.interceptors.response.use(
 
                 if (refreshStatus === 401 || refreshStatus === 403 || !axiosRefreshError.response) {
                     if (!Storage.getString('refreshToken') || refreshStatus === 401 || refreshStatus === 403) {
-                        const hadToken = !!Storage.getString('accessToken') || !!Storage.getString('refreshToken')
-
                         Storage.remove('accessToken')
                         Storage.remove('refreshToken')
 
                         // Update auth store state
-                        const { useAuthStore } = await import('@/stores/auth')
                         const authStore = useAuthStore()
                         authStore.user = null
                         authStore.accessToken = ''
 
                         if (!isLoginPage) {
-                            // Only redirect if the current route requires authentication
                             if (router.currentRoute.value.meta.requiresAuth) {
                                 toastStore.addToast(t('common.messages.sessionExpired'), 'warning')
-                                window.location.href = `${API_PATHS.LOGIN}?redirect=` + encodeURIComponent(window.location.pathname)
-                            } else if (hadToken) {
-                                // Only reload if we actually had a token (meaning we just logged out)
-                                window.location.reload()
+                                void router.push({
+                                    path: API_PATHS.LOGIN,
+                                    query: { redirect: router.currentRoute.value.fullPath }
+                                })
                             }
                         }
                     }

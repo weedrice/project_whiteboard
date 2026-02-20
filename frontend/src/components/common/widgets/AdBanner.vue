@@ -22,6 +22,32 @@ interface Ad {
 const ad = ref<Ad | null>(null)
 const loading = ref(true)
 
+function normalizeExternalUrl(rawUrl: string | null | undefined): string | null {
+  if (!rawUrl) return null
+  try {
+    const parsed = new URL(rawUrl, window.location.origin)
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return null
+    }
+    return parsed.toString()
+  } catch {
+    return null
+  }
+}
+
+function openExternalUrl(rawUrl: string | null | undefined) {
+  const safeUrl = normalizeExternalUrl(rawUrl)
+  if (!safeUrl) {
+    logger.warn('Blocked unsafe ad target URL:', rawUrl)
+    return
+  }
+
+  const popup = window.open(safeUrl, '_blank', 'noopener,noreferrer')
+  if (popup) {
+    popup.opener = null
+  }
+}
+
 const fetchAd = async () => {
   try {
     const { data } = await axios.get('/ads', {
@@ -32,7 +58,6 @@ const fetchAd = async () => {
     }
   } catch (error) {
     logger.warn('Failed to load ad:', error)
-    // 광고 로드 실패 시 기본값 설정
     ad.value = {
       adId: null,
       title: t('common.advertisement'),
@@ -41,7 +66,6 @@ const fetchAd = async () => {
     }
   } finally {
     loading.value = false
-    // 데이터가 없어도 기본값 설정 (API 성공했으나 데이터가 없는 경우)
     if (!ad.value) {
       ad.value = {
         adId: null,
@@ -57,22 +81,20 @@ const handleAdClick = async () => {
   if (!ad.value) return
 
   try {
-    // 클릭 로깅 및 타겟 URL 조회
     if (ad.value.adId) {
       const { data } = await axios.post(`/ads/${ad.value.adId}/click`)
       if (data.success && data.data) {
-        window.open(data.data, '_blank')
+        openExternalUrl(data.data)
       } else if (ad.value.targetUrl) {
-        window.open(ad.value.targetUrl, '_blank')
+        openExternalUrl(ad.value.targetUrl)
       }
     } else if (ad.value.targetUrl) {
-      window.open(ad.value.targetUrl, '_blank')
+      openExternalUrl(ad.value.targetUrl)
     }
   } catch (error) {
     logger.error('Ad click error:', error)
-    // 에러 시에도 targetUrl이 있으면 이동 시도
     if (ad.value.targetUrl) {
-      window.open(ad.value.targetUrl, '_blank')
+      openExternalUrl(ad.value.targetUrl)
     }
   }
 }

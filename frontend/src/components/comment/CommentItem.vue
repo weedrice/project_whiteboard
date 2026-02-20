@@ -6,6 +6,8 @@ import CommentForm from './CommentForm.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useI18n } from 'vue-i18n'
 import type { Comment } from '@/api/comment'
+import { formatDate, formatDateShort } from '@/utils/date'
+import { isEmoticonOnlyContent, renderCommentContentHtml } from '@/utils/commentContent'
 
 defineOptions({
   name: 'CommentItem'
@@ -29,8 +31,6 @@ const emit = defineEmits<{
 const { t } = useI18n()
 const authStore = useAuthStore()
 
-import { formatDate, formatDateShort } from '@/utils/date'
-
 const isReplying = ref(false)
 const isEditing = ref(false)
 
@@ -48,21 +48,8 @@ function handleDelete() {
   emit('delete', props.comment)
 }
 
-// 이모티콘 마크다운을 이미지로 변환
-const renderedContent = computed(() => {
-  if (!props.comment.content) return ''
-
-  // ![emoticon](URL) 패턴을 img 태그로 변환
-  const emoticonPattern = /!\[emoticon\]\(([^)]+)\)/g
-  return props.comment.content.replace(emoticonPattern, '<img src="$1" class="comment-emoticon" alt="emoticon" />')
-})
-
-// 순수 이모티콘 댓글인지 확인 (이모티콘만 포함된 댓글)
-const isEmoticonOnly = computed(() => {
-  if (!props.comment.content) return false
-  const emoticonPattern = /^!\[emoticon\]\([^)]+\)$/
-  return emoticonPattern.test(props.comment.content.trim())
-})
+const renderedContent = computed(() => renderCommentContentHtml(props.comment.content))
+const isEmoticonOnly = computed(() => isEmoticonOnlyContent(props.comment.content))
 </script>
 
 <template>

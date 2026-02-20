@@ -33,6 +33,12 @@ interface NotificationRaw {
     targetUrl?: string;
 }
 
+interface NotificationPageRaw extends Partial<PageResponse<NotificationRaw>> {
+    page?: number;
+    hasNext?: boolean;
+    hasPrevious?: boolean;
+}
+
 function normalizeNotification(raw: NotificationRaw): Notification {
     return {
         notificationId: raw.notificationId || raw.notification_id || 0,
@@ -50,18 +56,44 @@ function normalizeNotification(raw: NotificationRaw): Notification {
     }
 }
 
+function normalizeNotificationPage(raw: NotificationPageRaw): PageResponse<Notification> {
+    const content = (raw.content || []).map(normalizeNotification)
+    const number = typeof raw.number === 'number'
+        ? raw.number
+        : (typeof raw.page === 'number' ? raw.page : 0)
+    const size = typeof raw.size === 'number' ? raw.size : content.length
+    const totalElements = typeof raw.totalElements === 'number' ? raw.totalElements : content.length
+    const totalPages = typeof raw.totalPages === 'number'
+        ? raw.totalPages
+        : (size > 0 ? Math.max(1, Math.ceil(totalElements / size)) : (content.length > 0 ? 1 : 0))
+    const first = typeof raw.first === 'boolean' ? raw.first : number <= 0
+    const last = typeof raw.last === 'boolean'
+        ? raw.last
+        : (typeof raw.hasNext === 'boolean' ? !raw.hasNext : totalPages <= 1 || number >= totalPages - 1)
+    const empty = typeof raw.empty === 'boolean' ? raw.empty : content.length === 0
+
+    return {
+        content,
+        totalElements,
+        totalPages,
+        size,
+        number,
+        first,
+        last,
+        empty,
+    }
+}
+
 export const notificationApi = {
     // Get notifications
     getNotifications: async (params: NotificationParams): Promise<AxiosResponse<ApiResponse<PageResponse<Notification>>>> => {
-        const response = await api.get<ApiResponse<PageResponse<NotificationRaw>>>('/notifications', { params })
+        const response = await api.get<ApiResponse<NotificationPageRaw>>('/notifications', { params })
+        const normalizedPage = normalizeNotificationPage(response.data.data || {})
         const normalizedResponse: AxiosResponse<ApiResponse<PageResponse<Notification>>> = {
             ...response,
             data: {
                 ...response.data,
-                data: {
-                    ...response.data.data,
-                    content: (response.data.data.content || []).map(normalizeNotification)
-                }
+                data: normalizedPage
             }
         }
         return normalizedResponse

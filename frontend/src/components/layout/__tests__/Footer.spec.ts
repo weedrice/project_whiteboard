@@ -8,6 +8,7 @@ import { createRouter, createMemoryHistory } from 'vue-router'
 const router = createRouter({
     history: createMemoryHistory(),
     routes: [
+        { path: '/', component: { template: '<div>Home</div>' } },
         { path: '/terms', component: { template: '<div>Terms</div>' } },
         { path: '/privacy', component: { template: '<div>Privacy</div>' } }
     ]
@@ -17,6 +18,7 @@ describe('Footer', () => {
     beforeEach(async () => {
         setActivePinia(createPinia())
         await router.push('/')
+        await router.isReady()
     })
 
     it('renders current year and app name', async () => {

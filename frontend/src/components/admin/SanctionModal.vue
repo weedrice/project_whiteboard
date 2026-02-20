@@ -76,7 +76,7 @@ async function submitSanction() {
       reason: form.description || form.reason
     })
 
-    const name = props.user.displayName || props.user.nickname || props.user.name || '해당 사용자'
+    const name = props.user.displayName || props.user.nickname || props.user.name || t('common.messages.unknown')
     toastStore.addToast(t('admin.sanction.success', { name }), 'success')
     emit('sanctioned')
     emit('close')
@@ -85,4 +85,3 @@ async function submitSanction() {
   }
 }
 </script>
-

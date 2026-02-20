@@ -18,11 +18,47 @@ function isSafeRedirect(path: unknown): path is string {
   return typeof path === 'string' && path.startsWith('/') && !path.startsWith('//')
 }
 
+function getSingleValue(value: unknown): string | null {
+  if (typeof value === 'string' && value.length > 0) return value
+  if (Array.isArray(value) && typeof value[0] === 'string' && value[0].length > 0) return value[0]
+  return null
+}
+
+function getHashToken(key: string): string | null {
+  const rawHash = window.location.hash.startsWith('#') ? window.location.hash.slice(1) : window.location.hash
+  if (!rawHash) return null
+  return new URLSearchParams(rawHash).get(key)
+}
+
+function clearSensitiveTokensFromUrl() {
+  const current = new URL(window.location.href)
+  const hadQueryToken = current.searchParams.has('accessToken') || current.searchParams.has('refreshToken')
+  current.searchParams.delete('accessToken')
+  current.searchParams.delete('refreshToken')
+
+  let hadHashToken = false
+  if (current.hash) {
+    const rawHash = current.hash.startsWith('#') ? current.hash.slice(1) : current.hash
+    const hashParams = new URLSearchParams(rawHash)
+    hadHashToken = hashParams.has('accessToken') || hashParams.has('refreshToken')
+    hashParams.delete('accessToken')
+    hashParams.delete('refreshToken')
+    const cleanedHash = hashParams.toString()
+    current.hash = cleanedHash ? `#${cleanedHash}` : ''
+  }
+
+  if (hadQueryToken || hadHashToken) {
+    const cleanUrl = `${current.pathname}${current.search}${current.hash}`
+    window.history.replaceState(window.history.state, document.title, cleanUrl)
+  }
+}
+
 onMounted(async () => {
-  const rawAccess = route.query.accessToken
-  const rawRefresh = route.query.refreshToken
-  const accessToken = Array.isArray(rawAccess) ? rawAccess[0] : rawAccess
-  const refreshToken = Array.isArray(rawRefresh) ? rawRefresh[0] : rawRefresh
+  const accessToken = getSingleValue(route.query.accessToken) ?? getHashToken('accessToken')
+  const refreshToken = getSingleValue(route.query.refreshToken) ?? getHashToken('refreshToken')
+
+  // Remove sensitive values from address bar immediately.
+  clearSensitiveTokensFromUrl()
 
   if (accessToken && refreshToken) {
     try {

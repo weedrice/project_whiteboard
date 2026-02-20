@@ -101,7 +101,7 @@ const toastStore = useToastStore()
 const router = useRouter()
 const { t } = useI18n()
 const { useUpdateMyProfile, useDeleteAccount } = useUser()
-const { mutate: updateProfileMutate, isPending: isUpdating } = useUpdateMyProfile()
+const { mutate: updateProfileMutate } = useUpdateMyProfile()
 const { mutateAsync: deleteAccount, isPending: isDeleting } = useDeleteAccount()
 
 const loading = ref(false) // Local loading state for image processing + mutation
@@ -125,6 +125,20 @@ watch(() => authStore.user?.profileImageUrl, () => {
   profileImageError.value = false
 })
 
+const revokeObjectUrlIfNeeded = (url: string | null | undefined) => {
+  if (url && url.startsWith('blob:')) {
+    URL.revokeObjectURL(url)
+  }
+}
+
+watch(previewImage, (_newUrl, oldUrl) => {
+  revokeObjectUrlIfNeeded(oldUrl)
+})
+
+onUnmounted(() => {
+  revokeObjectUrlIfNeeded(previewImage.value)
+})
+
 const handleFileChange = async (event: Event) => {
   const target = event.target as HTMLInputElement
   const file = target.files?.[0]
@@ -137,10 +151,6 @@ const handleFileChange = async (event: Event) => {
     try {
       const resizedImage = await resizeImage(file, 100, 100)
       selectedFile.value = resizedImage
-      // 이전 preview URL 정리
-      if (previewImage.value && previewImage.value.startsWith('blob:')) {
-        URL.revokeObjectURL(previewImage.value)
-      }
       previewImage.value = URL.createObjectURL(resizedImage)
     } catch (error) {
       logger.error('Image resize failed', error)
@@ -303,20 +313,6 @@ const handleDeleteAccount = async () => {
     // 일반 에러 처리
     const errorMessage = extractErrorMessage(axiosError)
 
-    // Cleanup preview image URL
-    watch(previewImage, (newUrl, oldUrl) => {
-      // 이전 URL 정리
-      if (oldUrl && oldUrl.startsWith('blob:')) {
-        URL.revokeObjectURL(oldUrl)
-      }
-    })
-
-    onUnmounted(() => {
-      // 컴포넌트 unmount 시 preview URL 정리
-      if (previewImage.value && previewImage.value.startsWith('blob:')) {
-        URL.revokeObjectURL(previewImage.value)
-      }
-    })
     deleteError.value = errorMessage || t('common.errorOccurred')
   }
 }

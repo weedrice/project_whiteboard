@@ -143,7 +143,7 @@
 <script setup lang="ts">
 import { ref, reactive, watch, computed } from 'vue'
 import { useAdmin } from '@/composables/useAdmin'
-import axios from 'axios'
+import api from '@/api'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
@@ -217,11 +217,9 @@ async function handleFileUpload(event: Event) {
   formData.append('file', file)
 
   try {
-    const token = localStorage.getItem('accessToken')
-    const { data } = await axios.post('/api/v1/files/upload', formData, {
+    const { data } = await api.post('/files/upload', formData, {
       headers: {
-        'Content-Type': 'multipart/form-data',
-        'Authorization': `Bearer ${token}`
+        'Content-Type': 'multipart/form-data'
       }
     })
 

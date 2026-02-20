@@ -16,8 +16,8 @@ import KeyboardShortcutsModal from '@/components/common/KeyboardShortcutsModal.v
 import RecentBoardsBar from '@/components/layout/RecentBoardsBar.vue'
 import { isInputFocused } from '@/utils/keyboard'
 
-import logoLight from '@/assets/noviis_logo.png'
-import logoDark from '@/assets/noviis_logo_dark.png'
+import logoLight from '@/assets/noviis_logo.webp'
+import logoDark from '@/assets/noviis_logo_dark.webp'
 
 const router = useRouter()
 const route = useRoute()

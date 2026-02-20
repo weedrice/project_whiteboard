@@ -7,6 +7,25 @@ import logger from '@/utils/logger'
 import { useAuthStore } from '@/stores/auth'
 import { Storage } from '@/utils/storage'
 
+function isAbortError(error: unknown): boolean {
+    return error instanceof DOMException && error.name === 'AbortError'
+}
+
+function isNotificationPage(data: unknown): data is PageResponse<Notification> {
+    if (!data || typeof data !== 'object') return false
+    const candidate = data as Partial<PageResponse<Notification>>
+    return Array.isArray(candidate.content)
+}
+
+function getNotificationPageNumber(data: unknown): number {
+    const candidate = data as { number?: unknown; page?: unknown }
+    if (typeof candidate.number === 'number') return candidate.number
+    if (typeof candidate.page === 'number') return candidate.page
+    return 0
+}
+
+const RECENT_NOTIFICATION_ID_LIMIT = 200
+
 export function useNotification() {
     const queryClient = useQueryClient()
 
@@ -60,13 +79,208 @@ export function useNotification() {
         })
     }
 
-    let eventSource: EventSource | null = null
+    let streamAbortController: AbortController | null = null
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null
+    let isConnecting = false
+    let closedManually = false
+    const recentNotificationIds = new Set<number>()
+
+    const rememberNotificationId = (notificationId: number) => {
+        recentNotificationIds.add(notificationId)
+        if (recentNotificationIds.size > RECENT_NOTIFICATION_ID_LIMIT) {
+            const oldestId = recentNotificationIds.values().next().value
+            if (typeof oldestId === 'number') {
+                recentNotificationIds.delete(oldestId)
+            }
+        }
+    }
+
+    const scheduleReconnect = (delayMs: number) => {
+        if (closedManually) return
+        if (reconnectTimer) {
+            clearTimeout(reconnectTimer)
+        }
+        reconnectTimer = setTimeout(() => {
+            reconnectTimer = null
+            connectToSse()
+        }, delayMs)
+    }
+
+    const applyIncomingNotification = (incoming: Notification) => {
+        const normalized: Notification = {
+            ...incoming,
+            isRead: false,
+        }
+        const notificationId = normalized.notificationId
+        if (typeof notificationId === 'number' && recentNotificationIds.has(notificationId)) {
+            return
+        }
+
+        let alreadyExistsInFirstPage = false
+
+        queryClient.setQueriesData({ queryKey: ['notifications'] }, (oldData: unknown) => {
+            if (!isNotificationPage(oldData)) return oldData
+            if (getNotificationPageNumber(oldData) !== 0) return oldData
+
+            const alreadyExists = oldData.content.some((item) => item.notificationId === normalized.notificationId)
+            if (alreadyExists) {
+                alreadyExistsInFirstPage = true
+                return oldData
+            }
+
+            const nextContent = [normalized, ...oldData.content]
+            const sizeLimit = oldData.size > 0 ? oldData.size : nextContent.length
+
+            return {
+                ...oldData,
+                content: nextContent.slice(0, sizeLimit),
+                totalElements: oldData.totalElements + 1,
+                empty: false,
+            }
+        })
+
+        if (alreadyExistsInFirstPage) {
+            if (typeof notificationId === 'number') {
+                rememberNotificationId(notificationId)
+            }
+            return
+        }
+
+        if (typeof notificationId === 'number') {
+            rememberNotificationId(notificationId)
+        }
+
+        queryClient.setQueryData(['notifications', 'unread-count'], (old: number | undefined) => (old || 0) + 1)
+    }
+
+    const handleSseEvent = (eventType: string, payload: string) => {
+        if (!payload) return
+        if (eventType !== 'notification' && eventType !== 'message') return
+
+        try {
+            const notification = JSON.parse(payload) as Notification
+            applyIncomingNotification(notification)
+        } catch (error: unknown) {
+            logger.error('Failed to parse SSE notification:', error)
+        }
+    }
+
+    const consumeSseStream = async (stream: ReadableStream<Uint8Array>, signal: AbortSignal) => {
+        const reader = stream.getReader()
+        const decoder = new TextDecoder()
+
+        let buffer = ''
+        let currentEvent = 'message'
+        let dataLines: string[] = []
+
+        const flushEvent = () => {
+            const payload = dataLines.join('\n').trim()
+            if (payload) {
+                handleSseEvent(currentEvent, payload)
+            }
+            currentEvent = 'message'
+            dataLines = []
+        }
+
+        try {
+            while (!signal.aborted) {
+                const { done, value } = await reader.read()
+                if (done) break
+
+                buffer += decoder.decode(value, { stream: true })
+
+                let newlineIndex = buffer.indexOf('\n')
+                while (newlineIndex !== -1) {
+                    const rawLine = buffer.slice(0, newlineIndex)
+                    buffer = buffer.slice(newlineIndex + 1)
+                    const line = rawLine.replace(/\r$/, '')
+
+                    if (line === '') {
+                        flushEvent()
+                    } else if (line.startsWith(':')) {
+                        // Keep-alive comment; ignore.
+                    } else if (line.startsWith('event:')) {
+                        currentEvent = line.slice(6).trim() || 'message'
+                    } else if (line.startsWith('data:')) {
+                        dataLines.push(line.slice(5).trimStart())
+                    }
+
+                    newlineIndex = buffer.indexOf('\n')
+                }
+            }
+
+            if (buffer.trim() || dataLines.length > 0) {
+                if (buffer.startsWith('data:')) {
+                    dataLines.push(buffer.slice(5).trimStart())
+                }
+                flushEvent()
+            }
+        } finally {
+            await reader.cancel().catch(() => undefined)
+        }
+    }
+
+    const reconnectWithRefresh = async () => {
+        const refreshToken = Storage.getString('refreshToken')
+        if (refreshToken) {
+            try {
+                const { data } = await authApi.refreshToken(refreshToken)
+                const authStore = useAuthStore()
+                authStore.setTokens(data.data.accessToken, data.data.refreshToken)
+                scheduleReconnect(1000)
+                return
+            } catch (error: unknown) {
+                logger.warn('SSE reconnect: refresh failed', error)
+            }
+        }
+
+        scheduleReconnect(5000)
+    }
+
+    const startStream = async (token: string, controller: AbortController) => {
+        try {
+            const response = await fetch('/api/v1/notifications/stream', {
+                method: 'GET',
+                headers: {
+                    Accept: 'text/event-stream',
+                    Authorization: `Bearer ${token}`,
+                },
+                cache: 'no-store',
+                credentials: 'same-origin',
+                signal: controller.signal,
+            })
+
+            if (!response.ok) {
+                throw new Error(`SSE stream request failed: ${response.status}`)
+            }
+            if (!response.body) {
+                throw new Error('SSE stream response is empty')
+            }
+
+            isConnecting = false
+            await consumeSseStream(response.body, controller.signal)
+
+            if (!controller.signal.aborted && !closedManually) {
+                throw new Error('SSE stream closed unexpectedly')
+            }
+        } catch (error: unknown) {
+            if (closedManually || controller.signal.aborted || isAbortError(error)) {
+                return
+            }
+
+            logger.warn('SSE connection dropped:', error)
+            await reconnectWithRefresh()
+        } finally {
+            if (streamAbortController === controller) {
+                streamAbortController = null
+            }
+            isConnecting = false
+        }
+    }
 
     const connectToSse = () => {
-        if (eventSource) return
+        if (streamAbortController || isConnecting) return
 
-        // 기존 재연결 타이머 정리
         if (reconnectTimer) {
             clearTimeout(reconnectTimer)
             reconnectTimer = null
@@ -76,95 +290,29 @@ export function useNotification() {
         const token = authStore.accessToken
         if (!token) return
 
-        const url = `/api/v1/notifications/stream?token=${token}`
-        eventSource = new EventSource(url)
+        closedManually = false
+        isConnecting = true
 
-        eventSource.addEventListener('notification', (event) => {
-            try {
-                const newNotification = JSON.parse(event.data) as Notification
-                // Transform if needed (though we rely on API for transform, SSE might send raw data)
-                // Assuming SSE sends compatible JSON or we need to transform it here too.
-                // For now, let's assume it matches or is close enough.
-                // Actually, we should probably ensure camelCase here if backend sends snake_case via SSE.
-                const transformedNotification: Notification = {
-                    ...newNotification,
-                    isRead: false,
-                    // Add other transforms if SSE data is raw
-                }
+        const controller = new AbortController()
+        streamAbortController = controller
 
-                // Update unread count
-                queryClient.setQueryData(['notifications', 'unread-count'], (old: number | undefined) => (old || 0) + 1)
-
-                // Update notifications list (for page 0)
-                // We need to find the active query for page 0.
-                // This is a bit complex with dynamic params.
-                // A simple approach is to invalidate, but that triggers a refetch.
-                // To update cache directly:
-                queryClient.setQueriesData({ queryKey: ['notifications'] }, (oldData: PageResponse<Notification> | undefined) => {
-                    if (!oldData) return oldData
-                    // Check if this is a PageResponse
-                    if ('content' in oldData) {
-                        const pageData = oldData
-                        // Only prepend if it's the first page (usually we can't easily know from here without params)
-                        // But commonly we want to see it.
-                        // For simplicity, let's just invalidate to be safe and consistent.
-                        return oldData
-                    }
-                    return oldData
-                })
-                queryClient.invalidateQueries({ queryKey: ['notifications'] })
-
-            } catch (error: unknown) {
-                logger.error('Failed to parse SSE notification:', error)
-            }
-        })
-
-        eventSource.onerror = async () => {
-            if (eventSource) {
-                eventSource.close()
-                eventSource = null
-            }
-
-            // 401 등 토큰 만료 시 refresh token으로 새 JWT 발급 후 재연결
-            const refreshToken = Storage.getString('refreshToken')
-            if (refreshToken) {
-                try {
-                    const { data } = await authApi.refreshToken(refreshToken)
-                    const authStore = useAuthStore()
-                    authStore.setTokens(data.data.accessToken, data.data.refreshToken)
-                    reconnectTimer = setTimeout(() => {
-                        reconnectTimer = null
-                        connectToSse()
-                    }, 1000)
-                    return
-                } catch (e: unknown) {
-                    logger.warn('SSE reconnect: refresh failed', e)
-                }
-            }
-
-            // refresh 실패 또는 refresh token 없음: 일정 시간 후 재시도(네트워크 복구 대응)
-            reconnectTimer = setTimeout(() => {
-                reconnectTimer = null
-                connectToSse()
-            }, 5000)
-        }
+        void startStream(token, controller)
     }
 
-    // We might want to close SSE when not needed, but usually it's global.
-    // If this composable is used in a component, we shouldn't close it on unmount if it's meant to be global.
-    // But if we call connectToSse in a top-level component, it persists.
-
     const closeSse = () => {
-        // 재연결 타이머 정리
+        closedManually = true
+
         if (reconnectTimer) {
             clearTimeout(reconnectTimer)
             reconnectTimer = null
         }
-        // SSE 연결 종료
-        if (eventSource) {
-            eventSource.close()
-            eventSource = null
+
+        if (streamAbortController) {
+            streamAbortController.abort()
+            streamAbortController = null
         }
+
+        isConnecting = false
     }
 
     return {

@@ -34,7 +34,7 @@ export function validateEnv(): void {
     if (missing.length > 0) {
         logger.warn('Missing required environment variables:', missing)
         if (import.meta.env.PROD) {
-            console.error('Missing required environment variables:', missing)
+            logger.error('Missing required environment variables:', missing)
         }
     }
 }

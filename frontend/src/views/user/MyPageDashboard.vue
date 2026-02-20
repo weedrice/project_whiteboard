@@ -18,6 +18,7 @@ import { getOptimizedProfileImageUrl, handleImageError } from '@/utils/image'
 import { extractErrorMessage } from '@/utils/errorHandler'
 import { formatDate } from '@/utils/date'
 import { isValidEmail } from '@/utils/validation'
+import { renderCommentContentHtml } from '@/utils/commentContent'
 import type { User as UserType, PostSummary, Comment } from '@/types'
 
 const { t } = useI18n()
@@ -26,9 +27,7 @@ const toastStore = useToastStore()
 
 // 이모티콘 마크다운을 이미지로 변환 (내 댓글 목록용)
 function renderCommentContent(content: string | undefined): string {
-  if (!content) return ''
-  const emoticonPattern = /!\[emoticon\]\(([^)]+)\)/g
-  return content.replace(emoticonPattern, '<img src="$1" class="comment-emoticon comment-emoticon-list" alt="emoticon" />')
+  return renderCommentContentHtml(content, 'comment-emoticon comment-emoticon-list')
 }
 
 const profile = ref<UserType | null>(null)
@@ -403,14 +402,14 @@ onUnmounted(() => {
                   </div>
                   <div class="mt-1 comment-content-list">
                     <p class="text-sm text-gray-900 dark:text-gray-300 line-clamp-2"
-                      v-html="renderCommentContent(comment.content) || comment.content"></p>
+                      v-html="renderCommentContent(comment.content)"></p>
                   </div>
                 </router-link>
                 <div v-else class="block">
                   <p class="text-sm text-gray-500 dark:text-gray-400">{{ t('user.comments.deletedPost') }}</p>
                   <div class="comment-content-list mt-1">
                     <p class="text-sm text-gray-900 dark:text-gray-300 line-clamp-2"
-                      v-html="renderCommentContent(comment.content) || comment.content"></p>
+                      v-html="renderCommentContent(comment.content)"></p>
                   </div>
                 </div>
               </li>

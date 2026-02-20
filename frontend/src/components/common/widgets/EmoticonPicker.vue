@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/vue-query'
 import { emoticonApi } from '@/api/emoticon'
 import type { EmoticonMaster, EmoticonImage } from '@/types/emoticon'
 import { X, ArrowLeft, Search, Smile } from 'lucide-vue-next'
+import logger from '@/utils/logger'
 
 const props = defineProps<{
   show: boolean
@@ -55,7 +56,7 @@ const handleEmoticonClick = async (emoticon: EmoticonMaster) => {
     const { data } = await emoticonApi.getEmoticon(emoticon.emoticonId)
     selectedEmoticon.value = data.data
   } catch (error) {
-    console.error('Failed to load emoticon detail:', error)
+    logger.error('Failed to load emoticon detail:', error)
   } finally {
     isLoadingDetail.value = false
   }

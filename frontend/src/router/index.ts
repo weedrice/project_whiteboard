@@ -1,5 +1,8 @@
 import { createRouter, createWebHistory, type RouteLocationNormalized, type NavigationGuardNext } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import logger from '@/utils/logger'
+
+const CHUNK_RELOAD_KEY = 'chunk-reload-attempted'
 
 // Extend RouteMeta interface
 declare module 'vue-router' {
@@ -135,7 +138,7 @@ const router = createRouter({
             component: () => import('@/views/board/BoardCreate.vue'),
             meta: { requiresAuth: true }
         },
-        // 노비콘 (이모티콘) 관련 라우트
+        // Emoticon routes
         {
             path: '/emoticons',
             name: 'emoticon-list',
@@ -289,7 +292,7 @@ router.beforeEach(async (to: RouteLocationNormalized, from: RouteLocationNormali
         return
     }
 
-    // 로그인/회원가입 페이지 진입 시 이전 페이지 경로를 저장 (로그인 후 해당 페이지로 리다이렉트)
+    // Save previous path before guest-only navigation for post-login redirect
     if (to.meta.guestOnly && to.name !== 'oauth-callback' && !authStore.isAuthenticated) {
         if (from.name && !from.meta.guestOnly) {
             sessionStorage.setItem('loginRedirect', from.fullPath)
@@ -309,12 +312,30 @@ router.beforeEach(async (to: RouteLocationNormalized, from: RouteLocationNormali
     }
 })
 
+router.afterEach(() => {
+    if (sessionStorage.getItem(CHUNK_RELOAD_KEY)) {
+        sessionStorage.removeItem(CHUNK_RELOAD_KEY)
+    }
+})
+
 router.onError((error) => {
-    // ChunkLoadError: 네트워크 문제로 청크 로딩 실패 시
     if (error.message.includes('Failed to fetch dynamically imported module') || error.message.includes('Importing a module script failed')) {
-        window.location.reload()
+        const alreadyRetried = sessionStorage.getItem(CHUNK_RELOAD_KEY) === '1'
+        if (!alreadyRetried) {
+            sessionStorage.setItem(CHUNK_RELOAD_KEY, '1')
+            window.location.reload()
+            return
+        }
+        sessionStorage.removeItem(CHUNK_RELOAD_KEY)
+        router.push({
+            name: 'error',
+            query: {
+                status: '500',
+                message: 'Chunk load failed after retry'
+            }
+        })
     } else {
-        console.error('Router Error:', error)
+        logger.error('Router Error:', error)
         router.push({
             name: 'error',
             query: {

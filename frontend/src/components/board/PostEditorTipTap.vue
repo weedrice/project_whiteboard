@@ -14,13 +14,13 @@ import HorizontalRule from '@tiptap/extension-horizontal-rule'
 import { FontSize, LineHeight } from '@tiptap/extension-text-style'
 import { Video } from '@/extensions/tiptap-video'
 import { TextAlignStart, TextAlignCenter, TextAlignEnd, TextAlignJustify } from 'lucide-vue-next'
-import axios from '@/api'
 import logger from '@/utils/logger'
 import { useToastStore } from '@/stores/toast'
 import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import type { EmoticonImage } from '@/types/emoticon'
 import { useThemeStore } from '@/stores/theme'
+import { useEditorImageUpload } from '@/composables/useEditorImageUpload'
 
 const props = defineProps<{
   modelValue: string
@@ -36,6 +36,7 @@ const { t } = useI18n()
 const toastStore = useToastStore()
 const themeStore = useThemeStore()
 const fileIds = ref<number[]>([])
+const { isUploadingImage, validateImageFile, uploadImage, isAbortUploadError } = useEditorImageUpload()
 
 const editor = useEditor({
   content: props.modelValue || '',
@@ -292,22 +293,37 @@ async function onImageChange(e: Event) {
   const input = e.target as HTMLInputElement
   const file = input.files?.[0]
   if (!file) return
-  const formData = new FormData()
-  formData.append('file', file)
+
+  const validationError = validateImageFile(file)
+  if (validationError === 'type') {
+    toastStore.addToast(t('common.messages.badRequest'), 'warning')
+    input.value = ''
+    return
+  }
+  if (validationError === 'size') {
+    toastStore.addToast(t('common.messages.fileSizeExceeded'), 'warning')
+    input.value = ''
+    return
+  }
+
   try {
-    const res = await axios.post('/files/upload', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    })
-    if (res.data.success) {
-      const { url, fileId } = res.data.data
-      fileIds.value.push(fileId)
-      editor.value?.chain().focus().setImage({ src: url }).run()
+    const uploaded = await uploadImage(file)
+    if (uploaded) {
+      if (typeof uploaded.fileId === 'number') {
+        fileIds.value.push(uploaded.fileId)
+      }
+      editor.value?.chain().focus().setImage({ src: uploaded.url }).run()
     }
   } catch (err: unknown) {
+    if (isAbortUploadError(err)) {
+      input.value = ''
+      return
+    }
     logger.error('Image upload failed:', err)
     toastStore.addToast(t('common.messages.uploadFailed'), 'error')
+  } finally {
+    input.value = ''
   }
-  input.value = ''
 }
 
 function setVideo(src: string) {
@@ -421,7 +437,7 @@ onBeforeUnmount(() => {
         🔗
       </button>
       <!-- 이미지 -->
-      <button type="button" class="tiptap-btn" title="Image" @mousedown.prevent @click="triggerImageUpload">
+      <button type="button" class="tiptap-btn" title="Image" :disabled="isUploadingImage" @mousedown.prevent @click="triggerImageUpload">
         🖼
       </button>
       <!-- 동영상 -->

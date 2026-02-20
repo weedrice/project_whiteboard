@@ -10,7 +10,6 @@ import { VueQueryPlugin, QueryClient, QueryCache, MutationCache } from '@tanstac
 import { useToastStore } from '@/stores/toast'
 import logger from '@/utils/logger'
 import { validateEnv } from '@/utils/env'
-import { reportWebVitals } from '@/utils/performance'
 import type { AxiosError } from 'axios'
 
 // 환경 변수 검증
@@ -101,7 +100,7 @@ app.mount('#app')
 
 // Web Vitals 성능 모니터링 (프로덕션 환경에서만)
 if (import.meta.env.PROD) {
-    import('@/utils/performance').then(({ logMetric }) => {
+    import('@/utils/performance').then(({ reportWebVitals, logMetric }) => {
         reportWebVitals(logMetric)
     }).catch(() => {
         // web-vitals가 없는 경우 무시 (개발 환경 등)

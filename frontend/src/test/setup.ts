@@ -15,3 +15,8 @@ Object.defineProperty(window, 'matchMedia', {
         dispatchEvent: vi.fn(),
     })),
 })
+
+Object.defineProperty(window, 'scrollTo', {
+    writable: true,
+    value: vi.fn(),
+})
