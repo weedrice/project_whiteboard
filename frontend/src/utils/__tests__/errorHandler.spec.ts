@@ -1,4 +1,4 @@
-﻿import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import type { AxiosError } from 'axios'
 import i18n from '@/i18n'
 import {

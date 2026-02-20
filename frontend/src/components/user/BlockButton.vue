@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <BaseButton :variant="isBlocked ? 'secondary' : 'danger'" size="sm" @click="toggleBlock" :disabled="loading">
     {{ isBlocked ? $t('user.block.unblock') : $t('user.block.blockButton') }}
   </BaseButton>

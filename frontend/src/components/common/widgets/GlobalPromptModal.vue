@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { usePromptStore } from '@/stores/prompt'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'

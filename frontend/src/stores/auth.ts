@@ -2,7 +2,6 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { authApi } from '@/api/auth'
 import { useThemeStore } from '@/stores/theme'
-import router from '@/router'
 import logger from '@/utils/logger'
 import { useToastStore } from '@/stores/toast'
 import i18n from '@/i18n'
@@ -58,7 +57,6 @@ export const useAuthStore = defineStore('auth', () => {
             Storage.remove('accessToken')
             Storage.remove('refreshToken')
             // themeStore.setTheme('LIGHT') // Reset to default on logout -> Removed to persist theme
-            router.push('/login')
         }
     }
 

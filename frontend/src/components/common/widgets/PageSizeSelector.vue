@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="flex items-center space-x-2">
     <BaseSelect id="page-size" :modelValue="modelValue" @update:modelValue="handleUpdate" :label="$t('common.pageSize')"
       :options="selectOptions" inputClass="w-19 py-1" hideLabel />

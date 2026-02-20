@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { ref, reactive, watch } from 'vue'
 import { useAdmin } from '@/composables/useAdmin'
 import { Save, Trash2 } from 'lucide-vue-next'

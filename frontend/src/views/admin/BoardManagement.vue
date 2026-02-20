@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="space-y-6">
     <div class="sm:flex sm:items-center sm:justify-between">
       <div>

@@ -103,7 +103,7 @@ const handleClickOutside = (event: Event) => {
 
 
 // 전역 키보드 단축키 핸들러
-const handleKeyDown = (event: KeyboardEvent) => {
+const handleKeyDown = async (event: KeyboardEvent) => {
   const { key, shiftKey, ctrlKey, altKey, metaKey } = event
 
   // 드롭다운 열린 상태에서 ESC
@@ -202,7 +202,7 @@ const handleKeyDown = (event: KeyboardEvent) => {
     case 'q':
       if (authStore.isAuthenticated) {
         event.preventDefault()
-        authStore.logout()
+        await authStore.logout()
         router.push('/')
       }
       break

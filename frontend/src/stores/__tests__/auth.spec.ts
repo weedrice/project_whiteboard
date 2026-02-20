@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { useAuthStore } from '../auth'
 import { authApi } from '@/api/auth'
-import router from '@/router'
 import { useThemeStore } from '@/stores/theme'
 
 // Mock dependencies
@@ -11,12 +10,6 @@ vi.mock('@/api/auth', () => ({
         login: vi.fn(),
         logout: vi.fn(),
         getMe: vi.fn()
-    }
-}))
-
-vi.mock('@/router', () => ({
-    default: {
-        push: vi.fn()
     }
 }))
 
@@ -126,7 +119,6 @@ describe('Auth Store', () => {
             expect(store.user).toBeNull()
             expect(localStorage.getItem('accessToken')).toBeNull()
             expect(localStorage.getItem('refreshToken')).toBeNull()
-            expect(router.push).toHaveBeenCalledWith('/login')
         })
 
         it('cleans up state even if api call fails', async () => {
@@ -136,7 +128,6 @@ describe('Auth Store', () => {
 
             expect(store.accessToken).toBeNull()
             expect(store.user).toBeNull()
-            expect(router.push).toHaveBeenCalledWith('/login')
         })
     })
 
@@ -182,7 +173,6 @@ describe('Auth Store', () => {
 
             // Now uses toast instead of alert, and logout is called
             expect(store.accessToken).toBeNull() // Should have logged out
-            expect(router.push).toHaveBeenCalledWith('/login')
         })
 
         it('does not logout on fetch error (handled by interceptor)', async () => {

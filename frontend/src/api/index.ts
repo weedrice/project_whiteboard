@@ -1,8 +1,6 @@
 import axios, { AxiosError, type AxiosInstance, type AxiosRequestConfig, type AxiosResponse, type InternalAxiosRequestConfig } from 'axios'
 import i18n from '@/i18n'
 import router from '@/router'
-import { useAuthStore } from '@/stores/auth'
-import { useToastStore } from '@/stores/toast'
 import { Storage } from '@/utils/storage'
 import { API } from '@/utils/constants'
 import { normalizeApiErrorMessage } from '@/utils/errorHandler'
@@ -44,6 +42,59 @@ interface ApiErrorResponse {
 interface FailedRequest {
     resolve: (token: string | null) => void
     reject: (error: unknown) => void
+}
+
+interface ToastStore {
+    addToast: (message: string, type?: 'info' | 'success' | 'warning' | 'error', duration?: number, position?: 'top-center' | 'bottom-center') => void
+}
+
+interface AuthStoreLike {
+    user: unknown
+    accessToken: string | null
+    fetchUser: (config?: AxiosRequestConfig) => Promise<void>
+}
+
+interface ApiStoreResolvers {
+    resolveToastStore?: () => ToastStore | Promise<ToastStore>
+    resolveAuthStore?: () => AuthStoreLike | null | Promise<AuthStoreLike | null>
+}
+
+const noopToastStore: ToastStore = {
+    addToast: () => undefined,
+}
+
+let toastStoreResolver: ApiStoreResolvers['resolveToastStore'] | null = null
+let authStoreResolver: ApiStoreResolvers['resolveAuthStore'] | null = null
+
+export const configureApiStoreResolvers = (resolvers: ApiStoreResolvers): void => {
+    if (resolvers.resolveToastStore) {
+        toastStoreResolver = resolvers.resolveToastStore
+    }
+    if (resolvers.resolveAuthStore) {
+        authStoreResolver = resolvers.resolveAuthStore
+    }
+}
+
+const resolveToastStore = async (): Promise<ToastStore> => {
+    try {
+        if (!toastStoreResolver) {
+            return noopToastStore
+        }
+        return await toastStoreResolver()
+    } catch {
+        return noopToastStore
+    }
+}
+
+const resolveAuthStore = async (): Promise<AuthStoreLike | null> => {
+    try {
+        if (!authStoreResolver) {
+            return null
+        }
+        return await authStoreResolver()
+    } catch {
+        return null
+    }
 }
 
 const api: AxiosInstance = axios.create({
@@ -88,7 +139,7 @@ const processQueue = (error: unknown, token: string | null = null) => {
     failedQueue = []
 }
 
-const handleApiError = (error: AxiosError, toastStore: ReturnType<typeof useToastStore>) => {
+const handleApiError = (error: AxiosError, toastStore: ToastStore) => {
     if (error.response) {
         const status = error.response.status
         const errorData = error.response.data as ApiErrorResponse | undefined
@@ -163,8 +214,13 @@ api.interceptors.response.use(
         return response
     },
     async (error: AxiosError) => {
-        const originalRequest = error.config as InternalAxiosRequestConfig
-        const toastStore = useToastStore()
+        const originalRequest = error.config as InternalAxiosRequestConfig | undefined
+        const toastStore = await resolveToastStore()
+
+        if (!originalRequest) {
+            handleApiError(error, toastStore)
+            return Promise.reject(error)
+        }
 
         // If 401 and not already retrying
         if (error.response?.status === 401 && !originalRequest._retry && !originalRequest.skipAuthRefresh) {
@@ -206,11 +262,13 @@ api.interceptors.response.use(
                     }
 
                     // Update user state (permissions, etc.) with new token
-                    const authStore = useAuthStore()
-                    authStore.accessToken = newAccessToken
+                    const authStore = await resolveAuthStore()
+                    if (authStore) {
+                        authStore.accessToken = newAccessToken
 
-                    // Pass skipAuthRefresh to prevent infinite loop if getMe fails
-                    await authStore.fetchUser({ skipAuthRefresh: true })
+                        // Pass skipAuthRefresh to prevent infinite loop if getMe fails
+                        await authStore.fetchUser({ skipAuthRefresh: true })
+                    }
 
                     // Process queued requests
                     processQueue(null, newAccessToken)
@@ -238,9 +296,11 @@ api.interceptors.response.use(
                         Storage.remove('refreshToken')
 
                         // Update auth store state
-                        const authStore = useAuthStore()
-                        authStore.user = null
-                        authStore.accessToken = ''
+                        const authStore = await resolveAuthStore()
+                        if (authStore) {
+                            authStore.user = null
+                            authStore.accessToken = ''
+                        }
 
                         if (!isLoginPage) {
                             if (router.currentRoute.value.meta.requiresAuth) {

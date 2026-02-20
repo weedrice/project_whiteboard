@@ -8,6 +8,8 @@ import './style.css'
 
 import { VueQueryPlugin, QueryClient, QueryCache, MutationCache } from '@tanstack/vue-query'
 import { useToastStore } from '@/stores/toast'
+import { useAuthStore } from '@/stores/auth'
+import { configureApiStoreResolvers } from '@/api'
 import logger from '@/utils/logger'
 import { validateEnv } from '@/utils/env'
 import type { AxiosError } from 'axios'
@@ -19,11 +21,17 @@ import { createUnhead, headSymbol } from '@unhead/vue'
 
 const app = createApp(App)
 const head = createUnhead()
+const pinia = createPinia()
 
-app.use(createPinia())
+app.use(pinia)
 app.use(router)
 app.use(i18n)
 app.provide(headSymbol, head)
+
+configureApiStoreResolvers({
+    resolveToastStore: () => useToastStore(pinia),
+    resolveAuthStore: () => useAuthStore(pinia),
+})
 
 import { QUERY_STALE_TIME } from '@/utils/constants'
 
@@ -32,7 +40,7 @@ const queryClient = new QueryClient({
         onError: (error: Error, query) => {
             if (query.meta?.errorMessage === false) return
 
-            const toastStore = useToastStore()
+            const toastStore = useToastStore(pinia)
             const axiosError = error as Error & { response?: { data?: { message?: string } } }
             const message = axiosError.response?.data?.message || error.message || 'An error occurred'
             toastStore.addToast(message, 'error')
@@ -43,7 +51,7 @@ const queryClient = new QueryClient({
         onError: (error: Error, variables, context, mutation) => {
             if (mutation.meta?.errorMessage === false) return
 
-            const toastStore = useToastStore()
+            const toastStore = useToastStore(pinia)
             const axiosError = error as Error & { response?: { data?: { message?: string } } }
             const message = axiosError.response?.data?.message || error.message || 'An error occurred'
             toastStore.addToast(message, 'error')

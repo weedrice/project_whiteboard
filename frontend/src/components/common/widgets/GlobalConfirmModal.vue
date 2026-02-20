@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { useConfirmStore } from '@/stores/confirm'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'

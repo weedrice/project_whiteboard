@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="relative">
     <BaseInput v-model="keyword" @keydown.enter="onSearch" placeholder="Search..." inputClass="pl-10" hideLabel>
       <template #prefix>
