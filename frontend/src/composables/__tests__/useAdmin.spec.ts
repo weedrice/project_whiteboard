@@ -29,7 +29,11 @@ vi.mock('@/api/admin', () => ({
         getBoards: vi.fn(),
         createBoard: vi.fn(),
         updateBoard: vi.fn(),
-        deleteBoard: vi.fn()
+        deleteBoard: vi.fn(),
+        getErrorLogs: vi.fn(),
+        getErrorLog: vi.fn(),
+        resolveErrorLog: vi.fn(),
+        getErrorLogStats: vi.fn()
     }
 }))
 
@@ -443,6 +447,82 @@ describe('useAdmin', () => {
 
             expect(adminApi.deleteBoard).toHaveBeenCalledWith('test-board')
             expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['admin', 'boards'] })
+        })
+    })
+
+    describe('Error Log Management', () => {
+        it('useErrorLogs returns query hooks', () => {
+            const { useErrorLogs } = useAdmin()
+            const params = ref({ page: 0, size: 20 })
+            const result = useErrorLogs(params)
+
+            expect(result).toHaveProperty('data')
+            expect(result).toHaveProperty('isLoading')
+        })
+
+        it('useErrorLogs queryFn forwards params and preserves placeholder data', async () => {
+            const { useErrorLogs } = useAdmin()
+            const params = ref({ page: 0, size: 20, errorType: 'BusinessException', httpStatus: 500 })
+            const response = {
+                content: [{ errorLogId: 1, errorType: 'BusinessException', httpStatus: 500 }],
+                number: 0,
+                size: 20,
+                totalElements: 1,
+                totalPages: 1
+            }
+            vi.mocked(adminApi.getErrorLogs).mockResolvedValueOnce({ data: { data: response } } as any)
+
+            useErrorLogs(params)
+            const query = mockQueryOptions.at(-1) as {
+                queryFn: () => Promise<unknown>
+                placeholderData: (prev: unknown) => unknown
+            }
+
+            await expect(query.queryFn()).resolves.toEqual(response)
+            expect(adminApi.getErrorLogs).toHaveBeenCalledWith(params.value)
+            expect(query.placeholderData('prev-error-logs')).toBe('prev-error-logs')
+        })
+
+        it('useResolveErrorLog calls adminApi.resolveErrorLog with memo', async () => {
+            const { useResolveErrorLog } = useAdmin()
+            const mutation = useResolveErrorLog()
+
+            vi.mocked(adminApi.resolveErrorLog).mockResolvedValue({ data: { success: true } } as any)
+
+            await mutation.mutateAsync({ errorLogId: 1, data: { memo: '확인 완료' } })
+
+            expect(adminApi.resolveErrorLog).toHaveBeenCalledWith(1, { memo: '확인 완료' })
+            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['admin', 'error-logs'] })
+        })
+
+        it('useResolveErrorLog calls adminApi.resolveErrorLog without memo', async () => {
+            const { useResolveErrorLog } = useAdmin()
+            const mutation = useResolveErrorLog()
+
+            vi.mocked(adminApi.resolveErrorLog).mockResolvedValue({ data: { success: true } } as any)
+
+            await mutation.mutateAsync({ errorLogId: 2, data: undefined })
+
+            expect(adminApi.resolveErrorLog).toHaveBeenCalledWith(2, undefined)
+            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['admin', 'error-logs'] })
+        })
+
+        it('useErrorLogStats returns query hooks', () => {
+            const { useErrorLogStats } = useAdmin()
+            const result = useErrorLogStats()
+
+            expect(result).toHaveProperty('data')
+            expect(result).toHaveProperty('isLoading')
+        })
+
+        it('useErrorLogStats queryFn returns stats payload', async () => {
+            const { useErrorLogStats } = useAdmin()
+            const statsResponse = { totalCount: 100, unresolvedCount: 30, resolvedCount: 70 }
+            vi.mocked(adminApi.getErrorLogStats).mockResolvedValueOnce({ data: { data: statsResponse } } as any)
+
+            useErrorLogStats()
+            const query = mockQueryOptions.at(-1) as { queryFn: () => Promise<unknown> }
+            await expect(query.queryFn()).resolves.toEqual(statsResponse)
         })
     })
 })
