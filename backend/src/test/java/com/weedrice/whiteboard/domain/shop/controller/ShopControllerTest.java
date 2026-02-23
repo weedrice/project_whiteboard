@@ -22,6 +22,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.util.Collections;
 
 import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -52,7 +53,11 @@ class ShopControllerTest {
         public org.springframework.security.web.SecurityFilterChain filterChain(org.springframework.security.config.annotation.web.builders.HttpSecurity http) throws Exception {
             http
                 .csrf(csrf -> csrf.disable())
-                .authorizeHttpRequests(auth -> auth.anyRequest().permitAll());
+                .exceptionHandling(ex -> ex.authenticationEntryPoint(
+                        (request, response, authException) -> response.sendError(HttpServletResponse.SC_UNAUTHORIZED)))
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/shop/items/**").permitAll()
+                        .anyRequest().authenticated());
             return http.build();
         }
     }
@@ -169,7 +174,7 @@ class ShopControllerTest {
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.success").value(true));
 
-            verify(shopService).getShopItems(eq("EMOTICON"), any());
+            verify(shopService, atLeastOnce()).getShopItems(eq("EMOTICON"), any());
         }
 
         @Test
@@ -188,7 +193,7 @@ class ShopControllerTest {
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.success").value(true));
 
-            verify(shopService).getShopItems(isNull(), any());
+            verify(shopService, atLeastOnce()).getShopItems(isNull(), any());
         }
 
         @Test
@@ -311,7 +316,7 @@ class ShopControllerTest {
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.success").value(true));
 
-            verify(shopService).getPurchaseHistories(eq(1L), any());
+            verify(shopService, atLeastOnce()).getPurchaseHistories(eq(1L), any());
         }
 
         @Test

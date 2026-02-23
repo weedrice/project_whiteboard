@@ -84,7 +84,7 @@ class AdminServiceTest {
         Long adminUserId = 1L;
         String ipAddress = "127.0.0.1";
         when(userRepository.findById(adminUserId)).thenReturn(Optional.of(user));
-        when(adminRepository.findByUserAndIsActive(user, true)).thenReturn(Optional.of(admin));
+        when(adminRepository.findFirstByUserAndIsActiveOrderByAdminIdAsc(user, true)).thenReturn(Optional.of(admin));
         when(ipBlockRepository.findByIpAddress(ipAddress)).thenReturn(Optional.empty());
         when(ipBlockRepository.save(any(IpBlock.class))).thenAnswer(invocation -> invocation.getArgument(0));
 

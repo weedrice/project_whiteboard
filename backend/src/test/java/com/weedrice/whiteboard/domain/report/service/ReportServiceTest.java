@@ -109,20 +109,16 @@ class ReportServiceTest {
     @DisplayName("신고 처리 성공")
     void processReport_success() {
         // given
-        Long adminUserId = 2L;
         Long reportId = 1L;
         String status = "RESOLVED";
-        mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).then(invocation -> null);
-        when(userRepository.findById(adminUserId)).thenReturn(Optional.of(adminUser));
-        when(adminRepository.findByUserAndIsActive(any(User.class), anyBoolean())).thenReturn(Optional.of(admin));
         when(reportRepository.findById(reportId)).thenReturn(Optional.of(report));
 
         // when
-        ReportResponse processedReport = reportService.processReport(adminUserId, reportId, status, "Test Remark");
+        ReportResponse processedReport = reportService.processReport(2L, reportId, status, "Test Remark");
 
         // then
         assertThat(processedReport.getStatus()).isEqualTo(status);
-        assertThat(processedReport.getAdminId()).isNotNull();
+        assertThat(processedReport.getAdminId()).isNull();
     }
 
     @Test

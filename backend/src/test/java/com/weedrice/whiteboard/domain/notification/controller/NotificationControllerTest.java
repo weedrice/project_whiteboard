@@ -107,7 +107,7 @@ class NotificationControllerTest {
 
         
 
-                mockMvc.perform(get("/api/v1/notifications/subscribe")
+                mockMvc.perform(get("/api/v1/notifications/stream")
 
                                 .with(user(customUserDetails)))
 

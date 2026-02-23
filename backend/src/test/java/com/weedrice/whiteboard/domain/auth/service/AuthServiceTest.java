@@ -224,8 +224,6 @@ class AuthServiceTest {
                 // given
                 String email = "test@example.com";
                 when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
-                when(passwordResetTokenRepository.save(any(com.weedrice.whiteboard.domain.auth.entity.PasswordResetToken.class)))
-                        .thenAnswer(invocation -> invocation.getArgument(0));
 
                 // when
                 authService.sendPasswordResetLinkByEmail(email);

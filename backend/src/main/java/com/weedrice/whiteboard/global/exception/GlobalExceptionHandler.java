@@ -8,6 +8,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.http.HttpStatus;
@@ -32,7 +33,9 @@ import java.io.StringWriter;
 public class GlobalExceptionHandler {
 
     private final MessageSource messageSource;
-    private final ErrorLogService errorLogService;
+
+    @Autowired(required = false)
+    private ErrorLogService errorLogService;
 
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ApiResponse<Void>> handleBusinessException(BusinessException e, HttpServletRequest request) {
@@ -161,6 +164,10 @@ public class GlobalExceptionHandler {
     private void saveErrorLog(String errorCode, String errorType, int httpStatus,
             String message, HttpServletRequest request, String stackTrace) {
         try {
+            if (errorLogService == null) {
+                return;
+            }
+
             Long userId = getCurrentUserId();
             String ipAddress = ClientUtils.getIp(request);
             String userAgent = request.getHeader("User-Agent");

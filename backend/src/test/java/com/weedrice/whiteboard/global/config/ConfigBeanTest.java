@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.global.config;
 
 import com.weedrice.whiteboard.domain.admin.interceptor.IpBlockInterceptor;
 import com.weedrice.whiteboard.global.ratelimit.RateLimitInterceptor;
+import com.weedrice.whiteboard.global.ratelimit.RateLimitConfig;
 import com.weedrice.whiteboard.global.security.RefererCheckInterceptor;
 import io.swagger.v3.oas.models.OpenAPI;
 import org.junit.jupiter.api.DisplayName;
@@ -34,7 +35,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 },
     classes = {
         S3Config.class, WebConfig.class, AsyncConfig.class,
-        CacheConfig.class, MessageConfig.class,
+        CacheConfig.class, MessageConfig.class, RateLimitConfig.class,
         OpenApiConfig.class
     },
     webEnvironment = SpringBootTest.WebEnvironment.NONE

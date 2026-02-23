@@ -68,6 +68,8 @@ class GlobalExceptionHandlerTest {
         BindingResult bindingResult = mock(BindingResult.class);
         FieldError fieldError = new FieldError("objectName", "fieldName", null, false, null, null, "must not be null");
         when(bindingResult.getFieldErrors()).thenReturn(Collections.singletonList(fieldError));
+        when(messageSource.getMessage(eq("error.common.validationFailedSummaryFields"), any(), any(Locale.class)))
+                .thenReturn("Validation failed");
         MethodArgumentNotValidException ex = new MethodArgumentNotValidException(mock(MethodParameter.class), bindingResult);
 
         // when

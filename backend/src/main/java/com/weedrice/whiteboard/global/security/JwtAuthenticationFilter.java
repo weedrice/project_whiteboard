@@ -51,7 +51,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         // SSE 스트림 엔드포인트에서만 query parameter 토큰 허용
         // (EventSource API는 커스텀 헤더 설정이 불가하므로 query parameter로 토큰 전달)
-        if (request.getRequestURI().endsWith("/stream")) {
+        String requestUri = request.getRequestURI();
+        if (requestUri != null && requestUri.endsWith("/stream")) {
             String token = request.getParameter("token");
             if (StringUtils.hasText(token)) {
                 return token;

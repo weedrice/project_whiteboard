@@ -72,7 +72,7 @@ class SanctionServiceTest {
         String type = "BAN";
         mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).then(invocation -> null);
         when(userRepository.findById(adminUserId)).thenReturn(Optional.of(adminUser));
-        when(adminRepository.findByUserAndIsActive(adminUser, true)).thenReturn(Optional.of(admin));
+        when(adminRepository.findFirstByUserAndIsActiveOrderByAdminIdAsc(adminUser, true)).thenReturn(Optional.of(admin));
         when(userRepository.findById(targetUserId)).thenReturn(Optional.of(targetUser));
         Sanction savedSanction = Sanction.builder()
                 .targetUser(targetUser)
