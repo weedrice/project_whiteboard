@@ -63,7 +63,7 @@ const mocks = vi.hoisted(() => {
             setContent: vi.fn(),
             setTextSelection: vi.fn(),
         },
-        getAttributes: vi.fn((name: string) => {
+        getAttributes: vi.fn((name: string): any => {
             if (name === 'textStyle') return { color: '', fontSize: '', lineHeight: '' }
             if (name === 'highlight') return { color: '#fef08a' }
             if (name === 'link') return { href: '' }
@@ -80,7 +80,7 @@ const mocks = vi.hoisted(() => {
         view: {
             dom: document.createElement('div'),
             focus: vi.fn(),
-            posAtCoords: vi.fn(() => ({ pos: 3 })),
+            posAtCoords: vi.fn((): any => ({ pos: 3 })),
         },
         destroy: vi.fn(),
     }
@@ -365,7 +365,7 @@ describe('PostEditorTipTap', () => {
             if (key === 'board.writePost.linkUrlPrompt') return ''
             return key
         })
-        mocks.editor.getAttributes.mockImplementation((name: string) => {
+        mocks.editor.getAttributes.mockImplementation((name: string): any => {
             if (name === 'textStyle') return { color: '#22c55e', fontSize: '', lineHeight: '' }
             if (name === 'highlight') return { color: '#fef08a' }
             if (name === 'link') return undefined
@@ -471,7 +471,7 @@ describe('PostEditorTipTap', () => {
         await nextTick()
         expect(rootPrevent).not.toHaveBeenCalled()
 
-        mocks.editor.view.posAtCoords.mockReturnValueOnce(null)
+        mocks.editor.view.posAtCoords.mockReturnValueOnce(null as any)
         mocks.editor.state.doc.content.size = 10
         const secondEvent = new MouseEvent('mousedown', {
             bubbles: true,
@@ -484,7 +484,7 @@ describe('PostEditorTipTap', () => {
         expect(mocks.editor.commands.setTextSelection).toHaveBeenCalledWith(9)
 
         mocks.editor.commands.setTextSelection.mockClear()
-        mocks.editor.view.posAtCoords.mockReturnValueOnce(null)
+        mocks.editor.view.posAtCoords.mockReturnValueOnce(null as any)
         mocks.editor.state.doc.content.size = 0
         const thirdEvent = new MouseEvent('mousedown', {
             bubbles: true,
@@ -501,7 +501,7 @@ describe('PostEditorTipTap', () => {
         const wrapper = mountEditor()
         const imageBtn = wrapper.get('button[title="Image"]')
         const fileInput = wrapper.get('input[type="file"]')
-        const clickSpy = vi.spyOn(fileInput.element, 'click')
+        const clickSpy = vi.spyOn(fileInput.element as HTMLInputElement, 'click')
         await imageBtn.trigger('click')
         expect(clickSpy).toHaveBeenCalled()
 
@@ -658,7 +658,7 @@ describe('PostEditorTipTap', () => {
             applyBulletList: () => void
             applyOrderedList: () => void
         }
-        mocks.editorRef.value = null
+        mocks.editorRef.value = null as any
 
         setupState.saveListSelection()
         setupState.applyBulletList()
@@ -669,7 +669,7 @@ describe('PostEditorTipTap', () => {
     })
 
     it('handles editor-null watch/click guards safely', async () => {
-        mocks.editorRef.value = null
+        mocks.editorRef.value = null as any
         const wrapper = mountEditor('')
         await wrapper.setProps({ modelValue: '<p>next-value</p>' })
 
@@ -689,7 +689,7 @@ describe('PostEditorTipTap', () => {
 
     it('hides link remove button when current selection is not a link and uses highlight default color fallback', async () => {
         mocks.editor.isActive.mockImplementation((name: unknown) => name === 'bold')
-        mocks.editor.getAttributes.mockImplementation((name: string) => {
+        mocks.editor.getAttributes.mockImplementation((name: string): any => {
             if (name === 'textStyle') return { color: '', fontSize: '', lineHeight: '' }
             if (name === 'highlight') return { color: '' }
             if (name === 'link') return undefined
