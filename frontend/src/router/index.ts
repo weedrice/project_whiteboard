@@ -236,6 +236,11 @@ const router = createRouter({
                     component: () => import('@/views/admin/GlobalSettings.vue')
                 },
                 {
+                    path: 'error-logs',
+                    name: 'ErrorLogManagement',
+                    component: () => import('@/views/admin/ErrorLogManagement.vue')
+                },
+                {
                     path: '',
                     redirect: '/admin/dashboard'
                 }

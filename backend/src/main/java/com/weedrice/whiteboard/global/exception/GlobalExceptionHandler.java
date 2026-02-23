@@ -1,6 +1,9 @@
 package com.weedrice.whiteboard.global.exception;
 
 import com.weedrice.whiteboard.global.common.ApiResponse;
+import com.weedrice.whiteboard.global.common.util.ClientUtils;
+import com.weedrice.whiteboard.global.log.service.ErrorLogService;
+import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -13,10 +16,15 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.LockedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+import java.io.PrintWriter;
+import java.io.StringWriter;
 
 @Slf4j
 @RestControllerAdvice
@@ -24,6 +32,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 public class GlobalExceptionHandler {
 
     private final MessageSource messageSource;
+    private final ErrorLogService errorLogService;
 
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ApiResponse<Void>> handleBusinessException(BusinessException e, HttpServletRequest request) {
@@ -36,22 +45,27 @@ public class GlobalExceptionHandler {
         log.warn("[{}] Business exception: {} - {}", request.getRequestURI(), e.getErrorCode().getCode(), message);
         MDC.remove("errorCode");
         MDC.remove("errorType");
+
+        saveErrorLog(e.getErrorCode().getCode(), "BusinessException",
+                e.getErrorCode().getStatus().value(), message, request, null);
+
         return ResponseEntity
                 .status(e.getErrorCode().getStatus())
                 .body(ApiResponse.error(e.getErrorCode().getCode(), message));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ApiResponse<Object>> handleValidationExceptions(MethodArgumentNotValidException e, HttpServletRequest request) {
+    public ResponseEntity<ApiResponse<Object>> handleValidationExceptions(MethodArgumentNotValidException e,
+            HttpServletRequest request) {
         // 모든 필드 에러를 수집
         java.util.Map<String, java.util.List<String>> errors = new java.util.HashMap<>();
-        
+
         e.getBindingResult().getFieldErrors().forEach(error -> {
             String field = error.getField();
             String message = error.getDefaultMessage();
             errors.computeIfAbsent(field, k -> new java.util.ArrayList<>()).add(message);
         });
-        
+
         // 필드 에러가 없는 경우 (글로벌 에러)
         if (errors.isEmpty()) {
             e.getBindingResult().getGlobalErrors().forEach(error -> {
@@ -60,40 +74,61 @@ public class GlobalExceptionHandler {
                 errors.computeIfAbsent(objectName, k -> new java.util.ArrayList<>()).add(message);
             });
         }
-        
+
         String summaryMessage = errors.isEmpty()
-            ? messageSource.getMessage("error.common.validationFailedSummary", null, LocaleContextHolder.getLocale())
-            : messageSource.getMessage("error.common.validationFailedSummaryFields", new Object[]{errors.size()}, LocaleContextHolder.getLocale());
-        
+                ? messageSource.getMessage("error.common.validationFailedSummary", null,
+                        LocaleContextHolder.getLocale())
+                : messageSource.getMessage("error.common.validationFailedSummaryFields", new Object[] { errors.size() },
+                        LocaleContextHolder.getLocale());
+
         log.warn("[{}] Validation exception: {} - {}", request.getRequestURI(), summaryMessage, errors);
-        
+
+        saveErrorLog(ErrorCode.VALIDATION_ERROR.getCode(), "MethodArgumentNotValidException",
+                HttpStatus.BAD_REQUEST.value(), summaryMessage, request, null);
+
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.error(ErrorCode.VALIDATION_ERROR.getCode(), summaryMessage, errors));
     }
 
-    @ExceptionHandler({BadCredentialsException.class, UsernameNotFoundException.class})
+    @ExceptionHandler({ BadCredentialsException.class, UsernameNotFoundException.class })
     public ResponseEntity<ApiResponse<Void>> handleLoginException(Exception e, HttpServletRequest request) {
-        String message = messageSource.getMessage(ErrorCode.LOGIN_FAILED.getMessage(), null, LocaleContextHolder.getLocale());
+        String message = messageSource.getMessage(ErrorCode.LOGIN_FAILED.getMessage(), null,
+                LocaleContextHolder.getLocale());
         log.warn("[{}] Login failed: {}", request.getRequestURI(), e.getMessage());
+
+        saveErrorLog(ErrorCode.LOGIN_FAILED.getCode(), e.getClass().getSimpleName(),
+                ErrorCode.LOGIN_FAILED.getStatus().value(), message, request, null);
+
         return ResponseEntity
                 .status(ErrorCode.LOGIN_FAILED.getStatus())
                 .body(ApiResponse.error(ErrorCode.LOGIN_FAILED.getCode(), message));
     }
 
-    @ExceptionHandler({LockedException.class, DisabledException.class})
+    @ExceptionHandler({ LockedException.class, DisabledException.class })
     public ResponseEntity<ApiResponse<Void>> handleAccountStatusException(Exception e, HttpServletRequest request) {
-        String message = messageSource.getMessage(ErrorCode.USER_NOT_ACTIVE.getMessage(), null, LocaleContextHolder.getLocale());
+        String message = messageSource.getMessage(ErrorCode.USER_NOT_ACTIVE.getMessage(), null,
+                LocaleContextHolder.getLocale());
         log.warn("[{}] Account status exception: {}", request.getRequestURI(), e.getMessage());
+
+        saveErrorLog(ErrorCode.USER_NOT_ACTIVE.getCode(), e.getClass().getSimpleName(),
+                ErrorCode.USER_NOT_ACTIVE.getStatus().value(), message, request, null);
+
         return ResponseEntity
                 .status(ErrorCode.USER_NOT_ACTIVE.getStatus())
                 .body(ApiResponse.error(ErrorCode.USER_NOT_ACTIVE.getCode(), message));
     }
 
     @ExceptionHandler(AccessDeniedException.class)
-    public ResponseEntity<ApiResponse<Void>> handleAccessDeniedException(AccessDeniedException e, HttpServletRequest request) {
-        String message = messageSource.getMessage(ErrorCode.FORBIDDEN.getMessage(), null, LocaleContextHolder.getLocale());
+    public ResponseEntity<ApiResponse<Void>> handleAccessDeniedException(AccessDeniedException e,
+            HttpServletRequest request) {
+        String message = messageSource.getMessage(ErrorCode.FORBIDDEN.getMessage(), null,
+                LocaleContextHolder.getLocale());
         log.warn("[{}] Access denied: {}", request.getRequestURI(), e.getMessage());
+
+        saveErrorLog(ErrorCode.FORBIDDEN.getCode(), "AccessDeniedException",
+                HttpStatus.FORBIDDEN.value(), message, request, null);
+
         return ResponseEntity
                 .status(HttpStatus.FORBIDDEN)
                 .body(ApiResponse.error(ErrorCode.FORBIDDEN.getCode(), message));
@@ -103,14 +138,67 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleAllUncaughtException(Exception e, HttpServletRequest request) {
         MDC.put("errorType", e.getClass().getSimpleName());
         MDC.put("errorMessage", e.getMessage());
-        log.error("[{}] Unexpected exception occurred: {} - {}", 
+        log.error("[{}] Unexpected exception occurred: {} - {}",
                 request.getRequestURI(), e.getClass().getSimpleName(), e.getMessage(), e);
         MDC.remove("errorType");
         MDC.remove("errorMessage");
-        
-        String message = messageSource.getMessage(ErrorCode.INTERNAL_SERVER_ERROR.getMessage(), null, LocaleContextHolder.getLocale());
+
+        // 5xx 에러는 스택 트레이스도 저장
+        String stackTrace = getStackTrace(e);
+        saveErrorLog(ErrorCode.INTERNAL_SERVER_ERROR.getCode(), e.getClass().getSimpleName(),
+                HttpStatus.INTERNAL_SERVER_ERROR.value(), e.getMessage(), request, stackTrace);
+
+        String message = messageSource.getMessage(ErrorCode.INTERNAL_SERVER_ERROR.getMessage(), null,
+                LocaleContextHolder.getLocale());
         return ResponseEntity
                 .status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ApiResponse.error(ErrorCode.INTERNAL_SERVER_ERROR.getCode(), message));
+    }
+
+    /**
+     * 에러 로그를 DB에 비동기 저장합니다.
+     */
+    private void saveErrorLog(String errorCode, String errorType, int httpStatus,
+            String message, HttpServletRequest request, String stackTrace) {
+        try {
+            Long userId = getCurrentUserId();
+            String ipAddress = ClientUtils.getIp(request);
+            String userAgent = request.getHeader("User-Agent");
+
+            errorLogService.saveErrorLog(
+                    errorCode, errorType, httpStatus, message,
+                    request.getRequestURI(), request.getMethod(),
+                    userId, ipAddress, userAgent, stackTrace);
+        } catch (Exception ex) {
+            // 에러 로그 저장 실패 시 원래 응답에 영향을 주지 않도록 로그만 남김
+            log.error("Failed to save error log to DB", ex);
+        }
+    }
+
+    /**
+     * 현재 인증된 사용자 ID를 안전하게 가져옵니다.
+     */
+    private Long getCurrentUserId() {
+        try {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication != null && authentication.getPrincipal() instanceof CustomUserDetails) {
+                return ((CustomUserDetails) authentication.getPrincipal()).getUserId();
+            }
+        } catch (Exception ignored) {
+            // 인증 정보가 없는 경우 null 반환
+        }
+        return null;
+    }
+
+    /**
+     * 예외의 스택 트레이스를 문자열로 변환합니다.
+     */
+    private String getStackTrace(Exception e) {
+        StringWriter sw = new StringWriter();
+        PrintWriter pw = new PrintWriter(sw);
+        e.printStackTrace(pw);
+        String trace = sw.toString();
+        // 스택 트레이스가 너무 길면 잘라냄 (TEXT 타입이지만 적정 크기 유지)
+        return trace.length() > 4000 ? trace.substring(0, 4000) : trace;
     }
 }

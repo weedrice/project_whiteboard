@@ -37,8 +37,26 @@ Spring Framework 및 라이브러리 설정을 담당합니다.
 - **CustomUserDetails.java**: Spring Security의 `UserDetails` 구현체로, 인증된 사용자의 정보를 담습니다.
 
 ### 1.6 `log`
-시스템 로깅 및 감사 로그 처리를 담당합니다.
+시스템 로깅, 감사 로그, 에러 로그 처리를 담당합니다.
 - AOP를 활용한 요청/응답 로깅 등을 수행할 수 있습니다.
+
+#### 에러 로그 시스템
+에러 로그를 DB에 비동기적으로 저장하고 관리자 페이지에서 조회/확인 처리할 수 있는 시스템입니다.
+
+- **entity/ErrorLog.java**: 에러 로그 엔티티. `BaseTimeEntity`를 상속하여 `created_at`, `modified_at`을 자동 관리합니다. Builder 패턴을 사용합니다.
+- **repository/ErrorLogRepository.java**: `JpaRepository` + `ErrorLogRepositoryCustom`을 상속하여 기본 CRUD와 QueryDSL 기반 동적 검색을 지원합니다.
+- **repository/ErrorLogRepositoryCustom.java**: QueryDSL 기반 에러 로그 동적 검색 인터페이스.
+- **repository/ErrorLogRepositoryCustomImpl.java**: QueryDSL 기반 검색 구현. 에러 타입, 코드, HTTP 상태, 확인 여부, 날짜 범위, URI 등 다양한 필터를 지원합니다.
+- **service/ErrorLogService.java**: 에러 로그 비즈니스 로직. 저장은 `@Async("taskExecutor")` + `@Transactional(propagation = REQUIRES_NEW)` 비동기 방식. 메시지/URI/UA 길이 초과 시 자동 잘라냅니다.
+- **controller/ErrorLogController.java**: 관리자용 에러 로그 API (`/api/v1/admin/error-logs`). `@PreAuthorize("hasRole('SUPER_ADMIN')")` 적용.
+  - `GET /`: 에러 로그 목록 조회 (검색/필터/페이징)
+  - `GET /{errorLogId}`: 에러 로그 상세 조회
+  - `PUT /{errorLogId}/resolve`: 확인 처리 (메모 선택)
+  - `GET /stats`: 에러 로그 통계
+- **dto/**: `ErrorLogSearchRequest`, `ErrorLogResponse`, `ErrorLogResolveRequest`, `ErrorLogStatsResponse`
+
+#### GlobalExceptionHandler 연동
+`GlobalExceptionHandler`에서 `BusinessException`, `MethodArgumentNotValidException`, `AccessDeniedException`, `Exception` 등 모든 예외 처리 시 `ErrorLogService.saveErrorLog()`를 호출하여 에러를 DB에 비동기 저장합니다. 5xx 에러는 스택 트레이스도 함께 저장됩니다. 에러 로그 저장 실패 시 원래 에러 응답에 영향을 주지 않도록 try-catch로 보호됩니다.
 
 ## 2. 주요 개발 패턴
 

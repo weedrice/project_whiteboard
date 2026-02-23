@@ -663,6 +663,7 @@ export interface AdminMessages {
     reports: string
     security: string
     settings: string
+    errorLogs: string
   }
   dashboard: {
     title: string
@@ -856,6 +857,56 @@ export interface AdminMessages {
       deleteFailed: string
       confirmDelete: string
     }
+  }
+  errorLogs: {
+    title: string
+    description: string
+    table: {
+      errorCode: string
+      errorType: string
+      httpStatus: string
+      message: string
+      requestUri: string
+      requestMethod: string
+      userId: string
+      ipAddress: string
+      isResolved: string
+      createdAt: string
+    }
+    status: {
+      resolved: string
+      unresolved: string
+    }
+    filter: {
+      all: string
+      errorType: string
+      httpStatus: string
+      isResolved: string
+      startDate: string
+      endDate: string
+      requestUri: string
+    }
+    detail: {
+      title: string
+      errorInfo: string
+      requestInfo: string
+      stackTrace: string
+      resolveInfo: string
+    }
+    actions: {
+      resolve: string
+      viewDetail: string
+    }
+    messages: {
+      resolved: string
+      resolveFailed: string
+    }
+    stats: {
+      total: string
+      unresolved: string
+      resolved: string
+    }
+    memoPlaceholder: string
   }
 }
 

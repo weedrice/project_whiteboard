@@ -12,6 +12,7 @@ export const admin: AdminMessages = {
     reports: '신고 관리',
     security: '보안 설정',
     settings: '전역 설정',
+    errorLogs: '에러 로그',
   },
   dashboard: {
     title: '대시보드',
@@ -205,5 +206,55 @@ export const admin: AdminMessages = {
       deleteFailed: '게시판 삭제 실패',
       confirmDelete: '정말 이 게시판을 삭제하시겠습니까?',
     },
+  },
+  errorLogs: {
+    title: '에러 로그',
+    description: '시스템에서 발생한 에러 로그를 조회하고 관리합니다.',
+    table: {
+      errorCode: '에러 코드',
+      errorType: '에러 타입',
+      httpStatus: 'HTTP 상태',
+      message: '메시지',
+      requestUri: '요청 URI',
+      requestMethod: '메서드',
+      userId: '사용자 ID',
+      ipAddress: 'IP 주소',
+      isResolved: '확인 여부',
+      createdAt: '발생 시간',
+    },
+    status: {
+      resolved: '확인됨',
+      unresolved: '미확인',
+    },
+    filter: {
+      all: '전체',
+      errorType: '에러 타입',
+      httpStatus: 'HTTP 상태',
+      isResolved: '확인 여부',
+      startDate: '시작일',
+      endDate: '종료일',
+      requestUri: '요청 URI',
+    },
+    detail: {
+      title: '에러 로그 상세',
+      errorInfo: '에러 정보',
+      requestInfo: '요청 정보',
+      stackTrace: '스택 트레이스',
+      resolveInfo: '처리 정보',
+    },
+    actions: {
+      resolve: '확인 처리',
+      viewDetail: '상세 보기',
+    },
+    messages: {
+      resolved: '에러 로그가 확인 처리되었습니다.',
+      resolveFailed: '확인 처리 실패',
+    },
+    stats: {
+      total: '전체',
+      unresolved: '미확인',
+      resolved: '확인됨',
+    },
+    memoPlaceholder: '처리 메모를 입력하세요 (선택)',
   },
 }

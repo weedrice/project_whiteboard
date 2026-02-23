@@ -1,5 +1,5 @@
 import api from '@/api'
-import type { ApiResponse, PageResponse, User, Report, GlobalConfig, IpBlock, Board, BoardCreateData, BoardUpdateData, SanctionData, DashboardStats } from '@/types'
+import type { ApiResponse, PageResponse, User, Report, GlobalConfig, IpBlock, Board, BoardCreateData, BoardUpdateData, SanctionData, DashboardStats, ErrorLogItem, ErrorLogSearchParams, ErrorLogStats } from '@/types'
 
 // Admin types
 interface AdminCreateData {
@@ -121,6 +121,20 @@ export const adminApi = {
     },
     deleteBoard(boardUrl: string) {
         return api.delete<ApiResponse<void>>(`/boards/${boardUrl}`)
+    },
+
+    // 에러 로그 관리
+    getErrorLogs(params: ErrorLogSearchParams) {
+        return api.get<ApiResponse<PageResponse<ErrorLogItem>>>('/admin/error-logs', { params })
+    },
+    getErrorLog(errorLogId: number) {
+        return api.get<ApiResponse<ErrorLogItem>>(`/admin/error-logs/${errorLogId}`)
+    },
+    resolveErrorLog(errorLogId: number, data?: { memo?: string }) {
+        return api.put<ApiResponse<void>>(`/admin/error-logs/${errorLogId}/resolve`, data)
+    },
+    getErrorLogStats() {
+        return api.get<ApiResponse<ErrorLogStats>>('/admin/error-logs/stats')
     }
 }
 

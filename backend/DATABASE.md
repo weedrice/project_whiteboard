@@ -1118,4 +1118,37 @@ CREATE INDEX idx_ad_click_logs_user ON ad_click_logs(user_id);
 
 ### 총 테이블 수
 - v1: 39개
-- v2: **45개** (신규 8개, 삭제 2개)
+- v2: **46개** (신규 9개, 삭제 2개)
+
+---
+
+### error_logs (에러 로그)
+시스템에서 발생한 에러를 기록하고 관리자 확인 처리를 할 수 있는 테이블입니다.
+
+```text
+error_log_id    BIGINT      PK, AUTO_INCREMENT
+error_code      VARCHAR(50)   에러 코드 (ErrorCode enum 코드)
+error_type      VARCHAR(100)  에러 타입 (Exception 클래스명)
+http_status     INT           HTTP 상태 코드 (400, 500 등)
+message         VARCHAR(500)  에러 메시지
+request_uri     VARCHAR(500)  요청 URI
+request_method  VARCHAR(10)   HTTP 메서드 (GET, POST 등)
+user_id         BIGINT        요청 사용자 ID (비로그인 시 NULL)
+ip_address      VARCHAR(45)   클라이언트 IP
+user_agent      VARCHAR(500)  User-Agent 헤더
+stack_trace     TEXT          스택 트레이스 (5xx 에러만)
+is_resolved     CHAR(1)       확인 여부 (Y/N) DEFAULT 'N'
+resolved_by     BIGINT        확인 처리한 관리자 ID
+resolved_at     DATETIME      확인 처리 일시
+resolved_memo   VARCHAR(500)  확인 처리 메모
+created_at      DATETIME      생성일
+modified_at     DATETIME      수정일
+```
+
+#### 인덱스
+```text
+idx_error_logs_created_at     (created_at)
+idx_error_logs_error_type     (error_type)
+idx_error_logs_http_status    (http_status)
+idx_error_logs_is_resolved    (is_resolved)
+```

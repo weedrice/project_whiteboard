@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
 import { adminApi } from '@/api/admin'
 import { type Ref } from 'vue'
-import type { SanctionData, PageResponse, User, Report } from '@/types'
+import type { SanctionData, PageResponse, User, Report, ErrorLogItem, ErrorLogSearchParams, ErrorLogStats } from '@/types'
 
 // Admin specific types
 interface AdminCreateData {
@@ -266,6 +266,35 @@ export function useAdmin() {
         })
     }
 
+    // --- Error Log Management ---
+    const useErrorLogs = (params: Ref<ErrorLogSearchParams>) => {
+        return useQuery({
+            queryKey: ['admin', 'error-logs', params],
+            queryFn: async () => {
+                const { data } = await adminApi.getErrorLogs(params.value)
+                return data.data as PageResponse<ErrorLogItem>
+            },
+            placeholderData: (previousData) => previousData
+        })
+    }
+
+    const useResolveErrorLog = () => {
+        return useMutation({
+            mutationFn: ({ errorLogId, data }: { errorLogId: number, data?: { memo?: string } }) => adminApi.resolveErrorLog(errorLogId, data),
+            onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'error-logs'] })
+        })
+    }
+
+    const useErrorLogStats = () => {
+        return useQuery({
+            queryKey: ['admin', 'error-log-stats'],
+            queryFn: async () => {
+                const { data } = await adminApi.getErrorLogStats()
+                return data.data as ErrorLogStats
+            }
+        })
+    }
+
     return {
         useAdmins,
         useCreateAdmin,
@@ -288,6 +317,9 @@ export function useAdmin() {
         useAdminBoards,
         useCreateBoard,
         useUpdateBoard,
-        useDeleteBoard
+        useDeleteBoard,
+        useErrorLogs,
+        useResolveErrorLog,
+        useErrorLogStats
     }
 }
