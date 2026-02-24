@@ -27,6 +27,7 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
     (e: 'sort', key: string): void
     (e: 'row-click', item: T): void
+    (e: 'row-dblclick', item: T): void
 }>()
 
 const alignClass = (align?: string) => {
@@ -103,7 +104,8 @@ const getCellValue = (item: T, key: string): unknown => {
                     <tr v-else v-for="(item, index) in items" :key="getRowKey(item, index)"
                         class="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-150"
                         :class="rowClass?.(item) || ''"
-                        @click="emit('row-click', item)">
+                        @click="emit('row-click', item)"
+                        @dblclick="emit('row-dblclick', item)">
                         <td v-for="col in columns" :key="col.key"
                             class="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900 dark:text-white min-w-0 overflow-hidden align-middle"
                             :class="alignClass(col.align)">

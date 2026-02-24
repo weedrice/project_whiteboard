@@ -6,6 +6,7 @@ import BaseBadge from '@/components/common/ui/BaseBadge.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import { useAdmin } from '@/composables/useAdmin'
 import { formatDate } from '@/utils/date'
+import { isEmoticonOnlyContent, renderCommentContentHtml } from '@/utils/commentContent'
 
 const { t } = useI18n()
 const { useAdminUserDetail, useAdminUserPosts, useAdminUserComments, useAdminUserSubscriptions } = useAdmin()
@@ -93,6 +94,14 @@ function nextSubscriptionsPage() {
   if (!userSubscriptions.value) return
   if (userSubscriptions.value.number + 1 < userSubscriptions.value.totalPages) subscriptionsPage.value += 1
 }
+
+function renderCommentContent(content: string | undefined): string {
+  return renderCommentContentHtml(content, 'comment-emoticon comment-emoticon-list')
+}
+
+function isCommentEmoticonOnly(content: string | undefined): boolean {
+  return isEmoticonOnlyContent(content)
+}
 </script>
 
 <template>
@@ -172,9 +181,11 @@ function nextSubscriptionsPage() {
         <div v-if="activeTab === 'posts'" class="space-y-2">
           <div v-if="isPostsLoading" class="py-6 text-center text-sm text-gray-500 dark:text-gray-400">로딩 중...</div>
           <div v-else-if="!userPosts?.content?.length" class="py-6 text-center text-sm text-gray-500 dark:text-gray-400">데이터가 없습니다.</div>
-          <div v-else v-for="post in userPosts.content" :key="post.postId" class="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
-            <div class="truncate text-sm font-medium text-gray-900 dark:text-white">{{ post.title }}</div>
-            <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ post.boardName }} · {{ formatDate(post.createdAt) }}</div>
+          <div v-else class="max-h-72 space-y-2 overflow-y-auto pr-1">
+            <div v-for="post in userPosts.content" :key="post.postId" class="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
+              <div class="truncate text-sm font-medium text-gray-900 dark:text-white">{{ post.title }}</div>
+              <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ post.boardName }} · {{ formatDate(post.createdAt) }}</div>
+            </div>
           </div>
           <div v-if="userPosts && userPosts.totalPages > 0" class="mt-2 flex items-center justify-end gap-2">
             <BaseButton variant="secondary" size="sm" :disabled="userPosts.number <= 0" @click="prevPostsPage">이전</BaseButton>
@@ -185,9 +196,14 @@ function nextSubscriptionsPage() {
         <div v-else-if="activeTab === 'comments'" class="space-y-2">
           <div v-if="isCommentsLoading" class="py-6 text-center text-sm text-gray-500 dark:text-gray-400">로딩 중...</div>
           <div v-else-if="!userComments?.content?.length" class="py-6 text-center text-sm text-gray-500 dark:text-gray-400">데이터가 없습니다.</div>
-          <div v-else v-for="comment in userComments.content" :key="comment.commentId" class="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
-            <div class="truncate text-sm text-gray-900 dark:text-white">{{ comment.content }}</div>
-            <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ comment.post?.title }} · {{ formatDate(comment.createdAt) }}</div>
+          <div v-else class="max-h-72 space-y-2 overflow-y-auto pr-1">
+            <div v-for="comment in userComments.content" :key="comment.commentId" class="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
+              <div class="comment-content-list">
+                <p v-if="isCommentEmoticonOnly(comment.content)" v-html="renderCommentContent(comment.content)" class="text-sm"></p>
+                <p v-else v-html="renderCommentContent(comment.content)" class="line-clamp-2 break-words text-sm text-gray-900 dark:text-white"></p>
+              </div>
+              <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ comment.post?.title }} · {{ formatDate(comment.createdAt) }}</div>
+            </div>
           </div>
           <div v-if="userComments && userComments.totalPages > 0" class="mt-2 flex items-center justify-end gap-2">
             <BaseButton variant="secondary" size="sm" :disabled="userComments.number <= 0" @click="prevCommentsPage">이전</BaseButton>
@@ -198,9 +214,11 @@ function nextSubscriptionsPage() {
         <div v-else class="space-y-2">
           <div v-if="isSubscriptionsLoading" class="py-6 text-center text-sm text-gray-500 dark:text-gray-400">로딩 중...</div>
           <div v-else-if="!userSubscriptions?.content?.length" class="py-6 text-center text-sm text-gray-500 dark:text-gray-400">데이터가 없습니다.</div>
-          <div v-else v-for="board in userSubscriptions.content" :key="board.boardId" class="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
-            <div class="truncate text-sm font-medium text-gray-900 dark:text-white">{{ board.boardName }}</div>
-            <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">/{{ board.boardUrl }}</div>
+          <div v-else class="max-h-72 space-y-2 overflow-y-auto pr-1">
+            <div v-for="board in userSubscriptions.content" :key="board.boardId" class="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
+              <div class="truncate text-sm font-medium text-gray-900 dark:text-white">{{ board.boardName }}</div>
+              <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">/{{ board.boardUrl }}</div>
+            </div>
           </div>
           <div v-if="userSubscriptions && userSubscriptions.totalPages > 0" class="mt-2 flex items-center justify-end gap-2">
             <BaseButton variant="secondary" size="sm" :disabled="userSubscriptions.number <= 0" @click="prevSubscriptionsPage">이전</BaseButton>
@@ -215,4 +233,3 @@ function nextSubscriptionsPage() {
     </div>
   </BaseModal>
 </template>
-

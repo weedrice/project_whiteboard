@@ -52,7 +52,6 @@ interface UserSearchParams extends PaginationParams {
     createdTo?: string
     lastLoginFrom?: string
     lastLoginTo?: string
-    minActivityCount?: number
     sort?: string
 }
 
