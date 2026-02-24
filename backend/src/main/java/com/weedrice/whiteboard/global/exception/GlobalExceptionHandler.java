@@ -26,11 +26,18 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.util.EnumSet;
+import java.util.Set;
 
 @Slf4j
 @RestControllerAdvice
 @RequiredArgsConstructor
 public class GlobalExceptionHandler {
+    private static final String AUTH_REFRESH_URI = "/api/v1/auth/refresh";
+    private static final Set<ErrorCode> SUPPRESSED_REFRESH_BUSINESS_CODES = EnumSet.of(
+            ErrorCode.INVALID_REFRESH_TOKEN,
+            ErrorCode.EXPIRED_REFRESH_TOKEN
+    );
 
     private final MessageSource messageSource;
 
@@ -49,8 +56,10 @@ public class GlobalExceptionHandler {
         MDC.remove("errorCode");
         MDC.remove("errorType");
 
-        saveErrorLog(e.getErrorCode().getCode(), "BusinessException",
-                e.getErrorCode().getStatus().value(), message, request, null);
+        if (!shouldSuppressBusinessErrorLog(request, e.getErrorCode())) {
+            saveErrorLog(e.getErrorCode().getCode(), "BusinessException",
+                    e.getErrorCode().getStatus().value(), message, request, null);
+        }
 
         return ResponseEntity
                 .status(e.getErrorCode().getStatus())
@@ -207,5 +216,26 @@ public class GlobalExceptionHandler {
         String trace = sw.toString();
         // 스택 트레이스가 너무 길면 잘라냄 (TEXT 타입이지만 적정 크기 유지)
         return trace.length() > 4000 ? trace.substring(0, 4000) : trace;
+    }
+
+    private boolean shouldSuppressBusinessErrorLog(HttpServletRequest request, ErrorCode errorCode) {
+        if (request == null || errorCode == null) {
+            return false;
+        }
+
+        String requestUri = normalizeRequestUri(request.getRequestURI());
+        return AUTH_REFRESH_URI.equals(requestUri) && SUPPRESSED_REFRESH_BUSINESS_CODES.contains(errorCode);
+    }
+
+    private String normalizeRequestUri(String requestUri) {
+        if (requestUri == null || requestUri.isBlank()) {
+            return "";
+        }
+
+        String normalized = requestUri;
+        while (normalized.length() > 1 && normalized.endsWith("/")) {
+            normalized = normalized.substring(0, normalized.length() - 1);
+        }
+        return normalized;
     }
 }

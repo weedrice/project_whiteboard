@@ -39,6 +39,11 @@ interface ApiErrorResponse {
     details?: ValidationErrors | Record<string, unknown>
 }
 
+interface SuppressibleApiError extends AxiosError {
+    suppressGlobalErrorToast?: boolean
+    isAuthRefreshFailure?: boolean
+}
+
 interface FailedRequest {
     resolve: (token: string | null) => void
     reject: (error: unknown) => void
@@ -282,7 +287,11 @@ api.interceptors.response.use(
                     throw new Error('Refresh failed')
                 }
             } catch (refreshError) {
-                processQueue(refreshError, null)
+                const suppressibleRefreshError = refreshError as SuppressibleApiError
+                suppressibleRefreshError.suppressGlobalErrorToast = true
+                suppressibleRefreshError.isAuthRefreshFailure = true
+
+                processQueue(suppressibleRefreshError, null)
 
                 const axiosRefreshError = refreshError as AxiosError
                 const refreshStatus = axiosRefreshError.response?.status
@@ -304,7 +313,6 @@ api.interceptors.response.use(
 
                         if (!isLoginPage) {
                             if (router.currentRoute.value.meta.requiresAuth) {
-                                toastStore.addToast(t('common.messages.sessionExpired'), 'warning')
                                 void router.push({
                                     path: API_PATHS.LOGIN,
                                     query: { redirect: router.currentRoute.value.fullPath }
@@ -313,7 +321,7 @@ api.interceptors.response.use(
                         }
                     }
                 }
-                return Promise.reject(refreshError)
+                return Promise.reject(suppressibleRefreshError)
             } finally {
                 isRefreshing = false
             }

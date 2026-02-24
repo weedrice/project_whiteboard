@@ -23,6 +23,23 @@ export function useErrorHandler() {
     const toastStore = useToastStore()
     const { t } = useI18n()
 
+    const shouldSuppressToast = (error: unknown): boolean => {
+        const suppressible = error as {
+            suppressGlobalErrorToast?: boolean
+            isAuthRefreshFailure?: boolean
+            response?: { status?: number }
+            config?: { url?: string }
+        }
+
+        if (suppressible?.suppressGlobalErrorToast || suppressible?.isAuthRefreshFailure) {
+            return true
+        }
+
+        const status = suppressible?.response?.status
+        const url = suppressible?.config?.url
+        return status === 401 && typeof url === 'string' && url.includes('/auth/refresh')
+    }
+
     /**
      * 에러를 처리하고 사용자에게 알림을 표시합니다.
      * @param error 에러 객체 (AxiosError 또는 일반 Error)
@@ -32,6 +49,10 @@ export function useErrorHandler() {
     const handleError = (error: unknown, defaultMessage?: string, logError: boolean = true) => {
         if (logError) {
             logger.error('Error occurred:', error)
+        }
+
+        if (shouldSuppressToast(error)) {
+            return
         }
 
         const axiosError = error as AxiosError

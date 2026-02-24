@@ -819,13 +819,16 @@ describe('API Interceptors', () => {
             response: { status: 401 },
         } as any
 
-        await expect(responseRejected(error)).rejects.toBeDefined()
+        const rejected = await responseRejected(error).catch((err: unknown) => err)
+        expect(rejected).toBeDefined()
+        expect(rejected.suppressGlobalErrorToast).toBe(true)
+        expect(rejected.isAuthRefreshFailure).toBe(true)
 
         expect(localStorage.getItem('accessToken')).toBeNull()
         expect(localStorage.getItem('refreshToken')).toBeNull()
         expect(authStore.user).toBeNull()
         expect(authStore.accessToken).toBe('')
-        expect(mocks.mockAddToast).toHaveBeenCalledWith('common.messages.sessionExpired', 'warning')
+        expect(mocks.mockAddToast).not.toHaveBeenCalledWith('common.messages.sessionExpired', 'warning')
         expect(mocks.mockRouterPush).toHaveBeenCalledWith({
             path: '/login',
             query: { redirect: '/boards' },

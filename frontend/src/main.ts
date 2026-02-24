@@ -39,6 +39,7 @@ const queryClient = new QueryClient({
     queryCache: new QueryCache({
         onError: (error: Error, query) => {
             if (query.meta?.errorMessage === false) return
+            if (shouldSuppressGlobalErrorToast(error)) return
 
             const toastStore = useToastStore(pinia)
             const axiosError = error as Error & { response?: { data?: { message?: string } } }
@@ -50,6 +51,7 @@ const queryClient = new QueryClient({
     mutationCache: new MutationCache({
         onError: (error: Error, variables, context, mutation) => {
             if (mutation.meta?.errorMessage === false) return
+            if (shouldSuppressGlobalErrorToast(error)) return
 
             const toastStore = useToastStore(pinia)
             const axiosError = error as Error & { response?: { data?: { message?: string } } }
@@ -94,6 +96,23 @@ const queryClient = new QueryClient({
         }
     }
 })
+
+function shouldSuppressGlobalErrorToast(error: unknown): boolean {
+    const suppressible = error as {
+        suppressGlobalErrorToast?: boolean
+        isAuthRefreshFailure?: boolean
+        response?: { status?: number }
+        config?: { url?: string }
+    }
+
+    if (suppressible?.suppressGlobalErrorToast || suppressible?.isAuthRefreshFailure) {
+        return true
+    }
+
+    const status = suppressible?.response?.status
+    const url = suppressible?.config?.url
+    return status === 401 && typeof url === 'string' && url.includes('/auth/refresh')
+}
 
 app.use(VueQueryPlugin, { queryClient })
 
