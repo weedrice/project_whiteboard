@@ -246,7 +246,7 @@ onUnmounted(() => {
     <!-- 데스크톱/접힌 모바일: 컨테이너 안에서 absolute -->
     <div
       v-if="showDropdown && (!isMobile || !isExpanded)"
-      class="absolute left-0 right-0 z-50 mt-1 w-full min-w-0 sm:min-w-[16rem] bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-700 max-h-96 overflow-y-auto">
+      class="absolute top-full left-0 right-0 z-50 mt-1 w-full min-w-0 sm:min-w-[16rem] bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-700 max-h-96 overflow-y-auto">
       <div v-if="filteredBoards.length > 0">
         <div class="px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700">
           {{ $t('search.boards') }}
