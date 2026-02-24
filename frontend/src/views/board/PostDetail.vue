@@ -34,26 +34,57 @@ const { usePostDetail, useDeletePost, useLikePost, useUnlikePost, useScrapPost, 
 const postId = computed(() => route.params.postId as string)
 const { data: post, isLoading, error: postError } = usePostDetail(postId)
 
+const postDescription = computed(() => {
+  if (!post.value?.contents) return 'Post content'
+  const text = post.value.contents.replace(/<[^>]*>/g, '').trim().slice(0, 160)
+  return text + (text.length >= 160 ? '...' : '')
+})
+
+const canonicalUrl = computed(() => {
+  if (typeof window === 'undefined') return ''
+  return `${window.location.origin}${route.path}`
+})
+
+const articleStructuredData = computed(() => {
+  if (!post.value || !canonicalUrl.value) return ''
+
+  return JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'Article',
+    headline: post.value.title,
+    datePublished: post.value.createdAt,
+    dateModified: post.value.modifiedAt || post.value.createdAt,
+    author: {
+      '@type': 'Person',
+      name: post.value.author.displayName
+    },
+    mainEntityOfPage: canonicalUrl.value,
+    url: canonicalUrl.value
+  })
+})
+
 // SEO
 useHead({
   title: computed(() => post.value?.title || 'Post'),
+  link: [
+    { rel: 'canonical', href: canonicalUrl }
+  ],
   meta: [
     {
-      name: 'description', content: computed(() => {
-        if (!post.value?.contents) return 'Post content'
-        const text = post.value.contents.replace(/<[^>]*>/g, '').slice(0, 160)
-        return text + (text.length >= 160 ? '...' : '')
-      })
+      name: 'description', content: postDescription
     },
     { property: 'og:title', content: computed(() => `${post.value?.title || 'Post'} | 노비스`) },
     {
-      property: 'og:description', content: computed(() => {
-        if (!post.value?.contents) return 'Post content'
-        const text = post.value.contents.replace(/<[^>]*>/g, '').slice(0, 160)
-        return text + (text.length >= 160 ? '...' : '')
-      })
+      property: 'og:description', content: postDescription
     },
-    { property: 'og:type', content: 'article' }
+    { property: 'og:type', content: 'article' },
+    { property: 'og:url', content: canonicalUrl }
+  ],
+  script: [
+    {
+      type: 'application/ld+json',
+      textContent: articleStructuredData
+    }
   ]
 })
 

@@ -199,6 +199,17 @@ class PostServiceTest {
     }
 
     @Test
+    @DisplayName("게시글 조회 실패 - 삭제된 게시글")
+    void getPostById_deletedPost() {
+        ReflectionTestUtils.setField(post, "isDeleted", true);
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+
+        assertThatThrownBy(() -> postService.getPostById(1L, null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
+    }
+
+    @Test
     @DisplayName("게시글 조회 실패 - 비활성 게시판, 권한 없음")
     void getPostById_inactiveBoard_forbidden() {
         ReflectionTestUtils.setField(board, "isActive", false);

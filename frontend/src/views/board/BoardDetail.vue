@@ -53,6 +53,25 @@ const activeFilterCategory = ref<{ categoryId: number; name: string } | null>(nu
 const sort = ref('createdAt,desc')
 const searchInputElementId = 'board-search-input'
 
+const parsePageFromQuery = (value: unknown): number => {
+    const parsed = Number.parseInt(String(value ?? '1'), 10)
+    if (Number.isNaN(parsed) || parsed < 1) return 0
+    return parsed - 1
+}
+
+const buildPaginationRoute = (targetPage: number) => {
+    const nextQuery = { ...route.query }
+    if (targetPage <= 0) {
+        delete nextQuery.page
+    } else {
+        nextQuery.page = String(targetPage + 1)
+    }
+    return {
+        path: route.path,
+        query: nextQuery
+    }
+}
+
 type SortField = 'author' | 'category' | 'viewCount' | 'likeCount' | 'commentCount' | 'createdAt' | 'title'
 
 const resolveSortField = (field: string): SortField => {
@@ -128,6 +147,17 @@ watch(() => route.query, (newQuery) => {
         isSearching.value = true
     }
 }, { immediate: true })
+
+watch(() => route.query.page, (newPage) => {
+    page.value = parsePageFromQuery(newPage)
+}, { immediate: true })
+
+watch(page, (newPage) => {
+    if (newPage === parsePageFromQuery(route.query.page)) {
+        return
+    }
+    router.replace(buildPaginationRoute(newPage))
+})
 
 // Queries
 // boardUrl, board, isBoardLoading, boardError are already defined above
@@ -250,7 +280,8 @@ function handleSubscribe() {
 }
 
 function handlePageChange(newPage: number) {
-    page.value = newPage
+    const maxPage = Math.max(totalPages.value - 1, 0)
+    page.value = Math.min(Math.max(newPage, 0), maxPage)
 }
 
 // Watchers
@@ -488,7 +519,12 @@ onUnmounted(() => {
                 <!-- Pagination -->
                 <div class="px-3 sm:px-4 py-2 sm:py-3 border-t border-gray-200 dark:border-gray-700 flex justify-center"
                     v-if="totalPages >= 1">
-                    <Pagination :currentPage="page" :totalPages="totalPages" @page-change="handlePageChange" />
+                    <Pagination
+                        :currentPage="page"
+                        :totalPages="totalPages"
+                        :linkBuilder="buildPaginationRoute"
+                        @page-change="handlePageChange"
+                    />
                 </div>
             </div>
 

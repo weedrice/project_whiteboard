@@ -86,8 +86,10 @@ const isSpoiler = computed(() => Boolean(props.post?.isSpoiler ?? (props.post as
     </div>
 
     <!-- Content -->
-    <div class="px-4 py-4 sm:px-6 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-      @click="router.push(`/board/${post.boardUrl}/post/${post.postId}`)">
+    <router-link
+      :to="`/board/${post.boardUrl}/post/${post.postId}`"
+      class="block px-4 py-4 sm:px-6 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+    >
       <h2 class="text-base sm:text-lg font-bold text-gray-900 dark:text-white mb-2">{{ post.title }}</h2>
 
       <!-- 스포일러면 최상단 이미지/비디오 + 본문 전체 블러 -->
@@ -124,7 +126,7 @@ const isSpoiler = computed(() => Boolean(props.post?.isSpoiler ?? (props.post as
           <span>{{ post.viewCount }}</span>
         </div>
       </div>
-    </div>
+    </router-link>
 
     <!-- Footer Actions -->
     <div

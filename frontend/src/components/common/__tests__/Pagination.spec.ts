@@ -1,6 +1,15 @@
 import { describe, it, expect } from 'vitest'
-import { mount } from '@vue/test-utils'
+import { mount, RouterLinkStub } from '@vue/test-utils'
 import Pagination from '../ui/Pagination.vue'
+
+const globalMountOptions = {
+    mocks: {
+        $t: (msg: string) => msg
+    },
+    stubs: {
+        RouterLink: RouterLinkStub
+    }
+}
 
 describe('Pagination', () => {
     it('renders correct number of pages', () => {
@@ -9,11 +18,7 @@ describe('Pagination', () => {
                 currentPage: 0,
                 totalPages: 5
             },
-            global: {
-                mocks: {
-                    $t: (msg: string) => msg
-                }
-            }
+            global: globalMountOptions
         })
         // 1, 2, 3, 4, 5 -> 5 buttons + prev + next = 7 buttons
         // But implementation might use span for dots or specific logic.
@@ -29,11 +34,7 @@ describe('Pagination', () => {
                 currentPage: 0,
                 totalPages: 5
             },
-            global: {
-                mocks: {
-                    $t: (msg: string) => msg
-                }
-            }
+            global: globalMountOptions
         })
         const buttons = wrapper.findAll('button')
         // Click page 2 (index 2 in buttons array: prev, 1, 2...)
@@ -47,11 +48,7 @@ describe('Pagination', () => {
                 currentPage: 0,
                 totalPages: 5
             },
-            global: {
-                mocks: {
-                    $t: (msg: string) => msg
-                }
-            }
+            global: globalMountOptions
         })
         const prevButton = wrapper.findAll('button')[0]
         expect(prevButton.attributes('disabled')).toBeDefined()
@@ -63,11 +60,7 @@ describe('Pagination', () => {
                 currentPage: 4,
                 totalPages: 5
             },
-            global: {
-                mocks: {
-                    $t: (msg: string) => msg
-                }
-            }
+            global: globalMountOptions
         })
         const buttons = wrapper.findAll('button')
         const nextButton = buttons[buttons.length - 1]
@@ -80,11 +73,7 @@ describe('Pagination', () => {
                 currentPage: 2,
                 totalPages: 5,
             },
-            global: {
-                mocks: {
-                    $t: (msg: string) => msg,
-                },
-            },
+            global: globalMountOptions,
         })
 
         const buttons = wrapper.findAll('button')
@@ -101,11 +90,7 @@ describe('Pagination', () => {
                 currentPage: 9,
                 totalPages: 20,
             },
-            global: {
-                mocks: {
-                    $t: (msg: string) => msg,
-                },
-            },
+            global: globalMountOptions,
         })
 
         expect(wrapper.text()).toContain('...')
@@ -115,12 +100,22 @@ describe('Pagination', () => {
                 currentPage: 0,
                 totalPages: 0,
             },
-            global: {
-                mocks: {
-                    $t: (msg: string) => msg,
-                },
-            },
+            global: globalMountOptions,
         })
         expect(hiddenWrapper.find('nav').exists()).toBe(false)
+    })
+
+    it('renders crawlable links when linkBuilder is provided', () => {
+        const wrapper = mount(Pagination, {
+            props: {
+                currentPage: 1,
+                totalPages: 5,
+                linkBuilder: (page: number) => ({ path: '/board/free', query: { page: String(page + 1) } })
+            },
+            global: globalMountOptions
+        })
+
+        expect(wrapper.findAllComponents(RouterLinkStub).length).toBeGreaterThan(0)
+        expect(wrapper.findAll('button').length).toBe(0)
     })
 })

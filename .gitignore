@@ -29,6 +29,7 @@ frontend/.vite/
 frontend/coverage/
 frontend/.eslintcache
 frontend/*.tsbuildinfo
+frontend/public/sitemap.xml
 frontend/__screenshots__/
 frontend/cypress/videos/
 frontend/cypress/screenshots/

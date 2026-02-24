@@ -23,8 +23,11 @@ jobs:
         working-directory: frontend
 
       - name: Build frontend
-        run: npm run build
+        run: npm run build:seo
         working-directory: frontend
+        env:
+          SITEMAP_SITE_URL: https://noviis.kr
+          SITEMAP_API_BASE_URL: https://noviis.kr/api/v1
 
       # 🔥 핵심: 기존 프론트 파일 완전 삭제
       - name: Clean frontend directory on EC2

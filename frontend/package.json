@@ -9,8 +9,10 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:seo": "npm run sitemap:generate && vite build",
     "build:analyze": "vite build --mode production",
     "preview": "vite preview",
+    "sitemap:generate": "node ./scripts/generate-sitemap.mjs",
     "type-check": "vue-tsc --noEmit",
     "test": "vitest",
     "test:run": "vitest run",

@@ -360,6 +360,10 @@ public class PostService {
         Post post = postRepository.findByIdWithRelations(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
 
+        if (post.getIsDeleted()) {
+            throw new BusinessException(ErrorCode.POST_NOT_FOUND);
+        }
+
         if (userId != null) {
             List<Long> blockedUserIds = userBlockService.getBlockedUserIds(userId);
             if (blockedUserIds.contains(post.getUser().getUserId())) {

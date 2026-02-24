@@ -17,17 +17,6 @@ import { useGlobalShortcuts } from '@/composables/useGlobalShortcuts'
 import { UserSettings } from '@/types/user'
 import { useHead } from '@unhead/vue'
 
-// Global SEO Configuration
-useHead({
-    titleTemplate: '%s | 노비스',
-    title: '홈',
-    meta: [
-        { name: 'description', content: '노비스 - 다양한 주제의 게시판에서 인기 게시글을 발견하고, 의견을 나누는 커뮤니티. 지금 가입하고 관심 게시판을 구독하세요.' },
-        { property: 'og:site_name', content: '노비스' },
-        { property: 'og:type', content: 'website' }
-    ]
-})
-
 // Import layouts
 import DefaultLayout from '@/components/layout/DefaultLayout.vue'
 // Async import for AdminLayout to avoid circular dependencies or load only when needed
@@ -37,6 +26,63 @@ const route = useRoute()
 const authStore = useAuthStore()
 const { locale, t } = useI18n()
 const toastStore = useToastStore()
+
+const noIndexRouteNames = new Set([
+    'login',
+    'signup',
+    'find-account',
+    'forgot-password',
+    'reset-password',
+    'oauth-callback',
+    'mypage',
+    'user-settings',
+    'point-history',
+    'MyScraps',
+    'MyMessages',
+    'MyNotifications',
+    'MyReports',
+    'BlockList',
+    'RecentViewed',
+    'SubscribedBoards',
+    'board-create',
+    'board-edit',
+    'post-write',
+    'post-edit',
+    'AdminDashboard',
+    'UserManagement',
+    'BoardManagement',
+    'AdminManagement',
+    'ReportManagement',
+    'SecuritySettings',
+    'GlobalSettings',
+    'ErrorLogManagement',
+    'error',
+])
+
+const shouldNoIndex = computed(() => {
+    if (route.meta.requiresAuth || route.meta.guestOnly || route.meta.roles) {
+        return true
+    }
+
+    if (route.name && noIndexRouteNames.has(String(route.name))) {
+        return true
+    }
+
+    return false
+})
+
+// Global SEO Configuration
+useHead({
+    titleTemplate: '%s | 노비스',
+    title: '홈',
+    meta: [
+        { name: 'description', content: '노비스 - 다양한 주제의 게시판에서 인기 게시글을 발견하고, 의견을 나누는 커뮤니티. 지금 가입하고 관심 게시판을 구독하세요.' },
+        { property: 'og:site_name', content: '노비스' },
+        { property: 'og:type', content: 'website' },
+        { name: 'robots', content: computed(() => (shouldNoIndex.value ? 'noindex, nofollow' : 'index, follow')) },
+        { name: 'googlebot', content: computed(() => (shouldNoIndex.value ? 'noindex, nofollow' : 'index, follow')) }
+    ]
+})
 
 const layout = computed(() => {
     return route.meta.layout === 'AdminLayout' ? AdminLayout : DefaultLayout
