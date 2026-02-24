@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.board.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.weedrice.whiteboard.domain.board.dto.BoardCreateRequest;
+import com.weedrice.whiteboard.domain.board.dto.BoardManagerTransferRequest;
 import com.weedrice.whiteboard.domain.board.dto.BoardResponse;
 import com.weedrice.whiteboard.domain.board.dto.BoardUpdateRequest;
 import com.weedrice.whiteboard.domain.board.entity.Board;
@@ -26,6 +27,7 @@ import java.util.Collections;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
@@ -198,6 +200,28 @@ class BoardControllerTest {
 
         // when & then
         mockMvc.perform(put("/api/v1/boards/{boardUrl}", boardUrl)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request))
+                        .with(user(customUserDetails))
+                        .with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+    }
+
+    @Test
+    @DisplayName("게시판 관리자 이양 성공")
+    void transferBoardManager_returnsSuccess() throws Exception {
+        // given
+        String boardUrl = "free";
+        BoardManagerTransferRequest request = new BoardManagerTransferRequest();
+        ReflectionTestUtils.setField(request, "loginId", "nextmanager");
+        BoardResponse boardResponse = new BoardResponse(board, 0L, "Next Manager", 2L, true, false, List.of(), List.of());
+
+        doNothing().when(boardService).transferBoardManager(eq(boardUrl), eq("nextmanager"), any());
+        when(boardService.getBoardDetails(eq(boardUrl), any())).thenReturn(boardResponse);
+
+        // when & then
+        mockMvc.perform(put("/api/v1/boards/{boardUrl}/manager", boardUrl)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request))
                         .with(user(customUserDetails))

@@ -56,6 +56,7 @@ vi.mock('@/api/board', () => ({
         getCategories: vi.fn(),
         createBoard: vi.fn(),
         updateBoard: vi.fn(),
+        updateBoardManager: vi.fn(),
         deleteBoard: vi.fn(),
     },
 }))
@@ -261,6 +262,22 @@ describe('useBoard', () => {
 
         expect(boardApi.updateBoard).toHaveBeenCalledWith('free', { boardName: 'updated' })
         expect(result).toEqual({ boardId: 4, boardUrl: 'free', boardName: 'updated' })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['board', 'free'] })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['boards'] })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['boards', 'subscriptions'] })
+    })
+
+    it('transfers board manager and invalidates detail plus lists', async () => {
+        vi.mocked(boardApi.updateBoardManager).mockResolvedValueOnce({
+            data: { data: { boardId: 4, boardUrl: 'free', adminDisplayName: 'manager' } },
+        } as never)
+
+        const { useTransferBoardManager } = useBoard()
+        const mutation = useTransferBoardManager()
+        const result = await mutation.mutateAsync({ boardUrl: 'free', loginId: 'manager' })
+
+        expect(boardApi.updateBoardManager).toHaveBeenCalledWith('free', { loginId: 'manager' })
+        expect(result).toEqual({ boardId: 4, boardUrl: 'free', adminDisplayName: 'manager' })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['board', 'free'] })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['boards'] })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['boards', 'subscriptions'] })

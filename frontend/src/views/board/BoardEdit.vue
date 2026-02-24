@@ -5,13 +5,14 @@ import { boardApi } from '@/api/board'
 import CategoryManager from '@/components/board/CategoryManager.vue'
 import BoardForm from '@/components/board/BoardForm.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
+import UserSelectModal from '@/components/common/widgets/UserSelectModal.vue'
 import { useI18n } from 'vue-i18n'
 import { useToastStore } from '@/stores/toast'
 import { useConfirm } from '@/composables/useConfirm'
 import { useFormSubmit } from '@/composables/useFormSubmit'
 import { useErrorHandler } from '@/composables/useErrorHandler'
 import { useBoard } from '@/composables/useBoard'
-import type { BoardUpdateData } from '@/types'
+import type { BoardUpdateData, User } from '@/types'
 
 interface BoardData {
   boardName: string
@@ -41,11 +42,15 @@ const form = ref({
 
 const isLoading = ref(true)
 const { isSubmitting, submit } = useFormSubmit()
-const { handleSilentError, handleError } = useErrorHandler()
-const { useUpdateBoard, useDeleteBoard } = useBoard()
+const { handleError } = useErrorHandler()
+const { useUpdateBoard, useDeleteBoard, useTransferBoardManager } = useBoard()
 const { mutateAsync: updateBoard } = useUpdateBoard()
 const { mutateAsync: deleteBoard } = useDeleteBoard()
+const { mutateAsync: transferBoardManager } = useTransferBoardManager()
 const error = ref('')
+const isManagerModalOpen = ref(false)
+const isTransferringManager = ref(false)
+const currentManagerLabel = ref('')
 
 async function fetchBoard() {
   isLoading.value = true
@@ -61,6 +66,7 @@ async function fetchBoard() {
         sortOrder: board.sortOrder || 0,
         allowNsfw: board.allowNsfw || false
       }
+      currentManagerLabel.value = board.adminDisplayName || t('common.noData')
     }
   } catch (err: unknown) {
     handleError(err, t('board.loadFailed'))
@@ -99,6 +105,35 @@ async function handleDelete() {
   }
 }
 
+function openManagerModal() {
+  isManagerModalOpen.value = true
+}
+
+function closeManagerModal() {
+  isManagerModalOpen.value = false
+}
+
+async function confirmManagerSelection(users: User[]) {
+  if (users.length === 0) return
+
+  const selectedUser = users[0]
+
+  isTransferringManager.value = true
+  try {
+    const updatedBoard = await transferBoardManager({
+      boardUrl,
+      loginId: selectedUser.loginId
+    })
+    currentManagerLabel.value = updatedBoard.adminDisplayName || `${selectedUser.displayName} (${selectedUser.loginId})`
+    closeManagerModal()
+    toastStore.addToast(t('common.messages.saveSuccess'), 'success')
+  } catch (err: unknown) {
+    handleError(err, t('common.messages.saveFailed'))
+  } finally {
+    isTransferringManager.value = false
+  }
+}
+
 onMounted(fetchBoard)
 </script>
 
@@ -127,6 +162,20 @@ onMounted(fetchBoard)
 
         <hr class="border-gray-200 dark:border-gray-700" />
 
+        <div class="rounded-lg border border-gray-200 p-4 dark:border-gray-700">
+          <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h4 class="text-sm font-semibold text-gray-900 dark:text-white">{{ $t('common.admin') }}</h4>
+              <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">{{ currentManagerLabel }}</p>
+            </div>
+            <BaseButton type="button" @click="openManagerModal" :disabled="isTransferringManager">
+              {{ isTransferringManager ? $t('common.messages.saving') : $t('common.manage') }}
+            </BaseButton>
+          </div>
+        </div>
+
+        <hr class="border-gray-200 dark:border-gray-700" />
+
         <!-- Category Manager -->
         <div class="py-6">
           <CategoryManager :boardUrl="boardUrl" />
@@ -142,5 +191,12 @@ onMounted(fetchBoard)
         </div>
       </div>
     </div>
+
+    <UserSelectModal
+      :isOpen="isManagerModalOpen"
+      selectionMode="single"
+      @close="closeManagerModal"
+      @confirm="confirmManagerSelection"
+    />
   </div>
 </template>

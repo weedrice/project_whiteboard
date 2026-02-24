@@ -291,6 +291,42 @@ public class BoardService {
         }
 
         @Transactional
+        public void transferBoardManager(String boardUrl, String loginId, UserDetails userDetails) {
+                Board board = boardRepository.findByBoardUrl(boardUrl)
+                                .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
+
+                SecurityUtils.validateBoardAdminPermission(board);
+
+                User nextManager = userRepository.findByLoginId(loginId)
+                                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+                Admin currentManager = adminRepository
+                                .findFirstByBoardAndRoleAndIsActiveOrderByAdminIdDesc(board, Role.BOARD_ADMIN, true)
+                                .orElse(null);
+
+                if (currentManager != null && currentManager.getUser().getUserId().equals(nextManager.getUserId())) {
+                        return;
+                }
+
+                List<Admin> activeManagers = adminRepository.findByBoardAndRoleAndIsActive(board, Role.BOARD_ADMIN, true);
+                activeManagers.forEach(Admin::deactivate);
+
+                Admin reusableManager = adminRepository.findByUserAndBoardAndRole(nextManager, board, Role.BOARD_ADMIN)
+                                .orElse(null);
+                if (reusableManager != null) {
+                        reusableManager.activate();
+                        return;
+                }
+
+                Admin boardManager = Admin.builder()
+                                .user(nextManager)
+                                .board(board)
+                                .role(Role.BOARD_ADMIN)
+                                .build();
+                adminRepository.save(boardManager);
+        }
+
+        @Transactional
         public void deleteBoard(String boardUrl, UserDetails userDetails) {
                 Board board = boardRepository.findByBoardUrl(boardUrl)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));

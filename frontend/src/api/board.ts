@@ -22,6 +22,10 @@ interface CategoryUpdateData {
     minWriteRole?: string
 }
 
+interface BoardManagerTransferData {
+    loginId: string
+}
+
 export const boardApi = {
     // Get all boards
     getBoards: () => api.get<ApiResponse<Board[]>>('/boards'),
@@ -40,6 +44,10 @@ export const boardApi = {
 
     // Update board
     updateBoard: (boardUrl: string, data: BoardUpdateData) => api.put<ApiResponse<Board>>(`/boards/${boardUrl}`, data),
+
+    // Transfer board manager
+    updateBoardManager: (boardUrl: string, data: BoardManagerTransferData) =>
+        api.put<ApiResponse<Board>>(`/boards/${boardUrl}/manager`, data),
 
     // Delete board
     deleteBoard: (boardUrl: string) => api.delete<ApiResponse<void>>(`/boards/${boardUrl}`),

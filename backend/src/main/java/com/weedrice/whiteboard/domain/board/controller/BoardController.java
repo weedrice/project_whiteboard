@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.board.controller;
 
 import com.weedrice.whiteboard.domain.board.dto.BoardCreateRequest;
+import com.weedrice.whiteboard.domain.board.dto.BoardManagerTransferRequest;
 import com.weedrice.whiteboard.domain.board.dto.BoardResponse;
 import com.weedrice.whiteboard.domain.board.dto.BoardUpdateRequest;
 import com.weedrice.whiteboard.domain.board.dto.CategoryRequest;
@@ -75,6 +76,14 @@ public class BoardController {
             @Valid @RequestBody BoardUpdateRequest request, @AuthenticationPrincipal UserDetails userDetails) {
         Board updatedBoard = boardService.updateBoard(boardUrl, request, userDetails);
         return ApiResponse.success(boardService.getBoardDetails(updatedBoard.getBoardUrl(), userDetails));
+    }
+
+    @PutMapping("/{boardUrl}/manager")
+    public ApiResponse<BoardResponse> transferBoardManager(@PathVariable String boardUrl,
+            @Valid @RequestBody BoardManagerTransferRequest request,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        boardService.transferBoardManager(boardUrl, request.getLoginId(), userDetails);
+        return ApiResponse.success(boardService.getBoardDetails(boardUrl, userDetails));
     }
 
     @DeleteMapping("/{boardUrl}")

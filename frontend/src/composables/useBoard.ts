@@ -152,6 +152,20 @@ export function useBoard() {
         })
     }
 
+    const useTransferBoardManager = () => {
+        return useMutation({
+            mutationFn: async ({ boardUrl, loginId }: { boardUrl: string, loginId: string }) => {
+                const { data: response } = await boardApi.updateBoardManager(boardUrl, { loginId })
+                return response.data
+            },
+            onSuccess: (_, { boardUrl }) => {
+                queryClient.invalidateQueries({ queryKey: ['board', boardUrl] })
+                queryClient.invalidateQueries({ queryKey: ['boards'] })
+                queryClient.invalidateQueries({ queryKey: ['boards', 'subscriptions'] })
+            }
+        })
+    }
+
     // Delete board mutation
     const useDeleteBoard = () => {
         return useMutation({
@@ -177,6 +191,7 @@ export function useBoard() {
         useBoardCategories,
         useCreateBoard,
         useUpdateBoard,
+        useTransferBoardManager,
         useDeleteBoard
     }
 }
