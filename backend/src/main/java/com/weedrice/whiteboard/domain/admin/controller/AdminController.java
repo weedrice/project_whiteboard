@@ -114,6 +114,17 @@ public class AdminController {
         return ApiResponse.success(null);
     }
 
+    @GetMapping("/boards/{boardId}/manager")
+    public ApiResponse<AdminResponse> getBoardManager(@PathVariable Long boardId) {
+        return ApiResponse.success(adminService.getBoardManager(boardId));
+    }
+
+    @PutMapping("/boards/{boardId}/manager")
+    public ApiResponse<AdminResponse> replaceBoardManager(@PathVariable Long boardId,
+            @Valid @RequestBody BoardManagerUpdateRequest request) {
+        return ApiResponse.success(adminService.replaceBoardManager(boardId, request.getLoginId()));
+    }
+
     /**
      * IP 차단
      * 

@@ -14,9 +14,7 @@ import jakarta.persistence.*;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Entity
-@Table(name = "admins", uniqueConstraints = {
-        @UniqueConstraint(name = "uk_admin_user_board", columnNames = {"user_id", "board_id"})
-})
+@Table(name = "admins")
 public class Admin extends BaseTimeEntity {
 
     @Id

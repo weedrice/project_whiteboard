@@ -94,13 +94,13 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("활성화된 게시판 목록 조회 성공")
+    @DisplayName("?쒖꽦?붾맂 寃뚯떆??紐⑸줉 議고쉶 ?깃났")
     void getActiveBoards_success() {
         // given
         when(boardRepository.findByIsActiveOrderBySortOrderAsc(true)).thenReturn(Collections.singletonList(board));
         when(boardRepository.findByBoardUrl(board.getBoardUrl())).thenReturn(Optional.of(board));
         when(boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(board.getBoardId(), true)).thenReturn(Collections.emptyList());
-        when(adminRepository.findByBoardAndRole(any(), any())).thenReturn(Optional.empty());
+        when(adminRepository.findFirstByBoardAndRoleAndIsActiveOrderByAdminIdDesc(any(), any(), any())).thenReturn(Optional.empty());
         when(postService.getLatestPostsByBoard(anyLong(), anyInt(), any())).thenReturn(Collections.emptyList());
 
         // when
@@ -112,7 +112,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("게시판 구독 성공")
+    @DisplayName("寃뚯떆??援щ룆 ?깃났")
     void subscribeBoard_success() {
         // given
         Long userId = 1L;
@@ -130,7 +130,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("게시판 구독 실패 - 이미 구독한 경우")
+    @DisplayName("寃뚯떆??援щ룆 ?ㅽ뙣 - ?대? 援щ룆??寃쎌슦")
     void subscribeBoard_fail_alreadySubscribed() {
         // given
         Long userId = 1L;
@@ -147,7 +147,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("게시판 생성 성공")
+    @DisplayName("寃뚯떆???앹꽦 ?깃났")
     void createBoard_success() {
         // given
         Long creatorId = 1L;
@@ -179,13 +179,13 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("인기 게시판 목록 조회 성공")
+    @DisplayName("?멸린 寃뚯떆??紐⑸줉 議고쉶 ?깃났")
     void getTopBoards_success() {
         // given
         when(boardRepository.findTopBoardsByPostCount(any())).thenReturn(Collections.singletonList(board));
         when(boardRepository.findByBoardUrl(board.getBoardUrl())).thenReturn(Optional.of(board));
         when(boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(board.getBoardId(), true)).thenReturn(Collections.emptyList());
-        when(adminRepository.findByBoardAndRole(any(), any())).thenReturn(Optional.empty());
+        when(adminRepository.findFirstByBoardAndRoleAndIsActiveOrderByAdminIdDesc(any(), any(), any())).thenReturn(Optional.empty());
         when(postService.getLatestPostsByBoard(anyLong(), anyInt(), any())).thenReturn(Collections.emptyList());
 
         // when
@@ -197,14 +197,14 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("게시판 상세 조회 성공")
+    @DisplayName("寃뚯떆???곸꽭 議고쉶 ?깃났")
     void getBoardDetails_success() {
         // given
         String boardUrl = "test-board";
         when(boardRepository.findByBoardUrl(boardUrl)).thenReturn(Optional.of(board));
         when(boardSubscriptionRepository.countByBoard(board)).thenReturn(5L);
         when(boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(board.getBoardId(), true)).thenReturn(Collections.emptyList());
-        when(adminRepository.findByBoardAndRole(any(), any())).thenReturn(Optional.empty());
+        when(adminRepository.findFirstByBoardAndRoleAndIsActiveOrderByAdminIdDesc(any(), any(), any())).thenReturn(Optional.empty());
         when(postService.getLatestPostsByBoard(anyLong(), anyInt(), any())).thenReturn(Collections.emptyList());
 
         // when
@@ -216,7 +216,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("게시판 구독 해제 성공")
+    @DisplayName("寃뚯떆??援щ룆 ?댁젣 ?깃났")
     void unsubscribeBoard_success() {
         // given
         Long userId = 1L;

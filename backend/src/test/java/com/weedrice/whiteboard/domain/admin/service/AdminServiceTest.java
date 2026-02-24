@@ -2,15 +2,17 @@ package com.weedrice.whiteboard.domain.admin.service;
 
 import com.weedrice.whiteboard.domain.admin.dto.AdminResponse;
 import com.weedrice.whiteboard.domain.admin.dto.IpBlockResponse;
-import com.weedrice.whiteboard.domain.admin.dto.SuperAdminUpdateResponse;
 import com.weedrice.whiteboard.domain.admin.dto.SuperAdminResponse;
+import com.weedrice.whiteboard.domain.admin.dto.SuperAdminUpdateResponse;
 import com.weedrice.whiteboard.domain.admin.entity.Admin;
 import com.weedrice.whiteboard.domain.admin.entity.IpBlock;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.admin.repository.IpBlockRepository;
+import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.report.repository.ReportRepository;
+import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -20,6 +22,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
 import java.util.Optional;
@@ -27,6 +30,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -50,31 +54,92 @@ class AdminServiceTest {
     private AdminService adminService;
 
     private User user;
+    private User anotherUser;
+    private Board board;
     private Admin admin;
 
     @BeforeEach
     void setUp() {
-        user = User.builder().build();
-        admin = Admin.builder().user(user).role("ADMIN").build();
+        user = User.builder().loginId("testUser").build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+
+        anotherUser = User.builder().loginId("anotherUser").build();
+        ReflectionTestUtils.setField(anotherUser, "userId", 2L);
+
+        board = Board.builder()
+                .boardName("test")
+                .boardUrl("test")
+                .creator(user)
+                .build();
+        ReflectionTestUtils.setField(board, "boardId", 10L);
+
+        admin = Admin.builder().user(user).board(board).role(Role.BOARD_ADMIN).build();
     }
 
     @Test
-    @DisplayName("관리자 생성 성공")
-    void createAdmin_success() {
+    @DisplayName("게시판 관리자 교체 시 기존 활성 관리자를 비활성화하고 신규 등록한다")
+    void createAdmin_replaceBoardManager() {
         // given
-        String loginId = "testUser";
-        String role = "ADMIN";
-        when(userRepository.findByLoginId(loginId)).thenReturn(Optional.of(user));
-        when(adminRepository.existsByUserAndBoardAndIsActive(user, null, true)).thenReturn(false);
+        when(userRepository.findByLoginId("testUser")).thenReturn(Optional.of(user));
+        when(boardRepository.findById(10L)).thenReturn(Optional.of(board));
+
+        Admin currentManager = Admin.builder().user(anotherUser).board(board).role(Role.BOARD_ADMIN).build();
+        when(adminRepository.findFirstByBoardAndRoleAndIsActiveOrderByAdminIdDesc(board, Role.BOARD_ADMIN, true))
+                .thenReturn(Optional.of(currentManager));
+        when(adminRepository.findByBoardAndRoleAndIsActive(board, Role.BOARD_ADMIN, true))
+                .thenReturn(List.of(currentManager));
+        when(adminRepository.findByUserAndBoardAndRole(user, board, Role.BOARD_ADMIN))
+                .thenReturn(Optional.empty());
         when(adminRepository.save(any(Admin.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         // when
-        // when
-        AdminResponse createdAdmin = adminService.createAdmin(loginId, null, role);
+        AdminResponse response = adminService.createAdmin("testUser", 10L, Role.BOARD_ADMIN);
 
         // then
-        assertThat(createdAdmin.getRole()).isEqualTo(role);
-        assertThat(createdAdmin.getUser().getLoginId()).isEqualTo(user.getLoginId());
+        assertThat(response.getRole()).isEqualTo(Role.BOARD_ADMIN);
+        assertThat(currentManager.getIsActive()).isFalse();
+        verify(adminRepository).save(any(Admin.class));
+    }
+
+    @Test
+    @DisplayName("이전에 같은 게시판 관리자였던 사용자를 다시 지정하면 기존 행을 재활성화한다")
+    void createAdmin_reuseInactiveRow() {
+        // given
+        when(userRepository.findByLoginId("testUser")).thenReturn(Optional.of(user));
+        when(boardRepository.findById(10L)).thenReturn(Optional.of(board));
+        when(adminRepository.findFirstByBoardAndRoleAndIsActiveOrderByAdminIdDesc(board, Role.BOARD_ADMIN, true))
+                .thenReturn(Optional.empty());
+        when(adminRepository.findByBoardAndRoleAndIsActive(board, Role.BOARD_ADMIN, true))
+                .thenReturn(List.of());
+
+        Admin inactiveManager = Admin.builder().user(user).board(board).role(Role.BOARD_ADMIN).build();
+        inactiveManager.deactivate();
+        when(adminRepository.findByUserAndBoardAndRole(user, board, Role.BOARD_ADMIN))
+                .thenReturn(Optional.of(inactiveManager));
+
+        // when
+        AdminResponse response = adminService.createAdmin("testUser", 10L, Role.BOARD_ADMIN);
+
+        // then
+        assertThat(response.getRole()).isEqualTo(Role.BOARD_ADMIN);
+        assertThat(inactiveManager.getIsActive()).isTrue();
+        verify(adminRepository, never()).save(any(Admin.class));
+    }
+
+    @Test
+    @DisplayName("게시판 관리자 조회 성공")
+    void getBoardManager_success() {
+        // given
+        when(boardRepository.findById(10L)).thenReturn(Optional.of(board));
+        when(adminRepository.findFirstByBoardAndRoleAndIsActiveOrderByAdminIdDesc(board, Role.BOARD_ADMIN, true))
+                .thenReturn(Optional.of(admin));
+
+        // when
+        AdminResponse response = adminService.getBoardManager(10L);
+
+        // then
+        assertThat(response).isNotNull();
+        assertThat(response.getRole()).isEqualTo(Role.BOARD_ADMIN);
     }
 
     @Test
@@ -88,7 +153,6 @@ class AdminServiceTest {
         when(ipBlockRepository.findByIpAddress(ipAddress)).thenReturn(Optional.empty());
         when(ipBlockRepository.save(any(IpBlock.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        // when
         // when
         IpBlockResponse ipBlock = adminService.blockIp(adminUserId, ipAddress, "Test", null);
 
@@ -107,11 +171,10 @@ class AdminServiceTest {
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         // when
-        // when
         SuperAdminUpdateResponse superAdmin = adminService.createSuperAdmin(loginId);
 
         // then
-        assertThat(superAdmin.isSuperAdmin()).isEqualTo(true);
+        assertThat(superAdmin.isSuperAdmin()).isTrue();
     }
 
     @Test
@@ -125,11 +188,10 @@ class AdminServiceTest {
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         // when
-        // when
         SuperAdminUpdateResponse normalUser = adminService.deactiveSuperAdmin(loginId);
 
         // then
-        assertThat(normalUser.isSuperAdmin()).isEqualTo(false);
+        assertThat(normalUser.isSuperAdmin()).isFalse();
     }
 
     @Test
@@ -184,7 +246,7 @@ class AdminServiceTest {
     void activateAdmin_success() {
         // given
         Long adminId = 1L;
-        admin.deactivate(); // 먼저 비활성화
+        admin.deactivate();
         when(adminRepository.findById(adminId)).thenReturn(Optional.of(admin));
 
         // when
@@ -199,7 +261,7 @@ class AdminServiceTest {
     void unblockIp_success() {
         // given
         String ipAddress = "127.0.0.1";
-        com.weedrice.whiteboard.domain.admin.entity.IpBlock ipBlock = com.weedrice.whiteboard.domain.admin.entity.IpBlock.builder()
+        IpBlock ipBlock = IpBlock.builder()
                 .ipAddress(ipAddress)
                 .reason("Test")
                 .build();
@@ -216,7 +278,7 @@ class AdminServiceTest {
     @DisplayName("차단된 IP 목록 조회 성공")
     void getBlockedIps_success() {
         // given
-        com.weedrice.whiteboard.domain.admin.entity.IpBlock ipBlock = com.weedrice.whiteboard.domain.admin.entity.IpBlock.builder()
+        IpBlock ipBlock = IpBlock.builder()
                 .ipAddress("127.0.0.1")
                 .reason("Test")
                 .admin(admin)
@@ -236,7 +298,7 @@ class AdminServiceTest {
     void isIpBlocked_success() {
         // given
         String ipAddress = "127.0.0.1";
-        com.weedrice.whiteboard.domain.admin.entity.IpBlock ipBlock = com.weedrice.whiteboard.domain.admin.entity.IpBlock.builder()
+        IpBlock ipBlock = IpBlock.builder()
                 .ipAddress(ipAddress)
                 .reason("Test")
                 .build();

@@ -73,8 +73,8 @@ public class BoardController {
     @PutMapping("/{boardUrl}")
     public ApiResponse<BoardResponse> updateBoard(@PathVariable String boardUrl,
             @Valid @RequestBody BoardUpdateRequest request, @AuthenticationPrincipal UserDetails userDetails) {
-        boardService.updateBoard(boardUrl, request, userDetails);
-        return ApiResponse.success(boardService.getBoardDetails(boardUrl, userDetails));
+        Board updatedBoard = boardService.updateBoard(boardUrl, request, userDetails);
+        return ApiResponse.success(boardService.getBoardDetails(updatedBoard.getBoardUrl(), userDetails));
     }
 
     @DeleteMapping("/{boardUrl}")

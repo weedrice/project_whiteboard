@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.board.dto;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -14,6 +15,10 @@ public class BoardUpdateRequest {
 
     @Size(max = 255)
     private String description;
+
+    @Size(max = 100)
+    @Pattern(regexp = "^[a-z0-9_]+$", message = "{validation.board.url.pattern}")
+    private String boardUrl;
 
     private String iconUrl;
     private Boolean allowNsfw;

@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
 import { adminApi } from '@/api/admin'
-import { type Ref } from 'vue'
+import { computed, type Ref } from 'vue'
 import type { SanctionData, PageResponse, User, Report, ErrorLogItem, ErrorLogSearchParams, ErrorLogStats } from '@/types'
 
 // Admin specific types
@@ -47,11 +47,16 @@ interface BoardCreateData {
 
 interface BoardUpdateData {
     boardName?: string
+    boardUrl?: string
     description?: string
     iconUrl?: string
     sortOrder?: number
     allowNsfw?: boolean
     isActive?: boolean
+}
+
+interface BoardManagerData {
+    loginId: string
 }
 
 export function useAdmin() {
@@ -244,10 +249,13 @@ export function useAdmin() {
     const useUpdateBoard = () => {
         return useMutation({
             mutationFn: ({ boardUrl, data }: { boardUrl: string, data: BoardUpdateData }) => adminApi.updateBoard(boardUrl, data),
-            onSuccess: (_, { boardUrl }) => {
+            onSuccess: (_, { boardUrl, data }) => {
                 // Invalidate both admin boards and general boards list to refresh header dropdowns
                 queryClient.invalidateQueries({ queryKey: ['admin', 'boards'] })
                 queryClient.invalidateQueries({ queryKey: ['board', boardUrl] })
+                if (data.boardUrl && data.boardUrl !== boardUrl) {
+                    queryClient.invalidateQueries({ queryKey: ['board', data.boardUrl] })
+                }
                 queryClient.invalidateQueries({ queryKey: ['boards'] })
                 queryClient.invalidateQueries({ queryKey: ['boards', 'subscriptions'] })
             }
@@ -262,6 +270,31 @@ export function useAdmin() {
                 queryClient.invalidateQueries({ queryKey: ['admin', 'boards'] })
                 queryClient.invalidateQueries({ queryKey: ['boards'] })
                 queryClient.invalidateQueries({ queryKey: ['boards', 'subscriptions'] })
+            }
+        })
+    }
+
+    const useBoardManager = (boardId: Ref<number | null>) => {
+        return useQuery({
+            queryKey: ['admin', 'board-manager', boardId],
+            queryFn: async () => {
+                if (!boardId.value) return null
+                const { data } = await adminApi.getBoardManager(boardId.value)
+                return data?.data ?? null
+            },
+            enabled: computed(() => boardId.value !== null)
+        })
+    }
+
+    const useUpdateBoardManager = () => {
+        return useMutation({
+            mutationFn: ({ boardId, data }: { boardId: number, data: BoardManagerData }) =>
+                adminApi.updateBoardManager(boardId, data),
+            onSuccess: (_, { boardId }) => {
+                queryClient.invalidateQueries({ queryKey: ['admin', 'board-manager', boardId] })
+                queryClient.invalidateQueries({ queryKey: ['admin', 'boards'] })
+                queryClient.invalidateQueries({ queryKey: ['admin', 'admins'] })
+                queryClient.invalidateQueries({ queryKey: ['boards'] })
             }
         })
     }
@@ -318,6 +351,8 @@ export function useAdmin() {
         useCreateBoard,
         useUpdateBoard,
         useDeleteBoard,
+        useBoardManager,
+        useUpdateBoardManager,
         useErrorLogs,
         useResolveErrorLog,
         useErrorLogStats

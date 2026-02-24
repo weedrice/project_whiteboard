@@ -99,7 +99,8 @@ public class BoardService {
 
         private BoardResponse createBoardResponse(Board board, UserDetails userDetails) {
                 long subscriberCount = boardSubscriptionRepository.countByBoard(board);
-                User adminUser = adminRepository.findByBoardAndRole(board, Role.BOARD_ADMIN)
+                User adminUser = adminRepository.findFirstByBoardAndRoleAndIsActiveOrderByAdminIdDesc(board,
+                                Role.BOARD_ADMIN, true)
                                 .map(Admin::getUser)
                                 .orElse(board.getCreator());
 
@@ -273,9 +274,19 @@ public class BoardService {
                         throw new BusinessException(ErrorCode.DUPLICATE_BOARD_NAME);
                 }
 
+                if (request.getBoardUrl() != null && !board.getBoardUrl().equals(request.getBoardUrl())
+                                && boardRepository.existsByBoardUrl(request.getBoardUrl())) {
+                        throw new BusinessException(ErrorCode.DUPLICATE_BOARD_URL);
+                }
+
+                if (request.getBoardUrl() != null && !board.getBoardUrl().equals(request.getBoardUrl())) {
+                        board.updateBoardUrl(request.getBoardUrl());
+                }
+
                 board.update(request.getBoardName(), request.getDescription(), request.getIconUrl(),
                                 request.getSortOrder(),
-                                board.getAllowNsfw(), request.getIsActive());
+                                request.getAllowNsfw() != null ? request.getAllowNsfw() : board.getAllowNsfw(),
+                                request.getIsActive());
                 return board;
         }
 

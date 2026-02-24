@@ -193,6 +193,7 @@ class BoardControllerTest {
         org.springframework.test.util.ReflectionTestUtils.setField(request, "boardName", "Updated Board");
         BoardResponse boardResponse = new BoardResponse(board, 0L, "Admin", 1L, false, false, List.of(), List.of());
         
+        when(boardService.updateBoard(eq(boardUrl), any(BoardUpdateRequest.class), any())).thenReturn(board);
         when(boardService.getBoardDetails(eq(boardUrl), any())).thenReturn(boardResponse);
 
         // when & then

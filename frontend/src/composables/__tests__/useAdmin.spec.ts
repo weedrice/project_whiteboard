@@ -30,6 +30,8 @@ vi.mock('@/api/admin', () => ({
         createBoard: vi.fn(),
         updateBoard: vi.fn(),
         deleteBoard: vi.fn(),
+        getBoardManager: vi.fn(),
+        updateBoardManager: vi.fn(),
         getErrorLogs: vi.fn(),
         getErrorLog: vi.fn(),
         resolveErrorLog: vi.fn(),
@@ -447,6 +449,29 @@ describe('useAdmin', () => {
 
             expect(adminApi.deleteBoard).toHaveBeenCalledWith('test-board')
             expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['admin', 'boards'] })
+        })
+
+        it('useBoardManager queryFn returns manager payload', async () => {
+            const { useBoardManager } = useAdmin()
+            const boardId = ref(3)
+            vi.mocked(adminApi.getBoardManager).mockResolvedValueOnce({ data: { data: { adminId: 99 } } } as any)
+
+            useBoardManager(boardId)
+            const query = mockQueryOptions.at(-1) as { queryFn: () => Promise<unknown> }
+            await expect(query.queryFn()).resolves.toEqual({ adminId: 99 })
+            expect(adminApi.getBoardManager).toHaveBeenCalledWith(3)
+        })
+
+        it('useUpdateBoardManager calls adminApi.updateBoardManager', async () => {
+            const { useUpdateBoardManager } = useAdmin()
+            const mutation = useUpdateBoardManager()
+
+            vi.mocked(adminApi.updateBoardManager).mockResolvedValue({ data: { success: true } } as any)
+
+            await mutation.mutateAsync({ boardId: 5, data: { loginId: 'manager' } })
+
+            expect(adminApi.updateBoardManager).toHaveBeenCalledWith(5, { loginId: 'manager' })
+            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['admin', 'board-manager', 5] })
         })
     })
 

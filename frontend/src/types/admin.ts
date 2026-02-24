@@ -23,6 +23,22 @@ export interface DashboardStats {
     [key: string]: number // Allow other fields
 }
 
+export interface BoardAdminInfo {
+    adminId: number
+    role: string
+    isActive: boolean
+    createdAt: string
+    user: {
+        userId: number
+        loginId: string
+        displayName: string
+    }
+    board: {
+        boardId: number
+        boardName: string
+    } | null
+}
+
 // 에러 로그 관련 타입
 export interface ErrorLogItem {
     errorLogId: number

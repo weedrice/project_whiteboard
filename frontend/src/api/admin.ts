@@ -1,5 +1,5 @@
 import api from '@/api'
-import type { ApiResponse, PageResponse, User, Report, GlobalConfig, IpBlock, Board, BoardCreateData, BoardUpdateData, SanctionData, DashboardStats, ErrorLogItem, ErrorLogSearchParams, ErrorLogStats } from '@/types'
+import type { ApiResponse, PageResponse, User, Report, GlobalConfig, IpBlock, Board, BoardCreateData, BoardUpdateData, SanctionData, DashboardStats, ErrorLogItem, ErrorLogSearchParams, ErrorLogStats, BoardAdminInfo } from '@/types'
 
 // Admin types
 interface AdminCreateData {
@@ -33,6 +33,10 @@ interface ConfigCreateData {
     description?: string
 }
 
+interface BoardManagerUpdateData {
+    loginId: string
+}
+
 export const adminApi = {
     // 관리자 관리
     getAdmins() {
@@ -46,6 +50,12 @@ export const adminApi = {
     },
     activateAdmin(adminId: string | number) {
         return api.put<ApiResponse<void>>(`/admin/admins/${adminId}/activate`)
+    },
+    getBoardManager(boardId: number) {
+        return api.get<ApiResponse<BoardAdminInfo | null>>(`/admin/boards/${boardId}/manager`)
+    },
+    updateBoardManager(boardId: number, data: BoardManagerUpdateData) {
+        return api.put<ApiResponse<BoardAdminInfo>>(`/admin/boards/${boardId}/manager`, data)
     },
     getSuperAdmin() {
         return api.get<ApiResponse<User>>('/admin/super')

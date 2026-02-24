@@ -31,6 +31,7 @@ export interface BoardCreateData {
 
 export interface BoardUpdateData {
     boardName?: string
+    boardUrl?: string
     description?: string
     iconUrl?: string
     sortOrder?: number

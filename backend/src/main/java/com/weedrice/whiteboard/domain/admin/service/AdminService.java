@@ -41,17 +41,43 @@ public class AdminService {
     @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
     @Transactional
     public AdminResponse createAdmin(String loginId, Long boardId, String role) {
+        if (boardId == null) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "boardId is required");
+        }
 
         User user = userRepository.findByLoginId(loginId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        Board board = boardRepository.findById(boardId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
 
-        Board board = null;
-        if (boardId != null) {
-            board = boardRepository.findById(boardId)
-                    .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
+        if (Role.BOARD_ADMIN.equals(role)) {
+            Admin currentManager = adminRepository
+                    .findFirstByBoardAndRoleAndIsActiveOrderByAdminIdDesc(board, Role.BOARD_ADMIN, true)
+                    .orElse(null);
+
+            if (currentManager != null && currentManager.getUser().getUserId().equals(user.getUserId())) {
+                return AdminResponse.from(currentManager);
+            }
+
+            List<Admin> activeManagers = adminRepository.findByBoardAndRoleAndIsActive(board, Role.BOARD_ADMIN, true);
+            activeManagers.forEach(Admin::deactivate);
+
+            Admin reusableManager = adminRepository.findByUserAndBoardAndRole(user, board, Role.BOARD_ADMIN)
+                    .orElse(null);
+            if (reusableManager != null) {
+                reusableManager.activate();
+                return AdminResponse.from(reusableManager);
+            }
+
+            Admin boardManager = Admin.builder()
+                    .user(user)
+                    .board(board)
+                    .role(Role.BOARD_ADMIN)
+                    .build();
+            return AdminResponse.from(adminRepository.save(boardManager));
         }
 
-        if (adminRepository.existsByUserAndBoardAndIsActive(user, board, true)) {
+        if (adminRepository.existsByUserAndBoardAndRoleAndIsActive(user, board, role, true)) {
             throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE);
         }
 
@@ -60,12 +86,24 @@ public class AdminService {
                 .board(board)
                 .role(role)
                 .build();
-
-        if (admin == null) {
-            throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
-        }
-
         return AdminResponse.from(adminRepository.save(admin));
+    }
+
+    @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
+    @Transactional(readOnly = true)
+    public AdminResponse getBoardManager(Long boardId) {
+        Board board = boardRepository.findById(boardId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
+
+        return adminRepository.findFirstByBoardAndRoleAndIsActiveOrderByAdminIdDesc(board, Role.BOARD_ADMIN, true)
+                .map(AdminResponse::from)
+                .orElse(null);
+    }
+
+    @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
+    @Transactional
+    public AdminResponse replaceBoardManager(Long boardId, String loginId) {
+        return createAdmin(loginId, boardId, Role.BOARD_ADMIN);
     }
 
     @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
