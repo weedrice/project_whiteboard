@@ -6,7 +6,7 @@ export interface User {
     email: string
     role?: 'USER' | 'ADMIN' | 'SUPER_ADMIN' | 'BOARD_ADMIN' | 'MODERATOR'
     isSuperAdmin?: boolean
-    status: 'ACTIVE' | 'INACTIVE' | 'SANCTIONED' | 'DELETED'
+    status: 'ACTIVE' | 'INACTIVE' | 'SANCTIONED' | 'SUSPENDED' | 'DELETED'
     bio?: string
     profileImageUrl?: string
     theme?: 'LIGHT' | 'DARK'
@@ -46,4 +46,33 @@ export interface SanctionData {
     userId: number
     type: 'BAN' | 'MUTE'
     reason: string
+}
+
+export interface AdminUserRecentLogin {
+    ipAddress: string
+    userAgent?: string
+    loggedAt: string
+}
+
+export interface AdminUserSanctionSummary {
+    count: number
+    recentType?: string
+    recentRemark?: string
+    recentStartDate?: string
+    recentEndDate?: string
+}
+
+export interface AdminUserReportSummary {
+    totalCount: number
+    pendingCount: number
+}
+
+export interface AdminUserDetail extends User {
+    deletedAt?: string
+    postCount: number
+    commentCount: number
+    subscriptionCount: number
+    recentLogin?: AdminUserRecentLogin
+    sanctionSummary?: AdminUserSanctionSummary
+    reportSummary?: AdminUserReportSummary
 }

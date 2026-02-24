@@ -1,5 +1,24 @@
 import api from '@/api'
-import type { ApiResponse, PageResponse, User, Report, GlobalConfig, IpBlock, Board, BoardCreateData, BoardUpdateData, SanctionData, DashboardStats, ErrorLogItem, ErrorLogSearchParams, ErrorLogStats, BoardAdminInfo } from '@/types'
+import type {
+    ApiResponse,
+    PageResponse,
+    User,
+    Report,
+    GlobalConfig,
+    IpBlock,
+    Board,
+    BoardCreateData,
+    BoardUpdateData,
+    SanctionData,
+    DashboardStats,
+    ErrorLogItem,
+    ErrorLogSearchParams,
+    ErrorLogStats,
+    BoardAdminInfo,
+    AdminUserDetail,
+    PostSummary,
+    MyComment
+} from '@/types'
 
 // Admin types
 interface AdminCreateData {
@@ -21,6 +40,20 @@ interface PaginationParams {
     page?: number
     size?: number
     q?: string
+}
+
+interface UserSearchParams extends PaginationParams {
+    status?: string
+    role?: string
+    isEmailVerified?: boolean
+    isSuperAdmin?: boolean
+    isWithdrawn?: boolean
+    createdFrom?: string
+    createdTo?: string
+    lastLoginFrom?: string
+    lastLoginTo?: string
+    minActivityCount?: number
+    sort?: string
 }
 
 interface ReportResolveData {
@@ -79,8 +112,20 @@ export const adminApi = {
     },
 
     // 사용자 관리
-    getUsers(params: PaginationParams) {
+    getUsers(params: UserSearchParams) {
         return api.get<ApiResponse<PageResponse<User>>>('/admin/users', { params })
+    },
+    getUserDetail(userId: string | number) {
+        return api.get<ApiResponse<AdminUserDetail>>(`/admin/users/${userId}`)
+    },
+    getUserPosts(userId: string | number, params: PaginationParams) {
+        return api.get<ApiResponse<PageResponse<PostSummary>>>(`/admin/users/${userId}/posts`, { params })
+    },
+    getUserComments(userId: string | number, params: PaginationParams) {
+        return api.get<ApiResponse<PageResponse<MyComment>>>(`/admin/users/${userId}/comments`, { params })
+    },
+    getUserSubscriptions(userId: string | number, params: PaginationParams) {
+        return api.get<ApiResponse<PageResponse<Board>>>(`/admin/users/${userId}/subscriptions`, { params })
     },
     updateUserStatus(userId: string | number, status: string) {
         return api.put<ApiResponse<void>>(`/admin/users/${userId}/status`, { status })

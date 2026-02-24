@@ -6,9 +6,13 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.Optional;
+
 public interface LoginHistoryRepository extends JpaRepository<LoginHistory, Long> {
 
     Page<LoginHistory> findByUserOrderByCreatedAtDesc(User user, Pageable pageable);
 
     Page<LoginHistory> findByIpAddressOrderByCreatedAtDesc(String ipAddress, Pageable pageable);
+
+    Optional<LoginHistory> findTopByUserAndIsSuccessTrueOrderByCreatedAtDesc(User user);
 }

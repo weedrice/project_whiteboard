@@ -1,7 +1,19 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
 import { adminApi } from '@/api/admin'
 import { computed, type Ref } from 'vue'
-import type { SanctionData, PageResponse, User, Report, ErrorLogItem, ErrorLogSearchParams, ErrorLogStats } from '@/types'
+import type {
+    SanctionData,
+    PageResponse,
+    User,
+    Report,
+    ErrorLogItem,
+    ErrorLogSearchParams,
+    ErrorLogStats,
+    AdminUserDetail,
+    PostSummary,
+    MyComment,
+    Board
+} from '@/types'
 
 // Admin specific types
 interface AdminCreateData {
@@ -14,6 +26,17 @@ interface UserSearchParams {
     page?: number
     size?: number
     q?: string
+    status?: string
+    role?: string
+    isEmailVerified?: boolean
+    isSuperAdmin?: boolean
+    isWithdrawn?: boolean
+    createdFrom?: string
+    createdTo?: string
+    lastLoginFrom?: string
+    lastLoginTo?: string
+    minActivityCount?: number
+    sort?: string
 }
 
 interface ReportSearchParams {
@@ -126,6 +149,57 @@ export function useAdmin() {
         return useMutation({
             mutationFn: ({ userId, status }: { userId: string | number, status: string }) => adminApi.updateUserStatus(userId, status),
             onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'users'] })
+        })
+    }
+
+    const useAdminUserDetail = (userId: Ref<number | null>) => {
+        return useQuery({
+            queryKey: ['admin', 'users', 'detail', userId],
+            queryFn: async () => {
+                if (userId.value == null) return null
+                const { data } = await adminApi.getUserDetail(userId.value)
+                return data?.data as AdminUserDetail
+            },
+            enabled: computed(() => userId.value !== null)
+        })
+    }
+
+    const useAdminUserPosts = (userId: Ref<number | null>, params: Ref<{ page?: number, size?: number }>) => {
+        return useQuery({
+            queryKey: ['admin', 'users', 'detail', userId, 'posts', params],
+            queryFn: async () => {
+                if (userId.value == null) return null
+                const { data } = await adminApi.getUserPosts(userId.value, params.value)
+                return data?.data as PageResponse<PostSummary>
+            },
+            enabled: computed(() => userId.value !== null),
+            placeholderData: (previousData) => previousData
+        })
+    }
+
+    const useAdminUserComments = (userId: Ref<number | null>, params: Ref<{ page?: number, size?: number }>) => {
+        return useQuery({
+            queryKey: ['admin', 'users', 'detail', userId, 'comments', params],
+            queryFn: async () => {
+                if (userId.value == null) return null
+                const { data } = await adminApi.getUserComments(userId.value, params.value)
+                return data?.data as PageResponse<MyComment>
+            },
+            enabled: computed(() => userId.value !== null),
+            placeholderData: (previousData) => previousData
+        })
+    }
+
+    const useAdminUserSubscriptions = (userId: Ref<number | null>, params: Ref<{ page?: number, size?: number }>) => {
+        return useQuery({
+            queryKey: ['admin', 'users', 'detail', userId, 'subscriptions', params],
+            queryFn: async () => {
+                if (userId.value == null) return null
+                const { data } = await adminApi.getUserSubscriptions(userId.value, params.value)
+                return data?.data as PageResponse<Board>
+            },
+            enabled: computed(() => userId.value !== null),
+            placeholderData: (previousData) => previousData
         })
     }
 
@@ -336,6 +410,10 @@ export function useAdmin() {
         useUpdateSuperAdminStatus,
         useUsers,
         useUpdateUserStatus,
+        useAdminUserDetail,
+        useAdminUserPosts,
+        useAdminUserComments,
+        useAdminUserSubscriptions,
         useSanctionUser,
         useReports,
         useResolveReport,

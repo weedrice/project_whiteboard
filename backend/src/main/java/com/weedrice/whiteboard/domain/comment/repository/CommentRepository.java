@@ -27,6 +27,7 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
         long countByPost_PostIdAndIsDeleted(Long postId, Boolean isDeleted);
 
         long countByUser(User user);
+        long countByUserAndIsDeleted(User user, Boolean isDeleted);
 
         Page<Comment> findByUserOrderByCreatedAtDesc(User user, Pageable pageable);
 

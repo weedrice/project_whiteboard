@@ -27,3 +27,16 @@ export interface CommentPayload {
     content: string
     parentId?: number | null
 }
+
+export interface MyComment {
+    commentId: number
+    content: string
+    post: {
+        postId: number
+        title: string
+        boardUrl: string
+        boardName: string
+    }
+    likeCount: number
+    createdAt: string
+}

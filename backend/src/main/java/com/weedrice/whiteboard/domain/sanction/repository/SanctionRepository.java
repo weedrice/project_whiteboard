@@ -12,4 +12,6 @@ import java.util.Optional;
 public interface SanctionRepository extends JpaRepository<Sanction, Long> {
     Page<Sanction> findByTargetUser(User targetUser, Pageable pageable);
     Optional<Sanction> findFirstByTargetUserAndTypeAndEndDateAfterOrderByEndDateDesc(User targetUser, String type, LocalDateTime now);
+    Optional<Sanction> findTopByTargetUserOrderByCreatedAtDesc(User targetUser);
+    long countByTargetUser(User targetUser);
 }

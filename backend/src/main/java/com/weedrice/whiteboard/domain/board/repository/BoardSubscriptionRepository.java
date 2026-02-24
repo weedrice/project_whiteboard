@@ -19,6 +19,7 @@ public interface BoardSubscriptionRepository extends JpaRepository<BoardSubscrip
     List<BoardSubscription> findAllByUser(User user);
 
     long countByBoard(Board board);
+    long countByUser(User user);
 
     boolean existsByUserAndBoard(User user, Board board);
 

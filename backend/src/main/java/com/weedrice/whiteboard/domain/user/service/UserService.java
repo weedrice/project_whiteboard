@@ -1,12 +1,27 @@
 package com.weedrice.whiteboard.domain.user.service;
 
+import com.weedrice.whiteboard.domain.auth.entity.LoginHistory;
+import com.weedrice.whiteboard.domain.auth.repository.LoginHistoryRepository;
+import com.weedrice.whiteboard.domain.auth.service.VerificationCodeService; // Import VerificationCodeService
+import com.weedrice.whiteboard.domain.board.dto.BoardResponse;
+import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository;
+import com.weedrice.whiteboard.domain.board.service.BoardService;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
+import com.weedrice.whiteboard.domain.comment.dto.MyCommentResponse;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
+import com.weedrice.whiteboard.domain.comment.service.CommentService;
 import com.weedrice.whiteboard.domain.file.service.FileService; // Add import
+import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository; // Import PostRepository
+import com.weedrice.whiteboard.domain.post.service.PostService;
+import com.weedrice.whiteboard.domain.report.repository.ReportRepository;
+import com.weedrice.whiteboard.domain.sanction.entity.Sanction;
+import com.weedrice.whiteboard.domain.sanction.repository.SanctionRepository;
+import com.weedrice.whiteboard.domain.user.dto.AdminUserDetailResponse;
 import com.weedrice.whiteboard.domain.user.dto.MyInfoResponse;
 import com.weedrice.whiteboard.domain.user.dto.UpdateProfileResponse;
 import com.weedrice.whiteboard.domain.user.dto.UserProfileResponse;
+import com.weedrice.whiteboard.domain.user.dto.UserAdminSearchCondition;
 import com.weedrice.whiteboard.domain.user.entity.DisplayNameHistory;
 import com.weedrice.whiteboard.domain.user.entity.PasswordHistory;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -18,7 +33,6 @@ import com.weedrice.whiteboard.domain.user.repository.UserSettingsRepository;
 import com.weedrice.whiteboard.domain.user.dto.UserAdminResponse;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.user.entity.Role;
-import com.weedrice.whiteboard.domain.auth.service.VerificationCodeService; // Import VerificationCodeService
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -29,9 +43,11 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -48,6 +64,13 @@ public class UserService {
     private final FileService fileService;
     private final com.weedrice.whiteboard.domain.point.repository.UserPointRepository userPointRepository;
     private final AdminRepository adminRepository;
+    private final PostService postService;
+    private final CommentService commentService;
+    private final BoardService boardService;
+    private final BoardSubscriptionRepository boardSubscriptionRepository;
+    private final LoginHistoryRepository loginHistoryRepository;
+    private final SanctionRepository sanctionRepository;
+    private final ReportRepository reportRepository;
     private final VerificationCodeService verificationCodeService; // Inject VerificationCodeService
 
     public Long findUserIdByLoginId(String loginId) {
@@ -183,13 +206,84 @@ public class UserService {
      * SUPER_ADMIN &gt; BOARD_ADMIN/MODERATOR(활성 Admin 보유) &gt; USER 순으로 결정.
      */
     public Page<UserAdminResponse> searchUsersForAdmin(String keyword, Pageable pageable) {
-        Page<User> users = userRepository.searchUsers(keyword, pageable);
+        return searchUsersForAdmin(keyword, null, null, null, null, null,
+                null, null, null, null, null, pageable);
+    }
+
+    public Page<UserAdminResponse> searchUsersForAdmin(
+            String keyword,
+            String status,
+            String roleFilter,
+            Boolean isEmailVerified,
+            Boolean isSuperAdmin,
+            Boolean isWithdrawn,
+            LocalDate createdFromDate,
+            LocalDate createdToDate,
+            LocalDate lastLoginFromDate,
+            LocalDate lastLoginToDate,
+            Long minActivityCount,
+            Pageable pageable) {
+        UserAdminSearchCondition condition = UserAdminSearchCondition.builder()
+                .status(status)
+                .role(roleFilter)
+                .isEmailVerified(isEmailVerified)
+                .isSuperAdmin(isSuperAdmin)
+                .isWithdrawn(isWithdrawn)
+                .createdFrom(toStartOfDay(createdFromDate))
+                .createdTo(toExclusiveEnd(createdToDate))
+                .lastLoginFrom(toStartOfDay(lastLoginFromDate))
+                .lastLoginTo(toExclusiveEnd(lastLoginToDate))
+                .minActivityCount(minActivityCount)
+                .build();
+
+        Page<User> users = userRepository.searchUsersForAdmin(keyword, condition, pageable);
         List<UserAdminResponse> list = new ArrayList<>();
         for (User user : users) {
             String role = resolveRoleForAdmin(user);
             list.add(UserAdminResponse.from(user, role));
         }
         return new PageImpl<>(list, pageable, users.getTotalElements());
+    }
+
+    public AdminUserDetailResponse getUserDetailForAdmin(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+        String role = resolveRoleForAdmin(user);
+        long postCount = postRepository.countByUserAndIsDeleted(user, false);
+        long commentCount = commentRepository.countByUserAndIsDeleted(user, false);
+        long subscriptionCount = boardSubscriptionRepository.countByUser(user);
+
+        Optional<LoginHistory> recentLogin = loginHistoryRepository
+                .findTopByUserAndIsSuccessTrueOrderByCreatedAtDesc(user);
+        long sanctionCount = sanctionRepository.countByTargetUser(user);
+        Optional<Sanction> recentSanction = sanctionRepository.findTopByTargetUserOrderByCreatedAtDesc(user);
+        long reportTotalCount = reportRepository.countByTargetTypeAndTargetId("USER", userId);
+        long reportPendingCount = reportRepository.countByTargetTypeAndTargetIdAndStatus("USER", userId, "PENDING");
+
+        return AdminUserDetailResponse.from(
+                user,
+                role,
+                postCount,
+                commentCount,
+                subscriptionCount,
+                recentLogin.orElse(null),
+                sanctionCount,
+                recentSanction.orElse(null),
+                reportTotalCount,
+                reportPendingCount);
+    }
+
+    public Page<PostSummary> getUserPostsForAdmin(Long userId, Pageable pageable) {
+        return postService.getMyPosts(userId, pageable);
+    }
+
+    public Page<MyCommentResponse> getUserCommentsForAdmin(Long userId, Pageable pageable) {
+        return commentService.getMyComments(userId, pageable);
+    }
+
+    public Page<BoardResponse> getUserSubscriptionsForAdmin(Long userId, Pageable pageable) {
+        return boardService.getMySubscriptions(userId, pageable);
     }
 
     private String resolveRoleForAdmin(User user) {
@@ -199,6 +293,20 @@ public class UserService {
         return adminRepository.findFirstByUserAndIsActiveOrderByAdminIdAsc(user, true)
                 .map(a -> a.getRole())
                 .orElse(Role.USER);
+    }
+
+    private LocalDateTime toStartOfDay(LocalDate date) {
+        if (date == null) {
+            return null;
+        }
+        return date.atStartOfDay();
+    }
+
+    private LocalDateTime toExclusiveEnd(LocalDate date) {
+        if (date == null) {
+            return null;
+        }
+        return date.plusDays(1).atStartOfDay();
     }
 
     @Transactional

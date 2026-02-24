@@ -1,15 +1,20 @@
 package com.weedrice.whiteboard.domain.user.controller;
 
+import com.weedrice.whiteboard.domain.board.dto.BoardResponse;
+import com.weedrice.whiteboard.domain.comment.dto.MyCommentResponse;
+import com.weedrice.whiteboard.domain.post.dto.PostSummary;
+import com.weedrice.whiteboard.domain.user.dto.AdminUserDetailResponse;
 import com.weedrice.whiteboard.domain.user.dto.UserAdminResponse;
+import com.weedrice.whiteboard.domain.user.dto.UserStatusUpdateRequest;
 import com.weedrice.whiteboard.domain.user.service.UserService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
-import org.springframework.security.access.prepost.PreAuthorize;
-import com.weedrice.whiteboard.domain.user.dto.UserStatusUpdateRequest;
 import org.springframework.web.bind.annotation.*;
+
+import java.time.LocalDate;
 
 @RestController
 @RequestMapping("/api/v1/admin/users")
@@ -22,10 +27,58 @@ public class AdminUserController {
     public ApiResponse<Page<UserAdminResponse>> searchUsers(
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false, name = "q") String q,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String role,
+            @RequestParam(required = false) Boolean isEmailVerified,
+            @RequestParam(required = false) Boolean isSuperAdmin,
+            @RequestParam(required = false) Boolean isWithdrawn,
+            @RequestParam(required = false) LocalDate createdFrom,
+            @RequestParam(required = false) LocalDate createdTo,
+            @RequestParam(required = false) LocalDate lastLoginFrom,
+            @RequestParam(required = false) LocalDate lastLoginTo,
+            @RequestParam(required = false) Long minActivityCount,
             @PageableDefault(size = 20) Pageable pageable) {
         String searchKeyword = (keyword != null && !keyword.isBlank()) ? keyword : q;
-        Page<UserAdminResponse> response = userService.searchUsersForAdmin(searchKeyword, pageable);
+        Page<UserAdminResponse> response = userService.searchUsersForAdmin(
+                searchKeyword,
+                status,
+                role,
+                isEmailVerified,
+                isSuperAdmin,
+                isWithdrawn,
+                createdFrom,
+                createdTo,
+                lastLoginFrom,
+                lastLoginTo,
+                minActivityCount,
+                pageable);
         return ApiResponse.success(response);
+    }
+
+    @GetMapping("/{userId}")
+    public ApiResponse<AdminUserDetailResponse> getUserDetail(@PathVariable Long userId) {
+        return ApiResponse.success(userService.getUserDetailForAdmin(userId));
+    }
+
+    @GetMapping("/{userId}/posts")
+    public ApiResponse<Page<PostSummary>> getUserPosts(
+            @PathVariable Long userId,
+            @PageableDefault(size = 10) Pageable pageable) {
+        return ApiResponse.success(userService.getUserPostsForAdmin(userId, pageable));
+    }
+
+    @GetMapping("/{userId}/comments")
+    public ApiResponse<Page<MyCommentResponse>> getUserComments(
+            @PathVariable Long userId,
+            @PageableDefault(size = 10) Pageable pageable) {
+        return ApiResponse.success(userService.getUserCommentsForAdmin(userId, pageable));
+    }
+
+    @GetMapping("/{userId}/subscriptions")
+    public ApiResponse<Page<BoardResponse>> getUserSubscriptions(
+            @PathVariable Long userId,
+            @PageableDefault(size = 10) Pageable pageable) {
+        return ApiResponse.success(userService.getUserSubscriptionsForAdmin(userId, pageable));
     }
 
     @PutMapping("/{userId}/status")
@@ -36,3 +89,4 @@ public class AdminUserController {
         return ApiResponse.success(null);
     }
 }
+

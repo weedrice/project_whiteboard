@@ -1,49 +1,53 @@
-<script setup lang="ts">
-import { computed } from 'vue'
+﻿<script setup lang="ts">
+import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
 import BaseBadge from '@/components/common/ui/BaseBadge.vue'
+import BaseButton from '@/components/common/ui/BaseButton.vue'
+import { useAdmin } from '@/composables/useAdmin'
 import { formatDate } from '@/utils/date'
-import type { User } from '@/types'
 
 const { t } = useI18n()
+const { useAdminUserDetail, useAdminUserPosts, useAdminUserComments, useAdminUserSubscriptions } = useAdmin()
 
 const props = defineProps<{
   isOpen: boolean
-  user: User | null
+  userId: number | null
 }>()
 
 defineEmits<{
   (e: 'close'): void
 }>()
 
-const statusVariant = computed(() => {
-  if (!props.user) return 'gray'
-  switch (props.user.status) {
-    case 'ACTIVE':
-      return 'success'
-    case 'SANCTIONED':
-      return 'danger'
-    case 'INACTIVE':
-      return 'gray'
-    default:
-      return 'gray'
-  }
-})
+const activeTab = ref<'posts' | 'comments' | 'subscriptions'>('posts')
+const postsPage = ref(0)
+const commentsPage = ref(0)
+const subscriptionsPage = ref(0)
+const tabSize = 10
 
-const safeRole = computed(() => {
-  const u = props.user
-  if (u?.role) return u.role
-  if (u?.isSuperAdmin) return 'SUPER_ADMIN'
-  return 'USER'
+const queryUserId = computed<number | null>(() => (props.isOpen ? props.userId : null))
+
+const postsParams = computed(() => ({ page: postsPage.value, size: tabSize }))
+const commentsParams = computed(() => ({ page: commentsPage.value, size: tabSize }))
+const subscriptionsParams = computed(() => ({ page: subscriptionsPage.value, size: tabSize }))
+
+const { data: userDetail, isLoading: isDetailLoading } = useAdminUserDetail(queryUserId)
+const { data: userPosts, isLoading: isPostsLoading } = useAdminUserPosts(queryUserId, postsParams)
+const { data: userComments, isLoading: isCommentsLoading } = useAdminUserComments(queryUserId, commentsParams)
+const { data: userSubscriptions, isLoading: isSubscriptionsLoading } = useAdminUserSubscriptions(queryUserId, subscriptionsParams)
+
+const statusVariant = computed(() => {
+  if (!userDetail.value) return 'gray'
+  if (userDetail.value.status === 'ACTIVE') return 'success'
+  if (userDetail.value.status === 'SUSPENDED' || userDetail.value.status === 'SANCTIONED') return 'danger'
+  if (userDetail.value.status === 'DELETED') return 'warning'
+  return 'gray'
 })
 
 const roleVariant = computed(() => {
-  const role = safeRole.value
-  switch (role) {
+  switch (userDetail.value?.role) {
     case 'SUPER_ADMIN':
       return 'danger'
-    case 'ADMIN':
     case 'BOARD_ADMIN':
     case 'MODERATOR':
       return 'warning'
@@ -52,96 +56,163 @@ const roleVariant = computed(() => {
   }
 })
 
-const roleLabel = computed(() => {
-  const role = safeRole.value
-  return t(`admin.users.role.${role}`)
+watch(() => props.isOpen, (open) => {
+  if (!open) return
+  activeTab.value = 'posts'
+  postsPage.value = 0
+  commentsPage.value = 0
+  subscriptionsPage.value = 0
 })
+
+function prevPostsPage() {
+  if (!userPosts.value) return
+  if (userPosts.value.number > 0) postsPage.value -= 1
+}
+
+function nextPostsPage() {
+  if (!userPosts.value) return
+  if (userPosts.value.number + 1 < userPosts.value.totalPages) postsPage.value += 1
+}
+
+function prevCommentsPage() {
+  if (!userComments.value) return
+  if (userComments.value.number > 0) commentsPage.value -= 1
+}
+
+function nextCommentsPage() {
+  if (!userComments.value) return
+  if (userComments.value.number + 1 < userComments.value.totalPages) commentsPage.value += 1
+}
+
+function prevSubscriptionsPage() {
+  if (!userSubscriptions.value) return
+  if (userSubscriptions.value.number > 0) subscriptionsPage.value -= 1
+}
+
+function nextSubscriptionsPage() {
+  if (!userSubscriptions.value) return
+  if (userSubscriptions.value.number + 1 < userSubscriptions.value.totalPages) subscriptionsPage.value += 1
+}
 </script>
 
 <template>
-  <BaseModal :isOpen="isOpen" :title="t('admin.users.detail.title')" @close="$emit('close')">
-    <div v-if="user" class="space-y-6">
-      <!-- 기본 정보 -->
-      <div>
-        <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">
-          {{ t('admin.users.detail.basicInfo') }}
-        </h3>
-        <dl class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div>
-            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ t('common.id') }}</dt>
-            <dd class="mt-1 text-sm text-gray-900 dark:text-white">{{ user.userId }}</dd>
+  <BaseModal :isOpen="isOpen" :title="t('admin.users.detail.title')" size="2xl" @close="$emit('close')">
+    <div v-if="isDetailLoading" class="py-10 text-center text-sm text-gray-500 dark:text-gray-400">
+      로딩 중...
+    </div>
+
+    <div v-else-if="userDetail" class="space-y-6">
+      <div class="flex items-center gap-4 rounded-lg border border-gray-200 p-4 dark:border-gray-700">
+        <img
+          v-if="userDetail.profileImageUrl"
+          :src="userDetail.profileImageUrl"
+          alt="profile"
+          class="h-16 w-16 rounded-full object-cover"
+        />
+        <div
+          v-else
+          class="flex h-16 w-16 items-center justify-center rounded-full bg-gray-200 text-xl font-semibold text-gray-700 dark:bg-gray-700 dark:text-gray-200"
+        >
+          {{ (userDetail.displayName || userDetail.loginId).slice(0, 1).toUpperCase() }}
+        </div>
+        <div class="min-w-0 flex-1">
+          <div class="truncate text-lg font-semibold text-gray-900 dark:text-white">{{ userDetail.displayName }}</div>
+          <div class="truncate text-sm text-gray-600 dark:text-gray-300">@{{ userDetail.loginId }} · {{ userDetail.email }}</div>
+          <div class="mt-2 flex items-center gap-2">
+            <BaseBadge :variant="statusVariant" size="sm">{{ userDetail.status }}</BaseBadge>
+            <BaseBadge :variant="roleVariant" size="sm">{{ userDetail.role }}</BaseBadge>
+            <BaseBadge :variant="userDetail.isEmailVerified ? 'success' : 'gray'" size="sm">이메일 {{ userDetail.isEmailVerified ? '인증' : '미인증' }}</BaseBadge>
           </div>
-          <div>
-            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ t('common.loginId') }}</dt>
-            <dd class="mt-1 text-sm text-gray-900 dark:text-white">{{ user.loginId }}</dd>
-          </div>
-          <div>
-            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ t('common.displayName') }}</dt>
-            <dd class="mt-1 text-sm text-gray-900 dark:text-white">{{ user.displayName }}</dd>
-          </div>
-          <div>
-            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ t('common.email') }}</dt>
-            <dd class="mt-1 text-sm text-gray-900 dark:text-white">{{ user.email }}</dd>
-          </div>
-          <div>
-            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ t('admin.users.detail.status') }}</dt>
-            <dd class="mt-1">
-              <BaseBadge :variant="statusVariant" size="sm">
-                {{ t(`admin.users.status.${user.status}`) }}
-              </BaseBadge>
-            </dd>
-          </div>
-          <div>
-            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ t('admin.users.detail.role') }}</dt>
-            <dd class="mt-1">
-              <BaseBadge :variant="roleVariant" size="sm">
-                {{ roleLabel }}
-              </BaseBadge>
-            </dd>
-          </div>
-          <div v-if="user.points !== undefined">
-            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ t('common.points') }}</dt>
-            <dd class="mt-1 text-sm text-gray-900 dark:text-white">{{ user.points.toLocaleString() }} P</dd>
-          </div>
-          <div v-if="user.isEmailVerified !== undefined">
-            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ t('admin.users.detail.emailVerified') }}</dt>
-            <dd class="mt-1">
-              <BaseBadge :variant="user.isEmailVerified ? 'success' : 'gray'" size="sm">
-                {{ user.isEmailVerified ? t('common.yes') : t('common.noValue') }}
-              </BaseBadge>
-            </dd>
-          </div>
-        </dl>
+        </div>
       </div>
 
-      <!-- 날짜 정보 -->
-      <div>
-        <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">
-          {{ t('admin.users.detail.dateInfo') }}
-        </h3>
-        <dl class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div>
-            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ t('admin.users.detail.createdAt') }}</dt>
-            <dd class="mt-1 text-sm text-gray-900 dark:text-white">{{ formatDate(user.createdAt) }}</dd>
+      <div class="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div class="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
+          <div class="text-xs text-gray-500 dark:text-gray-400">작성 글</div>
+          <div class="mt-1 text-lg font-semibold text-gray-900 dark:text-white">{{ userDetail.postCount.toLocaleString() }}</div>
+        </div>
+        <div class="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
+          <div class="text-xs text-gray-500 dark:text-gray-400">작성 댓글</div>
+          <div class="mt-1 text-lg font-semibold text-gray-900 dark:text-white">{{ userDetail.commentCount.toLocaleString() }}</div>
+        </div>
+        <div class="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
+          <div class="text-xs text-gray-500 dark:text-gray-400">구독 게시판</div>
+          <div class="mt-1 text-lg font-semibold text-gray-900 dark:text-white">{{ userDetail.subscriptionCount.toLocaleString() }}</div>
+        </div>
+        <div class="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
+          <div class="text-xs text-gray-500 dark:text-gray-400">신고/제재</div>
+          <div class="mt-1 text-lg font-semibold text-gray-900 dark:text-white">
+            {{ userDetail.reportSummary?.pendingCount || 0 }} / {{ userDetail.sanctionSummary?.count || 0 }}
           </div>
-          <div v-if="user.modifiedAt">
-            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ t('admin.users.detail.modifiedAt') }}</dt>
-            <dd class="mt-1 text-sm text-gray-900 dark:text-white">{{ formatDate(user.modifiedAt) }}</dd>
-          </div>
-          <div v-if="user.lastLoginAt">
-            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ t('admin.users.detail.lastLoginAt') }}</dt>
-            <dd class="mt-1 text-sm text-gray-900 dark:text-white">{{ formatDate(user.lastLoginAt) }}</dd>
-          </div>
-        </dl>
+        </div>
       </div>
 
-      <!-- 추가 정보 -->
-      <div v-if="user.bio">
-        <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">
-          {{ t('admin.users.detail.bio') }}
-        </h3>
-        <p class="text-sm text-gray-700 dark:text-gray-300">{{ user.bio }}</p>
+      <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div class="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
+          <div class="text-xs text-gray-500 dark:text-gray-400">가입일 / 최근 로그인</div>
+          <div class="mt-2 text-sm text-gray-900 dark:text-white">가입: {{ formatDate(userDetail.createdAt) }}</div>
+          <div class="text-sm text-gray-900 dark:text-white">최근 로그인: {{ userDetail.lastLoginAt ? formatDate(userDetail.lastLoginAt) : '-' }}</div>
+          <div v-if="userDetail.deletedAt" class="text-sm text-red-600 dark:text-red-400">탈퇴일: {{ formatDate(userDetail.deletedAt) }}</div>
+        </div>
+        <div class="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
+          <div class="text-xs text-gray-500 dark:text-gray-400">최근 접속</div>
+          <div class="mt-2 text-sm text-gray-900 dark:text-white">IP: {{ userDetail.recentLogin?.ipAddress || '-' }}</div>
+          <div class="text-sm text-gray-900 dark:text-white">시간: {{ userDetail.recentLogin?.loggedAt ? formatDate(userDetail.recentLogin.loggedAt) : '-' }}</div>
+          <div class="truncate text-sm text-gray-500 dark:text-gray-400">UA: {{ userDetail.recentLogin?.userAgent || '-' }}</div>
+        </div>
       </div>
+
+      <div>
+        <div class="mb-3 flex items-center gap-2 border-b border-gray-200 pb-2 dark:border-gray-700">
+          <BaseButton :variant="activeTab === 'posts' ? 'primary' : 'secondary'" size="sm" @click="activeTab = 'posts'">작성 글</BaseButton>
+          <BaseButton :variant="activeTab === 'comments' ? 'primary' : 'secondary'" size="sm" @click="activeTab = 'comments'">작성 댓글</BaseButton>
+          <BaseButton :variant="activeTab === 'subscriptions' ? 'primary' : 'secondary'" size="sm" @click="activeTab = 'subscriptions'">구독 게시판</BaseButton>
+        </div>
+
+        <div v-if="activeTab === 'posts'" class="space-y-2">
+          <div v-if="isPostsLoading" class="py-6 text-center text-sm text-gray-500 dark:text-gray-400">로딩 중...</div>
+          <div v-else-if="!userPosts?.content?.length" class="py-6 text-center text-sm text-gray-500 dark:text-gray-400">데이터가 없습니다.</div>
+          <div v-else v-for="post in userPosts.content" :key="post.postId" class="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
+            <div class="truncate text-sm font-medium text-gray-900 dark:text-white">{{ post.title }}</div>
+            <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ post.boardName }} · {{ formatDate(post.createdAt) }}</div>
+          </div>
+          <div v-if="userPosts && userPosts.totalPages > 0" class="mt-2 flex items-center justify-end gap-2">
+            <BaseButton variant="secondary" size="sm" :disabled="userPosts.number <= 0" @click="prevPostsPage">이전</BaseButton>
+            <BaseButton variant="secondary" size="sm" :disabled="userPosts.number + 1 >= userPosts.totalPages" @click="nextPostsPage">다음</BaseButton>
+          </div>
+        </div>
+
+        <div v-else-if="activeTab === 'comments'" class="space-y-2">
+          <div v-if="isCommentsLoading" class="py-6 text-center text-sm text-gray-500 dark:text-gray-400">로딩 중...</div>
+          <div v-else-if="!userComments?.content?.length" class="py-6 text-center text-sm text-gray-500 dark:text-gray-400">데이터가 없습니다.</div>
+          <div v-else v-for="comment in userComments.content" :key="comment.commentId" class="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
+            <div class="truncate text-sm text-gray-900 dark:text-white">{{ comment.content }}</div>
+            <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ comment.post?.title }} · {{ formatDate(comment.createdAt) }}</div>
+          </div>
+          <div v-if="userComments && userComments.totalPages > 0" class="mt-2 flex items-center justify-end gap-2">
+            <BaseButton variant="secondary" size="sm" :disabled="userComments.number <= 0" @click="prevCommentsPage">이전</BaseButton>
+            <BaseButton variant="secondary" size="sm" :disabled="userComments.number + 1 >= userComments.totalPages" @click="nextCommentsPage">다음</BaseButton>
+          </div>
+        </div>
+
+        <div v-else class="space-y-2">
+          <div v-if="isSubscriptionsLoading" class="py-6 text-center text-sm text-gray-500 dark:text-gray-400">로딩 중...</div>
+          <div v-else-if="!userSubscriptions?.content?.length" class="py-6 text-center text-sm text-gray-500 dark:text-gray-400">데이터가 없습니다.</div>
+          <div v-else v-for="board in userSubscriptions.content" :key="board.boardId" class="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
+            <div class="truncate text-sm font-medium text-gray-900 dark:text-white">{{ board.boardName }}</div>
+            <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">/{{ board.boardUrl }}</div>
+          </div>
+          <div v-if="userSubscriptions && userSubscriptions.totalPages > 0" class="mt-2 flex items-center justify-end gap-2">
+            <BaseButton variant="secondary" size="sm" :disabled="userSubscriptions.number <= 0" @click="prevSubscriptionsPage">이전</BaseButton>
+            <BaseButton variant="secondary" size="sm" :disabled="userSubscriptions.number + 1 >= userSubscriptions.totalPages" @click="nextSubscriptionsPage">다음</BaseButton>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div v-else class="py-10 text-center text-sm text-gray-500 dark:text-gray-400">
+      사용자 정보를 불러올 수 없습니다.
     </div>
   </BaseModal>
 </template>
+

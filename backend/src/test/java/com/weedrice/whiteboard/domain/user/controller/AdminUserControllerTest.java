@@ -103,7 +103,19 @@ class AdminUserControllerTest {
                 .role("USER")
                 .build();
         Page<UserAdminResponse> responsePage = new PageImpl<>(List.of(resp), PageRequest.of(0, 20), 1);
-        when(userService.searchUsersForAdmin(any(), any())).thenReturn(responsePage);
+        when(userService.searchUsersForAdmin(
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any())).thenReturn(responsePage);
 
         // when & then
         mockMvc.perform(get("/api/v1/admin/users")
