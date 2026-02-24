@@ -9,9 +9,12 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "build:seo": "npm run sitemap:generate && vite build",
+    "build:seo": "npm run sitemap:generate && vite build && npm run prerender:posts",
     "build:analyze": "vite build --mode production",
     "preview": "vite preview",
+    "prerender:posts": "node ./scripts/prerender-posts.mjs",
+    "seo:verify": "node ./scripts/verify-seo.mjs",
+    "seo:submit": "node ./scripts/submit-search-engines.mjs",
     "sitemap:generate": "node ./scripts/generate-sitemap.mjs",
     "type-check": "vue-tsc --noEmit",
     "test": "vitest",

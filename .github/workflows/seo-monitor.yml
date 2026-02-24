@@ -1,12 +1,12 @@
-﻿name: Deploy Frontend
+﻿name: SEO Monitor
 
 on:
-  push:
-    branches: ["main"]
+  schedule:
+    - cron: "15 */6 * * *"
   workflow_dispatch:
 
 jobs:
-  deploy:
+  verify-and-submit:
     runs-on: ubuntu-latest
 
     steps:
@@ -24,44 +24,7 @@ jobs:
         run: npm ci
         working-directory: frontend
 
-      - name: Build frontend
-        run: npm run build:seo
-        working-directory: frontend
-        env:
-          SITEMAP_SITE_URL: https://noviis.kr
-          SITEMAP_API_BASE_URL: https://noviis.kr/api/v1
-
-      - name: Clean frontend directory on EC2
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ubuntu
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
-            rm -rf /var/www/app/*
-            mkdir -p /var/www/app
-
-      - name: Upload frontend build
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ubuntu
-          key: ${{ secrets.EC2_SSH_KEY }}
-          source: "frontend/dist/*"
-          target: "/var/www/app"
-          strip_components: 2
-
-      - name: Verify frontend deploy
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ubuntu
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
-            ls -al /var/www/app
-            grep assets /var/www/app/index.html
-
-      - name: Verify SEO after deploy
+      - name: Verify SEO endpoints
         run: npm run seo:verify
         working-directory: frontend
         env:
