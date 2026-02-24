@@ -1,6 +1,6 @@
-#!/usr/bin/env node
+﻿#!/usr/bin/env node
 
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { access, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 
 const siteUrl = normalizeBaseUrl(process.env.PRERENDER_SITE_URL ?? process.env.SITEMAP_SITE_URL ?? 'https://noviis.kr')
@@ -18,6 +18,11 @@ function normalizeBaseUrl(url) {
 function parsePositiveInt(value, fallback) {
     const parsed = Number.parseInt(String(value ?? ''), 10)
     return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback
+}
+
+function ensureTrailingSlashPath(path) {
+    const normalized = String(path)
+    return normalized.endsWith('/') ? normalized : `${normalized}/`
 }
 
 function stripHtml(html) {
@@ -80,7 +85,7 @@ function extractPostPathsFromSitemap(xmlText) {
         if (seen.has(key)) continue
 
         seen.add(key)
-        results.push({ boardUrl, postId, path: `/board/${boardUrl}/post/${postId}` })
+        results.push({ boardUrl, postId, path: `/board/${boardUrl}/post/${postId}/` })
         if (results.length >= maxUrls) break
     }
 
@@ -110,16 +115,16 @@ function buildPreRenderedSnippet(post, canonicalUrl) {
         description: articleSummary || 'Post content',
         extraHead: [
             `<link rel="canonical" href="${escapeHtml(canonicalUrl)}">`,
-            `<meta property="og:title" content="${escapeHtml(`${title} | 노비스`)}">`,
+            `<meta property="og:title" content="${escapeHtml(`${title} | Noviis`)}">`,
             `<meta property="og:description" content="${escapeHtml(articleSummary || 'Post content')}">`,
-            `<meta property="og:type" content="article">`,
+            '<meta property="og:type" content="article">',
             `<meta property="og:url" content="${escapeHtml(canonicalUrl)}">`,
             `<script type="application/ld+json">${ldJson}</script>`
         ].join('\n    '),
         body: `
 <article data-prerendered="true" style="max-width:760px;margin:0 auto;padding:24px 16px;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;line-height:1.6;color:#111827;">
   <h1 style="font-size:1.75rem;font-weight:700;margin:0 0 12px;">${escapeHtml(title)}</h1>
-  <p style="font-size:0.875rem;color:#6b7280;margin:0 0 20px;">${escapeHtml(authorName)}${createdAt ? ` · <time datetime="${createdAt}">${escapeHtml(new Date(createdAt).toLocaleString('ko-KR'))}</time>` : ''}</p>
+  <p style="font-size:0.875rem;color:#6b7280;margin:0 0 20px;">${escapeHtml(authorName)}${createdAt ? ` | <time datetime="${createdAt}">${escapeHtml(new Date(createdAt).toLocaleString('ko-KR'))}</time>` : ''}</p>
   <section class="post-prerender-body">${articleBody}</section>
 </article>`.trim()
     }
@@ -145,6 +150,49 @@ function injectIntoTemplate(indexHtml, renderData) {
     return html
 }
 
+async function writeIfMissing(outputPath, html) {
+    try {
+        await access(outputPath)
+        return false
+    } catch {
+        await mkdir(dirname(outputPath), { recursive: true })
+        await writeFile(outputPath, html, 'utf8')
+        return true
+    }
+}
+
+function collectParentDirectoryPaths(postPath) {
+    const normalized = ensureTrailingSlashPath(postPath).replace(/^\/|\/$/g, '')
+    const segments = normalized.split('/').filter(Boolean)
+    const parentPaths = []
+
+    for (let i = 1; i < segments.length; i += 1) {
+        parentPaths.push(`/${segments.slice(0, i).join('/')}/`)
+    }
+
+    return parentPaths
+}
+
+async function ensureSpaFallbackIndexes(indexHtml, postPaths) {
+    const directoryPaths = new Set()
+
+    for (const target of postPaths) {
+        for (const path of collectParentDirectoryPaths(target.path)) {
+            directoryPaths.add(path)
+        }
+    }
+
+    let createdCount = 0
+    for (const path of directoryPaths) {
+        const outputPath = resolve(distDir, path.replace(/^\//, ''), 'index.html')
+        if (await writeIfMissing(outputPath, indexHtml)) {
+            createdCount += 1
+        }
+    }
+
+    return createdCount
+}
+
 async function main() {
     const [indexHtml, sitemapXml] = await Promise.all([
         readFile(distIndexPath, 'utf8'),
@@ -161,7 +209,7 @@ async function main() {
     for (const target of postPaths) {
         try {
             const post = await fetchJson(`/posts/${target.postId}?incrementView=false`)
-            const canonicalUrl = `${siteUrl}${target.path}`
+            const canonicalUrl = `${siteUrl}${ensureTrailingSlashPath(target.path)}`
             const renderData = buildPreRenderedSnippet(post, canonicalUrl)
             const html = injectIntoTemplate(indexHtml, renderData)
             const outputPath = resolve(distDir, target.path.replace(/^\//, ''), 'index.html')
@@ -174,6 +222,8 @@ async function main() {
         }
     }
 
+    const fallbackIndexCount = await ensureSpaFallbackIndexes(indexHtml, postPaths)
+    console.log(`[prerender] wrote ${fallbackIndexCount} SPA fallback index files for parent directories`)
     console.log(`[prerender] wrote ${successCount}/${postPaths.length} pre-rendered post pages`)
 }
 

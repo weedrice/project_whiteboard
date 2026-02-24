@@ -68,6 +68,14 @@ function createEntry(loc, options = {}) {
     }
 }
 
+function toBoardUrl(boardUrl) {
+    return `${siteUrl}/board/${encodeURIComponent(boardUrl)}/`
+}
+
+function toPostUrl(boardUrl, postId) {
+    return `${siteUrl}/board/${encodeURIComponent(boardUrl)}/post/${postId}/`
+}
+
 function upsertEntry(entryMap, nextEntry) {
     const current = entryMap.get(nextEntry.loc)
     if (!current) {
@@ -111,7 +119,7 @@ async function fetchBoardPosts(boardUrl) {
         for (const post of posts) {
             if (!post || post.postId == null) continue
             postEntries.push(createEntry(
-                `${siteUrl}/board/${encodeURIComponent(boardUrl)}/post/${post.postId}`,
+                toPostUrl(boardUrl, post.postId),
                 {
                     lastmod: toLastmod(post.modifiedAt || post.createdAt),
                     changefreq: 'weekly',
@@ -174,7 +182,7 @@ async function main() {
         for (const board of boards) {
             const boardUrl = board.boardUrl
             upsertEntry(entries, createEntry(
-                `${siteUrl}/board/${encodeURIComponent(boardUrl)}`,
+                toBoardUrl(boardUrl),
                 {
                     lastmod: toLastmod(board.modifiedAt || board.createdAt),
                     changefreq: 'daily',

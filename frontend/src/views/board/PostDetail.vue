@@ -42,7 +42,8 @@ const postDescription = computed(() => {
 
 const canonicalUrl = computed(() => {
   if (typeof window === 'undefined') return ''
-  return `${window.location.origin}${route.path}`
+  const normalizedPath = route.path.endsWith('/') ? route.path : `${route.path}/`
+  return `${window.location.origin}${normalizedPath}`
 })
 
 const articleStructuredData = computed(() => {
