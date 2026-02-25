@@ -21,6 +21,7 @@ interface BoardData {
   iconUrl: string
   sortOrder: number
   allowNsfw: boolean
+  isPublic: boolean
 }
 
 const { t } = useI18n()
@@ -37,7 +38,8 @@ const form = ref({
   description: '',
   iconUrl: '',
   sortOrder: 0,
-  allowNsfw: false
+  allowNsfw: false,
+  isPublic: true
 })
 
 const isLoading = ref(true)
@@ -64,7 +66,8 @@ async function fetchBoard() {
         description: board.description || '',
         iconUrl: board.iconUrl || '',
         sortOrder: board.sortOrder || 0,
-        allowNsfw: board.allowNsfw || false
+        allowNsfw: board.allowNsfw || false,
+        isPublic: board.isPublic ?? true
       }
       currentManagerLabel.value = board.adminDisplayName || t('common.noData')
     }

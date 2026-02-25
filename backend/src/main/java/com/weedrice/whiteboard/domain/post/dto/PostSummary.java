@@ -24,6 +24,8 @@ public class PostSummary {
     private boolean isNsfw;
     @JsonProperty("isSpoiler")
     private boolean isSpoiler;
+    @JsonProperty("isSecret")
+    private boolean isSecret;
     private LocalDateTime createdAt;
     private String boardUrl;
     private String boardName;
@@ -85,6 +87,7 @@ public class PostSummary {
                 .isNotice(post.getIsNotice())
                 .isNsfw(post.getIsNsfw())
                 .isSpoiler(post.getIsSpoiler())
+                .isSecret(post.getIsSecret())
                 .createdAt(post.getCreatedAt())
                 .boardUrl(post.getBoard().getBoardUrl())
                 .boardName(post.getBoard().getBoardName())

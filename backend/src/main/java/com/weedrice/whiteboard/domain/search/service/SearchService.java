@@ -35,6 +35,7 @@ import com.weedrice.whiteboard.domain.user.service.UserBlockService; // Import U
 import com.weedrice.whiteboard.domain.board.dto.BoardSummary;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
+import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 
 // ...
 
@@ -49,6 +50,7 @@ public class SearchService {
     private final PostRepository postRepository;
     private final CommentRepository commentRepository;
     private final BoardRepository boardRepository; // Inject BoardRepository
+    private final AdminRepository adminRepository;
     private final UserBlockService userBlockService; // Inject UserBlockService
 
     private final com.weedrice.whiteboard.domain.file.service.FileService fileService; // Inject FileService
@@ -100,6 +102,7 @@ public class SearchService {
 
         List<BoardSummary> boards = boardRepository.findByBoardNameContainingIgnoreCaseAndIsActiveTrue(keyword)
                 .stream()
+                .filter(Board::getIsPublic)
                 .map(BoardSummary::from)
                 .collect(Collectors.toList());
 
@@ -108,12 +111,27 @@ public class SearchService {
 
     public Page<PostSummary> searchPosts(String keyword, String searchType, String boardUrl, Pageable pageable,
             Long currentUserId) {
+        boolean includeSecret = false;
+        if (boardUrl != null && !boardUrl.trim().isEmpty()) {
+            Board board = boardRepository.findByBoardUrl(boardUrl)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
+            User currentUser = null;
+            if (currentUserId != null) {
+                currentUser = userRepository.findById(currentUserId)
+                        .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+            }
+            if ((!board.getIsActive() || !board.getIsPublic()) && !hasBoardAdminAccess(board, currentUser)) {
+                throw new BusinessException(ErrorCode.BOARD_NOT_FOUND);
+            }
+            includeSecret = hasBoardAdminAccess(board, currentUser);
+        }
+
         List<Long> blockedUserIds = null;
         if (currentUserId != null) {
             blockedUserIds = userBlockService.getBlockedUserIds(currentUserId);
         }
         Page<com.weedrice.whiteboard.domain.post.entity.Post> postPage = postRepository.searchPosts(keyword, searchType,
-                boardUrl, blockedUserIds, pageable);
+                boardUrl, blockedUserIds, includeSecret, pageable);
 
         List<Long> postIds = postPage.getContent().stream()
                 .map(com.weedrice.whiteboard.domain.post.entity.Post::getPostId).collect(Collectors.toList());
@@ -179,5 +197,18 @@ public class SearchService {
                 .sorted((k1, k2) -> Long.compare(k2.getCount(), k1.getCount()))
                 .limit(limit)
                 .collect(Collectors.toList());
+    }
+
+    private boolean hasBoardAdminAccess(Board board, User user) {
+        if (board == null || user == null) {
+            return false;
+        }
+        if (user.getIsSuperAdmin()) {
+            return true;
+        }
+        if (board.getCreator().getUserId().equals(user.getUserId())) {
+            return true;
+        }
+        return adminRepository.existsByUserAndBoardAndIsActive(user, board, true);
     }
 }

@@ -436,6 +436,7 @@ describe('PostForm', () => {
                 contents: 'Created body',
                 isNsfw: true,
                 isSpoiler: true,
+                isSecret: false,
                 isNotice: false,
                 fileIds: [7, 8],
             },
@@ -504,6 +505,7 @@ describe('PostForm', () => {
                 contents: 'After body',
                 isNsfw: false,
                 isSpoiler: false,
+                isSecret: false,
                 fileIds: [],
             },
         })
@@ -623,6 +625,7 @@ describe('PostForm', () => {
         expect(wrapper.find('#isNotice').exists()).toBe(true)
         expect(wrapper.find('#nsfw').exists()).toBe(true)
         expect(wrapper.find('#spoiler').exists()).toBe(true)
+        expect(wrapper.find('#secret').exists()).toBe(true)
 
         const cancelButton = wrapper.findAll('button').find((button) => button.text() === 'common.cancel')
         expect(cancelButton).toBeTruthy()
@@ -754,7 +757,9 @@ describe('PostForm', () => {
         await wrapper.get('#isNotice-m').setValue(true)
         await wrapper.get('#nsfw-m').setValue(true)
         await wrapper.get('#spoiler-m').setValue(true)
+        await wrapper.get('#secret-m').setValue(true)
         await wrapper.get('#isNotice').setValue(false)
+        await wrapper.get('#secret').setValue(false)
 
         await wrapper.get('[data-testid=\"open-video\"]').trigger('click')
         await wrapper.get('.video-url-popover-actions button:last-child').trigger('click')

@@ -32,6 +32,9 @@ public class PostResponse {
     @JsonProperty("isSpoiler")
     private boolean isSpoiler;
 
+    @JsonProperty("isSecret")
+    private boolean isSecret;
+
     @JsonProperty("isLiked")
     private boolean isLiked; // 현재 유저의 좋아요 여부
 
@@ -106,6 +109,7 @@ public class PostResponse {
                 .isNotice(post.getIsNotice())
                 .isNsfw(post.getIsNsfw())
                 .isSpoiler(post.getIsSpoiler())
+                .isSecret(post.getIsSecret())
                 .isLiked(isLiked)
                 .isScrapped(isScrapped)
                 .lastReadCommentId(lastReadCommentId)

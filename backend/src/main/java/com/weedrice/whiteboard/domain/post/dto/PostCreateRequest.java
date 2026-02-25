@@ -35,5 +35,8 @@ public class PostCreateRequest {
     @JsonProperty("isSpoiler")
     private boolean isSpoiler = false;
 
+    @JsonProperty("isSecret")
+    private boolean isSecret = false;
+
     private List<Long> fileIds;
 }

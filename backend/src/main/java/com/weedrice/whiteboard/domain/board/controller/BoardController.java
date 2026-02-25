@@ -94,8 +94,9 @@ public class BoardController {
     }
 
     @GetMapping("/{boardUrl}/categories")
-    public ApiResponse<List<CategoryResponse>> getCategories(@PathVariable String boardUrl) {
-        return ApiResponse.success(boardService.getActiveCategories(boardUrl));
+    public ApiResponse<List<CategoryResponse>> getCategories(@PathVariable String boardUrl,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        return ApiResponse.success(boardService.getActiveCategories(boardUrl, userDetails));
     }
 
     @PostMapping("/{boardUrl}/subscribe")

@@ -24,4 +24,5 @@ public class BoardUpdateRequest {
     private Boolean allowNsfw;
     private int sortOrder;
     private Boolean isActive;
+    private Boolean isPublic;
 }

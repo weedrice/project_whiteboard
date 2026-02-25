@@ -16,7 +16,7 @@ import java.util.List;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Entity
 @Table(name = "boards", indexes = {
-        @Index(name = "idx_boards_active", columnList = "is_active, sort_order"),
+        @Index(name = "idx_boards_active", columnList = "is_active, is_public, sort_order"),
         @Index(name = "idx_boards_creator", columnList = "creator_id")
 })
 public class Board extends BaseTimeEntity {
@@ -53,12 +53,16 @@ public class Board extends BaseTimeEntity {
     @Column(name = "allow_nsfw", length = 1, nullable = false)
     private Boolean allowNsfw;
 
+    @Convert(converter = BooleanToYNConverter.class)
+    @Column(name = "is_public", length = 1, nullable = false, columnDefinition = "varchar(1) default 'Y'")
+    private Boolean isPublic;
+
     @OneToMany(mappedBy = "board", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<BoardCategory> categories = new ArrayList<>();
 
     @Builder
     public Board(String boardName, String boardUrl, String description, User creator, String iconUrl,
-            Integer sortOrder) {
+            Integer sortOrder, Boolean isPublic) {
         this.boardName = boardName;
         this.boardUrl = boardUrl;
         this.description = description;
@@ -67,10 +71,11 @@ public class Board extends BaseTimeEntity {
         this.sortOrder = sortOrder != null ? sortOrder : 0;
         this.isActive = true;
         this.allowNsfw = false;
+        this.isPublic = isPublic != null ? isPublic : true;
     }
 
     public void update(String boardName, String description, String iconUrl, Integer sortOrder, Boolean allowNsfw,
-            Boolean isActive) {
+            Boolean isActive, Boolean isPublic) {
         this.boardName = boardName;
         this.description = description;
         this.iconUrl = iconUrl;
@@ -78,6 +83,9 @@ public class Board extends BaseTimeEntity {
         this.allowNsfw = allowNsfw;
         if (isActive != null) {
             this.isActive = isActive;
+        }
+        if (isPublic != null) {
+            this.isPublic = isPublic;
         }
     }
 

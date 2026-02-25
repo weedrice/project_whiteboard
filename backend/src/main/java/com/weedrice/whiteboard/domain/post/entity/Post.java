@@ -16,11 +16,11 @@ import jakarta.persistence.*;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Entity
 @Table(name = "posts", indexes = {
-        @Index(name = "idx_posts_board_created", columnList = "board_id, is_deleted, created_at"),
-        @Index(name = "idx_posts_board_notice", columnList = "board_id, is_notice, created_at"),
+        @Index(name = "idx_posts_board_created", columnList = "board_id, is_deleted, is_secret, created_at"),
+        @Index(name = "idx_posts_board_notice", columnList = "board_id, is_notice, is_secret, created_at"),
         @Index(name = "idx_posts_user", columnList = "user_id, is_deleted, created_at"),
         @Index(name = "idx_posts_category", columnList = "category_id"),
-        @Index(name = "idx_posts_popular", columnList = "board_id, is_deleted, like_count, created_at")
+        @Index(name = "idx_posts_popular", columnList = "board_id, is_deleted, is_secret, like_count, created_at")
 })
 public class Post extends BaseTimeEntity {
 
@@ -72,8 +72,13 @@ public class Post extends BaseTimeEntity {
     @Column(name = "is_spoiler", length = 1, nullable = false)
     private Boolean isSpoiler;
 
+    @Convert(converter = BooleanToYNConverter.class)
+    @Column(name = "is_secret", length = 1, nullable = false, columnDefinition = "varchar(1) default 'N'")
+    private Boolean isSecret;
+
     @Builder
-    public Post(Board board, User user, BoardCategory category, String title, String contents, boolean isNotice, boolean isNsfw, boolean isSpoiler) {
+    public Post(Board board, User user, BoardCategory category, String title, String contents, boolean isNotice,
+            boolean isNsfw, boolean isSpoiler, boolean isSecret) {
         this.board = board;
         this.user = user;
         this.category = category;
@@ -86,6 +91,7 @@ public class Post extends BaseTimeEntity {
         this.isNotice = isNotice;
         this.isNsfw = isNsfw;
         this.isSpoiler = isSpoiler;
+        this.isSecret = isSecret;
     }
 
     public void incrementViewCount() {
@@ -108,12 +114,14 @@ public class Post extends BaseTimeEntity {
         this.commentCount--;
     }
 
-    public void updatePost(BoardCategory category, String title, String contents, boolean isNsfw, boolean isSpoiler) {
+    public void updatePost(BoardCategory category, String title, String contents, boolean isNsfw, boolean isSpoiler,
+            boolean isSecret) {
         this.category = category;
         this.title = title;
         this.contents = contents;
         this.isNsfw = isNsfw;
         this.isSpoiler = isSpoiler;
+        this.isSecret = isSecret;
     }
 
     public void deletePost() {

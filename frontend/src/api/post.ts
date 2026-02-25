@@ -9,6 +9,7 @@ export interface PostCreateData {
     isNotice?: boolean
     isNsfw?: boolean
     isSpoiler?: boolean
+    isSecret?: boolean
     tags?: string[]
 }
 
@@ -19,6 +20,7 @@ export interface PostUpdateData {
     isNotice?: boolean
     isNsfw?: boolean
     isSpoiler?: boolean
+    isSecret?: boolean
     tags?: string[]
 }
 

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // defineProps and defineEmits are compiler macros and don't need to be imported
-import { MessageSquare, ThumbsUp, User, Clock, Image as ImageIcon, ArrowUp, ArrowDown, Eye } from 'lucide-vue-next'
+import { MessageSquare, ThumbsUp, User, Clock, Image as ImageIcon, Lock, ArrowUp, ArrowDown, Eye } from 'lucide-vue-next'
 import UserMenu from '@/components/common/widgets/UserMenu.vue'
 import BaseTable from '@/components/common/ui/BaseTable.vue'
 import { computed } from 'vue'
@@ -23,6 +23,7 @@ interface Post {
   likeCount: number
   commentCount: number
   isNotice?: boolean
+  isSecret?: boolean
   hasImage?: boolean
   category?: {
     name: string
@@ -173,6 +174,9 @@ const columns = computed(() => {
           <span class="flex-1 min-w-0 truncate text-xs text-gray-900 dark:text-white">
             <span v-if="item.category && item.category.name !== '일반'" class="badge badge-gray mr-1 text-[10px]">{{ item.category.name }}</span>
             <span v-if="item.isNotice" class="badge badge-red mr-1 text-[10px]">{{ $t('common.notice') }}</span>
+            <span v-if="item.isSecret" class="mr-0.5 inline-flex text-amber-500" :title="$t('board.writePost.secret')">
+              <Lock class="h-3.5 w-3.5" />
+            </span>
             <span v-if="item.hasImage" class="mr-0.5 inline-flex text-gray-400"><ImageIcon class="h-3.5 w-3.5" /></span>
             {{ item.title }}
             <span v-if="item.commentCount > 0" class="text-indigo-600 dark:text-indigo-400">[{{ item.commentCount }}]</span>
@@ -229,6 +233,9 @@ const columns = computed(() => {
               </span>
               <span v-if="item.isNotice" class="badge badge-red mr-1.5 sm:mr-2 text-[10px] sm:text-xs flex-shrink-0">
                 {{ $t('common.notice') }}
+              </span>
+              <span v-if="item.isSecret" class="mr-1 text-amber-500 flex items-center flex-shrink-0" :title="$t('board.writePost.secret')">
+                <Lock class="h-4 w-4" />
               </span>
               <span v-if="item.hasImage" class="mr-1 text-gray-400 flex items-center flex-shrink-0">
                 <ImageIcon class="h-4 w-4" />

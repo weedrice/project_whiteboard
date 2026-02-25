@@ -75,7 +75,8 @@ const form = ref({
   tags: [] as string[],
   isNsfw: false,
   isSpoiler: false,
-  isNotice: false
+  isNotice: false,
+  isSecret: false
 })
 
 type FormSnapshot = typeof form.value
@@ -90,7 +91,8 @@ function copyFormSnapshot(src: FormSnapshot): FormSnapshot {
     tags: [...(src.tags || [])],
     isNsfw: src.isNsfw,
     isSpoiler: src.isSpoiler,
-    isNotice: src.isNotice
+    isNotice: src.isNotice,
+    isSecret: src.isSecret
   }
 }
 
@@ -98,7 +100,7 @@ function isFormDirty(): boolean {
   const init = initialFormSnapshot.value
   if (!init) return false
   const f = form.value
-  if (f.title !== init.title || f.content !== init.content || f.isNsfw !== init.isNsfw || f.isSpoiler !== init.isSpoiler || f.isNotice !== init.isNotice) return true
+  if (f.title !== init.title || f.content !== init.content || f.isNsfw !== init.isNsfw || f.isSpoiler !== init.isSpoiler || f.isNotice !== init.isNotice || f.isSecret !== init.isSecret) return true
   const catEqual = String(f.categoryId) === String(init.categoryId)
   if (!catEqual) return true
   if (f.tags.length !== init.tags.length) return true
@@ -194,7 +196,8 @@ watchEffect(() => {
         tags: post.value.tags?.map((t: { name?: string } | string) => typeof t === 'string' ? t : (t.name ?? '')) ?? [],
         isNsfw: post.value.isNsfw,
         isSpoiler: post.value.isSpoiler,
-        isNotice: false
+        isNotice: false,
+        isSecret: post.value.isSecret ?? false
       }
       initialFormSnapshot.value = copyFormSnapshot(form.value)
     }
@@ -233,6 +236,7 @@ function buildPayload() {
     contents: form.value.content,
     isNsfw: board.value?.allowNsfw ? form.value.isNsfw : false,
     isSpoiler: form.value.isSpoiler,
+    isSecret: form.value.isSecret,
     ...(props.mode === 'create' && { isNotice: form.value.isNotice }),
     fileIds: fileIdsArray
   }
@@ -255,6 +259,10 @@ function handleSubmit() {
       onSuccess: (response) => {
         const newPostId = response.data.data
         initialFormSnapshot.value = copyFormSnapshot(form.value)
+        if (payload.isSecret && !board.value?.isAdmin) {
+          router.push(`/board/${boardUrl.value}`)
+          return
+        }
         router.push(`/board/${boardUrl.value}/post/${newPostId}`)
       },
       onError: (err) => {
@@ -453,6 +461,7 @@ const showNotice = computed(() => props.mode === 'create' && board.value?.isAdmi
             <BaseCheckbox v-if="showNotice" id="isNotice-m" v-model="form.isNotice" :label="$t('common.notice')" />
             <BaseCheckbox v-if="board?.allowNsfw" id="nsfw-m" v-model="form.isNsfw" :label="$t('board.writePost.nsfw')" />
             <BaseCheckbox id="spoiler-m" v-model="form.isSpoiler" :label="$t('board.writePost.spoiler')" />
+            <BaseCheckbox id="secret-m" v-model="form.isSecret" :label="$t('board.writePost.secret')" />
           </div>
           <div class="hidden sm:block">
             <BaseCheckbox v-if="showNotice" id="isNotice" v-model="form.isNotice" :label="$t('common.notice')"
@@ -461,6 +470,8 @@ const showNotice = computed(() => props.mode === 'create' && board.value?.isAdmi
               :description="$t('board.writePost.nsfwDesc')" />
             <BaseCheckbox id="spoiler" v-model="form.isSpoiler" :label="$t('board.writePost.spoiler')"
               :description="$t('board.writePost.spoilerDesc')" class="mt-3 sm:mt-4" />
+            <BaseCheckbox id="secret" v-model="form.isSecret" :label="$t('board.writePost.secret')"
+              :description="$t('board.writePost.secretDesc')" class="mt-3 sm:mt-4" />
           </div>
         </div>
       </div>

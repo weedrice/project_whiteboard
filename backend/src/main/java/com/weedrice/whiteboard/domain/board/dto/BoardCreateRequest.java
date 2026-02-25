@@ -24,4 +24,5 @@ public class BoardCreateRequest {
     private String description;
 
     private String iconUrl;
+    private Boolean isPublic;
 }

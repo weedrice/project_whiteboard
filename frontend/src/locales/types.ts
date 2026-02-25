@@ -345,6 +345,8 @@ export interface BoardMessages {
     sortOrder: string
     allowNsfw: string
     allowNsfwDesc: string
+    isPublic: string
+    isPublicDesc: string
     change: string
     save: string
     create: string
@@ -405,6 +407,8 @@ export interface BoardMessages {
     nsfwDesc: string
     spoiler: string
     spoilerDesc: string
+    secret: string
+    secretDesc: string
     placeholder: {
       title: string
       tags: string

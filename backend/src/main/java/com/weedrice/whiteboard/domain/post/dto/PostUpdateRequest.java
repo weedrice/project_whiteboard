@@ -32,5 +32,8 @@ public class PostUpdateRequest {
     @JsonProperty("isSpoiler")
     private boolean isSpoiler;
 
+    @JsonProperty("isSecret")
+    private boolean isSecret;
+
     private List<Long> fileIds;
 }

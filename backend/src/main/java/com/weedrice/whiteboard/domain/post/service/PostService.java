@@ -72,33 +72,18 @@ public class PostService {
     private final UserBlockService userBlockService;
     private final GlobalConfigService globalConfigService;
 
-    // --- boardUrl 기반 public 메서드 (오버로드) ---
+    // --- boardUrl 湲곕컲 public 硫붿꽌??(?ㅻ쾭濡쒕뱶) ---
+    // --- boardUrl 기반 public 메서드 ---
     public Page<PostSummary> getPosts(String boardUrl, Long categoryId, Integer minLikes, Long currentUserId,
             @NonNull Pageable pageable) {
         Board board = boardRepository.findByBoardUrl(boardUrl)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
 
-        if (!board.getIsActive()) {
-            boolean isSuperAdmin = false;
-            boolean isBoardAdmin = false;
-            boolean isCreator = false;
+        validateBoardReadable(board, currentUserId);
+        boolean includeSecret = canViewSecretPosts(board, currentUserId);
 
-            if (currentUserId != null) {
-                User currentUser = userRepository.findById(currentUserId)
-                        .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-
-                isSuperAdmin = currentUser.getIsSuperAdmin();
-                isBoardAdmin = adminRepository.findByUserAndBoardAndIsActive(currentUser, board, true)
-                        .isPresent();
-                isCreator = board.getCreator().getUserId().equals(currentUser.getUserId());
-            }
-
-            if (!isSuperAdmin && !isBoardAdmin && !isCreator) {
-                throw new BusinessException(ErrorCode.BOARD_NOT_FOUND);
-            }
-        }
-
-        Page<Post> posts = this.getPosts(board.getBoardId(), categoryId, minLikes, currentUserId, pageable);
+        Page<Post> posts = this.getPosts(board.getBoardId(), categoryId, minLikes, currentUserId, includeSecret,
+                pageable);
 
         List<PostSummary> summaries = new ArrayList<>();
         long totalElements = posts.getTotalElements();
@@ -138,67 +123,52 @@ public class PostService {
         Board board = boardRepository.findByBoardUrl(boardUrl)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
 
-        if (!board.getIsActive()) {
-            boolean isSuperAdmin = false;
-            boolean isBoardAdmin = false;
-            boolean isCreator = false;
-
-            if (currentUserId != null) {
-                User currentUser = userRepository.findById(currentUserId)
-                        .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-
-                isSuperAdmin = currentUser.getIsSuperAdmin();
-                isBoardAdmin = adminRepository.findByUserAndBoardAndIsActive(currentUser, board, true)
-                        .isPresent();
-                isCreator = board.getCreator().getUserId().equals(currentUser.getUserId());
-            }
-
-            if (!isSuperAdmin && !isBoardAdmin && !isCreator) {
-                throw new BusinessException(ErrorCode.BOARD_NOT_FOUND);
-            }
-        }
-
-        return this.getNotices(board.getBoardId(), currentUserId);
+        validateBoardReadable(board, currentUserId);
+        boolean includeSecret = canViewSecretPosts(board, currentUserId);
+        return this.getNotices(board.getBoardId(), currentUserId, includeSecret);
     }
 
     @Transactional
     public Post createPost(@NonNull Long userId, String boardUrl, PostCreateRequest request) {
         Board board = boardRepository.findByBoardUrl(boardUrl)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
+        validateBoardReadable(board, userId);
         return this.createPost(userId, board.getBoardId(), request);
     }
 
-    // --- 기존 boardId 기반 public/private 메서스 ---
+    // --- boardId 기반 public/private 메서드 ---
     public Page<Post> getPosts(Long boardId, Long categoryId, Integer minLikes, Long currentUserId,
-            @NonNull Pageable pageable) {
+            Boolean includeSecret, @NonNull Pageable pageable) {
         List<Long> blockedUserIds = null;
         if (currentUserId != null) {
             blockedUserIds = userBlockService.getBlockedUserIds(currentUserId);
         }
-        return postRepository.findByBoardIdAndCategoryId(boardId, categoryId, minLikes, blockedUserIds,
+        return postRepository.findByBoardIdAndCategoryId(boardId, categoryId, minLikes, blockedUserIds, includeSecret,
                 pageable);
     }
 
-    public List<Post> getNotices(Long boardId, Long currentUserId) {
+    public List<Post> getNotices(Long boardId, Long currentUserId, Boolean includeSecret) {
         List<Long> blockedUserIds = null;
         if (currentUserId != null) {
             blockedUserIds = userBlockService.getBlockedUserIds(currentUserId);
         }
-        return postRepository.findNoticesByBoardId(boardId, true, false, blockedUserIds);
+        return postRepository.findNoticesByBoardId(boardId, true, false, blockedUserIds, includeSecret);
     }
 
     public Page<PostSummary> getPostsByTag(Long tagId, Long currentUserId, @NonNull Pageable pageable) {
-        Page<com.weedrice.whiteboard.domain.tag.entity.PostTag> postTags = postTagRepository
-                .findByTag_TagId(tagId, pageable);
+        List<Long> blockedUserIds = null;
+        if (currentUserId != null) {
+            blockedUserIds = userBlockService.getBlockedUserIds(currentUserId);
+        }
+        Page<Post> postPage = postRepository.findByTagId(tagId, blockedUserIds, pageable);
 
-        List<Long> postIds = postTags.getContent().stream()
-                .map(pt -> pt.getPost().getPostId())
+        List<Long> postIds = postPage.getContent().stream()
+                .map(Post::getPostId)
                 .collect(Collectors.toList());
 
         Set<Long> postIdsWithImages = getPostIdsWithImages(postIds);
 
-        return postTags.map(pt -> {
-            Post post = pt.getPost();
+        return postPage.map(post -> {
             PostSummary summary = PostSummary.from(post);
             summary.setHasImage(postIdsWithImages.contains(post.getPostId()));
             return summary;
@@ -292,12 +262,12 @@ public class PostService {
                     if (summary.length() > 1000) {
                         summary = summary.substring(0, 1000);
                     }
-                    // 썸네일 URL 결정: 첨부파일 이미지 > 본문 img 태그
+                    // ?몃꽕??URL 寃곗젙: 泥⑤??뚯씪 ?대?吏 > 蹂몃Ц img ?쒓렇
                     String thumbnailUrl = null;
                     boolean hasImage = false;
 
                     if (postIdsWithImages.contains(post.getPostId())) {
-                        // 첨부파일 이미지가 있는 경우
+                        // 泥⑤??뚯씪 ?대?吏媛 ?덈뒗 寃쎌슦
                         Long fileId = fileService.getOneImageFileIdForPost(post.getPostId());
                         if (fileId != null) {
                             thumbnailUrl = "/api/v1/files/" + fileId;
@@ -306,7 +276,7 @@ public class PostService {
                     }
 
                     if (thumbnailUrl == null) {
-                        // 첨부파일 이미지가 없으면 본문에서 img 태그 추출
+                        // 泥⑤??뚯씪 ?대?吏媛 ?놁쑝硫?蹂몃Ц?먯꽌 img ?쒓렇 異붿텧
                         String contentImageUrl = extractFirstImageUrlFromContent(post.getContents());
                         if (contentImageUrl != null) {
                             thumbnailUrl = contentImageUrl;
@@ -314,7 +284,7 @@ public class PostService {
                         }
                     }
 
-                    // Feed용: 본문 HTML 앞부분(약 5줄), 최초 미디어(이미지/비디오) 결정
+                    // Feed?? 蹂몃Ц HTML ?욌?遺???5以?, 理쒖큹 誘몃뵒???대?吏/鍮꾨뵒?? 寃곗젙
                     String contentsExcerpt = truncateHtmlForExcerpt(post.getContents(), FEED_EXCERPT_MAX_LENGTH);
                     String firstVideoUrl = extractFirstVideoEmbedFromContent(post.getContents());
                     int imgPos = indexOfFirstImageInContent(post.getContents());
@@ -364,11 +334,14 @@ public class PostService {
             throw new BusinessException(ErrorCode.POST_NOT_FOUND);
         }
 
+        User viewer = null;
         if (userId != null) {
             List<Long> blockedUserIds = userBlockService.getBlockedUserIds(userId);
             if (blockedUserIds.contains(post.getUser().getUserId())) {
                 throw new BusinessException(ErrorCode.POST_NOT_FOUND);
             }
+            viewer = userRepository.findById(userId)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         }
 
         // Access Control for Inactive Boards
@@ -376,28 +349,36 @@ public class PostService {
             if (userId == null) {
                 throw new BusinessException(ErrorCode.POST_NOT_FOUND);
             }
-            User user = userRepository.findById(userId)
-                    .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-
             boolean isBoardAdmin = adminRepository
-                    .findByUserAndBoardAndIsActive(user, post.getBoard(), true).isPresent();
+                    .findByUserAndBoardAndIsActive(viewer, post.getBoard(), true).isPresent();
             boolean isAuthor = post.getUser().getUserId().equals(userId);
 
-            if (!user.getIsSuperAdmin() && !isBoardAdmin && !isAuthor) {
+            if (!viewer.getIsSuperAdmin() && !isBoardAdmin && !isAuthor) {
                 throw new BusinessException(ErrorCode.POST_NOT_FOUND); // Treat as not found for
                 // security
+            }
+        }
+
+        if (!post.getBoard().getIsPublic()) {
+            if (!hasBoardAdminAccess(post.getBoard(), viewer)) {
+                throw new BusinessException(ErrorCode.POST_NOT_FOUND);
+            }
+        }
+
+        if (post.getIsSecret()) {
+            if (!hasBoardAdminAccess(post.getBoard(), viewer)) {
+                throw new BusinessException(ErrorCode.POST_NOT_FOUND);
             }
         }
 
         if (incrementView) {
             post.incrementViewCount();
 
-            if (userId != null) {
-                User user = userRepository.findById(userId)
-                        .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-                ViewHistory viewHistory = viewHistoryRepository.findByUserAndPost(user, post)
+            if (viewer != null) {
+                User currentViewer = viewer;
+                ViewHistory viewHistory = viewHistoryRepository.findByUserAndPost(currentViewer, post)
                         .orElseGet(() -> viewHistoryRepository
-                                .save(new ViewHistory(user, post)));
+                                .save(new ViewHistory(currentViewer, post)));
                 viewHistory.updateView(null, 0);
             }
         }
@@ -480,15 +461,16 @@ public class PostService {
         Board board = boardRepository.findById(boardId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
 
-        if (!board.getIsActive()) {
+        if (!board.getIsActive() && !hasBoardAdminAccess(board, user)) {
+            throw new BusinessException(ErrorCode.BOARD_NOT_FOUND);
+        }
+
+        if (!board.getIsPublic() && !hasBoardAdminAccess(board, user)) {
             throw new BusinessException(ErrorCode.BOARD_NOT_FOUND);
         }
 
         if (request.isNotice()) {
-            boolean isBoardAdmin = adminRepository.findByUserAndBoardAndIsActive(user, board, true)
-                    .isPresent();
-
-            if (!user.getIsSuperAdmin() && !isBoardAdmin) {
+            if (!hasBoardAdminAccess(board, user)) {
                 throw new BusinessException(ErrorCode.FORBIDDEN);
             }
         }
@@ -505,15 +487,13 @@ public class PostService {
                     throw new BusinessException(ErrorCode.FORBIDDEN);
                 }
             } else if (Role.BOARD_ADMIN.equals(minRole)) {
-                boolean isBoardAdmin = adminRepository.findByUserAndBoardAndIsActive(user, board, true)
-                        .isPresent();
-                if (!user.getIsSuperAdmin() && !isBoardAdmin) {
+                if (!hasBoardAdminAccess(board, user)) {
                     throw new BusinessException(ErrorCode.FORBIDDEN);
                 }
             }
         }
 
-        // 본문에서 위험한 스크립트만 제거 (HTML 태그는 허용)
+        // 蹂몃Ц?먯꽌 ?꾪뿕???ㅽ겕由쏀듃留??쒓굅 (HTML ?쒓렇???덉슜)
         String sanitizedContents = InputSanitizer.sanitize(request.getContents());
 
         Post post = Post.builder()
@@ -525,6 +505,7 @@ public class PostService {
                 .isNotice(request.isNotice())
                 .isNsfw(request.isNsfw())
                 .isSpoiler(request.isSpoiler())
+                .isSecret(request.isSecret())
                 .build();
 
         Post savedPost = postRepository.save(post);
@@ -537,10 +518,10 @@ public class PostService {
             }
         }
 
-        // 포인트 지급 (게시글 작성)
+        // ?ъ씤??吏湲?(寃뚯떆湲 ?묒꽦)
         String postCreateRewardStr = globalConfigService.getConfig("POINT_POST_CREATE_REWARD");
         int postCreateReward = postCreateRewardStr != null ? Integer.parseInt(postCreateRewardStr) : 50;
-        pointService.addPoint(userId, postCreateReward, "게시글 작성", savedPost.getPostId(), "POST");
+        pointService.addPoint(userId, postCreateReward, "寃뚯떆湲 ?묒꽦", savedPost.getPostId(), "POST");
         return savedPost;
     }
 
@@ -566,11 +547,11 @@ public class PostService {
         String originalTitle = post.getTitle();
         String originalContents = post.getContents();
 
-        // 본문에서 위험한 스크립트만 제거 (HTML 태그는 허용)
+        // 蹂몃Ц?먯꽌 ?꾪뿕???ㅽ겕由쏀듃留??쒓굅 (HTML ?쒓렇???덉슜)
         String sanitizedContents = InputSanitizer.sanitize(request.getContents());
 
         post.updatePost(category, request.getTitle(), sanitizedContents, request.isNsfw(),
-                request.isSpoiler());
+                request.isSpoiler(), request.isSecret());
         tagService.processTagsForPost(post, request.getTags());
 
         if (request.getFileIds() != null && !request.getFileIds().isEmpty()) {
@@ -606,22 +587,17 @@ public class PostService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         savePostVersion(post, modifier, "DELETE", post.getTitle(), post.getContents());
 
-        // 포인트 차감 (게시글 삭제)
+        // ?ъ씤??李④컧 (寃뚯떆湲 ??젣)
         String postCreateRewardStr = globalConfigService.getConfig("POINT_POST_CREATE_REWARD");
         int postCreateReward = postCreateRewardStr != null ? Integer.parseInt(postCreateRewardStr) : 50;
-        pointService.forceSubtractPoint(userId, postCreateReward, "게시글 삭제", postId, "POST");
+        pointService.forceSubtractPoint(userId, postCreateReward, "寃뚯떆湲 ??젣", postId, "POST");
     }
 
     @Transactional
     public int likePost(@NonNull Long userId, @NonNull Long postId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        Post post = postRepository.findById(postId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
-
-        if (post.getIsDeleted()) {
-            throw new BusinessException(ErrorCode.POST_NOT_FOUND);
-        }
+        Post post = getPostById(postId, userId, false);
 
         PostLikeId postLikeId = new PostLikeId(userId, postId);
         if (postLikeRepository.existsById(postLikeId)) {
@@ -635,7 +611,7 @@ public class PostService {
         postLikeRepository.save(postLike);
         post.incrementLikeCount();
 
-        String content = user.getDisplayName() + "님이 회원님의 게시글을 좋아합니다.";
+        String content = user.getDisplayName() + "?섏씠 ?뚯썝?섏쓽 寃뚯떆湲??醫뗭븘?⑸땲??";
         NotificationEvent event = new NotificationEvent(post.getUser(), user, "LIKE", "POST", postId, content);
         eventPublisher.publishEvent(event);
 
@@ -644,12 +620,7 @@ public class PostService {
 
     @Transactional
     public int unlikePost(@NonNull Long userId, @NonNull Long postId) {
-        Post post = postRepository.findById(postId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
-
-        if (post.getIsDeleted()) {
-            throw new BusinessException(ErrorCode.POST_NOT_FOUND);
-        }
+        Post post = getPostById(postId, userId, false);
 
         PostLikeId postLikeId = new PostLikeId(userId, postId);
         if (!postLikeRepository.existsById(postLikeId)) {
@@ -666,12 +637,7 @@ public class PostService {
     public void scrapPost(@NonNull Long userId, @NonNull Long postId, String remark) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        Post post = postRepository.findById(postId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
-
-        if (post.getIsDeleted()) {
-            throw new BusinessException(ErrorCode.POST_NOT_FOUND);
-        }
+        Post post = getPostById(postId, userId, false);
 
         ScrapId scrapId = new ScrapId(userId, postId);
         if (scrapRepository.existsById(scrapId)) {
@@ -692,8 +658,8 @@ public class PostService {
         if (!scrapRepository.existsById(scrapId)) {
             throw new BusinessException(ErrorCode.NOT_SCRAPED);
         }
-        // Unscrap은 게시글이 삭제되었어도 내 스크랩 목록에서 삭제 가능해야 할 수 있음.
-        // 하지만 일관성을 위해 체크하지 않거나, 체크해도 무방함. 여기서는 게시글 존재 여부 체크 안함 (스크랩 ID로만 삭제)
+        // Unscrap? 寃뚯떆湲????젣?섏뿀?대룄 ???ㅽ겕??紐⑸줉?먯꽌 ??젣 媛?ν빐???????덉쓬.
+        // ?섏?留??쇨??깆쓣 ?꾪빐 泥댄겕?섏? ?딄굅?? 泥댄겕?대룄 臾대갑?? ?ш린?쒕뒗 寃뚯떆湲 議댁옱 ?щ? 泥댄겕 ?덊븿 (?ㅽ겕??ID濡쒕쭔 ??젣)
         scrapRepository.deleteById(scrapId);
     }
 
@@ -723,8 +689,9 @@ public class PostService {
     public DraftPost saveDraftPost(@NonNull Long userId, PostDraftRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        Board board = boardRepository.findByBoardUrl(request.getBoardUrl()) // boardUrl 사용
+        Board board = boardRepository.findByBoardUrl(request.getBoardUrl()) // boardUrl ?ъ슜
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
+        validateBoardReadable(board, userId);
         Post originalPost = null;
         if (request.getOriginalPostId() != null) {
             originalPost = postRepository.findById(request.getOriginalPostId())
@@ -820,16 +787,50 @@ public class PostService {
         User user = userRepository.findById(userId).orElse(null);
         if (user == null)
             return false;
-        if (user.getIsSuperAdmin())
-            return true;
         Board board = boardRepository.findById(boardId).orElse(null);
         if (board == null)
             return false;
-        return adminRepository.findByUserAndBoardAndIsActive(user, board, true).isPresent();
+        return hasBoardAdminAccess(board, user);
+    }
+
+    private void validateBoardReadable(Board board, Long userId) {
+        User user = null;
+        if (userId != null) {
+            user = userRepository.findById(userId)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        }
+
+        if ((!board.getIsActive() || !board.getIsPublic()) && !hasBoardAdminAccess(board, user)) {
+            throw new BusinessException(ErrorCode.BOARD_NOT_FOUND);
+        }
+    }
+
+    private boolean canViewSecretPosts(Board board, Long userId) {
+        if (userId == null) {
+            return false;
+        }
+        User user = userRepository.findById(userId).orElse(null);
+        return hasBoardAdminAccess(board, user);
+    }
+
+    private boolean hasBoardAdminAccess(Board board, User user) {
+        if (user == null || board == null) {
+            return false;
+        }
+        if (user.getIsSuperAdmin()) {
+            return true;
+        }
+        if (board.getCreator().getUserId().equals(user.getUserId())) {
+            return true;
+        }
+        return adminRepository.existsByUserAndBoardAndIsActive(user, board, true);
     }
 
     public List<PostSummary> getLatestPostsByBoard(Long boardId, int limit, Long currentUserId) {
         Pageable pageable = PageRequest.of(0, limit, Sort.by(Sort.Direction.DESC, "createdAt"));
+        Board board = boardRepository.findById(boardId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
+        boolean includeSecret = canViewSecretPosts(board, currentUserId);
 
         List<Long> blockedUserIds = null;
         if (currentUserId != null) {
@@ -837,6 +838,7 @@ public class PostService {
         }
 
         Page<Post> postPage = postRepository.findByBoardIdAndCategoryId(boardId, null, null, blockedUserIds,
+                includeSecret,
                 pageable);
         List<Post> posts = postPage.getContent();
 
@@ -882,7 +884,7 @@ public class PostService {
                     if (summary.length() > 1000) {
                         summary = summary.substring(0, 1000);
                     }
-                    // 썸네일 URL 결정: 첨부파일 이미지 > 본문 img 태그
+                    // ?몃꽕??URL 寃곗젙: 泥⑤??뚯씪 ?대?吏 > 蹂몃Ц img ?쒓렇
                     String thumbnailUrl = null;
                     boolean hasImage = false;
 
@@ -922,7 +924,7 @@ public class PostService {
     private static final int FEED_EXCERPT_MAX_LENGTH = 800;
 
     /**
-     * Feed용: HTML 본문을 태그를 유지한 채로 잘라 약 5줄 분량으로 만듭니다.
+     * Feed?? HTML 蹂몃Ц???쒓렇瑜??좎???梨꾨줈 ?섎씪 ??5以?遺꾨웾?쇰줈 留뚮벊?덈떎.
      */
     private String truncateHtmlForExcerpt(String content, int maxLen) {
         if (content == null || content.isEmpty()) return null;
@@ -938,7 +940,7 @@ public class PostService {
     }
 
     /**
-     * 본문에서 첫 번째 비디오 embed(iframe youtube/vimeo)의 src를 추출합니다.
+     * 蹂몃Ц?먯꽌 泥?踰덉㎏ 鍮꾨뵒??embed(iframe youtube/vimeo)??src瑜?異붿텧?⑸땲??
      */
     private String extractFirstVideoEmbedFromContent(String content) {
         if (content == null || content.isEmpty()) return null;
@@ -958,14 +960,14 @@ public class PostService {
         return null;
     }
 
-    /** 본문에서 첫 번째 img 태그의 등장 위치(인덱스). 없으면 -1. */
+    /** 蹂몃Ц?먯꽌 泥?踰덉㎏ img ?쒓렇???깆옣 ?꾩튂(?몃뜳??. ?놁쑝硫?-1. */
     private int indexOfFirstImageInContent(String content) {
         if (content == null) return -1;
         int i = content.toLowerCase().indexOf("<img");
         return i;
     }
 
-    /** 본문에서 첫 번째 비디오 iframe의 등장 위치. 없으면 -1. */
+    /** 蹂몃Ц?먯꽌 泥?踰덉㎏ 鍮꾨뵒??iframe???깆옣 ?꾩튂. ?놁쑝硫?-1. */
     private int indexOfFirstVideoInContent(String content) {
         if (content == null) return -1;
         int i = content.toLowerCase().indexOf("<iframe");
@@ -973,23 +975,23 @@ public class PostService {
     }
 
     /**
-     * 본문 HTML에서 첫 번째 img 태그의 src URL을 추출합니다.
+     * 蹂몃Ц HTML?먯꽌 泥?踰덉㎏ img ?쒓렇??src URL??異붿텧?⑸땲??
      *
-     * @param content HTML 본문
-     * @return 첫 번째 이미지 URL, 없으면 null
+     * @param content HTML 蹂몃Ц
+     * @return 泥?踰덉㎏ ?대?吏 URL, ?놁쑝硫?null
      */
     private String extractFirstImageUrlFromContent(String content) {
         if (content == null || content.isEmpty()) {
             return null;
         }
 
-        // <img ... src="..." ... > 또는 <img ... src='...' ... > 패턴 매칭
+        // <img ... src="..." ... > ?먮뒗 <img ... src='...' ... > ?⑦꽩 留ㅼ묶
         Pattern pattern = Pattern.compile("<img[^>]+src\\s*=\\s*[\"']([^\"']+)[\"']", Pattern.CASE_INSENSITIVE);
         Matcher matcher = pattern.matcher(content);
 
         if (matcher.find()) {
             String url = matcher.group(1);
-            // HTML 엔티티 디코딩 (&amp; -> &, &lt; -> <, etc.)
+            // HTML ?뷀떚???붿퐫??(&amp; -> &, &lt; -> <, etc.)
             url = url.replace("&amp;", "&")
                     .replace("&lt;", "<")
                     .replace("&gt;", ">")

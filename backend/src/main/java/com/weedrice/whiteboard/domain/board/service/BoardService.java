@@ -51,15 +51,19 @@ public class BoardService {
         private final GlobalConfigService globalConfigService;
 
         public List<BoardResponse> getActiveBoards(UserDetails userDetails) {
+                User currentUser = getCurrentUserOrNull(userDetails);
                 List<Board> boards = boardRepository.findByIsActiveOrderBySortOrderAsc(true);
                 return boards.stream()
+                                .filter(board -> canViewBoard(board, currentUser))
                                 .map(board -> createBoardResponse(board, userDetails))
                                 .collect(Collectors.toList());
         }
 
         public List<BoardResponse> getTopBoards(UserDetails userDetails) {
+                User currentUser = getCurrentUserOrNull(userDetails);
                 List<Board> boards = boardRepository.findTopBoardsByPostCount(PageRequest.of(0, 15));
                 return boards.stream()
+                                .filter(board -> canViewBoard(board, currentUser))
                                 .map(board -> createBoardResponse(board, userDetails))
                                 .collect(Collectors.toList());
         }
@@ -75,24 +79,8 @@ public class BoardService {
         public BoardResponse getBoardDetails(String boardUrl, UserDetails userDetails) {
                 Board board = boardRepository.findByBoardUrl(boardUrl)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
-
-                boolean isSuperAdmin = false;
-                boolean isBoardAdmin = false;
-                boolean isCreator = false;
-
-                if (userDetails != null) {
-                        User currentUser = userRepository.findByLoginId(userDetails.getUsername())
-                                        .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-
-                        isSuperAdmin = currentUser.getIsSuperAdmin();
-                        isBoardAdmin = adminRepository.findByUserAndBoardAndIsActive(currentUser, board, true)
-                                        .isPresent();
-                        isCreator = board.getCreator().getUserId().equals(currentUser.getUserId());
-                }
-
-                if (!board.getIsActive() && !isSuperAdmin && !isBoardAdmin && !isCreator) {
-                        throw new BusinessException(ErrorCode.BOARD_NOT_FOUND);
-                }
+                User currentUser = getCurrentUserOrNull(userDetails);
+                validateBoardReadable(board, currentUser);
 
                 return createBoardResponse(board, userDetails);
         }
@@ -122,7 +110,11 @@ public class BoardService {
                         isSubscribed = boardSubscriptionRepository.existsByUserAndBoard(currentUser, board);
                 }
 
-                List<CategoryResponse> categories = getActiveCategories(board.getBoardUrl());
+                List<CategoryResponse> categories = boardCategoryRepository
+                                .findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(board.getBoardId(), true)
+                                .stream()
+                                .map(CategoryResponse::new)
+                                .collect(Collectors.toList());
 
                 Long currentUserId = (userDetails instanceof CustomUserDetails)
                                 ? ((CustomUserDetails) userDetails).getUserId()
@@ -135,9 +127,11 @@ public class BoardService {
                                 latestPosts);
         }
 
-        public List<CategoryResponse> getActiveCategories(String boardUrl) {
+        public List<CategoryResponse> getActiveCategories(String boardUrl, UserDetails userDetails) {
                 Board board = boardRepository.findByBoardUrl(boardUrl)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
+                User currentUser = getCurrentUserOrNull(userDetails);
+                validateBoardReadable(board, currentUser);
                 return boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(board.getBoardId(),
                                 true).stream()
                                 .map(CategoryResponse::new)
@@ -151,9 +145,7 @@ public class BoardService {
                 Board board = boardRepository.findByBoardUrl(boardUrl)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
 
-                if (!board.getIsActive()) {
-                        throw new BusinessException(ErrorCode.BOARD_NOT_FOUND);
-                }
+                validateBoardReadable(board, user);
 
                 boardSubscriptionRepository.findById(new BoardSubscriptionId(userId, board.getBoardId()))
                                 .ifPresent(subscription -> {
@@ -177,6 +169,7 @@ public class BoardService {
                                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
                 Board board = boardRepository.findByBoardUrl(boardUrl)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
+                validateBoardReadable(board, user);
 
                 BoardSubscription subscription = boardSubscriptionRepository
                                 .findById(new BoardSubscriptionId(userId, board.getBoardId()))
@@ -190,10 +183,14 @@ public class BoardService {
                 }
                 User user = userRepository.findById(userId)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-                Page<BoardResponse> boardPage = boardSubscriptionRepository
+                List<BoardResponse> visibleBoards = boardSubscriptionRepository
                                 .findByUserAndBoard_IsActiveOrderBySortOrderAsc(user, true, pageable)
-                                .map(boardSubscription -> createBoardResponse(boardSubscription.getBoard(), null));
-                return boardPage;
+                                .stream()
+                                .map(BoardSubscription::getBoard)
+                                .filter(board -> canViewBoard(board, user))
+                                .map(board -> createBoardResponse(board, null))
+                                .collect(Collectors.toList());
+                return new org.springframework.data.domain.PageImpl<>(visibleBoards, pageable, visibleBoards.size());
         }
 
         @Transactional
@@ -231,6 +228,7 @@ public class BoardService {
                                 .creator(creator)
                                 .iconUrl(request.getIconUrl())
                                 .sortOrder(maxSortOrder + 1)
+                                .isPublic(request.getIsPublic())
                                 .build();
 
                 Board savedBoard = boardRepository.save(board);
@@ -286,7 +284,8 @@ public class BoardService {
                 board.update(request.getBoardName(), request.getDescription(), request.getIconUrl(),
                                 request.getSortOrder(),
                                 request.getAllowNsfw() != null ? request.getAllowNsfw() : board.getAllowNsfw(),
-                                request.getIsActive());
+                                request.getIsActive(),
+                                request.getIsPublic());
                 return board;
         }
 
@@ -374,6 +373,43 @@ public class BoardService {
                 SecurityUtils.validateBoardAdminPermission(category.getBoard());
 
                 category.deactivate();
+        }
+
+        private User getCurrentUserOrNull(UserDetails userDetails) {
+                if (userDetails == null) {
+                        return null;
+                }
+                return userRepository.findByLoginId(userDetails.getUsername())
+                                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        }
+
+        private boolean hasBoardAdminAccess(Board board, User user) {
+                if (board == null || user == null) {
+                        return false;
+                }
+                if (user.getIsSuperAdmin()) {
+                        return true;
+                }
+                if (board.getCreator().getUserId().equals(user.getUserId())) {
+                        return true;
+                }
+                return adminRepository.existsByUserAndBoardAndIsActive(user, board, true);
+        }
+
+        private boolean canViewBoard(Board board, User user) {
+                if (!board.getIsActive() && !hasBoardAdminAccess(board, user)) {
+                        return false;
+                }
+                if (!board.getIsPublic() && !hasBoardAdminAccess(board, user)) {
+                        return false;
+                }
+                return true;
+        }
+
+        private void validateBoardReadable(Board board, User user) {
+                if (!canViewBoard(board, user)) {
+                        throw new BusinessException(ErrorCode.BOARD_NOT_FOUND);
+                }
         }
 
         @Transactional

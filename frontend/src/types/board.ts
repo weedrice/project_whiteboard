@@ -9,6 +9,7 @@ export interface Board {
     iconUrl?: string
     sortOrder: number
     isActive: boolean
+    isPublic?: boolean
     allowNsfw: boolean
     subscriberCount?: number
     isAdmin?: boolean
@@ -27,6 +28,7 @@ export interface BoardCreateData {
     iconUrl?: string
     sortOrder?: number
     allowNsfw?: boolean
+    isPublic?: boolean
 }
 
 export interface BoardUpdateData {
@@ -37,6 +39,7 @@ export interface BoardUpdateData {
     sortOrder?: number
     allowNsfw?: boolean
     isActive?: boolean
+    isPublic?: boolean
 }
 
 export interface Category {
@@ -58,6 +61,7 @@ export interface Post {
     isNotice: boolean
     isNsfw: boolean
     isSpoiler: boolean
+    isSecret?: boolean
     author: UserSummary
     board: {
         boardId: number
@@ -83,6 +87,7 @@ export interface PostSummary {
     isNotice: boolean
     isNsfw: boolean
     isSpoiler: boolean
+    isSecret?: boolean
     author: UserSummary
     category?: Category
     thumbnailUrl?: string

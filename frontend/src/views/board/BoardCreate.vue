@@ -16,6 +16,7 @@ interface BoardData {
   iconUrl: string
   sortOrder: number
   allowNsfw: boolean
+  isPublic: boolean
 }
 
 const { t } = useI18n()

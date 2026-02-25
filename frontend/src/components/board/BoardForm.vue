@@ -3,6 +3,7 @@ import { ref, watch, computed, onUnmounted } from 'vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseTextarea from '@/components/common/ui/BaseTextarea.vue'
+import BaseCheckbox from '@/components/common/ui/BaseCheckbox.vue'
 import { useI18n } from 'vue-i18n'
 import { fileApi } from '@/api/file'
 import { isEmpty } from '@/utils/validation'
@@ -19,6 +20,7 @@ interface BoardData {
   iconUrl: string
   sortOrder: number
   allowNsfw: boolean
+  isPublic: boolean
 }
 
 const props = withDefaults(defineProps<{
@@ -33,7 +35,8 @@ const props = withDefaults(defineProps<{
     description: '',
     iconUrl: '',
     sortOrder: 0,
-    allowNsfw: false
+    allowNsfw: false,
+    isPublic: true
   }),
   isEdit: false,
   isSubmitting: false,
@@ -184,6 +187,15 @@ onUnmounted(() => {
         <BaseTextarea id="description" name="description" rows="3" v-model="form.description"
           :label="$t('board.form.description')" :placeholder="$t('board.form.placeholder.desc')"
           labelClass="text-base" />
+      </div>
+
+      <div class="sm:col-span-6">
+        <BaseCheckbox
+          id="is-public"
+          v-model="form.isPublic"
+          :label="$t('board.form.isPublic')"
+          :description="$t('board.form.isPublicDesc')"
+        />
       </div>
     </div>
 
