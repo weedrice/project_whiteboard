@@ -144,7 +144,7 @@ public class PostService {
             blockedUserIds = userBlockService.getBlockedUserIds(currentUserId);
         }
         return postRepository.findByBoardIdAndCategoryId(boardId, categoryId, minLikes, blockedUserIds, includeSecret,
-                pageable);
+                currentUserId, pageable);
     }
 
     public List<Post> getNotices(Long boardId, Long currentUserId, Boolean includeSecret) {
@@ -152,7 +152,7 @@ public class PostService {
         if (currentUserId != null) {
             blockedUserIds = userBlockService.getBlockedUserIds(currentUserId);
         }
-        return postRepository.findNoticesByBoardId(boardId, true, false, blockedUserIds, includeSecret);
+        return postRepository.findNoticesByBoardId(boardId, true, false, blockedUserIds, includeSecret, currentUserId);
     }
 
     public Page<PostSummary> getPostsByTag(Long tagId, Long currentUserId, @NonNull Pageable pageable) {
@@ -343,6 +343,7 @@ public class PostService {
             viewer = userRepository.findById(userId)
                     .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         }
+        boolean isAuthor = userId != null && post.getUser().getUserId().equals(userId);
 
         // Access Control for Inactive Boards
         if (!post.getBoard().getIsActive()) {
@@ -351,7 +352,6 @@ public class PostService {
             }
             boolean isBoardAdmin = adminRepository
                     .findByUserAndBoardAndIsActive(viewer, post.getBoard(), true).isPresent();
-            boolean isAuthor = post.getUser().getUserId().equals(userId);
 
             if (!viewer.getIsSuperAdmin() && !isBoardAdmin && !isAuthor) {
                 throw new BusinessException(ErrorCode.POST_NOT_FOUND); // Treat as not found for
@@ -366,7 +366,7 @@ public class PostService {
         }
 
         if (post.getIsSecret()) {
-            if (!hasBoardAdminAccess(post.getBoard(), viewer)) {
+            if (!hasBoardAdminAccess(post.getBoard(), viewer) && !isAuthor) {
                 throw new BusinessException(ErrorCode.POST_NOT_FOUND);
             }
         }
@@ -839,7 +839,7 @@ public class PostService {
 
         Page<Post> postPage = postRepository.findByBoardIdAndCategoryId(boardId, null, null, blockedUserIds,
                 includeSecret,
-                pageable);
+                currentUserId, pageable);
         List<Post> posts = postPage.getContent();
 
         if (posts.isEmpty()) {

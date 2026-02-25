@@ -28,7 +28,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
 
     @Override
     public Page<Post> findByBoardIdAndCategoryId(Long boardId, Long categoryId, Integer minLikes,
-            List<Long> blockedUserIds, Boolean includeSecret, @NonNull Pageable pageable) {
+            List<Long> blockedUserIds, Boolean includeSecret, Long viewerUserId, @NonNull Pageable pageable) {
         List<Post> content = queryFactory
                 .selectFrom(post)
                 .join(post.user).fetchJoin()
@@ -39,7 +39,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                         categoryIdEq(categoryId),
                         minLikesGoe(minLikes),
                         post.isDeleted.eq(false),
-                        secretCondition(includeSecret),
+                        secretCondition(includeSecret, viewerUserId),
                         notBlockedCondition(blockedUserIds))
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize())
@@ -54,7 +54,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                         categoryIdEq(categoryId),
                         minLikesGoe(minLikes),
                         post.isDeleted.eq(false),
-                        secretCondition(includeSecret),
+                        secretCondition(includeSecret, viewerUserId),
                         notBlockedCondition(blockedUserIds))
                 .fetchOne();
 
@@ -62,7 +62,8 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
     }
 
     @Override
-    public Page<Post> searchPostsByKeyword(String keyword, List<Long> blockedUserIds, @NonNull Pageable pageable) {
+    public Page<Post> searchPostsByKeyword(String keyword, List<Long> blockedUserIds, Long viewerUserId,
+            @NonNull Pageable pageable) {
         BooleanExpression keywordExpression = StringUtils.hasText(keyword)
                 ? post.title.containsIgnoreCase(keyword).or(post.contents.containsIgnoreCase(keyword))
                 : null;
@@ -77,7 +78,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                         post.isDeleted.eq(false),
                         post.board.isActive.eq(true),
                         post.board.isPublic.eq(true),
-                        post.isSecret.eq(false),
+                        secretCondition(false, viewerUserId),
                         notBlockedCondition(blockedUserIds))
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize())
@@ -92,7 +93,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                         post.isDeleted.eq(false),
                         post.board.isActive.eq(true),
                         post.board.isPublic.eq(true),
-                        post.isSecret.eq(false),
+                        secretCondition(false, viewerUserId),
                         notBlockedCondition(blockedUserIds))
                 .fetchOne();
 
@@ -101,7 +102,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
 
     @Override
     public Page<Post> searchPosts(String keyword, String searchType, String boardUrl, List<Long> blockedUserIds,
-            Boolean includeSecret, @NonNull Pageable pageable) {
+            Boolean includeSecret, Long viewerUserId, @NonNull Pageable pageable) {
         BooleanExpression searchCondition = null;
         if (StringUtils.hasText(keyword)) {
             if ("TITLE".equalsIgnoreCase(searchType)) {
@@ -132,7 +133,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                         post.isDeleted.eq(false),
                         activeBoardOnlyForGlobalSearch(boardUrl),
                         publicBoardOnlyForGlobalSearch(boardUrl),
-                        searchSecretCondition(boardUrl, includeSecret),
+                        searchSecretCondition(boardUrl, includeSecret, viewerUserId),
                         notBlockedCondition(blockedUserIds))
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize())
@@ -148,7 +149,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                         post.isDeleted.eq(false),
                         activeBoardOnlyForGlobalSearch(boardUrl),
                         publicBoardOnlyForGlobalSearch(boardUrl),
-                        searchSecretCondition(boardUrl, includeSecret),
+                        searchSecretCondition(boardUrl, includeSecret, viewerUserId),
                         notBlockedCondition(blockedUserIds))
                 .fetchOne();
 
@@ -193,7 +194,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
 
     @Override
     public List<Post> findNoticesByBoardId(Long boardId, Boolean isNotice, Boolean isDeleted,
-            List<Long> blockedUserIds, Boolean includeSecret) {
+            List<Long> blockedUserIds, Boolean includeSecret, Long viewerUserId) {
         return queryFactory
                 .selectFrom(post)
                 .join(post.user).fetchJoin()
@@ -203,7 +204,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                         post.board.boardId.eq(boardId),
                         post.isNotice.eq(isNotice),
                         post.isDeleted.eq(isDeleted),
-                        secretCondition(includeSecret),
+                        secretCondition(includeSecret, viewerUserId),
                         notBlockedCondition(blockedUserIds))
                 .orderBy(post.createdAt.desc())
                 .fetch();
@@ -211,7 +212,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
 
     @Override
     public List<Post> findLatestPostsByBoardId(Long boardId, Boolean isDeleted, List<Long> blockedUserIds,
-            Boolean includeSecret, Pageable pageable) {
+            Boolean includeSecret, Long viewerUserId, Pageable pageable) {
         return queryFactory
                 .selectFrom(post)
                 .join(post.user).fetchJoin()
@@ -220,7 +221,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                 .where(
                         post.board.boardId.eq(boardId),
                         post.isDeleted.eq(isDeleted),
-                        secretCondition(includeSecret),
+                        secretCondition(includeSecret, viewerUserId),
                         notBlockedCondition(blockedUserIds))
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize())
@@ -278,8 +279,14 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
         return minLikes != null ? post.likeCount.goe(minLikes) : null;
     }
 
-    private BooleanExpression secretCondition(Boolean includeSecret) {
-        return Boolean.TRUE.equals(includeSecret) ? null : post.isSecret.eq(false);
+    private BooleanExpression secretCondition(Boolean includeSecret, Long viewerUserId) {
+        if (Boolean.TRUE.equals(includeSecret)) {
+            return null;
+        }
+        if (viewerUserId != null) {
+            return post.isSecret.eq(false).or(post.user.userId.eq(viewerUserId));
+        }
+        return post.isSecret.eq(false);
     }
 
     private BooleanExpression activeBoardOnlyForGlobalSearch(String boardUrl) {
@@ -290,11 +297,11 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
         return StringUtils.hasText(boardUrl) ? null : post.board.isPublic.eq(true);
     }
 
-    private BooleanExpression searchSecretCondition(String boardUrl, Boolean includeSecret) {
+    private BooleanExpression searchSecretCondition(String boardUrl, Boolean includeSecret, Long viewerUserId) {
         if (StringUtils.hasText(boardUrl) && Boolean.TRUE.equals(includeSecret)) {
             return null;
         }
-        return post.isSecret.eq(false);
+        return secretCondition(includeSecret, viewerUserId);
     }
 
     @Override

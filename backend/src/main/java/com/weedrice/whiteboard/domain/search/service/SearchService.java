@@ -83,7 +83,7 @@ public class SearchService {
             blockedUserIds = userBlockService.getBlockedUserIds(currentUserId);
         }
 
-        Page<PostSummary> posts = postRepository.searchPostsByKeyword(keyword, blockedUserIds, previewPageable)
+        Page<PostSummary> posts = postRepository.searchPostsByKeyword(keyword, blockedUserIds, currentUserId, previewPageable)
                 .map(post -> {
                     PostSummary summary = PostSummary.from(post);
                     // Check for image
@@ -131,7 +131,7 @@ public class SearchService {
             blockedUserIds = userBlockService.getBlockedUserIds(currentUserId);
         }
         Page<com.weedrice.whiteboard.domain.post.entity.Post> postPage = postRepository.searchPosts(keyword, searchType,
-                boardUrl, blockedUserIds, includeSecret, pageable);
+                boardUrl, blockedUserIds, includeSecret, currentUserId, pageable);
 
         List<Long> postIds = postPage.getContent().stream()
                 .map(com.weedrice.whiteboard.domain.post.entity.Post::getPostId).collect(Collectors.toList());
