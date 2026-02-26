@@ -9,7 +9,8 @@ import {
   LogOut,
   UserCog,
   FileText,
-  Bug
+  Bug,
+  MessageSquare
 } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
 import { useI18n } from 'vue-i18n'
@@ -23,6 +24,7 @@ const navigation = computed(() => [
   { name: t('admin.menu.dashboard'), href: '/admin/dashboard', icon: LayoutDashboard },
   { name: t('admin.menu.users'), href: '/admin/users', icon: Users },
   { name: t('admin.menu.boards'), href: '/admin/boards', icon: LayoutDashboard },
+  { name: '문의 조회', href: '/admin/inquiries', icon: MessageSquare },
   { name: t('admin.menu.admins'), href: '/admin/admins', icon: UserCog },
   { name: t('admin.menu.reports'), href: '/admin/reports', icon: FileText },
   { name: t('admin.menu.errorLogs'), href: '/admin/error-logs', icon: Bug },

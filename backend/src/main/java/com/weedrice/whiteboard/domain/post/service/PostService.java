@@ -51,6 +51,7 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 @SuppressWarnings({ "null" })
 public class PostService {
+    private static final String DEFAULT_INQUIRY_BOARD_URL = "inquiry";
 
     private final PostRepository postRepository;
     private final BoardRepository boardRepository;
@@ -78,6 +79,9 @@ public class PostService {
             @NonNull Pageable pageable) {
         Board board = boardRepository.findByBoardUrl(boardUrl)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
+        if (isInquiryBoard(board)) {
+            throw new BusinessException(ErrorCode.BOARD_NOT_FOUND);
+        }
 
         validateBoardReadable(board, currentUserId);
         boolean includeSecret = canViewSecretPosts(board, currentUserId);
@@ -122,6 +126,9 @@ public class PostService {
     public List<Post> getNotices(String boardUrl, Long currentUserId) {
         Board board = boardRepository.findByBoardUrl(boardUrl)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
+        if (isInquiryBoard(board)) {
+            throw new BusinessException(ErrorCode.BOARD_NOT_FOUND);
+        }
 
         validateBoardReadable(board, currentUserId);
         boolean includeSecret = canViewSecretPosts(board, currentUserId);
@@ -132,7 +139,6 @@ public class PostService {
     public Post createPost(@NonNull Long userId, String boardUrl, PostCreateRequest request) {
         Board board = boardRepository.findByBoardUrl(boardUrl)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
-        validateBoardReadable(board, userId);
         return this.createPost(userId, board.getBoardId(), request);
     }
 
@@ -200,6 +206,37 @@ public class PostService {
             PostSummary summary = PostSummary.from(post);
             summary.setHasImage(postIdsWithImages.contains(post.getPostId()));
 
+            if (isAscending) {
+                summary.setRowNum(((long) pageNumber * pageSize) + i + 1);
+            } else {
+                summary.setRowNum(totalElements - ((long) pageNumber * pageSize) - i);
+            }
+            summaries.add(summary);
+        }
+
+        return new PageImpl<>(summaries, pageable, totalElements);
+    }
+
+    public Page<PostSummary> getInquiryPostsForAdmin(@NonNull Pageable pageable) {
+        Board inquiryBoard = boardRepository.findByBoardUrl(DEFAULT_INQUIRY_BOARD_URL)
+                .orElse(null);
+        if (inquiryBoard == null) {
+            return Page.empty(pageable);
+        }
+
+        Page<Post> posts = postRepository.findByBoard_BoardId(inquiryBoard.getBoardId(), pageable);
+        long totalElements = posts.getTotalElements();
+        int pageNumber = posts.getNumber();
+        int pageSize = posts.getSize();
+
+        boolean isAscending = pageable.getSort().stream()
+                .anyMatch(order -> order.getProperty().equals("createdAt") && order.isAscending()
+                        || order.getProperty().equals("postId") && order.isAscending());
+
+        List<PostSummary> summaries = new ArrayList<>();
+        for (int i = 0; i < posts.getContent().size(); i++) {
+            Post post = posts.getContent().get(i);
+            PostSummary summary = PostSummary.from(post);
             if (isAscending) {
                 summary.setRowNum(((long) pageNumber * pageSize) + i + 1);
             } else {
@@ -360,7 +397,8 @@ public class PostService {
         }
 
         if (!post.getBoard().getIsPublic()) {
-            if (!hasBoardAdminAccess(post.getBoard(), viewer)) {
+            boolean canReadInquiryAsAuthor = isInquiryBoard(post.getBoard()) && isAuthor;
+            if (!hasBoardAdminAccess(post.getBoard(), viewer) && !canReadInquiryAsAuthor) {
                 throw new BusinessException(ErrorCode.POST_NOT_FOUND);
             }
         }
@@ -402,6 +440,18 @@ public class PostService {
         boolean isAdmin = isBoardAdmin(userId, post.getBoard().getBoardId());
 
         return PostResponse.from(post, tags, viewHistory, isLiked, isScrapped, imageUrls, isAdmin);
+    }
+
+    public PostResponse getInquiryPostResponseForAdmin(@NonNull Long postId) {
+        Post post = postRepository.findByIdWithRelations(postId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
+        if (!isInquiryBoard(post.getBoard())) {
+            throw new BusinessException(ErrorCode.POST_NOT_FOUND);
+        }
+
+        List<String> tags = getTagsForPost(postId);
+        List<String> imageUrls = getPostImageUrls(postId);
+        return PostResponse.from(post, tags, null, false, false, imageUrls, true);
     }
 
     public boolean isPostLikedByUser(@NonNull Long postId, Long userId) {
@@ -465,7 +515,7 @@ public class PostService {
             throw new BusinessException(ErrorCode.BOARD_NOT_FOUND);
         }
 
-        if (!board.getIsPublic() && !hasBoardAdminAccess(board, user)) {
+        if (!board.getIsPublic() && !hasBoardAdminAccess(board, user) && !isInquiryBoard(board)) {
             throw new BusinessException(ErrorCode.BOARD_NOT_FOUND);
         }
 
@@ -496,6 +546,8 @@ public class PostService {
         // 蹂몃Ц?먯꽌 ?꾪뿕???ㅽ겕由쏀듃留??쒓굅 (HTML ?쒓렇???덉슜)
         String sanitizedContents = InputSanitizer.sanitize(request.getContents());
 
+        boolean isSecret = !isInquiryBoard(board) && request.isSecret();
+
         Post post = Post.builder()
                 .board(board)
                 .user(user)
@@ -505,7 +557,7 @@ public class PostService {
                 .isNotice(request.isNotice())
                 .isNsfw(request.isNsfw())
                 .isSpoiler(request.isSpoiler())
-                .isSecret(request.isSecret())
+                .isSecret(isSecret)
                 .build();
 
         Post savedPost = postRepository.save(post);
@@ -550,8 +602,9 @@ public class PostService {
         // 蹂몃Ц?먯꽌 ?꾪뿕???ㅽ겕由쏀듃留??쒓굅 (HTML ?쒓렇???덉슜)
         String sanitizedContents = InputSanitizer.sanitize(request.getContents());
 
+        boolean isSecret = !isInquiryBoard(post.getBoard()) && request.isSecret();
         post.updatePost(category, request.getTitle(), sanitizedContents, request.isNsfw(),
-                request.isSpoiler(), request.isSecret());
+                request.isSpoiler(), isSecret);
         tagService.processTagsForPost(post, request.getTags());
 
         if (request.getFileIds() != null && !request.getFileIds().isEmpty()) {
@@ -824,6 +877,12 @@ public class PostService {
             return true;
         }
         return adminRepository.existsByUserAndBoardAndIsActive(user, board, true);
+    }
+
+    private boolean isInquiryBoard(Board board) {
+        return board != null
+                && board.getBoardUrl() != null
+                && DEFAULT_INQUIRY_BOARD_URL.equalsIgnoreCase(board.getBoardUrl());
     }
 
     public List<PostSummary> getLatestPostsByBoard(Long boardId, int limit, Long currentUserId) {

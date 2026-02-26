@@ -173,6 +173,12 @@ const router = createRouter({
             meta: { requiresAuth: true }
         },
         {
+            path: '/inquiry',
+            name: 'inquiry-write',
+            component: () => import('@/views/board/InquiryWrite.vue'),
+            meta: { requiresAuth: true }
+        },
+        {
             path: '/board/:boardUrl/write',
             name: 'post-write',
             component: () => import('@/views/board/PostWrite.vue'),
@@ -214,6 +220,11 @@ const router = createRouter({
                     path: 'boards',
                     name: 'BoardManagement',
                     component: () => import('@/views/admin/BoardManagement.vue')
+                },
+                {
+                    path: 'inquiries',
+                    name: 'InquiryManagement',
+                    component: () => import('@/views/admin/AdminInquiryPosts.vue')
                 },
                 {
                     path: 'admins',
@@ -294,6 +305,12 @@ router.beforeEach(async (to: RouteLocationNormalized, from: RouteLocationNormali
     if (authStore.user?.status === 'SANCTIONED') {
         await authStore.logout()
         next({ name: 'login' })
+        return
+    }
+
+    const boardUrlParam = typeof to.params.boardUrl === 'string' ? to.params.boardUrl.toLowerCase() : ''
+    if (boardUrlParam === 'inquiry') {
+        next({ name: 'error', query: { status: '404' } })
         return
     }
 

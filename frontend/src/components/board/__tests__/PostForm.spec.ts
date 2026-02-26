@@ -261,9 +261,10 @@ const mountPostForm = (
     mode: 'create' | 'edit',
     overrideStubs: Record<string, unknown> = {},
     overrideMocks: { $t?: (key: string) => string } = {},
+    props: Record<string, unknown> = {},
 ) => {
     const wrapper = mount(PostForm, {
-        props: { mode },
+        props: { mode, ...props },
         global: {
             mocks: {
                 $t: overrideMocks.$t ?? ((key: string) => key),
@@ -331,6 +332,13 @@ describe('PostForm', () => {
 
         expect(createWrapper.text()).toContain('board.writePost.createTitle')
         expect(editWrapper.text()).toContain('board.writePost.editTitle')
+    })
+
+    it('renders overridden create title when provided', async () => {
+        const wrapper = mountPostForm('create', {}, {}, { createTitleOverride: '문의 작성' })
+        await nextTick()
+
+        expect(wrapper.text()).toContain('문의 작성')
     })
 
     it('passes expected post detail ref and enabled option by mode', () => {
@@ -444,6 +452,39 @@ describe('PostForm', () => {
 
         options.onSuccess({ data: { data: 99 } })
         expect(mockPush).toHaveBeenCalledWith('/board/free/post/99')
+    })
+
+    it('redirects to custom route after create when redirectOnCreate is provided', async () => {
+        categoriesRef.value = [{ categoryId: 1, name: 'General', minWriteRole: 'USER' }]
+        const wrapper = mountPostForm('create', {}, {}, { redirectOnCreate: '/inquiry' })
+
+        await wrapper.get('#title').setValue('Created title')
+        await wrapper.get('#category').setValue('1')
+        await wrapper.get('[data-testid=\"editor-input\"]').setValue('Created body')
+        await wrapper.get('form').trigger('submit')
+
+        const [, options] = mockCreateMutate.mock.calls[0]
+        options.onSuccess({ data: { data: 101 } })
+        expect(mockPush).toHaveBeenCalledWith('/inquiry')
+    })
+
+    it('goes back after create when goBackOnCreate is true', async () => {
+        window.history.pushState({}, '', '/temp-inquiry')
+        categoriesRef.value = [{ categoryId: 1, name: 'General', minWriteRole: 'USER' }]
+        const wrapper = mountPostForm('create', {}, {}, {
+            goBackOnCreate: true,
+            redirectOnCreate: '/fallback',
+        })
+
+        await wrapper.get('#title').setValue('Created title')
+        await wrapper.get('#category').setValue('1')
+        await wrapper.get('[data-testid=\"editor-input\"]').setValue('Created body')
+        await wrapper.get('form').trigger('submit')
+
+        const [, options] = mockCreateMutate.mock.calls[0]
+        options.onSuccess({ data: { data: 102 } })
+
+        expect(mockBack).toHaveBeenCalled()
     })
 
     it('logs errors when create or update fails', async () => {

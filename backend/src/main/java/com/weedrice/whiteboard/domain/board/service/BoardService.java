@@ -25,10 +25,12 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 import com.weedrice.whiteboard.domain.post.service.PostService;
@@ -39,6 +41,11 @@ import com.weedrice.whiteboard.global.security.CustomUserDetails;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class BoardService {
+        private static final String DEFAULT_INQUIRY_BOARD_URL = "inquiry";
+        private static final String DEFAULT_INQUIRY_BOARD_NAME = "문의";
+        private static final String DEFAULT_INQUIRY_BOARD_DESCRIPTION = "운영진에게 문의를 남기는 게시판입니다.";
+        private static final String DEFAULT_CATEGORY_NAME = "일반";
+
 
         private final BoardRepository boardRepository;
         private final BoardCategoryRepository boardCategoryRepository;
@@ -54,6 +61,7 @@ public class BoardService {
                 User currentUser = getCurrentUserOrNull(userDetails);
                 List<Board> boards = boardRepository.findByIsActiveOrderBySortOrderAsc(true);
                 return boards.stream()
+                                .filter(board -> !isInquiryBoard(board))
                                 .filter(board -> canViewBoard(board, currentUser))
                                 .map(board -> createBoardResponse(board, userDetails))
                                 .collect(Collectors.toList());
@@ -63,6 +71,7 @@ public class BoardService {
                 User currentUser = getCurrentUserOrNull(userDetails);
                 List<Board> boards = boardRepository.findTopBoardsByPostCount(PageRequest.of(0, 15));
                 return boards.stream()
+                                .filter(board -> !isInquiryBoard(board))
                                 .filter(board -> canViewBoard(board, currentUser))
                                 .map(board -> createBoardResponse(board, userDetails))
                                 .collect(Collectors.toList());
@@ -139,6 +148,18 @@ public class BoardService {
         }
 
         @Transactional
+        public void ensureInquiryBoard(UserDetails userDetails, String requestedBoardUrl) {
+                User currentUser = getCurrentUserOrNull(userDetails);
+                String inquiryBoardUrl = normalizeInquiryBoardUrl(requestedBoardUrl);
+
+                Board board = boardRepository.findByBoardUrl(inquiryBoardUrl)
+                                .orElseGet(() -> createInquiryBoard(currentUser, inquiryBoardUrl));
+
+                ensureInquiryBoardIsPrivate(board);
+                ensureInquiryBoardCategory(board);
+        }
+
+        @Transactional
         public void subscribeBoard(Long userId, String boardUrl) {
                 User user = userRepository.findById(userId)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
@@ -197,6 +218,8 @@ public class BoardService {
         public Board createBoard(Long creatorId, BoardCreateRequest request) {
                 User creator = userRepository.findById(creatorId)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+                validateCreatableBoardUrl(request.getBoardUrl());
 
                 if (boardRepository.existsByBoardName(request.getBoardName())) {
                         throw new BusinessException(ErrorCode.DUPLICATE_BOARD_NAME);
@@ -272,9 +295,11 @@ public class BoardService {
                         throw new BusinessException(ErrorCode.DUPLICATE_BOARD_NAME);
                 }
 
-                if (request.getBoardUrl() != null && !board.getBoardUrl().equals(request.getBoardUrl())
-                                && boardRepository.existsByBoardUrl(request.getBoardUrl())) {
-                        throw new BusinessException(ErrorCode.DUPLICATE_BOARD_URL);
+                if (request.getBoardUrl() != null && !board.getBoardUrl().equals(request.getBoardUrl())) {
+                        validateCreatableBoardUrl(request.getBoardUrl());
+                        if (boardRepository.existsByBoardUrl(request.getBoardUrl())) {
+                                throw new BusinessException(ErrorCode.DUPLICATE_BOARD_URL);
+                        }
                 }
 
                 if (request.getBoardUrl() != null && !board.getBoardUrl().equals(request.getBoardUrl())) {
@@ -381,6 +406,128 @@ public class BoardService {
                 }
                 return userRepository.findByLoginId(userDetails.getUsername())
                                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        }
+
+        private String normalizeInquiryBoardUrl(String requestedBoardUrl) {
+                return DEFAULT_INQUIRY_BOARD_URL;
+        }
+
+        private Board createInquiryBoard(User requester, String inquiryBoardUrl) {
+                User creator = resolveInquiryBoardCreator(requester);
+                Integer maxSortOrder = boardRepository.findMaxSortOrder();
+
+                String boardName = resolveInquiryBoardName(inquiryBoardUrl);
+
+                Board board = Board.builder()
+                                .boardName(boardName)
+                                .boardUrl(inquiryBoardUrl)
+                                .description(DEFAULT_INQUIRY_BOARD_DESCRIPTION)
+                                .creator(creator)
+                                .iconUrl(null)
+                                .sortOrder((maxSortOrder != null ? maxSortOrder : 0) + 1)
+                                .isPublic(false)
+                                .build();
+
+                Board savedBoard;
+                try {
+                        savedBoard = boardRepository.save(board);
+                } catch (DataIntegrityViolationException ex) {
+                        return boardRepository.findByBoardUrl(inquiryBoardUrl)
+                                        .orElseThrow(() -> ex);
+                }
+
+                boardCategoryRepository.save(BoardCategory.builder()
+                                .board(savedBoard)
+                                .name(DEFAULT_CATEGORY_NAME)
+                                .sortOrder(1)
+                                .build());
+
+                adminRepository.findByUserAndBoardAndRole(creator, savedBoard, Role.BOARD_ADMIN)
+                                .orElseGet(() -> adminRepository.save(Admin.builder()
+                                                .user(creator)
+                                                .board(savedBoard)
+                                                .role(Role.BOARD_ADMIN)
+                                                .build()));
+
+                return savedBoard;
+        }
+
+        private void ensureInquiryBoardIsPrivate(Board board) {
+                if (board == null) {
+                        return;
+                }
+                if (Boolean.TRUE.equals(board.getIsPublic())) {
+                        board.update(
+                                        board.getBoardName(),
+                                        board.getDescription(),
+                                        board.getIconUrl(),
+                                        board.getSortOrder(),
+                                        board.getAllowNsfw(),
+                                        board.getIsActive(),
+                                        false);
+                }
+        }
+
+        private void ensureInquiryBoardCategory(Board board) {
+                if (boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(board.getBoardId(), true)
+                                .isEmpty()) {
+                        boardCategoryRepository.save(BoardCategory.builder()
+                                        .board(board)
+                                        .name(DEFAULT_CATEGORY_NAME)
+                                        .sortOrder(1)
+                                        .build());
+                }
+        }
+
+        private User resolveInquiryBoardCreator(User fallbackUser) {
+                User creator = userRepository.findByIsSuperAdminTrue().stream()
+                                .min(Comparator.comparing(User::getUserId))
+                                .orElse(fallbackUser);
+                if (creator == null) {
+                        throw new BusinessException(ErrorCode.USER_NOT_FOUND);
+                }
+                return creator;
+        }
+
+        private String resolveInquiryBoardName(String inquiryBoardUrl) {
+                String base = DEFAULT_INQUIRY_BOARD_NAME;
+                if (!boardRepository.existsByBoardName(base)) {
+                        return base;
+                }
+
+                String candidate = trimToMaxLength(base + "-" + inquiryBoardUrl, 100);
+                if (!boardRepository.existsByBoardName(candidate)) {
+                        return candidate;
+                }
+
+                for (int i = 2; i <= 999; i++) {
+                        String withSuffix = trimToMaxLength(candidate + "-" + i, 100);
+                        if (!boardRepository.existsByBoardName(withSuffix)) {
+                                return withSuffix;
+                        }
+                }
+
+                return trimToMaxLength(base + "-" + System.currentTimeMillis(), 100);
+        }
+
+        private String trimToMaxLength(String value, int maxLength) {
+                return value.length() <= maxLength ? value : value.substring(0, maxLength);
+        }
+
+        private void validateCreatableBoardUrl(String boardUrl) {
+                if (boardUrl == null) {
+                        return;
+                }
+                if (DEFAULT_INQUIRY_BOARD_URL.equalsIgnoreCase(boardUrl.trim())) {
+                        throw new BusinessException(ErrorCode.VALIDATION_ERROR, "Reserved board URL");
+                }
+        }
+
+        private boolean isInquiryBoard(Board board) {
+                if (board == null || board.getBoardUrl() == null) {
+                        return false;
+                }
+                return DEFAULT_INQUIRY_BOARD_URL.equalsIgnoreCase(board.getBoardUrl());
         }
 
         private boolean hasBoardAdminAccess(Board board, User user) {

@@ -18,6 +18,17 @@ import logger from '@/utils/logger'
 
 const props = defineProps<{
   mode: 'create' | 'edit'
+  boardUrl?: string
+  redirectOnCreate?: string
+  goBackOnCreate?: boolean
+  createTitleOverride?: string
+  createSuccessToastMessage?: string
+  hideCategory?: boolean
+  hideTags?: boolean
+  hideNotice?: boolean
+  hideSpoiler?: boolean
+  hideSecret?: boolean
+  skipBoardLookup?: boolean
 }>()
 
 const { t } = useI18n()
@@ -26,14 +37,19 @@ const router = useRouter()
 const authStore = useAuthStore()
 const toastStore = useToastStore()
 
-const boardUrl = computed(() => route.params.boardUrl as string)
+const boardUrl = computed(() => props.boardUrl ?? (route.params.boardUrl as string))
 const postId = computed(() => route.params.postId as string)
 
 const { useBoardDetail, useBoardCategories } = useBoard()
 const { usePostDetail, useCreatePost, useUpdatePost } = usePost()
 
-const { data: board, isLoading: isBoardLoading } = useBoardDetail(boardUrl)
-const { data: categories, isLoading: isCategoriesLoading } = useBoardCategories(boardUrl)
+const queryEnabled = computed(() => !!boardUrl.value && !props.skipBoardLookup)
+const { data: board, isLoading: isBoardLoading } = useBoardDetail(boardUrl, {
+  enabled: queryEnabled
+})
+const { data: categories, isLoading: isCategoriesLoading } = useBoardCategories(boardUrl, {
+  enabled: queryEnabled
+})
 const postIdRef = computed(() => (props.mode === 'edit' ? postId.value : '') as string)
 const { data: post, isLoading: isPostLoading } = usePostDetail(postIdRef, {
   enabled: computed(() => props.mode === 'edit' && !!postId.value)
@@ -229,15 +245,18 @@ watch(isLoading, (loading) => {
 function buildPayload() {
   const fileIdsRef = tiptapEditorRef.value?.fileIds
   const fileIdsArray = (fileIdsRef && typeof fileIdsRef === 'object' && 'value' in fileIdsRef ? fileIdsRef.value : []) as number[]
+  const categoryId = props.hideCategory
+    ? undefined
+    : (typeof form.value.categoryId === 'string' ? parseInt(form.value.categoryId) || 0 : form.value.categoryId)
   return {
     title: form.value.title,
-    categoryId: typeof form.value.categoryId === 'string' ? parseInt(form.value.categoryId) || 0 : form.value.categoryId,
-    tags: form.value.tags,
+    categoryId,
+    tags: props.hideTags ? [] : form.value.tags,
     contents: form.value.content,
     isNsfw: board.value?.allowNsfw ? form.value.isNsfw : false,
-    isSpoiler: form.value.isSpoiler,
-    isSecret: form.value.isSecret,
-    ...(props.mode === 'create' && { isNotice: form.value.isNotice }),
+    isSpoiler: props.hideSpoiler ? false : form.value.isSpoiler,
+    isSecret: props.hideSecret ? false : form.value.isSecret,
+    ...(props.mode === 'create' && { isNotice: props.hideNotice ? false : form.value.isNotice }),
     fileIds: fileIdsArray
   }
 }
@@ -247,7 +266,7 @@ function handleSubmit() {
     toastStore.addToast(t('board.writePost.validation'), 'error')
     return
   }
-  if (props.mode === 'create' && !form.value.categoryId) {
+  if (props.mode === 'create' && !props.hideCategory && !form.value.categoryId) {
     toastStore.addToast(t('board.writePost.validation'), 'error')
     return
   }
@@ -259,6 +278,25 @@ function handleSubmit() {
       onSuccess: (response) => {
         const newPostId = response.data.data
         initialFormSnapshot.value = copyFormSnapshot(form.value)
+        if (props.createSuccessToastMessage) {
+          toastStore.addToast(props.createSuccessToastMessage, 'success')
+        }
+        if (props.goBackOnCreate) {
+          if (typeof window !== 'undefined' && window.history.length > 1) {
+            router.back()
+            return
+          }
+          if (props.redirectOnCreate) {
+            router.push(props.redirectOnCreate)
+            return
+          }
+          router.push('/')
+          return
+        }
+        if (props.redirectOnCreate) {
+          router.push(props.redirectOnCreate)
+          return
+        }
         if (payload.isSecret && !board.value?.isAdmin) {
           router.push(`/board/${boardUrl.value}`)
           return
@@ -330,14 +368,16 @@ defineExpose({
 })
 
 const pageTitle = computed(() =>
-  props.mode === 'create' ? t('board.writePost.createTitle') : t('board.writePost.editTitle')
+  props.mode === 'create'
+    ? (props.createTitleOverride || t('board.writePost.createTitle'))
+    : t('board.writePost.editTitle')
 )
 const submitLabel = computed(() =>
   isSubmitting.value
     ? (props.mode === 'create' ? t('board.writePost.submitting') : t('board.writePost.updating'))
     : (props.mode === 'create' ? t('common.submit') : t('board.writePost.update'))
 )
-const showNotice = computed(() => props.mode === 'create' && board.value?.isAdmin)
+const showNotice = computed(() => !props.hideNotice && props.mode === 'create' && board.value?.isAdmin)
 </script>
 
 <template>
@@ -358,7 +398,7 @@ const showNotice = computed(() => props.mode === 'create' && board.value?.isAdmi
       class="space-y-4 sm:space-y-6 bg-white dark:bg-gray-800 shadow px-3 py-4 sm:rounded-lg sm:px-6 sm:py-6 transition-colors duration-200">
       <div class="grid grid-cols-1 gap-y-4 gap-x-3 sm:grid-cols-6 sm:gap-y-6 sm:gap-x-4">
 
-        <div v-if="filteredCategories && filteredCategories.length > 0" class="sm:col-span-3">
+        <div v-if="!props.hideCategory && filteredCategories && filteredCategories.length > 0" class="sm:col-span-3">
           <BaseSelect id="category" v-model="form.categoryId" :label="$t('common.category')"
             labelClass="text-[11px] sm:text-sm" inputClass="!text-xs !py-2 sm:!text-sm sm:!py-2">
             <option value="" disabled>{{ $t('board.writePost.selectCategory') }}</option>
@@ -449,7 +489,7 @@ const showNotice = computed(() => props.mode === 'create' && board.value?.isAdmi
           </div>
         </div>
 
-        <div class="sm:col-span-6 mt-4 pt-3 sm:mt-6 sm:pt-0 border-t border-gray-100 dark:border-gray-700 sm:border-0">
+        <div v-if="!props.hideTags" class="sm:col-span-6 mt-4 pt-3 sm:mt-6 sm:pt-0 border-t border-gray-100 dark:border-gray-700 sm:border-0">
           <label for="tags" class="block text-[11px] font-medium text-gray-700 dark:text-gray-300 sm:text-sm">{{ $t('common.tags') }}</label>
           <div class="mt-1 sm:max-w-md">
             <PostTags v-model="form.tags" />
@@ -460,17 +500,17 @@ const showNotice = computed(() => props.mode === 'create' && board.value?.isAdmi
           <div class="flex flex-row flex-wrap gap-4 sm:hidden items-center">
             <BaseCheckbox v-if="showNotice" id="isNotice-m" v-model="form.isNotice" :label="$t('common.notice')" />
             <BaseCheckbox v-if="board?.allowNsfw" id="nsfw-m" v-model="form.isNsfw" :label="$t('board.writePost.nsfw')" />
-            <BaseCheckbox id="spoiler-m" v-model="form.isSpoiler" :label="$t('board.writePost.spoiler')" />
-            <BaseCheckbox id="secret-m" v-model="form.isSecret" :label="$t('board.writePost.secret')" />
+            <BaseCheckbox v-if="!props.hideSpoiler" id="spoiler-m" v-model="form.isSpoiler" :label="$t('board.writePost.spoiler')" />
+            <BaseCheckbox v-if="!props.hideSecret" id="secret-m" v-model="form.isSecret" :label="$t('board.writePost.secret')" />
           </div>
           <div class="hidden sm:block">
             <BaseCheckbox v-if="showNotice" id="isNotice" v-model="form.isNotice" :label="$t('common.notice')"
               :description="$t('board.writePost.noticeDesc')" class="mb-3 sm:mb-4" />
             <BaseCheckbox v-if="board?.allowNsfw" id="nsfw" v-model="form.isNsfw" :label="$t('board.writePost.nsfw')"
               :description="$t('board.writePost.nsfwDesc')" />
-            <BaseCheckbox id="spoiler" v-model="form.isSpoiler" :label="$t('board.writePost.spoiler')"
+            <BaseCheckbox v-if="!props.hideSpoiler" id="spoiler" v-model="form.isSpoiler" :label="$t('board.writePost.spoiler')"
               :description="$t('board.writePost.spoilerDesc')" class="mt-3 sm:mt-4" />
-            <BaseCheckbox id="secret" v-model="form.isSecret" :label="$t('board.writePost.secret')"
+            <BaseCheckbox v-if="!props.hideSecret" id="secret" v-model="form.isSecret" :label="$t('board.writePost.secret')"
               :description="$t('board.writePost.secretDesc')" class="mt-3 sm:mt-4" />
           </div>
         </div>

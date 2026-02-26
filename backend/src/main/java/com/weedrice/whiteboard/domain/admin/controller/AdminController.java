@@ -3,8 +3,12 @@ package com.weedrice.whiteboard.domain.admin.controller;
 import com.weedrice.whiteboard.domain.admin.dto.*;
 
 import com.weedrice.whiteboard.domain.admin.service.AdminService;
+import com.weedrice.whiteboard.domain.post.dto.PostResponse;
+import com.weedrice.whiteboard.domain.post.dto.PostSummary;
+import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.domain.user.entity.Role;
 
+import com.weedrice.whiteboard.global.common.dto.PageResponse;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
@@ -13,6 +17,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.lang.NonNull;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -27,6 +34,7 @@ import java.util.List;
 public class AdminController {
 
     private final AdminService adminService;
+    private final PostService postService;
 
     /**
      * Super Admin 조회
@@ -173,5 +181,16 @@ public class AdminController {
     @GetMapping("/stats")
     public ApiResponse<DashboardStatsDto> getDashboardStats() {
         return ApiResponse.success(adminService.getDashboardStats());
+    }
+
+    @GetMapping("/inquiries")
+    public ApiResponse<PageResponse<PostSummary>> getInquiryPosts(@NonNull Pageable pageable) {
+        Page<PostSummary> page = postService.getInquiryPostsForAdmin(pageable);
+        return ApiResponse.success(new PageResponse<>(page));
+    }
+
+    @GetMapping("/inquiries/{postId}")
+    public ApiResponse<PostResponse> getInquiryPost(@PathVariable Long postId) {
+        return ApiResponse.success(postService.getInquiryPostResponseForAdmin(postId));
     }
 }

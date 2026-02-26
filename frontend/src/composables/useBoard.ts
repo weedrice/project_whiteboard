@@ -110,7 +110,7 @@ export function useBoard() {
     }
 
     // Fetch categories for a board
-    const useBoardCategories = (boardUrl: Ref<string>) => {
+    const useBoardCategories = (boardUrl: Ref<string>, options = {}) => {
         return useQuery({
             queryKey: ['board', boardUrl, 'categories'],
             queryFn: async () => {
@@ -118,6 +118,7 @@ export function useBoard() {
                 return data.data
             },
             enabled: computed(() => !!boardUrl.value),
+            ...options
         })
     }
 

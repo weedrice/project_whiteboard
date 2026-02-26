@@ -36,6 +36,10 @@ export const boardApi = {
     // Create a new board
     createBoard: (data: BoardCreateData) => api.post<ApiResponse<Board>>('/boards', data),
 
+    // Ensure inquiry board exists (create if absent)
+    ensureInquiryBoard: (boardUrl?: string) =>
+        api.post<ApiResponse<void>>('/boards/inquiry/ensure', null, { params: boardUrl ? { boardUrl } : undefined }),
+
     // Get posts in a board
     getPosts: (boardUrl: string, params: PostsParams) => api.get<ApiResponse<PageResponse<PostSummary>>>(`/boards/${boardUrl}/posts`, { params }),
 

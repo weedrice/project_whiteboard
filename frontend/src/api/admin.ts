@@ -16,6 +16,7 @@ import type {
     ErrorLogStats,
     BoardAdminInfo,
     AdminUserDetail,
+    Post,
     PostSummary,
     MyComment
 } from '@/types'
@@ -161,6 +162,12 @@ export const adminApi = {
     // 대시보드 통계
     getDashboardStats() {
         return api.get<ApiResponse<DashboardStats>>('/admin/stats')
+    },
+    getInquiryPosts(params: PaginationParams & { sort?: string }) {
+        return api.get<ApiResponse<PageResponse<PostSummary>>>('/admin/inquiries', { params })
+    },
+    getInquiryPost(postId: string | number) {
+        return api.get<ApiResponse<Post>>(`/admin/inquiries/${postId}`)
     },
 
     // 게시판 관리

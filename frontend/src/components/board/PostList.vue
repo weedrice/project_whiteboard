@@ -41,20 +41,40 @@ const props = withDefaults(defineProps<{
   currentPostId?: string
   showBoardName?: boolean
   hideNoColumn?: boolean
+  interceptInquiry?: boolean
 }>(), {
   totalCount: 0,
   page: 0,
   size: 20,
   currentSort: 'createdAt,desc',
   showBoardName: false,
-  hideNoColumn: false
+  hideNoColumn: false,
+  interceptInquiry: false
 })
 
 function isCurrentPost(item: Post): boolean {
   return String(item.postId) === String(props.currentPostId ?? '')
 }
 
+function getResolvedBoardUrl(item: Post): string {
+  const raw = String(props.boardUrl || item.boardUrl || '').trim().toLowerCase()
+  return raw.replace(/^\/+|\/+$/g, '')
+}
+
+function isInquiryPost(item: Post): boolean {
+  return getResolvedBoardUrl(item) === 'inquiry'
+}
+
+function shouldInterceptInquiry(item: Post): boolean {
+  return props.interceptInquiry && isInquiryPost(item)
+}
+
 function onPostClick(event: Event, item: Post) {
+  if (shouldInterceptInquiry(item)) {
+    event.preventDefault()
+    emit('inquiry-click', item)
+    return
+  }
   if (isCurrentPost(item)) {
     event.preventDefault()
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -62,9 +82,21 @@ function onPostClick(event: Event, item: Post) {
 }
 
 function onTitleClick(event: Event, item: Post) {
+  if (shouldInterceptInquiry(item)) {
+    event.preventDefault()
+    emit('inquiry-click', item)
+    return
+  }
   if (isCurrentPost(item)) {
     event.preventDefault()
     window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+}
+
+function onBoardClick(event: Event, item: Post) {
+  if (shouldInterceptInquiry(item)) {
+    event.preventDefault()
+    emit('inquiry-click', item)
   }
 }
 
@@ -72,6 +104,7 @@ import { formatRelativeDate } from '@/utils/date'
 
 const emit = defineEmits<{
   (e: 'update:sort', sort: string): void
+  (e: 'inquiry-click', post: Post): void
 }>()
 
 function handleSort(field: string) {
@@ -158,17 +191,19 @@ const columns = computed(() => {
           {{ $t('board.list.noPosts') }}
         </div>
       </template>
-      <router-link
+      <component
         v-for="(item, index) in posts"
+        :is="shouldInterceptInquiry(item) ? 'button' : 'router-link'"
         :key="item.postId"
-        :to="boardUrl || item.boardUrl ? `/board/${boardUrl || item.boardUrl}/post/${item.postId}` : {}"
+        :to="!shouldInterceptInquiry(item) && getResolvedBoardUrl(item) ? `/board/${getResolvedBoardUrl(item)}/post/${item.postId}` : undefined"
+        :type="shouldInterceptInquiry(item) ? 'button' : undefined"
         :class="[
-          'block px-3 py-3 transition-colors',
+          'block w-full text-left px-3 py-3 transition-colors',
           item.isNotice ? 'bg-gray-100/80 dark:bg-gray-700/40 hover:bg-gray-200/80 dark:hover:bg-gray-700/60' : 'hover:bg-gray-50 dark:hover:bg-gray-700/50',
           isCurrentPost(item) ? 'bg-indigo-50 dark:bg-indigo-900/20 ring-1 ring-inset ring-indigo-200 dark:ring-indigo-700' : ''
         ]"
         active-class=""
-        @click="(e) => onPostClick(e, item)"
+        @click="onPostClick($event, item)"
       >
         <div class="flex items-center gap-2 min-w-0">
           <span class="flex-1 min-w-0 truncate text-xs text-gray-900 dark:text-white">
@@ -197,7 +232,7 @@ const columns = computed(() => {
             {{ item.likeCount }}
           </span>
         </div>
-      </router-link>
+      </component>
     </div>
 
     <!-- Desktop: 테이블 -->
@@ -215,8 +250,17 @@ const columns = computed(() => {
         </template>
 
         <template #cell-boardName="{ item }">
-          <router-link v-if="item.boardUrl" :to="`/board/${item.boardUrl}`"
-            class="hover:text-indigo-600 dark:hover:text-indigo-400 text-gray-700 dark:text-gray-300">
+          <button
+            v-if="shouldInterceptInquiry(item)"
+            type="button"
+            class="hover:text-indigo-600 dark:hover:text-indigo-400 text-gray-700 dark:text-gray-300"
+            @click="onBoardClick($event, item)"
+          >
+            {{ item.boardName || '-' }}
+          </button>
+          <router-link v-else-if="getResolvedBoardUrl(item)" :to="`/board/${getResolvedBoardUrl(item)}`"
+            class="hover:text-indigo-600 dark:hover:text-indigo-400 text-gray-700 dark:text-gray-300"
+            @click="onBoardClick($event, item)">
             {{ item.boardName || '-' }}
           </router-link>
           <span v-else>{{ item.boardName || '-' }}</span>
@@ -224,10 +268,34 @@ const columns = computed(() => {
 
         <template #cell-title="{ item }">
           <div class="flex items-center h-full min-w-0 overflow-hidden">
-            <router-link :to="`/board/${boardUrl || item.boardUrl}/post/${item.postId}`"
+            <button
+              v-if="shouldInterceptInquiry(item)"
+              type="button"
+              class="hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center h-full min-w-0 flex-1 overflow-hidden text-left"
+              @click="onTitleClick($event, item)"
+            >
+              <span v-if="item.category && item.category.name !== '?쇰컲'" class="badge badge-gray mr-1.5 sm:mr-2 text-[10px] sm:text-xs flex-shrink-0">
+                {{ item.category.name }}
+              </span>
+              <span v-if="item.isNotice" class="badge badge-red mr-1.5 sm:mr-2 text-[10px] sm:text-xs flex-shrink-0">
+                {{ $t('common.notice') }}
+              </span>
+              <span v-if="item.isSecret" class="mr-1 text-amber-500 flex items-center flex-shrink-0" :title="$t('board.writePost.secret')">
+                <Lock class="h-4 w-4" />
+              </span>
+              <span v-if="item.hasImage" class="mr-1 text-gray-400 flex items-center flex-shrink-0">
+                <ImageIcon class="h-4 w-4" />
+              </span>
+              <span class="truncate min-w-0">{{ item.title }}</span>
+              <span v-if="item.commentCount > 0"
+                class="ml-1 text-indigo-600 dark:text-indigo-400 text-[10px] sm:text-xs flex-shrink-0">
+                [{{ item.commentCount }}]
+              </span>
+            </button>
+            <router-link :to="`/board/${getResolvedBoardUrl(item)}/post/${item.postId}`"
               class="hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center h-full min-w-0 flex-1 overflow-hidden"
-              v-if="boardUrl || item.boardUrl"
-              @click="(e) => onTitleClick(e, item)">
+              v-else-if="getResolvedBoardUrl(item)"
+              @click="onTitleClick($event, item)">
               <span v-if="item.category && item.category.name !== '일반'" class="badge badge-gray mr-1.5 sm:mr-2 text-[10px] sm:text-xs flex-shrink-0">
                 {{ item.category.name }}
               </span>

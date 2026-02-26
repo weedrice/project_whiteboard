@@ -2,6 +2,7 @@
 import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { userApi } from '@/api/user'
+import { postApi } from '@/api/post'
 import { User, Mail, Calendar, FileText, CheckCircle, XCircle, Clock, MessageSquare, ShieldCheck } from 'lucide-vue-next'
 import { authApi } from '@/api/auth'
 import PostList from '@/components/board/PostList.vue'
@@ -19,7 +20,7 @@ import { extractErrorMessage } from '@/utils/errorHandler'
 import { formatDate } from '@/utils/date'
 import { isValidEmail } from '@/utils/validation'
 import { renderCommentContentHtml } from '@/utils/commentContent'
-import type { User as UserType, PostSummary, Comment } from '@/types'
+import type { User as UserType, PostSummary, Post, Comment } from '@/types'
 
 const { t } = useI18n()
 const { handleSilentError } = useErrorHandler()
@@ -38,6 +39,11 @@ const myPostsTotalCount = ref(0)
 const myPostsCurrentPage = ref(0)
 const myPostsSize = ref(10) // 10 items per page
 const myPostsSort = ref('createdAt,desc')
+const isInquiryDetailOpen = ref(false)
+const selectedInquiryPost = ref<Post | null>(null)
+const isInquiryDetailLoading = ref(false)
+const inquiryDetailError = ref('')
+const isDeletingInquiry = ref(false)
 
 // Comments pagination state
 const myComments = ref<Comment[]>([])
@@ -98,6 +104,58 @@ function handleMyPostsPageChange(page: number) {
 function handleMyPostsSortChange(newSort: string) {
   myPostsSort.value = newSort
   fetchMyPosts()
+}
+
+function isInquiryPostItem(post: { boardUrl?: string | number }): boolean {
+  return String(post.boardUrl || '').toLowerCase() === 'inquiry'
+}
+
+async function openMyInquiryPost(post: { postId: number; boardUrl?: string | number }) {
+  if (!isInquiryPostItem(post)) {
+    return
+  }
+
+  isInquiryDetailOpen.value = true
+  selectedInquiryPost.value = null
+  inquiryDetailError.value = ''
+  isInquiryDetailLoading.value = true
+
+  try {
+    const { data } = await postApi.getPost(post.postId, { params: { incrementView: false } })
+    if (data.success) {
+      selectedInquiryPost.value = data.data
+    }
+  } catch (err: unknown) {
+    inquiryDetailError.value = extractErrorMessage(err) || t('common.messages.loadFailed')
+  } finally {
+    isInquiryDetailLoading.value = false
+  }
+}
+
+function closeInquiryModal() {
+  isInquiryDetailOpen.value = false
+  selectedInquiryPost.value = null
+  inquiryDetailError.value = ''
+}
+
+async function deleteInquiryPost() {
+  const post = selectedInquiryPost.value
+  if (!post) return
+  if (!window.confirm('문의를 삭제하시겠습니까?')) {
+    return
+  }
+
+  isDeletingInquiry.value = true
+  try {
+    await postApi.deletePost(post.postId)
+    toastStore.addToast(t('common.messages.deleteSuccess'), 'success')
+    closeInquiryModal()
+    await fetchMyPosts()
+  } catch (err: unknown) {
+    toastStore.addToast(extractErrorMessage(err) || t('common.messages.deleteFailed'), 'error')
+  } finally {
+    isDeletingInquiry.value = false
+  }
 }
 
 function handleMyCommentsPageChange(page: number) {
@@ -365,7 +423,8 @@ onUnmounted(() => {
 
           <div v-if="myPosts.length > 0">
             <PostList :posts="myPosts" :totalCount="myPostsTotalCount" :page="myPostsCurrentPage" :size="myPostsSize"
-              :current-sort="myPostsSort" :show-board-name="true" @update:sort="handleMyPostsSortChange" />
+              :current-sort="myPostsSort" :show-board-name="true" :intercept-inquiry="true"
+              @update:sort="handleMyPostsSortChange" @inquiry-click="openMyInquiryPost" />
             <div class="bg-gray-50 dark:bg-gray-900/50 px-4 py-4 sm:px-6 flex justify-center">
               <Pagination :current-page="myPostsCurrentPage" :total-pages="Math.ceil(myPostsTotalCount / myPostsSize)"
                 @page-change="handleMyPostsPageChange" />
@@ -487,6 +546,46 @@ onUnmounted(() => {
             </BaseButton>
           </div>
         </div>
+      </BaseModal>
+
+      <BaseModal :isOpen="isInquiryDetailOpen" title="문의 상세" size="2xl" mobile-full @close="closeInquiryModal">
+        <div class="space-y-4 p-2 sm:p-4">
+          <div v-if="isInquiryDetailLoading" class="flex items-center justify-center py-10">
+            <BaseSkeleton width="100%" height="180px" />
+          </div>
+
+          <div
+            v-else-if="inquiryDetailError"
+            class="rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300"
+          >
+            {{ inquiryDetailError }}
+          </div>
+
+          <template v-else-if="selectedInquiryPost">
+            <div class="space-y-2 border-b border-gray-200 pb-3 dark:border-gray-700">
+              <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">{{ selectedInquiryPost.title }}</h2>
+              <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
+                <span>작성일: {{ formatDate(selectedInquiryPost.createdAt) }}</span>
+              </div>
+            </div>
+
+            <div class="max-h-[60vh] overflow-y-auto rounded-md bg-gray-50 p-4 text-sm text-gray-800 dark:bg-gray-900/30 dark:text-gray-200">
+              <div v-if="selectedInquiryPost.contents" class="break-words leading-6" v-html="selectedInquiryPost.contents" />
+              <div v-else>-</div>
+            </div>
+          </template>
+        </div>
+
+        <template #footer>
+          <div class="flex justify-end gap-2">
+            <BaseButton type="button" variant="danger" :loading="isDeletingInquiry" @click="deleteInquiryPost">
+              {{ $t('common.delete') }}
+            </BaseButton>
+            <BaseButton type="button" variant="secondary" @click="closeInquiryModal">
+              {{ $t('common.close') }}
+            </BaseButton>
+          </div>
+        </template>
       </BaseModal>
     </div>
   </div>

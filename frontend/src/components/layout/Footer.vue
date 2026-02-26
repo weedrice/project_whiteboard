@@ -51,6 +51,13 @@ const commitHash = __COMMIT_HASH__
           <!-- 2행(모바일): 서비스 약관 | 개인정보 처리방침 (첫째줄과 간격 최소화) -->
           <nav class="flex justify-center items-center gap-x-1 md:contents -mt-0.5 md:mt-0" aria-label="Footer navigation">
             <router-link
+              to="/inquiry"
+              class="text-sm text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-300 py-1 px-2 md:py-1.5 min-h-[36px] inline-flex items-center justify-center rounded-md touch-manipulation active:bg-gray-100 dark:active:bg-gray-700 md:pl-3"
+            >
+              문의하기
+            </router-link>
+            <span class="text-gray-300 dark:text-gray-600 md:ml-2" aria-hidden="true">|</span>
+            <router-link
               to="/terms"
               class="text-sm text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-300 py-1 px-2 md:py-1.5 min-h-[36px] inline-flex items-center justify-center rounded-md touch-manipulation active:bg-gray-100 dark:active:bg-gray-700 md:pl-3"
             >

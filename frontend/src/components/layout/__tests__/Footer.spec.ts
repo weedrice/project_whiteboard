@@ -9,6 +9,7 @@ const router = createRouter({
     history: createMemoryHistory(),
     routes: [
         { path: '/', component: { template: '<div>Home</div>' } },
+        { path: '/inquiry', component: { template: '<div>Inquiry</div>' } },
         { path: '/terms', component: { template: '<div>Terms</div>' } },
         { path: '/privacy', component: { template: '<div>Privacy</div>' } }
     ]
