@@ -34,6 +34,7 @@ public class PostSummary {
     private boolean isLiked;
     private boolean isScrapped;
     private boolean isSubscribed;
+    private Boolean inquiryAnswered;
     private boolean hasImage;
     private String summary;
     /** Feed용: HTML 본문 앞부분 (약 5줄 분량, 태그 유지) */

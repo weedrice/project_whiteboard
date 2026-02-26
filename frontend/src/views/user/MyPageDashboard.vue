@@ -13,6 +13,7 @@ import ProfileEditor from '@/components/user/ProfileEditor.vue'
 import Pagination from '@/components/common/ui/Pagination.vue'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import EmptyState from '@/components/common/ui/EmptyState.vue'
+import CommentList from '@/components/comment/CommentList.vue'
 import { useErrorHandler } from '@/composables/useErrorHandler'
 import { useToastStore } from '@/stores/toast'
 import { getOptimizedProfileImageUrl, handleImageError } from '@/utils/image'
@@ -136,6 +137,7 @@ function closeInquiryModal() {
   isInquiryDetailOpen.value = false
   selectedInquiryPost.value = null
   inquiryDetailError.value = ''
+  fetchMyPosts()
 }
 
 async function deleteInquiryPost() {
@@ -572,6 +574,10 @@ onUnmounted(() => {
             <div class="max-h-[60vh] overflow-y-auto rounded-md bg-gray-50 p-4 text-sm text-gray-800 dark:bg-gray-900/30 dark:text-gray-200">
               <div v-if="selectedInquiryPost.contents" class="break-words leading-6" v-html="selectedInquiryPost.contents" />
               <div v-else>-</div>
+            </div>
+
+            <div class="border-t border-gray-200 pt-4 dark:border-gray-700">
+              <CommentList :postId="selectedInquiryPost.postId" boardUrl="inquiry" />
             </div>
           </template>
         </div>

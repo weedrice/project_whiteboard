@@ -1,15 +1,17 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { useQuery } from '@tanstack/vue-query'
+import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import { adminApi } from '@/api/admin'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import Pagination from '@/components/common/ui/Pagination.vue'
+import CommentList from '@/components/comment/CommentList.vue'
 import { useI18n } from 'vue-i18n'
 import type { Post, PostSummary } from '@/types'
 
 const { t } = useI18n()
+const queryClient = useQueryClient()
 
 const page = ref(0)
 const size = ref(20)
@@ -82,11 +84,16 @@ function getSummary(post: PostSummary) {
   return truncateText(plain, 50)
 }
 
+function getInquiryStatusLabel(post: PostSummary) {
+  return post.inquiryAnswered ? '답변 완료' : '답변 대기'
+}
+
 function openDetail(postId: number) {
   selectedPostId.value = postId
 }
 
 function closeDetail() {
+  queryClient.invalidateQueries({ queryKey: ['admin', 'inquiry-posts'] })
   selectedPostId.value = null
 }
 </script>
@@ -96,11 +103,9 @@ function closeDetail() {
     <div class="sm:flex sm:items-center sm:justify-between">
       <div class="sm:flex-auto">
         <h1 class="text-xl font-semibold text-gray-900 dark:text-white">문의 게시글 조회</h1>
-        <p class="mt-2 text-sm text-gray-700 dark:text-gray-300">
-          비공개 문의 게시판에 등록된 문의를 확인합니다.
-        </p>
+        <p class="mt-2 text-sm text-gray-700 dark:text-gray-300">문의 게시판에 등록된 글을 확인하고 댓글로 답변할 수 있습니다.</p>
       </div>
-      <div class="mt-3 sm:mt-0 flex items-center gap-2">
+      <div class="mt-3 flex items-center gap-2 sm:mt-0">
         <label for="inquiry-sort" class="text-sm text-gray-600 dark:text-gray-300">정렬</label>
         <select
           id="inquiry-sort"
@@ -130,11 +135,12 @@ function closeDetail() {
               <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-300">내용</th>
               <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-300">작성자</th>
               <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-300">작성일</th>
+              <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-300">상태</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
             <tr v-if="posts.length === 0">
-              <td colspan="4" class="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
+              <td colspan="5" class="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
                 등록된 문의가 없습니다.
               </td>
             </tr>
@@ -157,6 +163,14 @@ function closeDetail() {
               </td>
               <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
                 {{ formatDate(post.createdAt) }}
+              </td>
+              <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
+                <span
+                  class="inline-flex rounded-full px-2 py-1 text-xs font-medium"
+                  :class="post.inquiryAnswered ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'"
+                >
+                  {{ getInquiryStatusLabel(post) }}
+                </span>
               </td>
             </tr>
           </tbody>
@@ -187,14 +201,18 @@ function closeDetail() {
           <div class="space-y-2 border-b border-gray-200 pb-3 dark:border-gray-700">
             <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">{{ selectedPost.title }}</h2>
             <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
-              <span>작성자: {{ selectedPost.author?.displayName || '-' }}</span>
-              <span>작성일: {{ formatDate(selectedPost.createdAt) }}</span>
+              <span>작성자 {{ selectedPost.author?.displayName || '-' }}</span>
+              <span>작성일 {{ formatDate(selectedPost.createdAt) }}</span>
             </div>
           </div>
 
           <div class="max-h-[60vh] overflow-y-auto rounded-md bg-gray-50 p-4 text-sm text-gray-800 dark:bg-gray-900/30 dark:text-gray-200">
             <div v-if="selectedPost.contents" class="break-words leading-6" v-html="selectedPost.contents" />
             <div v-else>-</div>
+          </div>
+
+          <div class="border-t border-gray-200 pt-4 dark:border-gray-700">
+            <CommentList :postId="selectedPost.postId" boardUrl="inquiry" />
           </div>
         </template>
       </div>

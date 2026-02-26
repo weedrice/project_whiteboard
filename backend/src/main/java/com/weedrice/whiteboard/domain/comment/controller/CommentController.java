@@ -8,7 +8,6 @@ import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.service.CommentService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
-import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -37,13 +36,18 @@ public class CommentController {
     @GetMapping("/comments/{commentId}/replies")
     public ApiResponse<CommentListResponse> getReplies(
             @PathVariable Long commentId,
-            Pageable pageable) {
-        return ApiResponse.success(commentService.getReplies(commentId, pageable));
+            Pageable pageable,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        Long userId = (userDetails != null) ? userDetails.getUserId() : null;
+        return ApiResponse.success(commentService.getReplies(commentId, userId, pageable));
     }
 
     @GetMapping("/comments/{commentId}")
-    public ApiResponse<CommentResponse> getComment(@PathVariable Long commentId) {
-        CommentResponse comment = commentService.getComment(commentId);
+    public ApiResponse<CommentResponse> getComment(
+            @PathVariable Long commentId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        Long userId = (userDetails != null) ? userDetails.getUserId() : null;
+        CommentResponse comment = commentService.getComment(commentId, userId);
         return ApiResponse.success(comment);
     }
 

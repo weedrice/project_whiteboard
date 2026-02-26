@@ -99,6 +99,7 @@ export interface PostSummary {
     boardName?: string
     boardIconUrl?: string
     authorName?: string
+    inquiryAnswered?: boolean
     summary?: string
     /** Feed용: HTML 본문 앞부분(약 5줄) */
     contentsExcerpt?: string

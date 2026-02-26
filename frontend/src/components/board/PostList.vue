@@ -24,6 +24,7 @@ interface Post {
   commentCount: number
   isNotice?: boolean
   isSecret?: boolean
+  inquiryAnswered?: boolean
   hasImage?: boolean
   category?: {
     name: string
@@ -67,6 +68,14 @@ function isInquiryPost(item: Post): boolean {
 
 function shouldInterceptInquiry(item: Post): boolean {
   return props.interceptInquiry && isInquiryPost(item)
+}
+
+function hasInquiryStatus(item: Post): boolean {
+  return isInquiryPost(item) && typeof item.inquiryAnswered === 'boolean'
+}
+
+function getInquiryStatusLabel(item: Post): string {
+  return item.inquiryAnswered ? '답변완료' : '답변대기'
 }
 
 function onPostClick(event: Event, item: Post) {
@@ -213,6 +222,13 @@ const columns = computed(() => {
               <Lock class="h-3.5 w-3.5" />
             </span>
             <span v-if="item.hasImage" class="mr-0.5 inline-flex text-gray-400"><ImageIcon class="h-3.5 w-3.5" /></span>
+            <span
+              v-if="hasInquiryStatus(item)"
+              class="mr-1 rounded px-1 py-0.5 text-[9px] font-medium"
+              :class="item.inquiryAnswered ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'"
+            >
+              {{ getInquiryStatusLabel(item) }}
+            </span>
             {{ item.title }}
             <span v-if="item.commentCount > 0" class="text-indigo-600 dark:text-indigo-400">[{{ item.commentCount }}]</span>
           </span>
@@ -286,6 +302,13 @@ const columns = computed(() => {
               <span v-if="item.hasImage" class="mr-1 text-gray-400 flex items-center flex-shrink-0">
                 <ImageIcon class="h-4 w-4" />
               </span>
+              <span
+                v-if="hasInquiryStatus(item)"
+                class="mr-1 rounded px-1.5 py-0.5 text-[10px] font-medium flex-shrink-0"
+                :class="item.inquiryAnswered ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'"
+              >
+                {{ getInquiryStatusLabel(item) }}
+              </span>
               <span class="truncate min-w-0">{{ item.title }}</span>
               <span v-if="item.commentCount > 0"
                 class="ml-1 text-indigo-600 dark:text-indigo-400 text-[10px] sm:text-xs flex-shrink-0">
@@ -307,6 +330,13 @@ const columns = computed(() => {
               </span>
               <span v-if="item.hasImage" class="mr-1 text-gray-400 flex items-center flex-shrink-0">
                 <ImageIcon class="h-4 w-4" />
+              </span>
+              <span
+                v-if="hasInquiryStatus(item)"
+                class="mr-1 rounded px-1.5 py-0.5 text-[10px] font-medium flex-shrink-0"
+                :class="item.inquiryAnswered ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'"
+              >
+                {{ getInquiryStatusLabel(item) }}
               </span>
               <span class="truncate min-w-0">{{ item.title }}</span>
               <span v-if="item.commentCount > 0"

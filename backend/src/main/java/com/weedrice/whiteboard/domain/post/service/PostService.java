@@ -106,6 +106,7 @@ public class PostService {
             Post post = posts.getContent().get(i);
             PostSummary summary = PostSummary.from(post);
             summary.setHasImage(postIdsWithImages.contains(post.getPostId()));
+            summary.setInquiryAnswered(resolveInquiryAnsweredStatus(post));
 
             if (isAscending) {
                 summary.setRowNum(((long) pageNumber * pageSize) + i + 1);
@@ -205,6 +206,7 @@ public class PostService {
             Post post = posts.getContent().get(i);
             PostSummary summary = PostSummary.from(post);
             summary.setHasImage(postIdsWithImages.contains(post.getPostId()));
+            summary.setInquiryAnswered(resolveInquiryAnsweredStatus(post));
 
             if (isAscending) {
                 summary.setRowNum(((long) pageNumber * pageSize) + i + 1);
@@ -237,6 +239,7 @@ public class PostService {
         for (int i = 0; i < posts.getContent().size(); i++) {
             Post post = posts.getContent().get(i);
             PostSummary summary = PostSummary.from(post);
+            summary.setInquiryAnswered(resolveInquiryAnsweredStatus(post));
             if (isAscending) {
                 summary.setRowNum(((long) pageNumber * pageSize) + i + 1);
             } else {
@@ -883,6 +886,17 @@ public class PostService {
         return board != null
                 && board.getBoardUrl() != null
                 && DEFAULT_INQUIRY_BOARD_URL.equalsIgnoreCase(board.getBoardUrl());
+    }
+
+    private Boolean resolveInquiryAnsweredStatus(Post post) {
+        if (post == null || !isInquiryBoard(post.getBoard())) {
+            return null;
+        }
+        return commentRepository.findLatestNonDeletedByPostId(post.getPostId(), PageRequest.of(0, 1))
+                .stream()
+                .findFirst()
+                .map(lastComment -> !Objects.equals(lastComment.getUser().getUserId(), post.getUser().getUserId()))
+                .orElse(false);
     }
 
     public List<PostSummary> getLatestPostsByBoard(Long boardId, int limit, Long currentUserId) {

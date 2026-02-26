@@ -1,5 +1,7 @@
 package com.weedrice.whiteboard.domain.comment.service;
 
+import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
+import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.comment.dto.CommentListResponse;
 import com.weedrice.whiteboard.domain.comment.dto.CommentResponse;
 import com.weedrice.whiteboard.domain.comment.dto.MyCommentResponse;
@@ -39,6 +41,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class CommentService {
+    private static final String DEFAULT_INQUIRY_BOARD_URL = "inquiry";
 
     private final CommentRepository commentRepository;
     private final PostRepository postRepository;
@@ -50,9 +53,16 @@ public class CommentService {
     private final PointService pointService;
     private final UserBlockService userBlockService;
     private final GlobalConfigService globalConfigService;
+    private final AdminRepository adminRepository;
 
     public Page<CommentResponse> getComments(Long postId, Long currentUserId, Pageable pageable) {
         Objects.requireNonNull(pageable, "Pageable must not be null");
+        Post post = postRepository.findByIdWithRelations(postId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
+        if (post.getIsDeleted()) {
+            throw new BusinessException(ErrorCode.POST_NOT_FOUND);
+        }
+        validateInquiryCommentReadable(post, currentUserId);
 
         List<Long> blockedUserIds = null;
         if (currentUserId != null) {
@@ -103,15 +113,19 @@ public class CommentService {
         return new PageImpl<>(responseContent, pageable, parentComments.getTotalElements());
     }
 
-    public CommentListResponse getReplies(Long parentId, Pageable pageable) {
+    public CommentListResponse getReplies(Long parentId, Long currentUserId, Pageable pageable) {
+        Comment parentComment = commentRepository.findByIdWithRelations(parentId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
+        validateInquiryCommentReadable(parentComment.getPost(), currentUserId);
         Page<Comment> replies = commentRepository.findByParent_CommentIdAndIsDeletedOrderByCreatedAtAsc(parentId, false,
                 pageable);
         return CommentListResponse.from(replies);
     }
 
-    public CommentResponse getComment(Long commentId) {
+    public CommentResponse getComment(Long commentId, Long currentUserId) {
         Comment comment = commentRepository.findByIdWithRelations(commentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
+        validateInquiryCommentReadable(comment.getPost(), currentUserId);
         return CommentResponse.from(comment);
     }
 
@@ -126,12 +140,13 @@ public class CommentService {
     public Comment createComment(Long userId, Long postId, Long parentId, String content) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        Post post = postRepository.findById(postId)
+        Post post = postRepository.findByIdWithRelations(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
 
         if (post.getIsDeleted()) {
             throw new BusinessException(ErrorCode.POST_NOT_FOUND);
         }
+        validateInquiryCommentReadableByUser(post, user);
 
         Comment parentComment = null;
         int depth = 0;
@@ -193,6 +208,9 @@ public class CommentService {
     public Comment updateComment(Long userId, Long commentId, String content) {
         Comment comment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        validateInquiryCommentReadableByUser(comment.getPost(), user);
 
         if (comment.getIsDeleted()) {
             throw new BusinessException(ErrorCode.COMMENT_NOT_FOUND);
@@ -208,9 +226,7 @@ public class CommentService {
         comment.updateContent(sanitizedContent);
 
         // Save CommentVersion for MODIFY
-        saveCommentVersion(comment, userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND)),
-                "MODIFY", originalContent);
+        saveCommentVersion(comment, user, "MODIFY", originalContent);
         return comment;
     }
 
@@ -218,6 +234,9 @@ public class CommentService {
     public void deleteComment(Long userId, Long commentId) {
         Comment comment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        validateInquiryCommentReadableByUser(comment.getPost(), user);
 
         if (comment.getIsDeleted()) {
             throw new BusinessException(ErrorCode.COMMENT_NOT_FOUND);
@@ -232,9 +251,7 @@ public class CommentService {
         comment.getPost().decrementCommentCount();
 
         // Save CommentVersion for DELETE
-        saveCommentVersion(comment, userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND)),
-                "DELETE", originalContent);
+        saveCommentVersion(comment, user, "DELETE", originalContent);
 
         String commentCreateRewardStr = globalConfigService.getConfig("POINT_COMMENT_CREATE_REWARD");
         int commentCreateReward = commentCreateRewardStr != null ? Integer.parseInt(commentCreateRewardStr) : 10;
@@ -247,6 +264,7 @@ public class CommentService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         Comment comment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
+        validateInquiryCommentReadableByUser(comment.getPost(), user);
 
         if (comment.getIsDeleted()) {
             throw new BusinessException(ErrorCode.COMMENT_NOT_FOUND);
@@ -271,8 +289,11 @@ public class CommentService {
 
     @Transactional
     public void unlikeComment(Long userId, Long commentId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         Comment comment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
+        validateInquiryCommentReadableByUser(comment.getPost(), user);
 
         CommentLikeId commentLikeId = new CommentLikeId(userId, commentId);
         if (!commentLikeRepository.existsById(commentLikeId)) {
@@ -306,5 +327,53 @@ public class CommentService {
                     .build();
         }
         return response;
+    }
+
+    private void validateInquiryCommentReadable(Post post, Long currentUserId) {
+        if (!isInquiryBoard(post)) {
+            return;
+        }
+        if (currentUserId == null) {
+            throw new BusinessException(ErrorCode.POST_NOT_FOUND);
+        }
+        User user = userRepository.findById(currentUserId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        validateInquiryCommentReadableByUser(post, user);
+    }
+
+    private void validateInquiryCommentReadableByUser(Post post, User user) {
+        if (!isInquiryBoard(post)) {
+            return;
+        }
+        if (user == null) {
+            throw new BusinessException(ErrorCode.POST_NOT_FOUND);
+        }
+        boolean isAuthor = Objects.equals(post.getUser().getUserId(), user.getUserId());
+        if (!isAuthor && !hasBoardAdminAccess(post.getBoard(), user)) {
+            throw new BusinessException(ErrorCode.POST_NOT_FOUND);
+        }
+    }
+
+    private boolean hasBoardAdminAccess(Board board, User user) {
+        if (board == null || user == null) {
+            return false;
+        }
+        if (user.getIsSuperAdmin()) {
+            return true;
+        }
+        if (Objects.equals(board.getCreator().getUserId(), user.getUserId())) {
+            return true;
+        }
+        return adminRepository.existsByUserAndBoardAndIsActive(user, board, true);
+    }
+
+    private boolean isInquiryBoard(Post post) {
+        return post != null && isInquiryBoard(post.getBoard());
+    }
+
+    private boolean isInquiryBoard(Board board) {
+        return board != null
+                && board.getBoardUrl() != null
+                && DEFAULT_INQUIRY_BOARD_URL.equalsIgnoreCase(board.getBoardUrl());
     }
 }
