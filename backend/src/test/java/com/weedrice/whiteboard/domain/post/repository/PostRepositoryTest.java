@@ -153,7 +153,7 @@ class PostRepositoryTest {
 
         // when
         Page<Post> result = postRepository.findByBoardIdAndCategoryId(
-                board.getBoardId(), category.getCategoryId(), null, null, pageRequest);
+                board.getBoardId(), category.getCategoryId(), null, null, false, null, pageRequest);
 
         // then
         assertThat(result.getContent()).hasSize(1);
@@ -167,7 +167,7 @@ class PostRepositoryTest {
         PageRequest pageRequest = PageRequest.of(0, 10);
 
         // when
-        Page<Post> result = postRepository.searchPostsByKeyword("Test", null, pageRequest);
+        Page<Post> result = postRepository.searchPostsByKeyword("Test", null, null, pageRequest);
 
         // then
         assertThat(result.getContent()).isNotEmpty();
@@ -182,7 +182,7 @@ class PostRepositoryTest {
 
         // when
         Page<Post> result = postRepository.searchPosts(
-                "Test", "TITLE", "test-board", null, pageRequest);
+                "Test", "TITLE", "test-board", null, false, null, pageRequest);
 
         // then
         assertThat(result.getContent()).isNotEmpty();
@@ -251,7 +251,7 @@ class PostRepositoryTest {
         PageRequest pageRequest = PageRequest.of(0, 10);
 
         // when
-        Page<Post> result = postRepository.searchPostsByKeyword("Inactive", null, pageRequest);
+        Page<Post> result = postRepository.searchPostsByKeyword("Inactive", null, null, pageRequest);
 
         // then
         assertThat(result.getContent()).isEmpty();
@@ -289,7 +289,7 @@ class PostRepositoryTest {
 
         // when
         Page<Post> result = postRepository.searchPosts(
-                "Inactive", "TITLE", null, null, pageRequest);
+                "Inactive", "TITLE", null, null, false, null, pageRequest);
 
         // then
         assertThat(result.getContent()).isEmpty();

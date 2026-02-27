@@ -170,7 +170,7 @@ class BoardControllerTest {
     @DisplayName("게시판 생성 성공")
     void createBoard_returnsSuccess() throws Exception {
         // given
-        BoardCreateRequest request = new BoardCreateRequest("New Board", "newboard", "Description", "icon.png");
+        BoardCreateRequest request = new BoardCreateRequest("New Board", "newboard", "Description", "icon.png", true);
         BoardResponse boardResponse = new BoardResponse(board, 0L, "Admin", 1L, false, false, List.of(), List.of());
         
         when(boardService.createBoard(eq(1L), any())).thenReturn(board);

@@ -58,7 +58,7 @@ class BoardTest {
     @DisplayName("게시판 정보 수정")
     void update_success() {
         // when
-        board.update("Updated Board", "Updated Description", "new-icon.png", 2, true, false);
+        board.update("Updated Board", "Updated Description", "new-icon.png", 2, true, false, true);
 
         // then
         assertThat(board.getBoardName()).isEqualTo("Updated Board");

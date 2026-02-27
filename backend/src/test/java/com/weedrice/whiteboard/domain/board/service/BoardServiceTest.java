@@ -151,7 +151,7 @@ class BoardServiceTest {
     void createBoard_success() {
         // given
         Long creatorId = 1L;
-        BoardCreateRequest request = new BoardCreateRequest("New Board", "new-board", "New Description", null);
+        BoardCreateRequest request = new BoardCreateRequest("New Board", "new-board", "New Description", null, null);
         com.weedrice.whiteboard.domain.point.entity.UserPoint userPoint = 
                 com.weedrice.whiteboard.domain.point.entity.UserPoint.builder().user(user).build();
         ReflectionTestUtils.setField(userPoint, "currentPoint", 1000);

@@ -21,8 +21,8 @@ class BoardEntityTest {
 
         assertThat(board.getIsActive()).isTrue(); // 기본값
 
-        // boardName, description, iconUrl, sortOrder, allowNsfw, isActive
-        board.update("New Name", "New Desc", "icon.png", 10, true, true);
+        // boardName, description, iconUrl, sortOrder, allowNsfw, isActive, isPublic
+        board.update("New Name", "New Desc", "icon.png", 10, true, true, true);
 
         assertThat(board.getBoardName()).isEqualTo("New Name");
         assertThat(board.getDescription()).isEqualTo("New Desc");

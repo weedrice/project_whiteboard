@@ -74,8 +74,8 @@ class PostTest {
 
         BoardCategory category = BoardCategory.builder().name("Category").build();
 
-        // category, title, contents, isNsfw, isSpoiler
-        post.updatePost(category, "New Title", "New Contents", true, true);
+        // category, title, contents, isNsfw, isSpoiler, isSecret
+        post.updatePost(category, "New Title", "New Contents", true, true, false);
 
         assertThat(post.getTitle()).isEqualTo("New Title");
         assertThat(post.getContents()).isEqualTo("New Contents");

@@ -244,7 +244,7 @@ class PostControllerTest {
         @DisplayName("게시글 생성 성공")
         void createPost_success() throws Exception {
             String boardUrl = "free";
-            PostCreateRequest request = new PostCreateRequest(null, "Title", "Content", List.of("tag"), false, false, false, null);
+            PostCreateRequest request = new PostCreateRequest(null, "Title", "Content", List.of("tag"), false, false, false, false, null);
             when(postService.createPost(anyLong(), eq(boardUrl), any())).thenReturn(post);
 
             mockMvc.perform(post("/api/v1/boards/{boardUrl}/posts", boardUrl)
@@ -258,7 +258,7 @@ class PostControllerTest {
         @DisplayName("게시글 생성 실패 - 유효성 오류")
         void createPost_fail_validation() throws Exception {
             String boardUrl = "free";
-            PostCreateRequest request = new PostCreateRequest(null, "", "", null, false, false, false, null);
+            PostCreateRequest request = new PostCreateRequest(null, "", "", null, false, false, false, false, null);
 
             mockMvc.perform(post("/api/v1/boards/{boardUrl}/posts", boardUrl)
                     .with(user(customUserDetails))
@@ -271,7 +271,7 @@ class PostControllerTest {
         @DisplayName("게시글 수정 성공")
         void updatePost_success() throws Exception {
             Long postId = 1L;
-            PostUpdateRequest request = new PostUpdateRequest(null, "Title", "Content", List.of("tag"), false, false, null);
+            PostUpdateRequest request = new PostUpdateRequest(null, "Title", "Content", List.of("tag"), false, false, false, null);
             when(postService.updatePost(anyLong(), eq(postId), any())).thenReturn(post);
 
             mockMvc.perform(put("/api/v1/posts/{postId}", postId)

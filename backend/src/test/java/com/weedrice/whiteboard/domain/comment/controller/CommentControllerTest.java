@@ -18,6 +18,7 @@ import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -147,7 +148,7 @@ class CommentControllerTest {
         // given
         Long commentId = 1L;
         CommentResponse commentResponse = CommentResponse.builder().build();
-        when(commentService.getComment(eq(commentId))).thenReturn(commentResponse);
+        when(commentService.getComment(eq(commentId), isNull())).thenReturn(commentResponse);
 
         // when & then
         mockMvc.perform(get("/api/v1/comments/{commentId}", commentId)
@@ -164,7 +165,7 @@ class CommentControllerTest {
         PageRequest pageRequest = PageRequest.of(0, 10);
         org.springframework.data.domain.Page<com.weedrice.whiteboard.domain.comment.entity.Comment> emptyPage = new PageImpl<>(List.of());
         CommentListResponse response = CommentListResponse.from(emptyPage);
-        when(commentService.getReplies(eq(commentId), any())).thenReturn(response);
+        when(commentService.getReplies(eq(commentId), isNull(), any(Pageable.class))).thenReturn(response);
 
         // when & then
         mockMvc.perform(get("/api/v1/comments/{commentId}/replies", commentId)

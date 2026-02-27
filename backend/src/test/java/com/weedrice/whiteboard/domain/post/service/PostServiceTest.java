@@ -130,7 +130,7 @@ class PostServiceTest {
     @DisplayName("게시글 생성 성공 - BoardUrl 사용")
     void createPost_withBoardUrl_success() {
         PostCreateRequest request = new PostCreateRequest(null, "New Post", "New Contents", Collections.emptyList(),
-                false, false, false, List.of(1L, 2L));
+                false, false, false, false, List.of(1L, 2L));
 
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
@@ -153,7 +153,7 @@ class PostServiceTest {
     @DisplayName("게시글 생성 성공 - 카테고리 포함")
     void createPost_withCategory_success() {
         PostCreateRequest request = new PostCreateRequest(1L, "New Post", "New Contents", Collections.emptyList(),
-                false, false, false, null);
+                false, false, false, false, null);
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
@@ -169,7 +169,7 @@ class PostServiceTest {
     @DisplayName("게시글 생성 실패 - 공지사항 권한 없음")
     void createPost_notice_forbidden() {
         PostCreateRequest request = new PostCreateRequest(null, "Notice", "Contents", Collections.emptyList(), true,
-                false, false, null);
+                false, false, false, null);
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
@@ -236,12 +236,14 @@ class PostServiceTest {
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
         // currentUserId가 null이므로 userBlockService가 호출되지 않음
         // Page.empty()인 경우 getPostIdsWithImages가 빈 리스트를 받아 fileService가 호출되지 않음
-        when(postRepository.findByBoardIdAndCategoryId(eq(1L), any(), any(), any(), any(Pageable.class)))
+        when(postRepository.findByBoardIdAndCategoryId(eq(1L), any(), any(), any(), any(Boolean.class), any(),
+                any(Pageable.class)))
                 .thenReturn(Page.empty());
 
         postService.getPosts("free", null, null, null, Pageable.unpaged());
 
-        verify(postRepository).findByBoardIdAndCategoryId(eq(1L), any(), any(), any(), any(Pageable.class));
+        verify(postRepository).findByBoardIdAndCategoryId(eq(1L), any(), any(), any(), any(Boolean.class), any(),
+                any(Pageable.class));
     }
 
     @Test
@@ -290,7 +292,7 @@ class PostServiceTest {
     @DisplayName("게시글 수정 성공")
     void updatePost_success() {
         PostUpdateRequest request = new PostUpdateRequest(null, "Updated Title", "Updated Contents",
-                Collections.emptyList(), false, false, List.of(5L));
+                Collections.emptyList(), false, false, false, List.of(5L));
 
         when(postRepository.findById(1L)).thenReturn(Optional.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
@@ -305,7 +307,7 @@ class PostServiceTest {
     @Test
     @DisplayName("게시글 수정 실패 - 작성자 아님")
     void updatePost_forbidden() {
-        PostUpdateRequest request = new PostUpdateRequest(null, "Title", "Content", null, false, false, null);
+        PostUpdateRequest request = new PostUpdateRequest(null, "Title", "Content", null, false, false, false, null);
         when(postRepository.findById(1L)).thenReturn(Optional.of(post));
 
         assertThatThrownBy(() -> postService.updatePost(2L, 1L, request))
@@ -484,7 +486,7 @@ class PostServiceTest {
     void getNotices_success() {
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
         // currentUserId가 null이므로 userBlockService가 호출되지 않음, blockedUserIds는 null
-        when(postRepository.findNoticesByBoardId(eq(1L), eq(true), eq(false), isNull()))
+        when(postRepository.findNoticesByBoardId(eq(1L), eq(true), eq(false), isNull(), eq(false), isNull()))
                 .thenReturn(List.of(post));
 
         List<Post> notices = postService.getNotices("free", null);
@@ -756,7 +758,8 @@ class PostServiceTest {
     @DisplayName("게시판 최신 게시글 조회 - 로그인 사용자")
     void getLatestPostsByBoard_loggedIn() {
         when(userBlockService.getBlockedUserIds(1L)).thenReturn(Collections.emptyList());
-        when(postRepository.findByBoardIdAndCategoryId(eq(1L), isNull(), isNull(), anyList(), any(Pageable.class)))
+        when(postRepository.findByBoardIdAndCategoryId(eq(1L), isNull(), isNull(), anyList(), any(Boolean.class), any(),
+                any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(post)));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(fileService.getRelatedIdsWithImages(anyList(), eq("POST_CONTENT"))).thenReturn(List.of(1L));
@@ -774,7 +777,8 @@ class PostServiceTest {
     @Test
     @DisplayName("게시판 최신 게시글 조회 - 비로그인 사용자")
     void getLatestPostsByBoard_notLoggedIn() {
-        when(postRepository.findByBoardIdAndCategoryId(eq(1L), isNull(), isNull(), isNull(), any(Pageable.class)))
+        when(postRepository.findByBoardIdAndCategoryId(eq(1L), isNull(), isNull(), isNull(), eq(false), isNull(),
+                any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(post)));
         when(fileService.getRelatedIdsWithImages(anyList(), eq("POST_CONTENT"))).thenReturn(Collections.emptyList());
 
@@ -786,7 +790,8 @@ class PostServiceTest {
     @Test
     @DisplayName("게시판 최신 게시글 조회 - 결과 없음")
     void getLatestPostsByBoard_empty() {
-        when(postRepository.findByBoardIdAndCategoryId(eq(1L), isNull(), isNull(), isNull(), any(Pageable.class)))
+        when(postRepository.findByBoardIdAndCategoryId(eq(1L), isNull(), isNull(), isNull(), eq(false), isNull(),
+                any(Pageable.class)))
                 .thenReturn(Page.empty());
 
         List<PostSummary> result = postService.getLatestPostsByBoard(1L, 5, null);
@@ -800,7 +805,8 @@ class PostServiceTest {
     @DisplayName("게시글 생성 실패 - 비활성 게시판")
     void createPost_inactiveBoard() {
         ReflectionTestUtils.setField(board, "isActive", false);
-        PostCreateRequest request = new PostCreateRequest(null, "Title", "Content", null, false, false, false, null);
+        PostCreateRequest request = new PostCreateRequest(null, "Title", "Content", null, false, false, false, false,
+                null);
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
@@ -815,7 +821,8 @@ class PostServiceTest {
     void createPost_categoryPermission_superAdmin() {
         ReflectionTestUtils.setField(user, "isSuperAdmin", false);
         ReflectionTestUtils.setField(category, "minWriteRole", "SUPER_ADMIN");
-        PostCreateRequest request = new PostCreateRequest(1L, "Title", "Content", null, false, false, false, null);
+        PostCreateRequest request = new PostCreateRequest(1L, "Title", "Content", null, false, false, false, false,
+                null);
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
@@ -831,7 +838,8 @@ class PostServiceTest {
     void createPost_categoryPermission_boardAdmin() {
         ReflectionTestUtils.setField(user, "isSuperAdmin", false);
         ReflectionTestUtils.setField(category, "minWriteRole", "BOARD_ADMIN");
-        PostCreateRequest request = new PostCreateRequest(1L, "Title", "Content", null, false, false, false, null);
+        PostCreateRequest request = new PostCreateRequest(1L, "Title", "Content", null, false, false, false, false,
+                null);
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
@@ -847,7 +855,7 @@ class PostServiceTest {
     @DisplayName("게시글 수정 실패 - 이미 삭제된 게시글")
     void updatePost_alreadyDeleted() {
         ReflectionTestUtils.setField(post, "isDeleted", true);
-        PostUpdateRequest request = new PostUpdateRequest(null, "Title", "Content", null, false, false, null);
+        PostUpdateRequest request = new PostUpdateRequest(null, "Title", "Content", null, false, false, false, null);
 
         when(postRepository.findById(1L)).thenReturn(Optional.of(post));
 
@@ -977,7 +985,7 @@ class PostServiceTest {
     @DisplayName("공지사항 요약 조회")
     void getNoticeSummaries_success() {
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
-        when(postRepository.findNoticesByBoardId(eq(1L), eq(true), eq(false), isNull()))
+        when(postRepository.findNoticesByBoardId(eq(1L), eq(true), eq(false), isNull(), eq(false), isNull()))
                 .thenReturn(List.of(post));
 
         List<PostSummary> summaries = postService.getNoticeSummaries("free", null);
