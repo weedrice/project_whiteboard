@@ -25,8 +25,8 @@ import java.lang.reflect.Method;
 import java.util.Collections;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
@@ -69,6 +69,7 @@ class LogAspectTest {
 
         when(joinPoint.getSignature()).thenReturn(methodSignature);
         when(methodSignature.getMethod()).thenReturn(mockMethod);
+        when(joinPoint.getArgs()).thenReturn(new Object[] { "user", "super-secret-password" });
         
         String expectedActionType = "testControllerMethod";
 
@@ -84,7 +85,8 @@ class LogAspectTest {
         logAspect.logBefore(joinPoint);
 
         // then
-        verify(logService).saveLog(eq(1L), eq(expectedActionType), eq("127.0.0.1"), anyString());
+        verify(logService).saveLog(eq(1L), eq(expectedActionType), eq("127.0.0.1"),
+                argThat(details -> details.contains("ArgCount: 2") && !details.contains("super-secret-password")));
     }
 
     @Test

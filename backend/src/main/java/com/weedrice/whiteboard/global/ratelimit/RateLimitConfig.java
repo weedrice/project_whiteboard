@@ -77,4 +77,24 @@ public class RateLimitConfig {
                 .addLimit(Bandwidth.classic(limit, Refill.intervally(limit, Duration.ofMinutes(1))))
                 .build();
     }
+
+    /**
+     * IP별 일반 API rate limit 버킷 생성.
+     */
+    public Bucket createApiBucket() {
+        int limit = properties.getApiLimit();
+        return Bucket.builder()
+                .addLimit(Bandwidth.classic(limit, Refill.intervally(limit, Duration.ofMinutes(1))))
+                .build();
+    }
+
+    /**
+     * IP별 인증 API rate limit 버킷 생성.
+     */
+    public Bucket createAuthBucket() {
+        int limit = properties.getAuthLimit();
+        return Bucket.builder()
+                .addLimit(Bandwidth.classic(limit, Refill.intervally(limit, Duration.ofMinutes(1))))
+                .build();
+    }
 }

@@ -12,8 +12,10 @@ import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.authentication.SimpleUrlAuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
 import org.springframework.web.util.UriComponentsBuilder;
+import org.springframework.web.util.UriUtils;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 
 @Slf4j
 @Component
@@ -51,11 +53,13 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
         String accessToken = jwtTokenProvider.createAccessToken(authentication);
         String refreshToken = jwtTokenProvider.createRefreshToken(authentication);
 
-        // Redirect to frontend with tokens
+        // Put tokens in URL fragment instead of query string to reduce leakage via server/proxy/referrer logs.
+        String fragment = "accessToken=" + UriUtils.encodeQueryParam(accessToken, StandardCharsets.UTF_8)
+                + "&refreshToken=" + UriUtils.encodeQueryParam(refreshToken, StandardCharsets.UTF_8);
         String targetUrl = UriComponentsBuilder.fromUriString(frontendUrl + "/auth/oauth/callback")
-                .queryParam("accessToken", accessToken)
-                .queryParam("refreshToken", refreshToken)
-                .build().toUriString();
+                .fragment(fragment)
+                .build(true)
+                .toUriString();
 
         getRedirectStrategy().sendRedirect(request, response, targetUrl);
     }

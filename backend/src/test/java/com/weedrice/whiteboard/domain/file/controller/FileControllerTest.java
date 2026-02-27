@@ -149,7 +149,29 @@ class FileControllerTest {
 
         mockMvc.perform(get("/api/v1/files/{fileId}", fileId))
                 .andExpect(status().isOk())
-                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("Content-Disposition", "attachment; filename=\"test.txt\""));
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("Content-Disposition", "attachment; filename=\"test.txt\""))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("X-Content-Type-Options", "nosniff"));
+    }
+
+    @Test
+    @DisplayName("SVG 파일은 inline 미리보기 없이 attachment로 응답")
+    void downloadFile_svgServedAsAttachment() throws Exception {
+        Long fileId = 2L;
+        File file = File.builder().build();
+        ReflectionTestUtils.setField(file, "fileId", fileId);
+        ReflectionTestUtils.setField(file, "originalName", "vector.svg");
+        ReflectionTestUtils.setField(file, "mimeType", "image/svg+xml");
+        ReflectionTestUtils.setField(file, "filePath", "path/to/vector.svg");
+
+        when(fileService.getFile(eq(fileId))).thenReturn(file);
+        when(fileStorageService.loadFile(anyString())).thenReturn(new ByteArrayInputStream("<svg/>".getBytes()));
+
+        mockMvc.perform(get("/api/v1/files/{fileId}", fileId))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header()
+                        .string("Content-Disposition", "attachment; filename=\"vector.svg\""))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header()
+                        .string("X-Content-Type-Options", "nosniff"));
     }
 
     @Test

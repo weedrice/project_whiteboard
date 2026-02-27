@@ -55,7 +55,7 @@ public class FileService {
         // 허용된 이미지 MIME 타입
         String[] allowedImageTypes = {
             "image/jpeg", "image/jpg", "image/png", "image/gif", 
-            "image/webp", "image/svg+xml"
+            "image/webp"
         };
         
         // 이미지 파일인지 확인
@@ -72,7 +72,7 @@ public class FileService {
         // 확장자 검증
         if (originalFilename != null) {
             String extension = getFileExtension(originalFilename);
-            String[] allowedExtensions = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg"};
+            String[] allowedExtensions = {".jpg", ".jpeg", ".png", ".gif", ".webp"};
             boolean hasValidExtension = false;
             for (String allowedExt : allowedExtensions) {
                 if (extension.equalsIgnoreCase(allowedExt)) {

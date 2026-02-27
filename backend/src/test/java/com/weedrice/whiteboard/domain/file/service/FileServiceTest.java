@@ -19,6 +19,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
@@ -66,5 +67,20 @@ class FileServiceTest {
         // then
         assertThat(uploadedFile.getOriginalName()).isEqualTo("test.jpg");
         assertThat(uploadedFile.getStoredName()).isEqualTo("storedFileName.jpg");
+    }
+
+    @Test
+    @DisplayName("SVG 파일 업로드 차단")
+    void uploadFile_rejectSvg() {
+        // given
+        Long uploaderId = 1L;
+        MultipartFile multipartFile = new MockMultipartFile("file", "xss.svg", "image/svg+xml",
+                "<svg><script>alert(1)</script></svg>".getBytes());
+
+        // when & then
+        assertThatThrownBy(() -> fileService.uploadFile(uploaderId, multipartFile))
+                .isInstanceOf(com.weedrice.whiteboard.global.exception.BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode",
+                        com.weedrice.whiteboard.global.exception.ErrorCode.INVALID_FILE_TYPE);
     }
 }

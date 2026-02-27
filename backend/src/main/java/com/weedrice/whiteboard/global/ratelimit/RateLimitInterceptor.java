@@ -34,9 +34,6 @@ import java.util.concurrent.ConcurrentHashMap;
 @RequiredArgsConstructor
 public class RateLimitInterceptor implements HandlerInterceptor {
 
-    private final Bucket defaultBucket;
-    private final Bucket authBucket;
-    private final Bucket apiBucket;
     private final Map<String, Bucket> userBuckets;
     private final RateLimitConfig rateLimitConfig;
     private final ObjectMapper objectMapper;
@@ -76,7 +73,8 @@ public class RateLimitInterceptor implements HandlerInterceptor {
         if (path.startsWith("/api/v1/auth/")
                 && !"/api/v1/auth/refresh".equals(path)
                 && !"/api/v1/auth/logout".equals(path)) {
-            return authBucket;
+            String authIpKey = "auth:" + getClientIp(request);
+            return ipBuckets.computeIfAbsent(authIpKey, k -> rateLimitConfig.createAuthBucket());
         }
 
         // 인증된 사용자는 사용자별 버킷 사용
@@ -94,8 +92,8 @@ public class RateLimitInterceptor implements HandlerInterceptor {
         // IP 기반 버킷 사용
         String clientIp = getClientIp(request);
         return ipBuckets.computeIfAbsent(
-            clientIp,
-            k -> apiBucket
+            "api:" + clientIp,
+            k -> rateLimitConfig.createApiBucket()
         );
     }
 

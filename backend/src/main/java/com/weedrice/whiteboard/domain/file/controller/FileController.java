@@ -61,11 +61,14 @@ public class FileController {
 
         // 이미지 파일은 inline으로 표시 (브라우저에서 직접 보기)
         // 그 외 파일은 attachment로 다운로드
-        String disposition = contentType.startsWith("image/") ? "inline" : "attachment";
+        boolean inlinePreview = contentType.startsWith("image/")
+                && !"image/svg+xml".equalsIgnoreCase(contentType);
+        String disposition = inlinePreview ? "inline" : "attachment";
 
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(contentType))
                 .header(HttpHeaders.CONTENT_DISPOSITION, disposition + "; filename=\"" + file.getOriginalName() + "\"")
+                .header("X-Content-Type-Options", "nosniff")
                 .body(resource);
     }
 }
