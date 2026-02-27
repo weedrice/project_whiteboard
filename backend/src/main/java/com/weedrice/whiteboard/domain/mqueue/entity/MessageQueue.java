@@ -38,7 +38,7 @@ public class MessageQueue extends BaseTimeEntity {
     private LocalDateTime requestedAt;
 
     @Column(name = "status", length = 50, nullable = false)
-    private String status; // PENDING, SENT, FAILED
+    private String status; // PENDING, PROCESSING, SENT, FAILED
 
     @Column(name = "retry_count", nullable = false)
     private Integer retryCount;
@@ -57,8 +57,16 @@ public class MessageQueue extends BaseTimeEntity {
         this.status = "SENT";
     }
 
-    public void failed() {
-        this.status = "FAILED";
+    public void markProcessing() {
+        this.status = "PROCESSING";
+    }
+
+    public void failForRetry(int maxRetryCount) {
         this.retryCount++;
+        if (this.retryCount >= maxRetryCount) {
+            this.status = "FAILED";
+            return;
+        }
+        this.status = "PENDING";
     }
 }

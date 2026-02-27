@@ -171,7 +171,7 @@ class UserServiceTest {
         userService.updateMyProfile(1L, null, "new.jpg", 100L);
 
         assertThat(user.getProfileImageUrl()).isEqualTo("new.jpg");
-        verify(fileService).associateFileWithEntity(100L, 1L, "USER_PROFILE");
+        verify(fileService).associateFileWithEntity(100L, 1L, 1L, "USER_PROFILE");
     }
 
     @Test

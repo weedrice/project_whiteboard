@@ -21,6 +21,8 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -44,7 +46,8 @@ class FileServiceTest {
         // given
         Long uploaderId = 1L;
         User uploader = User.builder().build();
-        MultipartFile multipartFile = new MockMultipartFile("file", "test.jpg", "image/jpeg", "test data".getBytes());
+        byte[] jpegHeader = new byte[] { (byte) 0xFF, (byte) 0xD8, (byte) 0xFF, (byte) 0xD9 };
+        MultipartFile multipartFile = new MockMultipartFile("file", "test.jpg", "image/jpeg", jpegHeader);
         File file = File.builder()
                 .filePath("storedFileName.jpg")
                 .originalName("test.jpg")
@@ -82,5 +85,31 @@ class FileServiceTest {
                 .isInstanceOf(com.weedrice.whiteboard.global.exception.BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode",
                         com.weedrice.whiteboard.global.exception.ErrorCode.INVALID_FILE_TYPE);
+    }
+
+    @Test
+    @DisplayName("파일 소유자만 엔티티 연결 가능")
+    void associateFileWithEntity_ownerCheck() {
+        User uploader = User.builder().build();
+        org.springframework.test.util.ReflectionTestUtils.setField(uploader, "userId", 1L);
+
+        File file = File.builder()
+                .filePath("storedFileName.jpg")
+                .originalName("test.jpg")
+                .fileSize(4L)
+                .mimeType("image/jpeg")
+                .uploader(uploader)
+                .build();
+        org.springframework.test.util.ReflectionTestUtils.setField(file, "fileId", 10L);
+
+        when(fileRepository.findById(10L)).thenReturn(Optional.of(file));
+
+        assertThatThrownBy(() -> fileService.associateFileWithEntity(10L, 2L, 100L, "POST_CONTENT"))
+                .isInstanceOf(com.weedrice.whiteboard.global.exception.BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode",
+                        com.weedrice.whiteboard.global.exception.ErrorCode.FORBIDDEN);
+
+        fileService.associateFileWithEntity(10L, 1L, 100L, "POST_CONTENT");
+        verify(fileRepository).save(eq(file));
     }
 }

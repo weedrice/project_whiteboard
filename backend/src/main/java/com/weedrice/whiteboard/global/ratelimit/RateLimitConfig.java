@@ -3,13 +3,13 @@ package com.weedrice.whiteboard.global.ratelimit;
 import io.github.bucket4j.Bandwidth;
 import io.github.bucket4j.Bucket;
 import io.github.bucket4j.Refill;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import java.time.Duration;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Rate Limiting 설정
@@ -65,7 +65,11 @@ public class RateLimitConfig {
      */
     @Bean
     public Map<String, Bucket> userBuckets() {
-        return new ConcurrentHashMap<>();
+        return Caffeine.newBuilder()
+                .maximumSize(properties.getBucketCacheMaxSize())
+                .expireAfterAccess(Duration.ofMinutes(properties.getBucketCacheTtlMinutes()))
+                .<String, Bucket>build()
+                .asMap();
     }
 
     /**

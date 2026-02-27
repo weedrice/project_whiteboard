@@ -20,18 +20,25 @@ import com.weedrice.whiteboard.domain.auth.service.AuthService;
 import com.weedrice.whiteboard.domain.auth.service.VerificationCodeService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.annotation.ApiCommonResponses;
+import com.weedrice.whiteboard.global.exception.BusinessException;
+import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -127,14 +134,25 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<ApiResponse<Void>> logout(@Valid @RequestBody LogoutRequest request) {
+    public ResponseEntity<ApiResponse<Void>> logout(@Valid @RequestBody LogoutRequest request,
+            HttpServletRequest httpServletRequest,
+            HttpServletResponse httpServletResponse) {
         authService.logout(request);
+        clearRefreshTokenCookie(httpServletResponse, isSecureRequest(httpServletRequest));
         return ResponseEntity.ok(ApiResponse.success(null));
     }
 
     @PostMapping("/refresh")
-    public ResponseEntity<ApiResponse<RefreshResponse>> refresh(@Valid @RequestBody RefreshRequest request) {
-        RefreshResponse response = authService.refresh(request);
+    public ResponseEntity<ApiResponse<RefreshResponse>> refresh(@RequestBody(required = false) RefreshRequest request,
+            HttpServletRequest httpServletRequest,
+            HttpServletResponse httpServletResponse) {
+        String refreshToken = resolveRefreshToken(request, httpServletRequest);
+        if (!StringUtils.hasText(refreshToken)) {
+            throw new BusinessException(ErrorCode.INVALID_REFRESH_TOKEN);
+        }
+
+        RefreshResponse response = authService.refresh(new RefreshRequest(refreshToken));
+        setRefreshTokenCookie(httpServletResponse, response.getRefreshToken(), isSecureRequest(httpServletRequest));
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
@@ -195,5 +213,57 @@ public class AuthController {
             @Valid @RequestBody PasswordResetByCodeRequest request) {
         authService.resetPasswordByCode(request.getEmail(), request.getCode(), request.getNewPassword());
         return ResponseEntity.ok(ApiResponse.success(null));
+    }
+
+    private String resolveRefreshToken(RefreshRequest request, HttpServletRequest httpServletRequest) {
+        if (request != null && StringUtils.hasText(request.getRefreshToken())) {
+            return request.getRefreshToken();
+        }
+
+        Cookie[] cookies = httpServletRequest.getCookies();
+        if (cookies == null) {
+            return null;
+        }
+        for (Cookie cookie : cookies) {
+            if ("refreshToken".equals(cookie.getName()) && StringUtils.hasText(cookie.getValue())) {
+                return cookie.getValue();
+            }
+        }
+        return null;
+    }
+
+    private void setRefreshTokenCookie(HttpServletResponse response, String refreshToken, boolean secure) {
+        if (!StringUtils.hasText(refreshToken)) {
+            return;
+        }
+        ResponseCookie cookie = ResponseCookie.from("refreshToken", refreshToken)
+                .httpOnly(true)
+                .secure(secure)
+                .sameSite("Lax")
+                .path("/api/v1/auth/refresh")
+                .build();
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+    }
+
+    private void clearRefreshTokenCookie(HttpServletResponse response, boolean secure) {
+        ResponseCookie cookie = ResponseCookie.from("refreshToken", "")
+                .httpOnly(true)
+                .secure(secure)
+                .sameSite("Lax")
+                .path("/api/v1/auth/refresh")
+                .maxAge(0)
+                .build();
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+    }
+
+    private boolean isSecureRequest(HttpServletRequest request) {
+        if (request == null) {
+            return true;
+        }
+        String forwardedProto = request.getHeader("X-Forwarded-Proto");
+        if (StringUtils.hasText(forwardedProto)) {
+            return "https".equalsIgnoreCase(forwardedProto);
+        }
+        return request.isSecure();
     }
 }

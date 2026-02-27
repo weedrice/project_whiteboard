@@ -10,6 +10,7 @@ import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.core.io.Resource;
+import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -19,6 +20,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 
 @RestController
 @RequestMapping("/api/v1/files")
@@ -64,11 +66,26 @@ public class FileController {
         boolean inlinePreview = contentType.startsWith("image/")
                 && !"image/svg+xml".equalsIgnoreCase(contentType);
         String disposition = inlinePreview ? "inline" : "attachment";
+        String safeFileName = sanitizeFileName(file.getOriginalName());
+        ContentDisposition contentDisposition = ContentDisposition.builder(disposition)
+                .filename(safeFileName, StandardCharsets.UTF_8)
+                .build();
 
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(contentType))
-                .header(HttpHeaders.CONTENT_DISPOSITION, disposition + "; filename=\"" + file.getOriginalName() + "\"")
+                .header(HttpHeaders.CONTENT_DISPOSITION, contentDisposition.toString())
                 .header("X-Content-Type-Options", "nosniff")
                 .body(resource);
+    }
+
+    private String sanitizeFileName(String originalName) {
+        if (originalName == null || originalName.isBlank()) {
+            return "file";
+        }
+        return originalName
+                .replaceAll("[\\r\\n]+", "_")
+                .replaceAll("[\\\\/]+", "_")
+                .replace("\"", "_")
+                .trim();
     }
 }

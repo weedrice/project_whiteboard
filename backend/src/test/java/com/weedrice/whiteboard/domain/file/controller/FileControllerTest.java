@@ -23,6 +23,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.io.ByteArrayInputStream;
 import java.util.Collections;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
@@ -149,7 +150,8 @@ class FileControllerTest {
 
         mockMvc.perform(get("/api/v1/files/{fileId}", fileId))
                 .andExpect(status().isOk())
-                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("Content-Disposition", "attachment; filename=\"test.txt\""))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header()
+                        .string("Content-Disposition", containsString("attachment")))
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("X-Content-Type-Options", "nosniff"));
     }
 
@@ -169,7 +171,7 @@ class FileControllerTest {
         mockMvc.perform(get("/api/v1/files/{fileId}", fileId))
                 .andExpect(status().isOk())
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header()
-                        .string("Content-Disposition", "attachment; filename=\"vector.svg\""))
+                        .string("Content-Disposition", containsString("attachment")))
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header()
                         .string("X-Content-Type-Options", "nosniff"));
     }

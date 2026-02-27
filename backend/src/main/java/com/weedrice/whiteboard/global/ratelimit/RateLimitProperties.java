@@ -26,4 +26,7 @@ public class RateLimitProperties {
     private int authLimit = 5;
     private int apiLimit = 200;
     private int userLimit = 500;
+    private boolean trustProxyHeaders = false;
+    private long bucketCacheMaxSize = 20_000;
+    private int bucketCacheTtlMinutes = 120;
 }

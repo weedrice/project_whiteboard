@@ -569,7 +569,7 @@ public class PostService {
 
         if (request.getFileIds() != null && !request.getFileIds().isEmpty()) {
             for (Long fileId : request.getFileIds()) {
-                fileService.associateFileWithEntity(fileId, savedPost.getPostId(), "POST_CONTENT");
+                fileService.associateFileWithEntity(fileId, userId, savedPost.getPostId(), "POST_CONTENT");
             }
         }
 
@@ -612,7 +612,7 @@ public class PostService {
 
         if (request.getFileIds() != null && !request.getFileIds().isEmpty()) {
             for (Long fileId : request.getFileIds()) {
-                fileService.associateFileWithEntity(fileId, post.getPostId(), "POST_CONTENT");
+                fileService.associateFileWithEntity(fileId, userId, post.getPostId(), "POST_CONTENT");
             }
         }
 

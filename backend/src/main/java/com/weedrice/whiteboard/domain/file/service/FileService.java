@@ -14,7 +14,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.List;
 
 @Service
@@ -40,52 +42,27 @@ public class FileService {
     }
 
     private File processUpload(Long uploaderId, MultipartFile multipartFile) {
-        // 파일 유효성 검사 (크기, 형식 등)
         if (multipartFile.isEmpty()) {
             throw new BusinessException(ErrorCode.FILE_EMPTY);
         }
-        if (multipartFile.getSize() > 10 * 1024 * 1024) { // 10MB 제한
+        if (multipartFile.getSize() > 10 * 1024 * 1024) {
             throw new BusinessException(ErrorCode.FILE_TOO_LARGE);
         }
 
-        // 파일 타입 검증
-        String mimeType = multipartFile.getContentType();
+        String declaredMimeType = multipartFile.getContentType();
         String originalFilename = multipartFile.getOriginalFilename();
-        
-        // 허용된 이미지 MIME 타입
-        String[] allowedImageTypes = {
-            "image/jpeg", "image/jpg", "image/png", "image/gif", 
-            "image/webp"
-        };
-        
-        // 이미지 파일인지 확인
-        boolean isImage = false;
-        if (mimeType != null) {
-            for (String allowedType : allowedImageTypes) {
-                if (mimeType.equalsIgnoreCase(allowedType)) {
-                    isImage = true;
-                    break;
-                }
-            }
+
+        String detectedMimeType = detectImageMimeType(multipartFile);
+        if (detectedMimeType == null) {
+            throw new BusinessException(ErrorCode.INVALID_FILE_TYPE);
         }
-        
-        // 확장자 검증
-        if (originalFilename != null) {
-            String extension = getFileExtension(originalFilename);
-            String[] allowedExtensions = {".jpg", ".jpeg", ".png", ".gif", ".webp"};
-            boolean hasValidExtension = false;
-            for (String allowedExt : allowedExtensions) {
-                if (extension.equalsIgnoreCase(allowedExt)) {
-                    hasValidExtension = true;
-                    break;
-                }
-            }
-            
-            // 이미지 파일이 아니거나 허용되지 않은 확장자인 경우
-            if (!isImage || !hasValidExtension) {
-                throw new BusinessException(ErrorCode.INVALID_FILE_TYPE);
-            }
-        } else if (!isImage) {
+
+        if (declaredMimeType != null && !isDeclaredMimeCompatible(declaredMimeType, detectedMimeType)) {
+            throw new BusinessException(ErrorCode.INVALID_FILE_TYPE);
+        }
+
+        String extension = getFileExtension(originalFilename);
+        if (!isExtensionCompatible(extension, detectedMimeType)) {
             throw new BusinessException(ErrorCode.INVALID_FILE_TYPE);
         }
 
@@ -98,28 +75,23 @@ public class FileService {
 
                 String originalFileName = multipartFile.getOriginalFilename();
                 Long fileSize = multipartFile.getSize();
-                // mimeType은 이미 위에서 선언됨
 
                 File file = File.builder()
                         .filePath(storedFileName)
                         .originalName(originalFileName)
                         .fileSize(fileSize)
-                        .mimeType(mimeType)
+                        .mimeType(detectedMimeType)
                         .uploader(uploader)
                         .build();
 
                 return fileRepository.save(file);
             });
         } catch (Exception e) {
-            // DB 저장 실패 시 S3 파일 삭제
             fileStorageService.deleteFile(storedFileName);
             throw e;
         }
     }
 
-    /**
-     * 파일 확장자 추출
-     */
     private String getFileExtension(String filename) {
         if (filename == null) {
             return "";
@@ -132,22 +104,24 @@ public class FileService {
     }
 
     @Transactional
-    public void associateFileWithEntity(Long fileId, Long relatedId, String relatedType) {
+    public void associateFileWithEntity(Long fileId, Long ownerUserId, Long relatedId, String relatedType) {
         File file = fileRepository.findById(fileId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+        if (file.getUploader() == null || !ownerUserId.equals(file.getUploader().getUserId())) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
         file.updateRelatedInfo(relatedId, relatedType);
         fileRepository.save(file);
     }
 
     @Transactional
     public void cleanUpTemporaryFiles() {
-        // 24시간이 지난 미연결 임시 파일 삭제
         LocalDateTime twentyFourHoursAgo = LocalDateTime.now().minusHours(24);
         List<File> temporaryFiles = fileRepository.findByRelatedIdIsNullAndCreatedAtBefore(twentyFourHoursAgo);
 
         for (File file : temporaryFiles) {
-            fileStorageService.deleteFile(file.getFilePath()); // 실제 파일 삭제
-            fileRepository.delete(file); // DB 레코드 삭제
+            fileStorageService.deleteFile(file.getFilePath());
+            fileRepository.delete(file);
         }
     }
 
@@ -175,13 +149,8 @@ public class FileService {
                 .orElse(null);
     }
 
-    /**
-     * URL에서 fileId 추출 (/api/v1/files/123 또는 /files/123 형식)
-     * @return fileId 또는 null (추출 불가 시)
-     */
     public static Long extractFileIdFromUrl(String url) {
         if (url == null || url.isBlank()) return null;
-        // /files/123 또는 /api/v1/files/123 패턴
         java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("/files/(\\d+)(?:\\?|$|/)");
         java.util.regex.Matcher matcher = pattern.matcher(url);
         if (matcher.find()) {
@@ -194,10 +163,6 @@ public class FileService {
         return null;
     }
 
-    /**
-     * 파일 삭제 (DB + S3) - fileId로 조회된 파일만 삭제
-     * @return 삭제 성공 여부 (파일 없으면 false)
-     */
     @Transactional
     public boolean deleteFileWithStorage(Long fileId) {
         return fileRepository.findById(fileId)
@@ -207,5 +172,87 @@ public class FileService {
                     return true;
                 })
                 .orElse(false);
+    }
+
+    private String detectImageMimeType(MultipartFile multipartFile) {
+        try {
+            byte[] data = multipartFile.getBytes();
+            if (isJpeg(data)) {
+                return "image/jpeg";
+            }
+            if (isPng(data)) {
+                return "image/png";
+            }
+            if (isGif(data)) {
+                return "image/gif";
+            }
+            if (isWebp(data)) {
+                return "image/webp";
+            }
+            return null;
+        } catch (IOException e) {
+            throw new BusinessException(ErrorCode.FILE_UPLOAD_ERROR);
+        }
+    }
+
+    private boolean isDeclaredMimeCompatible(String declaredMimeType, String detectedMimeType) {
+        if ("image/jpg".equalsIgnoreCase(declaredMimeType) && "image/jpeg".equalsIgnoreCase(detectedMimeType)) {
+            return true;
+        }
+        return detectedMimeType.equalsIgnoreCase(declaredMimeType);
+    }
+
+    private boolean isExtensionCompatible(String extension, String detectedMimeType) {
+        return switch (detectedMimeType) {
+            case "image/jpeg" -> Arrays.asList(".jpg", ".jpeg").contains(extension);
+            case "image/png" -> ".png".equals(extension);
+            case "image/gif" -> ".gif".equals(extension);
+            case "image/webp" -> ".webp".equals(extension);
+            default -> false;
+        };
+    }
+
+    private boolean isJpeg(byte[] data) {
+        return data.length >= 3
+                && (data[0] & 0xFF) == 0xFF
+                && (data[1] & 0xFF) == 0xD8
+                && (data[2] & 0xFF) == 0xFF;
+    }
+
+    private boolean isPng(byte[] data) {
+        byte[] pngSignature = new byte[] {
+                (byte) 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A
+        };
+        if (data.length < pngSignature.length) {
+            return false;
+        }
+        for (int i = 0; i < pngSignature.length; i++) {
+            if (data[i] != pngSignature[i]) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private boolean isGif(byte[] data) {
+        return data.length >= 6
+                && data[0] == 'G'
+                && data[1] == 'I'
+                && data[2] == 'F'
+                && data[3] == '8'
+                && (data[4] == '7' || data[4] == '9')
+                && data[5] == 'a';
+    }
+
+    private boolean isWebp(byte[] data) {
+        return data.length >= 12
+                && data[0] == 'R'
+                && data[1] == 'I'
+                && data[2] == 'F'
+                && data[3] == 'F'
+                && data[8] == 'W'
+                && data[9] == 'E'
+                && data[10] == 'B'
+                && data[11] == 'P';
     }
 }

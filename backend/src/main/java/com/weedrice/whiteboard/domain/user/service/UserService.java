@@ -147,7 +147,7 @@ public class UserService {
         }
 
         if (profileImageId != null) {
-            fileService.associateFileWithEntity(profileImageId, user.getUserId(), "USER_PROFILE");
+            fileService.associateFileWithEntity(profileImageId, userId, user.getUserId(), "USER_PROFILE");
         }
 
         return new UpdateProfileResponse(user.getUserId(), user.getDisplayName(), user.getProfileImageUrl());

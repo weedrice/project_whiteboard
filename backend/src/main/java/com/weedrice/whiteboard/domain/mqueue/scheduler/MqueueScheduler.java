@@ -15,24 +15,27 @@ import java.util.List;
 @Component
 @RequiredArgsConstructor
 public class MqueueScheduler {
+    private static final int MAX_RETRY_COUNT = 5;
 
     private final MessageQueueRepository messageQueueRepository;
     private final MqueueService mqueueService;
 
-    // 1분마다 실행
     @Scheduled(cron = "0 * * * * ?")
     public void processMessageQueue() {
-        log.info("메시지 큐 처리 스케줄러 시작");
-        // 한 번에 최대 50개만 처리
+        log.info("Message queue scheduler started");
         List<MessageQueue> pendingMessages = messageQueueRepository.findByStatusAndRetryCountLessThan(
-                "PENDING", 5, PageRequest.of(0, 50));
-        
+                "PENDING", MAX_RETRY_COUNT, PageRequest.of(0, 50));
+
         for (MessageQueue message : pendingMessages) {
-            if ("EMAIL".equals(message.getDeliveryMethod())) {
-                mqueueService.sendEmail(message);
+            if (!"EMAIL".equals(message.getDeliveryMethod())) {
+                continue;
             }
-            // TODO: PUSH, SMS 등 다른 발송 방법 처리
+
+            int claimed = messageQueueRepository.claimForProcessing(message.getQueueId(), MAX_RETRY_COUNT);
+            if (claimed == 1) {
+                mqueueService.sendEmail(message.getQueueId());
+            }
         }
-        log.info("메시지 큐 처리 스케줄러 완료: {}건 처리 시도", pendingMessages.size());
+        log.info("Message queue scheduler finished: attempted {}", pendingMessages.size());
     }
 }

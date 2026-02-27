@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.global.ratelimit;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
@@ -9,26 +10,18 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.MessageSource;
 import org.springframework.lang.NonNull;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
-import org.springframework.context.MessageSource;
 import org.springframework.web.servlet.HandlerInterceptor;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.util.Locale;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Rate Limiting 인터셉터
- * 
- * API 요청에 대해 Rate Limiting을 적용합니다.
- * - IP 기반: 기본 제한
- * - 사용자 기반: 인증된 사용자는 더 높은 제한
- * - 엔드포인트별: 인증 엔드포인트는 더 엄격한 제한
- */
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -38,38 +31,35 @@ public class RateLimitInterceptor implements HandlerInterceptor {
     private final RateLimitConfig rateLimitConfig;
     private final ObjectMapper objectMapper;
     private final MessageSource messageSource;
+    private final RateLimitProperties rateLimitProperties;
 
-    // IP 기반 버킷 저장소
-    private final Map<String, Bucket> ipBuckets = new ConcurrentHashMap<>();
+    // Bounded IP bucket cache to prevent unbounded memory usage.
+    private final Map<String, Bucket> ipBuckets = Caffeine.newBuilder()
+            .maximumSize(20_000)
+            .expireAfterAccess(Duration.ofHours(2))
+            .<String, Bucket>build()
+            .asMap();
 
     @Override
-    public boolean preHandle(@NonNull HttpServletRequest request, 
-                             @NonNull HttpServletResponse response, 
-                             @NonNull Object handler) throws Exception {
-        
+    public boolean preHandle(@NonNull HttpServletRequest request,
+            @NonNull HttpServletResponse response,
+            @NonNull Object handler) throws Exception {
+
         String path = request.getRequestURI();
-        
-        // Rate Limiting 제외 경로
         if (shouldSkipRateLimit(path)) {
             return true;
         }
 
         Bucket bucket = resolveBucket(request, path);
-        
         if (!bucket.tryConsume(1)) {
             log.warn("Rate limit exceeded for path: {}, IP: {}", path, getClientIp(request));
             sendRateLimitError(request, response);
             return false;
         }
-
         return true;
     }
 
-    /**
-     * Rate Limiting을 적용할 버킷 결정
-     */
     private Bucket resolveBucket(HttpServletRequest request, String path) {
-        // 인증 엔드포인트는 더 엄격한 제한 (refresh, logout 제외)
         if (path.startsWith("/api/v1/auth/")
                 && !"/api/v1/auth/refresh".equals(path)
                 && !"/api/v1/auth/logout".equals(path)) {
@@ -77,70 +67,59 @@ public class RateLimitInterceptor implements HandlerInterceptor {
             return ipBuckets.computeIfAbsent(authIpKey, k -> rateLimitConfig.createAuthBucket());
         }
 
-        // 인증된 사용자는 사용자별 버킷 사용
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication != null && authentication.getPrincipal() instanceof CustomUserDetails) {
             CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
             Long userId = userDetails.getUserId();
-            
-            return userBuckets.computeIfAbsent(
-                "user:" + userId,
-                k -> rateLimitConfig.createUserBucket()
-            );
+            return userBuckets.computeIfAbsent("user:" + userId, k -> rateLimitConfig.createUserBucket());
         }
 
-        // IP 기반 버킷 사용
         String clientIp = getClientIp(request);
-        return ipBuckets.computeIfAbsent(
-            "api:" + clientIp,
-            k -> rateLimitConfig.createApiBucket()
-        );
+        return ipBuckets.computeIfAbsent("api:" + clientIp, k -> rateLimitConfig.createApiBucket());
     }
 
-    /**
-     * Rate Limiting 제외 경로 확인
-     */
     private boolean shouldSkipRateLimit(String path) {
-        // Health check, Actuator, Swagger 등은 제외
-        return path.startsWith("/actuator/") ||
-               path.startsWith("/swagger-ui") ||
-               path.startsWith("/api-docs") ||
-               path.startsWith("/uploads/");
+        return path.startsWith("/actuator/")
+                || path.startsWith("/swagger-ui")
+                || path.startsWith("/api-docs")
+                || path.startsWith("/uploads/");
     }
 
-    /**
-     * 클라이언트 IP 주소 추출
-     */
     private String getClientIp(HttpServletRequest request) {
+        if (!rateLimitProperties.isTrustProxyHeaders()) {
+            return request.getRemoteAddr();
+        }
+
         String xForwardedFor = request.getHeader("X-Forwarded-For");
         if (xForwardedFor != null && !xForwardedFor.isEmpty()) {
-            // X-Forwarded-For는 여러 IP가 콤마로 구분될 수 있음
-            return xForwardedFor.split(",")[0].trim();
+            String[] ips = xForwardedFor.split(",");
+            for (String ip : ips) {
+                String candidate = ip == null ? null : ip.trim();
+                if (candidate != null && !candidate.isEmpty() && !"unknown".equalsIgnoreCase(candidate)) {
+                    return candidate;
+                }
+            }
         }
-        
+
         String xRealIp = request.getHeader("X-Real-IP");
         if (xRealIp != null && !xRealIp.isEmpty()) {
             return xRealIp;
         }
-        
+
         return request.getRemoteAddr();
     }
 
-    /**
-     * Rate Limit 초과 시 에러 응답 전송
-     */
     private void sendRateLimitError(HttpServletRequest request, HttpServletResponse response) throws IOException {
-        response.setStatus(429); // 429 Too Many Requests
+        response.setStatus(429);
         response.setContentType("application/json;charset=UTF-8");
-        
+
         Locale locale = request.getLocale() != null ? request.getLocale() : Locale.getDefault();
         String message = messageSource.getMessage("error.common.rateLimitExceeded", null, locale);
-        
+
         ApiResponse<?> errorResponse = ApiResponse.error(
-            ErrorCode.RATE_LIMIT_EXCEEDED.getCode(),
-            message
-        );
-        
+                ErrorCode.RATE_LIMIT_EXCEEDED.getCode(),
+                message);
+
         objectMapper.writeValue(response.getWriter(), errorResponse);
     }
 }

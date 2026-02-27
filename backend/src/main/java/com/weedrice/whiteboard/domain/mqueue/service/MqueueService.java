@@ -13,9 +13,9 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class MqueueService {
+    private static final int MAX_RETRY_COUNT = 5;
 
     private final MessageQueueRepository messageQueueRepository;
-
     private final org.springframework.transaction.support.TransactionTemplate transactionTemplate;
 
     @Transactional
@@ -28,21 +28,24 @@ public class MqueueService {
         messageQueueRepository.save(message);
     }
 
-    @Async("taskExecutor") // Use the defined executor
-    public void sendEmail(MessageQueue message) {
-        try {
-            // TODO: 실제 이메일 발송 로직 구현 (e.g., JavaMailSender)
-            log.info("이메일 발송 시도: " + message.getTargetUser().getEmail() + " - " + message.getContent());
-            Thread.sleep(1000); // 발송에 시간이 걸리는 것을 시뮬레이션
-            message.sent();
-            log.info("이메일 발송 성공");
-        } catch (Exception e) {
-            log.error("이메일 발송 실패: " + e.getMessage());
-            message.failed();
+    @Async("taskExecutor")
+    public void sendEmail(Long queueId) {
+        MessageQueue message = messageQueueRepository.findById(queueId).orElse(null);
+        if (message == null || !"PROCESSING".equals(message.getStatus())) {
+            return;
         }
-        
-        transactionTemplate.executeWithoutResult(status -> {
-            messageQueueRepository.save(message);
-        });
+
+        try {
+            // TODO: implement real provider integration (JavaMailSender, SES, etc.)
+            log.info("Email sending attempt: {} - {}", message.getTargetUser().getEmail(), message.getContent());
+            Thread.sleep(1000);
+            message.sent();
+            log.info("Email sent successfully: queueId={}", queueId);
+        } catch (Exception e) {
+            log.error("Email sending failed: queueId={}", queueId, e);
+            message.failForRetry(MAX_RETRY_COUNT);
+        }
+
+        transactionTemplate.executeWithoutResult(status -> messageQueueRepository.save(message));
     }
 }

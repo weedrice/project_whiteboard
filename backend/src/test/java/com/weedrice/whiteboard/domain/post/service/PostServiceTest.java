@@ -145,8 +145,8 @@ class PostServiceTest {
 
         assertThat(created).isNotNull();
         assertThat(created.getTitle()).isEqualTo("New Post");
-        verify(fileService, times(2)).associateFileWithEntity(anyLong(), eq(100L), eq("POST_CONTENT"));
-        verify(pointService).addPoint(eq(1L), eq(50), eq("게시글 작성"), eq(100L), eq("POST"));
+        verify(fileService, times(2)).associateFileWithEntity(anyLong(), eq(1L), eq(100L), eq("POST_CONTENT"));
+        verify(pointService).addPoint(eq(1L), eq(50), anyString(), eq(100L), eq("POST"));
     }
 
     @Test
@@ -170,10 +170,13 @@ class PostServiceTest {
     void createPost_notice_forbidden() {
         PostCreateRequest request = new PostCreateRequest(null, "Notice", "Contents", Collections.emptyList(), true,
                 false, false, false, null);
+        User boardOwner = User.builder().loginId("owner").build();
+        ReflectionTestUtils.setField(boardOwner, "userId", 99L);
+        ReflectionTestUtils.setField(board, "creator", boardOwner);
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
-        when(adminRepository.findByUserAndBoardAndIsActive(user, board, true)).thenReturn(Optional.empty());
+        when(adminRepository.existsByUserAndBoardAndIsActive(user, board, true)).thenReturn(false);
 
         assertThatThrownBy(() -> postService.createPost(1L, 1L, request))
                 .isInstanceOf(BusinessException.class)
@@ -258,7 +261,6 @@ class PostServiceTest {
         ReflectionTestUtils.setField(otherUser, "isSuperAdmin", false);
 
         when(userRepository.findById(2L)).thenReturn(Optional.of(otherUser));
-        when(adminRepository.findByUserAndBoardAndIsActive(otherUser, board, true)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> postService.getPosts("free", null, null, 2L, Pageable.unpaged()))
                 .isInstanceOf(BusinessException.class)
@@ -300,7 +302,7 @@ class PostServiceTest {
         Post updated = postService.updatePost(1L, 1L, request);
 
         assertThat(updated.getTitle()).isEqualTo("Updated Title");
-        verify(fileService).associateFileWithEntity(eq(5L), eq(1L), eq("POST_CONTENT"));
+        verify(fileService).associateFileWithEntity(eq(5L), eq(1L), eq(1L), eq("POST_CONTENT"));
         verify(postVersionRepository).save(any(PostVersion.class));
     }
 
@@ -331,7 +333,7 @@ class PostServiceTest {
 
         assertThat(post.getIsDeleted()).isTrue();
         verify(postTagRepository).deleteByPost(post);
-        verify(pointService).forceSubtractPoint(eq(1L), eq(50), eq("게시글 삭제"), eq(1L), eq("POST"));
+        verify(pointService).forceSubtractPoint(eq(1L), eq(50), anyString(), eq(1L), eq("POST"));
     }
 
     // --- Likes ---
@@ -340,7 +342,8 @@ class PostServiceTest {
     @DisplayName("좋아요 성공")
     void likePost_success() {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(postRepository.findById(1L)).thenReturn(Optional.of(post));
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+        when(userBlockService.getBlockedUserIds(1L)).thenReturn(Collections.emptyList());
         when(postLikeRepository.existsById(any(PostLikeId.class))).thenReturn(false);
 
         postService.likePost(1L, 1L);
@@ -353,7 +356,8 @@ class PostServiceTest {
     @DisplayName("좋아요 실패 - 이미 좋아요 함")
     void likePost_alreadyLiked() {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(postRepository.findById(1L)).thenReturn(Optional.of(post));
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+        when(userBlockService.getBlockedUserIds(1L)).thenReturn(Collections.emptyList());
         when(postLikeRepository.existsById(any(PostLikeId.class))).thenReturn(true);
 
         assertThatThrownBy(() -> postService.likePost(1L, 1L))
@@ -363,7 +367,9 @@ class PostServiceTest {
     @Test
     @DisplayName("좋아요 취소 성공")
     void unlikePost_success() {
-        when(postRepository.findById(1L)).thenReturn(Optional.of(post));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+        when(userBlockService.getBlockedUserIds(1L)).thenReturn(Collections.emptyList());
         when(postLikeRepository.existsById(any(PostLikeId.class))).thenReturn(true);
 
         postService.unlikePost(1L, 1L);
@@ -378,7 +384,8 @@ class PostServiceTest {
     @DisplayName("스크랩 성공")
     void scrapPost_success() {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(postRepository.findById(1L)).thenReturn(Optional.of(post));
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+        when(userBlockService.getBlockedUserIds(1L)).thenReturn(Collections.emptyList());
         when(scrapRepository.existsById(any(ScrapId.class))).thenReturn(false);
 
         postService.scrapPost(1L, 1L, "My Scrap");
@@ -506,7 +513,6 @@ class PostServiceTest {
         ReflectionTestUtils.setField(otherUser, "isSuperAdmin", false);
 
         when(userRepository.findById(2L)).thenReturn(Optional.of(otherUser));
-        when(adminRepository.findByUserAndBoardAndIsActive(otherUser, board, true)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> postService.getNotices("free", 2L))
                 .isInstanceOf(BusinessException.class)
@@ -516,14 +522,14 @@ class PostServiceTest {
     @Test
     @DisplayName("태그별 게시글 조회")
     void getPostsByTag_success() {
-        when(postTagRepository.findByTag_TagId(eq(1L), any(Pageable.class))).thenReturn(Page.empty());
+        when(postRepository.findByTagId(eq(1L), isNull(), any(Pageable.class))).thenReturn(Page.empty());
         // Page.empty()인 경우 getPostIdsWithImages가 빈 리스트를 받아 fileService가 호출되지 않음
         lenient().when(fileService.getRelatedIdsWithImages(anyList(), eq("POST_CONTENT")))
                 .thenReturn(Collections.emptyList());
 
         postService.getPostsByTag(1L, null, Pageable.unpaged());
 
-        verify(postTagRepository).findByTag_TagId(eq(1L), any(Pageable.class));
+        verify(postRepository).findByTagId(eq(1L), isNull(), any(Pageable.class));
     }
 
     @Test
@@ -722,10 +728,12 @@ class PostServiceTest {
     @Test
     @DisplayName("게시판 관리자 확인 - Board Admin")
     void isBoardAdmin_boardAdmin() {
-        Admin admin = Admin.builder().user(user).board(board).build();
+        User boardOwner = User.builder().loginId("owner").build();
+        ReflectionTestUtils.setField(boardOwner, "userId", 99L);
+        ReflectionTestUtils.setField(board, "creator", boardOwner);
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
-        when(adminRepository.findByUserAndBoardAndIsActive(user, board, true)).thenReturn(Optional.of(admin));
+        when(adminRepository.existsByUserAndBoardAndIsActive(user, board, true)).thenReturn(true);
 
         boolean result = postService.isBoardAdmin(1L, 1L);
 
@@ -735,9 +743,12 @@ class PostServiceTest {
     @Test
     @DisplayName("게시판 관리자 확인 - 일반 유저")
     void isBoardAdmin_normalUser() {
+        User boardOwner = User.builder().loginId("owner").build();
+        ReflectionTestUtils.setField(boardOwner, "userId", 99L);
+        ReflectionTestUtils.setField(board, "creator", boardOwner);
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
-        when(adminRepository.findByUserAndBoardAndIsActive(user, board, true)).thenReturn(Optional.empty());
+        when(adminRepository.existsByUserAndBoardAndIsActive(user, board, true)).thenReturn(false);
 
         boolean result = postService.isBoardAdmin(1L, 1L);
 
@@ -757,6 +768,7 @@ class PostServiceTest {
     @Test
     @DisplayName("게시판 최신 게시글 조회 - 로그인 사용자")
     void getLatestPostsByBoard_loggedIn() {
+        when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
         when(userBlockService.getBlockedUserIds(1L)).thenReturn(Collections.emptyList());
         when(postRepository.findByBoardIdAndCategoryId(eq(1L), isNull(), isNull(), anyList(), any(Boolean.class), any(),
                 any(Pageable.class)))
@@ -777,6 +789,7 @@ class PostServiceTest {
     @Test
     @DisplayName("게시판 최신 게시글 조회 - 비로그인 사용자")
     void getLatestPostsByBoard_notLoggedIn() {
+        when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
         when(postRepository.findByBoardIdAndCategoryId(eq(1L), isNull(), isNull(), isNull(), eq(false), isNull(),
                 any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(post)));
@@ -790,6 +803,7 @@ class PostServiceTest {
     @Test
     @DisplayName("게시판 최신 게시글 조회 - 결과 없음")
     void getLatestPostsByBoard_empty() {
+        when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
         when(postRepository.findByBoardIdAndCategoryId(eq(1L), isNull(), isNull(), isNull(), eq(false), isNull(),
                 any(Pageable.class)))
                 .thenReturn(Page.empty());
@@ -805,11 +819,15 @@ class PostServiceTest {
     @DisplayName("게시글 생성 실패 - 비활성 게시판")
     void createPost_inactiveBoard() {
         ReflectionTestUtils.setField(board, "isActive", false);
+        User boardOwner = User.builder().loginId("owner").build();
+        ReflectionTestUtils.setField(boardOwner, "userId", 99L);
+        ReflectionTestUtils.setField(board, "creator", boardOwner);
         PostCreateRequest request = new PostCreateRequest(null, "Title", "Content", null, false, false, false, false,
                 null);
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
+        when(adminRepository.existsByUserAndBoardAndIsActive(user, board, true)).thenReturn(false);
 
         assertThatThrownBy(() -> postService.createPost(1L, 1L, request))
                 .isInstanceOf(BusinessException.class)
@@ -838,13 +856,16 @@ class PostServiceTest {
     void createPost_categoryPermission_boardAdmin() {
         ReflectionTestUtils.setField(user, "isSuperAdmin", false);
         ReflectionTestUtils.setField(category, "minWriteRole", "BOARD_ADMIN");
+        User boardOwner = User.builder().loginId("owner").build();
+        ReflectionTestUtils.setField(boardOwner, "userId", 99L);
+        ReflectionTestUtils.setField(board, "creator", boardOwner);
         PostCreateRequest request = new PostCreateRequest(1L, "Title", "Content", null, false, false, false, false,
                 null);
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
         when(boardCategoryRepository.findById(1L)).thenReturn(Optional.of(category));
-        when(adminRepository.findByUserAndBoardAndIsActive(user, board, true)).thenReturn(Optional.empty());
+        when(adminRepository.existsByUserAndBoardAndIsActive(user, board, true)).thenReturn(false);
 
         assertThatThrownBy(() -> postService.createPost(1L, 1L, request))
                 .isInstanceOf(BusinessException.class)
@@ -882,7 +903,7 @@ class PostServiceTest {
         ReflectionTestUtils.setField(post, "isDeleted", true);
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(postRepository.findById(1L)).thenReturn(Optional.of(post));
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
 
         assertThatThrownBy(() -> postService.likePost(1L, 1L))
                 .isInstanceOf(BusinessException.class)
@@ -894,7 +915,7 @@ class PostServiceTest {
     void unlikePost_deletedPost() {
         ReflectionTestUtils.setField(post, "isDeleted", true);
 
-        when(postRepository.findById(1L)).thenReturn(Optional.of(post));
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
 
         assertThatThrownBy(() -> postService.unlikePost(1L, 1L))
                 .isInstanceOf(BusinessException.class)
@@ -907,7 +928,7 @@ class PostServiceTest {
         ReflectionTestUtils.setField(post, "isDeleted", true);
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(postRepository.findById(1L)).thenReturn(Optional.of(post));
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
 
         assertThatThrownBy(() -> postService.scrapPost(1L, 1L, "remark"))
                 .isInstanceOf(BusinessException.class)

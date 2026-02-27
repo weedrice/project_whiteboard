@@ -116,3 +116,8 @@ cloud:
       bucket: ${S3_BUCKET}
     password-reset:
       frontend-url: https://noviis.kr/reset-password?token=
+
+rate-limit:
+  trust-proxy-headers: ${RATE_LIMIT_TRUST_PROXY_HEADERS:true}
+  bucket-cache-max-size: ${RATE_LIMIT_BUCKET_CACHE_MAX_SIZE:20000}
+  bucket-cache-ttl-minutes: ${RATE_LIMIT_BUCKET_CACHE_TTL_MINUTES:120}
