@@ -93,9 +93,17 @@ public class SearchService {
                     return summary;
                 });
 
-        Page<CommentResponse> comments = commentRepository
-                .findByContentContainingIgnoreCaseAndIsDeleted(keyword, false, previewPageable)
-                .map(CommentResponse::from);
+        Page<CommentResponse> comments;
+        if (currentUserId == null) {
+            comments = Page.empty(previewPageable);
+        } else {
+            User currentUser = userRepository.findById(currentUserId)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+            comments = commentRepository
+                    .findByUserAndContentContainingIgnoreCaseAndIsDeleted(currentUser, keyword, false,
+                            previewPageable)
+                    .map(CommentResponse::from);
+        }
 
         Page<UserSummary> users = userRepository.findByDisplayNameContainingIgnoreCase(keyword, previewPageable)
                 .map(UserSummary::from);

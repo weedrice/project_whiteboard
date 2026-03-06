@@ -600,9 +600,29 @@ class PostServiceTest {
     @Test
     @DisplayName("게시글 버전 조회")
     void getPostVersions() {
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+        when(userBlockService.getBlockedUserIds(1L)).thenReturn(Collections.emptyList());
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(postVersionRepository.findByPost_PostIdOrderByCreatedAtDesc(1L)).thenReturn(Collections.emptyList());
-        postService.getPostVersions(1L);
+        postService.getPostVersions(1L, 1L);
         verify(postVersionRepository).findByPost_PostIdOrderByCreatedAtDesc(1L);
+    }
+
+    @Test
+    @DisplayName("getPostVersions fails for non author and non board admin")
+    void getPostVersions_forbidden() {
+        User otherUser = User.builder().loginId("other").build();
+        ReflectionTestUtils.setField(otherUser, "userId", 2L);
+        ReflectionTestUtils.setField(otherUser, "isSuperAdmin", false);
+
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+        when(userBlockService.getBlockedUserIds(2L)).thenReturn(Collections.emptyList());
+        when(userRepository.findById(2L)).thenReturn(Optional.of(otherUser));
+        when(adminRepository.existsByUserAndBoardAndIsActive(otherUser, board, true)).thenReturn(false);
+
+        assertThatThrownBy(() -> postService.getPostVersions(1L, 2L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
     }
 
     // --- PostResponse ---

@@ -794,7 +794,16 @@ public class PostService {
         postVersionRepository.save(postVersion);
     }
 
-    public List<PostVersionResponse> getPostVersions(@NonNull Long postId) {
+    public List<PostVersionResponse> getPostVersions(@NonNull Long postId, @NonNull Long userId) {
+        User viewer = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        Post post = getPostById(postId, userId, false);
+
+        boolean isAuthor = post.getUser().getUserId().equals(userId);
+        if (!isAuthor && !hasBoardAdminAccess(post.getBoard(), viewer)) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
+
         List<PostVersion> versions = postVersionRepository.findByPost_PostIdOrderByCreatedAtDesc(postId);
         return PostVersionResponse.from(versions);
     }

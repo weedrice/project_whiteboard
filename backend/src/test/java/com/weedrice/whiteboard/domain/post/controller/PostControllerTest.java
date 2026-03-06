@@ -412,8 +412,15 @@ class PostControllerTest {
     @Test
     @DisplayName("게시글 버전 조회")
     void getPostVersions_success() throws Exception {
-        when(postService.getPostVersions(anyLong())).thenReturn(Collections.emptyList());
+        when(postService.getPostVersions(anyLong(), anyLong())).thenReturn(Collections.emptyList());
         mockMvc.perform(get("/api/v1/posts/1/versions").with(user(customUserDetails)))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("게시글 버전 조회 실패 - 비인증 사용자")
+    void getPostVersions_unauthorized() throws Exception {
+        mockMvc.perform(get("/api/v1/posts/1/versions"))
+                .andExpect(status().isUnauthorized());
     }
 }

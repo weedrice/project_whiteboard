@@ -7,6 +7,8 @@ import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.domain.search.service.SearchService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
+import com.weedrice.whiteboard.global.exception.BusinessException;
+import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -177,7 +179,11 @@ public class PostController {
     }
 
     @GetMapping("/posts/{postId}/versions")
-    public ApiResponse<List<PostVersionResponse>> getPostVersions(@PathVariable Long postId) {
-        return ApiResponse.success(postService.getPostVersions(postId));
+    public ApiResponse<List<PostVersionResponse>> getPostVersions(@PathVariable Long postId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        if (userDetails == null || userDetails.getUserId() == null) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED);
+        }
+        return ApiResponse.success(postService.getPostVersions(postId, userDetails.getUserId()));
     }
 }
