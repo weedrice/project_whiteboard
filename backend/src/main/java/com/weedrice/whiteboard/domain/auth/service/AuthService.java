@@ -471,9 +471,7 @@ public class AuthService {
 
     @Transactional
     public void resetPasswordByCode(String email, String code, String newPassword) {
-        if (!verificationCodeService.isVerified(email)) {
-            throw new BusinessException(ErrorCode.EMAIL_NOT_VERIFIED);
-        }
+        verificationCodeService.verifyCode(email, code);
 
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));

@@ -532,6 +532,7 @@ public class PostService {
         if (request.getCategoryId() != null) {
             category = boardCategoryRepository.findById(request.getCategoryId())
                     .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+            validateCategoryInBoard(board, category);
 
             // Category Permission Check
             String minRole = category.getMinWriteRole();
@@ -597,6 +598,7 @@ public class PostService {
         if (request.getCategoryId() != null) {
             category = boardCategoryRepository.findById(request.getCategoryId())
                     .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+            validateCategoryInBoard(post.getBoard(), category);
         }
 
         String originalTitle = post.getTitle();
@@ -880,6 +882,18 @@ public class PostService {
             return true;
         }
         return adminRepository.existsByUserAndBoardAndIsActive(user, board, true);
+    }
+
+    private void validateCategoryInBoard(Board board, BoardCategory category) {
+        if (board == null || category == null || category.getBoard() == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND);
+        }
+
+        Long boardId = board.getBoardId();
+        Long categoryBoardId = category.getBoard().getBoardId();
+        if (!Objects.equals(boardId, categoryBoardId)) {
+            throw new BusinessException(ErrorCode.NOT_FOUND);
+        }
     }
 
     private boolean isInquiryBoard(Board board) {

@@ -4,6 +4,7 @@ import com.weedrice.whiteboard.domain.auth.dto.LoginRequest;
 import com.weedrice.whiteboard.domain.auth.dto.LoginResponse;
 import com.weedrice.whiteboard.domain.auth.dto.SignupRequest;
 import com.weedrice.whiteboard.domain.auth.dto.SignupResponse;
+import com.weedrice.whiteboard.domain.auth.dto.VerifyCodeResponse;
 import com.weedrice.whiteboard.domain.auth.repository.LoginHistoryRepository;
 import com.weedrice.whiteboard.domain.auth.repository.RefreshTokenRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -45,6 +46,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -258,5 +260,41 @@ class AuthServiceTest {
                 BusinessException exception = assertThrows(BusinessException.class,
                         () -> authService.sendPasswordResetLinkByEmail(email));
                 assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.USER_DELETED);
+        }
+
+        @Test
+        @DisplayName("resetPasswordByCode validates verification code before reset")
+        void resetPasswordByCode_success() {
+                String email = "test@example.com";
+                String code = "123456";
+                String newPassword = "newPassword123!";
+
+                when(verificationCodeService.verifyCode(email, code))
+                                .thenReturn(new VerifyCodeResponse(true, null, false));
+                when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
+                when(passwordEncoder.encode(newPassword)).thenReturn("encodedNewPassword");
+
+                authService.resetPasswordByCode(email, code, newPassword);
+
+                verify(verificationCodeService).verifyCode(email, code);
+                verify(verificationCodeService, never()).isVerified(anyString());
+                verify(userRepository).save(user);
+                verify(verificationCodeService).clearVerificationStatus(email);
+        }
+
+        @Test
+        @DisplayName("resetPasswordByCode fails when verification code is invalid")
+        void resetPasswordByCode_invalidCode() {
+                String email = "test@example.com";
+                String code = "123456";
+
+                when(verificationCodeService.verifyCode(email, code))
+                                .thenThrow(new BusinessException(ErrorCode.VALIDATION_ERROR));
+
+                BusinessException exception = assertThrows(BusinessException.class,
+                                () -> authService.resetPasswordByCode(email, code, "newPassword123!"));
+
+                assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.VALIDATION_ERROR);
+                verify(userRepository, never()).findByEmail(anyString());
         }
 }

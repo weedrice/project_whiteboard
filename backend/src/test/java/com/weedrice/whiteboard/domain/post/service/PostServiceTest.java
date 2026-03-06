@@ -166,6 +166,26 @@ class PostServiceTest {
     }
 
     @Test
+    @DisplayName("createPost fails when category belongs to another board")
+    void createPost_categoryBoardMismatch_notFound() {
+        PostCreateRequest request = new PostCreateRequest(2L, "New Post", "New Contents", Collections.emptyList(),
+                false, false, false, false, null);
+
+        Board otherBoard = Board.builder().boardName("Other Board").creator(user).build();
+        ReflectionTestUtils.setField(otherBoard, "boardId", 2L);
+        BoardCategory otherCategory = BoardCategory.builder().name("Other").board(otherBoard).build();
+        ReflectionTestUtils.setField(otherCategory, "categoryId", 2L);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
+        when(boardCategoryRepository.findById(2L)).thenReturn(Optional.of(otherCategory));
+
+        assertThatThrownBy(() -> postService.createPost(1L, 1L, request))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.NOT_FOUND);
+    }
+
+    @Test
     @DisplayName("게시글 생성 실패 - 공지사항 권한 없음")
     void createPost_notice_forbidden() {
         PostCreateRequest request = new PostCreateRequest(null, "Notice", "Contents", Collections.emptyList(), true,
@@ -315,6 +335,25 @@ class PostServiceTest {
         assertThatThrownBy(() -> postService.updatePost(2L, 1L, request))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
+    }
+
+    @Test
+    @DisplayName("updatePost fails when category belongs to another board")
+    void updatePost_categoryBoardMismatch_notFound() {
+        PostUpdateRequest request = new PostUpdateRequest(2L, "Updated Title", "Updated Contents",
+                Collections.emptyList(), false, false, false, null);
+
+        Board otherBoard = Board.builder().boardName("Other Board").creator(user).build();
+        ReflectionTestUtils.setField(otherBoard, "boardId", 2L);
+        BoardCategory otherCategory = BoardCategory.builder().name("Other").board(otherBoard).build();
+        ReflectionTestUtils.setField(otherCategory, "categoryId", 2L);
+
+        when(postRepository.findById(1L)).thenReturn(Optional.of(post));
+        when(boardCategoryRepository.findById(2L)).thenReturn(Optional.of(otherCategory));
+
+        assertThatThrownBy(() -> postService.updatePost(1L, 1L, request))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.NOT_FOUND);
     }
 
     // --- Delete Post ---
