@@ -3,7 +3,7 @@ import { ref, computed } from 'vue'
 import { useAdmin } from '@/composables/useAdmin'
 import { useI18n } from 'vue-i18n'
 import { useToastStore } from '@/stores/toast'
-import { Eye, CheckCircle, ChevronLeft, ChevronRight, X, Search } from 'lucide-vue-next'
+import { Eye, CheckCircle, ChevronLeft, ChevronRight, X, Search, Copy } from 'lucide-vue-next'
 import type { ErrorLogItem } from '@/types'
 
 const { t } = useI18n()
@@ -144,6 +144,18 @@ function resetFilters() {
     filterEndDate.value = defaultEndDate
     page.value = 0
     handleSearch()
+}
+
+async function copyStackTrace() {
+    const stackTrace = selectedLog.value?.stackTrace
+    if (!stackTrace) return
+
+    try {
+        await navigator.clipboard.writeText(stackTrace)
+        toastStore.addToast(t('admin.errorLogs.messages.stackTraceCopied'), 'success')
+    } catch {
+        toastStore.addToast(t('admin.errorLogs.messages.stackTraceCopyFailed'), 'error')
+    }
 }
 </script>
 
@@ -366,7 +378,13 @@ function resetFilters() {
 
                         <!-- 스택 트레이스 -->
                         <div v-if="selectedLog.stackTrace" class="detail-section">
-                            <h4 class="detail-section-title">{{ t('admin.errorLogs.detail.stackTrace') }}</h4>
+                            <div class="stack-trace-header">
+                                <h4 class="detail-section-title stack-trace-title">{{ t('admin.errorLogs.detail.stackTrace') }}</h4>
+                                <button @click="copyStackTrace" type="button" class="btn-copy-stack-trace">
+                                    <Copy class="w-3.5 h-3.5" />
+                                    {{ t('admin.errorLogs.actions.copy') }}
+                                </button>
+                            </div>
                             <pre class="stack-trace-block">{{ selectedLog.stackTrace }}</pre>
                         </div>
 
@@ -944,6 +962,49 @@ function resetFilters() {
 .dark .detail-section-title {
     color: #f9fafb;
     border-bottom-color: #374151;
+}
+
+.stack-trace-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.stack-trace-title {
+    margin-bottom: 0;
+    flex: 1;
+}
+
+.btn-copy-stack-trace {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    background: #ffffff;
+    color: #374151;
+    font-size: 0.75rem;
+    font-weight: 500;
+    line-height: 1;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.btn-copy-stack-trace:hover {
+    background: #f3f4f6;
+}
+
+.dark .btn-copy-stack-trace {
+    background: #111827;
+    border-color: #4b5563;
+    color: #d1d5db;
+}
+
+.dark .btn-copy-stack-trace:hover {
+    background: #1f2937;
 }
 
 .detail-grid {

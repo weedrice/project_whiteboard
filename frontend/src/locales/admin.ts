@@ -245,10 +245,13 @@ export const admin: AdminMessages = {
     actions: {
       resolve: '확인 처리',
       viewDetail: '상세 보기',
+      copy: '복사',
     },
     messages: {
       resolved: '에러 로그가 확인 처리되었습니다.',
       resolveFailed: '확인 처리 실패',
+      stackTraceCopied: '스택 트레이스를 복사했습니다.',
+      stackTraceCopyFailed: '스택 트레이스 복사에 실패했습니다.',
     },
     stats: {
       total: '전체',

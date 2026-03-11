@@ -900,10 +900,13 @@ export interface AdminMessages {
     actions: {
       resolve: string
       viewDetail: string
+      copy: string
     }
     messages: {
       resolved: string
       resolveFailed: string
+      stackTraceCopied: string
+      stackTraceCopyFailed: string
     }
     stats: {
       total: string

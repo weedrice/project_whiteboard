@@ -91,6 +91,7 @@ const mocks = vi.hoisted(() => {
         'admin.errorLogs.table.userId': '사용자 ID',
         'admin.errorLogs.actions.viewDetail': '상세 보기',
         'admin.errorLogs.actions.resolve': '확인 처리',
+        'admin.errorLogs.actions.copy': '복사',
         'admin.errorLogs.detail.title': '에러 로그 상세',
         'admin.errorLogs.detail.errorInfo': '에러 정보',
         'admin.errorLogs.detail.requestInfo': '요청 정보',
@@ -98,6 +99,8 @@ const mocks = vi.hoisted(() => {
         'admin.errorLogs.detail.resolveInfo': '처리 정보',
         'admin.errorLogs.memoPlaceholder': '처리 메모',
         'admin.errorLogs.messages.resolved': '에러 로그를 확인 처리했습니다.',
+        'admin.errorLogs.messages.stackTraceCopied': '스택 트레이스를 복사했습니다.',
+        'admin.errorLogs.messages.stackTraceCopyFailed': '스택 트레이스 복사에 실패했습니다.',
         'admin.sanction.cancel': '취소'
     }
 
@@ -157,6 +160,7 @@ describe('ErrorLogManagement', () => {
                 ChevronRight: iconStub,
                 X: iconStub,
                 Search: iconStub,
+                Copy: iconStub,
                 Teleport: true
             },
             mocks: {
