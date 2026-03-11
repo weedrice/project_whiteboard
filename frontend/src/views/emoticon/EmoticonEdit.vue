@@ -111,6 +111,10 @@ const handleToggleVisibility = () => {
 }
 
 const MAX_FILE_SIZE_BYTES = 1024 * 1024 // 1MB
+const SUPPORTED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp'])
+const SUPPORTED_IMAGE_ACCEPT = 'image/jpeg,image/png,image/gif,image/webp'
+
+const isSupportedImageType = (file: File) => SUPPORTED_IMAGE_TYPES.has(file.type)
 
 // 이미지 리사이징 함수 (100px 이하로)
 // GIF는 Canvas 리사이징 시 애니메이션 손실 → 원본 그대로 반환
@@ -193,6 +197,10 @@ const handleThumbnailSelect = async (event: Event) => {
     toastStore.addToast(t('emoticon.validation.imageOnly'), 'error')
     return
   }
+  if (!isSupportedImageType(file)) {
+    toastStore.addToast(t('emoticon.validation.notImage', { name: file.name }), 'error')
+    return
+  }
 
   // GIF는 리사이징 시 애니메이션 손실 → 1MB 용량 제한만 적용 (일반 이미지는 리사이징으로 작아짐)
   if (file.type === 'image/gif' && file.size > MAX_FILE_SIZE_BYTES) {
@@ -247,6 +255,10 @@ const handleEmoticonSelect = async (event: Event) => {
   for (const file of filesToAdd) {
     // 이미지 파일 검증
     if (!file.type.startsWith('image/')) {
+      toastStore.addToast(t('emoticon.validation.notImage', { name: file.name }), 'error')
+      continue
+    }
+    if (!isSupportedImageType(file)) {
       toastStore.addToast(t('emoticon.validation.notImage', { name: file.name }), 'error')
       continue
     }
@@ -385,9 +397,12 @@ const handleSubmit = async () => {
         }
 
         // File 객체로 변환 (Blob인 경우)
+        const uploadMimeType = fileToUpload instanceof File
+          ? fileToUpload.type
+          : (fileToUpload.type || item.file.type || 'image/png')
         const uploadFile = fileToUpload instanceof File
           ? fileToUpload
-          : new File([fileToUpload], item.file.name, { type: item.file.type || 'image/png' })
+          : new File([fileToUpload], item.file.name, { type: uploadMimeType })
 
         const response = await fileApi.uploadFile(uploadFile)
         await emoticonApi.addImage(emoticonId.value, response.data.data.url)
@@ -509,7 +524,7 @@ const goToDetail = () => {
                 class="w-32 h-32 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center text-gray-400">
                 No Image
               </div>
-              <input ref="thumbnailInput" type="file" accept="image/*" @change="handleThumbnailSelect" class="hidden" />
+              <input ref="thumbnailInput" type="file" :accept="SUPPORTED_IMAGE_ACCEPT" @change="handleThumbnailSelect" class="hidden" />
               <button type="button" @click="changeThumbnail"
                 class="absolute -bottom-2 -right-2 w-8 h-8 bg-indigo-500 text-white rounded-full flex items-center justify-center hover:bg-indigo-600 shadow-md"
                 title="썸네일 변경">
@@ -573,7 +588,7 @@ const goToDetail = () => {
 
           <!-- 추가 버튼 -->
           <div v-if="totalImageCount < 100">
-            <input ref="emoticonInput" type="file" accept="image/*" multiple @change="handleEmoticonSelect"
+            <input ref="emoticonInput" type="file" :accept="SUPPORTED_IMAGE_ACCEPT" multiple @change="handleEmoticonSelect"
               class="hidden" />
             <button type="button" @click="emoticonInput?.click()"
               class="w-full aspect-square border-2 border-dashed border-gray-300 dark:border-gray-600 rounded flex flex-col items-center justify-center text-gray-500 dark:text-gray-400 hover:border-indigo-500 hover:text-indigo-500 transition-colors"

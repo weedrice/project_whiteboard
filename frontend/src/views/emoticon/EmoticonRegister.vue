@@ -34,6 +34,10 @@ const thumbnailInput = ref<HTMLInputElement | null>(null)
 const emoticonInput = ref<HTMLInputElement | null>(null)
 
 const MAX_FILE_SIZE_BYTES = 1024 * 1024 // 1MB
+const SUPPORTED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp'])
+const SUPPORTED_IMAGE_ACCEPT = 'image/jpeg,image/png,image/gif,image/webp'
+
+const isSupportedImageType = (file: File) => SUPPORTED_IMAGE_TYPES.has(file.type)
 
 // 이미지 리사이징 함수 (100px 이하로)
 // GIF는 Canvas 리사이징 시 애니메이션 손실 → 원본 그대로 반환
@@ -116,6 +120,10 @@ const handleThumbnailSelect = async (event: Event) => {
     toastStore.addToast(t('emoticon.validation.imageOnly'), 'error')
     return
   }
+  if (!isSupportedImageType(file)) {
+    toastStore.addToast(t('emoticon.validation.notImage', { name: file.name }), 'error')
+    return
+  }
 
   // GIF는 리사이징 시 애니메이션 손실 → 1MB 용량 제한만 적용 (일반 이미지는 리사이징으로 작아짐)
   if (file.type === 'image/gif' && file.size > MAX_FILE_SIZE_BYTES) {
@@ -176,6 +184,10 @@ const handleEmoticonSelect = async (event: Event) => {
   for (const file of filesToAdd) {
     // 이미지 파일 검증
     if (!file.type.startsWith('image/')) {
+      toastStore.addToast(t('emoticon.validation.notImage', { name: file.name }), 'error')
+      continue
+    }
+    if (!isSupportedImageType(file)) {
       toastStore.addToast(t('emoticon.validation.notImage', { name: file.name }), 'error')
       continue
     }
@@ -285,9 +297,12 @@ const handleSubmit = async () => {
       }
       
       // File 객체로 변환 (Blob인 경우)
-      const uploadFile = fileToUpload instanceof File 
-        ? fileToUpload 
-        : new File([fileToUpload], item.file.name, { type: item.file.type || 'image/png' })
+      const uploadMimeType = fileToUpload instanceof File
+        ? fileToUpload.type
+        : (fileToUpload.type || item.file.type || 'image/png')
+      const uploadFile = fileToUpload instanceof File
+        ? fileToUpload
+        : new File([fileToUpload], item.file.name, { type: uploadMimeType })
       
       const response = await fileApi.uploadFile(uploadFile)
       imageUrls.push(response.data.data.url)
@@ -372,7 +387,7 @@ const goToList = () => {
               <input
                 ref="thumbnailInput"
                 type="file"
-                accept="image/*"
+                :accept="SUPPORTED_IMAGE_ACCEPT"
                 @change="handleThumbnailSelect"
                 class="hidden"
               />
@@ -440,7 +455,7 @@ const goToList = () => {
             <input
               ref="emoticonInput"
               type="file"
-              accept="image/*"
+              :accept="SUPPORTED_IMAGE_ACCEPT"
               multiple
               @change="handleEmoticonSelect"
               class="hidden"
