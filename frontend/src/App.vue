@@ -73,17 +73,19 @@ const shouldNoIndex = computed(() => {
 
 // Global SEO Configuration
 useHead({
-    titleTemplate: '%s | 노비스',
-    title: '홈',
+    titleTemplate: computed(() => `%s - ${t('common.appName')}`),
+    title: computed(() => t('common.appName')),
     meta: [
-        { name: 'description', content: '노비스 - 다양한 주제의 게시판에서 인기 게시글을 발견하고, 의견을 나누는 커뮤니티. 지금 가입하고 관심 게시판을 구독하세요.' },
-        { property: 'og:site_name', content: '노비스' },
+        {
+            name: 'description',
+            content: computed(() => `${t('common.appName')} - 다양한 주제의 게시판에서 인기 게시글을 발견하고, 의견을 나누는 커뮤니티. 지금 가입하고 관심 게시판을 구독하세요.`)
+        },
+        { property: 'og:site_name', content: computed(() => t('common.appName')) },
         { property: 'og:type', content: 'website' },
         { name: 'robots', content: computed(() => (shouldNoIndex.value ? 'noindex, nofollow' : 'index, follow')) },
         { name: 'googlebot', content: computed(() => (shouldNoIndex.value ? 'noindex, nofollow' : 'index, follow')) }
     ]
 })
-
 const layout = computed(() => {
     return route.meta.layout === 'AdminLayout' ? AdminLayout : DefaultLayout
 })
@@ -129,17 +131,17 @@ watch(() => authStore.isAuthenticated, (newVal) => {
 
 const configStore = useConfigStore()
 
-// 전역 단축키 초기화
+// Initialize global shortcuts
 const { registerShortcut } = useGlobalShortcuts()
 
-// 검색바 포커스 단축키 (/) 등록
+// Register search-bar focus shortcut (/)
 onMounted(() => {
     configStore.fetchPublicConfigs()
     if (authStore.isAuthenticated) {
         loadSettings()
     }
     
-    // / 키로 검색바 포커스
+    // Focus search bar with /
     registerShortcut({
         key: '/',
         handler: () => {

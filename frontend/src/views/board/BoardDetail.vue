@@ -29,16 +29,41 @@ const { addRecentBoard } = useRecentBoards()
 const boardUrl = computed(() => route.params.boardUrl as string)
 const currentPostId = computed(() => route.params.postId as string | undefined)
 const { data: board, isLoading: isBoardLoading, error: boardError } = useBoardDetail(boardUrl)
+const boardTitle = computed(() => {
+    const boardName = board.value?.boardName?.trim()
+    if (boardName) return boardName
+    return decodeURIComponent(boardUrl.value || '').trim() || 'Board'
+})
 
 // SEO
 useHead({
-    title: computed(() => board.value?.boardName || 'Board'),
+    title: computed(() => (currentPostId.value ? undefined : boardTitle.value)),
     meta: [
         { name: 'description', content: computed(() => board.value?.description || 'Board posts and discussions') },
-        { property: 'og:title', content: computed(() => `${board.value?.boardName || 'Board'} | 노비스`) },
+        { property: 'og:title', content: computed(() => `${board.value?.boardName || 'Board'} - ${t('common.appName')}`) },
         { property: 'og:description', content: computed(() => board.value?.description || 'Board posts and discussions') }
     ]
 })
+
+watch([() => route.name, boardTitle], ([routeName, title]) => {
+    if (currentPostId.value || routeName !== 'board-detail' || typeof document === 'undefined') {
+        console.log('[TitleDebug][BoardDetail] skip', {
+            routeName,
+            currentPostId: currentPostId.value,
+            title,
+            documentTitle: typeof document !== 'undefined' ? document.title : 'no-document'
+        })
+        return
+    }
+    console.log('[TitleDebug][BoardDetail] apply', {
+        routeName,
+        currentPostId: currentPostId.value,
+        titleBefore: document.title,
+        nextTitle: `${title} - ${t('common.appName')}`
+    })
+    document.title = `${title} - ${t('common.appName')}`
+    console.log('[TitleDebug][BoardDetail] applied', { documentTitle: document.title })
+}, { immediate: true })
 
 // State
 

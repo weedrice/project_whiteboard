@@ -5,19 +5,21 @@ import { useBoard } from '@/composables/useBoard'
 import SubscribedBoardList from '@/components/board/SubscribedBoardList.vue'
 import BoardGrid from '@/components/board/BoardGrid.vue'
 import BoardListSkeleton from '@/components/common/ui/BoardListSkeleton.vue'
+import { useI18n } from 'vue-i18n'
 
 import { useHead } from '@unhead/vue'
 
 const authStore = useAuthStore()
 const { useBoards } = useBoard()
 const { data: boards, isLoading, error } = useBoards()
+const { t } = useI18n()
 
 useHead({
   title: 'All Boards',
   meta: [
-    { name: 'description', content: '노비스에서 모든 게시판과 커뮤니티를 둘러보세요.' },
-    { property: 'og:title', content: '전체 게시판 | 노비스' },
-    { property: 'og:description', content: '노비스에서 모든 게시판과 커뮤니티를 둘러보세요.' }
+    { name: 'description', content: computed(() => `${t('common.appName')}에서 모든 게시판과 커뮤니티를 둘러보세요.`) },
+    { property: 'og:title', content: computed(() => `${t('board.list.title')} - ${t('common.appName')}`) },
+    { property: 'og:description', content: computed(() => `${t('common.appName')}에서 모든 게시판과 커뮤니티를 둘러보세요.`) }
   ]
 })
 

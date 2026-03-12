@@ -250,11 +250,11 @@ const skipToMainContent = (event: Event) => {
         <div class="flex justify-between h-16">
           <div class="flex">
             <div class="flex-shrink-0 flex items-center">
-              <router-link to="/" class="flex items-center" aria-label="노비스 홈">
+              <router-link to="/" class="flex items-center" :aria-label="`${$t('common.appName')} 홈`">
                 <!-- 모바일: favicon (다크모드 대응) -->
                 <img :src="themeStore.isDark ? '/favicon_dark.ico' : '/favicon.ico'" alt="" class="h-7 w-7 md:hidden" />
                 <!-- 데스크톱: 풀 로고 -->
-                <img :src="logoSrc" alt="노비스" class="h-8 w-auto hidden md:block" />
+                <img :src="logoSrc" :alt="$t('common.appName')" class="h-8 w-auto hidden md:block" />
               </router-link>
             </div>
             <div class="flex ml-2 sm:ml-6 space-x-1 sm:space-x-4 items-center">

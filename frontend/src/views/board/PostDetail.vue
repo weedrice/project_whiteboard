@@ -33,6 +33,15 @@ const { usePostDetail, useDeletePost, useLikePost, useUnlikePost, useScrapPost, 
 
 const postId = computed(() => route.params.postId as string)
 const { data: post, isLoading, error: postError } = usePostDetail(postId)
+const postPageTitle = computed(() => {
+  const postTitle = post.value?.title?.trim()
+  const boardName = post.value?.board?.boardName?.trim()
+
+  if (postTitle && boardName) {
+    return `${postTitle} - ${boardName}`
+  }
+  return postTitle || 'Post'
+})
 
 const postDescription = computed(() => {
   if (!post.value?.contents) return 'Post content'
@@ -66,7 +75,8 @@ const articleStructuredData = computed(() => {
 
 // SEO
 useHead({
-  title: computed(() => post.value?.title || 'Post'),
+  titleTemplate: '%s',
+  title: postPageTitle,
   link: [
     { rel: 'canonical', href: canonicalUrl }
   ],
@@ -74,7 +84,7 @@ useHead({
     {
       name: 'description', content: postDescription
     },
-    { property: 'og:title', content: computed(() => `${post.value?.title || 'Post'} | 노비스`) },
+    { property: 'og:title', content: computed(() => `${post.value?.title || 'Post'} - ${t('common.appName')}`) },
     {
       property: 'og:description', content: postDescription
     },
@@ -88,6 +98,24 @@ useHead({
     }
   ]
 })
+
+watch([() => route.name, postPageTitle], ([routeName, title]) => {
+  if (routeName !== 'post-detail' || typeof document === 'undefined') {
+    console.log('[TitleDebug][PostDetail] skip', {
+      routeName,
+      title,
+      documentTitle: typeof document !== 'undefined' ? document.title : 'no-document'
+    })
+    return
+  }
+  console.log('[TitleDebug][PostDetail] apply', {
+    routeName,
+    titleBefore: document.title,
+    nextTitle: title
+  })
+  document.title = title
+  console.log('[TitleDebug][PostDetail] applied', { documentTitle: document.title })
+}, { immediate: true })
 
 const { mutate: deleteMutate } = useDeletePost()
 const { mutate: likeMutate } = useLikePost()

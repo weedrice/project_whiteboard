@@ -39,16 +39,22 @@ import { useHead } from '@unhead/vue'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
+const homeTitle = computed(() => t('common.appName'))
 
 useHead({
-  title: '홈',
+  titleTemplate: '%s',
+  title: homeTitle,
   meta: [
-    { name: 'description', content: '노비스 - 다양한 주제의 게시판에서 인기 게시글을 발견하고, 의견을 나누는 커뮤니티. 지금 가입하고 관심 게시판을 구독하세요.' },
-    { property: 'og:title', content: '노비스' },
-    { property: 'og:description', content: '노비스 - 다양한 주제의 게시판에서 인기 게시글을 발견하고, 의견을 나누는 커뮤니티. 지금 가입하고 관심 게시판을 구독하세요.' }
+    { name: 'description', content: computed(() => `${t('common.appName')} - 다양한 주제의 게시판에서 인기 게시글을 발견하고, 의견을 나누는 커뮤니티. 지금 가입하고 관심 게시판을 구독하세요.`) },
+    { property: 'og:title', content: computed(() => t('common.appName')) },
+    { property: 'og:description', content: computed(() => `${t('common.appName')} - 다양한 주제의 게시판에서 인기 게시글을 발견하고, 의견을 나누는 커뮤니티. 지금 가입하고 관심 게시판을 구독하세요.`) }
   ]
 })
 
+watch(homeTitle, (title) => {
+  if (typeof document === 'undefined') return
+  document.title = title
+}, { immediate: true })
 // Infinite scroll for trending posts
 const { posts: rawPosts, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage } = useTrendingPosts(10)
 
