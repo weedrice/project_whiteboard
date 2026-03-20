@@ -1,12 +1,15 @@
 package com.weedrice.whiteboard.global.config;
 
+import com.weedrice.whiteboard.domain.agent.service.AgentService;
 import com.weedrice.whiteboard.global.security.JwtAuthenticationFilter;
 import com.weedrice.whiteboard.global.security.JwtAuthenticationEntryPoint;
+import com.weedrice.whiteboard.global.security.AgentAuthenticationFilter;
 
 import com.weedrice.whiteboard.global.security.oauth.CustomOAuth2UserService;
 import com.weedrice.whiteboard.global.security.oauth.OAuth2SuccessHandler;
-import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -29,20 +32,39 @@ import java.util.Collections;
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
-@RequiredArgsConstructor
 public class SecurityConfig {
 
         private final JwtAuthenticationFilter jwtAuthenticationFilter;
         private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
         private final CustomOAuth2UserService customOAuth2UserService;
         private final OAuth2SuccessHandler oAuth2SuccessHandler;
+        private final ObjectProvider<AgentAuthenticationFilter> agentAuthenticationFilterProvider;
 
         @Value("${app.frontend-url}")
         private String frontendUrl;
 
+        public SecurityConfig(
+                        JwtAuthenticationFilter jwtAuthenticationFilter,
+                        JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint,
+                        CustomOAuth2UserService customOAuth2UserService,
+                        OAuth2SuccessHandler oAuth2SuccessHandler,
+                        ObjectProvider<AgentAuthenticationFilter> agentAuthenticationFilterProvider) {
+                this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+                this.jwtAuthenticationEntryPoint = jwtAuthenticationEntryPoint;
+                this.customOAuth2UserService = customOAuth2UserService;
+                this.oAuth2SuccessHandler = oAuth2SuccessHandler;
+                this.agentAuthenticationFilterProvider = agentAuthenticationFilterProvider;
+        }
+
         @Bean
         public PasswordEncoder passwordEncoder() {
                 return new BCryptPasswordEncoder();
+        }
+
+        @Bean
+        @ConditionalOnBean(AgentService.class)
+        public AgentAuthenticationFilter agentAuthenticationFilter(AgentService agentService) {
+                return new AgentAuthenticationFilter(agentService);
         }
 
         @Bean
@@ -56,6 +78,7 @@ public class SecurityConfig {
                                                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                                 .authorizeHttpRequests(auth -> auth
                                                 .requestMatchers("/api/v1/users/me/**").authenticated()
+                                                .requestMatchers("/api/v1/agents/register").permitAll()
                                                 .requestMatchers("/api/v1/auth/**", "/api/v1/codes/**",
                                                                 "/actuator/health")
                                                 .permitAll()
@@ -85,6 +108,12 @@ public class SecurityConfig {
                                                 .successHandler(oAuth2SuccessHandler))
                                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
+                AgentAuthenticationFilter agentAuthenticationFilter = agentAuthenticationFilterProvider
+                                .getIfAvailable();
+                if (agentAuthenticationFilter != null) {
+                        http.addFilterBefore(agentAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                }
+
                 return http.build();
         }
 
@@ -106,7 +135,8 @@ public class SecurityConfig {
                 configuration.setAllowedHeaders(Arrays.asList(
                                 "Authorization",
                                 "Content-Type",
-                                "Accept"
+                                "Accept",
+                                "X-NoviIs-Agent"
                 ));
                 
                 // 클라이언트가 접근할 수 있는 응답 헤더

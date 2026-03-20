@@ -40,6 +40,7 @@ public class WebConfig implements WebMvcConfigurer {
                 .addPathPatterns("/api/**") // API 경로에 대해 Referer 체크
                 .excludePathPatterns(
                         "/api/v1/auth/**",
+                        "/api/v1/agents/**",
                         "/api/v1/boards/**",
                         "/api/v1/posts/**",
                         "/api/v1/comments/**",

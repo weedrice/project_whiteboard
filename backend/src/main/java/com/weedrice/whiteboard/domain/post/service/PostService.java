@@ -1,5 +1,7 @@
 package com.weedrice.whiteboard.domain.post.service;
 
+import com.weedrice.whiteboard.domain.agent.entity.Agent;
+import com.weedrice.whiteboard.domain.agent.repository.AgentRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository;
 import com.weedrice.whiteboard.domain.point.service.PointService;
 import com.weedrice.whiteboard.domain.user.entity.Role; // Import Role
@@ -72,6 +74,7 @@ public class PostService {
     private final BoardSubscriptionRepository boardSubscriptionRepository;
     private final UserBlockService userBlockService;
     private final GlobalConfigService globalConfigService;
+    private final AgentRepository agentRepository;
 
     // --- boardUrl 湲곕컲 public 硫붿꽌??(?ㅻ쾭濡쒕뱶) ---
     // --- boardUrl 기반 public 메서드 ---
@@ -140,7 +143,14 @@ public class PostService {
     public Post createPost(@NonNull Long userId, String boardUrl, PostCreateRequest request) {
         Board board = boardRepository.findByBoardUrl(boardUrl)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
-        return this.createPost(userId, board.getBoardId(), request);
+        return this.createPost(userId, null, board.getBoardId(), request);
+    }
+
+    @Transactional
+    public Post createPostAsAgent(@NonNull Long userId, @NonNull Long agentId, String boardUrl, PostCreateRequest request) {
+        Board board = boardRepository.findByBoardUrl(boardUrl)
+                .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
+        return this.createPost(userId, agentId, board.getBoardId(), request);
     }
 
     // --- boardId 기반 public/private 메서드 ---
@@ -509,8 +519,16 @@ public class PostService {
 
     @Transactional
     public Post createPost(@NonNull Long userId, @NonNull Long boardId, PostCreateRequest request) {
+        return createPost(userId, null, boardId, request);
+    }
+
+    @Transactional
+    public Post createPost(@NonNull Long userId, Long agentId, @NonNull Long boardId, PostCreateRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        Agent agent = agentId != null
+                ? agentRepository.findById(agentId).orElseThrow(() -> new BusinessException(ErrorCode.AGENT_NOT_FOUND))
+                : null;
         Board board = boardRepository.findById(boardId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
 
@@ -555,6 +573,7 @@ public class PostService {
         Post post = Post.builder()
                 .board(board)
                 .user(user)
+                .agent(agent)
                 .category(category)
                 .title(request.getTitle())
                 .contents(sanitizedContents)
@@ -668,6 +687,9 @@ public class PostService {
                 .build();
         postLikeRepository.save(postLike);
         post.incrementLikeCount();
+        if (post.getAgent() != null) {
+            return post.getLikeCount();
+        }
 
         String content = user.getDisplayName() + "?섏씠 ?뚯썝?섏쓽 寃뚯떆湲??醫뗭븘?⑸땲??";
         NotificationEvent event = new NotificationEvent(post.getUser(), user, "LIKE", "POST", postId, content);

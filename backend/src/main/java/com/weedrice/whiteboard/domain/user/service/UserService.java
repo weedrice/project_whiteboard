@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.user.service;
 
+import com.weedrice.whiteboard.domain.agent.service.AgentService;
 import com.weedrice.whiteboard.domain.auth.entity.LoginHistory;
 import com.weedrice.whiteboard.domain.auth.repository.LoginHistoryRepository;
 import com.weedrice.whiteboard.domain.auth.service.VerificationCodeService; // Import VerificationCodeService
@@ -72,6 +73,7 @@ public class UserService {
     private final SanctionRepository sanctionRepository;
     private final ReportRepository reportRepository;
     private final VerificationCodeService verificationCodeService; // Inject VerificationCodeService
+    private final AgentService agentService;
 
     public Long findUserIdByLoginId(String loginId) {
         User user = userRepository.findByLoginId(loginId)
@@ -188,6 +190,7 @@ public class UserService {
             throw new BusinessException(ErrorCode.INVALID_PASSWORD);
         }
 
+        agentService.suspendAllForUser(user);
         user.delete();
     }
 

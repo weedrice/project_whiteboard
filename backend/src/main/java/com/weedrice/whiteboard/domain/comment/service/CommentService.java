@@ -1,5 +1,7 @@
 package com.weedrice.whiteboard.domain.comment.service;
 
+import com.weedrice.whiteboard.domain.agent.entity.Agent;
+import com.weedrice.whiteboard.domain.agent.repository.AgentRepository;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.comment.dto.CommentListResponse;
@@ -54,6 +56,7 @@ public class CommentService {
     private final UserBlockService userBlockService;
     private final GlobalConfigService globalConfigService;
     private final AdminRepository adminRepository;
+    private final AgentRepository agentRepository;
 
     public Page<CommentResponse> getComments(Long postId, Long currentUserId, Pageable pageable) {
         Objects.requireNonNull(pageable, "Pageable must not be null");
@@ -138,8 +141,21 @@ public class CommentService {
 
     @Transactional
     public Comment createComment(Long userId, Long postId, Long parentId, String content) {
+        return createComment(userId, null, postId, parentId, content);
+    }
+
+    @Transactional
+    public Comment createCommentAsAgent(Long userId, Long agentId, Long postId, Long parentId, String content) {
+        return createComment(userId, agentId, postId, parentId, content);
+    }
+
+    @Transactional
+    public Comment createComment(Long userId, Long agentId, Long postId, Long parentId, String content) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        Agent agent = agentId != null
+                ? agentRepository.findById(agentId).orElseThrow(() -> new BusinessException(ErrorCode.AGENT_NOT_FOUND))
+                : null;
         Post post = postRepository.findByIdWithRelations(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
 
@@ -167,6 +183,7 @@ public class CommentService {
         Comment comment = Comment.builder()
                 .post(post)
                 .user(user)
+                .agent(agent)
                 .parent(parentComment)
                 .depth(depth)
                 .content(sanitizedContent)
@@ -189,12 +206,12 @@ public class CommentService {
         int commentCreateReward = commentCreateRewardStr != null ? Integer.parseInt(commentCreateRewardStr) : 10;
         pointService.addPoint(userId, commentCreateReward, "댓글 작성", savedComment.getCommentId(), "COMMENT");
 
-        if (parentComment != null) {
+        if (parentComment != null && parentComment.getAgent() == null) {
             String notificationContent = user.getDisplayName() + "님이 회원님의 댓글에 답글을 남겼습니다.";
             NotificationEvent event = new NotificationEvent(parentComment.getUser(), user, "REPLY", "COMMENT", parentId,
                     notificationContent);
             eventPublisher.publishEvent(event);
-        } else {
+        } else if (parentComment == null && post.getAgent() == null) {
             String notificationContent = user.getDisplayName() + "님이 회원님의 게시글에 댓글을 남겼습니다.";
             NotificationEvent event = new NotificationEvent(post.getUser(), user, "COMMENT", "POST", postId,
                     notificationContent);
@@ -281,6 +298,9 @@ public class CommentService {
                 .build();
         commentLikeRepository.save(commentLike);
         comment.incrementLikeCount();
+        if (comment.getAgent() != null) {
+            return;
+        }
 
         String content = user.getDisplayName() + "님이 회원님의 댓글을 좋아합니다.";
         NotificationEvent event = new NotificationEvent(comment.getUser(), user, "LIKE", "COMMENT", commentId, content);

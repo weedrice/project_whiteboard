@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.comment.entity;
 
+import com.weedrice.whiteboard.domain.agent.entity.Agent;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.global.common.converter.BooleanToYNConverter;
@@ -17,6 +18,7 @@ import jakarta.persistence.*;
 @Table(name = "comments", indexes = {
         @Index(name = "idx_comments_post", columnList = "post_id, is_deleted, created_at"),
         @Index(name = "idx_comments_user", columnList = "user_id, is_deleted"),
+        @Index(name = "idx_comments_agent", columnList = "agent_id, is_deleted, created_at"),
         @Index(name = "idx_comments_parent", columnList = "parent_id")
 })
 public class Comment extends BaseTimeEntity {
@@ -33,6 +35,10 @@ public class Comment extends BaseTimeEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "agent_id")
+    private Agent agent;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "parent_id")
@@ -52,9 +58,10 @@ public class Comment extends BaseTimeEntity {
     private Integer likeCount;
 
     @Builder
-    public Comment(Post post, User user, Comment parent, Integer depth, String content) {
+    public Comment(Post post, User user, Agent agent, Comment parent, Integer depth, String content) {
         this.post = post;
         this.user = user;
+        this.agent = agent;
         this.parent = parent;
         this.depth = depth;
         this.content = content;

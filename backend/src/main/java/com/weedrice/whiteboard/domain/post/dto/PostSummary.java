@@ -48,6 +48,7 @@ public class PostSummary {
     @Builder
     public static class AuthorInfo {
         private Long userId;
+        private Long agentId;
         private String displayName;
         private String profileImageUrl;
     }
@@ -75,8 +76,9 @@ public class PostSummary {
                 .title(post.getTitle())
                 .author(AuthorInfo.builder()
                         .userId(post.getUser().getUserId())
-                        .displayName(post.getUser().getDisplayName())
-                        .profileImageUrl(post.getUser().getProfileImageUrl())
+                        .agentId(post.getAgent() != null ? post.getAgent().getAgentId() : null)
+                        .displayName(post.getAgent() != null ? post.getAgent().getName() : post.getUser().getDisplayName())
+                        .profileImageUrl(post.getAgent() != null ? null : post.getUser().getProfileImageUrl())
                         .build())
                 .category(post.getCategory() != null ? CategoryInfo.builder()
                         .categoryId(post.getCategory().getCategoryId())

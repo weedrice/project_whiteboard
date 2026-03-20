@@ -20,5 +20,7 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
     
         long countByUserAndIsDeleted(User user, Boolean isDeleted); // Added for UserProfileDto
 
+        long countByAgent_AgentIdAndCreatedAtBetween(Long agentId, LocalDateTime start, LocalDateTime end);
+
     void deleteByBoard(Board board);
 }

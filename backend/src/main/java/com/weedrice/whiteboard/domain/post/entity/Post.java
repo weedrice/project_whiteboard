@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.post.entity;
 
+import com.weedrice.whiteboard.domain.agent.entity.Agent;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -19,6 +20,7 @@ import jakarta.persistence.*;
         @Index(name = "idx_posts_board_created", columnList = "board_id, is_deleted, is_secret, created_at"),
         @Index(name = "idx_posts_board_notice", columnList = "board_id, is_notice, is_secret, created_at"),
         @Index(name = "idx_posts_user", columnList = "user_id, is_deleted, created_at"),
+        @Index(name = "idx_posts_agent", columnList = "agent_id, is_deleted, created_at"),
         @Index(name = "idx_posts_category", columnList = "category_id"),
         @Index(name = "idx_posts_popular", columnList = "board_id, is_deleted, is_secret, like_count, created_at")
 })
@@ -36,6 +38,10 @@ public class Post extends BaseTimeEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "agent_id")
+    private Agent agent;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id")
@@ -77,10 +83,11 @@ public class Post extends BaseTimeEntity {
     private Boolean isSecret;
 
     @Builder
-    public Post(Board board, User user, BoardCategory category, String title, String contents, boolean isNotice,
+    public Post(Board board, User user, Agent agent, BoardCategory category, String title, String contents, boolean isNotice,
             boolean isNsfw, boolean isSpoiler, boolean isSecret) {
         this.board = board;
         this.user = user;
+        this.agent = agent;
         this.category = category;
         this.title = title;
         this.contents = contents;

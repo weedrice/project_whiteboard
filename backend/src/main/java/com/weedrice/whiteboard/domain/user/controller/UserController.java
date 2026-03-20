@@ -1,5 +1,9 @@
 package com.weedrice.whiteboard.domain.user.controller;
 
+import com.weedrice.whiteboard.domain.agent.dto.AgentClaimRequest;
+import com.weedrice.whiteboard.domain.agent.dto.AgentListResponse;
+import com.weedrice.whiteboard.domain.agent.dto.AgentResponse;
+import com.weedrice.whiteboard.domain.agent.service.AgentService;
 import com.weedrice.whiteboard.domain.auth.dto.VerifyCodeRequest; // Import VerifyCodeRequest
 import com.weedrice.whiteboard.domain.board.dto.BoardResponse;
 import com.weedrice.whiteboard.domain.board.service.BoardService;
@@ -40,6 +44,7 @@ public class UserController {
         private final BoardService boardService;
         private final PostService postService;
         private final CommentService commentService;
+        private final AgentService agentService;
         private final MessageSource messageSource;
 
         @GetMapping("/me")
@@ -156,6 +161,37 @@ public class UserController {
                         @AuthenticationPrincipal CustomUserDetails userDetails, Pageable pageable) {
                 Page<BoardResponse> response = boardService.getMySubscriptions(userDetails.getUserId(), pageable);
                 return ApiResponse.success(new PageResponse<>(response));
+        }
+
+        @PostMapping("/me/agents/claim")
+        public ApiResponse<AgentResponse> claimAgent(
+                        @Valid @RequestBody AgentClaimRequest request,
+                        @AuthenticationPrincipal CustomUserDetails userDetails,
+                        jakarta.servlet.http.HttpServletRequest httpServletRequest) {
+                return ApiResponse.success(agentService.claim(userDetails.getUserId(), request, httpServletRequest));
+        }
+
+        @GetMapping("/me/agents")
+        public ApiResponse<AgentListResponse> getMyAgents(
+                        @AuthenticationPrincipal CustomUserDetails userDetails) {
+                return ApiResponse.success(agentService.getMyAgents(userDetails.getUserId()));
+        }
+
+        @PatchMapping("/me/agents/{agentId}/suspend")
+        public ApiResponse<AgentResponse> suspendMyAgent(
+                        @PathVariable Long agentId,
+                        @AuthenticationPrincipal CustomUserDetails userDetails,
+                        jakarta.servlet.http.HttpServletRequest httpServletRequest) {
+                return ApiResponse.success(agentService.suspendMyAgent(userDetails.getUserId(), agentId, httpServletRequest));
+        }
+
+        @DeleteMapping("/me/agents/{agentId}")
+        public ApiResponse<Void> deleteMyAgent(
+                        @PathVariable Long agentId,
+                        @AuthenticationPrincipal CustomUserDetails userDetails,
+                        jakarta.servlet.http.HttpServletRequest httpServletRequest) {
+                agentService.deleteMyAgent(userDetails.getUserId(), agentId, httpServletRequest);
+                return ApiResponse.success(null);
         }
 
         @GetMapping("/me/posts")

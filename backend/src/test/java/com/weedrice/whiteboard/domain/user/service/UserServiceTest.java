@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.user.service;
 
+import com.weedrice.whiteboard.domain.agent.service.AgentService;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.file.service.FileService;
@@ -67,6 +68,8 @@ class UserServiceTest {
     private UserPointRepository userPointRepository;
     @Mock
     private AdminRepository adminRepository;
+    @Mock
+    private AgentService agentService;
 
     @Test
     @DisplayName("로그인 ID로 사용자 ID 조회 성공")
@@ -231,6 +234,7 @@ class UserServiceTest {
         userService.deleteAccount(1L, "pass");
 
         assertThat(user.getStatus()).isEqualTo("DELETED");
+        verify(agentService).suspendAllForUser(user);
     }
 
     @Test

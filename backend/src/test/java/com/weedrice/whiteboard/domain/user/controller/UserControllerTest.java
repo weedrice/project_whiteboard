@@ -1,5 +1,9 @@
 package com.weedrice.whiteboard.domain.user.controller;
 
+import com.weedrice.whiteboard.domain.agent.dto.AgentClaimRequest;
+import com.weedrice.whiteboard.domain.agent.dto.AgentListResponse;
+import com.weedrice.whiteboard.domain.agent.dto.AgentResponse;
+import com.weedrice.whiteboard.domain.agent.service.AgentService;
 import com.weedrice.whiteboard.domain.board.dto.BoardResponse;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.service.BoardService;
@@ -67,6 +71,9 @@ class UserControllerTest {
 
         @Mock
         private CommentService commentService;
+
+        @Mock
+        private AgentService agentService;
 
         @Mock
         private org.springframework.context.MessageSource messageSource;
@@ -583,6 +590,97 @@ class UserControllerTest {
                         assertThat(response.isSuccess()).isTrue();
                         assertThat(response.getData().getContent()).hasSize(1);
                         assertThat(response.getData().getContent().get(0).getTitle()).isEqualTo("Viewed Post");
+                }
+        }
+
+        @Nested
+        @DisplayName("Agent API")
+        class AgentTests {
+
+                @Test
+                @DisplayName("내 Agent claim API 성공")
+                void claimAgent_success() {
+                        AgentClaimRequest request = new AgentClaimRequest();
+                        ReflectionTestUtils.setField(request, "agentToken", "noviis_agt_token");
+
+                        AgentResponse agentResponse = AgentResponse.builder()
+                                        .agentId(10L)
+                                        .name("Writer Agent")
+                                        .description("desc")
+                                        .status("ACTIVE")
+                                        .createdAt(LocalDateTime.now())
+                                        .claimedAt(LocalDateTime.now())
+                                        .build();
+
+                        given(agentService.claim(eq(1L), any(AgentClaimRequest.class), isNull()))
+                                        .willReturn(agentResponse);
+
+                        ApiResponse<AgentResponse> response = userController.claimAgent(request, customUserDetails, null);
+
+                        assertThat(response.isSuccess()).isTrue();
+                        assertThat(response.getData().getAgentId()).isEqualTo(10L);
+                        assertThat(response.getData().getStatus()).isEqualTo("ACTIVE");
+                        verify(agentService).claim(eq(1L), any(AgentClaimRequest.class), isNull());
+                }
+
+                @Test
+                @DisplayName("내 Agent 목록 조회 API 성공")
+                void getMyAgents_success() {
+                        AgentResponse first = AgentResponse.builder()
+                                        .agentId(10L)
+                                        .name("Writer Agent")
+                                        .description("desc")
+                                        .status("ACTIVE")
+                                        .createdAt(LocalDateTime.now())
+                                        .build();
+                        AgentResponse second = AgentResponse.builder()
+                                        .agentId(11L)
+                                        .name("Comment Agent")
+                                        .description("desc2")
+                                        .status("SUSPENDED")
+                                        .createdAt(LocalDateTime.now())
+                                        .build();
+
+                        given(agentService.getMyAgents(1L))
+                                        .willReturn(new AgentListResponse(List.of(first, second)));
+
+                        ApiResponse<AgentListResponse> response = userController.getMyAgents(customUserDetails);
+
+                        assertThat(response.isSuccess()).isTrue();
+                        assertThat(response.getData().getAgents()).hasSize(2);
+                        assertThat(response.getData().getAgents().get(0).getName()).isEqualTo("Writer Agent");
+                }
+
+                @Test
+                @DisplayName("내 Agent 정지 API 성공")
+                void suspendMyAgent_success() {
+                        AgentResponse agentResponse = AgentResponse.builder()
+                                        .agentId(10L)
+                                        .name("Writer Agent")
+                                        .description("desc")
+                                        .status("SUSPENDED")
+                                        .createdAt(LocalDateTime.now())
+                                        .build();
+
+                        given(agentService.suspendMyAgent(eq(1L), eq(10L), isNull()))
+                                        .willReturn(agentResponse);
+
+                        ApiResponse<AgentResponse> response = userController.suspendMyAgent(10L, customUserDetails, null);
+
+                        assertThat(response.isSuccess()).isTrue();
+                        assertThat(response.getData().getStatus()).isEqualTo("SUSPENDED");
+                }
+
+                @Test
+                @DisplayName("내 Agent 삭제 API 성공")
+                void deleteMyAgent_success() {
+                        doNothing().when(agentService).deleteMyAgent(1L, 10L, null);
+
+                        ApiResponse<Void> response = userController.deleteMyAgent(10L, customUserDetails, null);
+
+                        assertThat(response.isSuccess()).isTrue();
+                        assertThat(response.getData()).isNull();
+                        verify(agentService).deleteMyAgent(1L, 10L, null);
                 }
         }
 }

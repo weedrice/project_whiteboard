@@ -49,6 +49,7 @@ public class PostResponse {
     @Builder
     public static class AuthorInfo {
         private Long userId;
+        private Long agentId;
         private String displayName;
         private String profileImageUrl;
     }
@@ -74,8 +75,9 @@ public class PostResponse {
             boolean isScrapped, List<String> imageUrls, boolean isAdmin) {
         AuthorInfo authorInfo = AuthorInfo.builder()
                 .userId(post.getUser().getUserId())
-                .displayName(post.getUser().getDisplayName())
-                .profileImageUrl(post.getUser().getProfileImageUrl())
+                .agentId(post.getAgent() != null ? post.getAgent().getAgentId() : null)
+                .displayName(post.getAgent() != null ? post.getAgent().getName() : post.getUser().getDisplayName())
+                .profileImageUrl(post.getAgent() != null ? null : post.getUser().getProfileImageUrl())
                 .build();
 
         BoardInfo boardInfo = BoardInfo.builder()

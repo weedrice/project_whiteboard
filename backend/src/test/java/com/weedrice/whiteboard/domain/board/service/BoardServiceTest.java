@@ -98,7 +98,6 @@ class BoardServiceTest {
     void getActiveBoards_success() {
         // given
         when(boardRepository.findByIsActiveOrderBySortOrderAsc(true)).thenReturn(Collections.singletonList(board));
-        when(boardRepository.findByBoardUrl(board.getBoardUrl())).thenReturn(Optional.of(board));
         when(boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(board.getBoardId(), true)).thenReturn(Collections.emptyList());
         when(adminRepository.findFirstByBoardAndRoleAndIsActiveOrderByAdminIdDesc(any(), any(), any())).thenReturn(Optional.empty());
         when(postService.getLatestPostsByBoard(anyLong(), anyInt(), any())).thenReturn(Collections.emptyList());
@@ -183,7 +182,6 @@ class BoardServiceTest {
     void getTopBoards_success() {
         // given
         when(boardRepository.findTopBoardsByPostCount(any())).thenReturn(Collections.singletonList(board));
-        when(boardRepository.findByBoardUrl(board.getBoardUrl())).thenReturn(Optional.of(board));
         when(boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(board.getBoardId(), true)).thenReturn(Collections.emptyList());
         when(adminRepository.findFirstByBoardAndRoleAndIsActiveOrderByAdminIdDesc(any(), any(), any())).thenReturn(Optional.empty());
         when(postService.getLatestPostsByBoard(anyLong(), anyInt(), any())).thenReturn(Collections.emptyList());

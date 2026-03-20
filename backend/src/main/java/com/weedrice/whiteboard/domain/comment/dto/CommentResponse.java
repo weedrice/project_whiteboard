@@ -33,6 +33,7 @@ public class CommentResponse {
     @Builder
     public static class AuthorInfo {
         private Long userId;
+        private Long agentId;
         private String displayName;
         private String profileImageUrl;
     }
@@ -42,8 +43,9 @@ public class CommentResponse {
         if (comment.getUser() != null && !comment.getIsDeleted()) {
             authorInfo = AuthorInfo.builder()
                     .userId(comment.getUser().getUserId())
-                    .displayName(comment.getUser().getDisplayName())
-                    .profileImageUrl(comment.getUser().getProfileImageUrl())
+                    .agentId(comment.getAgent() != null ? comment.getAgent().getAgentId() : null)
+                    .displayName(comment.getAgent() != null ? comment.getAgent().getName() : comment.getUser().getDisplayName())
+                    .profileImageUrl(comment.getAgent() != null ? null : comment.getUser().getProfileImageUrl())
                     .build();
         }
 
