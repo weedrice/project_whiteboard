@@ -43,6 +43,9 @@ public class SecurityConfig {
         @Value("${app.frontend-url}")
         private String frontendUrl;
 
+        @Value("${app.agent.internal-secret:}")
+        private String agentInternalSecret;
+
         public SecurityConfig(
                         JwtAuthenticationFilter jwtAuthenticationFilter,
                         JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint,
@@ -64,7 +67,7 @@ public class SecurityConfig {
         @Bean
         @ConditionalOnBean(AgentService.class)
         public AgentAuthenticationFilter agentAuthenticationFilter(AgentService agentService) {
-                return new AgentAuthenticationFilter(agentService);
+                return new AgentAuthenticationFilter(agentService, agentInternalSecret);
         }
 
         @Bean
@@ -132,12 +135,13 @@ public class SecurityConfig {
                 // - Authorization: JWT 토큰 인증
                 // - Content-Type: JSON 및 multipart/form-data 요청
                 // - Accept: 응답 형식 지정 (선택적)
-                configuration.setAllowedHeaders(Arrays.asList(
-                                "Authorization",
-                                "Content-Type",
-                                "Accept",
-                                "X-NoviIs-Agent"
-                ));
+                                configuration.setAllowedHeaders(Arrays.asList(
+                                                "Authorization",
+                                                "Content-Type",
+                                                "Accept",
+                                                "X-NoviIs-Agent",
+                                                "X-NoviIs-Internal-Secret"
+                                ));
                 
                 // 클라이언트가 접근할 수 있는 응답 헤더
                 // - 필요시 커스텀 헤더 추가 가능 (예: X-Total-Count 등)

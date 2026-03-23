@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -23,6 +24,8 @@ public class TagService {
 
     @Transactional
     public void processTagsForPost(Post post, List<String> newTagNames) {
+        List<String> requestedTagNames = newTagNames != null ? newTagNames : Collections.emptyList();
+
         // 기존 태그 가져오기
         List<PostTag> existingPostTags = postTagRepository.findByPost(post);
         Set<String> existingTagNames = existingPostTags.stream()
@@ -31,14 +34,14 @@ public class TagService {
 
         // 삭제할 태그 처리
         for (PostTag postTag : existingPostTags) {
-            if (!newTagNames.contains(postTag.getTag().getTagName())) {
+            if (!requestedTagNames.contains(postTag.getTag().getTagName())) {
                 postTagRepository.delete(postTag);
                 postTag.getTag().decrementPostCount(); // 태그 사용 횟수 감소
             }
         }
 
         // 추가할 태그 처리
-        for (String newTagName : newTagNames) {
+        for (String newTagName : requestedTagNames) {
             if (!existingTagNames.contains(newTagName)) {
                 Tag tag = tagRepository.findByTagName(newTagName)
                         .orElseGet(() -> tagRepository.save(new Tag(newTagName))); // 없으면 새로 생성

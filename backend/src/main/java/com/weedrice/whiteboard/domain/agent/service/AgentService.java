@@ -179,7 +179,7 @@ public class AgentService {
                 null,
                 request.getTitle(),
                 request.getContent(),
-                null,
+                List.of(),
                 false,
                 false,
                 false,

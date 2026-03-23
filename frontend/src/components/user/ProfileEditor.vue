@@ -31,6 +31,90 @@
         </BaseButton>
       </div>
     </form>
+
+    <hr class="border-gray-200 dark:border-gray-700 my-4 sm:my-6" />
+
+    <section class="space-y-4">
+      <div>
+        <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">에이전트 코드 등록</h3>
+        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+          MCP 서버에서 받은 agent code를 등록하면 이 계정에 에이전트가 연결됩니다.
+        </p>
+      </div>
+
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-start">
+        <div class="flex-1">
+          <BaseInput
+            v-model="agentToken"
+            label="에이전트 코드"
+            placeholder="noviis_agt_xxxxx"
+            :error="agentError"
+            :disabled="isClaiming"
+          />
+        </div>
+        <BaseButton
+          type="button"
+          class="w-full sm:w-auto h-11 min-h-[44px] mt-0 sm:mt-6"
+          :loading="isClaiming"
+          :disabled="!agentToken.trim()"
+          @click="handleClaimAgent"
+        >
+          등록
+        </BaseButton>
+      </div>
+
+      <div class="space-y-3">
+        <div
+          v-for="agent in agents"
+          :key="agent.agentId"
+          class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 py-3"
+        >
+          <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div class="min-w-0">
+              <div class="flex flex-wrap items-center gap-2">
+                <p class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ agent.name }}</p>
+                <span
+                  class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
+                  :class="getAgentStatusClass(agent.status)"
+                >
+                  {{ getAgentStatusLabel(agent.status) }}
+                </span>
+              </div>
+              <p class="mt-1 text-sm text-gray-600 dark:text-gray-300 break-words">{{ agent.description }}</p>
+              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                등록일 {{ formatDate(agent.createdAt) }}
+              </p>
+            </div>
+
+            <div class="flex gap-2 sm:shrink-0">
+              <BaseButton
+                v-if="agent.status === 'ACTIVE'"
+                type="button"
+                variant="secondary"
+                size="sm"
+                :loading="processingAgentId === agent.agentId && processingAction === 'suspend'"
+                @click="handleSuspendAgent(agent.agentId)"
+              >
+                비활성화
+              </BaseButton>
+              <BaseButton
+                type="button"
+                variant="danger"
+                size="sm"
+                :loading="processingAgentId === agent.agentId && processingAction === 'delete'"
+                @click="handleDeleteAgent(agent.agentId)"
+              >
+                삭제
+              </BaseButton>
+            </div>
+          </div>
+        </div>
+
+        <p v-if="agents.length === 0" class="text-sm text-gray-500 dark:text-gray-400">
+          아직 등록된 에이전트가 없습니다.
+        </p>
+      </div>
+    </section>
     <hr class="border-gray-200 dark:border-gray-700 my-4 sm:my-6" />
 
     <!-- Danger Zone -->
@@ -90,19 +174,28 @@ import BaseModal from '@/components/common/ui/BaseModal.vue'
 import { useUser } from '@/composables/useUser'
 import axios from '@/api' // Direct axios for file upload
 import logger from '@/utils/logger'
-import type { UserUpdatePayload } from '@/api/user'
+import type { UserAgent, UserUpdatePayload } from '@/api/user'
 import { useToastStore } from '@/stores/toast'
 import { extractValidationErrors, extractErrorMessage, getFieldError } from '@/utils/errorHandler'
 import type { AxiosError } from 'axios'
 import { getOptimizedProfileImageUrl } from '@/utils/image'
 
+const emit = defineEmits<{
+  (e: 'close'): void
+  (e: 'refreshed'): void
+}>()
+
 const authStore = useAuthStore()
 const toastStore = useToastStore()
 const router = useRouter()
 const { t } = useI18n()
-const { useUpdateMyProfile, useDeleteAccount } = useUser()
+const { useUpdateMyProfile, useDeleteAccount, useMyAgents, useClaimAgent, useSuspendMyAgent, useDeleteMyAgent } = useUser()
 const { mutate: updateProfileMutate } = useUpdateMyProfile()
 const { mutateAsync: deleteAccount, isPending: isDeleting } = useDeleteAccount()
+const { data: agentsData } = useMyAgents()
+const { mutateAsync: claimAgent, isPending: isClaiming } = useClaimAgent()
+const { mutateAsync: suspendMyAgent } = useSuspendMyAgent()
+const { mutateAsync: deleteMyAgent } = useDeleteMyAgent()
 
 const loading = ref(false) // Local loading state for image processing + mutation
 const errors = reactive<Record<string, string>>({})
@@ -110,6 +203,12 @@ const fileInputRef = ref<HTMLInputElement | null>(null)
 const selectedFile = ref<File | null>(null)
 const previewImage = ref<string | null>(null)
 const profileImageError = ref(false)
+const agentToken = ref('')
+const agentError = ref('')
+const processingAgentId = ref<number | null>(null)
+const processingAction = ref<'suspend' | 'delete' | null>(null)
+
+const agents = computed(() => agentsData.value?.agents ?? [])
 
 const profileImageDisplayUrl = computed(() => {
   if (previewImage.value) return previewImage.value
@@ -138,6 +237,33 @@ watch(previewImage, (_newUrl, oldUrl) => {
 onUnmounted(() => {
   revokeObjectUrlIfNeeded(previewImage.value)
 })
+
+const getAgentStatusLabel = (status: UserAgent['status']) => {
+  if (status === 'ACTIVE') return '활성'
+  if (status === 'SUSPENDED') return '정지'
+  return '대기'
+}
+
+const getAgentStatusClass = (status: UserAgent['status']) => {
+  if (status === 'ACTIVE') {
+    return 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300'
+  }
+  if (status === 'SUSPENDED') {
+    return 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300'
+  }
+  return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
+}
+
+const formatDate = (value?: string) => {
+  if (!value) return '-'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return new Intl.DateTimeFormat('ko-KR', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(date)
+}
 
 const handleFileChange = async (event: Event) => {
   const target = event.target as HTMLInputElement
@@ -240,6 +366,7 @@ const updateProfile = async () => {
       onSuccess: async () => {
         await authStore.fetchUser()
         toastStore.addToast(t('common.messages.profileUpdated'), 'success')
+        emit('refreshed')
         loading.value = false
       },
       onError: (error: Error) => {
@@ -276,6 +403,58 @@ const updateProfile = async () => {
   } catch (error) {
     logger.error('Failed to process profile update:', error)
     loading.value = false
+  }
+}
+
+const handleClaimAgent = async () => {
+  agentError.value = ''
+  const token = agentToken.value.trim()
+  if (!token) {
+    agentError.value = '에이전트 코드를 입력해 주세요.'
+    return
+  }
+
+  try {
+    await claimAgent(token)
+    agentToken.value = ''
+    toastStore.addToast('에이전트 코드가 등록되었습니다.', 'success')
+    emit('refreshed')
+  } catch (error: unknown) {
+    agentError.value = extractErrorMessage(error as AxiosError) || '에이전트 코드 등록에 실패했습니다.'
+  }
+}
+
+const handleSuspendAgent = async (agentId: number) => {
+  processingAgentId.value = agentId
+  processingAction.value = 'suspend'
+  try {
+    await suspendMyAgent(agentId)
+    toastStore.addToast('에이전트를 비활성화했습니다.', 'success')
+    emit('refreshed')
+  } catch (error: unknown) {
+    toastStore.addToast(extractErrorMessage(error as AxiosError) || '에이전트 비활성화에 실패했습니다.', 'error')
+  } finally {
+    processingAgentId.value = null
+    processingAction.value = null
+  }
+}
+
+const handleDeleteAgent = async (agentId: number) => {
+  if (!window.confirm('이 에이전트를 삭제하시겠습니까?')) {
+    return
+  }
+
+  processingAgentId.value = agentId
+  processingAction.value = 'delete'
+  try {
+    await deleteMyAgent(agentId)
+    toastStore.addToast('에이전트를 삭제했습니다.', 'success')
+    emit('refreshed')
+  } catch (error: unknown) {
+    toastStore.addToast(extractErrorMessage(error as AxiosError) || '에이전트 삭제에 실패했습니다.', 'error')
+  } finally {
+    processingAgentId.value = null
+    processingAction.value = null
   }
 }
 

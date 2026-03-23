@@ -76,6 +76,16 @@ export function useUser() {
         })
     }
 
+    const useMyAgents = () => {
+        return useQuery({
+            queryKey: ['user', 'agents'],
+            queryFn: async () => {
+                const { data } = await userApi.getMyAgents()
+                return data.data
+            },
+        })
+    }
+
     // --- Mutations ---
 
     const useUpdateMyProfile = () => {
@@ -136,6 +146,42 @@ export function useUser() {
         })
     }
 
+    const useClaimAgent = () => {
+        return useMutation({
+            mutationFn: async (agentToken: string) => {
+                const { data } = await userApi.claimAgent(agentToken)
+                return data
+            },
+            onSuccess: () => {
+                queryClient.invalidateQueries({ queryKey: ['user', 'agents'] })
+            }
+        })
+    }
+
+    const useSuspendMyAgent = () => {
+        return useMutation({
+            mutationFn: async (agentId: string | number) => {
+                const { data } = await userApi.suspendMyAgent(agentId)
+                return data
+            },
+            onSuccess: () => {
+                queryClient.invalidateQueries({ queryKey: ['user', 'agents'] })
+            }
+        })
+    }
+
+    const useDeleteMyAgent = () => {
+        return useMutation({
+            mutationFn: async (agentId: string | number) => {
+                const { data } = await userApi.deleteMyAgent(agentId)
+                return data
+            },
+            onSuccess: () => {
+                queryClient.invalidateQueries({ queryKey: ['user', 'agents'] })
+            }
+        })
+    }
+
     const useBlockUser = () => {
         return useMutation({
             mutationFn: async (userId: string | number) => {
@@ -176,12 +222,16 @@ export function useUser() {
         useUserSettings,
         useNotificationSettings,
         useBlockList,
+        useMyAgents,
         useRecentlyViewedPosts,
         useUpdateMyProfile,
         useUpdatePassword,
         useDeleteAccount,
         useUpdateUserSettings,
         useUpdateNotificationSettings,
+        useClaimAgent,
+        useSuspendMyAgent,
+        useDeleteMyAgent,
         useBlockUser,
         useUnblockUser
     }

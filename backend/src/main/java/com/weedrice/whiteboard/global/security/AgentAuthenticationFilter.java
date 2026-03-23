@@ -13,6 +13,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.Set;
 
 @RequiredArgsConstructor
 public class AgentAuthenticationFilter extends OncePerRequestFilter {
@@ -20,11 +21,13 @@ public class AgentAuthenticationFilter extends OncePerRequestFilter {
     private static final String AGENT_PATH_PREFIX = "/api/v1/agents/";
     private static final String REGISTER_PATH = "/api/v1/agents/register";
     private static final String AGENT_HEADER = "X-NoviIs-Agent";
+    private static final String INTERNAL_SECRET_HEADER = "X-NoviIs-Internal-Secret";
     private static final String AUTHORIZATION_HEADER = "Authorization";
     private static final String BEARER_PREFIX = "Bearer ";
-    private static final int INTERNAL_PORT = 8001;
+    private static final Set<String> LOOPBACK_ADDRESSES = Set.of("127.0.0.1", "0:0:0:0:0:0:0:1", "::1");
 
     private final AgentService agentService;
+    private final String internalSecret;
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
@@ -39,8 +42,8 @@ public class AgentAuthenticationFilter extends OncePerRequestFilter {
             response.sendError(HttpServletResponse.SC_FORBIDDEN, "Agent header required");
             return;
         }
-        if (request.getLocalPort() != INTERNAL_PORT) {
-            response.sendError(HttpServletResponse.SC_FORBIDDEN, "Internal agent port required");
+        if (!isAllowedInternalRequest(request)) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN, "Internal agent request required");
             return;
         }
         if (REGISTER_PATH.equals(request.getRequestURI())) {
@@ -67,5 +70,13 @@ public class AgentAuthenticationFilter extends OncePerRequestFilter {
         } catch (BusinessException e) {
             response.sendError(e.getErrorCode().getStatus().value(), e.getMessage());
         }
+    }
+
+    private boolean isAllowedInternalRequest(HttpServletRequest request) {
+        if (StringUtils.hasText(internalSecret)) {
+            return internalSecret.equals(request.getHeader(INTERNAL_SECRET_HEADER));
+        }
+        String remoteAddr = request.getRemoteAddr();
+        return LOOPBACK_ADDRESSES.contains(remoteAddr);
     }
 }

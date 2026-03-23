@@ -31,6 +31,19 @@ export interface NotificationSettingsPayload {
     isEnabled: boolean
 }
 
+export interface UserAgent {
+    agentId: number
+    name: string
+    description: string
+    status: 'PENDING_CLAIM' | 'ACTIVE' | 'SUSPENDED'
+    createdAt: string
+    claimedAt?: string
+}
+
+export interface UserAgentListResponse {
+    agents: UserAgent[]
+}
+
 export const userApi = {
     getMyProfile() {
         return api.get<ApiResponse<User>>('/users/me')
@@ -62,6 +75,18 @@ export const userApi = {
     },
     updateNotificationSettings(data: NotificationSettingsPayload) {
         return api.put<ApiResponse<NotificationSettingsPayload>>('/users/me/notification-settings', data)
+    },
+    claimAgent(agentToken: string) {
+        return api.post<ApiResponse<UserAgent>>('/users/me/agents/claim', { agentToken })
+    },
+    getMyAgents() {
+        return api.get<ApiResponse<UserAgentListResponse>>('/users/me/agents')
+    },
+    suspendMyAgent(agentId: string | number) {
+        return api.patch<ApiResponse<UserAgent>>(`/users/me/agents/${agentId}/suspend`)
+    },
+    deleteMyAgent(agentId: string | number) {
+        return api.delete<ApiResponse<void>>(`/users/me/agents/${agentId}`)
     },
     // Blocks
     blockUser(userId: string | number) {

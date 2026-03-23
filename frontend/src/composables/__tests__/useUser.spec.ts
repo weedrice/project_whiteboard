@@ -52,11 +52,15 @@ vi.mock('@/api/user', () => ({
         getUserSettings: vi.fn(),
         getBlockList: vi.fn(),
         getNotificationSettings: vi.fn(),
+        getMyAgents: vi.fn(),
         updateMyProfile: vi.fn(),
         updatePassword: vi.fn(),
         deleteAccount: vi.fn(),
         updateUserSettings: vi.fn(),
         updateNotificationSettings: vi.fn(),
+        claimAgent: vi.fn(),
+        suspendMyAgent: vi.fn(),
+        deleteMyAgent: vi.fn(),
         blockUser: vi.fn(),
         unblockUser: vi.fn(),
         getRecentlyViewedPosts: vi.fn(),
@@ -117,7 +121,11 @@ describe('useUser', () => {
             data: { data: [{ notificationType: 'COMMENT', isEnabled: true }] },
         } as never)
 
-        const { useUserSettings, useBlockList, useNotificationSettings } = useUser()
+        vi.mocked(userApi.getMyAgents).mockResolvedValueOnce({
+            data: { data: { agents: [{ agentId: 10 }] } },
+        } as never)
+
+        const { useUserSettings, useBlockList, useNotificationSettings, useMyAgents } = useUser()
 
         useUserSettings()
         let options = mocks.queryOptions.at(-1)!
@@ -136,6 +144,12 @@ describe('useUser', () => {
         expect(options.queryKey).toEqual(['user', 'notification-settings'])
         result = await (options.queryFn as () => Promise<unknown>)()
         expect(result).toEqual([{ notificationType: 'COMMENT', isEnabled: true }])
+
+        useMyAgents()
+        options = mocks.queryOptions.at(-1)!
+        expect(options.queryKey).toEqual(['user', 'agents'])
+        result = await (options.queryFn as () => Promise<unknown>)()
+        expect(result).toEqual({ agents: [{ agentId: 10 }] })
     })
 
     it('fetches recently viewed posts with optional params', async () => {
@@ -222,6 +236,25 @@ describe('useUser', () => {
             isEnabled: true,
         })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['user', 'notification-settings'] })
+    })
+
+    it('claims, suspends and deletes agents and invalidates agent list', async () => {
+        vi.mocked(userApi.claimAgent).mockResolvedValueOnce({ data: { success: true } } as never)
+        vi.mocked(userApi.suspendMyAgent).mockResolvedValueOnce({ data: { success: true } } as never)
+        vi.mocked(userApi.deleteMyAgent).mockResolvedValueOnce({ data: { success: true } } as never)
+
+        const { useClaimAgent, useSuspendMyAgent, useDeleteMyAgent } = useUser()
+
+        await useClaimAgent().mutateAsync('noviis_agt_xxx')
+        expect(userApi.claimAgent).toHaveBeenCalledWith('noviis_agt_xxx')
+
+        await useSuspendMyAgent().mutateAsync(7)
+        expect(userApi.suspendMyAgent).toHaveBeenCalledWith(7)
+
+        await useDeleteMyAgent().mutateAsync(7)
+        expect(userApi.deleteMyAgent).toHaveBeenCalledWith(7)
+
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['user', 'agents'] })
     })
 
     it('blocks and unblocks user and invalidates block list', async () => {

@@ -35,6 +35,10 @@ describe('userApi', () => {
         userApi.updateUserSettings(settingsData as never)
         userApi.getNotificationSettings()
         userApi.updateNotificationSettings(notificationData)
+        userApi.claimAgent('noviis_agt_xxx')
+        userApi.getMyAgents()
+        userApi.suspendMyAgent(7)
+        userApi.deleteMyAgent(7)
 
         expect(apiMock.get).toHaveBeenNthCalledWith(1, '/users/me')
         expect(apiMock.get).toHaveBeenNthCalledWith(2, '/users/12')
@@ -54,6 +58,10 @@ describe('userApi', () => {
         expect(apiMock.put).toHaveBeenNthCalledWith(3, '/users/me/settings', settingsData)
         expect(apiMock.get).toHaveBeenNthCalledWith(4, '/users/me/notification-settings')
         expect(apiMock.put).toHaveBeenNthCalledWith(4, '/users/me/notification-settings', notificationData)
+        expect(apiMock.post).toHaveBeenNthCalledWith(2, '/users/me/agents/claim', { agentToken: 'noviis_agt_xxx' })
+        expect(apiMock.get).toHaveBeenNthCalledWith(5, '/users/me/agents')
+        expect(apiMock.patch).toHaveBeenNthCalledWith(1, '/users/me/agents/7/suspend')
+        expect(apiMock.delete).toHaveBeenNthCalledWith(2, '/users/me/agents/7')
     })
 
     it('calls block and activity endpoints with params', () => {

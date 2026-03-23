@@ -86,6 +86,19 @@ class TagServiceTest {
     }
 
     @Test
+    void processTagsForPost_nullTagsTreatedAsEmpty() {
+        // given
+        when(postTagRepository.findByPost(post)).thenReturn(Collections.singletonList(existingPostTag));
+
+        // when
+        tagService.processTagsForPost(post, null);
+
+        // then
+        verify(postTagRepository, times(1)).delete(existingPostTag);
+        verify(postTagRepository, never()).save(any());
+    }
+
+    @Test
     @DisplayName("태그 처리 성공 - 태그 추가 및 삭제")
     void processTagsForPost_addAndRemove() {
         // given

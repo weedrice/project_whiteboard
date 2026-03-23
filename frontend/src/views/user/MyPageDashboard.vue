@@ -22,17 +22,19 @@ import { formatDate } from '@/utils/date'
 import { isValidEmail } from '@/utils/validation'
 import { renderCommentContentHtml } from '@/utils/commentContent'
 import type { User as UserType, PostSummary, Post, Comment } from '@/types'
+import type { UserAgent } from '@/api/user'
 
 const { t } = useI18n()
 const { handleSilentError } = useErrorHandler()
 const toastStore = useToastStore()
 
-// 이모티콘 마크다운을 이미지로 변환 (내 댓글 목록용)
+// Comment list uses a dedicated emoticon rendering class.
 function renderCommentContent(content: string | undefined): string {
   return renderCommentContentHtml(content, 'comment-emoticon comment-emoticon-list')
 }
 
 const profile = ref<UserType | null>(null)
+const myAgents = ref<UserAgent[]>([])
 
 // Posts pagination state
 const myPosts = ref<PostSummary[]>([])
@@ -133,6 +135,17 @@ async function openMyInquiryPost(post: { postId: number; boardUrl?: string | num
   }
 }
 
+async function fetchMyAgents() {
+  try {
+    const { data } = await userApi.getMyAgents()
+    if (data.success) {
+      myAgents.value = data.data.agents
+    }
+  } catch (err: unknown) {
+    handleSilentError(err, 'Failed to load my agents')
+  }
+}
+
 function closeInquiryModal() {
   isInquiryDetailOpen.value = false
   selectedInquiryPost.value = null
@@ -143,7 +156,7 @@ function closeInquiryModal() {
 async function deleteInquiryPost() {
   const post = selectedInquiryPost.value
   if (!post) return
-  if (!window.confirm('문의를 삭제하시겠습니까?')) {
+  if (!window.confirm('\uBB38\uC758\uB97C \uC0AD\uC81C\uD558\uC2DC\uACA0\uC2B5\uB2C8\uAE4C?')) {
     return
   }
 
@@ -163,6 +176,26 @@ async function deleteInquiryPost() {
 function handleMyCommentsPageChange(page: number) {
   myCommentsCurrentPage.value = page
   fetchMyComments()
+}
+function getAgentSummary() {
+  if (myAgents.value.length === 0) {
+    return '\uB4F1\uB85D\uB41C \uC5D0\uC774\uC804\uD2B8\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.'
+  }
+
+  const activeAgents = myAgents.value.filter((agent) => agent.status === 'ACTIVE')
+  if (activeAgents.length === 1) {
+    return `${activeAgents[0].name} \uC5F0\uACB0\uB428`
+  }
+  if (activeAgents.length > 1) {
+    return `\uD65C\uC131 \uC5D0\uC774\uC804\uD2B8 ${activeAgents.length}\uAC1C \uC5F0\uACB0\uB428`
+  }
+  return `\uC5D0\uC774\uC804\uD2B8 ${myAgents.value.length}\uAC1C \uB4F1\uB85D\uB428`
+}
+
+function getAgentStatusLabel(status: UserAgent['status']) {
+  if (status === 'ACTIVE') return '\uD65C\uC131'
+  if (status === 'SUSPENDED') return '\uC815\uC9C0'
+  return '\uB300\uAE30'
 }
 
 // Email Verification
@@ -286,7 +319,7 @@ async function verifyEmailCode() {
       emailVerification.isVerified = true
       stopVerifyTimer()
       toastStore.addToast(t('auth.codeVerified'), 'success')
-      // 프로필 새로고침
+      // ????썹땟怨⒲뀋????썹땟?ⓦ궘?????⑤베鍮????곗뵯???????쇰젩.
       await fetchMyProfile()
       isVerifyModalOpen.value = false
     }
@@ -302,6 +335,7 @@ onMounted(async () => {
   isLoading.value = true
   await Promise.all([
     fetchMyProfile(),
+    fetchMyAgents(),
     fetchMyPosts(),
     fetchMyComments()
   ])
@@ -368,20 +402,20 @@ onUnmounted(() => {
           </div>
           <div class="border-t border-gray-200 dark:border-gray-700 px-4 py-5 sm:p-0">
             <dl class="sm:divide-y sm:divide-gray-200 dark:sm:divide-gray-700">
-              <div class="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center">
+              <div class="py-4 sm:py-5 sm:grid sm:grid-cols-[150px_minmax(0,1fr)] sm:items-center sm:gap-2 sm:px-6">
+                <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center whitespace-nowrap">
                   <User class="h-4 w-4 mr-2" />
                   {{ $t('user.profile.displayName') }}
                 </dt>
-                <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100 sm:mt-0 sm:col-span-2">{{ profile?.displayName
+                <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100 sm:mt-0">{{ profile?.displayName
                 }}</dd>
               </div>
-              <div class="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center">
+              <div class="py-4 sm:py-5 sm:grid sm:grid-cols-[150px_minmax(0,1fr)] sm:items-center sm:gap-2 sm:px-6">
+                <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center whitespace-nowrap">
                   <Mail class="h-4 w-4 mr-2" />
                   {{ $t('user.profile.email') }}
                 </dt>
-                <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100 sm:mt-0 sm:col-span-2">
+                <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100 sm:mt-0">
                   {{ profile?.email }}
                   <span v-if="profile?.isEmailVerified"
                     class="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-400">
@@ -393,21 +427,47 @@ onUnmounted(() => {
                   </button>
                 </dd>
               </div>
-              <div class="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center">
+              <div class="py-4 sm:py-5 sm:grid sm:grid-cols-[150px_minmax(0,1fr)] sm:items-center sm:gap-2 sm:px-6">
+                <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center whitespace-nowrap">
                   <Calendar class="h-4 w-4 mr-2" />
                   {{ $t('user.profile.joined') }}
                 </dt>
-                <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100 sm:mt-0 sm:col-span-2">{{
+                <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100 sm:mt-0">{{
                   profile?.createdAt ? formatDate(profile.createdAt) : '' }}</dd>
               </div>
-              <div class="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center">
+              <div class="py-4 sm:py-5 sm:grid sm:grid-cols-[150px_minmax(0,1fr)] sm:items-center sm:gap-2 sm:px-6">
+                <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center whitespace-nowrap">
                   <Clock class="h-4 w-4 mr-2" />
                   {{ $t('user.profile.lastLogin') }}
                 </dt>
-                <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100 sm:mt-0 sm:col-span-2">{{
+                <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100 sm:mt-0">{{
                   profile?.lastLoginAt ? formatDate(profile.lastLoginAt) : '' }}</dd>
+              </div>
+              <div class="py-4 sm:py-5 sm:grid sm:grid-cols-[150px_minmax(0,1fr)] sm:items-center sm:gap-2 sm:px-6">
+                <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center whitespace-nowrap">
+                  <ShieldCheck class="h-4 w-4 mr-1.5" />
+                  {{ '\uC5D0\uC774\uC804\uD2B8 \uCF54\uB4DC' }}
+                </dt>
+                <dd class="mt-1 sm:mt-0">
+                  <div v-if="myAgents.length > 0" class="flex flex-wrap gap-2">
+                    <span
+                      v-for="agent in myAgents"
+                      :key="agent.agentId"
+                      class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium"
+                      :class="agent.status === 'ACTIVE'
+                        ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300'
+                        : agent.status === 'SUSPENDED'
+                          ? 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300'
+                          : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'"
+                    >
+                      <span>{{ agent.name }}</span>
+                      <span>{{ getAgentStatusLabel(agent.status) }}</span>
+                    </span>
+                  </div>
+                  <span v-else class="text-sm text-gray-500 dark:text-gray-400">
+                    {{ '\uB4F1\uB85D\uB41C \uC5D0\uC774\uC804\uD2B8 \uC5C6\uC74C' }}
+                  </span>
+                </dd>
               </div>
             </dl>
           </div>
@@ -487,13 +547,13 @@ onUnmounted(() => {
 
       <BaseModal :isOpen="isEditModalOpen" :title="$t('user.profile.edit')" @close="isEditModalOpen = false" mobile-full
         mobile-fit-content>
-        <ProfileEditor @close="isEditModalOpen = false" />
+        <ProfileEditor @close="isEditModalOpen = false" @refreshed="() => { fetchMyProfile(); fetchMyAgents() }" />
       </BaseModal>
 
       <!-- Email Verification Modal -->
       <BaseModal :isOpen="isVerifyModalOpen" :title="$t('auth.emailNotVerified')" @close="isVerifyModalOpen = false">
         <div class="space-y-6 p-4">
-          <!-- Email Input & Send Button (에러 시에도 버튼는 입력창 baseline에 맞춤) -->
+          <!-- Email Input & Send Button -->
           <div class="flex flex-col">
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               {{ t('user.profile.email') }}
@@ -550,7 +610,7 @@ onUnmounted(() => {
         </div>
       </BaseModal>
 
-      <BaseModal :isOpen="isInquiryDetailOpen" title="문의 상세" size="2xl" mobile-full @close="closeInquiryModal">
+      <BaseModal :isOpen="isInquiryDetailOpen" :title="'\uBB38\uC758 \uC0C1\uC138'" size="2xl" mobile-full @close="closeInquiryModal">
         <div class="space-y-4 p-2 sm:p-4">
           <div v-if="isInquiryDetailLoading" class="flex items-center justify-center py-10">
             <BaseSkeleton width="100%" height="180px" />
@@ -567,7 +627,7 @@ onUnmounted(() => {
             <div class="space-y-2 border-b border-gray-200 pb-3 dark:border-gray-700">
               <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">{{ selectedInquiryPost.title }}</h2>
               <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
-                <span>작성일: {{ formatDate(selectedInquiryPost.createdAt) }}</span>
+                <span>{{ '\uC791\uC131\uC77C' }} {{ formatDate(selectedInquiryPost.createdAt) }}</span>
               </div>
             </div>
 
@@ -596,3 +656,4 @@ onUnmounted(() => {
     </div>
   </div>
 </template>
+
