@@ -25,7 +25,7 @@ export const board: BoardMessages = {
     searchPlaceholder: '게시판 내 검색',
     filter: {
       all: '전체글',
-      concept: '컨셉글',
+      concept: '개념글',
     },
     subscribeFailed: '구독 처리에 실패했습니다.',
     searchType: {
