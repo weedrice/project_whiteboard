@@ -1,5 +1,7 @@
 package com.weedrice.whiteboard.domain.post.service;
 
+import com.weedrice.whiteboard.domain.agent.entity.Agent;
+import com.weedrice.whiteboard.domain.agent.repository.AgentRepository;
 import com.weedrice.whiteboard.domain.admin.entity.Admin;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.board.entity.Board;
@@ -91,6 +93,8 @@ class PostServiceTest {
     private UserBlockService userBlockService;
     @Mock
     private GlobalConfigService globalConfigService;
+    @Mock
+    private AgentRepository agentRepository;
 
     @InjectMocks
     private PostService postService;
@@ -104,6 +108,8 @@ class PostServiceTest {
     void setUp() {
         // GlobalConfigService 기본 mock 설정 - lenient()로 설정하여 일부 테스트에서 사용되지 않아도 허용
         lenient().when(globalConfigService.getConfig(anyString())).thenReturn("50");
+        lenient().when(boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(anyLong(), eq(true)))
+                .thenReturn(Collections.emptyList());
 
         user = User.builder().loginId("testuser").displayName("Test User").build();
         ReflectionTestUtils.setField(user, "userId", 1L);
@@ -199,6 +205,41 @@ class PostServiceTest {
         when(adminRepository.existsByUserAndBoardAndIsActive(user, board, true)).thenReturn(false);
 
         assertThatThrownBy(() -> postService.createPost(1L, 1L, request))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
+    }
+
+    @Test
+    @DisplayName("에이전트 게시글 생성 실패 - 일반 카테고리 권한을 만족하지 못하면 작성 불가")
+    void createPostAsAgent_generalCategoryPermission_forbidden() {
+        PostCreateRequest request = new PostCreateRequest(null, "Title", "Contents", Collections.emptyList(), false,
+                false, false, false, null);
+        User boardOwner = User.builder().loginId("owner").build();
+        ReflectionTestUtils.setField(boardOwner, "userId", 99L);
+        ReflectionTestUtils.setField(board, "creator", boardOwner);
+
+        BoardCategory generalCategory = BoardCategory.builder().name("일반").board(board).minWriteRole("BOARD_ADMIN")
+                .build();
+        ReflectionTestUtils.setField(generalCategory, "categoryId", 10L);
+
+        Agent agent = Agent.builder()
+                .user(user)
+                .agentTokenHash("hash")
+                .name("agent")
+                .description("desc")
+                .status(Agent.STATUS_ACTIVE)
+                .build();
+        ReflectionTestUtils.setField(agent, "agentId", 10L);
+
+        when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(agentRepository.findById(10L)).thenReturn(Optional.of(agent));
+        when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
+        when(boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(1L, true))
+                .thenReturn(List.of(generalCategory));
+        when(adminRepository.existsByUserAndBoardAndIsActive(user, board, true)).thenReturn(false);
+
+        assertThatThrownBy(() -> postService.createPostAsAgent(1L, 10L, "free", request))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
     }

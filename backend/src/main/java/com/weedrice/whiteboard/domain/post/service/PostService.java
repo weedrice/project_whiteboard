@@ -54,6 +54,7 @@ import java.util.stream.Collectors;
 @SuppressWarnings({ "null" })
 public class PostService {
     private static final String DEFAULT_INQUIRY_BOARD_URL = "inquiry";
+    private static final String DEFAULT_CATEGORY_NAME = "일반";
 
     private final PostRepository postRepository;
     private final BoardRepository boardRepository;
@@ -540,6 +541,8 @@ public class PostService {
             throw new BusinessException(ErrorCode.BOARD_NOT_FOUND);
         }
 
+        validateBoardWritable(board, user);
+
         if (request.isNotice()) {
             if (!hasBoardAdminAccess(board, user)) {
                 throw new BusinessException(ErrorCode.FORBIDDEN);
@@ -552,17 +555,7 @@ public class PostService {
                     .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
             validateCategoryInBoard(board, category);
 
-            // Category Permission Check
-            String minRole = category.getMinWriteRole();
-            if (Role.SUPER_ADMIN.equals(minRole)) {
-                if (!user.getIsSuperAdmin()) {
-                    throw new BusinessException(ErrorCode.FORBIDDEN);
-                }
-            } else if (Role.BOARD_ADMIN.equals(minRole)) {
-                if (!hasBoardAdminAccess(board, user)) {
-                    throw new BusinessException(ErrorCode.FORBIDDEN);
-                }
-            }
+            validateWriteRole(board, user, category.getMinWriteRole());
         }
 
         // 蹂몃Ц?먯꽌 ?꾪뿕???ㅽ겕由쏀듃留??쒓굅 (HTML ?쒓렇???덉슜)
@@ -931,6 +924,26 @@ public class PostService {
         return board != null
                 && board.getBoardUrl() != null
                 && DEFAULT_INQUIRY_BOARD_URL.equalsIgnoreCase(board.getBoardUrl());
+    }
+
+    private void validateBoardWritable(Board board, User user) {
+        boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(board.getBoardId(), true).stream()
+                .filter(category -> DEFAULT_CATEGORY_NAME.equals(category.getName()))
+                .findFirst()
+                .ifPresent(category -> validateWriteRole(board, user, category.getMinWriteRole()));
+    }
+
+    private void validateWriteRole(Board board, User user, String minRole) {
+        if (Role.SUPER_ADMIN.equals(minRole)) {
+            if (!user.getIsSuperAdmin()) {
+                throw new BusinessException(ErrorCode.FORBIDDEN);
+            }
+            return;
+        }
+
+        if (Role.BOARD_ADMIN.equals(minRole) && !hasBoardAdminAccess(board, user)) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
     }
 
     private Boolean resolveInquiryAnsweredStatus(Post post) {
