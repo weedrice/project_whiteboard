@@ -505,6 +505,16 @@ export interface UserMessages {
     choosePhoto: string
     choosePhotoPlaceholder: string
     displayNamePlaceholder: string
+    agentTitle: string
+    agentDescription: string
+    agentCode: string
+    agentPlaceholder: string
+    agentRegister: string
+    agentEmpty: string
+    agentCodeRequired: string
+    agentClaimSuccess: string
+    agentClaimFailed: string
+    agentEmailVerificationRequired: string
   }
   pointsHistory: {
     description: string

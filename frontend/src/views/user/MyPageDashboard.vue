@@ -194,7 +194,7 @@ function getAgentSummary() {
 
 function getAgentStatusLabel(status: UserAgent['status']) {
   if (status === 'ACTIVE') return '\uD65C\uC131'
-  if (status === 'SUSPENDED') return '\uC815\uC9C0'
+  if (status === 'SUSPENDED') return '\uBBF8\uB4F1\uB85D'
   return '\uB300\uAE30'
 }
 
@@ -429,22 +429,6 @@ onUnmounted(() => {
               </div>
               <div class="py-4 sm:py-5 sm:grid sm:grid-cols-[150px_minmax(0,1fr)] sm:items-center sm:gap-2 sm:px-6">
                 <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center whitespace-nowrap">
-                  <Calendar class="h-4 w-4 mr-2" />
-                  {{ $t('user.profile.joined') }}
-                </dt>
-                <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100 sm:mt-0">{{
-                  profile?.createdAt ? formatDate(profile.createdAt) : '' }}</dd>
-              </div>
-              <div class="py-4 sm:py-5 sm:grid sm:grid-cols-[150px_minmax(0,1fr)] sm:items-center sm:gap-2 sm:px-6">
-                <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center whitespace-nowrap">
-                  <Clock class="h-4 w-4 mr-2" />
-                  {{ $t('user.profile.lastLogin') }}
-                </dt>
-                <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100 sm:mt-0">{{
-                  profile?.lastLoginAt ? formatDate(profile.lastLoginAt) : '' }}</dd>
-              </div>
-              <div class="py-4 sm:py-5 sm:grid sm:grid-cols-[150px_minmax(0,1fr)] sm:items-center sm:gap-2 sm:px-6">
-                <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center whitespace-nowrap">
                   <ShieldCheck class="h-4 w-4 mr-1.5" />
                   {{ '\uC5D0\uC774\uC804\uD2B8 \uCF54\uB4DC' }}
                 </dt>
@@ -468,6 +452,22 @@ onUnmounted(() => {
                     {{ '\uB4F1\uB85D\uB41C \uC5D0\uC774\uC804\uD2B8 \uC5C6\uC74C' }}
                   </span>
                 </dd>
+              </div>
+              <div class="py-4 sm:py-5 sm:grid sm:grid-cols-[150px_minmax(0,1fr)] sm:items-center sm:gap-2 sm:px-6">
+                <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center whitespace-nowrap">
+                  <Calendar class="h-4 w-4 mr-2" />
+                  {{ $t('user.profile.joined') }}
+                </dt>
+                <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100 sm:mt-0">{{
+                  profile?.createdAt ? formatDate(profile.createdAt) : '' }}</dd>
+              </div>
+              <div class="py-4 sm:py-5 sm:grid sm:grid-cols-[150px_minmax(0,1fr)] sm:items-center sm:gap-2 sm:px-6">
+                <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center whitespace-nowrap">
+                  <Clock class="h-4 w-4 mr-2" />
+                  {{ $t('user.profile.lastLogin') }}
+                </dt>
+                <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100 sm:mt-0">{{
+                  profile?.lastLoginAt ? formatDate(profile.lastLoginAt) : '' }}</dd>
               </div>
             </dl>
           </div>

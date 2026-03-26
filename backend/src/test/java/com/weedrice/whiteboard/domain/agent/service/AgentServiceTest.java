@@ -4,6 +4,7 @@ import com.weedrice.whiteboard.domain.agent.dto.AgentCommentCreateRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentRegisterRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentClaimRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentBoardListResponse;
+import com.weedrice.whiteboard.domain.agent.dto.AgentResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostCreateRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentFeedResponse;
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
@@ -46,6 +47,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -184,6 +186,95 @@ class AgentServiceTest {
         verify(agentRepository).existsByNameAndIsDeletedFalse("푸른 고래");
         verify(agentRepository).existsByNameAndIsDeletedFalse("푸른 고래 2");
         verify(agentRepository).save(argThat(savedAgent -> "푸른 고래 2".equals(savedAgent.getName())));
+    }
+
+    @Test
+    void suspendMyAgent_clearsDisplayFields() {
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+
+        AgentResponse response = agentService.suspendMyAgent(1L, 7L, null);
+
+        assertThat(response.getStatus()).isEqualTo(Agent.STATUS_SUSPENDED);
+        assertThat(agent.getName()).isEmpty();
+        assertThat(agent.getDescription()).isEmpty();
+    }
+
+    @Test
+    void claim_reactivatesSuspendedAgentForSameUser() {
+        agent.suspend();
+        AgentService spyService = spy(agentService);
+        AgentClaimRequest request = new AgentClaimRequest();
+        ReflectionTestUtils.setField(request, "agentToken", "noviis_agt_token");
+
+        doReturn("푸른 고래").when(spyService).generateBaseAgentNickname();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(agentRepository.findByAgentTokenHashAndIsDeletedFalse(any())).thenReturn(Optional.of(agent));
+        when(agentRepository.existsByNameAndIsDeletedFalse("푸른 고래")).thenReturn(false);
+
+        AgentResponse response = spyService.claim(1L, request, null);
+
+        assertThat(response.getStatus()).isEqualTo(Agent.STATUS_ACTIVE);
+        assertThat(agent.isActive()).isTrue();
+        assertThat(agent.getName()).isEqualTo("푸른 고래");
+    }
+
+    @Test
+    void claim_softDeletesExistingAgentsForUserWhenClaimingNewCode() {
+        Agent previousAgent = Agent.builder()
+                .user(user)
+                .agentTokenHash("old-hash")
+                .name("old-agent")
+                .description("old-desc")
+                .status(Agent.STATUS_ACTIVE)
+                .build();
+        ReflectionTestUtils.setField(previousAgent, "agentId", 3L);
+
+        Agent pendingAgent = Agent.builder()
+                .agentTokenHash("new-hash")
+                .name("new-agent")
+                .description("new-desc")
+                .status(Agent.STATUS_PENDING_CLAIM)
+                .build();
+        ReflectionTestUtils.setField(pendingAgent, "agentId", 9L);
+
+        AgentClaimRequest request = new AgentClaimRequest();
+        ReflectionTestUtils.setField(request, "agentToken", "noviis_agt_new");
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(agentRepository.findByAgentTokenHashAndIsDeletedFalse(any())).thenReturn(Optional.of(pendingAgent));
+        when(agentRepository.findByUserAndIsDeletedFalseOrderByCreatedAtDesc(user))
+                .thenReturn(List.of(previousAgent));
+
+        AgentResponse response = agentService.claim(1L, request, null);
+
+        assertThat(response.getAgentId()).isEqualTo(9L);
+        assertThat(response.getStatus()).isEqualTo(Agent.STATUS_ACTIVE);
+        assertThat(previousAgent.getIsDeleted()).isTrue();
+        assertThat(pendingAgent.getUser()).isEqualTo(user);
+        verify(agentActivityLogRepository, times(2)).save(any());
+    }
+
+    @Test
+    void getMyAgents_usesOnlyUndeletedAgents() {
+        Agent activeAgent = Agent.builder()
+                .user(user)
+                .agentTokenHash("hash-1")
+                .name("active-agent")
+                .description("desc")
+                .status(Agent.STATUS_ACTIVE)
+                .build();
+        ReflectionTestUtils.setField(activeAgent, "agentId", 11L);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(agentRepository.findByUserAndIsDeletedFalseOrderByCreatedAtDesc(user))
+                .thenReturn(List.of(activeAgent));
+
+        var response = agentService.getMyAgents(1L);
+
+        assertThat(response.getAgents()).hasSize(1);
+        assertThat(response.getAgents().get(0).getAgentId()).isEqualTo(11L);
+        verify(agentRepository).findByUserAndIsDeletedFalseOrderByCreatedAtDesc(user);
     }
 
     @Test

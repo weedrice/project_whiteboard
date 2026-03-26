@@ -1,131 +1,115 @@
-<template>
+﻿<template>
   <div class="bg-transparent dark:bg-transparent shadow-none rounded-lg p-0 sm:p-6 sm:bg-white sm:dark:bg-gray-800 sm:shadow transition-colors duration-200">
     <form @submit.prevent="updateProfile" class="space-y-3 sm:space-y-4">
-      <!-- 프로필 사진 + 닉네임 (사진 선택 baseline = 닉네임 입력 baseline) -->
       <div class="flex flex-col sm:flex-row sm:items-stretch gap-3 sm:gap-6">
         <div class="flex flex-col items-center shrink-0 sm:min-h-[88px]">
-          <button type="button" class="shrink-0 border-2 border-gray-200 dark:border-gray-700 rounded-full overflow-hidden h-16 w-16 cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-            @click="fileInputRef?.click()">
-            <img v-if="profileImageDisplayUrl" class="h-full w-full object-contain bg-white dark:bg-gray-700"
-              :src="profileImageDisplayUrl" alt="Current profile photo" @error="profileImageError = true" />
-            <div v-else
-              class="h-full w-full rounded-full bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold text-2xl">
+          <button
+            type="button"
+            class="shrink-0 border-2 border-gray-200 dark:border-gray-700 rounded-full overflow-hidden h-16 w-16 cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+            @click="fileInputRef?.click()"
+          >
+            <img
+              v-if="profileImageDisplayUrl"
+              class="h-full w-full object-contain bg-white dark:bg-gray-700"
+              :src="profileImageDisplayUrl"
+              alt="Current profile photo"
+              @error="profileImageError = true"
+            />
+            <div
+              v-else
+              class="h-full w-full rounded-full bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold text-2xl"
+            >
               {{ (form.displayName || authStore.user?.displayName)?.[0] || 'U' }}
             </div>
           </button>
-          <button type="button" class="mt-1.5 sm:mt-auto text-xs text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400"
-            @click="fileInputRef?.click()">
+          <button
+            type="button"
+            class="mt-1.5 sm:mt-auto text-xs text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400"
+            @click="fileInputRef?.click()"
+          >
             {{ $t('user.profile.choosePhoto') }}
           </button>
           <input ref="fileInputRef" type="file" class="sr-only" accept="image/*" @change="handleFileChange" />
         </div>
         <div class="flex-1 w-full min-w-0">
-          <BaseInput :label="$t('user.profile.displayName')" v-model="form.displayName" :error="errors.displayName"
-            :placeholder="$t('user.profile.displayNamePlaceholder')" />
+          <BaseInput
+            v-model="form.displayName"
+            :label="$t('user.profile.displayName')"
+            :error="errors.displayName"
+            :placeholder="$t('user.profile.displayNamePlaceholder')"
+          />
         </div>
       </div>
 
-      <div class="flex flex-col gap-2 sm:flex-row sm:justify-end pt-2">
-        <BaseButton type="submit" :loading="loading" class="w-full sm:w-auto h-11 min-h-[44px]">
-          {{ loading ? $t('common.saving') : $t('common.save') }}
-        </BaseButton>
-      </div>
     </form>
 
     <hr class="border-gray-200 dark:border-gray-700 my-4 sm:my-6" />
 
     <section class="space-y-4">
       <div>
-        <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">에이전트 코드 등록</h3>
+        <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">{{ $t('user.profile.agentTitle') }}</h3>
         <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-          MCP 서버에서 받은 agent code를 등록하면 이 계정에 에이전트가 연결됩니다.
+          {{ $t('user.profile.agentDescription') }}
         </p>
       </div>
 
-      <div class="flex flex-col gap-3 sm:flex-row sm:items-start">
+      <p
+        v-if="!isEmailVerified && !activeAgent"
+        class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300"
+      >
+        {{ $t('user.profile.agentEmailVerificationRequired') }}
+      </p>
+
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div class="flex-1">
           <BaseInput
             v-model="agentToken"
-            label="에이전트 코드"
-            placeholder="noviis_agt_xxxxx"
+            :placeholder="$t('user.profile.agentPlaceholder')"
             :error="agentError"
-            :disabled="isClaiming"
+            :disabled="isClaiming || !isEmailVerified || !!activeAgent"
+            hide-label
+            input-class="h-11 min-h-[44px]"
           />
         </div>
         <BaseButton
+          v-if="!activeAgent"
           type="button"
-          class="w-full sm:w-auto h-11 min-h-[44px] mt-0 sm:mt-6"
+          class="w-full sm:w-auto h-11 min-h-[44px]"
           :loading="isClaiming"
-          :disabled="!agentToken.trim()"
+          :disabled="!isEmailVerified || !agentToken.trim()"
           @click="handleClaimAgent"
         >
-          등록
+          {{ $t('user.profile.agentRegister') }}
+        </BaseButton>
+        <BaseButton
+          v-else
+          type="button"
+          variant="secondary"
+          class="w-full sm:w-auto h-11 min-h-[44px]"
+          :loading="processingAgentId === activeAgent.agentId && processingAction === 'suspend'"
+          @click="handleSuspendAgent(activeAgent.agentId)"
+        >
+          비활성화
         </BaseButton>
       </div>
-
-      <div class="space-y-3">
-        <div
-          v-for="agent in agents"
-          :key="agent.agentId"
-          class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 py-3"
-        >
-          <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div class="min-w-0">
-              <div class="flex flex-wrap items-center gap-2">
-                <p class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ agent.name }}</p>
-                <span
-                  class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
-                  :class="getAgentStatusClass(agent.status)"
-                >
-                  {{ getAgentStatusLabel(agent.status) }}
-                </span>
-              </div>
-              <p class="mt-1 text-sm text-gray-600 dark:text-gray-300 break-words">{{ agent.description }}</p>
-              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                등록일 {{ formatDate(agent.createdAt) }}
-              </p>
-            </div>
-
-            <div class="flex gap-2 sm:shrink-0">
-              <BaseButton
-                v-if="agent.status === 'ACTIVE'"
-                type="button"
-                variant="secondary"
-                size="sm"
-                :loading="processingAgentId === agent.agentId && processingAction === 'suspend'"
-                @click="handleSuspendAgent(agent.agentId)"
-              >
-                비활성화
-              </BaseButton>
-              <BaseButton
-                type="button"
-                variant="danger"
-                size="sm"
-                :loading="processingAgentId === agent.agentId && processingAction === 'delete'"
-                @click="handleDeleteAgent(agent.agentId)"
-              >
-                삭제
-              </BaseButton>
-            </div>
-          </div>
-        </div>
-
-        <p v-if="agents.length === 0" class="text-sm text-gray-500 dark:text-gray-400">
-          아직 등록된 에이전트가 없습니다.
-        </p>
-      </div>
     </section>
+
     <hr class="border-gray-200 dark:border-gray-700 my-4 sm:my-6" />
 
-    <!-- Danger Zone -->
-    <div class="flex justify-center sm:justify-end">
-      <BaseButton variant="danger" size="sm" class="w-full sm:w-auto py-1.5 px-3 text-xs min-h-0" @click="showDeleteModal = true">
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <button
+        type="button"
+        class="text-left text-xs text-gray-500 underline underline-offset-2 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400"
+        @click="showDeleteModal = true"
+      >
         {{ $t('user.settings.deleteAccount') }}
+      </button>
+      <BaseButton type="button" :loading="loading" class="w-full sm:w-auto h-11 min-h-[44px]" @click="updateProfile">
+        {{ loading ? $t('common.saving') : $t('common.save') }}
       </BaseButton>
     </div>
   </div>
 
-  <!-- Delete Account Modal -->
   <BaseModal :isOpen="showDeleteModal" :title="$t('user.settings.deleteAccount')" @close="showDeleteModal = false">
     <div class="space-y-4">
       <p class="text-sm text-gray-500">
@@ -136,9 +120,11 @@
         <div class="flex items-center">
           <div class="shrink-0 flex items-center justify-center">
             <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-              <path fill-rule="evenodd"
+              <path
+                fill-rule="evenodd"
                 d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-                clip-rule="evenodd" />
+                clip-rule="evenodd"
+              />
             </svg>
           </div>
           <div class="ml-3 min-w-0 flex-1">
@@ -147,8 +133,13 @@
         </div>
       </div>
 
-      <BaseInput v-model="deletePassword" type="password" :label="$t('common.password')"
-        :placeholder="$t('auth.placeholders.password')" :error="deleteError" />
+      <BaseInput
+        v-model="deletePassword"
+        type="password"
+        :label="$t('common.password')"
+        :placeholder="$t('auth.placeholders.password')"
+        :error="deleteError"
+      />
     </div>
     <template #footer>
       <div class="flex justify-end space-x-3">
@@ -164,21 +155,22 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, watch, onUnmounted } from 'vue'
+import { computed, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { useAuthStore } from '@/stores/auth'
-import BaseInput from '@/components/common/ui/BaseInput.vue'
-import BaseButton from '@/components/common/ui/BaseButton.vue'
-import BaseModal from '@/components/common/ui/BaseModal.vue'
-import { useUser } from '@/composables/useUser'
-import axios from '@/api' // Direct axios for file upload
-import logger from '@/utils/logger'
-import type { UserAgent, UserUpdatePayload } from '@/api/user'
-import { useToastStore } from '@/stores/toast'
-import { extractValidationErrors, extractErrorMessage, getFieldError } from '@/utils/errorHandler'
 import type { AxiosError } from 'axios'
+import axios from '@/api'
+import BaseButton from '@/components/common/ui/BaseButton.vue'
+import BaseInput from '@/components/common/ui/BaseInput.vue'
+import BaseModal from '@/components/common/ui/BaseModal.vue'
+import { useConfirm } from '@/composables/useConfirm'
+import { useUser } from '@/composables/useUser'
+import { useAuthStore } from '@/stores/auth'
+import { useToastStore } from '@/stores/toast'
+import type { UserAgent, UserUpdatePayload } from '@/api/user'
+import { extractErrorMessage, extractValidationErrors, getFieldError } from '@/utils/errorHandler'
 import { getOptimizedProfileImageUrl } from '@/utils/image'
+import logger from '@/utils/logger'
 
 const emit = defineEmits<{
   (e: 'close'): void
@@ -189,15 +181,15 @@ const authStore = useAuthStore()
 const toastStore = useToastStore()
 const router = useRouter()
 const { t } = useI18n()
-const { useUpdateMyProfile, useDeleteAccount, useMyAgents, useClaimAgent, useSuspendMyAgent, useDeleteMyAgent } = useUser()
+const { confirm } = useConfirm()
+const { useDeleteAccount, useMyAgents, useClaimAgent, useSuspendMyAgent, useUpdateMyProfile } = useUser()
 const { mutate: updateProfileMutate } = useUpdateMyProfile()
 const { mutateAsync: deleteAccount, isPending: isDeleting } = useDeleteAccount()
 const { data: agentsData } = useMyAgents()
 const { mutateAsync: claimAgent, isPending: isClaiming } = useClaimAgent()
 const { mutateAsync: suspendMyAgent } = useSuspendMyAgent()
-const { mutateAsync: deleteMyAgent } = useDeleteMyAgent()
 
-const loading = ref(false) // Local loading state for image processing + mutation
+const loading = ref(false)
 const errors = reactive<Record<string, string>>({})
 const fileInputRef = ref<HTMLInputElement | null>(null)
 const selectedFile = ref<File | null>(null)
@@ -206,9 +198,11 @@ const profileImageError = ref(false)
 const agentToken = ref('')
 const agentError = ref('')
 const processingAgentId = ref<number | null>(null)
-const processingAction = ref<'suspend' | 'delete' | null>(null)
+const processingAction = ref<'suspend' | null>(null)
 
 const agents = computed(() => agentsData.value?.agents ?? [])
+const activeAgent = computed(() => agents.value.find((agent) => agent.status === 'ACTIVE') ?? null)
+const isEmailVerified = computed(() => Boolean(authStore.user?.isEmailVerified))
 
 const profileImageDisplayUrl = computed(() => {
   if (previewImage.value) return previewImage.value
@@ -217,12 +211,15 @@ const profileImageDisplayUrl = computed(() => {
 })
 
 const form = reactive({
-  displayName: authStore.user?.displayName || ''
+  displayName: authStore.user?.displayName || '',
 })
 
-watch(() => authStore.user?.profileImageUrl, () => {
-  profileImageError.value = false
-})
+watch(
+  () => authStore.user?.profileImageUrl,
+  () => {
+    profileImageError.value = false
+  }
+)
 
 const revokeObjectUrlIfNeeded = (url: string | null | undefined) => {
   if (url && url.startsWith('blob:')) {
@@ -240,7 +237,7 @@ onUnmounted(() => {
 
 const getAgentStatusLabel = (status: UserAgent['status']) => {
   if (status === 'ACTIVE') return '활성'
-  if (status === 'SUSPENDED') return '정지'
+  if (status === 'SUSPENDED') return '미등록'
   return '대기'
 }
 
@@ -254,34 +251,23 @@ const getAgentStatusClass = (status: UserAgent['status']) => {
   return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
 }
 
-const formatDate = (value?: string) => {
-  if (!value) return '-'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-  return new Intl.DateTimeFormat('ko-KR', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(date)
-}
-
 const handleFileChange = async (event: Event) => {
   const target = event.target as HTMLInputElement
   const file = target.files?.[0]
-  if (file) {
-    if (file.size > 10 * 1024 * 1024) {
-      toastStore.addToast(t('common.messages.fileSizeExceeded'), 'warning')
-      return
-    }
+  if (!file) return
 
-    try {
-      const resizedImage = await resizeImage(file, 100, 100)
-      selectedFile.value = resizedImage
-      previewImage.value = URL.createObjectURL(resizedImage)
-    } catch (error) {
-      logger.error('Image resize failed', error)
-      toastStore.addToast(t('common.messages.processImageFailed'), 'error')
-    }
+  if (file.size > 10 * 1024 * 1024) {
+    toastStore.addToast(t('common.messages.fileSizeExceeded'), 'warning')
+    return
+  }
+
+  try {
+    const resizedImage = await resizeImage(file, 100, 100)
+    selectedFile.value = resizedImage
+    previewImage.value = URL.createObjectURL(resizedImage)
+  } catch (error) {
+    logger.error('Image resize failed', error)
+    toastStore.addToast(t('common.messages.processImageFailed'), 'error')
   }
 }
 
@@ -300,32 +286,32 @@ const resizeImage = (file: File, maxWidth: number, maxHeight: number): Promise<F
           height *= maxWidth / width
           width = maxWidth
         }
-      } else {
-        if (height > maxHeight) {
-          width *= maxHeight / height
-          height = maxHeight
-        }
+      } else if (height > maxHeight) {
+        width *= maxHeight / height
+        height = maxHeight
       }
 
       canvas.width = width
       canvas.height = height
       const ctx = canvas.getContext('2d')
-      if (ctx) {
-        ctx.drawImage(img, 0, 0, width, height)
-        canvas.toBlob((blob) => {
-          // Cleanup object URL
-          URL.revokeObjectURL(objectUrl)
-          if (blob) {
-            resolve(new File([blob], file.name, { type: file.type }))
-          } else {
-            reject(new Error('Canvas to Blob failed'))
-          }
-        }, file.type)
-      } else {
+
+      if (!ctx) {
         URL.revokeObjectURL(objectUrl)
         reject(new Error('Could not get canvas context'))
+        return
       }
+
+      ctx.drawImage(img, 0, 0, width, height)
+      canvas.toBlob((blob) => {
+        URL.revokeObjectURL(objectUrl)
+        if (blob) {
+          resolve(new File([blob], file.name, { type: file.type }))
+          return
+        }
+        reject(new Error('Canvas to Blob failed'))
+      }, file.type)
     }
+
     img.onerror = () => {
       URL.revokeObjectURL(objectUrl)
       reject(new Error('Image load failed'))
@@ -347,9 +333,10 @@ const updateProfile = async () => {
 
       const uploadRes = await axios.post('/files/upload', formData, {
         headers: {
-          'Content-Type': 'multipart/form-data'
-        }
+          'Content-Type': 'multipart/form-data',
+        },
       })
+
       if (uploadRes.data.success) {
         profileImageUrl = uploadRes.data.data.url
         profileImageId = uploadRes.data.data.fileId
@@ -358,8 +345,8 @@ const updateProfile = async () => {
 
     const payload: UserUpdatePayload = {
       displayName: form.displayName,
-      profileImageUrl: profileImageUrl,
-      profileImageId: profileImageId
+      profileImageUrl,
+      profileImageId,
     }
 
     updateProfileMutate(payload, {
@@ -367,39 +354,36 @@ const updateProfile = async () => {
         await authStore.fetchUser()
         toastStore.addToast(t('common.messages.profileUpdated'), 'success')
         emit('refreshed')
+        emit('close')
         loading.value = false
       },
       onError: (error: Error) => {
         const axiosError = error as AxiosError
         logger.error('Failed to update profile:', error)
 
-        // Validation 에러 처리
         const validationErrors = extractValidationErrors(axiosError)
         if (validationErrors) {
-          // 필드별 에러 설정
           const displayNameError = getFieldError(validationErrors, 'displayName')
           if (displayNameError) {
             errors.displayName = displayNameError
           }
 
-          // 다른 필드 에러가 있으면 토스트로 표시
           const otherErrors = Object.entries(validationErrors)
             .filter(([key]) => key !== 'displayName')
             .flatMap(([, messages]) => messages)
+
           if (otherErrors.length > 0) {
             toastStore.addToast(otherErrors[0], 'error')
           }
         } else {
-          // 일반 에러 처리
           const errorMessage = extractErrorMessage(axiosError)
           errors.displayName = errorMessage
           toastStore.addToast(errorMessage, 'error')
         }
 
         loading.value = false
-      }
+      },
     })
-
   } catch (error) {
     logger.error('Failed to process profile update:', error)
     loading.value = false
@@ -408,23 +392,41 @@ const updateProfile = async () => {
 
 const handleClaimAgent = async () => {
   agentError.value = ''
+  if (!isEmailVerified.value) {
+    const message = t('user.profile.agentEmailVerificationRequired')
+    agentError.value = message
+    toastStore.addToast(message, 'warning')
+    return
+  }
+
   const token = agentToken.value.trim()
   if (!token) {
-    agentError.value = '에이전트 코드를 입력해 주세요.'
+    agentError.value = t('user.profile.agentCodeRequired')
     return
   }
 
   try {
     await claimAgent(token)
     agentToken.value = ''
-    toastStore.addToast('에이전트 코드가 등록되었습니다.', 'success')
+    toastStore.addToast(t('user.profile.agentClaimSuccess'), 'success')
     emit('refreshed')
   } catch (error: unknown) {
-    agentError.value = extractErrorMessage(error as AxiosError) || '에이전트 코드 등록에 실패했습니다.'
+    agentError.value = extractErrorMessage(error as AxiosError) || t('user.profile.agentClaimFailed')
   }
 }
 
 const handleSuspendAgent = async (agentId: number) => {
+  const isConfirmed = await confirm(
+    '에이전트 코드를 비활성화하시겠습니까?',
+    '에이전트 코드 비활성화',
+    '비활성화',
+    t('common.cancel')
+  )
+
+  if (!isConfirmed) {
+    return
+  }
+
   processingAgentId.value = agentId
   processingAction.value = 'suspend'
   try {
@@ -439,26 +441,6 @@ const handleSuspendAgent = async (agentId: number) => {
   }
 }
 
-const handleDeleteAgent = async (agentId: number) => {
-  if (!window.confirm('이 에이전트를 삭제하시겠습니까?')) {
-    return
-  }
-
-  processingAgentId.value = agentId
-  processingAction.value = 'delete'
-  try {
-    await deleteMyAgent(agentId)
-    toastStore.addToast('에이전트를 삭제했습니다.', 'success')
-    emit('refreshed')
-  } catch (error: unknown) {
-    toastStore.addToast(extractErrorMessage(error as AxiosError) || '에이전트 삭제에 실패했습니다.', 'error')
-  } finally {
-    processingAgentId.value = null
-    processingAction.value = null
-  }
-}
-
-// Delete Account Logic
 const showDeleteModal = ref(false)
 const deletePassword = ref('')
 const deleteError = ref('')
@@ -478,9 +460,8 @@ const handleDeleteAccount = async () => {
   } catch (error: unknown) {
     logger.error('Failed to delete account:', error)
     const axiosError = error as AxiosError
-
-    // Validation 에러 처리 (비밀번호 필드)
     const validationErrors = extractValidationErrors(axiosError)
+
     if (validationErrors) {
       const passwordError = getFieldError(validationErrors, 'password')
       if (passwordError) {
@@ -489,9 +470,7 @@ const handleDeleteAccount = async () => {
       }
     }
 
-    // 일반 에러 처리
     const errorMessage = extractErrorMessage(axiosError)
-
     deleteError.value = errorMessage || t('common.errorOccurred')
   }
 }

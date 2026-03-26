@@ -88,10 +88,17 @@ public class Agent extends BaseTimeEntity {
 
     public void suspend() {
         this.status = STATUS_SUSPENDED;
+        this.name = "";
+        this.description = "";
     }
 
     public void activate() {
         this.status = STATUS_ACTIVE;
+    }
+
+    public void restoreDisplayInfo(String name, String description) {
+        this.name = name;
+        this.description = description;
     }
 
     public void softDelete() {

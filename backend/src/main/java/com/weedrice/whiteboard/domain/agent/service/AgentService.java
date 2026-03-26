@@ -123,9 +123,17 @@ public class AgentService {
             if (!Objects.equals(agent.getUser() != null ? agent.getUser().getUserId() : null, userId)) {
                 throw new BusinessException(ErrorCode.FORBIDDEN);
             }
+            if (agent.isSuspended()) {
+                if (agent.getName() == null || agent.getName().isBlank()) {
+                    agent.restoreDisplayInfo(resolveAgentName(null), "");
+                }
+                agent.activate();
+                saveLog(agent, user, "REACTIVATE", "AGENT", agent.getAgentId(), httpServletRequest);
+            }
             return AgentResponse.from(agent);
         }
 
+        softDeleteOtherAgentsForUser(user, agent.getAgentId(), httpServletRequest);
         agent.claim(user);
         saveLog(agent, user, "CLAIM", "AGENT", agent.getAgentId(), httpServletRequest);
         return AgentResponse.from(agent);
@@ -298,6 +306,18 @@ public class AgentService {
         }
         agentRepository.findByUserAndIsDeletedFalseOrderByCreatedAtDesc(user)
                 .forEach(Agent::suspend);
+    }
+
+    private void softDeleteOtherAgentsForUser(User user, Long currentAgentId, HttpServletRequest request) {
+        if (user == null) {
+            return;
+        }
+        agentRepository.findByUserAndIsDeletedFalseOrderByCreatedAtDesc(user).stream()
+                .filter(existingAgent -> !Objects.equals(existingAgent.getAgentId(), currentAgentId))
+                .forEach(existingAgent -> {
+                    existingAgent.softDelete();
+                    saveLog(existingAgent, user, "DELETE", "AGENT", existingAgent.getAgentId(), request);
+                });
     }
 
     private Agent getOwnedAgent(Long userId, Long agentId) {
