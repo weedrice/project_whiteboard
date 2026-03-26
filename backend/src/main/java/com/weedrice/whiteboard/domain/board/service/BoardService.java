@@ -3,10 +3,12 @@ package com.weedrice.whiteboard.domain.board.service;
 import com.weedrice.whiteboard.domain.admin.entity.Admin;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.board.dto.*;
+import com.weedrice.whiteboard.domain.board.entity.BoardAiInfo;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
 import com.weedrice.whiteboard.domain.board.entity.BoardSubscription;
 import com.weedrice.whiteboard.domain.board.entity.BoardSubscriptionId;
+import com.weedrice.whiteboard.domain.board.repository.BoardAiInfoRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardCategoryRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository;
@@ -48,6 +50,7 @@ public class BoardService {
 
 
         private final BoardRepository boardRepository;
+        private final BoardAiInfoRepository boardAiInfoRepository;
         private final BoardCategoryRepository boardCategoryRepository;
         private final BoardSubscriptionRepository boardSubscriptionRepository;
         private final UserRepository userRepository;
@@ -133,7 +136,9 @@ public class BoardService {
 
                 return new BoardResponse(board, subscriberCount, adminDisplayName, adminUserId, isAdmin, isSubscribed,
                                 categories,
-                                latestPosts);
+                                latestPosts,
+                                board.isAgentEnabled(),
+                                isAdmin ? resolveGuidePrompt(board) : null);
         }
 
         public List<CategoryResponse> getActiveCategories(String boardUrl, UserDetails userDetails) {
@@ -247,14 +252,16 @@ public class BoardService {
                 Board board = Board.builder()
                                 .boardName(request.getBoardName())
                                 .boardUrl(request.getBoardUrl())
-                                .description(request.getDescription())
+                                .description(normalizeDescription(request.getDescription()))
                                 .creator(creator)
                                 .iconUrl(request.getIconUrl())
                                 .sortOrder(maxSortOrder + 1)
                                 .isPublic(request.getIsPublic())
+                                .agentUseYn(request.getAgentUseYn())
                                 .build();
 
                 Board savedBoard = boardRepository.save(board);
+                upsertBoardAiInfoIfEnabled(savedBoard, request.getGuidePrompt(), true);
 
                 pointHistoryRepository.save(PointHistory.builder()
                                 .user(creator)
@@ -306,11 +313,13 @@ public class BoardService {
                         board.updateBoardUrl(request.getBoardUrl());
                 }
 
-                board.update(request.getBoardName(), request.getDescription(), request.getIconUrl(),
+                board.update(request.getBoardName(), normalizeDescription(request.getDescription()), request.getIconUrl(),
                                 request.getSortOrder(),
                                 request.getAllowNsfw() != null ? request.getAllowNsfw() : board.getAllowNsfw(),
                                 request.getIsActive(),
-                                request.getIsPublic());
+                                request.getIsPublic(),
+                                request.getAgentUseYn());
+                upsertBoardAiInfoIfEnabled(board, request.getGuidePrompt(), false);
                 return board;
         }
 
@@ -464,7 +473,8 @@ public class BoardService {
                                         board.getSortOrder(),
                                         board.getAllowNsfw(),
                                         board.getIsActive(),
-                                        false);
+                                        false,
+                                        board.getAgentUseYn());
                 }
         }
 
@@ -557,6 +567,52 @@ public class BoardService {
                 if (!canViewBoard(board, user)) {
                         throw new BusinessException(ErrorCode.BOARD_NOT_FOUND);
                 }
+        }
+
+        private void upsertBoardAiInfoIfEnabled(Board board, String requestedGuidePrompt, boolean initializeFromDescription) {
+                if (board == null || !board.isAgentEnabled()) {
+                        return;
+                }
+
+                BoardAiInfo boardAiInfo = boardAiInfoRepository.findByBoard_BoardId(board.getBoardId())
+                                .orElse(null);
+
+                if (boardAiInfo == null) {
+                        boardAiInfoRepository.save(BoardAiInfo.builder()
+                                        .board(board)
+                                        .guidePrompt(resolveInitialGuidePrompt(board, requestedGuidePrompt,
+                                                        initializeFromDescription))
+                                        .build());
+                        return;
+                }
+
+                if (requestedGuidePrompt != null) {
+                        boardAiInfo.updateGuidePrompt(normalizeGuidePrompt(requestedGuidePrompt));
+                }
+        }
+
+        private String resolveGuidePrompt(Board board) {
+                return boardAiInfoRepository.findByBoard_BoardId(board.getBoardId())
+                                .map(BoardAiInfo::getGuidePrompt)
+                                .orElseGet(() -> board.isAgentEnabled() ? normalizeDescription(board.getDescription()) : null);
+        }
+
+        private String resolveInitialGuidePrompt(Board board, String requestedGuidePrompt, boolean initializeFromDescription) {
+                if (requestedGuidePrompt != null && !requestedGuidePrompt.isBlank()) {
+                        return normalizeGuidePrompt(requestedGuidePrompt);
+                }
+                if (initializeFromDescription || requestedGuidePrompt == null || requestedGuidePrompt.isBlank()) {
+                        return normalizeDescription(board.getDescription());
+                }
+                return normalizeGuidePrompt(requestedGuidePrompt);
+        }
+
+        private String normalizeGuidePrompt(String guidePrompt) {
+                return guidePrompt == null || guidePrompt.isBlank() ? "" : guidePrompt;
+        }
+
+        private String normalizeDescription(String description) {
+                return description == null || description.isBlank() ? "" : description;
         }
 
         @Transactional

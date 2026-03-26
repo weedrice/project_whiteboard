@@ -121,6 +121,21 @@
                 rows="4"
               />
 
+              <BaseCheckbox
+                v-model="form.agentUseYn"
+                :label="$t('board.form.agentUseYn')"
+                :description="$t('board.form.agentUseYnDesc')"
+              />
+
+              <BaseTextarea
+                v-if="form.agentUseYn"
+                v-model="form.guidePrompt"
+                :label="$t('board.form.guidePrompt')"
+                :placeholder="$t('board.form.placeholder.guidePrompt')"
+                rows="6"
+                maxlength="5000"
+              />
+
               <div class="space-y-2">
                 <p class="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-200">
                   {{ $t('board.form.iconUrl') }}
@@ -195,6 +210,19 @@
         <BaseInput v-model="createForm.boardName" :label="$t('board.form.name')" :placeholder="$t('board.form.placeholder.name')" />
         <BaseInput v-model="createForm.boardUrl" :label="$t('board.form.url')" :placeholder="$t('board.form.placeholder.url')" />
         <BaseTextarea v-model="createForm.description" :label="$t('board.form.description')" :placeholder="$t('board.form.placeholder.desc')" rows="3" />
+        <BaseCheckbox
+          v-model="createForm.agentUseYn"
+          :label="$t('board.form.agentUseYn')"
+          :description="$t('board.form.agentUseYnDesc')"
+        />
+        <BaseTextarea
+          v-if="createForm.agentUseYn"
+          v-model="createForm.guidePrompt"
+          :label="$t('board.form.guidePrompt')"
+          :placeholder="$t('board.form.placeholder.guidePrompt')"
+          rows="5"
+          maxlength="5000"
+        />
         <div class="flex justify-end gap-3 pt-2">
           <BaseButton variant="secondary" @click="closeModal">{{ $t('common.cancel') }}</BaseButton>
           <BaseButton :disabled="isSubmitting" @click="handleCreateBoard">
@@ -224,6 +252,7 @@ import BaseModal from '@/components/common/ui/BaseModal.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseTextarea from '@/components/common/ui/BaseTextarea.vue'
+import BaseCheckbox from '@/components/common/ui/BaseCheckbox.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import UserSelectModal from '@/components/common/widgets/UserSelectModal.vue'
 import { useI18n } from 'vue-i18n'
@@ -263,14 +292,18 @@ const form = reactive({
   description: '',
   iconUrl: '',
   sortOrder: '0',
-  isActive: true
+  isActive: true,
+  agentUseYn: false,
+  guidePrompt: ''
 })
 
 const createForm = reactive({
   boardName: '',
   boardUrl: '',
   description: '',
-  iconUrl: ''
+  iconUrl: '',
+  agentUseYn: false,
+  guidePrompt: ''
 })
 
 const { data: boardsData, isLoading: loading } = useAdminBoards()
@@ -295,7 +328,9 @@ const isSelectedFormDirty = computed(() => {
     form.description !== (selectedBoard.value.description || '') ||
     form.iconUrl !== (selectedBoard.value.iconUrl || '') ||
     normalizedSortOrder.value !== selectedBoard.value.sortOrder ||
-    form.isActive !== selectedBoard.value.isActive
+    form.isActive !== selectedBoard.value.isActive ||
+    form.agentUseYn !== (selectedBoard.value.agentUseYn ?? false) ||
+    form.guidePrompt !== (selectedBoard.value.guidePrompt || '')
   )
 })
 
@@ -343,6 +378,8 @@ watch(selectedBoard, (board) => {
   form.iconUrl = board.iconUrl || ''
   form.sortOrder = String(board.sortOrder)
   form.isActive = board.isActive
+  form.agentUseYn = board.agentUseYn ?? false
+  form.guidePrompt = board.guidePrompt || ''
 }, { immediate: true })
 
 function markBoardModified(boardId: number) {
@@ -389,7 +426,9 @@ async function saveBoardUpdates(boardIds: number[], showSuccessToast = true) {
         iconUrl: board.iconUrl || '',
         allowNsfw: board.allowNsfw,
         sortOrder: board.sortOrder,
-        isActive: board.isActive
+        isActive: board.isActive,
+        agentUseYn: board.agentUseYn ?? false,
+        guidePrompt: board.guidePrompt || ''
       }
     }).then(() => {
       originalBoardUrls.value[board.boardId] = board.boardUrl
@@ -493,6 +532,16 @@ function applySelectedBoardForm() {
     markBoardModified(board.boardId)
   }
 
+  if ((board.agentUseYn ?? false) !== form.agentUseYn) {
+    board.agentUseYn = form.agentUseYn
+    markBoardModified(board.boardId)
+  }
+
+  if ((board.guidePrompt || '') !== form.guidePrompt) {
+    board.guidePrompt = form.guidePrompt
+    markBoardModified(board.boardId)
+  }
+
   const targetPosition = Math.max(1, Math.min(normalizedSortOrder.value, boards.value.length))
   form.sortOrder = String(targetPosition)
   const currentIndex = boards.value.findIndex((item) => item.boardId === board.boardId)
@@ -533,6 +582,8 @@ function openCreateModal() {
   createForm.boardUrl = ''
   createForm.description = ''
   createForm.iconUrl = ''
+  createForm.agentUseYn = false
+  createForm.guidePrompt = ''
   isModalOpen.value = true
 }
 

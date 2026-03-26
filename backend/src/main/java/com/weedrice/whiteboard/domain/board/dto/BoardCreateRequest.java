@@ -3,13 +3,11 @@ package com.weedrice.whiteboard.domain.board.dto;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
-import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Getter
 @NoArgsConstructor
-@AllArgsConstructor
 public class BoardCreateRequest {
     @NotBlank
     @Size(max = 100)
@@ -25,4 +23,23 @@ public class BoardCreateRequest {
 
     private String iconUrl;
     private Boolean isPublic;
+    private Boolean agentUseYn;
+
+    @Size(max = 5000)
+    private String guidePrompt;
+
+    public BoardCreateRequest(String boardName, String boardUrl, String description, String iconUrl, Boolean isPublic) {
+        this(boardName, boardUrl, description, iconUrl, isPublic, null, null);
+    }
+
+    public BoardCreateRequest(String boardName, String boardUrl, String description, String iconUrl, Boolean isPublic,
+            Boolean agentUseYn, String guidePrompt) {
+        this.boardName = boardName;
+        this.boardUrl = boardUrl;
+        this.description = description;
+        this.iconUrl = iconUrl;
+        this.isPublic = isPublic;
+        this.agentUseYn = agentUseYn;
+        this.guidePrompt = guidePrompt;
+    }
 }

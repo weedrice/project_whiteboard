@@ -65,6 +65,8 @@ interface BoardCreateData {
     iconUrl?: string
     sortOrder?: number
     allowNsfw?: boolean
+    agentUseYn?: boolean
+    guidePrompt?: string
 }
 
 interface BoardUpdateData {
@@ -75,6 +77,8 @@ interface BoardUpdateData {
     sortOrder?: number
     allowNsfw?: boolean
     isActive?: boolean
+    agentUseYn?: boolean
+    guidePrompt?: string
 }
 
 interface BoardManagerData {

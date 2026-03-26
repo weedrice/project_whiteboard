@@ -37,6 +37,9 @@ public class BoardResponse {
     @JsonProperty("isPublic")
     private final boolean isPublic;
 
+    private final boolean agentUseYn;
+    private final String guidePrompt;
+
     public BoardResponse(
             Board board,
             long subscriberCount,
@@ -46,6 +49,21 @@ public class BoardResponse {
             boolean isSubscribed,
             List<CategoryResponse> categories,
             List<PostSummary> latestPosts) {
+        this(board, subscriberCount, adminDisplayName, adminUserId, isAdmin, isSubscribed, categories, latestPosts,
+                board.isAgentEnabled(), null);
+    }
+
+    public BoardResponse(
+            Board board,
+            long subscriberCount,
+            String adminDisplayName,
+            Long adminUserId,
+            boolean isAdmin,
+            boolean isSubscribed,
+            List<CategoryResponse> categories,
+            List<PostSummary> latestPosts,
+            boolean agentUseYn,
+            String guidePrompt) {
         this.boardId = board.getBoardId();
         this.boardName = board.getBoardName();
         this.boardUrl = board.getBoardUrl();
@@ -62,5 +80,7 @@ public class BoardResponse {
         this.latestPosts = latestPosts;
         this.isActive = board.getIsActive();
         this.isPublic = board.getIsPublic();
+        this.agentUseYn = agentUseYn;
+        this.guidePrompt = guidePrompt;
     }
 }

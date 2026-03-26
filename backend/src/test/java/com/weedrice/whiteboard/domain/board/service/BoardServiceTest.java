@@ -3,9 +3,11 @@ package com.weedrice.whiteboard.domain.board.service;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.board.dto.BoardCreateRequest;
 import com.weedrice.whiteboard.domain.board.dto.BoardResponse;
+import com.weedrice.whiteboard.domain.board.entity.BoardAiInfo;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardSubscription;
 import com.weedrice.whiteboard.domain.board.entity.BoardSubscriptionId;
+import com.weedrice.whiteboard.domain.board.repository.BoardAiInfoRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardCategoryRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository;
@@ -49,6 +51,8 @@ class BoardServiceTest {
     private BoardRepository boardRepository;
     @Mock
     private BoardSubscriptionRepository boardSubscriptionRepository;
+    @Mock
+    private BoardAiInfoRepository boardAiInfoRepository;
     @Mock
     private UserRepository userRepository;
     @Mock
@@ -175,6 +179,43 @@ class BoardServiceTest {
         verify(boardRepository).save(any(Board.class));
         verify(boardCategoryRepository).save(any());
         verify(adminRepository).save(any());
+    }
+
+    @Test
+    @DisplayName("AI ?ъ슜 寃뚯떆???앹꽦 ????λ맂 媛?대뱶 ?꾨줉?꽣? ??ν솕?쒕떎")
+    void createBoard_agentEnabled_createsBoardAiInfo() {
+        Long creatorId = 1L;
+        BoardCreateRequest request = new BoardCreateRequest("AI Board", "ai-board", null, null, true, true, null);
+        com.weedrice.whiteboard.domain.point.entity.UserPoint userPoint =
+                com.weedrice.whiteboard.domain.point.entity.UserPoint.builder().user(user).build();
+        ReflectionTestUtils.setField(userPoint, "currentPoint", 1000);
+
+        Board savedBoard = Board.builder()
+                .boardName("AI Board")
+                .boardUrl("ai-board")
+                .description("")
+                .creator(user)
+                .isPublic(true)
+                .agentUseYn(true)
+                .build();
+        ReflectionTestUtils.setField(savedBoard, "boardId", 2L);
+
+        when(userRepository.findById(creatorId)).thenReturn(Optional.of(user));
+        when(boardRepository.existsByBoardName(request.getBoardName())).thenReturn(false);
+        when(boardRepository.existsByBoardUrl(request.getBoardUrl())).thenReturn(false);
+        when(userPointRepository.findById(creatorId)).thenReturn(Optional.of(userPoint));
+        when(globalConfigService.getConfig(anyString())).thenReturn("500");
+        when(boardRepository.save(any(Board.class))).thenReturn(savedBoard);
+        when(boardCategoryRepository.save(any(com.weedrice.whiteboard.domain.board.entity.BoardCategory.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(adminRepository.save(any(com.weedrice.whiteboard.domain.admin.entity.Admin.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(boardAiInfoRepository.save(any(BoardAiInfo.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(boardRepository.findMaxSortOrder()).thenReturn(0);
+
+        boardService.createBoard(creatorId, request);
+
+        verify(boardAiInfoRepository).save(any(BoardAiInfo.class));
     }
 
     @Test

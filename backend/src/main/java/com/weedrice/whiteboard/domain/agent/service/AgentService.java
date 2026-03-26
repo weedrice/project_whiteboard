@@ -5,7 +5,9 @@ import com.weedrice.whiteboard.domain.agent.entity.Agent;
 import com.weedrice.whiteboard.domain.agent.entity.AgentActivityLog;
 import com.weedrice.whiteboard.domain.agent.repository.AgentActivityLogRepository;
 import com.weedrice.whiteboard.domain.agent.repository.AgentRepository;
+import com.weedrice.whiteboard.domain.board.entity.BoardAiInfo;
 import com.weedrice.whiteboard.domain.board.entity.Board;
+import com.weedrice.whiteboard.domain.board.repository.BoardAiInfoRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
@@ -37,7 +39,9 @@ import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.HexFormat;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -48,11 +52,14 @@ import java.util.stream.Collectors;
 public class AgentService {
 
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
+    private static final long DAILY_AGENT_POST_LIMIT = 50;
+    private static final long DAILY_AGENT_COMMENT_LIMIT = 100;
 
     private final AgentRepository agentRepository;
     private final AgentActivityLogRepository agentActivityLogRepository;
     private final UserRepository userRepository;
     private final BoardRepository boardRepository;
+    private final BoardAiInfoRepository boardAiInfoRepository;
     private final PostRepository postRepository;
     private final CommentRepository commentRepository;
     private final PostService postService;
@@ -143,6 +150,7 @@ public class AgentService {
     }
 
     public AgentFeedResponse getFeed(Long agentId, Long boardId, Pageable pageable) {
+        Agent agent = getActiveAgent(agentId);
         Pageable effectivePageable = PageRequest.of(
                 pageable.getPageNumber(),
                 Math.min(Math.max(pageable.getPageSize(), 1), 10),
@@ -152,9 +160,11 @@ public class AgentService {
                 ? postRepository.findByBoard_BoardId(boardId, effectivePageable)
                 : postRepository.findAll(effectivePageable);
 
+        Map<Long, Boolean> writableBoardCache = new HashMap<>();
+
         List<AgentFeedItem> items = posts.getContent().stream()
                 .filter(post -> !post.getIsDeleted())
-                .filter(post -> post.getBoard().getIsActive() && post.getBoard().getIsPublic())
+                .filter(post -> canAgentWriteBoard(agent, post.getBoard(), writableBoardCache))
                 .map(post -> AgentFeedItem.builder()
                         .postId(post.getPostId())
                         .title(post.getTitle())
@@ -171,10 +181,38 @@ public class AgentService {
         return new AgentFeedResponse(items);
     }
 
+    public AgentBoardListResponse getBoards(Long agentId) {
+        Agent agent = getActiveAgent(agentId);
+        Map<Long, Boolean> writableBoardCache = new HashMap<>();
+        List<Board> boards = boardRepository.findByIsActiveAndIsPublicOrderBySortOrderAsc(true, true);
+        Map<Long, String> guidePromptMap = boardAiInfoRepository.findByBoard_BoardIdIn(
+                        boards.stream().map(Board::getBoardId).toList())
+                .stream()
+                .collect(Collectors.toMap(BoardAiInfo::getBoardId, BoardAiInfo::getGuidePrompt));
+
+        List<AgentBoardItem> items = boards.stream()
+                .filter(board -> canAgentWriteBoard(agent, board, writableBoardCache))
+                .map(board -> AgentBoardItem.builder()
+                        .boardId(board.getBoardId())
+                        .boardName(board.getBoardName())
+                        .boardUrl(board.getBoardUrl())
+                        .description(board.getDescription())
+                        .iconUrl(board.getIconUrl())
+                        .guidePrompt(resolveGuidePrompt(board, guidePromptMap.get(board.getBoardId())))
+                        .build())
+                .toList();
+
+        return new AgentBoardListResponse(items);
+    }
+
     @Transactional
     public AgentPostCreateResponse createPost(Long agentId, AgentPostCreateRequest request,
             HttpServletRequest httpServletRequest) {
         Agent agent = getActiveAgent(agentId);
+        Board board = boardRepository.findByBoardUrl(request.getBoardUrl())
+                .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
+        validateAgentBoardWritable(agent, board);
+        validateDailyPostLimit(agentId);
         PostCreateRequest postCreateRequest = new PostCreateRequest(
                 null,
                 request.getTitle(),
@@ -195,6 +233,7 @@ public class AgentService {
     public AgentCommentCreateResponse createComment(Long agentId, Long postId, AgentCommentCreateRequest request,
             HttpServletRequest httpServletRequest) {
         Agent agent = getActiveAgent(agentId);
+        validateDailyCommentLimit(agentId);
         Comment comment = commentService.createCommentAsAgent(agent.getUser().getUserId(), agentId, postId, null,
                 request.getContent());
         saveLog(agent, agent.getUser(), "CREATE_COMMENT", "COMMENT", comment.getCommentId(), httpServletRequest);
@@ -276,5 +315,51 @@ public class AgentService {
         }
         String stripped = content.replaceAll("<[^>]*>", "").trim();
         return stripped.length() <= 200 ? stripped : stripped.substring(0, 200);
+    }
+
+    private void validateDailyPostLimit(Long agentId) {
+        LocalDateTime start = LocalDate.now(KST).atStartOfDay();
+        LocalDateTime end = LocalDate.now(KST).plusDays(1).atStartOfDay();
+        long postsToday = postRepository.countByAgent_AgentIdAndCreatedAtBetween(agentId, start, end);
+        if (postsToday >= DAILY_AGENT_POST_LIMIT) {
+            throw new BusinessException(ErrorCode.RATE_LIMIT_EXCEEDED,
+                    "Daily agent post limit exceeded");
+        }
+    }
+
+    private void validateDailyCommentLimit(Long agentId) {
+        LocalDateTime start = LocalDate.now(KST).atStartOfDay();
+        LocalDateTime end = LocalDate.now(KST).plusDays(1).atStartOfDay();
+        long commentsToday = commentRepository.countByAgent_AgentIdAndCreatedAtBetween(agentId, start, end);
+        if (commentsToday >= DAILY_AGENT_COMMENT_LIMIT) {
+            throw new BusinessException(ErrorCode.RATE_LIMIT_EXCEEDED,
+                    "Daily agent comment limit exceeded");
+        }
+    }
+
+    private boolean canAgentWriteBoard(Agent agent, Board board, Map<Long, Boolean> writableBoardCache) {
+        if (agent == null || board == null) {
+            return false;
+        }
+        if (!board.getIsActive() || !board.getIsPublic() || !board.isAgentEnabled()) {
+            return false;
+        }
+        return writableBoardCache.computeIfAbsent(
+                board.getBoardId(),
+                ignored -> postService.canWriteToBoard(agent.getUser().getUserId(), board));
+    }
+
+    private void validateAgentBoardWritable(Agent agent, Board board) {
+        if (!canAgentWriteBoard(agent, board, new HashMap<>())) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "Agent access is disabled for this board");
+        }
+    }
+
+    private String resolveGuidePrompt(Board board, String savedGuidePrompt) {
+        if (savedGuidePrompt != null) {
+            return savedGuidePrompt;
+        }
+        String description = board.getDescription();
+        return description == null || description.isBlank() ? "" : description;
     }
 }

@@ -17,6 +17,8 @@ interface BoardData {
   sortOrder: number
   allowNsfw: boolean
   isPublic: boolean
+  agentUseYn: boolean
+  guidePrompt: string
 }
 
 const { t } = useI18n()

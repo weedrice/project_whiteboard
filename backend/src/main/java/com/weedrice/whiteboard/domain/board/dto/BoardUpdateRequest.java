@@ -25,4 +25,8 @@ public class BoardUpdateRequest {
     private int sortOrder;
     private Boolean isActive;
     private Boolean isPublic;
+    private Boolean agentUseYn;
+
+    @Size(max = 5000)
+    private String guidePrompt;
 }

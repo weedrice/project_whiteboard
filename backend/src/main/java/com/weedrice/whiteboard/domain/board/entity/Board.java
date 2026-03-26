@@ -57,12 +57,16 @@ public class Board extends BaseTimeEntity {
     @Column(name = "is_public", length = 1, nullable = false, columnDefinition = "varchar(1) default 'Y'")
     private Boolean isPublic;
 
+    @Convert(converter = BooleanToYNConverter.class)
+    @Column(name = "agent_use_yn", length = 1, columnDefinition = "varchar(1) default 'N'")
+    private Boolean agentUseYn;
+
     @OneToMany(mappedBy = "board", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<BoardCategory> categories = new ArrayList<>();
 
     @Builder
     public Board(String boardName, String boardUrl, String description, User creator, String iconUrl,
-            Integer sortOrder, Boolean isPublic) {
+            Integer sortOrder, Boolean isPublic, Boolean agentUseYn) {
         this.boardName = boardName;
         this.boardUrl = boardUrl;
         this.description = description;
@@ -72,10 +76,11 @@ public class Board extends BaseTimeEntity {
         this.isActive = true;
         this.allowNsfw = false;
         this.isPublic = isPublic != null ? isPublic : true;
+        this.agentUseYn = agentUseYn != null ? agentUseYn : false;
     }
 
     public void update(String boardName, String description, String iconUrl, Integer sortOrder, Boolean allowNsfw,
-            Boolean isActive, Boolean isPublic) {
+            Boolean isActive, Boolean isPublic, Boolean agentUseYn) {
         this.boardName = boardName;
         this.description = description;
         this.iconUrl = iconUrl;
@@ -87,6 +92,14 @@ public class Board extends BaseTimeEntity {
         if (isPublic != null) {
             this.isPublic = isPublic;
         }
+        if (agentUseYn != null) {
+            this.agentUseYn = agentUseYn;
+        }
+    }
+
+    public void update(String boardName, String description, String iconUrl, Integer sortOrder, Boolean allowNsfw,
+            Boolean isActive, Boolean isPublic) {
+        update(boardName, description, iconUrl, sortOrder, allowNsfw, isActive, isPublic, null);
     }
 
     public void updateBoardUrl(String boardUrl) {
@@ -95,5 +108,9 @@ public class Board extends BaseTimeEntity {
 
     public void deactivate() {
         this.isActive = false;
+    }
+
+    public boolean isAgentEnabled() {
+        return Boolean.TRUE.equals(agentUseYn);
     }
 }

@@ -10,6 +10,7 @@ export interface Board {
     sortOrder: number
     isActive: boolean
     isPublic?: boolean
+    agentUseYn?: boolean
     allowNsfw: boolean
     subscriberCount?: number
     isAdmin?: boolean
@@ -19,6 +20,7 @@ export interface Board {
     categories?: Category[]
     adminUserId?: number
     adminDisplayName?: string
+    guidePrompt?: string
 }
 
 export interface BoardCreateData {
@@ -29,6 +31,8 @@ export interface BoardCreateData {
     sortOrder?: number
     allowNsfw?: boolean
     isPublic?: boolean
+    agentUseYn?: boolean
+    guidePrompt?: string
 }
 
 export interface BoardUpdateData {
@@ -40,6 +44,8 @@ export interface BoardUpdateData {
     allowNsfw?: boolean
     isActive?: boolean
     isPublic?: boolean
+    agentUseYn?: boolean
+    guidePrompt?: string
 }
 
 export interface Category {

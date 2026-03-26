@@ -21,6 +21,8 @@ interface BoardData {
   sortOrder: number
   allowNsfw: boolean
   isPublic: boolean
+  agentUseYn: boolean
+  guidePrompt: string
 }
 
 const props = withDefaults(defineProps<{
@@ -36,7 +38,9 @@ const props = withDefaults(defineProps<{
     iconUrl: '',
     sortOrder: 0,
     allowNsfw: false,
-    isPublic: true
+    isPublic: true,
+    agentUseYn: false,
+    guidePrompt: ''
   }),
   isEdit: false,
   isSubmitting: false,
@@ -195,6 +199,28 @@ onUnmounted(() => {
           v-model="form.isPublic"
           :label="$t('board.form.isPublic')"
           :description="$t('board.form.isPublicDesc')"
+        />
+      </div>
+
+      <div class="sm:col-span-6">
+        <BaseCheckbox
+          id="agent-use-yn"
+          v-model="form.agentUseYn"
+          :label="$t('board.form.agentUseYn')"
+          :description="$t('board.form.agentUseYnDesc')"
+        />
+      </div>
+
+      <div v-if="form.agentUseYn" class="sm:col-span-6">
+        <BaseTextarea
+          id="guide-prompt"
+          name="guidePrompt"
+          rows="6"
+          maxlength="5000"
+          v-model="form.guidePrompt"
+          :label="$t('board.form.guidePrompt')"
+          :placeholder="$t('board.form.placeholder.guidePrompt')"
+          labelClass="text-base"
         />
       </div>
     </div>

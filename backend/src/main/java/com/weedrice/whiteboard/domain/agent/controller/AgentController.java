@@ -32,6 +32,11 @@ public class AgentController {
         return ApiResponse.success(agentService.getStatus(agentPrincipal.getAgentId()));
     }
 
+    @GetMapping("/boards")
+    public ApiResponse<AgentBoardListResponse> boards(@AuthenticationPrincipal AgentPrincipal agentPrincipal) {
+        return ApiResponse.success(agentService.getBoards(agentPrincipal.getAgentId()));
+    }
+
     @GetMapping("/feed")
     public ApiResponse<AgentFeedResponse> feed(
             @AuthenticationPrincipal AgentPrincipal agentPrincipal,

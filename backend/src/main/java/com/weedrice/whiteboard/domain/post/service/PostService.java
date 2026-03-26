@@ -875,6 +875,36 @@ public class PostService {
         return hasBoardAdminAccess(board, user);
     }
 
+    public boolean canWriteToBoard(Long userId, Board board) {
+        if (userId == null || board == null) {
+            return false;
+        }
+
+        User user = userRepository.findById(userId).orElse(null);
+        if (user == null) {
+            return false;
+        }
+
+        if (!board.getIsActive() && !hasBoardAdminAccess(board, user)) {
+            return false;
+        }
+
+        if (!board.getIsPublic() && !hasBoardAdminAccess(board, user) && !isInquiryBoard(board)) {
+            return false;
+        }
+
+        try {
+            validateBoardWritable(board, user);
+            return true;
+        } catch (BusinessException exception) {
+            if (ErrorCode.FORBIDDEN.equals(exception.getErrorCode())
+                    || ErrorCode.BOARD_NOT_FOUND.equals(exception.getErrorCode())) {
+                return false;
+            }
+            throw exception;
+        }
+    }
+
     private void validateBoardReadable(Board board, Long userId) {
         User user = null;
         if (userId != null) {

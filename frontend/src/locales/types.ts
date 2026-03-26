@@ -347,6 +347,9 @@ export interface BoardMessages {
     allowNsfwDesc: string
     isPublic: string
     isPublicDesc: string
+    agentUseYn: string
+    agentUseYnDesc: string
+    guidePrompt: string
     change: string
     save: string
     create: string
@@ -363,6 +366,7 @@ export interface BoardMessages {
       desc: string
       icon: string
       sortOrder: string
+      guidePrompt: string
     }
     validation: string
     uploadFailed: string
