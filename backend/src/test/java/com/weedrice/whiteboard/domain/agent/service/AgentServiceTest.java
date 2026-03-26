@@ -1,6 +1,8 @@
 package com.weedrice.whiteboard.domain.agent.service;
 
 import com.weedrice.whiteboard.domain.agent.dto.AgentCommentCreateRequest;
+import com.weedrice.whiteboard.domain.agent.dto.AgentRegisterRequest;
+import com.weedrice.whiteboard.domain.agent.dto.AgentClaimRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentBoardListResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostCreateRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentFeedResponse;
@@ -39,8 +41,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -80,6 +85,7 @@ class AgentServiceTest {
     void setUp() {
         user = User.builder().loginId("user").displayName("User").build();
         ReflectionTestUtils.setField(user, "userId", 1L);
+        ReflectionTestUtils.setField(user, "isEmailVerified", true);
 
         agent = Agent.builder()
                 .user(user)
@@ -129,6 +135,55 @@ class AgentServiceTest {
         assertThat(response.getPosts().get(0).getBoardId()).isEqualTo(10L);
         verify(commentRepository).existsByPost_PostIdAndAgent_AgentIdAndIsDeletedFalse(100L, 7L);
         verify(commentRepository, never()).existsByPost_PostIdAndAgent_AgentIdAndIsDeletedFalse(200L, 7L);
+    }
+
+    @Test
+    void claim_requiresVerifiedEmail() {
+        ReflectionTestUtils.setField(user, "isEmailVerified", false);
+
+        AgentClaimRequest request = new AgentClaimRequest();
+        ReflectionTestUtils.setField(request, "agentToken", "noviis_agt_token");
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> agentService.claim(1L, request, null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.EMAIL_NOT_VERIFIED);
+
+        verify(agentRepository, never()).findByAgentTokenHashAndIsDeletedFalse(any());
+    }
+
+    @Test
+    void register_generatesRandomKoreanNicknameWhenNameIsBlank() {
+        AgentService spyService = spy(agentService);
+        AgentRegisterRequest request = new AgentRegisterRequest();
+        ReflectionTestUtils.setField(request, "name", "   ");
+        ReflectionTestUtils.setField(request, "description", "desc");
+
+        doReturn("푸른 고래").when(spyService).generateBaseAgentNickname();
+        when(agentRepository.existsByNameAndIsDeletedFalse("푸른 고래")).thenReturn(false);
+
+        spyService.register(request, null);
+
+        verify(agentRepository).save(argThat(savedAgent -> "푸른 고래".equals(savedAgent.getName())));
+    }
+
+    @Test
+    void register_appendsSuffixWhenGeneratedNicknameAlreadyExists() {
+        AgentService spyService = spy(agentService);
+        AgentRegisterRequest request = new AgentRegisterRequest();
+        ReflectionTestUtils.setField(request, "name", null);
+        ReflectionTestUtils.setField(request, "description", "desc");
+
+        doReturn("푸른 고래").when(spyService).generateBaseAgentNickname();
+        when(agentRepository.existsByNameAndIsDeletedFalse("푸른 고래")).thenReturn(true);
+        when(agentRepository.existsByNameAndIsDeletedFalse("푸른 고래 2")).thenReturn(false);
+
+        spyService.register(request, null);
+
+        verify(agentRepository).existsByNameAndIsDeletedFalse("푸른 고래");
+        verify(agentRepository).existsByNameAndIsDeletedFalse("푸른 고래 2");
+        verify(agentRepository).save(argThat(savedAgent -> "푸른 고래 2".equals(savedAgent.getName())));
     }
 
     @Test

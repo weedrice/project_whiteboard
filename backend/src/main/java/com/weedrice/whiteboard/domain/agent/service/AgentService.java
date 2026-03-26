@@ -43,6 +43,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -54,6 +55,30 @@ public class AgentService {
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
     private static final long DAILY_AGENT_POST_LIMIT = 50;
     private static final long DAILY_AGENT_COMMENT_LIMIT = 100;
+    private static final String[] AGENT_NAME_PREFIXES = {
+            "고요한", "눈부신", "달콤한", "맑은", "반짝이는", "붉은", "부드러운", "사뿐한", "산뜻한", "새벽의",
+            "수줍은", "순한", "싱그러운", "아늑한", "아침의", "은빛", "잔잔한", "조용한", "차분한", "청명한",
+            "초롱한", "포근한", "푸른", "하얀", "환한", "기민한", "날랜", "든든한", "영민한", "재빠른",
+            "현명한", "활달한", "다정한", "기특한", "대담한", "유쾌한", "느긋한", "반듯한", "빛나는", "온화한",
+            "기쁜", "황금빛", "찬란한", "꿈꾸는", "평온한", "선명한", "담백한", "따스한", "건강한", "튼튼한",
+            "유려한", "경쾌한", "명랑한", "산들한", "자유로운", "낭만적인", "정갈한", "고운", "총명한", "느린",
+            "빠른", "맹렬한", "성실한", "용감한", "유연한", "섬세한", "귀여운", "든직한", "은은한", "매끈한",
+            "화사한", "시원한", "따뜻한", "영롱한", "차가운", "호기로운", "단단한", "담대한", "평화로운", "담담한",
+            "부지런한", "희망찬", "짙푸른", "달빛의", "별빛의", "노을빛", "해맑은", "눈꽃의", "비단같은", "물결치는",
+            "바람의", "숲속의", "구름의", "파도의", "햇살의", "반가운", "영원한", "미묘한", "선선한", "기특한"
+    };
+    private static final String[] AGENT_NAME_SUFFIXES = {
+            "고래", "고양이", "구름", "기린", "까치", "나비", "낙타", "노을", "눈꽃", "달빛",
+            "도토리", "돌고래", "등대", "라일락", "레몬", "매화", "멜로디", "무지개", "물결", "미소",
+            "바다", "바람", "반달", "별빛", "보리", "불꽃", "비누", "비둘기", "사과", "산호",
+            "새싹", "서리", "소나무", "솜사탕", "수국", "수평선", "숲길", "아지랑이", "앵두", "여우",
+            "연꽃", "오로라", "우주", "유성", "이슬", "자수정", "장미", "저녁놀", "제비", "종달새",
+            "진주", "참새", "청포도", "초승달", "치즈", "카멜리아", "코스모스", "클로버", "튤립", "파도",
+            "펭귄", "포도", "푸딩", "풍선", "프리지아", "하늘", "해달", "해바라기", "햇살", "호수",
+            "호랑이", "반디", "토끼", "다람쥐", "살구", "모래", "안개", "은하", "달토끼", "백합",
+            "유리병", "노래", "단풍", "물망초", "보석", "시냇물", "풀잎", "코알라", "너울", "솔바람",
+            "별무리", "은파도", "눈송이", "산들바람", "달무리", "금붕어", "흰구름", "꽃잎", "사슴", "해오름"
+    };
 
     private final AgentRepository agentRepository;
     private final AgentActivityLogRepository agentActivityLogRepository;
@@ -73,7 +98,7 @@ public class AgentService {
         String rawToken = generateRawToken();
         Agent agent = Agent.builder()
                 .agentTokenHash(hashToken(rawToken))
-                .name(request.getName())
+                .name(resolveAgentName(request.getName()))
                 .description(request.getDescription())
                 .status(Agent.STATUS_PENDING_CLAIM)
                 .build();
@@ -85,6 +110,9 @@ public class AgentService {
     public AgentResponse claim(Long userId, AgentClaimRequest request, HttpServletRequest httpServletRequest) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        if (!Boolean.TRUE.equals(user.getIsEmailVerified())) {
+            throw new BusinessException(ErrorCode.EMAIL_NOT_VERIFIED);
+        }
         Agent agent = agentRepository.findByAgentTokenHashAndIsDeletedFalse(hashToken(request.getAgentToken()))
                 .orElseThrow(() -> new BusinessException(ErrorCode.AGENT_NOT_FOUND));
 
@@ -298,6 +326,31 @@ public class AgentService {
 
     private String generateRawToken() {
         return "noviis_agt_" + UUID.randomUUID().toString().replace("-", "");
+    }
+
+    String generateBaseAgentNickname() {
+        ThreadLocalRandom random = ThreadLocalRandom.current();
+        return AGENT_NAME_PREFIXES[random.nextInt(AGENT_NAME_PREFIXES.length)] + " "
+                + AGENT_NAME_SUFFIXES[random.nextInt(AGENT_NAME_SUFFIXES.length)];
+    }
+
+    private String resolveAgentName(String requestedName) {
+        if (requestedName != null && !requestedName.isBlank()) {
+            return requestedName.trim();
+        }
+
+        String baseName = generateBaseAgentNickname();
+        if (!agentRepository.existsByNameAndIsDeletedFalse(baseName)) {
+            return baseName;
+        }
+
+        int suffix = 2;
+        String candidate = baseName + " " + suffix;
+        while (agentRepository.existsByNameAndIsDeletedFalse(candidate)) {
+            suffix++;
+            candidate = baseName + " " + suffix;
+        }
+        return candidate;
     }
 
     private String hashToken(String rawToken) {

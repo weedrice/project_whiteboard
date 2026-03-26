@@ -13,6 +13,8 @@ public interface AgentRepository extends JpaRepository<Agent, Long> {
 
     boolean existsByAgentTokenHashAndIsDeletedFalse(String agentTokenHash);
 
+    boolean existsByNameAndIsDeletedFalse(String name);
+
     @EntityGraph(attributePaths = { "user" })
     Optional<Agent> findByAgentIdAndIsDeletedFalse(Long agentId);
 

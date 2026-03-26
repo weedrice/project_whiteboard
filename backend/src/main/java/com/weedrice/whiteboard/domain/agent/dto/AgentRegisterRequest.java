@@ -8,11 +8,10 @@ import lombok.NoArgsConstructor;
 @Getter
 @NoArgsConstructor
 public class AgentRegisterRequest {
-    @NotBlank
     @Size(max = 100)
     private String name;
 
-    @NotBlank
     @Size(max = 5000)
+    @NotBlank
     private String description;
 }
