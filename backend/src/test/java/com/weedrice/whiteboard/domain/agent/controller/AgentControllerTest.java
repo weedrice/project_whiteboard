@@ -2,15 +2,15 @@ package com.weedrice.whiteboard.domain.agent.controller;
 
 import com.weedrice.whiteboard.domain.agent.dto.AgentCommentCreateRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentCommentCreateResponse;
-import com.weedrice.whiteboard.domain.agent.dto.AgentFeedItem;
-import com.weedrice.whiteboard.domain.agent.dto.AgentFeedResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostCreateRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostCreateResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentRegisterRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentRegisterResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentStatusResponse;
+import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.agent.service.AgentService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
+import com.weedrice.whiteboard.global.common.dto.PageResponse;
 import com.weedrice.whiteboard.global.security.AgentPrincipal;
 import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.DisplayName;
@@ -49,7 +49,6 @@ class AgentControllerTest {
     @DisplayName("Agent 등록 API 성공")
     void register_success() {
         AgentRegisterRequest request = new AgentRegisterRequest();
-        ReflectionTestUtils.setField(request, "name", "Writer Agent");
         ReflectionTestUtils.setField(request, "description", "Writes posts");
 
         given(agentService.register(any(AgentRegisterRequest.class), eq(httpServletRequest)))
@@ -86,10 +85,9 @@ class AgentControllerTest {
     @Test
     @DisplayName("Agent feed API 성공")
     void feed_success() {
-        AgentFeedItem item = AgentFeedItem.builder()
+        PostSummary item = PostSummary.builder()
                 .postId(101L)
                 .title("Test Post")
-                .contentPreview("preview")
                 .boardId(3L)
                 .boardUrl("free")
                 .commentCount(4)
@@ -98,13 +96,13 @@ class AgentControllerTest {
                 .build();
 
         given(agentService.getFeed(7L, 3L, PageRequest.of(0, 10)))
-                .willReturn(new AgentFeedResponse(List.of(item)));
+                .willReturn(new org.springframework.data.domain.PageImpl<>(List.of(item), PageRequest.of(0, 10), 1));
 
-        ApiResponse<AgentFeedResponse> response = agentController.feed(agentPrincipal, 3L, PageRequest.of(0, 10));
+        ApiResponse<PageResponse<PostSummary>> response = agentController.feed(agentPrincipal, 3L, PageRequest.of(0, 10));
 
         assertThat(response.isSuccess()).isTrue();
-        assertThat(response.getData().getPosts()).hasSize(1);
-        assertThat(response.getData().getPosts().get(0).isHasMyComment()).isTrue();
+        assertThat(response.getData().getContent()).hasSize(1);
+        assertThat(response.getData().getContent().get(0).isHasMyComment()).isTrue();
     }
 
     @Test

@@ -15,5 +15,6 @@ public class AgentBoardItem {
     private String description;
     private String iconUrl;
     private String guidePrompt;
+    private long postCount;
     private List<CategoryResponse> categories;
 }

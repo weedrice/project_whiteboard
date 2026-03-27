@@ -14,6 +14,8 @@ import java.time.LocalDateTime;
 public class PostSummary {
     private Long rowNum;
     private Long postId;
+    private Long boardId;
+    private Long categoryId;
     private String title;
     private AuthorInfo author;
     private CategoryInfo category;
@@ -34,6 +36,7 @@ public class PostSummary {
     private boolean isLiked;
     private boolean isScrapped;
     private boolean isSubscribed;
+    private boolean hasMyComment;
     private Boolean inquiryAnswered;
     private boolean hasImage;
     private String summary;
@@ -73,6 +76,8 @@ public class PostSummary {
             String contentsExcerpt, String firstMediaType, String firstMediaUrl) {
         return PostSummary.builder()
                 .postId(post.getPostId())
+                .boardId(post.getBoard().getBoardId())
+                .categoryId(post.getCategory() != null ? post.getCategory().getCategoryId() : null)
                 .title(post.getTitle())
                 .author(AuthorInfo.builder()
                         .userId(post.getUser().getUserId())

@@ -6,7 +6,6 @@ import com.weedrice.whiteboard.domain.agent.dto.AgentClaimRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentBoardListResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostCreateRequest;
-import com.weedrice.whiteboard.domain.agent.dto.AgentFeedResponse;
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
 import com.weedrice.whiteboard.domain.agent.repository.AgentActivityLogRepository;
 import com.weedrice.whiteboard.domain.agent.repository.AgentRepository;
@@ -18,6 +17,7 @@ import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.comment.service.CommentService;
+import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.service.PostService;
@@ -32,6 +32,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -128,16 +129,21 @@ class AgentServiceTest {
     @DisplayName("feed는 agent가 글을 쓸 수 없는 게시판의 글을 제외한다")
     void getFeed_filtersBoardsWithoutWritePermission() {
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
-        when(postRepository.findAll(PageRequest.of(0, 10, org.springframework.data.domain.Sort.by(
-                org.springframework.data.domain.Sort.Direction.DESC, "createdAt"))))
-                .thenReturn(new PageImpl<>(List.of(writablePost, blockedPost)));
+        when(boardRepository.findByIsActiveAndIsPublicOrderBySortOrderAsc(true, true))
+                .thenReturn(List.of(writableBoard, blockedBoard));
         when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(true);
+        when(postRepository.findByBoard_BoardIdInAndIsDeletedFalseOrderByCreatedAtDesc(
+                List.of(10L),
+                PageRequest.of(0, 10, org.springframework.data.domain.Sort.by(
+                        org.springframework.data.domain.Sort.Direction.DESC, "createdAt"))))
+                .thenReturn(new PageImpl<>(List.of(writablePost), PageRequest.of(0, 10), 1));
         when(commentRepository.existsByPost_PostIdAndAgent_AgentIdAndIsDeletedFalse(100L, 7L)).thenReturn(false);
 
-        AgentFeedResponse response = agentService.getFeed(7L, null, PageRequest.of(0, 10));
+        Page<PostSummary> response = agentService.getFeed(7L, null, PageRequest.of(0, 10));
 
-        assertThat(response.getPosts()).hasSize(1);
-        assertThat(response.getPosts().get(0).getBoardId()).isEqualTo(10L);
+        assertThat(response.getContent()).hasSize(1);
+        assertThat(response.getContent().get(0).getBoardId()).isEqualTo(10L);
+        assertThat(response.getTotalElements()).isEqualTo(1);
         verify(commentRepository).existsByPost_PostIdAndAgent_AgentIdAndIsDeletedFalse(100L, 7L);
         verify(commentRepository, never()).existsByPost_PostIdAndAgent_AgentIdAndIsDeletedFalse(200L, 7L);
     }
@@ -323,16 +329,32 @@ class AgentServiceTest {
         ReflectionTestUtils.setField(secondWritablePost, "isDeleted", false);
 
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
-        when(postRepository.findAll(PageRequest.of(0, 10, org.springframework.data.domain.Sort.by(
-                org.springframework.data.domain.Sort.Direction.DESC, "createdAt"))))
-                .thenReturn(new PageImpl<>(List.of(writablePost, secondWritablePost)));
+        when(boardRepository.findByIsActiveAndIsPublicOrderBySortOrderAsc(true, true))
+                .thenReturn(List.of(writableBoard));
         when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(true);
+        when(postRepository.findByBoard_BoardIdInAndIsDeletedFalseOrderByCreatedAtDesc(
+                List.of(10L),
+                PageRequest.of(0, 10, org.springframework.data.domain.Sort.by(
+                        org.springframework.data.domain.Sort.Direction.DESC, "createdAt"))))
+                .thenReturn(new PageImpl<>(List.of(writablePost, secondWritablePost), PageRequest.of(0, 10), 2));
         when(commentRepository.existsByPost_PostIdAndAgent_AgentIdAndIsDeletedFalse(anyLong(), eq(7L))).thenReturn(false);
 
-        AgentFeedResponse response = agentService.getFeed(7L, null, PageRequest.of(0, 10));
+        Page<PostSummary> response = agentService.getFeed(7L, null, PageRequest.of(0, 10));
 
-        assertThat(response.getPosts()).hasSize(2);
+        assertThat(response.getContent()).hasSize(2);
         verify(postService).canWriteToBoard(1L, writableBoard);
+    }
+
+    @Test
+    void getFeed_returnsEmptyPageWhenRequestedBoardIsNotAccessible() {
+        when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+        when(boardRepository.findByBoardId(20L)).thenReturn(Optional.of(blockedBoard));
+
+        Page<PostSummary> response = agentService.getFeed(7L, 20L, PageRequest.of(0, 10));
+
+        assertThat(response.getContent()).isEmpty();
+        assertThat(response.getTotalElements()).isZero();
+        verify(postRepository, never()).findByBoard_BoardIdInAndIsDeletedFalseOrderByCreatedAtDesc(any(), any());
     }
 
     @Test

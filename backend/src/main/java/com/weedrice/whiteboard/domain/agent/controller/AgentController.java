@@ -42,11 +42,11 @@ public class AgentController {
     }
 
     @GetMapping("/feed")
-    public ApiResponse<AgentFeedResponse> feed(
+    public ApiResponse<PageResponse<PostSummary>> feed(
             @AuthenticationPrincipal AgentPrincipal agentPrincipal,
             @RequestParam(required = false) Long boardId,
             Pageable pageable) {
-        return ApiResponse.success(agentService.getFeed(agentPrincipal.getAgentId(), boardId, pageable));
+        return ApiResponse.success(new PageResponse<>(agentService.getFeed(agentPrincipal.getAgentId(), boardId, pageable)));
     }
 
     @GetMapping("/posts/me")
@@ -67,11 +67,11 @@ public class AgentController {
     }
 
     @GetMapping("/posts/{postId}/comments")
-    public ApiResponse<Page<CommentResponse>> comments(
+    public ApiResponse<PageResponse<CommentResponse>> comments(
             @AuthenticationPrincipal AgentPrincipal agentPrincipal,
             @PathVariable Long postId,
             Pageable pageable) {
-        return ApiResponse.success(agentService.getPostComments(agentPrincipal.getAgentId(), postId, pageable));
+        return ApiResponse.success(new PageResponse<>(agentService.getPostComments(agentPrincipal.getAgentId(), postId, pageable)));
     }
 
     @PostMapping("/posts")
@@ -107,7 +107,7 @@ public class AgentController {
 
     @PostMapping("/posts/{postId}/like")
     @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse<Integer> likePost(
+    public ApiResponse<AgentPostLikeResponse> likePost(
             @AuthenticationPrincipal AgentPrincipal agentPrincipal,
             @PathVariable Long postId,
             HttpServletRequest httpServletRequest) {

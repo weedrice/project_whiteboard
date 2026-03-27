@@ -29,6 +29,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -42,6 +43,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import java.util.Collections;
 import java.util.HexFormat;
 import java.util.HashMap;
 import java.util.List;
@@ -190,42 +192,30 @@ public class AgentService {
                 .build();
     }
 
-    public AgentFeedResponse getFeed(Long agentId, Long boardId, Pageable pageable) {
+    public Page<PostSummary> getFeed(Long agentId, Long boardId, Pageable pageable) {
         Agent agent = getActiveAgent(agentId);
         Pageable effectivePageable = PageRequest.of(
                 pageable.getPageNumber(),
                 Math.min(Math.max(pageable.getPageSize(), 1), 10),
                 Sort.by(Sort.Direction.DESC, "createdAt"));
+        List<Long> accessibleBoardIds = getAccessibleFeedBoardIds(agent, boardId);
+        if (accessibleBoardIds.isEmpty()) {
+            return Page.empty(effectivePageable);
+        }
 
-        Page<Post> posts = boardId != null
-                ? postRepository.findByBoard_BoardId(boardId, effectivePageable)
-                : postRepository.findAll(effectivePageable);
-
-        Map<Long, Boolean> writableBoardCache = new HashMap<>();
-
-        List<AgentFeedItem> items = posts.getContent().stream()
-                .filter(post -> !post.getIsDeleted())
-                .filter(post -> canAgentWriteBoard(agent, post.getBoard(), writableBoardCache))
-                .map(post -> AgentFeedItem.builder()
-                        .postId(post.getPostId())
-                        .title(post.getTitle())
-                        .contentPreview(toPreview(post.getContents()))
-                        .boardId(post.getBoard().getBoardId())
-                        .boardUrl(post.getBoard().getBoardUrl())
-                        .commentCount(post.getCommentCount())
-                        .createdAt(post.getCreatedAt())
-                        .hasMyComment(commentRepository.existsByPost_PostIdAndAgent_AgentIdAndIsDeletedFalse(
-                                post.getPostId(), agentId))
-                        .build())
-                .collect(Collectors.toList());
-
-        return new AgentFeedResponse(items);
+        Page<Post> posts = postRepository.findByBoard_BoardIdInAndIsDeletedFalseOrderByCreatedAtDesc(
+                accessibleBoardIds,
+                effectivePageable);
+        return mapPostSummariesWithAgentContext(posts, agentId);
     }
 
     public AgentBoardListResponse getBoards(Long agentId) {
         Agent agent = getActiveAgent(agentId);
         Map<Long, Boolean> writableBoardCache = new HashMap<>();
         List<Board> boards = boardRepository.findByIsActiveAndIsPublicOrderBySortOrderAsc(true, true);
+        Map<Long, Long> postCountByBoardId = boards.stream()
+                .collect(Collectors.toMap(Board::getBoardId,
+                        board -> postRepository.countByBoard_BoardIdAndIsDeleted(board.getBoardId(), false)));
         Map<Long, List<CategoryResponse>> categoriesByBoardId = boardCategoryRepository
                 .findByBoard_BoardIdInAndIsActiveOrderByBoard_BoardIdAscSortOrderAsc(
                         boards.stream().map(Board::getBoardId).toList(), true)
@@ -247,6 +237,7 @@ public class AgentService {
                         .description(board.getDescription())
                         .iconUrl(board.getIconUrl())
                         .guidePrompt(resolveGuidePrompt(board, guidePromptMap.get(board.getBoardId())))
+                        .postCount(postCountByBoardId.getOrDefault(board.getBoardId(), 0L))
                         .categories(categoriesByBoardId.getOrDefault(board.getBoardId(), List.of()))
                         .build())
                 .toList();
@@ -261,8 +252,9 @@ public class AgentService {
                 Math.min(Math.max(pageable.getPageSize(), 1), 20),
                 pageable.getSort().isSorted() ? pageable.getSort() : Sort.by(Sort.Direction.DESC, "createdAt"));
 
-        return postRepository.findByAgent_AgentIdAndIsDeletedOrderByCreatedAtDesc(agentId, false, effectivePageable)
-                .map(PostSummary::from);
+        Page<Post> postPage = postRepository.findByAgent_AgentIdAndIsDeletedOrderByCreatedAtDesc(agentId, false,
+                effectivePageable);
+        return mapPostSummariesWithAgentContext(postPage, agentId);
     }
 
     public Page<PostSummary> getBoardPosts(Long agentId, Long boardId, Long categoryId, Pageable pageable) {
@@ -270,7 +262,8 @@ public class AgentService {
         Board board = boardRepository.findByBoardId(boardId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
         validateAgentBoardWritable(agent, board);
-        return postService.getPosts(board.getBoardUrl(), categoryId, null, agent.getUser().getUserId(), pageable);
+        Page<PostSummary> postPage = postService.getPosts(board.getBoardUrl(), categoryId, null, agent.getUser().getUserId(), pageable);
+        return enrichPostSummaries(postPage, agentId);
     }
 
     public Page<CommentResponse> getPostComments(Long agentId, Long postId, Pageable pageable) {
@@ -289,7 +282,7 @@ public class AgentService {
         validateAgentBoardWritable(agent, board);
         validateDailyPostLimit(agentId);
         PostCreateRequest postCreateRequest = new PostCreateRequest(
-                null,
+                request.getCategoryId(),
                 request.getTitle(),
                 request.getContent(),
                 List.of(),
@@ -339,13 +332,13 @@ public class AgentService {
     }
 
     @Transactional
-    public int likePost(Long agentId, Long postId, HttpServletRequest httpServletRequest) {
+    public AgentPostLikeResponse likePost(Long agentId, Long postId, HttpServletRequest httpServletRequest) {
         Agent agent = getActiveAgent(agentId);
         Post post = postService.getPostById(postId, agent.getUser().getUserId(), false);
         validateAgentBoardWritable(agent, post.getBoard());
         int likeCount = postService.likePost(agent.getUser().getUserId(), postId);
         saveLog(agent, agent.getUser(), "LIKE_POST", "POST", postId, httpServletRequest);
-        return likeCount;
+        return new AgentPostLikeResponse(postId, likeCount, true);
     }
 
     @Transactional
@@ -454,14 +447,6 @@ public class AgentService {
         }
     }
 
-    private String toPreview(String content) {
-        if (content == null) {
-            return null;
-        }
-        String stripped = content.replaceAll("<[^>]*>", "").trim();
-        return stripped.length() <= 200 ? stripped : stripped.substring(0, 200);
-    }
-
     private void validateDailyPostLimit(Long agentId) {
         LocalDateTime start = LocalDate.now(KST).atStartOfDay();
         LocalDateTime end = LocalDate.now(KST).plusDays(1).atStartOfDay();
@@ -498,6 +483,40 @@ public class AgentService {
         if (!canAgentWriteBoard(agent, board, new HashMap<>())) {
             throw new BusinessException(ErrorCode.FORBIDDEN, "Agent access is disabled for this board");
         }
+    }
+
+    private List<Long> getAccessibleFeedBoardIds(Agent agent, Long boardId) {
+        if (boardId != null) {
+            return boardRepository.findByBoardId(boardId)
+                    .filter(board -> canAgentWriteBoard(agent, board, new HashMap<>()))
+                    .map(board -> List.of(board.getBoardId()))
+                    .orElse(Collections.emptyList());
+        }
+
+        Map<Long, Boolean> writableBoardCache = new HashMap<>();
+        return boardRepository.findByIsActiveAndIsPublicOrderBySortOrderAsc(true, true).stream()
+                .filter(board -> canAgentWriteBoard(agent, board, writableBoardCache))
+                .map(Board::getBoardId)
+                .toList();
+    }
+
+    private Page<PostSummary> mapPostSummariesWithAgentContext(Page<Post> postPage, Long agentId) {
+        List<PostSummary> content = postPage.getContent().stream()
+                .map(PostSummary::from)
+                .peek(summary -> summary.setHasMyComment(
+                        commentRepository.existsByPost_PostIdAndAgent_AgentIdAndIsDeletedFalse(
+                                summary.getPostId(), agentId)))
+                .toList();
+        return new PageImpl<>(content, postPage.getPageable(), postPage.getTotalElements());
+    }
+
+    private Page<PostSummary> enrichPostSummaries(Page<PostSummary> postPage, Long agentId) {
+        List<PostSummary> content = postPage.getContent().stream()
+                .peek(summary -> summary.setHasMyComment(
+                        commentRepository.existsByPost_PostIdAndAgent_AgentIdAndIsDeletedFalse(
+                                summary.getPostId(), agentId)))
+                .toList();
+        return new PageImpl<>(content, postPage.getPageable(), postPage.getTotalElements());
     }
 
     private String resolveGuidePrompt(Board board, String savedGuidePrompt) {
