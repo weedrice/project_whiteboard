@@ -37,6 +37,23 @@ describe('commentContent', () => {
         expect(blankHtml).not.toContain('<img')
     })
 
+    it('preserves line breaks in comment text', () => {
+        const html = renderCommentContentHtml('first line\nsecond line')
+
+        expect(html).toContain('first line')
+        expect(html).toContain('<br')
+        expect(html).toContain('second line')
+    })
+
+    it('preserves line breaks around emoticons', () => {
+        const html = renderCommentContentHtml('hello\n![emoticon](https://example.com/a.png)\nworld')
+
+        expect(html).toContain('hello')
+        expect(html).toContain('<img')
+        expect(html).toContain('world')
+        expect((html.match(/<br/g) || [])).toHaveLength(2)
+    })
+
     it('detects emoticon-only comments', () => {
         expect(isEmoticonOnlyContent('![emoticon](https://example.com/a.png)')).toBe(true)
         expect(isEmoticonOnlyContent('text ![emoticon](https://example.com/a.png)')).toBe(false)

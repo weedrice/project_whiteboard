@@ -28,7 +28,9 @@ export function renderCommentContentHtml(content: string | undefined, className 
         return `<img src="${escapeHtmlAttribute(safeUrl)}" class="${escapeHtmlAttribute(className)}" alt="emoticon" loading="lazy" />`
     })
 
-    return sanitizeHtml(replaced)
+    const withLineBreaks = replaced.replace(/\r\n|\r|\n/g, '<br />')
+
+    return sanitizeHtml(withLineBreaks)
 }
 
 export function isEmoticonOnlyContent(content: string | undefined): boolean {
