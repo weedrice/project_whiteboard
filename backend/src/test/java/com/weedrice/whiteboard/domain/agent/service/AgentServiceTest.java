@@ -13,6 +13,7 @@ import com.weedrice.whiteboard.domain.agent.repository.AgentRepository;
 import com.weedrice.whiteboard.domain.board.entity.BoardAiInfo;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.repository.BoardAiInfoRepository;
+import com.weedrice.whiteboard.domain.board.repository.BoardCategoryRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
@@ -64,6 +65,8 @@ class AgentServiceTest {
     private BoardRepository boardRepository;
     @Mock
     private BoardAiInfoRepository boardAiInfoRepository;
+    @Mock
+    private BoardCategoryRepository boardCategoryRepository;
     @Mock
     private PostRepository postRepository;
     @Mock
@@ -201,7 +204,7 @@ class AgentServiceTest {
     }
 
     @Test
-    void suspendMyAgent_keepsNameAndClearsDescription() {
+    void suspendMyAgent_keepsDisplayFields() {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
 
@@ -209,7 +212,7 @@ class AgentServiceTest {
 
         assertThat(response.getStatus()).isEqualTo(Agent.STATUS_SUSPENDED);
         assertThat(agent.getName()).isEqualTo("agent");
-        assertThat(agent.getDescription()).isEmpty();
+        assertThat(agent.getDescription()).isEqualTo("desc");
     }
 
     @Test
@@ -219,16 +222,14 @@ class AgentServiceTest {
         AgentClaimRequest request = new AgentClaimRequest();
         ReflectionTestUtils.setField(request, "agentToken", "noviis_agt_token");
 
-        doReturn("푸른 고래").when(spyService).generateBaseAgentNickname();
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(agentRepository.findByAgentTokenHashAndIsDeletedFalse(any())).thenReturn(Optional.of(agent));
-        when(agentRepository.existsByNameAndIsDeletedFalse("푸른 고래")).thenReturn(false);
 
         AgentResponse response = spyService.claim(1L, request, null);
 
         assertThat(response.getStatus()).isEqualTo(Agent.STATUS_ACTIVE);
         assertThat(agent.isActive()).isTrue();
-        assertThat(agent.getName()).isEqualTo("푸른 고래");
+        assertThat(agent.getName()).isEqualTo("agent");
     }
 
     @Test
@@ -300,6 +301,8 @@ class AgentServiceTest {
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
         when(boardRepository.findByIsActiveAndIsPublicOrderBySortOrderAsc(true, true))
                 .thenReturn(List.of(writableBoard, blockedBoard));
+        when(boardCategoryRepository.findByBoard_BoardIdInAndIsActiveOrderByBoard_BoardIdAscSortOrderAsc(
+                List.of(10L, 20L), true)).thenReturn(List.of());
         when(boardAiInfoRepository.findByBoard_BoardIdIn(List.of(10L, 20L))).thenReturn(List.of(boardAiInfo));
         when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(true);
 
@@ -359,6 +362,8 @@ class AgentServiceTest {
         ReflectionTestUtils.setField(request, "content", "b".repeat(25));
 
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+        when(postService.getPostById(100L, 1L, false)).thenReturn(writablePost);
+        when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(true);
         when(commentRepository.countByAgent_AgentIdAndCreatedAtBetween(eq(7L), any(), any())).thenReturn(100L);
 
         assertThatThrownBy(() -> agentService.createComment(7L, 100L, request, null))
@@ -398,6 +403,8 @@ class AgentServiceTest {
         ReflectionTestUtils.setField(comment, "commentId", 300L);
 
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+        when(postService.getPostById(100L, 1L, false)).thenReturn(writablePost);
+        when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(true);
         when(commentRepository.countByAgent_AgentIdAndCreatedAtBetween(eq(7L), any(), any())).thenReturn(99L);
         when(commentService.createCommentAsAgent(1L, 7L, 100L, null, "b".repeat(25))).thenReturn(comment);
 

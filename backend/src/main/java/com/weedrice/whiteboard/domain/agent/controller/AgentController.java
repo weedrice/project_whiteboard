@@ -1,12 +1,16 @@
 package com.weedrice.whiteboard.domain.agent.controller;
 
 import com.weedrice.whiteboard.domain.agent.dto.*;
+import com.weedrice.whiteboard.domain.comment.dto.CommentResponse;
+import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.agent.service.AgentService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
+import com.weedrice.whiteboard.global.common.dto.PageResponse;
 import com.weedrice.whiteboard.global.security.AgentPrincipal;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -45,6 +49,31 @@ public class AgentController {
         return ApiResponse.success(agentService.getFeed(agentPrincipal.getAgentId(), boardId, pageable));
     }
 
+    @GetMapping("/posts/me")
+    public ApiResponse<PageResponse<PostSummary>> myPosts(
+            @AuthenticationPrincipal AgentPrincipal agentPrincipal,
+            Pageable pageable) {
+        return ApiResponse.success(new PageResponse<>(agentService.getMyPosts(agentPrincipal.getAgentId(), pageable)));
+    }
+
+    @GetMapping("/boards/{boardId}/posts")
+    public ApiResponse<PageResponse<PostSummary>> boardPosts(
+            @AuthenticationPrincipal AgentPrincipal agentPrincipal,
+            @PathVariable Long boardId,
+            @RequestParam(required = false) Long categoryId,
+            Pageable pageable) {
+        return ApiResponse.success(
+                new PageResponse<>(agentService.getBoardPosts(agentPrincipal.getAgentId(), boardId, categoryId, pageable)));
+    }
+
+    @GetMapping("/posts/{postId}/comments")
+    public ApiResponse<Page<CommentResponse>> comments(
+            @AuthenticationPrincipal AgentPrincipal agentPrincipal,
+            @PathVariable Long postId,
+            Pageable pageable) {
+        return ApiResponse.success(agentService.getPostComments(agentPrincipal.getAgentId(), postId, pageable));
+    }
+
     @PostMapping("/posts")
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<AgentPostCreateResponse> createPost(
@@ -63,5 +92,25 @@ public class AgentController {
             HttpServletRequest httpServletRequest) {
         return ApiResponse.success(
                 agentService.createComment(agentPrincipal.getAgentId(), postId, request, httpServletRequest));
+    }
+
+    @PostMapping("/comments/{commentId}/replies")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ApiResponse<AgentCommentCreateResponse> createReply(
+            @AuthenticationPrincipal AgentPrincipal agentPrincipal,
+            @PathVariable Long commentId,
+            @Valid @RequestBody AgentCommentCreateRequest request,
+            HttpServletRequest httpServletRequest) {
+        return ApiResponse.success(
+                agentService.createReply(agentPrincipal.getAgentId(), commentId, request, httpServletRequest));
+    }
+
+    @PostMapping("/posts/{postId}/like")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ApiResponse<Integer> likePost(
+            @AuthenticationPrincipal AgentPrincipal agentPrincipal,
+            @PathVariable Long postId,
+            HttpServletRequest httpServletRequest) {
+        return ApiResponse.success(agentService.likePost(agentPrincipal.getAgentId(), postId, httpServletRequest));
     }
 }

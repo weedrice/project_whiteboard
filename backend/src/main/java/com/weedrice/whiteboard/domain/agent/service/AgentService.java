@@ -5,14 +5,18 @@ import com.weedrice.whiteboard.domain.agent.entity.Agent;
 import com.weedrice.whiteboard.domain.agent.entity.AgentActivityLog;
 import com.weedrice.whiteboard.domain.agent.repository.AgentActivityLogRepository;
 import com.weedrice.whiteboard.domain.agent.repository.AgentRepository;
+import com.weedrice.whiteboard.domain.board.dto.CategoryResponse;
 import com.weedrice.whiteboard.domain.board.entity.BoardAiInfo;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.repository.BoardAiInfoRepository;
+import com.weedrice.whiteboard.domain.board.repository.BoardCategoryRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
+import com.weedrice.whiteboard.domain.comment.dto.CommentResponse;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.comment.service.CommentService;
 import com.weedrice.whiteboard.domain.post.dto.PostCreateRequest;
+import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.service.PostService;
@@ -85,6 +89,7 @@ public class AgentService {
     private final UserRepository userRepository;
     private final BoardRepository boardRepository;
     private final BoardAiInfoRepository boardAiInfoRepository;
+    private final BoardCategoryRepository boardCategoryRepository;
     private final PostRepository postRepository;
     private final CommentRepository commentRepository;
     private final PostService postService;
@@ -221,6 +226,13 @@ public class AgentService {
         Agent agent = getActiveAgent(agentId);
         Map<Long, Boolean> writableBoardCache = new HashMap<>();
         List<Board> boards = boardRepository.findByIsActiveAndIsPublicOrderBySortOrderAsc(true, true);
+        Map<Long, List<CategoryResponse>> categoriesByBoardId = boardCategoryRepository
+                .findByBoard_BoardIdInAndIsActiveOrderByBoard_BoardIdAscSortOrderAsc(
+                        boards.stream().map(Board::getBoardId).toList(), true)
+                .stream()
+                .collect(Collectors.groupingBy(
+                        category -> category.getBoard().getBoardId(),
+                        Collectors.mapping(CategoryResponse::new, Collectors.toList())));
         Map<Long, String> guidePromptMap = boardAiInfoRepository.findByBoard_BoardIdIn(
                         boards.stream().map(Board::getBoardId).toList())
                 .stream()
@@ -235,10 +247,37 @@ public class AgentService {
                         .description(board.getDescription())
                         .iconUrl(board.getIconUrl())
                         .guidePrompt(resolveGuidePrompt(board, guidePromptMap.get(board.getBoardId())))
+                        .categories(categoriesByBoardId.getOrDefault(board.getBoardId(), List.of()))
                         .build())
                 .toList();
 
         return new AgentBoardListResponse(items);
+    }
+
+    public Page<PostSummary> getMyPosts(Long agentId, Pageable pageable) {
+        Agent agent = getActiveAgent(agentId);
+        Pageable effectivePageable = PageRequest.of(
+                pageable.getPageNumber(),
+                Math.min(Math.max(pageable.getPageSize(), 1), 20),
+                pageable.getSort().isSorted() ? pageable.getSort() : Sort.by(Sort.Direction.DESC, "createdAt"));
+
+        return postRepository.findByAgent_AgentIdAndIsDeletedOrderByCreatedAtDesc(agentId, false, effectivePageable)
+                .map(PostSummary::from);
+    }
+
+    public Page<PostSummary> getBoardPosts(Long agentId, Long boardId, Long categoryId, Pageable pageable) {
+        Agent agent = getActiveAgent(agentId);
+        Board board = boardRepository.findByBoardId(boardId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
+        validateAgentBoardWritable(agent, board);
+        return postService.getPosts(board.getBoardUrl(), categoryId, null, agent.getUser().getUserId(), pageable);
+    }
+
+    public Page<CommentResponse> getPostComments(Long agentId, Long postId, Pageable pageable) {
+        Agent agent = getActiveAgent(agentId);
+        Post post = postService.getPostById(postId, agent.getUser().getUserId(), false);
+        validateAgentBoardWritable(agent, post.getBoard());
+        return commentService.getComments(postId, agent.getUser().getUserId(), pageable);
     }
 
     @Transactional
@@ -269,11 +308,44 @@ public class AgentService {
     public AgentCommentCreateResponse createComment(Long agentId, Long postId, AgentCommentCreateRequest request,
             HttpServletRequest httpServletRequest) {
         Agent agent = getActiveAgent(agentId);
+        Post post = postService.getPostById(postId, agent.getUser().getUserId(), false);
+        validateAgentBoardWritable(agent, post.getBoard());
         validateDailyCommentLimit(agentId);
         Comment comment = commentService.createCommentAsAgent(agent.getUser().getUserId(), agentId, postId, null,
                 request.getContent());
         saveLog(agent, agent.getUser(), "CREATE_COMMENT", "COMMENT", comment.getCommentId(), httpServletRequest);
         return new AgentCommentCreateResponse(comment.getCommentId());
+    }
+
+    @Transactional
+    public AgentCommentCreateResponse createReply(Long agentId, Long commentId, AgentCommentCreateRequest request,
+            HttpServletRequest httpServletRequest) {
+        Agent agent = getActiveAgent(agentId);
+        Comment parentComment = commentRepository.findByIdWithRelations(commentId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
+        if (parentComment.getIsDeleted()) {
+            throw new BusinessException(ErrorCode.COMMENT_NOT_FOUND);
+        }
+        validateAgentBoardWritable(agent, parentComment.getPost().getBoard());
+        validateDailyCommentLimit(agentId);
+        Comment reply = commentService.createCommentAsAgent(
+                agent.getUser().getUserId(),
+                agentId,
+                parentComment.getPost().getPostId(),
+                commentId,
+                request.getContent());
+        saveLog(agent, agent.getUser(), "CREATE_COMMENT", "COMMENT", reply.getCommentId(), httpServletRequest);
+        return new AgentCommentCreateResponse(reply.getCommentId());
+    }
+
+    @Transactional
+    public int likePost(Long agentId, Long postId, HttpServletRequest httpServletRequest) {
+        Agent agent = getActiveAgent(agentId);
+        Post post = postService.getPostById(postId, agent.getUser().getUserId(), false);
+        validateAgentBoardWritable(agent, post.getBoard());
+        int likeCount = postService.likePost(agent.getUser().getUserId(), postId);
+        saveLog(agent, agent.getUser(), "LIKE_POST", "POST", postId, httpServletRequest);
+        return likeCount;
     }
 
     @Transactional
