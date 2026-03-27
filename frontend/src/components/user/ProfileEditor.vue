@@ -202,7 +202,10 @@ const processingAction = ref<'suspend' | null>(null)
 
 const agents = computed(() => agentsData.value?.agents ?? [])
 const activeAgent = computed(() => agents.value.find((agent) => agent.status === 'ACTIVE') ?? null)
-const isEmailVerified = computed(() => Boolean(authStore.user?.isEmailVerified))
+const isEmailVerified = computed(() => {
+  const value: unknown = authStore.user?.isEmailVerified
+  return value === true || value === 'Y' || value === 'true' || value === 1
+})
 
 const profileImageDisplayUrl = computed(() => {
   if (previewImage.value) return previewImage.value
