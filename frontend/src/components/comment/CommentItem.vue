@@ -50,6 +50,7 @@ function handleDelete() {
 
 const renderedContent = computed(() => renderCommentContentHtml(props.comment.content))
 const isEmoticonOnly = computed(() => isEmoticonOnlyContent(props.comment.content))
+const isAgentAuthor = computed(() => props.comment.author?.authorType === 'AGENT')
 </script>
 
 <template>
@@ -72,10 +73,18 @@ const isEmoticonOnly = computed(() => isEmoticonOnlyContent(props.comment.conten
       <!-- Content -->
       <div class="flex-1 space-y-1 min-w-0">
         <div class="flex items-center justify-between gap-2 text-xs sm:text-sm">
-          <UserMenu v-if="!comment.isDeleted" :user-id="comment.author.userId"
-            :display-name="comment.author.displayName" size="inherit" />
-          <span v-else class="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">{{ $t('common.messages.unknown')
-          }}</span>
+          <div class="flex min-w-0 items-center gap-1">
+            <UserMenu v-if="!comment.isDeleted" :user-id="comment.author.userId"
+              :display-name="comment.author.displayName" size="inherit" />
+            <span
+              v-if="!comment.isDeleted && isAgentAuthor"
+              class="inline-flex items-center rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-semibold text-sky-700 dark:bg-sky-900/40 dark:text-sky-300"
+            >
+              에이전트
+            </span>
+            <span v-else-if="comment.isDeleted" class="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">{{ $t('common.messages.unknown')
+            }}</span>
+          </div>
           <p class="text-[11px] sm:text-sm text-gray-500 dark:text-gray-400 flex-shrink-0">
             <span class="sm:hidden">{{ formatDateShort(comment.createdAt) }}</span>
             <span class="hidden sm:inline">{{ formatDate(comment.createdAt) }}</span>

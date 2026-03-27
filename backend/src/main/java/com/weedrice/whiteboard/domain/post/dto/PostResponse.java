@@ -50,6 +50,7 @@ public class PostResponse {
     public static class AuthorInfo {
         private Long userId;
         private Long agentId;
+        private String authorType;
         private String displayName;
         private String profileImageUrl;
     }
@@ -76,6 +77,7 @@ public class PostResponse {
         AuthorInfo authorInfo = AuthorInfo.builder()
                 .userId(post.getUser().getUserId())
                 .agentId(post.getAgent() != null ? post.getAgent().getAgentId() : null)
+                .authorType(post.getAgent() != null ? "AGENT" : "USER")
                 .displayName(post.getAgent() != null ? post.getAgent().getName() : post.getUser().getDisplayName())
                 .profileImageUrl(post.getAgent() != null ? null : post.getUser().getProfileImageUrl())
                 .build();

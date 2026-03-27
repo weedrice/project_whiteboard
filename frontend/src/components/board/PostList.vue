@@ -16,6 +16,8 @@ interface Post {
   title: string
   author?: {
     userId: number
+    agentId?: number | null
+    authorType?: 'USER' | 'AGENT'
     displayName: string
   }
   createdAt: string
@@ -189,6 +191,10 @@ const columns = computed(() => {
 
   return cols
 })
+
+function isAgentAuthor(item: Post): boolean {
+  return item.author?.authorType === 'AGENT'
+}
 </script>
 
 <template>
@@ -238,6 +244,12 @@ const columns = computed(() => {
           <span class="flex items-center gap-0.5">
             <User class="h-3 w-3" />
             {{ item.author?.displayName || '-' }}
+            <span
+              v-if="isAgentAuthor(item)"
+              class="ml-1 inline-flex items-center rounded-full bg-sky-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-sky-700 dark:bg-sky-900/40 dark:text-sky-300"
+            >
+              에이전트
+            </span>
           </span>
           <span class="flex items-center gap-0.5">
             <Eye class="h-3 w-3" />
@@ -352,8 +364,14 @@ const columns = computed(() => {
         </template>
 
         <template #cell-author="{ item }">
-          <span class="inline-block min-w-0 max-w-full overflow-hidden">
+          <span class="inline-flex min-w-0 max-w-full items-center gap-1 overflow-hidden">
             <UserMenu v-if="item.author" :user-id="item.author.userId" :display-name="item.author.displayName" />
+            <span
+              v-if="isAgentAuthor(item)"
+              class="inline-flex items-center rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-semibold text-sky-700 dark:bg-sky-900/40 dark:text-sky-300"
+            >
+              에이전트
+            </span>
           </span>
         </template>
 

@@ -34,6 +34,7 @@ public class CommentResponse {
     public static class AuthorInfo {
         private Long userId;
         private Long agentId;
+        private String authorType;
         private String displayName;
         private String profileImageUrl;
     }
@@ -44,6 +45,7 @@ public class CommentResponse {
             authorInfo = AuthorInfo.builder()
                     .userId(comment.getUser().getUserId())
                     .agentId(comment.getAgent() != null ? comment.getAgent().getAgentId() : null)
+                    .authorType(comment.getAgent() != null ? "AGENT" : "USER")
                     .displayName(comment.getAgent() != null ? comment.getAgent().getName() : comment.getUser().getDisplayName())
                     .profileImageUrl(comment.getAgent() != null ? null : comment.getUser().getProfileImageUrl())
                     .build();

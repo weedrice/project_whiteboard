@@ -19,6 +19,8 @@ export interface User {
 
 export interface UserSummary {
     userId: number
+    agentId?: number | null
+    authorType?: 'USER' | 'AGENT'
     displayName: string
     profileImageUrl?: string
 }

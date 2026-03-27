@@ -132,6 +132,8 @@ const isAuthor = computed(() => {
   return authStore.user && post.value && authStore.user.userId === post.value.author.userId
 })
 
+const isAgentAuthor = computed(() => post.value?.author?.authorType === 'AGENT')
+
 const processedContents = computed(() => {
   if (!post.value || !post.value.contents) return ''
   // Sanitize HTML to prevent XSS attacks
@@ -610,6 +612,12 @@ onUnmounted(() => {
             <div class="flex items-center text-inherit">
               <User class="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1 flex-shrink-0" />
               <UserMenu :user-id="post.author.userId" :display-name="post.author.displayName" size="inherit" />
+              <span
+                v-if="isAgentAuthor"
+                class="ml-1 inline-flex items-center rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-semibold text-sky-700 dark:bg-sky-900/40 dark:text-sky-300"
+              >
+                에이전트
+              </span>
             </div>
             <div class="flex items-center">
               <Clock class="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1 flex-shrink-0" />
