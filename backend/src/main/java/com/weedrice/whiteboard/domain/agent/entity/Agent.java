@@ -88,8 +88,6 @@ public class Agent extends BaseTimeEntity {
 
     public void suspend() {
         this.status = STATUS_SUSPENDED;
-        this.name = "";
-        this.description = "";
     }
 
     public void activate() {

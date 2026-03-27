@@ -201,14 +201,14 @@ class AgentServiceTest {
     }
 
     @Test
-    void suspendMyAgent_clearsDisplayFields() {
+    void suspendMyAgent_keepsNameAndClearsDescription() {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
 
         AgentResponse response = agentService.suspendMyAgent(1L, 7L, null);
 
         assertThat(response.getStatus()).isEqualTo(Agent.STATUS_SUSPENDED);
-        assertThat(agent.getName()).isEmpty();
+        assertThat(agent.getName()).isEqualTo("agent");
         assertThat(agent.getDescription()).isEmpty();
     }
 
