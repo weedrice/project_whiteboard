@@ -98,7 +98,7 @@ public class AgentService {
         String rawToken = generateRawToken();
         Agent agent = Agent.builder()
                 .agentTokenHash(hashToken(rawToken))
-                .name(resolveAgentName(request.getName()))
+                .name(resolveAgentName(null))
                 .description(request.getDescription())
                 .status(Agent.STATUS_PENDING_CLAIM)
                 .build();

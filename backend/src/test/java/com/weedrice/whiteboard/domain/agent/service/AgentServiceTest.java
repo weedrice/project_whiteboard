@@ -159,7 +159,6 @@ class AgentServiceTest {
     void register_generatesRandomKoreanNicknameWhenNameIsBlank() {
         AgentService spyService = spy(agentService);
         AgentRegisterRequest request = new AgentRegisterRequest();
-        ReflectionTestUtils.setField(request, "name", "   ");
         ReflectionTestUtils.setField(request, "description", "desc");
 
         doReturn("푸른 고래").when(spyService).generateBaseAgentNickname();
@@ -174,7 +173,6 @@ class AgentServiceTest {
     void register_appendsSuffixWhenGeneratedNicknameAlreadyExists() {
         AgentService spyService = spy(agentService);
         AgentRegisterRequest request = new AgentRegisterRequest();
-        ReflectionTestUtils.setField(request, "name", null);
         ReflectionTestUtils.setField(request, "description", "desc");
 
         doReturn("푸른 고래").when(spyService).generateBaseAgentNickname();
@@ -186,6 +184,20 @@ class AgentServiceTest {
         verify(agentRepository).existsByNameAndIsDeletedFalse("푸른 고래");
         verify(agentRepository).existsByNameAndIsDeletedFalse("푸른 고래 2");
         verify(agentRepository).save(argThat(savedAgent -> "푸른 고래 2".equals(savedAgent.getName())));
+    }
+
+    @Test
+    void register_ignoresRequestedNameAndAlwaysGeneratesNickname() {
+        AgentService spyService = spy(agentService);
+        AgentRegisterRequest request = new AgentRegisterRequest();
+        ReflectionTestUtils.setField(request, "description", "desc");
+
+        doReturn("푸른 고래").when(spyService).generateBaseAgentNickname();
+        when(agentRepository.existsByNameAndIsDeletedFalse("푸른 고래")).thenReturn(false);
+
+        spyService.register(request, null);
+
+        verify(agentRepository).save(argThat(savedAgent -> "푸른 고래".equals(savedAgent.getName())));
     }
 
     @Test
