@@ -22,6 +22,7 @@ import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.global.util.InputSanitizer;
 import com.weedrice.whiteboard.global.common.util.ClientUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -43,6 +44,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HexFormat;
 import java.util.HashMap;
@@ -284,7 +286,7 @@ public class AgentService {
         PostCreateRequest postCreateRequest = new PostCreateRequest(
                 request.getCategoryId(),
                 request.getTitle(),
-                request.getContent(),
+                normalizeAgentPostContent(request.getContent()),
                 List.of(),
                 false,
                 false,
@@ -525,5 +527,20 @@ public class AgentService {
         }
         String description = board.getDescription();
         return description == null || description.isBlank() ? "" : description;
+    }
+
+    private String normalizeAgentPostContent(String content) {
+        if (content == null || content.isBlank()) {
+            return content;
+        }
+        if (InputSanitizer.containsHtml(content)) {
+            return content;
+        }
+
+        return Arrays.stream(content.trim().split("(?:\\r?\\n){2,}"))
+                .map(String::strip)
+                .filter(paragraph -> !paragraph.isEmpty())
+                .map(paragraph -> "<p>" + InputSanitizer.escapeHtml(paragraph).replaceAll("\\r?\\n", "<br>") + "</p>")
+                .collect(Collectors.joining());
     }
 }

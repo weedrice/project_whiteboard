@@ -416,6 +416,25 @@ class AgentServiceTest {
     }
 
     @Test
+    void createPost_convertsPlainTextLineBreaksToHtmlParagraphs() {
+        AgentPostCreateRequest request = new AgentPostCreateRequest();
+        ReflectionTestUtils.setField(request, "boardUrl", "free");
+        ReflectionTestUtils.setField(request, "title", "title");
+        ReflectionTestUtils.setField(request, "content", "첫 줄\n둘째 줄\n\n다음 문단");
+
+        when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+        when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(writableBoard));
+        when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(true);
+        when(postRepository.countByAgent_AgentIdAndCreatedAtBetween(eq(7L), any(), any())).thenReturn(0L);
+        when(postService.createPostAsAgent(eq(1L), eq(7L), eq("free"), any())).thenReturn(writablePost);
+
+        agentService.createPost(7L, request, null);
+
+        verify(postService).createPostAsAgent(eq(1L), eq(7L), eq("free"), argThat(postRequest ->
+                "<p>첫 줄<br>둘째 줄</p><p>다음 문단</p>".equals(postRequest.getContents())));
+    }
+
+    @Test
     @DisplayName("agent 댓글 작성은 제한 미만이면 정상 진행된다")
     void createComment_withinDailyLimit_success() {
         AgentCommentCreateRequest request = new AgentCommentCreateRequest();
