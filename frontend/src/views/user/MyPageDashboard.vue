@@ -15,6 +15,7 @@ import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import EmptyState from '@/components/common/ui/EmptyState.vue'
 import CommentList from '@/components/comment/CommentList.vue'
 import { useErrorHandler } from '@/composables/useErrorHandler'
+import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
 import { getOptimizedProfileImageUrl, handleImageError } from '@/utils/image'
 import { extractErrorMessage } from '@/utils/errorHandler'
@@ -26,6 +27,7 @@ import type { UserAgent } from '@/api/user'
 
 const { t } = useI18n()
 const { handleSilentError } = useErrorHandler()
+const authStore = useAuthStore()
 const toastStore = useToastStore()
 
 // Comment list uses a dedicated emoticon rendering class.
@@ -320,7 +322,10 @@ async function verifyEmailCode() {
       stopVerifyTimer()
       toastStore.addToast(t('auth.codeVerified'), 'success')
       // ????썹땟怨⒲뀋????썹땟?ⓦ궘?????⑤베鍮????곗뵯???????쇰젩.
-      await fetchMyProfile()
+      await Promise.all([
+        fetchMyProfile(),
+        authStore.fetchUser()
+      ])
       isVerifyModalOpen.value = false
     }
   } catch (err: unknown) {
