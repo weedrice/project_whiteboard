@@ -1,6 +1,6 @@
 <template>
   <Teleport to="body">
-    <div v-if="isOpen" class="modal-overlay" @click.self="close" role="dialog" aria-modal="true"
+    <div v-if="isOpen" class="modal-overlay" :style="{ zIndex: String(zIndex) }" @click.self="close" role="dialog" aria-modal="true"
       :aria-labelledby="titleId" :aria-describedby="descriptionId">
       <div :class="['modal-container', sizeClass, { 'modal-container-mobile-full': mobileFull && !mobileFitContent, 'modal-container-mobile-fit': mobileFitContent }]" ref="modalRef">
         <!-- Modal content -->
@@ -46,10 +46,12 @@ const props = withDefaults(defineProps<{
   size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | 'full'
   mobileFull?: boolean
   mobileFitContent?: boolean
+  zIndex?: number
 }>(), {
   size: 'md',
   mobileFull: false,
-  mobileFitContent: false
+  mobileFitContent: false,
+  zIndex: 50
 })
 
 const emit = defineEmits<{
