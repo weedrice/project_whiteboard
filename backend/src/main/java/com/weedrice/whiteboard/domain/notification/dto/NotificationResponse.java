@@ -35,7 +35,7 @@ public class NotificationResponse {
         public static NotificationSummary from(Notification notification) {
             return NotificationSummary.builder()
                     .notificationId(notification.getNotificationId())
-                    .notificationType(notification.getNotificationType())
+                    .notificationType(notification.getNotificationType().name())
                     .message(notification.getContent())
                     .actor(ActorInfo.from(notification))
                     .sourceType(notification.getSourceType())

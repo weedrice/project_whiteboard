@@ -388,6 +388,41 @@ class UserControllerTest {
                         assertThat(response.getBody().getData().getNotificationType()).isEqualTo("COMMENT");
                         assertThat(response.getBody().getData().isEnabled()).isFalse();
                 }
+
+                @Test
+                @DisplayName("알림 설정 bulk 수정 API 성공")
+                void updateMyNotificationSettings_success() {
+                        // given
+                        UpdateNotificationSettingsRequest request = new UpdateNotificationSettingsRequest();
+                        request.setSettings(List.of(
+                                        new UpdateNotificationSettingItem("LIKE", true),
+                                        new UpdateNotificationSettingItem("COMMENT", false),
+                                        new UpdateNotificationSettingItem("REPLY", true)));
+
+                        List<NotificationSettingResponse> updatedSettings = List.of(
+                                        new NotificationSettingResponse("LIKE", true),
+                                        new NotificationSettingResponse("COMMENT", false),
+                                        new NotificationSettingResponse("REPLY", true));
+
+                        given(userSettingsService.updateNotificationSettings(eq(1L), anyList()))
+                                        .willReturn(updatedSettings);
+
+                        // when
+                        ResponseEntity<ApiResponse<List<NotificationSettingResponse>>> response = userController
+                                        .updateMyNotificationSettings(request, customUserDetails);
+
+                        // then
+                        assertThat(response.getStatusCode().value()).isEqualTo(200);
+                        assertThat(response.getBody().isSuccess()).isTrue();
+                        assertThat(response.getBody().getData()).hasSize(3);
+                        assertThat(response.getBody().getData())
+                                        .extracting(NotificationSettingResponse::getNotificationType)
+                                        .containsExactly("LIKE", "COMMENT", "REPLY");
+                        assertThat(response.getBody().getData())
+                                        .extracting(NotificationSettingResponse::isEnabled)
+                                        .containsExactly(true, false, true);
+                        verify(userSettingsService).updateNotificationSettings(eq(1L), eq(request.getSettings()));
+                }
         }
 
         @Nested

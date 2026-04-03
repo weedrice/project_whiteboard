@@ -23,8 +23,8 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -65,7 +65,7 @@ class NotificationServiceTest {
                 .build();
         ReflectionTestUtils.setField(notification, "notificationId", 1L);
 
-        lenient().when(userNotificationSettingsRepository.findByUserIdAndNotificationType(anyLong(), anyString()))
+        lenient().when(userNotificationSettingsRepository.findByUserIdAndNotificationType(anyLong(), any(NotificationType.class)))
                 .thenReturn(Optional.empty());
     }
 
@@ -101,7 +101,40 @@ class NotificationServiceTest {
 
         notificationService.handleNotificationEvent(event);
 
-        verify(notificationRepository, org.mockito.Mockito.never()).save(any(Notification.class));
+        verify(notificationRepository, never()).save(any(Notification.class));
+    }
+
+    @Test
+    @DisplayName("댓글 알림 설정이 꺼져 있으면 저장하지 않는다")
+    void handleNotificationEvent_commentDisabled_skipsSave() {
+        NotificationEvent event = new NotificationEvent(user, actor, NotificationType.COMMENT, "POST", 1L, "Comment Notification");
+        UserNotificationSettings setting = UserNotificationSettings.builder()
+                .userId(1L)
+                .notificationType(NotificationType.COMMENT)
+                .isEnabled(false)
+                .build();
+        when(userNotificationSettingsRepository.findByUserIdAndNotificationType(1L, NotificationType.COMMENT))
+                .thenReturn(Optional.of(setting));
+
+        notificationService.handleNotificationEvent(event);
+
+        verify(notificationRepository, never()).save(any(Notification.class));
+    }
+
+    @Test
+    @DisplayName("설정이 없으면 기본값 true로 저장한다")
+    void handleNotificationEvent_missingSetting_savesNotification() {
+        NotificationEvent event = new NotificationEvent(user, actor, NotificationType.REPLY, "COMMENT", 3L, "Reply Notification");
+        when(transactionTemplate.execute(any())).thenAnswer(invocation -> {
+            org.springframework.transaction.support.TransactionCallback<Notification> callback = invocation.getArgument(0);
+            return callback.doInTransaction(null);
+        });
+        when(notificationRepository.save(any(Notification.class))).thenReturn(notification);
+
+        notificationService.handleNotificationEvent(event);
+
+        verify(userNotificationSettingsRepository).findByUserIdAndNotificationType(1L, NotificationType.REPLY);
+        verify(notificationRepository).save(any(Notification.class));
     }
 
     @Test

@@ -1,33 +1,46 @@
 <script setup lang="ts">
-import { ref, reactive, watchEffect, computed, watch } from 'vue'
+import { ref, reactive, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useAuthStore } from '@/stores/auth'
 import { useThemeStore } from '@/stores/theme'
 import { useUser } from '@/composables/useUser'
-import { type NotificationSettingsPayload } from '@/api/user'
+import type { NotificationSettingType, NotificationSettingsPayload } from '@/api/user'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
-import BaseSelect from '@/components/common/ui/BaseSelect.vue'
 import BaseCheckbox from '@/components/common/ui/BaseCheckbox.vue'
+import BaseSelect from '@/components/common/ui/BaseSelect.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import { Settings } from 'lucide-vue-next'
 import logger from '@/utils/logger'
 import type { UserSettings } from '@/types'
 
 const { t } = useI18n()
-const authStore = useAuthStore()
-const { useUserSettings, useUpdateUserSettings, useNotificationSettings, useUpdateNotificationSettings } = useUser()
+const {
+  useUserSettings,
+  useNotificationSettings,
+  useUpdateUserSettings,
+  useUpdateNotificationSettings
+} = useUser()
 const themeStore = useThemeStore()
 
 const { data: settingsData, isLoading: isSettingsLoading } = useUserSettings()
 const { data: notificationData, isLoading: isNotifLoading } = useNotificationSettings()
 const { mutateAsync: updateSettings, isPending: isUpdatingSettings } = useUpdateUserSettings()
-const { mutateAsync: updateNotif, isPending: isUpdatingNotif } = useUpdateNotificationSettings()
-
+const { mutateAsync: updateNotificationSettings, isPending: isUpdatingNotifications } = useUpdateNotificationSettings()
 
 const loading = computed(() => isSettingsLoading.value || isNotifLoading.value)
-const saving = computed(() => isUpdatingSettings.value || isUpdatingNotif.value)
-const message = ref('')
-const isError = ref(false)
+const savingGeneral = computed(() => isUpdatingSettings.value)
+const savingNotifications = computed(() => isUpdatingNotifications.value)
+const generalMessage = ref('')
+const generalIsError = ref(false)
+const notificationMessage = ref('')
+const notificationIsError = ref(false)
+const hasInitializedGeneral = ref(false)
+const hasInitializedNotifications = ref(false)
+const isHydratingGeneral = ref(false)
+const isHydratingNotifications = ref(false)
+const isGeneralDirty = ref(false)
+const isNotificationsDirty = ref(false)
+
+const NOTIFICATION_TYPES: NotificationSettingType[] = ['LIKE', 'COMMENT', 'REPLY']
 
 const userSettingsForm = reactive<{
   theme: 'LIGHT' | 'DARK'
@@ -41,38 +54,60 @@ const userSettingsForm = reactive<{
   hideNsfw: true
 })
 
-const notificationSettings = reactive({
-  emailNotifications: true,
-  pushNotifications: true
+const notificationSettings = reactive<Record<NotificationSettingType, boolean>>({
+  LIKE: true,
+  COMMENT: true,
+  REPLY: true
 })
 
-
-
-// Sync data when loaded
-watchEffect(() => {
-  if (settingsData.value) {
-    Object.assign(userSettingsForm, settingsData.value)
+watch(settingsData, (value) => {
+  if (!value || (hasInitializedGeneral.value && isGeneralDirty.value)) {
+    return
   }
-  if (notificationData.value) {
-    const notifList = notificationData.value
-    const emailSetting = notifList.find((s: NotificationSettingsPayload) => s.notificationType === 'EMAIL')
-    const pushSetting = notifList.find((s: NotificationSettingsPayload) => s.notificationType === 'PUSH')
 
-    if (emailSetting) notificationSettings.emailNotifications = emailSetting.isEnabled
-    if (pushSetting) notificationSettings.pushNotifications = pushSetting.isEnabled
+  isHydratingGeneral.value = true
+  Object.assign(userSettingsForm, value)
+  hasInitializedGeneral.value = true
+  isHydratingGeneral.value = false
+}, { immediate: true })
+
+watch(notificationData, (value) => {
+  if (!value || (hasInitializedNotifications.value && isNotificationsDirty.value)) {
+    return
   }
-})
 
-// Sync with global theme store (e.g. when toggled from footer)
+  isHydratingNotifications.value = true
+  for (const type of NOTIFICATION_TYPES) {
+    notificationSettings[type] = value.find(
+      (setting: NotificationSettingsPayload) => setting.notificationType === type
+    )?.isEnabled ?? true
+  }
+  hasInitializedNotifications.value = true
+  isHydratingNotifications.value = false
+}, { immediate: true })
+
+watch(userSettingsForm, () => {
+  if (!isHydratingGeneral.value && hasInitializedGeneral.value) {
+    isGeneralDirty.value = true
+  }
+}, { deep: true })
+
+watch(notificationSettings, () => {
+  if (!isHydratingNotifications.value && hasInitializedNotifications.value) {
+    isNotificationsDirty.value = true
+  }
+}, { deep: true })
+
 watch(() => themeStore.isDark, (isDark) => {
-  userSettingsForm.theme = isDark ? 'DARK' : 'LIGHT'
+  if (userSettingsForm.theme !== (isDark ? 'DARK' : 'LIGHT')) {
+    userSettingsForm.theme = isDark ? 'DARK' : 'LIGHT'
+  }
 })
 
-const saveSettings = async () => {
-  message.value = ''
-  isError.value = false
+const saveGeneralSettings = async () => {
+  generalMessage.value = ''
+  generalIsError.value = false
   try {
-    // Update General Settings
     await updateSettings({
       theme: userSettingsForm.theme,
       language: userSettingsForm.language as UserSettings['language'],
@@ -80,30 +115,35 @@ const saveSettings = async () => {
       hideNsfw: userSettingsForm.hideNsfw
     })
 
-    // Update Notification Settings
-    await Promise.all([
-      updateNotif({
-        notificationType: 'EMAIL',
-        isEnabled: notificationSettings.emailNotifications
-      }),
-      updateNotif({
-        notificationType: 'PUSH',
-        isEnabled: notificationSettings.pushNotifications
-      })
-    ])
-
-    // Update theme immediately
     themeStore.setTheme(userSettingsForm.theme)
-
-    message.value = t('user.settings.saved')
+    isGeneralDirty.value = false
+    generalMessage.value = t('user.settings.saved')
   } catch (error: unknown) {
-    logger.error('Failed to save settings:', error)
-    message.value = t('user.settings.failed')
-    isError.value = true
+    logger.error('Failed to save general settings:', error)
+    generalMessage.value = t('user.settings.failed')
+    generalIsError.value = true
   }
 }
 
+const saveNotificationSettings = async () => {
+  notificationMessage.value = ''
+  notificationIsError.value = false
+  try {
+    await updateNotificationSettings({
+      settings: NOTIFICATION_TYPES.map((notificationType) => ({
+        notificationType,
+        isEnabled: notificationSettings[notificationType]
+      }))
+    })
 
+    isNotificationsDirty.value = false
+    notificationMessage.value = t('user.settings.saved')
+  } catch (error: unknown) {
+    logger.error('Failed to save notification settings:', error)
+    notificationMessage.value = t('user.settings.failed')
+    notificationIsError.value = true
+  }
+}
 </script>
 
 <template>
@@ -118,63 +158,85 @@ const saveSettings = async () => {
         <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white">{{ $t('common.settings') }}</h3>
       </div>
       <div class="px-4 py-5 sm:p-6 space-y-6">
-        <!-- General Settings -->
         <div>
           <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-white">{{ $t('user.settings.general') }}</h3>
           <div class="mt-4 space-y-4">
-
-            <!-- Theme -->
             <div>
-              <BaseSelect v-model="userSettingsForm.theme" :label="$t('user.settings.theme')"
-                inputClass="dark:bg-gray-700 dark:text-white dark:border-gray-600">
+              <BaseSelect
+                v-model="userSettingsForm.theme"
+                :label="$t('user.settings.theme')"
+                inputClass="dark:bg-gray-700 dark:text-white dark:border-gray-600"
+              >
                 <option value="LIGHT">{{ $t('user.settings.light') }}</option>
                 <option value="DARK">{{ $t('user.settings.dark') }}</option>
               </BaseSelect>
             </div>
 
-            <!-- Language -->
             <div>
-              <BaseSelect v-model="userSettingsForm.language" :label="$t('user.settings.language')"
-                inputClass="dark:bg-gray-700 dark:text-white dark:border-gray-600">
+              <BaseSelect
+                v-model="userSettingsForm.language"
+                :label="$t('user.settings.language')"
+                inputClass="dark:bg-gray-700 dark:text-white dark:border-gray-600"
+              >
                 <option value="ko">{{ $t('common.languages.ko') }}</option>
                 <option value="en">{{ $t('common.languages.en') }}</option>
               </BaseSelect>
             </div>
-
+          </div>
+          <div class="mt-5 flex justify-end">
+            <p
+              v-if="generalMessage"
+              class="mr-4 text-sm flex items-center"
+              :class="generalIsError ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'"
+            >
+              {{ generalMessage }}
+            </p>
+            <BaseButton @click="saveGeneralSettings" :loading="savingGeneral">
+              {{ savingGeneral ? $t('user.settings.saving') : $t('user.settings.save') }}
+            </BaseButton>
           </div>
         </div>
 
         <hr class="border-gray-200 dark:border-gray-700" />
 
-        <!-- Notification Settings -->
-        <!-- Notification Settings (Hidden) -->
-        <!-- <div>
-          <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-white">{{ $t('user.settings.notifications')
-            }}</h3>
+        <div>
+          <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-white">
+            {{ $t('user.settings.notifications') }}
+          </h3>
           <div class="mt-4 space-y-4">
-            <BaseCheckbox id="email_notifications" v-model="notificationSettings.emailNotifications"
-              :label="$t('user.settings.email')" :description="$t('user.settings.emailDesc')" />
-            <BaseCheckbox id="push_notifications" v-model="notificationSettings.pushNotifications"
-              :label="$t('user.settings.push')" :description="$t('user.settings.pushDesc')" />
+            <BaseCheckbox
+              id="notification-like"
+              v-model="notificationSettings.LIKE"
+              :label="$t('user.settings.like')"
+              :description="$t('user.settings.likeDesc')"
+            />
+            <BaseCheckbox
+              id="notification-comment"
+              v-model="notificationSettings.COMMENT"
+              :label="$t('user.settings.comment')"
+              :description="$t('user.settings.commentDesc')"
+            />
+            <BaseCheckbox
+              id="notification-reply"
+              v-model="notificationSettings.REPLY"
+              :label="$t('user.settings.reply')"
+              :description="$t('user.settings.replyDesc')"
+            />
           </div>
-        </div> -->
-      </div>
-
-
-
-      <div class="pt-5 px-4 sm:px-6 pb-5">
-        <div class="flex justify-end">
-          <p v-if="message" class="mr-4 text-sm flex items-center"
-            :class="isError ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'">
-            {{ message }}
-          </p>
-          <BaseButton @click="saveSettings" :loading="saving">
-            {{ saving ? $t('user.settings.saving') : $t('user.settings.save') }}
-          </BaseButton>
+          <div class="mt-5 flex justify-end">
+            <p
+              v-if="notificationMessage"
+              class="mr-4 text-sm flex items-center"
+              :class="notificationIsError ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'"
+            >
+              {{ notificationMessage }}
+            </p>
+            <BaseButton @click="saveNotificationSettings" :loading="savingNotifications">
+              {{ savingNotifications ? $t('user.settings.saving') : $t('user.settings.save') }}
+            </BaseButton>
+          </div>
         </div>
       </div>
     </div>
   </div>
-
-
 </template>

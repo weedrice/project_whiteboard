@@ -126,6 +126,15 @@ public class UserController {
                                 request.getNotificationType(), request.getIsEnabled())));
         }
 
+        @PutMapping("/me/notification-settings/bulk")
+        public ResponseEntity<ApiResponse<List<NotificationSettingResponse>>> updateMyNotificationSettings(
+                        @Valid @RequestBody UpdateNotificationSettingsRequest request,
+                        @AuthenticationPrincipal CustomUserDetails userDetails) {
+                return ResponseEntity.ok(ApiResponse.success(userSettingsService.updateNotificationSettings(
+                                userDetails.getUserId(),
+                                request.getSettings())));
+        }
+
         @PostMapping("/{userId}/block")
         public ResponseEntity<ApiResponse<MessageResponse>> blockUser(
                         @PathVariable Long userId,

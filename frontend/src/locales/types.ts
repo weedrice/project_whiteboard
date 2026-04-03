@@ -550,6 +550,12 @@ export interface UserMessages {
     light: string
     dark: string
     notifications: string
+    like: string
+    likeDesc: string
+    comment: string
+    commentDesc: string
+    reply: string
+    replyDesc: string
     email: string
     emailDesc: string
     push: string

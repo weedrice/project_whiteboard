@@ -4,34 +4,46 @@ import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 
 import java.util.Locale;
-import java.util.Set;
 
-public final class NotificationType {
-    public static final String LIKE = "LIKE";
-    public static final String COMMENT = "COMMENT";
-    public static final String REPLY = "REPLY";
+public enum NotificationType {
+    LIKE,
+    COMMENT,
+    REPLY;
 
-    private static final Set<String> SUPPORTED_TYPES = Set.of(LIKE, COMMENT, REPLY);
-
-    private NotificationType() {
-    }
-
-    public static String normalize(String value) {
+    public static NotificationType normalize(String value) {
         if (value == null) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
 
-        String normalized = value.trim().toUpperCase(Locale.ROOT);
-        if (!SUPPORTED_TYPES.contains(normalized)) {
+        try {
+            return NotificationType.valueOf(value.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException exception) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
-        return normalized;
+    }
+
+    public static NotificationType fromDatabaseValue(String value) {
+        if (value == null) {
+            return null;
+        }
+
+        try {
+            return NotificationType.valueOf(value.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException exception) {
+            throw new IllegalArgumentException("Unsupported notification type in database: " + value, exception);
+        }
     }
 
     public static boolean isSupported(String value) {
         if (value == null) {
             return false;
         }
-        return SUPPORTED_TYPES.contains(value.trim().toUpperCase(Locale.ROOT));
+
+        try {
+            NotificationType.valueOf(value.trim().toUpperCase(Locale.ROOT));
+            return true;
+        } catch (IllegalArgumentException exception) {
+            return false;
+        }
     }
 }

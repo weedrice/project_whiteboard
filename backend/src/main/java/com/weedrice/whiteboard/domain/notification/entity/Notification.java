@@ -1,6 +1,8 @@
 package com.weedrice.whiteboard.domain.notification.entity;
 
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
+import com.weedrice.whiteboard.domain.notification.constant.NotificationType;
+import com.weedrice.whiteboard.domain.notification.constant.NotificationTypeConverter;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.global.common.converter.BooleanToYNConverter;
 import com.weedrice.whiteboard.global.common.entity.BaseTimeEntity;
@@ -46,8 +48,9 @@ public class Notification extends BaseTimeEntity {
     @JoinColumn(name = "actor_agent_id")
     private Agent actorAgent;
 
+    @Convert(converter = NotificationTypeConverter.class)
     @Column(name = "notification_type", length = 50, nullable = false)
-    private String notificationType;
+    private NotificationType notificationType;
 
     @Column(name = "source_type", length = 50, nullable = false)
     private String sourceType;
@@ -63,7 +66,7 @@ public class Notification extends BaseTimeEntity {
     private Boolean isRead;
 
     @Builder
-    public Notification(User user, User actor, Agent actorAgent, String notificationType, String sourceType, Long sourceId,
+    public Notification(User user, User actor, Agent actorAgent, NotificationType notificationType, String sourceType, Long sourceId,
             String content) {
         this.user = user;
         this.actor = actor;

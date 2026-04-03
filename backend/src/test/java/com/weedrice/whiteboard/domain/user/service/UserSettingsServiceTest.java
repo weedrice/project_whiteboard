@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.user.service;
 
 import com.weedrice.whiteboard.domain.notification.constant.NotificationType;
 import com.weedrice.whiteboard.domain.user.dto.NotificationSettingResponse;
+import com.weedrice.whiteboard.domain.user.dto.UpdateNotificationSettingItem;
 import com.weedrice.whiteboard.domain.user.dto.UserSettingsResponse;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.entity.UserNotificationSettings;
@@ -18,6 +19,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
 import java.util.Optional;
@@ -25,6 +27,8 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -84,8 +88,20 @@ class UserSettingsServiceTest {
 
         List<NotificationSettingResponse> responses = userSettingsService.getNotificationSettings(1L);
 
-        assertThat(responses).hasSize(1);
-        assertThat(responses.get(0).getNotificationType()).isEqualTo(NotificationType.COMMENT);
+        assertThat(responses).hasSize(NotificationType.values().length);
+        assertThat(responses)
+                .extracting(NotificationSettingResponse::getNotificationType)
+                .containsExactly(NotificationType.LIKE.name(), NotificationType.COMMENT.name(), NotificationType.REPLY.name());
+        assertThat(responses)
+                .filteredOn(response -> NotificationType.COMMENT.name().equals(response.getNotificationType()))
+                .singleElement()
+                .extracting(NotificationSettingResponse::isEnabled)
+                .isEqualTo(true);
+        assertThat(responses)
+                .filteredOn(response -> NotificationType.LIKE.name().equals(response.getNotificationType()))
+                .singleElement()
+                .extracting(NotificationSettingResponse::isEnabled)
+                .isEqualTo(true);
     }
 
     @Test
@@ -104,7 +120,7 @@ class UserSettingsServiceTest {
                 userSettingsService.updateNotificationSetting(1L, " comment ", false);
 
         assertThat(response.isEnabled()).isFalse();
-        assertThat(response.getNotificationType()).isEqualTo(NotificationType.COMMENT);
+        assertThat(response.getNotificationType()).isEqualTo(NotificationType.COMMENT.name());
     }
 
     @Test
@@ -145,7 +161,7 @@ class UserSettingsServiceTest {
     void updateNotificationSetting_userNotFound() {
         when(userRepository.findById(1L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> userSettingsService.updateNotificationSetting(1L, NotificationType.LIKE, true))
+        assertThatThrownBy(() -> userSettingsService.updateNotificationSetting(1L, NotificationType.LIKE.name(), true))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.USER_NOT_FOUND);
@@ -161,5 +177,53 @@ class UserSettingsServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+    }
+
+    @Test
+    @DisplayName("bulk 알림 설정 수정 성공")
+    void updateNotificationSettings_success() {
+        User user = User.builder().build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+        UserNotificationSettings likeSetting = new UserNotificationSettings(1L, NotificationType.LIKE, true);
+        UserNotificationSettings replySetting = new UserNotificationSettings(1L, NotificationType.REPLY, false);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userNotificationSettingsRepository.findById(new UserNotificationSettingsId(1L, NotificationType.LIKE)))
+                .thenReturn(Optional.of(likeSetting));
+        when(userNotificationSettingsRepository.findById(new UserNotificationSettingsId(1L, NotificationType.COMMENT)))
+                .thenReturn(Optional.empty());
+        when(userNotificationSettingsRepository.findById(new UserNotificationSettingsId(1L, NotificationType.REPLY)))
+                .thenReturn(Optional.of(replySetting));
+        when(userNotificationSettingsRepository.findByUserId(1L))
+                .thenReturn(List.of(likeSetting, new UserNotificationSettings(1L, NotificationType.COMMENT, false), replySetting));
+
+        List<NotificationSettingResponse> responses = userSettingsService.updateNotificationSettings(1L, List.of(
+                new UpdateNotificationSettingItem("like", false),
+                new UpdateNotificationSettingItem("comment", false),
+                new UpdateNotificationSettingItem("reply", true)));
+
+        assertThat(responses).hasSize(NotificationType.values().length);
+        assertThat(responses)
+                .filteredOn(response -> NotificationType.LIKE.name().equals(response.getNotificationType()))
+                .singleElement()
+                .extracting(NotificationSettingResponse::isEnabled)
+                .isEqualTo(false);
+        assertThat(responses)
+                .filteredOn(response -> NotificationType.COMMENT.name().equals(response.getNotificationType()))
+                .singleElement()
+                .extracting(NotificationSettingResponse::isEnabled)
+                .isEqualTo(false);
+        assertThat(responses)
+                .filteredOn(response -> NotificationType.REPLY.name().equals(response.getNotificationType()))
+                .singleElement()
+                .extracting(NotificationSettingResponse::isEnabled)
+                .isEqualTo(true);
+
+        verify(userNotificationSettingsRepository).save(argThat(setting ->
+                setting.getNotificationType() == NotificationType.LIKE && !setting.getIsEnabled()));
+        verify(userNotificationSettingsRepository).save(argThat(setting ->
+                setting.getNotificationType() == NotificationType.COMMENT && !setting.getIsEnabled()));
+        verify(userNotificationSettingsRepository).save(argThat(setting ->
+                setting.getNotificationType() == NotificationType.REPLY && setting.getIsEnabled()));
     }
 }

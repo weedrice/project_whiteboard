@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.user.service;
 
 import com.weedrice.whiteboard.domain.notification.constant.NotificationType;
 import com.weedrice.whiteboard.domain.user.dto.NotificationSettingResponse;
+import com.weedrice.whiteboard.domain.user.dto.UpdateNotificationSettingItem;
 import com.weedrice.whiteboard.domain.user.dto.UserSettingsResponse;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.entity.UserNotificationSettings;
@@ -17,6 +18,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
@@ -69,8 +72,16 @@ public class UserSettingsService {
                 User user = userRepository.findById(userId)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
-                return userNotificationSettingsRepository.findByUserId(userId).stream()
-                                .map(s -> new NotificationSettingResponse(s.getNotificationType(), s.getIsEnabled()))
+                Map<NotificationType, UserNotificationSettings> settingsByType = userNotificationSettingsRepository
+                                .findByUserId(userId).stream()
+                                .collect(Collectors.toMap(UserNotificationSettings::getNotificationType, Function.identity()));
+
+                return List.of(NotificationType.values()).stream()
+                                .map(type -> {
+                                        UserNotificationSettings setting = settingsByType.get(type);
+                                        boolean enabled = setting == null || Boolean.TRUE.equals(setting.getIsEnabled());
+                                        return new NotificationSettingResponse(type.name(), enabled);
+                                })
                                 .collect(Collectors.toList());
         }
 
@@ -79,7 +90,7 @@ public class UserSettingsService {
                         Boolean isEnabled) {
                 User user = userRepository.findById(userId)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-                String normalizedType = NotificationType.normalize(notificationType);
+                NotificationType normalizedType = NotificationType.normalize(notificationType);
 
                 UserNotificationSettingsId id = new UserNotificationSettingsId(userId, normalizedType);
 
@@ -95,6 +106,30 @@ public class UserSettingsService {
                 }
 
                 userNotificationSettingsRepository.save(setting);
-                return new NotificationSettingResponse(setting.getNotificationType(), setting.getIsEnabled());
+                return new NotificationSettingResponse(setting.getNotificationType().name(), setting.getIsEnabled());
+        }
+
+        @Transactional
+        public List<NotificationSettingResponse> updateNotificationSettings(Long userId,
+                        List<UpdateNotificationSettingItem> requests) {
+                User user = userRepository.findById(userId)
+                                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+                for (UpdateNotificationSettingItem request : requests) {
+                        NotificationType normalizedType = NotificationType.normalize(request.getNotificationType());
+                        UserNotificationSettingsId id = new UserNotificationSettingsId(userId, normalizedType);
+
+                        UserNotificationSettings setting = userNotificationSettingsRepository.findById(id)
+                                        .orElse(UserNotificationSettings.builder()
+                                                        .userId(userId)
+                                                        .notificationType(normalizedType)
+                                                        .isEnabled(true)
+                                                        .build());
+
+                        setting.setEnabled(Boolean.TRUE.equals(request.getIsEnabled()));
+                        userNotificationSettingsRepository.save(setting);
+                }
+
+                return getNotificationSettings(user.getUserId());
         }
 }

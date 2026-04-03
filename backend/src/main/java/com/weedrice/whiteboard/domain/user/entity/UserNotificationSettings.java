@@ -1,5 +1,7 @@
 package com.weedrice.whiteboard.domain.user.entity;
 
+import com.weedrice.whiteboard.domain.notification.constant.NotificationType;
+import com.weedrice.whiteboard.domain.notification.constant.NotificationTypeConverter;
 import com.weedrice.whiteboard.global.common.converter.BooleanToYNConverter;
 import com.weedrice.whiteboard.global.common.entity.BaseTimeEntity;
 import jakarta.persistence.*;
@@ -20,8 +22,9 @@ public class UserNotificationSettings extends BaseTimeEntity {
     private Long userId;
 
     @Id
+    @Convert(converter = NotificationTypeConverter.class)
     @Column(name = "notification_type", length = 50)
-    private String notificationType;
+    private NotificationType notificationType;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", insertable = false, updatable = false)
@@ -32,7 +35,7 @@ public class UserNotificationSettings extends BaseTimeEntity {
     private Boolean isEnabled; // Y, N
 
     @Builder
-    public UserNotificationSettings(Long userId, String notificationType, Boolean isEnabled) {
+    public UserNotificationSettings(Long userId, NotificationType notificationType, Boolean isEnabled) {
         this.userId = userId;
         this.notificationType = notificationType;
         this.isEnabled = isEnabled != null ? isEnabled : true;

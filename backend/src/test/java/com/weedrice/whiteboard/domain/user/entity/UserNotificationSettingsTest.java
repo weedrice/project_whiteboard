@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.user.entity;
 
+import com.weedrice.whiteboard.domain.notification.constant.NotificationType;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -12,7 +13,7 @@ class UserNotificationSettingsTest {
     void createUserNotificationSettings_success() {
         // given
         Long userId = 1L;
-        String notificationType = "LIKE";
+        NotificationType notificationType = NotificationType.LIKE;
         boolean isEnabled = true;
 
         // when
@@ -34,7 +35,7 @@ class UserNotificationSettingsTest {
         // given
         UserNotificationSettings settings = UserNotificationSettings.builder()
                 .userId(1L)
-                .notificationType("LIKE")
+                .notificationType(NotificationType.LIKE)
                 .isEnabled(true)
                 .build();
 
@@ -49,10 +50,10 @@ class UserNotificationSettingsTest {
     @DisplayName("UserNotificationSettingsId 동등성 비교")
     void userNotificationSettingsId_equalsAndHashCode() {
         // given
-        UserNotificationSettingsId id1 = new UserNotificationSettingsId(1L, "LIKE");
-        UserNotificationSettingsId id2 = new UserNotificationSettingsId(1L, "LIKE");
-        UserNotificationSettingsId id3 = new UserNotificationSettingsId(2L, "LIKE");
-        UserNotificationSettingsId id4 = new UserNotificationSettingsId(1L, "COMMENT");
+        UserNotificationSettingsId id1 = new UserNotificationSettingsId(1L, NotificationType.LIKE);
+        UserNotificationSettingsId id2 = new UserNotificationSettingsId(1L, NotificationType.LIKE);
+        UserNotificationSettingsId id3 = new UserNotificationSettingsId(2L, NotificationType.LIKE);
+        UserNotificationSettingsId id4 = new UserNotificationSettingsId(1L, NotificationType.COMMENT);
 
         // then
         assertThat(id1).isEqualTo(id2);

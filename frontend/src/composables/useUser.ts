@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
-import { userApi, type UserUpdatePayload, type NotificationSettingsPayload } from '@/api/user'
+import { userApi, type UserUpdatePayload, type NotificationSettingsBulkPayload } from '@/api/user'
 import { computed, type Ref } from 'vue'
 import type { UserSettings } from '@/types'
 import { QUERY_STALE_TIME } from '@/utils/constants'
@@ -7,11 +7,6 @@ import { QUERY_STALE_TIME } from '@/utils/constants'
 interface PasswordUpdateData {
     currentPassword: string
     newPassword: string
-}
-
-interface NotificationSettingsData {
-    emailNotification?: boolean
-    pushNotification?: boolean
 }
 
 interface PaginationParams {
@@ -136,8 +131,8 @@ export function useUser() {
 
     const useUpdateNotificationSettings = () => {
         return useMutation({
-            mutationFn: async (data: NotificationSettingsPayload) => {
-                const { data: res } = await userApi.updateNotificationSettings(data)
+            mutationFn: async (data: NotificationSettingsBulkPayload) => {
+                const { data: res } = await userApi.updateNotificationSettingsBulk(data)
                 return res
             },
             onSuccess: () => {

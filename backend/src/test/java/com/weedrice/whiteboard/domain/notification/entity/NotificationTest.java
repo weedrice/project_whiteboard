@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.notification.entity;
 
+import com.weedrice.whiteboard.domain.notification.constant.NotificationType;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -32,7 +33,7 @@ class NotificationTest {
         notification = Notification.builder()
                 .user(user)
                 .actor(actor)
-                .notificationType("COMMENT")
+                .notificationType(NotificationType.COMMENT)
                 .sourceType("POST")
                 .sourceId(1L)
                 .content("Test notification")

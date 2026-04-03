@@ -26,9 +26,15 @@ export interface BlockedUserSummary extends UserSummary {
     email?: string
 }
 
+export type NotificationSettingType = 'LIKE' | 'COMMENT' | 'REPLY'
+
 export interface NotificationSettingsPayload {
-    notificationType: string
+    notificationType: NotificationSettingType
     isEnabled: boolean
+}
+
+export interface NotificationSettingsBulkPayload {
+    settings: NotificationSettingsPayload[]
 }
 
 export interface UserAgent {
@@ -75,6 +81,9 @@ export const userApi = {
     },
     updateNotificationSettings(data: NotificationSettingsPayload) {
         return api.put<ApiResponse<NotificationSettingsPayload>>('/users/me/notification-settings', data)
+    },
+    updateNotificationSettingsBulk(data: NotificationSettingsBulkPayload) {
+        return api.put<ApiResponse<NotificationSettingsPayload[]>>('/users/me/notification-settings/bulk', data)
     },
     claimAgent(agentToken: string) {
         return api.post<ApiResponse<UserAgent>>('/users/me/agents/claim', { agentToken })

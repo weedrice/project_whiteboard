@@ -57,7 +57,7 @@ vi.mock('@/api/user', () => ({
         updatePassword: vi.fn(),
         deleteAccount: vi.fn(),
         updateUserSettings: vi.fn(),
-        updateNotificationSettings: vi.fn(),
+        updateNotificationSettingsBulk: vi.fn(),
         claimAgent: vi.fn(),
         suspendMyAgent: vi.fn(),
         deleteMyAgent: vi.fn(),
@@ -224,16 +224,17 @@ describe('useUser', () => {
     })
 
     it('updates notification settings and invalidates notification settings query', async () => {
-        vi.mocked(userApi.updateNotificationSettings).mockResolvedValueOnce({
+        vi.mocked(userApi.updateNotificationSettingsBulk).mockResolvedValueOnce({
             data: { success: true },
         } as never)
 
         const { useUpdateNotificationSettings } = useUser()
-        await useUpdateNotificationSettings().mutateAsync({ notificationType: 'COMMENT', isEnabled: true })
+        await useUpdateNotificationSettings().mutateAsync({
+            settings: [{ notificationType: 'COMMENT', isEnabled: true }],
+        })
 
-        expect(userApi.updateNotificationSettings).toHaveBeenCalledWith({
-            notificationType: 'COMMENT',
-            isEnabled: true,
+        expect(userApi.updateNotificationSettingsBulk).toHaveBeenCalledWith({
+            settings: [{ notificationType: 'COMMENT', isEnabled: true }],
         })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['user', 'notification-settings'] })
     })
