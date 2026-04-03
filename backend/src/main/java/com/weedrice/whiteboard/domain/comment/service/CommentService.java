@@ -119,9 +119,29 @@ public class CommentService {
         Comment parentComment = commentRepository.findByIdWithRelations(parentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
         validateInquiryCommentReadable(parentComment.getPost(), currentUserId);
+
+        List<Long> blockedUserIds = null;
+        if (currentUserId != null) {
+            blockedUserIds = userBlockService.getBlockedUserIds(currentUserId);
+        }
+        final List<Long> finalBlockedUserIds = blockedUserIds;
+
         Page<Comment> replies = commentRepository.findByParent_CommentIdAndIsDeletedOrderByCreatedAtAsc(parentId, false,
                 pageable);
-        return CommentListResponse.from(replies);
+        List<CommentResponse> maskedReplies = replies.getContent().stream()
+                .map(CommentResponse::from)
+                .map(response -> maskCommentContent(response, finalBlockedUserIds))
+                .collect(Collectors.toList());
+
+        return CommentListResponse.builder()
+                .content(maskedReplies)
+                .page(replies.getNumber())
+                .size(replies.getSize())
+                .totalElements(replies.getTotalElements())
+                .totalPages(replies.getTotalPages())
+                .hasNext(replies.hasNext())
+                .hasPrevious(replies.hasPrevious())
+                .build();
     }
 
     public CommentResponse getComment(Long commentId, Long currentUserId) {

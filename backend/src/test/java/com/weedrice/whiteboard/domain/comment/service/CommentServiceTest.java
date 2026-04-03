@@ -267,6 +267,53 @@ class CommentServiceTest {
     }
 
     @Test
+    @DisplayName("mask blocked user replies")
+    void getReplies_masked() {
+        User blockedUser = User.builder().displayName("Blocked").build();
+        ReflectionTestUtils.setField(blockedUser, "userId", 2L);
+
+        User viewer = User.builder().displayName("Viewer").build();
+        ReflectionTestUtils.setField(viewer, "userId", 1L);
+
+        Board board = Board.builder().boardUrl("free").build();
+        ReflectionTestUtils.setField(board, "isActive", true);
+        ReflectionTestUtils.setField(board, "isPublic", true);
+
+        Post post = Post.builder().board(board).title("Title").user(viewer).build();
+        ReflectionTestUtils.setField(post, "postId", 100L);
+
+        Comment parent = Comment.builder()
+                .user(viewer)
+                .post(post)
+                .content("Parent")
+                .depth(0)
+                .build();
+        ReflectionTestUtils.setField(parent, "commentId", 9L);
+        ReflectionTestUtils.setField(parent, "createdAt", LocalDateTime.now());
+
+        Comment reply = Comment.builder()
+                .user(blockedUser)
+                .post(post)
+                .parent(parent)
+                .content("Reply")
+                .depth(1)
+                .build();
+        ReflectionTestUtils.setField(reply, "commentId", 10L);
+        ReflectionTestUtils.setField(reply, "createdAt", LocalDateTime.now());
+
+        when(commentRepository.findByIdWithRelations(9L)).thenReturn(Optional.of(parent));
+        when(userBlockService.getBlockedUserIds(1L)).thenReturn(List.of(2L));
+        when(commentRepository.findByParent_CommentIdAndIsDeletedOrderByCreatedAtAsc(9L, false, PageRequest.of(0, 10)))
+                .thenReturn(new PageImpl<>(List.of(reply), PageRequest.of(0, 10), 1));
+
+        var result = commentService.getReplies(9L, 1L, PageRequest.of(0, 10));
+
+        assertThat(result.getContent()).hasSize(1);
+        assertThat(result.getContent().get(0).getContent()).isEqualTo("차단된 사용자의 댓글입니다.");
+        assertThat(result.getContent().get(0).getAuthor().getDisplayName()).isEqualTo("차단된 사용자");
+    }
+
+    @Test
     @DisplayName("like comment")
     void likeComment_success() {
         User user = User.builder().displayName("User").build();
