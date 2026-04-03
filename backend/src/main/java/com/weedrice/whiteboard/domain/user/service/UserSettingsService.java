@@ -96,15 +96,6 @@ public class UserSettingsService {
         }
 
         @Transactional
-        public NotificationSettingResponse updateNotificationSetting(Long userId, String notificationType,
-                        Boolean isEnabled) {
-                validateUserExists(userId);
-                NotificationType normalizedType = NotificationType.normalize(notificationType);
-                UserNotificationSettings setting = upsertNotificationSetting(userId, normalizedType, isEnabled);
-                return new NotificationSettingResponse(setting.getNotificationType().name(), setting.getIsEnabled());
-        }
-
-        @Transactional
         public List<NotificationSettingResponse> updateNotificationSettings(Long userId,
                         List<UpdateNotificationSettingItem> requests) {
                 validateUserExists(userId);

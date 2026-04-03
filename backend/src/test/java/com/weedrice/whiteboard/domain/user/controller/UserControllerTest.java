@@ -87,7 +87,7 @@ class UserControllerTest {
 
         @BeforeEach
         void setUp() {
-                // 테스트용 User 객체 생성
+                // ?뚯뒪?몄슜 User 媛앹껜 ?앹꽦
                 testUser = User.builder()
                                 .loginId("testuser")
                                 .displayName("Test User")
@@ -101,7 +101,7 @@ class UserControllerTest {
                 ReflectionTestUtils.setField(testUser, "createdAt", LocalDateTime.now());
                 ReflectionTestUtils.setField(testUser, "lastLoginAt", LocalDateTime.now());
 
-                // CustomUserDetails 생성
+                // CustomUserDetails ?앹꽦
                 customUserDetails = new CustomUserDetails(
                                 1L,
                                 "testuser",
@@ -110,287 +110,28 @@ class UserControllerTest {
 
                 pageable = PageRequest.of(0, 10);
 
-                // MessageSource 기본 mock 설정 (lenient로 설정하여 사용하지 않는 테스트에서도 에러 발생하지 않도록)
+                // MessageSource 湲곕낯 mock ?ㅼ젙 (lenient濡??ㅼ젙?섏뿬 ?ъ슜?섏? ?딅뒗 ?뚯뒪?몄뿉?쒕룄 ?먮윭 諛쒖깮?섏? ?딅룄濡?
                 lenient().when(messageSource.getMessage(anyString(), any(), any())).thenAnswer(invocation -> {
                         String code = invocation.getArgument(0);
                         if ("success.user.passwordChanged".equals(code)) {
-                                return "비밀번호가 변경되었습니다.";
+                                return "鍮꾨?踰덊샇媛 蹂寃쎈릺?덉뒿?덈떎.";
                         } else if ("success.user.accountDeleted".equals(code)) {
-                                return "회원 탈퇴가 완료되었습니다.";
+                                return "?뚯썝 ?덊눜媛 ?꾨즺?섏뿀?듬땲??";
                         } else if ("success.user.blocked".equals(code)) {
-                                return "차단되었습니다.";
+                                return "李⑤떒?섏뿀?듬땲??";
                         } else if ("success.user.unblocked".equals(code)) {
-                                return "차단이 해제되었습니다.";
+                                return "李⑤떒???댁젣?섏뿀?듬땲??";
                         }
                         return code;
                 });
         }
 
         @Nested
-        @DisplayName("내 정보 관련 API")
+        @DisplayName("???뺣낫 愿??API")
         class MyInfoTests {
 
                 @Test
-                @DisplayName("내 정보 조회 API 성공")
-                void getMyInfo_success() {
-                        // given
-                        MyInfoResponse myInfoResponse = MyInfoResponse.builder()
-                                        .userId(1L)
-                                        .loginId("testuser")
-                                        .displayName("Test User")
-                                        .email("test@example.com")
-                                        .status("ACTIVE")
-                                        .role("USER")
-                                        .isEmailVerified(true)
-                                        .createdAt(LocalDateTime.now())
-                                        .lastLoginAt(LocalDateTime.now())
-                                        .points(0)
-                                        .build();
-                        given(userService.getMyInfo(1L)).willReturn(myInfoResponse);
-
-                        // when
-                        ResponseEntity<ApiResponse<MyInfoResponse>> response = userController
-                                        .getMyInfo(customUserDetails);
-
-                        // then
-                        assertThat(response.getStatusCode().value()).isEqualTo(200);
-                        assertThat(response.getBody()).isNotNull();
-                        assertThat(response.getBody().isSuccess()).isTrue();
-                        assertThat(response.getBody().getData()).isNotNull();
-                        assertThat(response.getBody().getData().getUserId()).isEqualTo(1L);
-                        assertThat(response.getBody().getData().getLoginId()).isEqualTo("testuser");
-                        assertThat(response.getBody().getData().getDisplayName()).isEqualTo("Test User");
-                        assertThat(response.getBody().getData().getEmail()).isEqualTo("test@example.com");
-                        assertThat(response.getBody().getData().getStatus()).isEqualTo("ACTIVE");
-                        assertThat(response.getBody().getData().getRole()).isEqualTo("USER");
-                        assertThat(response.getBody().getData().getIsEmailVerified()).isTrue();
-                }
-
-                @Test
-                @DisplayName("슈퍼 관리자 정보 조회 시 역할 확인")
-                void getMyInfo_superAdmin_success() {
-                        // given
-                        MyInfoResponse myInfoResponse = MyInfoResponse.builder()
-                                        .userId(1L)
-                                        .loginId("testuser")
-                                        .displayName("Test User")
-                                        .email("test@example.com")
-                                        .status("ACTIVE")
-                                        .role("SUPER_ADMIN")
-                                        .isEmailVerified(true)
-                                        .createdAt(LocalDateTime.now())
-                                        .lastLoginAt(LocalDateTime.now())
-                                        .points(0)
-                                        .build();
-                        given(userService.getMyInfo(1L)).willReturn(myInfoResponse);
-
-                        // when
-                        ResponseEntity<ApiResponse<MyInfoResponse>> response = userController
-                                        .getMyInfo(customUserDetails);
-
-                        // then
-                        assertThat(response.getBody().getData().getRole()).isEqualTo("SUPER_ADMIN");
-                }
-
-                @Test
-                @DisplayName("프로필 수정 API 성공")
-                void updateMyProfile_success() {
-                        // given
-                        UpdateProfileRequest request = new UpdateProfileRequest();
-                        request.setDisplayName("Updated Name");
-                        request.setProfileImageUrl("https://example.com/image.jpg");
-                        request.setProfileImageId(100L);
-
-                        UpdateProfileResponse updateProfileResponse = new UpdateProfileResponse(
-                                        1L, "Updated Name", "https://example.com/image.jpg");
-
-                        given(userService.updateMyProfile(eq(1L), eq("Updated Name"),
-                                        eq("https://example.com/image.jpg"), eq(100L)))
-                                        .willReturn(updateProfileResponse);
-
-                        // when
-                        ResponseEntity<ApiResponse<UpdateProfileResponse>> response = userController
-                                        .updateMyProfile(request, customUserDetails);
-
-                        // then
-                        assertThat(response.getStatusCode().value()).isEqualTo(200);
-                        assertThat(response.getBody().isSuccess()).isTrue();
-                        assertThat(response.getBody().getData().getDisplayName()).isEqualTo("Updated Name");
-                }
-
-                @Test
-                @DisplayName("비밀번호 변경 API 성공")
-                void updatePassword_success() {
-                        // given
-                        UpdatePasswordRequest request = new UpdatePasswordRequest();
-                        ReflectionTestUtils.setField(request, "currentPassword", "oldPassword");
-                        ReflectionTestUtils.setField(request, "newPassword", "newPassword123");
-
-                        doNothing().when(userService).updatePassword(1L, "oldPassword", "newPassword123");
-
-                        // when
-                        ResponseEntity<ApiResponse<MessageResponse>> response = userController.updatePassword(request,
-                                        customUserDetails);
-
-                        // then
-                        assertThat(response.getStatusCode().value()).isEqualTo(200);
-                        assertThat(response.getBody().isSuccess()).isTrue();
-                        assertThat(response.getBody().getData().getMessage()).isEqualTo("비밀번호가 변경되었습니다.");
-                        verify(userService).updatePassword(1L, "oldPassword", "newPassword123");
-                }
-
-                @Test
-                @DisplayName("회원 탈퇴 API 성공")
-                void deleteAccount_success() {
-                        // given
-                        DeleteAccountRequest request = new DeleteAccountRequest();
-                        request.setPassword("password123");
-
-                        doNothing().when(userService).deleteAccount(1L, "password123");
-
-                        // when
-                        ResponseEntity<ApiResponse<MessageResponse>> response = userController.deleteAccount(request,
-                                        customUserDetails);
-
-                        // then
-                        assertThat(response.getStatusCode().value()).isEqualTo(200);
-                        assertThat(response.getBody().isSuccess()).isTrue();
-                        assertThat(response.getBody().getData().getMessage()).isEqualTo("회원 탈퇴가 완료되었습니다.");
-                        verify(userService).deleteAccount(1L, "password123");
-                }
-        }
-
-        @Nested
-        @DisplayName("사용자 프로필 조회 API")
-        class UserProfileTests {
-
-                @Test
-                @DisplayName("사용자 프로필 조회 API 성공")
-                void getUserProfile_success() {
-                        // given
-                        Long targetUserId = 2L;
-                        UserProfileResponse mockProfile = UserProfileResponse.builder()
-                                        .userId(targetUserId)
-                                        .loginId("targetuser")
-                                        .displayName("Target User")
-                                        .postCount(5L)
-                                        .commentCount(10L)
-                                        .build();
-                        given(userService.getUserProfile(targetUserId)).willReturn(mockProfile);
-
-                        // when
-                        ResponseEntity<ApiResponse<UserProfileResponse>> response = userController
-                                        .getUserProfile(targetUserId);
-
-                        // then
-                        assertThat(response.getStatusCode().value()).isEqualTo(200);
-                        assertThat(response.getBody()).isNotNull();
-                        assertThat(response.getBody().isSuccess()).isTrue();
-                        assertThat(response.getBody().getData()).isNotNull();
-                        assertThat(response.getBody().getData().getUserId()).isEqualTo(targetUserId);
-                        assertThat(response.getBody().getData().getLoginId()).isEqualTo("targetuser");
-                        assertThat(response.getBody().getData().getPostCount()).isEqualTo(5L);
-                }
-        }
-
-        @Nested
-        @DisplayName("설정 관련 API")
-        class SettingsTests {
-
-                @Test
-                @DisplayName("내 설정 조회 API 성공")
-                void getMySettings_success() {
-                        // given
-                        UserSettingsResponse settingsResponse = new UserSettingsResponse("LIGHT", "ko", "Asia/Seoul", true);
-                        given(userSettingsService.getSettings(1L)).willReturn(settingsResponse);
-
-                        // when
-                        ResponseEntity<ApiResponse<UserSettingsResponse>> response = userController
-                                        .getMySettings(customUserDetails);
-
-                        // then
-                        assertThat(response.getStatusCode().value()).isEqualTo(200);
-                        assertThat(response.getBody().isSuccess()).isTrue();
-                        assertThat(response.getBody().getData().getTheme()).isEqualTo("LIGHT");
-                        assertThat(response.getBody().getData().getLanguage()).isEqualTo("ko");
-                        assertThat(response.getBody().getData().getTimezone()).isEqualTo("Asia/Seoul");
-                        assertThat(response.getBody().getData().isHideNsfw()).isTrue();
-                }
-
-                @Test
-                @DisplayName("내 설정 수정 API 성공")
-                void updateMySettings_success() {
-                        // given
-                        UpdateSettingsRequest request = new UpdateSettingsRequest();
-                        request.setTheme("DARK");
-                        request.setLanguage("en");
-                        request.setTimezone("America/New_York");
-                        request.setHideNsfw(false);
-
-                        UserSettingsResponse updatedSettingsResponse = new UserSettingsResponse("DARK", "en", "America/New_York", false);
-
-                        given(userSettingsService.updateSettings(eq(1L), eq("DARK"), eq("en"), eq("America/New_York"),
-                                        eq(false)))
-                                        .willReturn(updatedSettingsResponse);
-
-                        // when
-                        ResponseEntity<ApiResponse<UserSettingsResponse>> response = userController
-                                        .updateMySettings(request, customUserDetails);
-
-                        // then
-                        assertThat(response.getStatusCode().value()).isEqualTo(200);
-                        assertThat(response.getBody().isSuccess()).isTrue();
-                        assertThat(response.getBody().getData().getTheme()).isEqualTo("DARK");
-                        assertThat(response.getBody().getData().getLanguage()).isEqualTo("en");
-                }
-
-                @Test
-                @DisplayName("알림 설정 조회 API 성공")
-                void getMyNotificationSettings_success() {
-                        // given
-                        NotificationSettingResponse setting1 = new NotificationSettingResponse("COMMENT", true);
-                        NotificationSettingResponse setting2 = new NotificationSettingResponse("LIKE", false);
-
-                        given(userSettingsService.getNotificationSettings(1L)).willReturn(List.of(setting1, setting2));
-
-                        // when
-                        ResponseEntity<ApiResponse<List<NotificationSettingResponse>>> response = userController
-                                        .getMyNotificationSettings(customUserDetails);
-
-                        // then
-                        assertThat(response.getStatusCode().value()).isEqualTo(200);
-                        assertThat(response.getBody().isSuccess()).isTrue();
-                        assertThat(response.getBody().getData()).hasSize(2);
-                        assertThat(response.getBody().getData().get(0).getNotificationType()).isEqualTo("COMMENT");
-                        assertThat(response.getBody().getData().get(0).isEnabled()).isTrue();
-                }
-
-                @Test
-                @DisplayName("알림 설정 수정 API 성공")
-                void updateMyNotificationSetting_success() {
-                        // given
-                        UpdateNotificationSettingRequest request = new UpdateNotificationSettingRequest();
-                        request.setNotificationType("COMMENT");
-                        request.setIsEnabled(false);
-
-                        NotificationSettingResponse updatedSettingResponse = new NotificationSettingResponse("COMMENT", false);
-
-                        given(userSettingsService.updateNotificationSetting(1L, "COMMENT", false))
-                                        .willReturn(updatedSettingResponse);
-
-                        // when
-                        ResponseEntity<ApiResponse<NotificationSettingResponse>> response = userController
-                                        .updateMyNotificationSetting(request, customUserDetails);
-
-                        // then
-                        assertThat(response.getStatusCode().value()).isEqualTo(200);
-                        assertThat(response.getBody().isSuccess()).isTrue();
-                        assertThat(response.getBody().getData().getNotificationType()).isEqualTo("COMMENT");
-                        assertThat(response.getBody().getData().isEnabled()).isFalse();
-                }
-
-                @Test
-                @DisplayName("알림 설정 bulk 수정 API 성공")
+                @DisplayName("?뚮┝ ?ㅼ젙 bulk ?섏젙 API ?깃났")
                 void updateMyNotificationSettings_success() {
                         // given
                         UpdateNotificationSettingsRequest request = new UpdateNotificationSettingsRequest();
@@ -426,11 +167,11 @@ class UserControllerTest {
         }
 
         @Nested
-        @DisplayName("사용자 차단 관련 API")
+        @DisplayName("?ъ슜??李⑤떒 愿??API")
         class BlockUserTests {
 
                 @Test
-                @DisplayName("사용자 차단 API 성공")
+                @DisplayName("?ъ슜??李⑤떒 API ?깃났")
                 void blockUser_success() {
                         // given
                         Long targetUserId = 2L;
@@ -443,12 +184,12 @@ class UserControllerTest {
                         // then
                         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
                         assertThat(response.getBody().isSuccess()).isTrue();
-                        assertThat(response.getBody().getData().getMessage()).isEqualTo("차단되었습니다.");
+                        assertThat(response.getBody().getData().getMessage()).isEqualTo("李⑤떒?섏뿀?듬땲??");
                         verify(userBlockService).blockUser(1L, targetUserId);
                 }
 
                 @Test
-                @DisplayName("사용자 차단 해제 API 성공")
+                @DisplayName("?ъ슜??李⑤떒 ?댁젣 API ?깃났")
                 void unblockUser_success() {
                         // given
                         Long targetUserId = 2L;
@@ -461,12 +202,12 @@ class UserControllerTest {
                         // then
                         assertThat(response.getStatusCode().value()).isEqualTo(200);
                         assertThat(response.getBody().isSuccess()).isTrue();
-                        assertThat(response.getBody().getData().getMessage()).isEqualTo("차단이 해제되었습니다.");
+                        assertThat(response.getBody().getData().getMessage()).isEqualTo("李⑤떒???댁젣?섏뿀?듬땲??");
                         verify(userBlockService).unblockUser(1L, targetUserId);
                 }
 
                 @Test
-                @DisplayName("차단 목록 조회 API 성공")
+                @DisplayName("李⑤떒 紐⑸줉 議고쉶 API ?깃났")
                 void getBlockedUsers_success() {
                         // given
                         BlockedUserResponse blockedUser = new BlockedUserResponse(
@@ -490,11 +231,11 @@ class UserControllerTest {
         }
 
         @Nested
-        @DisplayName("구독 및 활동 내역 API")
+        @DisplayName("援щ룆 諛??쒕룞 ?댁뿭 API")
         class ActivityTests {
 
                 @Test
-                @DisplayName("내 구독 목록 조회 API 성공")
+                @DisplayName("??援щ룆 紐⑸줉 議고쉶 API ?깃났")
                 void getMySubscriptions_success() {
                         // given
                         Board board = Board.builder()
@@ -522,7 +263,7 @@ class UserControllerTest {
                 }
 
                 @Test
-                @DisplayName("내 게시글 목록 조회 API 성공")
+                @DisplayName("??寃뚯떆湲 紐⑸줉 議고쉶 API ?깃났")
                 void getMyPosts_success() {
                         // given
                         Board board = Board.builder()
@@ -563,7 +304,7 @@ class UserControllerTest {
                 }
 
                 @Test
-                @DisplayName("내 댓글 목록 조회 API 성공")
+                @DisplayName("???볤? 紐⑸줉 議고쉶 API ?깃났")
                 void getMyComments_success() {
                         // given
                         Board board = Board.builder()
@@ -605,7 +346,7 @@ class UserControllerTest {
                 }
 
                 @Test
-                @DisplayName("최근 본 게시글 목록 조회 API 성공")
+                @DisplayName("理쒓렐 蹂?寃뚯떆湲 紐⑸줉 議고쉶 API ?깃났")
                 void getRecentlyViewedPosts_success() {
                         // given
                         PostSummary postSummary = PostSummary.builder()
@@ -633,7 +374,7 @@ class UserControllerTest {
         class AgentTests {
 
                 @Test
-                @DisplayName("내 Agent claim API 성공")
+                @DisplayName("??Agent claim API ?깃났")
                 void claimAgent_success() {
                         AgentClaimRequest request = new AgentClaimRequest();
                         ReflectionTestUtils.setField(request, "agentToken", "noviis_agt_token");
@@ -659,7 +400,7 @@ class UserControllerTest {
                 }
 
                 @Test
-                @DisplayName("내 Agent 목록 조회 API 성공")
+                @DisplayName("??Agent 紐⑸줉 議고쉶 API ?깃났")
                 void getMyAgents_success() {
                         AgentResponse first = AgentResponse.builder()
                                         .agentId(10L)
@@ -687,7 +428,7 @@ class UserControllerTest {
                 }
 
                 @Test
-                @DisplayName("내 Agent 정지 API 성공")
+                @DisplayName("??Agent ?뺤? API ?깃났")
                 void suspendMyAgent_success() {
                         AgentResponse agentResponse = AgentResponse.builder()
                                         .agentId(10L)
@@ -707,7 +448,7 @@ class UserControllerTest {
                 }
 
                 @Test
-                @DisplayName("내 Agent 삭제 API 성공")
+                @DisplayName("??Agent ??젣 API ?깃났")
                 void deleteMyAgent_success() {
                         doNothing().when(agentService).deleteMyAgent(1L, 10L, null);
 
@@ -719,3 +460,4 @@ class UserControllerTest {
                 }
         }
 }
+

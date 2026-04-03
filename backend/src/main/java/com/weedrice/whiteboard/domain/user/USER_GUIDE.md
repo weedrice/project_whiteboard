@@ -23,7 +23,7 @@
 | `GET` | `/api/v1/users/me/settings` | 내 환경설정 조회 |
 | `PUT` | `/api/v1/users/me/settings` | 내 환경설정 수정 |
 | `GET` | `/api/v1/users/me/notification-settings` | 알림 설정 목록 |
-| `PUT` | `/api/v1/users/me/notification-settings` | 알림 설정 수정 |
+| `PUT` | `/api/v1/users/me/notification-settings/bulk` | 알림 설정 일괄 수정 |
 | `POST` | `/api/v1/users/{userId}/block` | 사용자 차단 |
 | `DELETE` | `/api/v1/users/{userId}/block` | 사용자 차단 해제 |
 | `GET` | `/api/v1/users/me/blocks` | 차단 목록 조회 |

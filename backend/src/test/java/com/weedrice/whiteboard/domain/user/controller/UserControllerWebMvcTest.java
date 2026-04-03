@@ -20,11 +20,11 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Collections;
@@ -54,46 +54,46 @@ class UserControllerWebMvcTest {
     @Autowired
     private ObjectMapper objectMapper;
 
-    @MockBean
+    @MockitoBean
     private UserService userService;
 
-    @MockBean
+    @MockitoBean
     private UserSettingsService userSettingsService;
 
-    @MockBean
+    @MockitoBean
     private UserBlockService userBlockService;
 
-    @MockBean
+    @MockitoBean
     private BoardService boardService;
 
-    @MockBean
+    @MockitoBean
     private PostService postService;
 
-    @MockBean
+    @MockitoBean
     private CommentService commentService;
 
-    @MockBean
+    @MockitoBean
     private AgentService agentService;
 
-    @MockBean
+    @MockitoBean
     private org.springframework.context.MessageSource messageSource;
 
-    @MockBean
+    @MockitoBean
     private com.weedrice.whiteboard.global.security.JwtAuthenticationFilter jwtAuthenticationFilter;
 
-    @MockBean
+    @MockitoBean
     private com.weedrice.whiteboard.global.security.JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
 
-    @MockBean
+    @MockitoBean
     private com.weedrice.whiteboard.domain.admin.interceptor.IpBlockInterceptor ipBlockInterceptor;
 
-    @MockBean
+    @MockitoBean
     private org.springframework.data.jpa.mapping.JpaMetamodelMappingContext jpaMetamodelMappingContext;
 
-    @MockBean
+    @MockitoBean
     private com.weedrice.whiteboard.global.security.RefererCheckInterceptor refererCheckInterceptor;
 
-    @MockBean
+    @MockitoBean
     private com.weedrice.whiteboard.global.ratelimit.RateLimitInterceptor rateLimitInterceptor;
 
     private CustomUserDetails customUserDetails;
@@ -178,21 +178,4 @@ class UserControllerWebMvcTest {
                 .andExpect(jsonPath("$.success").value(false));
     }
 
-    @Test
-    @DisplayName("Single notification settings update request fails when isEnabled is missing")
-    void updateNotificationSetting_missingIsEnabled_returnsBadRequest() throws Exception {
-        String requestBody = """
-                {
-                  "notificationType": "COMMENT"
-                }
-                """;
-
-        mockMvc.perform(put("/api/v1/users/me/notification-settings")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(requestBody)
-                        .with(user(customUserDetails))
-                        .with(csrf()))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.success").value(false));
-    }
 }

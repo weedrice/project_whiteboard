@@ -117,15 +117,6 @@ public class UserController {
                                 .success(userSettingsService.getNotificationSettings(userDetails.getUserId())));
         }
 
-        @PutMapping("/me/notification-settings")
-        public ResponseEntity<ApiResponse<NotificationSettingResponse>> updateMyNotificationSetting(
-                        @Valid @RequestBody UpdateNotificationSettingRequest request,
-                        @AuthenticationPrincipal CustomUserDetails userDetails) {
-                return ResponseEntity.ok(ApiResponse.success(userSettingsService.updateNotificationSetting(
-                                userDetails.getUserId(),
-                                request.getNotificationType(), request.getIsEnabled())));
-        }
-
         @PutMapping("/me/notification-settings/bulk")
         public ResponseEntity<ApiResponse<List<NotificationSettingResponse>>> updateMyNotificationSettings(
                         @Valid @RequestBody UpdateNotificationSettingsRequest request,

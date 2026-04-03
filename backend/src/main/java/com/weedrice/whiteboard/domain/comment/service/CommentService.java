@@ -174,7 +174,7 @@ public class CommentService {
             depth = parentComment.getDepth() + 1;
         }
 
-        // 댓글 내용에서 HTML 태그를 제거한다.
+        // ?볤? ?댁슜?먯꽌 HTML ?쒓렇瑜??쒓굅?쒕떎.
         String sanitizedContent = InputSanitizer.stripHtml(content);
 
         Comment comment = Comment.builder()
@@ -199,15 +199,15 @@ public class CommentService {
 
         String commentCreateRewardStr = globalConfigService.getConfig("POINT_COMMENT_CREATE_REWARD");
         int commentCreateReward = commentCreateRewardStr != null ? Integer.parseInt(commentCreateRewardStr) : 10;
-        pointService.addPoint(userId, commentCreateReward, "댓글 작성", savedComment.getCommentId(), "COMMENT");
+        pointService.addPoint(userId, commentCreateReward, "\uB313\uAE00 \uC791\uC131", savedComment.getCommentId(), "COMMENT");
 
         if (parentComment != null && parentComment.getAgent() == null) {
-            String notificationContent = user.getDisplayName() + "님이 회원님의 댓글에 답글을 남겼습니다.";
+            String notificationContent = user.getDisplayName() + "\uB2D8\uC774 \uD68C\uC6D0\uB2D8\uC758 \uB313\uAE00\uC5D0 \uB2F5\uAE00\uC744 \uB0A8\uACBC\uC2B5\uB2C8\uB2E4.";
             NotificationEvent event = new NotificationEvent(parentComment.getUser(), user, agent,
                     NotificationType.REPLY, "COMMENT", parentId, notificationContent);
             eventPublisher.publishEvent(event);
         } else if (parentComment == null && post.getAgent() == null) {
-            String notificationContent = user.getDisplayName() + "님이 회원님의 게시글에 댓글을 남겼습니다.";
+            String notificationContent = user.getDisplayName() + "\uB2D8\uC774 \uD68C\uC6D0\uB2D8\uC758 \uAC8C\uC2DC\uAE00\uC5D0 \uB313\uAE00\uC744 \uB0A8\uACBC\uC2B5\uB2C8\uB2E4.";
             NotificationEvent event = new NotificationEvent(post.getUser(), user, agent,
                     NotificationType.COMMENT, "POST", postId, notificationContent);
             eventPublisher.publishEvent(event);
@@ -233,7 +233,7 @@ public class CommentService {
         }
 
         String originalContent = comment.getContent();
-        // 댓글 내용에서 HTML 태그를 제거한다.
+        // ?볤? ?댁슜?먯꽌 HTML ?쒓렇瑜??쒓굅?쒕떎.
         String sanitizedContent = InputSanitizer.stripHtml(content);
         comment.updateContent(sanitizedContent);
 
@@ -265,7 +265,7 @@ public class CommentService {
 
         String commentCreateRewardStr = globalConfigService.getConfig("POINT_COMMENT_CREATE_REWARD");
         int commentCreateReward = commentCreateRewardStr != null ? Integer.parseInt(commentCreateRewardStr) : 10;
-        pointService.forceSubtractPoint(userId, commentCreateReward, "댓글 삭제", commentId, "COMMENT");
+        pointService.forceSubtractPoint(userId, commentCreateReward, "\uB313\uAE00 \uC0AD\uC81C", commentId, "COMMENT");
     }
 
     @Transactional
@@ -295,7 +295,7 @@ public class CommentService {
             return;
         }
 
-        String content = user.getDisplayName() + "님이 회원님의 댓글을 좋아합니다.";
+        String content = user.getDisplayName() + "\uB2D8\uC774 \uD68C\uC6D0\uB2D8\uC758 \uB313\uAE00\uC744 \uC88B\uC544\uD569\uB2C8\uB2E4.";
         NotificationEvent event = new NotificationEvent(comment.getUser(), user, NotificationType.LIKE,
                 "COMMENT", commentId, content);
         eventPublisher.publishEvent(event);
@@ -332,10 +332,10 @@ public class CommentService {
         if (blockedUserIds != null && response.getAuthor() != null
                 && blockedUserIds.contains(response.getAuthor().getUserId())) {
             return response.toBuilder()
-                    .content("차단된 사용자의 댓글입니다.")
+                    .content("\uCC28\uB2E8\uB41C \uC0AC\uC6A9\uC790\uC758 \uB313\uAE00\uC785\uB2C8\uB2E4.")
                     .author(CommentResponse.AuthorInfo.builder()
                             .userId(response.getAuthor().getUserId())
-                            .displayName("차단된 사용자")
+                            .displayName("\uCC28\uB2E8\uB41C \uC0AC\uC6A9\uC790")
                             .profileImageUrl(null)
                             .build())
                     .build();
@@ -391,3 +391,5 @@ public class CommentService {
                 && DEFAULT_INQUIRY_BOARD_URL.equalsIgnoreCase(board.getBoardUrl());
     }
 }
+
+

@@ -524,10 +524,9 @@ GET /users/me/notification-settings
 {
   "success": true,
   "data": [
-    { "notificationType": "COMMENT", "isEnabled": true },
     { "notificationType": "LIKE", "isEnabled": true },
-    { "notificationType": "MENTION", "isEnabled": true },
-    { "notificationType": "MESSAGE", "isEnabled": false }
+    { "notificationType": "COMMENT", "isEnabled": true },
+    { "notificationType": "REPLY", "isEnabled": true }
   ],
   "error": null
 }
@@ -535,17 +534,20 @@ GET /users/me/notification-settings
 
 ---
 
-### 1.17 알림 설정 수정
+### 1.17 알림 설정 일괄 수정
 ```
-PUT /users/me/notification-settings
+PUT /users/me/notification-settings/bulk
 ```
 `🔒 인증 필요`
 
 **Request Body**
 ```json
 {
-  "notificationType": "MESSAGE",
-  "isEnabled": true
+  "settings": [
+    { "notificationType": "LIKE", "isEnabled": true },
+    { "notificationType": "COMMENT", "isEnabled": false },
+    { "notificationType": "REPLY", "isEnabled": true }
+  ]
 }
 ```
 
@@ -553,10 +555,11 @@ PUT /users/me/notification-settings
 ```json
 {
   "success": true,
-  "data": {
-    "notificationType": "MESSAGE",
-    "isEnabled": true
-  },
+  "data": [
+    { "notificationType": "LIKE", "isEnabled": true },
+    { "notificationType": "COMMENT", "isEnabled": false },
+    { "notificationType": "REPLY", "isEnabled": true }
+  ],
   "error": null
 }
 ```

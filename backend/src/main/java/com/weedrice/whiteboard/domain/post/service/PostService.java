@@ -55,7 +55,7 @@ import java.util.stream.Collectors;
 @SuppressWarnings({ "null" })
 public class PostService {
     private static final String DEFAULT_INQUIRY_BOARD_URL = "inquiry";
-    private static final String DEFAULT_CATEGORY_NAME = "일반";
+    private static final String DEFAULT_CATEGORY_NAME = "\uC77C\uBC18";
 
     private final PostRepository postRepository;
     private final BoardRepository boardRepository;
@@ -153,7 +153,7 @@ public class PostService {
         return this.createPost(userId, agentId, board.getBoardId(), request);
     }
 
-    // --- boardId 기반 public/private 메서드 ---
+    // --- boardId 湲곕컲 public/private 硫붿꽌??---
     public Page<Post> getPosts(Long boardId, Long categoryId, Integer minLikes, Long currentUserId,
             Boolean includeSecret, @NonNull Pageable pageable) {
         List<Long> blockedUserIds = null;
@@ -312,12 +312,12 @@ public class PostService {
                     if (summary.length() > 1000) {
                         summary = summary.substring(0, 1000);
                     }
-                    // 썸네일 URL 결정: 첨부 이미지 > 본문 첫 번째 img
+                    // ?몃꽕??URL 寃곗젙: 泥⑤? ?대?吏 > 蹂몃Ц 泥?踰덉㎏ img
                     String thumbnailUrl = null;
                     boolean hasImage = false;
 
                     if (postIdsWithImages.contains(post.getPostId())) {
-                        // 첨부 이미지가 있는 경우
+                        // 泥⑤? ?대?吏媛 ?덈뒗 寃쎌슦
                         Long fileId = fileService.getOneImageFileIdForPost(post.getPostId());
                         if (fileId != null) {
                             thumbnailUrl = "/api/v1/files/" + fileId;
@@ -326,7 +326,7 @@ public class PostService {
                     }
 
                     if (thumbnailUrl == null) {
-                        // 첨부 이미지가 없으면 본문에서 첫 번째 img를 추출한다.
+                        // 泥⑤? ?대?吏媛 ?놁쑝硫?蹂몃Ц?먯꽌 泥?踰덉㎏ img瑜?異붿텧?쒕떎.
                         String contentImageUrl = extractFirstImageUrlFromContent(post.getContents());
                         if (contentImageUrl != null) {
                             thumbnailUrl = contentImageUrl;
@@ -334,7 +334,7 @@ public class PostService {
                         }
                     }
 
-                    // Feed용 본문 HTML 발췌와 첫 번째 이미지/비디오를 결정한다.
+                    // Feed??蹂몃Ц HTML 諛쒖톸? 泥?踰덉㎏ ?대?吏/鍮꾨뵒?ㅻ? 寃곗젙?쒕떎.
                     String contentsExcerpt = truncateHtmlForExcerpt(post.getContents(), FEED_EXCERPT_MAX_LENGTH);
                     String firstVideoUrl = extractFirstVideoEmbedFromContent(post.getContents());
                     int imgPos = indexOfFirstImageInContent(post.getContents());
@@ -555,7 +555,7 @@ public class PostService {
             validateWriteRole(board, user, category.getMinWriteRole());
         }
 
-        // 본문에서는 sanitize만 적용하고 HTML 태그는 허용한다.
+        // 蹂몃Ц?먯꽌??sanitize留??곸슜?섍퀬 HTML ?쒓렇??덉슜?쒕떎.
         String sanitizedContents = InputSanitizer.sanitize(request.getContents());
 
         boolean isSecret = !isInquiryBoard(board) && request.isSecret();
@@ -583,10 +583,10 @@ public class PostService {
             }
         }
 
-        // 포인트 지급 (게시글 작성)
+        // ?ъ씤??吏湲?(寃뚯떆湲 ?묒꽦)
         String postCreateRewardStr = globalConfigService.getConfig("POINT_POST_CREATE_REWARD");
         int postCreateReward = postCreateRewardStr != null ? Integer.parseInt(postCreateRewardStr) : 50;
-        pointService.addPoint(userId, postCreateReward, "게시글 작성", savedPost.getPostId(), "POST");
+        pointService.addPoint(userId, postCreateReward, "\uAC8C\uC2DC\uAE00 \uC791\uC131", savedPost.getPostId(), "POST");
         return savedPost;
     }
 
@@ -613,7 +613,7 @@ public class PostService {
         String originalTitle = post.getTitle();
         String originalContents = post.getContents();
 
-        // 본문에서는 sanitize만 적용하고 HTML 태그는 허용한다.
+        // 蹂몃Ц?먯꽌??sanitize留??곸슜?섍퀬 HTML ?쒓렇??덉슜?쒕떎.
         String sanitizedContents = InputSanitizer.sanitize(request.getContents());
 
         boolean isSecret = !isInquiryBoard(post.getBoard()) && request.isSecret();
@@ -654,10 +654,10 @@ public class PostService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         savePostVersion(post, modifier, "DELETE", post.getTitle(), post.getContents());
 
-        // 포인트 차감 (게시글 삭제)
+        // ?ъ씤??李④컧 (寃뚯떆湲 ??젣)
         String postCreateRewardStr = globalConfigService.getConfig("POINT_POST_CREATE_REWARD");
         int postCreateReward = postCreateRewardStr != null ? Integer.parseInt(postCreateRewardStr) : 50;
-        pointService.forceSubtractPoint(userId, postCreateReward, "게시글 삭제", postId, "POST");
+        pointService.forceSubtractPoint(userId, postCreateReward, "\uAC8C\uC2DC\uAE00 \uC0AD\uC81C", postId, "POST");
     }
 
     @Transactional
@@ -687,7 +687,7 @@ public class PostService {
             return post.getLikeCount();
         }
 
-        String content = user.getDisplayName() + "님이 회원님의 게시글을 좋아합니다.";
+        String content = user.getDisplayName() + "\uB2D8\uC774 \uD68C\uC6D0\uB2D8\uC758 \uAC8C\uC2DC\uAE00\uC744 \uC88B\uC544\uD569\uB2C8\uB2E4.";
         NotificationEvent event = new NotificationEvent(post.getUser(), user, actorAgent, NotificationType.LIKE, "POST", postId, content);
         eventPublisher.publishEvent(event);
 
@@ -734,8 +734,8 @@ public class PostService {
         if (!scrapRepository.existsById(scrapId)) {
             throw new BusinessException(ErrorCode.NOT_SCRAPED);
         }
-        // Unscrap은 게시글이 삭제되었더라도 스크랩 목록에서 제거 가능해야 한다.
-        // 따라서 게시글 존재 여부를 다시 확인하지 않고 스크랩 ID로만 삭제한다.
+        // Unscrap? 寃뚯떆湲???젣?섏뿀?붾씪??ㅽ겕??紐⑸줉?먯꽌 ?쒓굅 媛?ν빐??쒕떎.
+        // ?곕씪??寃뚯떆湲 議댁옱 ?щ?瑜??ㅼ떆 ?뺤씤?섏? ?딄퀬 ?ㅽ겕??ID濡쒕쭔 ??젣?쒕떎.
         scrapRepository.deleteById(scrapId);
     }
 
@@ -765,7 +765,7 @@ public class PostService {
     public DraftPost saveDraftPost(@NonNull Long userId, PostDraftRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        Board board = boardRepository.findByBoardUrl(request.getBoardUrl()) // boardUrl 사용
+        Board board = boardRepository.findByBoardUrl(request.getBoardUrl()) // boardUrl ?ъ슜
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
         validateBoardReadable(board, userId);
         Post originalPost = null;
@@ -1048,7 +1048,7 @@ public class PostService {
                     if (summary.length() > 1000) {
                         summary = summary.substring(0, 1000);
                     }
-                    // 썸네일 URL 결정: 첨부 이미지 > 본문 첫 번째 img
+                    // ?몃꽕??URL 寃곗젙: 泥⑤? ?대?吏 > 蹂몃Ц 泥?踰덉㎏ img
                     String thumbnailUrl = null;
                     boolean hasImage = false;
 
@@ -1088,7 +1088,7 @@ public class PostService {
     private static final int FEED_EXCERPT_MAX_LENGTH = 800;
 
     /**
-     * Feed용 HTML 본문을 태그 경계를 최대한 보존하면서 지정 길이로 자른다.
+     * Feed??HTML 蹂몃Ц??쒓렇 寃쎄퀎瑜?理쒕??蹂댁〈?섎㈃??吏??湲몄씠濡??먮Ⅸ??
      */
     private String truncateHtmlForExcerpt(String content, int maxLen) {
         if (content == null || content.isEmpty()) return null;
@@ -1104,7 +1104,7 @@ public class PostService {
     }
 
     /**
-     * 蹂몃Ц?먯꽌 泥?踰덉㎏ 鍮꾨뵒??embed(YouTube/Vimeo iframe) src瑜?異붿텧?⑸땲??
+     * 癰귣챶揆?癒?퐣 筌?甕곕뜆???쑬逾??embed(YouTube/Vimeo iframe) src??곕뗄??몃빍??
      */
     private String extractFirstVideoEmbedFromContent(String content) {
         if (content == null || content.isEmpty()) return null;
@@ -1124,14 +1124,14 @@ public class PostService {
         return null;
     }
 
-    /** 본문에서 첫 번째 img 태그의 시작 위치를 반환한다. 없으면 -1. */
+    /** 蹂몃Ц?먯꽌 泥?踰덉㎏ img ?쒓렇??쒖옉 ?꾩튂瑜?諛섑솚?쒕떎. ?놁쑝硫?-1. */
     private int indexOfFirstImageInContent(String content) {
         if (content == null) return -1;
         int i = content.toLowerCase().indexOf("<img");
         return i;
     }
 
-    /** 본문에서 첫 번째 iframe 태그의 시작 위치를 반환한다. 없으면 -1. */
+    /** 蹂몃Ц?먯꽌 泥?踰덉㎏ iframe ?쒓렇??쒖옉 ?꾩튂瑜?諛섑솚?쒕떎. ?놁쑝硫?-1. */
     private int indexOfFirstVideoInContent(String content) {
         if (content == null) return -1;
         int i = content.toLowerCase().indexOf("<iframe");
@@ -1139,10 +1139,10 @@ public class PostService {
     }
 
     /**
-     * 蹂몃Ц HTML?먯꽌 泥?踰덉㎏ img ?쒓렇??src URL??異붿텧?⑸땲??
+     * 癰귣챶揆 HTML?癒?퐣 筌?甕곕뜆??img ??볥젃??src URL??곕뗄??몃빍??
      *
-     * @param content HTML 蹂몃Ц
-     * @return 첫 번째 이미지 URL, 없으면 null
+     * @param content HTML 癰귣챶揆
+     * @return 泥?踰덉㎏ ?대?吏 URL, ?놁쑝硫?null
      */
     private String extractFirstImageUrlFromContent(String content) {
         if (content == null || content.isEmpty()) {
@@ -1165,3 +1165,4 @@ public class PostService {
         return null;
     }
 }
+

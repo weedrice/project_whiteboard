@@ -124,25 +124,6 @@ class UserSettingsServiceTest {
     }
 
     @Test
-    @DisplayName("Single notification setting update succeeds")
-    void updateNotificationSetting_success() {
-        User user = User.builder().build();
-        UserNotificationSettings notificationSetting =
-                new UserNotificationSettings(1L, NotificationType.COMMENT, true);
-        UserNotificationSettingsId id = new UserNotificationSettingsId(1L, NotificationType.COMMENT);
-
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(userNotificationSettingsRepository.findById(id)).thenReturn(Optional.of(notificationSetting));
-        when(userNotificationSettingsRepository.save(any())).thenReturn(notificationSetting);
-
-        NotificationSettingResponse response =
-                userSettingsService.updateNotificationSetting(1L, " comment ", false);
-
-        assertThat(response.isEnabled()).isFalse();
-        assertThat(response.getNotificationType()).isEqualTo(NotificationType.COMMENT.name());
-    }
-
-    @Test
     @DisplayName("Settings lookup fails when user does not exist")
     void getSettings_userNotFound() {
         when(userRepository.findById(1L)).thenReturn(Optional.empty());
@@ -173,29 +154,6 @@ class UserSettingsServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.USER_NOT_FOUND);
-    }
-
-    @Test
-    @DisplayName("Single notification setting update fails when user does not exist")
-    void updateNotificationSetting_userNotFound() {
-        when(userRepository.findById(1L)).thenReturn(Optional.empty());
-
-        assertThatThrownBy(() -> userSettingsService.updateNotificationSetting(1L, NotificationType.LIKE.name(), true))
-                .isInstanceOf(BusinessException.class)
-                .extracting("errorCode")
-                .isEqualTo(ErrorCode.USER_NOT_FOUND);
-    }
-
-    @Test
-    @DisplayName("Single notification setting update fails for unsupported type")
-    void updateNotificationSetting_invalidType() {
-        User user = User.builder().build();
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-
-        assertThatThrownBy(() -> userSettingsService.updateNotificationSetting(1L, "email", true))
-                .isInstanceOf(BusinessException.class)
-                .extracting("errorCode")
-                .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
     }
 
     @Test

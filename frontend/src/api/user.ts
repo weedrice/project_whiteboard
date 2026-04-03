@@ -79,9 +79,6 @@ export const userApi = {
     getNotificationSettings() {
         return api.get<ApiResponse<NotificationSettingsPayload[]>>('/users/me/notification-settings')
     },
-    updateNotificationSettings(data: NotificationSettingsPayload) {
-        return api.put<ApiResponse<NotificationSettingsPayload>>('/users/me/notification-settings', data)
-    },
     updateNotificationSettingsBulk(data: NotificationSettingsBulkPayload) {
         return api.put<ApiResponse<NotificationSettingsPayload[]>>('/users/me/notification-settings/bulk', data)
     },
