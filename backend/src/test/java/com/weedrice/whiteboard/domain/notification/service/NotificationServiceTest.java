@@ -16,7 +16,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
-import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.Optional;
 
@@ -37,8 +36,6 @@ class NotificationServiceTest {
     private UserRepository userRepository;
     @Mock
     private UserNotificationSettingsRepository userNotificationSettingsRepository;
-    @Mock
-    private TransactionTemplate transactionTemplate;
 
     @InjectMocks
     private NotificationService notificationService;
@@ -74,10 +71,6 @@ class NotificationServiceTest {
     void handleNotificationEvent_success() {
         // given
         NotificationEvent event = new NotificationEvent(user, actor, NotificationType.LIKE, "POST", 1L, "Test Notification");
-        when(transactionTemplate.execute(any())).thenAnswer(invocation -> {
-            org.springframework.transaction.support.TransactionCallback<Notification> callback = invocation.getArgument(0);
-            return callback.doInTransaction(null);
-        });
         when(notificationRepository.save(any(Notification.class))).thenReturn(notification);
 
         // when
@@ -125,10 +118,6 @@ class NotificationServiceTest {
     @DisplayName("설정이 없으면 기본값 true로 저장한다")
     void handleNotificationEvent_missingSetting_savesNotification() {
         NotificationEvent event = new NotificationEvent(user, actor, NotificationType.REPLY, "COMMENT", 3L, "Reply Notification");
-        when(transactionTemplate.execute(any())).thenAnswer(invocation -> {
-            org.springframework.transaction.support.TransactionCallback<Notification> callback = invocation.getArgument(0);
-            return callback.doInTransaction(null);
-        });
         when(notificationRepository.save(any(Notification.class))).thenReturn(notification);
 
         notificationService.handleNotificationEvent(event);

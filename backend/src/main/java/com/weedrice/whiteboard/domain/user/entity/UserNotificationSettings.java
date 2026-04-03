@@ -9,6 +9,8 @@ import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "user_notification_settings")
@@ -23,6 +25,7 @@ public class UserNotificationSettings extends BaseTimeEntity {
 
     @Id
     @Convert(converter = NotificationTypeConverter.class)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
     @Column(name = "notification_type", length = 50)
     private NotificationType notificationType;
 

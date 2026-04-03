@@ -22,6 +22,8 @@ import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -49,6 +51,7 @@ public class Notification extends BaseTimeEntity {
     private Agent actorAgent;
 
     @Convert(converter = NotificationTypeConverter.class)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
     @Column(name = "notification_type", length = 50, nullable = false)
     private NotificationType notificationType;
 

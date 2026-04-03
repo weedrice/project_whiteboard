@@ -33,28 +33,25 @@ public class NotificationService {
     private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
     private final UserNotificationSettingsRepository userNotificationSettingsRepository;
-    private final org.springframework.transaction.support.TransactionTemplate transactionTemplate;
 
     private final Map<Long, Map<String, SseEmitter>> emitters = new ConcurrentHashMap<>();
 
     @TransactionalEventListener
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void handleNotificationEvent(NotificationEvent event) {
         if (isSelfNotification(event) || !isNotificationEnabled(event)) {
             return;
         }
 
-        Notification notification = transactionTemplate.execute(status -> {
-            Notification noti = Notification.builder()
-                    .user(event.getUserToNotify())
-                    .actor(event.getActor())
-                    .actorAgent(event.getActorAgent())
-                    .notificationType(event.getNotificationType())
-                    .sourceType(event.getSourceType())
-                    .sourceId(event.getSourceId())
-                    .content(event.getContent())
-                    .build();
-            return notificationRepository.save(noti);
-        });
+        Notification notification = notificationRepository.save(Notification.builder()
+                .user(event.getUserToNotify())
+                .actor(event.getActor())
+                .actorAgent(event.getActorAgent())
+                .notificationType(event.getNotificationType())
+                .sourceType(event.getSourceType())
+                .sourceId(event.getSourceId())
+                .content(event.getContent())
+                .build());
 
         if (notification != null) {
             sendNotificationToUser(event.getUserToNotify().getUserId(), notification);
