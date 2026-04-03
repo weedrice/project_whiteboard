@@ -121,7 +121,7 @@ class UserControllerWebMvcTest {
     }
 
     @Test
-    @DisplayName("bulk 알림 설정 수정 요청 성공")
+    @DisplayName("Bulk notification settings update request succeeds")
     void updateNotificationSettingsBulk_returnsSuccess() throws Exception {
         UpdateNotificationSettingsRequest request = new UpdateNotificationSettingsRequest();
         request.setSettings(List.of(
@@ -147,7 +147,7 @@ class UserControllerWebMvcTest {
     }
 
     @Test
-    @DisplayName("bulk 알림 설정 수정 요청 실패 - 빈 목록")
+    @DisplayName("Bulk notification settings update request fails for empty list")
     void updateNotificationSettingsBulk_emptySettings_returnsBadRequest() throws Exception {
         UpdateNotificationSettingsRequest request = new UpdateNotificationSettingsRequest();
         request.setSettings(List.of());
@@ -162,7 +162,7 @@ class UserControllerWebMvcTest {
     }
 
     @Test
-    @DisplayName("bulk 알림 설정 수정 요청 실패 - 잘못된 항목")
+    @DisplayName("Bulk notification settings update request fails for invalid item")
     void updateNotificationSettingsBulk_invalidItem_returnsBadRequest() throws Exception {
         UpdateNotificationSettingsRequest request = new UpdateNotificationSettingsRequest();
         request.setSettings(List.of(
@@ -172,6 +172,24 @@ class UserControllerWebMvcTest {
         mockMvc.perform(put("/api/v1/users/me/notification-settings/bulk")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request))
+                        .with(user(customUserDetails))
+                        .with(csrf()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    @DisplayName("Single notification settings update request fails when isEnabled is missing")
+    void updateNotificationSetting_missingIsEnabled_returnsBadRequest() throws Exception {
+        String requestBody = """
+                {
+                  "notificationType": "COMMENT"
+                }
+                """;
+
+        mockMvc.perform(put("/api/v1/users/me/notification-settings")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody)
                         .with(user(customUserDetails))
                         .with(csrf()))
                 .andExpect(status().isBadRequest())

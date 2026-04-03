@@ -43,18 +43,10 @@ public class NotificationService {
             return;
         }
 
-        Notification notification = notificationRepository.save(Notification.builder()
-                .user(event.getUserToNotify())
-                .actor(event.getActor())
-                .actorAgent(event.getActorAgent())
-                .notificationType(event.getNotificationType())
-                .sourceType(event.getSourceType())
-                .sourceId(event.getSourceId())
-                .content(event.getContent())
-                .build());
+        Notification notification = persistNotification(event);
 
         if (notification != null) {
-            sendNotificationToUser(event.getUserToNotify().getUserId(), notification);
+            deliverNotification(event.getUserToNotify().getUserId(), notification);
         }
     }
 
@@ -104,7 +96,19 @@ public class NotificationService {
         }
     }
 
-    private void sendNotificationToUser(Long userId, Notification notification) {
+    private Notification persistNotification(NotificationEvent event) {
+        return notificationRepository.save(Notification.builder()
+                .user(event.getUserToNotify())
+                .actor(event.getActor())
+                .actorAgent(event.getActorAgent())
+                .notificationType(event.getNotificationType())
+                .sourceType(event.getSourceType())
+                .sourceId(event.getSourceId())
+                .content(event.getContent())
+                .build());
+    }
+
+    private void deliverNotification(Long userId, Notification notification) {
         Map<String, SseEmitter> userEmitters = emitters.get(userId);
         if (userEmitters == null || userEmitters.isEmpty()) {
             return;

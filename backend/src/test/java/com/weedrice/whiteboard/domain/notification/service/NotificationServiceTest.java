@@ -67,21 +67,18 @@ class NotificationServiceTest {
     }
 
     @Test
-    @DisplayName("알림 이벤트 처리 성공")
+    @DisplayName("Notification event is saved when setting is enabled")
     void handleNotificationEvent_success() {
-        // given
         NotificationEvent event = new NotificationEvent(user, actor, NotificationType.LIKE, "POST", 1L, "Test Notification");
         when(notificationRepository.save(any(Notification.class))).thenReturn(notification);
 
-        // when
         notificationService.handleNotificationEvent(event);
 
-        // then
         verify(notificationRepository).save(any(Notification.class));
     }
 
     @Test
-    @DisplayName("알림 설정이 꺼져 있으면 알림을 저장하지 않는다")
+    @DisplayName("Notification is skipped when like setting is disabled")
     void handleNotificationEvent_disabledSetting_skipsSave() {
         NotificationEvent event = new NotificationEvent(user, actor, NotificationType.LIKE, "POST", 1L, "Test Notification");
         UserNotificationSettings setting = UserNotificationSettings.builder()
@@ -98,7 +95,7 @@ class NotificationServiceTest {
     }
 
     @Test
-    @DisplayName("댓글 알림 설정이 꺼져 있으면 저장하지 않는다")
+    @DisplayName("Notification is skipped when comment setting is disabled")
     void handleNotificationEvent_commentDisabled_skipsSave() {
         NotificationEvent event = new NotificationEvent(user, actor, NotificationType.COMMENT, "POST", 1L, "Comment Notification");
         UserNotificationSettings setting = UserNotificationSettings.builder()
@@ -115,7 +112,7 @@ class NotificationServiceTest {
     }
 
     @Test
-    @DisplayName("설정이 없으면 기본값 true로 저장한다")
+    @DisplayName("Notification is saved when no explicit setting exists")
     void handleNotificationEvent_missingSetting_savesNotification() {
         NotificationEvent event = new NotificationEvent(user, actor, NotificationType.REPLY, "COMMENT", 3L, "Reply Notification");
         when(notificationRepository.save(any(Notification.class))).thenReturn(notification);
@@ -127,24 +124,20 @@ class NotificationServiceTest {
     }
 
     @Test
-    @DisplayName("알림 읽음 처리 성공")
+    @DisplayName("Read notification marks it as read")
     void readNotification_success() {
-        // given
         Long userId = 1L;
         Long notificationId = 1L;
         when(notificationRepository.findById(notificationId)).thenReturn(Optional.of(notification));
 
-        // when
         notificationService.readNotification(userId, notificationId);
 
-        // then
         assertThat(notification.getIsRead()).isEqualTo(true);
     }
 
     @Test
-    @DisplayName("알림 목록 조회 성공")
+    @DisplayName("Notification list lookup succeeds")
     void getNotifications_success() {
-        // given
         Long userId = 1L;
         org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(0, 10);
         org.springframework.data.domain.Page<Notification> notificationPage = new org.springframework.data.domain.PageImpl<>(
@@ -152,27 +145,22 @@ class NotificationServiceTest {
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(notificationRepository.findByUserOrderByCreatedAtDesc(user, pageable)).thenReturn(notificationPage);
 
-        // when
         com.weedrice.whiteboard.domain.notification.dto.NotificationResponse response = notificationService
                 .getNotifications(userId, pageable);
 
-        // then
         assertThat(response).isNotNull();
         verify(userRepository).findById(userId);
     }
 
     @Test
-    @DisplayName("읽지 않은 알림 개수 조회 성공")
+    @DisplayName("Unread notification count lookup succeeds")
     void getUnreadNotificationCount_success() {
-        // given
         Long userId = 1L;
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(notificationRepository.countByUserAndIsRead(user, false)).thenReturn(5L);
 
-        // when
         long count = notificationService.getUnreadNotificationCount(userId);
 
-        // then
         assertThat(count).isEqualTo(5L);
     }
 }

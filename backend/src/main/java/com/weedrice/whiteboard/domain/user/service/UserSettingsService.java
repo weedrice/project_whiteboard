@@ -14,15 +14,18 @@ import com.weedrice.whiteboard.domain.user.repository.UserSettingsRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class UserSettingsService {
@@ -69,12 +72,19 @@ public class UserSettingsService {
         }
 
         public List<NotificationSettingResponse> getNotificationSettings(Long userId) {
-                User user = userRepository.findById(userId)
-                                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+                validateUserExists(userId);
 
                 Map<NotificationType, UserNotificationSettings> settingsByType = userNotificationSettingsRepository
                                 .findByUserId(userId).stream()
-                                .collect(Collectors.toMap(UserNotificationSettings::getNotificationType, Function.identity()));
+                                .collect(Collectors.toMap(
+                                                UserNotificationSettings::getNotificationType,
+                                                setting -> setting,
+                                                (existing, duplicate) -> {
+                                                        log.warn("Duplicate notification setting detected for userId={} type={}. Keeping the first row.",
+                                                                        userId, existing.getNotificationType());
+                                                        return existing;
+                                                },
+                                                LinkedHashMap::new));
 
                 return List.of(NotificationType.values()).stream()
                                 .map(type -> {
@@ -88,48 +98,52 @@ public class UserSettingsService {
         @Transactional
         public NotificationSettingResponse updateNotificationSetting(Long userId, String notificationType,
                         Boolean isEnabled) {
-                User user = userRepository.findById(userId)
-                                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+                validateUserExists(userId);
                 NotificationType normalizedType = NotificationType.normalize(notificationType);
-
-                UserNotificationSettingsId id = new UserNotificationSettingsId(userId, normalizedType);
-
-                UserNotificationSettings setting = userNotificationSettingsRepository.findById(id)
-                                .orElse(UserNotificationSettings.builder()
-                                                .userId(userId)
-                                                .notificationType(normalizedType)
-                                                .isEnabled(true)
-                                                .build());
-
-                if (isEnabled != null) {
-                        setting.setEnabled(isEnabled);
-                }
-
-                userNotificationSettingsRepository.save(setting);
+                UserNotificationSettings setting = upsertNotificationSetting(userId, normalizedType, isEnabled);
                 return new NotificationSettingResponse(setting.getNotificationType().name(), setting.getIsEnabled());
         }
 
         @Transactional
         public List<NotificationSettingResponse> updateNotificationSettings(Long userId,
                         List<UpdateNotificationSettingItem> requests) {
-                User user = userRepository.findById(userId)
-                                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+                validateUserExists(userId);
+                validateNoDuplicateNotificationTypes(requests);
 
                 for (UpdateNotificationSettingItem request : requests) {
                         NotificationType normalizedType = NotificationType.normalize(request.getNotificationType());
-                        UserNotificationSettingsId id = new UserNotificationSettingsId(userId, normalizedType);
-
-                        UserNotificationSettings setting = userNotificationSettingsRepository.findById(id)
-                                        .orElse(UserNotificationSettings.builder()
-                                                        .userId(userId)
-                                                        .notificationType(normalizedType)
-                                                        .isEnabled(true)
-                                                        .build());
-
-                        setting.setEnabled(Boolean.TRUE.equals(request.getIsEnabled()));
-                        userNotificationSettingsRepository.save(setting);
+                        upsertNotificationSetting(userId, normalizedType, request.getIsEnabled());
                 }
 
-                return getNotificationSettings(user.getUserId());
+                return getNotificationSettings(userId);
+        }
+
+        private void validateUserExists(Long userId) {
+                userRepository.findById(userId)
+                                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        }
+
+        private void validateNoDuplicateNotificationTypes(List<UpdateNotificationSettingItem> requests) {
+                Set<NotificationType> uniqueTypes = requests.stream()
+                                .map(request -> NotificationType.normalize(request.getNotificationType()))
+                                .collect(Collectors.toSet());
+
+                if (uniqueTypes.size() != requests.size()) {
+                                throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+                }
+        }
+
+        private UserNotificationSettings upsertNotificationSetting(Long userId, NotificationType notificationType,
+                        Boolean isEnabled) {
+                UserNotificationSettingsId id = new UserNotificationSettingsId(userId, notificationType);
+                UserNotificationSettings setting = userNotificationSettingsRepository.findById(id)
+                                .orElse(UserNotificationSettings.builder()
+                                                .userId(userId)
+                                                .notificationType(notificationType)
+                                                .isEnabled(true)
+                                                .build());
+
+                setting.setEnabled(Boolean.TRUE.equals(isEnabled));
+                return userNotificationSettingsRepository.save(setting);
         }
 }

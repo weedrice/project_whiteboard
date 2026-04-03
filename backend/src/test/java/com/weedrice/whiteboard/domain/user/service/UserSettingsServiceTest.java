@@ -47,7 +47,7 @@ class UserSettingsServiceTest {
     private UserNotificationSettingsRepository userNotificationSettingsRepository;
 
     @Test
-    @DisplayName("설정 조회 성공")
+    @DisplayName("Settings lookup succeeds")
     void getSettings_success() {
         User user = User.builder().build();
         UserSettings settings = new UserSettings(user);
@@ -61,7 +61,7 @@ class UserSettingsServiceTest {
     }
 
     @Test
-    @DisplayName("설정 수정 성공")
+    @DisplayName("Settings update succeeds")
     void updateSettings_success() {
         User user = User.builder().build();
         UserSettings settings = new UserSettings(user);
@@ -77,7 +77,7 @@ class UserSettingsServiceTest {
     }
 
     @Test
-    @DisplayName("알림 설정 조회 성공")
+    @DisplayName("Notification settings lookup returns all supported types")
     void getNotificationSettings_success() {
         User user = User.builder().build();
         UserNotificationSettings notificationSetting =
@@ -105,7 +105,26 @@ class UserSettingsServiceTest {
     }
 
     @Test
-    @DisplayName("알림 설정 수정 성공")
+    @DisplayName("Notification settings lookup tolerates duplicate rows")
+    void getNotificationSettings_duplicateRows_keepsFirst() {
+        User user = User.builder().build();
+        UserNotificationSettings first = new UserNotificationSettings(1L, NotificationType.COMMENT, true);
+        UserNotificationSettings duplicate = new UserNotificationSettings(1L, NotificationType.COMMENT, false);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userNotificationSettingsRepository.findByUserId(1L)).thenReturn(List.of(first, duplicate));
+
+        List<NotificationSettingResponse> responses = userSettingsService.getNotificationSettings(1L);
+
+        assertThat(responses)
+                .filteredOn(response -> NotificationType.COMMENT.name().equals(response.getNotificationType()))
+                .singleElement()
+                .extracting(NotificationSettingResponse::isEnabled)
+                .isEqualTo(true);
+    }
+
+    @Test
+    @DisplayName("Single notification setting update succeeds")
     void updateNotificationSetting_success() {
         User user = User.builder().build();
         UserNotificationSettings notificationSetting =
@@ -124,7 +143,7 @@ class UserSettingsServiceTest {
     }
 
     @Test
-    @DisplayName("설정 조회 실패 - 사용자 없음")
+    @DisplayName("Settings lookup fails when user does not exist")
     void getSettings_userNotFound() {
         when(userRepository.findById(1L)).thenReturn(Optional.empty());
 
@@ -135,7 +154,7 @@ class UserSettingsServiceTest {
     }
 
     @Test
-    @DisplayName("설정 수정 실패 - 사용자 없음")
+    @DisplayName("Settings update fails when user does not exist")
     void updateSettings_userNotFound() {
         when(userRepository.findById(1L)).thenReturn(Optional.empty());
 
@@ -146,7 +165,7 @@ class UserSettingsServiceTest {
     }
 
     @Test
-    @DisplayName("알림 설정 조회 실패 - 사용자 없음")
+    @DisplayName("Notification settings lookup fails when user does not exist")
     void getNotificationSettings_userNotFound() {
         when(userRepository.findById(1L)).thenReturn(Optional.empty());
 
@@ -157,7 +176,7 @@ class UserSettingsServiceTest {
     }
 
     @Test
-    @DisplayName("알림 설정 수정 실패 - 사용자 없음")
+    @DisplayName("Single notification setting update fails when user does not exist")
     void updateNotificationSetting_userNotFound() {
         when(userRepository.findById(1L)).thenReturn(Optional.empty());
 
@@ -168,7 +187,7 @@ class UserSettingsServiceTest {
     }
 
     @Test
-    @DisplayName("알림 설정 수정 실패 - 지원하지 않는 타입")
+    @DisplayName("Single notification setting update fails for unsupported type")
     void updateNotificationSetting_invalidType() {
         User user = User.builder().build();
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
@@ -180,7 +199,7 @@ class UserSettingsServiceTest {
     }
 
     @Test
-    @DisplayName("bulk 알림 설정 수정 성공")
+    @DisplayName("Bulk notification settings update succeeds")
     void updateNotificationSettings_success() {
         User user = User.builder().build();
         ReflectionTestUtils.setField(user, "userId", 1L);
@@ -225,5 +244,19 @@ class UserSettingsServiceTest {
                 setting.getNotificationType() == NotificationType.COMMENT && !setting.getIsEnabled()));
         verify(userNotificationSettingsRepository).save(argThat(setting ->
                 setting.getNotificationType() == NotificationType.REPLY && setting.getIsEnabled()));
+    }
+
+    @Test
+    @DisplayName("Bulk notification settings update fails for duplicate types")
+    void updateNotificationSettings_duplicateType_throwsInvalidInput() {
+        User user = User.builder().build();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> userSettingsService.updateNotificationSettings(1L, List.of(
+                new UpdateNotificationSettingItem("like", true),
+                new UpdateNotificationSettingItem("LIKE", false))))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
     }
 }
