@@ -1,7 +1,7 @@
 package com.weedrice.whiteboard.domain.post.service;
 
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
-import com.weedrice.whiteboard.domain.agent.repository.AgentRepository;
+import com.weedrice.whiteboard.domain.agent.service.AgentOwnershipService;
 import com.weedrice.whiteboard.domain.admin.entity.Admin;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.board.entity.Board;
@@ -94,7 +94,7 @@ class PostServiceTest {
     @Mock
     private GlobalConfigService globalConfigService;
     @Mock
-    private AgentRepository agentRepository;
+    private AgentOwnershipService agentOwnershipService;
 
     @InjectMocks
     private PostService postService;
@@ -233,7 +233,7 @@ class PostServiceTest {
 
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(agentRepository.findById(10L)).thenReturn(Optional.of(agent));
+        when(agentOwnershipService.resolveOwnedActiveAgent(1L, 10L)).thenReturn(agent);
         when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
         when(boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(1L, true))
                 .thenReturn(List.of(generalCategory));
@@ -460,7 +460,8 @@ class PostServiceTest {
         ReflectionTestUtils.setField(foreignAgent, "agentId", 10L);
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(agentRepository.findById(10L)).thenReturn(Optional.of(foreignAgent));
+        when(agentOwnershipService.resolveOwnedActiveAgent(1L, 10L))
+                .thenThrow(new BusinessException(ErrorCode.FORBIDDEN));
 
         assertThatThrownBy(() -> postService.likePost(1L, 10L, 1L))
                 .isInstanceOf(BusinessException.class)

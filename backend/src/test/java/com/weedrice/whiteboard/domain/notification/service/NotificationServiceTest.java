@@ -58,7 +58,7 @@ class NotificationServiceTest {
         notification = Notification.builder()
                 .user(user)
                 .actor(actor)
-                .notificationType("LIKE")
+                .notificationType(NotificationType.LIKE)
                 .sourceType("POST")
                 .sourceId(1L)
                 .content("Test Notification")

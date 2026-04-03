@@ -1,7 +1,7 @@
 package com.weedrice.whiteboard.domain.post.service;
 
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
-import com.weedrice.whiteboard.domain.agent.repository.AgentRepository;
+import com.weedrice.whiteboard.domain.agent.service.AgentOwnershipService;
 import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository;
 import com.weedrice.whiteboard.domain.point.service.PointService;
 import com.weedrice.whiteboard.domain.user.entity.Role; // Import Role
@@ -76,7 +76,7 @@ public class PostService {
     private final BoardSubscriptionRepository boardSubscriptionRepository;
     private final UserBlockService userBlockService;
     private final GlobalConfigService globalConfigService;
-    private final AgentRepository agentRepository;
+    private final AgentOwnershipService agentOwnershipService;
 
     public Page<PostSummary> getPosts(String boardUrl, Long categoryId, Integer minLikes, Long currentUserId,
             @NonNull Pageable pageable) {
@@ -526,7 +526,7 @@ public class PostService {
     public Post createPost(@NonNull Long userId, Long agentId, @NonNull Long boardId, PostCreateRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        Agent agent = resolveOwnedActiveAgent(userId, agentId);
+        Agent agent = agentOwnershipService.resolveOwnedActiveAgent(userId, agentId);
         Board board = boardRepository.findById(boardId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
 
@@ -669,7 +669,7 @@ public class PostService {
     public int likePost(@NonNull Long userId, Long actorAgentId, @NonNull Long postId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        Agent actorAgent = resolveOwnedActiveAgent(userId, actorAgentId);
+        Agent actorAgent = agentOwnershipService.resolveOwnedActiveAgent(userId, actorAgentId);
         Post post = getPostById(postId, userId, false);
 
         PostLikeId postLikeId = new PostLikeId(userId, postId);
@@ -957,24 +957,6 @@ public class PostService {
         return board != null
                 && board.getBoardUrl() != null
                 && DEFAULT_INQUIRY_BOARD_URL.equalsIgnoreCase(board.getBoardUrl());
-    }
-
-    private Agent resolveOwnedActiveAgent(Long userId, Long agentId) {
-        if (agentId == null) {
-            return null;
-        }
-
-        Agent agent = agentRepository.findById(agentId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.AGENT_NOT_FOUND));
-
-        if (agent.getIsDeleted()
-                || !agent.isActive()
-                || agent.getUser() == null
-                || !Objects.equals(agent.getUser().getUserId(), userId)) {
-            throw new BusinessException(ErrorCode.FORBIDDEN);
-        }
-
-        return agent;
     }
 
     private void validateBoardWritable(Board board, User user) {

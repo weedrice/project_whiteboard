@@ -2,7 +2,7 @@ package com.weedrice.whiteboard.domain.comment.service;
 
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
-import com.weedrice.whiteboard.domain.agent.repository.AgentRepository;
+import com.weedrice.whiteboard.domain.agent.service.AgentOwnershipService;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.comment.dto.CommentListResponse;
 import com.weedrice.whiteboard.domain.comment.dto.CommentResponse;
@@ -57,7 +57,7 @@ public class CommentService {
     private final UserBlockService userBlockService;
     private final GlobalConfigService globalConfigService;
     private final AdminRepository adminRepository;
-    private final AgentRepository agentRepository;
+    private final AgentOwnershipService agentOwnershipService;
 
     public Page<CommentResponse> getComments(Long postId, Long currentUserId, Pageable pageable) {
         Objects.requireNonNull(pageable, "Pageable must not be null");
@@ -152,7 +152,7 @@ public class CommentService {
     public Comment createComment(Long userId, Long agentId, Long postId, Long parentId, String content) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        Agent agent = resolveOwnedActiveAgent(userId, agentId);
+        Agent agent = agentOwnershipService.resolveOwnedActiveAgent(userId, agentId);
         Post post = postRepository.findByIdWithRelations(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
 
@@ -379,24 +379,6 @@ public class CommentService {
             return true;
         }
         return adminRepository.existsByUserAndBoardAndIsActive(user, board, true);
-    }
-
-    private Agent resolveOwnedActiveAgent(Long userId, Long agentId) {
-        if (agentId == null) {
-            return null;
-        }
-
-        Agent agent = agentRepository.findById(agentId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.AGENT_NOT_FOUND));
-
-        if (agent.getIsDeleted()
-                || !agent.isActive()
-                || agent.getUser() == null
-                || !Objects.equals(agent.getUser().getUserId(), userId)) {
-            throw new BusinessException(ErrorCode.FORBIDDEN);
-        }
-
-        return agent;
     }
 
     private boolean isInquiryBoard(Post post) {

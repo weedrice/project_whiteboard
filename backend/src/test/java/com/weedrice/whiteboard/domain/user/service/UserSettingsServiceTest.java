@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.user.service;
 
+import com.weedrice.whiteboard.domain.notification.constant.NotificationType;
 import com.weedrice.whiteboard.domain.user.dto.NotificationSettingResponse;
 import com.weedrice.whiteboard.domain.user.dto.UserSettingsResponse;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -46,11 +47,12 @@ class UserSettingsServiceTest {
     void getSettings_success() {
         User user = User.builder().build();
         UserSettings settings = new UserSettings(user);
-        
+
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(userSettingsRepository.findById(1L)).thenReturn(Optional.of(settings));
 
         UserSettingsResponse response = userSettingsService.getSettings(1L);
+
         assertThat(response).isNotNull();
     }
 
@@ -59,13 +61,13 @@ class UserSettingsServiceTest {
     void updateSettings_success() {
         User user = User.builder().build();
         UserSettings settings = new UserSettings(user);
-        
+
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(userSettingsRepository.findById(1L)).thenReturn(Optional.of(settings));
         when(userSettingsRepository.save(any())).thenReturn(settings);
 
         UserSettingsResponse response = userSettingsService.updateSettings(1L, "dark", "en", "UTC", true);
-        
+
         assertThat(response.getTheme()).isEqualTo("dark");
         assertThat(response.isHideNsfw()).isTrue();
     }
@@ -74,29 +76,35 @@ class UserSettingsServiceTest {
     @DisplayName("알림 설정 조회 성공")
     void getNotificationSettings_success() {
         User user = User.builder().build();
-        UserNotificationSettings notificationSetting = new UserNotificationSettings(1L, "email", true);
-        
+        UserNotificationSettings notificationSetting =
+                new UserNotificationSettings(1L, NotificationType.COMMENT, true);
+
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(userNotificationSettingsRepository.findByUserId(1L)).thenReturn(List.of(notificationSetting));
 
         List<NotificationSettingResponse> responses = userSettingsService.getNotificationSettings(1L);
+
         assertThat(responses).hasSize(1);
+        assertThat(responses.get(0).getNotificationType()).isEqualTo(NotificationType.COMMENT);
     }
 
     @Test
     @DisplayName("알림 설정 수정 성공")
     void updateNotificationSetting_success() {
         User user = User.builder().build();
-        UserNotificationSettings notificationSetting = new UserNotificationSettings(1L, "email", true);
-        UserNotificationSettingsId id = new UserNotificationSettingsId(1L, "email");
-        
+        UserNotificationSettings notificationSetting =
+                new UserNotificationSettings(1L, NotificationType.COMMENT, true);
+        UserNotificationSettingsId id = new UserNotificationSettingsId(1L, NotificationType.COMMENT);
+
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(userNotificationSettingsRepository.findById(id)).thenReturn(Optional.of(notificationSetting));
         when(userNotificationSettingsRepository.save(any())).thenReturn(notificationSetting);
 
-        NotificationSettingResponse response = userSettingsService.updateNotificationSetting(1L, "email", false);
-        
+        NotificationSettingResponse response =
+                userSettingsService.updateNotificationSetting(1L, " comment ", false);
+
         assertThat(response.isEnabled()).isFalse();
+        assertThat(response.getNotificationType()).isEqualTo(NotificationType.COMMENT);
     }
 
     @Test
@@ -137,9 +145,21 @@ class UserSettingsServiceTest {
     void updateNotificationSetting_userNotFound() {
         when(userRepository.findById(1L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> userSettingsService.updateNotificationSetting(1L, "email", true))
+        assertThatThrownBy(() -> userSettingsService.updateNotificationSetting(1L, NotificationType.LIKE, true))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.USER_NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("알림 설정 수정 실패 - 지원하지 않는 타입")
+    void updateNotificationSetting_invalidType() {
+        User user = User.builder().build();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> userSettingsService.updateNotificationSetting(1L, "email", true))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
     }
 }

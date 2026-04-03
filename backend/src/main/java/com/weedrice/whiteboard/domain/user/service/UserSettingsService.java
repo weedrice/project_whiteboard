@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.user.service;
 
+import com.weedrice.whiteboard.domain.notification.constant.NotificationType;
 import com.weedrice.whiteboard.domain.user.dto.NotificationSettingResponse;
 import com.weedrice.whiteboard.domain.user.dto.UserSettingsResponse;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -78,13 +79,14 @@ public class UserSettingsService {
                         Boolean isEnabled) {
                 User user = userRepository.findById(userId)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+                String normalizedType = NotificationType.normalize(notificationType);
 
-                UserNotificationSettingsId id = new UserNotificationSettingsId(userId, notificationType);
+                UserNotificationSettingsId id = new UserNotificationSettingsId(userId, normalizedType);
 
                 UserNotificationSettings setting = userNotificationSettingsRepository.findById(id)
                                 .orElse(UserNotificationSettings.builder()
                                                 .userId(userId)
-                                                .notificationType(notificationType)
+                                                .notificationType(normalizedType)
                                                 .isEnabled(true)
                                                 .build());
 

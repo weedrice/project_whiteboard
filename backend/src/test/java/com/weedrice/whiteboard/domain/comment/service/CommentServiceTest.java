@@ -2,7 +2,7 @@ package com.weedrice.whiteboard.domain.comment.service;
 
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
-import com.weedrice.whiteboard.domain.agent.repository.AgentRepository;
+import com.weedrice.whiteboard.domain.agent.service.AgentOwnershipService;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.comment.dto.CommentResponse;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
@@ -74,7 +74,7 @@ class CommentServiceTest {
     @Mock
     private AdminRepository adminRepository;
     @Mock
-    private AgentRepository agentRepository;
+    private AgentOwnershipService agentOwnershipService;
 
     @Test
     @DisplayName("create root comment")
@@ -150,7 +150,8 @@ class CommentServiceTest {
         ReflectionTestUtils.setField(foreignAgent, "agentId", 10L);
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(agentRepository.findById(10L)).thenReturn(Optional.of(foreignAgent));
+        when(agentOwnershipService.resolveOwnedActiveAgent(1L, 10L))
+                .thenThrow(new BusinessException(ErrorCode.FORBIDDEN));
 
         assertThatThrownBy(() -> commentService.createCommentAsAgent(1L, 10L, 1L, null, "content"))
                 .isInstanceOf(BusinessException.class)
