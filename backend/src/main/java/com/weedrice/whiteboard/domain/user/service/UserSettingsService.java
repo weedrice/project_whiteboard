@@ -75,12 +75,12 @@ public class UserSettingsService {
                 validateUserExists(userId);
 
                 Map<NotificationType, UserNotificationSettings> settingsByType = userNotificationSettingsRepository
-                                .findByUserId(userId).stream()
+                                .findByUserIdOrderByModifiedAtDescCreatedAtDesc(userId).stream()
                                 .collect(Collectors.toMap(
                                                 UserNotificationSettings::getNotificationType,
                                                 setting -> setting,
                                                 (existing, duplicate) -> {
-                                                        log.warn("Duplicate notification setting detected for userId={} type={}. Keeping the first row.",
+                                                        log.warn("Duplicate notification setting detected for userId={} type={}. Keeping the most recently updated row.",
                                                                         userId, existing.getNotificationType());
                                                         return existing;
                                                 },

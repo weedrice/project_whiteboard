@@ -84,7 +84,8 @@ class UserSettingsServiceTest {
                 new UserNotificationSettings(1L, NotificationType.COMMENT, true);
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(userNotificationSettingsRepository.findByUserId(1L)).thenReturn(List.of(notificationSetting));
+        when(userNotificationSettingsRepository.findByUserIdOrderByModifiedAtDescCreatedAtDesc(1L))
+                .thenReturn(List.of(notificationSetting));
 
         List<NotificationSettingResponse> responses = userSettingsService.getNotificationSettings(1L);
 
@@ -112,7 +113,8 @@ class UserSettingsServiceTest {
         UserNotificationSettings duplicate = new UserNotificationSettings(1L, NotificationType.COMMENT, false);
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(userNotificationSettingsRepository.findByUserId(1L)).thenReturn(List.of(first, duplicate));
+        when(userNotificationSettingsRepository.findByUserIdOrderByModifiedAtDescCreatedAtDesc(1L))
+                .thenReturn(List.of(first, duplicate));
 
         List<NotificationSettingResponse> responses = userSettingsService.getNotificationSettings(1L);
 
@@ -171,7 +173,7 @@ class UserSettingsServiceTest {
                 .thenReturn(Optional.empty());
         when(userNotificationSettingsRepository.findById(new UserNotificationSettingsId(1L, NotificationType.REPLY)))
                 .thenReturn(Optional.of(replySetting));
-        when(userNotificationSettingsRepository.findByUserId(1L))
+        when(userNotificationSettingsRepository.findByUserIdOrderByModifiedAtDescCreatedAtDesc(1L))
                 .thenReturn(List.of(likeSetting, new UserNotificationSettings(1L, NotificationType.COMMENT, false), replySetting));
 
         List<NotificationSettingResponse> responses = userSettingsService.updateNotificationSettings(1L, List.of(

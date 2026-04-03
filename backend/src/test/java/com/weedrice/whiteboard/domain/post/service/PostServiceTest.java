@@ -33,6 +33,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -1032,6 +1033,40 @@ class PostServiceTest {
         assertThatThrownBy(() -> postService.likePost(1L, 1L))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("agent like notification uses agent name")
+    void likePost_asAgent_notificationUsesAgentName() {
+        User postOwner = User.builder().displayName("post-owner").build();
+        ReflectionTestUtils.setField(postOwner, "userId", 3L);
+        ReflectionTestUtils.setField(post, "user", postOwner);
+
+        User actorUser = User.builder().displayName("user-owner").build();
+        ReflectionTestUtils.setField(actorUser, "userId", 1L);
+
+        Agent actorAgent = Agent.builder()
+                .user(actorUser)
+                .agentTokenHash("hash")
+                .name("agent-liker")
+                .description("desc")
+                .status(Agent.STATUS_ACTIVE)
+                .build();
+        ReflectionTestUtils.setField(actorAgent, "agentId", 10L);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(actorUser));
+        when(agentOwnershipService.resolveOwnedActiveAgent(1L, 10L)).thenReturn(actorAgent);
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+        when(userBlockService.getBlockedUserIds(1L)).thenReturn(Collections.emptyList());
+        when(postLikeRepository.existsById(any())).thenReturn(false);
+
+        postService.likePost(1L, 10L, 1L);
+
+        ArgumentCaptor<Object> eventCaptor = ArgumentCaptor.forClass(Object.class);
+        verify(eventPublisher).publishEvent(eventCaptor.capture());
+        NotificationEvent notificationEvent = (NotificationEvent) eventCaptor.getValue();
+        assertThat(notificationEvent.getActorAgent()).isNotNull();
+        assertThat(notificationEvent.getContent()).isEqualTo("agent-liker님이 회원님의 게시글을 좋아합니다.");
     }
 
     @Test

@@ -10,7 +10,7 @@ import java.util.Optional;
 
 public interface UserNotificationSettingsRepository extends JpaRepository<UserNotificationSettings, UserNotificationSettingsId> {
 
-    List<UserNotificationSettings> findByUserId(Long userId);
+    List<UserNotificationSettings> findByUserIdOrderByModifiedAtDescCreatedAtDesc(Long userId);
 
     Optional<UserNotificationSettings> findByUserIdAndNotificationType(Long userId, NotificationType notificationType);
 }

@@ -687,7 +687,8 @@ public class PostService {
             return post.getLikeCount();
         }
 
-        String content = user.getDisplayName() + "\uB2D8\uC774 \uD68C\uC6D0\uB2D8\uC758 \uAC8C\uC2DC\uAE00\uC744 \uC88B\uC544\uD569\uB2C8\uB2E4.";
+        String content = resolveNotificationActorName(user, actorAgent)
+                + "\uB2D8\uC774 \uD68C\uC6D0\uB2D8\uC758 \uAC8C\uC2DC\uAE00\uC744 \uC88B\uC544\uD569\uB2C8\uB2E4.";
         NotificationEvent event = new NotificationEvent(post.getUser(), user, actorAgent, NotificationType.LIKE, "POST", postId, content);
         eventPublisher.publishEvent(event);
 
@@ -977,6 +978,13 @@ public class PostService {
         if (Role.BOARD_ADMIN.equals(minRole) && !hasBoardAdminAccess(board, user)) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
+    }
+
+    private String resolveNotificationActorName(User user, Agent actorAgent) {
+        if (actorAgent != null && actorAgent.getName() != null && !actorAgent.getName().isBlank()) {
+            return actorAgent.getName();
+        }
+        return user.getDisplayName();
     }
 
     private Boolean resolveInquiryAnsweredStatus(Post post) {

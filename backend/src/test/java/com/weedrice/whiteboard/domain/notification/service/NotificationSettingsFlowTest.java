@@ -73,7 +73,7 @@ class NotificationSettingsFlowTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(receiver));
         when(userNotificationSettingsRepository.findById(any(UserNotificationSettingsId.class)))
                 .thenAnswer(invocation -> Optional.ofNullable(storedSettings.get(invocation.getArgument(0))));
-        when(userNotificationSettingsRepository.findByUserId(1L))
+        when(userNotificationSettingsRepository.findByUserIdOrderByModifiedAtDescCreatedAtDesc(1L))
                 .thenAnswer(invocation -> new ArrayList<>(storedSettings.values()));
         when(userNotificationSettingsRepository.findByUserIdAndNotificationType(anyLong(), any(NotificationType.class)))
                 .thenAnswer(invocation -> Optional.ofNullable(

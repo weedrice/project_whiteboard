@@ -10,6 +10,7 @@ import com.weedrice.whiteboard.domain.comment.repository.CommentClosureRepositor
 import com.weedrice.whiteboard.domain.comment.repository.CommentLikeRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentVersionRepository;
+import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
 import com.weedrice.whiteboard.domain.point.service.PointService;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
@@ -22,6 +23,7 @@ import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -132,6 +134,31 @@ class CommentServiceTest {
     }
 
     @Test
+    @DisplayName("reject parent comment from another post")
+    void createComment_parentFromAnotherPost_rejected() {
+        User user = User.builder().build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+
+        Board board = Board.builder().boardUrl("free").build();
+        Post post = Post.builder().board(board).user(user).build();
+        ReflectionTestUtils.setField(post, "postId", 1L);
+
+        Post otherPost = Post.builder().board(board).user(user).build();
+        ReflectionTestUtils.setField(otherPost, "postId", 2L);
+
+        Comment parent = Comment.builder().depth(0).user(user).post(otherPost).build();
+        ReflectionTestUtils.setField(parent, "commentId", 5L);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+        when(commentRepository.findById(5L)).thenReturn(Optional.of(parent));
+
+        assertThatThrownBy(() -> commentService.createComment(1L, 1L, 5L, "content"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.COMMENT_NOT_FOUND);
+    }
+
+    @Test
     @DisplayName("foreign agent로 댓글 작성 시 거부한다")
     void createCommentAsAgent_foreignAgent_forbidden() {
         User user = User.builder().build();
@@ -156,6 +183,51 @@ class CommentServiceTest {
         assertThatThrownBy(() -> commentService.createCommentAsAgent(1L, 10L, 1L, null, "content"))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
+    }
+
+    @Test
+    @DisplayName("agent reply notification uses agent name")
+    void createCommentAsAgent_notificationUsesAgentName() {
+        User owner = User.builder().displayName("owner").build();
+        ReflectionTestUtils.setField(owner, "userId", 1L);
+
+        User actorUser = User.builder().displayName("user-owner").build();
+        ReflectionTestUtils.setField(actorUser, "userId", 2L);
+
+        Agent agent = Agent.builder()
+                .user(actorUser)
+                .agentTokenHash("hash")
+                .name("agent-writer")
+                .description("desc")
+                .status(Agent.STATUS_ACTIVE)
+                .build();
+        ReflectionTestUtils.setField(agent, "agentId", 99L);
+
+        Board board = Board.builder().boardUrl("free").build();
+        Post post = Post.builder().board(board).user(owner).build();
+        ReflectionTestUtils.setField(post, "postId", 1L);
+
+        Comment parent = Comment.builder().depth(0).user(owner).post(post).build();
+        ReflectionTestUtils.setField(parent, "commentId", 5L);
+
+        when(userRepository.findById(2L)).thenReturn(Optional.of(actorUser));
+        when(agentOwnershipService.resolveOwnedActiveAgent(2L, 99L)).thenReturn(agent);
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+        when(commentRepository.findById(5L)).thenReturn(Optional.of(parent));
+        when(commentRepository.save(any(Comment.class))).thenAnswer(invocation -> {
+            Comment saved = invocation.getArgument(0);
+            ReflectionTestUtils.setField(saved, "commentId", 10L);
+            return saved;
+        });
+        when(globalConfigService.getConfig(any())).thenReturn("10");
+
+        commentService.createCommentAsAgent(2L, 99L, 1L, 5L, "content");
+
+        ArgumentCaptor<Object> eventCaptor = ArgumentCaptor.forClass(Object.class);
+        verify(eventPublisher).publishEvent(eventCaptor.capture());
+        NotificationEvent notificationEvent = (NotificationEvent) eventCaptor.getValue();
+        assertThat(notificationEvent.getActorAgent()).isNotNull();
+        assertThat(notificationEvent.getContent()).isEqualTo("agent-writer님이 회원님의 댓글에 답글을 남겼습니다.");
     }
 
     @Test
