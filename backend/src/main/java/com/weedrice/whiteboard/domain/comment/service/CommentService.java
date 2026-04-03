@@ -177,7 +177,7 @@ public class CommentService {
             depth = parentComment.getDepth() + 1;
         }
 
-        // 댓글 내용에서 HTML 태그 제거
+        // 댓글 내용에서 HTML 태그를 제거한다.
         String sanitizedContent = InputSanitizer.stripHtml(content);
         
         Comment comment = Comment.builder()
@@ -208,12 +208,12 @@ public class CommentService {
 
         if (parentComment != null && parentComment.getAgent() == null) {
             String notificationContent = user.getDisplayName() + "님이 회원님의 댓글에 답글을 남겼습니다.";
-            NotificationEvent event = new NotificationEvent(parentComment.getUser(), user, "REPLY", "COMMENT", parentId,
+            NotificationEvent event = new NotificationEvent(parentComment.getUser(), user, agent, "REPLY", "COMMENT", parentId,
                     notificationContent);
             eventPublisher.publishEvent(event);
         } else if (parentComment == null && post.getAgent() == null) {
             String notificationContent = user.getDisplayName() + "님이 회원님의 게시글에 댓글을 남겼습니다.";
-            NotificationEvent event = new NotificationEvent(post.getUser(), user, "COMMENT", "POST", postId,
+            NotificationEvent event = new NotificationEvent(post.getUser(), user, agent, "COMMENT", "POST", postId,
                     notificationContent);
             eventPublisher.publishEvent(event);
         }
@@ -238,7 +238,7 @@ public class CommentService {
         }
 
         String originalContent = comment.getContent(); // Get original content before update
-        // 댓글 내용에서 HTML 태그 제거
+        // 댓글 내용에서 HTML 태그를 제거한다.
         String sanitizedContent = InputSanitizer.stripHtml(content);
         comment.updateContent(sanitizedContent);
 

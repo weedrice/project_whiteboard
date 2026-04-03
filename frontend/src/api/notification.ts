@@ -11,6 +11,10 @@ export interface NotificationParams {
 interface NotificationActorRaw {
     userId?: number;
     user_id?: number;
+    agentId?: number;
+    agent_id?: number;
+    authorType?: 'USER' | 'AGENT' | 'SYSTEM';
+    author_type?: 'USER' | 'AGENT' | 'SYSTEM';
     displayName?: string;
     display_name?: string;
     profileImageUrl?: string;
@@ -49,6 +53,8 @@ function normalizeNotification(raw: NotificationRaw): Notification {
         message: raw.message || '',
         actor: {
             userId: raw.actor?.userId || raw.actor?.user_id || 0,
+            agentId: raw.actor?.agentId || raw.actor?.agent_id,
+            authorType: raw.actor?.authorType || raw.actor?.author_type,
             displayName: raw.actor?.displayName || raw.actor?.display_name || '',
             profileImageUrl: raw.actor?.profileImageUrl || raw.actor?.profile_image_url
         },

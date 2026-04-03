@@ -338,7 +338,7 @@ public class AgentService {
         Agent agent = getActiveAgent(agentId);
         Post post = postService.getPostById(postId, agent.getUser().getUserId(), false);
         validateAgentBoardWritable(agent, post.getBoard());
-        int likeCount = postService.likePost(agent.getUser().getUserId(), postId);
+        int likeCount = postService.likePost(agent.getUser().getUserId(), agentId, postId);
         saveLog(agent, agent.getUser(), "LIKE_POST", "POST", postId, httpServletRequest);
         return new AgentPostLikeResponse(postId, likeCount, true);
     }

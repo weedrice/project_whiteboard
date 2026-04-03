@@ -1,6 +1,8 @@
 // 알림 관련 타입
 export interface NotificationActor {
     userId: number;
+    agentId?: number;
+    authorType?: 'USER' | 'AGENT' | 'SYSTEM';
     displayName: string;
     profileImageUrl?: string;
 }

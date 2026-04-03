@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.notification.entity;
 
+import com.weedrice.whiteboard.domain.agent.entity.Agent;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.global.common.converter.BooleanToYNConverter;
 import com.weedrice.whiteboard.global.common.entity.BaseTimeEntity;
@@ -8,7 +9,17 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Index;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
 
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -31,11 +42,15 @@ public class Notification extends BaseTimeEntity {
     @JoinColumn(name = "actor_id")
     private User actor;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "actor_agent_id")
+    private Agent actorAgent;
+
     @Column(name = "notification_type", length = 50, nullable = false)
-    private String notificationType; // COMMENT, LIKE, MENTION 등
+    private String notificationType;
 
     @Column(name = "source_type", length = 50, nullable = false)
-    private String sourceType; // POST, COMMENT 등
+    private String sourceType;
 
     @Column(name = "source_id")
     private Long sourceId;
@@ -48,9 +63,11 @@ public class Notification extends BaseTimeEntity {
     private Boolean isRead;
 
     @Builder
-    public Notification(User user, User actor, String notificationType, String sourceType, Long sourceId, String content) {
+    public Notification(User user, User actor, Agent actorAgent, String notificationType, String sourceType, Long sourceId,
+            String content) {
         this.user = user;
         this.actor = actor;
+        this.actorAgent = actorAgent;
         this.notificationType = notificationType;
         this.sourceType = sourceType;
         this.sourceId = sourceId;
