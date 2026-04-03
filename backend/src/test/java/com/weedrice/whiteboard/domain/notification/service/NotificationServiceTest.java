@@ -1,9 +1,11 @@
 package com.weedrice.whiteboard.domain.notification.service;
 
+import com.weedrice.whiteboard.domain.notification.constant.NotificationType;
 import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
 import com.weedrice.whiteboard.domain.notification.entity.Notification;
 import com.weedrice.whiteboard.domain.notification.repository.NotificationRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.domain.user.entity.UserNotificationSettings;
 import com.weedrice.whiteboard.domain.user.repository.UserNotificationSettingsRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -71,7 +73,7 @@ class NotificationServiceTest {
     @DisplayName("알림 이벤트 처리 성공")
     void handleNotificationEvent_success() {
         // given
-        NotificationEvent event = new NotificationEvent(user, actor, "LIKE", "POST", 1L, "Test Notification");
+        NotificationEvent event = new NotificationEvent(user, actor, NotificationType.LIKE, "POST", 1L, "Test Notification");
         when(transactionTemplate.execute(any())).thenAnswer(invocation -> {
             org.springframework.transaction.support.TransactionCallback<Notification> callback = invocation.getArgument(0);
             return callback.doInTransaction(null);
@@ -83,6 +85,23 @@ class NotificationServiceTest {
 
         // then
         verify(notificationRepository).save(any(Notification.class));
+    }
+
+    @Test
+    @DisplayName("알림 설정이 꺼져 있으면 알림을 저장하지 않는다")
+    void handleNotificationEvent_disabledSetting_skipsSave() {
+        NotificationEvent event = new NotificationEvent(user, actor, NotificationType.LIKE, "POST", 1L, "Test Notification");
+        UserNotificationSettings setting = UserNotificationSettings.builder()
+                .userId(1L)
+                .notificationType(NotificationType.LIKE)
+                .isEnabled(false)
+                .build();
+        when(userNotificationSettingsRepository.findByUserIdAndNotificationType(1L, NotificationType.LIKE))
+                .thenReturn(Optional.of(setting));
+
+        notificationService.handleNotificationEvent(event);
+
+        verify(notificationRepository, org.mockito.Mockito.never()).save(any(Notification.class));
     }
 
     @Test

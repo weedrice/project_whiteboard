@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.comment.service;
 
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
+import com.weedrice.whiteboard.domain.agent.entity.Agent;
 import com.weedrice.whiteboard.domain.agent.repository.AgentRepository;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.comment.dto.CommentResponse;
@@ -128,6 +129,32 @@ class CommentServiceTest {
 
         assertThat(result.getDepth()).isEqualTo(1);
         verify(commentClosureRepository).createClosures(10L, 5L);
+    }
+
+    @Test
+    @DisplayName("foreign agent로 댓글 작성 시 거부한다")
+    void createCommentAsAgent_foreignAgent_forbidden() {
+        User user = User.builder().build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+
+        User otherUser = User.builder().build();
+        ReflectionTestUtils.setField(otherUser, "userId", 2L);
+
+        Agent foreignAgent = Agent.builder()
+                .user(otherUser)
+                .agentTokenHash("hash")
+                .name("foreign-agent")
+                .description("desc")
+                .status(Agent.STATUS_ACTIVE)
+                .build();
+        ReflectionTestUtils.setField(foreignAgent, "agentId", 10L);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(agentRepository.findById(10L)).thenReturn(Optional.of(foreignAgent));
+
+        assertThatThrownBy(() -> commentService.createCommentAsAgent(1L, 10L, 1L, null, "content"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
     }
 
     @Test

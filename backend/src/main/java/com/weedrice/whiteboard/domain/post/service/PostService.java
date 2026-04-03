@@ -13,6 +13,7 @@ import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.file.service.FileService;
+import com.weedrice.whiteboard.domain.notification.constant.NotificationType;
 import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
 import com.weedrice.whiteboard.domain.post.dto.DraftListResponse;
 import com.weedrice.whiteboard.domain.post.dto.DraftResponse;
@@ -687,7 +688,7 @@ public class PostService {
         }
 
         String content = user.getDisplayName() + "님이 회원님의 게시글을 좋아합니다.";
-        NotificationEvent event = new NotificationEvent(post.getUser(), user, actorAgent, "LIKE", "POST", postId, content);
+        NotificationEvent event = new NotificationEvent(post.getUser(), user, actorAgent, NotificationType.LIKE, "POST", postId, content);
         eventPublisher.publishEvent(event);
 
         return post.getLikeCount();

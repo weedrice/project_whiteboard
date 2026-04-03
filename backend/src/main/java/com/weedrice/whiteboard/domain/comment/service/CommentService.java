@@ -1,8 +1,8 @@
 package com.weedrice.whiteboard.domain.comment.service;
 
+import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
 import com.weedrice.whiteboard.domain.agent.repository.AgentRepository;
-import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.comment.dto.CommentListResponse;
 import com.weedrice.whiteboard.domain.comment.dto.CommentResponse;
@@ -15,13 +15,14 @@ import com.weedrice.whiteboard.domain.comment.repository.CommentClosureRepositor
 import com.weedrice.whiteboard.domain.comment.repository.CommentLikeRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentVersionRepository;
+import com.weedrice.whiteboard.domain.notification.constant.NotificationType;
 import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
 import com.weedrice.whiteboard.domain.point.service.PointService;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
-import com.weedrice.whiteboard.domain.user.service.UserBlockService; // Import UserBlockService
+import com.weedrice.whiteboard.domain.user.service.UserBlockService;
 import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -72,10 +73,9 @@ public class CommentService {
             blockedUserIds = userBlockService.getBlockedUserIds(currentUserId);
         }
 
-        final List<Long> finalBlockedUserIds = blockedUserIds; // For use in lambda
+        final List<Long> finalBlockedUserIds = blockedUserIds;
 
-        Page<Comment> parentComments = commentRepository
-                .findParentsWithChildrenOrNotDeleted(postId, pageable);
+        Page<Comment> parentComments = commentRepository.findParentsWithChildrenOrNotDeleted(postId, pageable);
         List<Long> parentIds = parentComments.getContent().stream()
                 .map(Comment::getCommentId)
                 .collect(Collectors.toList());
@@ -89,15 +89,14 @@ public class CommentService {
 
         Map<Long, CommentResponse> responseMap = new java.util.HashMap<>();
 
-        // Add roots
-        parentComments.getContent().forEach(c -> responseMap.put(c.getCommentId(),
+        parentComments.getContent().forEach(c -> responseMap.put(
+                c.getCommentId(),
                 maskCommentContent(CommentResponse.from(c), finalBlockedUserIds)));
 
-        // Add descendants
-        allDescendants.forEach(c -> responseMap.put(c.getCommentId(),
+        allDescendants.forEach(c -> responseMap.put(
+                c.getCommentId(),
                 maskCommentContent(CommentResponse.from(c), finalBlockedUserIds)));
 
-        // Build Tree
         allDescendants.forEach(child -> {
             CommentResponse childResponse = responseMap.get(child.getCommentId());
             if (child.getParent() != null) {
@@ -177,7 +176,7 @@ public class CommentService {
 
         // 댓글 내용에서 HTML 태그를 제거한다.
         String sanitizedContent = InputSanitizer.stripHtml(content);
-        
+
         Comment comment = Comment.builder()
                 .post(post)
                 .user(user)
@@ -190,10 +189,8 @@ public class CommentService {
         post.incrementCommentCount();
         Comment savedComment = commentRepository.save(comment);
 
-        // Save CommentVersion for CREATE
         saveCommentVersion(savedComment, user, "CREATE", null);
 
-        // Save to CommentClosure
         if (parentId != null) {
             commentClosureRepository.createClosures(savedComment.getCommentId(), parentId);
         } else {
@@ -206,13 +203,13 @@ public class CommentService {
 
         if (parentComment != null && parentComment.getAgent() == null) {
             String notificationContent = user.getDisplayName() + "님이 회원님의 댓글에 답글을 남겼습니다.";
-            NotificationEvent event = new NotificationEvent(parentComment.getUser(), user, agent, "REPLY", "COMMENT", parentId,
-                    notificationContent);
+            NotificationEvent event = new NotificationEvent(parentComment.getUser(), user, agent,
+                    NotificationType.REPLY, "COMMENT", parentId, notificationContent);
             eventPublisher.publishEvent(event);
         } else if (parentComment == null && post.getAgent() == null) {
             String notificationContent = user.getDisplayName() + "님이 회원님의 게시글에 댓글을 남겼습니다.";
-            NotificationEvent event = new NotificationEvent(post.getUser(), user, agent, "COMMENT", "POST", postId,
-                    notificationContent);
+            NotificationEvent event = new NotificationEvent(post.getUser(), user, agent,
+                    NotificationType.COMMENT, "POST", postId, notificationContent);
             eventPublisher.publishEvent(event);
         }
 
@@ -235,12 +232,11 @@ public class CommentService {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
 
-        String originalContent = comment.getContent(); // Get original content before update
+        String originalContent = comment.getContent();
         // 댓글 내용에서 HTML 태그를 제거한다.
         String sanitizedContent = InputSanitizer.stripHtml(content);
         comment.updateContent(sanitizedContent);
 
-        // Save CommentVersion for MODIFY
         saveCommentVersion(comment, user, "MODIFY", originalContent);
         return comment;
     }
@@ -261,11 +257,10 @@ public class CommentService {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
 
-        String originalContent = comment.getContent(); // Get content before delete
+        String originalContent = comment.getContent();
         comment.deleteComment();
         comment.getPost().decrementCommentCount();
 
-        // Save CommentVersion for DELETE
         saveCommentVersion(comment, user, "DELETE", originalContent);
 
         String commentCreateRewardStr = globalConfigService.getConfig("POINT_COMMENT_CREATE_REWARD");
@@ -301,7 +296,8 @@ public class CommentService {
         }
 
         String content = user.getDisplayName() + "님이 회원님의 댓글을 좋아합니다.";
-        NotificationEvent event = new NotificationEvent(comment.getUser(), user, "LIKE", "COMMENT", commentId, content);
+        NotificationEvent event = new NotificationEvent(comment.getUser(), user, NotificationType.LIKE,
+                "COMMENT", commentId, content);
         eventPublisher.publishEvent(event);
     }
 
@@ -335,7 +331,7 @@ public class CommentService {
     private CommentResponse maskCommentContent(CommentResponse response, List<Long> blockedUserIds) {
         if (blockedUserIds != null && response.getAuthor() != null
                 && blockedUserIds.contains(response.getAuthor().getUserId())) {
-            return response.toBuilder() // Use toBuilder to create a new builder from existing values
+            return response.toBuilder()
                     .content("차단된 사용자의 댓글입니다.")
                     .author(CommentResponse.AuthorInfo.builder()
                             .userId(response.getAuthor().getUserId())

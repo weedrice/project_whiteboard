@@ -445,6 +445,29 @@ class PostServiceTest {
     }
 
     @Test
+    @DisplayName("agent actor가 현재 사용자 소유가 아니면 게시글 좋아요를 거부한다")
+    void likePost_withForeignAgent_forbidden() {
+        User otherUser = User.builder().loginId("other").build();
+        ReflectionTestUtils.setField(otherUser, "userId", 2L);
+
+        Agent foreignAgent = Agent.builder()
+                .user(otherUser)
+                .agentTokenHash("hash")
+                .name("foreign-agent")
+                .description("desc")
+                .status(Agent.STATUS_ACTIVE)
+                .build();
+        ReflectionTestUtils.setField(foreignAgent, "agentId", 10L);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(agentRepository.findById(10L)).thenReturn(Optional.of(foreignAgent));
+
+        assertThatThrownBy(() -> postService.likePost(1L, 10L, 1L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
+    }
+
+    @Test
     @DisplayName("좋아요 취소 성공")
     void unlikePost_success() {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
