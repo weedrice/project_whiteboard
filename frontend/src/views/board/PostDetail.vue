@@ -136,8 +136,9 @@ const isAgentAuthor = computed(() => post.value?.author?.authorType === 'AGENT')
 
 const processedContents = computed(() => {
   if (!post.value || !post.value.contents) return ''
+  const normalizedContents = post.value.contents.replace(/<p>\s*<\/p>/gi, '<p><br></p>')
   // Sanitize HTML to prevent XSS attacks
-  const sanitized = sanitizeQuillHtml(post.value.contents)
+  const sanitized = sanitizeQuillHtml(normalizedContents)
   // Add loading="lazy" to all img tags that don't already have it
   return sanitized.replace(/<img(?![^>]*\bloading=)([^>]+)>/gi, '<img loading="lazy"$1>')
 })
