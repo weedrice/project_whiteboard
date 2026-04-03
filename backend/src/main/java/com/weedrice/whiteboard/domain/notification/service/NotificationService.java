@@ -5,6 +5,7 @@ import com.weedrice.whiteboard.domain.notification.dto.NotificationResponse;
 import com.weedrice.whiteboard.domain.notification.entity.Notification;
 import com.weedrice.whiteboard.domain.notification.repository.NotificationRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.domain.user.repository.UserNotificationSettingsRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -21,6 +22,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Service
@@ -30,13 +32,14 @@ public class NotificationService {
 
     private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
+    private final UserNotificationSettingsRepository userNotificationSettingsRepository;
     private final org.springframework.transaction.support.TransactionTemplate transactionTemplate;
 
-    private final Map<Long, SseEmitter> emitters = new ConcurrentHashMap<>();
+    private final Map<Long, Map<String, SseEmitter>> emitters = new ConcurrentHashMap<>();
 
     @TransactionalEventListener
     public void handleNotificationEvent(NotificationEvent event) {
-        if (event.getUserToNotify().getUserId().equals(event.getActor().getUserId())) {
+        if (isSelfNotification(event) || !isNotificationEnabled(event)) {
             return;
         }
 
@@ -61,18 +64,21 @@ public class NotificationService {
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public SseEmitter subscribe(Long userId) {
         SseEmitter emitter = new SseEmitter(Long.MAX_VALUE);
-        emitters.put(userId, emitter);
+        String connectionId = UUID.randomUUID().toString();
 
-        emitter.onCompletion(() -> emitters.remove(userId));
-        emitter.onTimeout(() -> emitters.remove(userId));
-        emitter.onError((e) -> emitters.remove(userId));
+        emitters.computeIfAbsent(userId, ignored -> new ConcurrentHashMap<>())
+                .put(connectionId, emitter);
+
+        emitter.onCompletion(() -> removeEmitter(userId, connectionId));
+        emitter.onTimeout(() -> removeEmitter(userId, connectionId));
+        emitter.onError((e) -> removeEmitter(userId, connectionId));
 
         try {
             emitter.send(SseEmitter.event()
                     .name("connect")
                     .data("connected!"));
         } catch (IOException e) {
-            emitters.remove(userId);
+            removeEmitter(userId, connectionId);
         }
 
         return emitter;
@@ -83,28 +89,68 @@ public class NotificationService {
         if (emitters.isEmpty()) {
             return;
         }
+
         for (Long userId : new ArrayList<>(emitters.keySet())) {
-            SseEmitter emitter = emitters.get(userId);
-            if (emitter != null) {
+            Map<String, SseEmitter> userEmitters = emitters.get(userId);
+            if (userEmitters == null || userEmitters.isEmpty()) {
+                emitters.remove(userId);
+                continue;
+            }
+
+            for (Map.Entry<String, SseEmitter> entry : new ArrayList<>(userEmitters.entrySet())) {
                 try {
-                    emitter.send(SseEmitter.event().comment("heartbeat"));
+                    entry.getValue().send(SseEmitter.event().comment("heartbeat"));
                 } catch (IOException e) {
-                    emitters.remove(userId);
+                    removeEmitter(userId, entry.getKey());
                 }
             }
         }
     }
 
     private void sendNotificationToUser(Long userId, Notification notification) {
-        SseEmitter emitter = emitters.get(userId);
-        if (emitter != null) {
+        Map<String, SseEmitter> userEmitters = emitters.get(userId);
+        if (userEmitters == null || userEmitters.isEmpty()) {
+            return;
+        }
+
+        NotificationResponse.NotificationSummary summary = NotificationResponse.NotificationSummary.from(notification);
+        for (Map.Entry<String, SseEmitter> entry : new ArrayList<>(userEmitters.entrySet())) {
             try {
-                emitter.send(SseEmitter.event()
+                entry.getValue().send(SseEmitter.event()
                         .name("notification")
-                        .data(NotificationResponse.NotificationSummary.from(notification)));
+                        .data(summary));
             } catch (IOException e) {
-                emitters.remove(userId);
+                removeEmitter(userId, entry.getKey());
             }
+        }
+    }
+
+    private boolean isSelfNotification(NotificationEvent event) {
+        return event.getActor() != null
+                && event.getUserToNotify() != null
+                && event.getUserToNotify().getUserId().equals(event.getActor().getUserId());
+    }
+
+    private boolean isNotificationEnabled(NotificationEvent event) {
+        if (event.getUserToNotify() == null || event.getNotificationType() == null) {
+            return true;
+        }
+
+        return userNotificationSettingsRepository
+                .findByUserIdAndNotificationType(event.getUserToNotify().getUserId(), event.getNotificationType())
+                .map(setting -> Boolean.TRUE.equals(setting.getIsEnabled()))
+                .orElse(true);
+    }
+
+    private void removeEmitter(Long userId, String connectionId) {
+        Map<String, SseEmitter> userEmitters = emitters.get(userId);
+        if (userEmitters == null) {
+            return;
+        }
+
+        userEmitters.remove(connectionId);
+        if (userEmitters.isEmpty()) {
+            emitters.remove(userId);
         }
     }
 

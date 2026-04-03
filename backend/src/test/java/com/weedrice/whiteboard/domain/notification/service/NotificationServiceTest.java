@@ -4,6 +4,7 @@ import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
 import com.weedrice.whiteboard.domain.notification.entity.Notification;
 import com.weedrice.whiteboard.domain.notification.repository.NotificationRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.domain.user.repository.UserNotificationSettingsRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -19,6 +20,9 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -29,6 +33,8 @@ class NotificationServiceTest {
     private NotificationRepository notificationRepository;
     @Mock
     private UserRepository userRepository;
+    @Mock
+    private UserNotificationSettingsRepository userNotificationSettingsRepository;
     @Mock
     private TransactionTemplate transactionTemplate;
 
@@ -56,6 +62,9 @@ class NotificationServiceTest {
                 .content("Test Notification")
                 .build();
         ReflectionTestUtils.setField(notification, "notificationId", 1L);
+
+        lenient().when(userNotificationSettingsRepository.findByUserIdAndNotificationType(anyLong(), anyString()))
+                .thenReturn(Optional.empty());
     }
 
     @Test

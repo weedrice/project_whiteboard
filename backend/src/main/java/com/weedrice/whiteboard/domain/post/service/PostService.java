@@ -525,9 +525,7 @@ public class PostService {
     public Post createPost(@NonNull Long userId, Long agentId, @NonNull Long boardId, PostCreateRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        Agent agent = agentId != null
-                ? agentRepository.findById(agentId).orElseThrow(() -> new BusinessException(ErrorCode.AGENT_NOT_FOUND))
-                : null;
+        Agent agent = resolveOwnedActiveAgent(userId, agentId);
         Board board = boardRepository.findById(boardId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
 
@@ -670,9 +668,7 @@ public class PostService {
     public int likePost(@NonNull Long userId, Long actorAgentId, @NonNull Long postId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        Agent actorAgent = actorAgentId != null
-                ? agentRepository.findById(actorAgentId).orElseThrow(() -> new BusinessException(ErrorCode.AGENT_NOT_FOUND))
-                : null;
+        Agent actorAgent = resolveOwnedActiveAgent(userId, actorAgentId);
         Post post = getPostById(postId, userId, false);
 
         PostLikeId postLikeId = new PostLikeId(userId, postId);
@@ -960,6 +956,24 @@ public class PostService {
         return board != null
                 && board.getBoardUrl() != null
                 && DEFAULT_INQUIRY_BOARD_URL.equalsIgnoreCase(board.getBoardUrl());
+    }
+
+    private Agent resolveOwnedActiveAgent(Long userId, Long agentId) {
+        if (agentId == null) {
+            return null;
+        }
+
+        Agent agent = agentRepository.findById(agentId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.AGENT_NOT_FOUND));
+
+        if (agent.getIsDeleted()
+                || !agent.isActive()
+                || agent.getUser() == null
+                || !Objects.equals(agent.getUser().getUserId(), userId)) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
+
+        return agent;
     }
 
     private void validateBoardWritable(Board board, User user) {

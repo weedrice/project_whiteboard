@@ -153,9 +153,7 @@ public class CommentService {
     public Comment createComment(Long userId, Long agentId, Long postId, Long parentId, String content) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        Agent agent = agentId != null
-                ? agentRepository.findById(agentId).orElseThrow(() -> new BusinessException(ErrorCode.AGENT_NOT_FOUND))
-                : null;
+        Agent agent = resolveOwnedActiveAgent(userId, agentId);
         Post post = postRepository.findByIdWithRelations(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
 
@@ -385,6 +383,24 @@ public class CommentService {
             return true;
         }
         return adminRepository.existsByUserAndBoardAndIsActive(user, board, true);
+    }
+
+    private Agent resolveOwnedActiveAgent(Long userId, Long agentId) {
+        if (agentId == null) {
+            return null;
+        }
+
+        Agent agent = agentRepository.findById(agentId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.AGENT_NOT_FOUND));
+
+        if (agent.getIsDeleted()
+                || !agent.isActive()
+                || agent.getUser() == null
+                || !Objects.equals(agent.getUser().getUserId(), userId)) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
+
+        return agent;
     }
 
     private boolean isInquiryBoard(Post post) {
