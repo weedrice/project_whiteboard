@@ -346,10 +346,10 @@ public class UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
-        // 이미 ACTIVE 사용 중인 이메일인지 확인 (본인 이메일 제외). DELETED 이메일은 재사용 가능
+        // 본인 계정이 아닌 다른 계정이 이미 사용 중인 이메일은 변경할 수 없다.
         if (!user.getEmail().equals(email)) {
             userRepository.findByEmail(email).ifPresent(other -> {
-                if ("ACTIVE".equals(other.getStatus())) {
+                if (!other.getUserId().equals(user.getUserId())) {
                     throw new BusinessException(ErrorCode.DUPLICATE_EMAIL);
                 }
             });

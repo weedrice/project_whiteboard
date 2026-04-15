@@ -112,13 +112,16 @@ class ReportServiceTest {
         Long reportId = 1L;
         String status = "RESOLVED";
         when(reportRepository.findById(reportId)).thenReturn(Optional.of(report));
+        when(userRepository.findById(2L)).thenReturn(Optional.of(adminUser));
+        when(adminRepository.findFirstByUserAndIsActiveOrderByAdminIdAsc(adminUser, true)).thenReturn(Optional.of(admin));
 
         // when
         ReportResponse processedReport = reportService.processReport(2L, reportId, status, "Test Remark");
 
         // then
         assertThat(processedReport.getStatus()).isEqualTo(status);
-        assertThat(processedReport.getAdminId()).isNull();
+        assertThat(processedReport.getAdminId()).isEqualTo(1L);
+        assertThat(processedReport.getProcessedRemark()).isEqualTo("Test Remark");
     }
 
     @Test

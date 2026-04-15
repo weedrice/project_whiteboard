@@ -20,6 +20,7 @@ public class ReportResponse {
     private String targetLoginId;
     private String reasonType;
     private String remark;
+    private String processedRemark;
     private String status;
     private String contents;
     private LocalDateTime createdAt;
@@ -37,6 +38,7 @@ public class ReportResponse {
                 .targetLoginId(null)
                 .reasonType(report.getReasonType())
                 .remark(report.getRemark())
+                .processedRemark(report.getProcessedRemark())
                 .status(report.getStatus())
                 .contents(report.getContents())
                 .createdAt(report.getCreatedAt())

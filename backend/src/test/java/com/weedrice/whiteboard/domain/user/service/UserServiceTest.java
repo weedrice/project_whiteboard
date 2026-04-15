@@ -1,12 +1,20 @@
 package com.weedrice.whiteboard.domain.user.service;
 
 import com.weedrice.whiteboard.domain.agent.service.AgentService;
+import com.weedrice.whiteboard.domain.auth.repository.LoginHistoryRepository;
+import com.weedrice.whiteboard.domain.auth.service.VerificationCodeService;
+import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository;
+import com.weedrice.whiteboard.domain.board.service.BoardService;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
+import com.weedrice.whiteboard.domain.comment.service.CommentService;
 import com.weedrice.whiteboard.domain.file.service.FileService;
 import com.weedrice.whiteboard.domain.point.entity.UserPoint;
 import com.weedrice.whiteboard.domain.point.repository.UserPointRepository;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
+import com.weedrice.whiteboard.domain.post.service.PostService;
+import com.weedrice.whiteboard.domain.report.repository.ReportRepository;
+import com.weedrice.whiteboard.domain.sanction.repository.SanctionRepository;
 import com.weedrice.whiteboard.domain.user.dto.MyInfoResponse;
 import com.weedrice.whiteboard.domain.user.dto.UpdateProfileResponse;
 import com.weedrice.whiteboard.domain.user.dto.UserProfileResponse;
@@ -68,6 +76,22 @@ class UserServiceTest {
     private UserPointRepository userPointRepository;
     @Mock
     private AdminRepository adminRepository;
+    @Mock
+    private PostService postService;
+    @Mock
+    private CommentService commentService;
+    @Mock
+    private BoardService boardService;
+    @Mock
+    private BoardSubscriptionRepository boardSubscriptionRepository;
+    @Mock
+    private LoginHistoryRepository loginHistoryRepository;
+    @Mock
+    private SanctionRepository sanctionRepository;
+    @Mock
+    private ReportRepository reportRepository;
+    @Mock
+    private VerificationCodeService verificationCodeService;
     @Mock
     private AgentService agentService;
 
@@ -328,5 +352,26 @@ class UserServiceTest {
         when(userRepository.searchUsers(anyString(), any())).thenReturn(new PageImpl<>(Collections.emptyList()));
         Page<User> result = userService.searchUsers("query", PageRequest.of(0, 10));
         assertThat(result).isNotNull();
+    }
+
+    @Test
+    @DisplayName("verifyAndChangeEmail rejects email already owned by another deleted account")
+    void verifyAndChangeEmail_duplicateDeletedEmail() {
+        User user = User.builder().email("current@example.com").build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+
+        User deletedUser = User.builder().email("deleted@example.com").build();
+        ReflectionTestUtils.setField(deletedUser, "userId", 2L);
+        ReflectionTestUtils.setField(deletedUser, "status", "DELETED");
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.findByEmail("deleted@example.com")).thenReturn(Optional.of(deletedUser));
+
+        assertThatThrownBy(() -> userService.verifyAndChangeEmail(1L, "deleted@example.com", "123456"))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.DUPLICATE_EMAIL);
+
+        verify(verificationCodeService, never()).verifyCode(anyString(), anyString());
     }
 }

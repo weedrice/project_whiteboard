@@ -5,10 +5,14 @@ import com.weedrice.whiteboard.domain.auth.dto.LoginResponse;
 import com.weedrice.whiteboard.domain.auth.dto.SignupRequest;
 import com.weedrice.whiteboard.domain.auth.dto.SignupResponse;
 import com.weedrice.whiteboard.domain.auth.dto.VerifyCodeResponse;
+import com.weedrice.whiteboard.domain.auth.entity.PasswordResetToken;
+import com.weedrice.whiteboard.domain.auth.entity.RefreshToken;
 import com.weedrice.whiteboard.domain.auth.repository.LoginHistoryRepository;
+import com.weedrice.whiteboard.domain.auth.repository.PasswordResetTokenRepository;
 import com.weedrice.whiteboard.domain.auth.repository.RefreshTokenRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.point.repository.UserPointRepository;
+import com.weedrice.whiteboard.domain.user.repository.PasswordHistoryRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserSettingsRepository;
 import com.weedrice.whiteboard.domain.user.repository.SocialAccountRepository;
@@ -19,7 +23,6 @@ import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import com.weedrice.whiteboard.global.security.JwtTokenProvider;
 import com.weedrice.whiteboard.domain.auth.service.VerificationCodeService;
-import com.weedrice.whiteboard.domain.auth.repository.PasswordResetTokenRepository;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -37,7 +40,9 @@ import org.springframework.security.config.annotation.authentication.builders.Au
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.time.LocalDateTime;
 import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -73,6 +78,8 @@ class AuthServiceTest {
         private LoginHistoryRepository loginHistoryRepository;
         @Mock
         private SocialAccountRepository socialAccountRepository;
+        @Mock
+        private PasswordHistoryRepository passwordHistoryRepository;
         @Mock
         private VerificationCodeService verificationCodeService;
         @Mock
@@ -272,6 +279,9 @@ class AuthServiceTest {
                 when(verificationCodeService.verifyCode(email, code))
                                 .thenReturn(new VerifyCodeResponse(true, null, false));
                 when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
+                when(passwordHistoryRepository.findTop3ByUserOrderByCreatedAtDesc(user)).thenReturn(Collections.emptyList());
+                when(refreshTokenRepository.findByUserAndIsRevoked(user, false)).thenReturn(Collections.emptyList());
+                when(passwordEncoder.matches(newPassword, "encodedPassword")).thenReturn(false);
                 when(passwordEncoder.encode(newPassword)).thenReturn("encodedNewPassword");
 
                 authService.resetPasswordByCode(email, code, newPassword);
@@ -279,7 +289,93 @@ class AuthServiceTest {
                 verify(verificationCodeService).verifyCode(email, code);
                 verify(verificationCodeService, never()).isVerified(anyString());
                 verify(userRepository).save(user);
+                verify(passwordHistoryRepository).save(any());
                 verify(verificationCodeService).clearVerificationStatus(email);
+        }
+
+        @Test
+        @DisplayName("resetPasswordByCode revokes active refresh tokens")
+        void resetPasswordByCode_revokesRefreshTokens() {
+                String email = "test@example.com";
+                String code = "123456";
+                String newPassword = "newPassword123!";
+                RefreshToken refreshToken = RefreshToken.builder()
+                                .user(user)
+                                .tokenHash("hash")
+                                .ipAddress("127.0.0.1")
+                                .deviceInfo("browser")
+                                .expiresAt(LocalDateTime.now().plusDays(1))
+                                .build();
+
+                when(verificationCodeService.verifyCode(email, code))
+                                .thenReturn(new VerifyCodeResponse(true, null, false));
+                when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
+                when(passwordHistoryRepository.findTop3ByUserOrderByCreatedAtDesc(user)).thenReturn(Collections.emptyList());
+                when(refreshTokenRepository.findByUserAndIsRevoked(user, false)).thenReturn(List.of(refreshToken));
+                when(passwordEncoder.matches(newPassword, "encodedPassword")).thenReturn(false);
+                when(passwordEncoder.encode(newPassword)).thenReturn("encodedNewPassword");
+
+                authService.resetPasswordByCode(email, code, newPassword);
+
+                assertThat(refreshToken.getIsRevoked()).isTrue();
+                verify(refreshTokenRepository).saveAll(any());
+        }
+
+        @Test
+        @DisplayName("resetPasswordWithToken stores history and clears sessions")
+        void resetPasswordWithToken_success() {
+                String rawToken = "raw-token";
+                String newPassword = "newPassword123!";
+                PasswordResetToken passwordResetToken = PasswordResetToken.builder()
+                                .token("hashed")
+                                .user(user)
+                                .expiryDate(LocalDateTime.now().plusMinutes(10))
+                                .build();
+                RefreshToken refreshToken = RefreshToken.builder()
+                                .user(user)
+                                .tokenHash("hash")
+                                .ipAddress("127.0.0.1")
+                                .deviceInfo("browser")
+                                .expiresAt(LocalDateTime.now().plusDays(1))
+                                .build();
+
+                when(passwordResetTokenRepository.findByToken(anyString())).thenReturn(Optional.of(passwordResetToken));
+                when(passwordHistoryRepository.findTop3ByUserOrderByCreatedAtDesc(user)).thenReturn(Collections.emptyList());
+                when(refreshTokenRepository.findByUserAndIsRevoked(user, false)).thenReturn(List.of(refreshToken));
+                when(passwordEncoder.matches(newPassword, "encodedPassword")).thenReturn(false);
+                when(passwordEncoder.encode(newPassword)).thenReturn("encodedNewPassword");
+
+                authService.resetPasswordWithToken(rawToken, newPassword);
+
+                assertThat(passwordResetToken.getIsUsed()).isTrue();
+                assertThat(refreshToken.getIsRevoked()).isTrue();
+                verify(passwordHistoryRepository).save(any());
+                verify(verificationCodeService).clearVerificationStatus(emailOf(user));
+        }
+
+        @Test
+        @DisplayName("resetPasswordByCode rejects recently used passwords")
+        void resetPasswordByCode_recentlyUsed() {
+                String email = "test@example.com";
+                String code = "123456";
+                String newPassword = "newPassword123!";
+                var recentHistory = com.weedrice.whiteboard.domain.user.entity.PasswordHistory.builder()
+                                .user(user)
+                                .passwordHash("recentHash")
+                                .build();
+
+                when(verificationCodeService.verifyCode(email, code))
+                                .thenReturn(new VerifyCodeResponse(true, null, false));
+                when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
+                when(passwordHistoryRepository.findTop3ByUserOrderByCreatedAtDesc(user)).thenReturn(List.of(recentHistory));
+                when(passwordEncoder.matches(newPassword, "encodedPassword")).thenReturn(false);
+                when(passwordEncoder.matches(newPassword, "recentHash")).thenReturn(true);
+
+                BusinessException exception = assertThrows(BusinessException.class,
+                                () -> authService.resetPasswordByCode(email, code, newPassword));
+
+                assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.PASSWORD_RECENTLY_USED);
+                verify(userRepository, never()).save(any());
         }
 
         @Test
@@ -296,5 +392,9 @@ class AuthServiceTest {
 
                 assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.VALIDATION_ERROR);
                 verify(userRepository, never()).findByEmail(anyString());
+        }
+
+        private String emailOf(User targetUser) {
+                return targetUser.getEmail();
         }
 }

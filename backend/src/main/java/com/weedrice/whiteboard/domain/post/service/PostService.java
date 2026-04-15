@@ -77,6 +77,7 @@ public class PostService {
     private final GlobalConfigService globalConfigService;
     private final AgentOwnershipService agentOwnershipService;
     private final PostSummaryAssembler postSummaryAssembler;
+    private final PostAccessPolicy postAccessPolicy;
 
     public Page<PostSummary> getPosts(String boardUrl, Long categoryId, String keyword, Integer minLikes, Long currentUserId,
             @NonNull Pageable pageable) {
@@ -204,47 +205,15 @@ public class PostService {
         Post post = postRepository.findByIdWithRelations(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
 
-        if (post.getIsDeleted()) {
-            throw new BusinessException(ErrorCode.POST_NOT_FOUND);
-        }
-
         User viewer = null;
+        boolean authorBlocked = false;
         if (userId != null) {
             List<Long> blockedUserIds = userBlockService.getBlockedUserIds(userId);
-            if (blockedUserIds.contains(post.getUser().getUserId())) {
-                throw new BusinessException(ErrorCode.POST_NOT_FOUND);
-            }
+            authorBlocked = blockedUserIds != null && blockedUserIds.contains(post.getUser().getUserId());
             viewer = userRepository.findById(userId)
                     .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         }
-        boolean isAuthor = userId != null && post.getUser().getUserId().equals(userId);
-
-        // Access Control for Inactive Boards
-        if (!post.getBoard().getIsActive()) {
-            if (userId == null) {
-                throw new BusinessException(ErrorCode.POST_NOT_FOUND);
-            }
-            boolean isBoardAdmin = adminRepository
-                    .findByUserAndBoardAndIsActive(viewer, post.getBoard(), true).isPresent();
-
-            if (!viewer.getIsSuperAdmin() && !isBoardAdmin && !isAuthor) {
-                throw new BusinessException(ErrorCode.POST_NOT_FOUND); // Treat as not found for
-                // security
-            }
-        }
-
-        if (!post.getBoard().getIsPublic()) {
-            boolean canReadInquiryAsAuthor = isInquiryBoard(post.getBoard()) && isAuthor;
-            if (!hasBoardAdminAccess(post.getBoard(), viewer) && !canReadInquiryAsAuthor) {
-                throw new BusinessException(ErrorCode.POST_NOT_FOUND);
-            }
-        }
-
-        if (post.getIsSecret()) {
-            if (!hasBoardAdminAccess(post.getBoard(), viewer) && !isAuthor) {
-                throw new BusinessException(ErrorCode.POST_NOT_FOUND);
-            }
-        }
+        postAccessPolicy.validateReadable(post, viewer, authorBlocked);
 
         if (incrementView) {
             post.incrementViewCount();

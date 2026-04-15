@@ -15,17 +15,18 @@ import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
 import com.weedrice.whiteboard.domain.point.service.PointService;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
+import com.weedrice.whiteboard.domain.post.service.PostAccessPolicy;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
 import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
@@ -51,8 +52,8 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class CommentServiceTest {
 
-    @InjectMocks
     private CommentService commentService;
+    private PostAccessPolicy postAccessPolicy;
 
     @Mock
     private CommentRepository commentRepository;
@@ -78,6 +79,24 @@ class CommentServiceTest {
     private AdminRepository adminRepository;
     @Mock
     private AgentOwnershipService agentOwnershipService;
+
+    @BeforeEach
+    void setUp() {
+        postAccessPolicy = new PostAccessPolicy(adminRepository);
+        commentService = new CommentService(
+                commentRepository,
+                postRepository,
+                userRepository,
+                commentLikeRepository,
+                commentVersionRepository,
+                commentClosureRepository,
+                eventPublisher,
+                pointService,
+                userBlockService,
+                globalConfigService,
+                agentOwnershipService,
+                postAccessPolicy);
+    }
 
     @Test
     @DisplayName("create root comment")
@@ -237,11 +256,14 @@ class CommentServiceTest {
         User blockedUser = User.builder().displayName("Blocked").build();
         ReflectionTestUtils.setField(blockedUser, "userId", 2L);
 
-        Board board = Board.builder().boardUrl("free").build();
+        User postOwner = User.builder().displayName("Owner").build();
+        ReflectionTestUtils.setField(postOwner, "userId", 3L);
+
+        Board board = Board.builder().boardUrl("free").creator(postOwner).build();
         ReflectionTestUtils.setField(board, "isActive", true);
         ReflectionTestUtils.setField(board, "isPublic", true);
 
-        Post post = Post.builder().board(board).title("Title").user(blockedUser).build();
+        Post post = Post.builder().board(board).title("Title").user(postOwner).build();
         ReflectionTestUtils.setField(post, "postId", 100L);
 
         Comment comment = Comment.builder()
@@ -253,7 +275,11 @@ class CommentServiceTest {
         ReflectionTestUtils.setField(comment, "commentId", 10L);
         ReflectionTestUtils.setField(comment, "createdAt", LocalDateTime.now());
 
+        User viewer = User.builder().displayName("Viewer").build();
+        ReflectionTestUtils.setField(viewer, "userId", 1L);
+
         when(postRepository.findByIdWithRelations(100L)).thenReturn(Optional.of(post));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(viewer));
         when(userBlockService.getBlockedUserIds(1L)).thenReturn(List.of(2L));
         when(commentRepository.findParentsWithChildrenOrNotDeleted(anyLong(), any()))
                 .thenReturn(new PageImpl<>(List.of(comment)));
@@ -276,7 +302,7 @@ class CommentServiceTest {
         User viewer = User.builder().displayName("Viewer").build();
         ReflectionTestUtils.setField(viewer, "userId", 1L);
 
-        Board board = Board.builder().boardUrl("free").build();
+        Board board = Board.builder().boardUrl("free").creator(viewer).build();
         ReflectionTestUtils.setField(board, "isActive", true);
         ReflectionTestUtils.setField(board, "isPublic", true);
 
@@ -303,6 +329,7 @@ class CommentServiceTest {
         ReflectionTestUtils.setField(reply, "createdAt", LocalDateTime.now());
 
         when(commentRepository.findByIdWithRelations(9L)).thenReturn(Optional.of(parent));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(viewer));
         when(userBlockService.getBlockedUserIds(1L)).thenReturn(List.of(2L));
         when(commentRepository.findByParent_CommentIdAndIsDeletedOrderByCreatedAtAsc(9L, false, PageRequest.of(0, 10)))
                 .thenReturn(new PageImpl<>(List.of(reply), PageRequest.of(0, 10), 1));
@@ -334,6 +361,80 @@ class CommentServiceTest {
 
         verify(commentLikeRepository).saveAndFlush(any());
         verify(commentRepository).incrementLikeCount(10L);
+    }
+
+    @Test
+    @DisplayName("private board comments are hidden from anonymous users")
+    void getComments_privateBoardAnonymous_forbidden() {
+        User owner = User.builder().displayName("Owner").build();
+        ReflectionTestUtils.setField(owner, "userId", 1L);
+
+        Board board = Board.builder().boardUrl("private").creator(owner).build();
+        ReflectionTestUtils.setField(board, "isActive", true);
+        ReflectionTestUtils.setField(board, "isPublic", false);
+
+        Post post = Post.builder().board(board).user(owner).build();
+        ReflectionTestUtils.setField(post, "postId", 10L);
+
+        when(postRepository.findByIdWithRelations(10L)).thenReturn(Optional.of(post));
+
+        assertThatThrownBy(() -> commentService.getComments(10L, null, PageRequest.of(0, 10)))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("secret post comments are hidden from non-author users")
+    void getComments_secretPostNonAuthor_forbidden() {
+        User owner = User.builder().displayName("Owner").build();
+        ReflectionTestUtils.setField(owner, "userId", 1L);
+
+        User viewer = User.builder().displayName("Viewer").build();
+        ReflectionTestUtils.setField(viewer, "userId", 2L);
+
+        Board board = Board.builder().boardUrl("free").creator(owner).build();
+        ReflectionTestUtils.setField(board, "isActive", true);
+        ReflectionTestUtils.setField(board, "isPublic", true);
+
+        Post post = Post.builder().board(board).user(owner).build();
+        ReflectionTestUtils.setField(post, "postId", 10L);
+        ReflectionTestUtils.setField(post, "isSecret", true);
+
+        when(postRepository.findByIdWithRelations(10L)).thenReturn(Optional.of(post));
+        when(userRepository.findById(2L)).thenReturn(Optional.of(viewer));
+        when(userBlockService.getBlockedUserIds(2L)).thenReturn(List.of());
+
+        assertThatThrownBy(() -> commentService.getComments(10L, 2L, PageRequest.of(0, 10)))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("like comment is blocked when the post is secret")
+    void likeComment_secretPostNonAuthor_forbidden() {
+        User owner = User.builder().displayName("Owner").build();
+        ReflectionTestUtils.setField(owner, "userId", 1L);
+
+        User viewer = User.builder().displayName("Viewer").build();
+        ReflectionTestUtils.setField(viewer, "userId", 2L);
+
+        Board board = Board.builder().boardUrl("free").creator(owner).build();
+        ReflectionTestUtils.setField(board, "isActive", true);
+        ReflectionTestUtils.setField(board, "isPublic", true);
+
+        Post post = Post.builder().board(board).user(owner).build();
+        ReflectionTestUtils.setField(post, "isSecret", true);
+
+        Comment comment = Comment.builder().user(owner).post(post).build();
+        ReflectionTestUtils.setField(comment, "commentId", 10L);
+
+        when(userRepository.findById(2L)).thenReturn(Optional.of(viewer));
+        when(commentRepository.findById(10L)).thenReturn(Optional.of(comment));
+        when(userBlockService.getBlockedUserIds(2L)).thenReturn(List.of());
+
+        assertThatThrownBy(() -> commentService.likeComment(2L, 10L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
     }
 
     @Test

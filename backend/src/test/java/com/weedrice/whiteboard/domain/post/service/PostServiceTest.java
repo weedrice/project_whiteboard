@@ -34,9 +34,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
@@ -97,11 +95,9 @@ class PostServiceTest {
     private GlobalConfigService globalConfigService;
     @Mock
     private AgentOwnershipService agentOwnershipService;
-    @Spy
-    @InjectMocks
+    private PostAccessPolicy postAccessPolicy;
     private PostSummaryAssembler postSummaryAssembler;
 
-    @InjectMocks
     private PostService postService;
 
     private User user;
@@ -118,7 +114,30 @@ class PostServiceTest {
                 scrapRepository,
                 boardSubscriptionRepository,
                 commentRepository);
-        ReflectionTestUtils.setField(postService, "postSummaryAssembler", postSummaryAssembler);
+        postAccessPolicy = new PostAccessPolicy(adminRepository);
+        postService = new PostService(
+                postRepository,
+                boardRepository,
+                boardCategoryRepository,
+                userRepository,
+                postLikeRepository,
+                scrapRepository,
+                draftPostRepository,
+                postVersionRepository,
+                tagService,
+                postTagRepository,
+                viewHistoryRepository,
+                eventPublisher,
+                adminRepository,
+                pointService,
+                commentRepository,
+                fileService,
+                boardSubscriptionRepository,
+                userBlockService,
+                globalConfigService,
+                agentOwnershipService,
+                postSummaryAssembler,
+                postAccessPolicy);
 
         // GlobalConfigService 기본 mock 설정 - lenient()로 설정하여 일부 테스트에서 사용되지 않아도 허용
         lenient().when(globalConfigService.getConfig(anyString())).thenReturn("50");
@@ -304,7 +323,7 @@ class PostServiceTest {
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
         when(userBlockService.getBlockedUserIds(2L)).thenReturn(Collections.emptyList());
         when(userRepository.findById(2L)).thenReturn(Optional.of(otherUser));
-        when(adminRepository.findByUserAndBoardAndIsActive(otherUser, board, true)).thenReturn(Optional.empty());
+        when(adminRepository.existsByUserAndBoardAndIsActive(otherUser, board, true)).thenReturn(false);
 
         assertThatThrownBy(() -> postService.getPostById(1L, 2L))
                 .isInstanceOf(BusinessException.class)
@@ -1102,6 +1121,7 @@ class PostServiceTest {
         ReflectionTestUtils.setField(post, "isDeleted", true);
 
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
 
         assertThatThrownBy(() -> postService.unlikePost(1L, 1L))
                 .isInstanceOf(BusinessException.class)
@@ -1124,8 +1144,11 @@ class PostServiceTest {
     @Test
     @DisplayName("게시글 조회 실패 - 차단된 사용자")
     void getPostById_blockedUser() {
+        User otherUser = User.builder().loginId("other").build();
+        ReflectionTestUtils.setField(otherUser, "userId", 2L);
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
         when(userBlockService.getBlockedUserIds(2L)).thenReturn(List.of(1L));
+        when(userRepository.findById(2L)).thenReturn(Optional.of(otherUser));
 
         assertThatThrownBy(() -> postService.getPostById(1L, 2L))
                 .isInstanceOf(BusinessException.class)
@@ -1141,7 +1164,6 @@ class PostServiceTest {
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
         when(userBlockService.getBlockedUserIds(1L)).thenReturn(Collections.emptyList());
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(adminRepository.findByUserAndBoardAndIsActive(user, board, true)).thenReturn(Optional.empty());
         when(viewHistoryRepository.findByUserAndPost(user, post)).thenReturn(Optional.empty());
         when(viewHistoryRepository.save(any(ViewHistory.class))).thenAnswer(i -> i.getArgument(0));
 
@@ -1162,7 +1184,7 @@ class PostServiceTest {
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
         when(userBlockService.getBlockedUserIds(2L)).thenReturn(Collections.emptyList());
         when(userRepository.findById(2L)).thenReturn(Optional.of(otherUser));
-        when(adminRepository.findByUserAndBoardAndIsActive(otherUser, board, true)).thenReturn(Optional.of(admin));
+        when(adminRepository.existsByUserAndBoardAndIsActive(otherUser, board, true)).thenReturn(true);
         when(viewHistoryRepository.findByUserAndPost(otherUser, post)).thenReturn(Optional.empty());
         when(viewHistoryRepository.save(any(ViewHistory.class))).thenAnswer(i -> i.getArgument(0));
 
@@ -1179,7 +1201,6 @@ class PostServiceTest {
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
         when(userBlockService.getBlockedUserIds(1L)).thenReturn(Collections.emptyList());
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(adminRepository.findByUserAndBoardAndIsActive(user, board, true)).thenReturn(Optional.empty());
         when(viewHistoryRepository.findByUserAndPost(user, post)).thenReturn(Optional.empty());
         when(viewHistoryRepository.save(any(ViewHistory.class))).thenAnswer(i -> i.getArgument(0));
 

@@ -1,5 +1,7 @@
 package com.weedrice.whiteboard.domain.report.service;
 
+import com.weedrice.whiteboard.domain.admin.entity.Admin;
+import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.report.dto.ReportResponse;
@@ -22,6 +24,7 @@ public class ReportService {
 
     private final ReportRepository reportRepository;
     private final UserRepository userRepository;
+    private final AdminRepository adminRepository;
     private final PostRepository postRepository;
     private final CommentRepository commentRepository;
 
@@ -31,13 +34,11 @@ public class ReportService {
         User reporter = userRepository.findById(reporterId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
-        // 중복 신고 방지
         reportRepository.findByReporterAndTargetTypeAndTargetId(reporter, targetType, targetId)
                 .ifPresent(report -> {
                     throw new BusinessException(ErrorCode.ALREADY_REPORTED);
                 });
 
-        // targetId와 targetType의 유효성 검사 (실제로 존재하는 게시글/댓글/사용자인지)
         validateTarget(targetType, targetId);
 
         Report report = Report.builder()
@@ -58,7 +59,7 @@ public class ReportService {
         } else if (status != null && !status.isEmpty()) {
             reports = reportRepository.findByStatusOrderByCreatedAtDesc(status, pageable);
         } else {
-            reports = reportRepository.findAll(pageable); // 모든 신고 조회
+            reports = reportRepository.findAll(pageable);
         }
         return reports.map(this::toResponse);
     }
@@ -69,7 +70,6 @@ public class ReportService {
         return reportRepository.findByReporterOrderByCreatedAtDesc(reporter, pageable).map(this::toResponse);
     }
 
-    /** 대상(USER)의 닉네임/로그인ID를 채운 ReportResponse 생성 */
     private ReportResponse toResponse(Report report) {
         String targetDisplayName = null;
         String targetLoginId = null;
@@ -90,6 +90,7 @@ public class ReportService {
                 .targetLoginId(targetLoginId)
                 .reasonType(report.getReasonType())
                 .remark(report.getRemark())
+                .processedRemark(report.getProcessedRemark())
                 .status(report.getStatus())
                 .contents(report.getContents())
                 .createdAt(report.getCreatedAt())
@@ -102,21 +103,16 @@ public class ReportService {
     public ReportResponse processReport(Long adminUserId, Long reportId, String status, String remark) {
         Report report = reportRepository.findById(reportId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+        User adminUser = userRepository.findById(adminUserId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        Admin admin = adminRepository.findFirstByUserAndIsActiveOrderByAdminIdAsc(adminUser, true)
+                .orElse(null);
 
-        // 현재 신고 처리는 SUPER_ADMIN 전용이므로 Admin 엔티티를 따로 조회하지 않고,
-        // 상태(status)만 변경하며 최초 신고 사유(remark)는 덮어쓰지 않는다.
-        report.processReport(null, status, null);
+        report.processReport(admin, status, remark);
         reportRepository.save(report);
         return toResponse(report);
     }
 
-    /**
-     * 신고 대상(targetType, targetId)의 유효성을 검사합니다.
-     * 
-     * @param targetType 신고 대상 타입 (POST, COMMENT, USER)
-     * @param targetId 신고 대상 ID
-     * @throws BusinessException 대상이 존재하지 않을 경우
-     */
     private void validateTarget(String targetType, Long targetId) {
         switch (targetType.toUpperCase()) {
             case "POST":
@@ -132,7 +128,7 @@ public class ReportService {
                         .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
                 break;
             default:
-                throw new BusinessException(ErrorCode.INVALID_TARGET, 
+                throw new BusinessException(ErrorCode.INVALID_TARGET,
                         "Invalid target type: " + targetType + ". Must be POST, COMMENT, or USER.");
         }
     }

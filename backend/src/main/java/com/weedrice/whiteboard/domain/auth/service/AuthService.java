@@ -9,10 +9,12 @@ import com.weedrice.whiteboard.domain.point.entity.PointHistory;
 import com.weedrice.whiteboard.domain.point.entity.UserPoint;
 import com.weedrice.whiteboard.domain.point.repository.PointHistoryRepository;
 import com.weedrice.whiteboard.domain.point.repository.UserPointRepository;
+import com.weedrice.whiteboard.domain.user.entity.PasswordHistory;
 import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.SocialAccount;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.entity.UserSettings;
+import com.weedrice.whiteboard.domain.user.repository.PasswordHistoryRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserSettingsRepository;
 import com.weedrice.whiteboard.domain.user.repository.SocialAccountRepository;
@@ -42,7 +44,9 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID; // Import UUID
 
@@ -61,6 +65,7 @@ public class AuthService {
     private final LoginHistoryRepository loginHistoryRepository;
     private final UserSettingsRepository userSettingsRepository;
     private final SocialAccountRepository socialAccountRepository;
+    private final PasswordHistoryRepository passwordHistoryRepository;
     private final VerificationCodeService verificationCodeService;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final EmailService emailService;
@@ -459,8 +464,7 @@ public class AuthService {
         }
 
         User user = passwordResetToken.getUser();
-        user.updatePassword(passwordEncoder.encode(newPassword));
-        userRepository.save(user); // Save user with new password
+        applyPasswordReset(user, newPassword);
 
         passwordResetToken.useToken();
         passwordResetTokenRepository.save(passwordResetToken);
@@ -479,10 +483,48 @@ public class AuthService {
             throw new BusinessException(ErrorCode.USER_DELETED);
         }
 
-        user.updatePassword(passwordEncoder.encode(newPassword));
-        userRepository.save(user);
+        applyPasswordReset(user, newPassword);
 
         // Clear verification status to prevent reuse
         verificationCodeService.clearVerificationStatus(email);
+    }
+
+    private void applyPasswordReset(User user, String newPassword) {
+        validatePasswordNotRecentlyUsed(user, newPassword);
+
+        String newPasswordHash = passwordEncoder.encode(newPassword);
+        user.updatePassword(newPasswordHash);
+        userRepository.save(user);
+
+        passwordHistoryRepository.save(PasswordHistory.builder()
+                .user(user)
+                .passwordHash(newPasswordHash)
+                .build());
+
+        revokeActiveRefreshTokens(user);
+    }
+
+    private void validatePasswordNotRecentlyUsed(User user, String newPassword) {
+        if (passwordEncoder.matches(newPassword, user.getPassword())) {
+            throw new BusinessException(ErrorCode.PASSWORD_RECENTLY_USED);
+        }
+
+        List<PasswordHistory> recentHistories = passwordHistoryRepository.findTop3ByUserOrderByCreatedAtDesc(user);
+        for (PasswordHistory history : recentHistories != null ? recentHistories : Collections.<PasswordHistory>emptyList()) {
+            if (passwordEncoder.matches(newPassword, history.getPasswordHash())) {
+                throw new BusinessException(ErrorCode.PASSWORD_RECENTLY_USED);
+            }
+        }
+    }
+
+    private void revokeActiveRefreshTokens(User user) {
+        List<RefreshToken> activeTokens = refreshTokenRepository.findByUserAndIsRevoked(user, false);
+        List<RefreshToken> tokensToRevoke = activeTokens != null ? activeTokens : Collections.emptyList();
+        for (RefreshToken token : tokensToRevoke) {
+            token.revoke();
+        }
+        if (!tokensToRevoke.isEmpty()) {
+            refreshTokenRepository.saveAll(tokensToRevoke);
+        }
     }
 }
