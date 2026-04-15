@@ -46,8 +46,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Service
@@ -78,6 +76,7 @@ public class PostService {
     private final UserBlockService userBlockService;
     private final GlobalConfigService globalConfigService;
     private final AgentOwnershipService agentOwnershipService;
+    private final PostSummaryAssembler postSummaryAssembler;
 
     public Page<PostSummary> getPosts(String boardUrl, Long categoryId, String keyword, Integer minLikes, Long currentUserId,
             @NonNull Pageable pageable) {
@@ -92,35 +91,7 @@ public class PostService {
 
         Page<Post> posts = this.getPosts(board.getBoardId(), categoryId, keyword, minLikes, currentUserId, includeSecret,
                 pageable);
-
-        List<PostSummary> summaries = new ArrayList<>();
-        long totalElements = posts.getTotalElements();
-        int pageNumber = posts.getNumber();
-        int pageSize = posts.getSize();
-
-        boolean isAscending = pageable.getSort().stream()
-                .anyMatch(order -> order.getProperty().equals("createdAt") && order.isAscending()
-                        || order.getProperty().equals("postId") && order.isAscending());
-
-        List<Long> postIds = posts.getContent().stream().map(Post::getPostId)
-                .collect(Collectors.toList());
-        Set<Long> postIdsWithImages = getPostIdsWithImages(postIds);
-
-        for (int i = 0; i < posts.getContent().size(); i++) {
-            Post post = posts.getContent().get(i);
-            PostSummary summary = PostSummary.from(post);
-            summary.setHasImage(postIdsWithImages.contains(post.getPostId()));
-            summary.setInquiryAnswered(resolveInquiryAnsweredStatus(post));
-
-            if (isAscending) {
-                summary.setRowNum(((long) pageNumber * pageSize) + i + 1);
-            } else {
-                summary.setRowNum(totalElements - ((long) pageNumber * pageSize) - i);
-            }
-            summaries.add(summary);
-        }
-
-        return new PageImpl<>(summaries, pageable, totalElements);
+        return postSummaryAssembler.assembleBoardPage(posts, pageable, true, true);
     }
 
     public List<PostSummary> getNoticeSummaries(String boardUrl, Long currentUserId) {
@@ -197,37 +168,7 @@ public class PostService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         Page<Post> posts = postRepository.findByUserAndIsDeleted(user, false, pageable);
-
-        List<Long> postIds = posts.getContent().stream()
-                .map(Post::getPostId)
-                .collect(Collectors.toList());
-
-        Set<Long> postIdsWithImages = getPostIdsWithImages(postIds);
-
-        long totalElements = posts.getTotalElements();
-        int pageNumber = posts.getNumber();
-        int pageSize = posts.getSize();
-
-        boolean isAscending = pageable.getSort().stream()
-                .anyMatch(order -> order.getProperty().equals("createdAt") && order.isAscending()
-                        || order.getProperty().equals("postId") && order.isAscending());
-
-        List<PostSummary> summaries = new ArrayList<>();
-        for (int i = 0; i < posts.getContent().size(); i++) {
-            Post post = posts.getContent().get(i);
-            PostSummary summary = PostSummary.from(post);
-            summary.setHasImage(postIdsWithImages.contains(post.getPostId()));
-            summary.setInquiryAnswered(resolveInquiryAnsweredStatus(post));
-
-            if (isAscending) {
-                summary.setRowNum(((long) pageNumber * pageSize) + i + 1);
-            } else {
-                summary.setRowNum(totalElements - ((long) pageNumber * pageSize) - i);
-            }
-            summaries.add(summary);
-        }
-
-        return new PageImpl<>(summaries, pageable, totalElements);
+        return postSummaryAssembler.assembleBoardPage(posts, pageable, true, true);
     }
 
     public Page<PostSummary> getInquiryPostsForAdmin(@NonNull Pageable pageable) {
@@ -238,28 +179,7 @@ public class PostService {
         }
 
         Page<Post> posts = postRepository.findByBoard_BoardId(inquiryBoard.getBoardId(), pageable);
-        long totalElements = posts.getTotalElements();
-        int pageNumber = posts.getNumber();
-        int pageSize = posts.getSize();
-
-        boolean isAscending = pageable.getSort().stream()
-                .anyMatch(order -> order.getProperty().equals("createdAt") && order.isAscending()
-                        || order.getProperty().equals("postId") && order.isAscending());
-
-        List<PostSummary> summaries = new ArrayList<>();
-        for (int i = 0; i < posts.getContent().size(); i++) {
-            Post post = posts.getContent().get(i);
-            PostSummary summary = PostSummary.from(post);
-            summary.setInquiryAnswered(resolveInquiryAnsweredStatus(post));
-            if (isAscending) {
-                summary.setRowNum(((long) pageNumber * pageSize) + i + 1);
-            } else {
-                summary.setRowNum(totalElements - ((long) pageNumber * pageSize) - i);
-            }
-            summaries.add(summary);
-        }
-
-        return new PageImpl<>(summaries, pageable, totalElements);
+        return postSummaryAssembler.assembleBoardPage(posts, pageable, false, true);
     }
 
     public List<PostSummary> getTrendingPosts(Pageable pageable, Long currentUserId) {
@@ -271,104 +191,7 @@ public class PostService {
         }
 
         List<Post> posts = postRepository.findTrendingPosts(since, blockedUserIds, pageable);
-
-        if (posts.isEmpty()) {
-            return Collections.emptyList();
-        }
-
-        List<Long> postIds = posts.stream().map(Post::getPostId).collect(Collectors.toList());
-        List<Board> boards = posts.stream().map(Post::getBoard).distinct().collect(Collectors.toList());
-
-        Set<Long> postIdsWithImages = getPostIdsWithImages(postIds);
-
-        // Batch fetch user interactions if logged in
-        Set<Long> likedPostIds = new HashSet<>();
-        Set<Long> scrappedPostIds = new HashSet<>();
-        Set<String> subscribedBoardUrls = new HashSet<>();
-
-        if (currentUserId != null) {
-            User user = userRepository.findById(currentUserId).orElse(null);
-            if (user != null) {
-                likedPostIds = postLikeRepository.findByUserAndPostIn(user, posts).stream()
-                        .map(like -> like.getPost().getPostId())
-                        .collect(Collectors.toSet());
-
-                scrappedPostIds = scrapRepository.findByUserAndPostIn(user, posts).stream()
-                        .map(scrap -> scrap.getPost().getPostId())
-                        .collect(Collectors.toSet());
-
-                subscribedBoardUrls = boardSubscriptionRepository.findByUserAndBoardIn(user, boards)
-                        .stream()
-                        .map(sub -> sub.getBoard().getBoardUrl())
-                        .collect(Collectors.toSet());
-            }
-        }
-
-        final Set<Long> finalLikedPostIds = likedPostIds;
-        final Set<Long> finalScrappedPostIds = scrappedPostIds;
-        final Set<String> finalSubscribedBoardUrls = subscribedBoardUrls;
-        return posts.stream()
-                .map(post -> {
-                    String summary = post.getContents().replaceAll("<[^>]*>", "").trim();
-                    if (summary.length() > 1000) {
-                        summary = summary.substring(0, 1000);
-                    }
-                    // ?몃꽕??URL 寃곗젙: 泥⑤? ?대?吏 > 蹂몃Ц 泥?踰덉㎏ img
-                    String thumbnailUrl = null;
-                    boolean hasImage = false;
-
-                    if (postIdsWithImages.contains(post.getPostId())) {
-                        // 泥⑤? ?대?吏媛 ?덈뒗 寃쎌슦
-                        Long fileId = fileService.getOneImageFileIdForPost(post.getPostId());
-                        if (fileId != null) {
-                            thumbnailUrl = "/api/v1/files/" + fileId;
-                            hasImage = true;
-                        }
-                    }
-
-                    if (thumbnailUrl == null) {
-                        // 泥⑤? ?대?吏媛 ?놁쑝硫?蹂몃Ц?먯꽌 泥?踰덉㎏ img瑜?異붿텧?쒕떎.
-                        String contentImageUrl = extractFirstImageUrlFromContent(post.getContents());
-                        if (contentImageUrl != null) {
-                            thumbnailUrl = contentImageUrl;
-                            hasImage = true;
-                        }
-                    }
-
-                    // Feed??蹂몃Ц HTML 諛쒖톸? 泥?踰덉㎏ ?대?吏/鍮꾨뵒?ㅻ? 寃곗젙?쒕떎.
-                    String contentsExcerpt = truncateHtmlForExcerpt(post.getContents(), FEED_EXCERPT_MAX_LENGTH);
-                    String firstVideoUrl = extractFirstVideoEmbedFromContent(post.getContents());
-                    int imgPos = indexOfFirstImageInContent(post.getContents());
-                    int videoPos = indexOfFirstVideoInContent(post.getContents());
-                    String firstMediaType = null;
-                    String firstMediaUrl = null;
-                    if (imgPos >= 0 && (videoPos < 0 || imgPos < videoPos)) {
-                        firstMediaType = "image";
-                        firstMediaUrl = thumbnailUrl;
-                    } else if (videoPos >= 0) {
-                        firstMediaType = "video";
-                        firstMediaUrl = firstVideoUrl;
-                    } else if (thumbnailUrl != null) {
-                        firstMediaType = "image";
-                        firstMediaUrl = thumbnailUrl;
-                    }
-
-                    return PostSummary.from(
-                            post,
-                            thumbnailUrl,
-                            post.getBoard().getIconUrl(),
-                            finalLikedPostIds.contains(post.getPostId()),
-                            finalScrappedPostIds.contains(post.getPostId()),
-                            finalSubscribedBoardUrls
-                                    .contains(post.getBoard().getBoardUrl()),
-                            hasImage,
-                            summary,
-                            contentsExcerpt,
-                            firstMediaType,
-                            firstMediaUrl);
-                })
-                .collect(Collectors.toList());
-
+        return postSummaryAssembler.assembleTrendingPosts(posts, currentUserId);
     }
 
     @Transactional
@@ -841,18 +664,7 @@ public class PostService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         Page<ViewHistory> historyPage = viewHistoryRepository.findByUserOrderByModifiedAtDesc(user, pageable);
-
-        List<Long> postIds = historyPage.getContent().stream()
-                .map(h -> h.getPost().getPostId())
-                .collect(Collectors.toList());
-
-        Set<Long> postIdsWithImages = getPostIdsWithImages(postIds);
-
-        return historyPage.map(viewHistory -> {
-            PostSummary summary = PostSummary.from(viewHistory.getPost());
-            summary.setHasImage(postIdsWithImages.contains(viewHistory.getPost().getPostId()));
-            return summary;
-        });
+        return postSummaryAssembler.assembleHistoryPage(historyPage);
     }
 
     public List<String> getPostImageUrls(@NonNull Long postId) {
@@ -997,17 +809,6 @@ public class PostService {
         return likeCount;
     }
 
-    private Boolean resolveInquiryAnsweredStatus(Post post) {
-        if (post == null || !isInquiryBoard(post.getBoard())) {
-            return null;
-        }
-        return commentRepository.findLatestNonDeletedByPostId(post.getPostId(), PageRequest.of(0, 1))
-                .stream()
-                .findFirst()
-                .map(lastComment -> !Objects.equals(lastComment.getUser().getUserId(), post.getUser().getUserId()))
-                .orElse(false);
-    }
-
     public List<PostSummary> getLatestPostsByBoard(Long boardId, int limit, Long currentUserId) {
         Pageable pageable = PageRequest.of(0, limit, Sort.by(Sort.Direction.DESC, "createdAt"));
         Board board = boardRepository.findById(boardId)
@@ -1022,165 +823,8 @@ public class PostService {
         Page<Post> postPage = postRepository.findByBoardIdAndCategoryId(boardId, null, null, null, blockedUserIds,
                 includeSecret,
                 currentUserId, pageable);
-        List<Post> posts = postPage.getContent();
-
-        if (posts.isEmpty()) {
-            return Collections.emptyList();
-        }
-
-        List<Long> postIds = posts.stream().map(Post::getPostId).collect(Collectors.toList());
-        List<Board> boards = posts.stream().map(Post::getBoard).distinct().collect(Collectors.toList());
-
-        Set<Long> postIdsWithImages = getPostIdsWithImages(postIds);
-
-        // Batch fetch user interactions if logged in
-        Set<Long> likedPostIds = new HashSet<>();
-        Set<Long> scrappedPostIds = new HashSet<>();
-        Set<String> subscribedBoardUrls = new HashSet<>();
-
-        if (currentUserId != null) {
-            User user = userRepository.findById(currentUserId).orElse(null);
-            if (user != null) {
-                likedPostIds = postLikeRepository.findByUserAndPostIn(user, posts).stream()
-                        .map(like -> like.getPost().getPostId())
-                        .collect(Collectors.toSet());
-
-                scrappedPostIds = scrapRepository.findByUserAndPostIn(user, posts).stream()
-                        .map(scrap -> scrap.getPost().getPostId())
-                        .collect(Collectors.toSet());
-
-                subscribedBoardUrls = boardSubscriptionRepository.findByUserAndBoardIn(user, boards)
-                        .stream()
-                        .map(sub -> sub.getBoard().getBoardUrl())
-                        .collect(Collectors.toSet());
-            }
-        }
-
-        final Set<Long> finalLikedPostIds = likedPostIds;
-        final Set<Long> finalScrappedPostIds = scrappedPostIds;
-        final Set<String> finalSubscribedBoardUrls = subscribedBoardUrls;
-
-        return posts.stream()
-                .map(post -> {
-                    String summary = post.getContents().replaceAll("<[^>]*>", "").trim();
-                    if (summary.length() > 1000) {
-                        summary = summary.substring(0, 1000);
-                    }
-                    // ?몃꽕??URL 寃곗젙: 泥⑤? ?대?吏 > 蹂몃Ц 泥?踰덉㎏ img
-                    String thumbnailUrl = null;
-                    boolean hasImage = false;
-
-                    if (postIdsWithImages.contains(post.getPostId())) {
-                        Long fileId = fileService.getOneImageFileIdForPost(post.getPostId());
-                        if (fileId != null) {
-                            thumbnailUrl = "/api/v1/files/" + fileId;
-                            hasImage = true;
-                        }
-                    }
-
-                    if (thumbnailUrl == null) {
-                        String contentImageUrl = extractFirstImageUrlFromContent(post.getContents());
-                        if (contentImageUrl != null) {
-                            thumbnailUrl = contentImageUrl;
-                            hasImage = true;
-                        }
-                    }
-
-                    return PostSummary.from(
-                            post,
-                            thumbnailUrl,
-                            post.getBoard().getIconUrl(),
-                            finalLikedPostIds.contains(post.getPostId()),
-                            finalScrappedPostIds.contains(post.getPostId()),
-                            finalSubscribedBoardUrls
-                                    .contains(post.getBoard().getBoardUrl()),
-                            hasImage,
-                            summary,
-                            null,
-                            null,
-                            null);
-                })
-                .collect(Collectors.toList());
+        return postSummaryAssembler.assembleLatestPosts(postPage.getContent(), currentUserId);
     }
 
-    private static final int FEED_EXCERPT_MAX_LENGTH = 800;
-
-    /**
-     * Feed??HTML 蹂몃Ц??쒓렇 寃쎄퀎瑜?理쒕??蹂댁〈?섎㈃??吏??湲몄씠濡??먮Ⅸ??
-     */
-    private String truncateHtmlForExcerpt(String content, int maxLen) {
-        if (content == null || content.isEmpty()) return null;
-        content = content.trim();
-        if (content.length() <= maxLen) return content;
-        String cut = content.substring(0, maxLen);
-        int lastClose = cut.lastIndexOf('>');
-        int lastTag = cut.lastIndexOf('<');
-        if (lastClose > lastTag && lastClose >= 0) {
-            return cut.substring(0, lastClose + 1);
-        }
-        return cut;
-    }
-
-    /**
-     * 癰귣챶揆?癒?퐣 筌?甕곕뜆???쑬逾??embed(YouTube/Vimeo iframe) src??곕뗄??몃빍??
-     */
-    private String extractFirstVideoEmbedFromContent(String content) {
-        if (content == null || content.isEmpty()) return null;
-        Pattern pattern = Pattern.compile(
-            "<iframe[^>]+src\\s*=\\s*[\"']([^\"']*(?:youtube\\.com/embed|vimeo\\.com)[^\"']*)[\"']",
-            Pattern.CASE_INSENSITIVE);
-        Matcher matcher = pattern.matcher(content);
-        if (matcher.find()) {
-            String url = matcher.group(1)
-                .replace("&amp;", "&")
-                .replace("&lt;", "<")
-                .replace("&gt;", ">")
-                .replace("&quot;", "\"")
-                .replace("&#39;", "'");
-            return url;
-        }
-        return null;
-    }
-
-    /** 蹂몃Ц?먯꽌 泥?踰덉㎏ img ?쒓렇??쒖옉 ?꾩튂瑜?諛섑솚?쒕떎. ?놁쑝硫?-1. */
-    private int indexOfFirstImageInContent(String content) {
-        if (content == null) return -1;
-        int i = content.toLowerCase().indexOf("<img");
-        return i;
-    }
-
-    /** 蹂몃Ц?먯꽌 泥?踰덉㎏ iframe ?쒓렇??쒖옉 ?꾩튂瑜?諛섑솚?쒕떎. ?놁쑝硫?-1. */
-    private int indexOfFirstVideoInContent(String content) {
-        if (content == null) return -1;
-        int i = content.toLowerCase().indexOf("<iframe");
-        return i;
-    }
-
-    /**
-     * 癰귣챶揆 HTML?癒?퐣 筌?甕곕뜆??img ??볥젃??src URL??곕뗄??몃빍??
-     *
-     * @param content HTML 癰귣챶揆
-     * @return 泥?踰덉㎏ ?대?吏 URL, ?놁쑝硫?null
-     */
-    private String extractFirstImageUrlFromContent(String content) {
-        if (content == null || content.isEmpty()) {
-            return null;
-        }
-        Pattern pattern = Pattern.compile("<img[^>]+src\\s*=\\s*[\"']([^\"']+)[\"']", Pattern.CASE_INSENSITIVE);
-        Matcher matcher = pattern.matcher(content);
-
-        if (matcher.find()) {
-            String url = matcher.group(1);
-            // HTML entity decode for common cases.
-            url = url.replace("&amp;", "&")
-                    .replace("&lt;", "<")
-                    .replace("&gt;", ">")
-                    .replace("&quot;", "\"")
-                    .replace("&#39;", "'");
-            return url;
-        }
-
-        return null;
-    }
 }
 

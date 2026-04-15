@@ -1,10 +1,10 @@
 package com.weedrice.whiteboard.domain.board.service;
 
-import com.weedrice.whiteboard.domain.admin.entity.Admin;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.board.dto.*;
-import com.weedrice.whiteboard.domain.board.entity.BoardAiInfo;
 import com.weedrice.whiteboard.domain.board.entity.Board;
+import com.weedrice.whiteboard.domain.admin.entity.Admin;
+import com.weedrice.whiteboard.domain.board.entity.BoardAiInfo;
 import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
 import com.weedrice.whiteboard.domain.board.entity.BoardSubscription;
 import com.weedrice.whiteboard.domain.board.entity.BoardSubscriptionId;
@@ -35,9 +35,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
-import com.weedrice.whiteboard.domain.post.service.PostService;
-import com.weedrice.whiteboard.domain.post.dto.PostSummary;
-import com.weedrice.whiteboard.global.security.CustomUserDetails;
 
 @Service
 @RequiredArgsConstructor
@@ -55,10 +52,10 @@ public class BoardService {
         private final BoardSubscriptionRepository boardSubscriptionRepository;
         private final UserRepository userRepository;
         private final AdminRepository adminRepository;
-        private final PostService postService;
         private final UserPointRepository userPointRepository;
         private final PointHistoryRepository pointHistoryRepository;
         private final GlobalConfigService globalConfigService;
+        private final BoardResponseAssembler boardResponseAssembler;
 
         public List<BoardResponse> getActiveBoards(UserDetails userDetails) {
                 User currentUser = getCurrentUserOrNull(userDetails);
@@ -66,7 +63,7 @@ public class BoardService {
                 return boards.stream()
                                 .filter(board -> !isInquiryBoard(board))
                                 .filter(board -> canViewBoard(board, currentUser))
-                                .map(board -> createBoardResponse(board, userDetails))
+                                .map(board -> boardResponseAssembler.assemble(board, currentUser))
                                 .collect(Collectors.toList());
         }
 
@@ -76,15 +73,16 @@ public class BoardService {
                 return boards.stream()
                                 .filter(board -> !isInquiryBoard(board))
                                 .filter(board -> canViewBoard(board, currentUser))
-                                .map(board -> createBoardResponse(board, userDetails))
+                                .map(board -> boardResponseAssembler.assemble(board, currentUser))
                                 .collect(Collectors.toList());
         }
 
         public List<BoardResponse> getAllBoards(UserDetails userDetails) {
+                User currentUser = getCurrentUserOrNull(userDetails);
                 List<Board> boards = boardRepository.findAll(org.springframework.data.domain.Sort
                                 .by(org.springframework.data.domain.Sort.Direction.ASC, "sortOrder"));
                 return boards.stream()
-                                .map(board -> createBoardResponse(board, userDetails))
+                                .map(board -> boardResponseAssembler.assemble(board, currentUser))
                                 .collect(Collectors.toList());
         }
 
@@ -94,50 +92,7 @@ public class BoardService {
                 User currentUser = getCurrentUserOrNull(userDetails);
                 validateBoardReadable(board, currentUser);
 
-                return createBoardResponse(board, currentUser);
-        }
-
-        private BoardResponse createBoardResponse(Board board, UserDetails userDetails) {
-                return createBoardResponse(board, getCurrentUserOrNull(userDetails));
-        }
-
-        private BoardResponse createBoardResponse(Board board, User currentUser) {
-                long subscriberCount = boardSubscriptionRepository.countByBoard(board);
-                User adminUser = adminRepository.findFirstByBoardAndRoleAndIsActiveOrderByAdminIdDesc(board,
-                                Role.BOARD_ADMIN, true)
-                                .map(Admin::getUser)
-                                .orElse(board.getCreator());
-
-                String adminDisplayName = adminUser.getDisplayName();
-                Long adminUserId = adminUser.getUserId();
-
-                boolean isAdmin = false;
-                boolean isSubscribed = false;
-
-                if (currentUser != null) {
-                        boolean isBoardAdmin = adminRepository.findByUserAndBoardAndIsActive(currentUser, board, true)
-                                        .isPresent();
-                        boolean isCreator = board.getCreator().getUserId().equals(currentUser.getUserId());
-
-                        isAdmin = currentUser.getIsSuperAdmin() || isBoardAdmin || isCreator;
-                        isSubscribed = boardSubscriptionRepository.existsByUserAndBoard(currentUser, board);
-                }
-
-                List<CategoryResponse> categories = boardCategoryRepository
-                                .findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(board.getBoardId(), true)
-                                .stream()
-                                .map(CategoryResponse::new)
-                                .collect(Collectors.toList());
-
-                Long currentUserId = currentUser != null ? currentUser.getUserId() : null;
-                List<PostSummary> latestPosts = postService.getLatestPostsByBoard(board.getBoardId(), 15,
-                                currentUserId);
-
-                return new BoardResponse(board, subscriberCount, adminDisplayName, adminUserId, isAdmin, isSubscribed,
-                                categories,
-                                latestPosts,
-                                board.isAgentEnabled(),
-                                isAdmin ? resolveGuidePrompt(board) : null);
+                return boardResponseAssembler.assemble(board, currentUser);
         }
 
         public List<CategoryResponse> getActiveCategories(String boardUrl, UserDetails userDetails) {
@@ -214,7 +169,7 @@ public class BoardService {
                                 .stream()
                                 .map(BoardSubscription::getBoard)
                                 .filter(board -> canViewBoard(board, user))
-                                .map(board -> createBoardResponse(board, user))
+                                .map(board -> boardResponseAssembler.assemble(board, user))
                                 .collect(Collectors.toList());
                 return new org.springframework.data.domain.PageImpl<>(visibleBoards, pageable, subscriptions.getTotalElements());
         }
@@ -589,12 +544,6 @@ public class BoardService {
                 if (requestedGuidePrompt != null) {
                         boardAiInfo.updateGuidePrompt(normalizeGuidePrompt(requestedGuidePrompt));
                 }
-        }
-
-        private String resolveGuidePrompt(Board board) {
-                return boardAiInfoRepository.findByBoard_BoardId(board.getBoardId())
-                                .map(BoardAiInfo::getGuidePrompt)
-                                .orElseGet(() -> board.isAgentEnabled() ? normalizeDescription(board.getDescription()) : null);
         }
 
         private String resolveInitialGuidePrompt(Board board, String requestedGuidePrompt, boolean initializeFromDescription) {

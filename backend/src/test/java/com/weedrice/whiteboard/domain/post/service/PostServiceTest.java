@@ -36,6 +36,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
@@ -96,6 +97,9 @@ class PostServiceTest {
     private GlobalConfigService globalConfigService;
     @Mock
     private AgentOwnershipService agentOwnershipService;
+    @Spy
+    @InjectMocks
+    private PostSummaryAssembler postSummaryAssembler;
 
     @InjectMocks
     private PostService postService;
@@ -107,9 +111,22 @@ class PostServiceTest {
 
     @BeforeEach
     void setUp() {
+        postSummaryAssembler = new PostSummaryAssembler(
+                fileService,
+                userRepository,
+                postLikeRepository,
+                scrapRepository,
+                boardSubscriptionRepository,
+                commentRepository);
+        ReflectionTestUtils.setField(postService, "postSummaryAssembler", postSummaryAssembler);
+
         // GlobalConfigService 기본 mock 설정 - lenient()로 설정하여 일부 테스트에서 사용되지 않아도 허용
         lenient().when(globalConfigService.getConfig(anyString())).thenReturn("50");
         lenient().when(boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(anyLong(), eq(true)))
+                .thenReturn(Collections.emptyList());
+        lenient().when(fileService.getRelatedIdsWithImages(anyList(), eq("POST_CONTENT")))
+                .thenReturn(Collections.emptyList());
+        lenient().when(commentRepository.findLatestNonDeletedByPostId(anyLong(), any(Pageable.class)))
                 .thenReturn(Collections.emptyList());
 
         user = User.builder().loginId("testuser").displayName("Test User").build();

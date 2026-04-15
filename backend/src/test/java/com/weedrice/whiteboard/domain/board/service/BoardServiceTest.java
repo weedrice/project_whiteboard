@@ -27,6 +27,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -45,6 +46,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.lenient;
 
 @ExtendWith(MockitoExtension.class)
 class BoardServiceTest {
@@ -73,6 +75,9 @@ class BoardServiceTest {
     private PointHistoryRepository pointHistoryRepository;
     @Mock
     private GlobalConfigService globalConfigService;
+    @Spy
+    @InjectMocks
+    private BoardResponseAssembler boardResponseAssembler;
 
     @InjectMocks
     private BoardService boardService;
@@ -82,6 +87,21 @@ class BoardServiceTest {
 
     @BeforeEach
     void setUp() {
+        boardResponseAssembler = new BoardResponseAssembler(
+                boardSubscriptionRepository,
+                adminRepository,
+                boardCategoryRepository,
+                boardAiInfoRepository,
+                postService);
+        ReflectionTestUtils.setField(boardService, "boardResponseAssembler", boardResponseAssembler);
+
+        lenient().when(boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(anyLong(), any()))
+                .thenReturn(Collections.emptyList());
+        lenient().when(adminRepository.findFirstByBoardAndRoleAndIsActiveOrderByAdminIdDesc(any(), any(), any()))
+                .thenReturn(Optional.empty());
+        lenient().when(postService.getLatestPostsByBoard(anyLong(), anyInt(), any()))
+                .thenReturn(Collections.emptyList());
+
         user = User.builder()
                 .loginId("testuser")
                 .password("password")

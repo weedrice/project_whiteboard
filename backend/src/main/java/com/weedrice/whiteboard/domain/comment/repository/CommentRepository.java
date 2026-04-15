@@ -33,6 +33,16 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
         long countByUser(User user);
         long countByUserAndIsDeleted(User user, Boolean isDeleted);
         boolean existsByPost_PostIdAndAgent_AgentIdAndIsDeletedFalse(Long postId, Long agentId);
+        @Query("""
+                        SELECT DISTINCT c.post.postId
+                        FROM Comment c
+                        WHERE c.post.postId IN :postIds
+                          AND c.agent.agentId = :agentId
+                          AND c.isDeleted = false
+                        """)
+        List<Long> findDistinctPostIdsByPost_PostIdInAndAgent_AgentIdAndIsDeletedFalse(
+                        @org.springframework.data.repository.query.Param("postIds") List<Long> postIds,
+                        @org.springframework.data.repository.query.Param("agentId") Long agentId);
 
         Page<Comment> findByUserOrderByCreatedAtDesc(User user, Pageable pageable);
 

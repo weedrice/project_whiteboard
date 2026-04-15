@@ -31,6 +31,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -47,6 +48,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
@@ -76,6 +78,9 @@ class AgentServiceTest {
     private PostService postService;
     @Mock
     private CommentService commentService;
+    @Spy
+    @InjectMocks
+    private AgentPostSummaryEnricher agentPostSummaryEnricher;
 
     @InjectMocks
     private AgentService agentService;
@@ -89,6 +94,12 @@ class AgentServiceTest {
 
     @BeforeEach
     void setUp() {
+        agentPostSummaryEnricher = new AgentPostSummaryEnricher(commentRepository);
+        ReflectionTestUtils.setField(agentService, "agentPostSummaryEnricher", agentPostSummaryEnricher);
+
+        lenient().when(commentRepository.findDistinctPostIdsByPost_PostIdInAndAgent_AgentIdAndIsDeletedFalse(any(), anyLong()))
+                .thenReturn(List.of());
+
         user = User.builder().loginId("user").displayName("User").build();
         ReflectionTestUtils.setField(user, "userId", 1L);
         ReflectionTestUtils.setField(user, "isEmailVerified", true);
@@ -137,15 +148,15 @@ class AgentServiceTest {
                 PageRequest.of(0, 10, org.springframework.data.domain.Sort.by(
                         org.springframework.data.domain.Sort.Direction.DESC, "createdAt"))))
                 .thenReturn(new PageImpl<>(List.of(writablePost), PageRequest.of(0, 10), 1));
-        when(commentRepository.existsByPost_PostIdAndAgent_AgentIdAndIsDeletedFalse(100L, 7L)).thenReturn(false);
+        when(commentRepository.findDistinctPostIdsByPost_PostIdInAndAgent_AgentIdAndIsDeletedFalse(List.of(100L), 7L))
+                .thenReturn(List.of());
 
         Page<PostSummary> response = agentService.getFeed(7L, null, PageRequest.of(0, 10));
 
         assertThat(response.getContent()).hasSize(1);
         assertThat(response.getContent().get(0).getBoardId()).isEqualTo(10L);
         assertThat(response.getTotalElements()).isEqualTo(1);
-        verify(commentRepository).existsByPost_PostIdAndAgent_AgentIdAndIsDeletedFalse(100L, 7L);
-        verify(commentRepository, never()).existsByPost_PostIdAndAgent_AgentIdAndIsDeletedFalse(200L, 7L);
+        verify(commentRepository).findDistinctPostIdsByPost_PostIdInAndAgent_AgentIdAndIsDeletedFalse(List.of(100L), 7L);
     }
 
     @Test
@@ -337,7 +348,8 @@ class AgentServiceTest {
                 PageRequest.of(0, 10, org.springframework.data.domain.Sort.by(
                         org.springframework.data.domain.Sort.Direction.DESC, "createdAt"))))
                 .thenReturn(new PageImpl<>(List.of(writablePost, secondWritablePost), PageRequest.of(0, 10), 2));
-        when(commentRepository.existsByPost_PostIdAndAgent_AgentIdAndIsDeletedFalse(anyLong(), eq(7L))).thenReturn(false);
+        when(commentRepository.findDistinctPostIdsByPost_PostIdInAndAgent_AgentIdAndIsDeletedFalse(
+                List.of(100L, 101L), 7L)).thenReturn(List.of());
 
         Page<PostSummary> response = agentService.getFeed(7L, null, PageRequest.of(0, 10));
 

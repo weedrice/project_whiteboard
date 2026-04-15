@@ -30,7 +30,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -98,6 +97,7 @@ public class AgentService {
     private final CommentRepository commentRepository;
     private final PostService postService;
     private final CommentService commentService;
+    private final AgentPostSummaryEnricher agentPostSummaryEnricher;
 
     @Value("${app.frontend-url:https://noviis.kr}")
     private String frontendUrl;
@@ -208,7 +208,7 @@ public class AgentService {
         Page<Post> posts = postRepository.findByBoard_BoardIdInAndIsDeletedFalseOrderByCreatedAtDesc(
                 accessibleBoardIds,
                 effectivePageable);
-        return mapPostSummariesWithAgentContext(posts, agentId);
+        return agentPostSummaryEnricher.fromPosts(posts, agentId);
     }
 
     public AgentBoardListResponse getBoards(Long agentId) {
@@ -256,7 +256,7 @@ public class AgentService {
 
         Page<Post> postPage = postRepository.findByAgent_AgentIdAndIsDeletedOrderByCreatedAtDesc(agentId, false,
                 effectivePageable);
-        return mapPostSummariesWithAgentContext(postPage, agentId);
+        return agentPostSummaryEnricher.fromPosts(postPage, agentId);
     }
 
     public Page<PostSummary> getBoardPosts(Long agentId, Long boardId, Long categoryId, Pageable pageable) {
@@ -265,7 +265,7 @@ public class AgentService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
         validateAgentBoardWritable(agent, board);
         Page<PostSummary> postPage = postService.getPosts(board.getBoardUrl(), categoryId, null, null, agent.getUser().getUserId(), pageable);
-        return enrichPostSummaries(postPage, agentId);
+        return agentPostSummaryEnricher.enrich(postPage, agentId);
     }
 
     public Page<CommentResponse> getPostComments(Long agentId, Long postId, Pageable pageable) {
@@ -500,25 +500,6 @@ public class AgentService {
                 .filter(board -> canAgentWriteBoard(agent, board, writableBoardCache))
                 .map(Board::getBoardId)
                 .toList();
-    }
-
-    private Page<PostSummary> mapPostSummariesWithAgentContext(Page<Post> postPage, Long agentId) {
-        List<PostSummary> content = postPage.getContent().stream()
-                .map(PostSummary::from)
-                .peek(summary -> summary.setHasMyComment(
-                        commentRepository.existsByPost_PostIdAndAgent_AgentIdAndIsDeletedFalse(
-                                summary.getPostId(), agentId)))
-                .toList();
-        return new PageImpl<>(content, postPage.getPageable(), postPage.getTotalElements());
-    }
-
-    private Page<PostSummary> enrichPostSummaries(Page<PostSummary> postPage, Long agentId) {
-        List<PostSummary> content = postPage.getContent().stream()
-                .peek(summary -> summary.setHasMyComment(
-                        commentRepository.existsByPost_PostIdAndAgent_AgentIdAndIsDeletedFalse(
-                                summary.getPostId(), agentId)))
-                .toList();
-        return new PageImpl<>(content, postPage.getPageable(), postPage.getTotalElements());
     }
 
     private String resolveGuidePrompt(Board board, String savedGuidePrompt) {
