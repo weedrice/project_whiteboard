@@ -1,0 +1,148 @@
+package com.weedrice.whiteboard.domain.post.service;
+
+import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
+import com.weedrice.whiteboard.domain.board.entity.Board;
+import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository;
+import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
+import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
+import com.weedrice.whiteboard.domain.file.service.FileService;
+import com.weedrice.whiteboard.domain.post.dto.PostSummary;
+import com.weedrice.whiteboard.domain.post.entity.Post;
+import com.weedrice.whiteboard.domain.post.repository.PostLikeRepository;
+import com.weedrice.whiteboard.domain.post.repository.ScrapRepository;
+import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.test.util.ReflectionTestUtils;
+
+import java.util.Collections;
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+@ExtendWith(MockitoExtension.class)
+class PostSummaryAssemblerTest {
+
+    @Mock
+    private FileService fileService;
+    @Mock
+    private UserRepository userRepository;
+    @Mock
+    private PostLikeRepository postLikeRepository;
+    @Mock
+    private ScrapRepository scrapRepository;
+    @Mock
+    private BoardSubscriptionRepository boardSubscriptionRepository;
+    @Mock
+    private CommentRepository commentRepository;
+    @Mock
+    private AdminRepository adminRepository;
+
+    private PostSummaryAssembler postSummaryAssembler;
+
+    @BeforeEach
+    void setUp() {
+        postSummaryAssembler = new PostSummaryAssembler(
+                fileService,
+                userRepository,
+                postLikeRepository,
+                scrapRepository,
+                boardSubscriptionRepository,
+                commentRepository,
+                new BoardAccessPolicy(adminRepository));
+    }
+
+    @Test
+    @DisplayName("문의글 answered 상태를 게시글 목록 단위로 배치 조회한다")
+    void assembleBoardPage_resolvesInquiryAnsweredInBatch() {
+        User author = User.builder().displayName("Author").build();
+        ReflectionTestUtils.setField(author, "userId", 1L);
+
+        Board inquiryBoard = Board.builder()
+                .boardName("Inquiry")
+                .boardUrl("inquiry")
+                .creator(author)
+                .build();
+        ReflectionTestUtils.setField(inquiryBoard, "boardId", 10L);
+
+        Post inquiryPost = Post.builder()
+                .title("Question")
+                .contents("Contents")
+                .user(author)
+                .board(inquiryBoard)
+                .build();
+        ReflectionTestUtils.setField(inquiryPost, "postId", 100L);
+
+        when(commentRepository.findLatestNonDeletedAuthorsByPostIds(List.of(100L)))
+                .thenReturn(List.of(new CommentRepository.LatestCommentAuthorProjection() {
+                    @Override
+                    public Long getPostId() {
+                        return 100L;
+                    }
+
+                    @Override
+                    public Long getAuthorUserId() {
+                        return 2L;
+                    }
+                }));
+
+        PageImpl<Post> page = new PageImpl<>(List.of(inquiryPost), PageRequest.of(0, 20), 1);
+
+        PostSummary summary = postSummaryAssembler
+                .assembleBoardPage(page, PageRequest.of(0, 20), false, true)
+                .getContent()
+                .get(0);
+
+        assertThat(summary.getInquiryAnswered()).isTrue();
+        verify(commentRepository).findLatestNonDeletedAuthorsByPostIds(List.of(100L));
+    }
+
+    @Test
+    @DisplayName("트렌딩과 최신글은 공통 조립 규칙을 쓰되 피드 전용 필드만 다르게 채운다")
+    void assembleFeedSummaries_shareCommonRulesWithDifferentOptions() {
+        when(fileService.getRelatedIdsWithImages(anyList(), eq("POST_CONTENT")))
+                .thenReturn(Collections.emptyList());
+
+        User author = User.builder().displayName("Author").build();
+        ReflectionTestUtils.setField(author, "userId", 1L);
+
+        Board board = Board.builder()
+                .boardName("Free")
+                .boardUrl("free")
+                .creator(author)
+                .iconUrl("icon.png")
+                .build();
+        ReflectionTestUtils.setField(board, "boardId", 10L);
+
+        Post post = Post.builder()
+                .title("Title")
+                .contents("<p>Hello</p><img src=\"https://cdn.example.com/thumb.png\" />")
+                .user(author)
+                .board(board)
+                .build();
+        ReflectionTestUtils.setField(post, "postId", 100L);
+
+        List<PostSummary> trending = postSummaryAssembler.assembleTrendingPosts(List.of(post), null);
+        List<PostSummary> latest = postSummaryAssembler.assembleLatestPosts(List.of(post), null);
+
+        assertThat(trending.get(0).getSummary()).isEqualTo(latest.get(0).getSummary());
+        assertThat(trending.get(0).getThumbnailUrl()).isEqualTo(latest.get(0).getThumbnailUrl());
+        assertThat(trending.get(0).getContentsExcerpt()).isNotNull();
+        assertThat(trending.get(0).getFirstMediaType()).isEqualTo("image");
+        assertThat(trending.get(0).getFirstMediaUrl()).isEqualTo("https://cdn.example.com/thumb.png");
+        assertThat(latest.get(0).getContentsExcerpt()).isNull();
+        assertThat(latest.get(0).getFirstMediaType()).isNull();
+        assertThat(latest.get(0).getFirstMediaUrl()).isNull();
+    }
+}

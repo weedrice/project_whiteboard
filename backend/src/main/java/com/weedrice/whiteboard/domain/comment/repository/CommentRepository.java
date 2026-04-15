@@ -12,6 +12,12 @@ import java.util.List;
 import java.time.LocalDateTime;
 
 public interface CommentRepository extends JpaRepository<Comment, Long>, CommentRepositoryCustom {
+        interface LatestCommentAuthorProjection {
+                Long getPostId();
+
+                Long getAuthorUserId();
+        }
+
         @org.springframework.data.jpa.repository.Query(value = "SELECT DISTINCT c FROM Comment c JOIN FETCH c.user JOIN FETCH c.post p JOIN FETCH p.board WHERE c.post.postId = :postId AND c.parent IS NULL AND (c.isDeleted = false OR (c.isDeleted = true AND EXISTS (SELECT r FROM Comment r WHERE r.parent = c AND r.isDeleted = false))) ORDER BY c.createdAt ASC", countQuery = "SELECT COUNT(DISTINCT c) FROM Comment c WHERE c.post.postId = :postId AND c.parent IS NULL AND (c.isDeleted = false OR (c.isDeleted = true AND EXISTS (SELECT r FROM Comment r WHERE r.parent = c AND r.isDeleted = false)))")
         Page<Comment> findParentsWithChildrenOrNotDeleted(
                         @org.springframework.data.repository.query.Param("postId") Long postId, Pageable pageable);
@@ -56,8 +62,24 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
         List<Comment> findAllDescendants(
                         @org.springframework.data.repository.query.Param("ancestorIds") List<Long> ancestorIds);
 
-        @org.springframework.data.jpa.repository.Query("SELECT c FROM Comment c WHERE c.post.postId = :postId AND c.isDeleted = false ORDER BY c.createdAt DESC, c.commentId DESC")
-        List<Comment> findLatestNonDeletedByPostId(@org.springframework.data.repository.query.Param("postId") Long postId, Pageable pageable);
+        @Query("""
+                        SELECT c.post.postId AS postId, c.user.userId AS authorUserId
+                        FROM Comment c
+                        WHERE c.post.postId IN :postIds
+                          AND c.isDeleted = false
+                          AND NOT EXISTS (
+                                SELECT 1
+                                FROM Comment newer
+                                WHERE newer.post = c.post
+                                  AND newer.isDeleted = false
+                                  AND (
+                                        newer.createdAt > c.createdAt
+                                        OR (newer.createdAt = c.createdAt AND newer.commentId > c.commentId)
+                                  )
+                          )
+                        """)
+        List<LatestCommentAuthorProjection> findLatestNonDeletedAuthorsByPostIds(
+                        @org.springframework.data.repository.query.Param("postIds") List<Long> postIds);
 
         @Modifying(flushAutomatically = true)
         @Query("UPDATE Comment c SET c.likeCount = c.likeCount + 1 WHERE c.commentId = :commentId")

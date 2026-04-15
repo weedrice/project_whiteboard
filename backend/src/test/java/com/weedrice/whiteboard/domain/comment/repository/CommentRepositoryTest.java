@@ -15,6 +15,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -93,5 +94,70 @@ class CommentRepositoryTest {
         // then
         assertThat(comments.getContent()).isNotEmpty();
         assertThat(comments.getContent().get(0).getPost()).isEqualTo(post);
+    }
+
+    @Test
+    @DisplayName("게시글별 최신 미삭제 댓글 작성자를 배치 조회한다")
+    void findLatestNonDeletedAuthorsByPostIds_success() {
+        User responder = User.builder()
+                .loginId("responder")
+                .email("responder@test.com")
+                .password("password")
+                .displayName("Responder")
+                .build();
+        entityManager.persist(responder);
+
+        Post secondPost = Post.builder()
+                .title("Second Post")
+                .contents("Second Contents")
+                .user(user)
+                .board(board)
+                .build();
+        entityManager.persist(secondPost);
+
+        Comment olderComment = Comment.builder()
+                .content("Older Comment")
+                .user(user)
+                .post(post)
+                .depth(0)
+                .build();
+        entityManager.persist(olderComment);
+
+        Comment latestComment = Comment.builder()
+                .content("Latest Comment")
+                .user(responder)
+                .post(post)
+                .depth(0)
+                .build();
+        entityManager.persist(latestComment);
+
+        Comment deletedLatestComment = Comment.builder()
+                .content("Deleted Comment")
+                .user(responder)
+                .post(secondPost)
+                .depth(0)
+                .build();
+        deletedLatestComment.deleteComment();
+        entityManager.persist(deletedLatestComment);
+
+        Comment survivingComment = Comment.builder()
+                .content("Surviving Comment")
+                .user(user)
+                .post(secondPost)
+                .depth(0)
+                .build();
+        entityManager.persist(survivingComment);
+
+        entityManager.flush();
+
+        List<CommentRepository.LatestCommentAuthorProjection> authors = commentRepository
+                .findLatestNonDeletedAuthorsByPostIds(List.of(post.getPostId(), secondPost.getPostId()));
+
+        assertThat(authors)
+                .extracting(CommentRepository.LatestCommentAuthorProjection::getPostId,
+                        CommentRepository.LatestCommentAuthorProjection::getAuthorUserId)
+                .containsExactlyInAnyOrder(
+                        org.assertj.core.groups.Tuple.tuple(post.getPostId(), responder.getUserId()),
+                        org.assertj.core.groups.Tuple.tuple(secondPost.getPostId(), user.getUserId()));
     }
 }

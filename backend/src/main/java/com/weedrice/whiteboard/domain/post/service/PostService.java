@@ -2,10 +2,10 @@ package com.weedrice.whiteboard.domain.post.service;
 
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
 import com.weedrice.whiteboard.domain.agent.service.AgentOwnershipService;
+import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
 import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository;
 import com.weedrice.whiteboard.domain.point.service.PointService;
 import com.weedrice.whiteboard.domain.user.entity.Role; // Import Role
-import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
 import com.weedrice.whiteboard.domain.board.repository.BoardCategoryRepository;
@@ -68,7 +68,6 @@ public class PostService {
     private final PostTagRepository postTagRepository;
     private final ViewHistoryRepository viewHistoryRepository;
     private final ApplicationEventPublisher eventPublisher;
-    private final AdminRepository adminRepository;
     private final PointService pointService;
     private final CommentRepository commentRepository;
     private final FileService fileService;
@@ -78,12 +77,13 @@ public class PostService {
     private final AgentOwnershipService agentOwnershipService;
     private final PostSummaryAssembler postSummaryAssembler;
     private final PostAccessPolicy postAccessPolicy;
+    private final BoardAccessPolicy boardAccessPolicy;
 
     public Page<PostSummary> getPosts(String boardUrl, Long categoryId, String keyword, Integer minLikes, Long currentUserId,
             @NonNull Pageable pageable) {
         Board board = boardRepository.findByBoardUrl(boardUrl)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
-        if (isInquiryBoard(board)) {
+        if (boardAccessPolicy.isInquiryBoard(board)) {
             throw new BusinessException(ErrorCode.BOARD_NOT_FOUND);
         }
 
@@ -103,7 +103,7 @@ public class PostService {
     public List<Post> getNotices(String boardUrl, Long currentUserId) {
         Board board = boardRepository.findByBoardUrl(boardUrl)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
-        if (isInquiryBoard(board)) {
+        if (boardAccessPolicy.isInquiryBoard(board)) {
             throw new BusinessException(ErrorCode.BOARD_NOT_FOUND);
         }
 
@@ -251,7 +251,7 @@ public class PostService {
     public PostResponse getInquiryPostResponseForAdmin(@NonNull Long postId) {
         Post post = postRepository.findByIdWithRelations(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
-        if (!isInquiryBoard(post.getBoard())) {
+        if (!boardAccessPolicy.isInquiryBoard(post.getBoard())) {
             throw new BusinessException(ErrorCode.POST_NOT_FOUND);
         }
 
@@ -323,18 +323,11 @@ public class PostService {
         Board board = boardRepository.findById(boardId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
 
-        if (!board.getIsActive() && !hasBoardAdminAccess(board, user)) {
-            throw new BusinessException(ErrorCode.BOARD_NOT_FOUND);
-        }
-
-        if (!board.getIsPublic() && !hasBoardAdminAccess(board, user) && !isInquiryBoard(board)) {
-            throw new BusinessException(ErrorCode.BOARD_NOT_FOUND);
-        }
-
-        validateBoardWritable(board, user);
+        boardAccessPolicy.validateWritable(board, user);
+        validateBoardWriteRole(board, user);
 
         if (request.isNotice()) {
-            if (!hasBoardAdminAccess(board, user)) {
+            if (!boardAccessPolicy.hasBoardAdminAccess(board, user)) {
                 throw new BusinessException(ErrorCode.FORBIDDEN);
             }
         }
@@ -351,7 +344,7 @@ public class PostService {
         // 蹂몃Ц?먯꽌??sanitize留??곸슜?섍퀬 HTML ?쒓렇??덉슜?쒕떎.
         String sanitizedContents = InputSanitizer.sanitize(request.getContents());
 
-        boolean isSecret = !isInquiryBoard(board) && request.isSecret();
+        boolean isSecret = !boardAccessPolicy.isInquiryBoard(board) && request.isSecret();
 
         Post post = Post.builder()
                 .board(board)
@@ -409,7 +402,7 @@ public class PostService {
         // 蹂몃Ц?먯꽌??sanitize留??곸슜?섍퀬 HTML ?쒓렇??덉슜?쒕떎.
         String sanitizedContents = InputSanitizer.sanitize(request.getContents());
 
-        boolean isSecret = !isInquiryBoard(post.getBoard()) && request.isSecret();
+        boolean isSecret = !boardAccessPolicy.isInquiryBoard(post.getBoard()) && request.isSecret();
         post.updatePost(category, request.getTitle(), sanitizedContents, request.isNsfw(),
                 request.isSpoiler(), isSecret);
         tagService.processTagsForPost(post, request.getTags());
@@ -613,7 +606,7 @@ public class PostService {
         Post post = getPostById(postId, userId, false);
 
         boolean isAuthor = post.getUser().getUserId().equals(userId);
-        if (!isAuthor && !hasBoardAdminAccess(post.getBoard(), viewer)) {
+        if (!isAuthor && !boardAccessPolicy.hasBoardAdminAccess(post.getBoard(), viewer)) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
 
@@ -659,7 +652,7 @@ public class PostService {
         Board board = boardRepository.findById(boardId).orElse(null);
         if (board == null)
             return false;
-        return hasBoardAdminAccess(board, user);
+        return boardAccessPolicy.hasBoardAdminAccess(board, user);
     }
 
     public boolean canWriteToBoard(Long userId, Board board) {
@@ -672,16 +665,9 @@ public class PostService {
             return false;
         }
 
-        if (!board.getIsActive() && !hasBoardAdminAccess(board, user)) {
-            return false;
-        }
-
-        if (!board.getIsPublic() && !hasBoardAdminAccess(board, user) && !isInquiryBoard(board)) {
-            return false;
-        }
-
         try {
-            validateBoardWritable(board, user);
+            boardAccessPolicy.validateWritable(board, user);
+            validateBoardWriteRole(board, user);
             return true;
         } catch (BusinessException exception) {
             if (ErrorCode.FORBIDDEN.equals(exception.getErrorCode())
@@ -698,10 +684,7 @@ public class PostService {
             user = userRepository.findById(userId)
                     .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         }
-
-        if ((!board.getIsActive() || !board.getIsPublic()) && !hasBoardAdminAccess(board, user)) {
-            throw new BusinessException(ErrorCode.BOARD_NOT_FOUND);
-        }
+        boardAccessPolicy.validateReadable(board, user);
     }
 
     private boolean canViewSecretPosts(Board board, Long userId) {
@@ -709,20 +692,7 @@ public class PostService {
             return false;
         }
         User user = userRepository.findById(userId).orElse(null);
-        return hasBoardAdminAccess(board, user);
-    }
-
-    private boolean hasBoardAdminAccess(Board board, User user) {
-        if (user == null || board == null) {
-            return false;
-        }
-        if (user.getIsSuperAdmin()) {
-            return true;
-        }
-        if (board.getCreator().getUserId().equals(user.getUserId())) {
-            return true;
-        }
-        return adminRepository.existsByUserAndBoardAndIsActive(user, board, true);
+        return boardAccessPolicy.canViewSecretPosts(board, user);
     }
 
     private void validateCategoryInBoard(Board board, BoardCategory category) {
@@ -737,13 +707,7 @@ public class PostService {
         }
     }
 
-    private boolean isInquiryBoard(Board board) {
-        return board != null
-                && board.getBoardUrl() != null
-                && DEFAULT_INQUIRY_BOARD_URL.equalsIgnoreCase(board.getBoardUrl());
-    }
-
-    private void validateBoardWritable(Board board, User user) {
+    private void validateBoardWriteRole(Board board, User user) {
         boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(board.getBoardId(), true).stream()
                 .filter(category -> DEFAULT_CATEGORY_NAME.equals(category.getName()))
                 .findFirst()
@@ -758,7 +722,7 @@ public class PostService {
             return;
         }
 
-        if (Role.BOARD_ADMIN.equals(minRole) && !hasBoardAdminAccess(board, user)) {
+        if (Role.BOARD_ADMIN.equals(minRole) && !boardAccessPolicy.hasBoardAdminAccess(board, user)) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
     }

@@ -4,6 +4,7 @@ import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
 import com.weedrice.whiteboard.domain.agent.service.AgentOwnershipService;
 import com.weedrice.whiteboard.domain.board.entity.Board;
+import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
 import com.weedrice.whiteboard.domain.comment.dto.CommentResponse;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.entity.CommentLike;
@@ -53,6 +54,7 @@ import static org.mockito.Mockito.when;
 class CommentServiceTest {
 
     private CommentService commentService;
+    private BoardAccessPolicy boardAccessPolicy;
     private PostAccessPolicy postAccessPolicy;
 
     @Mock
@@ -82,7 +84,8 @@ class CommentServiceTest {
 
     @BeforeEach
     void setUp() {
-        postAccessPolicy = new PostAccessPolicy(adminRepository);
+        boardAccessPolicy = new BoardAccessPolicy(adminRepository);
+        postAccessPolicy = new PostAccessPolicy(boardAccessPolicy);
         commentService = new CommentService(
                 commentRepository,
                 postRepository,

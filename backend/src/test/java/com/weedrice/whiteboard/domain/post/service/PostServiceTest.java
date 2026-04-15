@@ -7,6 +7,7 @@ import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
 import com.weedrice.whiteboard.domain.board.entity.BoardSubscription;
+import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
 import com.weedrice.whiteboard.domain.board.repository.BoardCategoryRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository;
@@ -95,6 +96,7 @@ class PostServiceTest {
     private GlobalConfigService globalConfigService;
     @Mock
     private AgentOwnershipService agentOwnershipService;
+    private BoardAccessPolicy boardAccessPolicy;
     private PostAccessPolicy postAccessPolicy;
     private PostSummaryAssembler postSummaryAssembler;
 
@@ -107,14 +109,16 @@ class PostServiceTest {
 
     @BeforeEach
     void setUp() {
+        boardAccessPolicy = new BoardAccessPolicy(adminRepository);
         postSummaryAssembler = new PostSummaryAssembler(
                 fileService,
                 userRepository,
                 postLikeRepository,
                 scrapRepository,
                 boardSubscriptionRepository,
-                commentRepository);
-        postAccessPolicy = new PostAccessPolicy(adminRepository);
+                commentRepository,
+                boardAccessPolicy);
+        postAccessPolicy = new PostAccessPolicy(boardAccessPolicy);
         postService = new PostService(
                 postRepository,
                 boardRepository,
@@ -128,7 +132,6 @@ class PostServiceTest {
                 postTagRepository,
                 viewHistoryRepository,
                 eventPublisher,
-                adminRepository,
                 pointService,
                 commentRepository,
                 fileService,
@@ -137,7 +140,8 @@ class PostServiceTest {
                 globalConfigService,
                 agentOwnershipService,
                 postSummaryAssembler,
-                postAccessPolicy);
+                postAccessPolicy,
+                boardAccessPolicy);
 
         // GlobalConfigService 기본 mock 설정 - lenient()로 설정하여 일부 테스트에서 사용되지 않아도 허용
         lenient().when(globalConfigService.getConfig(anyString())).thenReturn("50");
@@ -145,7 +149,7 @@ class PostServiceTest {
                 .thenReturn(Collections.emptyList());
         lenient().when(fileService.getRelatedIdsWithImages(anyList(), eq("POST_CONTENT")))
                 .thenReturn(Collections.emptyList());
-        lenient().when(commentRepository.findLatestNonDeletedByPostId(anyLong(), any(Pageable.class)))
+        lenient().when(commentRepository.findLatestNonDeletedAuthorsByPostIds(anyList()))
                 .thenReturn(Collections.emptyList());
 
         user = User.builder().loginId("testuser").displayName("Test User").build();

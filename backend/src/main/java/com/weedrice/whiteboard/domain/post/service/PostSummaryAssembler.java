@@ -2,7 +2,7 @@ package com.weedrice.whiteboard.domain.post.service;
 
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository;
-import com.weedrice.whiteboard.domain.comment.entity.Comment;
+import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.file.service.FileService;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
@@ -20,8 +20,10 @@ import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -40,6 +42,7 @@ class PostSummaryAssembler {
     private final ScrapRepository scrapRepository;
     private final BoardSubscriptionRepository boardSubscriptionRepository;
     private final CommentRepository commentRepository;
+    private final BoardAccessPolicy boardAccessPolicy;
 
     Page<PostSummary> assembleBoardPage(Page<Post> posts, Pageable pageable, boolean includeImages,
             boolean includeInquiryAnswered) {
@@ -47,6 +50,9 @@ class PostSummaryAssembler {
                 .map(Post::getPostId)
                 .collect(Collectors.toList());
         Set<Long> postIdsWithImages = includeImages ? getPostIdsWithImages(postIds) : Collections.emptySet();
+        Map<Long, Boolean> inquiryAnsweredStatuses = includeInquiryAnswered
+                ? resolveInquiryAnsweredStatuses(posts.getContent())
+                : Collections.emptyMap();
 
         long totalElements = posts.getTotalElements();
         int pageNumber = posts.getNumber();
@@ -63,7 +69,7 @@ class PostSummaryAssembler {
                 summary.setHasImage(postIdsWithImages.contains(post.getPostId()));
             }
             if (includeInquiryAnswered) {
-                summary.setInquiryAnswered(resolveInquiryAnsweredStatus(post));
+                summary.setInquiryAnswered(inquiryAnsweredStatuses.get(post.getPostId()));
             }
 
             if (isAscending) {
@@ -100,7 +106,7 @@ class PostSummaryAssembler {
         UserInteractionContext interactionContext = resolveUserInteractionContext(posts, currentUserId);
 
         return posts.stream()
-                .map(post -> buildFeedSummary(post, postIdsWithImages, interactionContext))
+                .map(post -> buildFeedSummary(post, postIdsWithImages, interactionContext, FeedSummaryOptions.trending()))
                 .collect(Collectors.toList());
     }
 
@@ -114,45 +120,35 @@ class PostSummaryAssembler {
         UserInteractionContext interactionContext = resolveUserInteractionContext(posts, currentUserId);
 
         return posts.stream()
-                .map(post -> {
-                    String summaryText = extractSummary(post);
-                    ThumbnailInfo thumbnailInfo = resolveThumbnail(post, postIdsWithImages);
-
-                    return PostSummary.from(
-                            post,
-                            thumbnailInfo.thumbnailUrl(),
-                            post.getBoard().getIconUrl(),
-                            interactionContext.likedPostIds().contains(post.getPostId()),
-                            interactionContext.scrappedPostIds().contains(post.getPostId()),
-                            interactionContext.subscribedBoardUrls().contains(post.getBoard().getBoardUrl()),
-                            thumbnailInfo.hasImage(),
-                            summaryText,
-                            null,
-                            null,
-                            null);
-                })
+                .map(post -> buildFeedSummary(post, postIdsWithImages, interactionContext, FeedSummaryOptions.latest()))
                 .collect(Collectors.toList());
     }
 
-    private PostSummary buildFeedSummary(Post post, Set<Long> postIdsWithImages, UserInteractionContext interactionContext) {
+    private PostSummary buildFeedSummary(Post post, Set<Long> postIdsWithImages, UserInteractionContext interactionContext,
+                                         FeedSummaryOptions options) {
         String summaryText = extractSummary(post);
         ThumbnailInfo thumbnailInfo = resolveThumbnail(post, postIdsWithImages);
 
-        String contentsExcerpt = truncateHtmlForExcerpt(post.getContents(), FEED_EXCERPT_MAX_LENGTH);
-        String firstVideoUrl = extractFirstVideoEmbedFromContent(post.getContents());
-        int imgPos = indexOfFirstImageInContent(post.getContents());
-        int videoPos = indexOfFirstVideoInContent(post.getContents());
         String firstMediaType = null;
         String firstMediaUrl = null;
-        if (imgPos >= 0 && (videoPos < 0 || imgPos < videoPos)) {
-            firstMediaType = "image";
-            firstMediaUrl = thumbnailInfo.thumbnailUrl();
-        } else if (videoPos >= 0) {
-            firstMediaType = "video";
-            firstMediaUrl = firstVideoUrl;
-        } else if (thumbnailInfo.thumbnailUrl() != null) {
-            firstMediaType = "image";
-            firstMediaUrl = thumbnailInfo.thumbnailUrl();
+        String contentsExcerpt = null;
+        if (options.includeContentsExcerpt()) {
+            contentsExcerpt = truncateHtmlForExcerpt(post.getContents(), FEED_EXCERPT_MAX_LENGTH);
+        }
+        if (options.includeFirstMedia()) {
+            String firstVideoUrl = extractFirstVideoEmbedFromContent(post.getContents());
+            int imgPos = indexOfFirstImageInContent(post.getContents());
+            int videoPos = indexOfFirstVideoInContent(post.getContents());
+            if (imgPos >= 0 && (videoPos < 0 || imgPos < videoPos)) {
+                firstMediaType = "image";
+                firstMediaUrl = thumbnailInfo.thumbnailUrl();
+            } else if (videoPos >= 0) {
+                firstMediaType = "video";
+                firstMediaUrl = firstVideoUrl;
+            } else if (thumbnailInfo.thumbnailUrl() != null) {
+                firstMediaType = "image";
+                firstMediaUrl = thumbnailInfo.thumbnailUrl();
+            }
         }
 
         return PostSummary.from(
@@ -200,22 +196,33 @@ class PostSummaryAssembler {
         return new HashSet<>(fileService.getRelatedIdsWithImages(postIds, "POST_CONTENT"));
     }
 
-    private Boolean resolveInquiryAnsweredStatus(Post post) {
-        if (post == null || !isInquiryBoard(post.getBoard())) {
-            return null;
+    private Map<Long, Boolean> resolveInquiryAnsweredStatuses(List<Post> posts) {
+        if (posts == null || posts.isEmpty()) {
+            return Collections.emptyMap();
         }
-        return commentRepository.findLatestNonDeletedByPostId(post.getPostId(),
-                        org.springframework.data.domain.PageRequest.of(0, 1))
-                .stream()
-                .findFirst()
-                .map(lastComment -> !Objects.equals(lastComment.getUser().getUserId(), post.getUser().getUserId()))
-                .orElse(false);
-    }
 
-    private boolean isInquiryBoard(Board board) {
-        return board != null
-                && board.getBoardUrl() != null
-                && "inquiry".equalsIgnoreCase(board.getBoardUrl());
+        List<Post> inquiryPosts = posts.stream()
+                .filter(post -> boardAccessPolicy.isInquiryBoard(post.getBoard()))
+                .toList();
+        if (inquiryPosts.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        Map<Long, Long> latestAuthorIdsByPostId = commentRepository.findLatestNonDeletedAuthorsByPostIds(
+                        inquiryPosts.stream().map(Post::getPostId).toList())
+                .stream()
+                .collect(Collectors.toMap(
+                        CommentRepository.LatestCommentAuthorProjection::getPostId,
+                        CommentRepository.LatestCommentAuthorProjection::getAuthorUserId));
+
+        Map<Long, Boolean> inquiryAnsweredStatuses = new HashMap<>();
+        for (Post inquiryPost : inquiryPosts) {
+            Long latestAuthorId = latestAuthorIdsByPostId.get(inquiryPost.getPostId());
+            inquiryAnsweredStatuses.put(
+                    inquiryPost.getPostId(),
+                    latestAuthorId != null && !Objects.equals(latestAuthorId, inquiryPost.getUser().getUserId()));
+        }
+        return inquiryAnsweredStatuses;
     }
 
     private String extractSummary(Post post) {
@@ -310,5 +317,15 @@ class PostSummaryAssembler {
     }
 
     private record ThumbnailInfo(String thumbnailUrl, boolean hasImage) {
+    }
+
+    private record FeedSummaryOptions(boolean includeContentsExcerpt, boolean includeFirstMedia) {
+        private static FeedSummaryOptions trending() {
+            return new FeedSummaryOptions(true, true);
+        }
+
+        private static FeedSummaryOptions latest() {
+            return new FeedSummaryOptions(false, false);
+        }
     }
 }

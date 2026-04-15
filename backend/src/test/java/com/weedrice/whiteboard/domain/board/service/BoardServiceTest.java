@@ -25,9 +25,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -75,12 +73,10 @@ class BoardServiceTest {
     private PointHistoryRepository pointHistoryRepository;
     @Mock
     private GlobalConfigService globalConfigService;
-    @Spy
-    @InjectMocks
     private BoardResponseAssembler boardResponseAssembler;
 
-    @InjectMocks
     private BoardService boardService;
+    private BoardAccessPolicy boardAccessPolicy;
 
     private User user;
     private Board board;
@@ -93,7 +89,19 @@ class BoardServiceTest {
                 boardCategoryRepository,
                 boardAiInfoRepository,
                 postService);
-        ReflectionTestUtils.setField(boardService, "boardResponseAssembler", boardResponseAssembler);
+        boardAccessPolicy = new BoardAccessPolicy(adminRepository);
+        boardService = new BoardService(
+                boardRepository,
+                boardAiInfoRepository,
+                boardCategoryRepository,
+                boardSubscriptionRepository,
+                userRepository,
+                adminRepository,
+                userPointRepository,
+                pointHistoryRepository,
+                globalConfigService,
+                boardResponseAssembler,
+                boardAccessPolicy);
 
         lenient().when(boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(anyLong(), any()))
                 .thenReturn(Collections.emptyList());

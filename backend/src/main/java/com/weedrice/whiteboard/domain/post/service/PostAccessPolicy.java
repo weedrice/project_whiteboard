@@ -1,7 +1,7 @@
 package com.weedrice.whiteboard.domain.post.service;
 
-import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.board.entity.Board;
+import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -15,9 +15,7 @@ import java.util.Objects;
 @RequiredArgsConstructor
 public class PostAccessPolicy {
 
-    private static final String DEFAULT_INQUIRY_BOARD_URL = "inquiry";
-
-    private final AdminRepository adminRepository;
+    private final BoardAccessPolicy boardAccessPolicy;
 
     public void validateReadable(Post post, User viewer) {
         validateReadable(post, viewer, false);
@@ -32,38 +30,19 @@ public class PostAccessPolicy {
         boolean isAuthor = viewer != null && Objects.equals(post.getUser().getUserId(), viewer.getUserId());
 
         if (!Boolean.TRUE.equals(board.getIsActive())
-                && (viewer == null || (!hasBoardAdminAccess(board, viewer) && !isAuthor))) {
+                && (viewer == null || (!boardAccessPolicy.hasBoardAdminAccess(board, viewer) && !isAuthor))) {
             throw new BusinessException(ErrorCode.POST_NOT_FOUND);
         }
 
         if (!Boolean.TRUE.equals(board.getIsPublic())) {
-            boolean canReadInquiryAsAuthor = isInquiryBoard(board) && isAuthor;
-            if (!hasBoardAdminAccess(board, viewer) && !canReadInquiryAsAuthor) {
+            boolean canReadInquiryAsAuthor = boardAccessPolicy.isInquiryBoard(board) && isAuthor;
+            if (!boardAccessPolicy.hasBoardAdminAccess(board, viewer) && !canReadInquiryAsAuthor) {
                 throw new BusinessException(ErrorCode.POST_NOT_FOUND);
             }
         }
 
-        if (Boolean.TRUE.equals(post.getIsSecret()) && !hasBoardAdminAccess(board, viewer) && !isAuthor) {
+        if (Boolean.TRUE.equals(post.getIsSecret()) && !boardAccessPolicy.hasBoardAdminAccess(board, viewer) && !isAuthor) {
             throw new BusinessException(ErrorCode.POST_NOT_FOUND);
         }
-    }
-
-    private boolean hasBoardAdminAccess(Board board, User user) {
-        if (board == null || user == null) {
-            return false;
-        }
-        if (Boolean.TRUE.equals(user.getIsSuperAdmin())) {
-            return true;
-        }
-        if (board.getCreator() != null && Objects.equals(board.getCreator().getUserId(), user.getUserId())) {
-            return true;
-        }
-        return adminRepository.existsByUserAndBoardAndIsActive(user, board, true);
-    }
-
-    private boolean isInquiryBoard(Board board) {
-        return board != null
-                && board.getBoardUrl() != null
-                && DEFAULT_INQUIRY_BOARD_URL.equalsIgnoreCase(board.getBoardUrl());
     }
 }
