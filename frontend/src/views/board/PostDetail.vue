@@ -162,7 +162,9 @@ async function handleDelete() {
 
   deleteMutate(route.params.postId as string | number, {
     onSuccess: () => {
-      router.push(`/board/${post.value?.board.boardUrl}`)
+      if (post.value?.board.boardUrl) {
+        router.push(buildBoardListRoute(post.value.board.boardUrl))
+      }
     },
     onError: (err) => {
       logger.error('Failed to delete post:', err)
@@ -309,6 +311,13 @@ const currentUrl = computed(() => window.location.origin + route.fullPath)
 const showCopyHint = ref(false)
 let copyHintTimer: ReturnType<typeof setTimeout> | null = null
 
+function buildBoardListRoute(boardUrl: string) {
+  return {
+    path: `/board/${boardUrl}`,
+    query: route.query
+  }
+}
+
 function handleCopyUrl(showToast = true) {
   navigator.clipboard.writeText(currentUrl.value).then(() => {
     if (showToast) {
@@ -436,7 +445,7 @@ function goToList() {
   if (listEl) {
     listEl.scrollIntoView({ behavior: 'smooth', block: 'start' })
   } else if (post.value?.board) {
-    router.push(`/board/${post.value.board.boardUrl}`)
+    router.push(buildBoardListRoute(post.value.board.boardUrl))
   } else {
     router.back()
   }
@@ -588,7 +597,7 @@ onUnmounted(() => {
       <!-- Header -->
       <div class="px-3 py-4 sm:px-6 sm:py-5 border-b border-gray-200 dark:border-gray-700">
         <div class="flex items-center justify-between gap-2">
-          <BaseButton @click="router.push(`/board/${post.board.boardUrl}`)" variant="ghost" size="sm">
+          <BaseButton @click="router.push(buildBoardListRoute(post.board.boardUrl))" variant="ghost" size="sm">
             <ArrowLeft class="hidden sm:inline-block h-4 w-4 mr-1" />
             {{ $t('board.postDetail.toList') }}
           </BaseButton>

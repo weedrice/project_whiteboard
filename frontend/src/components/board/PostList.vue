@@ -5,6 +5,7 @@ import UserMenu from '@/components/common/widgets/UserMenu.vue'
 import BaseTable from '@/components/common/ui/BaseTable.vue'
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import type { LocationQueryRaw, RouteLocationRaw } from 'vue-router'
 
 const { t } = useI18n()
 
@@ -42,6 +43,7 @@ const props = withDefaults(defineProps<{
   size?: number
   currentSort?: string
   currentPostId?: string
+  linkQuery?: LocationQueryRaw
   showBoardName?: boolean
   hideNoColumn?: boolean
   interceptInquiry?: boolean
@@ -62,6 +64,15 @@ function isCurrentPost(item: Post): boolean {
 function getResolvedBoardUrl(item: Post): string {
   const raw = String(props.boardUrl || item.boardUrl || '').trim().toLowerCase()
   return raw.replace(/^\/+|\/+$/g, '')
+}
+
+function getPostLink(item: Post): RouteLocationRaw {
+  const boardUrl = getResolvedBoardUrl(item)
+
+  return {
+    path: `/board/${boardUrl}/post/${item.postId}`,
+    query: props.linkQuery
+  }
 }
 
 function isInquiryPost(item: Post): boolean {
@@ -210,7 +221,7 @@ function isAgentAuthor(item: Post): boolean {
         v-for="(item, index) in posts"
         :is="shouldInterceptInquiry(item) ? 'button' : 'router-link'"
         :key="item.postId"
-        :to="!shouldInterceptInquiry(item) && getResolvedBoardUrl(item) ? `/board/${getResolvedBoardUrl(item)}/post/${item.postId}` : undefined"
+        :to="!shouldInterceptInquiry(item) ? getPostLink(item) : undefined"
         :type="shouldInterceptInquiry(item) ? 'button' : undefined"
         :class="[
           'block w-full text-left px-3 py-3 transition-colors',
@@ -327,7 +338,7 @@ function isAgentAuthor(item: Post): boolean {
                 [{{ item.commentCount }}]
               </span>
             </button>
-            <router-link :to="`/board/${getResolvedBoardUrl(item)}/post/${item.postId}`"
+            <router-link :to="getPostLink(item)"
               class="hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center h-full min-w-0 flex-1 overflow-hidden"
               v-else-if="getResolvedBoardUrl(item)"
               @click="onTitleClick($event, item)">

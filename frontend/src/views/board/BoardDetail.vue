@@ -97,6 +97,11 @@ const buildPaginationRoute = (targetPage: number) => {
     }
 }
 
+const buildBoardListRoute = () => ({
+    path: `/board/${boardUrl.value}`,
+    query: route.query
+})
+
 type SortField = 'author' | 'category' | 'viewCount' | 'likeCount' | 'commentCount' | 'createdAt' | 'title'
 
 const resolveSortField = (field: string): SortField => {
@@ -455,7 +460,7 @@ onUnmounted(() => {
             <div
                 class="bg-white dark:bg-gray-800 shadow rounded-lg mb-2 sm:mb-6 p-4 sm:p-6 transition-colors duration-200">
                 <div class="flex items-start">
-                    <router-link :to="`/board/${board.boardUrl}`" class="flex-shrink-0 mr-4 sm:mr-6 cursor-pointer">
+                    <router-link :to="buildBoardListRoute()" class="flex-shrink-0 mr-4 sm:mr-6 cursor-pointer">
                         <img v-if="board.iconUrl" :src="getOptimizedBoardIconUrl(board.iconUrl, 80)"
                             class="h-14 w-14 sm:h-20 sm:w-20 rounded-full" alt="" @error="handleImageError($event)" />
                         <div v-else
@@ -467,7 +472,7 @@ onUnmounted(() => {
                     </router-link>
                     <div class="flex-1 min-h-[5rem] flex flex-col justify-between">
                         <div class="flex flex-row justify-between items-center gap-2 min-w-0">
-                            <router-link :to="`/board/${board.boardUrl}`"
+                            <router-link :to="buildBoardListRoute()"
                                 class="hover:underline cursor-pointer min-w-0 flex-1">
                                 <h1 class="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white truncate">{{
                                     board.boardName }}</h1>
@@ -540,7 +545,8 @@ onUnmounted(() => {
                     </BaseButton>
                 </div>
                 <PostList :posts="posts" :boardUrl="board.boardUrl" :totalCount="totalCount" :page="page" :size="size"
-                    :current-sort="sort" :currentPostId="currentPostId" @update:sort="handleSortChange" />
+                    :current-sort="sort" :currentPostId="currentPostId" :linkQuery="route.query"
+                    @update:sort="handleSortChange" />
                 <!-- Pagination -->
                 <div class="px-3 sm:px-4 py-2 sm:py-3 border-t border-gray-200 dark:border-gray-700 flex justify-center"
                     v-if="totalPages >= 1">
