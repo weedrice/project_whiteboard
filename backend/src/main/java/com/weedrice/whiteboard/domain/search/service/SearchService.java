@@ -19,13 +19,17 @@ import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import com.weedrice.whiteboard.domain.user.service.UserBlockService; // Import UserBlockService
@@ -83,27 +87,13 @@ public class SearchService {
             blockedUserIds = userBlockService.getBlockedUserIds(currentUserId);
         }
 
-        Page<PostSummary> posts = postRepository.searchPostsByKeyword(keyword, blockedUserIds, currentUserId, previewPageable)
-                .map(post -> {
-                    PostSummary summary = PostSummary.from(post);
-                    // Check for image
-                    List<Long> postIds = java.util.Collections.singletonList(post.getPostId());
-                    boolean hasImage = !fileService.getRelatedIdsWithImages(postIds, "POST_CONTENT").isEmpty();
-                    summary.setHasImage(hasImage);
-                    return summary;
-                });
+        Page<com.weedrice.whiteboard.domain.post.entity.Post> postPage = postRepository.searchPostsByKeyword(keyword,
+                blockedUserIds, currentUserId, previewPageable);
+        Page<PostSummary> posts = mapPostSummaries(postPage);
 
-        Page<CommentResponse> comments;
-        if (currentUserId == null) {
-            comments = Page.empty(previewPageable);
-        } else {
-            User currentUser = userRepository.findById(currentUserId)
-                    .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-            comments = commentRepository
-                    .findByUserAndContentContainingIgnoreCaseAndIsDeleted(currentUser, keyword, false,
-                            previewPageable)
-                    .map(CommentResponse::from);
-        }
+        Page<CommentResponse> comments = commentRepository
+                .searchCommentsByKeyword(keyword, blockedUserIds, currentUserId, previewPageable)
+                .map(CommentResponse::from);
 
         Page<UserSummary> users = userRepository.findByDisplayNameContainingIgnoreCase(keyword, previewPageable)
                 .map(UserSummary::from);
@@ -141,16 +131,7 @@ public class SearchService {
         Page<com.weedrice.whiteboard.domain.post.entity.Post> postPage = postRepository.searchPosts(keyword, searchType,
                 boardUrl, blockedUserIds, includeSecret, currentUserId, pageable);
 
-        List<Long> postIds = postPage.getContent().stream()
-                .map(com.weedrice.whiteboard.domain.post.entity.Post::getPostId).collect(Collectors.toList());
-        java.util.Set<Long> postIdsWithImages = new java.util.HashSet<>(
-                fileService.getRelatedIdsWithImages(postIds, "POST_CONTENT"));
-
-        return postPage.map(post -> {
-            PostSummary summary = PostSummary.from(post);
-            summary.setHasImage(postIdsWithImages.contains(post.getPostId()));
-            return summary;
-        });
+        return mapPostSummaries(postPage);
     }
 
     public SearchPersonalizationResponse getRecentSearches(Long userId, Pageable pageable) {
@@ -218,5 +199,24 @@ public class SearchService {
             return true;
         }
         return adminRepository.existsByUserAndBoardAndIsActive(user, board, true);
+    }
+
+    private Page<PostSummary> mapPostSummaries(Page<com.weedrice.whiteboard.domain.post.entity.Post> postPage) {
+        List<Long> postIds = postPage.getContent().stream()
+                .map(com.weedrice.whiteboard.domain.post.entity.Post::getPostId)
+                .collect(Collectors.toList());
+        Set<Long> postIdsWithImages = postIds.isEmpty()
+                ? Collections.emptySet()
+                : new HashSet<>(fileService.getRelatedIdsWithImages(postIds, "POST_CONTENT"));
+
+        List<PostSummary> content = postPage.getContent().stream()
+                .map(post -> {
+                    PostSummary summary = PostSummary.from(post);
+                    summary.setHasImage(postIdsWithImages.contains(post.getPostId()));
+                    return summary;
+                })
+                .collect(Collectors.toList());
+
+        return new PageImpl<>(content, postPage.getPageable(), postPage.getTotalElements());
     }
 }

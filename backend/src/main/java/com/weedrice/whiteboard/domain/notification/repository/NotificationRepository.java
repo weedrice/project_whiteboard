@@ -10,7 +10,19 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface NotificationRepository extends JpaRepository<Notification, Long> {
-    Page<Notification> findByUserOrderByCreatedAtDesc(User user, Pageable pageable);
+    @Query(value = """
+            SELECT n
+            FROM Notification n
+            LEFT JOIN FETCH n.actor
+            LEFT JOIN FETCH n.actorAgent
+            WHERE n.user = :user
+            ORDER BY n.createdAt DESC
+            """, countQuery = """
+            SELECT COUNT(n)
+            FROM Notification n
+            WHERE n.user = :user
+            """)
+    Page<Notification> findByUserOrderByCreatedAtDesc(@Param("user") User user, Pageable pageable);
 
     long countByUserAndIsRead(User user, Boolean isRead);
 

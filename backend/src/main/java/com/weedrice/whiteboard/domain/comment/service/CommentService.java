@@ -86,11 +86,11 @@ public class CommentService {
 
         parentComments.getContent().forEach(c -> responseMap.put(
                 c.getCommentId(),
-                maskCommentContent(CommentResponse.from(c), finalBlockedUserIds)));
+                toMaskedCommentResponse(c, finalBlockedUserIds)));
 
         allDescendants.forEach(c -> responseMap.put(
                 c.getCommentId(),
-                maskCommentContent(CommentResponse.from(c), finalBlockedUserIds)));
+                toMaskedCommentResponse(c, finalBlockedUserIds)));
 
         allDescendants.forEach(child -> {
             CommentResponse childResponse = responseMap.get(child.getCommentId());
@@ -121,11 +121,9 @@ public class CommentService {
         }
         final List<Long> finalBlockedUserIds = blockedUserIds;
 
-        Page<Comment> replies = commentRepository.findByParent_CommentIdAndIsDeletedOrderByCreatedAtAsc(parentId, false,
-                pageable);
+        Page<Comment> replies = commentRepository.findRepliesWithRelations(parentId, false, pageable);
         List<CommentResponse> maskedReplies = replies.getContent().stream()
-                .map(CommentResponse::from)
-                .map(response -> maskCommentContent(response, finalBlockedUserIds))
+                .map(comment -> toMaskedCommentResponse(comment, finalBlockedUserIds))
                 .collect(Collectors.toList());
 
         return CommentListResponse.builder()
@@ -143,7 +141,8 @@ public class CommentService {
         Comment comment = commentRepository.findByIdWithRelations(commentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
         validatePostReadable(comment.getPost(), currentUserId);
-        return CommentResponse.from(comment);
+        List<Long> blockedUserIds = currentUserId == null ? null : userBlockService.getBlockedUserIds(currentUserId);
+        return toMaskedCommentResponse(comment, blockedUserIds);
     }
 
     public Page<MyCommentResponse> getMyComments(Long userId, Pageable pageable) {
@@ -366,6 +365,10 @@ public class CommentService {
                     .build();
         }
         return response;
+    }
+
+    private CommentResponse toMaskedCommentResponse(Comment comment, List<Long> blockedUserIds) {
+        return maskCommentContent(CommentResponse.from(comment), blockedUserIds);
     }
 
     private void validatePostReadable(Post post, Long currentUserId) {

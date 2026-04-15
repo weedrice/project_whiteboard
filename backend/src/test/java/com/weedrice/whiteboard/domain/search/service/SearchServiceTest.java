@@ -110,11 +110,13 @@ class SearchServiceTest {
 
     @Test
     @DisplayName("통합 검색 - 비로그인 사용자는 댓글 결과가 비어있음")
-    void integratedSearch_anonymous_noComments() {
+    void integratedSearch_anonymous_searchesPublicComments() {
         String keyword = "test";
         Pageable previewPageable = PageRequest.of(0, 5);
 
         when(postRepository.searchPostsByKeyword(eq(keyword), isNull(), isNull(), any(Pageable.class)))
+                .thenReturn(Page.empty(previewPageable));
+        when(commentRepository.searchCommentsByKeyword(eq(keyword), isNull(), isNull(), any(Pageable.class)))
                 .thenReturn(Page.empty(previewPageable));
         when(userRepository.findByDisplayNameContainingIgnoreCase(eq(keyword), any(Pageable.class)))
                 .thenReturn(Page.empty(previewPageable));
@@ -124,24 +126,22 @@ class SearchServiceTest {
         var result = searchService.integratedSearch(keyword, null);
 
         assertThat(result.getComments().getTotalElements()).isZero();
-        verify(commentRepository, never()).findByContentContainingIgnoreCaseAndIsDeleted(anyString(), anyBoolean(),
-                any(Pageable.class));
-        verify(commentRepository, never()).findByUserAndContentContainingIgnoreCaseAndIsDeleted(any(), anyString(),
-                anyBoolean(), any(Pageable.class));
+        verify(commentRepository).searchCommentsByKeyword(eq(keyword), isNull(), isNull(), any(Pageable.class));
+        verify(fileService, never()).getRelatedIdsWithImages(anyList(), anyString());
     }
 
     @Test
     @DisplayName("통합 검색 - 로그인 사용자는 본인 댓글만 조회")
-    void integratedSearch_authenticated_onlyOwnComments() {
+    void integratedSearch_authenticated_usesBlockedUserFiltering() {
         String keyword = "test";
         Long currentUserId = 1L;
         Pageable previewPageable = PageRequest.of(0, 5);
+        List<Long> blockedUserIds = List.of(2L, 3L);
 
-        when(userBlockService.getBlockedUserIds(currentUserId)).thenReturn(Collections.emptyList());
+        when(userBlockService.getBlockedUserIds(currentUserId)).thenReturn(blockedUserIds);
         when(postRepository.searchPostsByKeyword(eq(keyword), anyList(), eq(currentUserId), any(Pageable.class)))
                 .thenReturn(Page.empty(previewPageable));
-        when(userRepository.findById(currentUserId)).thenReturn(Optional.of(user));
-        when(commentRepository.findByUserAndContentContainingIgnoreCaseAndIsDeleted(eq(user), eq(keyword), eq(false),
+        when(commentRepository.searchCommentsByKeyword(eq(keyword), eq(blockedUserIds), eq(currentUserId),
                 any(Pageable.class))).thenReturn(Page.empty(previewPageable));
         when(userRepository.findByDisplayNameContainingIgnoreCase(eq(keyword), any(Pageable.class)))
                 .thenReturn(Page.empty(previewPageable));
@@ -151,9 +151,7 @@ class SearchServiceTest {
         var result = searchService.integratedSearch(keyword, currentUserId);
 
         assertThat(result.getComments().getTotalElements()).isZero();
-        verify(commentRepository).findByUserAndContentContainingIgnoreCaseAndIsDeleted(eq(user), eq(keyword), eq(false),
-                any(Pageable.class));
-        verify(commentRepository, never()).findByContentContainingIgnoreCaseAndIsDeleted(anyString(), anyBoolean(),
+        verify(commentRepository).searchCommentsByKeyword(eq(keyword), eq(blockedUserIds), eq(currentUserId),
                 any(Pageable.class));
     }
 

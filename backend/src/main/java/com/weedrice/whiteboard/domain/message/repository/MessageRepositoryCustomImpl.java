@@ -25,6 +25,8 @@ public class MessageRepositoryCustomImpl implements MessageRepositoryCustom {
     public Page<Message> findReceivedMessagesExcludingBlocked(User currentUser, Boolean isDeleted, List<Long> blockedUserIds, Pageable pageable) {
         List<Message> content = queryFactory
                 .selectFrom(message)
+                .join(message.sender, user).fetchJoin()
+                .join(message.receiver).fetchJoin()
                 .where(
                         message.receiver.eq(currentUser),
                         message.isDeletedByReceiver.eq(isDeleted),
@@ -52,6 +54,8 @@ public class MessageRepositoryCustomImpl implements MessageRepositoryCustom {
     public Page<Message> findSentMessagesExcludingBlocked(User currentUser, Boolean isDeleted, List<Long> blockedUserIds, Pageable pageable) {
         List<Message> content = queryFactory
                 .selectFrom(message)
+                .join(message.sender, user).fetchJoin()
+                .join(message.receiver).fetchJoin()
                 .where(
                         message.sender.eq(currentUser),
                         message.isDeletedBySender.eq(isDeleted),
