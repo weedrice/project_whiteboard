@@ -153,7 +153,7 @@ class PostRepositoryTest {
 
         // when
         Page<Post> result = postRepository.findByBoardIdAndCategoryId(
-                board.getBoardId(), category.getCategoryId(), null, null, false, null, pageRequest);
+                board.getBoardId(), category.getCategoryId(), null, null, null, false, null, pageRequest);
 
         // then
         assertThat(result.getContent()).hasSize(1);

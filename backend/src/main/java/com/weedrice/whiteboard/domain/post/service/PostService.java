@@ -39,6 +39,7 @@ import com.weedrice.whiteboard.global.util.InputSanitizer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.*;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -78,7 +79,7 @@ public class PostService {
     private final GlobalConfigService globalConfigService;
     private final AgentOwnershipService agentOwnershipService;
 
-    public Page<PostSummary> getPosts(String boardUrl, Long categoryId, Integer minLikes, Long currentUserId,
+    public Page<PostSummary> getPosts(String boardUrl, Long categoryId, String keyword, Integer minLikes, Long currentUserId,
             @NonNull Pageable pageable) {
         Board board = boardRepository.findByBoardUrl(boardUrl)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
@@ -89,7 +90,7 @@ public class PostService {
         validateBoardReadable(board, currentUserId);
         boolean includeSecret = canViewSecretPosts(board, currentUserId);
 
-        Page<Post> posts = this.getPosts(board.getBoardId(), categoryId, minLikes, currentUserId, includeSecret,
+        Page<Post> posts = this.getPosts(board.getBoardId(), categoryId, keyword, minLikes, currentUserId, includeSecret,
                 pageable);
 
         List<PostSummary> summaries = new ArrayList<>();
@@ -154,13 +155,13 @@ public class PostService {
     }
 
     // --- boardId 湲곕컲 public/private 硫붿꽌??---
-    public Page<Post> getPosts(Long boardId, Long categoryId, Integer minLikes, Long currentUserId,
+    public Page<Post> getPosts(Long boardId, Long categoryId, String keyword, Integer minLikes, Long currentUserId,
             Boolean includeSecret, @NonNull Pageable pageable) {
         List<Long> blockedUserIds = null;
         if (currentUserId != null) {
             blockedUserIds = userBlockService.getBlockedUserIds(currentUserId);
         }
-        return postRepository.findByBoardIdAndCategoryId(boardId, categoryId, minLikes, blockedUserIds, includeSecret,
+        return postRepository.findByBoardIdAndCategoryId(boardId, categoryId, keyword, minLikes, blockedUserIds, includeSecret,
                 currentUserId, pageable);
     }
 
@@ -671,43 +672,44 @@ public class PostService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         Agent actorAgent = agentOwnershipService.resolveOwnedActiveAgent(userId, actorAgentId);
         Post post = getPostById(postId, userId, false);
-
-        PostLikeId postLikeId = new PostLikeId(userId, postId);
-        if (postLikeRepository.existsById(postLikeId)) {
-            throw new BusinessException(ErrorCode.ALREADY_LIKED);
-        }
+        boolean skipNotification = post.getAgent() != null;
+        User postOwner = post.getUser();
 
         PostLike postLike = PostLike.builder()
                 .user(user)
                 .post(post)
                 .build();
-        postLikeRepository.save(postLike);
-        post.incrementLikeCount();
-        if (post.getAgent() != null) {
-            return post.getLikeCount();
+        try {
+            postLikeRepository.saveAndFlush(postLike);
+        } catch (DataIntegrityViolationException ex) {
+            throw new BusinessException(ErrorCode.ALREADY_LIKED);
+        }
+
+        postRepository.incrementLikeCount(postId);
+        int likeCount = getPostLikeCount(postId);
+        if (skipNotification) {
+            return likeCount;
         }
 
         String content = resolveNotificationActorName(user, actorAgent)
                 + "\uB2D8\uC774 \uD68C\uC6D0\uB2D8\uC758 \uAC8C\uC2DC\uAE00\uC744 \uC88B\uC544\uD569\uB2C8\uB2E4.";
-        NotificationEvent event = new NotificationEvent(post.getUser(), user, actorAgent, NotificationType.LIKE, "POST", postId, content);
+        NotificationEvent event = new NotificationEvent(postOwner, user, actorAgent, NotificationType.LIKE, "POST", postId, content);
         eventPublisher.publishEvent(event);
 
-        return post.getLikeCount();
+        return likeCount;
     }
 
     @Transactional
     public int unlikePost(@NonNull Long userId, @NonNull Long postId) {
-        Post post = getPostById(postId, userId, false);
+        getPostById(postId, userId, false);
 
-        PostLikeId postLikeId = new PostLikeId(userId, postId);
-        if (!postLikeRepository.existsById(postLikeId)) {
+        int deletedCount = postLikeRepository.deleteByUserIdAndPostId(userId, postId);
+        if (deletedCount == 0) {
             throw new BusinessException(ErrorCode.NOT_LIKED);
         }
 
-        postLikeRepository.deleteById(postLikeId);
-        post.decrementLikeCount();
-
-        return post.getLikeCount();
+        postRepository.decrementLikeCount(postId);
+        return getPostLikeCount(postId);
     }
 
     @Transactional
@@ -987,6 +989,14 @@ public class PostService {
         return user.getDisplayName();
     }
 
+    private int getPostLikeCount(Long postId) {
+        Integer likeCount = postRepository.findLikeCountByPostId(postId);
+        if (likeCount == null) {
+            throw new BusinessException(ErrorCode.POST_NOT_FOUND);
+        }
+        return likeCount;
+    }
+
     private Boolean resolveInquiryAnsweredStatus(Post post) {
         if (post == null || !isInquiryBoard(post.getBoard())) {
             return null;
@@ -1009,7 +1019,7 @@ public class PostService {
             blockedUserIds = userBlockService.getBlockedUserIds(currentUserId);
         }
 
-        Page<Post> postPage = postRepository.findByBoardIdAndCategoryId(boardId, null, null, blockedUserIds,
+        Page<Post> postPage = postRepository.findByBoardIdAndCategoryId(boardId, null, null, null, blockedUserIds,
                 includeSecret,
                 currentUserId, pageable);
         List<Post> posts = postPage.getContent();

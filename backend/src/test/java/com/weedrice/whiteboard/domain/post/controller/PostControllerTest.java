@@ -141,7 +141,7 @@ class PostControllerTest {
             PostSummary summary = PostSummary.from(post);
             Page<PostSummary> summaryPage = new PageImpl<>(List.of(summary));
 
-            when(postService.getPosts(eq(boardUrl), any(), any(), any(), any(Pageable.class))).thenReturn(summaryPage);
+            when(postService.getPosts(eq(boardUrl), any(), any(), any(), any(), any(Pageable.class))).thenReturn(summaryPage);
 
             mockMvc.perform(get("/api/v1/boards/{boardUrl}/posts", boardUrl)
                     .with(user(customUserDetails))
@@ -158,13 +158,15 @@ class PostControllerTest {
             PostSummary summary = PostSummary.from(post);
             Page<PostSummary> summaryPage = new PageImpl<>(List.of(summary));
 
-            when(postService.getPosts(eq(boardUrl), any(), any(), isNull(), any(Pageable.class))).thenReturn(summaryPage);
+            when(postService.getPosts(eq(boardUrl), any(), eq(keyword), any(), isNull(), any(Pageable.class))).thenReturn(summaryPage);
             doNothing().when(searchService).recordSearch(isNull(), eq(keyword));
 
             mockMvc.perform(get("/api/v1/boards/{boardUrl}/posts", boardUrl)
                     .param("keyword", keyword)
                     .accept(MediaType.APPLICATION_JSON))
                     .andExpect(status().isOk());
+
+            verify(postService).getPosts(eq(boardUrl), any(), eq(keyword), any(), isNull(), any(Pageable.class));
         }
 
         @Test

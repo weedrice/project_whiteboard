@@ -6,6 +6,7 @@ import com.weedrice.whiteboard.domain.agent.service.AgentOwnershipService;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.comment.dto.CommentResponse;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
+import com.weedrice.whiteboard.domain.comment.entity.CommentLike;
 import com.weedrice.whiteboard.domain.comment.repository.CommentClosureRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentLikeRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
@@ -326,12 +327,13 @@ class CommentServiceTest {
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(commentRepository.findById(10L)).thenReturn(Optional.of(comment));
-        when(commentLikeRepository.existsById(any())).thenReturn(false);
+        when(commentLikeRepository.saveAndFlush(any())).thenReturn(CommentLike.builder().user(user).comment(comment).build());
+        when(commentRepository.incrementLikeCount(10L)).thenReturn(1);
 
         commentService.likeComment(1L, 10L);
 
-        verify(commentLikeRepository).save(any());
-        assertThat(comment.getLikeCount()).isEqualTo(1);
+        verify(commentLikeRepository).saveAndFlush(any());
+        verify(commentRepository).incrementLikeCount(10L);
     }
 
     @Test

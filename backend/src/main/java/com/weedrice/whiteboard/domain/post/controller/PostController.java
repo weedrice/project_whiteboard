@@ -49,7 +49,7 @@ public class PostController {
             searchService.recordSearch(userId, keyword);
         }
 
-        Page<PostSummary> summaryPage = postService.getPosts(boardUrl, categoryId, minLikes, userId, pageable);
+        Page<PostSummary> summaryPage = postService.getPosts(boardUrl, categoryId, keyword, minLikes, userId, pageable);
 
         return ApiResponse.success(new PageResponse<>(summaryPage));
     }

@@ -264,7 +264,7 @@ public class AgentService {
         Board board = boardRepository.findByBoardId(boardId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
         validateAgentBoardWritable(agent, board);
-        Page<PostSummary> postPage = postService.getPosts(board.getBoardUrl(), categoryId, null, agent.getUser().getUserId(), pageable);
+        Page<PostSummary> postPage = postService.getPosts(board.getBoardUrl(), categoryId, null, null, agent.getUser().getUserId(), pageable);
         return enrichPostSummaries(postPage, agentId);
     }
 

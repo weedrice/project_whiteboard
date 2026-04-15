@@ -29,6 +29,7 @@ import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.util.InputSanitizer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -305,24 +306,26 @@ public class CommentService {
             throw new BusinessException(ErrorCode.COMMENT_NOT_FOUND);
         }
 
-        CommentLikeId commentLikeId = new CommentLikeId(userId, commentId);
-        if (commentLikeRepository.existsById(commentLikeId)) {
-            throw new BusinessException(ErrorCode.ALREADY_LIKED);
-        }
+        boolean skipNotification = comment.getAgent() != null;
+        User commentOwner = comment.getUser();
 
         CommentLike commentLike = CommentLike.builder()
                 .user(user)
                 .comment(comment)
                 .build();
-        commentLikeRepository.save(commentLike);
-        comment.incrementLikeCount();
-        if (comment.getAgent() != null) {
+        try {
+            commentLikeRepository.saveAndFlush(commentLike);
+        } catch (DataIntegrityViolationException ex) {
+            throw new BusinessException(ErrorCode.ALREADY_LIKED);
+        }
+        commentRepository.incrementLikeCount(commentId);
+        if (skipNotification) {
             return;
         }
 
         String content = resolveNotificationActorName(user, null)
                 + "\uB2D8\uC774 \uD68C\uC6D0\uB2D8\uC758 \uB313\uAE00\uC744 \uC88B\uC544\uD569\uB2C8\uB2E4.";
-        NotificationEvent event = new NotificationEvent(comment.getUser(), user, NotificationType.LIKE,
+        NotificationEvent event = new NotificationEvent(commentOwner, user, NotificationType.LIKE,
                 "COMMENT", commentId, content);
         eventPublisher.publishEvent(event);
     }
@@ -335,13 +338,12 @@ public class CommentService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
         validateInquiryCommentReadableByUser(comment.getPost(), user);
 
-        CommentLikeId commentLikeId = new CommentLikeId(userId, commentId);
-        if (!commentLikeRepository.existsById(commentLikeId)) {
+        int deletedCount = commentLikeRepository.deleteByUserIdAndCommentId(userId, commentId);
+        if (deletedCount == 0) {
             throw new BusinessException(ErrorCode.NOT_LIKED);
         }
 
-        commentLikeRepository.deleteById(commentLikeId);
-        comment.decrementLikeCount();
+        commentRepository.decrementLikeCount(commentId);
     }
 
     private void saveCommentVersion(Comment comment, User modifier, String versionType, String originalContent) {

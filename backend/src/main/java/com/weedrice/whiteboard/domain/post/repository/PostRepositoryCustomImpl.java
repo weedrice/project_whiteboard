@@ -27,7 +27,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
     private final JPAQueryFactory queryFactory;
 
     @Override
-    public Page<Post> findByBoardIdAndCategoryId(Long boardId, Long categoryId, Integer minLikes,
+    public Page<Post> findByBoardIdAndCategoryId(Long boardId, Long categoryId, String keyword, Integer minLikes,
             List<Long> blockedUserIds, Boolean includeSecret, Long viewerUserId, @NonNull Pageable pageable) {
         List<Post> content = queryFactory
                 .selectFrom(post)
@@ -37,6 +37,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                 .where(
                         post.board.boardId.eq(boardId),
                         categoryIdEq(categoryId),
+                        keywordContains(keyword),
                         minLikesGoe(minLikes),
                         post.isDeleted.eq(false),
                         secretCondition(includeSecret, viewerUserId),
@@ -52,6 +53,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                 .where(
                         post.board.boardId.eq(boardId),
                         categoryIdEq(categoryId),
+                        keywordContains(keyword),
                         minLikesGoe(minLikes),
                         post.isDeleted.eq(false),
                         secretCondition(includeSecret, viewerUserId),
@@ -273,6 +275,12 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
 
     private BooleanExpression categoryIdEq(Long categoryId) {
         return categoryId != null ? post.category.categoryId.eq(categoryId) : null;
+    }
+
+    private BooleanExpression keywordContains(String keyword) {
+        return StringUtils.hasText(keyword)
+                ? post.title.containsIgnoreCase(keyword).or(post.contents.containsIgnoreCase(keyword))
+                : null;
     }
 
     private BooleanExpression minLikesGoe(Integer minLikes) {

@@ -5,6 +5,8 @@ import com.weedrice.whiteboard.domain.user.entity.User;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
 
 import java.util.List;
 import java.time.LocalDateTime;
@@ -46,4 +48,16 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
 
         @org.springframework.data.jpa.repository.Query("SELECT c FROM Comment c WHERE c.post.postId = :postId AND c.isDeleted = false ORDER BY c.createdAt DESC, c.commentId DESC")
         List<Comment> findLatestNonDeletedByPostId(@org.springframework.data.repository.query.Param("postId") Long postId, Pageable pageable);
+
+        @Modifying(flushAutomatically = true)
+        @Query("UPDATE Comment c SET c.likeCount = c.likeCount + 1 WHERE c.commentId = :commentId")
+        int incrementLikeCount(Long commentId);
+
+        @Modifying(flushAutomatically = true)
+        @Query("""
+                UPDATE Comment c
+                SET c.likeCount = CASE WHEN c.likeCount > 0 THEN c.likeCount - 1 ELSE 0 END
+                WHERE c.commentId = :commentId
+                """)
+        int decrementLikeCount(Long commentId);
 }

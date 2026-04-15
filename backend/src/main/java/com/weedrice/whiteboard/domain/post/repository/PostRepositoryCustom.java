@@ -9,7 +9,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 public interface PostRepositoryCustom {
-    Page<Post> findByBoardIdAndCategoryId(Long boardId, Long categoryId, Integer minLikes, List<Long> blockedUserIds,
+    Page<Post> findByBoardIdAndCategoryId(Long boardId, Long categoryId, String keyword, Integer minLikes, List<Long> blockedUserIds,
             Boolean includeSecret, Long viewerUserId, @NonNull Pageable pageable);
 
     Page<Post> searchPostsByKeyword(String keyword, List<Long> blockedUserIds, Long viewerUserId,

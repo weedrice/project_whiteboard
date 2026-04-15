@@ -28,6 +28,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Collections;
@@ -275,5 +277,33 @@ class BoardServiceTest {
 
         // then
         verify(boardSubscriptionRepository).delete(any());
+    }
+
+    @Test
+    @DisplayName("내 구독 게시판 조회는 total 과 구독 플래그를 유지한다")
+    void getMySubscriptions_preservesTotalAndFlags() {
+        BoardSubscription subscription = BoardSubscription.builder()
+                .user(user)
+                .board(board)
+                .role("MEMBER")
+                .sortOrder(1)
+                .build();
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(boardSubscriptionRepository.findByUserAndBoard_IsActiveOrderBySortOrderAsc(user, true, PageRequest.of(0, 1)))
+                .thenReturn(new PageImpl<>(List.of(subscription), PageRequest.of(0, 1), 5));
+        when(boardSubscriptionRepository.countByBoard(board)).thenReturn(1L);
+        when(adminRepository.findFirstByBoardAndRoleAndIsActiveOrderByAdminIdDesc(any(), any(), any())).thenReturn(Optional.empty());
+        when(adminRepository.findByUserAndBoardAndIsActive(user, board, true)).thenReturn(Optional.empty());
+        when(boardSubscriptionRepository.existsByUserAndBoard(user, board)).thenReturn(true);
+        when(boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(board.getBoardId(), true))
+                .thenReturn(Collections.emptyList());
+        when(postService.getLatestPostsByBoard(board.getBoardId(), 15, user.getUserId())).thenReturn(Collections.emptyList());
+
+        var result = boardService.getMySubscriptions(1L, PageRequest.of(0, 1));
+
+        assertThat(result.getTotalElements()).isEqualTo(5);
+        assertThat(result.getContent()).hasSize(1);
+        assertThat(result.getContent().get(0).isSubscribed()).isTrue();
     }
 }

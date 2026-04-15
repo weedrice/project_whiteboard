@@ -94,10 +94,14 @@ public class BoardService {
                 User currentUser = getCurrentUserOrNull(userDetails);
                 validateBoardReadable(board, currentUser);
 
-                return createBoardResponse(board, userDetails);
+                return createBoardResponse(board, currentUser);
         }
 
         private BoardResponse createBoardResponse(Board board, UserDetails userDetails) {
+                return createBoardResponse(board, getCurrentUserOrNull(userDetails));
+        }
+
+        private BoardResponse createBoardResponse(Board board, User currentUser) {
                 long subscriberCount = boardSubscriptionRepository.countByBoard(board);
                 User adminUser = adminRepository.findFirstByBoardAndRoleAndIsActiveOrderByAdminIdDesc(board,
                                 Role.BOARD_ADMIN, true)
@@ -110,10 +114,7 @@ public class BoardService {
                 boolean isAdmin = false;
                 boolean isSubscribed = false;
 
-                if (userDetails != null) {
-                        User currentUser = userRepository.findByLoginId(userDetails.getUsername())
-                                        .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-
+                if (currentUser != null) {
                         boolean isBoardAdmin = adminRepository.findByUserAndBoardAndIsActive(currentUser, board, true)
                                         .isPresent();
                         boolean isCreator = board.getCreator().getUserId().equals(currentUser.getUserId());
@@ -128,9 +129,7 @@ public class BoardService {
                                 .map(CategoryResponse::new)
                                 .collect(Collectors.toList());
 
-                Long currentUserId = (userDetails instanceof CustomUserDetails)
-                                ? ((CustomUserDetails) userDetails).getUserId()
-                                : null;
+                Long currentUserId = currentUser != null ? currentUser.getUserId() : null;
                 List<PostSummary> latestPosts = postService.getLatestPostsByBoard(board.getBoardId(), 15,
                                 currentUserId);
 
@@ -209,14 +208,15 @@ public class BoardService {
                 }
                 User user = userRepository.findById(userId)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-                List<BoardResponse> visibleBoards = boardSubscriptionRepository
-                                .findByUserAndBoard_IsActiveOrderBySortOrderAsc(user, true, pageable)
+                Page<BoardSubscription> subscriptions = boardSubscriptionRepository
+                                .findByUserAndBoard_IsActiveOrderBySortOrderAsc(user, true, pageable);
+                List<BoardResponse> visibleBoards = subscriptions
                                 .stream()
                                 .map(BoardSubscription::getBoard)
                                 .filter(board -> canViewBoard(board, user))
-                                .map(board -> createBoardResponse(board, null))
+                                .map(board -> createBoardResponse(board, user))
                                 .collect(Collectors.toList());
-                return new org.springframework.data.domain.PageImpl<>(visibleBoards, pageable, visibleBoards.size());
+                return new org.springframework.data.domain.PageImpl<>(visibleBoards, pageable, subscriptions.getTotalElements());
         }
 
         @Transactional

@@ -301,13 +301,13 @@ class PostServiceTest {
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
         // currentUserId가 null이므로 userBlockService가 호출되지 않음
         // Page.empty()인 경우 getPostIdsWithImages가 빈 리스트를 받아 fileService가 호출되지 않음
-        when(postRepository.findByBoardIdAndCategoryId(eq(1L), any(), any(), any(), any(Boolean.class), any(),
+        when(postRepository.findByBoardIdAndCategoryId(eq(1L), any(), any(), any(), any(), any(Boolean.class), any(),
                 any(Pageable.class)))
                 .thenReturn(Page.empty());
 
-        postService.getPosts("free", null, null, null, Pageable.unpaged());
+        postService.getPosts("free", null, null, null, null, Pageable.unpaged());
 
-        verify(postRepository).findByBoardIdAndCategoryId(eq(1L), any(), any(), any(), any(Boolean.class), any(),
+        verify(postRepository).findByBoardIdAndCategoryId(eq(1L), any(), any(), any(), any(), any(Boolean.class), any(),
                 any(Pageable.class));
     }
 
@@ -324,7 +324,7 @@ class PostServiceTest {
 
         when(userRepository.findById(2L)).thenReturn(Optional.of(otherUser));
 
-        assertThatThrownBy(() -> postService.getPosts("free", null, null, 2L, Pageable.unpaged()))
+        assertThatThrownBy(() -> postService.getPosts("free", null, null, null, 2L, Pageable.unpaged()))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.BOARD_NOT_FOUND);
     }
@@ -425,12 +425,15 @@ class PostServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
         when(userBlockService.getBlockedUserIds(1L)).thenReturn(Collections.emptyList());
-        when(postLikeRepository.existsById(any(PostLikeId.class))).thenReturn(false);
+        when(postLikeRepository.saveAndFlush(any(PostLike.class))).thenReturn(PostLike.builder().user(user).post(post).build());
+        when(postRepository.incrementLikeCount(1L)).thenReturn(1);
+        when(postRepository.findLikeCountByPostId(1L)).thenReturn(1);
 
-        postService.likePost(1L, 1L);
+        int likeCount = postService.likePost(1L, 1L);
 
-        verify(postLikeRepository).save(any(PostLike.class));
-        assertThat(post.getLikeCount()).isEqualTo(1);
+        verify(postLikeRepository).saveAndFlush(any(PostLike.class));
+        verify(postRepository).incrementLikeCount(1L);
+        assertThat(likeCount).isEqualTo(1);
     }
 
     @Test
@@ -439,10 +442,12 @@ class PostServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
         when(userBlockService.getBlockedUserIds(1L)).thenReturn(Collections.emptyList());
-        when(postLikeRepository.existsById(any(PostLikeId.class))).thenReturn(true);
+        when(postLikeRepository.saveAndFlush(any(PostLike.class)))
+                .thenThrow(new org.springframework.dao.DataIntegrityViolationException("duplicate"));
 
         assertThatThrownBy(() -> postService.likePost(1L, 1L))
-                .isInstanceOf(BusinessException.class);
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.ALREADY_LIKED);
     }
 
     @Test
@@ -475,12 +480,15 @@ class PostServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
         when(userBlockService.getBlockedUserIds(1L)).thenReturn(Collections.emptyList());
-        when(postLikeRepository.existsById(any(PostLikeId.class))).thenReturn(true);
+        when(postLikeRepository.deleteByUserIdAndPostId(1L, 1L)).thenReturn(1);
+        when(postRepository.decrementLikeCount(1L)).thenReturn(1);
+        when(postRepository.findLikeCountByPostId(1L)).thenReturn(0);
 
-        postService.unlikePost(1L, 1L);
+        int likeCount = postService.unlikePost(1L, 1L);
 
-        verify(postLikeRepository).deleteById(any(PostLikeId.class));
-        assertThat(post.getLikeCount()).isEqualTo(-1); // Starts at 0, decremented
+        verify(postLikeRepository).deleteByUserIdAndPostId(1L, 1L);
+        verify(postRepository).decrementLikeCount(1L);
+        assertThat(likeCount).isZero();
     }
 
     // --- Scraps ---
@@ -895,7 +903,7 @@ class PostServiceTest {
     void getLatestPostsByBoard_loggedIn() {
         when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
         when(userBlockService.getBlockedUserIds(1L)).thenReturn(Collections.emptyList());
-        when(postRepository.findByBoardIdAndCategoryId(eq(1L), isNull(), isNull(), anyList(), any(Boolean.class), any(),
+        when(postRepository.findByBoardIdAndCategoryId(eq(1L), isNull(), isNull(), isNull(), anyList(), any(Boolean.class), any(),
                 any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(post)));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
@@ -915,7 +923,7 @@ class PostServiceTest {
     @DisplayName("게시판 최신 게시글 조회 - 비로그인 사용자")
     void getLatestPostsByBoard_notLoggedIn() {
         when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
-        when(postRepository.findByBoardIdAndCategoryId(eq(1L), isNull(), isNull(), isNull(), eq(false), isNull(),
+        when(postRepository.findByBoardIdAndCategoryId(eq(1L), isNull(), isNull(), isNull(), isNull(), eq(false), isNull(),
                 any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(post)));
         when(fileService.getRelatedIdsWithImages(anyList(), eq("POST_CONTENT"))).thenReturn(Collections.emptyList());
@@ -929,7 +937,7 @@ class PostServiceTest {
     @DisplayName("게시판 최신 게시글 조회 - 결과 없음")
     void getLatestPostsByBoard_empty() {
         when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
-        when(postRepository.findByBoardIdAndCategoryId(eq(1L), isNull(), isNull(), isNull(), eq(false), isNull(),
+        when(postRepository.findByBoardIdAndCategoryId(eq(1L), isNull(), isNull(), isNull(), isNull(), eq(false), isNull(),
                 any(Pageable.class)))
                 .thenReturn(Page.empty());
 
@@ -1058,7 +1066,9 @@ class PostServiceTest {
         when(agentOwnershipService.resolveOwnedActiveAgent(1L, 10L)).thenReturn(actorAgent);
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
         when(userBlockService.getBlockedUserIds(1L)).thenReturn(Collections.emptyList());
-        when(postLikeRepository.existsById(any())).thenReturn(false);
+        when(postLikeRepository.saveAndFlush(any(PostLike.class))).thenReturn(PostLike.builder().user(actorUser).post(post).build());
+        when(postRepository.incrementLikeCount(1L)).thenReturn(1);
+        when(postRepository.findLikeCountByPostId(1L)).thenReturn(1);
 
         postService.likePost(1L, 10L, 1L);
 
