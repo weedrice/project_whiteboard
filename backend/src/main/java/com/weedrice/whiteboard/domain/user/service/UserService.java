@@ -46,9 +46,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -240,11 +243,14 @@ public class UserService {
                 .build();
 
         Page<User> users = userRepository.searchUsersForAdmin(keyword, condition, pageable);
-        List<UserAdminResponse> list = new ArrayList<>();
-        for (User user : users) {
-            String role = resolveRoleForAdmin(user);
-            list.add(UserAdminResponse.from(user, role));
-        }
+        Map<Long, String> rolesByUserId = resolveRolesForAdmin(users.getContent());
+        List<UserAdminResponse> list = users.getContent().stream()
+                .map(user -> UserAdminResponse.from(
+                        user,
+                        Boolean.TRUE.equals(user.getIsSuperAdmin())
+                                ? Role.SUPER_ADMIN
+                                : rolesByUserId.getOrDefault(user.getUserId(), Role.USER)))
+                .toList();
         return new PageImpl<>(list, pageable, users.getTotalElements());
     }
 
@@ -296,6 +302,24 @@ public class UserService {
         return adminRepository.findFirstByUserAndIsActiveOrderByAdminIdAsc(user, true)
                 .map(a -> a.getRole())
                 .orElse(Role.USER);
+    }
+
+    private Map<Long, String> resolveRolesForAdmin(List<User> users) {
+        List<Long> userIds = users.stream()
+                .filter(user -> !Boolean.TRUE.equals(user.getIsSuperAdmin()))
+                .map(User::getUserId)
+                .toList();
+
+        if (userIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        return adminRepository.findByUserUserIdInAndIsActiveOrderByAdminIdAsc(userIds, true).stream()
+                .collect(Collectors.toMap(
+                        admin -> admin.getUser().getUserId(),
+                        admin -> admin.getRole(),
+                        (existingRole, ignoredRole) -> existingRole,
+                        LinkedHashMap::new));
     }
 
     private LocalDateTime toStartOfDay(LocalDate date) {

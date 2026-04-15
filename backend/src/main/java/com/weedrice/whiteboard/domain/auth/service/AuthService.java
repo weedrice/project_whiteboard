@@ -1,40 +1,47 @@
 package com.weedrice.whiteboard.domain.auth.service;
 
-import com.weedrice.whiteboard.domain.auth.dto.*;
+import com.weedrice.whiteboard.domain.auth.dto.FindIdResponse;
+import com.weedrice.whiteboard.domain.auth.dto.LoginRequest;
+import com.weedrice.whiteboard.domain.auth.dto.LoginResponse;
+import com.weedrice.whiteboard.domain.auth.dto.LogoutRequest;
+import com.weedrice.whiteboard.domain.auth.dto.RefreshRequest;
+import com.weedrice.whiteboard.domain.auth.dto.RefreshResponse;
+import com.weedrice.whiteboard.domain.auth.dto.ReregisterCheckResponse;
+import com.weedrice.whiteboard.domain.auth.dto.SignupRequest;
+import com.weedrice.whiteboard.domain.auth.dto.SignupResponse;
 import com.weedrice.whiteboard.domain.auth.entity.LoginHistory;
+import com.weedrice.whiteboard.domain.auth.entity.PasswordResetToken;
 import com.weedrice.whiteboard.domain.auth.entity.RefreshToken;
 import com.weedrice.whiteboard.domain.auth.repository.LoginHistoryRepository;
+import com.weedrice.whiteboard.domain.auth.repository.PasswordResetTokenRepository;
 import com.weedrice.whiteboard.domain.auth.repository.RefreshTokenRepository;
-import com.weedrice.whiteboard.domain.point.entity.PointHistory;
 import com.weedrice.whiteboard.domain.point.entity.UserPoint;
-import com.weedrice.whiteboard.domain.point.repository.PointHistoryRepository;
 import com.weedrice.whiteboard.domain.point.repository.UserPointRepository;
+import com.weedrice.whiteboard.domain.point.service.PointService;
 import com.weedrice.whiteboard.domain.user.entity.PasswordHistory;
 import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.SocialAccount;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.entity.UserSettings;
 import com.weedrice.whiteboard.domain.user.repository.PasswordHistoryRepository;
+import com.weedrice.whiteboard.domain.user.repository.SocialAccountRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserSettingsRepository;
-import com.weedrice.whiteboard.domain.user.repository.SocialAccountRepository;
 import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
 import com.weedrice.whiteboard.global.common.util.ClientUtils;
+import com.weedrice.whiteboard.global.email.EmailService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import com.weedrice.whiteboard.global.security.JwtTokenProvider;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import com.weedrice.whiteboard.domain.auth.entity.PasswordResetToken;
-import com.weedrice.whiteboard.domain.auth.repository.PasswordResetTokenRepository;
-import com.weedrice.whiteboard.global.email.EmailService;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -48,7 +55,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.UUID; // Import UUID
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -57,7 +64,7 @@ public class AuthService {
 
     private final UserRepository userRepository;
     private final UserPointRepository userPointRepository;
-    private final PointHistoryRepository pointHistoryRepository;
+    private final PointService pointService;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final AuthenticationManagerBuilder authenticationManagerBuilder;
@@ -104,33 +111,18 @@ public class AuthService {
                 .email(request.getEmail())
                 .displayName(request.getDisplayName())
                 .build();
-        user.verifyEmail(); // Set isEmailVerified = true
+        user.verifyEmail();
         User savedUser = userRepository.save(user);
 
-        // 기본 세팅 정보 생성
         UserSettings userSettings = UserSettings.builder()
                 .user(user)
                 .build();
         userSettingsRepository.save(userSettings);
 
-        // 포인트 정보 생성 (가입 축하금)
         String signupBonusStr = globalConfigService.getConfig("POINT_SIGNUP_BONUS");
         int signupBonus = signupBonusStr != null ? Integer.parseInt(signupBonusStr) : 500;
+        pointService.addPoint(savedUser.getUserId(), signupBonus, "회원가입 축하 포인트", savedUser.getUserId(), "USER");
 
-        UserPoint userPoint = UserPoint.builder().user(savedUser).build();
-        userPoint.addPoint(signupBonus);
-        userPointRepository.save(userPoint);
-
-        pointHistoryRepository.save(PointHistory.builder()
-                .user(savedUser)
-                .type("EARN")
-                .amount(signupBonus)
-                .balanceAfter(signupBonus)
-                .description("회원가입 축하 포인트")
-                .relatedId(savedUser.getUserId())
-                .build());
-
-        // Save SocialAccount if provider info is present
         if (request.getProvider() != null && request.getProviderId() != null) {
             SocialAccount socialAccount = SocialAccount.builder()
                     .user(savedUser)
@@ -192,7 +184,6 @@ public class AuthService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
-        // 사용자 상태 검증 (SUSPENDED, DELETED 사용자는 로그인 불가 - 메시지는 로그인 실패와 동일하게 노출)
         if (!"ACTIVE".equals(user.getStatus())) {
             throw new BusinessException(ErrorCode.LOGIN_FAILED);
         }
@@ -204,7 +195,6 @@ public class AuthService {
         String ipAddress = ClientUtils.getIp(httpServletRequest);
         String userAgent = httpServletRequest.getHeader("User-Agent");
 
-        // Refresh Token 저장 (만료일은 jwt.refresh-token.expiration 설정값 사용)
         long refreshDays = jwtTokenProvider.getRefreshTokenValidityInMilliseconds() / (1000 * 60 * 60 * 24);
         RefreshToken rt = RefreshToken.builder()
                 .user(user)
@@ -215,11 +205,10 @@ public class AuthService {
                 .build();
         refreshTokenRepository.save(rt);
 
-        // 로그인 기록 저장
         LoginHistory loginHistory = LoginHistory.success(user, request.getLoginId(), ipAddress, userAgent);
         loginHistoryRepository.save(loginHistory);
 
-        user.updateLastLogin(); // 마지막 로그인 시간 업데이트
+        user.updateLastLogin();
 
         return LoginResponse.builder()
                 .accessToken(accessToken)
@@ -249,29 +238,24 @@ public class AuthService {
                         refreshTokenRepository.save(refreshToken);
                     });
         }
-
     }
 
     @Transactional
     public RefreshResponse refresh(RefreshRequest request) {
         String oldRefreshToken = request.getRefreshToken();
 
-        // 1. JWT 자체의 유효성 검증 (서명, 만료일 등)
         if (!jwtTokenProvider.validateToken(oldRefreshToken)) {
             throw new BusinessException(ErrorCode.INVALID_REFRESH_TOKEN);
         }
 
-        // 2. DB에서 refresh token 조회
         String oldRefreshTokenHash = hashTokenSha256(oldRefreshToken);
         RefreshToken rt = refreshTokenRepository.findByTokenHash(oldRefreshTokenHash)
                 .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_REFRESH_TOKEN));
 
-        // 3. DB의 상태 검증 (revoked, expired)
         if (!rt.isValid()) {
             throw new BusinessException(ErrorCode.EXPIRED_REFRESH_TOKEN);
         }
 
-        // Revoke the old refresh token
         rt.revoke();
         refreshTokenRepository.save(rt);
 
@@ -281,12 +265,12 @@ public class AuthService {
             throw new BusinessException(ErrorCode.USER_NOT_ACTIVE);
         }
 
-        user.updateLastLogin(); // 마지막 로그인 시간 업데이트
+        user.updateLastLogin();
 
         Set<GrantedAuthority> authorities = new HashSet<>();
-        authorities.add(new SimpleGrantedAuthority(Role.ROLE_USER)); // 기본 부여
+        authorities.add(new SimpleGrantedAuthority(Role.ROLE_USER));
         if (user.getIsSuperAdmin()) {
-            authorities.add(new SimpleGrantedAuthority(Role.ROLE_SUPER_ADMIN)); // 추가 부여
+            authorities.add(new SimpleGrantedAuthority(Role.ROLE_SUPER_ADMIN));
         }
 
         Authentication authentication = new UsernamePasswordAuthenticationToken(
@@ -295,21 +279,17 @@ public class AuthService {
                 "",
                 new ArrayList<>(authorities));
 
-        // Generate new access and refresh tokens
         String newAccessToken = jwtTokenProvider.createAccessToken(authentication);
         String newRefreshToken = jwtTokenProvider.createRefreshToken(authentication);
         String newRefreshTokenHash = hashTokenSha256(newRefreshToken);
 
-        // Save the new refresh token
         RefreshToken newRt = RefreshToken.builder()
                 .user(user)
                 .tokenHash(newRefreshTokenHash)
-                .ipAddress(rt.getIpAddress()) // Keep original IP/device info
+                .ipAddress(rt.getIpAddress())
                 .deviceInfo(rt.getDeviceInfo())
                 .expiresAt(LocalDateTime.now()
-                        .plusDays(jwtTokenProvider.getRefreshTokenValidityInMilliseconds() / (1000 * 60 * 60 * 24))) // Use
-                                                                                                                     // provider's
-                                                                                                                     // validity
+                        .plusDays(jwtTokenProvider.getRefreshTokenValidityInMilliseconds() / (1000 * 60 * 60 * 24)))
                 .build();
         refreshTokenRepository.save(newRt);
 
@@ -320,10 +300,6 @@ public class AuthService {
                 .build();
     }
 
-    /**
-     * 재가입 가능 여부 및 마스킹된 loginId 조회.
-     * DELETED 계정인 경우에만 canReregister=true, maskedLoginId 반환.
-     */
     public ReregisterCheckResponse checkEmailForReregister(String email) {
         return userRepository.findByEmail(email)
                 .filter(user -> "DELETED".equals(user.getStatus()))
@@ -334,9 +310,6 @@ public class AuthService {
                 .orElse(ReregisterCheckResponse.builder().canReregister(false).build());
     }
 
-    /**
-     * loginId 마스킹: 앞 2자 + **** + 뒤 2자. 4자 이하면 ****.
-     */
     private String maskLoginId(String loginId) {
         if (loginId == null || loginId.isEmpty()) {
             return "****";
@@ -363,7 +336,7 @@ public class AuthService {
             }
             return hexString.toString();
         } catch (NoSuchAlgorithmException e) {
-            throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR); // Or a more specific error
+            throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
         }
     }
 
@@ -395,7 +368,7 @@ public class AuthService {
             }
 
             String hashedToken = hashTokenSha256(rawToken);
-            LocalDateTime expiryDate = LocalDateTime.now().plusHours(1); // 1시간 유효
+            LocalDateTime expiryDate = LocalDateTime.now().plusHours(1);
 
             PasswordResetToken passwordResetToken = PasswordResetToken.builder()
                     .token(hashedToken)
@@ -407,16 +380,12 @@ public class AuthService {
 
         String resetLink = passwordResetFrontendUrl + rawToken;
         String subject = "[noviIs] 비밀번호 재설정 링크";
-        String body = "<h1>비밀번호 재설정</h1><p>아래 링크를 클릭하여 비밀번호를 재설정해주세요.</p><p><a href=\"" + resetLink + "\">" + resetLink
-                + "</a></p>";
+        String body = "<h1>비밀번호 재설정</h1><p>아래 링크를 클릭하여 비밀번호를 재설정해 주세요.</p><p><a href=\""
+                + resetLink + "\">" + resetLink + "</a></p>";
 
         emailService.sendEmail(email, subject, body);
     }
 
-    /**
-     * 이메일로 비밀번호 초기화 링크 발송.
-     * is_email_verified와 관계없이 해당 이메일로 등록된 사용자에게 발송.
-     */
     @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
     public void sendPasswordResetLinkByEmail(String email) {
         User user = userRepository.findByEmail(email)
@@ -444,7 +413,7 @@ public class AuthService {
         String subject = "[noviIs] 비밀번호 재설정";
         String body = "<h1>비밀번호 재설정</h1>"
                 + "<p>해당 이메일로 등록된 ID: <strong>" + user.getLoginId() + "</strong></p>"
-                + "<p>아래 링크를 클릭하여 비밀번호를 재설정해주세요.</p>"
+                + "<p>아래 링크를 클릭하여 비밀번호를 재설정해 주세요.</p>"
                 + "<p><a href=\"" + resetLink + "\">비밀번호 재설정 링크</a></p>";
 
         emailService.sendEmail(user.getEmail(), subject, body);
@@ -469,7 +438,6 @@ public class AuthService {
         passwordResetToken.useToken();
         passwordResetTokenRepository.save(passwordResetToken);
 
-        // Clear verification code after password reset
         verificationCodeService.clearVerificationStatus(user.getEmail());
     }
 
@@ -485,7 +453,6 @@ public class AuthService {
 
         applyPasswordReset(user, newPassword);
 
-        // Clear verification status to prevent reuse
         verificationCodeService.clearVerificationStatus(email);
     }
 

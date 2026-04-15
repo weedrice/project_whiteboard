@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.user.service;
 
 import com.weedrice.whiteboard.domain.agent.service.AgentService;
+import com.weedrice.whiteboard.domain.admin.entity.Admin;
 import com.weedrice.whiteboard.domain.auth.repository.LoginHistoryRepository;
 import com.weedrice.whiteboard.domain.auth.service.VerificationCodeService;
 import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository;
@@ -17,6 +18,7 @@ import com.weedrice.whiteboard.domain.report.repository.ReportRepository;
 import com.weedrice.whiteboard.domain.sanction.repository.SanctionRepository;
 import com.weedrice.whiteboard.domain.user.dto.MyInfoResponse;
 import com.weedrice.whiteboard.domain.user.dto.UpdateProfileResponse;
+import com.weedrice.whiteboard.domain.user.dto.UserAdminResponse;
 import com.weedrice.whiteboard.domain.user.dto.UserProfileResponse;
 import com.weedrice.whiteboard.domain.user.entity.PasswordHistory;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -352,6 +354,43 @@ class UserServiceTest {
         when(userRepository.searchUsers(anyString(), any())).thenReturn(new PageImpl<>(Collections.emptyList()));
         Page<User> result = userService.searchUsers("query", PageRequest.of(0, 10));
         assertThat(result).isNotNull();
+    }
+
+    @Test
+    @DisplayName("관리자 사용자 검색은 역할을 일괄 조회한다")
+    void searchUsersForAdmin_resolvesRolesInBatch() {
+        User superAdmin = User.builder().loginId("super").email("super@test.com").password("pw").displayName("super").build();
+        ReflectionTestUtils.setField(superAdmin, "userId", 1L);
+        ReflectionTestUtils.setField(superAdmin, "isSuperAdmin", true);
+
+        User moderator = User.builder().loginId("mod").email("mod@test.com").password("pw").displayName("mod").build();
+        ReflectionTestUtils.setField(moderator, "userId", 2L);
+
+        Page<User> page = new PageImpl<>(List.of(superAdmin, moderator), PageRequest.of(0, 20), 2);
+        Admin activeAdmin = Admin.builder().user(moderator).board(null).role("MODERATOR").build();
+
+        when(userRepository.searchUsersForAdmin(anyString(), any(), any())).thenReturn(page);
+        when(adminRepository.findByUserUserIdInAndIsActiveOrderByAdminIdAsc(List.of(2L), true))
+                .thenReturn(List.of(activeAdmin));
+
+        Page<UserAdminResponse> response = userService.searchUsersForAdmin(
+                "query",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                PageRequest.of(0, 20));
+
+        assertThat(response.getContent()).extracting(UserAdminResponse::getRole)
+                .containsExactly("SUPER_ADMIN", "MODERATOR");
+        verify(adminRepository).findByUserUserIdInAndIsActiveOrderByAdminIdAsc(List.of(2L), true);
+        verify(adminRepository, never()).findFirstByUserAndIsActiveOrderByAdminIdAsc(any(), any());
     }
 
     @Test

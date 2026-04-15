@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.point.service;
 
+import com.weedrice.whiteboard.domain.point.entity.PointHistory;
 import com.weedrice.whiteboard.domain.point.entity.UserPoint;
 import com.weedrice.whiteboard.domain.point.repository.PointHistoryRepository;
 import com.weedrice.whiteboard.domain.point.repository.UserPointRepository;
@@ -16,6 +17,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -39,6 +41,7 @@ class PointServiceTest {
     @BeforeEach
     void setUp() {
         user = User.builder().build();
+        org.springframework.test.util.ReflectionTestUtils.setField(user, "userId", 1L);
         userPoint = UserPoint.builder().user(user).build();
     }
 
@@ -48,7 +51,7 @@ class PointServiceTest {
         // given
         Long userId = 1L;
         int amount = 100;
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(userRepository.findByIdForUpdate(userId)).thenReturn(Optional.of(user));
         when(userPointRepository.findByUserId(userId)).thenReturn(Optional.of(userPoint));
 
         // when
@@ -68,7 +71,7 @@ class PointServiceTest {
         int initialPoint = 200;
         int amount = 100;
         userPoint.addPoint(initialPoint);
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(userRepository.findByIdForUpdate(userId)).thenReturn(Optional.of(user));
         when(userPointRepository.findByUserId(userId)).thenReturn(Optional.of(userPoint));
 
         // when
@@ -78,6 +81,37 @@ class PointServiceTest {
         assertThat(userPoint.getCurrentPoint()).isEqualTo(initialPoint - amount);
         verify(userPointRepository).save(any(UserPoint.class));
         verify(pointHistoryRepository).save(any());
+    }
+
+    @Test
+    @DisplayName("구매 포인트 차감은 SPEND 이력으로 기록된다")
+    void spendPoint_success() {
+        Long userId = 1L;
+        userPoint.addPoint(300);
+        when(userRepository.findByIdForUpdate(userId)).thenReturn(Optional.of(user));
+        when(userPointRepository.findByUserId(userId)).thenReturn(Optional.of(userPoint));
+
+        pointService.spendPoint(userId, 120, "Test Spend", 10L, "SHOP_ITEM");
+
+        org.mockito.ArgumentCaptor<PointHistory> historyCaptor = org.mockito.ArgumentCaptor.forClass(PointHistory.class);
+        verify(pointHistoryRepository).save(historyCaptor.capture());
+        assertThat(userPoint.getCurrentPoint()).isEqualTo(180);
+        assertThat(historyCaptor.getValue().getType()).isEqualTo("SPEND");
+        assertThat(historyCaptor.getValue().getAmount()).isEqualTo(-120);
+    }
+
+    @Test
+    @DisplayName("구매 포인트 차감은 잔액 부족 시 예외를 던진다")
+    void spendPoint_insufficientPoints() {
+        Long userId = 1L;
+        userPoint.addPoint(50);
+        when(userRepository.findByIdForUpdate(userId)).thenReturn(Optional.of(user));
+        when(userPointRepository.findByUserId(userId)).thenReturn(Optional.of(userPoint));
+
+        assertThatThrownBy(() -> pointService.spendPoint(userId, 120, "Test Spend", 10L, "SHOP_ITEM"))
+                .isInstanceOf(com.weedrice.whiteboard.global.exception.BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(com.weedrice.whiteboard.global.exception.ErrorCode.INSUFFICIENT_POINTS);
     }
 
     @Test

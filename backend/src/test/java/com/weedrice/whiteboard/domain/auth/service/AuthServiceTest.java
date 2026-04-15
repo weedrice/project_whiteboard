@@ -10,13 +10,13 @@ import com.weedrice.whiteboard.domain.auth.entity.RefreshToken;
 import com.weedrice.whiteboard.domain.auth.repository.LoginHistoryRepository;
 import com.weedrice.whiteboard.domain.auth.repository.PasswordResetTokenRepository;
 import com.weedrice.whiteboard.domain.auth.repository.RefreshTokenRepository;
+import com.weedrice.whiteboard.domain.point.service.PointService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.point.repository.UserPointRepository;
 import com.weedrice.whiteboard.domain.user.repository.PasswordHistoryRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserSettingsRepository;
 import com.weedrice.whiteboard.domain.user.repository.SocialAccountRepository;
-import com.weedrice.whiteboard.domain.point.repository.PointHistoryRepository;
 import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
 import com.weedrice.whiteboard.global.email.EmailService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -63,9 +63,9 @@ class AuthServiceTest {
         @Mock
         private UserPointRepository userPointRepository;
         @Mock
-        private PointHistoryRepository pointHistoryRepository;
-        @Mock
         private UserSettingsRepository userSettingsRepository;
+        @Mock
+        private PointService pointService;
         @Mock
         private PasswordEncoder passwordEncoder;
         @Mock
@@ -104,6 +104,7 @@ class AuthServiceTest {
                                 .email("test@example.com")
                                 .displayName("Test User")
                                 .build();
+                ReflectionTestUtils.setField(user, "userId", 1L);
                 ReflectionTestUtils.setField(authService, "passwordResetFrontendUrl", "http://localhost:5173/reset-password?token=");
         }
 
@@ -126,10 +127,6 @@ class AuthServiceTest {
                 when(userRepository.save(any(User.class))).thenReturn(user);
                 when(userSettingsRepository.save(any(com.weedrice.whiteboard.domain.user.entity.UserSettings.class)))
                         .thenAnswer(invocation -> invocation.getArgument(0));
-                when(userPointRepository.save(any(com.weedrice.whiteboard.domain.point.entity.UserPoint.class)))
-                        .thenAnswer(invocation -> invocation.getArgument(0));
-                when(pointHistoryRepository.save(any(com.weedrice.whiteboard.domain.point.entity.PointHistory.class)))
-                        .thenAnswer(invocation -> invocation.getArgument(0));
 
                 // when
                 SignupResponse response = authService.signup(request);
@@ -138,6 +135,7 @@ class AuthServiceTest {
                 assertThat(response.getLoginId()).isEqualTo(request.getLoginId());
                 assertThat(response.getEmail()).isEqualTo(request.getEmail());
                 assertThat(response.getDisplayName()).isEqualTo(request.getDisplayName());
+                verify(pointService).addPoint(1L, 500, "회원가입 축하 포인트", 1L, "USER");
         }
 
         @Test

@@ -23,6 +23,10 @@ import org.springframework.transaction.annotation.Transactional;
 @SuppressWarnings({ "null", "unchecked" })
 public class PointService {
 
+        private static final String HISTORY_TYPE_EARN = "EARN";
+        private static final String HISTORY_TYPE_PENALTY = "PENALTY";
+        private static final String HISTORY_TYPE_SPEND = "SPEND";
+
         private final UserPointRepository userPointRepository;
         private final PointHistoryRepository pointHistoryRepository;
         private final UserRepository userRepository;
@@ -38,8 +42,7 @@ public class PointService {
                                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
                 Page<PointHistory> historyPage;
                 if (type != null && !type.isEmpty()) {
-                        historyPage = pointHistoryRepository.findByUserAndTypeOrderByCreatedAtDesc(user, type,
-                                        pageable);
+                        historyPage = pointHistoryRepository.findByUserAndTypeOrderByCreatedAtDesc(user, type, pageable);
                 } else {
                         historyPage = pointHistoryRepository.findByUserOrderByCreatedAtDesc(user, pageable);
                 }
@@ -48,88 +51,64 @@ public class PointService {
 
         @Transactional
         public void addPoint(@NonNull Long userId, int amount, String description, Long relatedId, String relatedType) {
-                User user = userRepository.findById(userId)
-                                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-                UserPoint userPoint = userPointRepository.findByUserId(userId)
-                                .orElseGet(() -> userPointRepository.save(UserPoint.builder().user(user).build())); // UserPoint가
-                                                                                                                    // 없으면
-                                                                                                                    // 생성
-
-                userPoint.addPoint(amount);
-                userPointRepository.save(userPoint);
-
-                PointHistory history = PointHistory.builder()
-                                .user(user)
-                                .type("EARN")
-                                .amount(amount)
-                                .balanceAfter(userPoint.getCurrentPoint())
-                                .description(description)
-                                .relatedId(relatedId)
-                                .relatedType(relatedType)
-                                .build();
-                pointHistoryRepository.save(history);
+                changePoint(userId, amount, HISTORY_TYPE_EARN, description, relatedId, relatedType, true, false);
         }
 
         @Transactional
         public void forceSubtractPoint(@NonNull Long userId, int amount, String description, Long relatedId,
                         String relatedType) {
-                User user = userRepository.findById(userId)
-                                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-                UserPoint userPoint = userPointRepository.findByUserId(userId)
-                                .orElseGet(() -> userPointRepository.save(UserPoint.builder().user(user).build()));
-
-                userPoint.subtractPoint(amount); // Assuming subtractPoint in entity handles calculation. Does it
-                                                 // prevent negative? Check entity.
-                userPointRepository.save(userPoint);
-
-                PointHistory history = PointHistory.builder()
-                                .user(user)
-                                .type("PENALTY") // Or DEDUCT
-                                .amount(-amount)
-                                .balanceAfter(userPoint.getCurrentPoint())
-                                .description(description)
-                                .relatedId(relatedId)
-                                .relatedType(relatedType)
-                                .build();
-                pointHistoryRepository.save(history);
+                changePoint(userId, -amount, HISTORY_TYPE_PENALTY, description, relatedId, relatedType, true, false);
         }
 
-        /**
-         * 구매를 위한 포인트 차감 (type = SPEND)
-         */
         @Transactional
         public void spendPoint(@NonNull Long userId, int amount, String description, Long relatedId,
                         String relatedType) {
-                User user = userRepository.findById(userId)
-                                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-                UserPoint userPoint = userPointRepository.findByUserId(userId)
-                                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND, "포인트 정보를 찾을 수 없습니다."));
-
-                if (userPoint.getCurrentPoint() < amount) {
-                        throw new BusinessException(ErrorCode.INSUFFICIENT_POINTS);
-                }
-
-                userPoint.subtractPoint(amount);
-                userPointRepository.save(userPoint);
-
-                PointHistory history = PointHistory.builder()
-                                .user(user)
-                                .type("SPEND")
-                                .amount(-amount)
-                                .balanceAfter(userPoint.getCurrentPoint())
-                                .description(description)
-                                .relatedId(relatedId)
-                                .relatedType(relatedType)
-                                .build();
-                pointHistoryRepository.save(history);
+                changePoint(userId, -amount, HISTORY_TYPE_SPEND, description, relatedId, relatedType, false, true);
         }
 
-        /**
-         * 현재 포인트 잔액 확인
-         */
         public int getCurrentBalance(@NonNull Long userId) {
                 return userPointRepository.findByUserId(userId)
                                 .map(UserPoint::getCurrentPoint)
                                 .orElse(0);
+        }
+
+        private void changePoint(@NonNull Long userId, int delta, String historyType, String description, Long relatedId,
+                        String relatedType, boolean createIfMissing, boolean validateSufficientBalance) {
+                User user = userRepository.findByIdForUpdate(userId)
+                                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+                UserPoint userPoint = getOrCreateUserPoint(user, createIfMissing);
+
+                if (validateSufficientBalance && userPoint.getCurrentPoint() < Math.abs(delta)) {
+                        throw new BusinessException(ErrorCode.INSUFFICIENT_POINTS);
+                }
+
+                if (delta >= 0) {
+                        userPoint.addPoint(delta);
+                } else {
+                        userPoint.subtractPoint(Math.abs(delta));
+                }
+
+                userPointRepository.save(userPoint);
+                pointHistoryRepository.save(PointHistory.builder()
+                                .user(user)
+                                .type(historyType)
+                                .amount(delta)
+                                .balanceAfter(userPoint.getCurrentPoint())
+                                .description(description)
+                                .relatedId(relatedId)
+                                .relatedType(relatedType)
+                                .build());
+        }
+
+        private UserPoint getOrCreateUserPoint(User user, boolean createIfMissing) {
+                return userPointRepository.findByUserId(user.getUserId())
+                                .orElseGet(() -> {
+                                        if (!createIfMissing) {
+                                                throw new BusinessException(ErrorCode.INSUFFICIENT_POINTS);
+                                        }
+                                        return UserPoint.builder()
+                                                        .user(user)
+                                                        .build();
+                                });
         }
 }

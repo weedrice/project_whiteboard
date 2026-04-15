@@ -112,7 +112,7 @@ class ShopServiceTest {
 
         // then
         assertThat(purchaseId).isNotNull();
-        verify(pointService).forceSubtractPoint(anyLong(), anyInt(), anyString(), anyLong(), anyString());
+        verify(pointService).spendPoint(anyLong(), anyInt(), anyString(), anyLong(), anyString());
         verify(purchaseHistoryRepository).save(any(PurchaseHistory.class));
     }
 
@@ -214,7 +214,7 @@ class ShopServiceTest {
 
             // then
             assertThat(purchaseId).isEqualTo(1L);
-            verify(pointService).forceSubtractPoint(
+            verify(pointService).spendPoint(
                     eq(userId),
                     eq(100),
                     eq("프리미엄 이모티콘 구매"),

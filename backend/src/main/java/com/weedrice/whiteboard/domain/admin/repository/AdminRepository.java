@@ -5,6 +5,7 @@ import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -17,6 +18,7 @@ public interface AdminRepository extends JpaRepository<Admin, Long> {
     List<Admin> findByBoardAndRoleAndIsActive(Board board, String role, Boolean isActive);
     Optional<Admin> findByUserAndBoardAndRole(User user, Board board, String role);
     Optional<Admin> findFirstByUserAndIsActiveOrderByAdminIdAsc(User user, Boolean isActive);
+    List<Admin> findByUserUserIdInAndIsActiveOrderByAdminIdAsc(Collection<Long> userIds, Boolean isActive);
     Optional<Admin> findByUserAndIsActive(User user, Boolean isActive);
     boolean existsByUser(User user);
     void deleteByBoard(Board board);

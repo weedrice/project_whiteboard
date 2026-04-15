@@ -53,8 +53,7 @@ public class ShopService {
             throw new BusinessException(ErrorCode.ITEM_NOT_AVAILABLE);
         }
 
-        pointService.forceSubtractPoint(userId, item.getPrice(), item.getItemName() + " 구매", item.getItemId(),
-                "SHOP_ITEM");
+        pointService.spendPoint(userId, item.getPrice(), item.getItemName() + " 구매", item.getItemId(), "SHOP_ITEM");
 
         PurchaseHistory purchaseHistory = PurchaseHistory.builder()
                 .user(user)
