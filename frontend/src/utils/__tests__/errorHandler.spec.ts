@@ -7,6 +7,7 @@ import {
     extractErrorResponse,
     extractValidationErrors,
     getFieldError,
+    isRestrictedResourceError,
     normalizeApiErrorMessage,
 } from '@/utils/errorHandler'
 
@@ -126,5 +127,43 @@ describe('errorHandler', () => {
         expect(extractErrorMessage(new Error('boom'))).toBe('boom')
         expect(extractErrorMessage('plain-string')).toBe('plain-string')
         expect(extractErrorMessage({})).toBe(i18n.global.t('common.messages.serverError'))
+    })
+
+    it('detects restricted resource errors from status and known messages', () => {
+        const forbiddenError = {
+            isAxiosError: true,
+            response: {
+                status: 403,
+                data: {
+                    message: 'Forbidden'
+                },
+            },
+        } as AxiosError
+
+        const notFoundBoardError = {
+            isAxiosError: true,
+            response: {
+                status: 500,
+                data: {
+                    message: 'Board Not Found'
+                },
+            },
+            message: 'Request failed with status code 500',
+        } as AxiosError
+
+        const genericServerError = {
+            isAxiosError: true,
+            response: {
+                status: 500,
+                data: {
+                    message: 'Internal Server Error'
+                },
+            },
+        } as AxiosError
+
+        expect(isRestrictedResourceError(forbiddenError)).toBe(true)
+        expect(isRestrictedResourceError(notFoundBoardError)).toBe(true)
+        expect(isRestrictedResourceError(genericServerError)).toBe(false)
+        expect(isRestrictedResourceError(new Error('boom'))).toBe(false)
     })
 })

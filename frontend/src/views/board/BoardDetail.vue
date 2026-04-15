@@ -15,6 +15,7 @@ import { getOptimizedBoardIconUrl, handleImageError } from '@/utils/image'
 import { useHead } from '@unhead/vue'
 import { useRecentBoards } from '@/composables/useRecentBoards'
 import { isInputFocused } from '@/utils/keyboard'
+import { isRestrictedResourceError } from '@/utils/errorHandler'
 import type { PostSummary } from '@/types'
 
 const { t } = useI18n()
@@ -28,7 +29,10 @@ const { addRecentBoard } = useRecentBoards()
 // Queries
 const boardUrl = computed(() => route.params.boardUrl as string)
 const currentPostId = computed(() => route.params.postId as string | undefined)
-const { data: board, isLoading: isBoardLoading, error: boardError } = useBoardDetail(boardUrl)
+const { data: board, isLoading: isBoardLoading, error: boardError } = useBoardDetail(boardUrl, {
+    meta: { errorMessage: false },
+    requestConfig: { skipGlobalErrorHandler: true }
+})
 const boardTitle = computed(() => {
     const boardName = board.value?.boardName?.trim()
     if (boardName) return boardName
@@ -191,8 +195,9 @@ watch(page, (newPage) => {
 
 // Queries
 // boardUrl, board, isBoardLoading, boardError are already defined above
-const { data: postsData, isLoading: isPostsLoading } = useBoardPosts(boardUrl, queryParams, isSearching)
-const { data: noticesData } = useBoardNotices(boardUrl)
+const boardContentEnabled = computed(() => !!board.value && !boardError.value)
+const { data: postsData, isLoading: isPostsLoading } = useBoardPosts(boardUrl, queryParams, isSearching, boardContentEnabled)
+const { data: noticesData } = useBoardNotices(boardUrl, boardContentEnabled)
 
 // Mutations
 const { mutate: subscribeMutate } = useSubscribeBoard()
@@ -243,7 +248,13 @@ const posts = computed(() => {
 const totalCount = computed(() => postsData.value?.totalElements || 0)
 const totalPages = computed(() => postsData.value?.totalPages || 0)
 const isLoading = computed(() => isBoardLoading.value || isPostsLoading.value)
-const error = computed(() => boardError.value ? t('board.loadFailed') : '')
+const error = computed(() => {
+    if (!boardError.value) return ''
+    if (isRestrictedResourceError(boardError.value)) {
+        return '접근이 제한된 게시판입니다.'
+    }
+    return t('board.loadFailed')
+})
 
 const canWrite = computed(() => {
     if (!authStore.isAuthenticated || !board.value) return false

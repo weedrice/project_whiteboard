@@ -13,6 +13,26 @@ export function normalizeApiErrorMessage(message: string | undefined): string {
     return message
 }
 
+export function isRestrictedResourceError(error: unknown): boolean {
+    if (!axios.isAxiosError(error)) {
+        return false
+    }
+
+    const status = error.response?.status
+    if (status === 403 || status === 404) {
+        return true
+    }
+
+    const errorData = error.response?.data as ApiErrorResponse | undefined
+    const apiError = errorData?.error || errorData
+    const rawMessage = String(apiError?.message || errorData?.message || error.message || '').toLowerCase()
+
+    return rawMessage.includes('board not found')
+        || rawMessage.includes('post not found')
+        || rawMessage.includes('access denied')
+        || rawMessage.includes('forbidden')
+}
+
 interface ApiErrorResponse {
     success?: boolean
     error?: ErrorResponse

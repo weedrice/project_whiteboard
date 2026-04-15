@@ -6,6 +6,7 @@ import { searchApi } from '@/api/search'
 import { computed, type Ref } from 'vue'
 import type { PageResponse, PostSummary, Board } from '@/types'
 import { QUERY_STALE_TIME } from '@/utils/constants'
+import type { AxiosRequestConfig } from 'axios'
 
 interface BoardPostParams {
     page?: number
@@ -48,20 +49,21 @@ export function useBoard() {
     }
 
     // Fetch single board details
-    const useBoardDetail = (boardUrl: Ref<string>, options = {}) => {
+    const useBoardDetail = (boardUrl: Ref<string>, options: { requestConfig?: AxiosRequestConfig } & Record<string, unknown> = {}) => {
+        const { requestConfig, ...queryOptions } = options
         return useQuery({
             queryKey: ['board', boardUrl],
             queryFn: async () => {
-                const { data } = await boardApi.getBoard(boardUrl.value)
+                const { data } = await boardApi.getBoard(boardUrl.value, requestConfig)
                 return data.data
             },
             enabled: computed(() => !!boardUrl.value),
-            ...options
+            ...queryOptions
         })
     }
 
     // Fetch posts for a board (supports search)
-    const useBoardPosts = (boardUrl: Ref<string>, params: Ref<BoardPostParams>, isSearching?: Ref<boolean>) => {
+    const useBoardPosts = (boardUrl: Ref<string>, params: Ref<BoardPostParams>, isSearching?: Ref<boolean>, enabled?: Ref<boolean>) => {
         return useQuery({
             queryKey: ['board', boardUrl, 'posts', params, isSearching],
             queryFn: async () => {
@@ -73,20 +75,20 @@ export function useBoard() {
                     return data.data
                 }
             },
-            enabled: computed(() => !!boardUrl.value),
+            enabled: computed(() => !!boardUrl.value && (enabled?.value ?? true)),
             placeholderData: (previousData) => previousData,
         })
     }
 
     // Fetch notices for a board
-    const useBoardNotices = (boardUrl: Ref<string>) => {
+    const useBoardNotices = (boardUrl: Ref<string>, enabled?: Ref<boolean>) => {
         return useQuery({
             queryKey: ['board', boardUrl, 'notices'],
             queryFn: async () => {
                 const { data } = await boardApi.getNotices(boardUrl.value)
                 return data.data
             },
-            enabled: computed(() => !!boardUrl.value),
+            enabled: computed(() => !!boardUrl.value && (enabled?.value ?? true)),
         })
     }
 

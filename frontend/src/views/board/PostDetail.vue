@@ -21,6 +21,7 @@ import { formatDate } from '@/utils/date'
 import { sanitizeQuillHtml } from '@/utils/sanitize'
 import { useHead } from '@unhead/vue'
 import { isInputFocused } from '@/utils/keyboard'
+import { isRestrictedResourceError } from '@/utils/errorHandler'
 
 const route = useRoute()
 const router = useRouter()
@@ -32,7 +33,10 @@ const { confirm } = useConfirm()
 const { usePostDetail, useDeletePost, useLikePost, useUnlikePost, useScrapPost, useUnscrapPost, useReportPost } = usePost()
 
 const postId = computed(() => route.params.postId as string)
-const { data: post, isLoading, error: postError } = usePostDetail(postId)
+const { data: post, isLoading, error: postError } = usePostDetail(postId, {
+  meta: { errorMessage: false },
+  requestConfig: { skipGlobalErrorHandler: true }
+})
 const postPageTitle = computed(() => {
   const postTitle = post.value?.title?.trim()
   const boardName = post.value?.board?.boardName?.trim()
@@ -124,7 +128,13 @@ const { mutate: scrapMutate } = useScrapPost()
 const { mutate: unscrapMutate } = useUnscrapPost()
 const { mutate: reportMutate } = useReportPost()
 
-const error = computed(() => postError.value ? t('board.postDetail.loadFailed') : '')
+const error = computed(() => {
+  if (!postError.value) return ''
+  if (isRestrictedResourceError(postError.value)) {
+    return '접근이 제한된 게시글입니다.'
+  }
+  return t('board.postDetail.loadFailed')
+})
 
 // 조회수·최근 읽은 글은 usePostDetail의 getPost(incrementView: true) 한 번으로 처리됨. 별도 incrementView 호출 제거.
 

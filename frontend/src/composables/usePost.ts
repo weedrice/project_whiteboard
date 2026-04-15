@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
 import { postApi, type PostCreateData, type PostUpdateData, type ReportData } from '@/api/post'
 import { computed, type Ref } from 'vue'
 import type { Post } from '@/types'
+import type { AxiosRequestConfig } from 'axios'
 
 export function usePost() {
     const queryClient = useQueryClient()
@@ -119,15 +120,22 @@ export function usePost() {
     }
 
     // Fetch single post details (incrementView: true → 조회수 증가 + 로그인 시 최근 읽은 글에 반영)
-    const usePostDetail = (postId: Ref<string | number>, options = {}) => {
+    const usePostDetail = (postId: Ref<string | number>, options: { requestConfig?: AxiosRequestConfig } & Record<string, unknown> = {}) => {
+        const { requestConfig, ...queryOptions } = options
         return useQuery({
             queryKey: ['post', postId],
             queryFn: async () => {
-                const { data } = await postApi.getPost(postId.value, { params: { incrementView: true } })
+                const { data } = await postApi.getPost(postId.value, {
+                    ...requestConfig,
+                    params: {
+                        incrementView: true,
+                        ...(requestConfig?.params || {})
+                    }
+                })
                 return data.data
             },
             enabled: computed(() => !!postId.value),
-            ...options
+            ...queryOptions
         })
     }
 
