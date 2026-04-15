@@ -204,7 +204,7 @@ describe('emoticonApi', () => {
         emoticonApi.updateEmoticon(9, updateData as never)
         emoticonApi.toggleVisibility(9)
         emoticonApi.deleteEmoticon(9)
-        emoticonApi.addImage(9, 'https://example.com/image.png')
+        emoticonApi.addImage(9, 77)
         emoticonApi.deleteImage(55)
         emoticonApi.purchaseEmoticon(9)
 
@@ -212,7 +212,7 @@ describe('emoticonApi', () => {
         expect(apiMock.put).toHaveBeenNthCalledWith(1, '/emoticons/9', updateData)
         expect(apiMock.patch).toHaveBeenNthCalledWith(1, '/emoticons/9/visibility')
         expect(apiMock.delete).toHaveBeenNthCalledWith(1, '/emoticons/9')
-        expect(apiMock.post).toHaveBeenNthCalledWith(2, '/emoticons/9/images', { imageUrl: 'https://example.com/image.png' })
+        expect(apiMock.post).toHaveBeenNthCalledWith(2, '/emoticons/9/images', { fileId: 77 })
         expect(apiMock.delete).toHaveBeenNthCalledWith(2, '/emoticons/images/55')
         expect(apiMock.post).toHaveBeenNthCalledWith(3, '/emoticons/9/purchase')
     })

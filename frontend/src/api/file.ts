@@ -3,7 +3,7 @@ import type { ApiResponse } from '@/types'
 import type { AxiosRequestConfig } from 'axios'
 
 export interface FileUploadResponse {
-    fileId?: number
+    fileId: number
     url: string
     filename: string
     originalFilename: string

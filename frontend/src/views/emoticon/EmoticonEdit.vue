@@ -366,10 +366,10 @@ const handleSubmit = async () => {
 
   try {
     // 1. 썸네일 업로드 (변경된 경우에만)
-    let thumbnailUrl = originalThumbnailUrl.value
+    let thumbnailFileId: number | undefined
     if (thumbnailFile.value) {
       const thumbnailResponse = await fileApi.uploadFile(thumbnailFile.value)
-      thumbnailUrl = thumbnailResponse.data.data.url
+      thumbnailFileId = thumbnailResponse.data.data.fileId
     }
 
     // 2. 기존 이미지 삭제 처리
@@ -405,7 +405,7 @@ const handleSubmit = async () => {
           : new File([fileToUpload], item.file.name, { type: uploadMimeType })
 
         const response = await fileApi.uploadFile(uploadFile)
-        await emoticonApi.addImage(emoticonId.value, response.data.data.url)
+        await emoticonApi.addImage(emoticonId.value, response.data.data.fileId)
 
         // 진행 상태 업데이트
         uploadProgress.value.current = i + 1
@@ -420,7 +420,7 @@ const handleSubmit = async () => {
     // 4. 이모티콘 정보 수정 (이름, 썸네일, 태그)
     await emoticonApi.updateEmoticon(emoticonId.value, {
       name: emoticonName.value.trim(),
-      thumbnailUrl: thumbnailUrl || undefined,
+      thumbnailFileId,
       tags: tags.value
     })
 

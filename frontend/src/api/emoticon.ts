@@ -87,8 +87,8 @@ export const emoticonApi = {
     /**
      * 이미지 추가
      */
-    addImage(emoticonId: number, imageUrl: string) {
-        return api.post<{ data: EmoticonMaster }>(`/emoticons/${emoticonId}/images`, { imageUrl })
+    addImage(emoticonId: number, fileId: number) {
+        return api.post<{ data: EmoticonMaster }>(`/emoticons/${emoticonId}/images`, { fileId })
     },
 
     /**

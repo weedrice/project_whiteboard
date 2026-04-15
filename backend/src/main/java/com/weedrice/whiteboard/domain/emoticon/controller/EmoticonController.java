@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.emoticon.controller;
 
 import com.weedrice.whiteboard.domain.emoticon.dto.EmoticonCreateRequest;
+import com.weedrice.whiteboard.domain.emoticon.dto.EmoticonImageAddRequest;
 import com.weedrice.whiteboard.domain.emoticon.dto.EmoticonMasterDto;
 import com.weedrice.whiteboard.domain.emoticon.dto.EmoticonUpdateRequest;
 import com.weedrice.whiteboard.domain.emoticon.service.EmoticonService;
@@ -17,7 +18,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
-
 @RestController
 @RequestMapping("/api/v1/emoticons")
 @RequiredArgsConstructor
@@ -152,9 +152,8 @@ public class EmoticonController {
     public ApiResponse<EmoticonMasterDto> addImage(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @PathVariable Long emoticonId,
-            @RequestBody Map<String, String> request) {
-        String imageUrl = request.get("imageUrl");
-        return ApiResponse.success(emoticonService.addImage(userDetails.getUserId(), emoticonId, imageUrl));
+            @Valid @RequestBody EmoticonImageAddRequest request) {
+        return ApiResponse.success(emoticonService.addImage(userDetails.getUserId(), emoticonId, request.getFileId()));
     }
 
     /**

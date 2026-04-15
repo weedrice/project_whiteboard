@@ -6,10 +6,12 @@ import com.weedrice.whiteboard.domain.tag.entity.Tag;
 import com.weedrice.whiteboard.domain.tag.repository.PostTagRepository;
 import com.weedrice.whiteboard.domain.tag.repository.TagRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -24,52 +26,61 @@ public class TagService {
 
     @Transactional
     public void processTagsForPost(Post post, List<String> newTagNames) {
-        List<String> requestedTagNames = newTagNames != null ? newTagNames : Collections.emptyList();
+        Set<String> requestedTagNames = normalizeTagNames(newTagNames);
 
-        // 기존 태그 가져오기
         List<PostTag> existingPostTags = postTagRepository.findByPost(post);
         Set<String> existingTagNames = existingPostTags.stream()
                 .map(postTag -> postTag.getTag().getTagName())
                 .collect(Collectors.toSet());
 
-        // 삭제할 태그 처리
         for (PostTag postTag : existingPostTags) {
             if (!requestedTagNames.contains(postTag.getTag().getTagName())) {
                 postTagRepository.delete(postTag);
-                postTag.getTag().decrementPostCount(); // 태그 사용 횟수 감소
+                postTag.getTag().decrementPostCount();
             }
         }
 
-        // 추가할 태그 처리
         for (String newTagName : requestedTagNames) {
             if (!existingTagNames.contains(newTagName)) {
-                Tag tag = tagRepository.findByTagName(newTagName)
-                        .orElseGet(() -> tagRepository.save(new Tag(newTagName))); // 없으면 새로 생성
+                Tag tag = findOrCreateTag(newTagName);
 
                 PostTag postTag = PostTag.builder()
                         .post(post)
                         .tag(tag)
                         .build();
                 postTagRepository.save(postTag);
-                tag.incrementPostCount(); // 태그 사용 횟수 증가
+                tag.incrementPostCount();
             }
         }
     }
 
-    /**
-     * 인기 태그를 조회합니다.
-     * 현재는 전체 기간 기준으로 post_count가 높은 순으로 정렬합니다.
-     * 향후 일정 기간 내(예: 최근 30일) post_count를 기준으로 개선 가능합니다.
-     * 
-     * @return 인기 태그 목록 (최대 10개)
-     */
     public List<Tag> getPopularTags() {
-        // post_count가 높은 순으로 정렬하여 상위 10개 태그 반환
-        // 향후 개선: 일정 기간 내(예: 최근 30일) post_count를 기준으로 필터링
-        return tagRepository.findAll().stream()
-                .filter(tag -> tag.getPostCount() > 0) // 사용된 태그만
-                .sorted((t1, t2) -> t2.getPostCount().compareTo(t1.getPostCount()))
-                .limit(10) // 상위 10개 태그
-                .collect(Collectors.toList());
+        return tagRepository.findTop10ByPostCountGreaterThanOrderByPostCountDesc(0);
+    }
+
+    private Set<String> normalizeTagNames(List<String> newTagNames) {
+        if (newTagNames == null || newTagNames.isEmpty()) {
+            return Collections.emptySet();
+        }
+
+        return newTagNames.stream()
+                .filter(tagName -> tagName != null && !tagName.isBlank())
+                .map(String::trim)
+                .filter(tagName -> !tagName.isBlank())
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+    }
+
+    private Tag findOrCreateTag(String tagName) {
+        return tagRepository.findByTagName(tagName)
+                .orElseGet(() -> saveHandlingDuplicate(tagName));
+    }
+
+    private Tag saveHandlingDuplicate(String tagName) {
+        try {
+            return tagRepository.save(new Tag(tagName));
+        } catch (DataIntegrityViolationException ex) {
+            return tagRepository.findByTagName(tagName)
+                    .orElseThrow(() -> ex);
+        }
     }
 }

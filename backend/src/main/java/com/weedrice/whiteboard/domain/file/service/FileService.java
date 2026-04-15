@@ -4,6 +4,9 @@ import com.weedrice.whiteboard.domain.file.dto.FileSimpleResponse;
 import com.weedrice.whiteboard.domain.file.dto.FileUploadResponse;
 import com.weedrice.whiteboard.domain.file.entity.File;
 import com.weedrice.whiteboard.domain.file.repository.FileRepository;
+import com.weedrice.whiteboard.domain.post.entity.Post;
+import com.weedrice.whiteboard.domain.post.repository.PostRepository;
+import com.weedrice.whiteboard.domain.post.service.PostAccessPolicy;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.common.util.FileStorageService;
@@ -27,8 +30,12 @@ import java.util.Map;
 @Transactional(readOnly = true)
 public class FileService {
 
+    public static final String RELATED_TYPE_POST_CONTENT = "POST_CONTENT";
+
     private final FileRepository fileRepository;
     private final UserRepository userRepository;
+    private final PostRepository postRepository;
+    private final PostAccessPolicy postAccessPolicy;
     private final FileStorageService fileStorageService;
     private final org.springframework.transaction.support.TransactionTemplate transactionTemplate;
 
@@ -128,9 +135,11 @@ public class FileService {
         }
     }
 
-    public File getFile(Long fileId) {
-        return fileRepository.findById(fileId)
+    public File getFileForDownload(Long fileId, Long viewerUserId) {
+        File file = fileRepository.findById(fileId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+        validateReadable(file, viewerUserId);
+        return file;
     }
 
     public List<File> getFilesByRelatedEntity(Long relatedId, String relatedType) {
@@ -193,6 +202,35 @@ public class FileService {
                     return true;
                 })
                 .orElse(false);
+    }
+
+    @Transactional
+    public boolean deleteFileWithStorageIfAssociated(Long fileId, Long relatedId, String relatedType) {
+        return fileRepository.findByFileIdAndRelatedIdAndRelatedType(fileId, relatedId, relatedType)
+                .map(file -> {
+                    fileStorageService.deleteFile(file.getFilePath());
+                    fileRepository.delete(file);
+                    return true;
+                })
+                .orElse(false);
+    }
+
+    private void validateReadable(File file, Long viewerUserId) {
+        if (!RELATED_TYPE_POST_CONTENT.equals(file.getRelatedType()) || file.getRelatedId() == null) {
+            return;
+        }
+
+        Post post = postRepository.findById(file.getRelatedId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
+        postAccessPolicy.validateReadable(post, resolveViewer(viewerUserId));
+    }
+
+    private User resolveViewer(Long viewerUserId) {
+        if (viewerUserId == null) {
+            return null;
+        }
+        return userRepository.findById(viewerUserId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
     }
 
     private String detectImageMimeType(MultipartFile multipartFile) {

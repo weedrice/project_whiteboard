@@ -145,7 +145,7 @@ class FileControllerTest {
         ReflectionTestUtils.setField(file, "mimeType", "text/plain");
         ReflectionTestUtils.setField(file, "filePath", "path/to/file.txt");
         
-        when(fileService.getFile(eq(fileId))).thenReturn(file);
+        when(fileService.getFileForDownload(eq(fileId), isNull())).thenReturn(file);
         when(fileStorageService.loadFile(anyString())).thenReturn(new ByteArrayInputStream("test content".getBytes()));
 
         mockMvc.perform(get("/api/v1/files/{fileId}", fileId))
@@ -165,7 +165,7 @@ class FileControllerTest {
         ReflectionTestUtils.setField(file, "mimeType", "image/svg+xml");
         ReflectionTestUtils.setField(file, "filePath", "path/to/vector.svg");
 
-        when(fileService.getFile(eq(fileId))).thenReturn(file);
+        when(fileService.getFileForDownload(eq(fileId), isNull())).thenReturn(file);
         when(fileStorageService.loadFile(anyString())).thenReturn(new ByteArrayInputStream("<svg/>".getBytes()));
 
         mockMvc.perform(get("/api/v1/files/{fileId}", fileId))
@@ -180,7 +180,7 @@ class FileControllerTest {
     @DisplayName("파일 다운로드 실패 - 파일 없음")
     void downloadFile_notFound() throws Exception {
         Long fileId = 99L;
-        when(fileService.getFile(fileId)).thenThrow(new com.weedrice.whiteboard.global.exception.BusinessException(com.weedrice.whiteboard.global.exception.ErrorCode.NOT_FOUND));
+        when(fileService.getFileForDownload(fileId, null)).thenThrow(new com.weedrice.whiteboard.global.exception.BusinessException(com.weedrice.whiteboard.global.exception.ErrorCode.NOT_FOUND));
 
         mockMvc.perform(get("/api/v1/files/{fileId}", fileId))
                 .andExpect(status().isNotFound());

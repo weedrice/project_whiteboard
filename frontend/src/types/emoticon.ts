@@ -21,14 +21,14 @@ export interface EmoticonMaster {
 
 export interface EmoticonCreateRequest {
     name: string
-    thumbnailUrl?: string
+    thumbnailFileId?: number
     tags?: string[]
-    imageUrls?: string[]
+    imageFileIds?: number[]
 }
 
 export interface EmoticonUpdateRequest {
     name?: string
-    thumbnailUrl?: string
+    thumbnailFileId?: number
     tags?: string[]
 }
 

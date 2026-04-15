@@ -378,7 +378,7 @@ class EmoticonServiceTest {
         void createEmoticon_successWithoutImages() {
             EmoticonCreateRequest request = EmoticonCreateRequest.builder()
                     .name("새 이모티콘")
-                    .thumbnailUrl("https://example.com/thumb.png")
+                    .thumbnailFileId(10L)
                     .tags(List.of("태그1"))
                     .build();
 
@@ -402,9 +402,9 @@ class EmoticonServiceTest {
         void createEmoticon_successWithImages() {
             EmoticonCreateRequest request = EmoticonCreateRequest.builder()
                     .name("새 이모티콘")
-                    .thumbnailUrl("https://example.com/thumb.png")
+                    .thumbnailFileId(10L)
                     .tags(List.of("태그1"))
-                    .imageUrls(List.of("https://example.com/1.png", "https://example.com/2.png"))
+                    .imageFileIds(List.of(11L, 12L))
                     .build();
 
             when(userRepository.findById(1L)).thenReturn(Optional.of(user));
@@ -426,9 +426,9 @@ class EmoticonServiceTest {
         void createEmoticon_successWithEmptyImageUrls() {
             EmoticonCreateRequest request = EmoticonCreateRequest.builder()
                     .name("새 이모티콘")
-                    .thumbnailUrl("https://example.com/thumb.png")
+                    .thumbnailFileId(10L)
                     .tags(List.of("태그1"))
-                    .imageUrls(List.of())
+                    .imageFileIds(List.of())
                     .build();
 
             when(userRepository.findById(1L)).thenReturn(Optional.of(user));
@@ -466,7 +466,7 @@ class EmoticonServiceTest {
         void updateEmoticon_success() {
             EmoticonUpdateRequest request = EmoticonUpdateRequest.builder()
                     .name("수정된 이름")
-                    .thumbnailUrl("https://example.com/new.png")
+                    .thumbnailFileId(20L)
                     .tags(List.of("새태그"))
                     .build();
 
@@ -476,7 +476,7 @@ class EmoticonServiceTest {
 
             assertThat(result).isNotNull();
             assertThat(emoticonMaster.getName()).isEqualTo("수정된 이름");
-            assertThat(emoticonMaster.getThumbnailUrl()).isEqualTo("https://example.com/new.png");
+            assertThat(emoticonMaster.getThumbnailUrl()).isEqualTo("/api/v1/files/20");
             verify(emoticonMasterRepository).findById(1L);
         }
 
@@ -497,7 +497,7 @@ class EmoticonServiceTest {
             when(emoticonMasterRepository.findById(1L)).thenReturn(Optional.of(emoticonMaster));
             EmoticonUpdateRequest request = EmoticonUpdateRequest.builder()
                     .name(null)
-                    .thumbnailUrl(null)
+                    .thumbnailFileId(null)
                     .tags(null)
                     .build();
 
@@ -560,7 +560,7 @@ class EmoticonServiceTest {
         void addImage_success() {
             when(emoticonMasterRepository.findByIdWithImages(1L)).thenReturn(Optional.of(emoticonMaster));
 
-            EmoticonMasterDto result = emoticonService.addImage(1L, 1L, "https://example.com/new.png");
+            EmoticonMasterDto result = emoticonService.addImage(1L, 1L, 30L);
 
             assertThat(result).isNotNull();
             verify(emoticonMasterRepository).findByIdWithImages(1L);
@@ -571,7 +571,7 @@ class EmoticonServiceTest {
         void addImage_emoticonNotFound() {
             when(emoticonMasterRepository.findByIdWithImages(999L)).thenReturn(Optional.empty());
 
-            assertThatThrownBy(() -> emoticonService.addImage(1L, 999L, "https://example.com/img.png"))
+            assertThatThrownBy(() -> emoticonService.addImage(1L, 999L, 30L))
                     .isInstanceOf(BusinessException.class)
                     .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode()).isEqualTo(ErrorCode.EMOTICON_NOT_FOUND));
         }
@@ -581,7 +581,7 @@ class EmoticonServiceTest {
         void addImage_forbidden() {
             when(emoticonMasterRepository.findByIdWithImages(1L)).thenReturn(Optional.of(emoticonMaster));
 
-            assertThatThrownBy(() -> emoticonService.addImage(2L, 1L, "https://example.com/img.png"))
+            assertThatThrownBy(() -> emoticonService.addImage(2L, 1L, 30L))
                     .isInstanceOf(BusinessException.class)
                     .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode()).isEqualTo(ErrorCode.FORBIDDEN));
         }

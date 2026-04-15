@@ -25,6 +25,8 @@ import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
@@ -142,7 +144,7 @@ class GlobalConfigControllerTest {
                 .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data[0].configKey").value("key"));
+                .andExpect(jsonPath("$.data[0].key").value("key"));
     }
 
     @Test
@@ -160,7 +162,23 @@ class GlobalConfigControllerTest {
                 .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.configKey").value("newKey"));
+                .andExpect(jsonPath("$.data.key").value("newKey"));
+    }
+
+    @Test
+    @DisplayName("설정 생성 - 필수값 누락 시 400")
+    void createConfig_validationFailure() throws Exception {
+        Map<String, String> request = Map.of("value", "val");
+
+        mockMvc.perform(post("/api/v1/admin/configs")
+                .with(user(adminUser))
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+
+        verify(globalConfigService, never()).createConfig(anyString(), anyString(), anyString());
     }
 
     @Test

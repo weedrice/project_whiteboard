@@ -275,10 +275,10 @@ const handleSubmit = async () => {
   try {
     // 1. 썸네일 업로드
     const thumbnailResponse = await fileApi.uploadFile(thumbnailFile.value!)
-    const thumbnailUrl = thumbnailResponse.data.data.url
+    const thumbnailFileId = thumbnailResponse.data.data.fileId
 
     // 2. 이모티콘 이미지 업로드 (리사이징 적용)
-    const imageUrls: string[] = []
+    const imageFileIds: number[] = []
     uploadProgress.value = { current: 0, total: emoticonPreviews.value.length }
     
     for (let i = 0; i < emoticonPreviews.value.length; i++) {
@@ -305,7 +305,7 @@ const handleSubmit = async () => {
         : new File([fileToUpload], item.file.name, { type: uploadMimeType })
       
       const response = await fileApi.uploadFile(uploadFile)
-      imageUrls.push(response.data.data.url)
+      imageFileIds.push(response.data.data.fileId)
       
       // 진행 상태 업데이트
       uploadProgress.value.current = i + 1
@@ -319,9 +319,9 @@ const handleSubmit = async () => {
     // 3. 이모티콘 생성
     await emoticonApi.createEmoticon({
       name: emoticonName.value.trim(),
-      thumbnailUrl,
+      thumbnailFileId,
       tags: tags.value,
-      imageUrls
+      imageFileIds
     })
 
     toastStore.addToast(t('emoticon.register.created'), 'success')

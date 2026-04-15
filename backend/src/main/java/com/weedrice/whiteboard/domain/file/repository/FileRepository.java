@@ -25,4 +25,6 @@ public interface FileRepository extends JpaRepository<File, Long> {
             String mimeTypePrefix);
 
     Optional<File> findFirstByRelatedIdAndRelatedTypeAndMimeTypeStartingWith(Long relatedId, String relatedType, String mimeTypePrefix);
+
+    Optional<File> findByFileIdAndRelatedIdAndRelatedType(Long fileId, Long relatedId, String relatedType);
 }

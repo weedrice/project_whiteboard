@@ -15,7 +15,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -34,8 +34,8 @@ public class FileController {
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<FileUploadResponse> uploadFile(
             @RequestParam("file") MultipartFile multipartFile,
-            Authentication authentication) {
-        Long userId = ((CustomUserDetails) authentication.getPrincipal()).getUserId();
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        Long userId = userDetails.getUserId();
         return ApiResponse.success(fileService.uploadFile(userId, multipartFile));
     }
 
@@ -43,14 +43,17 @@ public class FileController {
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<FileSimpleResponse> uploadSimple(
             @RequestParam("file") MultipartFile multipartFile,
-            Authentication authentication) {
-        Long userId = ((CustomUserDetails) authentication.getPrincipal()).getUserId();
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        Long userId = userDetails.getUserId();
         return ApiResponse.success(fileService.uploadSimpleFile(userId, multipartFile));
     }
 
     @GetMapping("/{fileId}")
-    public ResponseEntity<Resource> downloadFile(@PathVariable Long fileId) {
-        File file = fileService.getFile(fileId);
+    public ResponseEntity<Resource> downloadFile(
+            @PathVariable Long fileId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        Long viewerUserId = userDetails != null ? userDetails.getUserId() : null;
+        File file = fileService.getFileForDownload(fileId, viewerUserId);
 
         // S3로부터 InputStream을 받아옴
         InputStream inputStream = fileStorageService.loadFile(file.getFilePath());

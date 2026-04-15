@@ -127,7 +127,8 @@ class TagServiceTest {
         tag2.incrementPostCount();
         Tag tag3 = new Tag("tag3"); // postCount가 0인 태그는 제외됨
         
-        when(tagRepository.findAll()).thenReturn(java.util.Arrays.asList(tag1, tag2, tag3));
+        when(tagRepository.findTop10ByPostCountGreaterThanOrderByPostCountDesc(0))
+                .thenReturn(java.util.Arrays.asList(tag1, tag2));
 
         // when
         java.util.List<Tag> popularTags = tagService.getPopularTags();
@@ -135,6 +136,6 @@ class TagServiceTest {
         // then
         assertThat(popularTags).hasSize(2);
         assertThat(popularTags.get(0).getTagName()).isEqualTo("tag1");
-        verify(tagRepository).findAll();
+        verify(tagRepository).findTop10ByPostCountGreaterThanOrderByPostCountDesc(0);
     }
 }

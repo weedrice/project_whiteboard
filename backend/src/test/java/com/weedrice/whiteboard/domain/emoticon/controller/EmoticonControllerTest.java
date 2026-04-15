@@ -287,7 +287,7 @@ class EmoticonControllerTest {
 
             mockMvc.perform(post("/api/v1/emoticons")
                             .contentType("application/json")
-                            .content("{\"name\":\"새 이모티콘\",\"thumbnailUrl\":\"https://example.com/thumb.png\",\"tags\":[\"테스트\"]}")
+                            .content("{\"name\":\"새 이모티콘\",\"thumbnailFileId\":10,\"tags\":[\"테스트\"]}")
                             .with(user(customUserDetails))
                             .with(csrf()))
                     .andExpect(status().isCreated())
@@ -331,34 +331,29 @@ class EmoticonControllerTest {
         @DisplayName("이미지 추가 성공")
         void addImage_success() throws Exception {
             EmoticonMasterDto dto = EmoticonMasterDto.builder().emoticonId(1L).build();
-            when(emoticonService.addImage(eq(1L), eq(1L), eq("https://example.com/img.png"))).thenReturn(dto);
+            when(emoticonService.addImage(eq(1L), eq(1L), eq(99L))).thenReturn(dto);
 
             mockMvc.perform(post("/api/v1/emoticons/{emoticonId}/images", 1L)
                             .contentType("application/json")
-                            .content("{\"imageUrl\":\"https://example.com/img.png\"}")
+                            .content("{\"fileId\":99}")
                             .with(user(customUserDetails))
                             .with(csrf()))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.success").value(true));
 
-            verify(emoticonService).addImage(eq(1L), eq(1L), eq("https://example.com/img.png"));
+            verify(emoticonService).addImage(eq(1L), eq(1L), eq(99L));
         }
 
         @Test
-        @DisplayName("이미지 추가 - body에 imageUrl 없으면 null로 서비스 호출")
-        void addImage_imageUrlNull() throws Exception {
-            EmoticonMasterDto dto = EmoticonMasterDto.builder().emoticonId(1L).build();
-            when(emoticonService.addImage(eq(1L), eq(1L), isNull())).thenReturn(dto);
-
+        @DisplayName("이미지 추가 - fileId가 없으면 400")
+        void addImage_fileIdRequired() throws Exception {
             mockMvc.perform(post("/api/v1/emoticons/{emoticonId}/images", 1L)
                             .contentType("application/json")
                             .content("{}")
                             .with(user(customUserDetails))
                             .with(csrf()))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.success").value(true));
-
-            verify(emoticonService).addImage(eq(1L), eq(1L), isNull());
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.success").value(false));
         }
 
         @Test
