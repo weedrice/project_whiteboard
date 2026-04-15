@@ -11,6 +11,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 
 public interface PostRepository extends JpaRepository<Post, Long>, PostRepositoryCustom {
@@ -24,6 +25,8 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
         List<Post> findByBoard_BoardIdAndIsNoticeAndIsDeletedOrderByCreatedAtDesc(Long boardId, Boolean isNotice, Boolean isDeleted);
         @EntityGraph(attributePaths = {"user", "board", "category"})
         Page<Post> findByBoard_BoardId(Long boardId, Pageable pageable);
+        @EntityGraph(attributePaths = {"user", "agent", "board", "category"})
+        List<Post> findByPostIdIn(Collection<Long> postIds);
     
         long countByUserAndIsDeleted(User user, Boolean isDeleted); // Added for UserProfileDto
 

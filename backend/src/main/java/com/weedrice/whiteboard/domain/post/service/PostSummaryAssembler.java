@@ -49,7 +49,10 @@ class PostSummaryAssembler {
         List<Long> postIds = posts.getContent().stream()
                 .map(Post::getPostId)
                 .collect(Collectors.toList());
-        Set<Long> postIdsWithImages = includeImages ? getPostIdsWithImages(postIds) : Collections.emptySet();
+        Map<Long, Long> thumbnailFileIdsByPostId = includeImages
+                ? getThumbnailFileIdsByPostId(postIds)
+                : Collections.emptyMap();
+        Set<Long> postIdsWithImages = includeImages ? new HashSet<>(thumbnailFileIdsByPostId.keySet()) : Collections.emptySet();
         Map<Long, Boolean> inquiryAnsweredStatuses = includeInquiryAnswered
                 ? resolveInquiryAnsweredStatuses(posts.getContent())
                 : Collections.emptyMap();
@@ -87,7 +90,7 @@ class PostSummaryAssembler {
         List<Long> postIds = historyPage.getContent().stream()
                 .map(history -> history.getPost().getPostId())
                 .collect(Collectors.toList());
-        Set<Long> postIdsWithImages = getPostIdsWithImages(postIds);
+        Set<Long> postIdsWithImages = new HashSet<>(getThumbnailFileIdsByPostId(postIds).keySet());
 
         return historyPage.map(viewHistory -> {
             PostSummary summary = PostSummary.from(viewHistory.getPost());
@@ -102,11 +105,13 @@ class PostSummaryAssembler {
         }
 
         List<Long> postIds = posts.stream().map(Post::getPostId).collect(Collectors.toList());
-        Set<Long> postIdsWithImages = getPostIdsWithImages(postIds);
+        Map<Long, Long> thumbnailFileIdsByPostId = getThumbnailFileIdsByPostId(postIds);
+        Set<Long> postIdsWithImages = thumbnailFileIdsByPostId.keySet();
         UserInteractionContext interactionContext = resolveUserInteractionContext(posts, currentUserId);
 
         return posts.stream()
-                .map(post -> buildFeedSummary(post, postIdsWithImages, interactionContext, FeedSummaryOptions.trending()))
+                .map(post -> buildFeedSummary(post, postIdsWithImages, thumbnailFileIdsByPostId, interactionContext,
+                        FeedSummaryOptions.trending()))
                 .collect(Collectors.toList());
     }
 
@@ -116,18 +121,22 @@ class PostSummaryAssembler {
         }
 
         List<Long> postIds = posts.stream().map(Post::getPostId).collect(Collectors.toList());
-        Set<Long> postIdsWithImages = getPostIdsWithImages(postIds);
+        Map<Long, Long> thumbnailFileIdsByPostId = getThumbnailFileIdsByPostId(postIds);
+        Set<Long> postIdsWithImages = thumbnailFileIdsByPostId.keySet();
         UserInteractionContext interactionContext = resolveUserInteractionContext(posts, currentUserId);
 
         return posts.stream()
-                .map(post -> buildFeedSummary(post, postIdsWithImages, interactionContext, FeedSummaryOptions.latest()))
+                .map(post -> buildFeedSummary(post, postIdsWithImages, thumbnailFileIdsByPostId, interactionContext,
+                        FeedSummaryOptions.latest()))
                 .collect(Collectors.toList());
     }
 
-    private PostSummary buildFeedSummary(Post post, Set<Long> postIdsWithImages, UserInteractionContext interactionContext,
+    private PostSummary buildFeedSummary(Post post, Set<Long> postIdsWithImages,
+                                         Map<Long, Long> thumbnailFileIdsByPostId,
+                                         UserInteractionContext interactionContext,
                                          FeedSummaryOptions options) {
         String summaryText = extractSummary(post);
-        ThumbnailInfo thumbnailInfo = resolveThumbnail(post, postIdsWithImages);
+        ThumbnailInfo thumbnailInfo = resolveThumbnail(post, postIdsWithImages, thumbnailFileIdsByPostId);
 
         String firstMediaType = null;
         String firstMediaUrl = null;
@@ -189,11 +198,11 @@ class PostSummaryAssembler {
         return new UserInteractionContext(likedPostIds, scrappedPostIds, subscribedBoardUrls);
     }
 
-    private Set<Long> getPostIdsWithImages(List<Long> postIds) {
+    private Map<Long, Long> getThumbnailFileIdsByPostId(List<Long> postIds) {
         if (postIds == null || postIds.isEmpty()) {
-            return Collections.emptySet();
+            return Collections.emptyMap();
         }
-        return new HashSet<>(fileService.getRelatedIdsWithImages(postIds, "POST_CONTENT"));
+        return fileService.getFirstImageFileIdsForPosts(postIds);
     }
 
     private Map<Long, Boolean> resolveInquiryAnsweredStatuses(List<Post> posts) {
@@ -233,12 +242,13 @@ class PostSummaryAssembler {
         return summary;
     }
 
-    private ThumbnailInfo resolveThumbnail(Post post, Set<Long> postIdsWithImages) {
+    private ThumbnailInfo resolveThumbnail(Post post, Set<Long> postIdsWithImages,
+                                           Map<Long, Long> thumbnailFileIdsByPostId) {
         String thumbnailUrl = null;
         boolean hasImage = false;
 
         if (postIdsWithImages.contains(post.getPostId())) {
-            Long fileId = fileService.getOneImageFileIdForPost(post.getPostId());
+            Long fileId = thumbnailFileIdsByPostId.get(post.getPostId());
             if (fileId != null) {
                 thumbnailUrl = "/api/v1/files/" + fileId;
                 hasImage = true;

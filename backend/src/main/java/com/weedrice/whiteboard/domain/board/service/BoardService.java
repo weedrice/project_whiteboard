@@ -61,30 +61,27 @@ public class BoardService {
         public List<BoardResponse> getActiveBoards(UserDetails userDetails) {
                 User currentUser = getCurrentUserOrNull(userDetails);
                 List<Board> boards = boardRepository.findByIsActiveOrderBySortOrderAsc(true);
-                return boards.stream()
+                List<Board> visibleBoards = boards.stream()
                                 .filter(board -> !boardAccessPolicy.isInquiryBoard(board))
                                 .filter(board -> boardAccessPolicy.canReadBoard(board, currentUser))
-                                .map(board -> boardResponseAssembler.assemble(board, currentUser))
                                 .collect(Collectors.toList());
+                return boardResponseAssembler.assembleAll(visibleBoards, currentUser);
         }
 
         public List<BoardResponse> getTopBoards(UserDetails userDetails) {
                 User currentUser = getCurrentUserOrNull(userDetails);
                 List<Board> boards = boardRepository.findTopBoardsByPostCount(PageRequest.of(0, 15));
-                return boards.stream()
+                List<Board> visibleBoards = boards.stream()
                                 .filter(board -> !boardAccessPolicy.isInquiryBoard(board))
                                 .filter(board -> boardAccessPolicy.canReadBoard(board, currentUser))
-                                .map(board -> boardResponseAssembler.assemble(board, currentUser))
                                 .collect(Collectors.toList());
+                return boardResponseAssembler.assembleAll(visibleBoards, currentUser);
         }
 
         public List<BoardResponse> getAllBoards(UserDetails userDetails) {
                 User currentUser = getCurrentUserOrNull(userDetails);
-                List<Board> boards = boardRepository.findAll(org.springframework.data.domain.Sort
-                                .by(org.springframework.data.domain.Sort.Direction.ASC, "sortOrder"));
-                return boards.stream()
-                                .map(board -> boardResponseAssembler.assemble(board, currentUser))
-                                .collect(Collectors.toList());
+                List<Board> boards = boardRepository.findAllByOrderBySortOrderAsc();
+                return boardResponseAssembler.assembleAll(boards, currentUser);
         }
 
         public BoardResponse getBoardDetails(String boardUrl, UserDetails userDetails) {
@@ -166,13 +163,13 @@ public class BoardService {
                                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
                 Page<BoardSubscription> subscriptions = boardSubscriptionRepository
                                 .findByUserAndBoard_IsActiveOrderBySortOrderAsc(user, true, pageable);
-                List<BoardResponse> visibleBoards = subscriptions
+                List<Board> visibleBoards = subscriptions
                                 .stream()
                                 .map(BoardSubscription::getBoard)
                                 .filter(board -> boardAccessPolicy.canReadBoard(board, user))
-                                .map(board -> boardResponseAssembler.assemble(board, user))
                                 .collect(Collectors.toList());
-                return new org.springframework.data.domain.PageImpl<>(visibleBoards, pageable, subscriptions.getTotalElements());
+                List<BoardResponse> responses = boardResponseAssembler.assembleAll(visibleBoards, user);
+                return new org.springframework.data.domain.PageImpl<>(responses, pageable, subscriptions.getTotalElements());
         }
 
         @Transactional

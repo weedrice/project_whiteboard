@@ -16,8 +16,11 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -140,6 +143,24 @@ public class FileService {
 
     public List<Long> getRelatedIdsWithImages(List<Long> relatedIds, String relatedType) {
         return fileRepository.findRelatedIdsWithImages(relatedIds, relatedType);
+    }
+
+    public Map<Long, Long> getFirstImageFileIdsByRelatedIds(List<Long> relatedIds, String relatedType) {
+        if (relatedIds == null || relatedIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        Map<Long, Long> firstImageFileIds = new LinkedHashMap<>();
+        for (File file : fileRepository
+                .findByRelatedIdInAndRelatedTypeAndMimeTypeStartingWithOrderByRelatedIdAscFileIdAsc(
+                        relatedIds, relatedType, "image/")) {
+            firstImageFileIds.putIfAbsent(file.getRelatedId(), file.getFileId());
+        }
+        return firstImageFileIds;
+    }
+
+    public Map<Long, Long> getFirstImageFileIdsForPosts(List<Long> postIds) {
+        return getFirstImageFileIdsByRelatedIds(postIds, "POST_CONTENT");
     }
 
     public Long getOneImageFileIdForPost(Long postId) {

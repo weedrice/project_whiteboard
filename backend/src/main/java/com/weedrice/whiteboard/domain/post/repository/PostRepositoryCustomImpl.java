@@ -5,6 +5,7 @@ import com.querydsl.core.types.OrderSpecifier;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import com.weedrice.whiteboard.domain.post.entity.Post;
+import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -14,6 +15,7 @@ import org.springframework.stereotype.Repository;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 
 import static com.weedrice.whiteboard.domain.file.entity.QFile.file;
@@ -25,6 +27,7 @@ import static com.weedrice.whiteboard.domain.tag.entity.QPostTag.postTag;
 public class PostRepositoryCustomImpl implements PostRepositoryCustom {
 
     private final JPAQueryFactory queryFactory;
+    private final EntityManager entityManager;
 
     @Override
     public Page<Post> findByBoardIdAndCategoryId(Long boardId, Long categoryId, String keyword, Integer minLikes,
@@ -263,8 +266,77 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                 .fetch();
     }
 
+    @Override
+    public List<Long> findLatestPostIdsByBoardIds(Collection<Long> boardIds, int limitPerBoard, List<Long> blockedUserIds,
+            Collection<Long> secretVisibleBoardIds, Long viewerUserId) {
+        if (boardIds == null || boardIds.isEmpty() || limitPerBoard <= 0) {
+            return List.of();
+        }
+
+        StringBuilder sql = new StringBuilder("""
+                SELECT ranked.post_id
+                FROM (
+                    SELECT p.post_id, p.board_id, p.created_at,
+                           ROW_NUMBER() OVER (PARTITION BY p.board_id ORDER BY p.created_at DESC, p.post_id DESC) AS rn
+                    FROM posts p
+                    WHERE p.board_id IN (:boardIds)
+                      AND p.is_deleted = 'N'
+                """);
+
+        appendSecretVisibilityCondition(sql, viewerUserId, secretVisibleBoardIds);
+        if (blockedUserIds != null && !blockedUserIds.isEmpty()) {
+            sql.append("\n  AND p.user_id NOT IN (:blockedUserIds)");
+        }
+
+        sql.append("""
+
+                ) ranked
+                WHERE ranked.rn <= :limitPerBoard
+                ORDER BY ranked.board_id ASC, ranked.created_at DESC, ranked.post_id DESC
+                """);
+
+        var query = entityManager.createNativeQuery(sql.toString());
+        query.setParameter("boardIds", boardIds);
+        query.setParameter("limitPerBoard", limitPerBoard);
+        if (viewerUserId != null) {
+            query.setParameter("viewerUserId", viewerUserId);
+        }
+        if (secretVisibleBoardIds != null && !secretVisibleBoardIds.isEmpty()) {
+            query.setParameter("secretVisibleBoardIds", secretVisibleBoardIds);
+        }
+        if (blockedUserIds != null && !blockedUserIds.isEmpty()) {
+            query.setParameter("blockedUserIds", blockedUserIds);
+        }
+
+        @SuppressWarnings("unchecked")
+        List<Number> results = query.getResultList();
+        return results.stream()
+                .map(Number::longValue)
+                .toList();
+    }
+
     private BooleanExpression notBlockedCondition(List<Long> blockedUserIds) {
         return (blockedUserIds != null && !blockedUserIds.isEmpty()) ? post.user.userId.notIn(blockedUserIds) : null;
+    }
+
+    private void appendSecretVisibilityCondition(StringBuilder sql, Long viewerUserId,
+            Collection<Long> secretVisibleBoardIds) {
+        boolean hasViewer = viewerUserId != null;
+        boolean hasSecretVisibleBoards = secretVisibleBoardIds != null && !secretVisibleBoardIds.isEmpty();
+
+        if (!hasViewer && !hasSecretVisibleBoards) {
+            sql.append("\n  AND p.is_secret = 'N'");
+            return;
+        }
+
+        sql.append("\n  AND (p.is_secret = 'N'");
+        if (hasViewer) {
+            sql.append(" OR p.user_id = :viewerUserId");
+        }
+        if (hasSecretVisibleBoards) {
+            sql.append(" OR p.board_id IN (:secretVisibleBoardIds)");
+        }
+        sql.append(")");
     }
 
     private BooleanExpression notBlockedPostTagCondition(List<Long> blockedUserIds) {

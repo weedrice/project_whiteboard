@@ -759,5 +759,43 @@ public class PostService {
         return postSummaryAssembler.assembleLatestPosts(postPage.getContent(), currentUserId);
     }
 
+    public Map<Long, List<PostSummary>> getLatestPostsByBoards(List<Long> boardIds, int limit, Long currentUserId,
+            Set<Long> secretVisibleBoardIds) {
+        if (boardIds == null || boardIds.isEmpty() || limit <= 0) {
+            return Collections.emptyMap();
+        }
+
+        List<Long> blockedUserIds = null;
+        if (currentUserId != null) {
+            blockedUserIds = userBlockService.getBlockedUserIds(currentUserId);
+        }
+
+        List<Long> latestPostIds = postRepository.findLatestPostIdsByBoardIds(
+                boardIds,
+                limit,
+                blockedUserIds,
+                secretVisibleBoardIds,
+                currentUserId);
+        if (latestPostIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        Map<Long, Post> postsById = postRepository.findByPostIdIn(latestPostIds).stream()
+                .collect(Collectors.toMap(Post::getPostId, post -> post));
+
+        List<Post> orderedPosts = latestPostIds.stream()
+                .map(postsById::get)
+                .filter(Objects::nonNull)
+                .toList();
+        List<PostSummary> summaries = postSummaryAssembler.assembleLatestPosts(orderedPosts, currentUserId);
+
+        Map<Long, List<PostSummary>> latestPostsByBoardId = new LinkedHashMap<>();
+        for (PostSummary summary : summaries) {
+            latestPostsByBoardId.computeIfAbsent(summary.getBoardId(), ignored -> new ArrayList<>())
+                    .add(summary);
+        }
+        return latestPostsByBoardId;
+    }
+
 }
 

@@ -147,8 +147,8 @@ class PostServiceTest {
         lenient().when(globalConfigService.getConfig(anyString())).thenReturn("50");
         lenient().when(boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(anyLong(), eq(true)))
                 .thenReturn(Collections.emptyList());
-        lenient().when(fileService.getRelatedIdsWithImages(anyList(), eq("POST_CONTENT")))
-                .thenReturn(Collections.emptyList());
+        lenient().when(fileService.getFirstImageFileIdsForPosts(anyList()))
+                .thenReturn(Collections.emptyMap());
         lenient().when(commentRepository.findLatestNonDeletedAuthorsByPostIds(anyList()))
                 .thenReturn(Collections.emptyList());
 
@@ -377,8 +377,7 @@ class PostServiceTest {
                 .thenReturn(List.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
 
-        when(fileService.getRelatedIdsWithImages(anyList(), eq("POST_CONTENT"))).thenReturn(List.of(1L));
-        when(fileService.getOneImageFileIdForPost(1L)).thenReturn(10L);
+        when(fileService.getFirstImageFileIdsForPosts(anyList())).thenReturn(Map.of(1L, 10L));
 
         when(postLikeRepository.findByUserAndPostIn(user, List.of(post))).thenReturn(Collections.emptyList());
         when(scrapRepository.findByUserAndPostIn(user, List.of(post))).thenReturn(Collections.emptyList());
@@ -677,8 +676,8 @@ class PostServiceTest {
     void getPostsByTag_success() {
         when(postRepository.findByTagId(eq(1L), isNull(), any(Pageable.class))).thenReturn(Page.empty());
         // Page.empty()인 경우 getPostIdsWithImages가 빈 리스트를 받아 fileService가 호출되지 않음
-        lenient().when(fileService.getRelatedIdsWithImages(anyList(), eq("POST_CONTENT")))
-                .thenReturn(Collections.emptyList());
+        lenient().when(fileService.getFirstImageFileIdsForPosts(anyList()))
+                .thenReturn(Collections.emptyMap());
 
         postService.getPostsByTag(1L, null, Pageable.unpaged());
 
@@ -691,8 +690,8 @@ class PostServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(postRepository.findByUserAndIsDeleted(eq(user), eq(false), any(Pageable.class))).thenReturn(Page.empty());
         // Page.empty()인 경우 getPostIdsWithImages가 빈 리스트를 받아 fileService가 호출되지 않음
-        lenient().when(fileService.getRelatedIdsWithImages(anyList(), eq("POST_CONTENT")))
-                .thenReturn(Collections.emptyList());
+        lenient().when(fileService.getFirstImageFileIdsForPosts(anyList()))
+                .thenReturn(Collections.emptyMap());
 
         postService.getMyPosts(1L, Pageable.unpaged());
 
@@ -947,8 +946,7 @@ class PostServiceTest {
                 any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(post)));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(fileService.getRelatedIdsWithImages(anyList(), eq("POST_CONTENT"))).thenReturn(List.of(1L));
-        when(fileService.getOneImageFileIdForPost(1L)).thenReturn(20L);
+        when(fileService.getFirstImageFileIdsForPosts(anyList())).thenReturn(Map.of(1L, 20L));
         when(postLikeRepository.findByUserAndPostIn(user, List.of(post))).thenReturn(Collections.emptyList());
         when(scrapRepository.findByUserAndPostIn(user, List.of(post))).thenReturn(Collections.emptyList());
         when(boardSubscriptionRepository.findByUserAndBoardIn(eq(user), anyList())).thenReturn(Collections.emptyList());
@@ -966,7 +964,7 @@ class PostServiceTest {
         when(postRepository.findByBoardIdAndCategoryId(eq(1L), isNull(), isNull(), isNull(), isNull(), eq(false), isNull(),
                 any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(post)));
-        when(fileService.getRelatedIdsWithImages(anyList(), eq("POST_CONTENT"))).thenReturn(Collections.emptyList());
+        when(fileService.getFirstImageFileIdsForPosts(anyList())).thenReturn(Collections.emptyMap());
 
         List<PostSummary> result = postService.getLatestPostsByBoard(1L, 5, null);
 
@@ -984,6 +982,27 @@ class PostServiceTest {
         List<PostSummary> result = postService.getLatestPostsByBoard(1L, 5, null);
 
         assertThat(result).isEmpty();
+    }
+
+    @Test
+    @DisplayName("寃뚯떆??理쒖떊 寃뚯떆湲 諛곗튂 議고쉶 - 蹂대뱶蹂??묒쐞濡?洹몃９?묒뾽")
+    void getLatestPostsByBoards_groupsSummariesByBoard() {
+        when(userBlockService.getBlockedUserIds(1L)).thenReturn(Collections.emptyList());
+        when(postRepository.findLatestPostIdsByBoardIds(List.of(1L), 5, Collections.emptyList(), Set.of(1L), 1L))
+                .thenReturn(List.of(1L));
+        when(postRepository.findByPostIdIn(List.of(1L))).thenReturn(List.of(post));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(fileService.getFirstImageFileIdsForPosts(anyList())).thenReturn(Map.of(1L, 20L));
+        when(postLikeRepository.findByUserAndPostIn(user, List.of(post))).thenReturn(Collections.emptyList());
+        when(scrapRepository.findByUserAndPostIn(user, List.of(post))).thenReturn(Collections.emptyList());
+        when(boardSubscriptionRepository.findByUserAndBoardIn(eq(user), anyList())).thenReturn(Collections.emptyList());
+
+        Map<Long, List<PostSummary>> result = postService.getLatestPostsByBoards(List.of(1L), 5, 1L, Set.of(1L));
+
+        assertThat(result).containsOnlyKeys(1L);
+        assertThat(result.get(1L)).hasSize(1);
+        assertThat(result.get(1L).get(0).getPostId()).isEqualTo(1L);
+        assertThat(result.get(1L).get(0).getThumbnailUrl()).isEqualTo("/api/v1/files/20");
     }
 
     // --- Edge Cases ---

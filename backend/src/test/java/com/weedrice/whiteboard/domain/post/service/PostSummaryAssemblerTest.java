@@ -111,8 +111,8 @@ class PostSummaryAssemblerTest {
     @Test
     @DisplayName("트렌딩과 최신글은 공통 조립 규칙을 쓰되 피드 전용 필드만 다르게 채운다")
     void assembleFeedSummaries_shareCommonRulesWithDifferentOptions() {
-        when(fileService.getRelatedIdsWithImages(anyList(), eq("POST_CONTENT")))
-                .thenReturn(Collections.emptyList());
+        when(fileService.getFirstImageFileIdsForPosts(anyList()))
+                .thenReturn(Collections.emptyMap());
 
         User author = User.builder().displayName("Author").build();
         ReflectionTestUtils.setField(author, "userId", 1L);

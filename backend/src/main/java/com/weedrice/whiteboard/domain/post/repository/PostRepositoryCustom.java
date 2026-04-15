@@ -6,6 +6,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.lang.NonNull;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 
 public interface PostRepositoryCustom {
@@ -27,6 +28,9 @@ public interface PostRepositoryCustom {
             Boolean includeSecret, Long viewerUserId, Pageable pageable);
 
     List<Post> findTrendingPosts(LocalDateTime since, List<Long> blockedUserIds, Pageable pageable);
+
+    List<Long> findLatestPostIdsByBoardIds(Collection<Long> boardIds, int limitPerBoard, List<Long> blockedUserIds,
+            Collection<Long> secretVisibleBoardIds, Long viewerUserId);
 
     /**
      * Post를 ID로 조회하면서 연관된 User, Board, Category를 함께 fetch join합니다.

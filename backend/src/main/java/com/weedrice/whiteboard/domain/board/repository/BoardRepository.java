@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.board.repository;
 
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
@@ -10,6 +11,7 @@ import java.util.Optional;
 
 public interface BoardRepository extends JpaRepository<Board, Long> {
 
+    @EntityGraph(attributePaths = "creator")
     List<Board> findByIsActiveOrderBySortOrderAsc(Boolean isActive);
 
     List<Board> findByIsActiveAndIsPublicOrderBySortOrderAsc(Boolean isActive, Boolean isPublic);
@@ -18,15 +20,21 @@ public interface BoardRepository extends JpaRepository<Board, Long> {
 
     boolean existsByBoardName(String boardName);
 
-    boolean existsByBoardUrl(String boardUrl); // 추가
+    boolean existsByBoardUrl(String boardUrl);
 
-    Optional<Board> findByBoardUrl(String boardUrl); // 추가
+    @EntityGraph(attributePaths = "creator")
+    Optional<Board> findByBoardUrl(String boardUrl);
 
+    @EntityGraph(attributePaths = "creator")
     @Query("SELECT p.board FROM Post p WHERE p.isDeleted = false AND p.board.isActive = true GROUP BY p.board ORDER BY COUNT(p) DESC")
     List<Board> findTopBoardsByPostCount(Pageable pageable);
+
+    @EntityGraph(attributePaths = "creator")
+    List<Board> findAllByOrderBySortOrderAsc();
 
     @Query("SELECT COALESCE(MAX(b.sortOrder), 0) FROM Board b")
     Integer findMaxSortOrder();
 
+    @EntityGraph(attributePaths = "creator")
     Optional<Board> findByBoardId(Long boardId);
 }

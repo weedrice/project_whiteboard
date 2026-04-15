@@ -105,10 +105,20 @@ class BoardServiceTest {
 
         lenient().when(boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(anyLong(), any()))
                 .thenReturn(Collections.emptyList());
-        lenient().when(adminRepository.findFirstByBoardAndRoleAndIsActiveOrderByAdminIdDesc(any(), any(), any()))
-                .thenReturn(Optional.empty());
-        lenient().when(postService.getLatestPostsByBoard(anyLong(), anyInt(), any()))
+        lenient().when(boardCategoryRepository.findByBoard_BoardIdInAndIsActiveOrderByBoard_BoardIdAscSortOrderAsc(any(), any()))
                 .thenReturn(Collections.emptyList());
+        lenient().when(boardSubscriptionRepository.countByBoardIds(any()))
+                .thenReturn(Collections.emptyList());
+        lenient().when(adminRepository.findByBoard_BoardIdInAndRoleAndIsActiveOrderByBoard_BoardIdAscAdminIdDesc(any(), any(), any()))
+                .thenReturn(Collections.emptyList());
+        lenient().when(adminRepository.findByUserAndBoard_BoardIdInAndIsActive(any(), any(), any()))
+                .thenReturn(Collections.emptyList());
+        lenient().when(boardAiInfoRepository.findByBoard_BoardIdIn(any()))
+                .thenReturn(Collections.emptyList());
+        lenient().when(boardSubscriptionRepository.findByUserAndBoardIn(any(), any()))
+                .thenReturn(Collections.emptyList());
+        lenient().when(postService.getLatestPostsByBoards(any(), anyInt(), any(), any()))
+                .thenReturn(Collections.emptyMap());
 
         user = User.builder()
                 .loginId("testuser")
@@ -132,9 +142,6 @@ class BoardServiceTest {
     void getActiveBoards_success() {
         // given
         when(boardRepository.findByIsActiveOrderBySortOrderAsc(true)).thenReturn(Collections.singletonList(board));
-        when(boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(board.getBoardId(), true)).thenReturn(Collections.emptyList());
-        when(adminRepository.findFirstByBoardAndRoleAndIsActiveOrderByAdminIdDesc(any(), any(), any())).thenReturn(Optional.empty());
-        when(postService.getLatestPostsByBoard(anyLong(), anyInt(), any())).thenReturn(Collections.emptyList());
 
         // when
         List<BoardResponse> activeBoards = boardService.getActiveBoards(null);
@@ -253,9 +260,6 @@ class BoardServiceTest {
     void getTopBoards_success() {
         // given
         when(boardRepository.findTopBoardsByPostCount(any())).thenReturn(Collections.singletonList(board));
-        when(boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(board.getBoardId(), true)).thenReturn(Collections.emptyList());
-        when(adminRepository.findFirstByBoardAndRoleAndIsActiveOrderByAdminIdDesc(any(), any(), any())).thenReturn(Optional.empty());
-        when(postService.getLatestPostsByBoard(anyLong(), anyInt(), any())).thenReturn(Collections.emptyList());
 
         // when
         List<BoardResponse> boards = boardService.getTopBoards(null);
@@ -271,10 +275,6 @@ class BoardServiceTest {
         // given
         String boardUrl = "test-board";
         when(boardRepository.findByBoardUrl(boardUrl)).thenReturn(Optional.of(board));
-        when(boardSubscriptionRepository.countByBoard(board)).thenReturn(5L);
-        when(boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(board.getBoardId(), true)).thenReturn(Collections.emptyList());
-        when(adminRepository.findFirstByBoardAndRoleAndIsActiveOrderByAdminIdDesc(any(), any(), any())).thenReturn(Optional.empty());
-        when(postService.getLatestPostsByBoard(anyLong(), anyInt(), any())).thenReturn(Collections.emptyList());
 
         // when
         BoardResponse response = boardService.getBoardDetails(boardUrl, null);
@@ -320,13 +320,7 @@ class BoardServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(boardSubscriptionRepository.findByUserAndBoard_IsActiveOrderBySortOrderAsc(user, true, PageRequest.of(0, 1)))
                 .thenReturn(new PageImpl<>(List.of(subscription), PageRequest.of(0, 1), 5));
-        when(boardSubscriptionRepository.countByBoard(board)).thenReturn(1L);
-        when(adminRepository.findFirstByBoardAndRoleAndIsActiveOrderByAdminIdDesc(any(), any(), any())).thenReturn(Optional.empty());
-        when(adminRepository.findByUserAndBoardAndIsActive(user, board, true)).thenReturn(Optional.empty());
-        when(boardSubscriptionRepository.existsByUserAndBoard(user, board)).thenReturn(true);
-        when(boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(board.getBoardId(), true))
-                .thenReturn(Collections.emptyList());
-        when(postService.getLatestPostsByBoard(board.getBoardId(), 15, user.getUserId())).thenReturn(Collections.emptyList());
+        when(boardSubscriptionRepository.findByUserAndBoardIn(user, List.of(board))).thenReturn(List.of(subscription));
 
         var result = boardService.getMySubscriptions(1L, PageRequest.of(0, 1));
 

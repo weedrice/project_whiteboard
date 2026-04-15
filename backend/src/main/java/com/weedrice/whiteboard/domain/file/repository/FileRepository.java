@@ -19,5 +19,10 @@ public interface FileRepository extends JpaRepository<File, Long> {
             @org.springframework.data.repository.query.Param("relatedIds") List<Long> relatedIds,
             @org.springframework.data.repository.query.Param("relatedType") String relatedType);
 
+    List<File> findByRelatedIdInAndRelatedTypeAndMimeTypeStartingWithOrderByRelatedIdAscFileIdAsc(
+            List<Long> relatedIds,
+            String relatedType,
+            String mimeTypePrefix);
+
     Optional<File> findFirstByRelatedIdAndRelatedTypeAndMimeTypeStartingWith(Long relatedId, String relatedType, String mimeTypePrefix);
 }
