@@ -5,12 +5,11 @@ import com.weedrice.whiteboard.domain.emoticon.dto.EmoticonMasterDto;
 import com.weedrice.whiteboard.domain.emoticon.dto.EmoticonUpdateRequest;
 import com.weedrice.whiteboard.domain.emoticon.service.EmoticonService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
+import com.weedrice.whiteboard.global.common.dto.PageResponse;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -31,10 +30,10 @@ public class EmoticonController {
      * @param sortBy "latest" (등록순 오름차순) 또는 "popular" (판매순)
      */
     @GetMapping
-    public ApiResponse<Page<EmoticonMasterDto>> getEmoticons(
+    public ApiResponse<PageResponse<EmoticonMasterDto>> getEmoticons(
             @RequestParam(defaultValue = "latest") String sortBy,
             @PageableDefault(size = 20) Pageable pageable) {
-        return ApiResponse.success(emoticonService.getActiveEmoticons(pageable, sortBy));
+        return ApiResponse.success(new PageResponse<>(emoticonService.getActiveEmoticons(pageable, sortBy)));
     }
 
     /**
@@ -52,42 +51,42 @@ public class EmoticonController {
      * @param searchType ALL(전체), NAME(이름), CREATOR(등록자), TAG(태그)
      */
     @GetMapping("/search/all")
-    public ApiResponse<Page<EmoticonMasterDto>> searchAll(
+    public ApiResponse<PageResponse<EmoticonMasterDto>> searchAll(
             @RequestParam(required = false) String keyword,
             @RequestParam(defaultValue = "ALL") String searchType,
             @RequestParam(defaultValue = "latest") String sortBy,
             @PageableDefault(size = 20) Pageable pageable) {
-        return ApiResponse.success(emoticonService.searchAll(keyword, searchType, pageable, sortBy));
+        return ApiResponse.success(new PageResponse<>(emoticonService.searchAll(keyword, searchType, pageable, sortBy)));
     }
 
     /**
      * 태그로 이모티콘 검색
      */
     @GetMapping("/search/tag")
-    public ApiResponse<Page<EmoticonMasterDto>> searchByTag(
+    public ApiResponse<PageResponse<EmoticonMasterDto>> searchByTag(
             @RequestParam String tag,
             @PageableDefault(size = 20) Pageable pageable) {
-        return ApiResponse.success(emoticonService.searchByTag(tag, pageable));
+        return ApiResponse.success(new PageResponse<>(emoticonService.searchByTag(tag, pageable)));
     }
 
     /**
      * 키워드로 이모티콘 검색
      */
     @GetMapping("/search")
-    public ApiResponse<Page<EmoticonMasterDto>> searchByKeyword(
+    public ApiResponse<PageResponse<EmoticonMasterDto>> searchByKeyword(
             @RequestParam String keyword,
             @PageableDefault(size = 20) Pageable pageable) {
-        return ApiResponse.success(emoticonService.searchByKeyword(keyword, pageable));
+        return ApiResponse.success(new PageResponse<>(emoticonService.searchByKeyword(keyword, pageable)));
     }
 
     /**
      * 내 이모티콘 목록
      */
     @GetMapping("/my")
-    public ApiResponse<Page<EmoticonMasterDto>> getMyEmoticons(
+    public ApiResponse<PageResponse<EmoticonMasterDto>> getMyEmoticons(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @PageableDefault(size = 20) Pageable pageable) {
-        return ApiResponse.success(emoticonService.getMyEmoticons(userDetails.getUserId(), pageable));
+        return ApiResponse.success(new PageResponse<>(emoticonService.getMyEmoticons(userDetails.getUserId(), pageable)));
     }
 
     /**
@@ -184,10 +183,10 @@ public class EmoticonController {
      * 구매한 이모티콘 목록
      */
     @GetMapping("/purchased")
-    public ApiResponse<Page<EmoticonMasterDto>> getPurchasedEmoticons(
+    public ApiResponse<PageResponse<EmoticonMasterDto>> getPurchasedEmoticons(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @PageableDefault(size = 20) Pageable pageable) {
-        return ApiResponse.success(emoticonService.getPurchasedEmoticons(userDetails.getUserId(), pageable));
+        return ApiResponse.success(new PageResponse<>(emoticonService.getPurchasedEmoticons(userDetails.getUserId(), pageable)));
     }
 
     /**

@@ -121,7 +121,8 @@ class EmoticonControllerTest {
                             .with(csrf()))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.success").value(true))
-                    .andExpect(jsonPath("$.data.content[0].emoticonId").value(1));
+                    .andExpect(jsonPath("$.data.content[0].emoticonId").value(1))
+                    .andExpect(jsonPath("$.data.page").value(0));
 
             verify(emoticonService).getActiveEmoticons(any(), eq("latest"));
         }
@@ -136,7 +137,8 @@ class EmoticonControllerTest {
                             .param("sortBy", "popular")
                             .with(csrf()))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.success").value(true));
+                    .andExpect(jsonPath("$.success").value(true))
+                    .andExpect(jsonPath("$.data.content").isArray());
 
             verify(emoticonService).getActiveEmoticons(any(), eq("popular"));
         }
@@ -204,7 +206,8 @@ class EmoticonControllerTest {
                             .param("size", "20")
                             .with(csrf()))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.success").value(true));
+                    .andExpect(jsonPath("$.success").value(true))
+                    .andExpect(jsonPath("$.data.content").isArray());
 
             verify(emoticonService).searchAll(eq("테스트"), eq("ALL"), any(), eq("latest"));
         }
@@ -221,7 +224,8 @@ class EmoticonControllerTest {
                             .param("size", "20")
                             .with(csrf()))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.success").value(true));
+                    .andExpect(jsonPath("$.success").value(true))
+                    .andExpect(jsonPath("$.data.content").isArray());
 
             verify(emoticonService).searchByTag(eq("웃음"), any());
         }
@@ -238,7 +242,8 @@ class EmoticonControllerTest {
                             .param("size", "20")
                             .with(csrf()))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.success").value(true));
+                    .andExpect(jsonPath("$.success").value(true))
+                    .andExpect(jsonPath("$.data.content").isArray());
 
             verify(emoticonService).searchByKeyword(eq("이모티콘"), any());
         }
@@ -260,7 +265,8 @@ class EmoticonControllerTest {
                             .with(user(customUserDetails))
                             .with(csrf()))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.success").value(true));
+                    .andExpect(jsonPath("$.success").value(true))
+                    .andExpect(jsonPath("$.data.content").isArray());
 
             verify(emoticonService).getMyEmoticons(eq(1L), any());
         }

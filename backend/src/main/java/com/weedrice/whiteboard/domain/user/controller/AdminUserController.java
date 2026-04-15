@@ -9,6 +9,7 @@ import com.weedrice.whiteboard.domain.user.dto.UserStatusUpdateRequest;
 import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.service.UserService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
+import com.weedrice.whiteboard.global.common.dto.PageResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -27,7 +28,7 @@ public class AdminUserController {
     private final UserService userService;
 
     @GetMapping
-    public ApiResponse<Page<UserAdminResponse>> searchUsers(
+    public ApiResponse<PageResponse<UserAdminResponse>> searchUsers(
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false, name = "q") String q,
             @RequestParam(required = false) String status,
@@ -55,7 +56,7 @@ public class AdminUserController {
                 lastLoginTo,
                 minActivityCount,
                 pageable);
-        return ApiResponse.success(response);
+        return ApiResponse.success(new PageResponse<>(response));
     }
 
     @GetMapping("/{userId}")
@@ -64,24 +65,24 @@ public class AdminUserController {
     }
 
     @GetMapping("/{userId}/posts")
-    public ApiResponse<Page<PostSummary>> getUserPosts(
+    public ApiResponse<PageResponse<PostSummary>> getUserPosts(
             @PathVariable Long userId,
             @PageableDefault(size = 10) Pageable pageable) {
-        return ApiResponse.success(userService.getUserPostsForAdmin(userId, pageable));
+        return ApiResponse.success(new PageResponse<>(userService.getUserPostsForAdmin(userId, pageable)));
     }
 
     @GetMapping("/{userId}/comments")
-    public ApiResponse<Page<MyCommentResponse>> getUserComments(
+    public ApiResponse<PageResponse<MyCommentResponse>> getUserComments(
             @PathVariable Long userId,
             @PageableDefault(size = 10) Pageable pageable) {
-        return ApiResponse.success(userService.getUserCommentsForAdmin(userId, pageable));
+        return ApiResponse.success(new PageResponse<>(userService.getUserCommentsForAdmin(userId, pageable)));
     }
 
     @GetMapping("/{userId}/subscriptions")
-    public ApiResponse<Page<BoardResponse>> getUserSubscriptions(
+    public ApiResponse<PageResponse<BoardResponse>> getUserSubscriptions(
             @PathVariable Long userId,
             @PageableDefault(size = 10) Pageable pageable) {
-        return ApiResponse.success(userService.getUserSubscriptionsForAdmin(userId, pageable));
+        return ApiResponse.success(new PageResponse<>(userService.getUserSubscriptionsForAdmin(userId, pageable)));
     }
 
     @PutMapping("/{userId}/status")

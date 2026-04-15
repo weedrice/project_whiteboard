@@ -73,6 +73,7 @@ class BoardServiceTest {
     private PointHistoryRepository pointHistoryRepository;
     @Mock
     private GlobalConfigService globalConfigService;
+    private BoardResponseReadService boardResponseReadService;
     private BoardResponseAssembler boardResponseAssembler;
 
     private BoardService boardService;
@@ -83,12 +84,13 @@ class BoardServiceTest {
 
     @BeforeEach
     void setUp() {
-        boardResponseAssembler = new BoardResponseAssembler(
+        boardResponseReadService = new BoardResponseReadService(
                 boardSubscriptionRepository,
                 adminRepository,
                 boardCategoryRepository,
                 boardAiInfoRepository,
                 postService);
+        boardResponseAssembler = new BoardResponseAssembler(boardResponseReadService);
         boardAccessPolicy = new BoardAccessPolicy(adminRepository);
         boardService = new BoardService(
                 boardRepository,

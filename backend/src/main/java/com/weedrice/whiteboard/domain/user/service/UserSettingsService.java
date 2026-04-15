@@ -36,16 +36,7 @@ public class UserSettingsService {
 
         @Transactional
         public UserSettingsResponse getSettings(Long userId) {
-                User user = userRepository.findById(userId)
-                                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-
-                UserSettings settings = userSettingsRepository.findById(userId)
-                                .orElseGet(() -> {
-                                        UserSettings defaultSettings = UserSettings.builder()
-                                                        .user(user)
-                                                        .build();
-                                        return userSettingsRepository.save(defaultSettings);
-                                });
+                UserSettings settings = getOrCreateSettingsEntity(userId);
                 return new UserSettingsResponse(settings.getTheme(), settings.getLanguage(), settings.getTimezone(),
                                 settings.getHideNsfw());
         }
@@ -53,22 +44,28 @@ public class UserSettingsService {
         @Transactional
         public UserSettingsResponse updateSettings(Long userId, String theme, String language, String timezone,
                         Boolean hideNsfw) {
+                UserSettings settings = updateSettingsEntity(userId, theme, language, timezone, hideNsfw);
+                return new UserSettingsResponse(settings.getTheme(), settings.getLanguage(), settings.getTimezone(),
+                                settings.getHideNsfw());
+        }
+
+        @Transactional
+        public UserSettings getOrCreateSettingsEntity(Long userId) {
                 User user = userRepository.findById(userId)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
-                UserSettings settings = userSettingsRepository.findById(userId)
-                                .orElseGet(() -> {
-                                        UserSettings defaultSettings = UserSettings.builder()
-                                                        .user(user)
-                                                        .build();
-                                        return userSettingsRepository.save(defaultSettings);
-                                });
+                return userSettingsRepository.findById(userId)
+                                .orElseGet(() -> userSettingsRepository.save(UserSettings.builder()
+                                                .user(user)
+                                                .build()));
+        }
 
+        @Transactional
+        public UserSettings updateSettingsEntity(Long userId, String theme, String language, String timezone,
+                        Boolean hideNsfw) {
+                UserSettings settings = getOrCreateSettingsEntity(userId);
                 settings.updateSettings(theme, language, timezone, hideNsfw);
-                userSettingsRepository.save(settings);
-
-                return new UserSettingsResponse(settings.getTheme(), settings.getLanguage(), settings.getTimezone(),
-                                settings.getHideNsfw());
+                return userSettingsRepository.save(settings);
         }
 
         public List<NotificationSettingResponse> getNotificationSettings(Long userId) {

@@ -32,7 +32,6 @@ import com.weedrice.whiteboard.domain.user.entity.UserSettings;
 import com.weedrice.whiteboard.domain.user.repository.DisplayNameHistoryRepository;
 import com.weedrice.whiteboard.domain.user.repository.PasswordHistoryRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
-import com.weedrice.whiteboard.domain.user.repository.UserSettingsRepository;
 import com.weedrice.whiteboard.domain.user.dto.UserAdminResponse;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.user.entity.Role;
@@ -65,7 +64,7 @@ public class UserService {
     private final DisplayNameHistoryRepository displayNameHistoryRepository;
     private final PasswordHistoryRepository passwordHistoryRepository;
     private final PasswordEncoder passwordEncoder;
-    private final UserSettingsRepository userSettingsRepository;
+    private final UserSettingsService userSettingsService;
     private final PostRepository postRepository;
     private final FileService fileService;
     private final com.weedrice.whiteboard.domain.point.repository.UserPointRepository userPointRepository;
@@ -361,17 +360,7 @@ public class UserService {
 
     @Transactional
     public UserSettings updateSettings(Long userId, String theme, String language, String timezone, boolean hideNsfw) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-
-        UserSettings settings = userSettingsRepository.findById(userId)
-                .orElseGet(() -> {
-                    UserSettings newSettings = new UserSettings(user);
-                    return userSettingsRepository.save(newSettings);
-                });
-
-        settings.updateSettings(theme, language, timezone, hideNsfw);
-        return settings;
+        return userSettingsService.updateSettingsEntity(userId, theme, language, timezone, hideNsfw);
     }
 
     @Transactional
@@ -400,10 +389,7 @@ public class UserService {
     }
 
     public UserSettings getSettings(Long userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        return userSettingsRepository.findById(userId)
-                .orElseGet(() -> new UserSettings(user));
+        return userSettingsService.getOrCreateSettingsEntity(userId);
     }
 
     private void revokeActiveRefreshTokens(User user) {

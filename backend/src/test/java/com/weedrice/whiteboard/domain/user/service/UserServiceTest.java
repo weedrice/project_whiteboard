@@ -28,7 +28,6 @@ import com.weedrice.whiteboard.domain.user.entity.UserSettings;
 import com.weedrice.whiteboard.domain.user.repository.DisplayNameHistoryRepository;
 import com.weedrice.whiteboard.domain.user.repository.PasswordHistoryRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
-import com.weedrice.whiteboard.domain.user.repository.UserSettingsRepository;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -71,7 +70,7 @@ class UserServiceTest {
     @Mock
     private PasswordEncoder passwordEncoder;
     @Mock
-    private UserSettingsRepository userSettingsRepository;
+    private UserSettingsService userSettingsService;
     @Mock
     private PostRepository postRepository;
     @Mock
@@ -371,10 +370,12 @@ class UserServiceTest {
     @Test
     @DisplayName("사용자 설정 업데이트 (없으면 생성)")
     void updateSettings_create() {
-        User user = User.builder().build();
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(userSettingsRepository.findById(1L)).thenReturn(Optional.empty());
-        when(userSettingsRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+        UserSettings storedSettings = UserSettings.builder().build();
+        ReflectionTestUtils.setField(storedSettings, "theme", "dark");
+        ReflectionTestUtils.setField(storedSettings, "language", "en");
+        ReflectionTestUtils.setField(storedSettings, "timezone", "UTC");
+        ReflectionTestUtils.setField(storedSettings, "hideNsfw", true);
+        when(userSettingsService.updateSettingsEntity(1L, "dark", "en", "UTC", true)).thenReturn(storedSettings);
 
         UserSettings settings = userService.updateSettings(1L, "dark", "en", "UTC", true);
         
@@ -387,13 +388,19 @@ class UserServiceTest {
     @Test
     @DisplayName("사용자 설정 조회 (없으면 기본값 반환)")
     void getSettings_default() {
-        User user = User.builder().build();
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(userSettingsRepository.findById(1L)).thenReturn(Optional.empty());
+        UserSettings storedSettings = UserSettings.builder().build();
+        ReflectionTestUtils.setField(storedSettings, "theme", "light");
+        ReflectionTestUtils.setField(storedSettings, "language", "ko");
+        ReflectionTestUtils.setField(storedSettings, "timezone", "Asia/Seoul");
+        ReflectionTestUtils.setField(storedSettings, "hideNsfw", false);
+        when(userSettingsService.getOrCreateSettingsEntity(1L)).thenReturn(storedSettings);
 
         UserSettings settings = userService.getSettings(1L);
         assertThat(settings).isNotNull();
-        // Default values check if needed
+        assertThat(settings.getTheme()).isEqualTo("light");
+        assertThat(settings.getLanguage()).isEqualTo("ko");
+        assertThat(settings.getTimezone()).isEqualTo("Asia/Seoul");
+        assertThat(settings.getHideNsfw()).isFalse();
     }
     
     @Test
