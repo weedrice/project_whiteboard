@@ -21,6 +21,7 @@ interface Ad {
 
 const ad = ref<Ad | null>(null)
 const loading = ref(true)
+const impressionRecorded = ref(false)
 
 function normalizeExternalUrl(rawUrl: string | null | undefined): string | null {
   if (!rawUrl) return null
@@ -55,6 +56,7 @@ const fetchAd = async () => {
     })
     if (data.success) {
       ad.value = data.data
+      void recordImpression()
     }
   } catch (error) {
     logger.warn('Failed to load ad:', error)
@@ -74,6 +76,19 @@ const fetchAd = async () => {
         targetUrl: null
       }
     }
+  }
+}
+
+const recordImpression = async () => {
+  if (!ad.value?.adId || impressionRecorded.value) {
+    return
+  }
+
+  try {
+    await axios.post(`/ads/${ad.value.adId}/impression`)
+    impressionRecorded.value = true
+  } catch (error) {
+    logger.warn('Failed to record ad impression:', error)
   }
 }
 

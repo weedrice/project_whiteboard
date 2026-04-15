@@ -22,7 +22,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
@@ -43,23 +47,19 @@ public class EmoticonService {
     private final FileService fileService;
 
     public Page<EmoticonMasterDto> getActiveEmoticons(Pageable pageable) {
-        return emoticonMasterRepository.findAllActive(pageable)
-                .map(EmoticonMasterDto::fromWithoutImages);
+        return toSummaryPage(emoticonMasterRepository.findAllActive(pageable));
     }
 
     public Page<EmoticonMasterDto> searchByTag(String tag, Pageable pageable) {
-        return emoticonMasterRepository.findByTag(tag, pageable)
-                .map(EmoticonMasterDto::fromWithoutImages);
+        return toSummaryPage(emoticonMasterRepository.findByTag(tag, pageable));
     }
 
     public Page<EmoticonMasterDto> searchByKeyword(String keyword, Pageable pageable) {
-        return emoticonMasterRepository.findByKeyword(keyword, pageable)
-                .map(EmoticonMasterDto::fromWithoutImages);
+        return toSummaryPage(emoticonMasterRepository.findByKeyword(keyword, pageable));
     }
 
     public Page<EmoticonMasterDto> getMyEmoticons(Long userId, Pageable pageable) {
-        return emoticonMasterRepository.findByCreatorId(userId, pageable)
-                .map(EmoticonMasterDto::fromWithoutImages);
+        return toSummaryPage(emoticonMasterRepository.findByCreatorId(userId, pageable));
     }
 
     public EmoticonMasterDto getEmoticonDetail(Long emoticonId, Long userId) {
@@ -225,7 +225,7 @@ public class EmoticonService {
         } else {
             result = emoticonMasterRepository.findAllActiveOrderByCreatedAtAsc(pageable);
         }
-        return result.map(EmoticonMasterDto::fromWithoutImages);
+        return toSummaryPage(result);
     }
 
     public List<EmoticonMasterDto> getPopularEmoticons(String period) {
@@ -245,10 +245,7 @@ public class EmoticonService {
                 break;
         }
 
-        return emoticonMasterRepository.findPopularEmoticons(startDate, 5)
-                .stream()
-                .map(EmoticonMasterDto::fromWithoutImages)
-                .collect(Collectors.toList());
+        return toSummaryList(emoticonMasterRepository.findPopularEmoticons(startDate, 5));
     }
 
     public Page<EmoticonMasterDto> searchAll(String keyword, String searchType, Pageable pageable, String sortBy) {
@@ -283,7 +280,7 @@ public class EmoticonService {
                         : emoticonMasterRepository.searchByKeywordAll(trimmedKeyword, pageable);
                 break;
         }
-        return result.map(EmoticonMasterDto::fromWithoutImages);
+        return toSummaryPage(result);
     }
 
     @Transactional
@@ -322,8 +319,7 @@ public class EmoticonService {
     }
 
     public Page<EmoticonMasterDto> getPurchasedEmoticons(Long userId, Pageable pageable) {
-        return emoticonMasterRepository.findUsableEmoticons(userId, pageable)
-                .map(EmoticonMasterDto::fromWithoutImages);
+        return toSummaryPage(emoticonMasterRepository.findUsableEmoticons(userId, pageable));
     }
 
     public boolean hasPurchased(Long userId, Long emoticonId) {
@@ -337,5 +333,37 @@ public class EmoticonService {
     private String attachFile(Long fileId, Long userId, Long emoticonId, String relatedType) {
         fileService.associateFileWithEntity(fileId, userId, emoticonId, relatedType);
         return "/api/v1/files/" + fileId;
+    }
+
+    private Page<EmoticonMasterDto> toSummaryPage(Page<EmoticonMaster> page) {
+        Map<Long, String> creatorNamesById = loadCreatorNames(page.getContent());
+        return page.map(master -> toSummaryDto(master, creatorNamesById));
+    }
+
+    private List<EmoticonMasterDto> toSummaryList(List<EmoticonMaster> masters) {
+        Map<Long, String> creatorNamesById = loadCreatorNames(masters);
+        return masters.stream()
+                .map(master -> toSummaryDto(master, creatorNamesById))
+                .collect(Collectors.toList());
+    }
+
+    private EmoticonMasterDto toSummaryDto(EmoticonMaster master, Map<Long, String> creatorNamesById) {
+        Long creatorId = master.getCreator() != null ? master.getCreator().getUserId() : null;
+        return EmoticonMasterDto.fromWithoutImages(master, creatorId, creatorNamesById.get(creatorId));
+    }
+
+    private Map<Long, String> loadCreatorNames(Collection<EmoticonMaster> masters) {
+        Set<Long> creatorIds = masters.stream()
+                .map(EmoticonMaster::getCreator)
+                .filter(Objects::nonNull)
+                .map(User::getUserId)
+                .collect(Collectors.toSet());
+
+        if (creatorIds.isEmpty()) {
+            return Map.of();
+        }
+
+        return userRepository.findAllById(creatorIds).stream()
+                .collect(Collectors.toMap(User::getUserId, User::getDisplayName, (left, right) -> left));
     }
 }

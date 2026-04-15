@@ -3,6 +3,7 @@ package com.weedrice.whiteboard.domain.emoticon.repository;
 import com.weedrice.whiteboard.domain.emoticon.entity.EmoticonMaster;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -16,18 +17,22 @@ import java.util.Optional;
 public interface EmoticonMasterRepository extends JpaRepository<EmoticonMaster, Long> {
 
     // 활성화된 이모티콘 목록 조회
+    @EntityGraph(attributePaths = "creator")
     @Query("SELECT e FROM EmoticonMaster e WHERE e.isActive = 'Y' ORDER BY e.createdAt DESC")
     Page<EmoticonMaster> findAllActive(Pageable pageable);
 
     // 활성화된 이모티콘 목록 조회 (등록순 - 오름차순)
+    @EntityGraph(attributePaths = "creator")
     @Query("SELECT e FROM EmoticonMaster e WHERE e.isActive = 'Y' ORDER BY e.createdAt ASC")
     Page<EmoticonMaster> findAllActiveOrderByCreatedAtAsc(Pageable pageable);
 
     // 활성화된 이모티콘 목록 조회 (판매순)
+    @EntityGraph(attributePaths = "creator")
     @Query("SELECT e FROM EmoticonMaster e WHERE e.isActive = 'Y' ORDER BY e.purchaseCount DESC, e.createdAt DESC")
     Page<EmoticonMaster> findAllActiveOrderByPurchaseCount(Pageable pageable);
 
     // 특정 사용자의 이모티콘 목록 조회
+    @EntityGraph(attributePaths = "creator")
     @Query("SELECT e FROM EmoticonMaster e WHERE e.creator.userId = :creatorId ORDER BY e.createdAt DESC")
     Page<EmoticonMaster> findByCreatorId(@Param("creatorId") Long creatorId, Pageable pageable);
 
@@ -36,11 +41,12 @@ public interface EmoticonMasterRepository extends JpaRepository<EmoticonMaster, 
     Page<EmoticonMaster> findByTag(@Param("tag") String tag, Pageable pageable);
 
     // 이름으로 검색
+    @EntityGraph(attributePaths = "creator")
     @Query("SELECT e FROM EmoticonMaster e WHERE e.isActive = 'Y' AND LOWER(e.name) LIKE LOWER(CONCAT('%', :keyword, '%')) ORDER BY e.createdAt DESC")
     Page<EmoticonMaster> findByKeyword(@Param("keyword") String keyword, Pageable pageable);
 
     // 이모티콘 상세 조회 (이미지 포함)
-    @Query("SELECT e FROM EmoticonMaster e LEFT JOIN FETCH e.images WHERE e.emoticonId = :emoticonId")
+    @Query("SELECT e FROM EmoticonMaster e LEFT JOIN FETCH e.images LEFT JOIN FETCH e.creator WHERE e.emoticonId = :emoticonId")
     Optional<EmoticonMaster> findByIdWithImages(@Param("emoticonId") Long emoticonId);
 
     // 인기 이모티콘 조회 (특정 기간 내 구매 횟수 기준) - 상위 5개

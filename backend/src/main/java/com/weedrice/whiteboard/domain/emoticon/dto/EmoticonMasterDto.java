@@ -47,14 +47,19 @@ public class EmoticonMasterDto {
 
     // 이미지 제외 버전 (목록 조회용)
     public static EmoticonMasterDto fromWithoutImages(EmoticonMaster master) {
+        Long creatorId = master.getCreator() != null ? master.getCreator().getUserId() : null;
+        return fromWithoutImages(master, creatorId, null);
+    }
+
+    public static EmoticonMasterDto fromWithoutImages(EmoticonMaster master, Long creatorId, String creatorName) {
         return EmoticonMasterDto.builder()
                 .emoticonId(master.getEmoticonId())
                 .name(master.getName())
                 .thumbnailUrl(master.getThumbnailUrl())
                 .tags(master.getTags())
                 .isActive("Y".equals(master.getIsActive()))
-                .creatorId(master.getCreator() != null ? master.getCreator().getUserId() : null)
-                .creatorName(master.getCreator() != null ? master.getCreator().getDisplayName() : null)
+                .creatorId(creatorId)
+                .creatorName(creatorName)
                 .purchaseCount(master.getPurchaseCount())
                 .createdAt(master.getCreatedAt())
                 .modifiedAt(master.getModifiedAt())

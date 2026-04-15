@@ -76,11 +76,13 @@ public class UserBlockService {
         }
 
         public boolean isBlocked(Long userId, Long targetUserId) {
-                User user = userRepository.findById(userId)
-                                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-                User target = userRepository.findById(targetUserId)
-                                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-                return userBlockRepository.existsByUserAndTarget(user, target);
+                validateUserExists(userId);
+                validateUserExists(targetUserId);
+                return userBlockRepository.existsByUser_UserIdAndTarget_UserId(userId, targetUserId);
+        }
+
+        public boolean isEitherDirectionBlocked(Long userAId, Long userBId) {
+                return userBlockRepository.existsEitherDirection(userAId, userBId);
         }
 
         public List<Long> getBlockedUserIds(Long userId) {
@@ -89,5 +91,11 @@ public class UserBlockService {
                 return userBlockRepository.findByUser(user).stream()
                                 .map(block -> block.getTarget().getUserId())
                                 .collect(Collectors.toList());
+        }
+
+        private void validateUserExists(Long userId) {
+                if (!userRepository.existsById(userId)) {
+                        throw new BusinessException(ErrorCode.USER_NOT_FOUND);
+                }
         }
 }

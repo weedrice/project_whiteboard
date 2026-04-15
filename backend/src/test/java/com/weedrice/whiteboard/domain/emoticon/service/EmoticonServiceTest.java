@@ -76,6 +76,7 @@ class EmoticonServiceTest {
                 .creator(user)
                 .build();
         ReflectionTestUtils.setField(emoticonMaster, "emoticonId", 1L);
+        lenient().when(userRepository.findAllById(any())).thenReturn(List.of(user));
     }
 
     @Nested

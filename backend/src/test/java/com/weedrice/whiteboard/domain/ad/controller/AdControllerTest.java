@@ -10,6 +10,9 @@ import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import com.weedrice.whiteboard.global.security.JwtAuthenticationEntryPoint;
 import com.weedrice.whiteboard.global.security.JwtAuthenticationFilter;
 import com.weedrice.whiteboard.global.security.RefererCheckInterceptor;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -26,16 +29,18 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Collections;
 
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-
-import jakarta.servlet.FilterChain;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 
 @WebMvcTest(controllers = AdController.class,
     excludeFilters = {
@@ -95,11 +100,9 @@ class AdControllerTest {
     @Test
     @DisplayName("광고 조회 성공")
     void getAd_returnsSuccess() throws Exception {
-        // given
         AdResponse response = AdResponse.builder().build();
         when(adService.getAdResponse(eq("TOP"))).thenReturn(response);
 
-        // when & then
         mockMvc.perform(get("/api/v1/ads")
                         .param("placement", "TOP"))
                 .andExpect(status().isOk())
@@ -107,12 +110,21 @@ class AdControllerTest {
     }
 
     @Test
+    @DisplayName("광고 impression 기록 성공")
+    void recordAdImpression_returnsSuccess() throws Exception {
+        doNothing().when(adService).recordAdImpression(eq(1L), anyLong(), anyString());
+
+        mockMvc.perform(post("/api/v1/ads/{adId}/impression", 1L)
+                        .with(user(customUserDetails)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+    }
+
+    @Test
     @DisplayName("광고 클릭 기록 성공")
     void recordAdClick_returnsSuccess() throws Exception {
-        // given
         when(adService.recordAdClick(eq(1L), any(), anyString())).thenReturn("http://example.com");
 
-        // when & then
         mockMvc.perform(post("/api/v1/ads/{adId}/click", 1L)
                         .with(user(customUserDetails)))
                 .andExpect(status().isOk())

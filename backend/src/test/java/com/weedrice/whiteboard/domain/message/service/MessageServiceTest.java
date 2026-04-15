@@ -71,8 +71,7 @@ class MessageServiceTest {
         String content = "Hello!";
         when(userRepository.findById(senderId)).thenReturn(Optional.of(sender));
         when(userRepository.findById(receiverId)).thenReturn(Optional.of(receiver));
-        when(userBlockService.isBlocked(senderId, receiverId)).thenReturn(false);
-        when(userBlockService.isBlocked(receiverId, senderId)).thenReturn(false);
+        when(userBlockService.isEitherDirectionBlocked(senderId, receiverId)).thenReturn(false);
         when(messageRepository.save(any(Message.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         // when
@@ -83,6 +82,7 @@ class MessageServiceTest {
         assertThat(result.getSender()).isEqualTo(sender);
         assertThat(result.getReceiver()).isEqualTo(receiver);
         verify(messageRepository).save(any(Message.class));
+        verify(userBlockService).isEitherDirectionBlocked(senderId, receiverId);
     }
 
     @Test
@@ -134,7 +134,7 @@ class MessageServiceTest {
         Long userId = 2L;
         Long messageId = 1L;
         when(messageRepository.findById(messageId)).thenReturn(Optional.of(message));
-        when(userBlockService.isBlocked(anyLong(), anyLong())).thenReturn(false);
+        when(userBlockService.isEitherDirectionBlocked(2L, 1L)).thenReturn(false);
 
         // when
         Message result = messageService.getMessage(userId, messageId);
@@ -142,6 +142,19 @@ class MessageServiceTest {
         // then
         assertThat(result).isNotNull();
         assertThat(result.getMessageId()).isEqualTo(messageId);
+        verify(userBlockService).isEitherDirectionBlocked(2L, 1L);
+    }
+
+    @Test
+    @DisplayName("쪽지 전송 차단 시 BLOCKED_BY_USER")
+    void sendMessage_blocked() {
+        when(userRepository.findById(1L)).thenReturn(Optional.of(sender));
+        when(userRepository.findById(2L)).thenReturn(Optional.of(receiver));
+        when(userBlockService.isEitherDirectionBlocked(1L, 2L)).thenReturn(true);
+
+        assertThatThrownBy(() -> messageService.sendMessage(1L, 2L, "Hello!"))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode()).isEqualTo(ErrorCode.BLOCKED_BY_USER));
     }
 
     @Test

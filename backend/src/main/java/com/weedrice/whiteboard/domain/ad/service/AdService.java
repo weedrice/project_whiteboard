@@ -25,7 +25,6 @@ public class AdService {
     private final AdClickLogRepository adClickLogRepository;
     private final UserRepository userRepository;
 
-    @Transactional
     public AdResponse getAdResponse(String placement) {
         Ad ad = getAd(placement);
         if (ad == null) {
@@ -34,7 +33,6 @@ public class AdService {
         return AdResponse.from(ad);
     }
 
-    @Transactional
     public Ad getAd(String placement) {
         LocalDateTime now = LocalDateTime.now();
         List<Ad> ads = adRepository.findByPlacementAndIsActiveAndStartDateBeforeAndEndDateAfter(placement, true, now,
@@ -42,10 +40,14 @@ public class AdService {
         if (ads.isEmpty()) {
             return null;
         }
-        // 여러 광고 중 하나를 선택 (현재는 랜덤 선택, 향후 가중치 기반 선택으로 개선 가능)
-        Ad ad = ads.get((int) (Math.random() * ads.size()));
+        return ads.get((int) (Math.random() * ads.size()));
+    }
+
+    @Transactional
+    public void recordAdImpression(Long adId, Long userId, String ipAddress) {
+        Ad ad = adRepository.findById(adId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.AD_NOT_FOUND));
         ad.incrementImpressionCount();
-        return ad;
     }
 
     @Transactional

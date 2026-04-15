@@ -16,7 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
-@Service("messageDomainService") // Bean 이름 충돌을 피하기 위해 명시적으로 지정
+@Service("messageDomainService")
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class MessageService {
@@ -32,13 +32,7 @@ public class MessageService {
         User receiver = userRepository.findById(receiverId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
-        // 발신자가 수신자를 차단했는지 확인
-        if (userBlockService.isBlocked(senderId, receiverId)) {
-            throw new BusinessException(ErrorCode.BLOCKED_BY_USER);
-        }
-
-        // 수신자가 발신자를 차단했는지 확인
-        if (userBlockService.isBlocked(receiverId, senderId)) {
+        if (userBlockService.isEitherDirectionBlocked(senderId, receiverId)) {
             throw new BusinessException(ErrorCode.BLOCKED_BY_USER);
         }
 
@@ -77,15 +71,13 @@ public class MessageService {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
 
-        // 차단 관계 확인
-        if (userBlockService.isBlocked(userId, message.getSender().getUserId()) ||
-                userBlockService.isBlocked(message.getSender().getUserId(), userId) ||
-                userBlockService.isBlocked(userId, message.getReceiver().getUserId()) ||
-                userBlockService.isBlocked(message.getReceiver().getUserId(), userId)) {
+        Long partnerUserId = message.getSender().getUserId().equals(userId)
+                ? message.getReceiver().getUserId()
+                : message.getSender().getUserId();
+        if (userBlockService.isEitherDirectionBlocked(userId, partnerUserId)) {
             throw new BusinessException(ErrorCode.BLOCKED_BY_USER);
         }
 
-        // 수신자가 읽었을 경우 읽음 처리
         if (message.getReceiver().getUserId().equals(userId)) {
             message.markAsRead();
         }
@@ -123,7 +115,6 @@ public class MessageService {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
 
-        // 양쪽 모두 삭제했다면 DB에서 Hard Delete
         if (message.getIsDeletedBySender() && message.getIsDeletedByReceiver()) {
             messageRepository.delete(message);
         }

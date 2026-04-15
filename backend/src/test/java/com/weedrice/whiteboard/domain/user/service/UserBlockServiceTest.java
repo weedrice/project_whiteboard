@@ -121,14 +121,19 @@ class UserBlockServiceTest {
     @Test
     @DisplayName("차단 여부 확인")
     void isBlocked() {
-        User blocker = User.builder().build();
-        User blocked = User.builder().build();
-
-        when(userRepository.findById(1L)).thenReturn(Optional.of(blocker));
-        when(userRepository.findById(2L)).thenReturn(Optional.of(blocked));
-        when(userBlockRepository.existsByUserAndTarget(blocker, blocked)).thenReturn(true);
+        when(userRepository.existsById(1L)).thenReturn(true);
+        when(userRepository.existsById(2L)).thenReturn(true);
+        when(userBlockRepository.existsByUser_UserIdAndTarget_UserId(1L, 2L)).thenReturn(true);
 
         assertThat(userBlockService.isBlocked(1L, 2L)).isTrue();
+    }
+
+    @Test
+    @DisplayName("양방향 차단 여부 확인")
+    void isEitherDirectionBlocked() {
+        when(userBlockRepository.existsEitherDirection(1L, 2L)).thenReturn(true);
+
+        assertThat(userBlockService.isEitherDirectionBlocked(1L, 2L)).isTrue();
     }
 
     @Test
@@ -195,7 +200,7 @@ class UserBlockServiceTest {
     @Test
     @DisplayName("차단 여부 확인 실패 - 사용자 없음")
     void isBlocked_userNotFound() {
-        when(userRepository.findById(1L)).thenReturn(Optional.empty());
+        when(userRepository.existsById(1L)).thenReturn(false);
 
         assertThatThrownBy(() -> userBlockService.isBlocked(1L, 2L))
                 .isInstanceOf(BusinessException.class)

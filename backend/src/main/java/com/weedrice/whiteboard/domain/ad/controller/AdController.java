@@ -1,7 +1,6 @@
 package com.weedrice.whiteboard.domain.ad.controller;
 
 import com.weedrice.whiteboard.domain.ad.dto.AdResponse;
-
 import com.weedrice.whiteboard.domain.ad.service.AdService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
@@ -22,17 +21,28 @@ public class AdController {
         return ApiResponse.success(adService.getAdResponse(placement));
     }
 
+    @PostMapping("/{adId}/impression")
+    public ApiResponse<Void> recordAdImpression(
+            @PathVariable Long adId,
+            Authentication authentication,
+            HttpServletRequest request) {
+        adService.recordAdImpression(adId, extractUserId(authentication), request.getRemoteAddr());
+        return ApiResponse.success(null);
+    }
+
     @PostMapping("/{adId}/click")
     public ApiResponse<String> recordAdClick(
             @PathVariable Long adId,
             Authentication authentication,
             HttpServletRequest request) {
-        Long userId = null;
-        if (authentication != null && authentication.getPrincipal() instanceof CustomUserDetails) {
-            userId = ((CustomUserDetails) authentication.getPrincipal()).getUserId();
-        }
-        String ipAddress = request.getRemoteAddr();
-        String targetUrl = adService.recordAdClick(adId, userId, ipAddress);
+        String targetUrl = adService.recordAdClick(adId, extractUserId(authentication), request.getRemoteAddr());
         return ApiResponse.success(targetUrl);
+    }
+
+    private Long extractUserId(Authentication authentication) {
+        if (authentication != null && authentication.getPrincipal() instanceof CustomUserDetails userDetails) {
+            return userDetails.getUserId();
+        }
+        return null;
     }
 }

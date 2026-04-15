@@ -14,12 +14,12 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@DisplayName("EmoticonMasterDto 테스트")
+@DisplayName("EmoticonMasterDto tests")
 class EmoticonMasterDtoTest {
 
     private EmoticonMaster createMaster(Long emoticonId, User creator, String isActive, List<EmoticonImage> images) {
         EmoticonMaster master = EmoticonMaster.builder()
-                .name("테스트")
+                .name("test")
                 .thumbnailUrl("thumb")
                 .tags(List.of("a"))
                 .creator(creator)
@@ -40,14 +40,14 @@ class EmoticonMasterDtoTest {
     class From {
 
         @Test
-        @DisplayName("creator null - creatorId/creatorName null")
+        @DisplayName("creator가 없으면 creatorId와 creatorName은 null")
         void from_creatorNull() {
             EmoticonMaster master = createMaster(1L, null, "Y", Collections.emptyList());
 
             EmoticonMasterDto dto = EmoticonMasterDto.from(master);
 
             assertThat(dto.getEmoticonId()).isEqualTo(1L);
-            assertThat(dto.getName()).isEqualTo("테스트");
+            assertThat(dto.getName()).isEqualTo("test");
             assertThat(dto.getCreatorId()).isNull();
             assertThat(dto.getCreatorName()).isNull();
             assertThat(dto.getIsActive()).isTrue();
@@ -56,20 +56,20 @@ class EmoticonMasterDtoTest {
         }
 
         @Test
-        @DisplayName("creator 존재 - creatorId/creatorName 채움")
+        @DisplayName("creator가 있으면 creator 정보를 포함한다")
         void from_creatorPresent() {
-            User user = User.builder().loginId("u").displayName("작성자").email("e@e.com").password("p").build();
+            User user = User.builder().loginId("u").displayName("writer").email("e@e.com").password("p").build();
             ReflectionTestUtils.setField(user, "userId", 10L);
             EmoticonMaster master = createMaster(1L, user, "Y", Collections.emptyList());
 
             EmoticonMasterDto dto = EmoticonMasterDto.from(master);
 
             assertThat(dto.getCreatorId()).isEqualTo(10L);
-            assertThat(dto.getCreatorName()).isEqualTo("작성자");
+            assertThat(dto.getCreatorName()).isEqualTo("writer");
         }
 
         @Test
-        @DisplayName("isActive N이면 false")
+        @DisplayName("isActive가 N이면 false")
         void from_isActiveN() {
             EmoticonMaster master = createMaster(1L, null, "N", Collections.emptyList());
 
@@ -79,7 +79,7 @@ class EmoticonMasterDtoTest {
         }
 
         @Test
-        @DisplayName("이미지 목록 포함")
+        @DisplayName("images를 포함한다")
         void from_withImages() {
             EmoticonMaster master = createMaster(1L, null, "Y", Collections.emptyList());
             EmoticonImage img = EmoticonImage.builder()
@@ -103,7 +103,7 @@ class EmoticonMasterDtoTest {
     class FromWithoutImages {
 
         @Test
-        @DisplayName("creator null")
+        @DisplayName("creator가 없으면 creatorId와 creatorName은 null")
         void fromWithoutImages_creatorNull() {
             EmoticonMaster master = createMaster(2L, null, "Y", null);
 
@@ -116,22 +116,33 @@ class EmoticonMasterDtoTest {
         }
 
         @Test
-        @DisplayName("creator 존재, isActive N")
+        @DisplayName("기본 목록 변환은 creator 이름을 지연 로딩하지 않는다")
         void fromWithoutImages_creatorPresentIsActiveN() {
-            User user = User.builder().loginId("u").displayName("이름").email("e@e.com").password("p").build();
+            User user = User.builder().loginId("u").displayName("name").email("e@e.com").password("p").build();
             ReflectionTestUtils.setField(user, "userId", 7L);
             EmoticonMaster master = createMaster(3L, user, "N", null);
 
             EmoticonMasterDto dto = EmoticonMasterDto.fromWithoutImages(master);
 
             assertThat(dto.getCreatorId()).isEqualTo(7L);
-            assertThat(dto.getCreatorName()).isEqualTo("이름");
+            assertThat(dto.getCreatorName()).isNull();
             assertThat(dto.getIsActive()).isFalse();
+        }
+
+        @Test
+        @DisplayName("creator 요약 정보를 명시적으로 주입할 수 있다")
+        void fromWithoutImages_withExplicitCreatorSummary() {
+            EmoticonMaster master = createMaster(4L, null, "Y", null);
+
+            EmoticonMasterDto dto = EmoticonMasterDto.fromWithoutImages(master, 9L, "creator");
+
+            assertThat(dto.getCreatorId()).isEqualTo(9L);
+            assertThat(dto.getCreatorName()).isEqualTo("creator");
         }
     }
 
     @Test
-    @DisplayName("builder / AllArgsConstructor")
+    @DisplayName("builder getter smoke test")
     void builderAndGetters() {
         EmoticonMasterDto dto = EmoticonMasterDto.builder()
                 .emoticonId(1L)

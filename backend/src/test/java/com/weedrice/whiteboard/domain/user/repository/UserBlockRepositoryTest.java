@@ -73,6 +73,24 @@ class UserBlockRepositoryTest {
     }
 
     @Test
+    @DisplayName("ID 기반 차단 여부 확인")
+    void existsByUserIdAndTargetUserId_returnsTrue_whenBlockExists() {
+        boolean exists = userBlockRepository.existsByUser_UserIdAndTarget_UserId(user1.getUserId(), user2.getUserId());
+
+        assertThat(exists).isTrue();
+    }
+
+    @Test
+    @DisplayName("양방향 차단 여부 확인")
+    void existsEitherDirection_returnsExpectedValue() {
+        boolean blocked = userBlockRepository.existsEitherDirection(user1.getUserId(), user2.getUserId());
+        boolean notBlocked = userBlockRepository.existsEitherDirection(user2.getUserId(), user3.getUserId());
+
+        assertThat(blocked).isTrue();
+        assertThat(notBlocked).isFalse();
+    }
+
+    @Test
     @DisplayName("차단 관계 조회 - 성공")
     void findByUserAndTarget_returnsUserBlock_whenBlockExists() {
         // when

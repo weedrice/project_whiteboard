@@ -3,6 +3,7 @@ package com.weedrice.whiteboard.domain.mqueue.service;
 import com.weedrice.whiteboard.domain.mqueue.entity.MessageQueue;
 import com.weedrice.whiteboard.domain.mqueue.repository.MessageQueueRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.global.email.EmailService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
@@ -14,8 +15,10 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class MqueueService {
     private static final int MAX_RETRY_COUNT = 5;
+    private static final String EMAIL_SUBJECT = "[noviIs] Notification";
 
     private final MessageQueueRepository messageQueueRepository;
+    private final EmailService emailService;
     private final org.springframework.transaction.support.TransactionTemplate transactionTemplate;
 
     @Transactional
@@ -36,9 +39,8 @@ public class MqueueService {
         }
 
         try {
-            // TODO: implement real provider integration (JavaMailSender, SES, etc.)
             log.info("Email sending attempt: {} - {}", message.getTargetUser().getEmail(), message.getContent());
-            Thread.sleep(1000);
+            emailService.sendEmail(message.getTargetUser().getEmail(), EMAIL_SUBJECT, message.getContent());
             message.sent();
             log.info("Email sent successfully: queueId={}", queueId);
         } catch (Exception e) {
