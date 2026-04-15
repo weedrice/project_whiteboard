@@ -60,7 +60,7 @@ describe('logger', () => {
     const { logger, logMock } = await importLoggerWithMocks()
 
     expect(logMock.setLevel).toHaveBeenCalledTimes(1)
-    expect(logMock.setLevel).toHaveBeenCalledWith(expect.stringMatching(/trace|warn/))
+    expect(logMock.setLevel).toHaveBeenCalledWith(expect.stringMatching(/trace|error/))
     expect(logger).toBe(logMock)
     expect(logger.trace).toBeDefined()
     expect(logger.debug).toBeDefined()
@@ -76,10 +76,10 @@ describe('logger', () => {
     expect(logMock.setLevel).toHaveBeenCalledWith('trace')
   })
 
-  it('sets warn level in production env', async () => {
+  it('sets error level in production env', async () => {
     vi.stubEnv('DEV', false)
     const { logMock } = await importLoggerWithMocks()
 
-    expect(logMock.setLevel).toHaveBeenCalledWith('warn')
+    expect(logMock.setLevel).toHaveBeenCalledWith('error')
   })
 })

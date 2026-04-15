@@ -51,22 +51,9 @@ useHead({
 
 watch([() => route.name, boardTitle], ([routeName, title]) => {
     if (currentPostId.value || routeName !== 'board-detail' || typeof document === 'undefined') {
-        console.log('[TitleDebug][BoardDetail] skip', {
-            routeName,
-            currentPostId: currentPostId.value,
-            title,
-            documentTitle: typeof document !== 'undefined' ? document.title : 'no-document'
-        })
         return
     }
-    console.log('[TitleDebug][BoardDetail] apply', {
-        routeName,
-        currentPostId: currentPostId.value,
-        titleBefore: document.title,
-        nextTitle: `${title} - ${t('common.appName')}`
-    })
     document.title = `${title} - ${t('common.appName')}`
-    console.log('[TitleDebug][BoardDetail] applied', { documentTitle: document.title })
 }, { immediate: true })
 
 // State

@@ -105,20 +105,9 @@ useHead({
 
 watch([() => route.name, postPageTitle], ([routeName, title]) => {
   if (routeName !== 'post-detail' || typeof document === 'undefined') {
-    console.log('[TitleDebug][PostDetail] skip', {
-      routeName,
-      title,
-      documentTitle: typeof document !== 'undefined' ? document.title : 'no-document'
-    })
     return
   }
-  console.log('[TitleDebug][PostDetail] apply', {
-    routeName,
-    titleBefore: document.title,
-    nextTitle: title
-  })
   document.title = title
-  console.log('[TitleDebug][PostDetail] applied', { documentTitle: document.title })
 }, { immediate: true })
 
 const { mutate: deleteMutate } = useDeletePost()

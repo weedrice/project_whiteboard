@@ -16,13 +16,12 @@ prefix.apply(log, {
     },
 })
 
-// Set default level based on environment
-// In development, show everything (trace)
-// In production, show only warnings and errors
+// Set default level based on environment.
+// Development keeps verbose diagnostics, while production only surfaces errors.
 if (import.meta.env.DEV) {
     log.setLevel('trace')
 } else {
-    log.setLevel('warn')
+    log.setLevel('error')
 }
 
 export default log as Logger

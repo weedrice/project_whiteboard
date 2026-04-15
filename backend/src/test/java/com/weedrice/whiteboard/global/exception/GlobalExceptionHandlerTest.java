@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.global.exception;
 
 import com.weedrice.whiteboard.global.common.ApiResponse;
+import com.weedrice.whiteboard.global.log.service.ErrorLogService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -14,6 +15,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -23,8 +25,7 @@ import java.util.Locale;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class GlobalExceptionHandlerTest {
@@ -35,12 +36,16 @@ class GlobalExceptionHandlerTest {
     @InjectMocks
     private GlobalExceptionHandler globalExceptionHandler;
 
+    @Mock
+    private ErrorLogService errorLogService;
+
     private MockHttpServletRequest request;
 
     @BeforeEach
     void setUp() {
         request = new MockHttpServletRequest();
         request.setRequestURI("/test/uri");
+        ReflectionTestUtils.setField(globalExceptionHandler, "errorLogService", errorLogService);
     }
 
     @Test
@@ -59,6 +64,33 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().isSuccess()).isFalse();
         assertThat(response.getBody().getError().getCode()).isEqualTo(ErrorCode.USER_NOT_FOUND.getCode());
+        verify(errorLogService).saveErrorLog(
+                eq(ErrorCode.USER_NOT_FOUND.getCode()),
+                eq("BusinessException"),
+                eq(HttpStatus.NOT_FOUND.value()),
+                anyString(),
+                anyString(),
+                anyString(),
+                isNull(),
+                anyString(),
+                isNull(),
+                isNull());
+    }
+
+    @Test
+    @DisplayName("BOARD_NOT_FOUND 는 에러 로그를 저장하지 않음")
+    void handleBusinessException_boardNotFound_doesNotSaveErrorLog() {
+        BusinessException ex = new BusinessException(ErrorCode.BOARD_NOT_FOUND);
+        when(messageSource.getMessage(eq(ErrorCode.BOARD_NOT_FOUND.getMessage()), isNull(), any(Locale.class)))
+                .thenReturn(ErrorCode.BOARD_NOT_FOUND.getMessage());
+
+        ResponseEntity<ApiResponse<Void>> response = globalExceptionHandler.handleBusinessException(ex, request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getError().getCode()).isEqualTo(ErrorCode.BOARD_NOT_FOUND.getCode());
+        verify(errorLogService, never()).saveErrorLog(anyString(), anyString(), anyInt(), anyString(),
+                anyString(), anyString(), any(), anyString(), anyString(), any());
     }
 
     @Test

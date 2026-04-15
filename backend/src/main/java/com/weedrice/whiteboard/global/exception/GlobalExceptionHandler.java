@@ -38,6 +38,9 @@ public class GlobalExceptionHandler {
             ErrorCode.INVALID_REFRESH_TOKEN,
             ErrorCode.EXPIRED_REFRESH_TOKEN
     );
+    private static final Set<ErrorCode> SUPPRESSED_ERROR_LOG_BUSINESS_CODES = EnumSet.of(
+            ErrorCode.BOARD_NOT_FOUND
+    );
 
     private final MessageSource messageSource;
 
@@ -219,7 +222,15 @@ public class GlobalExceptionHandler {
     }
 
     private boolean shouldSuppressBusinessErrorLog(HttpServletRequest request, ErrorCode errorCode) {
-        if (request == null || errorCode == null) {
+        if (errorCode == null) {
+            return false;
+        }
+
+        if (SUPPRESSED_ERROR_LOG_BUSINESS_CODES.contains(errorCode)) {
+            return true;
+        }
+
+        if (request == null) {
             return false;
         }
 
