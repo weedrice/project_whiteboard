@@ -2,8 +2,12 @@ package com.weedrice.whiteboard.domain.report.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.weedrice.whiteboard.domain.report.dto.ReportCreateRequest;
+import com.weedrice.whiteboard.domain.report.dto.ReportResponse;
 import com.weedrice.whiteboard.domain.report.service.ReportService;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -12,24 +16,28 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Collections;
+import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.when;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-
-import jakarta.servlet.FilterChain;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(controllers = ReportController.class,
     excludeFilters = {
@@ -88,7 +96,7 @@ class ReportControllerTest {
     void setUp() throws Exception {
         customUserDetails = new CustomUserDetails(1L, "test@example.com", "password",
                 Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER")));
-        
+
         when(ipBlockInterceptor.preHandle(any(), any(), any())).thenReturn(true);
         when(refererCheckInterceptor.preHandle(any(), any(), any())).thenReturn(true);
         when(rateLimitInterceptor.preHandle(any(), any(), any())).thenReturn(true);
@@ -102,38 +110,73 @@ class ReportControllerTest {
         }).when(jwtAuthenticationFilter).doFilter(any(), any(), any());
     }
 
-        @Test
+    @Test
+    @DisplayName("범용 신고 생성 성공")
+    void createReport_success() throws Exception {
+        ReportCreateRequest request = new ReportCreateRequest();
+        org.springframework.test.util.ReflectionTestUtils.setField(request, "targetType", "POST");
+        org.springframework.test.util.ReflectionTestUtils.setField(request, "targetId", 1L);
+        org.springframework.test.util.ReflectionTestUtils.setField(request, "reasonType", "SPAM");
 
-        @DisplayName("신고 생성 성공")
+        when(reportService.createReport(any(), any(), any(), any(), any(), any())).thenReturn(1L);
 
-        void createReport_success() throws Exception {
-
-            ReportCreateRequest request = new ReportCreateRequest();
-
-            org.springframework.test.util.ReflectionTestUtils.setField(request, "targetType", "POST");
-
-            org.springframework.test.util.ReflectionTestUtils.setField(request, "targetId", 1L);
-
-            org.springframework.test.util.ReflectionTestUtils.setField(request, "reasonType", "SPAM");
-
-            
-
-            when(reportService.createReport(any(), any(), any(), any(), any(), any())).thenReturn(1L);
-
-    
-
-            mockMvc.perform(post("/api/v1/reports")
-
-                            .with(user(customUserDetails))
-
-                            .contentType(MediaType.APPLICATION_JSON)
-
-                            .content(objectMapper.writeValueAsString(request)))
-
-                    .andExpect(status().isCreated());
-
-        }
-
+        mockMvc.perform(post("/api/v1/reports")
+                        .with(user(customUserDetails))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated());
     }
 
-    
+    @Test
+    @DisplayName("사용자 신고 레거시 엔드포인트는 DTO 검증을 적용한다")
+    void reportUser_validationFailure() throws Exception {
+        mockMvc.perform(post("/api/v1/reports/users")
+                        .with(user(customUserDetails))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\":\"spam\"}"))
+                .andExpect(status().isBadRequest());
+
+        verify(reportService, never()).createReport(anyLong(), anyString(), anyLong(), anyString(), any(), any());
+    }
+
+    @Test
+    @DisplayName("게시글 신고 레거시 엔드포인트는 reasonType 을 선택적으로 받는다")
+    void reportPost_usesProvidedReasonType() throws Exception {
+        when(reportService.createReport(any(), any(), any(), any(), any(), any())).thenReturn(3L);
+
+        mockMvc.perform(post("/api/v1/reports/posts")
+                        .with(user(customUserDetails))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "targetPostId": 10,
+                                  "reason": "spam post",
+                                  "reasonType": "SPAM"
+                                }
+                                """))
+                .andExpect(status().isCreated());
+
+        verify(reportService).createReport(1L, "POST", 10L, "SPAM", null, "spam post");
+    }
+
+    @Test
+    @DisplayName("내 신고 목록은 PageResponse 로 반환한다")
+    void getMyReports_returnsPageResponse() throws Exception {
+        ReportResponse response = ReportResponse.builder()
+                .reportId(1L)
+                .targetType("POST")
+                .targetId(3L)
+                .reasonType("SPAM")
+                .status("PENDING")
+                .build();
+        when(reportService.getMyReports(eq(1L), any()))
+                .thenReturn(new PageImpl<>(List.of(response), PageRequest.of(0, 20), 1));
+
+        mockMvc.perform(get("/api/v1/reports/me")
+                        .with(user(customUserDetails)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content").isArray())
+                .andExpect(jsonPath("$.data.totalPages").value(1))
+                .andExpect(jsonPath("$.data.page").value(0));
+    }
+}

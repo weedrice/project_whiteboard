@@ -4,10 +4,10 @@ import com.weedrice.whiteboard.domain.report.dto.ReportProcessRequest;
 import com.weedrice.whiteboard.domain.report.dto.ReportResponse;
 import com.weedrice.whiteboard.domain.report.service.ReportService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
+import com.weedrice.whiteboard.global.common.dto.PageResponse;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import com.weedrice.whiteboard.domain.user.entity.Role;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -23,12 +23,11 @@ public class AdminReportController {
 
     @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
     @GetMapping
-    public ApiResponse<Page<ReportResponse>> getReports(
+    public ApiResponse<PageResponse<ReportResponse>> getReports(
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String targetType,
             @PageableDefault(size = 20) Pageable pageable) {
-        Page<ReportResponse> response = reportService.getReports(status, targetType, pageable);
-        return ApiResponse.success(response);
+        return ApiResponse.success(new PageResponse<>(reportService.getReports(status, targetType, pageable)));
     }
 
     @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")

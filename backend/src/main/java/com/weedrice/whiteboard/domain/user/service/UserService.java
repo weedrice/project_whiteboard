@@ -1,8 +1,10 @@
 package com.weedrice.whiteboard.domain.user.service;
 
 import com.weedrice.whiteboard.domain.agent.service.AgentService;
+import com.weedrice.whiteboard.domain.auth.entity.RefreshToken;
 import com.weedrice.whiteboard.domain.auth.entity.LoginHistory;
 import com.weedrice.whiteboard.domain.auth.repository.LoginHistoryRepository;
+import com.weedrice.whiteboard.domain.auth.repository.RefreshTokenRepository;
 import com.weedrice.whiteboard.domain.auth.service.VerificationCodeService; // Import VerificationCodeService
 import com.weedrice.whiteboard.domain.board.dto.BoardResponse;
 import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository;
@@ -73,6 +75,7 @@ public class UserService {
     private final BoardService boardService;
     private final BoardSubscriptionRepository boardSubscriptionRepository;
     private final LoginHistoryRepository loginHistoryRepository;
+    private final RefreshTokenRepository refreshTokenRepository;
     private final SanctionRepository sanctionRepository;
     private final ReportRepository reportRepository;
     private final VerificationCodeService verificationCodeService; // Inject VerificationCodeService
@@ -167,6 +170,10 @@ public class UserService {
             throw new BusinessException(ErrorCode.INVALID_CURRENT_PASSWORD);
         }
 
+        if (passwordEncoder.matches(newPassword, user.getPassword())) {
+            throw new BusinessException(ErrorCode.PASSWORD_RECENTLY_USED);
+        }
+
         List<PasswordHistory> passwordHistories = passwordHistoryRepository.findTop3ByUserOrderByCreatedAtDesc(user);
         for (PasswordHistory history : passwordHistories) {
             if (passwordEncoder.matches(newPassword, history.getPasswordHash())) {
@@ -182,6 +189,8 @@ public class UserService {
                 .passwordHash(newPasswordHash)
                 .build();
         passwordHistoryRepository.save(history);
+
+        revokeActiveRefreshTokens(user);
     }
 
     @Transactional
@@ -395,5 +404,15 @@ public class UserService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         return userSettingsRepository.findById(userId)
                 .orElseGet(() -> new UserSettings(user));
+    }
+
+    private void revokeActiveRefreshTokens(User user) {
+        List<RefreshToken> activeTokens = refreshTokenRepository.findByUserAndIsRevoked(user, false);
+        for (RefreshToken token : activeTokens) {
+            token.revoke();
+        }
+        if (!activeTokens.isEmpty()) {
+            refreshTokenRepository.saveAll(activeTokens);
+        }
     }
 }

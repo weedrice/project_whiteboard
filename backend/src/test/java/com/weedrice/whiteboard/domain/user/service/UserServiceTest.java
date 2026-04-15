@@ -2,7 +2,9 @@ package com.weedrice.whiteboard.domain.user.service;
 
 import com.weedrice.whiteboard.domain.agent.service.AgentService;
 import com.weedrice.whiteboard.domain.admin.entity.Admin;
+import com.weedrice.whiteboard.domain.auth.entity.RefreshToken;
 import com.weedrice.whiteboard.domain.auth.repository.LoginHistoryRepository;
+import com.weedrice.whiteboard.domain.auth.repository.RefreshTokenRepository;
 import com.weedrice.whiteboard.domain.auth.service.VerificationCodeService;
 import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository;
 import com.weedrice.whiteboard.domain.board.service.BoardService;
@@ -88,6 +90,8 @@ class UserServiceTest {
     private BoardSubscriptionRepository boardSubscriptionRepository;
     @Mock
     private LoginHistoryRepository loginHistoryRepository;
+    @Mock
+    private RefreshTokenRepository refreshTokenRepository;
     @Mock
     private SanctionRepository sanctionRepository;
     @Mock
@@ -213,11 +217,13 @@ class UserServiceTest {
         when(passwordEncoder.matches("old", "encodedOld")).thenReturn(true);
         when(passwordHistoryRepository.findTop3ByUserOrderByCreatedAtDesc(user)).thenReturn(Collections.emptyList());
         when(passwordEncoder.encode("new")).thenReturn("encodedNew");
+        when(refreshTokenRepository.findByUserAndIsRevoked(user, false)).thenReturn(Collections.emptyList());
 
         userService.updatePassword(1L, "old", "new");
 
         assertThat(user.getPassword()).isEqualTo("encodedNew");
         verify(passwordHistoryRepository).save(any());
+        verify(refreshTokenRepository).findByUserAndIsRevoked(user, false);
     }
 
     @Test
@@ -241,6 +247,7 @@ class UserServiceTest {
         
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("old", "encodedOld")).thenReturn(true);
+        when(passwordEncoder.matches("new", "encodedOld")).thenReturn(false);
         when(passwordHistoryRepository.findTop3ByUserOrderByCreatedAtDesc(user)).thenReturn(List.of(history));
         when(passwordEncoder.matches("new", "encodedRecent")).thenReturn(true); // Same as recent
 
@@ -248,6 +255,47 @@ class UserServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.PASSWORD_RECENTLY_USED);
+    }
+
+    @Test
+    @DisplayName("비밀번호 변경 실패 - 현재 비밀번호와 동일")
+    void updatePassword_sameAsCurrent() {
+        User user = User.builder().password("encodedOld").build();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("old", "encodedOld")).thenReturn(true);
+        when(passwordEncoder.matches("old", "encodedOld")).thenReturn(true);
+
+        assertThatThrownBy(() -> userService.updatePassword(1L, "old", "old"))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.PASSWORD_RECENTLY_USED);
+
+        verify(passwordHistoryRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("비밀번호 변경 성공 시 활성 refresh token 을 폐기한다")
+    void updatePassword_revokesRefreshTokens() {
+        User user = User.builder().password("encodedOld").build();
+        RefreshToken refreshToken = RefreshToken.builder()
+                .user(user)
+                .tokenHash("hash")
+                .ipAddress("127.0.0.1")
+                .deviceInfo("browser")
+                .expiresAt(java.time.LocalDateTime.now().plusDays(1))
+                .build();
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("old", "encodedOld")).thenReturn(true);
+        when(passwordEncoder.matches("new", "encodedOld")).thenReturn(false);
+        when(passwordHistoryRepository.findTop3ByUserOrderByCreatedAtDesc(user)).thenReturn(Collections.emptyList());
+        when(passwordEncoder.encode("new")).thenReturn("encodedNew");
+        when(refreshTokenRepository.findByUserAndIsRevoked(user, false)).thenReturn(List.of(refreshToken));
+
+        userService.updatePassword(1L, "old", "new");
+
+        assertThat(refreshToken.getIsRevoked()).isTrue();
+        verify(refreshTokenRepository).saveAll(List.of(refreshToken));
     }
 
     @Test
