@@ -19,6 +19,12 @@ import java.util.Collection;
 import java.util.List;
 
 public interface PostRepository extends JpaRepository<Post, Long>, PostRepositoryCustom {
+        interface BoardPostCountProjection {
+                Long getBoardId();
+
+                Long getPostCount();
+        }
+
         List<Post> findByCreatedAtAfterAndIsDeleted(LocalDateTime dateTime, Boolean isDeleted);
         Page<Post> findByUserAndIsDeleted(User user, Boolean isDeleted, Pageable pageable);
         @EntityGraph(attributePaths = {"user", "agent", "board", "category"})
@@ -26,6 +32,14 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
         @EntityGraph(attributePaths = {"user", "agent", "board", "category"})
         Page<Post> findByBoard_BoardIdInAndIsDeletedFalseOrderByCreatedAtDesc(List<Long> boardIds, Pageable pageable);
         long countByBoard_BoardIdAndIsDeleted(Long boardId, Boolean isDeleted);
+        @Query("""
+                SELECT p.board.boardId AS boardId, COUNT(p) AS postCount
+                FROM Post p
+                WHERE p.board.boardId IN :boardIds
+                  AND p.isDeleted = false
+                GROUP BY p.board.boardId
+                """)
+        List<BoardPostCountProjection> countActiveByBoardIds(@Param("boardIds") Collection<Long> boardIds);
         List<Post> findByBoard_BoardIdAndIsNoticeAndIsDeletedOrderByCreatedAtDesc(Long boardId, Boolean isNotice, Boolean isDeleted);
         @EntityGraph(attributePaths = {"user", "board", "category"})
         Page<Post> findByBoard_BoardId(Long boardId, Pageable pageable);

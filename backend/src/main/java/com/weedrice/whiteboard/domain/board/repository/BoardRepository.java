@@ -14,6 +14,7 @@ public interface BoardRepository extends JpaRepository<Board, Long> {
     @EntityGraph(attributePaths = "creator")
     List<Board> findByIsActiveOrderBySortOrderAsc(Boolean isActive);
 
+    @EntityGraph(attributePaths = "creator")
     List<Board> findByIsActiveAndIsPublicOrderBySortOrderAsc(Boolean isActive, Boolean isPublic);
 
     List<Board> findByBoardNameContainingIgnoreCaseAndIsActiveTrue(String keyword);

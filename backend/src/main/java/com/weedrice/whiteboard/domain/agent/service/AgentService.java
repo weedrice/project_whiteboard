@@ -11,6 +11,7 @@ import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.repository.BoardAiInfoRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardCategoryRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
+import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.comment.dto.CommentResponse;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
@@ -20,6 +21,7 @@ import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.service.PostService;
+import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.util.InputSanitizer;
@@ -50,6 +52,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -62,6 +65,7 @@ public class AgentService {
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
     private static final long DAILY_AGENT_POST_LIMIT = 50;
     private static final long DAILY_AGENT_COMMENT_LIMIT = 100;
+    private static final String DEFAULT_CATEGORY_NAME = "일반";
     private static final String[] AGENT_NAME_PREFIXES = {
             "고요한", "눈부신", "달콤한", "맑은", "반짝이는", "붉은", "부드러운", "사뿐한", "산뜻한", "새벽의",
             "수줍은", "순한", "싱그러운", "아늑한", "아침의", "은빛", "잔잔한", "조용한", "차분한", "청명한",
@@ -90,6 +94,7 @@ public class AgentService {
     private final AgentRepository agentRepository;
     private final AgentActivityLogRepository agentActivityLogRepository;
     private final UserRepository userRepository;
+    private final AdminRepository adminRepository;
     private final BoardRepository boardRepository;
     private final BoardAiInfoRepository boardAiInfoRepository;
     private final BoardCategoryRepository boardCategoryRepository;
@@ -213,25 +218,31 @@ public class AgentService {
 
     public AgentBoardListResponse getBoards(Long agentId) {
         Agent agent = getActiveAgent(agentId);
-        Map<Long, Boolean> writableBoardCache = new HashMap<>();
         List<Board> boards = boardRepository.findByIsActiveAndIsPublicOrderBySortOrderAsc(true, true);
-        Map<Long, Long> postCountByBoardId = boards.stream()
-                .collect(Collectors.toMap(Board::getBoardId,
-                        board -> postRepository.countByBoard_BoardIdAndIsDeleted(board.getBoardId(), false)));
+        if (boards.isEmpty()) {
+            return new AgentBoardListResponse(List.of());
+        }
+        List<Long> boardIds = boards.stream()
+                .map(Board::getBoardId)
+                .toList();
+        Map<Long, Long> postCountByBoardId = postRepository.countActiveByBoardIds(boardIds).stream()
+                .collect(Collectors.toMap(
+                        PostRepository.BoardPostCountProjection::getBoardId,
+                        PostRepository.BoardPostCountProjection::getPostCount));
         Map<Long, List<CategoryResponse>> categoriesByBoardId = boardCategoryRepository
                 .findByBoard_BoardIdInAndIsActiveOrderByBoard_BoardIdAscSortOrderAsc(
-                        boards.stream().map(Board::getBoardId).toList(), true)
+                        boardIds, true)
                 .stream()
                 .collect(Collectors.groupingBy(
                         category -> category.getBoard().getBoardId(),
                         Collectors.mapping(CategoryResponse::new, Collectors.toList())));
-        Map<Long, String> guidePromptMap = boardAiInfoRepository.findByBoard_BoardIdIn(
-                        boards.stream().map(Board::getBoardId).toList())
+        Map<Long, String> guidePromptMap = boardAiInfoRepository.findByBoard_BoardIdIn(boardIds)
                 .stream()
                 .collect(Collectors.toMap(BoardAiInfo::getBoardId, BoardAiInfo::getGuidePrompt));
+        Set<Long> writableBoardIds = resolveWritableBoardIds(agent, boards, categoriesByBoardId);
 
         List<AgentBoardItem> items = boards.stream()
-                .filter(board -> canAgentWriteBoard(agent, board, writableBoardCache))
+                .filter(board -> writableBoardIds.contains(board.getBoardId()))
                 .map(board -> AgentBoardItem.builder()
                         .boardId(board.getBoardId())
                         .boardName(board.getBoardName())
@@ -278,7 +289,7 @@ public class AgentService {
     @Transactional
     public AgentPostCreateResponse createPost(Long agentId, AgentPostCreateRequest request,
             HttpServletRequest httpServletRequest) {
-        Agent agent = getActiveAgent(agentId);
+        Agent agent = getActiveAgentForUpdate(agentId);
         Board board = boardRepository.findByBoardUrl(request.getBoardUrl())
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
         validateAgentBoardWritable(agent, board);
@@ -302,7 +313,7 @@ public class AgentService {
     @Transactional
     public AgentCommentCreateResponse createComment(Long agentId, Long postId, AgentCommentCreateRequest request,
             HttpServletRequest httpServletRequest) {
-        Agent agent = getActiveAgent(agentId);
+        Agent agent = getActiveAgentForUpdate(agentId);
         Post post = postService.getPostById(postId, agent.getUser().getUserId(), false);
         validateAgentBoardWritable(agent, post.getBoard());
         validateDailyCommentLimit(agentId);
@@ -315,7 +326,7 @@ public class AgentService {
     @Transactional
     public AgentCommentCreateResponse createReply(Long agentId, Long commentId, AgentCommentCreateRequest request,
             HttpServletRequest httpServletRequest) {
-        Agent agent = getActiveAgent(agentId);
+        Agent agent = getActiveAgentForUpdate(agentId);
         Comment parentComment = commentRepository.findByIdWithRelations(commentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
         if (parentComment.getIsDeleted()) {
@@ -357,13 +368,24 @@ public class AgentService {
     public Agent getActiveAgent(Long agentId) {
         Agent agent = agentRepository.findByAgentIdAndIsDeletedFalse(agentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.AGENT_NOT_FOUND));
+        validateActiveAgent(agent);
+        return agent;
+    }
+
+    private Agent getActiveAgentForUpdate(Long agentId) {
+        Agent agent = agentRepository.findByAgentIdForUpdate(agentId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.AGENT_NOT_FOUND));
+        validateActiveAgent(agent);
+        return agent;
+    }
+
+    private void validateActiveAgent(Agent agent) {
         if (!agent.isActive()) {
             throw new BusinessException(agent.isSuspended() ? ErrorCode.FORBIDDEN : ErrorCode.UNAUTHORIZED);
         }
         if (agent.getUser() == null) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED);
         }
-        return agent;
     }
 
     @Transactional
@@ -467,6 +489,69 @@ public class AgentService {
             throw new BusinessException(ErrorCode.RATE_LIMIT_EXCEEDED,
                     "Daily agent comment limit exceeded");
         }
+    }
+
+    private Set<Long> resolveWritableBoardIds(Agent agent, List<Board> boards,
+            Map<Long, List<CategoryResponse>> categoriesByBoardId) {
+        if (agent == null || agent.getUser() == null || boards == null || boards.isEmpty()) {
+            return Collections.emptySet();
+        }
+
+        User user = agent.getUser();
+        List<Long> boardIds = boards.stream()
+                .map(Board::getBoardId)
+                .toList();
+        Set<Long> boardAdminIds = resolveBoardAdminIds(user, boards, boardIds);
+
+        return boards.stream()
+                .filter(Board::isAgentEnabled)
+                .filter(board -> hasRequiredWriteRole(board, user, boardAdminIds,
+                        categoriesByBoardId.getOrDefault(board.getBoardId(), List.of())))
+                .map(Board::getBoardId)
+                .collect(Collectors.toSet());
+    }
+
+    private Set<Long> resolveBoardAdminIds(User user, List<Board> boards, List<Long> boardIds) {
+        if (user == null || boards == null || boards.isEmpty()) {
+            return Collections.emptySet();
+        }
+        if (Boolean.TRUE.equals(user.getIsSuperAdmin())) {
+            return boards.stream()
+                    .map(Board::getBoardId)
+                    .collect(Collectors.toSet());
+        }
+
+        Set<Long> boardAdminIds = adminRepository.findByUserAndBoard_BoardIdInAndIsActive(user, boardIds, true)
+                .stream()
+                .map(admin -> admin.getBoard().getBoardId())
+                .collect(Collectors.toSet());
+        boards.stream()
+                .filter(board -> board.getCreator() != null
+                        && Objects.equals(board.getCreator().getUserId(), user.getUserId()))
+                .map(Board::getBoardId)
+                .forEach(boardAdminIds::add);
+        return boardAdminIds;
+    }
+
+    private boolean hasRequiredWriteRole(Board board, User user, Set<Long> boardAdminIds,
+            List<CategoryResponse> categories) {
+        if (board == null || user == null) {
+            return false;
+        }
+
+        String minWriteRole = categories.stream()
+                .filter(category -> DEFAULT_CATEGORY_NAME.equals(category.getName()))
+                .map(CategoryResponse::getMinWriteRole)
+                .findFirst()
+                .orElse(null);
+
+        if (Role.SUPER_ADMIN.equals(minWriteRole)) {
+            return Boolean.TRUE.equals(user.getIsSuperAdmin());
+        }
+        if (Role.BOARD_ADMIN.equals(minWriteRole)) {
+            return boardAdminIds.contains(board.getBoardId());
+        }
+        return true;
     }
 
     private boolean canAgentWriteBoard(Agent agent, Board board, Map<Long, Boolean> writableBoardCache) {

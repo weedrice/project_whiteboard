@@ -9,8 +9,11 @@ import com.weedrice.whiteboard.domain.agent.dto.AgentPostCreateRequest;
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
 import com.weedrice.whiteboard.domain.agent.repository.AgentActivityLogRepository;
 import com.weedrice.whiteboard.domain.agent.repository.AgentRepository;
+import com.weedrice.whiteboard.domain.admin.entity.Admin;
+import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.board.entity.BoardAiInfo;
 import com.weedrice.whiteboard.domain.board.entity.Board;
+import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
 import com.weedrice.whiteboard.domain.board.repository.BoardAiInfoRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardCategoryRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
@@ -21,6 +24,7 @@ import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.service.PostService;
+import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -64,6 +68,8 @@ class AgentServiceTest {
     private AgentActivityLogRepository agentActivityLogRepository;
     @Mock
     private UserRepository userRepository;
+    @Mock
+    private AdminRepository adminRepository;
     @Mock
     private BoardRepository boardRepository;
     @Mock
@@ -134,6 +140,9 @@ class AgentServiceTest {
         ReflectionTestUtils.setField(blockedPost, "postId", 200L);
         ReflectionTestUtils.setField(blockedPost, "commentCount", 2);
         ReflectionTestUtils.setField(blockedPost, "isDeleted", false);
+
+        lenient().when(adminRepository.findByUserAndBoard_BoardIdInAndIsActive(any(), any(), eq(true)))
+                .thenReturn(List.of());
     }
 
     @Test
@@ -319,16 +328,73 @@ class AgentServiceTest {
         when(boardRepository.findByIsActiveAndIsPublicOrderBySortOrderAsc(true, true))
                 .thenReturn(List.of(writableBoard, blockedBoard));
         when(boardCategoryRepository.findByBoard_BoardIdInAndIsActiveOrderByBoard_BoardIdAscSortOrderAsc(
-                List.of(10L, 20L), true)).thenReturn(List.of());
+                List.of(10L, 20L), true)).thenReturn(List.of(
+                        defaultCategory(writableBoard, Role.BOARD_ADMIN),
+                        defaultCategory(blockedBoard, Role.USER)));
         when(boardAiInfoRepository.findByBoard_BoardIdIn(List.of(10L, 20L))).thenReturn(List.of(boardAiInfo));
-        when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(true);
+        when(postRepository.countActiveByBoardIds(List.of(10L, 20L)))
+                .thenReturn(List.of(boardPostCount(10L, 7L), boardPostCount(20L, 3L)));
 
         AgentBoardListResponse response = agentService.getBoards(7L);
 
         assertThat(response.getBoards()).hasSize(1);
         assertThat(response.getBoards().get(0).getBoardId()).isEqualTo(10L);
         assertThat(response.getBoards().get(0).getGuidePrompt()).isEqualTo("prompt");
-        verify(postService, never()).canWriteToBoard(1L, blockedBoard);
+        assertThat(response.getBoards().get(0).getPostCount()).isEqualTo(7L);
+        verify(postService, never()).canWriteToBoard(anyLong(), any());
+    }
+
+    @Test
+    void getBoards_includesBoardAdminOnlyBoardForActiveAdmin() {
+        User otherUser = User.builder().loginId("other").displayName("Other").build();
+        ReflectionTestUtils.setField(otherUser, "userId", 2L);
+
+        Board managedBoard = Board.builder().boardName("Managed").boardUrl("managed").creator(otherUser).build();
+        ReflectionTestUtils.setField(managedBoard, "boardId", 30L);
+        ReflectionTestUtils.setField(managedBoard, "isActive", true);
+        ReflectionTestUtils.setField(managedBoard, "isPublic", true);
+        ReflectionTestUtils.setField(managedBoard, "agentUseYn", true);
+
+        when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+        when(boardRepository.findByIsActiveAndIsPublicOrderBySortOrderAsc(true, true))
+                .thenReturn(List.of(managedBoard));
+        when(boardCategoryRepository.findByBoard_BoardIdInAndIsActiveOrderByBoard_BoardIdAscSortOrderAsc(
+                List.of(30L), true)).thenReturn(List.of(defaultCategory(managedBoard, Role.BOARD_ADMIN)));
+        when(boardAiInfoRepository.findByBoard_BoardIdIn(List.of(30L))).thenReturn(List.of());
+        when(postRepository.countActiveByBoardIds(List.of(30L))).thenReturn(List.of(boardPostCount(30L, 2L)));
+        when(adminRepository.findByUserAndBoard_BoardIdInAndIsActive(user, List.of(30L), true))
+                .thenReturn(List.of(activeAdmin(user, managedBoard)));
+
+        AgentBoardListResponse response = agentService.getBoards(7L);
+
+        assertThat(response.getBoards()).hasSize(1);
+        assertThat(response.getBoards().get(0).getBoardId()).isEqualTo(30L);
+        verify(postService, never()).canWriteToBoard(anyLong(), any());
+    }
+
+    @Test
+    void getBoards_excludesSuperAdminOnlyBoardForNormalAgent() {
+        User otherUser = User.builder().loginId("other").displayName("Other").build();
+        ReflectionTestUtils.setField(otherUser, "userId", 2L);
+
+        Board superAdminOnlyBoard = Board.builder().boardName("Super").boardUrl("super").creator(otherUser).build();
+        ReflectionTestUtils.setField(superAdminOnlyBoard, "boardId", 40L);
+        ReflectionTestUtils.setField(superAdminOnlyBoard, "isActive", true);
+        ReflectionTestUtils.setField(superAdminOnlyBoard, "isPublic", true);
+        ReflectionTestUtils.setField(superAdminOnlyBoard, "agentUseYn", true);
+
+        when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+        when(boardRepository.findByIsActiveAndIsPublicOrderBySortOrderAsc(true, true))
+                .thenReturn(List.of(superAdminOnlyBoard));
+        when(boardCategoryRepository.findByBoard_BoardIdInAndIsActiveOrderByBoard_BoardIdAscSortOrderAsc(
+                List.of(40L), true)).thenReturn(List.of(defaultCategory(superAdminOnlyBoard, Role.SUPER_ADMIN)));
+        when(boardAiInfoRepository.findByBoard_BoardIdIn(List.of(40L))).thenReturn(List.of());
+        when(postRepository.countActiveByBoardIds(List.of(40L))).thenReturn(List.of(boardPostCount(40L, 1L)));
+
+        AgentBoardListResponse response = agentService.getBoards(7L);
+
+        assertThat(response.getBoards()).isEmpty();
+        verify(postService, never()).canWriteToBoard(anyLong(), any());
     }
 
     @Test
@@ -377,7 +443,7 @@ class AgentServiceTest {
         ReflectionTestUtils.setField(request, "title", "title");
         ReflectionTestUtils.setField(request, "content", "a".repeat(60));
 
-        when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+        when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(writableBoard));
         when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(true);
         when(postRepository.countByAgent_AgentIdAndCreatedAtBetween(eq(7L), any(), any())).thenReturn(50L);
@@ -395,7 +461,7 @@ class AgentServiceTest {
         AgentCommentCreateRequest request = new AgentCommentCreateRequest();
         ReflectionTestUtils.setField(request, "content", "b".repeat(25));
 
-        when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+        when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
         when(postService.getPostById(100L, 1L, false)).thenReturn(writablePost);
         when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(true);
         when(commentRepository.countByAgent_AgentIdAndCreatedAtBetween(eq(7L), any(), any())).thenReturn(100L);
@@ -415,7 +481,7 @@ class AgentServiceTest {
         ReflectionTestUtils.setField(request, "title", "title");
         ReflectionTestUtils.setField(request, "content", "a".repeat(60));
 
-        when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+        when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(writableBoard));
         when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(true);
         when(postRepository.countByAgent_AgentIdAndCreatedAtBetween(eq(7L), any(), any())).thenReturn(49L);
@@ -424,6 +490,7 @@ class AgentServiceTest {
         var response = agentService.createPost(7L, request, null);
 
         assertThat(response.getPostId()).isEqualTo(100L);
+        verify(agentRepository).findByAgentIdForUpdate(7L);
         verify(postService).createPostAsAgent(eq(1L), eq(7L), eq("free"), any());
     }
 
@@ -434,7 +501,7 @@ class AgentServiceTest {
         ReflectionTestUtils.setField(request, "title", "title");
         ReflectionTestUtils.setField(request, "content", "첫 줄\n둘째 줄\n\n다음 문단");
 
-        when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+        when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(writableBoard));
         when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(true);
         when(postRepository.countByAgent_AgentIdAndCreatedAtBetween(eq(7L), any(), any())).thenReturn(0L);
@@ -455,7 +522,7 @@ class AgentServiceTest {
         Comment comment = Comment.builder().post(writablePost).user(user).content("reply").build();
         ReflectionTestUtils.setField(comment, "commentId", 300L);
 
-        when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+        when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
         when(postService.getPostById(100L, 1L, false)).thenReturn(writablePost);
         when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(true);
         when(commentRepository.countByAgent_AgentIdAndCreatedAtBetween(eq(7L), any(), any())).thenReturn(99L);
@@ -464,6 +531,67 @@ class AgentServiceTest {
         var response = agentService.createComment(7L, 100L, request, null);
 
         assertThat(response.getCommentId()).isEqualTo(300L);
+        verify(agentRepository).findByAgentIdForUpdate(7L);
         verify(commentService).createCommentAsAgent(1L, 7L, 100L, null, "b".repeat(25));
+    }
+
+    @Test
+    void createReply_withinDailyLimit_success() {
+        AgentCommentCreateRequest request = new AgentCommentCreateRequest();
+        ReflectionTestUtils.setField(request, "content", "reply");
+
+        Comment parentComment = Comment.builder().post(writablePost).user(user).content("parent").build();
+        ReflectionTestUtils.setField(parentComment, "commentId", 500L);
+        ReflectionTestUtils.setField(parentComment, "isDeleted", false);
+
+        Comment reply = Comment.builder().post(writablePost).user(user).content("reply").build();
+        ReflectionTestUtils.setField(reply, "commentId", 501L);
+
+        when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
+        when(commentRepository.findByIdWithRelations(500L)).thenReturn(Optional.of(parentComment));
+        when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(true);
+        when(commentRepository.countByAgent_AgentIdAndCreatedAtBetween(eq(7L), any(), any())).thenReturn(99L);
+        when(commentService.createCommentAsAgent(1L, 7L, 100L, 500L, "reply")).thenReturn(reply);
+
+        var response = agentService.createReply(7L, 500L, request, null);
+
+        assertThat(response.getCommentId()).isEqualTo(501L);
+        verify(agentRepository).findByAgentIdForUpdate(7L);
+        verify(commentService).createCommentAsAgent(1L, 7L, 100L, 500L, "reply");
+    }
+
+    private BoardCategory defaultCategory(Board board, String minWriteRole) {
+        BoardCategory category = BoardCategory.builder()
+                .board(board)
+                .name("일반")
+                .sortOrder(1)
+                .minWriteRole(minWriteRole)
+                .build();
+        ReflectionTestUtils.setField(category, "categoryId", board.getBoardId() + 1000);
+        return category;
+    }
+
+    private Admin activeAdmin(User adminUser, Board board) {
+        Admin admin = Admin.builder()
+                .user(adminUser)
+                .board(board)
+                .role(Role.BOARD_ADMIN)
+                .build();
+        ReflectionTestUtils.setField(admin, "adminId", board.getBoardId() + 2000);
+        return admin;
+    }
+
+    private PostRepository.BoardPostCountProjection boardPostCount(Long boardId, Long postCount) {
+        return new PostRepository.BoardPostCountProjection() {
+            @Override
+            public Long getBoardId() {
+                return boardId;
+            }
+
+            @Override
+            public Long getPostCount() {
+                return postCount;
+            }
+        };
     }
 }
