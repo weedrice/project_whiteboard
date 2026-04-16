@@ -29,10 +29,10 @@ export const authApi = {
     signup: (data: SignupData) => api.post<ApiResponse<User>>('/auth/signup', data, { skipGlobalErrorHandler: true }),
 
     // Logout
-    logout: (refreshToken: string) => api.post<ApiResponse<void>>('/auth/logout', { refreshToken }),
+    logout: () => api.post<ApiResponse<void>>('/auth/logout'),
 
     // Refresh Token
-    refreshToken: (refreshToken: string) => api.post<ApiResponse<{ accessToken: string, refreshToken: string }>>('/auth/refresh', { refreshToken }),
+    refreshToken: () => api.post<ApiResponse<{ accessToken: string, expiresIn: number }>>('/auth/refresh'),
 
     // Get Current User
     getMe: (config?: AxiosRequestConfig) => api.get<ApiResponse<User>>('/users/me', config),

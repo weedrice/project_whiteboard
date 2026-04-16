@@ -511,13 +511,11 @@ describe('API Interceptors', () => {
 
     it('refreshes token and retries original request on 401', async () => {
         const { responseRejected } = await loadApiModule({ user: { id: 10 }, accessToken: 'old-access' })
-        localStorage.setItem('refreshToken', 'refresh-1')
         mocks.mockAxiosPost.mockResolvedValueOnce({
             data: {
                 success: true,
                 data: {
                     accessToken: 'new-access',
-                    refreshToken: 'new-refresh',
                 },
             },
         })
@@ -531,9 +529,9 @@ describe('API Interceptors', () => {
 
         const result = await responseRejected(error)
 
-        expect(mocks.mockAxiosPost).toHaveBeenCalledWith('/api/v1/auth/refresh', { refreshToken: 'refresh-1' })
+        expect(mocks.mockAxiosPost).toHaveBeenCalledWith('/api/v1/auth/refresh', undefined, { withCredentials: true })
         expect(localStorage.getItem('accessToken')).toBe('new-access')
-        expect(localStorage.getItem('refreshToken')).toBe('new-refresh')
+        expect(localStorage.getItem('refreshToken')).toBeNull()
         expect(mocks.mockFetchUser).toHaveBeenCalledWith({ skipAuthRefresh: true })
         expect(originalRequest.headers.Authorization).toBe('Bearer new-access')
         expect(mocks.mockApiRequest).toHaveBeenCalledWith(originalRequest)
@@ -542,7 +540,6 @@ describe('API Interceptors', () => {
 
     it('refreshes and retries when auth store resolver is missing', async () => {
         const { responseRejected } = await loadApiModule(undefined, { configureResolvers: false })
-        localStorage.setItem('refreshToken', 'refresh-no-auth-resolver')
         mocks.mockAxiosPost.mockResolvedValueOnce({
             data: {
                 success: true,
@@ -572,7 +569,6 @@ describe('API Interceptors', () => {
                 throw new Error('auth resolver failure')
             },
         })
-        localStorage.setItem('refreshToken', 'refresh-auth-resolver-throws')
         mocks.mockAxiosPost.mockResolvedValueOnce({
             data: {
                 success: true,
@@ -598,7 +594,6 @@ describe('API Interceptors', () => {
 
     it('handles queued requests while refresh is in progress', async () => {
         const { responseRejected } = await loadApiModule()
-        localStorage.setItem('refreshToken', 'refresh-q')
         mocks.mockApiRequest.mockResolvedValue({ data: { ok: true } })
 
         let resolveRefresh!: (value: unknown) => void
@@ -620,7 +615,6 @@ describe('API Interceptors', () => {
                 success: true,
                 data: {
                     accessToken: 'queued-access',
-                    refreshToken: 'queued-refresh',
                 },
             },
         })
@@ -636,7 +630,6 @@ describe('API Interceptors', () => {
 
     it('handles queued request retries when refreshed access token is null', async () => {
         const { responseRejected } = await loadApiModule()
-        localStorage.setItem('refreshToken', 'refresh-null-token')
         mocks.mockApiRequest.mockResolvedValue({ data: { ok: true } })
 
         let resolveRefresh!: (value: unknown) => void
@@ -670,7 +663,6 @@ describe('API Interceptors', () => {
 
     it('rejects queued requests when refresh fails', async () => {
         const { responseRejected } = await loadApiModule()
-        localStorage.setItem('refreshToken', 'refresh-q-fail')
 
         let rejectRefresh!: (reason?: unknown) => void
         const refreshPromise = new Promise((_resolve, reject) => {
@@ -692,23 +684,25 @@ describe('API Interceptors', () => {
         await expect(p2).rejects.toBe(refreshError)
     })
 
-    it('rejects refresh when refresh token is missing', async () => {
+    it('attempts refresh without local refresh token state', async () => {
         const { responseRejected } = await loadApiModule()
         localStorage.setItem('accessToken', 'stale-access')
+        mocks.mockAxiosPost.mockRejectedValueOnce({
+            response: { status: 401 },
+        })
 
         const error = {
             config: { headers: {} },
             response: { status: 401 },
         } as any
 
-        await expect(responseRejected(error)).rejects.toBeInstanceOf(Error)
+        await expect(responseRejected(error)).rejects.toBeDefined()
         expect(localStorage.getItem('accessToken')).toBeNull()
-        expect(mocks.mockAxiosPost).not.toHaveBeenCalled()
+        expect(mocks.mockAxiosPost).toHaveBeenCalledWith('/api/v1/auth/refresh', undefined, { withCredentials: true })
     })
 
     it('rejects refresh when refresh endpoint reports failure', async () => {
         const { responseRejected } = await loadApiModule()
-        localStorage.setItem('refreshToken', 'refresh-failure')
         mocks.mockAxiosPost.mockResolvedValueOnce({
             data: {
                 success: false,
@@ -728,7 +722,6 @@ describe('API Interceptors', () => {
     it('does not clear tokens for refresh failures with non-auth server errors', async () => {
         const { responseRejected } = await loadApiModule()
         localStorage.setItem('accessToken', 'keep-access')
-        localStorage.setItem('refreshToken', 'keep-refresh')
         mocks.mockAxiosPost.mockRejectedValueOnce({
             response: { status: 500 },
         })
@@ -740,13 +733,12 @@ describe('API Interceptors', () => {
 
         await expect(responseRejected(error)).rejects.toBeDefined()
         expect(localStorage.getItem('accessToken')).toBe('keep-access')
-        expect(localStorage.getItem('refreshToken')).toBe('keep-refresh')
+        expect(localStorage.getItem('refreshToken')).toBeNull()
     })
 
     it('skips redirect when refresh failure happens on login page', async () => {
         const { responseRejected } = await loadApiModule()
         localStorage.setItem('accessToken', 'stale-access')
-        localStorage.setItem('refreshToken', 'stale-refresh')
         history.pushState({}, '', '/login')
         mocks.mockAxiosPost.mockRejectedValueOnce({
             response: { status: 401 },
@@ -765,7 +757,6 @@ describe('API Interceptors', () => {
         const { responseRejected } = await loadApiModule()
         mocks.mockCurrentRoute.value.meta.requiresAuth = false
         localStorage.setItem('accessToken', 'stale-access')
-        localStorage.setItem('refreshToken', 'stale-refresh')
         history.pushState({}, '', '/public')
         mocks.mockAxiosPost.mockRejectedValueOnce({
             response: { status: 401 },
@@ -786,7 +777,6 @@ describe('API Interceptors', () => {
             resolveAuthStore: () => null,
         })
         localStorage.setItem('accessToken', 'stale-access')
-        localStorage.setItem('refreshToken', 'stale-refresh')
         mocks.mockAxiosPost.mockRejectedValueOnce({
             response: { status: 401 },
         })
@@ -807,7 +797,6 @@ describe('API Interceptors', () => {
             accessToken: 'stale-access',
         })
         localStorage.setItem('accessToken', 'stale-access')
-        localStorage.setItem('refreshToken', 'stale-refresh')
         history.pushState({}, '', '/boards')
         mocks.mockCurrentRoute.value.fullPath = '/boards'
         mocks.mockAxiosPost.mockRejectedValueOnce({

@@ -5,7 +5,9 @@ import lombok.Getter;
 
 @Getter
 @Builder
-public class RefreshResponse {
+public class LoginResult {
     private String accessToken;
+    private String refreshToken;
     private long expiresIn;
+    private LoginResponse.UserInfo user;
 }

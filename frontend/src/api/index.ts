@@ -105,6 +105,7 @@ const resolveAuthStore = async (): Promise<AuthStoreLike | null> => {
 const api: AxiosInstance = axios.create({
     baseURL: API.BASE_URL,
     timeout: API.TIMEOUT,
+    withCredentials: true,
     headers: {
         'Content-Type': 'application/json',
     },
@@ -248,23 +249,15 @@ api.interceptors.response.use(
             isRefreshing = true
 
             try {
-                const refreshToken = Storage.getString('refreshToken')
-                if (!refreshToken) {
-                    // No refresh token, cannot refresh.
-                    Storage.remove('accessToken')
-                    throw new Error('No refresh token')
-                }
-
                 // Use a separate instance or direct call to avoid infinite loop if refresh fails
-                const { data } = await axios.post(`${api.defaults.baseURL}${API_PATHS.REFRESH}`, { refreshToken })
+                const { data } = await axios.post(`${api.defaults.baseURL}${API_PATHS.REFRESH}`, undefined, {
+                    withCredentials: true,
+                })
 
                 if (data.success) {
                     const newAccessToken = data.data.accessToken
-                    const newRefreshToken = data.data.refreshToken
                     Storage.setString('accessToken', newAccessToken)
-                    if (newRefreshToken) {
-                        Storage.setString('refreshToken', newRefreshToken)
-                    }
+                    Storage.remove('refreshToken')
 
                     // Update user state (permissions, etc.) with new token
                     const authStore = await resolveAuthStore()
@@ -300,24 +293,22 @@ api.interceptors.response.use(
                 const isLoginPage = window.location.pathname === API_PATHS.LOGIN
 
                 if (refreshStatus === 401 || refreshStatus === 403 || !axiosRefreshError.response) {
-                    if (!Storage.getString('refreshToken') || refreshStatus === 401 || refreshStatus === 403) {
-                        Storage.remove('accessToken')
-                        Storage.remove('refreshToken')
+                    Storage.remove('accessToken')
+                    Storage.remove('refreshToken')
 
-                        // Update auth store state
-                        const authStore = await resolveAuthStore()
-                        if (authStore) {
-                            authStore.user = null
-                            authStore.accessToken = ''
-                        }
+                    // Update auth store state
+                    const authStore = await resolveAuthStore()
+                    if (authStore) {
+                        authStore.user = null
+                        authStore.accessToken = ''
+                    }
 
-                        if (!isLoginPage) {
-                            if (router.currentRoute.value.meta.requiresAuth) {
-                                void router.push({
-                                    path: API_PATHS.LOGIN,
-                                    query: { redirect: router.currentRoute.value.fullPath }
-                                })
-                            }
+                    if (!isLoginPage) {
+                        if (router.currentRoute.value.meta.requiresAuth) {
+                            void router.push({
+                                path: API_PATHS.LOGIN,
+                                query: { redirect: router.currentRoute.value.fullPath }
+                            })
                         }
                     }
                 }

@@ -1,9 +1,17 @@
 package com.weedrice.whiteboard.domain.auth.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.weedrice.whiteboard.domain.auth.dto.*;
+import com.weedrice.whiteboard.domain.auth.dto.LoginRequest;
+import com.weedrice.whiteboard.domain.auth.dto.LoginResult;
+import com.weedrice.whiteboard.domain.auth.dto.SignupRequest;
+import com.weedrice.whiteboard.domain.auth.dto.SignupResponse;
+import com.weedrice.whiteboard.domain.auth.dto.TokenResponse;
 import com.weedrice.whiteboard.domain.auth.service.AuthService;
 import com.weedrice.whiteboard.domain.auth.service.VerificationCodeService;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -13,20 +21,16 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
 import org.springframework.http.MediaType;
-import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
-import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.when;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.cookie;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-
-import jakarta.servlet.FilterChain;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-import static org.mockito.Mockito.doAnswer;
 
 @WebMvcTest(controllers = AuthController.class,
     excludeFilters = {
@@ -37,6 +41,7 @@ import static org.mockito.Mockito.doAnswer;
         org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class,
         org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration.class
     })
+@TestPropertySource(properties = "jwt.refresh-token.expiration=1209600000")
 class AuthControllerTest {
 
     @Autowired
@@ -87,7 +92,6 @@ class AuthControllerTest {
     @Test
     @DisplayName("회원가입 성공")
     void signup_returnsSuccess() throws Exception {
-        // given
         SignupRequest request = SignupRequest.builder()
                 .email("test@example.com")
                 .loginId("testuser")
@@ -102,7 +106,6 @@ class AuthControllerTest {
                 .build();
         when(authService.signup(any())).thenReturn(response);
 
-        // when & then
         mockMvc.perform(post("/api/v1/auth/signup")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
@@ -114,43 +117,49 @@ class AuthControllerTest {
     @Test
     @DisplayName("로그인 성공")
     void login_returnsSuccess() throws Exception {
-        // given
         LoginRequest request = new LoginRequest("testuser", "password123");
-        LoginResponse response = LoginResponse.builder()
+        LoginResult result = LoginResult.builder()
                 .accessToken("access-token")
                 .refreshToken("refresh-token")
                 .expiresIn(1800L)
+                .user(null)
                 .build();
-        when(authService.login(any(), any())).thenReturn(response);
+        when(authService.login(any(), any())).thenReturn(result);
 
-        // when & then
         mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.accessToken").value("access-token"));
+                .andExpect(jsonPath("$.data.accessToken").value("access-token"))
+                .andExpect(cookie().exists("refreshToken"));
     }
 
     @Test
     @DisplayName("토큰 갱신 성공")
     void refresh_returnsSuccess() throws Exception {
-        // given
-        RefreshRequest request = new RefreshRequest();
-        org.springframework.test.util.ReflectionTestUtils.setField(request, "refreshToken", "refresh-token");
-        RefreshResponse response = RefreshResponse.builder()
+        TokenResponse response = TokenResponse.builder()
                 .accessToken("new-access-token")
                 .refreshToken("new-refresh-token")
                 .expiresIn(1800L)
                 .build();
-        when(authService.refresh(any())).thenReturn(response);
+        when(authService.refresh("refresh-token")).thenReturn(response);
 
-        // when & then
         mockMvc.perform(post("/api/v1/auth/refresh")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
+                        .cookie(new Cookie("refreshToken", "refresh-token")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.accessToken").value("new-access-token"));
+                .andExpect(jsonPath("$.data.accessToken").value("new-access-token"))
+                .andExpect(cookie().exists("refreshToken"));
+    }
+
+    @Test
+    @DisplayName("로그아웃은 refresh token 쿠키를 삭제한다")
+    void logout_clearsRefreshTokenCookie() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/logout")
+                        .cookie(new Cookie("refreshToken", "refresh-token")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(cookie().maxAge("refreshToken", 0));
     }
 }

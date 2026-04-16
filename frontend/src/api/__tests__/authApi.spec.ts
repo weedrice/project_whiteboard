@@ -42,11 +42,11 @@ describe('authApi', () => {
     })
 
     it('calls logout and refreshToken endpoints', () => {
-        authApi.logout('refresh-token')
-        authApi.refreshToken('refresh-token')
+        authApi.logout()
+        authApi.refreshToken()
 
-        expect(apiMock.post).toHaveBeenNthCalledWith(1, '/auth/logout', { refreshToken: 'refresh-token' })
-        expect(apiMock.post).toHaveBeenNthCalledWith(2, '/auth/refresh', { refreshToken: 'refresh-token' })
+        expect(apiMock.post).toHaveBeenNthCalledWith(1, '/auth/logout')
+        expect(apiMock.post).toHaveBeenNthCalledWith(2, '/auth/refresh')
     })
 
     it('passes optional config to getMe', () => {

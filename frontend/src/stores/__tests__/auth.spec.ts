@@ -73,7 +73,7 @@ describe('Auth Store', () => {
                     success: true,
                     data: {
                         accessToken: 'new-token',
-                        refreshToken: 'refresh-token',
+                        expiresIn: 1800,
                         user: { id: 1, username: 'test', role: 'USER', theme: 'DARK' }
                     }
                 }
@@ -86,7 +86,7 @@ describe('Auth Store', () => {
             expect(store.accessToken).toBe('new-token')
             expect(store.user).toEqual(mockResponse.data.data.user)
             expect(localStorage.getItem('accessToken')).toBe('new-token')
-            expect(localStorage.getItem('refreshToken')).toBe('refresh-token')
+            expect(localStorage.getItem('refreshToken')).toBeNull()
 
             // Verify theme setting
             expect(mockSetTheme).toHaveBeenCalledWith('DARK')
@@ -107,7 +107,7 @@ describe('Auth Store', () => {
                     success: false,
                     data: {
                         accessToken: 'ignored-token',
-                        refreshToken: 'ignored-refresh',
+                        expiresIn: 1800,
                         user: { id: 1, username: 'ignored', role: 'USER' }
                     }
                 }
@@ -127,7 +127,6 @@ describe('Auth Store', () => {
             store.accessToken = 'token'
             store.user = { id: 1, username: 'test', role: 'USER' } as any
             localStorage.setItem('accessToken', 'token')
-            localStorage.setItem('refreshToken', 'refresh-token')
         })
 
         it('handles successful logout', async () => {
@@ -135,7 +134,7 @@ describe('Auth Store', () => {
 
             await store.logout()
 
-            expect(authApi.logout).toHaveBeenCalledWith('refresh-token')
+            expect(authApi.logout).toHaveBeenCalled()
             expect(store.accessToken).toBeNull()
             expect(store.user).toBeNull()
             expect(localStorage.getItem('accessToken')).toBeNull()
@@ -227,12 +226,13 @@ describe('Auth Store', () => {
     })
 
     describe('setTokens', () => {
-        it('updates reactive token and persists both tokens', () => {
-            store.setTokens('new-access', 'new-refresh')
+        it('updates reactive token and removes stale refresh tokens', () => {
+            localStorage.setItem('refreshToken', 'stale-refresh')
+            store.setTokens('new-access')
 
             expect(store.accessToken).toBe('new-access')
             expect(localStorage.getItem('accessToken')).toBe('new-access')
-            expect(localStorage.getItem('refreshToken')).toBe('new-refresh')
+            expect(localStorage.getItem('refreshToken')).toBeNull()
         })
     })
 

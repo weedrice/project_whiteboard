@@ -1,7 +1,7 @@
 package com.weedrice.whiteboard.domain.auth.service;
 
 import com.weedrice.whiteboard.domain.auth.dto.LoginRequest;
-import com.weedrice.whiteboard.domain.auth.dto.LoginResponse;
+import com.weedrice.whiteboard.domain.auth.dto.LoginResult;
 import com.weedrice.whiteboard.domain.auth.dto.SignupRequest;
 import com.weedrice.whiteboard.domain.auth.dto.SignupResponse;
 import com.weedrice.whiteboard.domain.auth.dto.VerifyCodeResponse;
@@ -224,7 +224,7 @@ class AuthServiceTest {
                 when(jwtTokenProvider.createRefreshToken(authentication)).thenReturn("refreshToken");
 
                 // when
-                LoginResponse response = authService.login(request, httpServletRequest);
+                LoginResult response = authService.login(request, httpServletRequest);
 
                 // then
                 assertThat(response.getAccessToken()).isEqualTo("accessToken");

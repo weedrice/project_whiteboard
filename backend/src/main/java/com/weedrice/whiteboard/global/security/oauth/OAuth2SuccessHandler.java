@@ -24,6 +24,8 @@ import java.time.Duration;
 @Component
 @RequiredArgsConstructor
 public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
+    private static final String REFRESH_TOKEN_COOKIE_PATH = "/api/v1/auth";
+    private static final String LEGACY_REFRESH_TOKEN_COOKIE_PATH = "/api/v1/auth/refresh";
 
     private final JwtTokenProvider jwtTokenProvider;
 
@@ -59,12 +61,13 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
         // Keep refresh token in HttpOnly cookie; only pass short-lived access token to frontend.
         ResponseCookie refreshCookie = ResponseCookie.from("refreshToken", refreshToken)
                 .httpOnly(true)
-                .secure(frontendUrl != null && frontendUrl.startsWith("https://"))
+                .secure(isSecureRequest(request))
                 .sameSite("Lax")
-                .path("/api/v1/auth/refresh")
+                .path(REFRESH_TOKEN_COOKIE_PATH)
                 .maxAge(Duration.ofMillis(jwtTokenProvider.getRefreshTokenValidityInMilliseconds()))
                 .build();
         response.addHeader(HttpHeaders.SET_COOKIE, refreshCookie.toString());
+        clearLegacyRefreshTokenCookie(response, isSecureRequest(request));
 
         String fragment = "accessToken=" + UriUtils.encodeQueryParam(accessToken, StandardCharsets.UTF_8);
         String targetUrl = UriComponentsBuilder.fromUriString(frontendUrl + "/auth/oauth/callback")
@@ -73,5 +76,27 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
                 .toUriString();
 
         getRedirectStrategy().sendRedirect(request, response, targetUrl);
+    }
+
+    private boolean isSecureRequest(HttpServletRequest request) {
+        if (request == null) {
+            return true;
+        }
+        String forwardedProto = request.getHeader("X-Forwarded-Proto");
+        if (forwardedProto != null && !forwardedProto.isBlank()) {
+            return "https".equalsIgnoreCase(forwardedProto);
+        }
+        return request.isSecure();
+    }
+
+    private void clearLegacyRefreshTokenCookie(HttpServletResponse response, boolean secure) {
+        ResponseCookie legacyCookie = ResponseCookie.from("refreshToken", "")
+                .httpOnly(true)
+                .secure(secure)
+                .sameSite("Lax")
+                .path(LEGACY_REFRESH_TOKEN_COOKIE_PATH)
+                .maxAge(0)
+                .build();
+        response.addHeader(HttpHeaders.SET_COOKIE, legacyCookie.toString());
     }
 }

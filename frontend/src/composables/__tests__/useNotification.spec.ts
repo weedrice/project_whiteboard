@@ -211,12 +211,10 @@ describe('useNotification', () => {
             return unreadCount
         })
 
-        localStorage.setItem('refreshToken', 'refresh-token')
         mocks.authApi.refreshToken.mockResolvedValueOnce({
             data: {
                 data: {
                     accessToken: 'new-access',
-                    refreshToken: 'new-refresh',
                 },
             },
         })
@@ -313,15 +311,13 @@ describe('useNotification', () => {
         closeSse()
     })
 
-    it('schedules reconnect after refresh success and uses refresh token', async () => {
+    it('schedules reconnect after refresh success', async () => {
         const setTimeoutSpy = vi.spyOn(globalThis, 'setTimeout')
         const clearTimeoutSpy = vi.spyOn(globalThis, 'clearTimeout')
-        localStorage.setItem('refreshToken', 'refresh-token')
         mocks.authApi.refreshToken.mockResolvedValueOnce({
             data: {
                 data: {
                     accessToken: 'next-access',
-                    refreshToken: 'next-refresh',
                 },
             },
         })
@@ -339,14 +335,13 @@ describe('useNotification', () => {
         await Promise.resolve()
         closeSse()
 
-        expect(mocks.authApi.refreshToken).toHaveBeenCalledWith('refresh-token')
+        expect(mocks.authApi.refreshToken).toHaveBeenCalledWith()
         expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 1000)
         expect(clearTimeoutSpy).toHaveBeenCalled()
     })
 
     it('falls back to delayed reconnect when refresh fails', async () => {
         const setTimeoutSpy = vi.spyOn(globalThis, 'setTimeout')
-        localStorage.setItem('refreshToken', 'refresh-token')
         mocks.authApi.refreshToken.mockReset()
         mocks.authApi.refreshToken.mockImplementation(async () => {
             throw new Error('refresh failed')
@@ -365,7 +360,7 @@ describe('useNotification', () => {
         await Promise.resolve()
         await Promise.resolve()
 
-        expect(mocks.authApi.refreshToken).toHaveBeenCalledWith('refresh-token')
+        expect(mocks.authApi.refreshToken).toHaveBeenCalledWith()
         expect(setTimeoutSpy.mock.calls.some((call) => call[1] === 5000)).toBe(true)
         closeSse()
     })
@@ -607,7 +602,6 @@ describe('useNotification', () => {
 
     it('does not schedule reconnect when manually closed during refresh retry', async () => {
         const setTimeoutSpy = vi.spyOn(globalThis, 'setTimeout')
-        localStorage.setItem('refreshToken', 'refresh-token')
 
         let rejectRefresh!: (reason?: unknown) => void
         const refreshPromise = new Promise((_resolve, reject) => {

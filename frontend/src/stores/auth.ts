@@ -22,13 +22,13 @@ export const useAuthStore = defineStore('auth', () => {
         try {
             const { data } = await authApi.login(credentials)
             if (data.success) {
-                const { accessToken: token, refreshToken, user: userData } = data.data
+                const { accessToken: token, user: userData } = data.data
 
                 accessToken.value = token
                 user.value = userData
 
                 Storage.setString('accessToken', token)
-                Storage.setString('refreshToken', refreshToken)
+                Storage.remove('refreshToken')
 
                 // Set theme from user settings
                 if (userData.theme) {
@@ -45,10 +45,7 @@ export const useAuthStore = defineStore('auth', () => {
 
     async function logout() {
         try {
-            const refreshToken = Storage.getString('refreshToken')
-            if (refreshToken) {
-                await authApi.logout(refreshToken)
-            }
+            await authApi.logout()
         } catch (error: unknown) {
             logger.error('Logout failed:', error)
         } finally {
@@ -96,10 +93,10 @@ export const useAuthStore = defineStore('auth', () => {
         }
     }
 
-    function setTokens(token: string, refreshToken: string) {
+    function setTokens(token: string) {
         accessToken.value = token
         Storage.setString('accessToken', token)
-        Storage.setString('refreshToken', refreshToken)
+        Storage.remove('refreshToken')
     }
 
     return {

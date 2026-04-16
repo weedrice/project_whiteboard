@@ -5,7 +5,6 @@ import type { Notification, PageResponse } from '@/types'
 import { type Ref, computed } from 'vue'
 import logger from '@/utils/logger'
 import { useAuthStore } from '@/stores/auth'
-import { Storage } from '@/utils/storage'
 
 function isAbortError(error: unknown): boolean {
     return error instanceof DOMException && error.name === 'AbortError'
@@ -221,17 +220,14 @@ export function useNotification() {
     }
 
     const reconnectWithRefresh = async () => {
-        const refreshToken = Storage.getString('refreshToken')
-        if (refreshToken) {
-            try {
-                const { data } = await authApi.refreshToken(refreshToken)
-                const authStore = useAuthStore()
-                authStore.setTokens(data.data.accessToken, data.data.refreshToken)
-                scheduleReconnect(1000)
-                return
-            } catch (error: unknown) {
-                logger.warn('SSE reconnect: refresh failed', error)
-            }
+        try {
+            const { data } = await authApi.refreshToken()
+            const authStore = useAuthStore()
+            authStore.setTokens(data.data.accessToken)
+            scheduleReconnect(1000)
+            return
+        } catch (error: unknown) {
+            logger.warn('SSE reconnect: refresh failed', error)
         }
 
         scheduleReconnect(5000)

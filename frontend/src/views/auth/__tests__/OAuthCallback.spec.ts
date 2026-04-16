@@ -72,18 +72,17 @@ describe('OAuthCallback', () => {
         sessionStorage.setItem('loginRedirect', '/boards')
         mocks.route.query = {
             accessToken: 'query-access',
-            refreshToken: 'query-refresh',
         }
         window.history.replaceState(
             {},
             '',
-            '/auth/oauth/callback?accessToken=query-access&refreshToken=query-refresh',
+            '/auth/oauth/callback?accessToken=query-access',
         )
 
         mount(OAuthCallback)
         await flushMountedWork()
 
-        expect(mocks.authStore.setTokens).toHaveBeenCalledWith('query-access', 'query-refresh')
+        expect(mocks.authStore.setTokens).toHaveBeenCalledWith('query-access')
         expect(mocks.authStore.fetchUser).toHaveBeenCalled()
         expect(mocks.toastStore.addToast).toHaveBeenCalledWith('auth.loginSuccess', 'success')
         expect(mocks.router.push).toHaveBeenCalledWith('/boards')
@@ -96,7 +95,6 @@ describe('OAuthCallback', () => {
         sessionStorage.setItem('loginRedirect', '//evil.example')
         mocks.route.query = {
             accessToken: 'safe-access',
-            refreshToken: 'safe-refresh',
         }
 
         mount(OAuthCallback)
@@ -110,14 +108,14 @@ describe('OAuthCallback', () => {
         window.history.replaceState(
             {},
             '',
-            '/auth/oauth/callback#accessToken=hash-access&refreshToken=hash-refresh&state=abc',
+            '/auth/oauth/callback#accessToken=hash-access&state=abc',
         )
         mocks.route.query = {}
 
         mount(OAuthCallback)
         await flushMountedWork()
 
-        expect(mocks.authStore.setTokens).toHaveBeenCalledWith('hash-access', 'hash-refresh')
+        expect(mocks.authStore.setTokens).toHaveBeenCalledWith('hash-access')
         expect(window.location.hash).toBe('#state=abc')
         expect(replaceStateSpy).toHaveBeenCalled()
     })
@@ -125,19 +123,17 @@ describe('OAuthCallback', () => {
     it('accepts array query values and uses first token value', async () => {
         mocks.route.query = {
             accessToken: ['array-access'],
-            refreshToken: ['array-refresh'],
         }
 
         mount(OAuthCallback)
         await flushMountedWork()
 
-        expect(mocks.authStore.setTokens).toHaveBeenCalledWith('array-access', 'array-refresh')
+        expect(mocks.authStore.setTokens).toHaveBeenCalledWith('array-access')
     })
 
     it('redirects to login when token processing fails', async () => {
         mocks.route.query = {
             accessToken: 'bad-access',
-            refreshToken: 'bad-refresh',
         }
         mocks.authStore.fetchUser.mockRejectedValueOnce(new Error('failed'))
 

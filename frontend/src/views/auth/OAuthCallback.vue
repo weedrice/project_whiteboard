@@ -55,15 +55,14 @@ function clearSensitiveTokensFromUrl() {
 
 onMounted(async () => {
   const accessToken = getSingleValue(route.query.accessToken) ?? getHashToken('accessToken')
-  const refreshToken = getSingleValue(route.query.refreshToken) ?? getHashToken('refreshToken')
 
   // Remove sensitive values from address bar immediately.
   clearSensitiveTokensFromUrl()
 
-  if (accessToken && refreshToken) {
+  if (accessToken) {
     try {
       // Store tokens
-      authStore.setTokens(accessToken, refreshToken)
+      authStore.setTokens(accessToken)
       
       // Fetch user info
       await authStore.fetchUser()

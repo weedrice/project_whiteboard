@@ -1,14 +1,12 @@
 package com.weedrice.whiteboard.domain.auth.service;
 
 import com.weedrice.whiteboard.domain.auth.dto.FindIdResponse;
+import com.weedrice.whiteboard.domain.auth.dto.LoginResult;
 import com.weedrice.whiteboard.domain.auth.dto.LoginRequest;
-import com.weedrice.whiteboard.domain.auth.dto.LoginResponse;
-import com.weedrice.whiteboard.domain.auth.dto.LogoutRequest;
-import com.weedrice.whiteboard.domain.auth.dto.RefreshRequest;
-import com.weedrice.whiteboard.domain.auth.dto.RefreshResponse;
 import com.weedrice.whiteboard.domain.auth.dto.ReregisterCheckResponse;
 import com.weedrice.whiteboard.domain.auth.dto.SignupRequest;
 import com.weedrice.whiteboard.domain.auth.dto.SignupResponse;
+import com.weedrice.whiteboard.domain.auth.dto.TokenResponse;
 import com.weedrice.whiteboard.domain.auth.entity.LoginHistory;
 import com.weedrice.whiteboard.domain.auth.entity.PasswordResetToken;
 import com.weedrice.whiteboard.domain.auth.entity.RefreshToken;
@@ -170,7 +168,7 @@ public class AuthService {
     }
 
     @Transactional
-    public LoginResponse login(LoginRequest request, HttpServletRequest httpServletRequest) {
+    public LoginResult login(LoginRequest request, HttpServletRequest httpServletRequest) {
         UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(
                 request.getLoginId(), request.getPassword());
 
@@ -211,11 +209,11 @@ public class AuthService {
 
         user.updateLastLogin();
 
-        return LoginResponse.builder()
+        return LoginResult.builder()
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
                 .expiresIn(jwtTokenProvider.getAccessTokenValidityInMilliseconds())
-                .user(LoginResponse.UserInfo.builder()
+                .user(com.weedrice.whiteboard.domain.auth.dto.LoginResponse.UserInfo.builder()
                         .userId(user.getUserId())
                         .loginId(user.getLoginId())
                         .displayName(user.getDisplayName())
@@ -229,8 +227,7 @@ public class AuthService {
     }
 
     @Transactional
-    public void logout(LogoutRequest request) {
-        String token = request.getRefreshToken();
+    public void logout(String token) {
         if (token != null) {
             String refreshTokenHash = hashTokenSha256(token);
             refreshTokenRepository.findByTokenHash(refreshTokenHash)
@@ -242,9 +239,7 @@ public class AuthService {
     }
 
     @Transactional
-    public RefreshResponse refresh(RefreshRequest request) {
-        String oldRefreshToken = request.getRefreshToken();
-
+    public TokenResponse refresh(String oldRefreshToken) {
         if (!jwtTokenProvider.validateToken(oldRefreshToken)) {
             throw new BusinessException(ErrorCode.INVALID_REFRESH_TOKEN);
         }
@@ -294,7 +289,7 @@ public class AuthService {
                 .build();
         refreshTokenRepository.save(newRt);
 
-        return RefreshResponse.builder()
+        return TokenResponse.builder()
                 .accessToken(newAccessToken)
                 .refreshToken(newRefreshToken)
                 .expiresIn(jwtTokenProvider.getAccessTokenValidityInMilliseconds())
