@@ -3,6 +3,8 @@ package com.weedrice.whiteboard.domain.admin.repository;
 import com.weedrice.whiteboard.domain.admin.entity.Admin;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.user.entity.User;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -23,6 +25,8 @@ public interface AdminRepository extends JpaRepository<Admin, Long> {
     @EntityGraph(attributePaths = {"user", "board"})
     List<Admin> findByBoard_BoardIdInAndRoleAndIsActiveOrderByBoard_BoardIdAscAdminIdDesc(
             Collection<Long> boardIds, String role, Boolean isActive);
+    @EntityGraph(attributePaths = {"user", "board"})
+    Page<Admin> findAllByOrderByAdminIdDesc(Pageable pageable);
     @EntityGraph(attributePaths = "board")
     List<Admin> findByUserAndBoard_BoardIdInAndIsActive(User user, Collection<Long> boardIds, Boolean isActive);
     Optional<Admin> findByUserAndIsActive(User user, Boolean isActive);

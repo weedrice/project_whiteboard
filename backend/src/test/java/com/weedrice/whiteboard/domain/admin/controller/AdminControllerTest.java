@@ -9,10 +9,20 @@ import com.weedrice.whiteboard.domain.admin.dto.IpBlockResponse;
 import com.weedrice.whiteboard.domain.admin.dto.SuperAdminRequest;
 import com.weedrice.whiteboard.domain.admin.dto.SuperAdminResponse;
 import com.weedrice.whiteboard.domain.admin.dto.SuperAdminUpdateResponse;
-import com.weedrice.whiteboard.domain.admin.service.AdminService;
+import com.weedrice.whiteboard.domain.admin.interceptor.IpBlockInterceptor;
+import com.weedrice.whiteboard.domain.admin.service.AdminAssignmentService;
+import com.weedrice.whiteboard.domain.admin.service.AdminDashboardService;
+import com.weedrice.whiteboard.domain.admin.service.AdminReadService;
 import com.weedrice.whiteboard.domain.admin.service.IpBlockService;
+import com.weedrice.whiteboard.domain.admin.service.SuperAdminService;
 import com.weedrice.whiteboard.domain.post.service.PostService;
+import com.weedrice.whiteboard.global.config.SecurityConfig;
+import com.weedrice.whiteboard.global.config.WebConfig;
+import com.weedrice.whiteboard.global.ratelimit.RateLimitInterceptor;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
+import com.weedrice.whiteboard.global.security.JwtAuthenticationEntryPoint;
+import com.weedrice.whiteboard.global.security.JwtAuthenticationFilter;
+import com.weedrice.whiteboard.global.security.RefererCheckInterceptor;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -28,6 +38,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Collections;
@@ -46,10 +57,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(controllers = AdminController.class,
-    excludeFilters = {
-        @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = com.weedrice.whiteboard.global.config.WebConfig.class),
-        @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = com.weedrice.whiteboard.global.config.SecurityConfig.class)
-    })
+        excludeFilters = {
+                @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = WebConfig.class),
+                @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = SecurityConfig.class)
+        })
 class AdminControllerTest {
 
     @Autowired
@@ -59,7 +70,16 @@ class AdminControllerTest {
     private ObjectMapper objectMapper;
 
     @MockBean
-    private AdminService adminService;
+    private AdminAssignmentService adminAssignmentService;
+
+    @MockBean
+    private AdminReadService adminReadService;
+
+    @MockBean
+    private AdminDashboardService adminDashboardService;
+
+    @MockBean
+    private SuperAdminService superAdminService;
 
     @MockBean
     private IpBlockService ipBlockService;
@@ -68,22 +88,22 @@ class AdminControllerTest {
     private PostService postService;
 
     @MockBean
-    private com.weedrice.whiteboard.global.security.JwtAuthenticationFilter jwtAuthenticationFilter;
+    private JwtAuthenticationFilter jwtAuthenticationFilter;
 
     @MockBean
-    private com.weedrice.whiteboard.global.security.JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
+    private JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
 
     @MockBean
-    private com.weedrice.whiteboard.domain.admin.interceptor.IpBlockInterceptor ipBlockInterceptor;
+    private IpBlockInterceptor ipBlockInterceptor;
 
     @MockBean
     private org.springframework.data.jpa.mapping.JpaMetamodelMappingContext jpaMetamodelMappingContext;
 
     @MockBean
-    private com.weedrice.whiteboard.global.security.RefererCheckInterceptor refererCheckInterceptor;
+    private RefererCheckInterceptor refererCheckInterceptor;
 
     @MockBean
-    private com.weedrice.whiteboard.global.ratelimit.RateLimitInterceptor rateLimitInterceptor;
+    private RateLimitInterceptor rateLimitInterceptor;
 
     private CustomUserDetails customUserDetails;
 
@@ -108,11 +128,9 @@ class AdminControllerTest {
     @Test
     @DisplayName("Super Admin 조회 성공")
     void getSuperAdmin_returnsSuccess() throws Exception {
-        // given
-        SuperAdminResponse response = SuperAdminResponse.builder().build();
-        when(adminService.getSuperAdmin()).thenReturn(List.of(response));
+        SuperAdminResponse response = SuperAdminResponse.builder().loginId("super").build();
+        when(superAdminService.getSuperAdmin()).thenReturn(List.of(response));
 
-        // when & then
         mockMvc.perform(get("/api/v1/admin/super")
                         .with(user(customUserDetails))
                         .with(csrf()))
@@ -124,123 +142,120 @@ class AdminControllerTest {
     @Test
     @DisplayName("Super Admin 활성화 성공")
     void activeSuperAdmin_returnsSuccess() throws Exception {
-        // given
         SuperAdminRequest request = new SuperAdminRequest();
-        org.springframework.test.util.ReflectionTestUtils.setField(request, "loginId", "admin");
+        ReflectionTestUtils.setField(request, "loginId", "admin");
 
-        SuperAdminUpdateResponse response = SuperAdminUpdateResponse.builder().build();
-        when(adminService.createSuperAdmin(eq("admin"))).thenReturn(response);
+        SuperAdminUpdateResponse response = SuperAdminUpdateResponse.builder().loginId("admin").isSuperAdmin(true)
+                .build();
+        when(superAdminService.createSuperAdmin("admin")).thenReturn(response);
 
-        // when & then
         mockMvc.perform(put("/api/v1/admin/super/active")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request))
                         .with(user(customUserDetails))
                         .with(csrf()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true));
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.loginId").value("admin"));
     }
 
     @Test
-    @DisplayName("모든 관리자 조회 성공")
-    void getAllAdmins_returnsSuccess() throws Exception {
-        // given
-        AdminResponse response = AdminResponse.builder().build();
-        when(adminService.getAllAdmins()).thenReturn(List.of(response));
+    @DisplayName("관리자 목록 페이지 조회 성공")
+    void getAllAdmins_returnsPagedResponse() throws Exception {
+        AdminResponse response = AdminResponse.builder().adminId(1L).role("BOARD_ADMIN").isActive(true).build();
+        when(adminReadService.getAllAdmins(any())).thenReturn(new PageImpl<>(List.of(response), PageRequest.of(0, 20), 1));
 
-        // when & then
         mockMvc.perform(get("/api/v1/admin/admins")
+                        .param("page", "0")
+                        .param("size", "20")
                         .with(user(customUserDetails))
                         .with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data").isArray());
+                .andExpect(jsonPath("$.data.content").isArray())
+                .andExpect(jsonPath("$.data.content[0].adminId").value(1L));
     }
 
     @Test
     @DisplayName("관리자 생성 성공")
     void createAdmin_returnsSuccess() throws Exception {
-        // given
         AdminCreateRequest request = new AdminCreateRequest();
-        org.springframework.test.util.ReflectionTestUtils.setField(request, "loginId", "admin");
-        org.springframework.test.util.ReflectionTestUtils.setField(request, "boardId", 1L);
-        org.springframework.test.util.ReflectionTestUtils.setField(request, "role", "BOARD_ADMIN");
+        ReflectionTestUtils.setField(request, "loginId", "admin");
+        ReflectionTestUtils.setField(request, "boardId", 1L);
+        ReflectionTestUtils.setField(request, "role", "BOARD_ADMIN");
 
-        AdminResponse response = AdminResponse.builder().build();
-        when(adminService.createAdmin(eq("admin"), eq(1L), eq("BOARD_ADMIN"))).thenReturn(response);
+        AdminResponse response = AdminResponse.builder().adminId(1L).role("BOARD_ADMIN").isActive(true).build();
+        when(adminAssignmentService.createAdmin("admin", 1L, "BOARD_ADMIN")).thenReturn(response);
 
-        // when & then
         mockMvc.perform(post("/api/v1/admin/admins")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request))
                         .with(user(customUserDetails))
                         .with(csrf()))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.success").value(true));
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.adminId").value(1L));
     }
 
     @Test
     @DisplayName("게시판 관리자 조회 성공")
     void getBoardManager_returnsSuccess() throws Exception {
-        // given
-        AdminResponse response = AdminResponse.builder().build();
-        when(adminService.getBoardManager(eq(1L))).thenReturn(response);
+        AdminResponse response = AdminResponse.builder().adminId(1L).role("BOARD_ADMIN").isActive(true).build();
+        when(adminAssignmentService.getBoardManager(1L)).thenReturn(response);
 
-        // when & then
         mockMvc.perform(get("/api/v1/admin/boards/{boardId}/manager", 1L)
                         .with(user(customUserDetails))
                         .with(csrf()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true));
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.adminId").value(1L));
     }
 
     @Test
     @DisplayName("게시판 관리자 교체 성공")
     void replaceBoardManager_returnsSuccess() throws Exception {
-        // given
         BoardManagerUpdateRequest request = new BoardManagerUpdateRequest();
-        org.springframework.test.util.ReflectionTestUtils.setField(request, "loginId", "newadmin");
-        AdminResponse response = AdminResponse.builder().build();
-        when(adminService.replaceBoardManager(eq(1L), eq("newadmin"))).thenReturn(response);
+        ReflectionTestUtils.setField(request, "loginId", "newadmin");
 
-        // when & then
+        AdminResponse response = AdminResponse.builder().adminId(1L).role("BOARD_ADMIN").isActive(true).build();
+        when(adminAssignmentService.replaceBoardManager(1L, "newadmin")).thenReturn(response);
+
         mockMvc.perform(put("/api/v1/admin/boards/{boardId}/manager", 1L)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request))
                         .with(user(customUserDetails))
                         .with(csrf()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true));
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.adminId").value(1L));
     }
 
     @Test
-    @DisplayName("차단 IP 목록 조회 성공")
+    @DisplayName("차단 IP 목록 페이지 조회 성공")
     void getBlockedIps_returnsSuccess() throws Exception {
-        // given
-        IpBlockResponse response = IpBlockResponse.builder().build();
+        IpBlockResponse response = IpBlockResponse.builder().ipAddress("1.1.1.1").build();
         when(ipBlockService.getBlockedIps(any())).thenReturn(new PageImpl<>(List.of(response), PageRequest.of(0, 20), 1));
 
-        // when & then
         mockMvc.perform(get("/api/v1/admin/ip-blocks")
                         .with(user(customUserDetails))
                         .with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.content").isArray());
+                .andExpect(jsonPath("$.data.content").isArray())
+                .andExpect(jsonPath("$.data.content[0].ipAddress").value("1.1.1.1"));
     }
 
     @Test
     @DisplayName("대시보드 통계 조회 성공")
     void getDashboardStats_returnsSuccess() throws Exception {
-        // given
-        DashboardStatsDto response = DashboardStatsDto.builder().build();
-        when(adminService.getDashboardStats()).thenReturn(response);
+        DashboardStatsDto response = DashboardStatsDto.builder().totalUsers(10L).build();
+        when(adminDashboardService.getDashboardStats()).thenReturn(response);
 
-        // when & then
         mockMvc.perform(get("/api/v1/admin/stats")
                         .with(user(customUserDetails))
                         .with(csrf()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true));
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.totalUsers").value(10L));
     }
 }

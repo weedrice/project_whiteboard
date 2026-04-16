@@ -15,6 +15,7 @@ import type {
     ErrorLogSearchParams,
     ErrorLogStats,
     BoardAdminInfo,
+    SuperAdminInfo,
     AdminUserDetail,
     Post,
     PostSummary,
@@ -72,8 +73,8 @@ interface BoardManagerUpdateData {
 
 export const adminApi = {
     // 관리자 관리
-    getAdmins() {
-        return api.get<ApiResponse<User[]>>('/admin/admins')
+    getAdmins(params: PaginationParams) {
+        return api.get<ApiResponse<PageResponse<BoardAdminInfo>>>('/admin/admins', { params })
     },
     createAdmin(data: AdminCreateData) {
         return api.post<ApiResponse<void>>('/admin/admins', data)
@@ -91,12 +92,12 @@ export const adminApi = {
         return api.put<ApiResponse<BoardAdminInfo>>(`/admin/boards/${boardId}/manager`, data)
     },
     getSuperAdmin() {
-        return api.get<ApiResponse<User>>('/admin/super')
+        return api.get<ApiResponse<SuperAdminInfo[]>>('/admin/super')
     },
     activeSuperAdmin(data: SuperAdminData) {
         return api.put<ApiResponse<void>>('/admin/super/active', data)
     },
-    deactiveSuperAdmin(data: SuperAdminData) {
+    deactivateSuperAdmin(data: SuperAdminData) {
         return api.put<ApiResponse<void>>('/admin/super/deactive', data)
     },
 

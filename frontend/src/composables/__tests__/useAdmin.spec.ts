@@ -12,7 +12,7 @@ vi.mock('@/api/admin', () => ({
         deactivateAdmin: vi.fn(),
         getSuperAdmin: vi.fn(),
         activeSuperAdmin: vi.fn(),
-        deactiveSuperAdmin: vi.fn(),
+        deactivateSuperAdmin: vi.fn(),
         getUsers: vi.fn(),
         updateUserStatus: vi.fn(),
         sanctionUser: vi.fn(),
@@ -82,26 +82,29 @@ describe('useAdmin', () => {
     describe('Admin Management', () => {
         it('useAdmins returns query hooks', () => {
             const { useAdmins } = useAdmin()
-            const result = useAdmins()
+            const result = useAdmins(ref({ page: 0, size: 20 }))
 
             expect(result).toHaveProperty('data')
             expect(result).toHaveProperty('isLoading')
         })
 
-        it('useAdmins queryFn returns api data and empty fallback', async () => {
+        it('useAdmins queryFn forwards params and preserves placeholder data', async () => {
             const { useAdmins } = useAdmin()
+            const params = ref({ page: 1, size: 20 })
+            const response = { content: [{ adminId: 1 }], totalPages: 1, totalElements: 1, size: 20 }
 
             vi.mocked(adminApi.getAdmins)
-                .mockResolvedValueOnce({ data: { data: [{ adminId: 1 }] } } as any)
-                .mockResolvedValueOnce({ data: null } as any)
+                .mockResolvedValueOnce({ data: { data: response } } as any)
 
-            useAdmins()
-            const firstQuery = mockQueryOptions.at(-1) as { queryFn: () => Promise<unknown> }
-            await expect(firstQuery.queryFn()).resolves.toEqual([{ adminId: 1 }])
+            useAdmins(params)
+            const query = mockQueryOptions.at(-1) as {
+                queryFn: () => Promise<unknown>
+                placeholderData: (prev: unknown) => unknown
+            }
 
-            useAdmins()
-            const secondQuery = mockQueryOptions.at(-1) as { queryFn: () => Promise<unknown> }
-            await expect(secondQuery.queryFn()).resolves.toEqual([])
+            await expect(query.queryFn()).resolves.toEqual(response)
+            expect(adminApi.getAdmins).toHaveBeenCalledWith(params.value)
+            expect(query.placeholderData('prev-admins')).toBe('prev-admins')
         })
 
         it('useCreateAdmin calls adminApi.createAdmin', async () => {
@@ -149,20 +152,15 @@ describe('useAdmin', () => {
             expect(result).toHaveProperty('isLoading')
         })
 
-        it('useSuperAdmins queryFn handles array and non-array payloads', async () => {
+        it('useSuperAdmins queryFn returns typed array payload', async () => {
             const { useSuperAdmins } = useAdmin()
 
             vi.mocked(adminApi.getSuperAdmin)
                 .mockResolvedValueOnce({ data: { data: [{ loginId: 'super' }] } } as any)
-                .mockResolvedValueOnce({ data: { data: { loginId: 'not-array' } } } as any)
 
             useSuperAdmins()
-            const firstQuery = mockQueryOptions.at(-1) as { queryFn: () => Promise<unknown> }
-            await expect(firstQuery.queryFn()).resolves.toEqual([{ loginId: 'super' }])
-
-            useSuperAdmins()
-            const secondQuery = mockQueryOptions.at(-1) as { queryFn: () => Promise<unknown> }
-            await expect(secondQuery.queryFn()).resolves.toEqual([])
+            const query = mockQueryOptions.at(-1) as { queryFn: () => Promise<unknown> }
+            await expect(query.queryFn()).resolves.toEqual([{ loginId: 'super' }])
         })
 
         it('useUpdateSuperAdminStatus calls activate API', async () => {
@@ -181,11 +179,11 @@ describe('useAdmin', () => {
             const { useUpdateSuperAdminStatus } = useAdmin()
             const mutation = useUpdateSuperAdminStatus()
 
-            vi.mocked(adminApi.deactiveSuperAdmin).mockResolvedValue({ data: { success: true } } as any)
+            vi.mocked(adminApi.deactivateSuperAdmin).mockResolvedValue({ data: { success: true } } as any)
 
             await mutation.mutateAsync({ loginId: 'superadmin', action: 'deactivate' })
 
-            expect(adminApi.deactiveSuperAdmin).toHaveBeenCalledWith({ loginId: 'superadmin' })
+            expect(adminApi.deactivateSuperAdmin).toHaveBeenCalledWith({ loginId: 'superadmin' })
         })
     })
 

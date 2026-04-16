@@ -82,14 +82,14 @@ describe('adminApi - Other Endpoints', () => {
     })
 
     it('calls admin management endpoints correctly', () => {
-        adminApi.getAdmins()
+        adminApi.getAdmins({ page: 0, size: 20 })
         adminApi.createAdmin({ loginId: 'testadmin' })
         adminApi.activateAdmin(1)
         adminApi.deactivateAdmin(1)
         adminApi.getBoardManager(3)
         adminApi.updateBoardManager(3, { loginId: 'next' })
 
-        expect(apiMock.get).toHaveBeenNthCalledWith(1, '/admin/admins')
+        expect(apiMock.get).toHaveBeenNthCalledWith(1, '/admin/admins', { params: { page: 0, size: 20 } })
         expect(apiMock.post).toHaveBeenNthCalledWith(1, '/admin/admins', { loginId: 'testadmin' })
         expect(apiMock.put).toHaveBeenNthCalledWith(1, '/admin/admins/1/activate')
         expect(apiMock.put).toHaveBeenNthCalledWith(2, '/admin/admins/1/deactivate')
@@ -100,7 +100,7 @@ describe('adminApi - Other Endpoints', () => {
     it('calls super admin endpoints correctly', () => {
         adminApi.getSuperAdmin()
         adminApi.activeSuperAdmin({ loginId: 'super' })
-        adminApi.deactiveSuperAdmin({ loginId: 'super' })
+        adminApi.deactivateSuperAdmin({ loginId: 'super' })
 
         expect(apiMock.get).toHaveBeenNthCalledWith(1, '/admin/super')
         expect(apiMock.put).toHaveBeenNthCalledWith(1, '/admin/super/active', { loginId: 'super' })

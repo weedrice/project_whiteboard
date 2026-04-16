@@ -2,8 +2,11 @@ package com.weedrice.whiteboard.domain.admin.controller;
 
 import com.weedrice.whiteboard.domain.admin.dto.*;
 
-import com.weedrice.whiteboard.domain.admin.service.AdminService;
+import com.weedrice.whiteboard.domain.admin.service.AdminAssignmentService;
+import com.weedrice.whiteboard.domain.admin.service.AdminDashboardService;
+import com.weedrice.whiteboard.domain.admin.service.AdminReadService;
 import com.weedrice.whiteboard.domain.admin.service.IpBlockService;
+import com.weedrice.whiteboard.domain.admin.service.SuperAdminService;
 import com.weedrice.whiteboard.domain.post.dto.PostResponse;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.service.PostService;
@@ -36,7 +39,10 @@ import java.util.List;
 @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
 public class AdminController {
 
-    private final AdminService adminService;
+    private final AdminAssignmentService adminAssignmentService;
+    private final AdminReadService adminReadService;
+    private final AdminDashboardService adminDashboardService;
+    private final SuperAdminService superAdminService;
     private final IpBlockService ipBlockService;
     private final PostService postService;
 
@@ -47,7 +53,7 @@ public class AdminController {
      */
     @GetMapping("/super")
     public ApiResponse<List<SuperAdminResponse>> getSuperAdmin() {
-        return ApiResponse.success(adminService.getSuperAdmin());
+        return ApiResponse.success(superAdminService.getSuperAdmin());
     }
 
     /**
@@ -61,7 +67,7 @@ public class AdminController {
      */
     @PutMapping("/super/active")
     public ApiResponse<SuperAdminUpdateResponse> activeSuperAdmin(@Valid @RequestBody SuperAdminRequest request) {
-        return ApiResponse.success(adminService.createSuperAdmin(request.getLoginId()));
+        return ApiResponse.success(superAdminService.createSuperAdmin(request.getLoginId()));
     }
 
     /**
@@ -74,8 +80,8 @@ public class AdminController {
      * @return {@link SuperAdminUpdateResponse} 등록된 Super Admin 정보
      */
     @PutMapping("/super/deactive")
-    public ApiResponse<SuperAdminUpdateResponse> deactiveSuperAdmin(@Valid @RequestBody SuperAdminRequest request) {
-        return ApiResponse.success(adminService.deactiveSuperAdmin(request.getLoginId()));
+    public ApiResponse<SuperAdminUpdateResponse> deactivateSuperAdmin(@Valid @RequestBody SuperAdminRequest request) {
+        return ApiResponse.success(superAdminService.deactivateSuperAdmin(request.getLoginId()));
     }
 
     /**
@@ -89,7 +95,7 @@ public class AdminController {
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<AdminResponse> createAdmin(@Valid @RequestBody AdminCreateRequest request) {
         return ApiResponse
-                .success(adminService.createAdmin(request.getLoginId(), request.getBoardId(), request.getRole()));
+                .success(adminAssignmentService.createAdmin(request.getLoginId(), request.getBoardId(), request.getRole()));
     }
 
     /**
@@ -98,8 +104,9 @@ public class AdminController {
      * @return {@link AdminResponse} 모든 Admin 목록
      */
     @GetMapping("/admins")
-    public ApiResponse<List<AdminResponse>> getAllAdmins() {
-        return ApiResponse.success(adminService.getAllAdmins());
+    public ApiResponse<PageResponse<AdminResponse>> getAllAdmins(
+            @PageableDefault(size = 20, sort = "adminId", direction = Sort.Direction.DESC) Pageable pageable) {
+        return ApiResponse.success(new PageResponse<>(adminReadService.getAllAdmins(pageable)));
     }
 
     /**
@@ -110,7 +117,7 @@ public class AdminController {
      */
     @PutMapping("/admins/{adminId}/deactivate")
     public ApiResponse<Void> deactivateAdmin(@PathVariable Long adminId) {
-        adminService.deactivateAdmin(adminId);
+        adminAssignmentService.deactivateAdmin(adminId);
         return ApiResponse.success(null);
     }
 
@@ -122,19 +129,19 @@ public class AdminController {
      */
     @PutMapping("/admins/{adminId}/activate")
     public ApiResponse<Void> activateAdmin(@PathVariable Long adminId) {
-        adminService.activateAdmin(adminId);
+        adminAssignmentService.activateAdmin(adminId);
         return ApiResponse.success(null);
     }
 
     @GetMapping("/boards/{boardId}/manager")
     public ApiResponse<AdminResponse> getBoardManager(@PathVariable Long boardId) {
-        return ApiResponse.success(adminService.getBoardManager(boardId));
+        return ApiResponse.success(adminAssignmentService.getBoardManager(boardId));
     }
 
     @PutMapping("/boards/{boardId}/manager")
     public ApiResponse<AdminResponse> replaceBoardManager(@PathVariable Long boardId,
             @Valid @RequestBody BoardManagerUpdateRequest request) {
-        return ApiResponse.success(adminService.replaceBoardManager(boardId, request.getLoginId()));
+        return ApiResponse.success(adminAssignmentService.replaceBoardManager(boardId, request.getLoginId()));
     }
 
     /**
@@ -185,7 +192,7 @@ public class AdminController {
      */
     @GetMapping("/stats")
     public ApiResponse<DashboardStatsDto> getDashboardStats() {
-        return ApiResponse.success(adminService.getDashboardStats());
+        return ApiResponse.success(adminDashboardService.getDashboardStats());
     }
 
     @GetMapping("/inquiries")

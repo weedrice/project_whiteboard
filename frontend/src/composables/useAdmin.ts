@@ -10,6 +10,8 @@ import type {
     ErrorLogSearchParams,
     ErrorLogStats,
     AdminUserDetail,
+    BoardAdminInfo,
+    SuperAdminInfo,
     PostSummary,
     MyComment,
     Board,
@@ -90,13 +92,14 @@ export function useAdmin() {
     const queryClient = useQueryClient()
 
     // --- Admin Management ---
-    const useAdmins = () => {
+    const useAdmins = (params: Ref<{ page?: number, size?: number }>) => {
         return useQuery({
-            queryKey: ['admin', 'admins'],
+            queryKey: ['admin', 'admins', params],
             queryFn: async () => {
-                const { data } = await adminApi.getAdmins()
-                return data?.data ?? []
-            }
+                const { data } = await adminApi.getAdmins(params.value)
+                return data.data as PageResponse<BoardAdminInfo>
+            },
+            placeholderData: (previousData) => previousData
         })
     }
 
@@ -122,7 +125,7 @@ export function useAdmin() {
             queryKey: ['admin', 'super'],
             queryFn: async () => {
                 const { data } = await adminApi.getSuperAdmin()
-                return Array.isArray(data?.data) ? data.data : []
+                return data.data as SuperAdminInfo[]
             }
         })
     }
@@ -131,7 +134,7 @@ export function useAdmin() {
         return useMutation({
             mutationFn: ({ loginId, action }: { loginId: string, action: 'activate' | 'deactivate' }) => {
                 if (action === 'activate') return adminApi.activeSuperAdmin({ loginId })
-                return adminApi.deactiveSuperAdmin({ loginId })
+                return adminApi.deactivateSuperAdmin({ loginId })
             },
             onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'super'] })
         })

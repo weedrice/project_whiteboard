@@ -43,6 +43,14 @@ export interface BoardAdminInfo {
     } | null
 }
 
+export interface SuperAdminInfo {
+    userId: number
+    loginId: string
+    displayName: string
+    isSuperAdmin: boolean
+    createdAt: string
+}
+
 // 에러 로그 관련 타입
 export interface ErrorLogItem {
     errorLogId: number
