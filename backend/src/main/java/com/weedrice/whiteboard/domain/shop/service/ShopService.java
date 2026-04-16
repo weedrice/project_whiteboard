@@ -13,9 +13,13 @@ import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -26,13 +30,23 @@ public class ShopService {
     private final PurchaseHistoryRepository purchaseHistoryRepository;
     private final UserRepository userRepository;
     private final PointService pointService;
+    private final ShopEntitlementCapabilityRegistry shopEntitlementCapabilityRegistry;
 
     public ShopItemResponse getShopItems(String itemType, Pageable pageable) {
+        if (itemType != null && !itemType.isEmpty() && !shopEntitlementCapabilityRegistry.supports(itemType)) {
+            return emptyShopItems(pageable);
+        }
+
+        Set<String> supportedItemTypes = shopEntitlementCapabilityRegistry.getSupportedItemTypes();
+        if (supportedItemTypes.isEmpty()) {
+            return emptyShopItems(pageable);
+        }
+
         Page<ShopItem> items;
         if (itemType != null && !itemType.isEmpty()) {
             items = shopItemRepository.findByIsActiveAndItemType(true, itemType, pageable);
         } else {
-            items = shopItemRepository.findByIsActive(true, pageable);
+            items = shopItemRepository.findByIsActiveAndItemTypeIn(true, supportedItemTypes, pageable);
         }
         return ShopItemResponse.from(items);
     }
@@ -49,7 +63,7 @@ public class ShopService {
         ShopItem item = shopItemRepository.findById(itemId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.ITEM_NOT_AVAILABLE));
 
-        if (!item.getIsActive()) {
+        if (!item.getIsActive() || !shopEntitlementCapabilityRegistry.supports(item)) {
             throw new BusinessException(ErrorCode.ITEM_NOT_AVAILABLE);
         }
 
@@ -67,5 +81,9 @@ public class ShopService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         return PurchaseHistoryResponse.from(purchaseHistoryRepository.findByUserOrderByCreatedAtDesc(user, pageable));
+    }
+
+    private ShopItemResponse emptyShopItems(Pageable pageable) {
+        return ShopItemResponse.from(new PageImpl<>(List.of(), pageable, 0));
     }
 }

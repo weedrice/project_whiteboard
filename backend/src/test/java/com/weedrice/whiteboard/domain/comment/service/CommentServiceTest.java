@@ -13,6 +13,8 @@ import com.weedrice.whiteboard.domain.comment.repository.CommentLikeRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentVersionRepository;
 import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
+import com.weedrice.whiteboard.domain.point.entity.PointHistory;
+import com.weedrice.whiteboard.domain.point.repository.PointHistoryRepository;
 import com.weedrice.whiteboard.domain.point.service.PointService;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
@@ -43,10 +45,12 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -74,6 +78,8 @@ class CommentServiceTest {
     @Mock
     private PointService pointService;
     @Mock
+    private PointHistoryRepository pointHistoryRepository;
+    @Mock
     private UserBlockService userBlockService;
     @Mock
     private GlobalConfigService globalConfigService;
@@ -95,6 +101,7 @@ class CommentServiceTest {
                 commentClosureRepository,
                 eventPublisher,
                 pointService,
+                pointHistoryRepository,
                 userBlockService,
                 globalConfigService,
                 agentOwnershipService,
@@ -113,6 +120,7 @@ class CommentServiceTest {
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+        when(postRepository.incrementCommentCount(1L)).thenReturn(1);
         when(commentRepository.save(any(Comment.class))).thenAnswer(invocation -> {
             Comment saved = invocation.getArgument(0);
             ReflectionTestUtils.setField(saved, "commentId", 10L);
@@ -125,6 +133,7 @@ class CommentServiceTest {
         assertThat(result).isNotNull();
         assertThat(result.getDepth()).isZero();
         verify(commentClosureRepository).createSelfClosure(10L);
+        verify(postRepository).incrementCommentCount(1L);
         verify(pointService).addPoint(eq(1L), eq(10), anyString(), eq(10L), eq("COMMENT"));
     }
 
@@ -136,12 +145,14 @@ class CommentServiceTest {
 
         Board board = Board.builder().boardUrl("free").build();
         Post post = Post.builder().board(board).user(user).build();
+        ReflectionTestUtils.setField(post, "postId", 1L);
 
         Comment parent = Comment.builder().depth(0).user(user).post(post).build();
         ReflectionTestUtils.setField(parent, "commentId", 5L);
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+        when(postRepository.incrementCommentCount(1L)).thenReturn(1);
         when(commentRepository.findById(5L)).thenReturn(Optional.of(parent));
         when(commentRepository.save(any(Comment.class))).thenAnswer(invocation -> {
             Comment saved = invocation.getArgument(0);
@@ -153,6 +164,7 @@ class CommentServiceTest {
         Comment result = commentService.createComment(1L, 1L, 5L, "content");
 
         assertThat(result.getDepth()).isEqualTo(1);
+        verify(postRepository).incrementCommentCount(1L);
         verify(commentClosureRepository).createClosures(10L, 5L);
     }
 
@@ -504,17 +516,109 @@ class CommentServiceTest {
 
         Board board = Board.builder().boardUrl("free").build();
         Post post = Post.builder().board(board).user(user).build();
-        post.incrementCommentCount();
+        ReflectionTestUtils.setField(post, "postId", 1L);
 
         Comment comment = Comment.builder().user(user).post(post).content("Content").build();
+        ReflectionTestUtils.setField(comment, "commentId", 10L);
 
         when(commentRepository.findById(10L)).thenReturn(Optional.of(comment));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(globalConfigService.getConfig(any())).thenReturn("10");
+        when(postRepository.decrementCommentCount(1L)).thenReturn(1);
+        when(pointHistoryRepository.findByUserAndTypeAndRelatedTypeAndRelatedIdOrderByCreatedAtAsc(
+                user,
+                "EARN",
+                "COMMENT",
+                10L))
+                .thenReturn(List.of(PointHistory.builder()
+                        .user(user)
+                        .type("EARN")
+                        .amount(10)
+                        .balanceAfter(100)
+                        .description("댓글 작성")
+                        .relatedId(10L)
+                        .relatedType("COMMENT")
+                        .build()));
 
         commentService.deleteComment(1L, 10L);
 
         assertThat(comment.getIsDeleted()).isTrue();
-        assertThat(post.getCommentCount()).isZero();
+        verify(postRepository).decrementCommentCount(1L);
+        verify(pointService).forceSubtractPoint(1L, 10, "댓글 삭제", 10L, "COMMENT");
+    }
+
+    @Test
+    @DisplayName("delete comment uses point history reward instead of current config")
+    void deleteComment_usesRecordedRewardAmount() {
+        User user = User.builder().build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+
+        Board board = Board.builder().boardUrl("free").build();
+        Post post = Post.builder().board(board).user(user).build();
+        ReflectionTestUtils.setField(post, "postId", 1L);
+
+        Comment comment = Comment.builder().user(user).post(post).content("Content").build();
+        ReflectionTestUtils.setField(comment, "commentId", 10L);
+
+        when(commentRepository.findById(10L)).thenReturn(Optional.of(comment));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(postRepository.decrementCommentCount(1L)).thenReturn(1);
+        when(pointHistoryRepository.findByUserAndTypeAndRelatedTypeAndRelatedIdOrderByCreatedAtAsc(
+                user,
+                "EARN",
+                "COMMENT",
+                10L))
+                .thenReturn(List.of(
+                        PointHistory.builder()
+                                .user(user)
+                                .type("EARN")
+                                .amount(10)
+                                .balanceAfter(100)
+                                .description("댓글 작성")
+                                .relatedId(10L)
+                                .relatedType("COMMENT")
+                                .build(),
+                        PointHistory.builder()
+                                .user(user)
+                                .type("EARN")
+                                .amount(5)
+                                .balanceAfter(105)
+                                .description("댓글 작성")
+                                .relatedId(10L)
+                                .relatedType("COMMENT")
+                                .build()));
+
+        commentService.deleteComment(1L, 10L);
+
+        verify(pointService).forceSubtractPoint(1L, 15, "댓글 삭제", 10L, "COMMENT");
+    }
+
+    @Test
+    @DisplayName("delete comment skips point rollback when reward history is missing")
+    void deleteComment_withoutRewardHistory_skipsRollback() {
+        User user = User.builder().build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+
+        Board board = Board.builder().boardUrl("free").build();
+        Post post = Post.builder().board(board).user(user).build();
+        ReflectionTestUtils.setField(post, "postId", 1L);
+
+        Comment comment = Comment.builder().user(user).post(post).content("Content").build();
+        ReflectionTestUtils.setField(comment, "commentId", 10L);
+
+        when(commentRepository.findById(10L)).thenReturn(Optional.of(comment));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(postRepository.decrementCommentCount(1L)).thenReturn(1);
+        when(pointHistoryRepository.findByUserAndTypeAndRelatedTypeAndRelatedIdOrderByCreatedAtAsc(
+                user,
+                "EARN",
+                "COMMENT",
+                10L))
+                .thenReturn(List.of());
+
+        commentService.deleteComment(1L, 10L);
+
+        verify(postRepository).decrementCommentCount(1L);
+        verify(pointService, never())
+                .forceSubtractPoint(anyLong(), anyInt(), anyString(), anyLong(), anyString());
     }
 }

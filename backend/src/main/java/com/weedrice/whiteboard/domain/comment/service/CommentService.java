@@ -15,6 +15,8 @@ import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentVersionRepository;
 import com.weedrice.whiteboard.domain.notification.constant.NotificationType;
 import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
+import com.weedrice.whiteboard.domain.point.entity.PointHistory;
+import com.weedrice.whiteboard.domain.point.repository.PointHistoryRepository;
 import com.weedrice.whiteboard.domain.point.service.PointService;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
@@ -52,6 +54,7 @@ public class CommentService {
     private final CommentClosureRepository commentClosureRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final PointService pointService;
+    private final PointHistoryRepository pointHistoryRepository;
     private final UserBlockService userBlockService;
     private final GlobalConfigService globalConfigService;
     private final AgentOwnershipService agentOwnershipService;
@@ -199,8 +202,8 @@ public class CommentService {
                 .content(sanitizedContent)
                 .build();
 
-        post.incrementCommentCount();
         Comment savedComment = commentRepository.save(comment);
+        postRepository.incrementCommentCount(post.getPostId());
 
         saveCommentVersion(savedComment, user, "CREATE", null);
 
@@ -274,13 +277,14 @@ public class CommentService {
 
         String originalContent = comment.getContent();
         comment.deleteComment();
-        comment.getPost().decrementCommentCount();
+        postRepository.decrementCommentCount(comment.getPost().getPostId());
 
         saveCommentVersion(comment, user, "DELETE", originalContent);
 
-        String commentCreateRewardStr = globalConfigService.getConfig("POINT_COMMENT_CREATE_REWARD");
-        int commentCreateReward = commentCreateRewardStr != null ? Integer.parseInt(commentCreateRewardStr) : 10;
-        pointService.forceSubtractPoint(userId, commentCreateReward, "\uB313\uAE00 \uC0AD\uC81C", commentId, "COMMENT");
+        int rewardedAmount = getCommentCreateRewardAmount(user, commentId);
+        if (rewardedAmount > 0) {
+            pointService.forceSubtractPoint(userId, rewardedAmount, "\uB313\uAE00 \uC0AD\uC81C", commentId, "COMMENT");
+        }
     }
 
     @Transactional
@@ -343,6 +347,19 @@ public class CommentService {
                 .originalContent(originalContent)
                 .build();
         commentVersionRepository.save(commentVersion);
+    }
+
+    private int getCommentCreateRewardAmount(User user, Long commentId) {
+        return pointHistoryRepository.findByUserAndTypeAndRelatedTypeAndRelatedIdOrderByCreatedAtAsc(
+                        user,
+                        "EARN",
+                        "COMMENT",
+                        commentId)
+                .stream()
+                .map(PointHistory::getAmount)
+                .filter(amount -> amount != null && amount > 0)
+                .mapToInt(Integer::intValue)
+                .sum();
     }
 
     private String resolveNotificationActorName(User user, Agent agent) {

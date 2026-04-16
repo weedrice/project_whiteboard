@@ -18,15 +18,14 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import java.util.Arrays;
-import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -51,12 +50,13 @@ class ShopServiceTest {
     private UserRepository userRepository;
     @Mock
     private PointService pointService;
+    @Mock
+    private ShopEntitlementCapabilityRegistry shopEntitlementCapabilityRegistry;
 
     @InjectMocks
     private ShopService shopService;
 
     private User user;
-    private ShopItem shopItem;
     private ShopItem emoticonItem;
     private ShopItem decorationItem;
 
@@ -65,16 +65,9 @@ class ShopServiceTest {
         user = User.builder().build();
         ReflectionTestUtils.setField(user, "userId", 1L);
 
-        shopItem = ShopItem.builder()
-                .itemName("Test Item")
-                .price(100)
-                .build();
-        ReflectionTestUtils.setField(shopItem, "itemId", 1L);
-        ReflectionTestUtils.setField(shopItem, "isActive", true);
-
         emoticonItem = ShopItem.builder()
                 .itemName("프리미엄 이모티콘")
-                .description("특별한 이모티콘 세트")
+                .description("테스트 상품")
                 .price(100)
                 .itemType("EMOTICON")
                 .imageUrl("https://example.com/emoticon.png")
@@ -83,7 +76,8 @@ class ShopServiceTest {
         ReflectionTestUtils.setField(emoticonItem, "isActive", true);
 
         decorationItem = ShopItem.builder()
-                .itemName("닉네임 색상")
+                .itemName("프로필 장식")
+                .description("장식 상품")
                 .price(500)
                 .itemType("DECORATION")
                 .build();
@@ -91,115 +85,76 @@ class ShopServiceTest {
         ReflectionTestUtils.setField(decorationItem, "isActive", true);
     }
 
-    @Test
-    @DisplayName("아이템 구매 성공")
-    void purchaseItem_success() {
-        // given
-        Long userId = 1L;
-        Long itemId = 1L;
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        when(shopItemRepository.findById(itemId)).thenReturn(Optional.of(shopItem));
-        PurchaseHistory savedPurchaseHistory = PurchaseHistory.builder()
-                .user(user)
-                .item(shopItem)
-                .purchasedPrice(shopItem.getPrice())
-                .build();
-        ReflectionTestUtils.setField(savedPurchaseHistory, "purchaseId", 1L);
-        when(purchaseHistoryRepository.save(any(PurchaseHistory.class))).thenReturn(savedPurchaseHistory);
-
-        // when
-        Long purchaseId = shopService.purchaseItem(userId, itemId);
-
-        // then
-        assertThat(purchaseId).isNotNull();
-        verify(pointService).spendPoint(anyLong(), anyInt(), anyString(), anyLong(), anyString());
-        verify(purchaseHistoryRepository).save(any(PurchaseHistory.class));
-    }
-
     @Nested
-    @DisplayName("EMOTICON 아이템 조회")
-    class GetEmoticonItems {
+    @DisplayName("상품 목록 조회")
+    class GetShopItems {
 
         @Test
-        @DisplayName("EMOTICON 타입 아이템 목록 조회 성공")
-        void getShopItems_emoticonType() {
-            // given
+        @DisplayName("지원되는 타입은 조회한다")
+        void getShopItems_supportedType() {
             Pageable pageable = PageRequest.of(0, 20);
-            ShopItem emoticonItem2 = ShopItem.builder()
-                    .itemName("동물 이모티콘")
-                    .price(150)
-                    .itemType("EMOTICON")
-                    .build();
-            ReflectionTestUtils.setField(emoticonItem2, "itemId", 4L);
-            ReflectionTestUtils.setField(emoticonItem2, "isActive", true);
-
-            Page<ShopItem> emoticonPage = new PageImpl<>(
-                    Arrays.asList(emoticonItem, emoticonItem2),
-                    pageable,
-                    2
-            );
+            when(shopEntitlementCapabilityRegistry.supports("EMOTICON")).thenReturn(true);
+            when(shopEntitlementCapabilityRegistry.getSupportedItemTypes()).thenReturn(Set.of("EMOTICON"));
             when(shopItemRepository.findByIsActiveAndItemType(true, "EMOTICON", pageable))
-                    .thenReturn(emoticonPage);
+                    .thenReturn(new PageImpl<>(List.of(emoticonItem), pageable, 1));
 
-            // when
             ShopItemResponse response = shopService.getShopItems("EMOTICON", pageable);
 
-            // then
-            assertThat(response).isNotNull();
+            assertThat(response.getContent()).hasSize(1);
             verify(shopItemRepository).findByIsActiveAndItemType(true, "EMOTICON", pageable);
-            verify(shopItemRepository, never()).findByIsActive(any(Boolean.class), any(Pageable.class));
         }
 
         @Test
-        @DisplayName("타입 지정 없이 전체 아이템 조회")
-        void getShopItems_allTypes() {
-            // given
+        @DisplayName("지원 가능한 handler가 없으면 빈 결과를 반환한다")
+        void getShopItems_withoutSupportedHandlers_returnsEmpty() {
             Pageable pageable = PageRequest.of(0, 20);
-            Page<ShopItem> allItemsPage = new PageImpl<>(
-                    Arrays.asList(emoticonItem, decorationItem),
-                    pageable,
-                    2
-            );
-            when(shopItemRepository.findByIsActive(true, pageable)).thenReturn(allItemsPage);
+            when(shopEntitlementCapabilityRegistry.getSupportedItemTypes()).thenReturn(Set.of());
 
-            // when
-            ShopItemResponse response = shopService.getShopItems(null, pageable);
-
-            // then
-            assertThat(response).isNotNull();
-            verify(shopItemRepository).findByIsActive(true, pageable);
-            verify(shopItemRepository, never()).findByIsActiveAndItemType(any(), any(), any());
-        }
-
-        @Test
-        @DisplayName("빈 타입 문자열로 전체 아이템 조회")
-        void getShopItems_emptyTypeString() {
-            // given
-            Pageable pageable = PageRequest.of(0, 20);
-            Page<ShopItem> allItemsPage = new PageImpl<>(Collections.emptyList(), pageable, 0);
-            when(shopItemRepository.findByIsActive(true, pageable)).thenReturn(allItemsPage);
-
-            // when
             ShopItemResponse response = shopService.getShopItems("", pageable);
 
-            // then
-            assertThat(response).isNotNull();
-            verify(shopItemRepository).findByIsActive(true, pageable);
+            assertThat(response.getContent()).isEmpty();
+            verify(shopItemRepository, never()).findByIsActive(any(), any());
+            verify(shopItemRepository, never()).findByIsActiveAndItemTypeIn(any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("전체 조회는 지원 가능한 타입만 조회한다")
+        void getShopItems_allTypes_usesSupportedTypes() {
+            Pageable pageable = PageRequest.of(0, 20);
+            Set<String> supportedTypes = Set.of("EMOTICON", "DECORATION");
+            when(shopEntitlementCapabilityRegistry.getSupportedItemTypes()).thenReturn(supportedTypes);
+            when(shopItemRepository.findByIsActiveAndItemTypeIn(true, supportedTypes, pageable))
+                    .thenReturn(new PageImpl<>(List.of(emoticonItem, decorationItem), pageable, 2));
+
+            ShopItemResponse response = shopService.getShopItems(null, pageable);
+
+            assertThat(response.getContent()).hasSize(2);
+            verify(shopItemRepository).findByIsActiveAndItemTypeIn(true, supportedTypes, pageable);
+        }
+
+        @Test
+        @DisplayName("지원되지 않는 타입 요청은 빈 결과를 반환한다")
+        void getShopItems_unsupportedType_returnsEmpty() {
+            Pageable pageable = PageRequest.of(0, 20);
+            when(shopEntitlementCapabilityRegistry.supports("EMOTICON")).thenReturn(false);
+
+            ShopItemResponse response = shopService.getShopItems("EMOTICON", pageable);
+
+            assertThat(response.getContent()).isEmpty();
+            verify(shopItemRepository, never()).findByIsActiveAndItemType(any(), anyString(), any());
         }
     }
 
     @Nested
-    @DisplayName("EMOTICON 아이템 구매")
-    class PurchaseEmoticonItem {
+    @DisplayName("상품 구매")
+    class PurchaseItem {
 
         @Test
-        @DisplayName("EMOTICON 아이템 구매 성공")
-        void purchaseEmoticonItem_success() {
-            // given
-            Long userId = 1L;
-            Long itemId = 2L;
-            when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-            when(shopItemRepository.findById(itemId)).thenReturn(Optional.of(emoticonItem));
+        @DisplayName("지원되는 상품은 구매할 수 있다")
+        void purchaseItem_success() {
+            when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+            when(shopItemRepository.findById(2L)).thenReturn(Optional.of(emoticonItem));
+            when(shopEntitlementCapabilityRegistry.supports(emoticonItem)).thenReturn(true);
 
             PurchaseHistory savedPurchaseHistory = PurchaseHistory.builder()
                     .user(user)
@@ -209,106 +164,93 @@ class ShopServiceTest {
             ReflectionTestUtils.setField(savedPurchaseHistory, "purchaseId", 1L);
             when(purchaseHistoryRepository.save(any(PurchaseHistory.class))).thenReturn(savedPurchaseHistory);
 
-            // when
-            Long purchaseId = shopService.purchaseItem(userId, itemId);
+            Long purchaseId = shopService.purchaseItem(1L, 2L);
 
-            // then
             assertThat(purchaseId).isEqualTo(1L);
             verify(pointService).spendPoint(
-                    eq(userId),
+                    eq(1L),
                     eq(100),
                     eq("프리미엄 이모티콘 구매"),
                     eq(2L),
-                    eq("SHOP_ITEM")
-            );
+                    eq("SHOP_ITEM"));
             verify(purchaseHistoryRepository).save(any(PurchaseHistory.class));
         }
 
         @Test
-        @DisplayName("비활성화된 EMOTICON 아이템 구매 실패")
-        void purchaseEmoticonItem_inactiveItem() {
-            // given
-            Long userId = 1L;
-            Long itemId = 2L;
+        @DisplayName("비활성 상품 구매는 차단한다")
+        void purchaseItem_inactiveItem() {
             ReflectionTestUtils.setField(emoticonItem, "isActive", false);
+            when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+            when(shopItemRepository.findById(2L)).thenReturn(Optional.of(emoticonItem));
 
-            when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-            when(shopItemRepository.findById(itemId)).thenReturn(Optional.of(emoticonItem));
-
-            // when & then
-            assertThatThrownBy(() -> shopService.purchaseItem(userId, itemId))
+            assertThatThrownBy(() -> shopService.purchaseItem(1L, 2L))
                     .isInstanceOf(BusinessException.class)
                     .extracting("errorCode")
                     .isEqualTo(ErrorCode.ITEM_NOT_AVAILABLE);
 
+            verify(pointService, never()).spendPoint(anyLong(), anyInt(), anyString(), anyLong(), anyString());
             verify(purchaseHistoryRepository, never()).save(any());
         }
 
         @Test
-        @DisplayName("존재하지 않는 EMOTICON 아이템 구매 실패")
-        void purchaseEmoticonItem_notFound() {
-            // given
-            Long userId = 1L;
-            Long itemId = 999L;
-            when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-            when(shopItemRepository.findById(itemId)).thenReturn(Optional.empty());
+        @DisplayName("지원되지 않는 상품 구매는 차단한다")
+        void purchaseItem_unsupportedItem() {
+            when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+            when(shopItemRepository.findById(2L)).thenReturn(Optional.of(emoticonItem));
+            when(shopEntitlementCapabilityRegistry.supports(emoticonItem)).thenReturn(false);
 
-            // when & then
-            assertThatThrownBy(() -> shopService.purchaseItem(userId, itemId))
+            assertThatThrownBy(() -> shopService.purchaseItem(1L, 2L))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.ITEM_NOT_AVAILABLE);
+
+            verify(pointService, never()).spendPoint(anyLong(), anyInt(), anyString(), anyLong(), anyString());
+            verify(purchaseHistoryRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 상품 구매는 실패한다")
+        void purchaseItem_notFound() {
+            when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+            when(shopItemRepository.findById(999L)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> shopService.purchaseItem(1L, 999L))
                     .isInstanceOf(BusinessException.class)
                     .extracting("errorCode")
                     .isEqualTo(ErrorCode.ITEM_NOT_AVAILABLE);
         }
 
         @Test
-        @DisplayName("존재하지 않는 사용자 - EMOTICON 구매 실패")
-        void purchaseEmoticonItem_userNotFound() {
-            // given
-            Long userId = 999L;
-            Long itemId = 2L;
-            when(userRepository.findById(userId)).thenReturn(Optional.empty());
+        @DisplayName("존재하지 않는 사용자 구매는 실패한다")
+        void purchaseItem_userNotFound() {
+            when(userRepository.findById(999L)).thenReturn(Optional.empty());
 
-            // when & then
-            assertThatThrownBy(() -> shopService.purchaseItem(userId, itemId))
+            assertThatThrownBy(() -> shopService.purchaseItem(999L, 2L))
                     .isInstanceOf(BusinessException.class)
                     .extracting("errorCode")
                     .isEqualTo(ErrorCode.USER_NOT_FOUND);
         }
     }
 
-    @Nested
-    @DisplayName("단일 아이템 조회")
-    class GetShopItem {
+    @Test
+    @DisplayName("상품 상세 조회는 기존처럼 유지한다")
+    void getShopItem_success() {
+        when(shopItemRepository.findById(2L)).thenReturn(Optional.of(emoticonItem));
 
-        @Test
-        @DisplayName("EMOTICON 아이템 상세 조회 성공")
-        void getShopItem_emoticon() {
-            // given
-            Long itemId = 2L;
-            when(shopItemRepository.findById(itemId)).thenReturn(Optional.of(emoticonItem));
+        ShopItem result = shopService.getShopItem(2L);
 
-            // when
-            ShopItem result = shopService.getShopItem(itemId);
+        assertThat(result.getItemName()).isEqualTo("프리미엄 이모티콘");
+        assertThat(result.getItemType()).isEqualTo("EMOTICON");
+    }
 
-            // then
-            assertThat(result).isNotNull();
-            assertThat(result.getItemName()).isEqualTo("프리미엄 이모티콘");
-            assertThat(result.getItemType()).isEqualTo("EMOTICON");
-            assertThat(result.getPrice()).isEqualTo(100);
-        }
+    @Test
+    @DisplayName("존재하지 않는 상품 상세 조회는 실패한다")
+    void getShopItem_notFound() {
+        when(shopItemRepository.findById(999L)).thenReturn(Optional.empty());
 
-        @Test
-        @DisplayName("존재하지 않는 아이템 조회 실패")
-        void getShopItem_notFound() {
-            // given
-            Long itemId = 999L;
-            when(shopItemRepository.findById(itemId)).thenReturn(Optional.empty());
-
-            // when & then
-            assertThatThrownBy(() -> shopService.getShopItem(itemId))
-                    .isInstanceOf(BusinessException.class)
-                    .extracting("errorCode")
-                    .isEqualTo(ErrorCode.ITEM_NOT_AVAILABLE);
-        }
+        assertThatThrownBy(() -> shopService.getShopItem(999L))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.ITEM_NOT_AVAILABLE);
     }
 }
