@@ -44,4 +44,24 @@ class SanctionResponseTest {
         assertThat(response.getContentId()).isEqualTo(50L);
         assertThat(response.getContentType()).isEqualTo("POST");
     }
+
+    @Test
+    @DisplayName("SanctionResponse.from()은 admin이 없어도 안전하게 매핑한다")
+    void from_withoutAdmin() {
+        User user = User.builder().displayName("User").build();
+        ReflectionTestUtils.setField(user, "userId", 100L);
+
+        Sanction sanction = Sanction.builder().build();
+        ReflectionTestUtils.setField(sanction, "sanctionId", 1L);
+        ReflectionTestUtils.setField(sanction, "targetUser", user);
+        ReflectionTestUtils.setField(sanction, "admin", null);
+        ReflectionTestUtils.setField(sanction, "type", "BAN");
+        ReflectionTestUtils.setField(sanction, "remark", "Reason");
+        ReflectionTestUtils.setField(sanction, "startDate", LocalDateTime.now());
+
+        SanctionResponse response = SanctionResponse.from(sanction);
+
+        assertThat(response.getAdminId()).isNull();
+        assertThat(response.getTargetUserId()).isEqualTo(100L);
+    }
 }

@@ -25,7 +25,7 @@ public class SanctionResponse {
                 .sanctionId(sanction.getSanctionId())
                 .targetUserId(sanction.getTargetUser().getUserId())
                 .targetUserDisplayName(sanction.getTargetUser().getDisplayName())
-                .adminId(sanction.getAdmin().getAdminId())
+                .adminId(sanction.getAdmin() != null ? sanction.getAdmin().getAdminId() : null)
                 .type(sanction.getType())
                 .remark(sanction.getRemark())
                 .startDate(sanction.getStartDate())
