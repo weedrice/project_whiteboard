@@ -159,7 +159,7 @@ import { computed, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import type { AxiosError } from 'axios'
-import axios from '@/api'
+import { fileApi } from '@/api/file'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
@@ -183,7 +183,7 @@ const router = useRouter()
 const { t } = useI18n()
 const { confirm } = useConfirm()
 const { useDeleteAccount, useMyAgents, useClaimAgent, useSuspendMyAgent, useUpdateMyProfile } = useUser()
-const { mutate: updateProfileMutate } = useUpdateMyProfile()
+const { mutateAsync: updateProfileMutateAsync } = useUpdateMyProfile()
 const { mutateAsync: deleteAccount, isPending: isDeleting } = useDeleteAccount()
 const { data: agentsData } = useMyAgents()
 const { mutateAsync: claimAgent, isPending: isClaiming } = useClaimAgent()
@@ -327,68 +327,50 @@ const updateProfile = async () => {
   errors.displayName = ''
 
   try {
-    let profileImageUrl = authStore.user?.profileImageUrl
     let profileImageId: number | null = null
 
     if (selectedFile.value) {
-      const formData = new FormData()
-      formData.append('file', selectedFile.value)
-
-      const uploadRes = await axios.post('/files/upload', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      })
+      const uploadRes = await fileApi.uploadFile(selectedFile.value)
 
       if (uploadRes.data.success) {
-        profileImageUrl = uploadRes.data.data.url
         profileImageId = uploadRes.data.data.fileId
       }
     }
 
     const payload: UserUpdatePayload = {
       displayName: form.displayName,
-      profileImageUrl,
       profileImageId,
     }
 
-    updateProfileMutate(payload, {
-      onSuccess: async () => {
-        await authStore.fetchUser()
-        toastStore.addToast(t('common.messages.profileUpdated'), 'success')
-        emit('refreshed')
-        emit('close')
-        loading.value = false
-      },
-      onError: (error: Error) => {
-        const axiosError = error as AxiosError
-        logger.error('Failed to update profile:', error)
-
-        const validationErrors = extractValidationErrors(axiosError)
-        if (validationErrors) {
-          const displayNameError = getFieldError(validationErrors, 'displayName')
-          if (displayNameError) {
-            errors.displayName = displayNameError
-          }
-
-          const otherErrors = Object.entries(validationErrors)
-            .filter(([key]) => key !== 'displayName')
-            .flatMap(([, messages]) => messages)
-
-          if (otherErrors.length > 0) {
-            toastStore.addToast(otherErrors[0], 'error')
-          }
-        } else {
-          const errorMessage = extractErrorMessage(axiosError)
-          errors.displayName = errorMessage
-          toastStore.addToast(errorMessage, 'error')
-        }
-
-        loading.value = false
-      },
-    })
+    await updateProfileMutateAsync(payload)
+    await authStore.fetchUser()
+    toastStore.addToast(t('common.messages.profileUpdated'), 'success')
+    emit('refreshed')
+    emit('close')
   } catch (error) {
-    logger.error('Failed to process profile update:', error)
+    const axiosError = error as AxiosError
+    logger.error('Failed to update profile:', error)
+
+    const validationErrors = extractValidationErrors(axiosError)
+    if (validationErrors) {
+      const displayNameError = getFieldError(validationErrors, 'displayName')
+      if (displayNameError) {
+        errors.displayName = displayNameError
+      }
+
+      const otherErrors = Object.entries(validationErrors)
+        .filter(([key]) => key !== 'displayName')
+        .flatMap(([, messages]) => messages)
+
+      if (otherErrors.length > 0) {
+        toastStore.addToast(otherErrors[0], 'error')
+      }
+    } else {
+      const errorMessage = extractErrorMessage(axiosError)
+      errors.displayName = errorMessage
+      toastStore.addToast(errorMessage, 'error')
+    }
+  } finally {
     loading.value = false
   }
 }

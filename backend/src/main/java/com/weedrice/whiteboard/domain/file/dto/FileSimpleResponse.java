@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.file.dto;
 
 import com.weedrice.whiteboard.domain.file.entity.File;
+import com.weedrice.whiteboard.domain.file.support.FileUrlResolver;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -12,7 +13,7 @@ public class FileSimpleResponse {
 
     public static FileSimpleResponse from(File file) {
         return FileSimpleResponse.builder()
-                .url("/api/v1/files/" + file.getFileId())
+                .url(FileUrlResolver.resolve(file.getFileId()))
                 .fileId(file.getFileId())
                 .build();
     }

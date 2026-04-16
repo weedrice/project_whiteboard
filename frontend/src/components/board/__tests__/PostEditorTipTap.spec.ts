@@ -151,7 +151,7 @@ vi.mock('@tiptap/extension-horizontal-rule', () => ({ default: {} }))
 vi.mock('@/extensions/tiptap-video', () => ({ Video: {} }))
 
 vi.mock('lucide-vue-next', () => {
-    const icon = defineComponent({ name: 'Icon', setup: () => () => h('i') })
+    const icon = defineComponent({ name: 'TestIcon', setup: () => () => h('i') })
     return {
         TextAlignStart: icon,
         TextAlignCenter: icon,

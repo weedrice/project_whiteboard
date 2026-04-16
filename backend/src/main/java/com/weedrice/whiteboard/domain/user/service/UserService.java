@@ -5,7 +5,7 @@ import com.weedrice.whiteboard.domain.auth.entity.RefreshToken;
 import com.weedrice.whiteboard.domain.auth.entity.LoginHistory;
 import com.weedrice.whiteboard.domain.auth.repository.LoginHistoryRepository;
 import com.weedrice.whiteboard.domain.auth.repository.RefreshTokenRepository;
-import com.weedrice.whiteboard.domain.auth.service.VerificationCodeService; // Import VerificationCodeService
+import com.weedrice.whiteboard.domain.auth.service.VerificationCodeService;
 import com.weedrice.whiteboard.domain.board.dto.BoardResponse;
 import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository;
 import com.weedrice.whiteboard.domain.board.service.BoardService;
@@ -13,9 +13,10 @@ import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.dto.MyCommentResponse;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.comment.service.CommentService;
-import com.weedrice.whiteboard.domain.file.service.FileService; // Add import
+import com.weedrice.whiteboard.domain.file.service.FileService;
+import com.weedrice.whiteboard.domain.file.support.FileUrlResolver;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
-import com.weedrice.whiteboard.domain.post.repository.PostRepository; // Import PostRepository
+import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.domain.report.repository.ReportRepository;
 import com.weedrice.whiteboard.domain.sanction.entity.Sanction;
@@ -131,8 +132,7 @@ public class UserService {
     }
 
     @Transactional
-    public UpdateProfileResponse updateMyProfile(Long userId, String displayName, String profileImageUrl,
-            Long profileImageId) {
+    public UpdateProfileResponse updateMyProfile(Long userId, String displayName, Long profileImageId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
@@ -149,12 +149,9 @@ public class UserService {
             user.updateDisplayName(displayName);
         }
 
-        if (profileImageUrl != null) {
-            user.updateProfileImage(profileImageUrl);
-        }
-
         if (profileImageId != null) {
             fileService.associateFileWithEntity(profileImageId, userId, user.getUserId(), "USER_PROFILE");
+            user.updateProfileImage(FileUrlResolver.resolve(profileImageId));
         }
 
         return new UpdateProfileResponse(user.getUserId(), user.getDisplayName(), user.getProfileImageUrl());

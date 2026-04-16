@@ -5,10 +5,6 @@ import type { AxiosRequestConfig } from 'axios'
 export interface FileUploadResponse {
     fileId: number
     url: string
-    filename: string
-    originalFilename: string
-    size: number
-    contentType: string
 }
 
 export const fileApi = {

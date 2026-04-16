@@ -83,6 +83,7 @@ class FileServiceTest {
 
         assertThat(uploadedFile.getOriginalName()).isEqualTo("test.jpg");
         assertThat(uploadedFile.getStoredName()).isEqualTo("storedFileName.jpg");
+        assertThat(uploadedFile.getFileUrl()).isEqualTo("/api/v1/files/" + file.getFileId());
     }
 
     @Test

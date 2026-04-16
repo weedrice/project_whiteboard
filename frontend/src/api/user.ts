@@ -12,7 +12,6 @@ export interface UserProfile {
 
 export interface UserUpdatePayload {
     displayName?: string;
-    profileImageUrl?: string;
     profileImageId?: number | null;
 }
 

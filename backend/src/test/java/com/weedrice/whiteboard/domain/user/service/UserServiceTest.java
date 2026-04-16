@@ -186,7 +186,7 @@ class UserServiceTest {
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
 
-        UpdateProfileResponse response = userService.updateMyProfile(1L, "New Name", null, null);
+        UpdateProfileResponse response = userService.updateMyProfile(1L, "New Name", null);
 
         assertThat(response.getDisplayName()).isEqualTo("New Name");
         verify(displayNameHistoryRepository).save(any());
@@ -200,10 +200,25 @@ class UserServiceTest {
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
 
-        userService.updateMyProfile(1L, null, "new.jpg", 100L);
+        userService.updateMyProfile(1L, null, 100L);
 
-        assertThat(user.getProfileImageUrl()).isEqualTo("new.jpg");
+        assertThat(user.getProfileImageUrl()).isEqualTo("/api/v1/files/100");
         verify(fileService).associateFileWithEntity(100L, 1L, 1L, "USER_PROFILE");
+    }
+
+    @Test
+    @DisplayName("새 프로필 이미지가 없으면 기존 URL을 유지한다")
+    void updateMyProfile_keepsExistingProfileImageWhenFileIdMissing() {
+        User user = User.builder().displayName("Name").build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+        ReflectionTestUtils.setField(user, "profileImageUrl", "/api/v1/files/77");
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        UpdateProfileResponse response = userService.updateMyProfile(1L, null, null);
+
+        assertThat(response.getProfileImageUrl()).isEqualTo("/api/v1/files/77");
+        verify(fileService, never()).associateFileWithEntity(any(), any(), any(), any());
     }
 
     @Test

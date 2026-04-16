@@ -4,7 +4,7 @@ import com.weedrice.whiteboard.domain.agent.dto.AgentClaimRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentListResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentResponse;
 import com.weedrice.whiteboard.domain.agent.service.AgentService;
-import com.weedrice.whiteboard.domain.auth.dto.VerifyCodeRequest; // Import VerifyCodeRequest
+import com.weedrice.whiteboard.domain.auth.dto.VerifyCodeRequest;
 import com.weedrice.whiteboard.domain.board.dto.BoardResponse;
 import com.weedrice.whiteboard.domain.board.service.BoardService;
 import com.weedrice.whiteboard.domain.comment.dto.MyCommentResponse;
@@ -63,7 +63,7 @@ public class UserController {
                         @Valid @RequestBody UpdateProfileRequest request,
                         @AuthenticationPrincipal CustomUserDetails userDetails) {
                 return ResponseEntity.ok(ApiResponse.success(userService.updateMyProfile(userDetails.getUserId(),
-                                request.getDisplayName(), request.getProfileImageUrl(), request.getProfileImageId())));
+                                request.getDisplayName(), request.getProfileImageId())));
         }
 
         @PostMapping("/me/email-verification")

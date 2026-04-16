@@ -9,8 +9,5 @@ public class UpdateProfileRequest {
     @Size(min = 2, max = 50, message = "{validation.user.displayName.size}")
     @NoHtml
     private String displayName;
-
-    private String profileImageUrl;
-    
     private Long profileImageId;
 }
