@@ -3,6 +3,7 @@ package com.weedrice.whiteboard.domain.file.service;
 import com.weedrice.whiteboard.domain.file.dto.FileSimpleResponse;
 import com.weedrice.whiteboard.domain.file.dto.FileUploadResponse;
 import com.weedrice.whiteboard.domain.file.entity.File;
+import com.weedrice.whiteboard.domain.file.entity.FileStorageStatus;
 import com.weedrice.whiteboard.domain.file.repository.FileRepository;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
@@ -12,16 +13,21 @@ import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.common.util.FileStorageService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -31,21 +37,24 @@ import java.util.Map;
 public class FileService {
 
     public static final String RELATED_TYPE_POST_CONTENT = "POST_CONTENT";
+    private static final int MAX_DELETE_RETRY_COUNT = 5;
 
     private final FileRepository fileRepository;
     private final UserRepository userRepository;
     private final PostRepository postRepository;
     private final PostAccessPolicy postAccessPolicy;
     private final FileStorageService fileStorageService;
-    private final org.springframework.transaction.support.TransactionTemplate transactionTemplate;
+    private final TransactionTemplate transactionTemplate;
+    @PersistenceContext
+    private EntityManager entityManager;
 
-    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public FileUploadResponse uploadFile(Long uploaderId, MultipartFile multipartFile) {
         File file = processUpload(uploaderId, multipartFile);
         return FileUploadResponse.from(file);
     }
 
-    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public FileSimpleResponse uploadSimpleFile(Long uploaderId, MultipartFile multipartFile) {
         File file = processUpload(uploaderId, multipartFile);
         return FileSimpleResponse.from(file);
@@ -83,13 +92,10 @@ public class FileService {
                 User uploader = userRepository.findById(uploaderId)
                         .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
-                String originalFileName = multipartFile.getOriginalFilename();
-                Long fileSize = multipartFile.getSize();
-
                 File file = File.builder()
                         .filePath(storedFileName)
-                        .originalName(originalFileName)
-                        .fileSize(fileSize)
+                        .originalName(multipartFile.getOriginalFilename())
+                        .fileSize(multipartFile.getSize())
                         .mimeType(detectedMimeType)
                         .uploader(uploader)
                         .build();
@@ -115,43 +121,67 @@ public class FileService {
 
     @Transactional
     public void associateFileWithEntity(Long fileId, Long ownerUserId, Long relatedId, String relatedType) {
-        File file = fileRepository.findById(fileId)
+        File file = fileRepository.findByFileIdAndStorageStatus(fileId, FileStorageStatus.ACTIVE)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
         if (file.getUploader() == null || !ownerUserId.equals(file.getUploader().getUserId())) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
-        file.updateRelatedInfo(relatedId, relatedType);
-        fileRepository.save(file);
+        if (file.isAssociatedWith(relatedId, relatedType)) {
+            return;
+        }
+        if (!file.isUnassociated()) {
+            throw new BusinessException(ErrorCode.FILE_ALREADY_ASSOCIATED);
+        }
+        int updated = fileRepository.associateIfUnassociated(fileId, ownerUserId, relatedId, relatedType);
+        if (updated == 1) {
+            file.updateRelatedInfo(relatedId, relatedType);
+            return;
+        }
+
+        entityManager.refresh(file);
+        if (file.getStorageStatus() != null && file.getStorageStatus() != FileStorageStatus.ACTIVE) {
+            throw new BusinessException(ErrorCode.NOT_FOUND);
+        }
+        File current = file;
+        if (current.isAssociatedWith(relatedId, relatedType)) {
+            return;
+        }
+        throw new BusinessException(ErrorCode.FILE_ALREADY_ASSOCIATED);
     }
 
     @Transactional
     public void cleanUpTemporaryFiles() {
         LocalDateTime twentyFourHoursAgo = LocalDateTime.now().minusHours(24);
-        List<File> temporaryFiles = fileRepository.findByRelatedIdIsNullAndCreatedAtBefore(twentyFourHoursAgo);
+        LocalDateTime deleteRequestedAt = LocalDateTime.now();
+        List<File> temporaryFiles = fileRepository.findByRelatedIdIsNullAndCreatedAtBeforeAndStorageStatus(
+                twentyFourHoursAgo, FileStorageStatus.ACTIVE);
 
         for (File file : temporaryFiles) {
-            fileStorageService.deleteFile(file.getFilePath());
-            fileRepository.delete(file);
+            if (fileRepository.requestDeletionIfTemporary(file.getFileId(), deleteRequestedAt) == 1) {
+                file.markDeletionPending();
+            }
         }
     }
 
     public File getFileForDownload(Long fileId, Long viewerUserId) {
-        File file = fileRepository.findById(fileId)
+        File file = fileRepository.findByFileIdAndStorageStatus(fileId, FileStorageStatus.ACTIVE)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
         validateReadable(file, viewerUserId);
         return file;
     }
 
     public List<File> getFilesByRelatedEntity(Long relatedId, String relatedType) {
-        return fileRepository.findByRelatedIdAndRelatedType(relatedId, relatedType);
+        return fileRepository.findByRelatedIdAndRelatedTypeAndStorageStatus(relatedId, relatedType,
+                FileStorageStatus.ACTIVE);
     }
 
     public List<File> getFilesByRelatedEntityIn(List<Long> relatedIds, String relatedType) {
-        return fileRepository.findByRelatedIdInAndRelatedType(relatedIds, relatedType);
+        return fileRepository.findByRelatedIdInAndRelatedTypeAndStorageStatus(relatedIds, relatedType,
+                FileStorageStatus.ACTIVE);
     }
 
     public List<Long> getRelatedIdsWithImages(List<Long> relatedIds, String relatedType) {
-        return fileRepository.findRelatedIdsWithImages(relatedIds, relatedType);
+        return fileRepository.findRelatedIdsWithImages(relatedIds, relatedType, FileStorageStatus.ACTIVE);
     }
 
     public Map<Long, Long> getFirstImageFileIdsByRelatedIds(List<Long> relatedIds, String relatedType) {
@@ -161,26 +191,29 @@ public class FileService {
 
         Map<Long, Long> firstImageFileIds = new LinkedHashMap<>();
         for (File file : fileRepository
-                .findByRelatedIdInAndRelatedTypeAndMimeTypeStartingWithOrderByRelatedIdAscFileIdAsc(
-                        relatedIds, relatedType, "image/")) {
+                .findByRelatedIdInAndRelatedTypeAndMimeTypeStartingWithAndStorageStatusOrderByRelatedIdAscFileIdAsc(
+                        relatedIds, relatedType, "image/", FileStorageStatus.ACTIVE)) {
             firstImageFileIds.putIfAbsent(file.getRelatedId(), file.getFileId());
         }
         return firstImageFileIds;
     }
 
     public Map<Long, Long> getFirstImageFileIdsForPosts(List<Long> postIds) {
-        return getFirstImageFileIdsByRelatedIds(postIds, "POST_CONTENT");
+        return getFirstImageFileIdsByRelatedIds(postIds, RELATED_TYPE_POST_CONTENT);
     }
 
     public Long getOneImageFileIdForPost(Long postId) {
         return fileRepository
-                .findFirstByRelatedIdAndRelatedTypeAndMimeTypeStartingWith(postId, "POST_CONTENT", "image/")
+                .findFirstByRelatedIdAndRelatedTypeAndMimeTypeStartingWithAndStorageStatus(
+                        postId, RELATED_TYPE_POST_CONTENT, "image/", FileStorageStatus.ACTIVE)
                 .map(File::getFileId)
                 .orElse(null);
     }
 
     public static Long extractFileIdFromUrl(String url) {
-        if (url == null || url.isBlank()) return null;
+        if (url == null || url.isBlank()) {
+            return null;
+        }
         java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("/files/(\\d+)(?:\\?|$|/)");
         java.util.regex.Matcher matcher = pattern.matcher(url);
         if (matcher.find()) {
@@ -195,10 +228,9 @@ public class FileService {
 
     @Transactional
     public boolean deleteFileWithStorage(Long fileId) {
-        return fileRepository.findById(fileId)
+        return fileRepository.findByFileIdAndStorageStatus(fileId, FileStorageStatus.ACTIVE)
                 .map(file -> {
-                    fileStorageService.deleteFile(file.getFilePath());
-                    fileRepository.delete(file);
+                    file.markDeletionPending();
                     return true;
                 })
                 .orElse(false);
@@ -206,13 +238,27 @@ public class FileService {
 
     @Transactional
     public boolean deleteFileWithStorageIfAssociated(Long fileId, Long relatedId, String relatedType) {
-        return fileRepository.findByFileIdAndRelatedIdAndRelatedType(fileId, relatedId, relatedType)
+        return fileRepository.findByFileIdAndRelatedIdAndRelatedTypeAndStorageStatus(
+                        fileId, relatedId, relatedType, FileStorageStatus.ACTIVE)
                 .map(file -> {
-                    fileStorageService.deleteFile(file.getFilePath());
-                    fileRepository.delete(file);
+                    file.markDeletionPending();
                     return true;
                 })
                 .orElse(false);
+    }
+
+    public List<Long> getPendingDeletionFileIds(int limit) {
+        return fileRepository.findPendingDeletionCandidates(PageRequest.of(0, limit))
+                .stream()
+                .map(File::getFileId)
+                .toList();
+    }
+
+    public List<Long> getRetryableFailedDeletionFileIds(int limit) {
+        return fileRepository.findRetryableFailedDeletionCandidates(MAX_DELETE_RETRY_COUNT, PageRequest.of(0, limit))
+                .stream()
+                .map(File::getFileId)
+                .toList();
     }
 
     private void validateReadable(File file, Long viewerUserId) {

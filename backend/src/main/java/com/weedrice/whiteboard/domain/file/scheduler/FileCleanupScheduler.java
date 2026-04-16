@@ -13,11 +13,10 @@ public class FileCleanupScheduler {
 
     private final FileService fileService;
 
-    // 매일 새벽 2시에 실행
     @Scheduled(cron = "0 0 2 * * ?")
     public void cleanupTemporaryFiles() {
-        log.info("임시 파일 정리 스케줄러 시작");
+        log.info("Starting temporary file cleanup scheduler");
         fileService.cleanUpTemporaryFiles();
-        log.info("임시 파일 정리 스케줄러 완료");
+        log.info("Finished temporary file cleanup scheduler");
     }
 }

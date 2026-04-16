@@ -1,20 +1,21 @@
 package com.weedrice.whiteboard.domain.file.repository;
 
 import com.weedrice.whiteboard.domain.file.entity.File;
+import com.weedrice.whiteboard.domain.file.entity.FileStorageStatus;
 import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.global.config.QuerydslConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
+import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.PageRequest;
 
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
-
-import com.weedrice.whiteboard.global.config.QuerydslConfig;
-import org.springframework.context.annotation.Import;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -125,5 +126,75 @@ class FileRepositoryTest {
         // then
         assertThat(found).isPresent();
         assertThat(found.get().getMimeType()).startsWith("image/");
+    }
+
+    @Test
+    @DisplayName("삭제 후보 조회는 pending delete만 반환한다")
+    void findPendingDeletionCandidates_returnsOnlyPendingDelete() {
+        File failedFile = File.builder()
+                .originalName("failed.jpg")
+                .filePath("path/to/failed.jpg")
+                .fileSize(512L)
+                .mimeType("image/jpeg")
+                .uploader(uploader)
+                .storageStatus(FileStorageStatus.DELETE_FAILED)
+                .deleteRequestedAt(LocalDateTime.now().minusHours(2))
+                .deleteRetryCount(1)
+                .build();
+        entityManager.persist(failedFile);
+
+        File pendingFile = File.builder()
+                .originalName("pending.jpg")
+                .filePath("path/to/pending.jpg")
+                .fileSize(512L)
+                .mimeType("image/jpeg")
+                .uploader(uploader)
+                .storageStatus(FileStorageStatus.PENDING_DELETE)
+                .deleteRequestedAt(LocalDateTime.now().minusHours(1))
+                .build();
+        entityManager.persist(pendingFile);
+        entityManager.flush();
+        entityManager.clear();
+
+        List<File> candidates = fileRepository.findPendingDeletionCandidates(PageRequest.of(0, 10));
+
+        assertThat(candidates).extracting(File::getStorageStatus)
+                .containsOnly(FileStorageStatus.PENDING_DELETE);
+    }
+
+    @Test
+    @DisplayName("삭제 후보 조회는 재시도 한도를 넘긴 failed 파일을 제외한다")
+    void findRetryableFailedDeletionCandidates_excludesFailedFilesOverRetryLimit() {
+        File retryableFailedFile = File.builder()
+                .originalName("retryable.jpg")
+                .filePath("path/to/retryable.jpg")
+                .fileSize(512L)
+                .mimeType("image/jpeg")
+                .uploader(uploader)
+                .storageStatus(FileStorageStatus.DELETE_FAILED)
+                .deleteRequestedAt(LocalDateTime.now().minusHours(2))
+                .deleteRetryCount(4)
+                .build();
+        entityManager.persist(retryableFailedFile);
+
+        File exhaustedFailedFile = File.builder()
+                .originalName("exhausted.jpg")
+                .filePath("path/to/exhausted.jpg")
+                .fileSize(512L)
+                .mimeType("image/jpeg")
+                .uploader(uploader)
+                .storageStatus(FileStorageStatus.DELETE_FAILED)
+                .deleteRequestedAt(LocalDateTime.now().minusHours(1))
+                .deleteRetryCount(5)
+                .build();
+        entityManager.persist(exhaustedFailedFile);
+        entityManager.flush();
+        entityManager.clear();
+
+        List<File> candidates = fileRepository.findRetryableFailedDeletionCandidates(5, PageRequest.of(0, 10));
+        List<String> candidatePaths = candidates.stream().map(File::getFilePath).toList();
+
+        assertThat(candidatePaths).contains("path/to/retryable.jpg");
+        assertThat(candidatePaths).doesNotContain("path/to/exhausted.jpg");
     }
 }

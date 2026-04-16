@@ -3,6 +3,7 @@ package com.weedrice.whiteboard.global.common.util;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -16,6 +17,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class FileStorageService {
@@ -31,7 +33,7 @@ public class FileStorageService {
         if (originalFileName != null && originalFileName.contains(".")) {
             fileExtension = originalFileName.substring(originalFileName.lastIndexOf("."));
         }
-        String fileName = UUID.randomUUID().toString() + fileExtension;
+        String fileName = UUID.randomUUID() + fileExtension;
 
         try {
             PutObjectRequest putOb = PutObjectRequest.builder()
@@ -43,11 +45,11 @@ public class FileStorageService {
             RequestBody requestBody = RequestBody.fromInputStream(file.getInputStream(), file.getSize());
             s3Client.putObject(putOb, requestBody);
 
-            return fileName; // 저장된 파일명(S3 Key) 반환
+            return fileName;
         } catch (IOException ex) {
-            throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR, "S3 파일 업로드 실패: " + ex.getMessage());
+            throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR, "S3 file upload failed: " + ex.getMessage());
         } catch (Exception ex) {
-            throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR, "S3 서비스 오류: " + ex.getMessage());
+            throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR, "S3 service error: " + ex.getMessage());
         }
     }
 
@@ -59,7 +61,7 @@ public class FileStorageService {
                     .build();
             return s3Client.getObject(getOb);
         } catch (Exception ex) {
-            throw new BusinessException(ErrorCode.NOT_FOUND, "S3 파일 로드 실패: " + fileName);
+            throw new BusinessException(ErrorCode.NOT_FOUND, "S3 file load failed: " + fileName);
         }
     }
 
@@ -71,8 +73,20 @@ public class FileStorageService {
                     .build();
             s3Client.deleteObject(deleteOb);
         } catch (Exception ex) {
-            // 파일 삭제 실패는 치명적이지 않으므로 로그만 남김
-            System.err.println("S3 파일 삭제 실패: " + fileName + ", " + ex.getMessage());
+            log.warn("Failed to delete file quietly from storage. fileName={}", fileName, ex);
+        }
+    }
+
+    public void deleteFileOrThrow(String fileName) {
+        try {
+            DeleteObjectRequest deleteOb = DeleteObjectRequest.builder()
+                    .bucket(bucket)
+                    .key(fileName)
+                    .build();
+            s3Client.deleteObject(deleteOb);
+        } catch (Exception ex) {
+            throw new BusinessException(ErrorCode.FILE_DELETE_ERROR,
+                    "S3 file delete failed: " + fileName + ", " + ex.getMessage());
         }
     }
 }
