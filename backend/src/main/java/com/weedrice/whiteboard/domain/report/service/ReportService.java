@@ -2,7 +2,9 @@ package com.weedrice.whiteboard.domain.report.service;
 
 import com.weedrice.whiteboard.domain.admin.entity.Admin;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
+import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
+import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.report.dto.ReportResponse;
 import com.weedrice.whiteboard.domain.report.entity.Report;
@@ -16,6 +18,12 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
+
+import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -53,41 +61,34 @@ public class ReportService {
     }
 
     public Page<ReportResponse> getReports(String status, String targetType, Pageable pageable) {
-        Page<Report> reports;
-        if (status != null && !status.isEmpty() && targetType != null && !targetType.isEmpty()) {
-            reports = reportRepository.findByTargetTypeAndStatusOrderByCreatedAtDesc(targetType, status, pageable);
-        } else if (status != null && !status.isEmpty()) {
-            reports = reportRepository.findByStatusOrderByCreatedAtDesc(status, pageable);
-        } else {
-            reports = reportRepository.findAll(pageable);
-        }
-        return reports.map(this::toResponse);
+        return toResponsePage(reportRepository.findAdminReports(status, targetType, pageable));
     }
 
     public Page<ReportResponse> getMyReports(Long userId, Pageable pageable) {
         User reporter = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        return reportRepository.findByReporterOrderByCreatedAtDesc(reporter, pageable).map(this::toResponse);
+        return toResponsePage(reportRepository.findByReporterOrderByCreatedAtDesc(reporter, pageable));
     }
 
-    private ReportResponse toResponse(Report report) {
-        String targetDisplayName = null;
-        String targetLoginId = null;
-        if ("USER".equalsIgnoreCase(report.getTargetType())) {
-            var targetUser = userRepository.findById(report.getTargetId());
-            if (targetUser.isPresent()) {
-                targetDisplayName = targetUser.get().getDisplayName();
-                targetLoginId = targetUser.get().getLoginId();
-            }
-        }
+    private Page<ReportResponse> toResponsePage(Page<Report> reports) {
+        ReportTargetMetadata targetMetadata = loadTargetMetadata(reports.getContent());
+        return reports.map(report -> toResponse(report, targetMetadata));
+    }
+
+    private ReportResponse toResponse(Report report, ReportTargetMetadata targetMetadata) {
+        User targetUser = isUserTarget(report)
+                ? targetMetadata.userTargets().get(report.getTargetId())
+                : null;
+
         return ReportResponse.builder()
                 .reportId(report.getReportId())
                 .reporterId(report.getReporter().getUserId())
                 .reporterDisplayName(report.getReporter().getDisplayName())
                 .targetType(report.getTargetType())
                 .targetId(report.getTargetId())
-                .targetDisplayName(targetDisplayName)
-                .targetLoginId(targetLoginId)
+                .targetUserId(resolveTargetUserId(report, targetMetadata))
+                .targetDisplayName(targetUser != null ? targetUser.getDisplayName() : null)
+                .targetLoginId(targetUser != null ? targetUser.getLoginId() : null)
                 .reasonType(report.getReasonType())
                 .remark(report.getRemark())
                 .processedRemark(report.getProcessedRemark())
@@ -96,6 +97,7 @@ public class ReportService {
                 .createdAt(report.getCreatedAt())
                 .updatedAt(report.getModifiedAt())
                 .adminId(report.getAdmin() != null ? report.getAdmin().getAdminId() : null)
+                .processorUserId(report.getProcessorUserId())
                 .build();
     }
 
@@ -108,9 +110,9 @@ public class ReportService {
         Admin admin = adminRepository.findFirstByUserAndIsActiveOrderByAdminIdAsc(adminUser, true)
                 .orElse(null);
 
-        report.processReport(admin, status, remark);
+        report.processReport(admin, adminUserId, status, remark);
         reportRepository.save(report);
-        return toResponse(report);
+        return toResponse(report, loadTargetMetadata(List.of(report)));
     }
 
     private void validateTarget(String targetType, Long targetId) {
@@ -131,5 +133,78 @@ public class ReportService {
                 throw new BusinessException(ErrorCode.INVALID_TARGET,
                         "Invalid target type: " + targetType + ". Must be POST, COMMENT, or USER.");
         }
+    }
+
+    private ReportTargetMetadata loadTargetMetadata(List<Report> reports) {
+        List<Long> userTargetIds = reports.stream()
+                .filter(this::isUserTarget)
+                .map(Report::getTargetId)
+                .distinct()
+                .toList();
+        List<Long> postTargetIds = reports.stream()
+                .filter(this::isPostTarget)
+                .map(Report::getTargetId)
+                .distinct()
+                .toList();
+        List<Long> commentTargetIds = reports.stream()
+                .filter(this::isCommentTarget)
+                .map(Report::getTargetId)
+                .distinct()
+                .toList();
+
+        Map<Long, User> userTargets = userTargetIds.isEmpty()
+                ? Map.of()
+                : userRepository.findAllById(userTargetIds).stream()
+                        .collect(Collectors.toMap(User::getUserId, Function.identity()));
+
+        Map<Long, Long> postTargetUserIds = postTargetIds.isEmpty()
+                ? Map.of()
+                : postRepository.findByPostIdIn(postTargetIds).stream()
+                        .collect(Collectors.toMap(Post::getPostId, post -> post.getUser().getUserId()));
+
+        Map<Long, Long> commentTargetUserIds = commentTargetIds.isEmpty()
+                ? Map.of()
+                : commentRepository.findByCommentIdIn(commentTargetIds).stream()
+                        .collect(Collectors.toMap(Comment::getCommentId, comment -> comment.getUser().getUserId()));
+
+        return new ReportTargetMetadata(userTargets, postTargetUserIds, commentTargetUserIds);
+    }
+
+    private Long resolveTargetUserId(Report report, ReportTargetMetadata targetMetadata) {
+        if (isUserTarget(report)) {
+            User targetUser = targetMetadata.userTargets().get(report.getTargetId());
+            return targetUser != null ? targetUser.getUserId() : report.getTargetId();
+        }
+        if (isPostTarget(report)) {
+            return targetMetadata.postTargetUserIds().get(report.getTargetId());
+        }
+        if (isCommentTarget(report)) {
+            return targetMetadata.commentTargetUserIds().get(report.getTargetId());
+        }
+        return null;
+    }
+
+    private boolean isUserTarget(Report report) {
+        return hasTargetType(report, "USER");
+    }
+
+    private boolean isPostTarget(Report report) {
+        return hasTargetType(report, "POST");
+    }
+
+    private boolean isCommentTarget(Report report) {
+        return hasTargetType(report, "COMMENT");
+    }
+
+    private boolean hasTargetType(Report report, String targetType) {
+        return report != null
+                && StringUtils.hasText(report.getTargetType())
+                && targetType.equalsIgnoreCase(report.getTargetType());
+    }
+
+    private record ReportTargetMetadata(
+            Map<Long, User> userTargets,
+            Map<Long, Long> postTargetUserIds,
+            Map<Long, Long> commentTargetUserIds) {
     }
 }

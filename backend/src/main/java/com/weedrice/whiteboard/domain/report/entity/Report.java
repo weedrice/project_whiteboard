@@ -65,6 +65,9 @@ public class Report extends BaseTimeEntity {
     @JoinColumn(name = "admin_id")
     private Admin admin;
 
+    @Column(name = "processor_user_id")
+    private Long processorUserId;
+
     @Builder
     public Report(User reporter, String targetType, Long targetId, String reasonType, String remark, String contents) {
         this.reporter = reporter;
@@ -76,8 +79,9 @@ public class Report extends BaseTimeEntity {
         this.status = "PENDING";
     }
 
-    public void processReport(Admin admin, String status, String remark) {
+    public void processReport(Admin admin, Long processorUserId, String status, String remark) {
         this.admin = admin;
+        this.processorUserId = processorUserId;
         this.status = status;
         this.processedRemark = remark;
     }

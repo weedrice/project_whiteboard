@@ -19,8 +19,12 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -121,7 +125,151 @@ class ReportServiceTest {
         // then
         assertThat(processedReport.getStatus()).isEqualTo(status);
         assertThat(processedReport.getAdminId()).isEqualTo(1L);
+        assertThat(processedReport.getProcessorUserId()).isEqualTo(2L);
         assertThat(processedReport.getProcessedRemark()).isEqualTo("Test Remark");
+    }
+
+    @Test
+    @DisplayName("targetType 단독 필터로 관리자 신고 목록을 조회한다")
+    void getReports_filtersByTargetTypeOnly() {
+        PageRequest pageable = PageRequest.of(0, 10);
+        Page<Report> reportPage = new PageImpl<>(List.of(report), pageable, 1);
+        when(reportRepository.findAdminReports(null, "POST", pageable)).thenReturn(reportPage);
+
+        Page<ReportResponse> result = reportService.getReports(null, "POST", pageable);
+
+        assertThat(result.getContent()).hasSize(1);
+        verify(reportRepository).findAdminReports(null, "POST", pageable);
+    }
+
+    @Test
+    @DisplayName("status 단독 필터로 관리자 신고 목록을 조회한다")
+    void getReports_filtersByStatusOnly() {
+        PageRequest pageable = PageRequest.of(0, 10);
+        Page<Report> reportPage = new PageImpl<>(List.of(report), pageable, 1);
+        when(reportRepository.findAdminReports("PENDING", null, pageable)).thenReturn(reportPage);
+
+        Page<ReportResponse> result = reportService.getReports("PENDING", null, pageable);
+
+        assertThat(result.getContent()).hasSize(1);
+        verify(reportRepository).findAdminReports("PENDING", null, pageable);
+    }
+
+    @Test
+    @DisplayName("status 와 targetType 복합 필터로 관리자 신고 목록을 조회한다")
+    void getReports_filtersByStatusAndTargetType() {
+        PageRequest pageable = PageRequest.of(0, 10);
+        Page<Report> reportPage = new PageImpl<>(List.of(report), pageable, 1);
+        when(reportRepository.findAdminReports("PENDING", "POST", pageable)).thenReturn(reportPage);
+
+        Page<ReportResponse> result = reportService.getReports("PENDING", "POST", pageable);
+
+        assertThat(result.getContent()).hasSize(1);
+        verify(reportRepository).findAdminReports("PENDING", "POST", pageable);
+    }
+
+    @Test
+    @DisplayName("필터 없이 관리자 신고 목록을 조회한다")
+    void getReports_withoutFilters() {
+        PageRequest pageable = PageRequest.of(0, 10);
+        Page<Report> reportPage = new PageImpl<>(List.of(report), pageable, 1);
+        when(reportRepository.findAdminReports(null, null, pageable)).thenReturn(reportPage);
+
+        Page<ReportResponse> result = reportService.getReports(null, null, pageable);
+
+        assertThat(result.getContent()).hasSize(1);
+        verify(reportRepository).findAdminReports(null, null, pageable);
+    }
+
+    @Test
+    @DisplayName("활성 Admin 이 없어도 processorUserId 로 감사 추적을 남긴다")
+    void processReport_savesProcessorUserIdWithoutAdmin() {
+        Long reportId = 1L;
+        when(reportRepository.findById(reportId)).thenReturn(Optional.of(report));
+        when(userRepository.findById(2L)).thenReturn(Optional.of(adminUser));
+        when(adminRepository.findFirstByUserAndIsActiveOrderByAdminIdAsc(adminUser, true)).thenReturn(Optional.empty());
+
+        ReportResponse processedReport = reportService.processReport(2L, reportId, "RESOLVED", "Test Remark");
+
+        assertThat(processedReport.getAdminId()).isNull();
+        assertThat(processedReport.getProcessorUserId()).isEqualTo(2L);
+    }
+
+    @Test
+    @DisplayName("USER 대상 신고에만 대상 사용자 표시 정보를 채운다")
+    void getReports_populatesTargetUserMetadataOnlyForUserReports() {
+        PageRequest pageable = PageRequest.of(0, 10);
+
+        User targetUser = User.builder()
+                .loginId("target-user")
+                .displayName("Target User")
+                .build();
+        ReflectionTestUtils.setField(targetUser, "userId", 30L);
+
+        Report userTargetReport = Report.builder()
+                .reporter(reporter)
+                .targetType("USER")
+                .targetId(30L)
+                .reasonType("ABUSE")
+                .build();
+        ReflectionTestUtils.setField(userTargetReport, "reportId", 2L);
+
+        Report postTargetReport = Report.builder()
+                .reporter(reporter)
+                .targetType("POST")
+                .targetId(30L)
+                .reasonType("SPAM")
+                .build();
+        ReflectionTestUtils.setField(postTargetReport, "reportId", 3L);
+
+        when(reportRepository.findAdminReports(null, null, pageable))
+                .thenReturn(new PageImpl<>(List.of(userTargetReport, postTargetReport), pageable, 2));
+        when(userRepository.findAllById(List.of(30L))).thenReturn(List.of(targetUser));
+
+        Page<ReportResponse> result = reportService.getReports(null, null, pageable);
+
+        assertThat(result.getContent()).hasSize(2);
+        assertThat(result.getContent().get(0).getTargetDisplayName()).isEqualTo("Target User");
+        assertThat(result.getContent().get(0).getTargetLoginId()).isEqualTo("target-user");
+        assertThat(result.getContent().get(1).getTargetDisplayName()).isNull();
+        assertThat(result.getContent().get(1).getTargetLoginId()).isNull();
+    }
+
+    @Test
+    @DisplayName("POST 대상 신고는 대상 작성자 사용자 ID를 응답에 포함한다")
+    void getReports_includesPostAuthorUserIdAsTargetUserId() {
+        PageRequest pageable = PageRequest.of(0, 10);
+
+        Report postTargetReport = Report.builder()
+                .reporter(reporter)
+                .targetType("POST")
+                .targetId(100L)
+                .reasonType("SPAM")
+                .build();
+        ReflectionTestUtils.setField(postTargetReport, "reportId", 4L);
+
+        User postAuthor = User.builder()
+                .loginId("post-author")
+                .displayName("Post Author")
+                .build();
+        ReflectionTestUtils.setField(postAuthor, "userId", 44L);
+
+        com.weedrice.whiteboard.domain.post.entity.Post post = com.weedrice.whiteboard.domain.post.entity.Post.builder()
+                .board(com.weedrice.whiteboard.domain.board.entity.Board.builder().creator(reporter).build())
+                .user(postAuthor)
+                .title("Reported Post")
+                .contents("content")
+                .build();
+        ReflectionTestUtils.setField(post, "postId", 100L);
+
+        when(reportRepository.findAdminReports(null, null, pageable))
+                .thenReturn(new PageImpl<>(List.of(postTargetReport), pageable, 1));
+        when(postRepository.findByPostIdIn(List.of(100L))).thenReturn(List.of(post));
+
+        Page<ReportResponse> result = reportService.getReports(null, null, pageable);
+
+        assertThat(result.getContent()).hasSize(1);
+        assertThat(result.getContent().get(0).getTargetUserId()).isEqualTo(44L);
     }
 
     @Test

@@ -33,17 +33,25 @@ function onSanction(report: Report) {
   emit('sanction', report)
 }
 
+function getProcessorText(report: Report) {
+  if (report.adminId != null) {
+    return `ADMIN #${report.adminId}`
+  }
+  if (report.processorUserId != null) {
+    return `USER #${report.processorUserId}`
+  }
+  return '-'
+}
+
 const columns = computed(() => [
   { key: 'reportId', label: t('common.id'), width: '5%', align: 'center' as const },
   { key: 'reporterDisplayName', label: t('admin.reports.table.reporter'), width: '8%', align: 'center' as const },
   { key: 'targetType', label: t('admin.reports.targetType'), width: '5%', align: 'center' as const },
-  // 대상: 아이디 (줄바꿈) 닉네임, 폭은 조금만 사용
   { key: 'target', label: t('common.target'), width: '10%', align: 'center' as const },
-  // 대상 콘텐츠 ID, 신고 유형 영역은 폭을 줄임
   { key: 'contents', label: t('admin.reports.targetContentId'), width: '7%', align: 'center' as const },
   { key: 'reasonType', label: t('admin.reports.reasonType'), width: '7%', align: 'center' as const },
-  // 줄인 폭은 사유(remark)에 몰아주기 + 좌측 정렬
-  { key: 'remark', label: t('admin.reports.remark'), width: '28%', align: 'left' as const },
+  { key: 'processor', label: '처리자', width: '8%', align: 'center' as const },
+  { key: 'remark', label: t('admin.reports.remark'), width: '20%', align: 'left' as const },
   { key: 'status', label: t('common.status'), width: '8%', align: 'center' as const },
   { key: 'createdAt', label: t('common.createdAt'), width: '10%', align: 'center' as const },
   { key: 'actions', label: '', align: 'center' as const, width: '10%' }
@@ -63,9 +71,7 @@ const columns = computed(() => [
           :title="item.targetDisplayName != null && item.targetLoginId != null ? `${item.targetDisplayName}\n${item.targetLoginId}` : `${item.targetType} #${item.targetId}`"
         >
           <template v-if="item.targetDisplayName != null && item.targetLoginId != null">
-            <!-- 닉네임 -->
             <span class="text-xs font-medium">{{ item.targetDisplayName }}</span>
-            <!-- ID -->
             <span class="text-[11px] text-gray-500 dark:text-gray-400">{{ item.targetLoginId }}</span>
           </template>
           <template v-else>
@@ -81,6 +87,10 @@ const columns = computed(() => [
       <template #cell-contents="{ item }">
         <span v-if="item.targetType === 'POST' || item.targetType === 'COMMENT'">{{ item.targetId }}</span>
         <span v-else class="text-gray-400">-</span>
+      </template>
+
+      <template #cell-processor="{ item }">
+        {{ getProcessorText(item) }}
       </template>
 
       <template #cell-remark="{ item }">
@@ -126,4 +136,3 @@ const columns = computed(() => [
     </BaseTable>
   </div>
 </template>
-

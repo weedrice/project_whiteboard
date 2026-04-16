@@ -38,9 +38,12 @@ function openDetailModal(report: Report) {
 }
 
 function openSanctionModal(report: Report) {
-  // Report has targetId; targetType may be USER/POST/COMMENT. Sanction modal expects user id and name.
-  // API does not return targetUser, so we use targetId as user id and a placeholder name.
-  selectedUser.value = { id: report.targetId, name: 'Unknown' }
+  const userId = report.targetUserId ?? (report.targetType === 'USER' ? report.targetId : null)
+  if (userId == null) {
+    return
+  }
+
+  selectedUser.value = { id: userId, name: report.targetDisplayName ?? 'Unknown' }
   isModalOpen.value = true
 }
 

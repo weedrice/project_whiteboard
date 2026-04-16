@@ -103,4 +103,50 @@ class ReportRepositoryTest {
         assertThat(reports.getContent()).isNotEmpty();
         assertThat(reports.getContent().get(0).getReporter()).isEqualTo(reporter);
     }
+
+    @Test
+    @DisplayName("대상 타입 단독 필터로 관리자 신고 목록을 조회한다")
+    void findAdminReports_filtersByTargetTypeOnly() {
+        Report userTargetReport = Report.builder()
+                .reporter(reporter)
+                .targetType("USER")
+                .targetId(2L)
+                .reasonType("ABUSE")
+                .remark("User report")
+                .build();
+        entityManager.persist(userTargetReport);
+        entityManager.flush();
+
+        Page<Report> reports = reportRepository.findAdminReports(null, "USER", PageRequest.of(0, 10));
+
+        assertThat(reports.getContent()).hasSize(1);
+        assertThat(reports.getContent().get(0).getTargetType()).isEqualTo("USER");
+    }
+
+    @Test
+    @DisplayName("상태 단독 필터로 관리자 신고 목록을 조회한다")
+    void findAdminReports_filtersByStatusOnly() {
+        Page<Report> reports = reportRepository.findAdminReports("PENDING", null, PageRequest.of(0, 10));
+
+        assertThat(reports.getContent()).hasSize(1);
+        assertThat(reports.getContent().get(0).getStatus()).isEqualTo("PENDING");
+    }
+
+    @Test
+    @DisplayName("상태와 대상 타입 복합 필터로 관리자 신고 목록을 조회한다")
+    void findAdminReports_filtersByStatusAndTargetType() {
+        Page<Report> reports = reportRepository.findAdminReports("PENDING", "POST", PageRequest.of(0, 10));
+
+        assertThat(reports.getContent()).hasSize(1);
+        assertThat(reports.getContent().get(0).getStatus()).isEqualTo("PENDING");
+        assertThat(reports.getContent().get(0).getTargetType()).isEqualTo("POST");
+    }
+
+    @Test
+    @DisplayName("필터 없이 관리자 신고 목록을 조회한다")
+    void findAdminReports_withoutFilters() {
+        Page<Report> reports = reportRepository.findAdminReports(null, null, PageRequest.of(0, 10));
+
+        assertThat(reports.getContent()).hasSize(1);
+    }
 }

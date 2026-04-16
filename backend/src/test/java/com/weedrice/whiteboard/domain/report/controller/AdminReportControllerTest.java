@@ -112,6 +112,23 @@ class AdminReportControllerTest {
     }
 
     @Test
+    @DisplayName("신고 목록 조회 시 필터 파라미터를 전달한다")
+    void getReports_forwardsFilterParams() throws Exception {
+        Page<ReportResponse> page = new PageImpl<>(List.of(ReportResponse.builder().build()), PageRequest.of(0, 20), 1);
+        when(reportService.getReports(eq("PENDING"), eq("POST"), any())).thenReturn(page);
+
+        mockMvc.perform(get("/api/v1/admin/reports")
+                        .param("status", "PENDING")
+                        .param("targetType", "POST")
+                        .param("page", "0")
+                        .param("size", "20")
+                        .with(user(customUserDetails))
+                        .with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+    }
+
+    @Test
     @DisplayName("신고 처리 성공")
     void processReport_returnsSuccess() throws Exception {
         // given
@@ -119,7 +136,9 @@ class AdminReportControllerTest {
         org.springframework.test.util.ReflectionTestUtils.setField(request, "status", "APPROVED");
         org.springframework.test.util.ReflectionTestUtils.setField(request, "remark", "Processed");
         
-        ReportResponse response = ReportResponse.builder().build();
+        ReportResponse response = ReportResponse.builder()
+                .processorUserId(1L)
+                .build();
         when(reportService.processReport(eq(1L), eq(1L), anyString(), anyString())).thenReturn(response);
 
         // when & then
@@ -129,6 +148,7 @@ class AdminReportControllerTest {
                         .with(user(customUserDetails))
                         .with(csrf()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true));
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.processorUserId").value(1));
     }
 }

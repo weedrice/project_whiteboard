@@ -44,12 +44,21 @@ const targetTypeLabel = computed(() => {
       return props.report.targetType
   }
 })
+
+function getProcessorText(report: Report) {
+  if (report.adminId != null) {
+    return `ADMIN #${report.adminId}`
+  }
+  if (report.processorUserId != null) {
+    return `USER #${report.processorUserId}`
+  }
+  return '-'
+}
 </script>
 
 <template>
   <BaseModal :isOpen="isOpen" :title="t('admin.reports.detail.title')" @close="$emit('close')">
     <div v-if="report" class="space-y-6">
-      <!-- 신고 정보 -->
       <div>
         <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">
           {{ t('admin.reports.detail.reportInfo') }}
@@ -68,9 +77,7 @@ const targetTypeLabel = computed(() => {
             <dd class="mt-1 text-sm text-gray-900 dark:text-white">
               <template v-if="report.targetDisplayName != null && report.targetLoginId != null">
                 <div class="flex flex-col">
-                  <!-- 닉네임 -->
                   <span>{{ report.targetDisplayName }}</span>
-                  <!-- ID -->
                   <span class="text-xs text-gray-500 dark:text-gray-400">{{ report.targetLoginId }}</span>
                 </div>
               </template>
@@ -91,10 +98,13 @@ const targetTypeLabel = computed(() => {
             <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ t('common.createdAt') }}</dt>
             <dd class="mt-1 text-sm text-gray-900 dark:text-white">{{ formatDate(report.createdAt) }}</dd>
           </div>
+          <div>
+            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">처리자</dt>
+            <dd class="mt-1 text-sm text-gray-900 dark:text-white">{{ getProcessorText(report) }}</dd>
+          </div>
         </dl>
       </div>
 
-      <!-- 신고 유형 / 대상 콘텐츠 ID -->
       <div>
         <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">
           {{ t('admin.reports.reasonType') }}
@@ -110,7 +120,7 @@ const targetTypeLabel = computed(() => {
           </div>
         </dl>
       </div>
-      <!-- 사유 (처리 비고) -->
+
       <div class="border-t border-gray-200 dark:border-gray-600 pt-4">
         <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">{{ t('admin.reports.remark') }}</h3>
         <p class="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{{ report.remark || '-' }}</p>
