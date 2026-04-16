@@ -47,7 +47,7 @@ public class MessageService {
     public MessageResponse getReceivedMessages(Long userId, Pageable pageable) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        List<Long> blockedUserIds = userBlockService.getBlockedUserIds(userId);
+        List<Long> blockedUserIds = getBlockedConversationUserIds(userId);
         Page<Message> messages = messageRepository.findReceivedMessagesExcludingBlocked(user, false, blockedUserIds,
                 pageable);
         return MessageResponse.from(messages, userId);
@@ -56,7 +56,7 @@ public class MessageService {
     public MessageResponse getSentMessages(Long userId, Pageable pageable) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        List<Long> blockedUserIds = userBlockService.getBlockedUserIds(userId);
+        List<Long> blockedUserIds = getBlockedConversationUserIds(userId);
         Page<Message> messages = messageRepository.findSentMessagesExcludingBlocked(user, false, blockedUserIds,
                 pageable);
         return MessageResponse.from(messages, userId);
@@ -130,7 +130,11 @@ public class MessageService {
     public long getUnreadMessageCount(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        List<Long> blockedUserIds = userBlockService.getBlockedUserIds(userId);
+        List<Long> blockedUserIds = getBlockedConversationUserIds(userId);
         return messageRepository.countUnreadMessagesExcludingBlocked(user, false, false, blockedUserIds);
+    }
+
+    private List<Long> getBlockedConversationUserIds(Long userId) {
+        return userBlockService.getBlockedUserIdsEitherDirection(userId);
     }
 }

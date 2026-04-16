@@ -70,6 +70,7 @@ class AdminAssignmentServiceTest {
     void createAdmin_replaceBoardManager() {
         when(userRepository.findByLoginId("testUser")).thenReturn(Optional.of(user));
         when(boardRepository.findById(10L)).thenReturn(Optional.of(board));
+        when(boardRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(board));
 
         Admin currentManager = Admin.builder().user(anotherUser).board(board).role(Role.BOARD_ADMIN).build();
         when(adminRepository.findFirstByBoardAndRoleAndIsActiveOrderByAdminIdDesc(board, Role.BOARD_ADMIN, true))
@@ -92,6 +93,7 @@ class AdminAssignmentServiceTest {
     void createAdmin_reuseInactiveRow() {
         when(userRepository.findByLoginId("testUser")).thenReturn(Optional.of(user));
         when(boardRepository.findById(10L)).thenReturn(Optional.of(board));
+        when(boardRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(board));
         when(adminRepository.findFirstByBoardAndRoleAndIsActiveOrderByAdminIdDesc(board, Role.BOARD_ADMIN, true))
                 .thenReturn(Optional.empty());
         when(adminRepository.findByBoardAndRoleAndIsActive(board, Role.BOARD_ADMIN, true))
@@ -138,9 +140,29 @@ class AdminAssignmentServiceTest {
     void activateAdmin_success() {
         admin.deactivate();
         when(adminRepository.findById(1L)).thenReturn(Optional.of(admin));
+        when(boardRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(board));
+        when(adminRepository.findByBoardAndRoleAndIsActive(board, Role.BOARD_ADMIN, true)).thenReturn(List.of());
 
         adminAssignmentService.activateAdmin(1L);
 
         assertThat(admin.getIsActive()).isTrue();
+    }
+
+    @Test
+    @DisplayName("BOARD_ADMIN 재활성화 시 기존 활성 관리자를 비활성화한다")
+    void activateAdmin_boardAdmin_deactivatesExistingManagers() {
+        admin.deactivate();
+        Admin currentManager = Admin.builder().user(anotherUser).board(board).role(Role.BOARD_ADMIN).build();
+        ReflectionTestUtils.setField(currentManager, "adminId", 200L);
+
+        when(adminRepository.findById(1L)).thenReturn(Optional.of(admin));
+        when(boardRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(board));
+        when(adminRepository.findByBoardAndRoleAndIsActive(board, Role.BOARD_ADMIN, true))
+                .thenReturn(List.of(currentManager));
+
+        adminAssignmentService.activateAdmin(1L);
+
+        assertThat(admin.getIsActive()).isTrue();
+        assertThat(currentManager.getIsActive()).isFalse();
     }
 }

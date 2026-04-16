@@ -47,4 +47,12 @@ public interface UserBlockRepository extends JpaRepository<UserBlock, Long> {
             WHERE ub.user = :user
             """)
     List<UserBlock> findByUserWithTarget(@Param("user") User user);
+
+    @EntityGraph(attributePaths = "user")
+    @Query("""
+            SELECT ub
+            FROM UserBlock ub
+            WHERE ub.target = :target
+            """)
+    List<UserBlock> findByTargetWithUser(@Param("target") User target);
 }

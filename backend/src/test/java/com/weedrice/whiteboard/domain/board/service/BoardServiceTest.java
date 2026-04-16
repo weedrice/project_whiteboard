@@ -20,6 +20,7 @@ import com.weedrice.whiteboard.domain.point.service.PointService;
 import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import org.mockito.ArgumentCaptor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -30,6 +31,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Collections;
@@ -371,5 +373,54 @@ class BoardServiceTest {
         assertThat(result.getTotalElements()).isEqualTo(5);
         assertThat(result.getContent()).hasSize(1);
         assertThat(result.getContent().get(0).isSubscribed()).isTrue();
+    }
+
+    @Test
+    @DisplayName("문의 게시판 생성 시 탈퇴한 super admin을 creator 후보에서 제외한다")
+    void ensureInquiryBoard_usesActiveSuperAdminCreator() {
+        UserDetails userDetails = mock(UserDetails.class);
+        User activeSuperAdmin = User.builder()
+                .loginId("super-admin")
+                .password("password")
+                .email("super@test.com")
+                .displayName("Super Admin")
+                .build();
+        ReflectionTestUtils.setField(activeSuperAdmin, "userId", 2L);
+        activeSuperAdmin.grantSuperAdminRole();
+        User deletedSuperAdmin = User.builder()
+                .loginId("deleted-admin")
+                .password("password")
+                .email("deleted@test.com")
+                .displayName("Deleted Admin")
+                .build();
+        ReflectionTestUtils.setField(deletedSuperAdmin, "userId", 1L);
+        deletedSuperAdmin.grantSuperAdminRole();
+        deletedSuperAdmin.delete();
+        List<User> allSuperAdmins = List.of(deletedSuperAdmin, activeSuperAdmin);
+
+        when(userDetails.getUsername()).thenReturn(user.getLoginId());
+        when(userRepository.findByLoginId(user.getLoginId())).thenReturn(Optional.of(user));
+        when(boardRepository.findByBoardUrl("inquiry")).thenReturn(Optional.empty());
+        when(userRepository.findByIsSuperAdminTrueAndDeletedAtIsNull()).thenReturn(allSuperAdmins);
+        when(boardRepository.findMaxSortOrder()).thenReturn(0);
+        when(boardRepository.existsByBoardName(anyString())).thenReturn(false);
+        when(boardRepository.save(any(Board.class))).thenAnswer(invocation -> {
+            Board savedBoard = invocation.getArgument(0);
+            ReflectionTestUtils.setField(savedBoard, "boardId", 2L);
+            return savedBoard;
+        });
+        when(adminRepository.findByUserAndBoardAndRole(any(), any(), anyString())).thenReturn(Optional.empty());
+        when(adminRepository.save(any(com.weedrice.whiteboard.domain.admin.entity.Admin.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(boardCategoryRepository.save(any(com.weedrice.whiteboard.domain.board.entity.BoardCategory.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        boardService.ensureInquiryBoard(userDetails, "custom-inquiry-url");
+
+        ArgumentCaptor<Board> boardCaptor = ArgumentCaptor.forClass(Board.class);
+        verify(boardRepository).save(boardCaptor.capture());
+        assertThat(boardCaptor.getValue().getCreator()).isEqualTo(activeSuperAdmin);
+        verify(userRepository).findByIsSuperAdminTrueAndDeletedAtIsNull();
+        verify(userRepository, never()).findByIsSuperAdminTrue();
     }
 }

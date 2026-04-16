@@ -80,6 +80,10 @@ public class JwtTokenProvider {
 
         // DB에서 최신 유저 정보 조회 (상태 체크 포함)
         UserDetails userDetails = customUserDetailsService.loadUserByUsername(claims.getSubject());
+        if (!userDetails.isEnabled() || !userDetails.isAccountNonLocked()
+                || !userDetails.isAccountNonExpired() || !userDetails.isCredentialsNonExpired()) {
+            throw new RuntimeException("User account is not active");
+        }
 
         return new UsernamePasswordAuthenticationToken(userDetails, "", userDetails.getAuthorities());
     }

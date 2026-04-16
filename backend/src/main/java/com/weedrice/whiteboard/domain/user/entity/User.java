@@ -99,6 +99,7 @@ public class User extends BaseTimeEntity {
 
     public void activate() {
         this.status = "ACTIVE";
+        this.deletedAt = null;
     }
 
     public void grantSuperAdminRole() {

@@ -14,7 +14,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -96,6 +98,19 @@ public class UserBlockService {
         return userBlockRepository.findByUserWithTarget(user).stream()
                 .map(block -> block.getTarget().getUserId())
                 .collect(Collectors.toList());
+    }
+
+    public List<Long> getBlockedUserIdsEitherDirection(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        Set<Long> blockedUserIds = new LinkedHashSet<>();
+        userBlockRepository.findByUserWithTarget(user).stream()
+                .map(block -> block.getTarget().getUserId())
+                .forEach(blockedUserIds::add);
+        userBlockRepository.findByTargetWithUser(user).stream()
+                .map(block -> block.getUser().getUserId())
+                .forEach(blockedUserIds::add);
+        return List.copyOf(blockedUserIds);
     }
 
     private void validateUserExists(Long userId) {

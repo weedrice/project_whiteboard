@@ -31,6 +31,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Service
@@ -425,7 +426,9 @@ public class BoardService {
         }
 
         private User resolveInquiryBoardCreator(User fallbackUser) {
-                User creator = userRepository.findByIsSuperAdminTrue().stream()
+                User creator = userRepository.findByIsSuperAdminTrueAndDeletedAtIsNull().stream()
+                                .filter(Objects::nonNull)
+                                .filter(superAdmin -> superAdmin.getDeletedAt() == null)
                                 .min(Comparator.comparing(User::getUserId))
                                 .orElse(fallbackUser);
                 if (creator == null) {

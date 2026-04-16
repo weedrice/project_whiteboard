@@ -181,6 +181,30 @@ class AuthServiceTest {
         }
 
         @Test
+        @DisplayName("재가입 시 deletedAt을 초기화한다")
+        void signup_reregister_clearsDeletedAt() {
+                SignupRequest request = SignupRequest.builder()
+                                .loginId("testuser")
+                                .password("password123")
+                                .email("test@example.com")
+                                .displayName("Rejoined User")
+                                .build();
+                ReflectionTestUtils.setField(user, "status", "DELETED");
+                ReflectionTestUtils.setField(user, "deletedAt", LocalDateTime.now().minusDays(1));
+
+                when(userRepository.findByEmail(request.getEmail())).thenReturn(Optional.of(user));
+                when(verificationCodeService.isVerified(request.getEmail())).thenReturn(true);
+                when(passwordEncoder.encode(request.getPassword())).thenReturn("encodedRejoinedPassword");
+                when(userRepository.save(user)).thenReturn(user);
+
+                SignupResponse response = authService.signup(request);
+
+                assertThat(response.getUserId()).isEqualTo(1L);
+                assertThat(user.getStatus()).isEqualTo("ACTIVE");
+                assertThat(user.getDeletedAt()).isNull();
+        }
+
+        @Test
         @DisplayName("로그인 성공")
         void login_success() {
                 // given

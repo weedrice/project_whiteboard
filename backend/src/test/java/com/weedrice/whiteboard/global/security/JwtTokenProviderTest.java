@@ -13,6 +13,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import java.util.Collections;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
@@ -66,6 +67,102 @@ class JwtTokenProviderTest {
         // then
         assertThat(authResult.getName()).isEqualTo("test@test.com");
         assertThat(authResult.getAuthorities()).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("삭제된 계정은 인증 객체를 만들지 않는다")
+    void getAuthentication_deletedUser_throws() {
+        CustomUserDetails disabledUser = new CustomUserDetails(
+                1L,
+                "test@test.com",
+                "pass",
+                false,
+                true,
+                true,
+                true,
+                Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER")));
+        Authentication authentication = new UsernamePasswordAuthenticationToken(
+                disabledUser,
+                "",
+                disabledUser.getAuthorities());
+        String token = jwtTokenProvider.createAccessToken(authentication);
+
+        when(customUserDetailsService.loadUserByUsername("test@test.com")).thenReturn(disabledUser);
+
+        assertThatThrownBy(() -> jwtTokenProvider.getAuthentication(token))
+                .isInstanceOf(RuntimeException.class);
+    }
+
+    @Test
+    @DisplayName("정지된 계정은 인증 객체를 만들지 않는다")
+    void getAuthentication_suspendedUser_throws() {
+        CustomUserDetails lockedUser = new CustomUserDetails(
+                1L,
+                "test@test.com",
+                "pass",
+                true,
+                true,
+                true,
+                false,
+                Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER")));
+        Authentication authentication = new UsernamePasswordAuthenticationToken(
+                lockedUser,
+                "",
+                lockedUser.getAuthorities());
+        String token = jwtTokenProvider.createAccessToken(authentication);
+
+        when(customUserDetailsService.loadUserByUsername("test@test.com")).thenReturn(lockedUser);
+
+        assertThatThrownBy(() -> jwtTokenProvider.getAuthentication(token))
+                .isInstanceOf(RuntimeException.class);
+    }
+
+    @Test
+    @DisplayName("만료된 계정은 인증 객체를 만들지 않는다")
+    void getAuthentication_expiredAccount_throws() {
+        CustomUserDetails expiredAccountUser = new CustomUserDetails(
+                1L,
+                "test@test.com",
+                "pass",
+                true,
+                false,
+                true,
+                true,
+                Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER")));
+        Authentication authentication = new UsernamePasswordAuthenticationToken(
+                expiredAccountUser,
+                "",
+                expiredAccountUser.getAuthorities());
+        String token = jwtTokenProvider.createAccessToken(authentication);
+
+        when(customUserDetailsService.loadUserByUsername("test@test.com")).thenReturn(expiredAccountUser);
+
+        assertThatThrownBy(() -> jwtTokenProvider.getAuthentication(token))
+                .isInstanceOf(RuntimeException.class);
+    }
+
+    @Test
+    @DisplayName("자격 증명이 만료된 계정은 인증 객체를 만들지 않는다")
+    void getAuthentication_expiredCredentials_throws() {
+        CustomUserDetails expiredCredentialsUser = new CustomUserDetails(
+                1L,
+                "test@test.com",
+                "pass",
+                true,
+                true,
+                false,
+                true,
+                Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER")));
+        Authentication authentication = new UsernamePasswordAuthenticationToken(
+                expiredCredentialsUser,
+                "",
+                expiredCredentialsUser.getAuthorities());
+        String token = jwtTokenProvider.createAccessToken(authentication);
+
+        when(customUserDetailsService.loadUserByUsername("test@test.com")).thenReturn(expiredCredentialsUser);
+
+        assertThatThrownBy(() -> jwtTokenProvider.getAuthentication(token))
+                .isInstanceOf(RuntimeException.class);
     }
 
     @Test

@@ -38,6 +38,8 @@ public class AdminAssignmentService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
 
         if (Role.BOARD_ADMIN.equals(role)) {
+            board = boardRepository.findByIdForUpdate(boardId)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
             Admin currentManager = adminRepository
                     .findFirstByBoardAndRoleAndIsActiveOrderByAdminIdDesc(board, Role.BOARD_ADMIN, true)
                     .orElse(null);
@@ -106,6 +108,17 @@ public class AdminAssignmentService {
     public void activateAdmin(Long adminId) {
         Admin admin = adminRepository.findById(adminId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+        if (Role.BOARD_ADMIN.equals(admin.getRole())) {
+            boardRepository.findByIdForUpdate(admin.getBoard().getBoardId())
+                    .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
+            List<Admin> activeManagers = adminRepository.findByBoardAndRoleAndIsActive(
+                    admin.getBoard(),
+                    Role.BOARD_ADMIN,
+                    true);
+            activeManagers.stream()
+                    .filter(activeManager -> !activeManager.getAdminId().equals(admin.getAdminId()))
+                    .forEach(Admin::deactivate);
+        }
         admin.activate();
     }
 }
