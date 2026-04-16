@@ -33,7 +33,7 @@ public class MqueueService {
 
     @Async("taskExecutor")
     public void sendEmail(Long queueId) {
-        MessageQueue message = messageQueueRepository.findById(queueId).orElse(null);
+        MessageQueue message = messageQueueRepository.findByIdWithTargetUser(queueId).orElse(null);
         if (message == null || !"PROCESSING".equals(message.getStatus())) {
             return;
         }

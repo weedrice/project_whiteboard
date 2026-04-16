@@ -14,6 +14,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -52,10 +53,11 @@ class UserBlockServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(blocker));
         when(userRepository.findById(2L)).thenReturn(Optional.of(blocked));
         when(userBlockRepository.existsByUserAndTarget(blocker, blocked)).thenReturn(false);
+        when(userBlockRepository.saveAndFlush(any(UserBlock.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         userBlockService.blockUser(1L, 2L);
 
-        verify(userBlockRepository).save(any(UserBlock.class));
+        verify(userBlockRepository).saveAndFlush(any(UserBlock.class));
     }
 
     @Test
@@ -78,6 +80,26 @@ class UserBlockServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(blocker));
         when(userRepository.findById(2L)).thenReturn(Optional.of(blocked));
         when(userBlockRepository.existsByUserAndTarget(blocker, blocked)).thenReturn(true);
+
+        assertThatThrownBy(() -> userBlockService.blockUser(1L, 2L))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.ALREADY_BLOCKED);
+    }
+
+    @Test
+    @DisplayName("사용자 차단 실패 - 저장 시 중복 키면 ALREADY_BLOCKED")
+    void blockUser_duplicateKeyTranslated() {
+        User blocker = User.builder().build();
+        ReflectionTestUtils.setField(blocker, "userId", 1L);
+        User blocked = User.builder().build();
+        ReflectionTestUtils.setField(blocked, "userId", 2L);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(blocker));
+        when(userRepository.findById(2L)).thenReturn(Optional.of(blocked));
+        when(userBlockRepository.existsByUserAndTarget(blocker, blocked)).thenReturn(false);
+        when(userBlockRepository.saveAndFlush(any(UserBlock.class)))
+                .thenThrow(new DataIntegrityViolationException("duplicate"));
 
         assertThatThrownBy(() -> userBlockService.blockUser(1L, 2L))
                 .isInstanceOf(BusinessException.class)

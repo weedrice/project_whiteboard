@@ -27,6 +27,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -163,12 +164,14 @@ class BoardServiceTest {
         when(boardRepository.findByBoardUrl(boardUrl)).thenReturn(Optional.of(board));
         when(boardSubscriptionRepository.findById(any(BoardSubscriptionId.class))).thenReturn(Optional.empty());
         when(boardSubscriptionRepository.findMaxSortOrder(user)).thenReturn(0);
+        when(boardSubscriptionRepository.saveAndFlush(any(BoardSubscription.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
         // when
         boardService.subscribeBoard(userId, boardUrl);
 
         // then
-        verify(boardSubscriptionRepository).save(any(BoardSubscription.class));
+        verify(boardSubscriptionRepository).saveAndFlush(any(BoardSubscription.class));
     }
 
     @Test
@@ -185,6 +188,24 @@ class BoardServiceTest {
         // when & then
         BusinessException exception = assertThrows(BusinessException.class,
                 () -> boardService.subscribeBoard(userId, boardUrl));
+        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.ALREADY_SUBSCRIBED);
+    }
+
+    @Test
+    @DisplayName("구독 실패 - 저장 시 중복 키면 ALREADY_SUBSCRIBED")
+    void subscribeBoard_fail_duplicateKey() {
+        Long userId = 1L;
+        String boardUrl = "test-board";
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(boardRepository.findByBoardUrl(boardUrl)).thenReturn(Optional.of(board));
+        when(boardSubscriptionRepository.findById(any(BoardSubscriptionId.class))).thenReturn(Optional.empty());
+        when(boardSubscriptionRepository.findMaxSortOrder(user)).thenReturn(0);
+        when(boardSubscriptionRepository.saveAndFlush(any(BoardSubscription.class)))
+                .thenThrow(new DataIntegrityViolationException("duplicate"));
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> boardService.subscribeBoard(userId, boardUrl));
+
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.ALREADY_SUBSCRIBED);
     }
 

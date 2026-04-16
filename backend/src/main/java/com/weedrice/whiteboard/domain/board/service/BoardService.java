@@ -134,7 +134,11 @@ public class BoardService {
                                 .role("MEMBER")
                                 .sortOrder(maxSortOrder + 1)
                                 .build();
-                boardSubscriptionRepository.save(subscription);
+                try {
+                        boardSubscriptionRepository.saveAndFlush(subscription);
+                } catch (DataIntegrityViolationException ex) {
+                        throw new BusinessException(ErrorCode.ALREADY_SUBSCRIBED);
+                }
         }
 
         @Transactional

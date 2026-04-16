@@ -22,6 +22,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -654,25 +655,27 @@ class EmoticonServiceTest {
             ReflectionTestUtils.setField(buyer, "userId", 2L);
             when(userRepository.findById(2L)).thenReturn(Optional.of(buyer));
             when(emoticonMasterRepository.findByIdWithImages(1L)).thenReturn(Optional.of(emoticonMaster));
-            when(emoticonPurchaseRepository.existsByUser_UserIdAndEmoticon_EmoticonId(2L, 1L)).thenReturn(false);
             doNothing().when(pointService).spendPoint(eq(2L), eq(100), anyString(), eq(1L), eq("EMOTICON"));
-            when(emoticonPurchaseRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+            when(emoticonPurchaseRepository.saveAndFlush(any())).thenAnswer(inv -> inv.getArgument(0));
 
             EmoticonMasterDto result = emoticonService.purchaseEmoticon(2L, 1L);
 
             assertThat(result).isNotNull();
             verify(pointService).spendPoint(eq(2L), eq(100), anyString(), eq(1L), eq("EMOTICON"));
-            verify(emoticonPurchaseRepository).save(any());
+            verify(emoticonPurchaseRepository).saveAndFlush(any());
         }
 
         @Test
         @DisplayName("이모티콘 구매 - 이미 구매한 경우 EMOTICON_ALREADY_PURCHASED")
         void purchaseEmoticon_alreadyPurchased() {
-            when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+            User buyer = User.builder().loginId("buyer").displayName("구매자").email("b@ex.com").password("p").build();
+            ReflectionTestUtils.setField(buyer, "userId", 2L);
+            when(userRepository.findById(2L)).thenReturn(Optional.of(buyer));
             when(emoticonMasterRepository.findByIdWithImages(1L)).thenReturn(Optional.of(emoticonMaster));
-            when(emoticonPurchaseRepository.existsByUser_UserIdAndEmoticon_EmoticonId(1L, 1L)).thenReturn(true);
+            when(emoticonPurchaseRepository.saveAndFlush(any()))
+                    .thenThrow(new DataIntegrityViolationException("duplicate purchase"));
 
-            assertThatThrownBy(() -> emoticonService.purchaseEmoticon(1L, 1L))
+            assertThatThrownBy(() -> emoticonService.purchaseEmoticon(2L, 1L))
                     .isInstanceOf(BusinessException.class)
                     .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode()).isEqualTo(ErrorCode.EMOTICON_ALREADY_PURCHASED));
 
@@ -684,7 +687,6 @@ class EmoticonServiceTest {
         void purchaseEmoticon_cannotPurchaseOwn() {
             when(userRepository.findById(1L)).thenReturn(Optional.of(user));
             when(emoticonMasterRepository.findByIdWithImages(1L)).thenReturn(Optional.of(emoticonMaster));
-            when(emoticonPurchaseRepository.existsByUser_UserIdAndEmoticon_EmoticonId(1L, 1L)).thenReturn(false);
             // emoticonMaster.creator == user (userId 1L) -> isOwner(1L) true
 
             assertThatThrownBy(() -> emoticonService.purchaseEmoticon(1L, 1L))

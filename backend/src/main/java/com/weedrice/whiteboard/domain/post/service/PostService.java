@@ -220,10 +220,7 @@ public class PostService {
             post.incrementViewCount();
 
             if (viewer != null) {
-                User currentViewer = viewer;
-                ViewHistory viewHistory = viewHistoryRepository.findByUserAndPost(currentViewer, post)
-                        .orElseGet(() -> viewHistoryRepository
-                                .save(new ViewHistory(currentViewer, post)));
+                ViewHistory viewHistory = getOrCreateViewHistory(viewer, post);
                 viewHistory.updateView(null, 0);
             }
         }
@@ -293,8 +290,7 @@ public class PostService {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
 
-        ViewHistory viewHistory = viewHistoryRepository.findByUserAndPost(user, post)
-                .orElseGet(() -> viewHistoryRepository.save(new ViewHistory(user, post)));
+        ViewHistory viewHistory = getOrCreateViewHistory(user, post);
 
         Comment lastReadComment = null;
         if (request.getLastReadCommentId() != null) {
@@ -309,6 +305,20 @@ public class PostService {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
         post.incrementViewCount();
+    }
+
+    private ViewHistory getOrCreateViewHistory(User user, Post post) {
+        return viewHistoryRepository.findByUserAndPost(user, post)
+                .orElseGet(() -> createViewHistory(user, post));
+    }
+
+    private ViewHistory createViewHistory(User user, Post post) {
+        try {
+            return viewHistoryRepository.saveAndFlush(new ViewHistory(user, post));
+        } catch (DataIntegrityViolationException ex) {
+            return viewHistoryRepository.findByUserAndPost(user, post)
+                    .orElseThrow(() -> ex);
+        }
     }
 
     @Transactional

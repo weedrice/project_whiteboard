@@ -8,6 +8,7 @@ import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -45,7 +46,11 @@ public class UserBlockService {
                 .target(target)
                 .build();
 
-        userBlockRepository.save(userBlock);
+        try {
+            userBlockRepository.saveAndFlush(userBlock);
+        } catch (DataIntegrityViolationException ex) {
+            throw new BusinessException(ErrorCode.ALREADY_BLOCKED);
+        }
     }
 
     @Transactional

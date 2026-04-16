@@ -16,6 +16,7 @@ import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -291,10 +292,6 @@ public class EmoticonService {
         EmoticonMaster emoticon = emoticonMasterRepository.findByIdWithImages(emoticonId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.EMOTICON_NOT_FOUND));
 
-        if (emoticonPurchaseRepository.existsByUser_UserIdAndEmoticon_EmoticonId(userId, emoticonId)) {
-            throw new BusinessException(ErrorCode.EMOTICON_ALREADY_PURCHASED);
-        }
-
         if (emoticon.isOwner(userId)) {
             throw new BusinessException(ErrorCode.EMOTICON_CANNOT_PURCHASE_OWN);
         }
@@ -303,15 +300,19 @@ public class EmoticonService {
             throw new BusinessException(ErrorCode.EMOTICON_HIDDEN);
         }
 
-        pointService.spendPoint(userId, EMOTICON_PRICE,
-                "이모티콘 구매: " + emoticon.getName(), emoticonId, "EMOTICON");
-
         EmoticonPurchase purchase = EmoticonPurchase.builder()
                 .user(user)
                 .emoticon(emoticon)
                 .purchasedPrice(EMOTICON_PRICE)
                 .build();
-        emoticonPurchaseRepository.save(purchase);
+        try {
+            emoticonPurchaseRepository.saveAndFlush(purchase);
+        } catch (DataIntegrityViolationException ex) {
+            throw new BusinessException(ErrorCode.EMOTICON_ALREADY_PURCHASED);
+        }
+
+        pointService.spendPoint(userId, EMOTICON_PRICE,
+                "이모티콘 구매: " + emoticon.getName(), emoticonId, "EMOTICON");
 
         emoticon.incrementPurchaseCount();
 

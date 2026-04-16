@@ -45,16 +45,18 @@ public class AdService {
 
     @Transactional
     public void recordAdImpression(Long adId, Long userId, String ipAddress) {
-        Ad ad = adRepository.findById(adId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.AD_NOT_FOUND));
-        ad.incrementImpressionCount();
+        if (adRepository.incrementImpressionCount(adId) == 0) {
+            throw new BusinessException(ErrorCode.AD_NOT_FOUND);
+        }
     }
 
     @Transactional
     public String recordAdClick(Long adId, Long userId, String ipAddress) {
         Ad ad = adRepository.findById(adId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.AD_NOT_FOUND));
-        ad.incrementClickCount();
+        if (adRepository.incrementClickCount(adId) == 0) {
+            throw new BusinessException(ErrorCode.AD_NOT_FOUND);
+        }
 
         User user = null;
         if (userId != null) {

@@ -60,7 +60,7 @@ class MqueueServiceTest {
                 .content("<p>Hello</p>")
                 .build();
         ReflectionTestUtils.setField(message, "status", "PROCESSING");
-        when(messageQueueRepository.findById(1L)).thenReturn(Optional.of(message));
+        when(messageQueueRepository.findByIdWithTargetUser(1L)).thenReturn(Optional.of(message));
         doAnswer(invocation -> {
             Consumer<Object> consumer = invocation.getArgument(0);
             consumer.accept(null);
@@ -84,7 +84,7 @@ class MqueueServiceTest {
                 .content("<p>Hello</p>")
                 .build();
         ReflectionTestUtils.setField(message, "status", "PROCESSING");
-        when(messageQueueRepository.findById(1L)).thenReturn(Optional.of(message));
+        when(messageQueueRepository.findByIdWithTargetUser(1L)).thenReturn(Optional.of(message));
         doThrow(new BusinessException(ErrorCode.EMAIL_SEND_FAILED))
                 .when(emailService).sendEmail(eq("user@test.com"), eq("[noviIs] Notification"), eq("<p>Hello</p>"));
         doAnswer(invocation -> {
