@@ -9,7 +9,6 @@ import BaseModal from '@/components/common/ui/BaseModal.vue'
 import { useToastStore } from '@/stores/toast'
 import BaseTable from '@/components/common/ui/BaseTable.vue'
 import { useConfirm } from '@/composables/useConfirm'
-import { formatDate } from '@/utils/date'
 
 
 const { t } = useI18n()
@@ -18,11 +17,9 @@ const { confirm } = useConfirm()
 const { useConfigs, useUpdateConfig, useCreateConfig, useDeleteConfig } = useAdmin()
 
 interface ConfigItem {
-  configKey: string
-  configValue: string
+  key: string
+  value: string
   description: string
-  createdAt: string
-  modifiedAt: string
 }
 
 const configs = ref<ConfigItem[]>([])
@@ -46,7 +43,7 @@ watch(configsData, (newData) => {
 
 async function handleSave(config: ConfigItem) {
   try {
-    await updateConfig({ key: config.configKey, value: config.configValue, description: config.description })
+    await updateConfig({ key: config.key, value: config.value, description: config.description })
     toastStore.addToast(t('admin.settings.messages.saved'), 'success')
   } catch {
     // Error handled globally
@@ -84,12 +81,10 @@ async function handleDelete(key: string) {
 }
 
 const columns = [
-  { key: 'configKey', label: t('common.key'), width: '15%' },
-  { key: 'description', label: t('common.description'), width: '25%' },
-  { key: 'configValue', label: t('common.value'), width: '25%' },
-  { key: 'createdAt', label: t('common.createdAt'), width: '15%' },
-  { key: 'modifiedAt', label: t('common.updatedAt'), width: '15%' },
-  { key: 'actions', label: '', align: 'right' as const, width: '5%' }
+  { key: 'key', label: t('common.key'), width: '20%' },
+  { key: 'description', label: t('common.description'), width: '35%' },
+  { key: 'value', label: t('common.value'), width: '35%' },
+  { key: 'actions', label: '', align: 'right' as const, width: '10%' }
 ]
 </script>
 
@@ -114,17 +109,9 @@ const columns = [
             inputClass="block w-full border-0 p-0 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-500 focus:ring-0 sm:text-sm bg-transparent shadow-none" />
         </template>
 
-        <template #cell-configValue="{ item }">
-          <BaseInput v-model="item.configValue" hideLabel
+        <template #cell-value="{ item }">
+          <BaseInput v-model="item.value" hideLabel
             inputClass="block w-full border-0 p-0 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-500 focus:ring-0 sm:text-sm bg-transparent shadow-none" />
-        </template>
-
-        <template #cell-createdAt="{ item }">
-          {{ formatDate(item.createdAt) }}
-        </template>
-
-        <template #cell-modifiedAt="{ item }">
-          {{ formatDate(item.modifiedAt) }}
         </template>
 
         <template #cell-actions="{ item }">
@@ -133,7 +120,7 @@ const columns = [
               class="p-1 text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300">
               <Save class="h-4 w-4" />
             </BaseButton>
-            <BaseButton @click="handleDelete(item.configKey)" variant="ghost" size="sm" :title="t('common.delete')"
+            <BaseButton @click="handleDelete(item.key)" variant="ghost" size="sm" :title="t('common.delete')"
               class="p-1 text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300">
               <Trash2 class="h-4 w-4" />
             </BaseButton>

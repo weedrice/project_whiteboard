@@ -71,7 +71,7 @@
                         </div>
                     </div>
                     <p class="mt-0.5 text-xs sm:text-sm text-gray-900 dark:text-gray-100 line-clamp-2"
-                        :class="{ 'font-bold': viewType === 'received' && !msg.read }">
+                        :class="{ 'font-bold': viewType === 'received' && !msg.isRead }">
                         {{ msg.content }}
                     </p>
                 </div>
@@ -230,17 +230,24 @@ function changeViewType(type: 'received' | 'sent') {
 async function openMessage(msg: Message) {
     messageFromBlockedUser.value = false
     selectedMessage.value = msg
-    if (viewType.value === 'received' && !msg.read) {
-        try {
-            await messageApi.getMessage(msg.messageId, { skipGlobalErrorHandler: true })
-            msg.read = true
-        } catch (error) {
-            const errRes = extractErrorResponse(error as AxiosError)
-            if (errRes?.code === BLOCKED_BY_USER_CODE) {
-                messageFromBlockedUser.value = true
-            } else {
-                logger.error('Failed to mark as read:', error)
+    try {
+        const { data } = await messageApi.getMessage(msg.messageId, { skipGlobalErrorHandler: true })
+        if (data.success && data.data) {
+            selectedMessage.value = data.data
+        }
+        if (viewType.value === 'received' && !msg.isRead) {
+            await messageApi.markAsRead(msg.messageId, { skipGlobalErrorHandler: true })
+            msg.isRead = true
+            if (selectedMessage.value?.messageId === msg.messageId) {
+                selectedMessage.value = { ...selectedMessage.value, isRead: true }
             }
+        }
+    } catch (error) {
+        const errRes = extractErrorResponse(error as AxiosError)
+        if (errRes?.code === BLOCKED_BY_USER_CODE) {
+            messageFromBlockedUser.value = true
+        } else {
+            logger.error('Failed to open message:', error)
         }
     }
 }

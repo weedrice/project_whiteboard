@@ -1,5 +1,6 @@
 import api from './index'
 import type { EmoticonMaster, EmoticonCreateRequest, EmoticonUpdateRequest, EmoticonSearchParams, EmoticonPurchaseStatus } from '@/types/emoticon'
+import type { ApiResponse } from '@/types'
 import type { PageResponse } from '@/types/common'
 
 export const emoticonApi = {
@@ -116,6 +117,6 @@ export const emoticonApi = {
      * 이모티콘 구매 여부 확인
      */
     checkPurchaseStatus(emoticonId: number) {
-        return api.get<{ data: EmoticonPurchaseStatus }>(`/emoticons/${emoticonId}/purchased`)
+        return api.get<ApiResponse<EmoticonPurchaseStatus>>(`/emoticons/${emoticonId}/purchased`)
     }
 }

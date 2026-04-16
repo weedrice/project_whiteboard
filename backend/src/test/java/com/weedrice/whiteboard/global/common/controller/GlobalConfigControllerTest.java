@@ -130,7 +130,22 @@ class GlobalConfigControllerTest {
                 .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.key").value("value"));
+                .andExpect(jsonPath("$.data.key").value("key"))
+                .andExpect(jsonPath("$.data.value").value("value"));
+    }
+
+    @Test
+    @DisplayName("공개 설정 조회는 DTO 목록을 반환한다")
+    void getPublicConfigs_success() throws Exception {
+        when(globalConfigService.getPublicConfigs()).thenReturn(List.of(new GlobalConfig("site.name", "Noviis", "desc")));
+
+        mockMvc.perform(get("/api/v1/configs/public")
+                .with(user(adminUser))
+                .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data[0].key").value("site.name"))
+                .andExpect(jsonPath("$.data[0].value").value("Noviis"));
     }
 
     @Test

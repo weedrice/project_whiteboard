@@ -5,6 +5,6 @@ export interface Message {
     messageId: number
     content: string
     partner: UserSummary
-    read: boolean
+    isRead: boolean
     createdAt: string
 }

@@ -27,8 +27,11 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class MessageServiceTest {
@@ -53,7 +56,7 @@ class MessageServiceTest {
         ReflectionTestUtils.setField(sender, "userId", 1L);
         receiver = User.builder().loginId("receiver").build();
         ReflectionTestUtils.setField(receiver, "userId", 2L);
-        
+
         message = Message.builder()
                 .sender(sender)
                 .receiver(receiver)
@@ -65,88 +68,21 @@ class MessageServiceTest {
     @Test
     @DisplayName("쪽지 발송 성공")
     void sendMessage_success() {
-        // given
-        Long senderId = 1L;
-        Long receiverId = 2L;
-        String content = "Hello!";
-        when(userRepository.findById(senderId)).thenReturn(Optional.of(sender));
-        when(userRepository.findById(receiverId)).thenReturn(Optional.of(receiver));
-        when(userBlockService.isEitherDirectionBlocked(senderId, receiverId)).thenReturn(false);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(sender));
+        when(userRepository.findById(2L)).thenReturn(Optional.of(receiver));
+        when(userBlockService.isEitherDirectionBlocked(1L, 2L)).thenReturn(false);
         when(messageRepository.save(any(Message.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        // when
-        Message result = messageService.sendMessage(senderId, receiverId, content);
+        Message result = messageService.sendMessage(1L, 2L, "Hello!");
 
-        // then
-        assertThat(result.getContent()).isEqualTo(content);
+        assertThat(result.getContent()).isEqualTo("Hello!");
         assertThat(result.getSender()).isEqualTo(sender);
         assertThat(result.getReceiver()).isEqualTo(receiver);
-        verify(messageRepository).save(any(Message.class));
-        verify(userBlockService).isEitherDirectionBlocked(senderId, receiverId);
+        verify(userBlockService).isEitherDirectionBlocked(1L, 2L);
     }
 
     @Test
-    @DisplayName("받은 메시지 목록 조회 성공")
-    void getReceivedMessages_success() {
-        // given
-        Long userId = 2L;
-        Pageable pageable = PageRequest.of(0, 10);
-        Page<Message> messagePage = new PageImpl<>(List.of(message), pageable, 1);
-        
-        when(userRepository.findById(userId)).thenReturn(Optional.of(receiver));
-        when(userBlockService.getBlockedUserIdsEitherDirection(userId)).thenReturn(Collections.emptyList());
-        when(messageRepository.findReceivedMessagesExcludingBlocked(eq(receiver), eq(false), anyList(), eq(pageable)))
-                .thenReturn(messagePage);
-
-        // when
-        MessageResponse response = messageService.getReceivedMessages(userId, pageable);
-
-        // then
-        assertThat(response).isNotNull();
-        verify(userRepository).findById(userId);
-    }
-
-    @Test
-    @DisplayName("보낸 메시지 목록 조회 성공")
-    void getSentMessages_success() {
-        // given
-        Long userId = 1L;
-        Pageable pageable = PageRequest.of(0, 10);
-        Page<Message> messagePage = new PageImpl<>(List.of(message), pageable, 1);
-        
-        when(userRepository.findById(userId)).thenReturn(Optional.of(sender));
-        when(userBlockService.getBlockedUserIdsEitherDirection(userId)).thenReturn(Collections.emptyList());
-        when(messageRepository.findSentMessagesExcludingBlocked(eq(sender), eq(false), anyList(), eq(pageable)))
-                .thenReturn(messagePage);
-
-        // when
-        MessageResponse response = messageService.getSentMessages(userId, pageable);
-
-        // then
-        assertThat(response).isNotNull();
-        verify(userRepository).findById(userId);
-    }
-
-    @Test
-    @DisplayName("메시지 조회 성공")
-    void getMessage_success() {
-        // given
-        Long userId = 2L;
-        Long messageId = 1L;
-        when(messageRepository.findById(messageId)).thenReturn(Optional.of(message));
-        when(userBlockService.isEitherDirectionBlocked(2L, 1L)).thenReturn(false);
-
-        // when
-        Message result = messageService.getMessage(userId, messageId);
-
-        // then
-        assertThat(result).isNotNull();
-        assertThat(result.getMessageId()).isEqualTo(messageId);
-        verify(userBlockService).isEitherDirectionBlocked(2L, 1L);
-    }
-
-    @Test
-    @DisplayName("쪽지 전송 차단 시 BLOCKED_BY_USER")
+    @DisplayName("차단된 상대에게는 쪽지를 보낼 수 없다")
     void sendMessage_blocked() {
         when(userRepository.findById(1L)).thenReturn(Optional.of(sender));
         when(userRepository.findById(2L)).thenReturn(Optional.of(receiver));
@@ -158,85 +94,144 @@ class MessageServiceTest {
     }
 
     @Test
-    @DisplayName("읽지 않은 메시지 개수 조회 성공")
+    @DisplayName("받은 쪽지 목록을 조회한다")
+    void getReceivedMessages_success() {
+        Pageable pageable = PageRequest.of(0, 10);
+        Page<Message> messagePage = new PageImpl<>(List.of(message), pageable, 1);
+
+        when(userRepository.findById(2L)).thenReturn(Optional.of(receiver));
+        when(userBlockService.getBlockedUserIdsEitherDirection(2L)).thenReturn(Collections.emptyList());
+        when(messageRepository.findReceivedMessagesExcludingBlocked(eq(receiver), eq(false), anyList(), eq(pageable)))
+                .thenReturn(messagePage);
+
+        MessageResponse response = messageService.getReceivedMessages(2L, pageable);
+
+        assertThat(response).isNotNull();
+        verify(userRepository).findById(2L);
+    }
+
+    @Test
+    @DisplayName("보낸 쪽지 목록을 조회한다")
+    void getSentMessages_success() {
+        Pageable pageable = PageRequest.of(0, 10);
+        Page<Message> messagePage = new PageImpl<>(List.of(message), pageable, 1);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(sender));
+        when(userBlockService.getBlockedUserIdsEitherDirection(1L)).thenReturn(Collections.emptyList());
+        when(messageRepository.findSentMessagesExcludingBlocked(eq(sender), eq(false), anyList(), eq(pageable)))
+                .thenReturn(messagePage);
+
+        MessageResponse response = messageService.getSentMessages(1L, pageable);
+
+        assertThat(response).isNotNull();
+        verify(userRepository).findById(1L);
+    }
+
+    @Test
+    @DisplayName("메시지 상세 조회는 읽음 처리 없이 수행된다")
+    void getMessage_success() {
+        when(messageRepository.findById(1L)).thenReturn(Optional.of(message));
+        when(userBlockService.isEitherDirectionBlocked(2L, 1L)).thenReturn(false);
+
+        Message result = messageService.getMessage(2L, 1L);
+
+        assertThat(result).isNotNull();
+        assertThat(result.getMessageId()).isEqualTo(1L);
+        assertThat(result.getIsRead()).isFalse();
+        verify(userBlockService).isEitherDirectionBlocked(2L, 1L);
+    }
+
+    @Test
+    @DisplayName("수신자는 별도 read endpoint로 읽음 처리한다")
+    void markAsRead_success() {
+        when(messageRepository.findById(1L)).thenReturn(Optional.of(message));
+        when(userBlockService.isEitherDirectionBlocked(2L, 1L)).thenReturn(false);
+
+        messageService.markAsRead(2L, 1L);
+
+        assertThat(message.getIsRead()).isTrue();
+        verify(userBlockService).isEitherDirectionBlocked(2L, 1L);
+    }
+
+    @Test
+    @DisplayName("발신자는 read endpoint를 호출할 수 없다")
+    void markAsRead_senderForbidden() {
+        when(messageRepository.findById(1L)).thenReturn(Optional.of(message));
+        when(userBlockService.isEitherDirectionBlocked(1L, 2L)).thenReturn(false);
+
+        assertThatThrownBy(() -> messageService.markAsRead(1L, 1L))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode()).isEqualTo(ErrorCode.FORBIDDEN));
+    }
+
+    @Test
+    @DisplayName("읽지 않은 메시지 개수를 조회한다")
     void getUnreadMessageCount_success() {
-        // given
-        Long userId = 2L;
-        when(userRepository.findById(userId)).thenReturn(Optional.of(receiver));
-        when(userBlockService.getBlockedUserIdsEitherDirection(userId)).thenReturn(Collections.emptyList());
+        when(userRepository.findById(2L)).thenReturn(Optional.of(receiver));
+        when(userBlockService.getBlockedUserIdsEitherDirection(2L)).thenReturn(Collections.emptyList());
         when(messageRepository.countUnreadMessagesExcludingBlocked(eq(receiver), eq(false), eq(false), anyList()))
                 .thenReturn(5L);
 
-        // when
-        long count = messageService.getUnreadMessageCount(userId);
+        long count = messageService.getUnreadMessageCount(2L);
 
-        // then
         assertThat(count).isEqualTo(5L);
     }
 
     @Test
     @DisplayName("메시지 삭제 성공 - 발신자")
     void deleteMessage_success_sender() {
-        // given
-        Long userId = 1L;
-        Long messageId = 1L;
-        when(messageRepository.findById(messageId)).thenReturn(Optional.of(message));
+        when(messageRepository.findById(1L)).thenReturn(Optional.of(message));
 
-        // when
-        messageService.deleteMessage(userId, messageId);
+        messageService.deleteMessage(1L, 1L);
 
-        // then
-        verify(messageRepository).findById(messageId);
+        verify(messageRepository).findById(1L);
     }
 
     @Test
-    @DisplayName("상대가 나를 차단한 경우 받은 메시지 목록에서 제외한다")
+    @DisplayName("양방향 차단된 사용자의 받은 쪽지는 목록에서 제외된다")
     void getReceivedMessages_bidirectionalBlocked() {
-        Long userId = 2L;
         Pageable pageable = PageRequest.of(0, 10);
         Page<Message> messagePage = new PageImpl<>(List.of(), pageable, 0);
 
-        when(userRepository.findById(userId)).thenReturn(Optional.of(receiver));
-        when(userBlockService.getBlockedUserIdsEitherDirection(userId)).thenReturn(List.of(1L));
+        when(userRepository.findById(2L)).thenReturn(Optional.of(receiver));
+        when(userBlockService.getBlockedUserIdsEitherDirection(2L)).thenReturn(List.of(1L));
         when(messageRepository.findReceivedMessagesExcludingBlocked(eq(receiver), eq(false), eq(List.of(1L)), eq(pageable)))
                 .thenReturn(messagePage);
 
-        MessageResponse response = messageService.getReceivedMessages(userId, pageable);
+        MessageResponse response = messageService.getReceivedMessages(2L, pageable);
 
         assertThat(response.getContent()).isEmpty();
-        verify(userBlockService).getBlockedUserIdsEitherDirection(userId);
+        verify(userBlockService).getBlockedUserIdsEitherDirection(2L);
     }
 
     @Test
-    @DisplayName("상대가 나를 차단한 경우 보낸 메시지 목록에서 제외한다")
+    @DisplayName("양방향 차단된 사용자의 보낸 쪽지는 목록에서 제외된다")
     void getSentMessages_bidirectionalBlocked() {
-        Long userId = 1L;
         Pageable pageable = PageRequest.of(0, 10);
         Page<Message> messagePage = new PageImpl<>(List.of(), pageable, 0);
 
-        when(userRepository.findById(userId)).thenReturn(Optional.of(sender));
-        when(userBlockService.getBlockedUserIdsEitherDirection(userId)).thenReturn(List.of(2L));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(sender));
+        when(userBlockService.getBlockedUserIdsEitherDirection(1L)).thenReturn(List.of(2L));
         when(messageRepository.findSentMessagesExcludingBlocked(eq(sender), eq(false), eq(List.of(2L)), eq(pageable)))
                 .thenReturn(messagePage);
 
-        MessageResponse response = messageService.getSentMessages(userId, pageable);
+        MessageResponse response = messageService.getSentMessages(1L, pageable);
 
         assertThat(response.getContent()).isEmpty();
-        verify(userBlockService).getBlockedUserIdsEitherDirection(userId);
+        verify(userBlockService).getBlockedUserIdsEitherDirection(1L);
     }
 
     @Test
-    @DisplayName("상대가 나를 차단한 경우 안 읽은 메시지 수에서 제외한다")
+    @DisplayName("양방향 차단된 사용자의 unread count는 제외된다")
     void getUnreadMessageCount_bidirectionalBlocked() {
-        Long userId = 2L;
-        when(userRepository.findById(userId)).thenReturn(Optional.of(receiver));
-        when(userBlockService.getBlockedUserIdsEitherDirection(userId)).thenReturn(List.of(1L));
+        when(userRepository.findById(2L)).thenReturn(Optional.of(receiver));
+        when(userBlockService.getBlockedUserIdsEitherDirection(2L)).thenReturn(List.of(1L));
         when(messageRepository.countUnreadMessagesExcludingBlocked(eq(receiver), eq(false), eq(false), eq(List.of(1L))))
                 .thenReturn(0L);
 
-        long count = messageService.getUnreadMessageCount(userId);
+        long count = messageService.getUnreadMessageCount(2L);
 
         assertThat(count).isZero();
-        verify(userBlockService).getBlockedUserIdsEitherDirection(userId);
+        verify(userBlockService).getBlockedUserIdsEitherDirection(2L);
     }
 }

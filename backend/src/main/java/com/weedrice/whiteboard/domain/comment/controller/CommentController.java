@@ -7,10 +7,10 @@ import com.weedrice.whiteboard.domain.comment.dto.CommentUpdateRequest;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.service.CommentService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
+import com.weedrice.whiteboard.global.common.dto.PageResponse;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -24,13 +24,12 @@ public class CommentController {
     private final CommentService commentService;
 
     @GetMapping("/posts/{postId}/comments")
-    public ApiResponse<Page<CommentResponse>> getComments(
+    public ApiResponse<PageResponse<CommentResponse>> getComments(
             @PathVariable Long postId,
             Pageable pageable,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         Long userId = (userDetails != null) ? userDetails.getUserId() : null;
-        Page<CommentResponse> comments = commentService.getComments(postId, userId, pageable);
-        return ApiResponse.success(comments);
+        return ApiResponse.success(new PageResponse<>(commentService.getComments(postId, userId, pageable)));
     }
 
     @GetMapping("/comments/{commentId}/replies")

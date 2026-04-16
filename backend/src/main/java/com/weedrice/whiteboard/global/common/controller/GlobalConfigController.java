@@ -12,9 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequiredArgsConstructor
@@ -25,9 +23,12 @@ public class GlobalConfigController {
 
     @PreAuthorize("hasRole('SUPER_ADMIN')")
     @GetMapping("/configs/{key}")
-    public ApiResponse<Map<String, String>> getConfig(@PathVariable String key) {
+    public ApiResponse<GlobalConfigResponse> getConfig(@PathVariable String key) {
         String value = globalConfigService.getConfig(key);
-        return ApiResponse.success(Collections.singletonMap(key, value));
+        return ApiResponse.success(GlobalConfigResponse.builder()
+                .key(key)
+                .value(value)
+                .build());
     }
 
     @PreAuthorize("hasRole('SUPER_ADMIN')")
@@ -39,13 +40,10 @@ public class GlobalConfigController {
     }
 
     @GetMapping("/configs/public")
-    public ApiResponse<Map<String, String>> getPublicConfigs() {
-        List<GlobalConfig> configs = globalConfigService.getPublicConfigs();
-        Map<String, String> configMap = new java.util.HashMap<>();
-        for (GlobalConfig config : configs) {
-            configMap.put(config.getConfigKey(), config.getConfigValue());
-        }
-        return ApiResponse.success(configMap);
+    public ApiResponse<List<GlobalConfigResponse>> getPublicConfigs() {
+        return ApiResponse.success(globalConfigService.getPublicConfigs().stream()
+                .map(GlobalConfigResponse::from)
+                .toList());
     }
 
     @PreAuthorize("hasRole('SUPER_ADMIN')")

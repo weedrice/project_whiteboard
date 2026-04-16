@@ -17,6 +17,8 @@ export const messageApi = {
     getUnreadCount: () => api.get<ApiResponse<number>>('/messages/unread-count'),
     getMessage: (messageId: string | number, config?: AxiosRequestConfig) =>
         api.get<ApiResponse<Message>>(`/messages/${messageId}`, config),
+    markAsRead: (messageId: string | number, config?: AxiosRequestConfig) =>
+        api.post<ApiResponse<void>>(`/messages/${messageId}/read`, null, config),
     deleteMessage: (messageId: string | number) => api.delete<ApiResponse<void>>(`/messages/${messageId}`),
     deleteMessages: (messageIds: (string | number)[]) => api.delete<ApiResponse<void>>('/messages', { data: messageIds }),
 }

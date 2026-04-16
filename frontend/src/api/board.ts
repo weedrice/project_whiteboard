@@ -75,6 +75,6 @@ export const boardApi = {
     unsubscribeBoard: (boardUrl: string) => api.delete<ApiResponse<void>>(`/boards/${boardUrl}/subscribe`),
 
     // Update subscription order
-    updateSubscriptionOrder: (boardUrls: string[]) => api.put<ApiResponse<void>>('/boards/subscriptions/order', boardUrls),
+    updateSubscriptionOrder: (boardUrls: string[]) => api.put<ApiResponse<void>>('/boards/subscriptions/order', { boardUrls }),
 }
 

@@ -50,6 +50,14 @@ public class MessageController {
                 return ApiResponse.success(messageService.getMessageSummary(userDetails.getUserId(), messageId));
         }
 
+        @PostMapping("/{messageId}/read")
+        public ApiResponse<Void> markAsRead(
+                        @PathVariable Long messageId,
+                        @AuthenticationPrincipal CustomUserDetails userDetails) {
+                messageService.markAsRead(userDetails.getUserId(), messageId);
+                return ApiResponse.success(null);
+        }
+
         @DeleteMapping("/{messageId}")
         public ApiResponse<Void> deleteMessage(
                         @PathVariable Long messageId,

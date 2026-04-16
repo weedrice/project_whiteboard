@@ -125,7 +125,9 @@ class CommentControllerTest {
         mockMvc.perform(get("/api/v1/posts/{postId}/comments", postId)
                         .param("page", "0")
                         .param("size", "10"))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content").isArray())
+                .andExpect(jsonPath("$.data.totalElements").value(1));
     }
 
     @Test

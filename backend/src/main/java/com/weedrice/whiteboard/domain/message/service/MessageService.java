@@ -62,30 +62,10 @@ public class MessageService {
         return MessageResponse.from(messages, userId);
     }
 
-    @Transactional
     public Message getMessage(Long userId, Long messageId) {
-        Message message = messageRepository.findById(messageId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
-
-        if (!message.getReceiver().getUserId().equals(userId) && !message.getSender().getUserId().equals(userId)) {
-            throw new BusinessException(ErrorCode.FORBIDDEN);
-        }
-
-        Long partnerUserId = message.getSender().getUserId().equals(userId)
-                ? message.getReceiver().getUserId()
-                : message.getSender().getUserId();
-        if (userBlockService.isEitherDirectionBlocked(userId, partnerUserId)) {
-            throw new BusinessException(ErrorCode.BLOCKED_BY_USER);
-        }
-
-        if (message.getReceiver().getUserId().equals(userId)) {
-            message.markAsRead();
-        }
-
-        return message;
+        return getAccessibleMessage(userId, messageId);
     }
 
-    @Transactional
     public MessageResponse.MessageSummary getMessageSummary(Long userId, Long messageId) {
         Message message = getMessage(userId, messageId);
         User partner = message.getSender().getUserId().equals(userId) ? message.getReceiver() : message.getSender();
@@ -100,6 +80,15 @@ public class MessageService {
                 .isRead(message.getIsRead())
                 .createdAt(message.getCreatedAt())
                 .build();
+    }
+
+    @Transactional
+    public void markAsRead(Long userId, Long messageId) {
+        Message message = getAccessibleMessage(userId, messageId);
+        if (!message.getReceiver().getUserId().equals(userId)) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
+        message.markAsRead();
     }
 
     @Transactional
@@ -132,6 +121,23 @@ public class MessageService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         List<Long> blockedUserIds = getBlockedConversationUserIds(userId);
         return messageRepository.countUnreadMessagesExcludingBlocked(user, false, false, blockedUserIds);
+    }
+
+    private Message getAccessibleMessage(Long userId, Long messageId) {
+        Message message = messageRepository.findById(messageId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+
+        if (!message.getReceiver().getUserId().equals(userId) && !message.getSender().getUserId().equals(userId)) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
+
+        Long partnerUserId = message.getSender().getUserId().equals(userId)
+                ? message.getReceiver().getUserId()
+                : message.getSender().getUserId();
+        if (userBlockService.isEitherDirectionBlocked(userId, partnerUserId)) {
+            throw new BusinessException(ErrorCode.BLOCKED_BY_USER);
+        }
+        return message;
     }
 
     private List<Long> getBlockedConversationUserIds(Long userId) {

@@ -1,10 +1,8 @@
 // 설정 관련 타입
 export interface GlobalConfig {
-    configKey: string
-    configValue: string
+    key: string
+    value: string
     description?: string
-    createdAt: string
-    modifiedAt?: string
 }
 
 // IP 차단 관련 타입

@@ -3,6 +3,7 @@ package com.weedrice.whiteboard.domain.emoticon.controller;
 import com.weedrice.whiteboard.domain.emoticon.dto.EmoticonCreateRequest;
 import com.weedrice.whiteboard.domain.emoticon.dto.EmoticonImageAddRequest;
 import com.weedrice.whiteboard.domain.emoticon.dto.EmoticonMasterDto;
+import com.weedrice.whiteboard.domain.emoticon.dto.EmoticonPurchaseStatusResponse;
 import com.weedrice.whiteboard.domain.emoticon.dto.EmoticonUpdateRequest;
 import com.weedrice.whiteboard.domain.emoticon.service.EmoticonService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
@@ -17,7 +18,6 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Map;
 @RestController
 @RequestMapping("/api/v1/emoticons")
 @RequiredArgsConstructor
@@ -192,14 +192,14 @@ public class EmoticonController {
      * 이모티콘 구매 여부 확인
      */
     @GetMapping("/{emoticonId}/purchased")
-    public ApiResponse<Map<String, Object>> hasPurchased(
+    public ApiResponse<EmoticonPurchaseStatusResponse> hasPurchased(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @PathVariable Long emoticonId) {
         boolean purchased = userDetails != null && 
                 emoticonService.hasPurchased(userDetails.getUserId(), emoticonId);
-        return ApiResponse.success(Map.of(
-                "purchased", purchased,
-                "price", emoticonService.getEmoticonPrice()
-        ));
+        return ApiResponse.success(EmoticonPurchaseStatusResponse.builder()
+                .purchased(purchased)
+                .price(emoticonService.getEmoticonPrice())
+                .build());
     }
 }

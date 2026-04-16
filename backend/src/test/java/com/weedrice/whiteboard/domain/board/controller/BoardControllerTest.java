@@ -229,4 +229,32 @@ class BoardControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
     }
+
+    @Test
+    @DisplayName("구독 순서 변경은 DTO body를 기본으로 허용한다")
+    void updateSubscriptionOrder_acceptsDtoBody() throws Exception {
+        doNothing().when(boardService).updateSubscriptionOrder(1L, List.of("free", "tech"));
+
+        mockMvc.perform(put("/api/v1/boards/subscriptions/order")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"boardUrls\":[\"free\",\"tech\"]}")
+                        .with(user(customUserDetails))
+                        .with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+    }
+
+    @Test
+    @DisplayName("구독 순서 변경은 legacy string 배열 body도 임시 허용한다")
+    void updateSubscriptionOrder_acceptsLegacyArrayBody() throws Exception {
+        doNothing().when(boardService).updateSubscriptionOrder(1L, List.of("free", "tech"));
+
+        mockMvc.perform(put("/api/v1/boards/subscriptions/order")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("[\"free\",\"tech\"]")
+                        .with(user(customUserDetails))
+                        .with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+    }
 }

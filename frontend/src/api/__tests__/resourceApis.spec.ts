@@ -60,7 +60,7 @@ describe('boardApi', () => {
         expect(apiMock.get).toHaveBeenNthCalledWith(5, '/boards/general/notices')
         expect(apiMock.post).toHaveBeenNthCalledWith(3, '/boards/general/subscribe')
         expect(apiMock.delete).toHaveBeenNthCalledWith(3, '/boards/general/subscribe')
-        expect(apiMock.put).toHaveBeenNthCalledWith(4, '/boards/subscriptions/order', ['general', 'tech'])
+        expect(apiMock.put).toHaveBeenNthCalledWith(4, '/boards/subscriptions/order', { boardUrls: ['general', 'tech'] })
     })
 })
 

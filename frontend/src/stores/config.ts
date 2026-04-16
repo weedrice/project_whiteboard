@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { configApi } from '@/api/config'
 import logger from '@/utils/logger'
-import type { GlobalConfig } from '@/types'
+import type { ConfigEntry, GlobalConfig } from '@/types'
 
 interface ConfigState {
     configs: Record<string, string>;
@@ -24,8 +24,8 @@ export const useConfigStore = defineStore('config', {
             try {
                 const { data } = await configApi.getConfig(key)
                 if (data.success && data.data) {
-                    this.configs[key] = data.data.configValue
-                    return data.data.configValue
+                    this.configs[data.data.key] = data.data.value
+                    return data.data.value
                 }
                 return null
             } catch (error: unknown) {
@@ -44,7 +44,7 @@ export const useConfigStore = defineStore('config', {
 
                 if (data.success && Array.isArray(data.data)) {
                     data.data.forEach((config: GlobalConfig) => {
-                        this.configs[config.configKey] = config.configValue
+                        this.configs[config.key] = config.value
                     })
                 }
             } catch (error: unknown) {
@@ -59,8 +59,12 @@ export const useConfigStore = defineStore('config', {
             this.loading = true
             try {
                 const { data } = await configApi.getPublicConfigs()
-                if (data.success && data.data) {
-                    this.configs = { ...this.configs, ...data.data }
+                if (data.success && Array.isArray(data.data)) {
+                    const nextConfigs = data.data.reduce<Record<string, string>>((acc, config: ConfigEntry) => {
+                        acc[config.key] = config.value
+                        return acc
+                    }, {})
+                    this.configs = { ...this.configs, ...nextConfigs }
                 }
             } catch (error: unknown) {
                 this.error = error as Error
