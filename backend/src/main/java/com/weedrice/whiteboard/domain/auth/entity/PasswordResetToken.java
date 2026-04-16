@@ -16,6 +16,9 @@ import java.time.LocalDateTime;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class PasswordResetToken extends BaseTimeEntity {
+    public static final String DELIVERY_STATUS_PENDING = "PENDING";
+    public static final String DELIVERY_STATUS_SENT = "SENT";
+    public static final String DELIVERY_STATUS_FAILED = "FAILED";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -36,16 +39,36 @@ public class PasswordResetToken extends BaseTimeEntity {
     @Column(name = "is_used", nullable = false, length = 1)
     private Boolean isUsed;
 
+    @Column(name = "delivery_status", length = 20)
+    private String deliveryStatus;
+
     @Builder
     public PasswordResetToken(String token, User user, LocalDateTime expiryDate) {
         this.token = token;
         this.user = user;
         this.expiryDate = expiryDate;
         this.isUsed = false;
+        this.deliveryStatus = DELIVERY_STATUS_PENDING;
     }
 
     public void useToken() {
         this.isUsed = true;
+    }
+
+    public void invalidate() {
+        this.isUsed = true;
+    }
+
+    public void markSent() {
+        this.deliveryStatus = DELIVERY_STATUS_SENT;
+    }
+
+    public void markFailed() {
+        this.deliveryStatus = DELIVERY_STATUS_FAILED;
+    }
+
+    public boolean isSent() {
+        return this.deliveryStatus == null || DELIVERY_STATUS_SENT.equals(this.deliveryStatus);
     }
 
     public boolean isExpired() {

@@ -75,9 +75,15 @@ class AuthEntityTest {
 
         assertThat(token.getIsUsed()).isFalse();
         assertThat(token.isExpired()).isFalse();
+        assertThat(token.getDeliveryStatus()).isEqualTo(PasswordResetToken.DELIVERY_STATUS_PENDING);
 
+        token.markSent();
+        assertThat(token.getDeliveryStatus()).isEqualTo(PasswordResetToken.DELIVERY_STATUS_SENT);
         token.useToken();
         assertThat(token.getIsUsed()).isTrue();
+
+        token.markFailed();
+        assertThat(token.getDeliveryStatus()).isEqualTo(PasswordResetToken.DELIVERY_STATUS_FAILED);
     }
 
     @Test

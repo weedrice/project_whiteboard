@@ -54,6 +54,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -358,56 +359,22 @@ public class AuthService {
             throw new BusinessException(ErrorCode.EMAIL_NOT_VERIFIED);
         }
 
+        User user = getActivePasswordResetUser(email, ErrorCode.USER_NOT_FOUND);
         String rawToken = UUID.randomUUID().toString();
-
-        transactionTemplate.executeWithoutResult(status -> {
-            User user = userRepository.findByEmail(email)
-                    .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-            if ("DELETED".equals(user.getStatus())) {
-                throw new BusinessException(ErrorCode.USER_DELETED);
-            }
-
-            String hashedToken = hashTokenSha256(rawToken);
-            LocalDateTime expiryDate = LocalDateTime.now().plusHours(1);
-
-            PasswordResetToken passwordResetToken = PasswordResetToken.builder()
-                    .token(hashedToken)
-                    .user(user)
-                    .expiryDate(expiryDate)
-                    .build();
-            passwordResetTokenRepository.save(passwordResetToken);
-        });
 
         String resetLink = passwordResetFrontendUrl + rawToken;
         String subject = "[noviIs] 비밀번호 재설정 링크";
         String body = "<h1>비밀번호 재설정</h1><p>아래 링크를 클릭하여 비밀번호를 재설정해 주세요.</p><p><a href=\""
                 + resetLink + "\">" + resetLink + "</a></p>";
 
-        emailService.sendEmail(email, subject, body);
+        sendPasswordResetEmail(user, user.getEmail(), rawToken, subject, body);
     }
 
     @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
     public void sendPasswordResetLinkByEmail(String email) {
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND_BY_EMAIL));
-
-        if ("DELETED".equals(user.getStatus())) {
-            throw new BusinessException(ErrorCode.USER_DELETED);
-        }
+        User user = getActivePasswordResetUser(email, ErrorCode.USER_NOT_FOUND_BY_EMAIL);
 
         String rawToken = UUID.randomUUID().toString();
-
-        transactionTemplate.executeWithoutResult(status -> {
-            String hashedToken = hashTokenSha256(rawToken);
-            LocalDateTime expiryDate = LocalDateTime.now().plusHours(1);
-
-            PasswordResetToken passwordResetToken = PasswordResetToken.builder()
-                    .token(hashedToken)
-                    .user(user)
-                    .expiryDate(expiryDate)
-                    .build();
-            passwordResetTokenRepository.save(passwordResetToken);
-        });
 
         String resetLink = passwordResetFrontendUrl + rawToken;
         String subject = "[noviIs] 비밀번호 재설정";
@@ -416,7 +383,7 @@ public class AuthService {
                 + "<p>아래 링크를 클릭하여 비밀번호를 재설정해 주세요.</p>"
                 + "<p><a href=\"" + resetLink + "\">비밀번호 재설정 링크</a></p>";
 
-        emailService.sendEmail(user.getEmail(), subject, body);
+        sendPasswordResetEmail(user, user.getEmail(), rawToken, subject, body);
     }
 
     @Transactional
@@ -424,6 +391,16 @@ public class AuthService {
         String hashedToken = hashTokenSha256(rawToken);
         PasswordResetToken passwordResetToken = passwordResetTokenRepository.findByToken(hashedToken)
                 .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_PASSWORD_RESET_TOKEN));
+
+        if (!passwordResetToken.isSent()) {
+            throw new BusinessException(ErrorCode.INVALID_PASSWORD_RESET_TOKEN);
+        }
+
+        PasswordResetToken latestSentToken = findLatestSentCompatiblePasswordResetToken(passwordResetToken.getUser())
+                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_PASSWORD_RESET_TOKEN));
+        if (!latestSentToken.getTokenId().equals(passwordResetToken.getTokenId())) {
+            throw new BusinessException(ErrorCode.INVALID_PASSWORD_RESET_TOKEN);
+        }
 
         if (passwordResetToken.isExpired()) {
             throw new BusinessException(ErrorCode.EXPIRED_PASSWORD_RESET_TOKEN);
@@ -493,5 +470,99 @@ public class AuthService {
         if (!tokensToRevoke.isEmpty()) {
             refreshTokenRepository.saveAll(tokensToRevoke);
         }
+    }
+
+    private User getActivePasswordResetUser(String email, ErrorCode notFoundErrorCode) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new BusinessException(notFoundErrorCode));
+        if ("DELETED".equals(user.getStatus())) {
+            throw new BusinessException(ErrorCode.USER_DELETED);
+        }
+        return user;
+    }
+
+    private void sendPasswordResetEmail(User user, String recipientEmail, String rawToken, String subject, String body) {
+        String hashedToken = hashTokenSha256(rawToken);
+        LocalDateTime expiryDate = LocalDateTime.now().plusHours(1);
+        Long tokenId = createPendingPasswordResetToken(user, hashedToken, expiryDate);
+
+        try {
+            emailService.sendEmail(recipientEmail, subject, body);
+            activatePasswordResetToken(tokenId, user);
+        } catch (RuntimeException e) {
+            try {
+                updatePasswordResetDeliveryStatus(tokenId, false);
+            } catch (RuntimeException statusUpdateException) {
+                e.addSuppressed(statusUpdateException);
+            }
+            throw e;
+        }
+    }
+
+    private Long createPendingPasswordResetToken(User user, String hashedToken, LocalDateTime expiryDate) {
+        final Long[] tokenIdHolder = new Long[1];
+        transactionTemplate.executeWithoutResult(status -> {
+            PasswordResetToken passwordResetToken = PasswordResetToken.builder()
+                    .token(hashedToken)
+                    .user(user)
+                    .expiryDate(expiryDate)
+                    .build();
+            tokenIdHolder[0] = passwordResetTokenRepository.save(passwordResetToken).getTokenId();
+        });
+        return tokenIdHolder[0];
+    }
+
+    private void updatePasswordResetDeliveryStatus(Long tokenId, boolean sent) {
+        transactionTemplate.executeWithoutResult(status -> passwordResetTokenRepository.findById(tokenId)
+                .ifPresent(passwordResetToken -> {
+                    if (sent) {
+                        passwordResetToken.markSent();
+                    } else {
+                        passwordResetToken.markFailed();
+                    }
+                    passwordResetTokenRepository.save(passwordResetToken);
+                }));
+    }
+
+    private void activatePasswordResetToken(Long tokenId, User user) {
+        try {
+            transactionTemplate.executeWithoutResult(status -> {
+                invalidatePreviousSentPasswordResetTokens(user, tokenId);
+                passwordResetTokenRepository.findById(tokenId)
+                        .ifPresent(passwordResetToken -> {
+                            passwordResetToken.markSent();
+                            passwordResetTokenRepository.save(passwordResetToken);
+                        });
+            });
+        } catch (RuntimeException e) {
+            recoverSentPasswordResetToken(tokenId, user);
+        }
+    }
+
+    private void recoverSentPasswordResetToken(Long tokenId, User user) {
+        transactionTemplate.executeWithoutResult(status -> {
+            invalidatePreviousSentPasswordResetTokens(user, tokenId);
+            passwordResetTokenRepository.findById(tokenId)
+                    .ifPresent(passwordResetToken -> {
+                        passwordResetToken.markSent();
+                        passwordResetTokenRepository.save(passwordResetToken);
+                    });
+        });
+    }
+
+    private void invalidatePreviousSentPasswordResetTokens(User user, Long excludeTokenId) {
+        passwordResetTokenRepository.findByUserOrderByCreatedAtDesc(user)
+                .stream()
+                .filter(PasswordResetToken::isSent)
+                .filter(passwordResetToken -> !passwordResetToken.getIsUsed())
+                .filter(passwordResetToken -> excludeTokenId == null || !excludeTokenId.equals(passwordResetToken.getTokenId()))
+                .forEach(PasswordResetToken::invalidate);
+    }
+
+    private Optional<PasswordResetToken> findLatestSentCompatiblePasswordResetToken(User user) {
+        return passwordResetTokenRepository.findByUserOrderByCreatedAtDesc(user)
+                .stream()
+                .filter(PasswordResetToken::isSent)
+                .findFirst();
     }
 }

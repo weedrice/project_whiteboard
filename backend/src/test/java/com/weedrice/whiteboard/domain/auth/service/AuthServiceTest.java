@@ -329,6 +329,9 @@ class AuthServiceTest {
                                 .user(user)
                                 .expiryDate(LocalDateTime.now().plusMinutes(10))
                                 .build();
+                ReflectionTestUtils.setField(passwordResetToken, "tokenId", 1L);
+                ReflectionTestUtils.setField(passwordResetToken, "createdAt", LocalDateTime.now());
+                passwordResetToken.markSent();
                 RefreshToken refreshToken = RefreshToken.builder()
                                 .user(user)
                                 .tokenHash("hash")
@@ -338,6 +341,7 @@ class AuthServiceTest {
                                 .build();
 
                 when(passwordResetTokenRepository.findByToken(anyString())).thenReturn(Optional.of(passwordResetToken));
+                when(passwordResetTokenRepository.findByUserOrderByCreatedAtDesc(user)).thenReturn(List.of(passwordResetToken));
                 when(passwordHistoryRepository.findTop3ByUserOrderByCreatedAtDesc(user)).thenReturn(Collections.emptyList());
                 when(refreshTokenRepository.findByUserAndIsRevoked(user, false)).thenReturn(List.of(refreshToken));
                 when(passwordEncoder.matches(newPassword, "encodedPassword")).thenReturn(false);
