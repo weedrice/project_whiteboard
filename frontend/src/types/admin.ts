@@ -11,8 +11,12 @@ export interface GlobalConfig {
 export interface IpBlock {
     ipAddress: string
     reason: string
-    adminId: number
-    createdAt: string
+    startDate: string
+    endDate?: string | null
+    admin: {
+        adminId: number
+        displayName: string
+    }
 }
 
 export interface DashboardStats {

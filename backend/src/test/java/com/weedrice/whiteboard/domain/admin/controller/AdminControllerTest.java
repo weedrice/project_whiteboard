@@ -10,6 +10,7 @@ import com.weedrice.whiteboard.domain.admin.dto.SuperAdminRequest;
 import com.weedrice.whiteboard.domain.admin.dto.SuperAdminResponse;
 import com.weedrice.whiteboard.domain.admin.dto.SuperAdminUpdateResponse;
 import com.weedrice.whiteboard.domain.admin.service.AdminService;
+import com.weedrice.whiteboard.domain.admin.service.IpBlockService;
 import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import jakarta.servlet.FilterChain;
@@ -23,6 +24,8 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MockMvc;
@@ -57,6 +60,9 @@ class AdminControllerTest {
 
     @MockBean
     private AdminService adminService;
+
+    @MockBean
+    private IpBlockService ipBlockService;
 
     @MockBean
     private PostService postService;
@@ -212,7 +218,7 @@ class AdminControllerTest {
     void getBlockedIps_returnsSuccess() throws Exception {
         // given
         IpBlockResponse response = IpBlockResponse.builder().build();
-        when(adminService.getBlockedIps()).thenReturn(List.of(response));
+        when(ipBlockService.getBlockedIps(any())).thenReturn(new PageImpl<>(List.of(response), PageRequest.of(0, 20), 1));
 
         // when & then
         mockMvc.perform(get("/api/v1/admin/ip-blocks")
@@ -220,7 +226,7 @@ class AdminControllerTest {
                         .with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data").isArray());
+                .andExpect(jsonPath("$.data.content").isArray());
     }
 
     @Test

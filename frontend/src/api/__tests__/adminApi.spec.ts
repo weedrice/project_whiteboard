@@ -130,11 +130,11 @@ describe('adminApi - Other Endpoints', () => {
     })
 
     it('calls IP block endpoints correctly', () => {
-        adminApi.getIpBlocks()
+        adminApi.getIpBlocks({ page: 0, size: 20 })
         adminApi.blockIp({ ipAddress: '192.168.1.1', reason: 'Spam' })
         adminApi.unblockIp('192.168.1.1')
 
-        expect(apiMock.get).toHaveBeenNthCalledWith(1, '/admin/ip-blocks')
+        expect(apiMock.get).toHaveBeenNthCalledWith(1, '/admin/ip-blocks', { params: { page: 0, size: 20 } })
         expect(apiMock.post).toHaveBeenNthCalledWith(1, '/admin/ip-blocks', { ipAddress: '192.168.1.1', reason: 'Spam' })
         expect(apiMock.delete).toHaveBeenNthCalledWith(1, '/admin/ip-blocks/192.168.1.1')
     })

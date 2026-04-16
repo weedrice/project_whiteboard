@@ -1,6 +1,6 @@
 package com.weedrice.whiteboard.domain.admin.interceptor;
 
-import com.weedrice.whiteboard.domain.admin.service.AdminService;
+import com.weedrice.whiteboard.domain.admin.service.IpBlockService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.junit.jupiter.api.DisplayName;
@@ -24,7 +24,7 @@ class IpBlockInterceptorTest {
     private IpBlockInterceptor ipBlockInterceptor;
 
     @Mock
-    private AdminService adminService;
+    private IpBlockService ipBlockService;
 
     @Test
     @DisplayName("차단되지 않은 IP 접근 허용")
@@ -32,7 +32,7 @@ class IpBlockInterceptorTest {
         MockHttpServletRequest request = new MockHttpServletRequest();
         MockHttpServletResponse response = new MockHttpServletResponse();
         
-        when(adminService.isIpBlocked(anyString())).thenReturn(false);
+        when(ipBlockService.isIpBlocked(anyString())).thenReturn(false);
 
         boolean result = ipBlockInterceptor.preHandle(request, response, new Object());
         assertThat(result).isTrue();
@@ -44,7 +44,7 @@ class IpBlockInterceptorTest {
         MockHttpServletRequest request = new MockHttpServletRequest();
         MockHttpServletResponse response = new MockHttpServletResponse();
         
-        when(adminService.isIpBlocked(anyString())).thenReturn(true);
+        when(ipBlockService.isIpBlocked(anyString())).thenReturn(true);
 
         assertThatThrownBy(() -> ipBlockInterceptor.preHandle(request, response, new Object()))
                 .isInstanceOf(BusinessException.class)

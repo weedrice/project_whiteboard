@@ -35,13 +35,19 @@ defineEmits<{
             <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">
               {{ t('admin.security.table.adminId') }}
             </dt>
-            <dd class="mt-1 text-sm text-gray-900 dark:text-white">{{ ipBlock.adminId }}</dd>
+            <dd class="mt-1 text-sm text-gray-900 dark:text-white">{{ ipBlock.admin.adminId }}</dd>
           </div>
           <div>
             <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">
               {{ t('admin.security.table.createdAt') }}
             </dt>
-            <dd class="mt-1 text-sm text-gray-900 dark:text-white">{{ formatDate(ipBlock.createdAt) }}</dd>
+            <dd class="mt-1 text-sm text-gray-900 dark:text-white">{{ formatDate(ipBlock.startDate) }}</dd>
+          </div>
+          <div v-if="ipBlock.endDate">
+            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">
+              {{ t('admin.security.detail.endDate') }}
+            </dt>
+            <dd class="mt-1 text-sm text-gray-900 dark:text-white">{{ formatDate(ipBlock.endDate) }}</dd>
           </div>
         </dl>
       </div>

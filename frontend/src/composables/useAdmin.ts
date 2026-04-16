@@ -12,7 +12,8 @@ import type {
     AdminUserDetail,
     PostSummary,
     MyComment,
-    Board
+    Board,
+    IpBlock
 } from '@/types'
 
 // Admin specific types
@@ -233,13 +234,14 @@ export function useAdmin() {
     }
 
     // --- IP Block Management ---
-    const useIpBlocks = () => {
+    const useIpBlocks = (params: Ref<{ page?: number, size?: number }>) => {
         return useQuery({
-            queryKey: ['admin', 'ip-blocks'],
+            queryKey: ['admin', 'ip-blocks', params],
             queryFn: async () => {
-                const { data } = await adminApi.getIpBlocks()
-                return data.data
-            }
+                const { data } = await adminApi.getIpBlocks(params.value)
+                return data.data as PageResponse<IpBlock>
+            },
+            placeholderData: (previousData) => previousData
         })
     }
 

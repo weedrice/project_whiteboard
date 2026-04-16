@@ -283,19 +283,26 @@ describe('useAdmin', () => {
     describe('IP Block Management', () => {
         it('useIpBlocks returns query hooks', () => {
             const { useIpBlocks } = useAdmin()
-            const result = useIpBlocks()
+            const result = useIpBlocks(ref({ page: 0, size: 20 }))
 
             expect(result).toHaveProperty('data')
             expect(result).toHaveProperty('isLoading')
         })
 
-        it('useIpBlocks queryFn returns api data', async () => {
+        it('useIpBlocks queryFn forwards params and preserves placeholder data', async () => {
             const { useIpBlocks } = useAdmin()
-            vi.mocked(adminApi.getIpBlocks).mockResolvedValueOnce({ data: { data: [{ ipAddress: '1.1.1.1' }] } } as any)
+            const params = ref({ page: 1, size: 20 })
+            const response = { content: [{ ipAddress: '1.1.1.1' }], totalPages: 1, totalElements: 1, size: 20 }
+            vi.mocked(adminApi.getIpBlocks).mockResolvedValueOnce({ data: { data: response } } as any)
 
-            useIpBlocks()
-            const query = mockQueryOptions.at(-1) as { queryFn: () => Promise<unknown> }
-            await expect(query.queryFn()).resolves.toEqual([{ ipAddress: '1.1.1.1' }])
+            useIpBlocks(params)
+            const query = mockQueryOptions.at(-1) as {
+                queryFn: () => Promise<unknown>
+                placeholderData: (prev: unknown) => unknown
+            }
+            await expect(query.queryFn()).resolves.toEqual(response)
+            expect(adminApi.getIpBlocks).toHaveBeenCalledWith(params.value)
+            expect(query.placeholderData('prev-ip-blocks')).toBe('prev-ip-blocks')
         })
 
         it('useBlockIp calls adminApi.blockIp', async () => {

@@ -3,6 +3,7 @@ package com.weedrice.whiteboard.domain.admin.controller;
 import com.weedrice.whiteboard.domain.admin.dto.*;
 
 import com.weedrice.whiteboard.domain.admin.service.AdminService;
+import com.weedrice.whiteboard.domain.admin.service.IpBlockService;
 import com.weedrice.whiteboard.domain.post.dto.PostResponse;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.service.PostService;
@@ -19,6 +20,8 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.lang.NonNull;
 import org.springframework.web.bind.annotation.*;
 
@@ -34,6 +37,7 @@ import java.util.List;
 public class AdminController {
 
     private final AdminService adminService;
+    private final IpBlockService ipBlockService;
     private final PostService postService;
 
     /**
@@ -147,7 +151,7 @@ public class AdminController {
             @Valid @RequestBody IpBlockRequest request,
             Authentication authentication) {
         Long adminUserId = ((CustomUserDetails) authentication.getPrincipal()).getUserId();
-        return ApiResponse.success(adminService.blockIp(adminUserId, request.getIpAddress(), request.getReason(),
+        return ApiResponse.success(ipBlockService.blockIp(adminUserId, request.getIpAddress(), request.getReason(),
                 request.getEndDate()));
     }
 
@@ -159,7 +163,7 @@ public class AdminController {
      */
     @DeleteMapping("/ip-blocks/{ipAddress}")
     public ApiResponse<Void> unblockIp(@PathVariable String ipAddress) {
-        adminService.unblockIp(ipAddress);
+        ipBlockService.unblockIp(ipAddress);
         return ApiResponse.success(null);
     }
 
@@ -169,8 +173,9 @@ public class AdminController {
      * @return {@link IpBlockResponse} 차단된 IP 목록
      */
     @GetMapping("/ip-blocks")
-    public ApiResponse<List<IpBlockResponse>> getBlockedIps() {
-        return ApiResponse.success(adminService.getBlockedIps());
+    public ApiResponse<PageResponse<IpBlockResponse>> getBlockedIps(
+            @PageableDefault(size = 20, sort = "startDate", direction = Sort.Direction.DESC) Pageable pageable) {
+        return ApiResponse.success(new PageResponse<>(ipBlockService.getBlockedIps(pageable)));
     }
 
     /**

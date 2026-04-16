@@ -2,12 +2,9 @@ package com.weedrice.whiteboard.domain.admin.service;
 
 import com.weedrice.whiteboard.domain.admin.dto.AdminResponse;
 import com.weedrice.whiteboard.domain.admin.dto.DashboardStatsDto;
-import com.weedrice.whiteboard.domain.admin.dto.IpBlockResponse;
 import com.weedrice.whiteboard.domain.admin.dto.SuperAdminResponse;
 import com.weedrice.whiteboard.domain.admin.dto.SuperAdminUpdateResponse;
-import com.weedrice.whiteboard.domain.admin.entity.IpBlock;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
-import com.weedrice.whiteboard.domain.admin.repository.IpBlockRepository;
 import com.weedrice.whiteboard.domain.admin.entity.Admin;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
@@ -34,7 +31,6 @@ public class AdminService {
     private final AdminRepository adminRepository;
     private final UserRepository userRepository;
     private final BoardRepository boardRepository;
-    private final IpBlockRepository ipBlockRepository;
     private final PostRepository postRepository;
     private final ReportRepository reportRepository;
 
@@ -128,51 +124,6 @@ public class AdminService {
         Admin admin = adminRepository.findById(adminId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
         admin.activate();
-    }
-
-    @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
-    @Transactional
-    public IpBlockResponse blockIp(Long adminUserId, String ipAddress, String reason, LocalDateTime endDate) {
-
-        if (ipBlockRepository.findByIpAddress(ipAddress).isPresent()) {
-            throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE);
-        }
-
-        User adminUser = userRepository.findById(adminUserId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-
-        Admin admin = adminRepository.findFirstByUserAndIsActiveOrderByAdminIdAsc(adminUser, true)
-                .orElseThrow(() -> new BusinessException(ErrorCode.FORBIDDEN));
-
-        IpBlock ipBlock = IpBlock.builder()
-                .ipAddress(ipAddress)
-                .reason(reason)
-                .admin(admin)
-                .endDate(endDate)
-                .build();
-
-        return IpBlockResponse.from(ipBlockRepository.save(ipBlock));
-    }
-
-    @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
-    @Transactional
-    public void unblockIp(String ipAddress) {
-        IpBlock ipBlock = ipBlockRepository.findByIpAddress(ipAddress)
-                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
-        ipBlockRepository.delete(ipBlock);
-    }
-
-    @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
-    @Transactional(readOnly = true)
-    public List<IpBlockResponse> getBlockedIps() {
-        return ipBlockRepository.findAll().stream()
-                .map(IpBlockResponse::from)
-                .toList();
-    }
-
-    public boolean isIpBlocked(String ipAddress) {
-        return ipBlockRepository.findByIpAddressAndEndDateAfterOrEndDateIsNull(ipAddress, LocalDateTime.now())
-                .isPresent();
     }
 
     @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useAdmin } from '@/composables/useAdmin'
 import { Shield } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
@@ -8,6 +8,7 @@ import IpBlockList from '@/components/admin/IpBlockList.vue'
 import IpBlockDetailModal from '@/components/admin/IpBlockDetailModal.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
+import Pagination from '@/components/common/ui/Pagination.vue'
 import { useConfirm } from '@/composables/useConfirm'
 import type { IpBlock } from '@/types'
 
@@ -18,12 +19,18 @@ const { useIpBlocks, useBlockIp, useUnblockIp } = useAdmin()
 
 const newIp = ref('')
 const blockReason = ref('')
+const page = ref(0)
+const ipBlockParams = computed(() => ({
+    page: page.value,
+    size: 20
+}))
 
-const { data: ipBlocksData, isLoading } = useIpBlocks()
+const { data: ipBlocksData } = useIpBlocks(ipBlockParams)
 const { mutateAsync: blockIp } = useBlockIp()
 const { mutateAsync: unblockIp } = useUnblockIp()
 
-const ipBlocks = computed(() => ipBlocksData.value || [])
+const ipBlocks = computed(() => ipBlocksData.value?.content || [])
+const totalPages = computed(() => ipBlocksData.value?.totalPages || 0)
 
 const isDetailModalOpen = ref(false)
 const selectedIpBlock = ref<IpBlock | null>(null)
@@ -37,6 +44,7 @@ async function handleBlockIp() {
     if (!newIp.value || !blockReason.value) return
     try {
         await blockIp({ ipAddress: newIp.value, reason: blockReason.value })
+        page.value = 0
         toastStore.addToast(t('admin.security.messages.blocked'), 'success')
         newIp.value = ''
         blockReason.value = ''
@@ -50,11 +58,25 @@ async function handleUnblockIp(ipAddress: string) {
     if (!isConfirmed) return
     try {
         await unblockIp(ipAddress)
+        if (page.value > 0 && ipBlocks.value.length === 1) {
+            page.value -= 1
+        }
         toastStore.addToast(t('admin.security.messages.unblocked'), 'success')
     } catch {
         // Error handled globally
     }
 }
+
+watch(totalPages, (nextTotalPages) => {
+    if (nextTotalPages === 0) {
+        page.value = 0
+        return
+    }
+
+    if (page.value >= nextTotalPages) {
+        page.value = nextTotalPages - 1
+    }
+})
 </script>
 
 <template>
@@ -89,6 +111,10 @@ async function handleUnblockIp(ipAddress: string) {
 
         <!-- IP Block List -->
         <IpBlockList :ip-blocks="ipBlocks" @unblock="handleUnblockIp" @viewDetail="openDetailModal" />
+
+        <div v-if="totalPages > 0" class="mt-4">
+            <Pagination :current-page="page" :total-pages="totalPages" @page-change="page = $event" />
+        </div>
 
         <!-- IP Block Detail Modal -->
         <IpBlockDetailModal :isOpen="isDetailModalOpen" :ipBlock="selectedIpBlock" @close="isDetailModalOpen = false" />

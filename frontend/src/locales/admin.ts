@@ -154,6 +154,7 @@ export const admin: AdminMessages = {
     detail: {
       title: 'IP 차단 상세',
       blockInfo: '차단 정보',
+      endDate: '종료일',
     },
     addTitle: 'IP 차단 추가',
     ipAddress: 'IP 주소',

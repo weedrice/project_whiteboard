@@ -101,8 +101,8 @@ export const adminApi = {
     },
 
     // IP 차단 관리
-    getIpBlocks() {
-        return api.get<ApiResponse<IpBlock[]>>('/admin/ip-blocks')
+    getIpBlocks(params: PaginationParams) {
+        return api.get<ApiResponse<PageResponse<IpBlock>>>('/admin/ip-blocks', { params })
     },
     blockIp(data: IpBlockData) {
         return api.post<ApiResponse<void>>('/admin/ip-blocks', data)

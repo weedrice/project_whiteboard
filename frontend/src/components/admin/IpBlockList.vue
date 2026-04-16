@@ -24,8 +24,8 @@ function onUnblock(ipAddress: string) {
 const columns = computed(() => [
   { key: 'ipAddress', label: t('admin.security.table.ipAddress'), width: '20%' },
   { key: 'reason', label: t('admin.security.table.reason'), width: '30%' },
-  { key: 'adminId', label: t('admin.security.table.adminId'), width: '15%' },
-  { key: 'createdAt', label: t('admin.security.table.createdAt'), width: '20%' },
+  { key: 'admin', label: t('admin.security.table.adminId'), width: '15%' },
+  { key: 'startDate', label: t('admin.security.table.createdAt'), width: '20%' },
   { key: 'actions', label: '', align: 'right' as const, width: '15%' }
 ])
 </script>
@@ -33,6 +33,10 @@ const columns = computed(() => [
 <template>
   <div class="mt-8">
     <BaseTable :columns="columns" :items="ipBlocks" :emptyText="t('common.noData')">
+      <template #cell-admin="{ item }">
+        {{ item.admin.adminId }}
+      </template>
+
       <template #cell-actions="{ item }">
         <div class="flex justify-end space-x-2">
           <BaseButton @click="$emit('viewDetail', item)" variant="ghost" size="sm"

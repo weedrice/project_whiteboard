@@ -1,6 +1,6 @@
 package com.weedrice.whiteboard.domain.admin.interceptor;
 
-import com.weedrice.whiteboard.domain.admin.service.AdminService;
+import com.weedrice.whiteboard.domain.admin.service.IpBlockService;
 import com.weedrice.whiteboard.global.common.util.ClientUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -14,12 +14,12 @@ import org.springframework.web.servlet.HandlerInterceptor;
 @RequiredArgsConstructor
 public class IpBlockInterceptor implements HandlerInterceptor {
 
-    private final AdminService adminService;
+    private final IpBlockService ipBlockService;
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
         String clientIp = ClientUtils.getIp(request);
-        if (adminService.isIpBlocked(clientIp)) {
+        if (ipBlockService.isIpBlocked(clientIp)) {
             throw new BusinessException(ErrorCode.IP_BLOCKED);
         }
         return true;

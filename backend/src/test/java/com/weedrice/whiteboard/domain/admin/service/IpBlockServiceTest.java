@@ -1,0 +1,257 @@
+package com.weedrice.whiteboard.domain.admin.service;
+
+import com.weedrice.whiteboard.domain.admin.dto.IpBlockResponse;
+import com.weedrice.whiteboard.domain.admin.entity.Admin;
+import com.weedrice.whiteboard.domain.admin.entity.IpBlock;
+import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
+import com.weedrice.whiteboard.domain.admin.repository.IpBlockRepository;
+import com.weedrice.whiteboard.domain.board.entity.Board;
+import com.weedrice.whiteboard.domain.user.entity.Role;
+import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.global.exception.BusinessException;
+import com.weedrice.whiteboard.global.exception.ErrorCode;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.test.util.ReflectionTestUtils;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+@ExtendWith(MockitoExtension.class)
+class IpBlockServiceTest {
+
+    @Mock
+    private IpBlockRepository ipBlockRepository;
+    @Mock
+    private UserRepository userRepository;
+    @Mock
+    private AdminRepository adminRepository;
+
+    @InjectMocks
+    private IpBlockService ipBlockService;
+
+    private User adminUser;
+    private Admin admin;
+
+    @BeforeEach
+    void setUp() {
+        adminUser = User.builder()
+                .loginId("admin")
+                .email("admin@test.com")
+                .password("password")
+                .displayName("Admin")
+                .build();
+        ReflectionTestUtils.setField(adminUser, "userId", 1L);
+
+        User boardOwner = User.builder()
+                .loginId("owner")
+                .email("owner@test.com")
+                .password("password")
+                .displayName("Owner")
+                .build();
+        Board board = Board.builder()
+                .boardName("test")
+                .boardUrl("test")
+                .creator(boardOwner)
+                .build();
+        ReflectionTestUtils.setField(board, "boardId", 10L);
+
+        admin = Admin.builder()
+                .user(adminUser)
+                .board(board)
+                .role(Role.BOARD_ADMIN)
+                .build();
+        ReflectionTestUtils.setField(admin, "adminId", 11L);
+    }
+
+    @Test
+    @DisplayName("활성 관리자면 IP 차단을 저장한다")
+    void blockIp_success() {
+        String ipAddress = "127.0.0.1";
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(adminUser));
+        when(adminRepository.findFirstByUserAndIsActiveOrderByAdminIdAsc(adminUser, true)).thenReturn(Optional.of(admin));
+        when(ipBlockRepository.findActiveByIpAddress(eq(ipAddress), any(LocalDateTime.class))).thenReturn(Optional.empty());
+        when(ipBlockRepository.findById(ipAddress)).thenReturn(Optional.empty());
+        when(ipBlockRepository.save(any(IpBlock.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        IpBlockResponse response = ipBlockService.blockIp(1L, ipAddress, "test", null);
+
+        assertThat(response.getIpAddress()).isEqualTo(ipAddress);
+        assertThat(response.getAdmin().getAdminId()).isEqualTo(admin.getAdminId());
+        verify(ipBlockRepository).save(any(IpBlock.class));
+    }
+
+    @Test
+    @DisplayName("활성 관리자가 없으면 FORBIDDEN을 반환한다")
+    void blockIp_forbiddenWhenNoActiveAdmin() {
+        String ipAddress = "127.0.0.1";
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(adminUser));
+        when(adminRepository.findFirstByUserAndIsActiveOrderByAdminIdAsc(adminUser, true)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> ipBlockService.blockIp(1L, ipAddress, "test", null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
+
+        verify(ipBlockRepository, never()).save(any(IpBlock.class));
+    }
+
+    @Test
+    @DisplayName("권한 검증은 중복 차단 검사보다 먼저 수행한다")
+    void blockIp_checksForbiddenBeforeDuplicate() {
+        String ipAddress = "127.0.0.1";
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(adminUser));
+        when(adminRepository.findFirstByUserAndIsActiveOrderByAdminIdAsc(adminUser, true)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> ipBlockService.blockIp(1L, ipAddress, "test", LocalDateTime.now().plusDays(1)))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
+
+        verify(ipBlockRepository, never()).findActiveByIpAddress(any(), any());
+    }
+
+    @Test
+    @DisplayName("과거 또는 현재 시각의 종료일은 허용하지 않는다")
+    void blockIp_rejectsPastEndDate() {
+        String ipAddress = "127.0.0.1";
+        LocalDateTime invalidEndDate = LocalDateTime.now().minusMinutes(1);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(adminUser));
+        when(adminRepository.findFirstByUserAndIsActiveOrderByAdminIdAsc(adminUser, true)).thenReturn(Optional.of(admin));
+
+        assertThatThrownBy(() -> ipBlockService.blockIp(1L, ipAddress, "test", invalidEndDate))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VALIDATION_ERROR);
+
+        verify(ipBlockRepository, never()).save(any(IpBlock.class));
+    }
+
+    @Test
+    @DisplayName("활성 차단이 이미 있으면 중복으로 막는다")
+    void blockIp_duplicateWhenActiveBlockExists() {
+        String ipAddress = "127.0.0.1";
+        IpBlock activeBlock = IpBlock.builder()
+                .ipAddress(ipAddress)
+                .admin(admin)
+                .reason("existing")
+                .startDate(LocalDateTime.now().minusHours(1))
+                .endDate(null)
+                .build();
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(adminUser));
+        when(adminRepository.findFirstByUserAndIsActiveOrderByAdminIdAsc(adminUser, true)).thenReturn(Optional.of(admin));
+        when(ipBlockRepository.findActiveByIpAddress(eq(ipAddress), any(LocalDateTime.class)))
+                .thenReturn(Optional.of(activeBlock));
+
+        assertThatThrownBy(() -> ipBlockService.blockIp(1L, ipAddress, "test", null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.DUPLICATE_RESOURCE);
+
+        verify(ipBlockRepository, never()).save(any(IpBlock.class));
+    }
+
+    @Test
+    @DisplayName("만료된 차단 이력이 있으면 새 행 대신 재활성화한다")
+    void blockIp_reusesExpiredBlock() {
+        String ipAddress = "127.0.0.1";
+        LocalDateTime expiredAt = LocalDateTime.now().minusDays(1);
+        LocalDateTime newEndDate = LocalDateTime.now().plusDays(1);
+        IpBlock expiredBlock = IpBlock.builder()
+                .ipAddress(ipAddress)
+                .admin(admin)
+                .reason("old")
+                .startDate(LocalDateTime.now().minusDays(2))
+                .endDate(expiredAt)
+                .build();
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(adminUser));
+        when(adminRepository.findFirstByUserAndIsActiveOrderByAdminIdAsc(adminUser, true)).thenReturn(Optional.of(admin));
+        when(ipBlockRepository.findActiveByIpAddress(eq(ipAddress), any(LocalDateTime.class))).thenReturn(Optional.empty());
+        when(ipBlockRepository.findById(ipAddress)).thenReturn(Optional.of(expiredBlock));
+        when(ipBlockRepository.save(expiredBlock)).thenReturn(expiredBlock);
+
+        IpBlockResponse response = ipBlockService.blockIp(1L, ipAddress, "renewed", newEndDate);
+
+        assertThat(response.getIpAddress()).isEqualTo(ipAddress);
+        assertThat(expiredBlock.getReason()).isEqualTo("renewed");
+        assertThat(expiredBlock.getEndDate()).isEqualTo(newEndDate);
+        assertThat(expiredBlock.isActiveAt(LocalDateTime.now())).isTrue();
+        verify(ipBlockRepository).save(expiredBlock);
+    }
+
+    @Test
+    @DisplayName("활성 차단 해제는 삭제 대신 만료 처리한다")
+    void unblockIp_expiresActiveBlock() {
+        String ipAddress = "127.0.0.1";
+        IpBlock activeBlock = IpBlock.builder()
+                .ipAddress(ipAddress)
+                .admin(admin)
+                .reason("test")
+                .startDate(LocalDateTime.now().minusHours(1))
+                .endDate(null)
+                .build();
+
+        when(ipBlockRepository.findActiveByIpAddress(eq(ipAddress), any(LocalDateTime.class)))
+                .thenReturn(Optional.of(activeBlock));
+
+        ipBlockService.unblockIp(ipAddress);
+
+        assertThat(activeBlock.getEndDate()).isNotNull();
+        verify(ipBlockRepository, never()).delete(any());
+    }
+
+    @Test
+    @DisplayName("활성 차단 목록만 페이지로 반환한다")
+    void getBlockedIps_returnsActivePage() {
+        IpBlock activeBlock = IpBlock.builder()
+                .ipAddress("127.0.0.1")
+                .admin(admin)
+                .reason("test")
+                .startDate(LocalDateTime.now())
+                .endDate(null)
+                .build();
+        when(ipBlockRepository.findActiveBlocks(any(LocalDateTime.class), any()))
+                .thenReturn(new PageImpl<>(List.of(activeBlock), PageRequest.of(0, 20), 1));
+
+        var page = ipBlockService.getBlockedIps(PageRequest.of(0, 20));
+
+        assertThat(page.getContent()).hasSize(1);
+        assertThat(page.getContent().get(0).getIpAddress()).isEqualTo("127.0.0.1");
+    }
+
+    @Test
+    @DisplayName("IP 차단 여부는 활성 차단만 기준으로 판단한다")
+    void isIpBlocked_checksOnlyActiveBlock() {
+        when(ipBlockRepository.findActiveByIpAddress(eq("127.0.0.1"), any(LocalDateTime.class)))
+                .thenReturn(Optional.empty())
+                .thenReturn(Optional.of(IpBlock.builder()
+                        .ipAddress("127.0.0.1")
+                        .admin(admin)
+                        .reason("test")
+                        .startDate(LocalDateTime.now())
+                        .endDate(null)
+                        .build()));
+
+        assertThat(ipBlockService.isIpBlocked("127.0.0.1")).isFalse();
+        assertThat(ipBlockService.isIpBlocked("127.0.0.1")).isTrue();
+    }
+}

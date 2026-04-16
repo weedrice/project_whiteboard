@@ -40,4 +40,19 @@ public class IpBlock extends BaseTimeEntity {
         this.startDate = startDate;
         this.endDate = endDate;
     }
+
+    public void reactivate(Admin admin, String reason, LocalDateTime startDate, LocalDateTime endDate) {
+        this.admin = admin;
+        this.reason = reason;
+        this.startDate = startDate;
+        this.endDate = endDate;
+    }
+
+    public void expire(LocalDateTime endDate) {
+        this.endDate = endDate;
+    }
+
+    public boolean isActiveAt(LocalDateTime now) {
+        return endDate == null || endDate.isAfter(now);
+    }
 }

@@ -829,6 +829,7 @@ export interface AdminMessages {
     detail: {
       title: string
       blockInfo: string
+      endDate: string
     }
     addTitle: string
     ipAddress: string
