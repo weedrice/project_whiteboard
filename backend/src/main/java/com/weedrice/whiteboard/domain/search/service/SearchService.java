@@ -2,18 +2,23 @@ package com.weedrice.whiteboard.domain.search.service;
 
 import com.weedrice.whiteboard.domain.comment.dto.CommentResponse;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
+import com.weedrice.whiteboard.domain.file.service.FileService;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.search.dto.IntegratedSearchResponse;
 import com.weedrice.whiteboard.domain.search.dto.PopularKeywordDto;
 import com.weedrice.whiteboard.domain.search.dto.SearchPersonalizationResponse;
 import com.weedrice.whiteboard.domain.search.entity.SearchPersonalization;
-import com.weedrice.whiteboard.domain.search.entity.SearchStatistic;
 import com.weedrice.whiteboard.domain.search.repository.SearchPersonalizationRepository;
 import com.weedrice.whiteboard.domain.search.repository.SearchStatisticRepository;
+import com.weedrice.whiteboard.domain.user.service.UserBlockService;
 import com.weedrice.whiteboard.domain.user.dto.UserSummary;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.domain.board.dto.BoardSummary;
+import com.weedrice.whiteboard.domain.board.entity.Board;
+import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
+import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.global.common.util.DateTimeUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -32,43 +37,28 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import com.weedrice.whiteboard.domain.user.service.UserBlockService; // Import UserBlockService
-
-// ...
-
-import com.weedrice.whiteboard.domain.board.dto.BoardSummary;
-import com.weedrice.whiteboard.domain.board.entity.Board;
-import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
-import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
-
-// ...
-
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class SearchService {
 
     private final SearchStatisticRepository searchStatisticRepository;
+    private final SearchStatisticCommandService searchStatisticCommandService;
     private final SearchPersonalizationRepository searchPersonalizationRepository;
     private final UserRepository userRepository;
     private final PostRepository postRepository;
     private final CommentRepository commentRepository;
-    private final BoardRepository boardRepository; // Inject BoardRepository
+    private final BoardRepository boardRepository;
     private final AdminRepository adminRepository;
-    private final UserBlockService userBlockService; // Inject UserBlockService
-
-    private final com.weedrice.whiteboard.domain.file.service.FileService fileService; // Inject FileService
+    private final UserBlockService userBlockService;
+    private final FileService fileService;
 
     @Transactional
-    public void recordSearch(Long userId, String keyword) {
-        LocalDate today = DateTimeUtils.nowKST().toLocalDate();
-        SearchStatistic statistic = searchStatisticRepository.findByKeywordAndSearchDate(keyword, today)
-                .orElseGet(() -> SearchStatistic.builder().keyword(keyword).searchDate(today).build());
-        statistic.incrementSearchCount();
-        searchStatisticRepository.save(statistic);
+    public void recordSearch(Long userId, String keyword, LocalDate searchDate) {
+        searchStatisticCommandService.recordSearchStatistic(keyword, searchDate);
 
         if (userId != null) {
-            User user = userRepository.findById(userId)
+            User user = userRepository.findByIdForUpdate(userId)
                     .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
             searchPersonalizationRepository.deleteByUserAndKeyword(user, keyword);
             SearchPersonalization personalization = SearchPersonalization.builder()
@@ -95,7 +85,7 @@ public class SearchService {
                 .searchCommentsByKeyword(keyword, blockedUserIds, currentUserId, previewPageable)
                 .map(CommentResponse::from);
 
-        Page<UserSummary> users = userRepository.findByDisplayNameContainingIgnoreCase(keyword, previewPageable)
+        Page<UserSummary> users = userRepository.searchUsersVisibleTo(keyword, blockedUserIds, previewPageable)
                 .map(UserSummary::from);
 
         List<BoardSummary> boards = boardRepository.findByBoardNameContainingIgnoreCaseAndIsActiveTrue(keyword)

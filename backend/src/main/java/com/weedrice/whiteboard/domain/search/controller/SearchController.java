@@ -5,6 +5,7 @@ import com.weedrice.whiteboard.domain.search.dto.IntegratedSearchResponse;
 import com.weedrice.whiteboard.domain.search.dto.PopularKeywordDto;
 import com.weedrice.whiteboard.domain.search.dto.PopularKeywordResponse;
 import com.weedrice.whiteboard.domain.search.dto.SearchPersonalizationResponse;
+import com.weedrice.whiteboard.domain.search.service.SearchRecordEventPublisher;
 import com.weedrice.whiteboard.domain.search.service.SearchService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
@@ -12,7 +13,6 @@ import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -24,6 +24,7 @@ import java.util.List;
 public class SearchController {
 
     private final SearchService searchService;
+    private final SearchRecordEventPublisher searchRecordEventPublisher;
 
     @GetMapping
     public ApiResponse<IntegratedSearchResponse> integratedSearch(
@@ -31,7 +32,7 @@ public class SearchController {
             @AuthenticationPrincipal CustomUserDetails userDetails) {
 
         Long userId = (userDetails != null) ? userDetails.getUserId() : null;
-        searchService.recordSearch(userId, q);
+        searchRecordEventPublisher.publish(userId, q);
 
         IntegratedSearchResponse response = searchService.integratedSearch(q, userId);
         return ApiResponse.success(response);
@@ -46,7 +47,7 @@ public class SearchController {
             @AuthenticationPrincipal CustomUserDetails userDetails) {
 
         Long userId = (userDetails != null) ? userDetails.getUserId() : null;
-        searchService.recordSearch(userId, q);
+        searchRecordEventPublisher.publish(userId, q);
 
         Page<PostSummary> response = searchService.searchPosts(q, searchType, boardUrl, pageable, userId);
 

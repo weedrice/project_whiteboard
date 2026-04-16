@@ -1,11 +1,10 @@
 package com.weedrice.whiteboard.domain.search.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.search.dto.IntegratedSearchResponse;
 import com.weedrice.whiteboard.domain.search.dto.PopularKeywordDto;
-import com.weedrice.whiteboard.domain.search.dto.PopularKeywordResponse;
 import com.weedrice.whiteboard.domain.search.dto.SearchPersonalizationResponse;
+import com.weedrice.whiteboard.domain.search.service.SearchRecordEventPublisher;
 import com.weedrice.whiteboard.domain.search.service.SearchService;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import org.junit.jupiter.api.BeforeEach;
@@ -19,7 +18,6 @@ import org.springframework.context.annotation.FilterType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.http.MediaType;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -27,10 +25,10 @@ import java.util.Collections;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -39,9 +37,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.when;
 
 @WebMvcTest(controllers = SearchController.class, excludeFilters = {
         @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = com.weedrice.whiteboard.global.config.WebConfig.class),
@@ -67,11 +62,11 @@ class SearchControllerTest {
     @Autowired
     private MockMvc mockMvc;
 
-    @Autowired
-    private ObjectMapper objectMapper;
-
     @MockBean
     private SearchService searchService;
+
+    @MockBean
+    private SearchRecordEventPublisher searchRecordEventPublisher;
 
     @MockBean
     private com.weedrice.whiteboard.global.security.JwtAuthenticationFilter jwtAuthenticationFilter;
@@ -125,7 +120,7 @@ class SearchControllerTest {
                 emptyUserPage, java.util.Collections.emptyList(), query);
 
         when(searchService.integratedSearch(eq(query), isNull())).thenReturn(response);
-        doNothing().when(searchService).recordSearch(isNull(), eq(query));
+        doNothing().when(searchRecordEventPublisher).publish(isNull(), eq(query));
 
         // when & then
         mockMvc.perform(get("/api/v1/search")
@@ -145,7 +140,7 @@ class SearchControllerTest {
         Page<PostSummary> page = new PageImpl<>(List.of(postSummary), pageRequest, 1);
 
         when(searchService.searchPosts(eq(query), any(), any(), any(), any())).thenReturn(page);
-        doNothing().when(searchService).recordSearch(any(), eq(query));
+        doNothing().when(searchRecordEventPublisher).publish(any(), eq(query));
 
         // when & then
         mockMvc.perform(get("/api/v1/search/posts")

@@ -8,7 +8,7 @@ import com.weedrice.whiteboard.domain.post.entity.DraftPost;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.entity.Scrap;
 import com.weedrice.whiteboard.domain.post.service.PostService;
-import com.weedrice.whiteboard.domain.search.service.SearchService;
+import com.weedrice.whiteboard.domain.search.service.SearchRecordEventPublisher;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import org.junit.jupiter.api.BeforeEach;
@@ -71,7 +71,7 @@ class PostControllerTest {
     private PostService postService;
 
     @MockBean
-    private SearchService searchService;
+    private SearchRecordEventPublisher searchRecordEventPublisher;
 
     @MockBean
     private com.weedrice.whiteboard.global.security.JwtAuthenticationFilter jwtAuthenticationFilter;
@@ -159,7 +159,7 @@ class PostControllerTest {
             Page<PostSummary> summaryPage = new PageImpl<>(List.of(summary));
 
             when(postService.getPosts(eq(boardUrl), any(), eq(keyword), any(), isNull(), any(Pageable.class))).thenReturn(summaryPage);
-            doNothing().when(searchService).recordSearch(isNull(), eq(keyword));
+            doNothing().when(searchRecordEventPublisher).publish(isNull(), eq(keyword));
 
             mockMvc.perform(get("/api/v1/boards/{boardUrl}/posts", boardUrl)
                     .param("keyword", keyword)

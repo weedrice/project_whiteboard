@@ -8,7 +8,6 @@ import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.search.dto.PopularKeywordDto;
 import com.weedrice.whiteboard.domain.search.dto.SearchPersonalizationResponse;
 import com.weedrice.whiteboard.domain.search.entity.SearchPersonalization;
-import com.weedrice.whiteboard.domain.search.entity.SearchStatistic;
 import com.weedrice.whiteboard.domain.search.repository.SearchPersonalizationRepository;
 import com.weedrice.whiteboard.domain.search.repository.SearchStatisticRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -45,6 +44,8 @@ class SearchServiceTest {
     @Mock
     private SearchStatisticRepository searchStatisticRepository;
     @Mock
+    private SearchStatisticCommandService searchStatisticCommandService;
+    @Mock
     private SearchPersonalizationRepository searchPersonalizationRepository;
     @Mock
     private UserRepository userRepository;
@@ -78,16 +79,14 @@ class SearchServiceTest {
         // given
         Long userId = 1L;
         String keyword = "test";
-        SearchStatistic statistic = SearchStatistic.builder().keyword(keyword).searchDate(LocalDate.now()).build();
 
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        when(searchStatisticRepository.findByKeywordAndSearchDate(any(), any())).thenReturn(Optional.of(statistic));
+        when(userRepository.findByIdForUpdate(userId)).thenReturn(Optional.of(user));
 
         // when
-        searchService.recordSearch(userId, keyword);
+        searchService.recordSearch(userId, keyword, LocalDate.now());
 
         // then
-        verify(searchStatisticRepository).save(any(SearchStatistic.class));
+        verify(searchStatisticCommandService).recordSearchStatistic(eq(keyword), any(LocalDate.class));
         verify(searchPersonalizationRepository).save(any());
     }
 
@@ -96,15 +95,11 @@ class SearchServiceTest {
     void recordSearch_success_withNullUserId() {
         // given
         String keyword = "test";
-        SearchStatistic statistic = SearchStatistic.builder().keyword(keyword).searchDate(LocalDate.now()).build();
-
-        when(searchStatisticRepository.findByKeywordAndSearchDate(any(), any())).thenReturn(Optional.of(statistic));
-
         // when
-        searchService.recordSearch(null, keyword);
+        searchService.recordSearch(null, keyword, LocalDate.now());
 
         // then
-        verify(searchStatisticRepository).save(any(SearchStatistic.class));
+        verify(searchStatisticCommandService).recordSearchStatistic(eq(keyword), any(LocalDate.class));
         verify(searchPersonalizationRepository, never()).save(any());
     }
 
@@ -118,7 +113,7 @@ class SearchServiceTest {
                 .thenReturn(Page.empty(previewPageable));
         when(commentRepository.searchCommentsByKeyword(eq(keyword), isNull(), isNull(), any(Pageable.class)))
                 .thenReturn(Page.empty(previewPageable));
-        when(userRepository.findByDisplayNameContainingIgnoreCase(eq(keyword), any(Pageable.class)))
+        when(userRepository.searchUsersVisibleTo(eq(keyword), isNull(), any(Pageable.class)))
                 .thenReturn(Page.empty(previewPageable));
         when(boardRepository.findByBoardNameContainingIgnoreCaseAndIsActiveTrue(keyword))
                 .thenReturn(Collections.emptyList());
@@ -143,7 +138,7 @@ class SearchServiceTest {
                 .thenReturn(Page.empty(previewPageable));
         when(commentRepository.searchCommentsByKeyword(eq(keyword), eq(blockedUserIds), eq(currentUserId),
                 any(Pageable.class))).thenReturn(Page.empty(previewPageable));
-        when(userRepository.findByDisplayNameContainingIgnoreCase(eq(keyword), any(Pageable.class)))
+        when(userRepository.searchUsersVisibleTo(eq(keyword), eq(blockedUserIds), any(Pageable.class)))
                 .thenReturn(Page.empty(previewPageable));
         when(boardRepository.findByBoardNameContainingIgnoreCaseAndIsActiveTrue(keyword))
                 .thenReturn(Collections.emptyList());

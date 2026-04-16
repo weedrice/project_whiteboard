@@ -4,7 +4,7 @@ import com.weedrice.whiteboard.domain.post.dto.*;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.entity.ViewHistory;
 import com.weedrice.whiteboard.domain.post.service.PostService;
-import com.weedrice.whiteboard.domain.search.service.SearchService;
+import com.weedrice.whiteboard.domain.search.service.SearchRecordEventPublisher;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -29,7 +29,7 @@ import java.util.List;
 public class PostController {
 
     private final PostService postService;
-    private final SearchService searchService;
+    private final SearchRecordEventPublisher searchRecordEventPublisher;
 
     @GetMapping("/boards/{boardUrl}/posts")
     public ApiResponse<PageResponse<PostSummary>> getPosts(
@@ -46,7 +46,7 @@ public class PostController {
         }
 
         if (keyword != null && !keyword.trim().isEmpty()) {
-            searchService.recordSearch(userId, keyword);
+            searchRecordEventPublisher.publish(userId, keyword);
         }
 
         Page<PostSummary> summaryPage = postService.getPosts(boardUrl, categoryId, keyword, minLikes, userId, pageable);

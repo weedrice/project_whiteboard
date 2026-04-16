@@ -35,13 +35,9 @@ public class SearchStatistic extends BaseTimeEntity {
     private Integer searchCount;
 
     @Builder
-    public SearchStatistic(String keyword, LocalDate searchDate) {
+    public SearchStatistic(String keyword, LocalDate searchDate, Integer initialSearchCount) {
         this.keyword = keyword;
         this.searchDate = searchDate;
-        this.searchCount = 0;
-    }
-
-    public void incrementSearchCount() {
-        this.searchCount++;
+        this.searchCount = initialSearchCount != null ? initialSearchCount : 0;
     }
 }

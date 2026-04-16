@@ -36,6 +36,36 @@ public class UserRepositoryCustomImpl implements UserRepositoryCustom {
     }
 
     @Override
+    public Page<User> searchUsersVisibleTo(String keyword, List<Long> blockedUserIds, Pageable pageable) {
+        QUser user = QUser.user;
+        BooleanBuilder predicate = new BooleanBuilder();
+
+        if (StringUtils.hasText(keyword)) {
+            predicate.and(user.displayName.containsIgnoreCase(keyword));
+        }
+
+        if (blockedUserIds != null && !blockedUserIds.isEmpty()) {
+            predicate.and(user.userId.notIn(blockedUserIds));
+        }
+
+        List<User> content = queryFactory
+                .selectFrom(user)
+                .where(predicate)
+                .offset(pageable.getOffset())
+                .limit(pageable.getPageSize())
+                .orderBy(getOrderSpecifiers(pageable, user))
+                .fetch();
+
+        Long total = queryFactory
+                .select(user.count())
+                .from(user)
+                .where(predicate)
+                .fetchOne();
+
+        return new PageImpl<>(content, pageable, total != null ? total : 0L);
+    }
+
+    @Override
     public Page<User> searchUsersForAdmin(String keyword, UserAdminSearchCondition condition, Pageable pageable) {
         QUser user = QUser.user;
         BooleanBuilder predicate = buildPredicate(user, keyword, condition);
