@@ -10,9 +10,7 @@ import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.entity.ViewHistory;
 import com.weedrice.whiteboard.domain.post.repository.PostLikeRepository;
 import com.weedrice.whiteboard.domain.post.repository.ScrapRepository;
-import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
-import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -26,33 +24,48 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Component
-@RequiredArgsConstructor
 class PostSummaryAssembler {
 
     private static final int FEED_EXCERPT_MAX_LENGTH = 800;
 
     private final FileService fileService;
-    private final UserRepository userRepository;
-    private final PostLikeRepository postLikeRepository;
-    private final ScrapRepository scrapRepository;
-    private final BoardSubscriptionRepository boardSubscriptionRepository;
     private final CommentRepository commentRepository;
     private final BoardAccessPolicy boardAccessPolicy;
+    private final PostInteractionContextResolver interactionContextResolver;
+    private final PostContentSummaryExtractor contentSummaryExtractor;
+
+    PostSummaryAssembler(FileService fileService,
+                         UserRepository userRepository,
+                         PostLikeRepository postLikeRepository,
+                         ScrapRepository scrapRepository,
+                         BoardSubscriptionRepository boardSubscriptionRepository,
+                         CommentRepository commentRepository,
+                         BoardAccessPolicy boardAccessPolicy) {
+        this.fileService = fileService;
+        this.commentRepository = commentRepository;
+        this.boardAccessPolicy = boardAccessPolicy;
+        this.interactionContextResolver = new PostInteractionContextResolver(
+                userRepository,
+                postLikeRepository,
+                scrapRepository,
+                boardSubscriptionRepository);
+        this.contentSummaryExtractor = new PostContentSummaryExtractor();
+    }
 
     Page<PostSummary> assembleBoardPage(Page<Post> posts, Pageable pageable, boolean includeImages,
-            boolean includeInquiryAnswered) {
+                                        boolean includeInquiryAnswered) {
         List<Long> postIds = posts.getContent().stream()
                 .map(Post::getPostId)
                 .collect(Collectors.toList());
         Map<Long, Long> thumbnailFileIdsByPostId = includeImages
                 ? getThumbnailFileIdsByPostId(postIds)
                 : Collections.emptyMap();
-        Set<Long> postIdsWithImages = includeImages ? new HashSet<>(thumbnailFileIdsByPostId.keySet()) : Collections.emptySet();
+        Set<Long> postIdsWithImages = includeImages
+                ? new HashSet<>(thumbnailFileIdsByPostId.keySet())
+                : Collections.emptySet();
         Map<Long, Boolean> inquiryAnsweredStatuses = includeInquiryAnswered
                 ? resolveInquiryAnsweredStatuses(posts.getContent())
                 : Collections.emptyMap();
@@ -107,7 +120,7 @@ class PostSummaryAssembler {
         List<Long> postIds = posts.stream().map(Post::getPostId).collect(Collectors.toList());
         Map<Long, Long> thumbnailFileIdsByPostId = getThumbnailFileIdsByPostId(postIds);
         Set<Long> postIdsWithImages = thumbnailFileIdsByPostId.keySet();
-        UserInteractionContext interactionContext = resolveUserInteractionContext(posts, currentUserId);
+        PostUserInteractionContext interactionContext = interactionContextResolver.resolve(posts, currentUserId);
 
         return posts.stream()
                 .map(post -> buildFeedSummary(post, postIdsWithImages, thumbnailFileIdsByPostId, interactionContext,
@@ -123,7 +136,7 @@ class PostSummaryAssembler {
         List<Long> postIds = posts.stream().map(Post::getPostId).collect(Collectors.toList());
         Map<Long, Long> thumbnailFileIdsByPostId = getThumbnailFileIdsByPostId(postIds);
         Set<Long> postIdsWithImages = thumbnailFileIdsByPostId.keySet();
-        UserInteractionContext interactionContext = resolveUserInteractionContext(posts, currentUserId);
+        PostUserInteractionContext interactionContext = interactionContextResolver.resolve(posts, currentUserId);
 
         return posts.stream()
                 .map(post -> buildFeedSummary(post, postIdsWithImages, thumbnailFileIdsByPostId, interactionContext,
@@ -133,21 +146,24 @@ class PostSummaryAssembler {
 
     private PostSummary buildFeedSummary(Post post, Set<Long> postIdsWithImages,
                                          Map<Long, Long> thumbnailFileIdsByPostId,
-                                         UserInteractionContext interactionContext,
+                                         PostUserInteractionContext interactionContext,
                                          FeedSummaryOptions options) {
-        String summaryText = extractSummary(post);
-        ThumbnailInfo thumbnailInfo = resolveThumbnail(post, postIdsWithImages, thumbnailFileIdsByPostId);
+        String summaryText = contentSummaryExtractor.extractSummary(post);
+        PostThumbnailInfo thumbnailInfo = contentSummaryExtractor.resolveThumbnail(
+                post,
+                postIdsWithImages,
+                thumbnailFileIdsByPostId);
 
         String firstMediaType = null;
         String firstMediaUrl = null;
         String contentsExcerpt = null;
         if (options.includeContentsExcerpt()) {
-            contentsExcerpt = truncateHtmlForExcerpt(post.getContents(), FEED_EXCERPT_MAX_LENGTH);
+            contentsExcerpt = contentSummaryExtractor.truncateHtmlForExcerpt(post.getContents(), FEED_EXCERPT_MAX_LENGTH);
         }
         if (options.includeFirstMedia()) {
-            String firstVideoUrl = extractFirstVideoEmbedFromContent(post.getContents());
-            int imgPos = indexOfFirstImageInContent(post.getContents());
-            int videoPos = indexOfFirstVideoInContent(post.getContents());
+            String firstVideoUrl = contentSummaryExtractor.extractFirstVideoEmbedFromContent(post.getContents());
+            int imgPos = contentSummaryExtractor.indexOfFirstImageInContent(post.getContents());
+            int videoPos = contentSummaryExtractor.indexOfFirstVideoInContent(post.getContents());
             if (imgPos >= 0 && (videoPos < 0 || imgPos < videoPos)) {
                 firstMediaType = "image";
                 firstMediaUrl = thumbnailInfo.thumbnailUrl();
@@ -172,30 +188,6 @@ class PostSummaryAssembler {
                 contentsExcerpt,
                 firstMediaType,
                 firstMediaUrl);
-    }
-
-    private UserInteractionContext resolveUserInteractionContext(List<Post> posts, Long currentUserId) {
-        if (currentUserId == null || posts.isEmpty()) {
-            return UserInteractionContext.empty();
-        }
-
-        User user = userRepository.findById(currentUserId).orElse(null);
-        if (user == null) {
-            return UserInteractionContext.empty();
-        }
-
-        List<Board> boards = posts.stream().map(Post::getBoard).distinct().collect(Collectors.toList());
-        Set<Long> likedPostIds = postLikeRepository.findByUserAndPostIn(user, posts).stream()
-                .map(like -> like.getPost().getPostId())
-                .collect(Collectors.toSet());
-        Set<Long> scrappedPostIds = scrapRepository.findByUserAndPostIn(user, posts).stream()
-                .map(scrap -> scrap.getPost().getPostId())
-                .collect(Collectors.toSet());
-        Set<String> subscribedBoardUrls = boardSubscriptionRepository.findByUserAndBoardIn(user, boards).stream()
-                .map(subscription -> subscription.getBoard().getBoardUrl())
-                .collect(Collectors.toSet());
-
-        return new UserInteractionContext(likedPostIds, scrappedPostIds, subscribedBoardUrls);
     }
 
     private Map<Long, Long> getThumbnailFileIdsByPostId(List<Long> postIds) {
@@ -232,101 +224,6 @@ class PostSummaryAssembler {
                     latestAuthorId != null && !Objects.equals(latestAuthorId, inquiryPost.getUser().getUserId()));
         }
         return inquiryAnsweredStatuses;
-    }
-
-    private String extractSummary(Post post) {
-        String summary = post.getContents().replaceAll("<[^>]*>", "").trim();
-        if (summary.length() > 1000) {
-            return summary.substring(0, 1000);
-        }
-        return summary;
-    }
-
-    private ThumbnailInfo resolveThumbnail(Post post, Set<Long> postIdsWithImages,
-                                           Map<Long, Long> thumbnailFileIdsByPostId) {
-        String thumbnailUrl = null;
-        boolean hasImage = false;
-
-        if (postIdsWithImages.contains(post.getPostId())) {
-            Long fileId = thumbnailFileIdsByPostId.get(post.getPostId());
-            if (fileId != null) {
-                thumbnailUrl = "/api/v1/files/" + fileId;
-                hasImage = true;
-            }
-        }
-
-        if (thumbnailUrl == null) {
-            String contentImageUrl = extractFirstImageUrlFromContent(post.getContents());
-            if (contentImageUrl != null) {
-                thumbnailUrl = contentImageUrl;
-                hasImage = true;
-            }
-        }
-
-        return new ThumbnailInfo(thumbnailUrl, hasImage);
-    }
-
-    private String truncateHtmlForExcerpt(String content, int maxLen) {
-        if (content == null || content.isEmpty()) {
-            return null;
-        }
-        content = content.trim();
-        if (content.length() <= maxLen) {
-            return content;
-        }
-        String cut = content.substring(0, maxLen);
-        int lastClose = cut.lastIndexOf('>');
-        int lastTag = cut.lastIndexOf('<');
-        if (lastClose > lastTag && lastClose >= 0) {
-            return cut.substring(0, lastClose + 1);
-        }
-        return cut;
-    }
-
-    private String extractFirstVideoEmbedFromContent(String content) {
-        if (content == null || content.isEmpty()) {
-            return null;
-        }
-        Pattern pattern = Pattern.compile(
-                "<iframe[^>]+src\\s*=\\s*[\"']([^\"']*(?:youtube\\.com/embed|vimeo\\.com)[^\"']*)[\"']",
-                Pattern.CASE_INSENSITIVE);
-        Matcher matcher = pattern.matcher(content);
-        if (matcher.find()) {
-            return matcher.group(1)
-                    .replace("&amp;", "&")
-                    .replace("&lt;", "<")
-                    .replace("&gt;", ">")
-                    .replace("&quot;", "\"")
-                    .replace("&#39;", "'");
-        }
-        return null;
-    }
-
-    private int indexOfFirstImageInContent(String content) {
-        return content == null ? -1 : content.toLowerCase().indexOf("<img");
-    }
-
-    private int indexOfFirstVideoInContent(String content) {
-        return content == null ? -1 : content.toLowerCase().indexOf("<iframe");
-    }
-
-    private String extractFirstImageUrlFromContent(String content) {
-        if (content == null || content.isEmpty()) {
-            return null;
-        }
-        Pattern pattern = Pattern.compile("<img[^>]+src\\s*=\\s*[\"']([^\"']+)[\"']", Pattern.CASE_INSENSITIVE);
-        Matcher matcher = pattern.matcher(content);
-        return matcher.find() ? matcher.group(1) : null;
-    }
-
-    private record UserInteractionContext(Set<Long> likedPostIds, Set<Long> scrappedPostIds,
-                                          Set<String> subscribedBoardUrls) {
-        private static UserInteractionContext empty() {
-            return new UserInteractionContext(Collections.emptySet(), Collections.emptySet(), Collections.emptySet());
-        }
-    }
-
-    private record ThumbnailInfo(String thumbnailUrl, boolean hasImage) {
     }
 
     private record FeedSummaryOptions(boolean includeContentsExcerpt, boolean includeFirstMedia) {

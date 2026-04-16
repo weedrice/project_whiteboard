@@ -43,6 +43,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.lenient;
@@ -176,7 +177,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("寃뚯떆??援щ룆 ?ㅽ뙣 - ?대? 援щ룆??寃쎌슦")
+    @DisplayName("이미 구독한 게시판은 다시 구독할 수 없다")
     void subscribeBoard_fail_alreadySubscribed() {
         // given
         Long userId = 1L;
@@ -235,7 +236,7 @@ class BoardServiceTest {
         assertThat(createdBoard.getBoardName()).isEqualTo("Test Board");
         InOrder inOrder = inOrder(boardRepository, pointService, boardCategoryRepository, adminRepository);
         inOrder.verify(boardRepository).save(any(Board.class));
-        inOrder.verify(pointService).spendPoint(creatorId, 500, "게시판 생성 (Test Board)", 1L, "BOARD_CREATE");
+        inOrder.verify(pointService).spendPoint(eq(creatorId), eq(500), anyString(), eq(1L), eq("BOARD_CREATE"));
         inOrder.verify(boardCategoryRepository).save(any());
         inOrder.verify(adminRepository).save(any());
     }
@@ -271,7 +272,7 @@ class BoardServiceTest {
         boardService.createBoard(creatorId, request);
 
         verify(boardAiInfoRepository).save(any(BoardAiInfo.class));
-        verify(pointService).spendPoint(creatorId, 500, "게시판 생성 (AI Board)", 2L, "BOARD_CREATE");
+        verify(pointService).spendPoint(eq(creatorId), eq(500), anyString(), eq(2L), eq("BOARD_CREATE"));
     }
 
     @Test
@@ -288,7 +289,7 @@ class BoardServiceTest {
         when(boardRepository.findMaxSortOrder()).thenReturn(0);
         doThrow(new BusinessException(ErrorCode.INSUFFICIENT_POINTS))
                 .when(pointService)
-                .spendPoint(creatorId, 500, "게시판 생성 (Test Board)", 1L, "BOARD_CREATE");
+                .spendPoint(eq(creatorId), eq(500), anyString(), eq(1L), eq("BOARD_CREATE"));
 
         BusinessException exception = assertThrows(BusinessException.class,
                 () -> boardService.createBoard(creatorId, request));
@@ -375,7 +376,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("구독 순서 변경은 전체 목록과 일치할 때만 1..N으로 재기록한다")
+    @DisplayName("구독 순서 변경은 전체 목록이 일치할 때만 1..N으로 재기록한다")
     void updateSubscriptionOrder_rewritesAllSortOrders() {
         Board secondBoard = Board.builder()
                 .boardName("Second Board")

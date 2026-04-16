@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.report.service;
 
 import com.weedrice.whiteboard.domain.admin.entity.Admin;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
+import com.weedrice.whiteboard.domain.admin.service.ModerationActorResolver;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.post.entity.Post;
@@ -13,7 +14,6 @@ import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
-import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -26,7 +26,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
-@RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class ReportService {
 
@@ -35,6 +34,20 @@ public class ReportService {
     private final AdminRepository adminRepository;
     private final PostRepository postRepository;
     private final CommentRepository commentRepository;
+    private final ModerationActorResolver moderationActorResolver;
+
+    public ReportService(ReportRepository reportRepository,
+                         UserRepository userRepository,
+                         AdminRepository adminRepository,
+                         PostRepository postRepository,
+                         CommentRepository commentRepository) {
+        this.reportRepository = reportRepository;
+        this.userRepository = userRepository;
+        this.adminRepository = adminRepository;
+        this.postRepository = postRepository;
+        this.commentRepository = commentRepository;
+        this.moderationActorResolver = new ModerationActorResolver(userRepository, adminRepository);
+    }
 
     @Transactional
     public Long createReport(Long reporterId, String targetType, Long targetId, String reasonType, String remark,
@@ -107,8 +120,7 @@ public class ReportService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
         User adminUser = userRepository.findById(adminUserId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        Admin admin = adminRepository.findFirstByUserAndIsActiveOrderByAdminIdAsc(adminUser, true)
-                .orElse(null);
+        Admin admin = moderationActorResolver.findActiveAdmin(adminUser).orElse(null);
 
         report.processReport(admin, adminUserId, status, remark);
         reportRepository.save(report);

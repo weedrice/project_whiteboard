@@ -1,0 +1,30 @@
+package com.weedrice.whiteboard.domain.notification.service;
+
+import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
+import com.weedrice.whiteboard.domain.user.repository.UserNotificationSettingsRepository;
+
+class NotificationPreferenceService {
+
+    private final UserNotificationSettingsRepository userNotificationSettingsRepository;
+
+    NotificationPreferenceService(UserNotificationSettingsRepository userNotificationSettingsRepository) {
+        this.userNotificationSettingsRepository = userNotificationSettingsRepository;
+    }
+
+    boolean isSelfNotification(NotificationEvent event) {
+        return event.getActor() != null
+                && event.getUserToNotify() != null
+                && event.getUserToNotify().getUserId().equals(event.getActor().getUserId());
+    }
+
+    boolean isNotificationEnabled(NotificationEvent event) {
+        if (event.getUserToNotify() == null || event.getNotificationType() == null) {
+            return true;
+        }
+
+        return userNotificationSettingsRepository
+                .findByUserIdAndNotificationType(event.getUserToNotify().getUserId(), event.getNotificationType())
+                .map(setting -> Boolean.TRUE.equals(setting.getIsEnabled()))
+                .orElse(true);
+    }
+}

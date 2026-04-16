@@ -6,11 +6,9 @@ import com.weedrice.whiteboard.domain.admin.entity.IpBlock;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.admin.repository.IpBlockRepository;
 import com.weedrice.whiteboard.domain.user.entity.Role;
-import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
-import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -20,23 +18,24 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 
 @Service
-@RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class IpBlockService {
 
     private final IpBlockRepository ipBlockRepository;
-    private final UserRepository userRepository;
-    private final AdminRepository adminRepository;
+    private final ModerationActorResolver moderationActorResolver;
+
+    public IpBlockService(IpBlockRepository ipBlockRepository,
+                          UserRepository userRepository,
+                          AdminRepository adminRepository) {
+        this.ipBlockRepository = ipBlockRepository;
+        this.moderationActorResolver = new ModerationActorResolver(userRepository, adminRepository);
+    }
 
     @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
     @Transactional
     public IpBlockResponse blockIp(Long adminUserId, String ipAddress, String reason, LocalDateTime endDate) {
         LocalDateTime now = LocalDateTime.now();
-        User adminUser = userRepository.findById(adminUserId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-
-        Admin admin = adminRepository.findFirstByUserAndIsActiveOrderByAdminIdAsc(adminUser, true)
-                .orElseThrow(() -> new BusinessException(ErrorCode.FORBIDDEN));
+        Admin admin = moderationActorResolver.resolveActiveAdmin(adminUserId);
 
         if (endDate != null && !endDate.isAfter(now)) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "endDate must be in the future");

@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.sanction.service;
 
 import com.weedrice.whiteboard.domain.admin.entity.Admin;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
+import com.weedrice.whiteboard.domain.admin.service.ModerationActorResolver;
 import com.weedrice.whiteboard.domain.sanction.dto.SanctionResponse;
 import com.weedrice.whiteboard.domain.sanction.entity.Sanction;
 import com.weedrice.whiteboard.domain.sanction.repository.SanctionRepository;
@@ -10,7 +11,6 @@ import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.common.util.SecurityUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
-import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -19,23 +19,28 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 
 @Service
-@RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class SanctionService {
 
     private final SanctionRepository sanctionRepository;
     private final UserRepository userRepository;
     private final AdminRepository adminRepository;
+    private final ModerationActorResolver moderationActorResolver;
+
+    public SanctionService(SanctionRepository sanctionRepository,
+                           UserRepository userRepository,
+                           AdminRepository adminRepository) {
+        this.sanctionRepository = sanctionRepository;
+        this.userRepository = userRepository;
+        this.adminRepository = adminRepository;
+        this.moderationActorResolver = new ModerationActorResolver(userRepository, adminRepository);
+    }
 
     @Transactional
     public Long createSanction(Long adminUserId, Long targetUserId, String type, String remark, LocalDateTime endDate) {
         SecurityUtils.validateSuperAdminPermission();
 
-        User adminUser = userRepository.findById(adminUserId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-
-        Admin admin = adminRepository.findFirstByUserAndIsActiveOrderByAdminIdAsc(adminUser, true)
-                .orElseThrow(() -> new BusinessException(ErrorCode.FORBIDDEN));
+        Admin admin = moderationActorResolver.resolveActiveAdmin(adminUserId);
 
         User targetUser = userRepository.findById(targetUserId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));

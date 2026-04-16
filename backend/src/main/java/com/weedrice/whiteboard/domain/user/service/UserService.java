@@ -1,6 +1,8 @@
 package com.weedrice.whiteboard.domain.user.service;
 
 import com.weedrice.whiteboard.domain.agent.service.AgentService;
+import com.weedrice.whiteboard.domain.admin.entity.Admin;
+import com.weedrice.whiteboard.domain.admin.service.ModerationActorResolver;
 import com.weedrice.whiteboard.domain.auth.entity.RefreshToken;
 import com.weedrice.whiteboard.domain.auth.entity.LoginHistory;
 import com.weedrice.whiteboard.domain.auth.repository.LoginHistoryRepository;
@@ -34,11 +36,10 @@ import com.weedrice.whiteboard.domain.user.repository.DisplayNameHistoryReposito
 import com.weedrice.whiteboard.domain.user.repository.PasswordHistoryRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.dto.UserAdminResponse;
-import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.user.entity.Role;
+import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
-import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -56,7 +57,6 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
-@RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class UserService {
 
@@ -80,6 +80,50 @@ public class UserService {
     private final ReportRepository reportRepository;
     private final VerificationCodeService verificationCodeService; // Inject VerificationCodeService
     private final AgentService agentService;
+    private final ModerationActorResolver moderationActorResolver;
+
+    public UserService(UserRepository userRepository,
+                       CommentRepository commentRepository,
+                       DisplayNameHistoryRepository displayNameHistoryRepository,
+                       PasswordHistoryRepository passwordHistoryRepository,
+                       PasswordEncoder passwordEncoder,
+                       UserSettingsService userSettingsService,
+                       PostRepository postRepository,
+                       FileService fileService,
+                       com.weedrice.whiteboard.domain.point.repository.UserPointRepository userPointRepository,
+                       AdminRepository adminRepository,
+                       PostService postService,
+                       CommentService commentService,
+                       BoardService boardService,
+                       BoardSubscriptionRepository boardSubscriptionRepository,
+                       LoginHistoryRepository loginHistoryRepository,
+                       RefreshTokenRepository refreshTokenRepository,
+                       SanctionRepository sanctionRepository,
+                       ReportRepository reportRepository,
+                       VerificationCodeService verificationCodeService,
+                       AgentService agentService) {
+        this.userRepository = userRepository;
+        this.commentRepository = commentRepository;
+        this.displayNameHistoryRepository = displayNameHistoryRepository;
+        this.passwordHistoryRepository = passwordHistoryRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.userSettingsService = userSettingsService;
+        this.postRepository = postRepository;
+        this.fileService = fileService;
+        this.userPointRepository = userPointRepository;
+        this.adminRepository = adminRepository;
+        this.postService = postService;
+        this.commentService = commentService;
+        this.boardService = boardService;
+        this.boardSubscriptionRepository = boardSubscriptionRepository;
+        this.loginHistoryRepository = loginHistoryRepository;
+        this.refreshTokenRepository = refreshTokenRepository;
+        this.sanctionRepository = sanctionRepository;
+        this.reportRepository = reportRepository;
+        this.verificationCodeService = verificationCodeService;
+        this.agentService = agentService;
+        this.moderationActorResolver = new ModerationActorResolver(userRepository, adminRepository);
+    }
 
     public Long findUserIdByLoginId(String loginId) {
         User user = userRepository.findByLoginId(loginId)
@@ -304,8 +348,8 @@ public class UserService {
         if (Boolean.TRUE.equals(user.getIsSuperAdmin())) {
             return Role.SUPER_ADMIN;
         }
-        return adminRepository.findFirstByUserAndIsActiveOrderByAdminIdAsc(user, true)
-                .map(a -> a.getRole())
+        return moderationActorResolver.findActiveAdmin(user)
+                .map(Admin::getRole)
                 .orElse(Role.USER);
     }
 
