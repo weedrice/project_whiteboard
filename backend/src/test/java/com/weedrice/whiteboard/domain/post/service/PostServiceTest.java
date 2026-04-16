@@ -15,6 +15,7 @@ import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.file.entity.File;
 import com.weedrice.whiteboard.domain.file.service.FileService;
+import com.weedrice.whiteboard.domain.feed.event.PostPublishedEvent;
 import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
 import com.weedrice.whiteboard.domain.point.service.PointService;
 import com.weedrice.whiteboard.domain.post.dto.*;
@@ -194,6 +195,31 @@ class PostServiceTest {
         assertThat(created.getTitle()).isEqualTo("New Post");
         verify(fileService, times(2)).associateFileWithEntity(anyLong(), eq(1L), eq(100L), eq("POST_CONTENT"));
         verify(pointService).addPoint(eq(1L), eq(50), anyString(), eq(100L), eq("POST"));
+    }
+
+    @Test
+    @DisplayName("게시글 생성 후 발행 이벤트를 발행한다")
+    void createPost_publishesPostPublishedEvent() {
+        PostCreateRequest request = new PostCreateRequest(null, "New Post", "New Contents", Collections.emptyList(),
+                false, false, false, false, null);
+
+        when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
+        when(postRepository.save(any(Post.class))).thenAnswer(invocation -> {
+            Post saved = invocation.getArgument(0);
+            ReflectionTestUtils.setField(saved, "postId", 200L);
+            return saved;
+        });
+
+        postService.createPost(1L, "free", request);
+
+        ArgumentCaptor<Object> eventCaptor = ArgumentCaptor.forClass(Object.class);
+        verify(eventPublisher).publishEvent(eventCaptor.capture());
+        assertThat(eventCaptor.getValue()).isInstanceOf(PostPublishedEvent.class);
+        PostPublishedEvent event = (PostPublishedEvent) eventCaptor.getValue();
+        assertThat(event.postId()).isEqualTo(200L);
+        assertThat(event.boardId()).isEqualTo(1L);
     }
 
     @Test

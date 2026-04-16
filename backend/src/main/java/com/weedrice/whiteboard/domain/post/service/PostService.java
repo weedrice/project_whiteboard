@@ -13,6 +13,7 @@ import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.file.service.FileService;
+import com.weedrice.whiteboard.domain.feed.event.PostPublishedEvent;
 import com.weedrice.whiteboard.domain.notification.constant.NotificationType;
 import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
 import com.weedrice.whiteboard.domain.post.dto.DraftListResponse;
@@ -373,6 +374,7 @@ public class PostService {
         String postCreateRewardStr = globalConfigService.getConfig("POINT_POST_CREATE_REWARD");
         int postCreateReward = postCreateRewardStr != null ? Integer.parseInt(postCreateRewardStr) : 50;
         pointService.addPoint(userId, postCreateReward, "\uAC8C\uC2DC\uAE00 \uC791\uC131", savedPost.getPostId(), "POST");
+        eventPublisher.publishEvent(new PostPublishedEvent(savedPost.getPostId(), board.getBoardId()));
         return savedPost;
     }
 
@@ -795,6 +797,27 @@ public class PostService {
                     .add(summary);
         }
         return latestPostsByBoardId;
+    }
+
+    public Map<Long, PostSummary> getPostSummariesByIds(List<Long> postIds, Long currentUserId) {
+        if (postIds == null || postIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        Map<Long, Post> postsById = postRepository.findByPostIdIn(postIds).stream()
+                .collect(Collectors.toMap(Post::getPostId, post -> post));
+
+        List<Post> orderedPosts = postIds.stream()
+                .map(postsById::get)
+                .filter(Objects::nonNull)
+                .toList();
+        if (orderedPosts.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        return postSummaryAssembler.assembleLatestPosts(orderedPosts, currentUserId).stream()
+                .collect(Collectors.toMap(PostSummary::getPostId, summary -> summary, (left, right) -> left,
+                        LinkedHashMap::new));
     }
 
 }

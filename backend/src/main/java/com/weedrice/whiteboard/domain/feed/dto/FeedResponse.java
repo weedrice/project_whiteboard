@@ -1,13 +1,14 @@
 package com.weedrice.whiteboard.domain.feed.dto;
 
 import com.weedrice.whiteboard.domain.feed.entity.UserFeed;
+import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import lombok.Builder;
 import lombok.Getter;
 import org.springframework.data.domain.Page;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Map;
 
 @Getter
 @Builder
@@ -29,10 +30,10 @@ public class FeedResponse {
         private Long contentId;
         private boolean isRead;
         private LocalDateTime createdAt;
-        // TODO: contentId를 이용해 실제 컨텐츠 정보를 조합해야 함
+        private PostSummary post;
     }
 
-    public static FeedResponse from(Page<UserFeed> feedPage) {
+    public static FeedResponse from(Page<UserFeed> feedPage, Map<Long, PostSummary> postSummariesById) {
         List<FeedSummary> content = feedPage.getContent().stream()
                 .map(feed -> FeedSummary.builder()
                         .feedId(feed.getFeedId())
@@ -41,8 +42,9 @@ public class FeedResponse {
                         .contentId(feed.getContentId())
                         .isRead(feed.getIsRead())
                         .createdAt(feed.getCreatedAt())
+                        .post(resolvePostSummary(feed, postSummariesById))
                         .build())
-                .collect(Collectors.toList());
+                .toList();
 
         return FeedResponse.builder()
                 .content(content)
@@ -53,5 +55,12 @@ public class FeedResponse {
                 .hasNext(feedPage.hasNext())
                 .hasPrevious(feedPage.hasPrevious())
                 .build();
+    }
+
+    private static PostSummary resolvePostSummary(UserFeed feed, Map<Long, PostSummary> postSummariesById) {
+        if (!"POST".equals(feed.getContentType())) {
+            return null;
+        }
+        return postSummariesById.get(feed.getContentId());
     }
 }

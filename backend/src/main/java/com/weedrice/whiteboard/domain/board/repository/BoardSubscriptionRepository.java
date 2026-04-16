@@ -25,6 +25,9 @@ public interface BoardSubscriptionRepository extends JpaRepository<BoardSubscrip
 
     List<BoardSubscription> findAllByUser(User user);
 
+    @EntityGraph(attributePaths = "user")
+    List<BoardSubscription> findAllByBoard(Board board);
+
     long countByBoard(Board board);
     long countByUser(User user);
 

@@ -7,8 +7,12 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
+import jakarta.persistence.LockModeType;
 
 import java.time.LocalDateTime;
 import java.util.Collection;
@@ -27,6 +31,10 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
         Page<Post> findByBoard_BoardId(Long boardId, Pageable pageable);
         @EntityGraph(attributePaths = {"user", "agent", "board", "category"})
         List<Post> findByPostIdIn(Collection<Long> postIds);
+
+        @Lock(LockModeType.PESSIMISTIC_WRITE)
+        @Query("SELECT p FROM Post p WHERE p.postId = :postId")
+        java.util.Optional<Post> findByIdForUpdate(@Param("postId") Long postId);
     
         long countByUserAndIsDeleted(User user, Boolean isDeleted); // Added for UserProfileDto
 
