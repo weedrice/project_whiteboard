@@ -4,9 +4,11 @@ import com.weedrice.whiteboard.domain.auth.entity.VerificationCode;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 public interface VerificationCodeRepository extends JpaRepository<VerificationCode, Long> {
     Optional<VerificationCode> findTopByEmailOrderByCreatedAtDesc(String email);
+    List<VerificationCode> findByEmailOrderByCreatedAtDesc(String email);
     void deleteByExpiryDateBefore(LocalDateTime now);
 }

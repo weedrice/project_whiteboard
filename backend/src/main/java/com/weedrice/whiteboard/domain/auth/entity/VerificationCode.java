@@ -15,6 +15,9 @@ import java.time.LocalDateTime;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class VerificationCode extends BaseTimeEntity {
+    public static final String DELIVERY_STATUS_PENDING = "PENDING";
+    public static final String DELIVERY_STATUS_SENT = "SENT";
+    public static final String DELIVERY_STATUS_FAILED = "FAILED";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -34,12 +37,16 @@ public class VerificationCode extends BaseTimeEntity {
     @Column(name = "is_verified", nullable = false, length = 1)
     private Boolean isVerified;
 
+    @Column(name = "delivery_status", length = 20)
+    private String deliveryStatus;
+
     @Builder
     public VerificationCode(String email, String code, LocalDateTime expiryDate) {
         this.email = email;
         this.code = code;
         this.expiryDate = expiryDate;
         this.isVerified = false;
+        this.deliveryStatus = DELIVERY_STATUS_PENDING;
     }
 
     public void verify() {
@@ -48,6 +55,18 @@ public class VerificationCode extends BaseTimeEntity {
 
     public void clearVerification() {
         this.isVerified = false;
+    }
+
+    public void markSent() {
+        this.deliveryStatus = DELIVERY_STATUS_SENT;
+    }
+
+    public void markFailed() {
+        this.deliveryStatus = DELIVERY_STATUS_FAILED;
+    }
+
+    public boolean isSent() {
+        return this.deliveryStatus == null || DELIVERY_STATUS_SENT.equals(this.deliveryStatus);
     }
 
     public boolean isExpired() {

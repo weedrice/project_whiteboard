@@ -35,6 +35,62 @@ public class VerificationCodeService {
      */
     @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
     public void sendVerificationCode(String email, boolean forSignup, Long currentUserId) {
+        validateDuplicateEmail(email, forSignup, currentUserId);
+
+        String code = generateRandomCode();
+        LocalDateTime expiryDate = LocalDateTime.now().plusMinutes(5);
+        Long verificationId = createPendingVerificationCode(email, code, expiryDate);
+
+        String subject = "[noviIs] 이메일 인증 코드";
+        String body = "<h1>이메일 인증 코드</h1><p>아래 코드를 입력하여 인증을 완료해주세요.</p><h3>" + code + "</h3>";
+
+        try {
+            emailService.sendEmail(email, subject, body);
+            promotePendingVerificationCode(verificationId, email, code, expiryDate);
+        } catch (RuntimeException e) {
+            updateDeliveryStatus(verificationId, false);
+            throw e;
+        }
+    }
+
+    @Transactional
+    public VerifyCodeResponse verifyCode(String email, String code) {
+        VerificationCode verificationCode = getLatestSentVerificationCode(email);
+
+        if (verificationCode.isExpired()) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "만료된 인증 코드입니다.");
+        }
+
+        if (!verificationCode.getCode().equals(code)) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "잘못된 인증 코드입니다.");
+        }
+
+        clearVerifiedSentCodes(email);
+        verificationCode.verify();
+
+        // 재가입 시: DELETED 사용자 이메일이면 loginId 반환 (마스킹 해제용)
+        return userRepository.findByEmail(email)
+                .filter(user -> "DELETED".equals(user.getStatus()))
+                .map(user -> VerifyCodeResponse.builder()
+                        .verified(true)
+                        .loginId(user.getLoginId())
+                        .isReregister(true)
+                        .build())
+                .orElse(VerifyCodeResponse.builder().verified(true).isReregister(false).build());
+    }
+
+    public boolean isVerified(String email) {
+        return findLatestSentCompatibleVerificationCode(email)
+                .map(code -> code.getIsVerified() && !code.isExpired())
+                .orElse(false);
+    }
+
+    @Transactional
+    public void clearVerificationStatus(String email) {
+        clearVerifiedSentCodes(email);
+    }
+
+    private void validateDuplicateEmail(String email, boolean forSignup, Long currentUserId) {
         if (forSignup) {
             // ACTIVE 사용자 이메일만 중복. DELETED는 재가입 허용으로 통과
             Optional<User> existing = userRepository.findByEmail(email);
@@ -56,68 +112,73 @@ public class VerificationCodeService {
                 }
             }
         }
+    }
 
-        String code = generateRandomCode();
-
+    private Long createPendingVerificationCode(String email, String code, LocalDateTime expiryDate) {
+        final Long[] verificationIdHolder = new Long[1];
         transactionTemplate.executeWithoutResult(status -> {
-            LocalDateTime expiryDate = LocalDateTime.now().plusMinutes(5); // 5분 유효
-
             VerificationCode verificationCode = VerificationCode.builder()
                     .email(email)
                     .code(code)
                     .expiryDate(expiryDate)
                     .build();
-
-            verificationCodeRepository.save(verificationCode);
+            verificationIdHolder[0] = verificationCodeRepository.save(verificationCode).getVerificationId();
         });
-
-        String subject = "[noviIs] 이메일 인증 코드";
-        String body = "<h1>이메일 인증 코드</h1><p>아래 코드를 입력하여 인증을 완료해주세요.</p><h3>" + code + "</h3>";
-
-        emailService.sendEmail(email, subject, body);
+        return verificationIdHolder[0];
     }
 
-    @Transactional
-    public VerifyCodeResponse verifyCode(String email, String code) {
-        VerificationCode verificationCode = verificationCodeRepository.findTopByEmailOrderByCreatedAtDesc(email)
-                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "인증 코드를 찾을 수 없습니다. 이메일을 변경하셨다면 다시 인증 코드를 발송해주세요."));
-
-        if (verificationCode.isExpired()) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "만료된 인증 코드입니다.");
-        }
-
-        if (!verificationCode.getCode().equals(code)) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "잘못된 인증 코드입니다.");
-        }
-
-        verificationCode.verify();
-
-        // 재가입 시: DELETED 사용자 이메일이면 loginId 반환 (마스킹 해제용)
-        return userRepository.findByEmail(email)
-                .filter(user -> "DELETED".equals(user.getStatus()))
-                .map(user -> VerifyCodeResponse.builder()
-                        .verified(true)
-                        .loginId(user.getLoginId())
-                        .isReregister(true)
-                        .build())
-                .orElse(VerifyCodeResponse.builder().verified(true).isReregister(false).build());
-    }
-
-    public boolean isVerified(String email) {
-        return verificationCodeRepository.findTopByEmailOrderByCreatedAtDesc(email)
-                .map(code -> code.getIsVerified() && !code.isExpired())
-                .orElse(false);
-    }
-
-    @Transactional
-    public void clearVerificationStatus(String email) {
-        verificationCodeRepository.findTopByEmailOrderByCreatedAtDesc(email)
-                .ifPresent(code -> {
-                    if (code.getIsVerified()) {
-                        code.clearVerification();
-                        verificationCodeRepository.save(code);
+    private void updateDeliveryStatus(Long verificationId, boolean sent) {
+        transactionTemplate.executeWithoutResult(status -> verificationCodeRepository.findById(verificationId)
+                .ifPresent(verificationCode -> {
+                    if (sent) {
+                        verificationCode.markSent();
+                    } else {
+                        verificationCode.markFailed();
                     }
-                });
+                    verificationCodeRepository.save(verificationCode);
+                }));
+    }
+
+    private void promotePendingVerificationCode(Long verificationId, String email, String code, LocalDateTime expiryDate) {
+        try {
+            updateDeliveryStatus(verificationId, true);
+        } catch (RuntimeException e) {
+            saveReplacementSentVerificationCode(email, code, expiryDate);
+        }
+    }
+
+    private void saveReplacementSentVerificationCode(String email, String code, LocalDateTime expiryDate) {
+        transactionTemplate.executeWithoutResult(status -> {
+            VerificationCode replacement = VerificationCode.builder()
+                    .email(email)
+                    .code(code)
+                    .expiryDate(expiryDate)
+                    .build();
+            replacement.markSent();
+            verificationCodeRepository.save(replacement);
+        });
+    }
+
+    private VerificationCode getLatestSentVerificationCode(String email) {
+        return findLatestSentCompatibleVerificationCode(email)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND,
+                        "인증 코드를 찾을 수 없습니다. 이메일을 변경하셨다면 다시 인증 코드를 발송해주세요."));
+    }
+
+    private void clearVerifiedSentCodes(String email) {
+        verificationCodeRepository
+                .findByEmailOrderByCreatedAtDesc(email)
+                .stream()
+                .filter(VerificationCode::isSent)
+                .filter(VerificationCode::getIsVerified)
+                .forEach(VerificationCode::clearVerification);
+    }
+
+    private Optional<VerificationCode> findLatestSentCompatibleVerificationCode(String email) {
+        return verificationCodeRepository.findByEmailOrderByCreatedAtDesc(email)
+                .stream()
+                .filter(VerificationCode::isSent)
+                .findFirst();
     }
 
     private String generateRandomCode() {

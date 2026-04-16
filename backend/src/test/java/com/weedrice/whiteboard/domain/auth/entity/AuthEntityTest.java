@@ -48,10 +48,15 @@ class AuthEntityTest {
 
         assertThat(code.getIsVerified()).isFalse();
         assertThat(code.isExpired()).isFalse();
+        assertThat(code.getDeliveryStatus()).isEqualTo(VerificationCode.DELIVERY_STATUS_PENDING);
 
+        code.markSent();
+        assertThat(code.getDeliveryStatus()).isEqualTo(VerificationCode.DELIVERY_STATUS_SENT);
         code.verify();
         assertThat(code.getIsVerified()).isTrue();
 
+        code.markFailed();
+        assertThat(code.getDeliveryStatus()).isEqualTo(VerificationCode.DELIVERY_STATUS_FAILED);
         code.clearVerification();
         assertThat(code.getIsVerified()).isFalse();
     }
