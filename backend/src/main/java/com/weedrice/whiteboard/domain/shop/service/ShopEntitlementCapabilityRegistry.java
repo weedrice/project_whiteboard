@@ -25,6 +25,7 @@ public class ShopEntitlementCapabilityRegistry {
     }
 
     public Set<String> getSupportedItemTypes() {
+        // Fail closed until a concrete entitlement handler is introduced for a shop item type.
         return handlers.stream()
                 .flatMap(handler -> handler.getSupportedItemTypes().stream())
                 .collect(Collectors.toUnmodifiableSet());
