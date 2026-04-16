@@ -36,7 +36,7 @@ public class TagService {
         for (PostTag postTag : existingPostTags) {
             if (!requestedTagNames.contains(postTag.getTag().getTagName())) {
                 postTagRepository.delete(postTag);
-                postTag.getTag().decrementPostCount();
+                tagRepository.decrementPostCount(postTag.getTag().getTagId());
             }
         }
 
@@ -49,7 +49,7 @@ public class TagService {
                         .tag(tag)
                         .build();
                 postTagRepository.save(postTag);
-                tag.incrementPostCount();
+                tagRepository.incrementPostCount(tag.getTagId());
             }
         }
     }

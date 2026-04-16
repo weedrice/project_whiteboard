@@ -32,9 +32,12 @@ public class PointService {
         private final UserRepository userRepository;
 
         public UserPointResponse getUserPoint(@NonNull Long userId) {
-                UserPoint userPoint = userPointRepository.findByUserId(userId)
-                                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-                return UserPointResponse.from(userPoint);
+                ensureUserExists(userId);
+                return userPointRepository.findByUserId(userId)
+                                .map(UserPointResponse::from)
+                                .orElseGet(() -> UserPointResponse.builder()
+                                                .currentPoint(0)
+                                                .build());
         }
 
         public PointHistoryResponse getPointHistories(@NonNull Long userId, String type, @NonNull Pageable pageable) {
@@ -67,6 +70,7 @@ public class PointService {
         }
 
         public int getCurrentBalance(@NonNull Long userId) {
+                ensureUserExists(userId);
                 return userPointRepository.findByUserId(userId)
                                 .map(UserPoint::getCurrentPoint)
                                 .orElse(0);
@@ -110,5 +114,11 @@ public class PointService {
                                                         .user(user)
                                                         .build();
                                 });
+        }
+
+        private void ensureUserExists(Long userId) {
+                if (!userRepository.existsById(userId)) {
+                        throw new BusinessException(ErrorCode.USER_NOT_FOUND);
+                }
         }
 }

@@ -30,8 +30,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -162,15 +165,17 @@ public class BoardService {
                 }
                 User user = userRepository.findById(userId)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-                Page<BoardSubscription> subscriptions = boardSubscriptionRepository
-                                .findByUserAndBoard_IsActiveOrderBySortOrderAsc(user, true, pageable);
+                List<BoardSubscription> subscriptions = boardSubscriptionRepository
+                                .findAllByUserAndBoard_IsActiveTrueOrderBySortOrderAsc(user);
                 List<Board> visibleBoards = subscriptions
                                 .stream()
                                 .map(BoardSubscription::getBoard)
                                 .filter(board -> boardAccessPolicy.canReadBoard(board, user))
                                 .collect(Collectors.toList());
-                List<BoardResponse> responses = boardResponseAssembler.assembleAll(visibleBoards, user);
-                return new org.springframework.data.domain.PageImpl<>(responses, pageable, subscriptions.getTotalElements());
+                int start = Math.min((int) pageable.getOffset(), visibleBoards.size());
+                int end = Math.min(start + pageable.getPageSize(), visibleBoards.size());
+                List<BoardResponse> responses = boardResponseAssembler.assembleAll(visibleBoards.subList(start, end), user);
+                return new org.springframework.data.domain.PageImpl<>(responses, pageable, visibleBoards.size());
         }
 
         @Transactional
@@ -520,18 +525,37 @@ public class BoardService {
         public void updateSubscriptionOrder(Long userId, List<String> boardUrls) {
                 User user = userRepository.findById(userId)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-
-                List<BoardSubscription> subscriptions = boardSubscriptionRepository.findAllByUser(user);
-
-                for (int i = 0; i < boardUrls.size(); i++) {
-                        String boardUrl = boardUrls.get(i);
-                        int sortOrder = i + 1;
-
-                        subscriptions.stream()
-                                        .filter(sub -> sub.getBoard().getBoardUrl().equals(boardUrl))
-                                        .findFirst()
-                                        .ifPresent(sub -> sub.updateSortOrder(sortOrder));
+                if (boardUrls == null) {
+                        throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
                 }
+
+                List<BoardSubscription> subscriptions = boardSubscriptionRepository
+                                .findAllByUserAndBoard_IsActiveTrueOrderBySortOrderAsc(user)
+                                .stream()
+                                .filter(subscription -> boardAccessPolicy.canReadBoard(subscription.getBoard(), user))
+                                .toList();
+                Set<String> requestedBoardUrls = new LinkedHashSet<>(boardUrls);
+                if (requestedBoardUrls.size() != boardUrls.size()) {
+                        throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+                }
+
+                Set<String> currentBoardUrls = subscriptions.stream()
+                                .map(sub -> sub.getBoard().getBoardUrl())
+                                .collect(Collectors.toCollection(LinkedHashSet::new));
+                if (currentBoardUrls.size() != subscriptions.size()
+                                || subscriptions.size() != boardUrls.size()
+                                || !currentBoardUrls.equals(requestedBoardUrls)) {
+                        throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+                }
+
+                Map<String, BoardSubscription> subscriptionByBoardUrl = subscriptions.stream()
+                                .collect(Collectors.toMap(
+                                                sub -> sub.getBoard().getBoardUrl(),
+                                                sub -> sub));
+                for (int i = 0; i < boardUrls.size(); i++) {
+                        subscriptionByBoardUrl.get(boardUrls.get(i)).updateSortOrder(i + 1);
+                }
+
                 boardSubscriptionRepository.saveAll(subscriptions);
         }
 }

@@ -29,16 +29,20 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class UserSettingsService {
+        private static final String DEFAULT_THEME = "LIGHT";
+        private static final String DEFAULT_LANGUAGE = "ko";
+        private static final String DEFAULT_TIMEZONE = "Asia/Seoul";
+        private static final boolean DEFAULT_HIDE_NSFW = true;
 
         private final UserRepository userRepository;
         private final UserSettingsRepository userSettingsRepository;
         private final UserNotificationSettingsRepository userNotificationSettingsRepository;
 
-        @Transactional
         public UserSettingsResponse getSettings(Long userId) {
-                UserSettings settings = getOrCreateSettingsEntity(userId);
-                return new UserSettingsResponse(settings.getTheme(), settings.getLanguage(), settings.getTimezone(),
-                                settings.getHideNsfw());
+                validateUserExists(userId);
+                return userSettingsRepository.findById(userId)
+                                .map(this::toResponse)
+                                .orElseGet(this::defaultSettingsResponse);
         }
 
         @Transactional
@@ -109,6 +113,15 @@ public class UserSettingsService {
         private void validateUserExists(Long userId) {
                 userRepository.findById(userId)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        }
+
+        private UserSettingsResponse toResponse(UserSettings settings) {
+                return new UserSettingsResponse(settings.getTheme(), settings.getLanguage(), settings.getTimezone(),
+                                settings.getHideNsfw());
+        }
+
+        private UserSettingsResponse defaultSettingsResponse() {
+                return new UserSettingsResponse(DEFAULT_THEME, DEFAULT_LANGUAGE, DEFAULT_TIMEZONE, DEFAULT_HIDE_NSFW);
         }
 
         private void validateNoDuplicateNotificationTypes(List<UpdateNotificationSettingItem> requests) {

@@ -24,6 +24,7 @@ import com.weedrice.whiteboard.domain.post.repository.*;
 import com.weedrice.whiteboard.domain.tag.entity.PostTag;
 import com.weedrice.whiteboard.domain.tag.entity.Tag;
 import com.weedrice.whiteboard.domain.tag.repository.PostTagRepository;
+import com.weedrice.whiteboard.domain.tag.repository.TagRepository;
 import com.weedrice.whiteboard.domain.tag.service.TagService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
@@ -85,6 +86,8 @@ class PostServiceTest {
     @Mock
     private PostTagRepository postTagRepository;
     @Mock
+    private TagRepository tagRepository;
+    @Mock
     private ViewHistoryRepository viewHistoryRepository;
     @Mock
     private CommentRepository commentRepository;
@@ -132,6 +135,7 @@ class PostServiceTest {
                 postVersionRepository,
                 tagService,
                 postTagRepository,
+                tagRepository,
                 viewHistoryRepository,
                 eventPublisher,
                 pointService,
@@ -494,12 +498,14 @@ class PostServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
 
         Tag tag = Tag.builder().tagName("Tag1").build();
+        ReflectionTestUtils.setField(tag, "tagId", 10L);
         PostTag postTag = PostTag.builder().post(post).tag(tag).build();
         when(postTagRepository.findByPost(post)).thenReturn(List.of(postTag));
 
         postService.deletePost(1L, 1L);
 
         assertThat(post.getIsDeleted()).isTrue();
+        verify(tagRepository).decrementPostCount(10L);
         verify(postTagRepository).deleteByPost(post);
         verify(pointService).forceSubtractPoint(eq(1L), eq(50), anyString(), eq(1L), eq("POST"));
     }

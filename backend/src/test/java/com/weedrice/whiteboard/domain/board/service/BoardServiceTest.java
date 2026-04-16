@@ -29,7 +29,6 @@ import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -364,15 +363,104 @@ class BoardServiceTest {
                 .build();
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(boardSubscriptionRepository.findByUserAndBoard_IsActiveOrderBySortOrderAsc(user, true, PageRequest.of(0, 1)))
-                .thenReturn(new PageImpl<>(List.of(subscription), PageRequest.of(0, 1), 5));
+        when(boardSubscriptionRepository.findAllByUserAndBoard_IsActiveTrueOrderBySortOrderAsc(user))
+                .thenReturn(List.of(subscription));
         when(boardSubscriptionRepository.findByUserAndBoardIn(user, List.of(board))).thenReturn(List.of(subscription));
 
         var result = boardService.getMySubscriptions(1L, PageRequest.of(0, 1));
 
-        assertThat(result.getTotalElements()).isEqualTo(5);
+        assertThat(result.getTotalElements()).isEqualTo(1);
         assertThat(result.getContent()).hasSize(1);
         assertThat(result.getContent().get(0).isSubscribed()).isTrue();
+    }
+
+    @Test
+    @DisplayName("구독 순서 변경은 전체 목록과 일치할 때만 1..N으로 재기록한다")
+    void updateSubscriptionOrder_rewritesAllSortOrders() {
+        Board secondBoard = Board.builder()
+                .boardName("Second Board")
+                .boardUrl("second-board")
+                .creator(user)
+                .build();
+        ReflectionTestUtils.setField(secondBoard, "boardId", 2L);
+
+        BoardSubscription firstSubscription = BoardSubscription.builder()
+                .user(user)
+                .board(board)
+                .role("MEMBER")
+                .sortOrder(1)
+                .build();
+        BoardSubscription secondSubscription = BoardSubscription.builder()
+                .user(user)
+                .board(secondBoard)
+                .role("MEMBER")
+                .sortOrder(2)
+                .build();
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(boardSubscriptionRepository.findAllByUserAndBoard_IsActiveTrueOrderBySortOrderAsc(user))
+                .thenReturn(List.of(firstSubscription, secondSubscription));
+
+        boardService.updateSubscriptionOrder(1L, List.of("second-board", "test-board"));
+
+        assertThat(firstSubscription.getSortOrder()).isEqualTo(2);
+        assertThat(secondSubscription.getSortOrder()).isEqualTo(1);
+        verify(boardSubscriptionRepository).saveAll(List.of(firstSubscription, secondSubscription));
+    }
+
+    @Test
+    @DisplayName("구독 순서 변경은 현재 전체 구독 목록과 정확히 일치하지 않으면 거부한다")
+    void updateSubscriptionOrder_rejectsMismatch() {
+        BoardSubscription subscription = BoardSubscription.builder()
+                .user(user)
+                .board(board)
+                .role("MEMBER")
+                .sortOrder(1)
+                .build();
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(boardSubscriptionRepository.findAllByUserAndBoard_IsActiveTrueOrderBySortOrderAsc(user))
+                .thenReturn(List.of(subscription));
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> boardService.updateSubscriptionOrder(1L, List.of("test-board", "missing-board")));
+
+        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+        verify(boardSubscriptionRepository, never()).saveAll(any());
+    }
+
+    @Test
+    @DisplayName("구독 순서 변경은 비활성 보드 구독 이력을 검증 대상에서 제외한다")
+    void updateSubscriptionOrder_ignoresInactiveSubscriptions() {
+        Board secondBoard = Board.builder()
+                .boardName("Second Board")
+                .boardUrl("second-board")
+                .creator(user)
+                .build();
+        ReflectionTestUtils.setField(secondBoard, "boardId", 2L);
+
+        BoardSubscription activeSubscription = BoardSubscription.builder()
+                .user(user)
+                .board(board)
+                .role("MEMBER")
+                .sortOrder(1)
+                .build();
+        BoardSubscription anotherActiveSubscription = BoardSubscription.builder()
+                .user(user)
+                .board(secondBoard)
+                .role("MEMBER")
+                .sortOrder(2)
+                .build();
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(boardSubscriptionRepository.findAllByUserAndBoard_IsActiveTrueOrderBySortOrderAsc(user))
+                .thenReturn(List.of(activeSubscription, anotherActiveSubscription));
+
+        boardService.updateSubscriptionOrder(1L, List.of("second-board", "test-board"));
+
+        assertThat(activeSubscription.getSortOrder()).isEqualTo(2);
+        assertThat(anotherActiveSubscription.getSortOrder()).isEqualTo(1);
+        verify(boardSubscriptionRepository).saveAll(List.of(activeSubscription, anotherActiveSubscription));
     }
 
     @Test
@@ -422,5 +510,93 @@ class BoardServiceTest {
         assertThat(boardCaptor.getValue().getCreator()).isEqualTo(activeSuperAdmin);
         verify(userRepository).findByIsSuperAdminTrueAndDeletedAtIsNull();
         verify(userRepository, never()).findByIsSuperAdminTrue();
+    }
+
+    @Test
+    @DisplayName("구독 순서 변경은 현재 읽을 수 없는 활성 구독을 검증 대상에서 제외한다")
+    void updateSubscriptionOrder_ignoresUnreadableSubscriptions() {
+        User hiddenBoardCreator = User.builder()
+                .loginId("hidden-owner")
+                .password("password")
+                .email("hidden@test.com")
+                .displayName("Hidden Owner")
+                .build();
+        ReflectionTestUtils.setField(hiddenBoardCreator, "userId", 99L);
+
+        Board hiddenBoard = Board.builder()
+                .boardName("Hidden Board")
+                .boardUrl("hidden-board")
+                .creator(hiddenBoardCreator)
+                .isPublic(false)
+                .build();
+        ReflectionTestUtils.setField(hiddenBoard, "boardId", 3L);
+
+        BoardSubscription visibleSubscription = BoardSubscription.builder()
+                .user(user)
+                .board(board)
+                .role("MEMBER")
+                .sortOrder(1)
+                .build();
+        BoardSubscription hiddenSubscription = BoardSubscription.builder()
+                .user(user)
+                .board(hiddenBoard)
+                .role("MEMBER")
+                .sortOrder(2)
+                .build();
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(boardSubscriptionRepository.findAllByUserAndBoard_IsActiveTrueOrderBySortOrderAsc(user))
+                .thenReturn(List.of(visibleSubscription, hiddenSubscription));
+
+        boardService.updateSubscriptionOrder(1L, List.of("test-board"));
+
+        assertThat(visibleSubscription.getSortOrder()).isEqualTo(1);
+        assertThat(hiddenSubscription.getSortOrder()).isEqualTo(2);
+        verify(boardSubscriptionRepository).saveAll(List.of(visibleSubscription));
+    }
+
+    @Test
+    @DisplayName("내 구독 목록은 읽을 수 없는 활성 구독을 total 계산에서 제외한다")
+    void getMySubscriptions_excludesUnreadableSubscriptionsFromTotal() {
+        User hiddenBoardCreator = User.builder()
+                .loginId("hidden-owner")
+                .password("password")
+                .email("hidden@test.com")
+                .displayName("Hidden Owner")
+                .build();
+        ReflectionTestUtils.setField(hiddenBoardCreator, "userId", 99L);
+
+        Board hiddenBoard = Board.builder()
+                .boardName("Hidden Board")
+                .boardUrl("hidden-board")
+                .creator(hiddenBoardCreator)
+                .isPublic(false)
+                .build();
+        ReflectionTestUtils.setField(hiddenBoard, "boardId", 3L);
+
+        BoardSubscription visibleSubscription = BoardSubscription.builder()
+                .user(user)
+                .board(board)
+                .role("MEMBER")
+                .sortOrder(1)
+                .build();
+        BoardSubscription hiddenSubscription = BoardSubscription.builder()
+                .user(user)
+                .board(hiddenBoard)
+                .role("MEMBER")
+                .sortOrder(2)
+                .build();
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(boardSubscriptionRepository.findAllByUserAndBoard_IsActiveTrueOrderBySortOrderAsc(user))
+                .thenReturn(List.of(visibleSubscription, hiddenSubscription));
+        when(boardSubscriptionRepository.findByUserAndBoardIn(user, List.of(board)))
+                .thenReturn(List.of(visibleSubscription));
+
+        var result = boardService.getMySubscriptions(1L, PageRequest.of(0, 10));
+
+        assertThat(result.getTotalElements()).isEqualTo(1);
+        assertThat(result.getContent()).hasSize(1);
+        assertThat(result.getContent().get(0).getBoardUrl()).isEqualTo("test-board");
     }
 }

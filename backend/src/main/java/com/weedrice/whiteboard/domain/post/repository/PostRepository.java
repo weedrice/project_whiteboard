@@ -26,6 +26,7 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
         }
 
         List<Post> findByCreatedAtAfterAndIsDeleted(LocalDateTime dateTime, Boolean isDeleted);
+        @EntityGraph(attributePaths = {"user", "agent", "board", "category"})
         Page<Post> findByUserAndIsDeleted(User user, Boolean isDeleted, Pageable pageable);
         @EntityGraph(attributePaths = {"user", "agent", "board", "category"})
         Page<Post> findByAgent_AgentIdAndIsDeletedOrderByCreatedAtDesc(Long agentId, Boolean isDeleted, Pageable pageable);

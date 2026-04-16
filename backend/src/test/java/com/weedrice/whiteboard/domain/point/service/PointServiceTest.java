@@ -122,6 +122,7 @@ class PointServiceTest {
         // given
         Long userId = 1L;
         userPoint.addPoint(500);
+        when(userRepository.existsById(userId)).thenReturn(true);
         when(userPointRepository.findByUserId(userId)).thenReturn(Optional.of(userPoint));
 
         // when
@@ -131,6 +132,30 @@ class PointServiceTest {
         assertThat(response).isNotNull();
         assertThat(response.getCurrentPoint()).isEqualTo(500);
         verify(userPointRepository).findByUserId(userId);
+    }
+
+    @Test
+    @DisplayName("빈 지갑은 0포인트로 해석한다")
+    void getUserPoint_missingWallet_returnsZero() {
+        Long userId = 1L;
+        when(userRepository.existsById(userId)).thenReturn(true);
+        when(userPointRepository.findByUserId(userId)).thenReturn(Optional.empty());
+
+        com.weedrice.whiteboard.domain.point.dto.UserPointResponse response = pointService.getUserPoint(userId);
+
+        assertThat(response.getCurrentPoint()).isZero();
+    }
+
+    @Test
+    @DisplayName("현재 잔액 조회는 사용자 존재 시 빈 지갑을 0으로 반환한다")
+    void getCurrentBalance_missingWallet_returnsZero() {
+        Long userId = 1L;
+        when(userRepository.existsById(userId)).thenReturn(true);
+        when(userPointRepository.findByUserId(userId)).thenReturn(Optional.empty());
+
+        int balance = pointService.getCurrentBalance(userId);
+
+        assertThat(balance).isZero();
     }
 
     @Test

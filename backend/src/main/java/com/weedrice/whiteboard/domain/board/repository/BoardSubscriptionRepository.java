@@ -20,10 +20,17 @@ public interface BoardSubscriptionRepository extends JpaRepository<BoardSubscrip
 
     Page<BoardSubscription> findByUser(User user, Pageable pageable);
 
+    @EntityGraph(attributePaths = "board")
     Page<BoardSubscription> findByUserAndBoard_IsActiveOrderBySortOrderAsc(User user, Boolean isActive,
             Pageable pageable);
 
     List<BoardSubscription> findAllByUser(User user);
+
+    @EntityGraph(attributePaths = "board")
+    List<BoardSubscription> findAllByUserOrderBySortOrderAsc(User user);
+
+    @EntityGraph(attributePaths = "board")
+    List<BoardSubscription> findAllByUserAndBoard_IsActiveTrueOrderBySortOrderAsc(User user);
 
     @EntityGraph(attributePaths = "user")
     List<BoardSubscription> findAllByBoard(Board board);

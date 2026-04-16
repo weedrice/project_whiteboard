@@ -12,6 +12,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -40,6 +41,7 @@ class TagServiceTest {
     void setUp() {
         post = Post.builder().build();
         existingTag = new Tag("existingTag");
+        ReflectionTestUtils.setField(existingTag, "tagId", 10L);
         existingPostTag = PostTag.builder().post(post).tag(existingTag).build();
     }
 
@@ -49,13 +51,16 @@ class TagServiceTest {
         // given
         when(postTagRepository.findByPost(post)).thenReturn(Collections.emptyList());
         when(tagRepository.findByTagName("newTag")).thenReturn(Optional.empty());
-        when(tagRepository.save(any(Tag.class))).thenReturn(new Tag("newTag"));
+        Tag savedTag = new Tag("newTag");
+        ReflectionTestUtils.setField(savedTag, "tagId", 20L);
+        when(tagRepository.save(any(Tag.class))).thenReturn(savedTag);
 
         // when
         tagService.processTagsForPost(post, Collections.singletonList("newTag"));
 
         // then
         verify(postTagRepository, times(1)).save(any(PostTag.class));
+        verify(tagRepository).incrementPostCount(20L);
     }
 
     @Test
@@ -69,6 +74,7 @@ class TagServiceTest {
 
         // then
         verify(postTagRepository, times(1)).delete(any(PostTag.class));
+        verify(tagRepository).decrementPostCount(10L);
     }
 
     @Test
@@ -103,10 +109,13 @@ class TagServiceTest {
     void processTagsForPost_addAndRemove() {
         // given
         Tag tagToRemove = new Tag("tagToRemove");
+        ReflectionTestUtils.setField(tagToRemove, "tagId", 11L);
         PostTag postTagToRemove = PostTag.builder().post(post).tag(tagToRemove).build();
         when(postTagRepository.findByPost(post)).thenReturn(Arrays.asList(existingPostTag, postTagToRemove));
         when(tagRepository.findByTagName("newTag")).thenReturn(Optional.empty());
-        when(tagRepository.save(any(Tag.class))).thenReturn(new Tag("newTag"));
+        Tag savedTag = new Tag("newTag");
+        ReflectionTestUtils.setField(savedTag, "tagId", 12L);
+        when(tagRepository.save(any(Tag.class))).thenReturn(savedTag);
 
         // when
         tagService.processTagsForPost(post, Arrays.asList("existingTag", "newTag"));
@@ -114,6 +123,8 @@ class TagServiceTest {
         // then
         verify(postTagRepository, times(1)).save(any(PostTag.class));
         verify(postTagRepository, times(1)).delete(postTagToRemove);
+        verify(tagRepository).incrementPostCount(12L);
+        verify(tagRepository).decrementPostCount(11L);
     }
 
     @Test

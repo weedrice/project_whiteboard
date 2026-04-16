@@ -28,6 +28,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -58,6 +59,23 @@ class UserSettingsServiceTest {
         UserSettingsResponse response = userSettingsService.getSettings(1L);
 
         assertThat(response).isNotNull();
+    }
+
+    @Test
+    @DisplayName("Settings lookup returns defaults when settings row is missing")
+    void getSettings_missingRow_returnsDefaults() {
+        User user = User.builder().build();
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userSettingsRepository.findById(1L)).thenReturn(Optional.empty());
+
+        UserSettingsResponse response = userSettingsService.getSettings(1L);
+
+        assertThat(response.getTheme()).isEqualTo("LIGHT");
+        assertThat(response.getLanguage()).isEqualTo("ko");
+        assertThat(response.getTimezone()).isEqualTo("Asia/Seoul");
+        assertThat(response.isHideNsfw()).isTrue();
+        verify(userSettingsRepository, never()).save(any());
     }
 
     @Test

@@ -29,6 +29,7 @@ import com.weedrice.whiteboard.domain.post.dto.ViewHistoryRequest;
 import com.weedrice.whiteboard.domain.post.entity.*;
 import com.weedrice.whiteboard.domain.post.repository.*;
 import com.weedrice.whiteboard.domain.tag.repository.PostTagRepository;
+import com.weedrice.whiteboard.domain.tag.repository.TagRepository;
 import com.weedrice.whiteboard.domain.tag.service.TagService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
@@ -67,6 +68,7 @@ public class PostService {
     private final PostVersionRepository postVersionRepository;
     private final TagService tagService;
     private final PostTagRepository postTagRepository;
+    private final TagRepository tagRepository;
     private final ViewHistoryRepository viewHistoryRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final PointService pointService;
@@ -446,7 +448,8 @@ public class PostService {
         }
 
         post.deletePost();
-        postTagRepository.findByPost(post).forEach(postTag -> postTag.getTag().decrementPostCount());
+        postTagRepository.findByPost(post)
+                .forEach(postTag -> tagRepository.decrementPostCount(postTag.getTag().getTagId()));
         postTagRepository.deleteByPost(post);
         User modifier = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
