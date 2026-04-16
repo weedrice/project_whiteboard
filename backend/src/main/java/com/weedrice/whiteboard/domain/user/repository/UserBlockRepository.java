@@ -4,6 +4,7 @@ import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.entity.UserBlock;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -26,8 +27,24 @@ public interface UserBlockRepository extends JpaRepository<UserBlock, Long> {
     boolean existsEitherDirection(@Param("userAId") Long userAId, @Param("userBId") Long userBId);
 
     Optional<UserBlock> findByUserAndTarget(User user, User target);
+    @EntityGraph(attributePaths = "target")
+    @Query(value = """
+            SELECT ub
+            FROM UserBlock ub
+            WHERE ub.user = :user
+            ORDER BY ub.createdAt DESC
+            """, countQuery = """
+            SELECT COUNT(ub)
+            FROM UserBlock ub
+            WHERE ub.user = :user
+            """)
+    Page<UserBlock> findPageByUserWithTarget(@Param("user") User user, Pageable pageable);
 
-    Page<UserBlock> findByUserOrderByCreatedAtDesc(User user, Pageable pageable);
-
-    List<UserBlock> findByUser(User user);
+    @EntityGraph(attributePaths = "target")
+    @Query("""
+            SELECT ub
+            FROM UserBlock ub
+            WHERE ub.user = :user
+            """)
+    List<UserBlock> findByUserWithTarget(@Param("user") User user);
 }

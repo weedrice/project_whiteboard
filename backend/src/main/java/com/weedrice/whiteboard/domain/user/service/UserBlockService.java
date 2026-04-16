@@ -21,81 +21,81 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class UserBlockService {
 
-        private final UserRepository userRepository;
-        private final UserBlockRepository userBlockRepository;
+    private final UserRepository userRepository;
+    private final UserBlockRepository userBlockRepository;
 
-        @Transactional
-        public void blockUser(Long userId, Long targetUserId) {
-                if (userId.equals(targetUserId)) {
-                        throw new BusinessException(ErrorCode.CANNOT_BLOCK_SELF);
-                }
-
-                User user = userRepository.findById(userId)
-                                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-
-                User target = userRepository.findById(targetUserId)
-                                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-
-                if (userBlockRepository.existsByUserAndTarget(user, target)) {
-                        throw new BusinessException(ErrorCode.ALREADY_BLOCKED);
-                }
-
-                UserBlock userBlock = UserBlock.builder()
-                                .user(user)
-                                .target(target)
-                                .build();
-
-                userBlockRepository.save(userBlock);
+    @Transactional
+    public void blockUser(Long userId, Long targetUserId) {
+        if (userId.equals(targetUserId)) {
+            throw new BusinessException(ErrorCode.CANNOT_BLOCK_SELF);
         }
 
-        @Transactional
-        public void unblockUser(Long userId, Long targetUserId) {
-                User user = userRepository.findById(userId)
-                                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
-                User target = userRepository.findById(targetUserId)
-                                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        User target = userRepository.findById(targetUserId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
-                UserBlock userBlock = userBlockRepository.findByUserAndTarget(user, target)
-                                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
-
-                userBlockRepository.delete(userBlock);
+        if (userBlockRepository.existsByUserAndTarget(user, target)) {
+            throw new BusinessException(ErrorCode.ALREADY_BLOCKED);
         }
 
-        public Page<BlockedUserResponse> getBlockedUsers(Long userId, Pageable pageable) {
-                User user = userRepository.findById(userId)
-                                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        UserBlock userBlock = UserBlock.builder()
+                .user(user)
+                .target(target)
+                .build();
 
-                Page<UserBlock> blocks = userBlockRepository.findByUserOrderByCreatedAtDesc(user, pageable);
+        userBlockRepository.save(userBlock);
+    }
 
-                return blocks.map(block -> new BlockedUserResponse(
-                                block.getTarget().getUserId(),
-                                block.getTarget().getLoginId(),
-                                block.getTarget().getDisplayName(),
-                                block.getCreatedAt()));
+    @Transactional
+    public void unblockUser(Long userId, Long targetUserId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+        User target = userRepository.findById(targetUserId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+        UserBlock userBlock = userBlockRepository.findByUserAndTarget(user, target)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+
+        userBlockRepository.delete(userBlock);
+    }
+
+    public Page<BlockedUserResponse> getBlockedUsers(Long userId, Pageable pageable) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+        Page<UserBlock> blocks = userBlockRepository.findPageByUserWithTarget(user, pageable);
+
+        return blocks.map(block -> new BlockedUserResponse(
+                block.getTarget().getUserId(),
+                block.getTarget().getLoginId(),
+                block.getTarget().getDisplayName(),
+                block.getCreatedAt()));
+    }
+
+    public boolean isBlocked(Long userId, Long targetUserId) {
+        validateUserExists(userId);
+        validateUserExists(targetUserId);
+        return userBlockRepository.existsByUser_UserIdAndTarget_UserId(userId, targetUserId);
+    }
+
+    public boolean isEitherDirectionBlocked(Long userAId, Long userBId) {
+        return userBlockRepository.existsEitherDirection(userAId, userBId);
+    }
+
+    public List<Long> getBlockedUserIds(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        return userBlockRepository.findByUserWithTarget(user).stream()
+                .map(block -> block.getTarget().getUserId())
+                .collect(Collectors.toList());
+    }
+
+    private void validateUserExists(Long userId) {
+        if (!userRepository.existsById(userId)) {
+            throw new BusinessException(ErrorCode.USER_NOT_FOUND);
         }
-
-        public boolean isBlocked(Long userId, Long targetUserId) {
-                validateUserExists(userId);
-                validateUserExists(targetUserId);
-                return userBlockRepository.existsByUser_UserIdAndTarget_UserId(userId, targetUserId);
-        }
-
-        public boolean isEitherDirectionBlocked(Long userAId, Long userBId) {
-                return userBlockRepository.existsEitherDirection(userAId, userBId);
-        }
-
-        public List<Long> getBlockedUserIds(Long userId) {
-                User user = userRepository.findById(userId)
-                                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-                return userBlockRepository.findByUser(user).stream()
-                                .map(block -> block.getTarget().getUserId())
-                                .collect(Collectors.toList());
-        }
-
-        private void validateUserExists(Long userId) {
-                if (!userRepository.existsById(userId)) {
-                        throw new BusinessException(ErrorCode.USER_NOT_FOUND);
-                }
-        }
+    }
 }

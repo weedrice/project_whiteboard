@@ -585,11 +585,21 @@ class PostServiceTest {
     @DisplayName("내 스크랩 조회")
     void getMyScraps_success() {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(scrapRepository.findByUserOrderByCreatedAtDesc(eq(user), any(Pageable.class))).thenReturn(Page.empty());
+        Scrap scrap = Scrap.builder()
+                .user(user)
+                .post(post)
+                .remark("bookmark")
+                .build();
+        when(scrapRepository.findPageByUserWithPostDetails(eq(user), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(scrap), PageRequest.of(0, 10), 1));
 
-        postService.getMyScraps(1L, Pageable.unpaged());
+        ScrapListResponse response = postService.getMyScraps(1L, PageRequest.of(0, 10));
 
-        verify(scrapRepository).findByUserOrderByCreatedAtDesc(eq(user), any(Pageable.class));
+        assertThat(response.getContent()).hasSize(1);
+        assertThat(response.getContent().getFirst().getRemark()).isEqualTo("bookmark");
+        assertThat(response.getContent().getFirst().getPost().getTitle()).isEqualTo("Test Post");
+        assertThat(response.getContent().getFirst().getPost().getBoardName()).isEqualTo("Test Board");
+        verify(scrapRepository).findPageByUserWithPostDetails(eq(user), any(Pageable.class));
     }
 
     // --- Drafts ---
@@ -858,13 +868,22 @@ class PostServiceTest {
     @DisplayName("초안 목록 조회")
     void getDraftPosts_success() {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(draftPostRepository.findByUserOrderByModifiedAtDesc(eq(user), any(Pageable.class)))
-                .thenReturn(Page.empty());
+        DraftPost draft = DraftPost.builder()
+                .user(user)
+                .board(board)
+                .title("Draft Title")
+                .contents("Draft Content")
+                .build();
+        ReflectionTestUtils.setField(draft, "draftId", 11L);
+        when(draftPostRepository.findPageByUserWithBoard(eq(user), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(draft), PageRequest.of(0, 10), 1));
 
-        DraftListResponse response = postService.getDraftPosts(1L, Pageable.unpaged());
+        DraftListResponse response = postService.getDraftPosts(1L, PageRequest.of(0, 10));
 
-        assertThat(response).isNotNull();
-        verify(draftPostRepository).findByUserOrderByModifiedAtDesc(eq(user), any(Pageable.class));
+        assertThat(response.getContent()).hasSize(1);
+        assertThat(response.getContent().getFirst().getDraftId()).isEqualTo(11L);
+        assertThat(response.getContent().getFirst().getBoardName()).isEqualTo("Test Board");
+        verify(draftPostRepository).findPageByUserWithBoard(eq(user), any(Pageable.class));
     }
 
     @Test

@@ -110,12 +110,13 @@ class UserBlockServiceTest {
         Page<UserBlock> page = new PageImpl<>(List.of(userBlock));
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(blocker));
-        when(userBlockRepository.findByUserOrderByCreatedAtDesc(any(), any())).thenReturn(page);
+        when(userBlockRepository.findPageByUserWithTarget(any(), any())).thenReturn(page);
 
         Page<BlockedUserResponse> response = userBlockService.getBlockedUsers(1L, PageRequest.of(0, 10));
 
         assertThat(response.getContent()).hasSize(1);
         assertThat(response.getContent().getFirst().getDisplayName()).isEqualTo("Blocked");
+        verify(userBlockRepository).findPageByUserWithTarget(blocker, PageRequest.of(0, 10));
     }
 
     @Test
@@ -145,10 +146,11 @@ class UserBlockServiceTest {
         UserBlock userBlock = UserBlock.builder().user(blocker).target(blocked).build();
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(blocker));
-        when(userBlockRepository.findByUser(blocker)).thenReturn(List.of(userBlock));
+        when(userBlockRepository.findByUserWithTarget(blocker)).thenReturn(List.of(userBlock));
 
         List<Long> ids = userBlockService.getBlockedUserIds(1L);
         assertThat(ids).containsExactly(2L);
+        verify(userBlockRepository).findByUserWithTarget(blocker);
     }
 
     @Test

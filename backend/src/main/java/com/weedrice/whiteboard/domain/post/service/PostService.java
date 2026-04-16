@@ -532,14 +532,14 @@ public class PostService {
     public ScrapListResponse getMyScraps(@NonNull Long userId, @NonNull Pageable pageable) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        Page<Scrap> scrapPage = scrapRepository.findByUserOrderByCreatedAtDesc(user, pageable);
+        Page<Scrap> scrapPage = scrapRepository.findPageByUserWithPostDetails(user, pageable);
         return ScrapListResponse.from(scrapPage);
     }
 
     public DraftListResponse getDraftPosts(@NonNull Long userId, @NonNull Pageable pageable) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        Page<DraftPost> draftPage = draftPostRepository.findByUserOrderByModifiedAtDesc(user, pageable);
+        Page<DraftPost> draftPage = draftPostRepository.findPageByUserWithBoard(user, pageable);
         return DraftListResponse.from(draftPage);
     }
 
