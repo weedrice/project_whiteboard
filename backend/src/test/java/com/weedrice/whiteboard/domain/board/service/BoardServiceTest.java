@@ -16,8 +16,7 @@ import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
-import com.weedrice.whiteboard.domain.point.repository.UserPointRepository;
-import com.weedrice.whiteboard.domain.point.repository.PointHistoryRepository;
+import com.weedrice.whiteboard.domain.point.service.PointService;
 import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -25,6 +24,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
@@ -41,10 +41,13 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.mockito.Mockito.lenient;
 
 @ExtendWith(MockitoExtension.class)
 class BoardServiceTest {
@@ -68,9 +71,7 @@ class BoardServiceTest {
     @Mock
     private DraftPostRepository draftPostRepository;
     @Mock
-    private UserPointRepository userPointRepository;
-    @Mock
-    private PointHistoryRepository pointHistoryRepository;
+    private PointService pointService;
     @Mock
     private GlobalConfigService globalConfigService;
     private BoardResponseReadService boardResponseReadService;
@@ -99,8 +100,7 @@ class BoardServiceTest {
                 boardSubscriptionRepository,
                 userRepository,
                 adminRepository,
-                userPointRepository,
-                pointHistoryRepository,
+                pointService,
                 globalConfigService,
                 boardResponseAssembler,
                 boardAccessPolicy);
@@ -194,14 +194,10 @@ class BoardServiceTest {
         // given
         Long creatorId = 1L;
         BoardCreateRequest request = new BoardCreateRequest("New Board", "new-board", "New Description", null, null);
-        com.weedrice.whiteboard.domain.point.entity.UserPoint userPoint = 
-                com.weedrice.whiteboard.domain.point.entity.UserPoint.builder().user(user).build();
-        ReflectionTestUtils.setField(userPoint, "currentPoint", 1000);
-        
+
         when(userRepository.findById(creatorId)).thenReturn(Optional.of(user));
         when(boardRepository.existsByBoardName(request.getBoardName())).thenReturn(false);
         when(boardRepository.existsByBoardUrl(request.getBoardUrl())).thenReturn(false);
-        when(userPointRepository.findById(creatorId)).thenReturn(Optional.of(userPoint));
         when(globalConfigService.getConfig(anyString())).thenReturn("500");
         when(boardRepository.save(any(Board.class))).thenReturn(board);
         when(boardCategoryRepository.save(any(com.weedrice.whiteboard.domain.board.entity.BoardCategory.class)))
@@ -215,9 +211,11 @@ class BoardServiceTest {
 
         // then
         assertThat(createdBoard.getBoardName()).isEqualTo("Test Board");
-        verify(boardRepository).save(any(Board.class));
-        verify(boardCategoryRepository).save(any());
-        verify(adminRepository).save(any());
+        InOrder inOrder = inOrder(boardRepository, pointService, boardCategoryRepository, adminRepository);
+        inOrder.verify(boardRepository).save(any(Board.class));
+        inOrder.verify(pointService).spendPoint(creatorId, 500, "게시판 생성 (Test Board)", 1L, "BOARD_CREATE");
+        inOrder.verify(boardCategoryRepository).save(any());
+        inOrder.verify(adminRepository).save(any());
     }
 
     @Test
@@ -225,9 +223,6 @@ class BoardServiceTest {
     void createBoard_agentEnabled_createsBoardAiInfo() {
         Long creatorId = 1L;
         BoardCreateRequest request = new BoardCreateRequest("AI Board", "ai-board", null, null, true, true, null);
-        com.weedrice.whiteboard.domain.point.entity.UserPoint userPoint =
-                com.weedrice.whiteboard.domain.point.entity.UserPoint.builder().user(user).build();
-        ReflectionTestUtils.setField(userPoint, "currentPoint", 1000);
 
         Board savedBoard = Board.builder()
                 .boardName("AI Board")
@@ -242,7 +237,6 @@ class BoardServiceTest {
         when(userRepository.findById(creatorId)).thenReturn(Optional.of(user));
         when(boardRepository.existsByBoardName(request.getBoardName())).thenReturn(false);
         when(boardRepository.existsByBoardUrl(request.getBoardUrl())).thenReturn(false);
-        when(userPointRepository.findById(creatorId)).thenReturn(Optional.of(userPoint));
         when(globalConfigService.getConfig(anyString())).thenReturn("500");
         when(boardRepository.save(any(Board.class))).thenReturn(savedBoard);
         when(boardCategoryRepository.save(any(com.weedrice.whiteboard.domain.board.entity.BoardCategory.class)))
@@ -255,6 +249,33 @@ class BoardServiceTest {
         boardService.createBoard(creatorId, request);
 
         verify(boardAiInfoRepository).save(any(BoardAiInfo.class));
+        verify(pointService).spendPoint(creatorId, 500, "게시판 생성 (AI Board)", 2L, "BOARD_CREATE");
+    }
+
+    @Test
+    @DisplayName("게시판 생성 포인트 부족 예외는 PointService 경로로 유지된다")
+    void createBoard_insufficientPoints_propagatesFromPointService() {
+        Long creatorId = 1L;
+        BoardCreateRequest request = new BoardCreateRequest("New Board", "new-board", "New Description", null, null);
+
+        when(userRepository.findById(creatorId)).thenReturn(Optional.of(user));
+        when(boardRepository.existsByBoardName(request.getBoardName())).thenReturn(false);
+        when(boardRepository.existsByBoardUrl(request.getBoardUrl())).thenReturn(false);
+        when(globalConfigService.getConfig(anyString())).thenReturn("500");
+        when(boardRepository.save(any(Board.class))).thenReturn(board);
+        when(boardRepository.findMaxSortOrder()).thenReturn(0);
+        doThrow(new BusinessException(ErrorCode.INSUFFICIENT_POINTS))
+                .when(pointService)
+                .spendPoint(creatorId, 500, "게시판 생성 (Test Board)", 1L, "BOARD_CREATE");
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> boardService.createBoard(creatorId, request));
+
+        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INSUFFICIENT_POINTS);
+        verify(boardRepository).save(any(Board.class));
+        verify(boardCategoryRepository, never()).save(any());
+        verify(adminRepository, never()).save(any());
+        verify(boardAiInfoRepository, never()).save(any());
     }
 
     @Test

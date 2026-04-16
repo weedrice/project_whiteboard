@@ -12,10 +12,7 @@ import com.weedrice.whiteboard.domain.board.repository.BoardAiInfoRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardCategoryRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository;
-import com.weedrice.whiteboard.domain.point.entity.PointHistory;
-import com.weedrice.whiteboard.domain.point.entity.UserPoint;
-import com.weedrice.whiteboard.domain.point.repository.PointHistoryRepository;
-import com.weedrice.whiteboard.domain.point.repository.UserPointRepository;
+import com.weedrice.whiteboard.domain.point.service.PointService;
 import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
@@ -52,8 +49,7 @@ public class BoardService {
         private final BoardSubscriptionRepository boardSubscriptionRepository;
         private final UserRepository userRepository;
         private final AdminRepository adminRepository;
-        private final UserPointRepository userPointRepository;
-        private final PointHistoryRepository pointHistoryRepository;
+        private final PointService pointService;
         private final GlobalConfigService globalConfigService;
         private final BoardResponseAssembler boardResponseAssembler;
         private final BoardAccessPolicy boardAccessPolicy;
@@ -186,20 +182,6 @@ public class BoardService {
                         throw new BusinessException(ErrorCode.DUPLICATE_BOARD_URL);
                 }
 
-                UserPoint userPoint = userPointRepository.findById(creatorId)
-                                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-
-                // 포인트 확인 및 차감 (게시판 생성 비용)
-                String boardCreateCostStr = globalConfigService.getConfig("POINT_BOARD_CREATE_COST");
-                int boardCreateCost = boardCreateCostStr != null ? Integer.parseInt(boardCreateCostStr) : 500;
-
-                if (userPoint.getCurrentPoint() < boardCreateCost) {
-                        throw new BusinessException(ErrorCode.INSUFFICIENT_POINTS);
-                }
-
-                userPoint.subtractPoint(boardCreateCost);
-                // userPointRepository.save(userPoint); // Dirty checking
-
                 Integer maxSortOrder = boardRepository.findMaxSortOrder();
 
                 Board board = Board.builder()
@@ -214,17 +196,13 @@ public class BoardService {
                                 .build();
 
                 Board savedBoard = boardRepository.save(board);
+                pointService.spendPoint(
+                                creatorId,
+                                resolveBoardCreateCost(),
+                                "게시판 생성 (" + savedBoard.getBoardName() + ")",
+                                savedBoard.getBoardId(),
+                                "BOARD_CREATE");
                 upsertBoardAiInfoIfEnabled(savedBoard, request.getGuidePrompt(), true);
-
-                pointHistoryRepository.save(PointHistory.builder()
-                                .user(creator)
-                                .type("SPEND")
-                                .amount(-boardCreateCost)
-                                .balanceAfter(userPoint.getCurrentPoint())
-                                .description("게시판 생성 (" + savedBoard.getBoardName() + ")")
-                                .relatedType("BOARD_CREATE")
-                                .relatedId(savedBoard.getBoardId())
-                                .build());
 
                 BoardCategory defaultCategory = BoardCategory.builder()
                                 .board(savedBoard)
@@ -516,6 +494,11 @@ public class BoardService {
                         return normalizeDescription(board.getDescription());
                 }
                 return normalizeGuidePrompt(requestedGuidePrompt);
+        }
+
+        private int resolveBoardCreateCost() {
+                String boardCreateCostStr = globalConfigService.getConfig("POINT_BOARD_CREATE_COST");
+                return boardCreateCostStr != null ? Integer.parseInt(boardCreateCostStr) : 500;
         }
 
         private String normalizeGuidePrompt(String guidePrompt) {

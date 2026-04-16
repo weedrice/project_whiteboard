@@ -98,6 +98,8 @@ class PointServiceTest {
         assertThat(userPoint.getCurrentPoint()).isEqualTo(180);
         assertThat(historyCaptor.getValue().getType()).isEqualTo("SPEND");
         assertThat(historyCaptor.getValue().getAmount()).isEqualTo(-120);
+        assertThat(historyCaptor.getValue().getRelatedId()).isEqualTo(10L);
+        assertThat(historyCaptor.getValue().getRelatedType()).isEqualTo("SHOP_ITEM");
     }
 
     @Test
