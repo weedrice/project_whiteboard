@@ -9,6 +9,7 @@ import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.dto.MyInfoResponse;
 import com.weedrice.whiteboard.domain.user.dto.UpdateProfileResponse;
+import com.weedrice.whiteboard.domain.user.dto.UserProfileResponse;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.DisplayNameHistoryRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
@@ -75,6 +76,36 @@ class UserProfileServiceTest {
 
         assertThat(response.getUserId()).isEqualTo(1L);
         assertThat(response.getPoints()).isEqualTo(100);
+    }
+
+    @Test
+    @DisplayName("공개 프로필은 활성 사용자와 공개 댓글만 집계한다")
+    void getUserProfile_success() {
+        User user = User.builder().loginId("test").displayName("tester").build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+
+        when(userRepository.findByUserIdAndStatusAndDeletedAtIsNull(1L, "ACTIVE")).thenReturn(Optional.of(user));
+        when(postRepository.countByUserAndIsDeleted(user, false)).thenReturn(5L);
+        when(commentRepository.countByUserAndIsDeleted(user, false)).thenReturn(7L);
+
+        UserProfileResponse response = userProfileService.getUserProfile(1L);
+
+        assertThat(response.getUserId()).isEqualTo(1L);
+        assertThat(response.getDisplayName()).isEqualTo("tester");
+        assertThat(response.getPostCount()).isEqualTo(5L);
+        assertThat(response.getCommentCount()).isEqualTo(7L);
+        verify(commentRepository).countByUserAndIsDeleted(user, false);
+    }
+
+    @Test
+    @DisplayName("비활성 또는 삭제된 사용자는 공개 프로필에서 제외한다")
+    void getUserProfile_userNotFound() {
+        when(userRepository.findByUserIdAndStatusAndDeletedAtIsNull(1L, "ACTIVE")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> userProfileService.getUserProfile(1L))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.USER_NOT_FOUND);
     }
 
     @Test

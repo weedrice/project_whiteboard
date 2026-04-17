@@ -45,11 +45,14 @@ public class PostController {
             userId = ((CustomUserDetails) authentication.getPrincipal()).getUserId();
         }
 
+        Page<PostSummary> summaryPage;
         if (keyword != null && !keyword.trim().isEmpty()) {
+            summaryPage = postService.getPosts(boardUrl, categoryId, keyword, minLikes, userId, pageable);
             searchRecordEventPublisher.publish(userId, keyword);
+            return ApiResponse.success(new PageResponse<>(summaryPage));
         }
 
-        Page<PostSummary> summaryPage = postService.getPosts(boardUrl, categoryId, keyword, minLikes, userId, pageable);
+        summaryPage = postService.getPosts(boardUrl, categoryId, keyword, minLikes, userId, pageable);
 
         return ApiResponse.success(new PageResponse<>(summaryPage));
     }

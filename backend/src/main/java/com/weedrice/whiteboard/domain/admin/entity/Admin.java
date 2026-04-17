@@ -27,11 +27,11 @@ public class Admin extends BaseTimeEntity {
     private User user;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "board_id", nullable = false) // nullable = false로 변경
-    private Board board; // 이제 NULL일 수 없음
+    @JoinColumn(name = "board_id", nullable = false)
+    private Board board;
 
     @Column(name = "role", length = 50, nullable = false)
-    private String role; // BOARD_ADMIN, MODERATOR
+    private String role;
 
     @Convert(converter = BooleanToYNConverter.class)
     @Column(name = "is_active", length = 1, nullable = false)
@@ -42,7 +42,7 @@ public class Admin extends BaseTimeEntity {
         this.user = user;
         this.board = board;
         this.role = role;
-        this.isActive = true; // Set to true by default
+        this.isActive = true;
     }
 
     public void deactivate() {

@@ -11,11 +11,9 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class UserProfileResponse {
     private Long userId;
-    private String loginId;
     private String displayName;
     private String profileImageUrl;
     private LocalDateTime createdAt;
-    private LocalDateTime lastLoginAt;
     private long postCount;
     private long commentCount;
 }

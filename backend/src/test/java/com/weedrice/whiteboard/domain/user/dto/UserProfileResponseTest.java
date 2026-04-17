@@ -31,22 +31,18 @@ class UserProfileResponseTest {
         // when
         UserProfileResponse response = UserProfileResponse.builder()
                 .userId(user.getUserId())
-                .loginId(user.getLoginId())
                 .displayName(user.getDisplayName())
                 .profileImageUrl(user.getProfileImageUrl())
                 .createdAt(user.getCreatedAt())
-                .lastLoginAt(user.getLastLoginAt())
                 .postCount(postCount)
                 .commentCount(commentCount)
                 .build();
 
         // then
         assertThat(response.getUserId()).isEqualTo(user.getUserId());
-        assertThat(response.getLoginId()).isEqualTo(user.getLoginId());
         assertThat(response.getDisplayName()).isEqualTo(user.getDisplayName());
         assertThat(response.getProfileImageUrl()).isEqualTo(user.getProfileImageUrl());
         assertThat(response.getCreatedAt()).isEqualTo(user.getCreatedAt());
-        assertThat(response.getLastLoginAt()).isEqualTo(user.getLastLoginAt());
         assertThat(response.getPostCount()).isEqualTo(postCount);
         assertThat(response.getCommentCount()).isEqualTo(commentCount);
     }

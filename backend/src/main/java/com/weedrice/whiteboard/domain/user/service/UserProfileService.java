@@ -67,19 +67,17 @@ public class UserProfileService {
     }
 
     public UserProfileResponse getUserProfile(Long userId) {
-        User user = userRepository.findById(userId)
+        User user = userRepository.findByUserIdAndStatusAndDeletedAtIsNull(userId, "ACTIVE")
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
         long postCount = postRepository.countByUserAndIsDeleted(user, false);
-        long commentCount = commentRepository.countByUser(user);
+        long commentCount = commentRepository.countByUserAndIsDeleted(user, false);
 
         return UserProfileResponse.builder()
                 .userId(user.getUserId())
-                .loginId(user.getLoginId())
                 .displayName(user.getDisplayName())
                 .profileImageUrl(user.getProfileImageUrl())
                 .createdAt(user.getCreatedAt())
-                .lastLoginAt(user.getLastLoginAt())
                 .postCount(postCount)
                 .commentCount(commentCount)
                 .build();

@@ -1,5 +1,15 @@
 import api from '@/api'
-import type { ApiResponse, PageResponse, User, UserSummary, UserSettings, PostSummary, Comment, Board } from '@/types'
+import type {
+    ApiResponse,
+    PageResponse,
+    User,
+    UserSummary,
+    UserSettings,
+    PostSummary,
+    Comment,
+    Board,
+    PublicUserProfile,
+} from '@/types'
 
 export interface UserProfile {
     userId: number;
@@ -54,7 +64,7 @@ export const userApi = {
         return api.get<ApiResponse<User>>('/users/me')
     },
     getUserProfile(userId: string | number) {
-        return api.get<ApiResponse<User>>(`/users/${userId}`)
+        return api.get<ApiResponse<PublicUserProfile>>(`/users/${userId}`)
     },
     updateMyProfile(data: UserUpdatePayload) {
         return api.put<ApiResponse<User>>('/users/me', data)

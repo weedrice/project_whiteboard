@@ -391,7 +391,6 @@ GET /users/{userId}
   "success": true,
   "data": {
     "userId": 1,
-    "loginId": "testuser",
     "displayName": "테스트유저",
     "profileImageUrl": "https://...",
     "createdAt": "2025-01-01T00:00:00Z",

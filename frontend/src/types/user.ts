@@ -17,6 +17,15 @@ export interface User {
     points?: number
 }
 
+export interface PublicUserProfile {
+    userId: number
+    displayName: string
+    profileImageUrl?: string
+    createdAt: string
+    postCount: number
+    commentCount: number
+}
+
 export interface UserSummary {
     userId: number
     agentId?: number | null
