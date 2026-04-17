@@ -1,0 +1,149 @@
+package com.weedrice.whiteboard.domain.board.repository;
+
+import com.weedrice.whiteboard.domain.admin.entity.Admin;
+import com.weedrice.whiteboard.domain.board.entity.Board;
+import com.weedrice.whiteboard.domain.board.entity.BoardSubscription;
+import com.weedrice.whiteboard.domain.user.entity.Role;
+import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.global.config.QuerydslConfig;
+import jakarta.persistence.EntityManagerFactory;
+import jakarta.persistence.PersistenceUnitUtil;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
+import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+@DataJpaTest
+@Import(QuerydslConfig.class)
+class BoardSubscriptionRepositoryTest {
+
+    @Autowired
+    private TestEntityManager entityManager;
+
+    @Autowired
+    private EntityManagerFactory entityManagerFactory;
+
+    @Autowired
+    private BoardSubscriptionRepository boardSubscriptionRepository;
+
+    private User viewer;
+    private User superAdmin;
+    private User owner;
+    private Board adminOnlyBoard;
+    private Board ownPrivateBoard;
+    private Board publicBoard;
+    private Board hiddenBoard;
+    private Board inactiveBoard;
+
+    @BeforeEach
+    void setUp() {
+        viewer = persistUser("viewer", "viewer@test.com", "조회자");
+        superAdmin = User.builder()
+                .loginId("super-admin")
+                .email("super-admin@test.com")
+                .password("password")
+                .displayName("슈퍼관리자")
+                .build();
+        superAdmin.grantSuperAdminRole();
+        entityManager.persist(superAdmin);
+        owner = persistUser("owner", "owner@test.com", "게시판주인");
+
+        adminOnlyBoard = persistBoard("Admin Only", "admin-only", owner, false, false);
+        ownPrivateBoard = persistBoard("Own Private", "own-private", viewer, false, false);
+        publicBoard = persistBoard("Public", "public", owner, true, true);
+        hiddenBoard = persistBoard("Hidden", "hidden", owner, true, false);
+        inactiveBoard = persistBoard("Inactive", "inactive", owner, false, true);
+
+        entityManager.persist(Admin.builder()
+                .user(viewer)
+                .board(adminOnlyBoard)
+                .role(Role.BOARD_ADMIN)
+                .build());
+
+        persistSubscription(viewer, adminOnlyBoard, 10);
+        persistSubscription(viewer, ownPrivateBoard, 20);
+        persistSubscription(viewer, publicBoard, 30);
+        persistSubscription(viewer, hiddenBoard, 40);
+        persistSubscription(viewer, inactiveBoard, 50);
+
+        persistSubscription(superAdmin, hiddenBoard, 5);
+        persistSubscription(superAdmin, inactiveBoard, 15);
+
+        entityManager.flush();
+        entityManager.clear();
+    }
+
+    @Test
+    @DisplayName("일반 사용자는 읽을 수 있는 구독만 정렬 순서대로 페이지 조회한다")
+    void findVisibleByUserOrderBySortOrderAsc_filtersUnreadableBoards() {
+        Page<BoardSubscription> result = boardSubscriptionRepository.findVisibleByUserOrderBySortOrderAsc(
+                viewer,
+                false,
+                PageRequest.of(0, 10));
+        PersistenceUnitUtil persistenceUnitUtil = entityManagerFactory.getPersistenceUnitUtil();
+
+        assertThat(result.getTotalElements()).isEqualTo(3);
+        assertThat(result.getContent())
+                .extracting(subscription -> subscription.getBoard().getBoardUrl())
+                .containsExactly("admin-only", "own-private", "public");
+        assertThat(persistenceUnitUtil.isLoaded(result.getContent().get(0), "board")).isTrue();
+        assertThat(persistenceUnitUtil.isLoaded(result.getContent().get(0).getBoard(), "creator")).isTrue();
+    }
+
+    @Test
+    @DisplayName("슈퍼 관리자는 비공개 또는 비활성 게시판 구독도 그대로 조회한다")
+    void findVisibleByUserOrderBySortOrderAsc_includesAllSubscribedBoardsForSuperAdmin() {
+        Page<BoardSubscription> result = boardSubscriptionRepository.findVisibleByUserOrderBySortOrderAsc(
+                superAdmin,
+                true,
+                PageRequest.of(0, 10));
+
+        assertThat(result.getTotalElements()).isEqualTo(2);
+        assertThat(result.getContent())
+                .extracting(subscription -> subscription.getBoard().getBoardUrl())
+                .containsExactly("hidden", "inactive");
+    }
+
+    private User persistUser(String loginId, String email, String displayName) {
+        User user = User.builder()
+                .loginId(loginId)
+                .email(email)
+                .password("password")
+                .displayName(displayName)
+                .build();
+        entityManager.persist(user);
+        return user;
+    }
+
+    private Board persistBoard(String boardName, String boardUrl, User creator, boolean isActive, boolean isPublic) {
+        Board board = Board.builder()
+                .boardName(boardName)
+                .boardUrl(boardUrl)
+                .creator(creator)
+                .isPublic(isPublic)
+                .build();
+        if (!isActive) {
+            board.deactivate();
+        }
+        entityManager.persist(board);
+        return board;
+    }
+
+    private void persistSubscription(User user, Board board, int sortOrder) {
+        entityManager.persist(BoardSubscription.builder()
+                .user(user)
+                .board(board)
+                .role("MEMBER")
+                .sortOrder(sortOrder)
+                .build());
+    }
+}

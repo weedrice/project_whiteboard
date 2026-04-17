@@ -95,17 +95,15 @@ class BoardQueryService {
         }
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        List<BoardSubscription> subscriptions = boardSubscriptionRepository
-                .findAllByUserAndBoard_IsActiveTrueOrderBySortOrderAsc(user);
-        List<Board> visibleBoards = subscriptions
-                .stream()
+        Page<BoardSubscription> visibleSubscriptions = boardSubscriptionRepository.findVisibleByUserOrderBySortOrderAsc(
+                user,
+                Boolean.TRUE.equals(user.getIsSuperAdmin()),
+                pageable);
+        List<Board> visibleBoards = visibleSubscriptions.getContent().stream()
                 .map(BoardSubscription::getBoard)
-                .filter(board -> boardAccessPolicy.canReadBoard(board, user))
-                .collect(Collectors.toList());
-        int start = Math.min((int) pageable.getOffset(), visibleBoards.size());
-        int end = Math.min(start + pageable.getPageSize(), visibleBoards.size());
-        List<BoardResponse> responses = boardResponseAssembler.assembleAll(visibleBoards.subList(start, end), user);
-        return new PageImpl<>(responses, pageable, visibleBoards.size());
+                .toList();
+        List<BoardResponse> responses = boardResponseAssembler.assembleAll(visibleBoards, user);
+        return new PageImpl<>(responses, pageable, visibleSubscriptions.getTotalElements());
     }
 
     private User getCurrentUserOrNull(UserDetails userDetails) {

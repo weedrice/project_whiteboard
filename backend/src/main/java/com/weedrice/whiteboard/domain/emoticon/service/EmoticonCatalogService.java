@@ -7,6 +7,7 @@ import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import org.hibernate.proxy.HibernateProxy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
@@ -153,15 +154,19 @@ class EmoticonCatalogService {
     }
 
     private EmoticonMasterDto toSummaryDto(EmoticonMaster master, Map<Long, String> creatorNamesById) {
-        Long creatorId = master.getCreator() != null ? master.getCreator().getUserId() : null;
-        return EmoticonMasterDto.fromWithoutImages(master, creatorId, creatorNamesById.get(creatorId));
+        Long creatorId = extractCreatorId(master);
+        String creatorName = extractLoadedCreatorName(master);
+        if (creatorName == null) {
+            creatorName = creatorNamesById.get(creatorId);
+        }
+        return EmoticonMasterDto.fromWithoutImages(master, creatorId, creatorName);
     }
 
     private Map<Long, String> loadCreatorNames(Collection<EmoticonMaster> masters) {
         Set<Long> creatorIds = masters.stream()
-                .map(EmoticonMaster::getCreator)
+                .filter(master -> extractLoadedCreatorName(master) == null)
+                .map(this::extractCreatorId)
                 .filter(Objects::nonNull)
-                .map(User::getUserId)
                 .collect(Collectors.toSet());
 
         if (creatorIds.isEmpty()) {
@@ -170,5 +175,30 @@ class EmoticonCatalogService {
 
         return userRepository.findAllById(creatorIds).stream()
                 .collect(Collectors.toMap(User::getUserId, User::getDisplayName, (left, right) -> left));
+    }
+
+    private Long extractCreatorId(EmoticonMaster master) {
+        User creator = master.getCreator();
+        if (creator == null) {
+            return null;
+        }
+        if (creator instanceof HibernateProxy proxy) {
+            Object identifier = proxy.getHibernateLazyInitializer().getIdentifier();
+            if (identifier instanceof Long creatorId) {
+                return creatorId;
+            }
+        }
+        return creator.getUserId();
+    }
+
+    private String extractLoadedCreatorName(EmoticonMaster master) {
+        User creator = master.getCreator();
+        if (creator == null) {
+            return null;
+        }
+        if (creator instanceof HibernateProxy proxy && proxy.getHibernateLazyInitializer().isUninitialized()) {
+            return null;
+        }
+        return creator.getDisplayName();
     }
 }

@@ -8,6 +8,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.Collection;
 import java.util.List;
@@ -31,6 +33,48 @@ public interface BoardSubscriptionRepository extends JpaRepository<BoardSubscrip
 
     @EntityGraph(attributePaths = "board")
     List<BoardSubscription> findAllByUserAndBoard_IsActiveTrueOrderBySortOrderAsc(User user);
+
+    @EntityGraph(attributePaths = {"board", "board.creator"})
+    @Query(value = """
+            SELECT bs
+            FROM BoardSubscription bs
+            JOIN bs.board b
+            WHERE bs.user = :user
+              AND (
+                    :isSuperAdmin = true
+                    OR b.creator = :user
+                    OR EXISTS (
+                        SELECT admin.adminId
+                        FROM Admin admin
+                        WHERE admin.board = b
+                          AND admin.user = :user
+                          AND admin.isActive = true
+                    )
+                    OR (b.isActive = true AND b.isPublic = true)
+                  )
+            ORDER BY bs.sortOrder ASC
+            """,
+            countQuery = """
+            SELECT COUNT(bs)
+            FROM BoardSubscription bs
+            JOIN bs.board b
+            WHERE bs.user = :user
+              AND (
+                    :isSuperAdmin = true
+                    OR b.creator = :user
+                    OR EXISTS (
+                        SELECT admin.adminId
+                        FROM Admin admin
+                        WHERE admin.board = b
+                          AND admin.user = :user
+                          AND admin.isActive = true
+                    )
+                    OR (b.isActive = true AND b.isPublic = true)
+                  )
+            """)
+    Page<BoardSubscription> findVisibleByUserOrderBySortOrderAsc(@Param("user") User user,
+            @Param("isSuperAdmin") boolean isSuperAdmin,
+            Pageable pageable);
 
     @EntityGraph(attributePaths = "user")
     List<BoardSubscription> findAllByBoard(Board board);

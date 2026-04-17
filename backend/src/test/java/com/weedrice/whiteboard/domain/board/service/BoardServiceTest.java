@@ -30,6 +30,7 @@ import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -487,8 +488,9 @@ class BoardServiceTest {
                 .build();
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(boardSubscriptionRepository.findAllByUserAndBoard_IsActiveTrueOrderBySortOrderAsc(user))
-                .thenReturn(List.of(subscription));
+        when(boardSubscriptionRepository.findVisibleByUserOrderBySortOrderAsc(
+                user, false, PageRequest.of(0, 1)))
+                .thenReturn(new PageImpl<>(List.of(subscription), PageRequest.of(0, 1), 1));
         when(boardSubscriptionRepository.findByUserAndBoardIn(user, List.of(board))).thenReturn(List.of(subscription));
 
         var result = boardService.getMySubscriptions(1L, PageRequest.of(0, 1));
@@ -704,16 +706,10 @@ class BoardServiceTest {
                 .role("MEMBER")
                 .sortOrder(1)
                 .build();
-        BoardSubscription hiddenSubscription = BoardSubscription.builder()
-                .user(user)
-                .board(hiddenBoard)
-                .role("MEMBER")
-                .sortOrder(2)
-                .build();
-
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(boardSubscriptionRepository.findAllByUserAndBoard_IsActiveTrueOrderBySortOrderAsc(user))
-                .thenReturn(List.of(visibleSubscription, hiddenSubscription));
+        when(boardSubscriptionRepository.findVisibleByUserOrderBySortOrderAsc(
+                user, false, PageRequest.of(0, 10)))
+                .thenReturn(new PageImpl<>(List.of(visibleSubscription), PageRequest.of(0, 10), 1));
         when(boardSubscriptionRepository.findByUserAndBoardIn(user, List.of(board)))
                 .thenReturn(List.of(visibleSubscription));
 
