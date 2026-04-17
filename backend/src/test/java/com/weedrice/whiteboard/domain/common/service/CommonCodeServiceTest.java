@@ -125,6 +125,7 @@ class CommonCodeServiceTest {
 
         // then
         assertThat(responses).hasSize(2);
+        mockedSecurityUtils.verify(SecurityUtils::validateSuperAdminPermission);
     }
 
     @Test
@@ -139,6 +140,7 @@ class CommonCodeServiceTest {
         // then
         assertThat(response).isNotNull();
         assertThat(response.getTypeCode()).isEqualTo("TEST_TYPE");
+        mockedSecurityUtils.verify(SecurityUtils::validateSuperAdminPermission);
     }
 
     @Test
@@ -152,6 +154,7 @@ class CommonCodeServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.NOT_FOUND);
+        mockedSecurityUtils.verify(SecurityUtils::validateSuperAdminPermission);
     }
 
     @Test

@@ -51,6 +51,8 @@ public class CommonCodeService {
     }
 
     public CommonCodeResponse getCommonCode(String typeCode) {
+        SecurityUtils.validateSuperAdminPermission();
+
         CommonCode commonCode = commonCodeRepository.findById(typeCode)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
         return CommonCodeResponse.from(commonCode);
