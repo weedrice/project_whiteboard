@@ -7,7 +7,7 @@ import com.weedrice.whiteboard.domain.user.dto.AdminUserDetailResponse;
 import com.weedrice.whiteboard.domain.user.dto.UserAdminResponse;
 import com.weedrice.whiteboard.domain.user.dto.UserStatusUpdateRequest;
 import com.weedrice.whiteboard.domain.user.entity.Role;
-import com.weedrice.whiteboard.domain.user.service.UserService;
+import com.weedrice.whiteboard.domain.user.service.UserAdminQueryService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
 import lombok.RequiredArgsConstructor;
@@ -25,7 +25,7 @@ import java.time.LocalDate;
 @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
 public class AdminUserController {
 
-    private final UserService userService;
+    private final UserAdminQueryService userAdminQueryService;
 
     @GetMapping
     public ApiResponse<PageResponse<UserAdminResponse>> searchUsers(
@@ -43,7 +43,7 @@ public class AdminUserController {
             @RequestParam(required = false) Long minActivityCount,
             @PageableDefault(size = 20) Pageable pageable) {
         String searchKeyword = (keyword != null && !keyword.isBlank()) ? keyword : q;
-        Page<UserAdminResponse> response = userService.searchUsersForAdmin(
+        Page<UserAdminResponse> response = userAdminQueryService.searchUsersForAdmin(
                 searchKeyword,
                 status,
                 role,
@@ -61,35 +61,35 @@ public class AdminUserController {
 
     @GetMapping("/{userId}")
     public ApiResponse<AdminUserDetailResponse> getUserDetail(@PathVariable Long userId) {
-        return ApiResponse.success(userService.getUserDetailForAdmin(userId));
+        return ApiResponse.success(userAdminQueryService.getUserDetailForAdmin(userId));
     }
 
     @GetMapping("/{userId}/posts")
     public ApiResponse<PageResponse<PostSummary>> getUserPosts(
             @PathVariable Long userId,
             @PageableDefault(size = 10) Pageable pageable) {
-        return ApiResponse.success(new PageResponse<>(userService.getUserPostsForAdmin(userId, pageable)));
+        return ApiResponse.success(new PageResponse<>(userAdminQueryService.getUserPostsForAdmin(userId, pageable)));
     }
 
     @GetMapping("/{userId}/comments")
     public ApiResponse<PageResponse<MyCommentResponse>> getUserComments(
             @PathVariable Long userId,
             @PageableDefault(size = 10) Pageable pageable) {
-        return ApiResponse.success(new PageResponse<>(userService.getUserCommentsForAdmin(userId, pageable)));
+        return ApiResponse.success(new PageResponse<>(userAdminQueryService.getUserCommentsForAdmin(userId, pageable)));
     }
 
     @GetMapping("/{userId}/subscriptions")
     public ApiResponse<PageResponse<BoardResponse>> getUserSubscriptions(
             @PathVariable Long userId,
             @PageableDefault(size = 10) Pageable pageable) {
-        return ApiResponse.success(new PageResponse<>(userService.getUserSubscriptionsForAdmin(userId, pageable)));
+        return ApiResponse.success(new PageResponse<>(userAdminQueryService.getUserSubscriptionsForAdmin(userId, pageable)));
     }
 
     @PutMapping("/{userId}/status")
     public ApiResponse<Void> updateUserStatus(
             @PathVariable Long userId,
             @RequestBody UserStatusUpdateRequest request) {
-        userService.updateUserStatus(userId, request.getStatus());
+        userAdminQueryService.updateUserStatus(userId, request.getStatus());
         return ApiResponse.success(null);
     }
 }

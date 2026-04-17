@@ -1,0 +1,137 @@
+package com.weedrice.whiteboard.domain.user.service;
+
+import com.weedrice.whiteboard.domain.agent.service.AgentService;
+import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
+import com.weedrice.whiteboard.domain.file.service.FileService;
+import com.weedrice.whiteboard.domain.point.entity.UserPoint;
+import com.weedrice.whiteboard.domain.point.repository.UserPointRepository;
+import com.weedrice.whiteboard.domain.post.repository.PostRepository;
+import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
+import com.weedrice.whiteboard.domain.user.dto.MyInfoResponse;
+import com.weedrice.whiteboard.domain.user.dto.UpdateProfileResponse;
+import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.domain.user.repository.DisplayNameHistoryRepository;
+import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.global.exception.BusinessException;
+import com.weedrice.whiteboard.global.exception.ErrorCode;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.util.ReflectionTestUtils;
+
+import java.util.Optional;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+@ExtendWith(MockitoExtension.class)
+class UserProfileServiceTest {
+
+    @InjectMocks
+    private UserProfileService userProfileService;
+
+    @Mock private UserRepository userRepository;
+    @Mock private CommentRepository commentRepository;
+    @Mock private DisplayNameHistoryRepository displayNameHistoryRepository;
+    @Mock private PostRepository postRepository;
+    @Mock private FileService fileService;
+    @Mock private UserPointRepository userPointRepository;
+    @Mock private SanctionService sanctionService;
+    @Mock private AgentService agentService;
+    @Mock private PasswordEncoder passwordEncoder;
+
+    @Test
+    @DisplayName("로그인 ID로 사용자 ID 조회 성공")
+    void findUserIdByLoginId_success() {
+        User user = User.builder().build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+        when(userRepository.findByLoginId("test")).thenReturn(Optional.of(user));
+
+        assertThat(userProfileService.findUserIdByLoginId("test")).isEqualTo(1L);
+    }
+
+    @Test
+    @DisplayName("내 정보 조회 성공")
+    void getMyInfo_success() {
+        User user = User.builder().loginId("test").build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+        ReflectionTestUtils.setField(user, "isSuperAdmin", false);
+        UserPoint userPoint = UserPoint.builder().user(user).build();
+        ReflectionTestUtils.setField(userPoint, "currentPoint", 100);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userPointRepository.findById(1L)).thenReturn(Optional.of(userPoint));
+
+        MyInfoResponse response = userProfileService.getMyInfo(1L);
+
+        assertThat(response.getUserId()).isEqualTo(1L);
+        assertThat(response.getPoints()).isEqualTo(100);
+    }
+
+    @Test
+    @DisplayName("프로필 이미지 변경 시 파일 서비스 결과를 반영한다")
+    void updateMyProfile_imageChange() {
+        User user = User.builder().displayName("Name").build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(fileService.replaceUserProfileImage(100L, 1L, 1L)).thenReturn("/api/v1/files/100");
+
+        UpdateProfileResponse response = userProfileService.updateMyProfile(1L, null, 100L);
+
+        assertThat(response.getProfileImageUrl()).isEqualTo("/api/v1/files/100");
+        verify(fileService).replaceUserProfileImage(100L, 1L, 1L);
+    }
+
+    @Test
+    @DisplayName("회원 탈퇴 성공")
+    void deleteAccount_success() {
+        User user = User.builder().password("encodedPass").build();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("pass", "encodedPass")).thenReturn(true);
+
+        userProfileService.deleteAccount(1L, "pass");
+
+        assertThat(user.getStatus()).isEqualTo("DELETED");
+        verify(agentService).suspendAllForUser(user);
+    }
+
+    @Test
+    @DisplayName("잘못된 비밀번호면 회원 탈퇴를 거부한다")
+    void deleteAccount_wrongPassword() {
+        User user = User.builder().password("encodedPass").build();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("wrong", "encodedPass")).thenReturn(false);
+
+        assertThatThrownBy(() -> userProfileService.deleteAccount(1L, "wrong"))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.INVALID_PASSWORD);
+
+        verify(agentService, never()).suspendAllForUser(any());
+    }
+
+    @Test
+    @DisplayName("제재된 사용자는 프로필 수정이 불가능하다")
+    void updateMyProfile_bannedUser() {
+        User user = User.builder().displayName("Old Name").build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        org.mockito.Mockito.doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE))
+                .when(sanctionService)
+                .validateNotBanned(user);
+
+        assertThatThrownBy(() -> userProfileService.updateMyProfile(1L, "New Name", null))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.USER_NOT_ACTIVE);
+    }
+}

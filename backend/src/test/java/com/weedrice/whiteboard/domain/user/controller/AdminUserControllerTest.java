@@ -3,7 +3,7 @@ package com.weedrice.whiteboard.domain.user.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.weedrice.whiteboard.domain.user.dto.UserAdminResponse;
 import com.weedrice.whiteboard.domain.user.entity.User;
-import com.weedrice.whiteboard.domain.user.service.UserService;
+import com.weedrice.whiteboard.domain.user.service.UserAdminQueryService;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -50,7 +50,7 @@ class AdminUserControllerTest {
     private ObjectMapper objectMapper;
 
     @MockBean
-    private UserService userService;
+    private UserAdminQueryService userAdminQueryService;
 
     @MockBean
     private com.weedrice.whiteboard.global.security.JwtAuthenticationFilter jwtAuthenticationFilter;
@@ -103,7 +103,7 @@ class AdminUserControllerTest {
                 .role("USER")
                 .build();
         Page<UserAdminResponse> responsePage = new PageImpl<>(List.of(resp), PageRequest.of(0, 20), 1);
-        when(userService.searchUsersForAdmin(
+        when(userAdminQueryService.searchUsersForAdmin(
                 any(),
                 any(),
                 any(),
@@ -140,7 +140,7 @@ class AdminUserControllerTest {
             new com.weedrice.whiteboard.domain.user.dto.UserStatusUpdateRequest();
         org.springframework.test.util.ReflectionTestUtils.setField(request, "status", "ACTIVE");
         
-        doAnswer(invocation -> null).when(userService).updateUserStatus(anyLong(), anyString());
+        doAnswer(invocation -> null).when(userAdminQueryService).updateUserStatus(anyLong(), anyString());
 
         // when & then
         mockMvc.perform(put("/api/v1/admin/users/{userId}/status", 1L)

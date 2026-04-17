@@ -13,7 +13,8 @@ import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.domain.user.dto.*;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
-import com.weedrice.whiteboard.domain.user.service.UserService;
+import com.weedrice.whiteboard.domain.user.service.UserProfileService;
+import com.weedrice.whiteboard.domain.user.service.UserSecurityService;
 import com.weedrice.whiteboard.domain.user.service.UserSettingsService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
@@ -38,7 +39,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class UserController {
 
-        private final UserService userService;
+        private final UserProfileService userProfileService;
+        private final UserSecurityService userSecurityService;
         private final UserSettingsService userSettingsService;
         private final UserBlockService userBlockService;
         private final BoardService boardService;
@@ -47,22 +49,22 @@ public class UserController {
         private final AgentService agentService;
         private final MessageSource messageSource;
 
+        @GetMapping("/{userId}")
+        public ResponseEntity<ApiResponse<UserProfileResponse>> getUserProfile(@PathVariable Long userId) {
+                return ResponseEntity.ok(ApiResponse.success(userProfileService.getUserProfile(userId)));
+        }
+
         @GetMapping("/me")
         public ResponseEntity<ApiResponse<MyInfoResponse>> getMyInfo(
                         @AuthenticationPrincipal CustomUserDetails userDetails) {
-                return ResponseEntity.ok(ApiResponse.success(userService.getMyInfo(userDetails.getUserId())));
-        }
-
-        @GetMapping("/{userId}")
-        public ResponseEntity<ApiResponse<UserProfileResponse>> getUserProfile(@PathVariable Long userId) {
-                return ResponseEntity.ok(ApiResponse.success(userService.getUserProfile(userId)));
+                return ResponseEntity.ok(ApiResponse.success(userProfileService.getMyInfo(userDetails.getUserId())));
         }
 
         @PutMapping("/me")
         public ResponseEntity<ApiResponse<UpdateProfileResponse>> updateMyProfile(
                         @Valid @RequestBody UpdateProfileRequest request,
                         @AuthenticationPrincipal CustomUserDetails userDetails) {
-                return ResponseEntity.ok(ApiResponse.success(userService.updateMyProfile(userDetails.getUserId(),
+                return ResponseEntity.ok(ApiResponse.success(userProfileService.updateMyProfile(userDetails.getUserId(),
                                 request.getDisplayName(), request.getProfileImageId())));
         }
 
@@ -70,7 +72,7 @@ public class UserController {
         public ResponseEntity<ApiResponse<Void>> verifyEmail(
                         @Valid @RequestBody VerifyCodeRequest request,
                         @AuthenticationPrincipal CustomUserDetails userDetails) {
-                userService.verifyAndChangeEmail(userDetails.getUserId(), request.getEmail(), request.getCode());
+                userSecurityService.verifyAndChangeEmail(userDetails.getUserId(), request.getEmail(), request.getCode());
                 return ResponseEntity.ok(ApiResponse.success(null));
         }
 
@@ -78,7 +80,7 @@ public class UserController {
         public ResponseEntity<ApiResponse<MessageResponse>> updatePassword(
                         @Valid @RequestBody UpdatePasswordRequest request,
                         @AuthenticationPrincipal CustomUserDetails userDetails) {
-                userService.updatePassword(userDetails.getUserId(), request.getCurrentPassword(),
+                userSecurityService.updatePassword(userDetails.getUserId(), request.getCurrentPassword(),
                                 request.getNewPassword());
                 String message = messageSource.getMessage("success.user.passwordChanged", null,
                                 LocaleContextHolder.getLocale());
@@ -89,7 +91,7 @@ public class UserController {
         public ResponseEntity<ApiResponse<MessageResponse>> deleteAccount(
                         @Valid @RequestBody DeleteAccountRequest request,
                         @AuthenticationPrincipal CustomUserDetails userDetails) {
-                userService.deleteAccount(userDetails.getUserId(), request.getPassword());
+                userProfileService.deleteAccount(userDetails.getUserId(), request.getPassword());
                 String message = messageSource.getMessage("success.user.accountDeleted", null,
                                 LocaleContextHolder.getLocale());
                 return ResponseEntity.ok(ApiResponse.success(new MessageResponse(message)));

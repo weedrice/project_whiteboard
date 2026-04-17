@@ -18,7 +18,8 @@ import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.entity.UserNotificationSettings;
 import com.weedrice.whiteboard.domain.user.entity.UserSettings;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
-import com.weedrice.whiteboard.domain.user.service.UserService;
+import com.weedrice.whiteboard.domain.user.service.UserProfileService;
+import com.weedrice.whiteboard.domain.user.service.UserSecurityService;
 import com.weedrice.whiteboard.domain.user.service.UserSettingsService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
@@ -55,7 +56,10 @@ import static org.mockito.Mockito.verify;
 class UserControllerTest {
 
         @Mock
-        private UserService userService;
+        private UserProfileService userProfileService;
+
+        @Mock
+        private UserSecurityService userSecurityService;
 
         @Mock
         private UserSettingsService userSettingsService;

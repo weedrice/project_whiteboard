@@ -9,7 +9,8 @@ import com.weedrice.whiteboard.domain.user.dto.NotificationSettingResponse;
 import com.weedrice.whiteboard.domain.user.dto.UpdateNotificationSettingItem;
 import com.weedrice.whiteboard.domain.user.dto.UpdateNotificationSettingsRequest;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
-import com.weedrice.whiteboard.domain.user.service.UserService;
+import com.weedrice.whiteboard.domain.user.service.UserProfileService;
+import com.weedrice.whiteboard.domain.user.service.UserSecurityService;
 import com.weedrice.whiteboard.domain.user.service.UserSettingsService;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import jakarta.servlet.FilterChain;
@@ -55,7 +56,10 @@ class UserControllerWebMvcTest {
     private ObjectMapper objectMapper;
 
     @MockitoBean
-    private UserService userService;
+    private UserProfileService userProfileService;
+
+    @MockitoBean
+    private UserSecurityService userSecurityService;
 
     @MockitoBean
     private UserSettingsService userSettingsService;
