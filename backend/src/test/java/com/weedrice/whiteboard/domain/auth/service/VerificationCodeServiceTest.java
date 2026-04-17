@@ -75,11 +75,28 @@ class VerificationCodeServiceTest {
 
         when(verificationCodeRepository.findById(any())).thenAnswer(invocation ->
                 Optional.ofNullable(verificationCodes.get(invocation.getArgument(0))));
-        when(verificationCodeRepository.findByEmailOrderByCreatedAtDesc(anyString()))
+        when(verificationCodeRepository.findLatestSentByEmail(anyString()))
                 .thenAnswer(invocation -> verificationCodes.values().stream()
                         .filter(code -> invocation.getArgument(0).equals(code.getEmail()))
+                        .filter(code -> code.getDeliveryStatus() == null
+                                || VerificationCode.DELIVERY_STATUS_SENT.equals(code.getDeliveryStatus()))
                         .sorted((left, right) -> right.getCreatedAt().compareTo(left.getCreatedAt()))
-                        .toList());
+                        .findFirst());
+        when(verificationCodeRepository.clearVerifiedSentCodes(anyString()))
+                .thenAnswer(invocation -> {
+                    String email = invocation.getArgument(0);
+                    int clearedCount = 0;
+                    for (VerificationCode verificationCode : verificationCodes.values()) {
+                        if (email.equals(verificationCode.getEmail())
+                                && Boolean.TRUE.equals(verificationCode.getIsVerified())
+                                && (verificationCode.getDeliveryStatus() == null
+                                        || VerificationCode.DELIVERY_STATUS_SENT.equals(verificationCode.getDeliveryStatus()))) {
+                            verificationCode.clearVerification();
+                            clearedCount++;
+                        }
+                    }
+                    return clearedCount;
+                });
     }
 
     @Test
@@ -196,6 +213,7 @@ class VerificationCodeServiceTest {
 
         assertThat(verificationCodeService.isVerified("test@example.com")).isTrue();
         verify(verificationCodeRepository, never()).findTopByEmailOrderByCreatedAtDesc(anyString());
+        verify(verificationCodeRepository, never()).findByEmailOrderByCreatedAtDesc(anyString());
     }
 
     @Test

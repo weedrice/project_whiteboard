@@ -166,19 +166,11 @@ public class VerificationCodeService {
     }
 
     private void clearVerifiedSentCodes(String email) {
-        verificationCodeRepository
-                .findByEmailOrderByCreatedAtDesc(email)
-                .stream()
-                .filter(VerificationCode::isSent)
-                .filter(VerificationCode::getIsVerified)
-                .forEach(VerificationCode::clearVerification);
+        verificationCodeRepository.clearVerifiedSentCodes(email);
     }
 
     private Optional<VerificationCode> findLatestSentCompatibleVerificationCode(String email) {
-        return verificationCodeRepository.findByEmailOrderByCreatedAtDesc(email)
-                .stream()
-                .filter(VerificationCode::isSent)
-                .findFirst();
+        return verificationCodeRepository.findLatestSentByEmail(email);
     }
 
     private String generateRandomCode() {
