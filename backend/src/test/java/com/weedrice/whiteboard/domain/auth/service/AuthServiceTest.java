@@ -98,9 +98,16 @@ class AuthServiceTest {
         SessionTokenService sessionTokenService = new SessionTokenService(
                 userRepository, userPointRepository, jwtTokenProvider, authenticationManagerBuilder,
                 refreshTokenRepository, loginHistoryRepository, sanctionService, tokenHashService);
+        PasswordResetTokenOrchestrationService passwordResetTokenOrchestrationService =
+                new PasswordResetTokenOrchestrationService(
+                        passwordResetTokenRepository,
+                        emailService,
+                        transactionTemplate,
+                        tokenHashService);
         PasswordResetService passwordResetService = new PasswordResetService(
                 userRepository, passwordEncoder, verificationCodeService, passwordResetTokenRepository,
-                passwordHistoryRepository, emailService, transactionTemplate, sessionTokenService, tokenHashService);
+                passwordHistoryRepository, sessionTokenService, tokenHashService,
+                passwordResetTokenOrchestrationService);
         SignupService signupService = new SignupService(
                 userRepository, pointService, passwordEncoder, userSettingsRepository,
                 socialAccountRepository, verificationCodeService, globalConfigService, entityManager);

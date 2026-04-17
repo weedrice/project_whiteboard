@@ -72,9 +72,16 @@ class AuthPasswordResetMailFlowTest {
         SessionTokenService sessionTokenService = new SessionTokenService(
                 userRepository, userPointRepository, jwtTokenProvider, authenticationManagerBuilder,
                 refreshTokenRepository, loginHistoryRepository, sanctionService, tokenHashService);
+        PasswordResetTokenOrchestrationService passwordResetTokenOrchestrationService =
+                new PasswordResetTokenOrchestrationService(
+                        passwordResetTokenRepository,
+                        emailService,
+                        transactionTemplate,
+                        tokenHashService);
         passwordResetService = new PasswordResetService(
                 userRepository, passwordEncoder, verificationCodeService, passwordResetTokenRepository,
-                passwordHistoryRepository, emailService, transactionTemplate, sessionTokenService, tokenHashService);
+                passwordHistoryRepository, sessionTokenService, tokenHashService,
+                passwordResetTokenOrchestrationService);
 
         user = User.builder()
                 .loginId("testuser")
