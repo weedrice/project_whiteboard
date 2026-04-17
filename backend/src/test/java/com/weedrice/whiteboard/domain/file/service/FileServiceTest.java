@@ -172,6 +172,46 @@ class FileServiceTest {
     }
 
     @Test
+    @DisplayName("프로필 이미지 교체 시 새 파일은 유지하고 기존 프로필 파일은 삭제 예정으로 전환한다")
+    void replaceUserProfileImage_marksPreviousFilesPendingDelete() {
+        User uploader = User.builder().build();
+        ReflectionTestUtils.setField(uploader, "userId", 1L);
+
+        File newProfileFile = File.builder()
+                .filePath("new-profile.jpg")
+                .originalName("new-profile.jpg")
+                .fileSize(4L)
+                .mimeType("image/jpeg")
+                .uploader(uploader)
+                .build();
+        ReflectionTestUtils.setField(newProfileFile, "fileId", 100L);
+
+        File previousProfileFile = File.builder()
+                .filePath("old-profile.jpg")
+                .originalName("old-profile.jpg")
+                .fileSize(4L)
+                .mimeType("image/jpeg")
+                .uploader(uploader)
+                .relatedId(1L)
+                .relatedType(FileService.RELATED_TYPE_USER_PROFILE)
+                .build();
+        ReflectionTestUtils.setField(previousProfileFile, "fileId", 77L);
+
+        when(fileRepository.findByFileIdAndStorageStatus(100L, FileStorageStatus.ACTIVE)).thenReturn(Optional.of(newProfileFile));
+        when(fileRepository.associateIfUnassociated(100L, 1L, 1L, FileService.RELATED_TYPE_USER_PROFILE)).thenReturn(1);
+        when(fileRepository.findByRelatedIdAndRelatedTypeAndStorageStatus(
+                1L,
+                FileService.RELATED_TYPE_USER_PROFILE,
+                FileStorageStatus.ACTIVE)).thenReturn(List.of(newProfileFile, previousProfileFile));
+
+        String profileImageUrl = fileService.replaceUserProfileImage(100L, 1L, 1L);
+
+        assertThat(profileImageUrl).isEqualTo("/api/v1/files/100");
+        assertThat(previousProfileFile.getStorageStatus()).isEqualTo(FileStorageStatus.PENDING_DELETE);
+        assertThat(newProfileFile.getStorageStatus()).isEqualTo(FileStorageStatus.ACTIVE);
+    }
+
+    @Test
     @DisplayName("임시 파일 정리는 바로 삭제하지 않고 pending 상태로 전환한다")
     void cleanUpTemporaryFiles_marksFilesPendingDelete() {
         File temporaryFile = File.builder()

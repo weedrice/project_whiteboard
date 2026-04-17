@@ -221,11 +221,12 @@ class UserServiceTest {
         ReflectionTestUtils.setField(user, "userId", 1L);
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(fileService.replaceUserProfileImage(100L, 1L, 1L)).thenReturn("/api/v1/files/100");
 
         userService.updateMyProfile(1L, null, 100L);
 
         assertThat(user.getProfileImageUrl()).isEqualTo("/api/v1/files/100");
-        verify(fileService).associateFileWithEntity(100L, 1L, 1L, "USER_PROFILE");
+        verify(fileService).replaceUserProfileImage(100L, 1L, 1L);
     }
 
     @Test
@@ -240,7 +241,7 @@ class UserServiceTest {
         UpdateProfileResponse response = userService.updateMyProfile(1L, null, null);
 
         assertThat(response.getProfileImageUrl()).isEqualTo("/api/v1/files/77");
-        verify(fileService, never()).associateFileWithEntity(any(), any(), any(), any());
+        verify(fileService, never()).replaceUserProfileImage(any(), any(), any());
     }
 
     @Test

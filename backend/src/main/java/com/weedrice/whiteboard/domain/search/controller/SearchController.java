@@ -32,9 +32,8 @@ public class SearchController {
             @AuthenticationPrincipal CustomUserDetails userDetails) {
 
         Long userId = (userDetails != null) ? userDetails.getUserId() : null;
-        searchRecordEventPublisher.publish(userId, q);
-
         IntegratedSearchResponse response = searchService.integratedSearch(q, userId);
+        searchRecordEventPublisher.publish(userId, q);
         return ApiResponse.success(response);
     }
 
@@ -47,8 +46,6 @@ public class SearchController {
             @AuthenticationPrincipal CustomUserDetails userDetails) {
 
         Long userId = (userDetails != null) ? userDetails.getUserId() : null;
-        searchRecordEventPublisher.publish(userId, q);
-
         Page<PostSummary> response = searchService.searchPosts(q, searchType, boardUrl, pageable, userId);
 
         long totalElements = response.getTotalElements();
@@ -60,6 +57,7 @@ public class SearchController {
             content.get(i).setRowNum(totalElements - ((long) pageNumber * pageSize) - i);
         }
 
+        searchRecordEventPublisher.publish(userId, q);
         return ApiResponse.success(new PageResponse<>(response));
     }
 

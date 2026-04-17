@@ -6,6 +6,8 @@ import com.weedrice.whiteboard.domain.search.dto.PopularKeywordDto;
 import com.weedrice.whiteboard.domain.search.dto.SearchPersonalizationResponse;
 import com.weedrice.whiteboard.domain.search.service.SearchRecordEventPublisher;
 import com.weedrice.whiteboard.domain.search.service.SearchService;
+import com.weedrice.whiteboard.global.exception.BusinessException;
+import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -27,6 +29,9 @@ import java.util.List;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
@@ -128,11 +133,15 @@ class SearchControllerTest {
                 .with(anonymous()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
+
+        org.mockito.InOrder inOrder = inOrder(searchService, searchRecordEventPublisher);
+        inOrder.verify(searchService).integratedSearch(eq(query), isNull());
+        inOrder.verify(searchRecordEventPublisher).publish(isNull(), eq(query));
     }
 
     @Test
-    @DisplayName("게시글 검색 성공 - 익명 사용자")
-    void searchPosts_anonymous() throws Exception {
+    @DisplayName("게시글 검색 성공 - 로그인 사용자")
+    void searchPosts_authenticated() throws Exception {
         // given
         String query = "test";
         PageRequest pageRequest = PageRequest.of(0, 10);
@@ -151,6 +160,41 @@ class SearchControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.content").isArray());
+
+        org.mockito.InOrder inOrder = inOrder(searchService, searchRecordEventPublisher);
+        inOrder.verify(searchService).searchPosts(eq(query), any(), any(), any(), eq(1L));
+        inOrder.verify(searchRecordEventPublisher).publish(eq(1L), eq(query));
+    }
+
+    @Test
+    @DisplayName("게시글 검색 실패 시 검색 기록을 남기지 않는다")
+    void searchPosts_failureDoesNotPublishEvent() throws Exception {
+        String query = "test";
+        when(searchService.searchPosts(eq(query), any(), any(), any(), any()))
+                .thenThrow(new BusinessException(ErrorCode.BOARD_NOT_FOUND));
+
+        mockMvc.perform(get("/api/v1/search/posts")
+                        .param("q", query)
+                        .param("boardUrl", "missing-board")
+                        .with(user(customUserDetails)))
+                .andExpect(status().isNotFound());
+
+        verify(searchRecordEventPublisher, never()).publish(any(), anyString());
+    }
+
+    @Test
+    @DisplayName("통합 검색 실패 시 검색 기록을 남기지 않는다")
+    void integratedSearch_failureDoesNotPublishEvent() throws Exception {
+        String query = "test";
+        when(searchService.integratedSearch(eq(query), isNull()))
+                .thenThrow(new BusinessException(ErrorCode.INVALID_INPUT_VALUE));
+
+        mockMvc.perform(get("/api/v1/search")
+                        .param("q", query)
+                        .with(anonymous()))
+                .andExpect(status().isBadRequest());
+
+        verify(searchRecordEventPublisher, never()).publish(any(), anyString());
     }
 
     @Test

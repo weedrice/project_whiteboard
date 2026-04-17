@@ -20,6 +20,7 @@ import com.weedrice.whiteboard.domain.point.service.PointService;
 import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import org.hibernate.exception.ConstraintViolationException;
 import org.mockito.ArgumentCaptor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -222,7 +223,7 @@ class BoardServiceTest {
         when(boardRepository.existsByBoardName(request.getBoardName())).thenReturn(false);
         when(boardRepository.existsByBoardUrl(request.getBoardUrl())).thenReturn(false);
         when(globalConfigService.getConfig(anyString())).thenReturn("500");
-        when(boardRepository.save(any(Board.class))).thenReturn(board);
+        when(boardRepository.saveAndFlush(any(Board.class))).thenReturn(board);
         when(boardCategoryRepository.save(any(com.weedrice.whiteboard.domain.board.entity.BoardCategory.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
         when(adminRepository.save(any(com.weedrice.whiteboard.domain.admin.entity.Admin.class)))
@@ -235,7 +236,7 @@ class BoardServiceTest {
         // then
         assertThat(createdBoard.getBoardName()).isEqualTo("Test Board");
         InOrder inOrder = inOrder(boardRepository, pointService, boardCategoryRepository, adminRepository);
-        inOrder.verify(boardRepository).save(any(Board.class));
+        inOrder.verify(boardRepository).saveAndFlush(any(Board.class));
         inOrder.verify(pointService).spendPoint(eq(creatorId), eq(500), anyString(), eq(1L), eq("BOARD_CREATE"));
         inOrder.verify(boardCategoryRepository).save(any());
         inOrder.verify(adminRepository).save(any());
@@ -261,7 +262,7 @@ class BoardServiceTest {
         when(boardRepository.existsByBoardName(request.getBoardName())).thenReturn(false);
         when(boardRepository.existsByBoardUrl(request.getBoardUrl())).thenReturn(false);
         when(globalConfigService.getConfig(anyString())).thenReturn("500");
-        when(boardRepository.save(any(Board.class))).thenReturn(savedBoard);
+        when(boardRepository.saveAndFlush(any(Board.class))).thenReturn(savedBoard);
         when(boardCategoryRepository.save(any(com.weedrice.whiteboard.domain.board.entity.BoardCategory.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
         when(adminRepository.save(any(com.weedrice.whiteboard.domain.admin.entity.Admin.class)))
@@ -285,7 +286,7 @@ class BoardServiceTest {
         when(boardRepository.existsByBoardName(request.getBoardName())).thenReturn(false);
         when(boardRepository.existsByBoardUrl(request.getBoardUrl())).thenReturn(false);
         when(globalConfigService.getConfig(anyString())).thenReturn("500");
-        when(boardRepository.save(any(Board.class))).thenReturn(board);
+        when(boardRepository.saveAndFlush(any(Board.class))).thenReturn(board);
         when(boardRepository.findMaxSortOrder()).thenReturn(0);
         doThrow(new BusinessException(ErrorCode.INSUFFICIENT_POINTS))
                 .when(pointService)
@@ -295,10 +296,132 @@ class BoardServiceTest {
                 () -> boardService.createBoard(creatorId, request));
 
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INSUFFICIENT_POINTS);
-        verify(boardRepository).save(any(Board.class));
+        verify(boardRepository).saveAndFlush(any(Board.class));
         verify(boardCategoryRepository, never()).save(any());
         verify(adminRepository, never()).save(any());
         verify(boardAiInfoRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("게시판 생성 실패 - 저장 시 board_name 충돌이면 DUPLICATE_BOARD_NAME")
+    void createBoard_duplicateBoardNameDuringFlush() {
+        Long creatorId = 1L;
+        BoardCreateRequest request = new BoardCreateRequest("New Board", "new-board", "New Description", null, null);
+
+        when(userRepository.findById(creatorId)).thenReturn(Optional.of(user));
+        when(boardRepository.existsByBoardName(request.getBoardName())).thenReturn(false, true);
+        when(boardRepository.existsByBoardUrl(request.getBoardUrl())).thenReturn(false);
+        when(boardRepository.findMaxSortOrder()).thenReturn(0);
+        when(boardRepository.saveAndFlush(any(Board.class)))
+                .thenThrow(new DataIntegrityViolationException("duplicate key board_name"));
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> boardService.createBoard(creatorId, request));
+
+        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.DUPLICATE_BOARD_NAME);
+        verify(pointService, never()).spendPoint(anyLong(), anyInt(), anyString(), anyLong(), anyString());
+    }
+
+    @Test
+    @DisplayName("게시판 생성 실패 - 저장 시 board_url 충돌이면 DUPLICATE_BOARD_URL")
+    void createBoard_duplicateBoardUrlDuringFlush() {
+        Long creatorId = 1L;
+        BoardCreateRequest request = new BoardCreateRequest("New Board", "new-board", "New Description", null, null);
+
+        when(userRepository.findById(creatorId)).thenReturn(Optional.of(user));
+        when(boardRepository.existsByBoardName(request.getBoardName())).thenReturn(false);
+        when(boardRepository.existsByBoardUrl(request.getBoardUrl())).thenReturn(false, true);
+        when(boardRepository.findMaxSortOrder()).thenReturn(0);
+        when(boardRepository.saveAndFlush(any(Board.class)))
+                .thenThrow(new DataIntegrityViolationException("duplicate key board_url"));
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> boardService.createBoard(creatorId, request));
+
+        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.DUPLICATE_BOARD_URL);
+        verify(pointService, never()).spendPoint(anyLong(), anyInt(), anyString(), anyLong(), anyString());
+    }
+
+    @Test
+    @DisplayName("게시판 생성 실패 - 제약 메시지를 식별할 수 없으면 DUPLICATE_RESOURCE")
+    void createBoard_duplicateFallbackDuringFlush() {
+        Long creatorId = 1L;
+        BoardCreateRequest request = new BoardCreateRequest("New Board", "new-board", "New Description", null, null);
+
+        when(userRepository.findById(creatorId)).thenReturn(Optional.of(user));
+        when(boardRepository.existsByBoardName(request.getBoardName())).thenReturn(false);
+        when(boardRepository.existsByBoardUrl(request.getBoardUrl())).thenReturn(false);
+        when(boardRepository.findMaxSortOrder()).thenReturn(0);
+        when(boardRepository.saveAndFlush(any(Board.class)))
+                .thenThrow(new DataIntegrityViolationException("duplicate key"));
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> boardService.createBoard(creatorId, request));
+
+        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.DUPLICATE_RESOURCE);
+    }
+
+    @Test
+    @DisplayName("게시판 생성 실패 - 중첩 ConstraintViolationException의 제약명으로 board_url 충돌을 판별한다")
+    void createBoard_duplicateBoardUrlByConstraintName() {
+        Long creatorId = 1L;
+        BoardCreateRequest request = new BoardCreateRequest("New Board", "new-board", "New Description", null, null);
+
+        when(userRepository.findById(creatorId)).thenReturn(Optional.of(user));
+        when(boardRepository.existsByBoardName(request.getBoardName())).thenReturn(false);
+        when(boardRepository.existsByBoardUrl(request.getBoardUrl())).thenReturn(false);
+        when(boardRepository.findMaxSortOrder()).thenReturn(0);
+        when(boardRepository.saveAndFlush(any(Board.class)))
+                .thenThrow(new DataIntegrityViolationException(
+                        "duplicate key",
+                        new ConstraintViolationException("duplicate", new java.sql.SQLException("duplicate"), "uk_boards_board_url")));
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> boardService.createBoard(creatorId, request));
+
+        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.DUPLICATE_BOARD_URL);
+    }
+
+    @Test
+    @DisplayName("게시판 생성 실패 - 중첩 ConstraintViolationException의 제약명으로 board_name 충돌을 판별한다")
+    void createBoard_duplicateBoardNameByConstraintName() {
+        Long creatorId = 1L;
+        BoardCreateRequest request = new BoardCreateRequest("New Board", "new-board", "New Description", null, null);
+
+        when(userRepository.findById(creatorId)).thenReturn(Optional.of(user));
+        when(boardRepository.existsByBoardName(request.getBoardName())).thenReturn(false);
+        when(boardRepository.existsByBoardUrl(request.getBoardUrl())).thenReturn(false);
+        when(boardRepository.findMaxSortOrder()).thenReturn(0);
+        when(boardRepository.saveAndFlush(any(Board.class)))
+                .thenThrow(new DataIntegrityViolationException(
+                        "duplicate key",
+                        new ConstraintViolationException("duplicate", new java.sql.SQLException("duplicate"), "boards_board_name_key")));
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> boardService.createBoard(creatorId, request));
+
+        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.DUPLICATE_BOARD_NAME);
+    }
+
+    @Test
+    @DisplayName("게시판 생성 실패 - legacy 제약명으로도 board_url 충돌을 판별한다")
+    void createBoard_duplicateBoardUrlByLegacyConstraintName() {
+        Long creatorId = 1L;
+        BoardCreateRequest request = new BoardCreateRequest("New Board", "new-board", "New Description", null, null);
+
+        when(userRepository.findById(creatorId)).thenReturn(Optional.of(user));
+        when(boardRepository.existsByBoardName(request.getBoardName())).thenReturn(false);
+        when(boardRepository.existsByBoardUrl(request.getBoardUrl())).thenReturn(false);
+        when(boardRepository.findMaxSortOrder()).thenReturn(0);
+        when(boardRepository.saveAndFlush(any(Board.class)))
+                .thenThrow(new DataIntegrityViolationException(
+                        "duplicate key",
+                        new ConstraintViolationException("duplicate", new java.sql.SQLException("duplicate"), "boards_board_url_key")));
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> boardService.createBoard(creatorId, request));
+
+        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.DUPLICATE_BOARD_URL);
     }
 
     @Test

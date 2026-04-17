@@ -5,6 +5,7 @@ import com.weedrice.whiteboard.domain.file.dto.FileUploadResponse;
 import com.weedrice.whiteboard.domain.file.entity.File;
 import com.weedrice.whiteboard.domain.file.entity.FileStorageStatus;
 import com.weedrice.whiteboard.domain.file.repository.FileRepository;
+import com.weedrice.whiteboard.domain.file.support.FileUrlResolver;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.service.PostAccessPolicy;
@@ -37,6 +38,7 @@ import java.util.Map;
 public class FileService {
 
     public static final String RELATED_TYPE_POST_CONTENT = "POST_CONTENT";
+    public static final String RELATED_TYPE_USER_PROFILE = "USER_PROFILE";
     private static final int MAX_DELETE_RETRY_COUNT = 5;
 
     private final FileRepository fileRepository;
@@ -147,6 +149,24 @@ public class FileService {
             return;
         }
         throw new BusinessException(ErrorCode.FILE_ALREADY_ASSOCIATED);
+    }
+
+    @Transactional
+    public String replaceUserProfileImage(Long profileImageId, Long ownerUserId, Long userId) {
+        associateFileWithEntity(profileImageId, ownerUserId, userId, RELATED_TYPE_USER_PROFILE);
+
+        List<File> profileFiles = fileRepository.findByRelatedIdAndRelatedTypeAndStorageStatus(
+                userId,
+                RELATED_TYPE_USER_PROFILE,
+                FileStorageStatus.ACTIVE);
+
+        for (File profileFile : profileFiles) {
+            if (!profileImageId.equals(profileFile.getFileId())) {
+                profileFile.markDeletionPending();
+            }
+        }
+
+        return FileUrlResolver.resolve(profileImageId);
     }
 
     @Transactional

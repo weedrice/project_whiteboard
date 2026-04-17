@@ -18,6 +18,9 @@ import java.util.List;
 @Table(name = "boards", indexes = {
         @Index(name = "idx_boards_active", columnList = "is_active, is_public, sort_order"),
         @Index(name = "idx_boards_creator", columnList = "creator_id")
+}, uniqueConstraints = {
+        @UniqueConstraint(name = "uk_boards_board_name", columnNames = "board_name"),
+        @UniqueConstraint(name = "uk_boards_board_url", columnNames = "board_url")
 })
 public class Board extends BaseTimeEntity {
 
@@ -26,10 +29,10 @@ public class Board extends BaseTimeEntity {
     @Column(name = "board_id")
     private Long boardId;
 
-    @Column(name = "board_name", length = 100, nullable = false, unique = true)
+    @Column(name = "board_name", length = 100, nullable = false)
     private String boardName;
 
-    @Column(name = "board_url", length = 100, nullable = false, unique = true)
+    @Column(name = "board_url", length = 100, nullable = false)
     private String boardUrl;
 
     @Column(name = "description", length = 255)

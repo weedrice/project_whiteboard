@@ -16,7 +16,6 @@ import com.weedrice.whiteboard.domain.comment.dto.MyCommentResponse;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.comment.service.CommentService;
 import com.weedrice.whiteboard.domain.file.service.FileService;
-import com.weedrice.whiteboard.domain.file.support.FileUrlResolver;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.service.PostService;
@@ -202,8 +201,7 @@ public class UserService {
         }
 
         if (profileImageId != null) {
-            fileService.associateFileWithEntity(profileImageId, userId, user.getUserId(), "USER_PROFILE");
-            user.updateProfileImage(FileUrlResolver.resolve(profileImageId));
+            user.updateProfileImage(fileService.replaceUserProfileImage(profileImageId, userId, user.getUserId()));
         }
 
         return new UpdateProfileResponse(user.getUserId(), user.getDisplayName(), user.getProfileImageUrl());
