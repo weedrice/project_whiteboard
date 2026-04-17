@@ -63,6 +63,7 @@ public class UserAdminQueryService {
                                  PostRepository postRepository,
                                  CommentRepository commentRepository,
                                  AdminRepository adminRepository,
+                                 ModerationActorResolver moderationActorResolver,
                                  PostService postService,
                                  CommentService commentService,
                                  BoardService boardService,
@@ -83,7 +84,7 @@ public class UserAdminQueryService {
         this.sanctionRepository = sanctionRepository;
         this.sanctionService = sanctionService;
         this.reportRepository = reportRepository;
-        this.moderationActorResolver = new ModerationActorResolver(userRepository, adminRepository);
+        this.moderationActorResolver = moderationActorResolver;
     }
 
     public Page<UserAdminResponse> searchUsersForAdmin(String keyword, Pageable pageable) {

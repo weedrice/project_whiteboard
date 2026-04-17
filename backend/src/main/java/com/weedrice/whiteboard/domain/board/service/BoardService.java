@@ -1,19 +1,11 @@
 package com.weedrice.whiteboard.domain.board.service;
 
-import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.board.dto.BoardCreateRequest;
 import com.weedrice.whiteboard.domain.board.dto.BoardResponse;
 import com.weedrice.whiteboard.domain.board.dto.BoardUpdateRequest;
 import com.weedrice.whiteboard.domain.board.dto.CategoryRequest;
 import com.weedrice.whiteboard.domain.board.dto.CategoryResponse;
 import com.weedrice.whiteboard.domain.board.entity.Board;
-import com.weedrice.whiteboard.domain.board.repository.BoardAiInfoRepository;
-import com.weedrice.whiteboard.domain.board.repository.BoardCategoryRepository;
-import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
-import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository;
-import com.weedrice.whiteboard.domain.point.service.PointService;
-import com.weedrice.whiteboard.domain.user.repository.UserRepository;
-import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -31,37 +23,14 @@ public class BoardService {
     private final BoardSubscriptionService subscriptionService;
     private final BoardCategoryService categoryService;
 
-    public BoardService(BoardRepository boardRepository,
-                        BoardAiInfoRepository boardAiInfoRepository,
-                        BoardCategoryRepository boardCategoryRepository,
-                        BoardSubscriptionRepository boardSubscriptionRepository,
-                        UserRepository userRepository,
-                        AdminRepository adminRepository,
-                        PointService pointService,
-                        GlobalConfigService globalConfigService,
-                        BoardResponseAssembler boardResponseAssembler,
-                        BoardAccessPolicy boardAccessPolicy) {
-        this.queryService = new BoardQueryService(
-                boardRepository,
-                boardCategoryRepository,
-                boardSubscriptionRepository,
-                userRepository,
-                boardResponseAssembler,
-                boardAccessPolicy);
-        this.provisioningService = new BoardProvisioningService(
-                boardRepository,
-                boardAiInfoRepository,
-                boardCategoryRepository,
-                userRepository,
-                adminRepository,
-                pointService,
-                globalConfigService);
-        this.subscriptionService = new BoardSubscriptionService(
-                boardRepository,
-                boardSubscriptionRepository,
-                userRepository,
-                boardAccessPolicy);
-        this.categoryService = new BoardCategoryService(boardRepository, boardCategoryRepository);
+    public BoardService(BoardQueryService queryService,
+                        BoardProvisioningService provisioningService,
+                        BoardSubscriptionService subscriptionService,
+                        BoardCategoryService categoryService) {
+        this.queryService = queryService;
+        this.provisioningService = provisioningService;
+        this.subscriptionService = subscriptionService;
+        this.categoryService = categoryService;
     }
 
     public List<BoardResponse> getActiveBoards(UserDetails userDetails) {

@@ -98,17 +98,32 @@ class BoardServiceTest {
                 postService);
         boardResponseAssembler = new BoardResponseAssembler(boardResponseReadService);
         boardAccessPolicy = new BoardAccessPolicy(adminRepository);
-        boardService = new BoardService(
+        BoardQueryService queryService = new BoardQueryService(
                 boardRepository,
-                boardAiInfoRepository,
                 boardCategoryRepository,
                 boardSubscriptionRepository,
                 userRepository,
-                adminRepository,
-                pointService,
-                globalConfigService,
                 boardResponseAssembler,
                 boardAccessPolicy);
+        BoardProvisioningService provisioningService = new BoardProvisioningService(
+                boardRepository,
+                boardAiInfoRepository,
+                boardCategoryRepository,
+                userRepository,
+                adminRepository,
+                pointService,
+                globalConfigService);
+        BoardSubscriptionService subscriptionService = new BoardSubscriptionService(
+                boardRepository,
+                boardSubscriptionRepository,
+                userRepository,
+                boardAccessPolicy);
+        BoardCategoryService categoryService = new BoardCategoryService(boardRepository, boardCategoryRepository);
+        boardService = new BoardService(
+                queryService,
+                provisioningService,
+                subscriptionService,
+                categoryService);
 
         lenient().when(boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(anyLong(), any()))
                 .thenReturn(Collections.emptyList());

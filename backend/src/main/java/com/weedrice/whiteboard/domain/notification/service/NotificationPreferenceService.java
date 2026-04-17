@@ -2,7 +2,9 @@ package com.weedrice.whiteboard.domain.notification.service;
 
 import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
 import com.weedrice.whiteboard.domain.user.repository.UserNotificationSettingsRepository;
+import org.springframework.stereotype.Service;
 
+@Service
 class NotificationPreferenceService {
 
     private final UserNotificationSettingsRepository userNotificationSettingsRepository;

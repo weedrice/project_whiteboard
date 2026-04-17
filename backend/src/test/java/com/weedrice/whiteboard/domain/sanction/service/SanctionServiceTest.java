@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.sanction.service;
 
 import com.weedrice.whiteboard.domain.admin.entity.Admin;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
+import com.weedrice.whiteboard.domain.admin.service.ModerationActorResolver;
 import com.weedrice.whiteboard.domain.sanction.entity.Sanction;
 import com.weedrice.whiteboard.domain.sanction.dto.SanctionResponse;
 import com.weedrice.whiteboard.domain.sanction.repository.SanctionRepository;
@@ -32,6 +33,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -45,6 +47,8 @@ class SanctionServiceTest {
     private UserRepository userRepository;
     @Mock
     private AdminRepository adminRepository;
+    @Mock
+    private ModerationActorResolver moderationActorResolver;
 
     @InjectMocks
     private SanctionService sanctionService;
@@ -66,6 +70,7 @@ class SanctionServiceTest {
         ReflectionTestUtils.setField(admin, "adminId", 10L);
 
         mockedSecurityUtils = mockStatic(SecurityUtils.class);
+        lenient().when(moderationActorResolver.resolveActiveAdmin(1L)).thenReturn(admin);
     }
 
     @AfterEach
@@ -81,8 +86,7 @@ class SanctionServiceTest {
         Long targetUserId = 2L;
         String type = "BAN";
         mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).then(invocation -> null);
-        when(userRepository.findById(adminUserId)).thenReturn(Optional.of(adminUser));
-        when(adminRepository.findFirstByUserAndIsActiveOrderByAdminIdAsc(adminUser, true)).thenReturn(Optional.of(admin));
+        when(moderationActorResolver.resolveActiveAdmin(adminUserId)).thenReturn(admin);
         when(userRepository.findById(targetUserId)).thenReturn(Optional.of(targetUser));
         Sanction savedSanction = Sanction.builder()
                 .targetUser(targetUser)
@@ -107,8 +111,7 @@ class SanctionServiceTest {
     @DisplayName("기간제 BAN은 사용자 상태를 즉시 영구 정지로 바꾸지 않는다")
     void createSanction_temporaryBan_keepsUserStatusActive() {
         mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).then(invocation -> null);
-        when(userRepository.findById(1L)).thenReturn(Optional.of(adminUser));
-        when(adminRepository.findFirstByUserAndIsActiveOrderByAdminIdAsc(adminUser, true)).thenReturn(Optional.of(admin));
+        when(moderationActorResolver.resolveActiveAdmin(1L)).thenReturn(admin);
         when(userRepository.findById(2L)).thenReturn(Optional.of(targetUser));
 
         Sanction savedSanction = Sanction.builder()
@@ -131,8 +134,6 @@ class SanctionServiceTest {
     @DisplayName("?쒖옱 ?좏삎? ?臾몄옄濡?泥섎━?쒕떎")
     void createSanction_normalizesTypeToUpperCase() {
         mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).then(invocation -> null);
-        when(userRepository.findById(1L)).thenReturn(Optional.of(adminUser));
-        when(adminRepository.findFirstByUserAndIsActiveOrderByAdminIdAsc(adminUser, true)).thenReturn(Optional.of(admin));
         when(userRepository.findById(2L)).thenReturn(Optional.of(targetUser));
 
         Sanction savedSanction = Sanction.builder()
@@ -177,8 +178,8 @@ class SanctionServiceTest {
     @DisplayName("활성 관리자 엔티티가 없으면 제재 생성은 FORBIDDEN으로 실패한다")
     void createSanction_withoutAdmin_throwsForbidden() {
         mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).then(invocation -> null);
-        when(userRepository.findById(1L)).thenReturn(Optional.of(adminUser));
-        when(adminRepository.findFirstByUserAndIsActiveOrderByAdminIdAsc(adminUser, true)).thenReturn(Optional.empty());
+        when(moderationActorResolver.resolveActiveAdmin(1L))
+                .thenThrow(new BusinessException(ErrorCode.FORBIDDEN));
 
         assertThatThrownBy(() -> sanctionService.createSanction(1L, 2L, "BAN", "Test", null))
                 .isInstanceOf(BusinessException.class)

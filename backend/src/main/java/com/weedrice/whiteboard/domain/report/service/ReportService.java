@@ -1,7 +1,6 @@
 package com.weedrice.whiteboard.domain.report.service;
 
 import com.weedrice.whiteboard.domain.admin.entity.Admin;
-import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.admin.service.ModerationActorResolver;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
@@ -33,7 +32,6 @@ public class ReportService {
 
     private final ReportRepository reportRepository;
     private final UserRepository userRepository;
-    private final AdminRepository adminRepository;
     private final PostRepository postRepository;
     private final CommentRepository commentRepository;
     private final ModerationActorResolver moderationActorResolver;
@@ -41,17 +39,16 @@ public class ReportService {
 
     public ReportService(ReportRepository reportRepository,
                          UserRepository userRepository,
-                         AdminRepository adminRepository,
                          PostRepository postRepository,
                          CommentRepository commentRepository,
+                         ModerationActorResolver moderationActorResolver,
                          SanctionService sanctionService) {
         this.reportRepository = reportRepository;
         this.userRepository = userRepository;
-        this.adminRepository = adminRepository;
         this.postRepository = postRepository;
         this.commentRepository = commentRepository;
         this.sanctionService = sanctionService;
-        this.moderationActorResolver = new ModerationActorResolver(userRepository, adminRepository);
+        this.moderationActorResolver = moderationActorResolver;
     }
 
     @Transactional

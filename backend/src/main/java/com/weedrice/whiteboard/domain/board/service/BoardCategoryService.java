@@ -9,7 +9,9 @@ import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.global.common.util.SecurityUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import org.springframework.stereotype.Service;
 
+@Service
 class BoardCategoryService {
 
     private final BoardRepository boardRepository;

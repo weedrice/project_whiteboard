@@ -1,7 +1,6 @@
 package com.weedrice.whiteboard.domain.sanction.service;
 
 import com.weedrice.whiteboard.domain.admin.entity.Admin;
-import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.admin.service.ModerationActorResolver;
 import com.weedrice.whiteboard.domain.sanction.dto.SanctionResponse;
 import com.weedrice.whiteboard.domain.sanction.entity.Sanction;
@@ -27,16 +26,14 @@ public class SanctionService {
 
     private final SanctionRepository sanctionRepository;
     private final UserRepository userRepository;
-    private final AdminRepository adminRepository;
     private final ModerationActorResolver moderationActorResolver;
 
     public SanctionService(SanctionRepository sanctionRepository,
                            UserRepository userRepository,
-                           AdminRepository adminRepository) {
+                           ModerationActorResolver moderationActorResolver) {
         this.sanctionRepository = sanctionRepository;
         this.userRepository = userRepository;
-        this.adminRepository = adminRepository;
-        this.moderationActorResolver = new ModerationActorResolver(userRepository, adminRepository);
+        this.moderationActorResolver = moderationActorResolver;
     }
 
     @Transactional

@@ -5,7 +5,6 @@ import com.weedrice.whiteboard.domain.notification.dto.NotificationResponse;
 import com.weedrice.whiteboard.domain.notification.entity.Notification;
 import com.weedrice.whiteboard.domain.notification.repository.NotificationRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
-import com.weedrice.whiteboard.domain.user.repository.UserNotificationSettingsRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -29,17 +28,12 @@ public class NotificationService {
 
     public NotificationService(NotificationRepository notificationRepository,
                                UserRepository userRepository,
-                               UserNotificationSettingsRepository userNotificationSettingsRepository) {
-        NotificationPreferenceService preferenceService =
-                new NotificationPreferenceService(userNotificationSettingsRepository);
+                               NotificationCommandService commandService,
+                               NotificationStreamService streamService) {
         this.notificationRepository = notificationRepository;
         this.userRepository = userRepository;
-        this.streamService = new NotificationStreamService();
-        this.commandService = new NotificationCommandService(
-                notificationRepository,
-                userRepository,
-                preferenceService,
-                streamService);
+        this.commandService = commandService;
+        this.streamService = streamService;
     }
 
     @TransactionalEventListener

@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.report.service;
 
 import com.weedrice.whiteboard.domain.admin.entity.Admin;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
+import com.weedrice.whiteboard.domain.admin.service.ModerationActorResolver;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.report.dto.ReportResponse;
@@ -37,6 +38,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -54,6 +56,8 @@ class ReportServiceTest {
     private PostRepository postRepository;
     @Mock
     private CommentRepository commentRepository;
+    @Mock
+    private ModerationActorResolver moderationActorResolver;
     @Mock
     private SanctionService sanctionService;
 
@@ -84,6 +88,7 @@ class ReportServiceTest {
                 .build();
 
         mockedSecurityUtils = mockStatic(SecurityUtils.class);
+        lenient().when(moderationActorResolver.findActiveAdmin(adminUser)).thenReturn(Optional.of(admin));
     }
 
     @AfterEach
@@ -160,7 +165,6 @@ class ReportServiceTest {
         String status = "RESOLVED";
         when(reportRepository.findById(reportId)).thenReturn(Optional.of(report));
         when(userRepository.findById(2L)).thenReturn(Optional.of(adminUser));
-        when(adminRepository.findFirstByUserAndIsActiveOrderByAdminIdAsc(adminUser, true)).thenReturn(Optional.of(admin));
 
         // when
         ReportResponse processedReport = reportService.processReport(2L, reportId, status, "Test Remark");
@@ -230,7 +234,7 @@ class ReportServiceTest {
         Long reportId = 1L;
         when(reportRepository.findById(reportId)).thenReturn(Optional.of(report));
         when(userRepository.findById(2L)).thenReturn(Optional.of(adminUser));
-        when(adminRepository.findFirstByUserAndIsActiveOrderByAdminIdAsc(adminUser, true)).thenReturn(Optional.empty());
+        when(moderationActorResolver.findActiveAdmin(adminUser)).thenReturn(Optional.empty());
 
         ReportResponse processedReport = reportService.processReport(2L, reportId, "RESOLVED", "Test Remark");
 

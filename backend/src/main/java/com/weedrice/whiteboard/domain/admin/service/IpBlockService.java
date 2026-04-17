@@ -3,10 +3,8 @@ package com.weedrice.whiteboard.domain.admin.service;
 import com.weedrice.whiteboard.domain.admin.dto.IpBlockResponse;
 import com.weedrice.whiteboard.domain.admin.entity.Admin;
 import com.weedrice.whiteboard.domain.admin.entity.IpBlock;
-import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.admin.repository.IpBlockRepository;
 import com.weedrice.whiteboard.domain.user.entity.Role;
-import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.springframework.data.domain.Page;
@@ -20,15 +18,13 @@ import java.time.LocalDateTime;
 @Service
 @Transactional(readOnly = true)
 public class IpBlockService {
-
     private final IpBlockRepository ipBlockRepository;
     private final ModerationActorResolver moderationActorResolver;
 
     public IpBlockService(IpBlockRepository ipBlockRepository,
-                          UserRepository userRepository,
-                          AdminRepository adminRepository) {
+                          ModerationActorResolver moderationActorResolver) {
         this.ipBlockRepository = ipBlockRepository;
-        this.moderationActorResolver = new ModerationActorResolver(userRepository, adminRepository);
+        this.moderationActorResolver = moderationActorResolver;
     }
 
     @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")

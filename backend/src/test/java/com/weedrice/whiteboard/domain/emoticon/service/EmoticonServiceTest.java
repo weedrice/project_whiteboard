@@ -19,7 +19,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -54,7 +53,6 @@ class EmoticonServiceTest {
     @Mock
     private FileService fileService;
 
-    @InjectMocks
     private EmoticonService emoticonService;
 
     private User user;
@@ -78,6 +76,23 @@ class EmoticonServiceTest {
                 .build();
         ReflectionTestUtils.setField(emoticonMaster, "emoticonId", 1L);
         lenient().when(userRepository.findAllById(any())).thenReturn(List.of(user));
+
+        EmoticonAttachmentHelper attachmentHelper = new EmoticonAttachmentHelper(fileService);
+        EmoticonCatalogService catalogService = new EmoticonCatalogService(emoticonMasterRepository, userRepository, 100);
+        EmoticonCommandService commandService = new EmoticonCommandService(
+                emoticonMasterRepository,
+                emoticonImageRepository,
+                userRepository,
+                attachmentHelper,
+                "EMOTICON_THUMBNAIL",
+                "EMOTICON_IMAGE");
+        EmoticonPurchaseService purchaseService = new EmoticonPurchaseService(
+                emoticonMasterRepository,
+                emoticonPurchaseRepository,
+                userRepository,
+                pointService,
+                100);
+        emoticonService = new EmoticonService(catalogService, commandService, purchaseService);
     }
 
     @Nested

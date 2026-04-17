@@ -7,7 +7,9 @@ import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import org.springframework.stereotype.Service;
 
+@Service
 class NotificationCommandService {
 
     private final NotificationRepository notificationRepository;

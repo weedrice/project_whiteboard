@@ -12,7 +12,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -37,7 +36,6 @@ class NotificationServiceTest {
     @Mock
     private UserNotificationSettingsRepository userNotificationSettingsRepository;
 
-    @InjectMocks
     private NotificationService notificationService;
 
     private User user;
@@ -64,6 +62,15 @@ class NotificationServiceTest {
 
         lenient().when(userNotificationSettingsRepository.findByUserIdAndNotificationType(anyLong(), any(NotificationType.class)))
                 .thenReturn(Optional.empty());
+
+        NotificationPreferenceService preferenceService = new NotificationPreferenceService(userNotificationSettingsRepository);
+        NotificationStreamService streamService = new NotificationStreamService();
+        NotificationCommandService commandService = new NotificationCommandService(
+                notificationRepository,
+                userRepository,
+                preferenceService,
+                streamService);
+        notificationService = new NotificationService(notificationRepository, userRepository, commandService, streamService);
     }
 
     @Test

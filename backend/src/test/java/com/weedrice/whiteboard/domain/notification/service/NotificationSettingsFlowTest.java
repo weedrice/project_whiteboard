@@ -72,7 +72,14 @@ class NotificationSettingsFlowTest {
                 userNotificationSettingsRepository,
                 sanctionService,
                 entityManager);
-        notificationService = new NotificationService(notificationRepository, userRepository, userNotificationSettingsRepository);
+        NotificationPreferenceService preferenceService = new NotificationPreferenceService(userNotificationSettingsRepository);
+        NotificationStreamService streamService = new NotificationStreamService();
+        NotificationCommandService commandService = new NotificationCommandService(
+                notificationRepository,
+                userRepository,
+                preferenceService,
+                streamService);
+        notificationService = new NotificationService(notificationRepository, userRepository, commandService, streamService);
 
         receiver = User.builder().build();
         ReflectionTestUtils.setField(receiver, "userId", 1L);

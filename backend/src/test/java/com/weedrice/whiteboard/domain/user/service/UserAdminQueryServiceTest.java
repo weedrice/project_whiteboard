@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.user.service;
 
 import com.weedrice.whiteboard.domain.admin.entity.Admin;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
+import com.weedrice.whiteboard.domain.admin.service.ModerationActorResolver;
 import com.weedrice.whiteboard.domain.auth.repository.LoginHistoryRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository;
 import com.weedrice.whiteboard.domain.board.service.BoardService;
@@ -49,6 +50,7 @@ class UserAdminQueryServiceTest {
     @Mock private PostRepository postRepository;
     @Mock private CommentRepository commentRepository;
     @Mock private AdminRepository adminRepository;
+    @Mock private ModerationActorResolver moderationActorResolver;
     @Mock private PostService postService;
     @Mock private CommentService commentService;
     @Mock private BoardService boardService;

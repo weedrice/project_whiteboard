@@ -3,12 +3,6 @@ package com.weedrice.whiteboard.domain.emoticon.service;
 import com.weedrice.whiteboard.domain.emoticon.dto.EmoticonCreateRequest;
 import com.weedrice.whiteboard.domain.emoticon.dto.EmoticonMasterDto;
 import com.weedrice.whiteboard.domain.emoticon.dto.EmoticonUpdateRequest;
-import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonImageRepository;
-import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonMasterRepository;
-import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonPurchaseRepository;
-import com.weedrice.whiteboard.domain.file.service.FileService;
-import com.weedrice.whiteboard.domain.point.service.PointService;
-import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -20,35 +14,16 @@ import java.util.List;
 @Transactional(readOnly = true)
 public class EmoticonService {
 
-    private static final int EMOTICON_PRICE = 100;
-    private static final String EMOTICON_THUMBNAIL = "EMOTICON_THUMBNAIL";
-    private static final String EMOTICON_IMAGE = "EMOTICON_IMAGE";
-
     private final EmoticonCatalogService catalogService;
     private final EmoticonCommandService commandService;
     private final EmoticonPurchaseService purchaseService;
 
-    public EmoticonService(EmoticonMasterRepository emoticonMasterRepository,
-                           EmoticonImageRepository emoticonImageRepository,
-                           EmoticonPurchaseRepository emoticonPurchaseRepository,
-                           UserRepository userRepository,
-                           PointService pointService,
-                           FileService fileService) {
-        EmoticonAttachmentHelper attachmentHelper = new EmoticonAttachmentHelper(fileService);
-        this.catalogService = new EmoticonCatalogService(emoticonMasterRepository, userRepository, EMOTICON_PRICE);
-        this.commandService = new EmoticonCommandService(
-                emoticonMasterRepository,
-                emoticonImageRepository,
-                userRepository,
-                attachmentHelper,
-                EMOTICON_THUMBNAIL,
-                EMOTICON_IMAGE);
-        this.purchaseService = new EmoticonPurchaseService(
-                emoticonMasterRepository,
-                emoticonPurchaseRepository,
-                userRepository,
-                pointService,
-                EMOTICON_PRICE);
+    public EmoticonService(EmoticonCatalogService catalogService,
+                           EmoticonCommandService commandService,
+                           EmoticonPurchaseService purchaseService) {
+        this.catalogService = catalogService;
+        this.commandService = commandService;
+        this.purchaseService = purchaseService;
     }
 
     public Page<EmoticonMasterDto> getActiveEmoticons(Pageable pageable) {

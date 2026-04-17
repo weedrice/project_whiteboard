@@ -30,6 +30,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -43,6 +44,8 @@ class IpBlockServiceTest {
     private UserRepository userRepository;
     @Mock
     private AdminRepository adminRepository;
+    @Mock
+    private ModerationActorResolver moderationActorResolver;
 
     @InjectMocks
     private IpBlockService ipBlockService;
@@ -79,6 +82,8 @@ class IpBlockServiceTest {
                 .role(Role.BOARD_ADMIN)
                 .build();
         ReflectionTestUtils.setField(admin, "adminId", 11L);
+
+        lenient().when(moderationActorResolver.resolveActiveAdmin(1L)).thenReturn(admin);
     }
 
     @Test
@@ -86,8 +91,7 @@ class IpBlockServiceTest {
     void blockIp_success() {
         String ipAddress = "127.0.0.1";
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(adminUser));
-        when(adminRepository.findFirstByUserAndIsActiveOrderByAdminIdAsc(adminUser, true)).thenReturn(Optional.of(admin));
+        when(moderationActorResolver.resolveActiveAdmin(1L)).thenReturn(admin);
         when(ipBlockRepository.findActiveByIpAddress(eq(ipAddress), any(LocalDateTime.class))).thenReturn(Optional.empty());
         when(ipBlockRepository.findById(ipAddress)).thenReturn(Optional.empty());
         when(ipBlockRepository.save(any(IpBlock.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -104,8 +108,8 @@ class IpBlockServiceTest {
     void blockIp_forbiddenWhenNoActiveAdmin() {
         String ipAddress = "127.0.0.1";
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(adminUser));
-        when(adminRepository.findFirstByUserAndIsActiveOrderByAdminIdAsc(adminUser, true)).thenReturn(Optional.empty());
+        when(moderationActorResolver.resolveActiveAdmin(1L))
+                .thenThrow(new BusinessException(ErrorCode.FORBIDDEN));
 
         assertThatThrownBy(() -> ipBlockService.blockIp(1L, ipAddress, "test", null))
                 .isInstanceOf(BusinessException.class)
@@ -119,8 +123,8 @@ class IpBlockServiceTest {
     void blockIp_checksForbiddenBeforeDuplicate() {
         String ipAddress = "127.0.0.1";
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(adminUser));
-        when(adminRepository.findFirstByUserAndIsActiveOrderByAdminIdAsc(adminUser, true)).thenReturn(Optional.empty());
+        when(moderationActorResolver.resolveActiveAdmin(1L))
+                .thenThrow(new BusinessException(ErrorCode.FORBIDDEN));
 
         assertThatThrownBy(() -> ipBlockService.blockIp(1L, ipAddress, "test", LocalDateTime.now().plusDays(1)))
                 .isInstanceOf(BusinessException.class)
@@ -134,9 +138,6 @@ class IpBlockServiceTest {
     void blockIp_rejectsPastEndDate() {
         String ipAddress = "127.0.0.1";
         LocalDateTime invalidEndDate = LocalDateTime.now().minusMinutes(1);
-
-        when(userRepository.findById(1L)).thenReturn(Optional.of(adminUser));
-        when(adminRepository.findFirstByUserAndIsActiveOrderByAdminIdAsc(adminUser, true)).thenReturn(Optional.of(admin));
 
         assertThatThrownBy(() -> ipBlockService.blockIp(1L, ipAddress, "test", invalidEndDate))
                 .isInstanceOf(BusinessException.class)
@@ -157,8 +158,6 @@ class IpBlockServiceTest {
                 .endDate(null)
                 .build();
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(adminUser));
-        when(adminRepository.findFirstByUserAndIsActiveOrderByAdminIdAsc(adminUser, true)).thenReturn(Optional.of(admin));
         when(ipBlockRepository.findActiveByIpAddress(eq(ipAddress), any(LocalDateTime.class)))
                 .thenReturn(Optional.of(activeBlock));
 
@@ -183,8 +182,6 @@ class IpBlockServiceTest {
                 .endDate(expiredAt)
                 .build();
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(adminUser));
-        when(adminRepository.findFirstByUserAndIsActiveOrderByAdminIdAsc(adminUser, true)).thenReturn(Optional.of(admin));
         when(ipBlockRepository.findActiveByIpAddress(eq(ipAddress), any(LocalDateTime.class))).thenReturn(Optional.empty());
         when(ipBlockRepository.findById(ipAddress)).thenReturn(Optional.of(expiredBlock));
         when(ipBlockRepository.save(expiredBlock)).thenReturn(expiredBlock);

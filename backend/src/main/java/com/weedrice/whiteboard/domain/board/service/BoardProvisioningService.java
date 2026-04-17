@@ -21,11 +21,13 @@ import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.stereotype.Service;
 
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 
+@Service
 class BoardProvisioningService {
 
     private static final String DEFAULT_INQUIRY_BOARD_URL = "inquiry";
