@@ -32,12 +32,14 @@ import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -102,6 +104,8 @@ class UserServiceTest {
     private VerificationCodeService verificationCodeService;
     @Mock
     private AgentService agentService;
+    @Mock
+    private EntityManager entityManager;
 
     @Test
     @DisplayName("로그인 ID로 사용자 ID 조회 성공")
@@ -580,5 +584,29 @@ class UserServiceTest {
                 .isEqualTo(ErrorCode.USER_NOT_ACTIVE);
 
         verify(verificationCodeService, never()).verifyCode(anyString(), anyString());
+    }
+
+    @Test
+    @DisplayName("verifyAndChangeEmail maps concurrent unique violation to DUPLICATE_EMAIL")
+    void verifyAndChangeEmail_duplicateEmail_onFlush() {
+        User user = User.builder().email("current@example.com").build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+
+        User other = User.builder().email("next@example.com").build();
+        ReflectionTestUtils.setField(other, "userId", 2L);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.findByEmail("next@example.com"))
+                .thenReturn(Optional.empty(), Optional.of(other));
+        when(verificationCodeService.verifyCode("next@example.com", "123456"))
+                .thenReturn(new com.weedrice.whiteboard.domain.auth.dto.VerifyCodeResponse(true, null, false));
+        when(userRepository.saveAndFlush(user)).thenThrow(new DataIntegrityViolationException("duplicate email"));
+
+        assertThatThrownBy(() -> userService.verifyAndChangeEmail(1L, "next@example.com", "123456"))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.DUPLICATE_EMAIL);
+
+        verify(entityManager).clear();
     }
 }

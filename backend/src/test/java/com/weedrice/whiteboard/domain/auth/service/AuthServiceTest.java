@@ -13,6 +13,7 @@ import com.weedrice.whiteboard.domain.auth.repository.RefreshTokenRepository;
 import com.weedrice.whiteboard.domain.point.service.PointService;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.domain.user.entity.UserSettings;
 import com.weedrice.whiteboard.domain.point.repository.UserPointRepository;
 import com.weedrice.whiteboard.domain.user.repository.PasswordHistoryRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
@@ -28,6 +29,7 @@ import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.support.TransactionTemplate;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -35,6 +37,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
@@ -93,6 +96,8 @@ class AuthServiceTest {
         private TransactionTemplate transactionTemplate;
         @Mock
         private SanctionService sanctionService;
+        @Mock
+        private EntityManager entityManager;
 
         @InjectMocks
         private AuthService authService;
@@ -127,8 +132,8 @@ class AuthServiceTest {
                 when(verificationCodeService.isVerified(request.getEmail())).thenReturn(true);
                 when(passwordEncoder.encode(request.getPassword())).thenReturn("encodedPassword");
                 when(globalConfigService.getConfig(anyString())).thenReturn("500");
-                when(userRepository.save(any(User.class))).thenReturn(user);
-                when(userSettingsRepository.save(any(com.weedrice.whiteboard.domain.user.entity.UserSettings.class)))
+                when(userRepository.saveAndFlush(any(User.class))).thenReturn(user);
+                when(userSettingsRepository.save(any(UserSettings.class)))
                         .thenAnswer(invocation -> invocation.getArgument(0));
 
                 // when
@@ -181,6 +186,52 @@ class AuthServiceTest {
                 // when & then
                 BusinessException exception = assertThrows(BusinessException.class, () -> authService.signup(request));
                 assertThat(exception.getErrorCode().getCode()).isEqualTo("U003");
+        }
+
+        @Test
+        @DisplayName("회원가입 실패 - 저장 시점 이메일 중복은 DUPLICATE_EMAIL로 변환한다")
+        void signup_fail_duplicateEmail_onFlush() {
+                SignupRequest request = SignupRequest.builder()
+                                .loginId("testuser")
+                                .password("password123")
+                                .email("test@example.com")
+                                .displayName("Test User")
+                                .build();
+
+                when(userRepository.findByEmail(request.getEmail())).thenReturn(Optional.empty(), Optional.of(user));
+                when(userRepository.existsByLoginId(request.getLoginId())).thenReturn(false);
+                when(verificationCodeService.isVerified(request.getEmail())).thenReturn(true);
+                when(passwordEncoder.encode(request.getPassword())).thenReturn("encodedPassword");
+                when(userRepository.saveAndFlush(any(User.class)))
+                                .thenThrow(new DataIntegrityViolationException("duplicate email"));
+
+                BusinessException exception = assertThrows(BusinessException.class, () -> authService.signup(request));
+
+                assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.DUPLICATE_EMAIL);
+                verify(entityManager).clear();
+        }
+
+        @Test
+        @DisplayName("회원가입 실패 - 저장 시점 로그인 ID 중복은 DUPLICATE_LOGIN_ID로 변환한다")
+        void signup_fail_duplicateLoginId_onFlush() {
+                SignupRequest request = SignupRequest.builder()
+                                .loginId("testuser")
+                                .password("password123")
+                                .email("test@example.com")
+                                .displayName("Test User")
+                                .build();
+
+                when(userRepository.findByEmail(request.getEmail())).thenReturn(Optional.empty(), Optional.empty());
+                when(userRepository.existsByLoginId(request.getLoginId())).thenReturn(false, true);
+                when(verificationCodeService.isVerified(request.getEmail())).thenReturn(true);
+                when(passwordEncoder.encode(request.getPassword())).thenReturn("encodedPassword");
+                when(userRepository.saveAndFlush(any(User.class)))
+                                .thenThrow(new DataIntegrityViolationException("duplicate login"));
+
+                BusinessException exception = assertThrows(BusinessException.class, () -> authService.signup(request));
+
+                assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.DUPLICATE_LOGIN_ID);
+                verify(entityManager).clear();
         }
 
         @Test

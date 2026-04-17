@@ -33,8 +33,10 @@ import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import com.weedrice.whiteboard.global.security.JwtTokenProvider;
+import jakarta.persistence.EntityManager;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
@@ -79,6 +81,7 @@ public class AuthService {
     private final GlobalConfigService globalConfigService;
     private final TransactionTemplate transactionTemplate;
     private final SanctionService sanctionService;
+    private final EntityManager entityManager;
 
     @Value("${cloud.aws.password-reset.frontend-url}")
     private String passwordResetFrontendUrl;
@@ -113,10 +116,10 @@ public class AuthService {
                 .displayName(request.getDisplayName())
                 .build();
         user.verifyEmail();
-        User savedUser = userRepository.save(user);
+        User savedUser = saveSignupUser(user, request);
 
         UserSettings userSettings = UserSettings.builder()
-                .user(user)
+                .user(savedUser)
                 .build();
         userSettingsRepository.save(userSettings);
 
@@ -139,6 +142,25 @@ public class AuthService {
                 .email(savedUser.getEmail())
                 .displayName(savedUser.getDisplayName())
                 .build();
+    }
+
+    private User saveSignupUser(User user, SignupRequest request) {
+        try {
+            return userRepository.saveAndFlush(user);
+        } catch (DataIntegrityViolationException ex) {
+            entityManager.clear();
+            throw resolveSignupConflict(request, ex);
+        }
+    }
+
+    private BusinessException resolveSignupConflict(SignupRequest request, DataIntegrityViolationException ex) {
+        if (userRepository.findByEmail(request.getEmail()).isPresent()) {
+            return new BusinessException(ErrorCode.DUPLICATE_EMAIL);
+        }
+        if (userRepository.existsByLoginId(request.getLoginId())) {
+            return new BusinessException(ErrorCode.DUPLICATE_LOGIN_ID);
+        }
+        throw ex;
     }
 
     private SignupResponse reregister(User existingUser, SignupRequest request) {

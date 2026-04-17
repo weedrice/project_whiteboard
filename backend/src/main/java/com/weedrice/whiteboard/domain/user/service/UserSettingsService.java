@@ -14,8 +14,10 @@ import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserSettingsRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,6 +41,7 @@ public class UserSettingsService {
         private final UserSettingsRepository userSettingsRepository;
         private final UserNotificationSettingsRepository userNotificationSettingsRepository;
         private final SanctionService sanctionService;
+        private final EntityManager entityManager;
 
         public UserSettingsResponse getSettings(Long userId) {
                 validateUserExists(userId);
@@ -62,9 +65,7 @@ public class UserSettingsService {
                                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
                 return userSettingsRepository.findById(userId)
-                                .orElseGet(() -> userSettingsRepository.save(UserSettings.builder()
-                                                .user(user)
-                                                .build()));
+                                .orElseGet(() -> createSettingsEntity(user));
         }
 
         @Transactional
@@ -155,5 +156,18 @@ public class UserSettingsService {
 
                 setting.setEnabled(Boolean.TRUE.equals(isEnabled));
                 return userNotificationSettingsRepository.save(setting);
+        }
+
+        private UserSettings createSettingsEntity(User user) {
+                UserSettings settings = UserSettings.builder()
+                                .user(user)
+                                .build();
+                try {
+                        return userSettingsRepository.saveAndFlush(settings);
+                } catch (DataIntegrityViolationException ex) {
+                        entityManager.clear();
+                        return userSettingsRepository.findById(user.getUserId())
+                                        .orElseThrow(() -> ex);
+                }
         }
 }

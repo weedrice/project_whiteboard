@@ -41,6 +41,8 @@ import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import jakarta.persistence.EntityManager;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -83,6 +85,7 @@ public class UserService {
     private final VerificationCodeService verificationCodeService; // Inject VerificationCodeService
     private final AgentService agentService;
     private final ModerationActorResolver moderationActorResolver;
+    private final EntityManager entityManager;
 
     public UserService(UserRepository userRepository,
                        CommentRepository commentRepository,
@@ -104,7 +107,8 @@ public class UserService {
                        SanctionService sanctionService,
                        ReportRepository reportRepository,
                        VerificationCodeService verificationCodeService,
-                       AgentService agentService) {
+                       AgentService agentService,
+                       EntityManager entityManager) {
         this.userRepository = userRepository;
         this.commentRepository = commentRepository;
         this.displayNameHistoryRepository = displayNameHistoryRepository;
@@ -127,6 +131,7 @@ public class UserService {
         this.verificationCodeService = verificationCodeService;
         this.agentService = agentService;
         this.moderationActorResolver = new ModerationActorResolver(userRepository, adminRepository);
+        this.entityManager = entityManager;
     }
 
     public Long findUserIdByLoginId(String loginId) {
@@ -431,6 +436,18 @@ public class UserService {
         }
 
         user.verifyEmail();
+
+        try {
+            userRepository.saveAndFlush(user);
+        } catch (DataIntegrityViolationException ex) {
+            entityManager.clear();
+            if (userRepository.findByEmail(email)
+                    .filter(other -> !other.getUserId().equals(user.getUserId()))
+                    .isPresent()) {
+                throw new BusinessException(ErrorCode.DUPLICATE_EMAIL);
+            }
+            throw ex;
+        }
     }
 
     public UserSettings getSettings(Long userId) {

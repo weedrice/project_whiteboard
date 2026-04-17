@@ -14,12 +14,14 @@ import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserSettingsRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
@@ -50,6 +52,8 @@ class UserSettingsServiceTest {
     private UserNotificationSettingsRepository userNotificationSettingsRepository;
     @Mock
     private SanctionService sanctionService;
+    @Mock
+    private EntityManager entityManager;
 
     @Test
     @DisplayName("Settings lookup succeeds")
@@ -96,6 +100,46 @@ class UserSettingsServiceTest {
 
         assertThat(response.getTheme()).isEqualTo("dark");
         assertThat(response.isHideNsfw()).isTrue();
+    }
+
+    @Test
+    @DisplayName("Settings row creation recovers when another request creates the row first")
+    void getOrCreateSettingsEntity_recoversAfterDuplicateInsert() {
+        User user = User.builder().build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+        UserSettings settings = new UserSettings(user);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userSettingsRepository.findById(1L)).thenReturn(Optional.empty(), Optional.of(settings));
+        when(userSettingsRepository.saveAndFlush(any(UserSettings.class)))
+                .thenThrow(new DataIntegrityViolationException("duplicate user_settings"));
+
+        UserSettings result = userSettingsService.getOrCreateSettingsEntity(1L);
+
+        assertThat(result).isSameAs(settings);
+        verify(entityManager).clear();
+    }
+
+    @Test
+    @DisplayName("Settings update recovers when another request creates the row first")
+    void updateSettingsEntity_recoversAfterDuplicateInsert() {
+        User user = User.builder().build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+        UserSettings settings = new UserSettings(user);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userSettingsRepository.findById(1L)).thenReturn(Optional.empty(), Optional.of(settings));
+        when(userSettingsRepository.saveAndFlush(any(UserSettings.class)))
+                .thenThrow(new DataIntegrityViolationException("duplicate user_settings"));
+        when(userSettingsRepository.save(settings)).thenReturn(settings);
+
+        UserSettings result = userSettingsService.updateSettingsEntity(1L, "dark", "en", "UTC", false);
+
+        assertThat(result.getTheme()).isEqualTo("dark");
+        assertThat(result.getLanguage()).isEqualTo("en");
+        assertThat(result.getTimezone()).isEqualTo("UTC");
+        assertThat(result.getHideNsfw()).isFalse();
+        verify(entityManager).clear();
     }
 
     @Test
