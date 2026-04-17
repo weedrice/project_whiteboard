@@ -136,7 +136,7 @@ describe('useBoard', () => {
         expect((options.enabled as ReturnType<typeof computed>).value).toBe(true)
         let result = await (options.queryFn as () => Promise<unknown>)()
         expect(result).toEqual({ boardId: 2, boardUrl: 'free' })
-        expect(boardApi.getBoard).toHaveBeenCalledWith('free')
+        expect(boardApi.getBoard).toHaveBeenCalledWith('free', undefined)
 
         useBoardNotices(boardUrl)
         options = mocks.queryOptions.at(-1)!
