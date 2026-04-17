@@ -29,6 +29,9 @@ public interface PostRepositoryCustom {
 
     List<Post> findTrendingPosts(LocalDateTime since, List<Long> blockedUserIds, Pageable pageable);
 
+    Page<Post> findAgentFeedByBoardIds(Collection<Long> boardIds, List<Long> blockedUserIds,
+            Collection<Long> secretVisibleBoardIds, Long viewerUserId, @NonNull Pageable pageable);
+
     List<Long> findLatestPostIdsByBoardIds(Collection<Long> boardIds, int limitPerBoard, List<Long> blockedUserIds,
             Collection<Long> secretVisibleBoardIds, Long viewerUserId);
 

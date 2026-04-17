@@ -27,6 +27,7 @@ import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.domain.user.service.UserBlockService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
@@ -40,6 +41,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
@@ -68,6 +70,8 @@ class AgentServiceTest {
     private AgentActivityLogRepository agentActivityLogRepository;
     @Mock
     private UserRepository userRepository;
+    @Mock
+    private UserBlockService userBlockService;
     @Mock
     private AdminRepository adminRepository;
     @Mock
@@ -105,6 +109,7 @@ class AgentServiceTest {
 
         lenient().when(commentRepository.findDistinctPostIdsByPost_PostIdInAndAgent_AgentIdAndIsDeletedFalse(any(), anyLong()))
                 .thenReturn(List.of());
+        lenient().when(userBlockService.getBlockedUserIds(1L)).thenReturn(List.of());
 
         user = User.builder().loginId("user").displayName("User").build();
         ReflectionTestUtils.setField(user, "userId", 1L);
@@ -152,10 +157,12 @@ class AgentServiceTest {
         when(boardRepository.findByIsActiveAndIsPublicOrderBySortOrderAsc(true, true))
                 .thenReturn(List.of(writableBoard, blockedBoard));
         when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(true);
-        when(postRepository.findByBoard_BoardIdInAndIsDeletedFalseOrderByCreatedAtDesc(
-                List.of(10L),
-                PageRequest.of(0, 10, org.springframework.data.domain.Sort.by(
-                        org.springframework.data.domain.Sort.Direction.DESC, "createdAt"))))
+        when(postRepository.findAgentFeedByBoardIds(
+                eq(List.of(10L)),
+                any(),
+                any(),
+                eq(1L),
+                any()))
                 .thenReturn(new PageImpl<>(List.of(writablePost), PageRequest.of(0, 10), 1));
         when(commentRepository.findDistinctPostIdsByPost_PostIdInAndAgent_AgentIdAndIsDeletedFalse(List.of(100L), 7L))
                 .thenReturn(List.of());
@@ -175,13 +182,13 @@ class AgentServiceTest {
         AgentClaimRequest request = new AgentClaimRequest();
         ReflectionTestUtils.setField(request, "agentToken", "noviis_agt_token");
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
 
         assertThatThrownBy(() -> agentService.claim(1L, request, null))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.EMAIL_NOT_VERIFIED);
 
-        verify(agentRepository, never()).findByAgentTokenHashAndIsDeletedFalse(any());
+        verify(agentRepository, never()).findByAgentTokenHashAndIsDeletedFalseForUpdate(any());
     }
 
     @Test
@@ -248,8 +255,8 @@ class AgentServiceTest {
         AgentClaimRequest request = new AgentClaimRequest();
         ReflectionTestUtils.setField(request, "agentToken", "noviis_agt_token");
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(agentRepository.findByAgentTokenHashAndIsDeletedFalse(any())).thenReturn(Optional.of(agent));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+        when(agentRepository.findByAgentTokenHashAndIsDeletedFalseForUpdate(any())).thenReturn(Optional.of(agent));
 
         AgentResponse response = spyService.claim(1L, request, null);
 
@@ -280,8 +287,8 @@ class AgentServiceTest {
         AgentClaimRequest request = new AgentClaimRequest();
         ReflectionTestUtils.setField(request, "agentToken", "noviis_agt_new");
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(agentRepository.findByAgentTokenHashAndIsDeletedFalse(any())).thenReturn(Optional.of(pendingAgent));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+        when(agentRepository.findByAgentTokenHashAndIsDeletedFalseForUpdate(any())).thenReturn(Optional.of(pendingAgent));
         when(agentRepository.findByUserAndIsDeletedFalseOrderByCreatedAtDesc(user))
                 .thenReturn(List.of(previousAgent));
 
@@ -409,10 +416,12 @@ class AgentServiceTest {
         when(boardRepository.findByIsActiveAndIsPublicOrderBySortOrderAsc(true, true))
                 .thenReturn(List.of(writableBoard));
         when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(true);
-        when(postRepository.findByBoard_BoardIdInAndIsDeletedFalseOrderByCreatedAtDesc(
-                List.of(10L),
-                PageRequest.of(0, 10, org.springframework.data.domain.Sort.by(
-                        org.springframework.data.domain.Sort.Direction.DESC, "createdAt"))))
+        when(postRepository.findAgentFeedByBoardIds(
+                eq(List.of(10L)),
+                any(),
+                any(),
+                eq(1L),
+                any()))
                 .thenReturn(new PageImpl<>(List.of(writablePost, secondWritablePost), PageRequest.of(0, 10), 2));
         when(commentRepository.findDistinctPostIdsByPost_PostIdInAndAgent_AgentIdAndIsDeletedFalse(
                 List.of(100L, 101L), 7L)).thenReturn(List.of());
@@ -432,7 +441,31 @@ class AgentServiceTest {
 
         assertThat(response.getContent()).isEmpty();
         assertThat(response.getTotalElements()).isZero();
-        verify(postRepository, never()).findByBoard_BoardIdInAndIsDeletedFalseOrderByCreatedAtDesc(any(), any());
+        verify(postRepository, never()).findAgentFeedByBoardIds(any(), any(), any(), anyLong(), any());
+    }
+
+    @Test
+    @DisplayName("feed 조회는 가시성 조건이 반영된 전용 쿼리를 사용한다")
+    void getFeed_usesVisibilityAwareFeedQuery() {
+        when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+        when(boardRepository.findByIsActiveAndIsPublicOrderBySortOrderAsc(true, true))
+                .thenReturn(List.of(writableBoard));
+        when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(true);
+        when(postRepository.findAgentFeedByBoardIds(
+                eq(List.of(10L)),
+                any(),
+                any(),
+                eq(1L),
+                any()))
+                .thenReturn(new PageImpl<>(List.of(writablePost), PageRequest.of(0, 10), 1));
+        when(commentRepository.findDistinctPostIdsByPost_PostIdInAndAgent_AgentIdAndIsDeletedFalse(List.of(100L), 7L))
+                .thenReturn(List.of());
+
+        Page<PostSummary> response = agentService.getFeed(7L, null, PageRequest.of(0, 10));
+
+        assertThat(response.getContent()).hasSize(1);
+        assertThat(response.getContent().get(0).getPostId()).isEqualTo(100L);
+        assertThat(response.getTotalElements()).isEqualTo(1L);
     }
 
     @Test

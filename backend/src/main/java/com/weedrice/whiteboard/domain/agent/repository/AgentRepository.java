@@ -15,6 +15,11 @@ import java.util.Optional;
 public interface AgentRepository extends JpaRepository<Agent, Long> {
     Optional<Agent> findByAgentTokenHashAndIsDeletedFalse(String agentTokenHash);
 
+    @EntityGraph(attributePaths = { "user" })
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT a FROM Agent a WHERE a.agentTokenHash = :agentTokenHash AND a.isDeleted = false")
+    Optional<Agent> findByAgentTokenHashAndIsDeletedFalseForUpdate(@Param("agentTokenHash") String agentTokenHash);
+
     boolean existsByAgentTokenHashAndIsDeletedFalse(String agentTokenHash);
 
     boolean existsByNameAndIsDeletedFalse(String name);

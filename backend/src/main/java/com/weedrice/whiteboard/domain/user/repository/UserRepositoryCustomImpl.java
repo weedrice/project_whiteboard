@@ -40,6 +40,9 @@ public class UserRepositoryCustomImpl implements UserRepositoryCustom {
         QUser user = QUser.user;
         BooleanBuilder predicate = new BooleanBuilder();
 
+        predicate.and(user.status.eq("ACTIVE"));
+        predicate.and(user.deletedAt.isNull());
+
         if (StringUtils.hasText(keyword)) {
             predicate.and(user.displayName.containsIgnoreCase(keyword));
         }

@@ -10,11 +10,14 @@ import com.weedrice.whiteboard.domain.report.repository.ReportRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.common.util.SecurityUtils;
+import com.weedrice.whiteboard.global.exception.BusinessException;
+import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
@@ -28,8 +31,8 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mockStatic;
@@ -99,14 +102,37 @@ class ReportServiceTest {
                 .contents("Test")
                 .build()));
         ReflectionTestUtils.setField(report, "reportId", 1L);
-        when(reportRepository.save(any(Report.class))).thenReturn(report);
+        when(reportRepository.saveAndFlush(any(Report.class))).thenReturn(report);
 
         // when
         Long createdReportId = reportService.createReport(reporterId, "POST", targetId, "SPAM", null, null);
 
         // then
         assertThat(createdReportId).isNotNull();
-        verify(reportRepository).save(any(Report.class));
+        verify(reportRepository).saveAndFlush(any(Report.class));
+    }
+
+    @Test
+    @DisplayName("동시 신고 충돌은 이미 신고함 오류로 정규화한다")
+    void createReport_duplicateConflict_throwsAlreadyReported() {
+        Long reporterId = 1L;
+        Long targetId = 1L;
+
+        when(userRepository.findById(reporterId)).thenReturn(Optional.of(reporter));
+        when(reportRepository.findByReporterAndTargetTypeAndTargetId(reporter, "POST", targetId))
+                .thenReturn(Optional.empty(), Optional.of(report));
+        when(postRepository.findById(targetId)).thenReturn(Optional.of(com.weedrice.whiteboard.domain.post.entity.Post.builder()
+                .board(com.weedrice.whiteboard.domain.board.entity.Board.builder().build())
+                .user(reporter)
+                .title("Test")
+                .contents("Test")
+                .build()));
+        when(reportRepository.saveAndFlush(any(Report.class)))
+                .thenThrow(new DataIntegrityViolationException("duplicate"));
+
+        assertThatThrownBy(() -> reportService.createReport(reporterId, "POST", targetId, "SPAM", null, null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.ALREADY_REPORTED);
     }
 
     @Test

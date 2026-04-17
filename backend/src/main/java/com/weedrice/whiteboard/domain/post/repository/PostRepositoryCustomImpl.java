@@ -267,6 +267,45 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
     }
 
     @Override
+    public Page<Post> findAgentFeedByBoardIds(Collection<Long> boardIds, List<Long> blockedUserIds,
+            Collection<Long> secretVisibleBoardIds, Long viewerUserId, @NonNull Pageable pageable) {
+        if (boardIds == null || boardIds.isEmpty()) {
+            return Page.empty(pageable);
+        }
+
+        List<Post> content = queryFactory
+                .selectFrom(post)
+                .join(post.user).fetchJoin()
+                .join(post.board).fetchJoin()
+                .leftJoin(post.category).fetchJoin()
+                .where(
+                        post.board.boardId.in(boardIds),
+                        post.isDeleted.eq(false),
+                        post.board.isActive.eq(true),
+                        post.board.isPublic.eq(true),
+                        agentFeedSecretCondition(secretVisibleBoardIds, viewerUserId),
+                        notBlockedCondition(blockedUserIds))
+                .offset(pageable.getOffset())
+                .limit(pageable.getPageSize())
+                .orderBy(post.createdAt.desc(), post.postId.desc())
+                .fetch();
+
+        Long total = queryFactory
+                .select(post.count())
+                .from(post)
+                .where(
+                        post.board.boardId.in(boardIds),
+                        post.isDeleted.eq(false),
+                        post.board.isActive.eq(true),
+                        post.board.isPublic.eq(true),
+                        agentFeedSecretCondition(secretVisibleBoardIds, viewerUserId),
+                        notBlockedCondition(blockedUserIds))
+                .fetchOne();
+
+        return new PageImpl<>(content, pageable, total != null ? total : 0L);
+    }
+
+    @Override
     public List<Long> findLatestPostIdsByBoardIds(Collection<Long> boardIds, int limitPerBoard, List<Long> blockedUserIds,
             Collection<Long> secretVisibleBoardIds, Long viewerUserId) {
         if (boardIds == null || boardIds.isEmpty() || limitPerBoard <= 0) {
@@ -317,6 +356,18 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
 
     private BooleanExpression notBlockedCondition(List<Long> blockedUserIds) {
         return (blockedUserIds != null && !blockedUserIds.isEmpty()) ? post.user.userId.notIn(blockedUserIds) : null;
+    }
+
+    private BooleanExpression agentFeedSecretCondition(Collection<Long> secretVisibleBoardIds, Long viewerUserId) {
+        BooleanExpression expression = post.isSecret.eq(false);
+
+        if (viewerUserId != null) {
+            expression = expression.or(post.user.userId.eq(viewerUserId));
+        }
+        if (secretVisibleBoardIds != null && !secretVisibleBoardIds.isEmpty()) {
+            expression = expression.or(post.board.boardId.in(secretVisibleBoardIds));
+        }
+        return expression;
     }
 
     private void appendSecretVisibilityCondition(StringBuilder sql, Long viewerUserId,

@@ -14,6 +14,7 @@ import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -70,7 +71,14 @@ public class ReportService {
                 .remark(remark)
                 .contents(contents)
                 .build();
-        return reportRepository.save(report).getReportId();
+        try {
+            return reportRepository.saveAndFlush(report).getReportId();
+        } catch (DataIntegrityViolationException ex) {
+            if (reportRepository.findByReporterAndTargetTypeAndTargetId(reporter, targetType, targetId).isPresent()) {
+                throw new BusinessException(ErrorCode.ALREADY_REPORTED);
+            }
+            throw ex;
+        }
     }
 
     public Page<ReportResponse> getReports(String status, String targetType, Pageable pageable) {

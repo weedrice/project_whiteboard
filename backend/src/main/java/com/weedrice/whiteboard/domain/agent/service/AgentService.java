@@ -24,6 +24,7 @@ import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.domain.user.service.UserBlockService;
 import com.weedrice.whiteboard.global.util.InputSanitizer;
 import com.weedrice.whiteboard.global.common.util.ClientUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -102,6 +103,7 @@ public class AgentService {
     private final CommentRepository commentRepository;
     private final PostService postService;
     private final CommentService commentService;
+    private final UserBlockService userBlockService;
     private final AgentPostSummaryEnricher agentPostSummaryEnricher;
 
     @Value("${app.frontend-url:https://noviis.kr}")
@@ -122,12 +124,12 @@ public class AgentService {
 
     @Transactional
     public AgentResponse claim(Long userId, AgentClaimRequest request, HttpServletRequest httpServletRequest) {
-        User user = userRepository.findById(userId)
+        User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         if (!Boolean.TRUE.equals(user.getIsEmailVerified())) {
             throw new BusinessException(ErrorCode.EMAIL_NOT_VERIFIED);
         }
-        Agent agent = agentRepository.findByAgentTokenHashAndIsDeletedFalse(hashToken(request.getAgentToken()))
+        Agent agent = agentRepository.findByAgentTokenHashAndIsDeletedFalseForUpdate(hashToken(request.getAgentToken()))
                 .orElseThrow(() -> new BusinessException(ErrorCode.AGENT_NOT_FOUND));
 
         if (!agent.isPendingClaim()) {
@@ -205,13 +207,22 @@ public class AgentService {
                 pageable.getPageNumber(),
                 Math.min(Math.max(pageable.getPageSize(), 1), 10),
                 Sort.by(Sort.Direction.DESC, "createdAt"));
-        List<Long> accessibleBoardIds = getAccessibleFeedBoardIds(agent, boardId);
-        if (accessibleBoardIds.isEmpty()) {
+        List<Board> accessibleBoards = getAccessibleFeedBoards(agent, boardId);
+        if (accessibleBoards.isEmpty()) {
             return Page.empty(effectivePageable);
         }
 
-        Page<Post> posts = postRepository.findByBoard_BoardIdInAndIsDeletedFalseOrderByCreatedAtDesc(
+        List<Long> accessibleBoardIds = accessibleBoards.stream()
+                .map(Board::getBoardId)
+                .toList();
+        Set<Long> secretVisibleBoardIds = resolveBoardAdminIds(agent.getUser(), accessibleBoards, accessibleBoardIds);
+        List<Long> blockedUserIds = userBlockService.getBlockedUserIds(agent.getUser().getUserId());
+
+        Page<Post> posts = postRepository.findAgentFeedByBoardIds(
                 accessibleBoardIds,
+                blockedUserIds,
+                secretVisibleBoardIds,
+                agent.getUser().getUserId(),
                 effectivePageable);
         return agentPostSummaryEnricher.fromPosts(posts, agentId);
     }
@@ -572,18 +583,17 @@ public class AgentService {
         }
     }
 
-    private List<Long> getAccessibleFeedBoardIds(Agent agent, Long boardId) {
+    private List<Board> getAccessibleFeedBoards(Agent agent, Long boardId) {
         if (boardId != null) {
             return boardRepository.findByBoardId(boardId)
                     .filter(board -> canAgentWriteBoard(agent, board, new HashMap<>()))
-                    .map(board -> List.of(board.getBoardId()))
+                    .map(List::of)
                     .orElse(Collections.emptyList());
         }
 
         Map<Long, Boolean> writableBoardCache = new HashMap<>();
         return boardRepository.findByIsActiveAndIsPublicOrderBySortOrderAsc(true, true).stream()
                 .filter(board -> canAgentWriteBoard(agent, board, writableBoardCache))
-                .map(Board::getBoardId)
                 .toList();
     }
 
