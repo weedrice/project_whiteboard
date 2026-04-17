@@ -1,9 +1,9 @@
 package com.weedrice.whiteboard.domain.board.controller;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.weedrice.whiteboard.domain.board.dto.BoardCreateRequest;
 import com.weedrice.whiteboard.domain.board.dto.BoardManagerTransferRequest;
 import com.weedrice.whiteboard.domain.board.dto.BoardResponse;
+import com.weedrice.whiteboard.domain.board.dto.BoardSubscriptionOrderRequest;
 import com.weedrice.whiteboard.domain.board.dto.BoardUpdateRequest;
 import com.weedrice.whiteboard.domain.board.dto.CategoryRequest;
 import com.weedrice.whiteboard.domain.board.dto.CategoryResponse;
@@ -24,7 +24,6 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.stream.StreamSupport;
 
 @RestController
 @RequestMapping("/api/v1/boards")
@@ -152,9 +151,9 @@ public class BoardController {
 
     @PutMapping("/subscriptions/order")
     public ApiResponse<Void> updateSubscriptionOrder(
-            @RequestBody JsonNode requestBody,
+            @Valid @RequestBody BoardSubscriptionOrderRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        boardService.updateSubscriptionOrder(userDetails.getUserId(), extractBoardUrls(requestBody));
+        boardService.updateSubscriptionOrder(userDetails.getUserId(), request.boardUrls());
         return ApiResponse.success(null);
     }
 
@@ -162,30 +161,5 @@ public class BoardController {
         if (boardUrl != null && "inquiry".equalsIgnoreCase(boardUrl.trim())) {
             throw new BusinessException(ErrorCode.BOARD_NOT_FOUND);
         }
-    }
-
-    private List<String> extractBoardUrls(JsonNode requestBody) {
-        if (requestBody == null || requestBody.isNull()) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
-        }
-        if (requestBody.isArray()) {
-            return toBoardUrls(requestBody);
-        }
-        JsonNode boardUrlsNode = requestBody.get("boardUrls");
-        if (boardUrlsNode == null || !boardUrlsNode.isArray()) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
-        }
-        return toBoardUrls(boardUrlsNode);
-    }
-
-    private List<String> toBoardUrls(JsonNode boardUrlsNode) {
-        return StreamSupport.stream(boardUrlsNode.spliterator(), false)
-                .map(node -> {
-                    if (!node.isTextual()) {
-                        throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
-                    }
-                    return node.asText();
-                })
-                .toList();
     }
 }

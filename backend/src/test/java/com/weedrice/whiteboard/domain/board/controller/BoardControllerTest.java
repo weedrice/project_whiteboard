@@ -257,4 +257,26 @@ class BoardControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
     }
+
+    @Test
+    @DisplayName("구독 순서 변경은 빈 boardUrls를 거부한다")
+    void updateSubscriptionOrder_rejectsEmptyBoardUrls() throws Exception {
+        mockMvc.perform(put("/api/v1/boards/subscriptions/order")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"boardUrls\":[]}")
+                        .with(user(customUserDetails))
+                        .with(csrf()))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("구독 순서 변경은 빈 legacy 배열 body를 거부한다")
+    void updateSubscriptionOrder_rejectsEmptyLegacyArrayBody() throws Exception {
+        mockMvc.perform(put("/api/v1/boards/subscriptions/order")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("[]")
+                        .with(user(customUserDetails))
+                        .with(csrf()))
+                .andExpect(status().isBadRequest());
+    }
 }
