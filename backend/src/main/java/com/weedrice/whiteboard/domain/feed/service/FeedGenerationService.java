@@ -30,6 +30,7 @@ public class FeedGenerationService {
     private final BoardSubscriptionRepository boardSubscriptionRepository;
     private final UserFeedRepository userFeedRepository;
     private final PostRepository postRepository;
+    private final UserFeedCommandService userFeedCommandService;
 
     public void generateFeeds() {
         // Batch feed generation remains out of scope for this change set.
@@ -75,8 +76,8 @@ public class FeedGenerationService {
                         .build())
                 .toList();
 
-        if (!newFeeds.isEmpty()) {
-            userFeedRepository.saveAll(newFeeds);
+        for (UserFeed newFeed : newFeeds) {
+            userFeedCommandService.saveFeedIfAbsent(newFeed);
         }
     }
 }

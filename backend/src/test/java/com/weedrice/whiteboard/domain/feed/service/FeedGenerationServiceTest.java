@@ -21,7 +21,6 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -40,6 +39,9 @@ class FeedGenerationServiceTest {
 
     @Mock
     private PostRepository postRepository;
+
+    @Mock
+    private UserFeedCommandService userFeedCommandService;
 
     private Board board;
     private User firstUser;
@@ -82,13 +84,13 @@ class FeedGenerationServiceTest {
 
         feedGenerationService.generatePostFeeds(board, 100L);
 
-        ArgumentCaptor<List<UserFeed>> captor = ArgumentCaptor.forClass(List.class);
+        ArgumentCaptor<UserFeed> captor = ArgumentCaptor.forClass(UserFeed.class);
         verify(postRepository).findByIdForUpdate(100L);
-        verify(userFeedRepository).saveAll(captor.capture());
-        assertThat(captor.getValue()).hasSize(2);
-        assertThat(captor.getValue()).extracting(UserFeed::getTargetUser).containsExactly(firstUser, secondUser);
-        assertThat(captor.getValue()).extracting(UserFeed::getContentId).containsOnly(100L);
-        assertThat(captor.getValue()).extracting(UserFeed::getContentType)
+        verify(userFeedCommandService, org.mockito.Mockito.times(2)).saveFeedIfAbsent(captor.capture());
+        assertThat(captor.getAllValues()).hasSize(2);
+        assertThat(captor.getAllValues()).extracting(UserFeed::getTargetUser).containsExactly(firstUser, secondUser);
+        assertThat(captor.getAllValues()).extracting(UserFeed::getContentId).containsOnly(100L);
+        assertThat(captor.getAllValues()).extracting(UserFeed::getContentType)
                 .containsOnly(FeedGenerationService.CONTENT_TYPE_POST);
     }
 
@@ -109,7 +111,7 @@ class FeedGenerationServiceTest {
 
         feedGenerationService.generatePostFeeds(board, 100L);
 
-        verify(userFeedRepository, never()).saveAll(anyList());
+        verify(userFeedCommandService, never()).saveFeedIfAbsent(org.mockito.ArgumentMatchers.any(UserFeed.class));
     }
 
     @Test
@@ -129,9 +131,8 @@ class FeedGenerationServiceTest {
 
         feedGenerationService.generatePostFeeds(board, 100L);
 
-        ArgumentCaptor<List<UserFeed>> captor = ArgumentCaptor.forClass(List.class);
-        verify(userFeedRepository).saveAll(captor.capture());
-        assertThat(captor.getValue()).hasSize(1);
-        assertThat(captor.getValue().get(0).getTargetUser()).isEqualTo(firstUser);
+        ArgumentCaptor<UserFeed> captor = ArgumentCaptor.forClass(UserFeed.class);
+        verify(userFeedCommandService).saveFeedIfAbsent(captor.capture());
+        assertThat(captor.getValue().getTargetUser()).isEqualTo(firstUser);
     }
 }

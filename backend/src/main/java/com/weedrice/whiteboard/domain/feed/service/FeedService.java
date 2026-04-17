@@ -11,6 +11,7 @@ import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,12 +34,24 @@ public class FeedService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         Page<UserFeed> feedPage = userFeedRepository.findByTargetUserOrderByCreatedAtDesc(user, pageable);
         Map<Long, PostSummary> postSummariesById = resolvePostSummaries(feedPage, userId);
-        return FeedResponse.from(feedPage, postSummariesById);
+        List<UserFeed> visibleFeeds = filterVisibleFeeds(feedPage, postSummariesById);
+        Page<UserFeed> visiblePage = new PageImpl<>(
+                visibleFeeds,
+                pageable,
+                feedPage.getTotalElements());
+        return FeedResponse.from(visiblePage, postSummariesById);
     }
 
     @Transactional
     public void generateFeeds() {
         feedGenerationService.generateFeeds();
+    }
+
+    private List<UserFeed> filterVisibleFeeds(Page<UserFeed> feedPage, Map<Long, PostSummary> postSummariesById) {
+        List<UserFeed> invalidPostFeeds = findInvalidPostFeeds(feedPage, postSummariesById);
+        return feedPage.getContent().stream()
+                .filter(feed -> !invalidPostFeeds.contains(feed))
+                .toList();
     }
 
     private Map<Long, PostSummary> resolvePostSummaries(Page<UserFeed> feedPage, Long userId) {
@@ -50,5 +63,12 @@ public class FeedService {
             return Map.of();
         }
         return postService.getPostSummariesByIds(postIds, userId);
+    }
+
+    private List<UserFeed> findInvalidPostFeeds(Page<UserFeed> feedPage, Map<Long, PostSummary> postSummariesById) {
+        return feedPage.getContent().stream()
+                .filter(feed -> FeedGenerationService.CONTENT_TYPE_POST.equals(feed.getContentType()))
+                .filter(feed -> !postSummariesById.containsKey(feed.getContentId()))
+                .toList();
     }
 }

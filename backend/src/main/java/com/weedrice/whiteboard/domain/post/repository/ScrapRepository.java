@@ -26,4 +26,6 @@ public interface ScrapRepository extends JpaRepository<Scrap, ScrapId> {
 
     java.util.List<Scrap> findByUserAndPostIn(User user,
             java.util.List<com.weedrice.whiteboard.domain.post.entity.Post> posts);
+
+    long deleteByUser_UserIdAndPost_PostId(Long userId, Long postId);
 }

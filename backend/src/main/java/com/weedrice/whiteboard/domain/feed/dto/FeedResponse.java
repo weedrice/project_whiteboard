@@ -61,6 +61,10 @@ public class FeedResponse {
         if (!"POST".equals(feed.getContentType())) {
             return null;
         }
-        return postSummariesById.get(feed.getContentId());
+        PostSummary postSummary = postSummariesById.get(feed.getContentId());
+        if (postSummary == null) {
+            throw new IllegalStateException("POST feed must include a resolved post summary");
+        }
+        return postSummary;
     }
 }

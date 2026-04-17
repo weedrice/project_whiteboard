@@ -592,21 +592,61 @@ class PostServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
         when(userBlockService.getBlockedUserIds(1L)).thenReturn(Collections.emptyList());
-        when(scrapRepository.existsById(any(ScrapId.class))).thenReturn(false);
+        when(scrapRepository.saveAndFlush(any(Scrap.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         postService.scrapPost(1L, 1L, "My Scrap");
 
-        verify(scrapRepository).save(any(Scrap.class));
+        verify(scrapRepository).saveAndFlush(any(Scrap.class));
     }
 
     @Test
     @DisplayName("스크랩 취소 성공")
     void unscrapPost_success() {
-        when(scrapRepository.existsById(any(ScrapId.class))).thenReturn(true);
+        when(scrapRepository.deleteByUser_UserIdAndPost_PostId(1L, 1L)).thenReturn(1L);
 
         postService.unscrapPost(1L, 1L);
 
-        verify(scrapRepository).deleteById(any(ScrapId.class));
+        verify(scrapRepository).deleteByUser_UserIdAndPost_PostId(1L, 1L);
+    }
+
+    @Test
+    @DisplayName("duplicate scrap is normalized to ALREADY_SCRAPED")
+    void scrapPost_duplicate_throwsAlreadyScraped() {
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+        when(userBlockService.getBlockedUserIds(1L)).thenReturn(Collections.emptyList());
+        when(scrapRepository.saveAndFlush(any(Scrap.class)))
+                .thenThrow(new DataIntegrityViolationException("duplicate"));
+        when(scrapRepository.existsById(any(ScrapId.class))).thenReturn(true);
+
+        assertThatThrownBy(() -> postService.scrapPost(1L, 1L, "My Scrap"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.ALREADY_SCRAPED);
+    }
+
+    @Test
+    @DisplayName("non-duplicate scrap persistence error is rethrown")
+    void scrapPost_nonDuplicateDataIntegrityViolation_isRethrown() {
+        DataIntegrityViolationException exception = new DataIntegrityViolationException("other");
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+        when(userBlockService.getBlockedUserIds(1L)).thenReturn(Collections.emptyList());
+        when(scrapRepository.saveAndFlush(any(Scrap.class))).thenThrow(exception);
+        when(scrapRepository.existsById(any(ScrapId.class))).thenReturn(false);
+
+        assertThatThrownBy(() -> postService.scrapPost(1L, 1L, "My Scrap"))
+                .isSameAs(exception);
+    }
+
+    @Test
+    @DisplayName("unscrap returns NOT_SCRAPED when no row is deleted")
+    void unscrapPost_notScrapped() {
+        when(scrapRepository.deleteByUser_UserIdAndPost_PostId(1L, 1L)).thenReturn(0L);
+
+        assertThatThrownBy(() -> postService.unscrapPost(1L, 1L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.NOT_SCRAPED);
     }
 
     @Test

@@ -102,6 +102,33 @@ class FeedServiceTest {
     }
 
     @Test
+    @DisplayName("유효하지 않은 POST 피드는 응답에서 제외한다")
+    void getUserFeeds_filtersInvalidPostFeeds() {
+        Long userId = 1L;
+        User user = User.builder().build();
+        Pageable pageable = PageRequest.of(0, 10);
+
+        UserFeed invalidFeed = createFeed(1L, user, "SUBSCRIPTION_POST", "POST", 999L, "BOARD_SUBSCRIPTION", 10L,
+                LocalDateTime.now());
+        UserFeed validFeed = createFeed(2L, user, "SUBSCRIPTION_POST", "POST", 101L, "BOARD_SUBSCRIPTION", 10L,
+                LocalDateTime.now().minusMinutes(1));
+        Page<UserFeed> feedPage = new PageImpl<>(List.of(invalidFeed, validFeed), pageable, 2);
+
+        PostSummary validPost = PostSummary.builder().postId(101L).title("first").build();
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(userFeedRepository.findByTargetUserOrderByCreatedAtDesc(user, pageable))
+                .thenReturn(feedPage);
+        when(postService.getPostSummariesByIds(List.of(999L, 101L), userId)).thenReturn(Map.of(101L, validPost));
+
+        FeedResponse response = feedService.getUserFeeds(userId, pageable);
+
+        assertThat(response.getContent()).hasSize(1);
+        assertThat(response.getContent().get(0).getContentId()).isEqualTo(101L);
+        assertThat(response.getContent().get(0).getPost()).isEqualTo(validPost);
+    }
+
+    @Test
     @DisplayName("피드 사용자가 없으면 USER_NOT_FOUND 를 반환한다")
     void getUserFeeds_userNotFound() {
         Long userId = 1L;

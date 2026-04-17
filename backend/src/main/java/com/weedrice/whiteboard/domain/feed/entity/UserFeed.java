@@ -13,9 +13,22 @@ import jakarta.persistence.*;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Entity
-@Table(name = "user_feeds", indexes = {
-        @Index(name = "idx_user_feeds_user", columnList = "target_user_id, is_read, created_at DESC")
-})
+@Table(name = "user_feeds",
+        uniqueConstraints = {
+                @UniqueConstraint(
+                        name = "uk_user_feeds_target_content_source",
+                        columnNames = {
+                                "target_user_id",
+                                "feed_type",
+                                "content_type",
+                                "content_id",
+                                "source_criteria",
+                                "criteria_id"
+                        })
+        },
+        indexes = {
+                @Index(name = "idx_user_feeds_user", columnList = "target_user_id, is_read, created_at DESC")
+        })
 public class UserFeed extends BaseTimeEntity {
 
     @Id

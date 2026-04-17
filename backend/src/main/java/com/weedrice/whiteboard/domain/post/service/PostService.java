@@ -517,29 +517,29 @@ public class PostService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         Post post = getPostById(postId, userId, false);
-
         ScrapId scrapId = new ScrapId(userId, postId);
-        if (scrapRepository.existsById(scrapId)) {
-            throw new BusinessException(ErrorCode.ALREADY_SCRAPED);
-        }
 
         Scrap scrap = Scrap.builder()
                 .user(user)
                 .post(post)
                 .remark(remark)
                 .build();
-        scrapRepository.save(scrap);
+        try {
+            scrapRepository.saveAndFlush(scrap);
+        } catch (DataIntegrityViolationException ex) {
+            if (scrapRepository.existsById(scrapId)) {
+                throw new BusinessException(ErrorCode.ALREADY_SCRAPED);
+            }
+            throw ex;
+        }
     }
 
     @Transactional
     public void unscrapPost(@NonNull Long userId, @NonNull Long postId) {
-        ScrapId scrapId = new ScrapId(userId, postId);
-        if (!scrapRepository.existsById(scrapId)) {
+        long deletedCount = scrapRepository.deleteByUser_UserIdAndPost_PostId(userId, postId);
+        if (deletedCount == 0) {
             throw new BusinessException(ErrorCode.NOT_SCRAPED);
         }
-        // Unscrap? 寃뚯떆湲???젣?섏뿀?붾씪??ㅽ겕??紐⑸줉?먯꽌 ?쒓굅 媛?ν빐??쒕떎.
-        // ?곕씪??寃뚯떆湲 議댁옱 ?щ?瑜??ㅼ떆 ?뺤씤?섏? ?딄퀬 ?ㅽ겕??ID濡쒕쭔 ??젣?쒕떎.
-        scrapRepository.deleteById(scrapId);
     }
 
     public ScrapListResponse getMyScraps(@NonNull Long userId, @NonNull Pageable pageable) {
@@ -817,7 +817,12 @@ public class PostService {
             return Collections.emptyMap();
         }
 
-        Map<Long, Post> postsById = postRepository.findByPostIdIn(postIds).stream()
+        User viewer = resolveViewer(currentUserId);
+        Set<Long> blockedUserIds = resolveBlockedUserIds(currentUserId);
+        List<Long> distinctPostIds = postIds.stream().distinct().toList();
+
+        Map<Long, Post> postsById = postRepository.findByPostIdInAndIsDeletedFalse(distinctPostIds).stream()
+                .filter(post -> canReadPostSummary(post, viewer, blockedUserIds))
                 .collect(Collectors.toMap(Post::getPostId, post -> post));
 
         List<Post> orderedPosts = postIds.stream()
@@ -831,6 +836,39 @@ public class PostService {
         return postSummaryAssembler.assembleLatestPosts(orderedPosts, currentUserId).stream()
                 .collect(Collectors.toMap(PostSummary::getPostId, summary -> summary, (left, right) -> left,
                         LinkedHashMap::new));
+    }
+
+    private User resolveViewer(Long currentUserId) {
+        if (currentUserId == null) {
+            return null;
+        }
+        return userRepository.findById(currentUserId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+    }
+
+    private Set<Long> resolveBlockedUserIds(Long currentUserId) {
+        if (currentUserId == null) {
+            return Collections.emptySet();
+        }
+
+        List<Long> blockedUserIds = userBlockService.getBlockedUserIds(currentUserId);
+        if (blockedUserIds == null || blockedUserIds.isEmpty()) {
+            return Collections.emptySet();
+        }
+        return new HashSet<>(blockedUserIds);
+    }
+
+    private boolean canReadPostSummary(Post post, User viewer, Set<Long> blockedUserIds) {
+        boolean authorBlocked = viewer != null && blockedUserIds.contains(post.getUser().getUserId());
+        try {
+            postAccessPolicy.validateReadable(post, viewer, authorBlocked);
+            return true;
+        } catch (BusinessException ex) {
+            if (ErrorCode.POST_NOT_FOUND.equals(ex.getErrorCode())) {
+                return false;
+            }
+            throw ex;
+        }
     }
 
 }

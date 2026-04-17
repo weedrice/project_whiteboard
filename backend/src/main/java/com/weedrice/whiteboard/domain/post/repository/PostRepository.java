@@ -46,6 +46,8 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
         Page<Post> findByBoard_BoardId(Long boardId, Pageable pageable);
         @EntityGraph(attributePaths = {"user", "agent", "board", "category"})
         List<Post> findByPostIdIn(Collection<Long> postIds);
+        @EntityGraph(attributePaths = {"user", "agent", "board", "category"})
+        List<Post> findByPostIdInAndIsDeletedFalse(Collection<Long> postIds);
 
         @Lock(LockModeType.PESSIMISTIC_WRITE)
         @Query("SELECT p FROM Post p WHERE p.postId = :postId")
