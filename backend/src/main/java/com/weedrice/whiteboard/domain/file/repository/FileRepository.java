@@ -31,6 +31,25 @@ public interface FileRepository extends JpaRepository<File, Long> {
     }
 
     @Query("""
+            SELECT f.fileId
+            FROM File f
+            WHERE f.relatedId IS NULL
+              AND f.relatedType IS NULL
+              AND f.createdAt < :dateTime
+              AND (f.storageStatus = :storageStatus
+                   OR (:storageStatus = com.weedrice.whiteboard.domain.file.entity.FileStorageStatus.ACTIVE
+                       AND f.storageStatus IS NULL))
+            ORDER BY f.createdAt ASC, f.fileId ASC
+            """)
+    List<Long> findTemporaryFileIdsForCleanup(@Param("dateTime") LocalDateTime dateTime,
+            @Param("storageStatus") FileStorageStatus storageStatus,
+            Pageable pageable);
+
+    default List<Long> findTemporaryFileIdsForCleanup(LocalDateTime dateTime, Pageable pageable) {
+        return findTemporaryFileIdsForCleanup(dateTime, FileStorageStatus.ACTIVE, pageable);
+    }
+
+    @Query("""
             SELECT f
             FROM File f
             WHERE f.fileId = :fileId
@@ -187,6 +206,21 @@ public interface FileRepository extends JpaRepository<File, Long> {
                    OR f.storageStatus IS NULL)
             """)
     int requestDeletionIfTemporary(@Param("fileId") Long fileId,
+            @Param("deleteRequestedAt") LocalDateTime deleteRequestedAt);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("""
+            UPDATE File f
+            SET f.storageStatus = com.weedrice.whiteboard.domain.file.entity.FileStorageStatus.PENDING_DELETE,
+                f.deleteRequestedAt = :deleteRequestedAt,
+                f.deleteLastError = NULL
+            WHERE f.fileId IN :fileIds
+              AND f.relatedId IS NULL
+              AND f.relatedType IS NULL
+              AND (f.storageStatus = com.weedrice.whiteboard.domain.file.entity.FileStorageStatus.ACTIVE
+                   OR f.storageStatus IS NULL)
+            """)
+    int requestDeletionForTemporaryFiles(@Param("fileIds") List<Long> fileIds,
             @Param("deleteRequestedAt") LocalDateTime deleteRequestedAt);
 
     @Query("""

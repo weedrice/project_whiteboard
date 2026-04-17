@@ -117,6 +117,28 @@ class FileRepositoryTest {
     }
 
     @Test
+    @DisplayName("임시 파일 정리 대상 ID를 페이지 단위로 조회한다")
+    void findTemporaryFileIdsForCleanup_returnsPagedIds() {
+        File orphanFile = File.builder()
+                .originalName("cleanup.jpg")
+                .filePath("path/to/cleanup.jpg")
+                .fileSize(512L)
+                .mimeType("image/jpeg")
+                .uploader(uploader)
+                .build();
+        entityManager.persist(orphanFile);
+        entityManager.flush();
+        entityManager.clear();
+
+        List<Long> fileIds = fileRepository.findTemporaryFileIdsForCleanup(
+                LocalDateTime.now().plusDays(1),
+                PageRequest.of(0, 10));
+
+        assertThat(fileIds).contains(orphanFile.getFileId());
+        assertThat(fileIds).doesNotContain(file.getFileId());
+    }
+
+    @Test
     @DisplayName("특정 관련 ID, 타입, MIME 타입으로 첫 번째 파일 조회")
     void findFirstByRelatedIdAndRelatedTypeAndMimeTypeStartingWith_success() {
         // when
@@ -196,5 +218,35 @@ class FileRepositoryTest {
 
         assertThat(candidatePaths).contains("path/to/retryable.jpg");
         assertThat(candidatePaths).doesNotContain("path/to/exhausted.jpg");
+    }
+
+    @Test
+    @DisplayName("임시 파일 정리 요청은 비연결 활성 파일만 일괄 갱신한다")
+    void requestDeletionForTemporaryFiles_updatesOnlyCleanupTargets() {
+        File cleanupTarget = File.builder()
+                .originalName("cleanup-target.jpg")
+                .filePath("path/to/cleanup-target.jpg")
+                .fileSize(512L)
+                .mimeType("image/jpeg")
+                .uploader(uploader)
+                .build();
+        entityManager.persist(cleanupTarget);
+        entityManager.flush();
+
+        LocalDateTime deleteRequestedAt = LocalDateTime.now();
+
+        int updated = fileRepository.requestDeletionForTemporaryFiles(
+                List.of(cleanupTarget.getFileId(), file.getFileId()),
+                deleteRequestedAt);
+
+        entityManager.clear();
+
+        File updatedTarget = entityManager.find(File.class, cleanupTarget.getFileId());
+        File untouchedAssociatedFile = entityManager.find(File.class, file.getFileId());
+
+        assertThat(updated).isEqualTo(1);
+        assertThat(updatedTarget.getStorageStatus()).isEqualTo(FileStorageStatus.PENDING_DELETE);
+        assertThat(updatedTarget.getDeleteRequestedAt()).isNotNull();
+        assertThat(untouchedAssociatedFile.getStorageStatus()).isEqualTo(FileStorageStatus.ACTIVE);
     }
 }

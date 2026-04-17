@@ -154,9 +154,9 @@ class SearchServiceTest {
     @DisplayName("인기 검색어 조회 성공")
     void getPopularKeywords_success() {
         // given
-        Object[] result1 = {"keyword1", 10L};
-        Object[] result2 = {"keyword2", 5L};
-        when(searchStatisticRepository.findPopularKeywords(any(), any())).thenReturn(List.of(result1, result2));
+        SearchStatisticRepository.PopularKeywordProjection result1 = popularKeyword("keyword1", 10L);
+        SearchStatisticRepository.PopularKeywordProjection result2 = popularKeyword("keyword2", 5L);
+        when(searchStatisticRepository.findPopularKeywords(any(), any(), any())).thenReturn(List.of(result1, result2));
 
         // when
         List<PopularKeywordDto> popularKeywords = searchService.getPopularKeywords("WEEKLY", 10);
@@ -165,14 +165,15 @@ class SearchServiceTest {
         assertThat(popularKeywords).hasSize(2);
         assertThat(popularKeywords.get(0).getKeyword()).isEqualTo("keyword1");
         assertThat(popularKeywords.get(0).getCount()).isEqualTo(10L);
+        verify(searchStatisticRepository).findPopularKeywords(any(), any(), eq(PageRequest.of(0, 10)));
     }
 
     @Test
     @DisplayName("인기 검색어 조회 성공 - DAILY")
     void getPopularKeywords_success_daily() {
         // given
-        Object[] result1 = {"keyword1", 10L};
-        when(searchStatisticRepository.findPopularKeywords(any(), any())).thenReturn(List.<Object[]>of(result1));
+        SearchStatisticRepository.PopularKeywordProjection result1 = popularKeyword("keyword1", 10L);
+        when(searchStatisticRepository.findPopularKeywords(any(), any(), any())).thenReturn(List.of(result1));
 
         // when
         List<PopularKeywordDto> popularKeywords = searchService.getPopularKeywords("DAILY", 10);
@@ -185,14 +186,23 @@ class SearchServiceTest {
     @DisplayName("인기 검색어 조회 성공 - MONTHLY")
     void getPopularKeywords_success_monthly() {
         // given
-        Object[] result1 = {"keyword1", 10L};
-        when(searchStatisticRepository.findPopularKeywords(any(), any())).thenReturn(List.<Object[]>of(result1));
+        SearchStatisticRepository.PopularKeywordProjection result1 = popularKeyword("keyword1", 10L);
+        when(searchStatisticRepository.findPopularKeywords(any(), any(), any())).thenReturn(List.of(result1));
 
         // when
         List<PopularKeywordDto> popularKeywords = searchService.getPopularKeywords("MONTHLY", 10);
 
         // then
         assertThat(popularKeywords).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("인기 검색어 제한이 0 이하면 빈 목록을 반환한다")
+    void getPopularKeywords_returnsEmptyWhenLimitIsZeroOrLess() {
+        List<PopularKeywordDto> popularKeywords = searchService.getPopularKeywords("WEEKLY", 0);
+
+        assertThat(popularKeywords).isEmpty();
+        verify(searchStatisticRepository, never()).findPopularKeywords(any(), any(), any());
     }
 
     @Test
@@ -253,5 +263,19 @@ class SearchServiceTest {
 
         // then
         verify(searchPersonalizationRepository).deleteByUser(user);
+    }
+
+    private SearchStatisticRepository.PopularKeywordProjection popularKeyword(String keyword, Long count) {
+        return new SearchStatisticRepository.PopularKeywordProjection() {
+            @Override
+            public String getKeyword() {
+                return keyword;
+            }
+
+            @Override
+            public Long getCount() {
+                return count;
+            }
+        };
     }
 }

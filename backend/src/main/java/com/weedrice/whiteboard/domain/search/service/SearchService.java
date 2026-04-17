@@ -152,30 +152,26 @@ public class SearchService {
     }
 
     public List<PopularKeywordDto> getPopularKeywords(String period, int limit) {
-        LocalDate endDate = DateTimeUtils.nowKST().toLocalDate();
-        LocalDate startDate;
-
-        switch (period.toUpperCase()) {
-            case "DAILY":
-                startDate = endDate;
-                break;
-            case "WEEKLY":
-                startDate = endDate.minusWeeks(1);
-                break;
-            case "MONTHLY":
-                startDate = endDate.minusMonths(1);
-                break;
-            default:
-                startDate = endDate.minusWeeks(1);
+        if (limit < 1) {
+            return Collections.emptyList();
         }
 
-        List<Object[]> results = searchStatisticRepository.findPopularKeywords(startDate, endDate);
+        LocalDate endDate = DateTimeUtils.nowKST().toLocalDate();
+        LocalDate startDate = resolvePopularKeywordStartDate(period, endDate);
 
-        return results.stream()
-                .map(result -> new PopularKeywordDto((String) result[0], ((Number) result[1]).longValue()))
-                .sorted((k1, k2) -> Long.compare(k2.getCount(), k1.getCount()))
-                .limit(limit)
+        return searchStatisticRepository.findPopularKeywords(startDate, endDate, PageRequest.of(0, limit))
+                .stream()
+                .map(result -> new PopularKeywordDto(result.getKeyword(), result.getCount()))
                 .collect(Collectors.toList());
+    }
+
+    private LocalDate resolvePopularKeywordStartDate(String period, LocalDate endDate) {
+        return switch (period.toUpperCase()) {
+            case "DAILY" -> endDate;
+            case "MONTHLY" -> endDate.minusMonths(1);
+            case "WEEKLY" -> endDate.minusWeeks(1);
+            default -> endDate.minusWeeks(1);
+        };
     }
 
     private boolean hasBoardAdminAccess(Board board, User user) {

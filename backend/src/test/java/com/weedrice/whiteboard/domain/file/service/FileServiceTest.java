@@ -34,6 +34,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -213,23 +214,16 @@ class FileServiceTest {
 
     @Test
     @DisplayName("임시 파일 정리는 바로 삭제하지 않고 pending 상태로 전환한다")
-    void cleanUpTemporaryFiles_marksFilesPendingDelete() {
-        File temporaryFile = File.builder()
-                .filePath("temp.jpg")
-                .originalName("temp.jpg")
-                .fileSize(4L)
-                .mimeType("image/jpeg")
-                .uploader(User.builder().build())
-                .build();
-        ReflectionTestUtils.setField(temporaryFile, "fileId", 10L);
-
-        when(fileRepository.findByRelatedIdIsNullAndCreatedAtBeforeAndStorageStatus(any(LocalDateTime.class),
-                eq(FileStorageStatus.ACTIVE))).thenReturn(List.of(temporaryFile));
-        when(fileRepository.requestDeletionIfTemporary(eq(10L), any(LocalDateTime.class))).thenReturn(1);
+    void cleanUpTemporaryFiles_marksFilesPendingDeleteInBatches() {
+        when(fileRepository.findTemporaryFileIdsForCleanup(any(LocalDateTime.class), eq(PageRequest.of(0, 500))))
+                .thenReturn(List.of(10L, 11L), List.of(12L), List.of());
 
         fileService.cleanUpTemporaryFiles();
 
-        assertThat(temporaryFile.getStorageStatus()).isEqualTo(FileStorageStatus.PENDING_DELETE);
+        verify(fileRepository).requestDeletionForTemporaryFiles(eq(List.of(10L, 11L)), any(LocalDateTime.class));
+        verify(fileRepository).requestDeletionForTemporaryFiles(eq(List.of(12L)), any(LocalDateTime.class));
+        verify(fileRepository, times(3)).findTemporaryFileIdsForCleanup(any(LocalDateTime.class),
+                eq(PageRequest.of(0, 500)));
         verify(fileStorageService, never()).deleteFile(any());
         verify(fileRepository, never()).delete(any());
     }

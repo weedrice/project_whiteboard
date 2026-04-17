@@ -40,6 +40,7 @@ public class FileService {
     public static final String RELATED_TYPE_POST_CONTENT = "POST_CONTENT";
     public static final String RELATED_TYPE_USER_PROFILE = "USER_PROFILE";
     private static final int MAX_DELETE_RETRY_COUNT = 5;
+    private static final int TEMPORARY_FILE_CLEANUP_BATCH_SIZE = 500;
 
     private final FileRepository fileRepository;
     private final UserRepository userRepository;
@@ -173,14 +174,16 @@ public class FileService {
     public void cleanUpTemporaryFiles() {
         LocalDateTime twentyFourHoursAgo = LocalDateTime.now().minusHours(24);
         LocalDateTime deleteRequestedAt = LocalDateTime.now();
-        List<File> temporaryFiles = fileRepository.findByRelatedIdIsNullAndCreatedAtBeforeAndStorageStatus(
-                twentyFourHoursAgo, FileStorageStatus.ACTIVE);
-
-        for (File file : temporaryFiles) {
-            if (fileRepository.requestDeletionIfTemporary(file.getFileId(), deleteRequestedAt) == 1) {
-                file.markDeletionPending();
+        List<Long> temporaryFileIds;
+        do {
+            temporaryFileIds = fileRepository.findTemporaryFileIdsForCleanup(
+                    twentyFourHoursAgo,
+                    PageRequest.of(0, TEMPORARY_FILE_CLEANUP_BATCH_SIZE));
+            if (temporaryFileIds.isEmpty()) {
+                continue;
             }
-        }
+            fileRepository.requestDeletionForTemporaryFiles(temporaryFileIds, deleteRequestedAt);
+        } while (!temporaryFileIds.isEmpty());
     }
 
     public File getFileForDownload(Long fileId, Long viewerUserId) {
