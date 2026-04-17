@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.global.security.oauth;
 
+import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.entity.SocialAccount;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.SocialAccountRepository;
@@ -11,7 +12,6 @@ import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserServ
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest;
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserService;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
-import org.springframework.security.oauth2.core.user.DefaultOAuth2User;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,11 +27,12 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
 
         private final UserRepository userRepository;
         private final SocialAccountRepository socialAccountRepository;
+        private final SanctionService sanctionService;
 
         @Override
         @Transactional
         public OAuth2User loadUser(OAuth2UserRequest userRequest) throws OAuth2AuthenticationException {
-                OAuth2UserService<OAuth2UserRequest, OAuth2User> delegate = new DefaultOAuth2UserService();
+                OAuth2UserService<OAuth2UserRequest, OAuth2User> delegate = oauth2UserDelegate();
                 OAuth2User oAuth2User = delegate.loadUser(userRequest);
 
                 String registrationId = userRequest.getClientRegistration().getRegistrationId();
@@ -50,6 +51,7 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
 
                 if (socialAccountOptional.isPresent()) {
                         User user = socialAccountOptional.get().getUser();
+                        sanctionService.validateNotBanned(user);
                         // Update profile if needed
                         // user.updateDisplayName(extractAttributes.getName());
                         // user.updateProfileImage(extractAttributes.getPicture());
@@ -68,6 +70,7 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
                 Optional<User> userOptional = userRepository.findByEmail(extractAttributes.getEmail());
                 if (userOptional.isPresent()) {
                         User user = userOptional.get();
+                        sanctionService.validateNotBanned(user);
                         // Create SocialAccount and link
                         SocialAccount socialAccount = SocialAccount.builder()
                                         .user(user)
@@ -97,5 +100,9 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
                                 extractAttributes.getEmail(),
                                 extractAttributes.getName(),
                                 extractAttributes.getPicture());
+        }
+
+        OAuth2UserService<OAuth2UserRequest, OAuth2User> oauth2UserDelegate() {
+                return new DefaultOAuth2UserService();
         }
 }

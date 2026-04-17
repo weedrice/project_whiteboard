@@ -10,6 +10,7 @@ import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.report.dto.ReportResponse;
 import com.weedrice.whiteboard.domain.report.entity.Report;
 import com.weedrice.whiteboard.domain.report.repository.ReportRepository;
+import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -36,17 +37,20 @@ public class ReportService {
     private final PostRepository postRepository;
     private final CommentRepository commentRepository;
     private final ModerationActorResolver moderationActorResolver;
+    private final SanctionService sanctionService;
 
     public ReportService(ReportRepository reportRepository,
                          UserRepository userRepository,
                          AdminRepository adminRepository,
                          PostRepository postRepository,
-                         CommentRepository commentRepository) {
+                         CommentRepository commentRepository,
+                         SanctionService sanctionService) {
         this.reportRepository = reportRepository;
         this.userRepository = userRepository;
         this.adminRepository = adminRepository;
         this.postRepository = postRepository;
         this.commentRepository = commentRepository;
+        this.sanctionService = sanctionService;
         this.moderationActorResolver = new ModerationActorResolver(userRepository, adminRepository);
     }
 
@@ -55,6 +59,7 @@ public class ReportService {
             String contents) {
         User reporter = userRepository.findById(reporterId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        sanctionService.validateNotBanned(reporter);
 
         reportRepository.findByReporterAndTargetTypeAndTargetId(reporter, targetType, targetId)
                 .ifPresent(report -> {

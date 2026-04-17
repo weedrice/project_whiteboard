@@ -18,6 +18,7 @@ import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.domain.report.repository.ReportRepository;
 import com.weedrice.whiteboard.domain.sanction.repository.SanctionRepository;
+import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.dto.MyInfoResponse;
 import com.weedrice.whiteboard.domain.user.dto.UpdateProfileResponse;
 import com.weedrice.whiteboard.domain.user.dto.UserAdminResponse;
@@ -93,6 +94,8 @@ class UserServiceTest {
     private RefreshTokenRepository refreshTokenRepository;
     @Mock
     private SanctionRepository sanctionRepository;
+    @Mock
+    private SanctionService sanctionService;
     @Mock
     private ReportRepository reportRepository;
     @Mock
@@ -193,6 +196,21 @@ class UserServiceTest {
     }
 
     @Test
+    @DisplayName("sanctioned user cannot update profile")
+    void updateMyProfile_bannedUser() {
+        User user = User.builder().displayName("Old Name").build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE)).when(sanctionService).validateNotBanned(user);
+
+        assertThatThrownBy(() -> userService.updateMyProfile(1L, "New Name", null))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.USER_NOT_ACTIVE);
+    }
+
+    @Test
     @DisplayName("프로필 업데이트 성공 - 이미지 변경")
     void updateMyProfile_imageChange() {
         User user = User.builder().displayName("Name").build();
@@ -238,6 +256,21 @@ class UserServiceTest {
         assertThat(user.getPassword()).isEqualTo("encodedNew");
         verify(passwordHistoryRepository).save(any());
         verify(refreshTokenRepository).findByUserAndIsRevoked(user, false);
+    }
+
+    @Test
+    @DisplayName("sanctioned user cannot update password")
+    void updatePassword_bannedUser() {
+        User user = User.builder().password("encodedOld").build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE)).when(sanctionService).validateNotBanned(user);
+
+        assertThatThrownBy(() -> userService.updatePassword(1L, "old", "new"))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.USER_NOT_ACTIVE);
     }
 
     @Test
@@ -326,6 +359,22 @@ class UserServiceTest {
     }
 
     @Test
+    @DisplayName("sanctioned user cannot delete account")
+    void deleteAccount_bannedUser() {
+        User user = User.builder().password("encodedPass").build();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE)).when(sanctionService).validateNotBanned(user);
+
+        assertThatThrownBy(() -> userService.deleteAccount(1L, "pass"))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.USER_NOT_ACTIVE);
+
+        verify(passwordEncoder, never()).matches(anyString(), anyString());
+        verify(agentService, never()).suspendAllForUser(any());
+    }
+
+    @Test
     @DisplayName("회원 탈퇴 실패 - 비밀번호 불일치")
     void deleteAccount_wrongPassword() {
         User user = User.builder().password("encodedPass").build();
@@ -371,6 +420,20 @@ class UserServiceTest {
     }
 
     @Test
+    @DisplayName("active BAN user cannot be reactivated by status update")
+    void updateUserStatus_activeBlockedByBan() {
+        User user = User.builder().build();
+        user.suspend();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(sanctionService.isUserBanned(user)).thenReturn(true);
+
+        assertThatThrownBy(() -> userService.updateUserStatus(1L, "ACTIVE"))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.USER_NOT_ACTIVE);
+    }
+
+    @Test
     @DisplayName("사용자 상태 변경 실패 - 잘못된 값")
     void updateUserStatus_invalid() {
         User user = User.builder().build();
@@ -385,11 +448,14 @@ class UserServiceTest {
     @Test
     @DisplayName("사용자 설정 업데이트 (없으면 생성)")
     void updateSettings_create() {
+        User user = User.builder().build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
         UserSettings storedSettings = UserSettings.builder().build();
         ReflectionTestUtils.setField(storedSettings, "theme", "dark");
         ReflectionTestUtils.setField(storedSettings, "language", "en");
         ReflectionTestUtils.setField(storedSettings, "timezone", "UTC");
         ReflectionTestUtils.setField(storedSettings, "hideNsfw", true);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(userSettingsService.updateSettingsEntity(1L, "dark", "en", "UTC", true)).thenReturn(storedSettings);
 
         UserSettings settings = userService.updateSettings(1L, "dark", "en", "UTC", true);
@@ -398,6 +464,21 @@ class UserServiceTest {
         assertThat(settings.getLanguage()).isEqualTo("en");
         assertThat(settings.getTimezone()).isEqualTo("UTC");
         assertThat(settings.getHideNsfw()).isTrue();
+    }
+
+    @Test
+    @DisplayName("sanctioned user cannot update settings")
+    void updateSettings_bannedUser() {
+        User user = User.builder().build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE)).when(sanctionService).validateNotBanned(user);
+
+        assertThatThrownBy(() -> userService.updateSettings(1L, "dark", "en", "UTC", true))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.USER_NOT_ACTIVE);
     }
 
     @Test
@@ -480,6 +561,23 @@ class UserServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.DUPLICATE_EMAIL);
+
+        verify(verificationCodeService, never()).verifyCode(anyString(), anyString());
+    }
+
+    @Test
+    @DisplayName("sanctioned user cannot verify and change email")
+    void verifyAndChangeEmail_bannedUser() {
+        User user = User.builder().email("current@example.com").build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE)).when(sanctionService).validateNotBanned(user);
+
+        assertThatThrownBy(() -> userService.verifyAndChangeEmail(1L, "next@example.com", "123456"))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.USER_NOT_ACTIVE);
 
         verify(verificationCodeService, never()).verifyCode(anyString(), anyString());
     }

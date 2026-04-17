@@ -18,6 +18,7 @@ import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
 import com.weedrice.whiteboard.domain.point.entity.PointHistory;
 import com.weedrice.whiteboard.domain.point.repository.PointHistoryRepository;
 import com.weedrice.whiteboard.domain.point.service.PointService;
+import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.service.PostAccessPolicy;
@@ -58,6 +59,7 @@ public class CommentService {
     private final UserBlockService userBlockService;
     private final GlobalConfigService globalConfigService;
     private final AgentOwnershipService agentOwnershipService;
+    private final SanctionService sanctionService;
     private final PostAccessPolicy postAccessPolicy;
 
     public Page<CommentResponse> getComments(Long postId, Long currentUserId, Pageable pageable) {
@@ -167,8 +169,7 @@ public class CommentService {
 
     @Transactional
     public Comment createComment(Long userId, Long agentId, Long postId, Long parentId, String content) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        User user = getWritableUser(userId);
         Agent agent = agentOwnershipService.resolveOwnedActiveAgent(userId, agentId);
         Post post = postRepository.findByIdWithRelations(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
@@ -238,8 +239,7 @@ public class CommentService {
     public Comment updateComment(Long userId, Long commentId, String content) {
         Comment comment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        User user = getWritableUser(userId);
         validatePostReadable(comment.getPost(), user);
 
         if (comment.getIsDeleted()) {
@@ -263,8 +263,7 @@ public class CommentService {
     public void deleteComment(Long userId, Long commentId) {
         Comment comment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        User user = getWritableUser(userId);
         validatePostReadable(comment.getPost(), user);
 
         if (comment.getIsDeleted()) {
@@ -289,8 +288,7 @@ public class CommentService {
 
     @Transactional
     public void likeComment(Long userId, Long commentId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        User user = getWritableUser(userId);
         Comment comment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
         validatePostReadable(comment.getPost(), user);
@@ -325,8 +323,7 @@ public class CommentService {
 
     @Transactional
     public void unlikeComment(Long userId, Long commentId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        User user = getWritableUser(userId);
         Comment comment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
         validatePostReadable(comment.getPost(), user);
@@ -360,6 +357,13 @@ public class CommentService {
                 .filter(amount -> amount != null && amount > 0)
                 .mapToInt(Integer::intValue)
                 .sum();
+    }
+
+    private User getWritableUser(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        sanctionService.validateNotBanned(user);
+        return user;
     }
 
     private String resolveNotificationActorName(User user, Agent agent) {

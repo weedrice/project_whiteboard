@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.user.service;
 
 import com.weedrice.whiteboard.domain.notification.constant.NotificationType;
+import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.dto.NotificationSettingResponse;
 import com.weedrice.whiteboard.domain.user.dto.UpdateNotificationSettingItem;
 import com.weedrice.whiteboard.domain.user.dto.UserSettingsResponse;
@@ -28,6 +29,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -46,6 +48,8 @@ class UserSettingsServiceTest {
 
     @Mock
     private UserNotificationSettingsRepository userNotificationSettingsRepository;
+    @Mock
+    private SanctionService sanctionService;
 
     @Test
     @DisplayName("Settings lookup succeeds")
@@ -166,6 +170,21 @@ class UserSettingsServiceTest {
     }
 
     @Test
+    @DisplayName("Settings update fails when user is sanctioned")
+    void updateSettings_bannedUser() {
+        User user = User.builder().build();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE)).when(sanctionService).validateNotBanned(user);
+
+        assertThatThrownBy(() -> userSettingsService.updateSettings(1L, "ko", "light", "Asia/Seoul", true))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.USER_NOT_ACTIVE);
+
+        verify(userSettingsRepository, never()).save(any());
+    }
+
+    @Test
     @DisplayName("Notification settings lookup fails when user does not exist")
     void getNotificationSettings_userNotFound() {
         when(userRepository.findById(1L)).thenReturn(Optional.empty());
@@ -236,5 +255,21 @@ class UserSettingsServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+    }
+
+    @Test
+    @DisplayName("Bulk notification settings update fails when user is sanctioned")
+    void updateNotificationSettings_bannedUser() {
+        User user = User.builder().build();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE)).when(sanctionService).validateNotBanned(user);
+
+        assertThatThrownBy(() -> userSettingsService.updateNotificationSettings(1L, List.of(
+                new UpdateNotificationSettingItem("like", true))))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.USER_NOT_ACTIVE);
+
+        verify(userNotificationSettingsRepository, never()).save(any());
     }
 }

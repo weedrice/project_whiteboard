@@ -1,5 +1,8 @@
 package com.weedrice.whiteboard.global.security.oauth;
 
+import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
+import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import com.weedrice.whiteboard.global.security.JwtTokenProvider;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -10,7 +13,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.authentication.SimpleUrlAuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -28,6 +30,8 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
     private static final String LEGACY_REFRESH_TOKEN_COOKIE_PATH = "/api/v1/auth/refresh";
 
     private final JwtTokenProvider jwtTokenProvider;
+    private final UserRepository userRepository;
+    private final SanctionService sanctionService;
 
     @Value("${app.frontend-url}")
     private String frontendUrl;
@@ -50,9 +54,13 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
             return;
         }
 
-        OAuth2User oAuth2User = (OAuth2User) authentication.getPrincipal();
-        // String email = oAuth2User.getAttribute("email"); // Assuming email is
-        // available
+        if (isBlockedAuthenticatedUser(authentication)) {
+            String targetUrl = UriComponentsBuilder.fromUriString(frontendUrl + "/auth/oauth/callback")
+                    .build(true)
+                    .toUriString();
+            getRedirectStrategy().sendRedirect(request, response, targetUrl);
+            return;
+        }
 
         // Generate tokens
         String accessToken = jwtTokenProvider.createAccessToken(authentication);
@@ -98,5 +106,15 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
                 .maxAge(0)
                 .build();
         response.addHeader(HttpHeaders.SET_COOKIE, legacyCookie.toString());
+    }
+
+    private boolean isBlockedAuthenticatedUser(Authentication authentication) {
+        if (authentication == null || !(authentication.getPrincipal() instanceof CustomUserDetails userDetails)) {
+            return false;
+        }
+
+        return userRepository.findById(userDetails.getUserId())
+                .map(user -> !"ACTIVE".equals(user.getStatus()) || sanctionService.isUserBanned(user))
+                .orElse(true);
     }
 }

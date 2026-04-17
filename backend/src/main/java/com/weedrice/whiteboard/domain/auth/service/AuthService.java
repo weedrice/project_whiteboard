@@ -16,6 +16,7 @@ import com.weedrice.whiteboard.domain.auth.repository.RefreshTokenRepository;
 import com.weedrice.whiteboard.domain.point.entity.UserPoint;
 import com.weedrice.whiteboard.domain.point.repository.UserPointRepository;
 import com.weedrice.whiteboard.domain.point.service.PointService;
+import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.entity.PasswordHistory;
 import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.SocialAccount;
@@ -77,6 +78,7 @@ public class AuthService {
     private final EmailService emailService;
     private final GlobalConfigService globalConfigService;
     private final TransactionTemplate transactionTemplate;
+    private final SanctionService sanctionService;
 
     @Value("${cloud.aws.password-reset.frontend-url}")
     private String passwordResetFrontendUrl;
@@ -183,7 +185,7 @@ public class AuthService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
-        if (!"ACTIVE".equals(user.getStatus())) {
+        if (!"ACTIVE".equals(user.getStatus()) || sanctionService.isUserBanned(user)) {
             throw new BusinessException(ErrorCode.LOGIN_FAILED);
         }
 
@@ -257,7 +259,7 @@ public class AuthService {
 
         User user = rt.getUser();
 
-        if (!"ACTIVE".equals(user.getStatus())) {
+        if (!"ACTIVE".equals(user.getStatus()) || sanctionService.isUserBanned(user)) {
             throw new BusinessException(ErrorCode.USER_NOT_ACTIVE);
         }
 

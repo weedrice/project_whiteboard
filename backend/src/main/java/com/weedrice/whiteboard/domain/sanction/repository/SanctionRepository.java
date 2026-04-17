@@ -6,6 +6,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -18,4 +20,14 @@ public interface SanctionRepository extends JpaRepository<Sanction, Long> {
     Optional<Sanction> findFirstByTargetUserAndTypeAndEndDateAfterOrderByEndDateDesc(User targetUser, String type, LocalDateTime now);
     Optional<Sanction> findTopByTargetUserOrderByCreatedAtDesc(User targetUser);
     long countByTargetUser(User targetUser);
+
+    @Query("""
+            SELECT CASE WHEN COUNT(s) > 0 THEN true ELSE false END
+            FROM Sanction s
+            WHERE s.targetUser = :targetUser
+              AND UPPER(s.type) = 'BAN'
+              AND s.startDate <= :now
+              AND (s.endDate IS NULL OR s.endDate > :now)
+            """)
+    boolean existsActiveBan(@Param("targetUser") User targetUser, @Param("now") LocalDateTime now);
 }

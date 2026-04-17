@@ -21,6 +21,7 @@ import com.weedrice.whiteboard.domain.point.service.PointService;
 import com.weedrice.whiteboard.domain.post.dto.*;
 import com.weedrice.whiteboard.domain.post.entity.*;
 import com.weedrice.whiteboard.domain.post.repository.*;
+import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.tag.entity.PostTag;
 import com.weedrice.whiteboard.domain.tag.entity.Tag;
 import com.weedrice.whiteboard.domain.tag.repository.PostTagRepository;
@@ -101,6 +102,8 @@ class PostServiceTest {
     private GlobalConfigService globalConfigService;
     @Mock
     private AgentOwnershipService agentOwnershipService;
+    @Mock
+    private SanctionService sanctionService;
     private BoardAccessPolicy boardAccessPolicy;
     private PostAccessPolicy postAccessPolicy;
     private PostSummaryAssembler postSummaryAssembler;
@@ -145,6 +148,7 @@ class PostServiceTest {
                 userBlockService,
                 globalConfigService,
                 agentOwnershipService,
+                sanctionService,
                 postSummaryAssembler,
                 postAccessPolicy,
                 boardAccessPolicy);
@@ -200,6 +204,23 @@ class PostServiceTest {
         assertThat(created.getTitle()).isEqualTo("New Post");
         verify(fileService, times(2)).associateFileWithEntity(anyLong(), eq(1L), eq(100L), eq("POST_CONTENT"));
         verify(pointService).addPoint(eq(1L), eq(50), anyString(), eq(100L), eq("POST"));
+    }
+
+    @Test
+    @DisplayName("활성 BAN 사용자는 게시글을 작성할 수 없다")
+    void createPost_bannedUser_forbidden() {
+        PostCreateRequest request = new PostCreateRequest(null, "New Post", "New Contents", Collections.emptyList(),
+                false, false, false, false, null);
+
+        when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE)).when(sanctionService).validateNotBanned(user);
+
+        assertThatThrownBy(() -> postService.createPost(1L, "free", request))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_ACTIVE);
+
+        verify(postRepository, never()).save(any(Post.class));
     }
 
     @Test
@@ -460,10 +481,30 @@ class PostServiceTest {
     }
 
     @Test
+    @DisplayName("?쒖꽦 BAN ?ъ슜?먮뒗 寃뚯떆湲???섏젙?????녿떎")
+    void updatePost_bannedUser_forbidden() {
+        PostUpdateRequest request = new PostUpdateRequest(null, "Updated Title", "Updated Contents",
+                Collections.emptyList(), false, false, false, null);
+
+        when(postRepository.findById(1L)).thenReturn(Optional.of(post));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE)).when(sanctionService).validateNotBanned(user);
+
+        assertThatThrownBy(() -> postService.updatePost(1L, 1L, request))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_ACTIVE);
+
+        verify(postVersionRepository, never()).save(any(PostVersion.class));
+    }
+
+    @Test
     @DisplayName("게시글 수정 실패 - 작성자 아님")
     void updatePost_forbidden() {
         PostUpdateRequest request = new PostUpdateRequest(null, "Title", "Content", null, false, false, false, null);
         when(postRepository.findById(1L)).thenReturn(Optional.of(post));
+        User otherUser = User.builder().loginId("other").displayName("Other User").build();
+        ReflectionTestUtils.setField(otherUser, "userId", 2L);
+        when(userRepository.findById(2L)).thenReturn(Optional.of(otherUser));
 
         assertThatThrownBy(() -> postService.updatePost(2L, 1L, request))
                 .isInstanceOf(BusinessException.class)
@@ -482,6 +523,7 @@ class PostServiceTest {
         ReflectionTestUtils.setField(otherCategory, "categoryId", 2L);
 
         when(postRepository.findById(1L)).thenReturn(Optional.of(post));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(boardCategoryRepository.findById(2L)).thenReturn(Optional.of(otherCategory));
 
         assertThatThrownBy(() -> postService.updatePost(1L, 1L, request))
@@ -510,6 +552,20 @@ class PostServiceTest {
         verify(pointService).forceSubtractPoint(eq(1L), eq(50), anyString(), eq(1L), eq("POST"));
     }
 
+    @Test
+    @DisplayName("?쒖꽦 BAN ?ъ슜?먮뒗 寃뚯떆湲???쒖젣?????녿떎")
+    void deletePost_bannedUser_forbidden() {
+        when(postRepository.findById(1L)).thenReturn(Optional.of(post));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE)).when(sanctionService).validateNotBanned(user);
+
+        assertThatThrownBy(() -> postService.deletePost(1L, 1L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_ACTIVE);
+
+        verify(postTagRepository, never()).deleteByPost(any(Post.class));
+    }
+
     // --- Likes ---
 
     @Test
@@ -527,6 +583,19 @@ class PostServiceTest {
         verify(postLikeRepository).saveAndFlush(any(PostLike.class));
         verify(postRepository).incrementLikeCount(1L);
         assertThat(likeCount).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("?쒖꽦 BAN ?ъ슜?먮뒗 寃뚯떆湲 醫뗭븘?????녿떎")
+    void likePost_bannedUser_forbidden() {
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE)).when(sanctionService).validateNotBanned(user);
+
+        assertThatThrownBy(() -> postService.likePost(1L, 1L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_ACTIVE);
+
+        verify(postLikeRepository, never()).saveAndFlush(any(PostLike.class));
     }
 
     @Test
@@ -584,6 +653,19 @@ class PostServiceTest {
         assertThat(likeCount).isZero();
     }
 
+    @Test
+    @DisplayName("?쒖꽦 BAN ?ъ슜?먮뒗 寃뚯떆湲 醫뗭븘??痍⑥냼?????녿떎")
+    void unlikePost_bannedUser_forbidden() {
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE)).when(sanctionService).validateNotBanned(user);
+
+        assertThatThrownBy(() -> postService.unlikePost(1L, 1L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_ACTIVE);
+
+        verify(postLikeRepository, never()).deleteByUserIdAndPostId(anyLong(), anyLong());
+    }
+
     // --- Scraps ---
 
     @Test
@@ -600,13 +682,40 @@ class PostServiceTest {
     }
 
     @Test
+    @DisplayName("?쒖꽦 BAN ?ъ슜?먮뒗 寃뚯떆湲 ???ㅽ겕?앺븷 ????녿떎")
+    void scrapPost_bannedUser_forbidden() {
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE)).when(sanctionService).validateNotBanned(user);
+
+        assertThatThrownBy(() -> postService.scrapPost(1L, 1L, "My Scrap"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_ACTIVE);
+
+        verify(scrapRepository, never()).saveAndFlush(any(Scrap.class));
+    }
+
+    @Test
     @DisplayName("스크랩 취소 성공")
     void unscrapPost_success() {
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(scrapRepository.deleteByUser_UserIdAndPost_PostId(1L, 1L)).thenReturn(1L);
 
         postService.unscrapPost(1L, 1L);
 
         verify(scrapRepository).deleteByUser_UserIdAndPost_PostId(1L, 1L);
+    }
+
+    @Test
+    @DisplayName("?쒖꽦 BAN ?ъ슜?먮뒗 寃뚯떆湲 ???ㅽ겕???⑥냼?????녿떎")
+    void unscrapPost_bannedUser_forbidden() {
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE)).when(sanctionService).validateNotBanned(user);
+
+        assertThatThrownBy(() -> postService.unscrapPost(1L, 1L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_ACTIVE);
+
+        verify(scrapRepository, never()).deleteByUser_UserIdAndPost_PostId(anyLong(), anyLong());
     }
 
     @Test
@@ -642,6 +751,7 @@ class PostServiceTest {
     @Test
     @DisplayName("unscrap returns NOT_SCRAPED when no row is deleted")
     void unscrapPost_notScrapped() {
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(scrapRepository.deleteByUser_UserIdAndPost_PostId(1L, 1L)).thenReturn(0L);
 
         assertThatThrownBy(() -> postService.unscrapPost(1L, 1L))
@@ -686,6 +796,20 @@ class PostServiceTest {
     }
 
     @Test
+    @DisplayName("?쒖꽦 BAN ?ъ슜?먮뒗 珥덉븞????ν븷 ???녿떎")
+    void saveDraftPost_bannedUser_forbidden() {
+        PostDraftRequest request = new PostDraftRequest(null, "free", "Draft Title", "Draft Content", null);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE)).when(sanctionService).validateNotBanned(user);
+
+        assertThatThrownBy(() -> postService.saveDraftPost(1L, request))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_ACTIVE);
+
+        verify(draftPostRepository, never()).save(any(DraftPost.class));
+    }
+
+    @Test
     @DisplayName("초안 저장 - 수정")
     void saveDraftPost_update() {
         DraftPost existingDraft = DraftPost.builder().user(user).board(board).title("Old").build();
@@ -711,6 +835,19 @@ class PostServiceTest {
         postService.deleteDraftPost(1L, 10L);
 
         verify(draftPostRepository).delete(existingDraft);
+    }
+
+    @Test
+    @DisplayName("?쒖꽦 BAN ?ъ슜?먮뒗 珥덉븞???쒖젣?????녿떎")
+    void deleteDraftPost_bannedUser_forbidden() {
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE)).when(sanctionService).validateNotBanned(user);
+
+        assertThatThrownBy(() -> postService.deleteDraftPost(1L, 10L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_ACTIVE);
+
+        verify(draftPostRepository, never()).delete(any(DraftPost.class));
     }
 
     // --- View History ---
@@ -1205,6 +1342,7 @@ class PostServiceTest {
         PostUpdateRequest request = new PostUpdateRequest(null, "Title", "Content", null, false, false, false, null);
 
         when(postRepository.findById(1L)).thenReturn(Optional.of(post));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
 
         assertThatThrownBy(() -> postService.updatePost(1L, 1L, request))
                 .isInstanceOf(BusinessException.class)
@@ -1217,6 +1355,7 @@ class PostServiceTest {
         ReflectionTestUtils.setField(post, "isDeleted", true);
 
         when(postRepository.findById(1L)).thenReturn(Optional.of(post));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
 
         assertThatThrownBy(() -> postService.deletePost(1L, 1L))
                 .isInstanceOf(BusinessException.class)

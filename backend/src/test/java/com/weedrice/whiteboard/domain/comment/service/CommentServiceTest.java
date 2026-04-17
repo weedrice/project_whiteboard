@@ -16,6 +16,7 @@ import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
 import com.weedrice.whiteboard.domain.point.entity.PointHistory;
 import com.weedrice.whiteboard.domain.point.repository.PointHistoryRepository;
 import com.weedrice.whiteboard.domain.point.service.PointService;
+import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.service.PostAccessPolicy;
@@ -50,6 +51,7 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -87,6 +89,8 @@ class CommentServiceTest {
     private AdminRepository adminRepository;
     @Mock
     private AgentOwnershipService agentOwnershipService;
+    @Mock
+    private SanctionService sanctionService;
 
     @BeforeEach
     void setUp() {
@@ -105,6 +109,7 @@ class CommentServiceTest {
                 userBlockService,
                 globalConfigService,
                 agentOwnershipService,
+                sanctionService,
                 postAccessPolicy);
     }
 
@@ -135,6 +140,22 @@ class CommentServiceTest {
         verify(commentClosureRepository).createSelfClosure(10L);
         verify(postRepository).incrementCommentCount(1L);
         verify(pointService).addPoint(eq(1L), eq(10), anyString(), eq(10L), eq("COMMENT"));
+    }
+
+    @Test
+    @DisplayName("활성 BAN 사용자는 댓글을 작성할 수 없다")
+    void createComment_bannedUser_forbidden() {
+        User user = User.builder().build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE)).when(sanctionService).validateNotBanned(user);
+
+        assertThatThrownBy(() -> commentService.createComment(1L, 1L, null, "content"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_ACTIVE);
+
+        verify(commentRepository, never()).save(any(Comment.class));
     }
 
     @Test
@@ -414,6 +435,22 @@ class CommentServiceTest {
     }
 
     @Test
+    @DisplayName("?쒖꽦 BAN ?ъ슜?먮뒗 ?볤? 醫뗭븘?????녿떎")
+    void likeComment_bannedUser_forbidden() {
+        User user = User.builder().displayName("User").build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE)).when(sanctionService).validateNotBanned(user);
+
+        assertThatThrownBy(() -> commentService.likeComment(1L, 10L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_ACTIVE);
+
+        verify(commentLikeRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
     @DisplayName("private board comments are hidden from anonymous users")
     void getComments_privateBoardAnonymous_forbidden() {
         User owner = User.builder().displayName("Owner").build();
@@ -509,6 +546,25 @@ class CommentServiceTest {
     }
 
     @Test
+    @DisplayName("?쒖꽦 BAN ?ъ슜?먮뒗 ?볤????섏젙?????녿떎")
+    void updateComment_bannedUser_forbidden() {
+        User user = User.builder().build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+
+        Board board = Board.builder().boardUrl("free").build();
+        Post post = Post.builder().board(board).user(user).build();
+        Comment comment = Comment.builder().user(user).post(post).content("Old").build();
+
+        when(commentRepository.findById(10L)).thenReturn(Optional.of(comment));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE)).when(sanctionService).validateNotBanned(user);
+
+        assertThatThrownBy(() -> commentService.updateComment(1L, 10L, "New"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_ACTIVE);
+    }
+
+    @Test
     @DisplayName("delete comment")
     void deleteComment_success() {
         User user = User.builder().build();
@@ -544,6 +600,27 @@ class CommentServiceTest {
         assertThat(comment.getIsDeleted()).isTrue();
         verify(postRepository).decrementCommentCount(1L);
         verify(pointService).forceSubtractPoint(1L, 10, "댓글 삭제", 10L, "COMMENT");
+    }
+
+    @Test
+    @DisplayName("?쒖꽦 BAN ?ъ슜?먮뒗 ?볤????쒖젣?????녿떎")
+    void deleteComment_bannedUser_forbidden() {
+        User user = User.builder().build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+
+        Board board = Board.builder().boardUrl("free").build();
+        Post post = Post.builder().board(board).user(user).build();
+        Comment comment = Comment.builder().user(user).post(post).content("Content").build();
+
+        when(commentRepository.findById(10L)).thenReturn(Optional.of(comment));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE)).when(sanctionService).validateNotBanned(user);
+
+        assertThatThrownBy(() -> commentService.deleteComment(1L, 10L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_ACTIVE);
+
+        verify(postRepository, never()).decrementCommentCount(anyLong());
     }
 
     @Test
@@ -620,5 +697,21 @@ class CommentServiceTest {
         verify(postRepository).decrementCommentCount(1L);
         verify(pointService, never())
                 .forceSubtractPoint(anyLong(), anyInt(), anyString(), anyLong(), anyString());
+    }
+
+    @Test
+    @DisplayName("?쒖꽦 BAN ?ъ슜?먮뒗 ?볤? 醫뗭븘??痍⑥냼?????녿떎")
+    void unlikeComment_bannedUser_forbidden() {
+        User user = User.builder().displayName("User").build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE)).when(sanctionService).validateNotBanned(user);
+
+        assertThatThrownBy(() -> commentService.unlikeComment(1L, 10L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_ACTIVE);
+
+        verify(commentLikeRepository, never()).deleteByUserIdAndCommentId(anyLong(), anyLong());
     }
 }

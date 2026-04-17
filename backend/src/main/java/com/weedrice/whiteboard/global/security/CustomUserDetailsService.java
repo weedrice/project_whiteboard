@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.global.security;
 
+import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
@@ -19,6 +20,7 @@ import java.util.List;
 public class CustomUserDetailsService implements UserDetailsService {
 
     private final UserRepository userRepository;
+    private final SanctionService sanctionService;
 
     @Override
     public UserDetails loadUserByUsername(String loginId) throws UsernameNotFoundException {
@@ -32,8 +34,9 @@ public class CustomUserDetailsService implements UserDetailsService {
             authorities.add(new SimpleGrantedAuthority(Role.ROLE_SUPER_ADMIN));
         }
 
+        boolean activeBan = sanctionService.isUserBanned(user);
         boolean enabled = !"DELETED".equals(user.getStatus());
-        boolean accountNonLocked = !"SUSPENDED".equals(user.getStatus());
+        boolean accountNonLocked = !"SUSPENDED".equals(user.getStatus()) && !activeBan;
 
         return new CustomUserDetails(
                 user.getUserId(),

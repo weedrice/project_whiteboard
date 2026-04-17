@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.global.security;
 
+import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
@@ -25,13 +26,15 @@ class CustomUserDetailsServiceTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
+    private SanctionService sanctionService;
+
     @InjectMocks
     private CustomUserDetailsService customUserDetailsService;
 
     @Test
-    @DisplayName("사용자 이름으로 조회 성공")
+    @DisplayName("loads regular user details")
     void loadUserByUsername_success() {
-        // given
         User user = User.builder()
                 .loginId("testuser")
                 .password("password")
@@ -43,10 +46,8 @@ class CustomUserDetailsServiceTest {
 
         when(userRepository.findByLoginId("testuser")).thenReturn(Optional.of(user));
 
-        // when
         UserDetails userDetails = customUserDetailsService.loadUserByUsername("testuser");
 
-        // then
         assertThat(userDetails).isNotNull();
         assertThat(userDetails.getUsername()).isEqualTo("testuser");
         assertThat(userDetails.getPassword()).isEqualTo("password");
@@ -55,9 +56,8 @@ class CustomUserDetailsServiceTest {
     }
 
     @Test
-    @DisplayName("슈퍼 관리자 권한 확인")
+    @DisplayName("loads super admin authorities")
     void loadUserByUsername_superAdmin() {
-        // given
         User user = User.builder()
                 .loginId("admin")
                 .password("admin")
@@ -69,20 +69,37 @@ class CustomUserDetailsServiceTest {
 
         when(userRepository.findByLoginId("admin")).thenReturn(Optional.of(user));
 
-        // when
         UserDetails userDetails = customUserDetailsService.loadUserByUsername("admin");
 
-        // then
-        assertThat(userDetails.getAuthorities()).extracting("authority").contains(Role.ROLE_USER, Role.ROLE_SUPER_ADMIN);
+        assertThat(userDetails.getAuthorities()).extracting("authority")
+                .contains(Role.ROLE_USER, Role.ROLE_SUPER_ADMIN);
     }
 
     @Test
-    @DisplayName("사용자 찾을 수 없음")
+    @DisplayName("locks account when active ban exists")
+    void loadUserByUsername_bannedUserLocked() {
+        User user = User.builder()
+                .loginId("banned")
+                .password("password")
+                .email("banned@test.com")
+                .displayName("Banned")
+                .build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+
+        when(userRepository.findByLoginId("banned")).thenReturn(Optional.of(user));
+        when(sanctionService.isUserBanned(user)).thenReturn(true);
+
+        UserDetails userDetails = customUserDetailsService.loadUserByUsername("banned");
+
+        assertThat(userDetails.isAccountNonLocked()).isFalse();
+        assertThat(userDetails.isEnabled()).isTrue();
+    }
+
+    @Test
+    @DisplayName("throws when user is missing")
     void loadUserByUsername_notFound() {
-        // given
         when(userRepository.findByLoginId("unknown")).thenReturn(Optional.empty());
 
-        // when & then
         assertThatThrownBy(() -> customUserDetailsService.loadUserByUsername("unknown"))
                 .isInstanceOf(UsernameNotFoundException.class);
     }

@@ -30,6 +30,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
@@ -103,6 +104,76 @@ class SanctionServiceTest {
     }
 
     @Test
+    @DisplayName("기간제 BAN은 사용자 상태를 즉시 영구 정지로 바꾸지 않는다")
+    void createSanction_temporaryBan_keepsUserStatusActive() {
+        mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).then(invocation -> null);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(adminUser));
+        when(adminRepository.findFirstByUserAndIsActiveOrderByAdminIdAsc(adminUser, true)).thenReturn(Optional.of(admin));
+        when(userRepository.findById(2L)).thenReturn(Optional.of(targetUser));
+
+        Sanction savedSanction = Sanction.builder()
+                .targetUser(targetUser)
+                .admin(admin)
+                .type("BAN")
+                .remark("Temp ban")
+                .startDate(LocalDateTime.now())
+                .endDate(LocalDateTime.now().plusDays(1))
+                .build();
+        ReflectionTestUtils.setField(savedSanction, "sanctionId", 2L);
+        when(sanctionRepository.save(any(Sanction.class))).thenReturn(savedSanction);
+
+        sanctionService.createSanction(1L, 2L, "BAN", "Temp ban", LocalDateTime.now().plusDays(1));
+
+        assertThat(targetUser.getStatus()).isEqualTo("ACTIVE");
+    }
+
+    @Test
+    @DisplayName("?쒖옱 ?좏삎? ?臾몄옄濡?泥섎━?쒕떎")
+    void createSanction_normalizesTypeToUpperCase() {
+        mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).then(invocation -> null);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(adminUser));
+        when(adminRepository.findFirstByUserAndIsActiveOrderByAdminIdAsc(adminUser, true)).thenReturn(Optional.of(admin));
+        when(userRepository.findById(2L)).thenReturn(Optional.of(targetUser));
+
+        Sanction savedSanction = Sanction.builder()
+                .targetUser(targetUser)
+                .admin(admin)
+                .type("BAN")
+                .remark("Temp ban")
+                .startDate(LocalDateTime.now())
+                .endDate(LocalDateTime.now().plusDays(1))
+                .build();
+        ReflectionTestUtils.setField(savedSanction, "sanctionId", 3L);
+        when(sanctionRepository.save(any(Sanction.class))).thenReturn(savedSanction);
+
+        sanctionService.createSanction(1L, 2L, "ban", "Temp ban", LocalDateTime.now().plusDays(1));
+
+        verify(sanctionRepository).save(argThat(sanction -> "BAN".equals(sanction.getType())));
+    }
+
+    @Test
+    @DisplayName("reject BAN endDate when it is not in the future")
+    void createSanction_rejectsPastOrImmediateBanEndDate() {
+        mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).then(invocation -> null);
+
+        assertThatThrownBy(() -> sanctionService.createSanction(1L, 2L, "BAN", "Expired", LocalDateTime.now()))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+    }
+
+    @Test
+    @DisplayName("reject unsupported sanction type")
+    void createSanction_rejectsUnsupportedType() {
+        mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).then(invocation -> null);
+
+        assertThatThrownBy(() -> sanctionService.createSanction(1L, 2L, "BLOCK", "Invalid", null))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+    }
+
+    @Test
     @DisplayName("활성 관리자 엔티티가 없으면 제재 생성은 FORBIDDEN으로 실패한다")
     void createSanction_withoutAdmin_throwsForbidden() {
         mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).then(invocation -> null);
@@ -138,5 +209,26 @@ class SanctionServiceTest {
         assertThat(responses.getContent()).hasSize(1);
         assertThat(responses.getContent().get(0).getSanctionId()).isEqualTo(1L);
         assertThat(responses.getContent().get(0).getAdminId()).isEqualTo(admin.getAdminId());
+    }
+
+    @Test
+    @DisplayName("활성 BAN이 있으면 사용자 차단 상태로 판단한다")
+    void isUserBanned_trueWhenActiveBanExists() {
+        when(sanctionRepository.existsActiveBan(org.mockito.ArgumentMatchers.eq(targetUser),
+                org.mockito.ArgumentMatchers.any(LocalDateTime.class)))
+                .thenReturn(true);
+
+        assertThat(sanctionService.isUserBanned(targetUser)).isTrue();
+    }
+
+    @Test
+    @DisplayName("inactive user is rejected by write validation")
+    void validateNotBanned_rejectsInactiveUser() {
+        ReflectionTestUtils.setField(targetUser, "status", "SUSPENDED");
+
+        assertThatThrownBy(() -> sanctionService.validateNotBanned(targetUser))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.USER_NOT_ACTIVE);
     }
 }

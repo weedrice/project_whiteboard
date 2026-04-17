@@ -4,6 +4,7 @@ import com.weedrice.whiteboard.domain.notification.constant.NotificationType;
 import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
 import com.weedrice.whiteboard.domain.notification.entity.Notification;
 import com.weedrice.whiteboard.domain.notification.repository.NotificationRepository;
+import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.dto.UpdateNotificationSettingItem;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.entity.UserNotificationSettings;
@@ -49,6 +50,8 @@ class NotificationSettingsFlowTest {
 
     @Mock
     private UserSettingsRepository userSettingsRepository;
+    @Mock
+    private SanctionService sanctionService;
 
     private UserSettingsService userSettingsService;
     private NotificationService notificationService;
@@ -60,7 +63,11 @@ class NotificationSettingsFlowTest {
 
     @BeforeEach
     void setUp() {
-        userSettingsService = new UserSettingsService(userRepository, userSettingsRepository, userNotificationSettingsRepository);
+        userSettingsService = new UserSettingsService(
+                userRepository,
+                userSettingsRepository,
+                userNotificationSettingsRepository,
+                sanctionService);
         notificationService = new NotificationService(notificationRepository, userRepository, userNotificationSettingsRepository);
 
         receiver = User.builder().build();

@@ -28,6 +28,7 @@ import com.weedrice.whiteboard.domain.post.dto.ScrapListResponse;
 import com.weedrice.whiteboard.domain.post.dto.ViewHistoryRequest;
 import com.weedrice.whiteboard.domain.post.entity.*;
 import com.weedrice.whiteboard.domain.post.repository.*;
+import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.tag.repository.PostTagRepository;
 import com.weedrice.whiteboard.domain.tag.repository.TagRepository;
 import com.weedrice.whiteboard.domain.tag.service.TagService;
@@ -78,6 +79,7 @@ public class PostService {
     private final UserBlockService userBlockService;
     private final GlobalConfigService globalConfigService;
     private final AgentOwnershipService agentOwnershipService;
+    private final SanctionService sanctionService;
     private final PostSummaryAssembler postSummaryAssembler;
     private final PostAccessPolicy postAccessPolicy;
     private final BoardAccessPolicy boardAccessPolicy;
@@ -330,8 +332,7 @@ public class PostService {
 
     @Transactional
     public Post createPost(@NonNull Long userId, Long agentId, @NonNull Long boardId, PostCreateRequest request) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        User user = getWritableUser(userId);
         Agent agent = agentOwnershipService.resolveOwnedActiveAgent(userId, agentId);
         Board board = boardRepository.findById(boardId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
@@ -394,6 +395,7 @@ public class PostService {
     public Post updatePost(@NonNull Long userId, @NonNull Long postId, PostUpdateRequest request) {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
+        User modifier = getWritableUser(userId);
 
         if (post.getIsDeleted()) {
             throw new BusinessException(ErrorCode.POST_NOT_FOUND);
@@ -427,8 +429,6 @@ public class PostService {
             }
         }
 
-        User modifier = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         savePostVersion(post, modifier, "MODIFY", originalTitle, originalContents);
 
         return post;
@@ -438,6 +438,7 @@ public class PostService {
     public void deletePost(@NonNull Long userId, @NonNull Long postId) {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
+        User modifier = getWritableUser(userId);
 
         if (post.getIsDeleted()) {
             throw new BusinessException(ErrorCode.POST_NOT_FOUND);
@@ -451,8 +452,6 @@ public class PostService {
         postTagRepository.findByPost(post)
                 .forEach(postTag -> tagRepository.decrementPostCount(postTag.getTag().getTagId()));
         postTagRepository.deleteByPost(post);
-        User modifier = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         savePostVersion(post, modifier, "DELETE", post.getTitle(), post.getContents());
 
         // ?ъ씤??李④컧 (寃뚯떆湲 ??젣)
@@ -468,8 +467,7 @@ public class PostService {
 
     @Transactional
     public int likePost(@NonNull Long userId, Long actorAgentId, @NonNull Long postId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        User user = getWritableUser(userId);
         Agent actorAgent = agentOwnershipService.resolveOwnedActiveAgent(userId, actorAgentId);
         Post post = getPostById(postId, userId, false);
         boolean skipNotification = post.getAgent() != null;
@@ -501,6 +499,7 @@ public class PostService {
 
     @Transactional
     public int unlikePost(@NonNull Long userId, @NonNull Long postId) {
+        getWritableUser(userId);
         getPostById(postId, userId, false);
 
         int deletedCount = postLikeRepository.deleteByUserIdAndPostId(userId, postId);
@@ -514,8 +513,7 @@ public class PostService {
 
     @Transactional
     public void scrapPost(@NonNull Long userId, @NonNull Long postId, String remark) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        User user = getWritableUser(userId);
         Post post = getPostById(postId, userId, false);
         ScrapId scrapId = new ScrapId(userId, postId);
 
@@ -536,6 +534,7 @@ public class PostService {
 
     @Transactional
     public void unscrapPost(@NonNull Long userId, @NonNull Long postId) {
+        getWritableUser(userId);
         long deletedCount = scrapRepository.deleteByUser_UserIdAndPost_PostId(userId, postId);
         if (deletedCount == 0) {
             throw new BusinessException(ErrorCode.NOT_SCRAPED);
@@ -566,8 +565,7 @@ public class PostService {
 
     @Transactional
     public DraftPost saveDraftPost(@NonNull Long userId, PostDraftRequest request) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        User user = getWritableUser(userId);
         Board board = boardRepository.findByBoardUrl(request.getBoardUrl()) // boardUrl ?ъ슜
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
         validateBoardReadable(board, userId);
@@ -596,8 +594,7 @@ public class PostService {
 
     @Transactional
     public void deleteDraftPost(@NonNull Long userId, @NonNull Long draftId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        User user = getWritableUser(userId);
         DraftPost draftPost = draftPostRepository.findByDraftIdAndUser(draftId, user)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
         draftPostRepository.delete(draftPost);
@@ -642,6 +639,13 @@ public class PostService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         Page<ViewHistory> historyPage = viewHistoryRepository.findByUserOrderByModifiedAtDesc(user, pageable);
         return postSummaryAssembler.assembleHistoryPage(historyPage);
+    }
+
+    private User getWritableUser(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        sanctionService.validateNotBanned(user);
+        return user;
     }
 
     public List<String> getPostImageUrls(@NonNull Long postId) {

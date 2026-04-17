@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.user.service;
 
 import com.weedrice.whiteboard.domain.notification.constant.NotificationType;
+import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.dto.NotificationSettingResponse;
 import com.weedrice.whiteboard.domain.user.dto.UpdateNotificationSettingItem;
 import com.weedrice.whiteboard.domain.user.dto.UserSettingsResponse;
@@ -37,6 +38,7 @@ public class UserSettingsService {
         private final UserRepository userRepository;
         private final UserSettingsRepository userSettingsRepository;
         private final UserNotificationSettingsRepository userNotificationSettingsRepository;
+        private final SanctionService sanctionService;
 
         public UserSettingsResponse getSettings(Long userId) {
                 validateUserExists(userId);
@@ -48,6 +50,7 @@ public class UserSettingsService {
         @Transactional
         public UserSettingsResponse updateSettings(Long userId, String theme, String language, String timezone,
                         Boolean hideNsfw) {
+                validateUserCanWrite(userId);
                 UserSettings settings = updateSettingsEntity(userId, theme, language, timezone, hideNsfw);
                 return new UserSettingsResponse(settings.getTheme(), settings.getLanguage(), settings.getTimezone(),
                                 settings.getHideNsfw());
@@ -99,7 +102,7 @@ public class UserSettingsService {
         @Transactional
         public List<NotificationSettingResponse> updateNotificationSettings(Long userId,
                         List<UpdateNotificationSettingItem> requests) {
-                validateUserExists(userId);
+                validateUserCanWrite(userId);
                 validateNoDuplicateNotificationTypes(requests);
 
                 for (UpdateNotificationSettingItem request : requests) {
@@ -113,6 +116,12 @@ public class UserSettingsService {
         private void validateUserExists(Long userId) {
                 userRepository.findById(userId)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        }
+
+        private void validateUserCanWrite(Long userId) {
+                User user = userRepository.findById(userId)
+                                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+                sanctionService.validateNotBanned(user);
         }
 
         private UserSettingsResponse toResponse(UserSettings settings) {

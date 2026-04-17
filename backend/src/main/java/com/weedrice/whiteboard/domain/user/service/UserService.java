@@ -21,6 +21,7 @@ import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.domain.report.repository.ReportRepository;
+import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.sanction.entity.Sanction;
 import com.weedrice.whiteboard.domain.sanction.repository.SanctionRepository;
 import com.weedrice.whiteboard.domain.user.dto.AdminUserDetailResponse;
@@ -77,6 +78,7 @@ public class UserService {
     private final LoginHistoryRepository loginHistoryRepository;
     private final RefreshTokenRepository refreshTokenRepository;
     private final SanctionRepository sanctionRepository;
+    private final SanctionService sanctionService;
     private final ReportRepository reportRepository;
     private final VerificationCodeService verificationCodeService; // Inject VerificationCodeService
     private final AgentService agentService;
@@ -99,6 +101,7 @@ public class UserService {
                        LoginHistoryRepository loginHistoryRepository,
                        RefreshTokenRepository refreshTokenRepository,
                        SanctionRepository sanctionRepository,
+                       SanctionService sanctionService,
                        ReportRepository reportRepository,
                        VerificationCodeService verificationCodeService,
                        AgentService agentService) {
@@ -119,6 +122,7 @@ public class UserService {
         this.loginHistoryRepository = loginHistoryRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.sanctionRepository = sanctionRepository;
+        this.sanctionService = sanctionService;
         this.reportRepository = reportRepository;
         this.verificationCodeService = verificationCodeService;
         this.agentService = agentService;
@@ -177,8 +181,7 @@ public class UserService {
 
     @Transactional
     public UpdateProfileResponse updateMyProfile(Long userId, String displayName, Long profileImageId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        User user = getWritableUser(userId);
 
         String oldDisplayName = user.getDisplayName();
 
@@ -203,8 +206,7 @@ public class UserService {
 
     @Transactional
     public void updatePassword(Long userId, String currentPassword, String newPassword) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        User user = getWritableUser(userId);
 
         if (!passwordEncoder.matches(currentPassword, user.getPassword())) {
             throw new BusinessException(ErrorCode.INVALID_CURRENT_PASSWORD);
@@ -235,8 +237,7 @@ public class UserService {
 
     @Transactional
     public void deleteAccount(Long userId, String password) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        User user = getWritableUser(userId);
 
         if (!passwordEncoder.matches(password, user.getPassword())) {
             throw new BusinessException(ErrorCode.INVALID_PASSWORD);
@@ -393,6 +394,9 @@ public class UserService {
         if ("SUSPENDED".equals(status)) {
             user.suspend();
         } else if ("ACTIVE".equals(status)) {
+            if (sanctionService.isUserBanned(user)) {
+                throw new BusinessException(ErrorCode.USER_NOT_ACTIVE);
+            }
             user.activate();
         } else {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
@@ -401,13 +405,13 @@ public class UserService {
 
     @Transactional
     public UserSettings updateSettings(Long userId, String theme, String language, String timezone, boolean hideNsfw) {
+        getWritableUser(userId);
         return userSettingsService.updateSettingsEntity(userId, theme, language, timezone, hideNsfw);
     }
 
     @Transactional
     public void verifyAndChangeEmail(Long userId, String email, String code) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        User user = getWritableUser(userId);
 
         // 본인 계정이 아닌 다른 계정이 이미 사용 중인 이메일은 변경할 수 없다.
         if (!user.getEmail().equals(email)) {
@@ -441,5 +445,12 @@ public class UserService {
         if (!activeTokens.isEmpty()) {
             refreshTokenRepository.saveAll(activeTokens);
         }
+    }
+
+    private User getWritableUser(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        sanctionService.validateNotBanned(user);
+        return user;
     }
 }

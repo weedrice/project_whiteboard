@@ -7,6 +7,7 @@ import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.report.dto.ReportResponse;
 import com.weedrice.whiteboard.domain.report.entity.Report;
 import com.weedrice.whiteboard.domain.report.repository.ReportRepository;
+import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.common.util.SecurityUtils;
@@ -35,6 +36,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -52,6 +54,8 @@ class ReportServiceTest {
     private PostRepository postRepository;
     @Mock
     private CommentRepository commentRepository;
+    @Mock
+    private SanctionService sanctionService;
 
     @InjectMocks
     private ReportService reportService;
@@ -133,6 +137,19 @@ class ReportServiceTest {
         assertThatThrownBy(() -> reportService.createReport(reporterId, "POST", targetId, "SPAM", null, null))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.ALREADY_REPORTED);
+    }
+
+    @Test
+    @DisplayName("제재 중인 사용자는 신고를 생성할 수 없다")
+    void createReport_bannedReporter_throwsUserNotActive() {
+        Long reporterId = 1L;
+
+        when(userRepository.findById(reporterId)).thenReturn(Optional.of(reporter));
+        doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE)).when(sanctionService).validateNotBanned(reporter);
+
+        assertThatThrownBy(() -> reportService.createReport(reporterId, "POST", 1L, "SPAM", null, null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_ACTIVE);
     }
 
     @Test

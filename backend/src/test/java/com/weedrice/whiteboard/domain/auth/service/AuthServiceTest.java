@@ -11,6 +11,7 @@ import com.weedrice.whiteboard.domain.auth.repository.LoginHistoryRepository;
 import com.weedrice.whiteboard.domain.auth.repository.PasswordResetTokenRepository;
 import com.weedrice.whiteboard.domain.auth.repository.RefreshTokenRepository;
 import com.weedrice.whiteboard.domain.point.service.PointService;
+import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.point.repository.UserPointRepository;
 import com.weedrice.whiteboard.domain.user.repository.PasswordHistoryRepository;
@@ -90,6 +91,8 @@ class AuthServiceTest {
         private GlobalConfigService globalConfigService;
         @Mock
         private TransactionTemplate transactionTemplate;
+        @Mock
+        private SanctionService sanctionService;
 
         @InjectMocks
         private AuthService authService;
@@ -220,6 +223,7 @@ class AuthServiceTest {
                 when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
                                 .thenReturn(authentication);
                 when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+                when(sanctionService.isUserBanned(user)).thenReturn(false);
                 when(jwtTokenProvider.createAccessToken(authentication)).thenReturn("accessToken");
                 when(jwtTokenProvider.createRefreshToken(authentication)).thenReturn("refreshToken");
 
@@ -233,7 +237,61 @@ class AuthServiceTest {
         }
 
         @Test
+        @DisplayName("활성 BAN 사용자는 로그인할 수 없다")
+        void login_fail_whenUserIsBanned() {
+                LoginRequest request = new LoginRequest("testuser", "password123");
+                CustomUserDetails userDetails = new CustomUserDetails(1L, "testuser", "encodedPassword",
+                                Collections.emptyList());
+                Authentication authentication = new UsernamePasswordAuthenticationToken(userDetails, null,
+                                Collections.emptyList());
+                AuthenticationManager authenticationManager = mock(AuthenticationManager.class);
+                HttpServletRequest httpServletRequest = mock(HttpServletRequest.class);
+
+                when(authenticationManagerBuilder.getObject()).thenReturn(authenticationManager);
+                when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
+                                .thenReturn(authentication);
+                when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+                when(sanctionService.isUserBanned(user)).thenReturn(true);
+
+                BusinessException exception = assertThrows(BusinessException.class,
+                                () -> authService.login(request, httpServletRequest));
+
+                assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.LOGIN_FAILED);
+                verify(jwtTokenProvider, never()).createAccessToken(any());
+        }
+
+/*
+
+        @Test
         @DisplayName("로그인 ID 찾기 성공")
+        @Test
+        @DisplayName("?쒖꽦 BAN ?ъ슜?먮뒗 ?щ젅?꾩떆 ?좏슚?붾?媛?遺덇?")
+*/
+        @Test
+        @DisplayName("?쒖꽦 BAN ?ъ슜?먮뒗 ?щ젅?꾩떆 ?좏슚?붾?媛?遺덇?")
+        void refresh_fail_whenUserIsBanned() {
+                RefreshToken refreshToken = RefreshToken.builder()
+                                .user(user)
+                                .tokenHash("hashed-old-token")
+                                .ipAddress("127.0.0.1")
+                                .deviceInfo("browser")
+                                .expiresAt(LocalDateTime.now().plusDays(7))
+                                .build();
+
+                when(jwtTokenProvider.validateToken("old-refresh-token")).thenReturn(true);
+                when(refreshTokenRepository.findByTokenHash(anyString())).thenReturn(Optional.of(refreshToken));
+                when(sanctionService.isUserBanned(user)).thenReturn(true);
+
+                BusinessException exception = assertThrows(BusinessException.class,
+                                () -> authService.refresh("old-refresh-token"));
+
+                assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.USER_NOT_ACTIVE);
+                verify(refreshTokenRepository).save(refreshToken);
+                verify(jwtTokenProvider, never()).createAccessToken(any());
+        }
+
+        @Test
+        @DisplayName("濡쒓렇??ID 李얘린 ?깃났")
         void findLoginId_success() {
                 // given
                 String email = "test@example.com";
