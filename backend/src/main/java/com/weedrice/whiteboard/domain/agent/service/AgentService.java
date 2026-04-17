@@ -240,13 +240,7 @@ public class AgentService {
                 .collect(Collectors.toMap(
                         PostRepository.BoardPostCountProjection::getBoardId,
                         PostRepository.BoardPostCountProjection::getPostCount));
-        Map<Long, List<CategoryResponse>> categoriesByBoardId = boardCategoryRepository
-                .findByBoard_BoardIdInAndIsActiveOrderByBoard_BoardIdAscSortOrderAsc(
-                        boardIds, true)
-                .stream()
-                .collect(Collectors.groupingBy(
-                        category -> category.getBoard().getBoardId(),
-                        Collectors.mapping(CategoryResponse::new, Collectors.toList())));
+        Map<Long, List<CategoryResponse>> categoriesByBoardId = loadCategoriesByBoardIds(boardIds);
         Map<Long, String> guidePromptMap = boardAiInfoRepository.findByBoard_BoardIdIn(boardIds)
                 .stream()
                 .collect(Collectors.toMap(BoardAiInfo::getBoardId, BoardAiInfo::getGuidePrompt));
@@ -515,11 +509,26 @@ public class AgentService {
         Set<Long> boardAdminIds = resolveBoardAdminIds(user, boards, boardIds);
 
         return boards.stream()
+                .filter(board -> Boolean.TRUE.equals(board.getIsActive()))
+                .filter(board -> Boolean.TRUE.equals(board.getIsPublic()))
                 .filter(Board::isAgentEnabled)
                 .filter(board -> hasRequiredWriteRole(board, user, boardAdminIds,
                         categoriesByBoardId.getOrDefault(board.getBoardId(), List.of())))
                 .map(Board::getBoardId)
                 .collect(Collectors.toSet());
+    }
+
+    private Map<Long, List<CategoryResponse>> loadCategoriesByBoardIds(List<Long> boardIds) {
+        if (boardIds == null || boardIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        return boardCategoryRepository.findByBoard_BoardIdInAndIsActiveOrderByBoard_BoardIdAscSortOrderAsc(
+                        boardIds, true)
+                .stream()
+                .collect(Collectors.groupingBy(
+                        category -> category.getBoard().getBoardId(),
+                        Collectors.mapping(CategoryResponse::new, Collectors.toList())));
     }
 
     private Set<Long> resolveBoardAdminIds(User user, List<Board> boards, List<Long> boardIds) {
@@ -591,9 +600,18 @@ public class AgentService {
                     .orElse(Collections.emptyList());
         }
 
-        Map<Long, Boolean> writableBoardCache = new HashMap<>();
-        return boardRepository.findByIsActiveAndIsPublicOrderBySortOrderAsc(true, true).stream()
-                .filter(board -> canAgentWriteBoard(agent, board, writableBoardCache))
+        List<Board> candidateBoards = boardRepository.findByIsActiveAndIsPublicOrderBySortOrderAsc(true, true);
+        if (candidateBoards.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        Map<Long, List<CategoryResponse>> categoriesByBoardId = loadCategoriesByBoardIds(candidateBoards.stream()
+                .map(Board::getBoardId)
+                .toList());
+        Set<Long> writableBoardIds = resolveWritableBoardIds(agent, candidateBoards, categoriesByBoardId);
+
+        return candidateBoards.stream()
+                .filter(board -> writableBoardIds.contains(board.getBoardId()))
                 .toList();
     }
 

@@ -110,6 +110,8 @@ class AgentServiceTest {
         lenient().when(commentRepository.findDistinctPostIdsByPost_PostIdInAndAgent_AgentIdAndIsDeletedFalse(any(), anyLong()))
                 .thenReturn(List.of());
         lenient().when(userBlockService.getBlockedUserIds(1L)).thenReturn(List.of());
+        lenient().when(boardCategoryRepository.findByBoard_BoardIdInAndIsActiveOrderByBoard_BoardIdAscSortOrderAsc(any(), eq(true)))
+                .thenReturn(List.of());
 
         user = User.builder().loginId("user").displayName("User").build();
         ReflectionTestUtils.setField(user, "userId", 1L);
@@ -156,7 +158,6 @@ class AgentServiceTest {
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
         when(boardRepository.findByIsActiveAndIsPublicOrderBySortOrderAsc(true, true))
                 .thenReturn(List.of(writableBoard, blockedBoard));
-        when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(true);
         when(postRepository.findAgentFeedByBoardIds(
                 eq(List.of(10L)),
                 any(),
@@ -173,6 +174,7 @@ class AgentServiceTest {
         assertThat(response.getContent().get(0).getBoardId()).isEqualTo(10L);
         assertThat(response.getTotalElements()).isEqualTo(1);
         verify(commentRepository).findDistinctPostIdsByPost_PostIdInAndAgent_AgentIdAndIsDeletedFalse(List.of(100L), 7L);
+        verify(postService, never()).canWriteToBoard(anyLong(), any());
     }
 
     @Test
@@ -415,7 +417,6 @@ class AgentServiceTest {
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
         when(boardRepository.findByIsActiveAndIsPublicOrderBySortOrderAsc(true, true))
                 .thenReturn(List.of(writableBoard));
-        when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(true);
         when(postRepository.findAgentFeedByBoardIds(
                 eq(List.of(10L)),
                 any(),
@@ -429,7 +430,9 @@ class AgentServiceTest {
         Page<PostSummary> response = agentService.getFeed(7L, null, PageRequest.of(0, 10));
 
         assertThat(response.getContent()).hasSize(2);
-        verify(postService).canWriteToBoard(1L, writableBoard);
+        verify(postService, never()).canWriteToBoard(anyLong(), any());
+        verify(boardCategoryRepository).findByBoard_BoardIdInAndIsActiveOrderByBoard_BoardIdAscSortOrderAsc(
+                List.of(10L), true);
     }
 
     @Test
@@ -445,12 +448,33 @@ class AgentServiceTest {
     }
 
     @Test
+    void getFeed_returnsPostsWhenRequestedBoardIsAccessible() {
+        when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+        when(boardRepository.findByBoardId(10L)).thenReturn(Optional.of(writableBoard));
+        when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(true);
+        when(postRepository.findAgentFeedByBoardIds(
+                eq(List.of(10L)),
+                any(),
+                any(),
+                eq(1L),
+                any()))
+                .thenReturn(new PageImpl<>(List.of(writablePost), PageRequest.of(0, 10), 1));
+        when(commentRepository.findDistinctPostIdsByPost_PostIdInAndAgent_AgentIdAndIsDeletedFalse(List.of(100L), 7L))
+                .thenReturn(List.of());
+
+        Page<PostSummary> response = agentService.getFeed(7L, 10L, PageRequest.of(0, 10));
+
+        assertThat(response.getContent()).hasSize(1);
+        assertThat(response.getContent().get(0).getBoardId()).isEqualTo(10L);
+        verify(postService).canWriteToBoard(1L, writableBoard);
+    }
+
+    @Test
     @DisplayName("feed 조회는 가시성 조건이 반영된 전용 쿼리를 사용한다")
     void getFeed_usesVisibilityAwareFeedQuery() {
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
         when(boardRepository.findByIsActiveAndIsPublicOrderBySortOrderAsc(true, true))
                 .thenReturn(List.of(writableBoard));
-        when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(true);
         when(postRepository.findAgentFeedByBoardIds(
                 eq(List.of(10L)),
                 any(),
@@ -466,6 +490,7 @@ class AgentServiceTest {
         assertThat(response.getContent()).hasSize(1);
         assertThat(response.getContent().get(0).getPostId()).isEqualTo(100L);
         assertThat(response.getTotalElements()).isEqualTo(1L);
+        verify(postService, never()).canWriteToBoard(anyLong(), any());
     }
 
     @Test
