@@ -3,6 +3,8 @@ package com.weedrice.whiteboard.domain.ad.controller;
 import com.weedrice.whiteboard.domain.ad.dto.AdResponse;
 import com.weedrice.whiteboard.domain.ad.service.AdService;
 import com.weedrice.whiteboard.domain.admin.interceptor.IpBlockInterceptor;
+import com.weedrice.whiteboard.global.exception.BusinessException;
+import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.config.SecurityConfig;
 import com.weedrice.whiteboard.global.config.WebConfig;
 import com.weedrice.whiteboard.global.ratelimit.RateLimitInterceptor;
@@ -30,11 +32,11 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.util.Collections;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -112,7 +114,7 @@ class AdControllerTest {
     @Test
     @DisplayName("광고 impression 기록 성공")
     void recordAdImpression_returnsSuccess() throws Exception {
-        doNothing().when(adService).recordAdImpression(eq(1L), anyLong(), anyString());
+        doNothing().when(adService).recordAdImpression(eq(1L), nullable(Long.class), nullable(String.class));
 
         mockMvc.perform(post("/api/v1/ads/{adId}/impression", 1L)
                         .with(user(customUserDetails)))
@@ -121,14 +123,41 @@ class AdControllerTest {
     }
 
     @Test
+    @DisplayName("비활성 광고 impression 기록은 404를 반환한다")
+    void recordAdImpression_returnsNotFoundWhenAdInactive() throws Exception {
+        doThrow(new BusinessException(ErrorCode.AD_NOT_FOUND))
+                .when(adService)
+                .recordAdImpression(eq(1L), nullable(Long.class), nullable(String.class));
+
+        mockMvc.perform(post("/api/v1/ads/{adId}/impression", 1L)
+                        .with(user(customUserDetails)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.error.code").value(ErrorCode.AD_NOT_FOUND.getCode()));
+    }
+
+    @Test
     @DisplayName("광고 클릭 기록 성공")
     void recordAdClick_returnsSuccess() throws Exception {
-        when(adService.recordAdClick(eq(1L), any(), anyString())).thenReturn("http://example.com");
+        when(adService.recordAdClick(eq(1L), any(), nullable(String.class))).thenReturn("http://example.com");
 
         mockMvc.perform(post("/api/v1/ads/{adId}/click", 1L)
                         .with(user(customUserDetails)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data").exists());
+    }
+
+    @Test
+    @DisplayName("비활성 광고 click 기록은 404를 반환한다")
+    void recordAdClick_returnsNotFoundWhenAdInactive() throws Exception {
+        when(adService.recordAdClick(eq(1L), any(), nullable(String.class)))
+                .thenThrow(new BusinessException(ErrorCode.AD_NOT_FOUND));
+
+        mockMvc.perform(post("/api/v1/ads/{adId}/click", 1L)
+                        .with(user(customUserDetails)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.error.code").value(ErrorCode.AD_NOT_FOUND.getCode()));
     }
 }

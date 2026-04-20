@@ -38,76 +38,101 @@ class AdServiceTest {
     private AdService adService;
 
     @Test
-    @DisplayName("광고 조회는 impression count를 증가시키지 않는다")
+    @DisplayName("광고 조회는 impression count 를 증가시키지 않는다")
     void getAd_success() {
         String placement = "HEADER";
-        Ad ad = Ad.builder()
-                .adName("Header Ad")
-                .imageUrl("https://cdn.test/ad.png")
-                .placement(placement)
-                .targetUrl("https://example.com")
-                .startDate(LocalDateTime.now().minusDays(1))
-                .endDate(LocalDateTime.now().plusDays(1))
-                .build();
-        when(adRepository.findByPlacementAndIsActiveAndStartDateBeforeAndEndDateAfter(any(), any(), any(), any()))
-                .thenReturn(Collections.singletonList(ad));
+        Ad ad = buildActiveAd(placement, LocalDateTime.now().plusDays(1));
+        when(adRepository.findActiveByPlacement(any(), any())).thenReturn(Collections.singletonList(ad));
 
         Ad result = adService.getAd(placement);
 
         assertThat(result).isSameAs(ad);
         assertThat(ad.getImpressionCount()).isZero();
-        verify(adRepository).findByPlacementAndIsActiveAndStartDateBeforeAndEndDateAfter(any(), any(), any(), any());
+        verify(adRepository).findActiveByPlacement(any(), any());
     }
 
     @Test
-    @DisplayName("impression 기록은 원자 update를 사용한다")
+    @DisplayName("오픈엔드 광고도 활성 광고 조회에 포함한다")
+    void getAd_includesOpenEndedAd() {
+        String placement = "HEADER";
+        Ad ad = buildActiveAd(placement, null);
+        when(adRepository.findActiveByPlacement(any(), any())).thenReturn(Collections.singletonList(ad));
+
+        Ad result = adService.getAd(placement);
+
+        assertThat(result).isSameAs(ad);
+        verify(adRepository).findActiveByPlacement(any(), any());
+    }
+
+    @Test
+    @DisplayName("impression 기록은 활성 광고에만 반영된다")
     void recordAdImpression_success() {
-        when(adRepository.incrementImpressionCount(1L)).thenReturn(1);
+        when(adRepository.incrementImpressionCountForActive(any(), any())).thenReturn(1);
 
         adService.recordAdImpression(1L, 10L, "127.0.0.1");
 
-        verify(adRepository).incrementImpressionCount(1L);
+        verify(adRepository).incrementImpressionCountForActive(any(), any());
     }
 
     @Test
-    @DisplayName("click 기록은 원자 update 후 targetUrl을 반환한다")
+    @DisplayName("비활성 또는 만료 광고의 impression 은 기록하지 않는다")
+    void recordAdImpression_inactiveAd_throwsAdNotFound() {
+        when(adRepository.incrementImpressionCountForActive(any(), any())).thenReturn(0);
+
+        assertThatThrownBy(() -> adService.recordAdImpression(1L, 10L, "127.0.0.1"))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode()).isEqualTo(ErrorCode.AD_NOT_FOUND));
+    }
+
+    @Test
+    @DisplayName("click 기록은 활성 광고일 때만 저장하고 targetUrl 을 반환한다")
     void recordAdClick_success() {
-        Ad ad = Ad.builder()
-                .adName("Header Ad")
-                .imageUrl("https://cdn.test/ad.png")
-                .placement("HEADER")
-                .targetUrl("https://example.com")
-                .startDate(LocalDateTime.now().minusDays(1))
-                .endDate(LocalDateTime.now().plusDays(1))
-                .build();
-        when(adRepository.findById(1L)).thenReturn(Optional.of(ad));
-        when(adRepository.incrementClickCount(1L)).thenReturn(1);
+        Ad ad = buildActiveAd("HEADER", LocalDateTime.now().plusDays(1));
+        when(adRepository.findActiveById(any(), any())).thenReturn(Optional.of(ad));
+        when(adRepository.incrementClickCountForActive(any(), any())).thenReturn(1);
 
         String targetUrl = adService.recordAdClick(1L, null, "127.0.0.1");
 
         assertThat(targetUrl).isEqualTo("https://example.com");
-        verify(adRepository).incrementClickCount(1L);
+        verify(adRepository).incrementClickCountForActive(any(), any());
         verify(adClickLogRepository).save(any());
     }
 
     @Test
-    @DisplayName("click count 증가가 실패하면 AD_NOT_FOUND를 반환한다")
+    @DisplayName("click count 증가가 실패하면 로그를 저장하지 않고 AD_NOT_FOUND 를 반환한다")
     void recordAdClick_incrementFailure_throwsAdNotFound() {
-        Ad ad = Ad.builder()
-                .adName("Header Ad")
-                .imageUrl("https://cdn.test/ad.png")
-                .placement("HEADER")
-                .targetUrl("https://example.com")
-                .startDate(LocalDateTime.now().minusDays(1))
-                .endDate(LocalDateTime.now().plusDays(1))
-                .build();
-        when(adRepository.findById(1L)).thenReturn(Optional.of(ad));
-        when(adRepository.incrementClickCount(1L)).thenReturn(0);
+        Ad ad = buildActiveAd("HEADER", LocalDateTime.now().plusDays(1));
+        when(adRepository.findActiveById(any(), any())).thenReturn(Optional.of(ad));
+        when(adRepository.incrementClickCountForActive(any(), any())).thenReturn(0);
 
         assertThatThrownBy(() -> adService.recordAdClick(1L, null, "127.0.0.1"))
                 .isInstanceOf(BusinessException.class)
                 .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode()).isEqualTo(ErrorCode.AD_NOT_FOUND));
 
         verify(adClickLogRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("비활성 또는 만료 광고는 click 기록 대상이 아니다")
+    void recordAdClick_inactiveAd_throwsAdNotFound() {
+        when(adRepository.findActiveById(any(), any())).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> adService.recordAdClick(1L, null, "127.0.0.1"))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode()).isEqualTo(ErrorCode.AD_NOT_FOUND));
+
+        verify(adRepository, never()).incrementClickCountForActive(any(), any());
+        verify(adClickLogRepository, never()).save(any());
+    }
+
+    private Ad buildActiveAd(String placement, LocalDateTime endDate) {
+        return Ad.builder()
+                .adName("Header Ad")
+                .imageUrl("https://cdn.test/ad.png")
+                .placement(placement)
+                .targetUrl("https://example.com")
+                .startDate(LocalDateTime.now().minusDays(1))
+                .endDate(endDate)
+                .build();
     }
 }

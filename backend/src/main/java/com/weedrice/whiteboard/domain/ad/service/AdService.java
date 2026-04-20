@@ -35,8 +35,7 @@ public class AdService {
 
     public Ad getAd(String placement) {
         LocalDateTime now = LocalDateTime.now();
-        List<Ad> ads = adRepository.findByPlacementAndIsActiveAndStartDateBeforeAndEndDateAfter(placement, true, now,
-                now);
+        List<Ad> ads = adRepository.findActiveByPlacement(placement, now);
         if (ads.isEmpty()) {
             return null;
         }
@@ -45,16 +44,16 @@ public class AdService {
 
     @Transactional
     public void recordAdImpression(Long adId, Long userId, String ipAddress) {
-        if (adRepository.incrementImpressionCount(adId) == 0) {
+        if (adRepository.incrementImpressionCountForActive(adId, LocalDateTime.now()) == 0) {
             throw new BusinessException(ErrorCode.AD_NOT_FOUND);
         }
     }
 
     @Transactional
     public String recordAdClick(Long adId, Long userId, String ipAddress) {
-        Ad ad = adRepository.findById(adId)
+        Ad ad = adRepository.findActiveById(adId, LocalDateTime.now())
                 .orElseThrow(() -> new BusinessException(ErrorCode.AD_NOT_FOUND));
-        if (adRepository.incrementClickCount(adId) == 0) {
+        if (adRepository.incrementClickCountForActive(adId, LocalDateTime.now()) == 0) {
             throw new BusinessException(ErrorCode.AD_NOT_FOUND);
         }
 

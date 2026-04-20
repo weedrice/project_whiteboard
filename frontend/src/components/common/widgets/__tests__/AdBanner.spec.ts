@@ -82,4 +82,30 @@ describe('AdBanner', () => {
 
     openMock.mockRestore()
   })
+
+  it('falls back to the fetched targetUrl when click recording fails', async () => {
+    mocks.post.mockImplementation((url: string) => {
+      if (url.endsWith('/impression')) {
+        return Promise.resolve({ data: { success: true } })
+      }
+      if (url.endsWith('/click')) {
+        return Promise.reject(new Error('404'))
+      }
+      return Promise.reject(new Error(`unexpected url: ${url}`))
+    })
+
+    const openMock = vi.spyOn(window, 'open').mockReturnValue({ opener: window } as unknown as Window)
+    const wrapper = mount(AdBanner, {
+      props: { placement: 'TOP' },
+    })
+
+    await flushPromises()
+    await wrapper.get('.cursor-pointer').trigger('click')
+    await flushPromises()
+
+    expect(mocks.post).toHaveBeenCalledWith('/ads/1/click')
+    expect(openMock).toHaveBeenCalledWith('https://example.com/', '_blank', 'noopener,noreferrer')
+
+    openMock.mockRestore()
+  })
 })
