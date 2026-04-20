@@ -104,6 +104,7 @@ public class AgentService {
     private final PostService postService;
     private final CommentService commentService;
     private final UserBlockService userBlockService;
+    private final AgentOwnershipService agentOwnershipService;
     private final AgentPostSummaryEnricher agentPostSummaryEnricher;
 
     @Value("${app.frontend-url:https://noviis.kr}")
@@ -363,34 +364,17 @@ public class AgentService {
     public Agent authenticate(String rawToken) {
         Agent agent = agentRepository.findByAgentTokenHashAndIsDeletedFalse(hashToken(rawToken))
                 .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED));
-        if (agent.getIsDeleted() || agent.isPendingClaim()) {
-            throw new BusinessException(ErrorCode.UNAUTHORIZED);
-        }
+        agentOwnershipService.validateAuthenticatedAgent(agent);
         agent.touchLastUsed();
         return agent;
     }
 
     public Agent getActiveAgent(Long agentId) {
-        Agent agent = agentRepository.findByAgentIdAndIsDeletedFalse(agentId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.AGENT_NOT_FOUND));
-        validateActiveAgent(agent);
-        return agent;
+        return agentOwnershipService.resolveActiveAgent(agentId);
     }
 
     private Agent getActiveAgentForUpdate(Long agentId) {
-        Agent agent = agentRepository.findByAgentIdForUpdate(agentId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.AGENT_NOT_FOUND));
-        validateActiveAgent(agent);
-        return agent;
-    }
-
-    private void validateActiveAgent(Agent agent) {
-        if (!agent.isActive()) {
-            throw new BusinessException(agent.isSuspended() ? ErrorCode.FORBIDDEN : ErrorCode.UNAUTHORIZED);
-        }
-        if (agent.getUser() == null) {
-            throw new BusinessException(ErrorCode.UNAUTHORIZED);
-        }
+        return agentOwnershipService.resolveActiveAgentForUpdate(agentId);
     }
 
     @Transactional

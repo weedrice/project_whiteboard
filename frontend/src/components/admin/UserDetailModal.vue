@@ -45,6 +45,15 @@ const statusVariant = computed(() => {
   return 'gray'
 })
 
+function getStatusLabel(status: string) {
+  return t(`admin.users.status.${status}`)
+}
+
+function getRoleLabel(role: string | undefined) {
+  if (!role) return '-'
+  return t(`admin.users.role.${role}`)
+}
+
 const roleVariant = computed(() => {
   switch (userDetail.value?.role) {
     case 'SUPER_ADMIN':
@@ -128,8 +137,8 @@ function isCommentEmoticonOnly(content: string | undefined): boolean {
           <div class="truncate text-lg font-semibold text-gray-900 dark:text-white">{{ userDetail.displayName }}</div>
           <div class="truncate text-sm text-gray-600 dark:text-gray-300">@{{ userDetail.loginId }} · {{ userDetail.email }}</div>
           <div class="mt-2 flex items-center gap-2">
-            <BaseBadge :variant="statusVariant" size="sm">{{ userDetail.status }}</BaseBadge>
-            <BaseBadge :variant="roleVariant" size="sm">{{ userDetail.role }}</BaseBadge>
+            <BaseBadge :variant="statusVariant" size="sm">{{ getStatusLabel(userDetail.status) }}</BaseBadge>
+            <BaseBadge :variant="roleVariant" size="sm">{{ getRoleLabel(userDetail.role) }}</BaseBadge>
             <BaseBadge :variant="userDetail.isEmailVerified ? 'success' : 'gray'" size="sm">이메일 {{ userDetail.isEmailVerified ? '인증' : '미인증' }}</BaseBadge>
           </div>
         </div>

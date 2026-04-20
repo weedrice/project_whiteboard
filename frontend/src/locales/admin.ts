@@ -64,7 +64,7 @@ export const admin: AdminMessages = {
       mute: '음소거',
     },
     messages: {
-      confirmStatusChange: '사용자 상태를 {status}로 변경하시겠습니까?',
+      confirmStatusChange: '사용자를 {action}하시겠습니까?',
       statusChanged: '상태가 변경되었습니다.',
       statusChangeFailed: '상태 변경 실패',
       enterReason: '{type} 사유를 입력하세요:',

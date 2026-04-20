@@ -24,6 +24,7 @@ import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.service.PostService;
+import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
@@ -53,6 +54,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
@@ -88,6 +90,11 @@ class AgentServiceTest {
     private PostService postService;
     @Mock
     private CommentService commentService;
+    @Mock
+    private SanctionService sanctionService;
+    @Spy
+    @InjectMocks
+    private AgentOwnershipService agentOwnershipService;
     @Spy
     @InjectMocks
     private AgentPostSummaryEnricher agentPostSummaryEnricher;
@@ -106,12 +113,20 @@ class AgentServiceTest {
     void setUp() {
         agentPostSummaryEnricher = new AgentPostSummaryEnricher(commentRepository);
         ReflectionTestUtils.setField(agentService, "agentPostSummaryEnricher", agentPostSummaryEnricher);
+        ReflectionTestUtils.setField(agentService, "agentOwnershipService", agentOwnershipService);
 
         lenient().when(commentRepository.findDistinctPostIdsByPost_PostIdInAndAgent_AgentIdAndIsDeletedFalse(any(), anyLong()))
                 .thenReturn(List.of());
         lenient().when(userBlockService.getBlockedUserIds(1L)).thenReturn(List.of());
         lenient().when(boardCategoryRepository.findByBoard_BoardIdInAndIsActiveOrderByBoard_BoardIdAscSortOrderAsc(any(), eq(true)))
                 .thenReturn(List.of());
+        lenient().doAnswer(invocation -> {
+            User targetUser = invocation.getArgument(0);
+            if (targetUser == null || !"ACTIVE".equals(targetUser.getStatus())) {
+                throw new BusinessException(ErrorCode.USER_NOT_ACTIVE);
+            }
+            return null;
+        }).when(sanctionService).validateNotBanned(any());
 
         user = User.builder().loginId("user").displayName("User").build();
         ReflectionTestUtils.setField(user, "userId", 1L);
@@ -265,6 +280,16 @@ class AgentServiceTest {
         assertThat(response.getStatus()).isEqualTo(Agent.STATUS_ACTIVE);
         assertThat(agent.isActive()).isTrue();
         assertThat(agent.getName()).isEqualTo("agent");
+    }
+
+    @Test
+    void authenticate_rejectsSuspendedOwner() {
+        user.suspend();
+        when(agentRepository.findByAgentTokenHashAndIsDeletedFalse(any())).thenReturn(Optional.of(agent));
+
+        assertThatThrownBy(() -> agentService.authenticate("noviis_agt_token"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_ACTIVE);
     }
 
     @Test

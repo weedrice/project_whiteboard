@@ -95,8 +95,28 @@ function getStatusVariant(status: string) {
   return 'gray'
 }
 
+function getStatusLabel(status: string) {
+  return t(`admin.users.status.${status}`)
+}
+
+function canChangeStatus(status: string) {
+  return status === 'ACTIVE' || status === 'SUSPENDED'
+}
+
+function getNextStatus(status: string): 'ACTIVE' | 'SUSPENDED' {
+  return status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE'
+}
+
+function getStatusActionLabel(status: string) {
+  return status === 'ACTIVE' ? '정지' : '계정 활성화'
+}
+
+function getRoleLabel(role: string) {
+  return t(`admin.users.role.${role}`)
+}
+
 async function handleStatusChange(user: User, status: 'ACTIVE' | 'SUSPENDED') {
-  const isConfirmed = await confirm(t('admin.users.messages.confirmStatusChange', { status }))
+  const isConfirmed = await confirm(t('admin.users.messages.confirmStatusChange', { action: getStatusActionLabel(user.status) }))
   if (!isConfirmed) return
   try {
     await updateUserStatus({ userId: user.userId, status })
@@ -174,19 +194,19 @@ const columns = computed(() => [
             <label class="w-full text-left text-xs text-gray-500 dark:text-gray-400">상태</label>
             <select v-model="filterForm.status" class="w-full rounded-md border border-gray-300 pl-3 pr-9 py-2 text-sm dark:border-gray-600 dark:bg-gray-900">
               <option value="">전체</option>
-              <option value="ACTIVE">ACTIVE</option>
-              <option value="SUSPENDED">SUSPENDED</option>
-              <option value="DELETED">DELETED</option>
+              <option value="ACTIVE">{{ getStatusLabel('ACTIVE') }}</option>
+              <option value="SUSPENDED">{{ getStatusLabel('SUSPENDED') }}</option>
+              <option value="DELETED">{{ getStatusLabel('DELETED') }}</option>
             </select>
           </div>
           <div class="flex w-36 flex-col gap-1">
             <label class="w-full text-left text-xs text-gray-500 dark:text-gray-400">권한</label>
             <select v-model="filterForm.role" class="w-full rounded-md border border-gray-300 pl-3 pr-9 py-2 text-sm dark:border-gray-600 dark:bg-gray-900">
               <option value="">전체</option>
-              <option value="USER">USER</option>
-              <option value="SUPER_ADMIN">SUPER_ADMIN</option>
-              <option value="BOARD_ADMIN">BOARD_ADMIN</option>
-              <option value="MODERATOR">MODERATOR</option>
+              <option value="USER">{{ getRoleLabel('USER') }}</option>
+              <option value="SUPER_ADMIN">{{ getRoleLabel('SUPER_ADMIN') }}</option>
+              <option value="BOARD_ADMIN">{{ getRoleLabel('BOARD_ADMIN') }}</option>
+              <option value="MODERATOR">{{ getRoleLabel('MODERATOR') }}</option>
             </select>
           </div>
           <div class="flex w-36 flex-col gap-1">
@@ -301,7 +321,7 @@ const columns = computed(() => [
 
         <template #cell-status="{ item }">
           <BaseBadge :variant="getStatusVariant(item.status)" size="sm">
-            {{ item.status }}
+            {{ getStatusLabel(item.status) }}
           </BaseBadge>
         </template>
 
@@ -316,17 +336,17 @@ const columns = computed(() => [
         <template #cell-actions="{ item }">
           <div class="flex justify-end">
             <BaseButton
-              v-if="item.status !== 'DELETED'"
-              @click="handleStatusChange(item, item.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE')"
+              v-if="canChangeStatus(item.status)"
+              @click="handleStatusChange(item, getNextStatus(item.status))"
               variant="ghost"
               size="sm"
               class="p-1"
               :class="item.status === 'ACTIVE'
                 ? 'text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300'
                 : 'text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white'"
-              :title="item.status === 'ACTIVE' ? '정지' : '활성화'"
+              :title="getStatusActionLabel(item.status)"
             >
-              {{ item.status === 'ACTIVE' ? '정지' : '복구' }}
+              {{ getStatusActionLabel(item.status) }}
             </BaseButton>
           </div>
         </template>
