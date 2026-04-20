@@ -12,6 +12,7 @@ import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
+import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -82,32 +83,33 @@ class BoardSubscriptionService {
         if (boardUrls == null) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
-
-        List<BoardSubscription> subscriptions = boardSubscriptionRepository
-                .findAllByUserAndBoard_IsActiveTrueOrderBySortOrderAsc(user)
-                .stream()
-                .filter(subscription -> boardAccessPolicy.canReadBoard(subscription.getBoard(), user))
-                .toList();
         Set<String> requestedBoardUrls = new LinkedHashSet<>(boardUrls);
-        if (requestedBoardUrls.size() != boardUrls.size()) {
+        if (requestedBoardUrls.isEmpty() || requestedBoardUrls.size() != boardUrls.size()) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
+
+        List<BoardSubscription> subscriptions = boardSubscriptionRepository.findReorderableByUserAndBoardUrlIn(
+                user,
+                requestedBoardUrls,
+                Boolean.TRUE.equals(user.getIsSuperAdmin()));
 
         Set<String> currentBoardUrls = subscriptions.stream()
                 .map(sub -> sub.getBoard().getBoardUrl())
                 .collect(Collectors.toCollection(LinkedHashSet::new));
-        if (currentBoardUrls.size() != subscriptions.size()
-                || subscriptions.size() != boardUrls.size()
-                || !currentBoardUrls.equals(requestedBoardUrls)) {
+        if (currentBoardUrls.size() != subscriptions.size() || !currentBoardUrls.equals(requestedBoardUrls)) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
 
+        List<Integer> requestedSortOrders = subscriptions.stream()
+                .map(BoardSubscription::getSortOrder)
+                .sorted(Comparator.naturalOrder())
+                .toList();
         Map<String, BoardSubscription> subscriptionByBoardUrl = subscriptions.stream()
                 .collect(Collectors.toMap(
                         sub -> sub.getBoard().getBoardUrl(),
                         sub -> sub));
         for (int i = 0; i < boardUrls.size(); i++) {
-            subscriptionByBoardUrl.get(boardUrls.get(i)).updateSortOrder(i + 1);
+            subscriptionByBoardUrl.get(boardUrls.get(i)).updateSortOrder(requestedSortOrders.get(i));
         }
 
         boardSubscriptionRepository.saveAll(subscriptions);

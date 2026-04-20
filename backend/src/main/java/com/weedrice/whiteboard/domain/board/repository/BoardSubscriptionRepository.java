@@ -38,6 +38,32 @@ public interface BoardSubscriptionRepository extends JpaRepository<BoardSubscrip
     List<BoardSubscription> findAllByUserAndBoard_IsActiveTrueOrderBySortOrderAsc(User user);
 
     @EntityGraph(attributePaths = {"board", "board.creator"})
+    @Query("""
+            SELECT bs
+            FROM BoardSubscription bs
+            JOIN bs.board b
+            WHERE bs.user = :user
+              AND b.isActive = true
+              AND b.boardUrl IN :boardUrls
+              AND (
+                    :isSuperAdmin = true
+                    OR b.creator = :user
+                    OR EXISTS (
+                        SELECT admin.adminId
+                        FROM Admin admin
+                        WHERE admin.board = b
+                          AND admin.user = :user
+                          AND admin.isActive = true
+                    )
+                    OR b.isPublic = true
+                  )
+            ORDER BY bs.sortOrder ASC
+            """)
+    List<BoardSubscription> findReorderableByUserAndBoardUrlIn(@Param("user") User user,
+            @Param("boardUrls") Collection<String> boardUrls,
+            @Param("isSuperAdmin") boolean isSuperAdmin);
+
+    @EntityGraph(attributePaths = {"board", "board.creator"})
     @Query(value = """
             SELECT bs
             FROM BoardSubscription bs

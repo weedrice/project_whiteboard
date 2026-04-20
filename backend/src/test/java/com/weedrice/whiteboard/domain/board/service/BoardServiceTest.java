@@ -42,6 +42,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 
@@ -649,7 +650,10 @@ class BoardServiceTest {
                 .build();
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(boardSubscriptionRepository.findAllByUserAndBoard_IsActiveTrueOrderBySortOrderAsc(user))
+        when(boardSubscriptionRepository.findReorderableByUserAndBoardUrlIn(
+                user,
+                new LinkedHashSet<>(List.of("second-board", "test-board")),
+                false))
                 .thenReturn(List.of(firstSubscription, secondSubscription));
 
         boardService.updateSubscriptionOrder(1L, List.of("second-board", "test-board"));
@@ -670,7 +674,10 @@ class BoardServiceTest {
                 .build();
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(boardSubscriptionRepository.findAllByUserAndBoard_IsActiveTrueOrderBySortOrderAsc(user))
+        when(boardSubscriptionRepository.findReorderableByUserAndBoardUrlIn(
+                user,
+                new LinkedHashSet<>(List.of("test-board", "missing-board")),
+                false))
                 .thenReturn(List.of(subscription));
 
         BusinessException exception = assertThrows(BusinessException.class,
@@ -704,7 +711,10 @@ class BoardServiceTest {
                 .build();
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(boardSubscriptionRepository.findAllByUserAndBoard_IsActiveTrueOrderBySortOrderAsc(user))
+        when(boardSubscriptionRepository.findReorderableByUserAndBoardUrlIn(
+                user,
+                new LinkedHashSet<>(List.of("second-board", "test-board")),
+                false))
                 .thenReturn(List.of(activeSubscription, anotherActiveSubscription));
 
         boardService.updateSubscriptionOrder(1L, List.of("second-board", "test-board"));
@@ -1009,14 +1019,68 @@ class BoardServiceTest {
                 .build();
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(boardSubscriptionRepository.findAllByUserAndBoard_IsActiveTrueOrderBySortOrderAsc(user))
-                .thenReturn(List.of(visibleSubscription, hiddenSubscription));
+        when(boardSubscriptionRepository.findReorderableByUserAndBoardUrlIn(
+                user,
+                new LinkedHashSet<>(List.of("test-board")),
+                false))
+                .thenReturn(List.of(visibleSubscription));
 
         boardService.updateSubscriptionOrder(1L, List.of("test-board"));
 
         assertThat(visibleSubscription.getSortOrder()).isEqualTo(1);
         assertThat(hiddenSubscription.getSortOrder()).isEqualTo(2);
         verify(boardSubscriptionRepository).saveAll(List.of(visibleSubscription));
+    }
+
+    @Test
+    @DisplayName("구독 순서 변경은 요청된 접근 가능 구독만 부분적으로 재정렬할 수 있다")
+    void updateSubscriptionOrder_reordersRequestedSubsetOnly() {
+        Board secondBoard = Board.builder()
+                .boardName("Second Board")
+                .boardUrl("second-board")
+                .creator(user)
+                .build();
+        ReflectionTestUtils.setField(secondBoard, "boardId", 2L);
+
+        Board thirdBoard = Board.builder()
+                .boardName("Third Board")
+                .boardUrl("third-board")
+                .creator(user)
+                .build();
+        ReflectionTestUtils.setField(thirdBoard, "boardId", 3L);
+
+        BoardSubscription firstSubscription = BoardSubscription.builder()
+                .user(user)
+                .board(board)
+                .role("MEMBER")
+                .sortOrder(1)
+                .build();
+        BoardSubscription secondSubscription = BoardSubscription.builder()
+                .user(user)
+                .board(secondBoard)
+                .role("MEMBER")
+                .sortOrder(2)
+                .build();
+        BoardSubscription thirdSubscription = BoardSubscription.builder()
+                .user(user)
+                .board(thirdBoard)
+                .role("MEMBER")
+                .sortOrder(3)
+                .build();
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(boardSubscriptionRepository.findReorderableByUserAndBoardUrlIn(
+                user,
+                new LinkedHashSet<>(List.of("third-board", "second-board")),
+                false))
+                .thenReturn(List.of(secondSubscription, thirdSubscription));
+
+        boardService.updateSubscriptionOrder(1L, List.of("third-board", "second-board"));
+
+        assertThat(firstSubscription.getSortOrder()).isEqualTo(1);
+        assertThat(secondSubscription.getSortOrder()).isEqualTo(3);
+        assertThat(thirdSubscription.getSortOrder()).isEqualTo(2);
+        verify(boardSubscriptionRepository).saveAll(List.of(secondSubscription, thirdSubscription));
     }
 
     @Test
