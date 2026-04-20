@@ -130,7 +130,7 @@ class MessageServiceTest {
     @Test
     @DisplayName("메시지 상세 조회는 읽음 처리 없이 수행된다")
     void getMessage_success() {
-        when(messageRepository.findById(1L)).thenReturn(Optional.of(message));
+        when(messageRepository.findAccessibleMessage(2L, 1L)).thenReturn(Optional.of(message));
         when(userBlockService.isEitherDirectionBlocked(2L, 1L)).thenReturn(false);
 
         Message result = messageService.getMessage(2L, 1L);
@@ -144,7 +144,7 @@ class MessageServiceTest {
     @Test
     @DisplayName("수신자는 별도 read endpoint로 읽음 처리한다")
     void markAsRead_success() {
-        when(messageRepository.findById(1L)).thenReturn(Optional.of(message));
+        when(messageRepository.findAccessibleMessage(2L, 1L)).thenReturn(Optional.of(message));
         when(userBlockService.isEitherDirectionBlocked(2L, 1L)).thenReturn(false);
 
         messageService.markAsRead(2L, 1L);
@@ -156,12 +156,52 @@ class MessageServiceTest {
     @Test
     @DisplayName("발신자는 read endpoint를 호출할 수 없다")
     void markAsRead_senderForbidden() {
-        when(messageRepository.findById(1L)).thenReturn(Optional.of(message));
+        when(messageRepository.findAccessibleMessage(1L, 1L)).thenReturn(Optional.of(message));
         when(userBlockService.isEitherDirectionBlocked(1L, 2L)).thenReturn(false);
 
         assertThatThrownBy(() -> messageService.markAsRead(1L, 1L))
                 .isInstanceOf(BusinessException.class)
                 .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode()).isEqualTo(ErrorCode.FORBIDDEN));
+    }
+
+    @Test
+    @DisplayName("이미 삭제한 메시지는 읽음 처리에서도 찾을 수 없다")
+    void markAsRead_deletedByViewerNotFound() {
+        when(messageRepository.findAccessibleMessage(2L, 1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> messageService.markAsRead(2L, 1L))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode()).isEqualTo(ErrorCode.NOT_FOUND));
+    }
+
+    @Test
+    @DisplayName("참여자가 아닌 사용자의 읽음 처리는 찾을 수 없음으로 처리된다")
+    void markAsRead_nonParticipantNotFound() {
+        when(messageRepository.findAccessibleMessage(3L, 1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> messageService.markAsRead(3L, 1L))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode()).isEqualTo(ErrorCode.NOT_FOUND));
+    }
+
+    @Test
+    @DisplayName("이미 삭제한 메시지는 단건 조회에서 찾을 수 없다")
+    void getMessage_deletedByViewerNotFound() {
+        when(messageRepository.findAccessibleMessage(2L, 1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> messageService.getMessage(2L, 1L))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode()).isEqualTo(ErrorCode.NOT_FOUND));
+    }
+
+    @Test
+    @DisplayName("참여자가 아닌 사용자의 단건 조회는 찾을 수 없음으로 처리된다")
+    void getMessage_nonParticipantNotFound() {
+        when(messageRepository.findAccessibleMessage(3L, 1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> messageService.getMessage(3L, 1L))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode()).isEqualTo(ErrorCode.NOT_FOUND));
     }
 
     @Test
@@ -185,6 +225,24 @@ class MessageServiceTest {
         messageService.deleteMessage(1L, 1L);
 
         verify(messageRepository).findById(1L);
+    }
+
+    @Test
+    @DisplayName("자기 자신에게 보낸 메시지를 삭제하면 양쪽 삭제로 정리된다")
+    void deleteMessage_selfMessageDeletesBothSides() {
+        Message selfMessage = Message.builder()
+                .sender(sender)
+                .receiver(sender)
+                .content("self")
+                .build();
+        ReflectionTestUtils.setField(selfMessage, "messageId", 2L);
+        when(messageRepository.findById(2L)).thenReturn(Optional.of(selfMessage));
+
+        messageService.deleteMessage(1L, 2L);
+
+        assertThat(selfMessage.getIsDeletedBySender()).isTrue();
+        assertThat(selfMessage.getIsDeletedByReceiver()).isTrue();
+        verify(messageRepository).delete(selfMessage);
     }
 
     @Test

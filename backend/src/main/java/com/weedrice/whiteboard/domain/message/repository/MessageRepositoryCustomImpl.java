@@ -11,6 +11,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.weedrice.whiteboard.domain.message.entity.QMessage.message;
 import static com.weedrice.whiteboard.domain.user.entity.QUser.user;
@@ -94,11 +95,37 @@ public class MessageRepositoryCustomImpl implements MessageRepositoryCustom {
         return count != null ? count : 0L;
     }
 
+    @Override
+    public Optional<Message> findAccessibleMessage(Long userId, Long messageId) {
+        Message result = queryFactory
+                .selectFrom(message)
+                .join(message.sender, user).fetchJoin()
+                .join(message.receiver).fetchJoin()
+                .where(
+                        message.messageId.eq(messageId),
+                        senderOrReceiverCanAccess(userId)
+                )
+                .fetchOne();
+        return Optional.ofNullable(result);
+    }
+
     private BooleanExpression notBlockedSenderCondition(List<Long> blockedUserIds) {
         return (blockedUserIds != null && !blockedUserIds.isEmpty()) ? message.sender.userId.notIn(blockedUserIds) : null;
     }
 
     private BooleanExpression notBlockedReceiverCondition(List<Long> blockedUserIds) {
         return (blockedUserIds != null && !blockedUserIds.isEmpty()) ? message.receiver.userId.notIn(blockedUserIds) : null;
+    }
+
+    private BooleanExpression senderOrReceiverCanAccess(Long userId) {
+        BooleanExpression selfMessage = message.sender.userId.eq(userId)
+                .and(message.receiver.userId.eq(userId));
+        BooleanExpression selfMessageAccess = selfMessage
+                .and(message.isDeletedBySender.isFalse())
+                .and(message.isDeletedByReceiver.isFalse());
+        BooleanExpression regularMessageAccess = selfMessage.not().and(
+                message.sender.userId.eq(userId).and(message.isDeletedBySender.isFalse())
+                        .or(message.receiver.userId.eq(userId).and(message.isDeletedByReceiver.isFalse())));
+        return selfMessageAccess.or(regularMessageAccess);
     }
 }

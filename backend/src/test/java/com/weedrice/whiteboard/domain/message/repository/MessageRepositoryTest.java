@@ -107,4 +107,70 @@ class MessageRepositoryTest {
         // then
         assertThat(count).isGreaterThanOrEqualTo(0);
     }
+
+    @Test
+    @DisplayName("단건 접근 조회는 수신자가 삭제한 메시지를 숨긴다")
+    void findAccessibleMessage_deletedByReceiver_hiddenFromReceiver() {
+        message.deleteByReceiver();
+        entityManager.flush();
+        entityManager.clear();
+
+        Optional<Message> hiddenForReceiver = messageRepository.findAccessibleMessage(receiver.getUserId(), message.getMessageId());
+        Optional<Message> visibleForSender = messageRepository.findAccessibleMessage(sender.getUserId(), message.getMessageId());
+
+        assertThat(hiddenForReceiver).isEmpty();
+        assertThat(visibleForSender).isPresent();
+    }
+
+    @Test
+    @DisplayName("단건 접근 조회는 발신자가 삭제한 메시지를 숨긴다")
+    void findAccessibleMessage_deletedBySender_hiddenFromSender() {
+        message.deleteBySender();
+        entityManager.flush();
+        entityManager.clear();
+
+        Optional<Message> hiddenForSender = messageRepository.findAccessibleMessage(sender.getUserId(), message.getMessageId());
+        Optional<Message> visibleForReceiver = messageRepository.findAccessibleMessage(receiver.getUserId(), message.getMessageId());
+
+        assertThat(hiddenForSender).isEmpty();
+        assertThat(visibleForReceiver).isPresent();
+    }
+
+    @Test
+    @DisplayName("단건 접근 조회는 참여자만 볼 수 있다")
+    void findAccessibleMessage_nonParticipantCannotAccess() {
+        User outsider = User.builder()
+                .loginId("outsider")
+                .email("outsider@test.com")
+                .password("password")
+                .displayName("Outsider")
+                .build();
+        entityManager.persist(outsider);
+        entityManager.flush();
+        entityManager.clear();
+
+        Optional<Message> result = messageRepository.findAccessibleMessage(outsider.getUserId(), message.getMessageId());
+
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    @DisplayName("자기 자신에게 보낸 메시지는 한쪽 삭제만 되어도 더 이상 단건 접근할 수 없다")
+    void findAccessibleMessage_selfMessageHiddenWhenEitherSideDeleted() {
+        Message selfMessage = Message.builder()
+                .sender(sender)
+                .receiver(sender)
+                .content("Self message")
+                .build();
+        entityManager.persist(selfMessage);
+        entityManager.flush();
+
+        selfMessage.deleteBySender();
+        entityManager.flush();
+        entityManager.clear();
+
+        Optional<Message> result = messageRepository.findAccessibleMessage(sender.getUserId(), selfMessage.getMessageId());
+
+        assertThat(result).isEmpty();
+    }
 }

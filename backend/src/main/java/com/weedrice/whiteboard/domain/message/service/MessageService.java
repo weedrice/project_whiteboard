@@ -96,7 +96,13 @@ public class MessageService {
         Message message = messageRepository.findById(messageId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
 
-        if (message.getSender().getUserId().equals(userId)) {
+        boolean selfMessage = message.getSender().getUserId().equals(userId)
+                && message.getReceiver().getUserId().equals(userId);
+
+        if (selfMessage) {
+            message.deleteBySender();
+            message.deleteByReceiver();
+        } else if (message.getSender().getUserId().equals(userId)) {
             message.deleteBySender();
         } else if (message.getReceiver().getUserId().equals(userId)) {
             message.deleteByReceiver();
@@ -124,12 +130,8 @@ public class MessageService {
     }
 
     private Message getAccessibleMessage(Long userId, Long messageId) {
-        Message message = messageRepository.findById(messageId)
+        Message message = messageRepository.findAccessibleMessage(userId, messageId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
-
-        if (!message.getReceiver().getUserId().equals(userId) && !message.getSender().getUserId().equals(userId)) {
-            throw new BusinessException(ErrorCode.FORBIDDEN);
-        }
 
         Long partnerUserId = message.getSender().getUserId().equals(userId)
                 ? message.getReceiver().getUserId()

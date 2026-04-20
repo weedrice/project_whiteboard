@@ -165,6 +165,7 @@ import { extractErrorResponse } from '@/utils/errorHandler'
 import logger from '@/utils/logger'
 import { formatDate } from '@/utils/date'
 
+const NOT_FOUND_CODE = 'C006'
 const { t } = useI18n()
 const toastStore = useToastStore()
 const { confirm } = useConfirm()
@@ -246,6 +247,10 @@ async function openMessage(msg: Message) {
         const errRes = extractErrorResponse(error as AxiosError)
         if (errRes?.code === BLOCKED_BY_USER_CODE) {
             messageFromBlockedUser.value = true
+        } else if (errRes?.code === NOT_FOUND_CODE) {
+            selectedMessage.value = null
+            await fetchMessages()
+            toastStore.addToast(t('common.messages.notFound'), 'info')
         } else {
             logger.error('Failed to open message:', error)
         }

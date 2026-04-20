@@ -1,6 +1,7 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import MyMessages from '../MyMessages.vue'
+import { extractErrorResponse } from '@/utils/errorHandler'
 
 const messageApi = vi.hoisted(() => ({
     getReceivedMessages: vi.fn(),
@@ -121,5 +122,138 @@ describe('MyMessages', () => {
         expect(messageApi.markAsRead).toHaveBeenCalledWith(5, { skipGlobalErrorHandler: true })
         expect(messageApi.getMessage.mock.invocationCallOrder[0]).toBeLessThan(messageApi.markAsRead.mock.invocationCallOrder[0])
         expect(listedMessage.isRead).toBe(true)
+    })
+
+    it('closes stale message detail and refreshes the list when detail lookup returns not found', async () => {
+        const listedMessage = {
+            messageId: 5,
+            content: 'hello',
+            partner: { userId: 2, displayName: 'Other' },
+            isRead: false,
+            createdAt: '2026-04-16T11:00:00',
+        }
+
+        messageApi.getReceivedMessages
+            .mockResolvedValueOnce({
+                data: {
+                    success: true,
+                    data: {
+                        content: [listedMessage],
+                        totalPages: 1,
+                    }
+                }
+            })
+            .mockResolvedValueOnce({
+                data: {
+                    success: true,
+                    data: {
+                        content: [],
+                        totalPages: 0,
+                    }
+                }
+            })
+        messageApi.getMessage.mockRejectedValue(new Error('not found'))
+        vi.mocked(extractErrorResponse).mockReturnValue({
+            code: 'C006',
+            message: 'not found',
+        })
+
+        const wrapper = mount(MyMessages, {
+            global: {
+                mocks: {
+                    $t: (key: string) => key,
+                },
+                stubs: {
+                    BaseModal: baseModalStub,
+                    BaseButton: true,
+                    BaseCheckbox: baseCheckboxStub,
+                    BaseTextarea: true,
+                    BaseSkeleton: true,
+                    EmptyState: true,
+                    Pagination: true,
+                    PageSizeSelector: true,
+                    Mail: true,
+                }
+            }
+        })
+
+        await flushPromises()
+        await wrapper.find('li').trigger('click')
+        await flushPromises()
+
+        expect(messageApi.getReceivedMessages).toHaveBeenCalledTimes(2)
+        expect(messageApi.markAsRead).not.toHaveBeenCalled()
+        expect(wrapper.findAllComponents(baseModalStub)[0]?.props('isOpen')).toBe(false)
+        expect(addToast).toHaveBeenCalledWith('common.messages.notFound', 'info')
+    })
+
+    it('closes stale message detail and refreshes the list when read endpoint returns not found', async () => {
+        const listedMessage = {
+            messageId: 5,
+            content: 'hello',
+            partner: { userId: 2, displayName: 'Other' },
+            isRead: false,
+            createdAt: '2026-04-16T11:00:00',
+        }
+
+        messageApi.getReceivedMessages
+            .mockResolvedValueOnce({
+                data: {
+                    success: true,
+                    data: {
+                        content: [listedMessage],
+                        totalPages: 1,
+                    }
+                }
+            })
+            .mockResolvedValueOnce({
+                data: {
+                    success: true,
+                    data: {
+                        content: [],
+                        totalPages: 0,
+                    }
+                }
+            })
+        messageApi.getMessage.mockResolvedValue({
+            data: {
+                success: true,
+                data: { ...listedMessage }
+            }
+        })
+        messageApi.markAsRead.mockRejectedValue(new Error('not found'))
+        vi.mocked(extractErrorResponse).mockReturnValue({
+            code: 'C006',
+            message: 'not found',
+        })
+
+        const wrapper = mount(MyMessages, {
+            global: {
+                mocks: {
+                    $t: (key: string) => key,
+                },
+                stubs: {
+                    BaseModal: baseModalStub,
+                    BaseButton: true,
+                    BaseCheckbox: baseCheckboxStub,
+                    BaseTextarea: true,
+                    BaseSkeleton: true,
+                    EmptyState: true,
+                    Pagination: true,
+                    PageSizeSelector: true,
+                    Mail: true,
+                }
+            }
+        })
+
+        await flushPromises()
+        await wrapper.find('li').trigger('click')
+        await flushPromises()
+
+        expect(messageApi.getReceivedMessages).toHaveBeenCalledTimes(2)
+        expect(messageApi.getMessage).toHaveBeenCalledWith(5, { skipGlobalErrorHandler: true })
+        expect(messageApi.markAsRead).toHaveBeenCalledWith(5, { skipGlobalErrorHandler: true })
+        expect(wrapper.findAllComponents(baseModalStub)[0]?.props('isOpen')).toBe(false)
+        expect(addToast).toHaveBeenCalledWith('common.messages.notFound', 'info')
     })
 })
