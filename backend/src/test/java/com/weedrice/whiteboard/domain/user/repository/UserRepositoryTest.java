@@ -1,5 +1,11 @@
 package com.weedrice.whiteboard.domain.user.repository;
 
+import com.weedrice.whiteboard.domain.admin.entity.Admin;
+import com.weedrice.whiteboard.domain.board.entity.Board;
+import com.weedrice.whiteboard.domain.comment.entity.Comment;
+import com.weedrice.whiteboard.domain.post.entity.Post;
+import com.weedrice.whiteboard.domain.user.dto.UserAdminSearchCondition;
+import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.global.config.QuerydslConfig;
 import org.junit.jupiter.api.BeforeEach;
@@ -11,6 +17,7 @@ import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 
 import java.util.List;
 
@@ -28,6 +35,7 @@ class UserRepositoryTest {
 
     private User user1;
     private User user3;
+    private Board board;
 
     @BeforeEach
     void setUp() {
@@ -38,6 +46,12 @@ class UserRepositoryTest {
         entityManager.persist(user1);
         entityManager.persist(user2);
         entityManager.persist(user3);
+        board = Board.builder()
+                .boardName("free")
+                .boardUrl("free")
+                .creator(user1)
+                .build();
+        entityManager.persist(board);
         entityManager.flush();
     }
 
@@ -120,5 +134,67 @@ class UserRepositoryTest {
         assertThat(result.getContent())
                 .extracting(User::getDisplayName)
                 .containsExactly(user3.getDisplayName());
+    }
+
+    @Test
+    @DisplayName("관리자 사용자 검색은 minActivityCount가 있을 때 활동량 집계 경로로 정렬과 total을 유지한다")
+    void searchUsersForAdmin_withMinActivityCount_preservesOrderAndTotal() {
+        Post user1Post1 = Post.builder().board(board).user(user1).title("p1").contents("c").build();
+        Post user1Post2 = Post.builder().board(board).user(user1).title("p2").contents("c").build();
+        entityManager.persist(user1Post1);
+        entityManager.persist(user1Post2);
+        entityManager.persist(Comment.builder().post(user1Post1).user(user1).content("comment").depth(0).build());
+
+        Post user3Post = Post.builder().board(board).user(user3).title("u3").contents("c").build();
+        entityManager.persist(user3Post);
+        entityManager.persist(Comment.builder().post(user3Post).user(user3).content("comment").depth(0).build());
+        entityManager.flush();
+        entityManager.clear();
+
+        UserAdminSearchCondition condition = UserAdminSearchCondition.builder()
+                .minActivityCount(2L)
+                .build();
+
+        Page<User> result = userRepository.searchUsersForAdmin(
+                null,
+                condition,
+                PageRequest.of(0, 10, Sort.by(Sort.Direction.ASC, "displayName")));
+
+        assertThat(result.getTotalElements()).isEqualTo(2L);
+        assertThat(result.getContent())
+                .extracting(User::getDisplayName)
+                .containsExactly("Apple Another", "Apple User");
+    }
+
+    @Test
+    @DisplayName("관리자 사용자 검색은 minActivityCount 경로에서도 role 필터 의미를 유지한다")
+    void searchUsersForAdmin_withMinActivityCount_preservesRoleFilter() {
+        Post user1Post1 = Post.builder().board(board).user(user1).title("p1").contents("c").build();
+        Post user1Post2 = Post.builder().board(board).user(user1).title("p2").contents("c").build();
+        entityManager.persist(user1Post1);
+        entityManager.persist(user1Post2);
+
+        Post user3Post1 = Post.builder().board(board).user(user3).title("u31").contents("c").build();
+        Post user3Post2 = Post.builder().board(board).user(user3).title("u32").contents("c").build();
+        entityManager.persist(user3Post1);
+        entityManager.persist(user3Post2);
+        entityManager.persist(Admin.builder().user(user3).board(board).role(Role.BOARD_ADMIN).build());
+        entityManager.flush();
+        entityManager.clear();
+
+        UserAdminSearchCondition condition = UserAdminSearchCondition.builder()
+                .minActivityCount(2L)
+                .role(Role.USER)
+                .build();
+
+        Page<User> result = userRepository.searchUsersForAdmin(
+                null,
+                condition,
+                PageRequest.of(0, 10, Sort.by(Sort.Direction.ASC, "displayName")));
+
+        assertThat(result.getTotalElements()).isEqualTo(1L);
+        assertThat(result.getContent())
+                .extracting(User::getDisplayName)
+                .containsExactly("Apple User");
     }
 }
