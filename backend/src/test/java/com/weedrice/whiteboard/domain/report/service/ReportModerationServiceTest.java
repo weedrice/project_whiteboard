@@ -1,0 +1,191 @@
+package com.weedrice.whiteboard.domain.report.service;
+
+import com.weedrice.whiteboard.domain.admin.entity.Admin;
+import com.weedrice.whiteboard.domain.admin.service.ModerationActorResolver;
+import com.weedrice.whiteboard.domain.report.dto.MyReportResponse;
+import com.weedrice.whiteboard.domain.report.dto.ReportResponse;
+import com.weedrice.whiteboard.domain.report.entity.Report;
+import com.weedrice.whiteboard.domain.report.repository.ReportRepository;
+import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.global.exception.BusinessException;
+import com.weedrice.whiteboard.global.exception.ErrorCode;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.test.util.ReflectionTestUtils;
+
+import java.util.List;
+import java.util.Optional;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+@ExtendWith(MockitoExtension.class)
+class ReportModerationServiceTest {
+
+    @Mock
+    private ReportRepository reportRepository;
+    @Mock
+    private UserRepository userRepository;
+    @Mock
+    private ModerationActorResolver moderationActorResolver;
+    @Mock
+    private ReportReadAssembler reportReadAssembler;
+
+    @InjectMocks
+    private ReportModerationService reportModerationService;
+
+    private User reporter;
+    private User adminUser;
+    private Admin admin;
+    private Report report;
+
+    @BeforeEach
+    void setUp() {
+        reporter = User.builder().displayName("Reporter").build();
+        ReflectionTestUtils.setField(reporter, "userId", 1L);
+
+        adminUser = User.builder().displayName("Admin").build();
+        ReflectionTestUtils.setField(adminUser, "userId", 2L);
+
+        admin = Admin.builder().user(adminUser).build();
+        ReflectionTestUtils.setField(admin, "adminId", 5L);
+
+        report = Report.builder()
+                .reporter(reporter)
+                .targetType("POST")
+                .targetId(10L)
+                .reasonType("SPAM")
+                .build();
+        ReflectionTestUtils.setField(report, "reportId", 7L);
+    }
+
+    @Test
+    @DisplayName("getReports uses assembler for admin responses")
+    void getReports_usesAssembler() {
+        PageRequest pageable = PageRequest.of(0, 20);
+        Page<Report> reportPage = new PageImpl<>(List.of(report), pageable, 1);
+        Page<ReportResponse> responsePage = new PageImpl<>(List.of(ReportResponse.builder().reportId(7L).build()), pageable, 1);
+
+        when(reportRepository.findAdminReports("PENDING", "POST", pageable)).thenReturn(reportPage);
+        when(reportReadAssembler.toAdminResponsePage(reportPage)).thenReturn(responsePage);
+
+        Page<ReportResponse> result = reportModerationService.getReports("PENDING", "POST", pageable);
+
+        assertThat(result.getContent()).hasSize(1);
+        verify(reportReadAssembler).toAdminResponsePage(reportPage);
+    }
+
+    @Test
+    @DisplayName("getMyReports loads reporter and assembles responses")
+    void getMyReports_usesAssembler() {
+        PageRequest pageable = PageRequest.of(0, 20);
+        Page<Report> reportPage = new PageImpl<>(List.of(report), pageable, 1);
+        Page<MyReportResponse> responsePage = new PageImpl<>(
+                List.of(MyReportResponse.builder().reportId(7L).targetType("POST").build()),
+                pageable,
+                1);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(reporter));
+        when(reportRepository.findByReporterOrderByCreatedAtDesc(reporter, pageable)).thenReturn(reportPage);
+        when(reportReadAssembler.toMyReportResponsePage(reportPage)).thenReturn(responsePage);
+
+        Page<MyReportResponse> result = reportModerationService.getMyReports(1L, pageable);
+
+        assertThat(result.getContent()).hasSize(1);
+        assertThat(result.getContent().get(0).getReportId()).isEqualTo(7L);
+        verify(reportReadAssembler).toMyReportResponsePage(reportPage);
+    }
+
+    @Test
+    @DisplayName("getMyReports rejects missing reporter")
+    void getMyReports_missingReporter_throwsUserNotFound() {
+        PageRequest pageable = PageRequest.of(0, 20);
+        when(userRepository.findById(1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> reportModerationService.getMyReports(1L, pageable))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("processReport succeeds")
+    void processReport_success() {
+        ReportResponse response = ReportResponse.builder()
+                .reportId(7L)
+                .status(Report.STATUS_RESOLVED)
+                .adminId(5L)
+                .processorUserId(2L)
+                .processedRemark("done")
+                .build();
+
+        when(reportRepository.findById(7L)).thenReturn(Optional.of(report));
+        when(userRepository.findById(2L)).thenReturn(Optional.of(adminUser));
+        when(moderationActorResolver.findActiveAdmin(adminUser)).thenReturn(Optional.of(admin));
+        when(reportReadAssembler.toAdminResponse(report)).thenReturn(response);
+
+        ReportResponse result = reportModerationService.processReport(2L, 7L, Report.STATUS_RESOLVED, "done");
+
+        assertThat(result.getStatus()).isEqualTo(Report.STATUS_RESOLVED);
+        assertThat(report.getStatus()).isEqualTo(Report.STATUS_RESOLVED);
+        assertThat(report.getAdmin()).isEqualTo(admin);
+        assertThat(report.getProcessorUserId()).isEqualTo(2L);
+        assertThat(report.getProcessedRemark()).isEqualTo("done");
+    }
+
+    @Test
+    @DisplayName("processReport records processorUserId without active admin")
+    void processReport_withoutAdmin_recordsProcessorUserId() {
+        ReportResponse response = ReportResponse.builder()
+                .reportId(7L)
+                .status(Report.STATUS_RESOLVED)
+                .processorUserId(2L)
+                .build();
+
+        when(reportRepository.findById(7L)).thenReturn(Optional.of(report));
+        when(userRepository.findById(2L)).thenReturn(Optional.of(adminUser));
+        when(moderationActorResolver.findActiveAdmin(adminUser)).thenReturn(Optional.empty());
+        when(reportReadAssembler.toAdminResponse(report)).thenReturn(response);
+
+        ReportResponse result = reportModerationService.processReport(2L, 7L, Report.STATUS_RESOLVED, "done");
+
+        assertThat(result.getProcessorUserId()).isEqualTo(2L);
+        assertThat(report.getAdmin()).isNull();
+        assertThat(report.getProcessorUserId()).isEqualTo(2L);
+    }
+
+    @Test
+    @DisplayName("processReport rejects already processed report")
+    void processReport_alreadyProcessed_throwsValidationError() {
+        ReflectionTestUtils.setField(report, "status", Report.STATUS_RESOLVED);
+        when(reportRepository.findById(7L)).thenReturn(Optional.of(report));
+        when(userRepository.findById(2L)).thenReturn(Optional.of(adminUser));
+        when(moderationActorResolver.findActiveAdmin(adminUser)).thenReturn(Optional.of(admin));
+
+        assertThatThrownBy(() -> reportModerationService.processReport(2L, 7L, Report.STATUS_REJECTED, "retry"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VALIDATION_ERROR);
+    }
+
+    @Test
+    @DisplayName("processReport accepts only terminal statuses")
+    void processReport_invalidTerminalStatus_throwsValidationError() {
+        when(reportRepository.findById(7L)).thenReturn(Optional.of(report));
+        when(userRepository.findById(2L)).thenReturn(Optional.of(adminUser));
+        when(moderationActorResolver.findActiveAdmin(adminUser)).thenReturn(Optional.of(admin));
+
+        assertThatThrownBy(() -> reportModerationService.processReport(2L, 7L, "APPROVED", "invalid"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VALIDATION_ERROR);
+    }
+}
