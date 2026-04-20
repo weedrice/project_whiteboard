@@ -9,6 +9,7 @@ import com.weedrice.whiteboard.global.common.util.SecurityUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,8 +39,12 @@ public class CommonCodeService {
                 .typeName(request.getTypeName())
                 .description(request.getDescription())
                 .build();
-        
-        return CommonCodeResponse.from(commonCodeRepository.save(commonCode));
+
+        try {
+            return CommonCodeResponse.from(commonCodeRepository.saveAndFlush(commonCode));
+        } catch (DataIntegrityViolationException ex) {
+            throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE);
+        }
     }
 
     public List<CommonCodeResponse> getAllCommonCodes() {
@@ -90,7 +95,11 @@ public class CommonCodeService {
                 .isActive(request.getIsActive())
                 .build();
 
-        return CommonCodeDetailResponse.from(commonCodeDetailRepository.save(detail));
+        try {
+            return CommonCodeDetailResponse.from(commonCodeDetailRepository.saveAndFlush(detail));
+        } catch (DataIntegrityViolationException ex) {
+            throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE);
+        }
     }
 
     public List<CommonCodeDetailResponse> getCommonCodeDetails(String typeCode) {

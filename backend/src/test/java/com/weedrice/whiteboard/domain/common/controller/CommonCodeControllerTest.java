@@ -6,6 +6,8 @@ import com.weedrice.whiteboard.domain.common.dto.CommonCodeDetailResponse;
 import com.weedrice.whiteboard.domain.common.dto.CommonCodeRequest;
 import com.weedrice.whiteboard.domain.common.dto.CommonCodeResponse;
 import com.weedrice.whiteboard.domain.common.service.CommonCodeService;
+import com.weedrice.whiteboard.global.exception.BusinessException;
+import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -125,5 +127,45 @@ class CommonCodeControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data").isArray());
+    }
+
+    @Test
+    @DisplayName("공통 코드 생성 충돌은 409를 반환한다")
+    void createCommonCode_returnsConflictWhenDuplicate() throws Exception {
+        CommonCodeRequest request = new CommonCodeRequest();
+        org.springframework.test.util.ReflectionTestUtils.setField(request, "typeCode", "TEST");
+        org.springframework.test.util.ReflectionTestUtils.setField(request, "typeName", "Test Code");
+
+        when(commonCodeService.createCommonCode(any(CommonCodeRequest.class)))
+                .thenThrow(new BusinessException(ErrorCode.DUPLICATE_RESOURCE));
+
+        mockMvc.perform(post("/api/v1/common-codes")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request))
+                        .with(csrf()))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.error.code").value(ErrorCode.DUPLICATE_RESOURCE.getCode()));
+    }
+
+    @Test
+    @DisplayName("공통 코드 상세 생성 충돌은 409를 반환한다")
+    void createCommonCodeDetail_returnsConflictWhenDuplicate() throws Exception {
+        CommonCodeDetailRequest request = new CommonCodeDetailRequest();
+        org.springframework.test.util.ReflectionTestUtils.setField(request, "codeValue", "VALUE");
+        org.springframework.test.util.ReflectionTestUtils.setField(request, "codeName", "Value");
+        org.springframework.test.util.ReflectionTestUtils.setField(request, "sortOrder", 1);
+        org.springframework.test.util.ReflectionTestUtils.setField(request, "isActive", true);
+
+        when(commonCodeService.createCommonCodeDetail(eq("TEST"), any(CommonCodeDetailRequest.class)))
+                .thenThrow(new BusinessException(ErrorCode.DUPLICATE_RESOURCE));
+
+        mockMvc.perform(post("/api/v1/common-codes/{typeCode}/details", "TEST")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request))
+                        .with(csrf()))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.error.code").value(ErrorCode.DUPLICATE_RESOURCE.getCode()));
     }
 }

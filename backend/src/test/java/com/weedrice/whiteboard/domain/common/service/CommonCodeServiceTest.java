@@ -20,6 +20,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Arrays;
@@ -82,7 +83,7 @@ class CommonCodeServiceTest {
         ReflectionTestUtils.setField(request, "description", "New Description");
 
         when(commonCodeRepository.existsById("NEW_TYPE")).thenReturn(false);
-        when(commonCodeRepository.save(any(CommonCode.class))).thenAnswer(invocation -> {
+        when(commonCodeRepository.saveAndFlush(any(CommonCode.class))).thenAnswer(invocation -> {
             CommonCode code = invocation.getArgument(0);
             return code;
         });
@@ -92,7 +93,7 @@ class CommonCodeServiceTest {
 
         // then
         assertThat(response).isNotNull();
-        verify(commonCodeRepository).save(any(CommonCode.class));
+        verify(commonCodeRepository).saveAndFlush(any(CommonCode.class));
     }
 
     @Test
@@ -106,6 +107,23 @@ class CommonCodeServiceTest {
         when(commonCodeRepository.existsById("EXISTING_TYPE")).thenReturn(true);
 
         // when & then
+        assertThatThrownBy(() -> commonCodeService.createCommonCode(request))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.DUPLICATE_RESOURCE);
+    }
+
+    @Test
+    @DisplayName("공통 코드 생성 충돌을 중복 리소스 오류로 변환한다")
+    void createCommonCode_conflictDuringSave_throwsDuplicateResource() {
+        CommonCodeRequest request = new CommonCodeRequest();
+        ReflectionTestUtils.setField(request, "typeCode", "RACE_TYPE");
+        ReflectionTestUtils.setField(request, "typeName", "Race Type");
+
+        when(commonCodeRepository.existsById("RACE_TYPE")).thenReturn(false);
+        when(commonCodeRepository.saveAndFlush(any(CommonCode.class)))
+                .thenThrow(new DataIntegrityViolationException("duplicate"));
+
         assertThatThrownBy(() -> commonCodeService.createCommonCode(request))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
@@ -188,7 +206,7 @@ class CommonCodeServiceTest {
         when(commonCodeRepository.findById("TEST_TYPE")).thenReturn(Optional.of(commonCode));
         when(commonCodeDetailRepository.findByCommonCode_TypeCodeAndCodeValue("TEST_TYPE", "NEW_VALUE"))
                 .thenReturn(Optional.empty());
-        when(commonCodeDetailRepository.save(any(CommonCodeDetail.class))).thenAnswer(invocation -> {
+        when(commonCodeDetailRepository.saveAndFlush(any(CommonCodeDetail.class))).thenAnswer(invocation -> {
             CommonCodeDetail detail = invocation.getArgument(0);
             return detail;
         });
@@ -198,7 +216,28 @@ class CommonCodeServiceTest {
 
         // then
         assertThat(response).isNotNull();
-        verify(commonCodeDetailRepository).save(any(CommonCodeDetail.class));
+        verify(commonCodeDetailRepository).saveAndFlush(any(CommonCodeDetail.class));
+    }
+
+    @Test
+    @DisplayName("공통 코드 상세 생성 충돌을 중복 리소스 오류로 변환한다")
+    void createCommonCodeDetail_conflictDuringSave_throwsDuplicateResource() {
+        CommonCodeDetailRequest request = new CommonCodeDetailRequest();
+        ReflectionTestUtils.setField(request, "codeValue", "RACE_VALUE");
+        ReflectionTestUtils.setField(request, "codeName", "Race Value");
+        ReflectionTestUtils.setField(request, "sortOrder", 1);
+        ReflectionTestUtils.setField(request, "isActive", true);
+
+        when(commonCodeRepository.findById("TEST_TYPE")).thenReturn(Optional.of(commonCode));
+        when(commonCodeDetailRepository.findByCommonCode_TypeCodeAndCodeValue("TEST_TYPE", "RACE_VALUE"))
+                .thenReturn(Optional.empty());
+        when(commonCodeDetailRepository.saveAndFlush(any(CommonCodeDetail.class)))
+                .thenThrow(new DataIntegrityViolationException("duplicate"));
+
+        assertThatThrownBy(() -> commonCodeService.createCommonCodeDetail("TEST_TYPE", request))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.DUPLICATE_RESOURCE);
     }
 
     @Test
