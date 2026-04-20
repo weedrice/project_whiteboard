@@ -55,14 +55,28 @@ vi.mock('@tanstack/vue-query', () => ({
     useMutation: vi.fn((options) => {
         return {
             mutate: async (variables: unknown) => {
-                const result = await options.mutationFn(variables)
-                options.onSuccess?.(result, variables)
-                return result
+                try {
+                    const result = await options.mutationFn(variables)
+                    options.onSuccess?.(result, variables)
+                    options.onSettled?.(result, null, variables)
+                    return result
+                } catch (error) {
+                    options.onError?.(error, variables)
+                    options.onSettled?.(undefined, error, variables)
+                    throw error
+                }
             },
             mutateAsync: async (variables: unknown) => {
-                const result = await options.mutationFn(variables)
-                options.onSuccess?.(result, variables)
-                return result
+                try {
+                    const result = await options.mutationFn(variables)
+                    options.onSuccess?.(result, variables)
+                    options.onSettled?.(result, null, variables)
+                    return result
+                } catch (error) {
+                    options.onError?.(error, variables)
+                    options.onSettled?.(undefined, error, variables)
+                    throw error
+                }
             },
             isLoading: ref(false),
             error: ref(null)
@@ -272,6 +286,19 @@ describe('useAdmin', () => {
             vi.mocked(adminApi.resolveReport).mockResolvedValue({ data: { success: true } } as any)
 
             await mutation.mutateAsync({ reportId: 1, data: { status: 'RESOLVED' } })
+
+            expect(adminApi.resolveReport).toHaveBeenCalledWith(1, { status: 'RESOLVED' })
+            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['admin', 'reports'] })
+        })
+
+        it('useResolveReport invalidates reports even when resolve fails', async () => {
+            const { useResolveReport } = useAdmin()
+            const mutation = useResolveReport()
+            const error = new Error('validation error')
+
+            vi.mocked(adminApi.resolveReport).mockRejectedValue(error)
+
+            await expect(mutation.mutateAsync({ reportId: 1, data: { status: 'RESOLVED' } })).rejects.toThrow(error)
 
             expect(adminApi.resolveReport).toHaveBeenCalledWith(1, { status: 'RESOLVED' })
             expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['admin', 'reports'] })

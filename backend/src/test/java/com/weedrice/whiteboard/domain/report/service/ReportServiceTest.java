@@ -20,11 +20,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -100,30 +100,29 @@ class ReportServiceTest {
     @Test
     @DisplayName("신고 생성 성공")
     void createReport_success() {
-        // given
         Long reporterId = 1L;
         Long targetId = 1L;
         when(userRepository.findById(reporterId)).thenReturn(Optional.of(reporter));
-        when(reportRepository.findByReporterAndTargetTypeAndTargetId(any(User.class), anyString(), anyLong())).thenReturn(Optional.empty());
-        when(postRepository.findById(targetId)).thenReturn(Optional.of(com.weedrice.whiteboard.domain.post.entity.Post.builder()
-                .board(com.weedrice.whiteboard.domain.board.entity.Board.builder().build())
-                .user(reporter)
-                .title("Test")
-                .contents("Test")
-                .build()));
+        when(reportRepository.findByReporterAndTargetTypeAndTargetId(any(User.class), anyString(), anyLong()))
+                .thenReturn(Optional.empty());
+        when(postRepository.findById(targetId)).thenReturn(Optional.of(
+                com.weedrice.whiteboard.domain.post.entity.Post.builder()
+                        .board(com.weedrice.whiteboard.domain.board.entity.Board.builder().build())
+                        .user(reporter)
+                        .title("Test")
+                        .contents("Test")
+                        .build()));
         ReflectionTestUtils.setField(report, "reportId", 1L);
         when(reportRepository.saveAndFlush(any(Report.class))).thenReturn(report);
 
-        // when
         Long createdReportId = reportService.createReport(reporterId, "POST", targetId, "SPAM", null, null);
 
-        // then
         assertThat(createdReportId).isNotNull();
         verify(reportRepository).saveAndFlush(any(Report.class));
     }
 
     @Test
-    @DisplayName("동시 신고 충돌은 이미 신고함 오류로 정규화한다")
+    @DisplayName("동시 신고 충돌은 이미 신고한 오류로 변환한다")
     void createReport_duplicateConflict_throwsAlreadyReported() {
         Long reporterId = 1L;
         Long targetId = 1L;
@@ -131,12 +130,13 @@ class ReportServiceTest {
         when(userRepository.findById(reporterId)).thenReturn(Optional.of(reporter));
         when(reportRepository.findByReporterAndTargetTypeAndTargetId(reporter, "POST", targetId))
                 .thenReturn(Optional.empty(), Optional.of(report));
-        when(postRepository.findById(targetId)).thenReturn(Optional.of(com.weedrice.whiteboard.domain.post.entity.Post.builder()
-                .board(com.weedrice.whiteboard.domain.board.entity.Board.builder().build())
-                .user(reporter)
-                .title("Test")
-                .contents("Test")
-                .build()));
+        when(postRepository.findById(targetId)).thenReturn(Optional.of(
+                com.weedrice.whiteboard.domain.post.entity.Post.builder()
+                        .board(com.weedrice.whiteboard.domain.board.entity.Board.builder().build())
+                        .user(reporter)
+                        .title("Test")
+                        .contents("Test")
+                        .build()));
         when(reportRepository.saveAndFlush(any(Report.class)))
                 .thenThrow(new DataIntegrityViolationException("duplicate"));
 
@@ -161,16 +161,13 @@ class ReportServiceTest {
     @Test
     @DisplayName("신고 처리 성공")
     void processReport_success() {
-        // given
         Long reportId = 1L;
-        String status = "RESOLVED";
+        String status = Report.STATUS_RESOLVED;
         when(reportRepository.findById(reportId)).thenReturn(Optional.of(report));
         when(userRepository.findById(2L)).thenReturn(Optional.of(adminUser));
 
-        // when
         ReportResponse processedReport = reportService.processReport(2L, reportId, status, "Test Remark");
 
-        // then
         assertThat(processedReport.getStatus()).isEqualTo(status);
         assertThat(processedReport.getAdminId()).isEqualTo(1L);
         assertThat(processedReport.getProcessorUserId()).isEqualTo(2L);
@@ -178,7 +175,7 @@ class ReportServiceTest {
     }
 
     @Test
-    @DisplayName("targetType 단독 필터로 관리자 신고 목록을 조회한다")
+    @DisplayName("targetType 필터로 관리자 신고 목록을 조회한다")
     void getReports_filtersByTargetTypeOnly() {
         PageRequest pageable = PageRequest.of(0, 10);
         Page<Report> reportPage = new PageImpl<>(List.of(report), pageable, 1);
@@ -191,7 +188,7 @@ class ReportServiceTest {
     }
 
     @Test
-    @DisplayName("status 단독 필터로 관리자 신고 목록을 조회한다")
+    @DisplayName("status 필터로 관리자 신고 목록을 조회한다")
     void getReports_filtersByStatusOnly() {
         PageRequest pageable = PageRequest.of(0, 10);
         Page<Report> reportPage = new PageImpl<>(List.of(report), pageable, 1);
@@ -204,7 +201,7 @@ class ReportServiceTest {
     }
 
     @Test
-    @DisplayName("status 와 targetType 복합 필터로 관리자 신고 목록을 조회한다")
+    @DisplayName("status 와 targetType 필터로 관리자 신고 목록을 조회한다")
     void getReports_filtersByStatusAndTargetType() {
         PageRequest pageable = PageRequest.of(0, 10);
         Page<Report> reportPage = new PageImpl<>(List.of(report), pageable, 1);
@@ -230,21 +227,47 @@ class ReportServiceTest {
     }
 
     @Test
-    @DisplayName("활성 Admin 이 없어도 processorUserId 로 감사 추적을 남긴다")
+    @DisplayName("활성 Admin 이 없어도 processorUserId 로 감사 추적이 가능하다")
     void processReport_savesProcessorUserIdWithoutAdmin() {
         Long reportId = 1L;
         when(reportRepository.findById(reportId)).thenReturn(Optional.of(report));
         when(userRepository.findById(2L)).thenReturn(Optional.of(adminUser));
         when(moderationActorResolver.findActiveAdmin(adminUser)).thenReturn(Optional.empty());
 
-        ReportResponse processedReport = reportService.processReport(2L, reportId, "RESOLVED", "Test Remark");
+        ReportResponse processedReport = reportService.processReport(2L, reportId, Report.STATUS_RESOLVED,
+                "Test Remark");
 
         assertThat(processedReport.getAdminId()).isNull();
         assertThat(processedReport.getProcessorUserId()).isEqualTo(2L);
     }
 
     @Test
-    @DisplayName("USER 대상 신고에만 대상 사용자 표시 정보를 채운다")
+    @DisplayName("이미 처리된 신고는 다시 처리할 수 없다")
+    void processReport_alreadyProcessed_throwsValidationError() {
+        Long reportId = 1L;
+        ReflectionTestUtils.setField(report, "status", Report.STATUS_RESOLVED);
+        when(reportRepository.findById(reportId)).thenReturn(Optional.of(report));
+        when(userRepository.findById(2L)).thenReturn(Optional.of(adminUser));
+
+        assertThatThrownBy(() -> reportService.processReport(2L, reportId, Report.STATUS_REJECTED, "Retry"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VALIDATION_ERROR);
+    }
+
+    @Test
+    @DisplayName("신고 로직은 종료 상태만 허용한다")
+    void processReport_invalidTerminalStatus_throwsValidationError() {
+        Long reportId = 1L;
+        when(reportRepository.findById(reportId)).thenReturn(Optional.of(report));
+        when(userRepository.findById(2L)).thenReturn(Optional.of(adminUser));
+
+        assertThatThrownBy(() -> reportService.processReport(2L, reportId, "APPROVED", "Invalid"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VALIDATION_ERROR);
+    }
+
+    @Test
+    @DisplayName("USER 대상 신고만 대상 사용자 표시 정보를 채운다")
     void getReports_populatesTargetUserMetadataOnlyForUserReports() {
         PageRequest pageable = PageRequest.of(0, 10);
 
@@ -284,7 +307,7 @@ class ReportServiceTest {
     }
 
     @Test
-    @DisplayName("POST 대상 신고는 대상 작성자 사용자 ID를 응답에 포함한다")
+    @DisplayName("POST 대상 신고는 작성자 사용자 ID 를 응답에 포함한다")
     void getReports_includesPostAuthorUserIdAsTargetUserId() {
         PageRequest pageable = PageRequest.of(0, 10);
 
@@ -302,12 +325,13 @@ class ReportServiceTest {
                 .build();
         ReflectionTestUtils.setField(postAuthor, "userId", 44L);
 
-        com.weedrice.whiteboard.domain.post.entity.Post post = com.weedrice.whiteboard.domain.post.entity.Post.builder()
-                .board(com.weedrice.whiteboard.domain.board.entity.Board.builder().creator(reporter).build())
-                .user(postAuthor)
-                .title("Reported Post")
-                .contents("content")
-                .build();
+        com.weedrice.whiteboard.domain.post.entity.Post post =
+                com.weedrice.whiteboard.domain.post.entity.Post.builder()
+                        .board(com.weedrice.whiteboard.domain.board.entity.Board.builder().creator(reporter).build())
+                        .user(postAuthor)
+                        .title("Reported Post")
+                        .contents("content")
+                        .build();
         ReflectionTestUtils.setField(post, "postId", 100L);
 
         when(reportRepository.findAdminReports(null, null, pageable))
@@ -323,7 +347,6 @@ class ReportServiceTest {
     @Test
     @DisplayName("내 신고 목록 조회 성공")
     void getMyReports_success() {
-        // given
         Long userId = 1L;
         org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(0, 10);
         org.springframework.data.domain.Page<Report> reportPage = new org.springframework.data.domain.PageImpl<>(
@@ -331,10 +354,8 @@ class ReportServiceTest {
         when(userRepository.findById(userId)).thenReturn(Optional.of(reporter));
         when(reportRepository.findByReporterOrderByCreatedAtDesc(reporter, pageable)).thenReturn(reportPage);
 
-        // when
         org.springframework.data.domain.Page<MyReportResponse> result = reportService.getMyReports(userId, pageable);
 
-        // then
         assertThat(result.getContent()).isNotEmpty();
         assertThat(result.getContent().get(0).getTargetType()).isEqualTo("POST");
         assertThat(result.getContent().get(0).getStatus()).isEqualTo(report.getStatus());

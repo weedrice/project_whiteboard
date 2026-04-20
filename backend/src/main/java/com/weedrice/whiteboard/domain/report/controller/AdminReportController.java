@@ -7,6 +7,7 @@ import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import com.weedrice.whiteboard.domain.user.entity.Role;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
@@ -34,7 +35,7 @@ public class AdminReportController {
     @PutMapping("/{reportId}")
     public ApiResponse<ReportResponse> processReport(
             @PathVariable Long reportId,
-            @RequestBody ReportProcessRequest request,
+            @Valid @RequestBody ReportProcessRequest request,
             Authentication authentication) {
         Long adminUserId = ((CustomUserDetails) authentication.getPrincipal()).getUserId();
         ReportResponse response = reportService.processReport(

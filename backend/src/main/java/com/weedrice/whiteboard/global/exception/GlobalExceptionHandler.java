@@ -23,6 +23,7 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -104,6 +105,22 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.error(ErrorCode.VALIDATION_ERROR.getCode(), summaryMessage, errors));
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiResponse<Void>> handleHttpMessageNotReadableException(HttpMessageNotReadableException e,
+            HttpServletRequest request) {
+        String message = messageSource.getMessage("error.common.validationFailedSummary", null,
+                LocaleContextHolder.getLocale());
+
+        log.warn("[{}] Request body parse exception: {}", request.getRequestURI(), e.getMessage());
+
+        saveErrorLog(ErrorCode.VALIDATION_ERROR.getCode(), "HttpMessageNotReadableException",
+                HttpStatus.BAD_REQUEST.value(), message, request, null);
+
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error(ErrorCode.VALIDATION_ERROR.getCode(), message));
     }
 
     @ExceptionHandler({ BadCredentialsException.class, UsernameNotFoundException.class })

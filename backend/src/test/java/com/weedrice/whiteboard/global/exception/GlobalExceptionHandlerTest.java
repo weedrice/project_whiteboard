@@ -18,6 +18,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 
 import java.util.Collections;
@@ -113,6 +114,23 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getBody().isSuccess()).isFalse();
         assertThat(response.getBody().getError().getCode()).isEqualTo(ErrorCode.VALIDATION_ERROR.getCode());
         assertThat(response.getBody().getError().getMessage()).contains("Validation failed");
+    }
+
+    @Test
+    @DisplayName("HttpMessageNotReadableException 처리")
+    void handleHttpMessageNotReadableException() {
+        HttpMessageNotReadableException ex = new HttpMessageNotReadableException("Malformed request");
+        when(messageSource.getMessage(eq("error.common.validationFailedSummary"), isNull(), any(Locale.class)))
+                .thenReturn("Validation failed.");
+
+        ResponseEntity<ApiResponse<Void>> response =
+                globalExceptionHandler.handleHttpMessageNotReadableException(ex, request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().isSuccess()).isFalse();
+        assertThat(response.getBody().getError().getCode()).isEqualTo(ErrorCode.VALIDATION_ERROR.getCode());
+        assertThat(response.getBody().getError().getMessage()).isEqualTo("Validation failed.");
     }
 
     @Test

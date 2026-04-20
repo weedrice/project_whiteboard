@@ -232,7 +232,7 @@ export function useAdmin() {
     const useResolveReport = () => {
         return useMutation({
             mutationFn: ({ reportId, data }: { reportId: string | number, data: ReportResolveData }) => adminApi.resolveReport(reportId, data),
-            onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'reports'] })
+            onSettled: () => queryClient.invalidateQueries({ queryKey: ['admin', 'reports'] })
         })
     }
 

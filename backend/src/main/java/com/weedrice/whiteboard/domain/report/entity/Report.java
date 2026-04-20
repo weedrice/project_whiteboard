@@ -3,6 +3,8 @@ package com.weedrice.whiteboard.domain.report.entity;
 import com.weedrice.whiteboard.domain.admin.entity.Admin;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.global.common.entity.BaseTimeEntity;
+import com.weedrice.whiteboard.global.exception.BusinessException;
+import com.weedrice.whiteboard.global.exception.ErrorCode;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -19,6 +21,8 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.util.Set;
+
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Entity
@@ -30,6 +34,11 @@ import lombok.NoArgsConstructor;
         @Index(name = "idx_reports_target", columnList = "target_type, target_id")
 })
 public class Report extends BaseTimeEntity {
+    public static final String STATUS_PENDING = "PENDING";
+    public static final String STATUS_RESOLVED = "RESOLVED";
+    public static final String STATUS_REJECTED = "REJECTED";
+
+    private static final Set<String> TERMINAL_STATUSES = Set.of(STATUS_RESOLVED, STATUS_REJECTED);
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -76,13 +85,24 @@ public class Report extends BaseTimeEntity {
         this.reasonType = reasonType;
         this.remark = remark;
         this.contents = contents;
-        this.status = "PENDING";
+        this.status = STATUS_PENDING;
     }
 
     public void processReport(Admin admin, Long processorUserId, String status, String remark) {
+        validateTransition(status);
         this.admin = admin;
         this.processorUserId = processorUserId;
         this.status = status;
         this.processedRemark = remark;
+    }
+
+    private void validateTransition(String nextStatus) {
+        if (!STATUS_PENDING.equals(this.status)) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR);
+        }
+
+        if (!TERMINAL_STATUSES.contains(nextStatus)) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR);
+        }
     }
 }
