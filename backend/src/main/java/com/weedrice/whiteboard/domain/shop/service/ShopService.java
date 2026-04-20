@@ -67,7 +67,14 @@ public class ShopService {
             throw new BusinessException(ErrorCode.ITEM_NOT_AVAILABLE);
         }
 
-        pointService.spendPoint(userId, item.getPrice(), item.getItemName() + " 구매", item.getItemId(), "SHOP_ITEM");
+        try {
+            shopEntitlementCapabilityRegistry.validateConfiguration(item);
+        } catch (IllegalStateException ex) {
+            throw new BusinessException(ErrorCode.ITEM_NOT_AVAILABLE);
+        }
+
+        pointService.spendPoint(userId, item.getPrice(), "Shop item purchase: " + item.getItemName(), item.getItemId(), "SHOP_ITEM");
+        shopEntitlementCapabilityRegistry.grant(userId, item);
 
         PurchaseHistory purchaseHistory = PurchaseHistory.builder()
                 .user(user)

@@ -86,10 +86,12 @@ class EmoticonServiceTest {
                 attachmentHelper,
                 "EMOTICON_THUMBNAIL",
                 "EMOTICON_IMAGE");
-        EmoticonPurchaseService purchaseService = new EmoticonPurchaseService(
+        EmoticonEntitlementGrantService grantService = new EmoticonEntitlementGrantService(
                 emoticonMasterRepository,
                 emoticonPurchaseRepository,
-                userRepository,
+                userRepository);
+        EmoticonPurchaseService purchaseService = new EmoticonPurchaseService(
+                grantService,
                 pointService,
                 100);
         emoticonService = new EmoticonService(catalogService, commandService, purchaseService);
@@ -694,7 +696,7 @@ class EmoticonServiceTest {
                     .isInstanceOf(BusinessException.class)
                     .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode()).isEqualTo(ErrorCode.EMOTICON_ALREADY_PURCHASED));
 
-            verify(pointService, never()).spendPoint(any(), anyInt(), anyString(), any(), anyString());
+            verify(pointService).spendPoint(eq(2L), eq(100), anyString(), eq(1L), eq("EMOTICON"));
         }
 
         @Test

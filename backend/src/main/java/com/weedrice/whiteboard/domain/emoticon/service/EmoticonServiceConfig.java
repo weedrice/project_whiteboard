@@ -42,15 +42,18 @@ class EmoticonServiceConfig {
     }
 
     @Bean
-    EmoticonPurchaseService emoticonPurchaseService(EmoticonMasterRepository emoticonMasterRepository,
-                                                    EmoticonPurchaseRepository emoticonPurchaseRepository,
-                                                    UserRepository userRepository,
-                                                    PointService pointService) {
-        return new EmoticonPurchaseService(
+    EmoticonEntitlementGrantService emoticonEntitlementGrantService(EmoticonMasterRepository emoticonMasterRepository,
+                                                                    EmoticonPurchaseRepository emoticonPurchaseRepository,
+                                                                    UserRepository userRepository) {
+        return new EmoticonEntitlementGrantService(
                 emoticonMasterRepository,
                 emoticonPurchaseRepository,
-                userRepository,
-                pointService,
-                EMOTICON_PRICE);
+                userRepository);
+    }
+
+    @Bean
+    EmoticonPurchaseService emoticonPurchaseService(EmoticonEntitlementGrantService emoticonEntitlementGrantService,
+                                                    PointService pointService) {
+        return new EmoticonPurchaseService(emoticonEntitlementGrantService, pointService, EMOTICON_PRICE);
     }
 }

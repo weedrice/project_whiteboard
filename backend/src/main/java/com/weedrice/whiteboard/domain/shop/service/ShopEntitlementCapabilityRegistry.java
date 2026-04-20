@@ -4,6 +4,7 @@ import com.weedrice.whiteboard.domain.shop.entity.ShopItem;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -21,13 +22,31 @@ public class ShopEntitlementCapabilityRegistry {
     }
 
     public boolean supports(String itemType) {
-        return itemType != null && getSupportedItemTypes().contains(itemType);
+        return findHandler(itemType).isPresent();
+    }
+
+    public void validateConfiguration(ShopItem item) {
+        findRequiredHandler(item.getItemType()).validateConfiguration(item);
+    }
+
+    public void grant(Long userId, ShopItem item) {
+        findRequiredHandler(item.getItemType()).grant(userId, item);
     }
 
     public Set<String> getSupportedItemTypes() {
-        // Fail closed until a concrete entitlement handler is introduced for a shop item type.
         return handlers.stream()
                 .flatMap(handler -> handler.getSupportedItemTypes().stream())
                 .collect(Collectors.toUnmodifiableSet());
+    }
+
+    private Optional<ShopEntitlementHandler> findHandler(String itemType) {
+        return handlers.stream()
+                .filter(handler -> handler.supports(itemType))
+                .findFirst();
+    }
+
+    private ShopEntitlementHandler findRequiredHandler(String itemType) {
+        return findHandler(itemType)
+                .orElseThrow(() -> new IllegalStateException("No shop entitlement handler registered for itemType=" + itemType));
     }
 }

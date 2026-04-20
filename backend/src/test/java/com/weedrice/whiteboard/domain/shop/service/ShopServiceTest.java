@@ -39,7 +39,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-@DisplayName("ShopService 테스트")
+@DisplayName("ShopService test")
 class ShopServiceTest {
 
     @Mock
@@ -66,18 +66,19 @@ class ShopServiceTest {
         ReflectionTestUtils.setField(user, "userId", 1L);
 
         emoticonItem = ShopItem.builder()
-                .itemName("프리미엄 이모티콘")
-                .description("테스트 상품")
+                .itemName("Premium emoticon")
+                .description("Shop item")
                 .price(100)
                 .itemType("EMOTICON")
+                .targetId(10L)
                 .imageUrl("https://example.com/emoticon.png")
                 .build();
         ReflectionTestUtils.setField(emoticonItem, "itemId", 2L);
         ReflectionTestUtils.setField(emoticonItem, "isActive", true);
 
         decorationItem = ShopItem.builder()
-                .itemName("프로필 장식")
-                .description("장식 상품")
+                .itemName("Decoration")
+                .description("Decoration item")
                 .price(500)
                 .itemType("DECORATION")
                 .build();
@@ -86,11 +87,11 @@ class ShopServiceTest {
     }
 
     @Nested
-    @DisplayName("상품 목록 조회")
+    @DisplayName("Get shop items")
     class GetShopItems {
 
         @Test
-        @DisplayName("지원되는 타입은 조회한다")
+        @DisplayName("Returns a supported item type")
         void getShopItems_supportedType() {
             Pageable pageable = PageRequest.of(0, 20);
             when(shopEntitlementCapabilityRegistry.supports("EMOTICON")).thenReturn(true);
@@ -105,7 +106,7 @@ class ShopServiceTest {
         }
 
         @Test
-        @DisplayName("지원 가능한 handler가 없으면 빈 결과를 반환한다")
+        @DisplayName("Returns empty when there is no supported handler")
         void getShopItems_withoutSupportedHandlers_returnsEmpty() {
             Pageable pageable = PageRequest.of(0, 20);
             when(shopEntitlementCapabilityRegistry.getSupportedItemTypes()).thenReturn(Set.of());
@@ -118,7 +119,7 @@ class ShopServiceTest {
         }
 
         @Test
-        @DisplayName("전체 조회는 지원 가능한 타입만 조회한다")
+        @DisplayName("Returns all supported item types")
         void getShopItems_allTypes_usesSupportedTypes() {
             Pageable pageable = PageRequest.of(0, 20);
             Set<String> supportedTypes = Set.of("EMOTICON", "DECORATION");
@@ -133,7 +134,7 @@ class ShopServiceTest {
         }
 
         @Test
-        @DisplayName("지원되지 않는 타입 요청은 빈 결과를 반환한다")
+        @DisplayName("Returns empty for an unsupported type filter")
         void getShopItems_unsupportedType_returnsEmpty() {
             Pageable pageable = PageRequest.of(0, 20);
             when(shopEntitlementCapabilityRegistry.supports("EMOTICON")).thenReturn(false);
@@ -146,11 +147,11 @@ class ShopServiceTest {
     }
 
     @Nested
-    @DisplayName("상품 구매")
+    @DisplayName("Purchase item")
     class PurchaseItem {
 
         @Test
-        @DisplayName("지원되는 상품은 구매할 수 있다")
+        @DisplayName("Purchases a supported item and grants the entitlement")
         void purchaseItem_success() {
             when(userRepository.findById(1L)).thenReturn(Optional.of(user));
             when(shopItemRepository.findById(2L)).thenReturn(Optional.of(emoticonItem));
@@ -167,17 +168,19 @@ class ShopServiceTest {
             Long purchaseId = shopService.purchaseItem(1L, 2L);
 
             assertThat(purchaseId).isEqualTo(1L);
+            verify(shopEntitlementCapabilityRegistry).validateConfiguration(emoticonItem);
             verify(pointService).spendPoint(
                     eq(1L),
                     eq(100),
-                    eq("프리미엄 이모티콘 구매"),
+                    eq("Shop item purchase: Premium emoticon"),
                     eq(2L),
                     eq("SHOP_ITEM"));
+            verify(shopEntitlementCapabilityRegistry).grant(1L, emoticonItem);
             verify(purchaseHistoryRepository).save(any(PurchaseHistory.class));
         }
 
         @Test
-        @DisplayName("비활성 상품 구매는 차단한다")
+        @DisplayName("Blocks inactive items")
         void purchaseItem_inactiveItem() {
             ReflectionTestUtils.setField(emoticonItem, "isActive", false);
             when(userRepository.findById(1L)).thenReturn(Optional.of(user));
@@ -193,7 +196,7 @@ class ShopServiceTest {
         }
 
         @Test
-        @DisplayName("지원되지 않는 상품 구매는 차단한다")
+        @DisplayName("Blocks unsupported items")
         void purchaseItem_unsupportedItem() {
             when(userRepository.findById(1L)).thenReturn(Optional.of(user));
             when(shopItemRepository.findById(2L)).thenReturn(Optional.of(emoticonItem));
@@ -209,7 +212,50 @@ class ShopServiceTest {
         }
 
         @Test
-        @DisplayName("존재하지 않는 상품 구매는 실패한다")
+        @DisplayName("Blocks misconfigured items")
+        void purchaseItem_invalidConfiguration() {
+            when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+            when(shopItemRepository.findById(2L)).thenReturn(Optional.of(emoticonItem));
+            when(shopEntitlementCapabilityRegistry.supports(emoticonItem)).thenReturn(true);
+            org.mockito.Mockito.doThrow(new IllegalStateException("missing-target"))
+                    .when(shopEntitlementCapabilityRegistry)
+                    .validateConfiguration(emoticonItem);
+
+            assertThatThrownBy(() -> shopService.purchaseItem(1L, 2L))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.ITEM_NOT_AVAILABLE);
+
+            verify(pointService, never()).spendPoint(anyLong(), anyInt(), anyString(), anyLong(), anyString());
+            verify(shopEntitlementCapabilityRegistry, never()).grant(anyLong(), any());
+        }
+
+        @Test
+        @DisplayName("Propagates grant failure without saving purchase history")
+        void purchaseItem_grantFailure() {
+            when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+            when(shopItemRepository.findById(2L)).thenReturn(Optional.of(emoticonItem));
+            when(shopEntitlementCapabilityRegistry.supports(emoticonItem)).thenReturn(true);
+            org.mockito.Mockito.doThrow(new BusinessException(ErrorCode.EMOTICON_ALREADY_PURCHASED))
+                    .when(shopEntitlementCapabilityRegistry)
+                    .grant(1L, emoticonItem);
+
+            assertThatThrownBy(() -> shopService.purchaseItem(1L, 2L))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.EMOTICON_ALREADY_PURCHASED);
+
+            verify(pointService).spendPoint(
+                    eq(1L),
+                    eq(100),
+                    eq("Shop item purchase: Premium emoticon"),
+                    eq(2L),
+                    eq("SHOP_ITEM"));
+            verify(purchaseHistoryRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("Fails for a missing item")
         void purchaseItem_notFound() {
             when(userRepository.findById(1L)).thenReturn(Optional.of(user));
             when(shopItemRepository.findById(999L)).thenReturn(Optional.empty());
@@ -221,7 +267,7 @@ class ShopServiceTest {
         }
 
         @Test
-        @DisplayName("존재하지 않는 사용자 구매는 실패한다")
+        @DisplayName("Fails for a missing user")
         void purchaseItem_userNotFound() {
             when(userRepository.findById(999L)).thenReturn(Optional.empty());
 
@@ -233,18 +279,18 @@ class ShopServiceTest {
     }
 
     @Test
-    @DisplayName("상품 상세 조회는 기존처럼 유지한다")
+    @DisplayName("Returns shop item details")
     void getShopItem_success() {
         when(shopItemRepository.findById(2L)).thenReturn(Optional.of(emoticonItem));
 
         ShopItem result = shopService.getShopItem(2L);
 
-        assertThat(result.getItemName()).isEqualTo("프리미엄 이모티콘");
+        assertThat(result.getItemName()).isEqualTo("Premium emoticon");
         assertThat(result.getItemType()).isEqualTo("EMOTICON");
     }
 
     @Test
-    @DisplayName("존재하지 않는 상품 상세 조회는 실패한다")
+    @DisplayName("Fails for a missing shop item detail")
     void getShopItem_notFound() {
         when(shopItemRepository.findById(999L)).thenReturn(Optional.empty());
 

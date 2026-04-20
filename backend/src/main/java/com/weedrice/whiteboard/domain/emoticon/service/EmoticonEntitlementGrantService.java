@@ -1,0 +1,76 @@
+package com.weedrice.whiteboard.domain.emoticon.service;
+
+import com.weedrice.whiteboard.domain.emoticon.entity.EmoticonMaster;
+import com.weedrice.whiteboard.domain.emoticon.entity.EmoticonPurchase;
+import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonMasterRepository;
+import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonPurchaseRepository;
+import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.global.exception.BusinessException;
+import com.weedrice.whiteboard.global.exception.ErrorCode;
+import org.springframework.dao.DataIntegrityViolationException;
+
+class EmoticonEntitlementGrantService {
+
+    private final EmoticonMasterRepository emoticonMasterRepository;
+    private final EmoticonPurchaseRepository emoticonPurchaseRepository;
+    private final UserRepository userRepository;
+
+    EmoticonEntitlementGrantService(EmoticonMasterRepository emoticonMasterRepository,
+                                    EmoticonPurchaseRepository emoticonPurchaseRepository,
+                                    UserRepository userRepository) {
+        this.emoticonMasterRepository = emoticonMasterRepository;
+        this.emoticonPurchaseRepository = emoticonPurchaseRepository;
+        this.userRepository = userRepository;
+    }
+
+    EmoticonGrantContext prepareGrant(Long userId, Long emoticonId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        EmoticonMaster emoticon = emoticonMasterRepository.findByIdWithImages(emoticonId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.EMOTICON_NOT_FOUND));
+
+        if (emoticon.isOwner(userId)) {
+            throw new BusinessException(ErrorCode.EMOTICON_CANNOT_PURCHASE_OWN);
+        }
+
+        if (!"Y".equals(emoticon.getIsActive())) {
+            throw new BusinessException(ErrorCode.EMOTICON_HIDDEN);
+        }
+
+        return new EmoticonGrantContext(user, emoticon);
+    }
+
+    void validateTargetConfiguration(Long emoticonId) {
+        if (emoticonId == null) {
+            throw new IllegalStateException("missing-targetId");
+        }
+
+        EmoticonMaster emoticon = emoticonMasterRepository.findById(emoticonId)
+                .orElseThrow(() -> new IllegalStateException("missing-target"));
+
+        if (!"Y".equals(emoticon.getIsActive())) {
+            throw new IllegalStateException("inactive-target");
+        }
+    }
+
+    EmoticonMaster grant(EmoticonGrantContext grantContext, int purchasedPrice) {
+        EmoticonPurchase purchase = EmoticonPurchase.builder()
+                .user(grantContext.user())
+                .emoticon(grantContext.emoticon())
+                .purchasedPrice(purchasedPrice)
+                .build();
+
+        try {
+            emoticonPurchaseRepository.saveAndFlush(purchase);
+        } catch (DataIntegrityViolationException ex) {
+            throw new BusinessException(ErrorCode.EMOTICON_ALREADY_PURCHASED);
+        }
+
+        grantContext.emoticon().incrementPurchaseCount();
+        return grantContext.emoticon();
+    }
+
+    record EmoticonGrantContext(User user, EmoticonMaster emoticon) {
+    }
+}

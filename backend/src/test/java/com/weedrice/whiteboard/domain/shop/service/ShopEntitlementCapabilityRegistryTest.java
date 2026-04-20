@@ -9,11 +9,11 @@ import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@DisplayName("ShopEntitlementCapabilityRegistry 테스트")
+@DisplayName("ShopEntitlementCapabilityRegistry test")
 class ShopEntitlementCapabilityRegistryTest {
 
     @Test
-    @DisplayName("handler가 없으면 fail-closed로 동작한다")
+    @DisplayName("Returns empty when there is no handler")
     void getSupportedItemTypes_withoutHandlers_returnsEmpty() {
         ShopEntitlementCapabilityRegistry registry = new ShopEntitlementCapabilityRegistry(List.of());
 
@@ -22,19 +22,20 @@ class ShopEntitlementCapabilityRegistryTest {
     }
 
     @Test
-    @DisplayName("등록된 handler 타입만 지원한다")
+    @DisplayName("Collects supported item types from handlers")
     void getSupportedItemTypes_withHandlers_returnsUnion() {
         ShopEntitlementCapabilityRegistry registry = new ShopEntitlementCapabilityRegistry(List.of(
-                () -> Set.of("EMOTICON"),
-                () -> Set.of("DECORATION")));
+                new TestHandler(Set.of("EMOTICON")),
+                new TestHandler(Set.of("DECORATION"))));
 
         ShopItem supportedItem = ShopItem.builder()
-                .itemName("지원 상품")
+                .itemName("Supported item")
                 .price(100)
                 .itemType("EMOTICON")
+                .targetId(1L)
                 .build();
         ShopItem unsupportedItem = ShopItem.builder()
-                .itemName("미지원 상품")
+                .itemName("Unsupported item")
                 .price(100)
                 .itemType("BADGE")
                 .build();
@@ -43,5 +44,67 @@ class ShopEntitlementCapabilityRegistryTest {
         assertThat(registry.supports("DECORATION")).isTrue();
         assertThat(registry.supports(supportedItem)).isTrue();
         assertThat(registry.supports(unsupportedItem)).isFalse();
+    }
+
+    @Test
+    @DisplayName("Delegates validate and grant to the matching handler")
+    void validateAndGrant_delegateToMatchingHandler() {
+        TrackingHandler handler = new TrackingHandler(Set.of("EMOTICON"));
+        ShopEntitlementCapabilityRegistry registry = new ShopEntitlementCapabilityRegistry(List.of(handler));
+        ShopItem item = ShopItem.builder()
+                .itemName("Supported item")
+                .price(100)
+                .itemType("EMOTICON")
+                .targetId(1L)
+                .build();
+
+        registry.validateConfiguration(item);
+        registry.grant(1L, item);
+
+        assertThat(handler.validatedItem).isSameAs(item);
+        assertThat(handler.grantedUserId).isEqualTo(1L);
+        assertThat(handler.grantedItem).isSameAs(item);
+    }
+
+    private record TestHandler(Set<String> supportedItemTypes) implements ShopEntitlementHandler {
+        @Override
+        public Set<String> getSupportedItemTypes() {
+            return supportedItemTypes;
+        }
+
+        @Override
+        public void validateConfiguration(ShopItem item) {
+        }
+
+        @Override
+        public void grant(Long userId, ShopItem item) {
+        }
+    }
+
+    private static final class TrackingHandler implements ShopEntitlementHandler {
+        private final Set<String> supportedItemTypes;
+        private ShopItem validatedItem;
+        private Long grantedUserId;
+        private ShopItem grantedItem;
+
+        private TrackingHandler(Set<String> supportedItemTypes) {
+            this.supportedItemTypes = supportedItemTypes;
+        }
+
+        @Override
+        public Set<String> getSupportedItemTypes() {
+            return supportedItemTypes;
+        }
+
+        @Override
+        public void validateConfiguration(ShopItem item) {
+            validatedItem = item;
+        }
+
+        @Override
+        public void grant(Long userId, ShopItem item) {
+            grantedUserId = userId;
+            grantedItem = item;
+        }
     }
 }
