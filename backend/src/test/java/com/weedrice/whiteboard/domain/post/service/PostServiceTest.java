@@ -22,11 +22,7 @@ import com.weedrice.whiteboard.domain.post.dto.*;
 import com.weedrice.whiteboard.domain.post.entity.*;
 import com.weedrice.whiteboard.domain.post.repository.*;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
-import com.weedrice.whiteboard.domain.tag.entity.PostTag;
-import com.weedrice.whiteboard.domain.tag.entity.Tag;
-import com.weedrice.whiteboard.domain.tag.repository.PostTagRepository;
-import com.weedrice.whiteboard.domain.tag.repository.TagRepository;
-import com.weedrice.whiteboard.domain.tag.service.TagService;
+import com.weedrice.whiteboard.domain.tag.service.TagAssignmentService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
@@ -69,7 +65,7 @@ class PostServiceTest {
     @Mock
     private PostLikeRepository postLikeRepository;
     @Mock
-    private TagService tagService;
+    private TagAssignmentService tagAssignmentService;
     @Mock
     private PostVersionRepository postVersionRepository;
     @Mock
@@ -84,10 +80,6 @@ class PostServiceTest {
     private ScrapRepository scrapRepository;
     @Mock
     private DraftPostRepository draftPostRepository;
-    @Mock
-    private PostTagRepository postTagRepository;
-    @Mock
-    private TagRepository tagRepository;
     @Mock
     private ViewHistoryRepository viewHistoryRepository;
     @Mock
@@ -136,9 +128,7 @@ class PostServiceTest {
                 scrapRepository,
                 draftPostRepository,
                 postVersionRepository,
-                tagService,
-                postTagRepository,
-                tagRepository,
+                tagAssignmentService,
                 viewHistoryRepository,
                 eventPublisher,
                 pointService,
@@ -202,6 +192,7 @@ class PostServiceTest {
 
         assertThat(created).isNotNull();
         assertThat(created.getTitle()).isEqualTo("New Post");
+        verify(tagAssignmentService).assignTags(created, request.getTags());
         verify(fileService, times(2)).associateFileWithEntity(anyLong(), eq(1L), eq(100L), eq("POST_CONTENT"));
         verify(pointService).addPoint(eq(1L), eq(50), anyString(), eq(100L), eq("POST"));
     }
@@ -476,6 +467,7 @@ class PostServiceTest {
         Post updated = postService.updatePost(1L, 1L, request);
 
         assertThat(updated.getTitle()).isEqualTo("Updated Title");
+        verify(tagAssignmentService).assignTags(post, request.getTags());
         verify(fileService).associateFileWithEntity(eq(5L), eq(1L), eq(1L), eq("POST_CONTENT"));
         verify(postVersionRepository).save(any(PostVersion.class));
     }
@@ -539,16 +531,10 @@ class PostServiceTest {
         when(postRepository.findById(1L)).thenReturn(Optional.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
 
-        Tag tag = Tag.builder().tagName("Tag1").build();
-        ReflectionTestUtils.setField(tag, "tagId", 10L);
-        PostTag postTag = PostTag.builder().post(post).tag(tag).build();
-        when(postTagRepository.findByPost(post)).thenReturn(List.of(postTag));
-
         postService.deletePost(1L, 1L);
 
         assertThat(post.getIsDeleted()).isTrue();
-        verify(tagRepository).decrementPostCount(10L);
-        verify(postTagRepository).deleteByPost(post);
+        verify(tagAssignmentService).clearTags(post);
         verify(pointService).forceSubtractPoint(eq(1L), eq(50), anyString(), eq(1L), eq("POST"));
     }
 
@@ -563,7 +549,7 @@ class PostServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_ACTIVE);
 
-        verify(postTagRepository, never()).deleteByPost(any(Post.class));
+        verify(tagAssignmentService, never()).clearTags(any(Post.class));
     }
 
     // --- Likes ---
@@ -1072,7 +1058,7 @@ class PostServiceTest {
         lenient().when(postRepository.findById(1L)).thenReturn(Optional.of(post));
         lenient().when(viewHistoryRepository.findByUserAndPost(user, post)).thenReturn(Optional.empty());
         lenient().when(viewHistoryRepository.saveAndFlush(any(ViewHistory.class))).thenAnswer(i -> i.getArgument(0));
-        lenient().when(postTagRepository.findByPost(post)).thenReturn(Collections.emptyList());
+        lenient().when(tagAssignmentService.getTagNames(post)).thenReturn(Collections.emptyList());
         lenient().when(postLikeRepository.existsById(any(PostLikeId.class))).thenReturn(false);
         lenient().when(scrapRepository.existsById(any(ScrapId.class))).thenReturn(false);
         lenient().when(fileService.getFilesByRelatedEntity(1L, "POST_CONTENT")).thenReturn(Collections.emptyList());
@@ -1091,7 +1077,7 @@ class PostServiceTest {
         lenient().when(userBlockService.getBlockedUserIds(1L)).thenReturn(Collections.emptyList());
         lenient().when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         lenient().when(postRepository.findById(1L)).thenReturn(Optional.of(post));
-        lenient().when(postTagRepository.findByPost(post)).thenReturn(Collections.emptyList());
+        lenient().when(tagAssignmentService.getTagNames(post)).thenReturn(Collections.emptyList());
         lenient().when(postLikeRepository.existsById(any(PostLikeId.class))).thenReturn(false);
         lenient().when(scrapRepository.existsById(any(ScrapId.class))).thenReturn(false);
         lenient().when(fileService.getFilesByRelatedEntity(1L, "POST_CONTENT")).thenReturn(Collections.emptyList());
@@ -1202,13 +1188,8 @@ class PostServiceTest {
     @Test
     @DisplayName("게시글 태그 조회")
     void getTagsForPost_success() {
-        Tag tag1 = Tag.builder().tagName("Java").build();
-        Tag tag2 = Tag.builder().tagName("Spring").build();
-        PostTag postTag1 = PostTag.builder().post(post).tag(tag1).build();
-        PostTag postTag2 = PostTag.builder().post(post).tag(tag2).build();
-
         when(postRepository.findById(1L)).thenReturn(Optional.of(post));
-        when(postTagRepository.findByPost(post)).thenReturn(List.of(postTag1, postTag2));
+        when(tagAssignmentService.getTagNames(post)).thenReturn(List.of("Java", "Spring"));
 
         List<String> tags = postService.getTagsForPost(1L);
 

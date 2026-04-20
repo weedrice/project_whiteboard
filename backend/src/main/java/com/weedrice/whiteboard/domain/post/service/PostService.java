@@ -29,9 +29,7 @@ import com.weedrice.whiteboard.domain.post.dto.ViewHistoryRequest;
 import com.weedrice.whiteboard.domain.post.entity.*;
 import com.weedrice.whiteboard.domain.post.repository.*;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
-import com.weedrice.whiteboard.domain.tag.repository.PostTagRepository;
-import com.weedrice.whiteboard.domain.tag.repository.TagRepository;
-import com.weedrice.whiteboard.domain.tag.service.TagService;
+import com.weedrice.whiteboard.domain.tag.service.TagAssignmentService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService; // Import UserBlockService
@@ -67,9 +65,7 @@ public class PostService {
     private final ScrapRepository scrapRepository;
     private final DraftPostRepository draftPostRepository;
     private final PostVersionRepository postVersionRepository;
-    private final TagService tagService;
-    private final PostTagRepository postTagRepository;
-    private final TagRepository tagRepository;
+    private final TagAssignmentService tagAssignmentService;
     private final ViewHistoryRepository viewHistoryRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final PointService pointService;
@@ -374,7 +370,7 @@ public class PostService {
                 .build();
 
         Post savedPost = postRepository.save(post);
-        tagService.processTagsForPost(savedPost, request.getTags());
+        tagAssignmentService.assignTags(savedPost, request.getTags());
         savePostVersion(savedPost, user, "CREATE", null, null);
 
         if (request.getFileIds() != null && !request.getFileIds().isEmpty()) {
@@ -421,7 +417,7 @@ public class PostService {
         boolean isSecret = !boardAccessPolicy.isInquiryBoard(post.getBoard()) && request.isSecret();
         post.updatePost(category, request.getTitle(), sanitizedContents, request.isNsfw(),
                 request.isSpoiler(), isSecret);
-        tagService.processTagsForPost(post, request.getTags());
+        tagAssignmentService.assignTags(post, request.getTags());
 
         if (request.getFileIds() != null && !request.getFileIds().isEmpty()) {
             for (Long fileId : request.getFileIds()) {
@@ -449,9 +445,7 @@ public class PostService {
         }
 
         post.deletePost();
-        postTagRepository.findByPost(post)
-                .forEach(postTag -> tagRepository.decrementPostCount(postTag.getTag().getTagId()));
-        postTagRepository.deleteByPost(post);
+        tagAssignmentService.clearTags(post);
         savePostVersion(post, modifier, "DELETE", post.getTitle(), post.getContents());
 
         // ?ъ씤??李④컧 (寃뚯떆湲 ??젣)
@@ -630,9 +624,7 @@ public class PostService {
     public List<String> getTagsForPost(@NonNull Long postId) {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
-        return postTagRepository.findByPost(post).stream()
-                .map(postTag -> postTag.getTag().getTagName())
-                .collect(Collectors.toList());
+        return tagAssignmentService.getTagNames(post);
     }
 
     public Page<PostSummary> getRecentlyViewedPosts(@NonNull Long userId, @NonNull Pageable pageable) {

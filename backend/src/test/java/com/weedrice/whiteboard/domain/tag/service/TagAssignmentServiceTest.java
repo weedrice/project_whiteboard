@@ -1,0 +1,185 @@
+package com.weedrice.whiteboard.domain.tag.service;
+
+import com.weedrice.whiteboard.domain.post.entity.Post;
+import com.weedrice.whiteboard.domain.tag.entity.PostTag;
+import com.weedrice.whiteboard.domain.tag.entity.Tag;
+import com.weedrice.whiteboard.domain.tag.repository.PostTagRepository;
+import com.weedrice.whiteboard.domain.tag.repository.TagRepository;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.test.util.ReflectionTestUtils;
+
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+@ExtendWith(MockitoExtension.class)
+class TagAssignmentServiceTest {
+
+    @Mock
+    private TagRepository tagRepository;
+    @Mock
+    private PostTagRepository postTagRepository;
+
+    @InjectMocks
+    private TagAssignmentService tagAssignmentService;
+
+    private Post post;
+    private Tag existingTag;
+    private PostTag existingPostTag;
+
+    @BeforeEach
+    void setUp() {
+        post = Post.builder().build();
+        existingTag = new Tag("existingTag");
+        ReflectionTestUtils.setField(existingTag, "tagId", 10L);
+        existingPostTag = PostTag.builder().post(post).tag(existingTag).build();
+    }
+
+    @Test
+    @DisplayName("assignTags adds new tag")
+    void assignTags_addNewTag() {
+        when(postTagRepository.findByPost(post)).thenReturn(Collections.emptyList());
+        when(tagRepository.findByTagName("newTag")).thenReturn(Optional.empty());
+        Tag savedTag = new Tag("newTag");
+        ReflectionTestUtils.setField(savedTag, "tagId", 20L);
+        when(tagRepository.save(any(Tag.class))).thenReturn(savedTag);
+
+        tagAssignmentService.assignTags(post, Collections.singletonList("newTag"));
+
+        verify(postTagRepository).save(any(PostTag.class));
+        verify(tagRepository).incrementPostCount(20L);
+    }
+
+    @Test
+    @DisplayName("assignTags recovers from duplicate tag creation")
+    void assignTags_recoversFromDuplicateTagCreation() {
+        Tag recoveredTag = new Tag("newTag");
+        ReflectionTestUtils.setField(recoveredTag, "tagId", 30L);
+
+        when(postTagRepository.findByPost(post)).thenReturn(Collections.emptyList());
+        when(tagRepository.findByTagName("newTag"))
+                .thenReturn(Optional.empty(), Optional.of(recoveredTag));
+        when(tagRepository.save(any(Tag.class)))
+                .thenThrow(new DataIntegrityViolationException("duplicate"));
+
+        tagAssignmentService.assignTags(post, Collections.singletonList("newTag"));
+
+        verify(postTagRepository).save(any(PostTag.class));
+        verify(tagRepository).incrementPostCount(30L);
+    }
+
+    @Test
+    @DisplayName("assignTags removes old tag")
+    void assignTags_removeOldTag() {
+        when(postTagRepository.findByPost(post)).thenReturn(Collections.singletonList(existingPostTag));
+
+        tagAssignmentService.assignTags(post, Collections.emptyList());
+
+        verify(postTagRepository).delete(existingPostTag);
+        verify(tagRepository).decrementPostCount(10L);
+    }
+
+    @Test
+    @DisplayName("assignTags keeps unchanged tags")
+    void assignTags_noChange() {
+        when(postTagRepository.findByPost(post)).thenReturn(Collections.singletonList(existingPostTag));
+
+        tagAssignmentService.assignTags(post, Collections.singletonList("existingTag"));
+
+        verify(postTagRepository, never()).save(any());
+        verify(postTagRepository, never()).delete(any());
+    }
+
+    @Test
+    @DisplayName("assignTags treats null tags as empty")
+    void assignTags_nullTagsTreatedAsEmpty() {
+        when(postTagRepository.findByPost(post)).thenReturn(Collections.singletonList(existingPostTag));
+
+        tagAssignmentService.assignTags(post, null);
+
+        verify(postTagRepository).delete(existingPostTag);
+        verify(postTagRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("assignTags adds and removes tags together")
+    void assignTags_addAndRemove() {
+        Tag tagToRemove = new Tag("tagToRemove");
+        ReflectionTestUtils.setField(tagToRemove, "tagId", 11L);
+        PostTag postTagToRemove = PostTag.builder().post(post).tag(tagToRemove).build();
+        when(postTagRepository.findByPost(post)).thenReturn(Arrays.asList(existingPostTag, postTagToRemove));
+        when(tagRepository.findByTagName("newTag")).thenReturn(Optional.empty());
+        Tag savedTag = new Tag("newTag");
+        ReflectionTestUtils.setField(savedTag, "tagId", 12L);
+        when(tagRepository.save(any(Tag.class))).thenReturn(savedTag);
+
+        tagAssignmentService.assignTags(post, Arrays.asList("existingTag", "newTag"));
+
+        verify(postTagRepository).save(any(PostTag.class));
+        verify(postTagRepository).delete(postTagToRemove);
+        verify(tagRepository).incrementPostCount(12L);
+        verify(tagRepository).decrementPostCount(11L);
+    }
+
+    @Test
+    @DisplayName("assignTags normalizes whitespace blanks and duplicates")
+    void assignTags_normalizesInput() {
+        Tag javaTag = new Tag("Java");
+        ReflectionTestUtils.setField(javaTag, "tagId", 31L);
+        when(postTagRepository.findByPost(post)).thenReturn(Collections.emptyList());
+        when(tagRepository.findByTagName("Java"))
+                .thenReturn(Optional.of(javaTag));
+        Tag springTag = new Tag("Spring");
+        ReflectionTestUtils.setField(springTag, "tagId", 22L);
+        when(tagRepository.findByTagName("Spring")).thenReturn(Optional.of(springTag));
+
+        tagAssignmentService.assignTags(post, List.of("  Java  ", "", "Spring", "Java", "   "));
+
+        verify(postTagRepository, times(2)).save(any(PostTag.class));
+        verify(tagRepository).incrementPostCount(31L);
+        verify(tagRepository).incrementPostCount(22L);
+    }
+
+    @Test
+    @DisplayName("clearTags removes every tag assignment")
+    void clearTags_removesAllTags() {
+        Tag secondTag = new Tag("secondTag");
+        ReflectionTestUtils.setField(secondTag, "tagId", 21L);
+        PostTag secondPostTag = PostTag.builder().post(post).tag(secondTag).build();
+        when(postTagRepository.findByPost(post)).thenReturn(List.of(existingPostTag, secondPostTag));
+
+        tagAssignmentService.clearTags(post);
+
+        verify(postTagRepository).delete(existingPostTag);
+        verify(postTagRepository).delete(secondPostTag);
+        verify(tagRepository).decrementPostCount(10L);
+        verify(tagRepository).decrementPostCount(21L);
+    }
+
+    @Test
+    @DisplayName("getTagNames returns assigned tag names")
+    void getTagNames_returnsAssignedTagNames() {
+        Tag secondTag = new Tag("secondTag");
+        PostTag secondPostTag = PostTag.builder().post(post).tag(secondTag).build();
+        when(postTagRepository.findByPost(post)).thenReturn(List.of(existingPostTag, secondPostTag));
+
+        List<String> tagNames = tagAssignmentService.getTagNames(post);
+
+        assertThat(tagNames).containsExactly("existingTag", "secondTag");
+    }
+}
