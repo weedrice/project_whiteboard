@@ -19,6 +19,7 @@ import jakarta.persistence.*;
         },
         indexes = {
                 @Index(name = "idx_view_histories_user", columnList = "user_id, created_at DESC"),
+                @Index(name = "idx_view_histories_user_modified", columnList = "user_id, modified_at DESC"),
                 @Index(name = "idx_view_histories_post", columnList = "post_id")
         })
 public class ViewHistory extends BaseTimeEntity {

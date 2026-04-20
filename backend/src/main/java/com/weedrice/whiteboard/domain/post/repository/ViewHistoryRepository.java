@@ -3,11 +3,118 @@ package com.weedrice.whiteboard.domain.post.repository;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.entity.ViewHistory;
 import com.weedrice.whiteboard.domain.user.entity.User;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.Optional;
 
 public interface ViewHistoryRepository extends JpaRepository<ViewHistory, Long> {
     Optional<ViewHistory> findByUserAndPost(User user, Post post);
-    org.springframework.data.domain.Page<ViewHistory> findByUserOrderByModifiedAtDesc(User user, org.springframework.data.domain.Pageable pageable);
+
+    @Query(value = """
+            SELECT vh.post_id
+            FROM view_histories vh
+            JOIN posts p ON p.post_id = vh.post_id
+            JOIN boards b ON b.board_id = p.board_id
+            WHERE vh.user_id = :userId
+              AND p.is_deleted = 'N'
+              AND (:blockedUserIdsEmpty = true OR p.user_id NOT IN (:blockedUserIds))
+              AND (
+                    b.is_active = 'Y'
+                    OR :isSuperAdmin = true
+                    OR b.creator_id = :userId
+                    OR p.user_id = :userId
+                    OR EXISTS (
+                        SELECT 1
+                        FROM admins a
+                        WHERE a.board_id = b.board_id
+                          AND a.user_id = :userId
+                          AND a.is_active = 'Y'
+                    )
+                  )
+              AND (
+                    b.is_public = 'Y'
+                    OR :isSuperAdmin = true
+                    OR b.creator_id = :userId
+                    OR EXISTS (
+                        SELECT 1
+                        FROM admins a
+                        WHERE a.board_id = b.board_id
+                          AND a.user_id = :userId
+                          AND a.is_active = 'Y'
+                    )
+                    OR (b.board_url = 'inquiry' AND p.user_id = :userId)
+                  )
+              AND (
+                    p.is_secret = 'N'
+                    OR :isSuperAdmin = true
+                    OR b.creator_id = :userId
+                    OR p.user_id = :userId
+                    OR EXISTS (
+                        SELECT 1
+                        FROM admins a
+                        WHERE a.board_id = b.board_id
+                          AND a.user_id = :userId
+                          AND a.is_active = 'Y'
+                    )
+                  )
+            ORDER BY vh.modified_at DESC
+            """, countQuery = """
+            SELECT COUNT(*)
+            FROM view_histories vh
+            JOIN posts p ON p.post_id = vh.post_id
+            JOIN boards b ON b.board_id = p.board_id
+            WHERE vh.user_id = :userId
+              AND p.is_deleted = 'N'
+              AND (:blockedUserIdsEmpty = true OR p.user_id NOT IN (:blockedUserIds))
+              AND (
+                    b.is_active = 'Y'
+                    OR :isSuperAdmin = true
+                    OR b.creator_id = :userId
+                    OR p.user_id = :userId
+                    OR EXISTS (
+                        SELECT 1
+                        FROM admins a
+                        WHERE a.board_id = b.board_id
+                          AND a.user_id = :userId
+                          AND a.is_active = 'Y'
+                    )
+                  )
+              AND (
+                    b.is_public = 'Y'
+                    OR :isSuperAdmin = true
+                    OR b.creator_id = :userId
+                    OR EXISTS (
+                        SELECT 1
+                        FROM admins a
+                        WHERE a.board_id = b.board_id
+                          AND a.user_id = :userId
+                          AND a.is_active = 'Y'
+                    )
+                    OR (b.board_url = 'inquiry' AND p.user_id = :userId)
+                  )
+              AND (
+                    p.is_secret = 'N'
+                    OR :isSuperAdmin = true
+                    OR b.creator_id = :userId
+                    OR p.user_id = :userId
+                    OR EXISTS (
+                        SELECT 1
+                        FROM admins a
+                        WHERE a.board_id = b.board_id
+                          AND a.user_id = :userId
+                          AND a.is_active = 'Y'
+                    )
+                  )
+            """,
+            nativeQuery = true)
+    Page<Long> findVisiblePostIdsByUserIdOrderByModifiedAtDesc(@Param("userId") Long userId,
+                                                               @Param("isSuperAdmin") boolean isSuperAdmin,
+                                                               @Param("blockedUserIdsEmpty") boolean blockedUserIdsEmpty,
+                                                               @Param("blockedUserIds") Collection<Long> blockedUserIds,
+                                                               Pageable pageable);
 }

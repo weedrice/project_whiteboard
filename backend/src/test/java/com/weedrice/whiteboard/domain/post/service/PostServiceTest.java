@@ -826,6 +826,44 @@ class PostServiceTest {
     }
 
     @Test
+    @DisplayName("초안 저장은 읽기 가능 보드라도 쓰기 권한이 없으면 차단한다")
+    void saveDraftPost_requiresWritableBoard() {
+        PostDraftRequest request = new PostDraftRequest(null, "free", "Draft Title", "Draft Content", null);
+        User otherCreator = User.builder().loginId("other").displayName("Other").build();
+        ReflectionTestUtils.setField(otherCreator, "userId", 2L);
+        ReflectionTestUtils.setField(board, "creator", otherCreator);
+        ReflectionTestUtils.setField(board, "isPublic", false);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
+
+        assertThatThrownBy(() -> postService.saveDraftPost(1L, request))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.BOARD_NOT_FOUND);
+
+        verify(draftPostRepository, never()).save(any(DraftPost.class));
+    }
+
+    @Test
+    @DisplayName("기존 초안도 보드가 더 이상 쓰기 불가하면 수정 저장을 차단한다")
+    void saveDraftPost_updateRequiresWritableBoard() {
+        PostDraftRequest request = new PostDraftRequest(10L, "free", "New Title", "New Content", null);
+        User otherCreator = User.builder().loginId("other").displayName("Other").build();
+        ReflectionTestUtils.setField(otherCreator, "userId", 2L);
+        ReflectionTestUtils.setField(board, "creator", otherCreator);
+        ReflectionTestUtils.setField(board, "isPublic", false);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
+
+        assertThatThrownBy(() -> postService.saveDraftPost(1L, request))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.BOARD_NOT_FOUND);
+
+        verify(draftPostRepository, never()).save(any(DraftPost.class));
+    }
+
+    @Test
     @DisplayName("초안 삭제")
     void deleteDraftPost_success() {
         DraftPost existingDraft = DraftPost.builder().user(user).build();
@@ -892,12 +930,35 @@ class PostServiceTest {
     @DisplayName("최근 본 게시글 조회")
     void getRecentlyViewedPosts() {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(viewHistoryRepository.findByUserOrderByModifiedAtDesc(eq(user), any(Pageable.class)))
-                .thenReturn(Page.empty());
+        when(viewHistoryRepository.findVisiblePostIdsByUserIdOrderByModifiedAtDesc(
+                eq(1L), eq(false), eq(true), eq(List.of(-1L)), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(1L), Pageable.unpaged(), 1));
+        when(postRepository.findByPostIdInAndIsDeletedFalse(List.of(1L))).thenReturn(List.of(post));
 
-        postService.getRecentlyViewedPosts(1L, Pageable.unpaged());
+        Page<PostSummary> result = postService.getRecentlyViewedPosts(1L, Pageable.unpaged());
 
-        verify(viewHistoryRepository).findByUserOrderByModifiedAtDesc(eq(user), any(Pageable.class));
+        assertThat(result.getContent()).hasSize(1);
+        assertThat(result.getContent().get(0).getPostId()).isEqualTo(1L);
+        assertThat(result.getTotalElements()).isEqualTo(1);
+        verify(viewHistoryRepository).findVisiblePostIdsByUserIdOrderByModifiedAtDesc(
+                eq(1L), eq(false), eq(true), eq(List.of(-1L)), any(Pageable.class));
+    }
+
+    @Test
+    @DisplayName("최근 본 게시글 조회는 차단 사용자를 제외한 가시 항목만 조회한다")
+    void getRecentlyViewedPosts_excludesBlockedAuthors() {
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userBlockService.getBlockedUserIds(1L)).thenReturn(List.of(99L));
+        when(viewHistoryRepository.findVisiblePostIdsByUserIdOrderByModifiedAtDesc(
+                eq(1L), eq(false), eq(false), eq(List.of(99L)), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(1L), Pageable.unpaged(), 1));
+        when(postRepository.findByPostIdInAndIsDeletedFalse(List.of(1L))).thenReturn(List.of(post));
+
+        Page<PostSummary> result = postService.getRecentlyViewedPosts(1L, Pageable.unpaged());
+
+        assertThat(result.getContent()).extracting(PostSummary::getPostId).containsExactly(1L);
+        verify(viewHistoryRepository).findVisiblePostIdsByUserIdOrderByModifiedAtDesc(
+                eq(1L), eq(false), eq(false), eq(List.of(99L)), any(Pageable.class));
     }
 
     // --- Misc ---

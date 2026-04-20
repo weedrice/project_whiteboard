@@ -568,7 +568,8 @@ public class PostService {
         User user = getWritableUser(userId);
         Board board = boardRepository.findByBoardUrl(request.getBoardUrl()) // boardUrl ?ъ슜
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
-        validateBoardReadable(board, userId);
+        boardAccessPolicy.validateWritable(board, user);
+        validateBoardWriteRole(board, user);
         Post originalPost = null;
         if (request.getOriginalPostId() != null) {
             originalPost = postRepository.findById(request.getOriginalPostId())
@@ -637,8 +638,30 @@ public class PostService {
     public Page<PostSummary> getRecentlyViewedPosts(@NonNull Long userId, @NonNull Pageable pageable) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        Page<ViewHistory> historyPage = viewHistoryRepository.findByUserOrderByModifiedAtDesc(user, pageable);
-        return postSummaryAssembler.assembleHistoryPage(historyPage);
+        Set<Long> blockedUserIds = resolveBlockedUserIds(userId);
+        List<Long> blockedUserIdParams = blockedUserIds.isEmpty()
+                ? List.of(-1L)
+                : new ArrayList<>(blockedUserIds);
+        Page<Long> visiblePostIdsPage = viewHistoryRepository.findVisiblePostIdsByUserIdOrderByModifiedAtDesc(
+                userId,
+                Boolean.TRUE.equals(user.getIsSuperAdmin()),
+                blockedUserIds.isEmpty(),
+                blockedUserIdParams,
+                pageable);
+
+        if (visiblePostIdsPage.isEmpty()) {
+            return Page.empty(pageable);
+        }
+
+        Map<Long, Post> postsById = postRepository.findByPostIdInAndIsDeletedFalse(visiblePostIdsPage.getContent()).stream()
+                .collect(Collectors.toMap(Post::getPostId, post -> post));
+        List<Post> orderedPosts = visiblePostIdsPage.getContent().stream()
+                .map(postsById::get)
+                .filter(Objects::nonNull)
+                .toList();
+        List<PostSummary> orderedSummaries = postSummaryAssembler.assembleLatestPosts(orderedPosts, userId);
+
+        return new PageImpl<>(orderedSummaries, pageable, visiblePostIdsPage.getTotalElements());
     }
 
     private User getWritableUser(Long userId) {
