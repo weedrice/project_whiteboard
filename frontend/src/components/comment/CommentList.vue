@@ -1,15 +1,15 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { computed, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
+import type { Comment } from '@/api/comment'
 import { useComment } from '@/composables/useComment'
 import { useAuthStore } from '@/stores/auth'
+import { useToastStore } from '@/stores/toast'
+import { useConfirm } from '@/composables/useConfirm'
+import logger from '@/utils/logger'
+import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import CommentForm from './CommentForm.vue'
 import CommentItem from './CommentItem.vue'
-import { useI18n } from 'vue-i18n'
-import logger from '@/utils/logger'
-import type { Comment } from '@/api/comment'
-import { useToastStore } from '@/stores/toast'
-import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
-import { useConfirm } from '@/composables/useConfirm'
 
 const toastStore = useToastStore()
 const { confirm } = useConfirm()
@@ -21,54 +21,36 @@ const props = defineProps<{
 
 const { t } = useI18n()
 const authStore = useAuthStore()
-
 const { useComments, useDeleteComment } = useComment()
 
-// We might need to pass params for pagination if needed, currently just fetching all or default page
 const params = ref({ page: 0, size: 50 })
 const postId = computed(() => props.postId)
-
-const { data: commentsData, isLoading, refetch } = useComments(postId, params)
+const { data: commentsData, isLoading } = useComments(postId, params)
 const comments = computed<Comment[]>(() => commentsData.value?.content || [])
 
 const { mutate: deleteComment } = useDeleteComment()
 
-const replyToId = ref<number | null>(null)
-const editingCommentId = ref<number | null>(null)
-
-function handleReplySuccess() {
-  replyToId.value = null
-  // Query invalidation handled in composable
-}
-
-function handleEditSuccess() {
-  editingCommentId.value = null
-  // Query invalidation handled in composable
-}
-
 async function handleDelete(comment: Comment) {
   const isConfirmed = await confirm(t('common.messages.confirmDelete'))
-  if (!isConfirmed) return
+  if (!isConfirmed) {
+    return
+  }
 
   deleteComment(comment.commentId, {
     onError: (err) => {
       logger.error('Failed to delete comment:', err)
       toastStore.addToast(t('comment.deleteFailed'), 'error')
-    }
+    },
   })
-}
-
-function fetchComments() {
-  refetch()
 }
 </script>
 
 <template>
   <div class="mt-6 sm:mt-8">
-    <h3 class="text-base sm:text-lg font-medium text-gray-900 dark:text-gray-100 mb-4 sm:mb-6">{{ $t('comment.title') }}</h3>
+    <h3 class="mb-4 text-base font-medium text-gray-900 dark:text-gray-100 sm:mb-6 sm:text-lg">
+      {{ $t('comment.title') }}
+    </h3>
 
-
-    <!-- Comment List -->
     <div v-if="isLoading" class="space-y-4 sm:space-y-6">
       <div v-for="i in 3" :key="i" class="flex space-x-3">
         <BaseSkeleton width="2.5rem" height="2.5rem" rounded="rounded-full" />
@@ -87,28 +69,32 @@ function fetchComments() {
       <CommentItem
         v-for="comment in comments"
         :key="comment.commentId"
-        v-memo="[comment.commentId, comment.content, comment.likeCount, comment.createdAt, comment.isDeleted, comment.children]"
+        v-memo="[comment.commentId, comment.content, comment.likeCount, comment.createdAt, comment.isDeleted, comment.replyCount, comment.hasReplies]"
         :comment="comment"
         :postId="postId"
         :boardUrl="boardUrl"
-        @reply-success="handleReplySuccess"
-        @edit-success="handleEditSuccess"
         @delete="handleDelete"
       />
 
-      <div v-if="comments.length === 0" class="text-center text-xs sm:text-sm text-gray-500 dark:text-gray-400 py-3 sm:py-4">
+      <div
+        v-if="comments.length === 0"
+        class="py-3 text-center text-xs text-gray-500 dark:text-gray-400 sm:py-4 sm:text-sm"
+      >
         {{ $t('comment.empty') }}
       </div>
     </div>
 
-    <!-- New Comment Form -->
-    <div v-if="authStore.isAuthenticated" class="mt-6 sm:mt-8 mb-6 sm:mb-8">
-      <CommentForm :postId="postId" @success="fetchComments" />
+    <div v-if="authStore.isAuthenticated" class="mb-6 mt-6 sm:mb-8 sm:mt-8">
+      <CommentForm :postId="postId" />
     </div>
-    <div v-else class="mt-6 sm:mt-8 mb-6 sm:mb-8 text-xs sm:text-sm text-gray-500 dark:text-gray-400">
-      <router-link to="/login"
-        class="text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300">{{
-          $t('common.login') }}</router-link> {{ $t('comment.loginRequired', { login: '' }) }}
+    <div v-else class="mb-6 mt-6 text-xs text-gray-500 dark:text-gray-400 sm:mb-8 sm:mt-8 sm:text-sm">
+      <router-link
+        to="/login"
+        class="text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300"
+      >
+        {{ $t('common.login') }}
+      </router-link>
+      {{ $t('comment.loginRequired', { login: '' }) }}
     </div>
   </div>
 </template>

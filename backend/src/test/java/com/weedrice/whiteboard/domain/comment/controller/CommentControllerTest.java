@@ -116,7 +116,12 @@ class CommentControllerTest {
         // given
         Long postId = 1L;
         PageRequest pageRequest = PageRequest.of(0, 10);
-        CommentResponse commentResponse = CommentResponse.builder().build();
+        CommentResponse commentResponse = CommentResponse.builder()
+                .commentId(1L)
+                .replyCount(2L)
+                .hasReplies(true)
+                .children(List.of())
+                .build();
         Page<CommentResponse> page = new PageImpl<>(List.of(commentResponse), pageRequest, 1);
 
         when(commentService.getComments(eq(postId), isNull(), any())).thenReturn(page);
@@ -127,7 +132,10 @@ class CommentControllerTest {
                         .param("size", "10"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.content").isArray())
-                .andExpect(jsonPath("$.data.totalElements").value(1));
+                .andExpect(jsonPath("$.data.totalElements").value(1))
+                .andExpect(jsonPath("$.data.content[0].replyCount").value(2))
+                .andExpect(jsonPath("$.data.content[0].hasReplies").value(true))
+                .andExpect(jsonPath("$.data.content[0].children").isArray());
     }
 
     @Test
@@ -164,9 +172,21 @@ class CommentControllerTest {
     void getReplies_returnsSuccess() throws Exception {
         // given
         Long commentId = 1L;
-        PageRequest pageRequest = PageRequest.of(0, 10);
-        org.springframework.data.domain.Page<com.weedrice.whiteboard.domain.comment.entity.Comment> emptyPage = new PageImpl<>(List.of());
-        CommentListResponse response = CommentListResponse.from(emptyPage);
+        CommentResponse commentResponse = CommentResponse.builder()
+                .commentId(2L)
+                .replyCount(1L)
+                .hasReplies(true)
+                .children(List.of())
+                .build();
+        CommentListResponse response = CommentListResponse.builder()
+                .content(List.of(commentResponse))
+                .page(0)
+                .size(10)
+                .totalElements(1)
+                .totalPages(1)
+                .hasNext(false)
+                .hasPrevious(false)
+                .build();
         when(commentService.getReplies(eq(commentId), isNull(), any(Pageable.class))).thenReturn(response);
 
         // when & then
@@ -175,7 +195,10 @@ class CommentControllerTest {
                         .param("size", "10")
                         .with(anonymous()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true));
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.content[0].replyCount").value(1))
+                .andExpect(jsonPath("$.data.content[0].hasReplies").value(true))
+                .andExpect(jsonPath("$.data.content[0].children").isArray());
     }
 
     @Test

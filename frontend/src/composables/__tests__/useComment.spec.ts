@@ -1,21 +1,21 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ref } from 'vue'
-import { useComment } from '../useComment'
 import { commentApi } from '@/api/comment'
+import { useComment } from '../useComment'
 
-// Mock dependencies
 vi.mock('@/api/comment', () => ({
     commentApi: {
         getComments: vi.fn(),
+        getReplies: vi.fn(),
         createComment: vi.fn(),
         updateComment: vi.fn(),
-        deleteComment: vi.fn()
-    }
+        deleteComment: vi.fn(),
+    },
 }))
 
-// Mock vue-query
 const mockInvalidateQueries = vi.fn()
 const mockQueryOptions: Array<Record<string, unknown>> = []
+
 vi.mock('@tanstack/vue-query', () => ({
     useQuery: vi.fn((options) => {
         mockQueryOptions.push(options)
@@ -23,28 +23,26 @@ vi.mock('@tanstack/vue-query', () => ({
             data: ref(null),
             isLoading: ref(false),
             error: ref(null),
-            refetch: vi.fn()
+            refetch: vi.fn(),
         }
     }),
-    useMutation: vi.fn((options) => {
-        return {
-            mutate: async (variables: unknown) => {
-                const result = await options.mutationFn(variables)
-                options.onSuccess?.(result, variables)
-                return result
-            },
-            mutateAsync: async (variables: unknown) => {
-                const result = await options.mutationFn(variables)
-                options.onSuccess?.(result, variables)
-                return result
-            },
-            isLoading: ref(false),
-            error: ref(null)
-        }
-    }),
+    useMutation: vi.fn((options) => ({
+        mutate: async (variables: unknown) => {
+            const result = await options.mutationFn(variables)
+            options.onSuccess?.(result, variables)
+            return result
+        },
+        mutateAsync: async (variables: unknown) => {
+            const result = await options.mutationFn(variables)
+            options.onSuccess?.(result, variables)
+            return result
+        },
+        isLoading: ref(false),
+        error: ref(null),
+    })),
     useQueryClient: vi.fn(() => ({
-        invalidateQueries: mockInvalidateQueries
-    }))
+        invalidateQueries: mockInvalidateQueries,
+    })),
 }))
 
 describe('useComment', () => {
@@ -53,127 +51,108 @@ describe('useComment', () => {
         mockQueryOptions.length = 0
     })
 
-    describe('useComments', () => {
-        it('fetches comments with enabled/placeholder query options', async () => {
-            vi.mocked(commentApi.getComments).mockResolvedValueOnce({
+    it('fetches comments with enabled/placeholder query options', async () => {
+        vi.mocked(commentApi.getComments).mockResolvedValueOnce({
+            data: {
                 data: {
-                    data: {
-                        content: [{ commentId: 1, content: 'hello' }],
-                    },
+                    content: [{ commentId: 1, content: 'hello' }],
                 },
-            } as never)
+            },
+        } as never)
 
-            const { useComments } = useComment()
-            const postId = ref(1)
-            const params = ref({ page: 0, size: 10 })
+        const { useComments } = useComment()
+        const postId = ref(1)
+        const params = ref({ page: 0, size: 10 })
 
-            useComments(postId, params)
-            const options = mockQueryOptions[0]
-            const result = await (options.queryFn as () => Promise<unknown>)()
+        useComments(postId, params)
+        const options = mockQueryOptions[0]
+        const result = await (options.queryFn as () => Promise<unknown>)()
 
-            expect(options.queryKey).toEqual(['comments', postId, params])
-            expect((options.enabled as { value: boolean }).value).toBe(true)
-            expect((options.placeholderData as (prev: unknown) => unknown)('keep')).toBe('keep')
-            expect(commentApi.getComments).toHaveBeenCalledWith(1, { page: 0, size: 10 })
-            expect(result).toEqual({ content: [{ commentId: 1, content: 'hello' }] })
-        })
-
-        it('disables comments query when postId is falsy', () => {
-            const { useComments } = useComment()
-            const postId = ref(0)
-            const params = ref({ page: 0, size: 10 })
-
-            useComments(postId, params)
-            const options = mockQueryOptions[0]
-
-            expect((options.enabled as { value: boolean }).value).toBe(false)
-        })
+        expect(options.queryKey).toEqual(['comments', postId, params])
+        expect((options.enabled as { value: boolean }).value).toBe(true)
+        expect((options.placeholderData as (prev: unknown) => unknown)('keep')).toBe('keep')
+        expect(commentApi.getComments).toHaveBeenCalledWith(1, { page: 0, size: 10 })
+        expect(result).toEqual({ content: [{ commentId: 1, content: 'hello' }] })
     })
 
-    describe('useCreateComment', () => {
-        it('calls commentApi.createComment', async () => {
-            const { useCreateComment } = useComment()
-            const mutation = useCreateComment()
+    it('fetches replies with a dedicated query key', async () => {
+        vi.mocked(commentApi.getReplies).mockResolvedValueOnce({
+            data: {
+                data: {
+                    content: [{ commentId: 2, content: 'reply' }],
+                    totalElements: 1,
+                },
+            },
+        } as never)
 
-            const mockResponse = { data: { success: true, data: { commentId: 1 } } }
-            vi.mocked(commentApi.createComment).mockResolvedValue(mockResponse as any)
+        const { useReplies } = useComment()
+        const parentId = ref(10)
+        const params = ref({ page: 0, size: 10 })
+        const enabled = ref(true)
 
-            await mutation.mutateAsync({
-                postId: 1,
-                data: { content: 'Test comment' }
-            })
+        useReplies(parentId, params, enabled)
+        const options = mockQueryOptions[0]
+        const result = await (options.queryFn as () => Promise<unknown>)()
 
-            expect(commentApi.createComment).toHaveBeenCalledWith(1, { content: 'Test comment' })
-        })
-
-        it('invalidates queries on success', async () => {
-            const { useCreateComment } = useComment()
-            const mutation = useCreateComment()
-
-            vi.mocked(commentApi.createComment).mockResolvedValue({ data: { success: true } } as any)
-
-            await mutation.mutateAsync({
-                postId: 123,
-                data: { content: 'New comment' }
-            })
-
-            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['comments'] })
-            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['post'] })
-        })
+        expect(options.queryKey).toEqual(['comments', 'replies', parentId, params])
+        expect((options.enabled as { value: boolean }).value).toBe(true)
+        expect(commentApi.getReplies).toHaveBeenCalledWith(10, { page: 0, size: 10 })
+        expect(result).toEqual({ content: [{ commentId: 2, content: 'reply' }], totalElements: 1 })
     })
 
-    describe('useUpdateComment', () => {
-        it('calls commentApi.updateComment', async () => {
-            const { useUpdateComment } = useComment()
-            const mutation = useUpdateComment()
+    it('disables replies query when the toggle is off', () => {
+        const { useReplies } = useComment()
+        const parentId = ref(10)
+        const params = ref({ page: 0, size: 10 })
+        const enabled = ref(false)
 
-            vi.mocked(commentApi.updateComment).mockResolvedValue({ data: { success: true } } as any)
+        useReplies(parentId, params, enabled)
+        const options = mockQueryOptions[0]
 
-            await mutation.mutateAsync({
-                commentId: 5,
-                data: { content: 'Updated content' }
-            })
-
-            expect(commentApi.updateComment).toHaveBeenCalledWith(5, { content: 'Updated content' })
-        })
-
-        it('invalidates comments queries on success', async () => {
-            const { useUpdateComment } = useComment()
-            const mutation = useUpdateComment()
-
-            vi.mocked(commentApi.updateComment).mockResolvedValue({ data: { success: true } } as any)
-
-            await mutation.mutateAsync({
-                commentId: 5,
-                data: { content: 'Updated' }
-            })
-
-            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['comments'] })
-        })
+        expect((options.enabled as { value: boolean }).value).toBe(false)
     })
 
-    describe('useDeleteComment', () => {
-        it('calls commentApi.deleteComment', async () => {
-            const { useDeleteComment } = useComment()
-            const mutation = useDeleteComment()
+    it('calls commentApi.createComment and invalidates related queries', async () => {
+        const { useCreateComment } = useComment()
+        const mutation = useCreateComment()
 
-            vi.mocked(commentApi.deleteComment).mockResolvedValue({ data: { success: true } } as any)
+        vi.mocked(commentApi.createComment).mockResolvedValue({ data: { success: true } } as never)
 
-            await mutation.mutateAsync(10)
-
-            expect(commentApi.deleteComment).toHaveBeenCalledWith(10)
+        await mutation.mutateAsync({
+            postId: 123,
+            data: { content: 'New comment' },
         })
 
-        it('invalidates queries on success', async () => {
-            const { useDeleteComment } = useComment()
-            const mutation = useDeleteComment()
+        expect(commentApi.createComment).toHaveBeenCalledWith(123, { content: 'New comment' })
+        expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['comments'] })
+        expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['post'] })
+    })
 
-            vi.mocked(commentApi.deleteComment).mockResolvedValue({ data: { success: true } } as any)
+    it('calls commentApi.updateComment and invalidates comments queries', async () => {
+        const { useUpdateComment } = useComment()
+        const mutation = useUpdateComment()
 
-            await mutation.mutateAsync(10)
+        vi.mocked(commentApi.updateComment).mockResolvedValue({ data: { success: true } } as never)
 
-            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['comments'] })
-            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['post'] })
+        await mutation.mutateAsync({
+            commentId: 5,
+            data: { content: 'Updated' },
         })
+
+        expect(commentApi.updateComment).toHaveBeenCalledWith(5, { content: 'Updated' })
+        expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['comments'] })
+    })
+
+    it('calls commentApi.deleteComment and invalidates related queries', async () => {
+        const { useDeleteComment } = useComment()
+        const mutation = useDeleteComment()
+
+        vi.mocked(commentApi.deleteComment).mockResolvedValue({ data: { success: true } } as never)
+
+        await mutation.mutateAsync(10)
+
+        expect(commentApi.deleteComment).toHaveBeenCalledWith(10)
+        expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['comments'] })
+        expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['post'] })
     })
 })

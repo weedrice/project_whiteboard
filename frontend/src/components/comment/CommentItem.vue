@@ -1,16 +1,17 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { User as UserIcon, CornerDownRight } from 'lucide-vue-next'
-import UserMenu from '@/components/common/widgets/UserMenu.vue'
-import CommentForm from './CommentForm.vue'
-import { useAuthStore } from '@/stores/auth'
 import { useI18n } from 'vue-i18n'
 import type { Comment } from '@/api/comment'
+import { useComment } from '@/composables/useComment'
+import { useAuthStore } from '@/stores/auth'
 import { formatDate, formatDateShort } from '@/utils/date'
 import { isEmoticonOnlyContent, renderCommentContentHtml } from '@/utils/commentContent'
+import CommentForm from './CommentForm.vue'
+import UserMenu from '@/components/common/widgets/UserMenu.vue'
 
 defineOptions({
-  name: 'CommentItem'
+  name: 'CommentItem',
 })
 
 const props = withDefaults(defineProps<{
@@ -19,7 +20,7 @@ const props = withDefaults(defineProps<{
   boardUrl: string
   depth?: number
 }>(), {
-  depth: 0
+  depth: 0,
 })
 
 const emit = defineEmits<{
@@ -30,12 +31,39 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 const authStore = useAuthStore()
+const { useReplies } = useComment()
 
 const isReplying = ref(false)
 const isEditing = ref(false)
+const isRepliesOpen = ref(false)
+const optimisticHasReplies = ref(false)
+const replyParams = ref({ page: 0, size: 50 })
+const loadedReplies = ref<Comment[]>([])
+const replyHasNext = ref(false)
+const commentId = computed(() => props.comment.commentId)
+const repliesEnabled = computed(() => isRepliesOpen.value && canLoadReplies.value)
+
+const { data: repliesData, isLoading: isRepliesLoading, error: repliesError } =
+  useReplies(commentId, replyParams, repliesEnabled)
+
+const replies = computed(() => loadedReplies.value)
+const renderedContent = computed(() => renderCommentContentHtml(props.comment.content))
+const isEmoticonOnly = computed(() => isEmoticonOnlyContent(props.comment.content))
+const isAgentAuthor = computed(() => props.comment.author?.authorType === 'AGENT')
+const canLoadReplies = computed(() => Boolean(props.comment.hasReplies || optimisticHasReplies.value))
+const replyToggleLabel = computed(() => {
+  if (isRepliesOpen.value) {
+    return t('comment.hideReplies')
+  }
+
+  return t('comment.viewReplies', { count: props.comment.replyCount })
+})
 
 function handleReplySuccess() {
+  optimisticHasReplies.value = true
   isReplying.value = false
+  isRepliesOpen.value = true
+  replyParams.value = { ...replyParams.value, page: 0 }
   emit('reply-success')
 }
 
@@ -48,94 +76,211 @@ function handleDelete() {
   emit('delete', props.comment)
 }
 
-const renderedContent = computed(() => renderCommentContentHtml(props.comment.content))
-const isEmoticonOnly = computed(() => isEmoticonOnlyContent(props.comment.content))
-const isAgentAuthor = computed(() => props.comment.author?.authorType === 'AGENT')
+function toggleReplies() {
+  isRepliesOpen.value = !isRepliesOpen.value
+}
+
+function loadMoreReplies() {
+  if (!replyHasNext.value || isRepliesLoading.value) {
+    return
+  }
+
+  replyParams.value = {
+    ...replyParams.value,
+    page: replyParams.value.page + 1,
+  }
+}
+
+watch(repliesData, (pageData) => {
+  if (!pageData) {
+    return
+  }
+
+  if (replyParams.value.page === 0) {
+    loadedReplies.value = pageData.content
+  } else {
+    const existingIds = new Set(loadedReplies.value.map((reply) => reply.commentId))
+    loadedReplies.value = [
+      ...loadedReplies.value,
+      ...pageData.content.filter((reply) => !existingIds.has(reply.commentId)),
+    ]
+  }
+
+  replyHasNext.value = pageData.hasNext
+
+  if (!props.comment.hasReplies && !optimisticHasReplies.value && loadedReplies.value.length === 0) {
+    optimisticHasReplies.value = false
+    isRepliesOpen.value = false
+  }
+}, { immediate: true })
+
+watch(() => props.comment.hasReplies, (hasReplies) => {
+  if (!hasReplies && !optimisticHasReplies.value) {
+    optimisticHasReplies.value = false
+    loadedReplies.value = []
+    replyHasNext.value = false
+    isRepliesOpen.value = false
+  }
+})
 </script>
 
 <template>
   <div :id="`comment-${comment.commentId}`" class="space-y-3 sm:space-y-4">
     <div class="flex space-x-2 sm:space-x-3">
-      <!-- Avatar -->
-      <div class="flex-shrink-0 relative">
-        <CornerDownRight v-if="depth > 0" class="absolute -left-5 sm:-left-6 top-1.5 sm:top-2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-gray-300 dark:text-gray-600" />
+      <div class="relative flex-shrink-0">
+        <CornerDownRight
+          v-if="depth > 0"
+          class="absolute -left-5 top-1.5 h-3.5 w-3.5 text-gray-300 sm:-left-6 sm:top-2 sm:h-4 sm:w-4 dark:text-gray-600"
+        />
 
-        <div v-if="!comment.isDeleted && comment.author?.profileImageUrl"
-          class="h-8 w-8 sm:h-10 sm:w-10 rounded-full overflow-hidden">
-          <img :src="comment.author.profileImageUrl" :alt="comment.author.displayName"
-            class="h-full w-full object-cover" />
+        <div
+          v-if="!comment.isDeleted && comment.author?.profileImageUrl"
+          class="h-8 w-8 overflow-hidden rounded-full sm:h-10 sm:w-10"
+        >
+          <img
+            :src="comment.author.profileImageUrl"
+            :alt="comment.author.displayName"
+            class="h-full w-full object-cover"
+          />
         </div>
-        <div v-else class="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-gray-200 flex items-center justify-center dark:bg-gray-700">
-          <UserIcon class="h-5 w-5 sm:h-6 sm:w-6 text-gray-500 dark:text-gray-400" />
+        <div
+          v-else
+          class="flex h-8 w-8 items-center justify-center rounded-full bg-gray-200 dark:bg-gray-700 sm:h-10 sm:w-10"
+        >
+          <UserIcon class="h-5 w-5 text-gray-500 dark:text-gray-400 sm:h-6 sm:w-6" />
         </div>
       </div>
 
-      <!-- Content -->
-      <div class="flex-1 space-y-1 min-w-0">
+      <div class="min-w-0 flex-1 space-y-1">
         <div class="flex items-center justify-between gap-2 text-xs sm:text-sm">
           <div class="flex min-w-0 items-center gap-1">
-            <UserMenu v-if="!comment.isDeleted" :user-id="comment.author.userId"
-              :display-name="comment.author.displayName" size="inherit" />
+            <UserMenu
+              v-if="!comment.isDeleted && comment.author"
+              :user-id="comment.author.userId"
+              :display-name="comment.author.displayName"
+              size="inherit"
+            />
             <span
               v-if="!comment.isDeleted && isAgentAuthor"
               class="inline-flex items-center rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-semibold text-sky-700 dark:bg-sky-900/40 dark:text-sky-300"
             >
-              에이전트
+              {{ $t('comment.agentBadge') }}
             </span>
-            <span v-else-if="comment.isDeleted" class="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">{{ $t('common.messages.unknown')
-            }}</span>
+            <span
+              v-else-if="comment.isDeleted"
+              class="text-xs font-medium text-gray-500 dark:text-gray-400 sm:text-sm"
+            >
+              {{ $t('common.messages.unknown') }}
+            </span>
           </div>
-          <p class="text-[11px] sm:text-sm text-gray-500 dark:text-gray-400 flex-shrink-0">
+          <p class="flex-shrink-0 text-[11px] text-gray-500 dark:text-gray-400 sm:text-sm">
             <span class="sm:hidden">{{ formatDateShort(comment.createdAt) }}</span>
             <span class="hidden sm:inline">{{ formatDate(comment.createdAt) }}</span>
           </p>
         </div>
 
-        <!-- Edit Form -->
         <div v-if="isEditing" class="mt-2">
-          <CommentForm :postId="postId" :commentId="comment.commentId" :initialContent="comment.content"
-            @success="handleEditSuccess" @cancel="isEditing = false" />
+          <CommentForm
+            :postId="postId"
+            :commentId="comment.commentId"
+            :initialContent="comment.content"
+            @success="handleEditSuccess"
+            @cancel="isEditing = false"
+          />
         </div>
 
-        <!-- Comment Text -->
-        <p v-else-if="comment.isDeleted" class="text-xs sm:text-sm text-gray-400 italic">
+        <p v-else-if="comment.isDeleted" class="text-xs italic text-gray-400 sm:text-sm">
           {{ $t('comment.deleted') }}
         </p>
-        <p v-else-if="isEmoticonOnly" v-html="renderedContent" class="text-xs sm:text-sm"></p>
-        <p v-else v-html="renderedContent" class="text-xs sm:text-sm text-gray-700 dark:text-gray-300"></p>
+        <p v-else-if="isEmoticonOnly" class="text-xs sm:text-sm" v-html="renderedContent"></p>
+        <p v-else class="text-xs text-gray-700 dark:text-gray-300 sm:text-sm" v-html="renderedContent"></p>
 
-        <!-- Actions -->
-        <div v-if="!comment.isDeleted" class="mt-2 flex items-center gap-1 sm:space-x-2">
-          <button v-if="authStore.isAuthenticated" @click="isReplying = !isReplying"
-            class="px-2 py-1.5 text-xs text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200 font-medium rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+        <div class="mt-2 flex flex-wrap items-center gap-1 sm:gap-2">
+          <button
+            v-if="canLoadReplies"
+            type="button"
+            class="rounded-md px-2 py-1.5 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200"
+            @click="toggleReplies"
+          >
+            {{ replyToggleLabel }}
+          </button>
+
+          <button
+            v-if="authStore.isAuthenticated && !comment.isDeleted"
+            type="button"
+            class="rounded-md px-2 py-1.5 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200"
+            @click="isReplying = !isReplying"
+          >
             {{ $t('comment.reply') }}
           </button>
 
-          <template v-if="authStore.user?.userId === comment.author.userId">
-            <button v-if="!isEmoticonOnly" @click="isEditing = !isEditing"
-              class="px-2 py-1.5 text-xs text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200 font-medium rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+          <template v-if="!comment.isDeleted && authStore.user?.userId === comment.author?.userId">
+            <button
+              v-if="!isEmoticonOnly"
+              type="button"
+              class="rounded-md px-2 py-1.5 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200"
+              @click="isEditing = !isEditing"
+            >
               {{ $t('common.edit') }}
             </button>
-            <button @click="handleDelete"
-              class="px-2 py-1.5 text-xs text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 font-medium rounded-md hover:bg-gray-100 dark:hover:bg-red-900/20 transition-colors">
+            <button
+              type="button"
+              class="rounded-md px-2 py-1.5 text-xs font-medium text-red-500 transition-colors hover:bg-gray-100 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-900/20 dark:hover:text-red-300"
+              @click="handleDelete"
+            >
               {{ $t('common.delete') }}
             </button>
           </template>
         </div>
 
-        <!-- Reply Form -->
-        <div v-if="isReplying" class="mt-3 sm:mt-4 pl-2 sm:pl-4 border-l-2 border-gray-200 dark:border-gray-700">
-          <CommentForm :postId="postId" :parentId="comment.commentId" @success="handleReplySuccess"
-            @cancel="isReplying = false" />
+        <div
+          v-if="isReplying"
+          class="mt-3 border-l-2 border-gray-200 pl-2 dark:border-gray-700 sm:mt-4 sm:pl-4"
+        >
+          <CommentForm
+            :postId="postId"
+            :parentId="comment.commentId"
+            @success="handleReplySuccess"
+            @cancel="isReplying = false"
+          />
+        </div>
+
+        <div
+          v-if="isRepliesOpen"
+          class="mt-3 border-l-2 border-gray-100 pl-3 dark:border-gray-800 sm:mt-4 sm:pl-4"
+        >
+          <p v-if="isRepliesLoading" class="text-xs text-gray-500 dark:text-gray-400">
+            {{ $t('common.loading') }}
+          </p>
+          <p v-else-if="repliesError" class="text-xs text-red-500 dark:text-red-300">
+            {{ $t('comment.loadRepliesFailed') }}
+          </p>
+          <div v-else-if="replies.length > 0" class="space-y-3 sm:space-y-4">
+            <CommentItem
+              v-for="child in replies"
+              :key="child.commentId"
+              :comment="child"
+              :postId="postId"
+              :boardUrl="boardUrl"
+              :depth="depth + 1"
+              @reply-success="$emit('reply-success')"
+              @edit-success="$emit('edit-success')"
+              @delete="(childComment) => $emit('delete', childComment)"
+            />
+            <button
+              v-if="replyHasNext"
+              type="button"
+              class="rounded-md px-2 py-1.5 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200"
+              @click="loadMoreReplies"
+            >
+              {{ $t('common.loadMore') }}
+            </button>
+          </div>
+          <p v-else class="text-xs text-gray-500 dark:text-gray-400">
+            {{ $t('common.noData') }}
+          </p>
         </div>
       </div>
-    </div>
-
-    <!-- Recursive Children -->
-    <div v-if="comment.children && comment.children.length > 0" class="pl-6 sm:pl-12 space-y-3 sm:space-y-4">
-      <CommentItem v-for="child in comment.children" :key="child.commentId" :comment="child" :postId="postId"
-        :boardUrl="boardUrl" :depth="depth + 1" @reply-success="$emit('reply-success')"
-        @edit-success="$emit('edit-success')" @delete="(c) => $emit('delete', c)" />
     </div>
   </div>
 </template>

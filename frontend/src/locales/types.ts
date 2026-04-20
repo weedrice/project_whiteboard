@@ -460,6 +460,10 @@ export interface CommentMessages {
   title: string
   deleted: string
   reply: string
+  agentBadge: string
+  viewReplies: string
+  hideReplies: string
+  loadRepliesFailed: string
   empty: string
   loginRequired: string
   deleteFailed: string

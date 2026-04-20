@@ -19,14 +19,105 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                 Long getAuthorUserId();
         }
 
-        @org.springframework.data.jpa.repository.Query(value = "SELECT DISTINCT c FROM Comment c JOIN FETCH c.user LEFT JOIN FETCH c.agent JOIN FETCH c.post p JOIN FETCH p.board WHERE c.post.postId = :postId AND c.parent IS NULL AND (c.isDeleted = false OR (c.isDeleted = true AND EXISTS (SELECT r FROM Comment r WHERE r.parent = c AND r.isDeleted = false))) ORDER BY c.createdAt ASC", countQuery = "SELECT COUNT(DISTINCT c) FROM Comment c WHERE c.post.postId = :postId AND c.parent IS NULL AND (c.isDeleted = false OR (c.isDeleted = true AND EXISTS (SELECT r FROM Comment r WHERE r.parent = c AND r.isDeleted = false)))")
+        interface ReplyCountProjection {
+                Long getParentId();
+
+                long getReplyCount();
+        }
+
+        @org.springframework.data.jpa.repository.Query(value = """
+                        SELECT DISTINCT c
+                        FROM Comment c
+                        JOIN FETCH c.user
+                        LEFT JOIN FETCH c.agent
+                        JOIN FETCH c.post p
+                        JOIN FETCH p.board
+                        WHERE c.post.postId = :postId
+                          AND c.parent IS NULL
+                          AND (
+                                c.isDeleted = false
+                                OR EXISTS (
+                                        SELECT 1
+                                        FROM CommentClosure cc
+                                        JOIN cc.descendant descendant
+                                        WHERE cc.ancestor = c
+                                          AND cc.depth > 0
+                                          AND descendant.isDeleted = false
+                                )
+                          )
+                        ORDER BY c.createdAt ASC
+                        """, countQuery = """
+                        SELECT COUNT(DISTINCT c)
+                        FROM Comment c
+                        WHERE c.post.postId = :postId
+                          AND c.parent IS NULL
+                          AND (
+                                c.isDeleted = false
+                                OR EXISTS (
+                                        SELECT 1
+                                        FROM CommentClosure cc
+                                        JOIN cc.descendant descendant
+                                        WHERE cc.ancestor = c
+                                          AND cc.depth > 0
+                                          AND descendant.isDeleted = false
+                                )
+                          )
+                        """)
         Page<Comment> findParentsWithChildrenOrNotDeleted(
                         @org.springframework.data.repository.query.Param("postId") Long postId, Pageable pageable);
 
         Page<Comment> findByPost_PostIdAndParentIsNullAndIsDeletedOrderByCreatedAtAsc(Long postId, Boolean isDeleted,
                         Pageable pageable);
 
-        @org.springframework.data.jpa.repository.Query(value = "SELECT c FROM Comment c JOIN FETCH c.user LEFT JOIN FETCH c.agent JOIN FETCH c.post p JOIN FETCH p.board JOIN FETCH c.parent parent WHERE parent.commentId = :parentId AND c.isDeleted = :isDeleted ORDER BY c.createdAt ASC", countQuery = "SELECT COUNT(c) FROM Comment c WHERE c.parent.commentId = :parentId AND c.isDeleted = :isDeleted")
+        @org.springframework.data.jpa.repository.Query(value = """
+                        SELECT c
+                        FROM Comment c
+                        JOIN FETCH c.user
+                        LEFT JOIN FETCH c.agent
+                        JOIN FETCH c.post p
+                        JOIN FETCH p.board
+                        JOIN FETCH c.parent parent
+                        WHERE parent.commentId = :parentId
+                          AND (
+                                (:isDeleted = true AND c.isDeleted = true)
+                                OR (
+                                        :isDeleted = false
+                                        AND (
+                                                c.isDeleted = false
+                                                OR EXISTS (
+                                                        SELECT 1
+                                                        FROM CommentClosure cc
+                                                        JOIN cc.descendant descendant
+                                                        WHERE cc.ancestor = c
+                                                          AND cc.depth > 0
+                                                          AND descendant.isDeleted = false
+                                                )
+                                        )
+                                )
+                          )
+                        ORDER BY c.createdAt ASC
+                        """, countQuery = """
+                        SELECT COUNT(c)
+                        FROM Comment c
+                        WHERE c.parent.commentId = :parentId
+                          AND (
+                                (:isDeleted = true AND c.isDeleted = true)
+                                OR (
+                                        :isDeleted = false
+                                        AND (
+                                                c.isDeleted = false
+                                                OR EXISTS (
+                                                        SELECT 1
+                                                        FROM CommentClosure cc
+                                                        JOIN cc.descendant descendant
+                                                        WHERE cc.ancestor = c
+                                                          AND cc.depth > 0
+                                                          AND descendant.isDeleted = false
+                                                )
+                                        )
+                                )
+                          )
+                        """)
         Page<Comment> findRepliesWithRelations(@org.springframework.data.repository.query.Param("parentId") Long parentId,
                         @org.springframework.data.repository.query.Param("isDeleted") Boolean isDeleted,
                         Pageable pageable);
@@ -61,6 +152,26 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
         @org.springframework.data.jpa.repository.Query("SELECT DISTINCT c FROM Comment c JOIN FETCH c.user LEFT JOIN FETCH c.agent JOIN FETCH c.post p JOIN FETCH p.board JOIN CommentClosure cc ON c.commentId = cc.id.descendantId WHERE cc.id.ancestorId IN :ancestorIds AND cc.depth > 0 AND (c.isDeleted = false OR (c.isDeleted = true AND EXISTS (SELECT r FROM Comment r WHERE r.parent = c AND r.isDeleted = false))) ORDER BY c.createdAt ASC")
         List<Comment> findAllDescendants(
                         @org.springframework.data.repository.query.Param("ancestorIds") List<Long> ancestorIds);
+
+        @Query("""
+                        SELECT c.parent.commentId AS parentId, COUNT(c) AS replyCount
+                        FROM Comment c
+                        WHERE c.parent.commentId IN :parentIds
+                          AND (
+                                c.isDeleted = false
+                                OR EXISTS (
+                                        SELECT 1
+                                        FROM CommentClosure cc
+                                        JOIN cc.descendant descendant
+                                        WHERE cc.ancestor = c
+                                          AND cc.depth > 0
+                                          AND descendant.isDeleted = false
+                                )
+                          )
+                        GROUP BY c.parent.commentId
+                        """)
+        List<ReplyCountProjection> countVisibleRepliesByParentIds(
+                        @org.springframework.data.repository.query.Param("parentIds") Collection<Long> parentIds);
 
         @Query("""
                         SELECT c.post.postId AS postId, c.user.userId AS authorUserId

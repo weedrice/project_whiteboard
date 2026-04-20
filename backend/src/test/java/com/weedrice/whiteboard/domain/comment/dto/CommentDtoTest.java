@@ -57,6 +57,8 @@ class CommentDtoTest {
         assertThat(response.getPostTitle()).isEqualTo("Post Title");
         assertThat(response.getChildren()).isEmpty();
         assertThat(response.getParentId()).isNull();
+        assertThat(response.getReplyCount()).isZero();
+        assertThat(response.isHasReplies()).isFalse();
     }
 
     @Test

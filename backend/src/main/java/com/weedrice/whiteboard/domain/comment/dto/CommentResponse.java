@@ -14,7 +14,7 @@ import java.util.List;
 @Builder(toBuilder = true)
 public class CommentResponse {
     private Long commentId;
-    private Long parentId; // Added parentId
+    private Long parentId;
     private String content;
     private AuthorInfo author;
     private int depth;
@@ -25,6 +25,10 @@ public class CommentResponse {
     private Long postId;
     private String boardUrl;
     private String postTitle;
+    @Builder.Default
+    private long replyCount = 0L;
+    @Builder.Default
+    private boolean hasReplies = false;
     @Setter
     @Builder.Default
     private List<CommentResponse> children = new ArrayList<>();
@@ -53,8 +57,7 @@ public class CommentResponse {
 
         return CommentResponse.builder()
                 .commentId(comment.getCommentId())
-                .parentId(comment.getParent() != null ? comment.getParent().getCommentId() : null) // Initialize
-                                                                                                   // parentId
+                .parentId(comment.getParent() != null ? comment.getParent().getCommentId() : null)
                 .content(comment.getIsDeleted() ? "삭제된 댓글입니다." : comment.getContent())
                 .author(authorInfo)
                 .depth(comment.getDepth())

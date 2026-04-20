@@ -1,11 +1,10 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
-import { commentApi, type CommentParams, type CommentPayload } from '@/api/comment'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { computed, type Ref } from 'vue'
+import { commentApi, type CommentParams, type CommentPayload } from '@/api/comment'
 
 export function useComment() {
     const queryClient = useQueryClient()
 
-    // Fetch comments for a post
     const useComments = (postId: Ref<string | number>, params: Ref<CommentParams>) => {
         return useQuery({
             queryKey: ['comments', postId, params],
@@ -14,39 +13,49 @@ export function useComment() {
                 return data.data
             },
             enabled: computed(() => !!postId.value),
-            placeholderData: (previousData) => previousData
+            placeholderData: (previousData) => previousData,
         })
     }
 
-    // Create a new comment
+    const useReplies = (
+        parentId: Ref<string | number>,
+        params: Ref<CommentParams>,
+        enabled?: Ref<boolean>,
+    ) => {
+        return useQuery({
+            queryKey: ['comments', 'replies', parentId, params],
+            queryFn: async () => {
+                const { data } = await commentApi.getReplies(parentId.value, params.value)
+                return data.data
+            },
+            enabled: computed(() => Boolean(parentId.value) && (enabled ? enabled.value : true)),
+            placeholderData: (previousData) => previousData,
+        })
+    }
+
     const useCreateComment = () => {
         return useMutation({
             mutationFn: async ({ postId, data }: { postId: string | number, data: CommentPayload }) => {
                 return await commentApi.createComment(postId, data)
             },
             onSuccess: () => {
-                // 부분 매칭으로 모든 comments/post 쿼리 invalidate
                 queryClient.invalidateQueries({ queryKey: ['comments'] })
                 queryClient.invalidateQueries({ queryKey: ['post'] })
-            }
+            },
         })
     }
 
-    // Update a comment
     const useUpdateComment = () => {
         return useMutation({
             mutationFn: async ({ commentId, data }: { commentId: string | number, data: CommentPayload }) => {
                 return await commentApi.updateComment(commentId, data)
             },
-            onSuccess: (_, { commentId }) => {
-                // We might need postId to invalidate the list, but for now we can invalidate all comments
-                // Ideally, we should pass postId to onSuccess or return it from backend
+            onSuccess: () => {
                 queryClient.invalidateQueries({ queryKey: ['comments'] })
-            }
+            },
         })
     }
 
-    // Delete a comment
     const useDeleteComment = () => {
         return useMutation({
             mutationFn: async (commentId: string | number) => {
@@ -54,16 +63,16 @@ export function useComment() {
             },
             onSuccess: () => {
                 queryClient.invalidateQueries({ queryKey: ['comments'] })
-                // Also need to invalidate post to update comment count, but we need postId
                 queryClient.invalidateQueries({ queryKey: ['post'] })
-            }
+            },
         })
     }
 
     return {
         useComments,
+        useReplies,
         useCreateComment,
         useUpdateComment,
-        useDeleteComment
+        useDeleteComment,
     }
 }

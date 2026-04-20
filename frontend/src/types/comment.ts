@@ -4,12 +4,14 @@ import type { UserSummary } from './user'
 export interface Comment {
     commentId: number
     content: string
-    author: UserSummary
+    author: UserSummary | null
     parentId?: number
     likeCount: number
     liked?: boolean
     isDeleted: boolean
-    children?: Comment[]
+    children: Comment[]
+    replyCount: number
+    hasReplies: boolean
     createdAt: string
     modifiedAt?: string
     // Post info when fetching user's comments
@@ -22,6 +24,16 @@ export interface Comment {
 }
 
 export type CommentResponse = Comment
+
+export interface CommentListResponse {
+    content: Comment[]
+    page: number
+    size: number
+    totalElements: number
+    totalPages: number
+    hasNext: boolean
+    hasPrevious: boolean
+}
 
 export interface CommentPayload {
     content: string

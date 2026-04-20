@@ -319,7 +319,6 @@ class CommentServiceTest {
         when(userBlockService.getBlockedUserIds(1L)).thenReturn(List.of(2L));
         when(commentRepository.findParentsWithChildrenOrNotDeleted(anyLong(), any()))
                 .thenReturn(new PageImpl<>(List.of(comment)));
-        when(commentRepository.findAllDescendants(anyList())).thenReturn(List.of(comment));
 
         Page<CommentResponse> result = commentService.getComments(100L, 1L, PageRequest.of(0, 10));
 
@@ -375,6 +374,103 @@ class CommentServiceTest {
         assertThat(result.getContent()).hasSize(1);
         assertThat(result.getContent().get(0).getContent()).isEqualTo("차단된 사용자의 댓글입니다.");
         assertThat(result.getContent().get(0).getAuthor().getDisplayName()).isEqualTo("차단된 사용자");
+    }
+
+    @Test
+    @DisplayName("get comments returns parent-only rows with reply metadata")
+    void getComments_returnsParentOnlyRowsWithReplyMetadata() {
+        User author = User.builder().displayName("Author").build();
+        ReflectionTestUtils.setField(author, "userId", 2L);
+
+        User viewer = User.builder().displayName("Viewer").build();
+        ReflectionTestUtils.setField(viewer, "userId", 1L);
+
+        Board board = Board.builder().boardUrl("free").creator(author).build();
+        ReflectionTestUtils.setField(board, "isActive", true);
+        ReflectionTestUtils.setField(board, "isPublic", true);
+
+        Post post = Post.builder().board(board).title("Title").user(author).build();
+        ReflectionTestUtils.setField(post, "postId", 100L);
+
+        Comment parent = Comment.builder()
+                .user(author)
+                .post(post)
+                .content("Parent")
+                .depth(0)
+                .build();
+        ReflectionTestUtils.setField(parent, "commentId", 10L);
+        ReflectionTestUtils.setField(parent, "createdAt", LocalDateTime.now());
+
+        when(postRepository.findByIdWithRelations(100L)).thenReturn(Optional.of(post));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(viewer));
+        when(userBlockService.getBlockedUserIds(1L)).thenReturn(List.of());
+        when(commentRepository.findParentsWithChildrenOrNotDeleted(100L, PageRequest.of(0, 10)))
+                .thenReturn(new PageImpl<>(List.of(parent), PageRequest.of(0, 10), 1));
+        when(commentRepository.countVisibleRepliesByParentIds(List.of(10L)))
+                .thenReturn(List.of(replyCountProjection(10L, 3L)));
+
+        Page<CommentResponse> result = commentService.getComments(100L, 1L, PageRequest.of(0, 10));
+
+        assertThat(result.getContent()).hasSize(1);
+        CommentResponse response = result.getContent().get(0);
+        assertThat(response.getCommentId()).isEqualTo(10L);
+        assertThat(response.getReplyCount()).isEqualTo(3L);
+        assertThat(response.isHasReplies()).isTrue();
+        assertThat(response.getChildren()).isEmpty();
+        verify(commentRepository, never()).findAllDescendants(anyList());
+    }
+
+    @Test
+    @DisplayName("get replies returns reply metadata for nested lazy loading")
+    void getReplies_returnsReplyMetadata() {
+        User author = User.builder().displayName("Author").build();
+        ReflectionTestUtils.setField(author, "userId", 2L);
+
+        User viewer = User.builder().displayName("Viewer").build();
+        ReflectionTestUtils.setField(viewer, "userId", 1L);
+
+        Board board = Board.builder().boardUrl("free").creator(author).build();
+        ReflectionTestUtils.setField(board, "isActive", true);
+        ReflectionTestUtils.setField(board, "isPublic", true);
+
+        Post post = Post.builder().board(board).title("Title").user(author).build();
+        ReflectionTestUtils.setField(post, "postId", 100L);
+
+        Comment parent = Comment.builder()
+                .user(author)
+                .post(post)
+                .content("Parent")
+                .depth(0)
+                .build();
+        ReflectionTestUtils.setField(parent, "commentId", 9L);
+        ReflectionTestUtils.setField(parent, "createdAt", LocalDateTime.now());
+
+        Comment reply = Comment.builder()
+                .user(author)
+                .post(post)
+                .parent(parent)
+                .content("Reply")
+                .depth(1)
+                .build();
+        ReflectionTestUtils.setField(reply, "commentId", 10L);
+        ReflectionTestUtils.setField(reply, "createdAt", LocalDateTime.now());
+
+        when(commentRepository.findByIdWithRelations(9L)).thenReturn(Optional.of(parent));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(viewer));
+        when(userBlockService.getBlockedUserIds(1L)).thenReturn(List.of());
+        when(commentRepository.findRepliesWithRelations(9L, false, PageRequest.of(0, 10)))
+                .thenReturn(new PageImpl<>(List.of(reply), PageRequest.of(0, 10), 1));
+        when(commentRepository.countVisibleRepliesByParentIds(List.of(10L)))
+                .thenReturn(List.of(replyCountProjection(10L, 1L)));
+
+        var result = commentService.getReplies(9L, 1L, PageRequest.of(0, 10));
+
+        assertThat(result.getContent()).hasSize(1);
+        CommentResponse response = result.getContent().get(0);
+        assertThat(response.getCommentId()).isEqualTo(10L);
+        assertThat(response.getReplyCount()).isEqualTo(1L);
+        assertThat(response.isHasReplies()).isTrue();
+        assertThat(response.getChildren()).isEmpty();
     }
 
     @Test
@@ -713,5 +809,19 @@ class CommentServiceTest {
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_ACTIVE);
 
         verify(commentLikeRepository, never()).deleteByUserIdAndCommentId(anyLong(), anyLong());
+    }
+
+    private CommentRepository.ReplyCountProjection replyCountProjection(Long parentId, long replyCount) {
+        return new CommentRepository.ReplyCountProjection() {
+            @Override
+            public Long getParentId() {
+                return parentId;
+            }
+
+            @Override
+            public long getReplyCount() {
+                return replyCount;
+            }
+        };
     }
 }

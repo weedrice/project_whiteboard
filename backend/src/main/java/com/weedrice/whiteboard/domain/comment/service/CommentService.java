@@ -76,41 +76,15 @@ public class CommentService {
         final List<Long> finalBlockedUserIds = blockedUserIds;
 
         Page<Comment> parentComments = commentRepository.findParentsWithChildrenOrNotDeleted(postId, pageable);
-        List<Long> parentIds = parentComments.getContent().stream()
-                .map(Comment::getCommentId)
-                .collect(Collectors.toList());
-
-        if (parentIds.isEmpty()) {
+        if (parentComments.isEmpty()) {
             List<CommentResponse> emptyContent = new java.util.ArrayList<>();
             return new PageImpl<>(emptyContent, pageable, parentComments.getTotalElements());
         }
 
-        List<Comment> allDescendants = commentRepository.findAllDescendants(parentIds);
-
-        Map<Long, CommentResponse> responseMap = new java.util.HashMap<>();
-
-        parentComments.getContent().forEach(c -> responseMap.put(
-                c.getCommentId(),
-                toMaskedCommentResponse(c, finalBlockedUserIds)));
-
-        allDescendants.forEach(c -> responseMap.put(
-                c.getCommentId(),
-                toMaskedCommentResponse(c, finalBlockedUserIds)));
-
-        allDescendants.forEach(child -> {
-            CommentResponse childResponse = responseMap.get(child.getCommentId());
-            if (child.getParent() != null) {
-                Long parentId = child.getParent().getCommentId();
-                if (responseMap.containsKey(parentId)) {
-                    responseMap.get(parentId).getChildren().add(childResponse);
-                }
-            }
-        });
-
-        List<CommentResponse> responseContent = new java.util.ArrayList<>(
-                parentComments.getContent().stream()
-                        .map(c -> responseMap.get(c.getCommentId()))
-                        .collect(Collectors.toList()));
+        Map<Long, Long> replyCounts = loadVisibleReplyCounts(parentComments.getContent());
+        List<CommentResponse> responseContent = parentComments.getContent().stream()
+                .map(comment -> toMaskedCommentResponse(comment, finalBlockedUserIds, replyCounts))
+                .collect(Collectors.toList());
 
         return new PageImpl<>(responseContent, pageable, parentComments.getTotalElements());
     }
@@ -127,8 +101,9 @@ public class CommentService {
         final List<Long> finalBlockedUserIds = blockedUserIds;
 
         Page<Comment> replies = commentRepository.findRepliesWithRelations(parentId, false, pageable);
+        Map<Long, Long> replyCounts = loadVisibleReplyCounts(replies.getContent());
         List<CommentResponse> maskedReplies = replies.getContent().stream()
-                .map(comment -> toMaskedCommentResponse(comment, finalBlockedUserIds))
+                .map(comment -> toMaskedCommentResponse(comment, finalBlockedUserIds, replyCounts))
                 .collect(Collectors.toList());
 
         return CommentListResponse.builder()
@@ -389,7 +364,36 @@ public class CommentService {
     }
 
     private CommentResponse toMaskedCommentResponse(Comment comment, List<Long> blockedUserIds) {
-        return maskCommentContent(CommentResponse.from(comment), blockedUserIds);
+        return toMaskedCommentResponse(comment, blockedUserIds, java.util.Collections.emptyMap());
+    }
+
+    private CommentResponse toMaskedCommentResponse(Comment comment, List<Long> blockedUserIds, Map<Long, Long> replyCounts) {
+        long replyCount = replyCounts.getOrDefault(comment.getCommentId(), 0L);
+        CommentResponse response = CommentResponse.from(comment).toBuilder()
+                .replyCount(replyCount)
+                .hasReplies(replyCount > 0)
+                .build();
+        return maskCommentContent(response, blockedUserIds);
+    }
+
+    private Map<Long, Long> loadVisibleReplyCounts(List<Comment> comments) {
+        List<Long> commentIds = comments.stream()
+                .map(Comment::getCommentId)
+                .collect(Collectors.toList());
+        if (commentIds.isEmpty()) {
+            return java.util.Collections.emptyMap();
+        }
+
+        List<CommentRepository.ReplyCountProjection> replyCounts = commentRepository.countVisibleRepliesByParentIds(commentIds);
+        if (replyCounts == null || replyCounts.isEmpty()) {
+            return java.util.Collections.emptyMap();
+        }
+
+        return replyCounts.stream()
+                .collect(Collectors.toMap(
+                        CommentRepository.ReplyCountProjection::getParentId,
+                        CommentRepository.ReplyCountProjection::getReplyCount,
+                        (left, right) -> right));
     }
 
     private void validatePostReadable(Post post, Long currentUserId) {
