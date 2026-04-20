@@ -254,11 +254,11 @@ class UserControllerTest {
                                         Collections.emptyList());
                         Page<BoardResponse> boardPage = new PageImpl<>(List.of(boardResponse), pageable, 1);
 
-                        given(boardService.getMySubscriptions(1L, pageable)).willReturn(boardPage);
+                        given(boardService.getMySubscriptions(1L, pageable, false)).willReturn(boardPage);
 
                         // when
                         ApiResponse<PageResponse<BoardResponse>> response = userController
-                                        .getMySubscriptions(customUserDetails, pageable);
+                                        .getMySubscriptions(customUserDetails, false, pageable);
 
                         // then
                         assertThat(response.isSuccess()).isTrue();

@@ -607,13 +607,15 @@ export interface UserMessages {
     processFailed: string
   }
   subscriptions: {
-    title: string
-    empty: string
-    unsubscribe: string
-    unsubscribeConfirm: string
-    unsubscribeSuccess: string
-    unsubscribeFailed: string
-  }
+      title: string
+      empty: string
+      unsubscribe: string
+      unsubscribeConfirm: string
+      unsubscribeSuccess: string
+      unsubscribeFailed: string
+      unavailableBoard: string
+      unavailableBoardDescription: string
+    }
   sanctioned: string
 }
 

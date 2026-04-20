@@ -37,6 +37,9 @@ public class BoardResponse {
     @JsonProperty("isPublic")
     private final boolean isPublic;
 
+    @JsonProperty("subscriptionAccessible")
+    private final boolean subscriptionAccessible;
+
     private final boolean agentUseYn;
     private final String guidePrompt;
 
@@ -49,8 +52,18 @@ public class BoardResponse {
             boolean isSubscribed,
             List<CategoryResponse> categories,
             List<PostSummary> latestPosts) {
-        this(board, subscriberCount, adminDisplayName, adminUserId, isAdmin, isSubscribed, categories, latestPosts,
-                board.isAgentEnabled(), null);
+        this(
+                board,
+                subscriberCount,
+                adminDisplayName,
+                adminUserId,
+                isAdmin,
+                isSubscribed,
+                true,
+                categories,
+                latestPosts,
+                board.isAgentEnabled(),
+                null);
     }
 
     public BoardResponse(
@@ -60,27 +73,94 @@ public class BoardResponse {
             Long adminUserId,
             boolean isAdmin,
             boolean isSubscribed,
+            boolean subscriptionAccessible,
             List<CategoryResponse> categories,
             List<PostSummary> latestPosts,
             boolean agentUseYn,
             String guidePrompt) {
-        this.boardId = board.getBoardId();
-        this.boardName = board.getBoardName();
-        this.boardUrl = board.getBoardUrl();
-        this.description = board.getDescription();
-        this.iconUrl = board.getIconUrl();
-        this.sortOrder = board.getSortOrder();
-        this.allowNsfw = board.getAllowNsfw();
+        this(
+                board.getBoardId(),
+                board.getBoardName(),
+                board.getBoardUrl(),
+                board.getDescription(),
+                board.getIconUrl(),
+                board.getSortOrder(),
+                subscriberCount,
+                adminDisplayName,
+                adminUserId,
+                isAdmin,
+                board.getAllowNsfw(),
+                isSubscribed,
+                categories,
+                latestPosts,
+                board.getIsActive(),
+                board.getIsPublic(),
+                subscriptionAccessible,
+                agentUseYn,
+                guidePrompt);
+    }
+
+    private BoardResponse(
+            Long boardId,
+            String boardName,
+            String boardUrl,
+            String description,
+            String iconUrl,
+            Integer sortOrder,
+            long subscriberCount,
+            String adminDisplayName,
+            Long adminUserId,
+            boolean isAdmin,
+            boolean allowNsfw,
+            boolean isSubscribed,
+            List<CategoryResponse> categories,
+            List<PostSummary> latestPosts,
+            boolean isActive,
+            boolean isPublic,
+            boolean subscriptionAccessible,
+            boolean agentUseYn,
+            String guidePrompt) {
+        this.boardId = boardId;
+        this.boardName = boardName;
+        this.boardUrl = boardUrl;
+        this.description = description;
+        this.iconUrl = iconUrl;
+        this.sortOrder = sortOrder;
+        this.allowNsfw = allowNsfw;
         this.subscriberCount = subscriberCount;
         this.adminDisplayName = adminDisplayName;
         this.adminUserId = adminUserId;
         this.isAdmin = isAdmin;
         this.isSubscribed = isSubscribed;
+        this.subscriptionAccessible = subscriptionAccessible;
         this.categories = categories;
         this.latestPosts = latestPosts;
-        this.isActive = board.getIsActive();
-        this.isPublic = board.getIsPublic();
+        this.isActive = isActive;
+        this.isPublic = isPublic;
         this.agentUseYn = agentUseYn;
         this.guidePrompt = guidePrompt;
+    }
+
+    public static BoardResponse unavailableSubscription(Board board) {
+        return new BoardResponse(
+                board.getBoardId(),
+                null,
+                board.getBoardUrl(),
+                null,
+                null,
+                board.getSortOrder(),
+                0L,
+                null,
+                null,
+                false,
+                false,
+                true,
+                List.of(),
+                List.of(),
+                board.getIsActive(),
+                board.getIsPublic(),
+                false,
+                false,
+                null);
     }
 }

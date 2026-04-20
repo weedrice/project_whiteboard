@@ -1,9 +1,9 @@
 package com.weedrice.whiteboard.domain.report.controller;
 
 import com.weedrice.whiteboard.domain.report.dto.CommentReportRequest;
+import com.weedrice.whiteboard.domain.report.dto.MyReportResponse;
 import com.weedrice.whiteboard.domain.report.dto.PostReportRequest;
 import com.weedrice.whiteboard.domain.report.dto.ReportCreateRequest;
-import com.weedrice.whiteboard.domain.report.dto.ReportResponse;
 import com.weedrice.whiteboard.domain.report.dto.UserReportRequest;
 import com.weedrice.whiteboard.domain.report.service.ReportService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
@@ -95,7 +95,7 @@ public class ReportController {
     }
 
     @GetMapping("/me")
-    public ApiResponse<PageResponse<ReportResponse>> getMyReports(
+    public ApiResponse<PageResponse<MyReportResponse>> getMyReports(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             Authentication authentication) {

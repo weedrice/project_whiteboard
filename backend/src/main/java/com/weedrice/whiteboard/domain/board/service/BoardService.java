@@ -72,6 +72,10 @@ public class BoardService {
         return queryService.getMySubscriptions(userId, pageable);
     }
 
+    public Page<BoardResponse> getMySubscriptions(Long userId, Pageable pageable, boolean includeUnavailable) {
+        return queryService.getMySubscriptions(userId, pageable, includeUnavailable);
+    }
+
     @Transactional
     public Board createBoard(Long creatorId, BoardCreateRequest request) {
         return provisioningService.createBoard(creatorId, request);

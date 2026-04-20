@@ -31,6 +31,10 @@ interface PaginationParams {
     sort?: string
 }
 
+interface SubscriptionParams extends PaginationParams {
+    includeUnavailable?: boolean
+}
+
 export interface BlockedUserSummary extends UserSummary {
     email?: string
 }
@@ -129,7 +133,7 @@ export const userApi = {
     getRecentlyViewedPosts(params: PaginationParams) {
         return api.get<ApiResponse<PageResponse<PostSummary>>>('/users/me/history/views', { params })
     },
-    getMySubscriptions(params: PaginationParams) {
+    getMySubscriptions(params: SubscriptionParams) {
         return api.get<ApiResponse<PageResponse<Board>>>('/users/me/subscriptions', { params })
     }
 }

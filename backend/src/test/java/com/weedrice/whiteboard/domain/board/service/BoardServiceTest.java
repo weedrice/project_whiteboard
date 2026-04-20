@@ -575,6 +575,34 @@ class BoardServiceTest {
     }
 
     @Test
+    @DisplayName("읽을 수 없게 된 게시판도 기존 구독은 해지할 수 있다")
+    void unsubscribeBoard_allowsHiddenBoardSubscription() {
+        Board hiddenBoard = Board.builder()
+                .boardName("Hidden Board")
+                .boardUrl("hidden-board")
+                .creator(user)
+                .isPublic(false)
+                .build();
+        ReflectionTestUtils.setField(hiddenBoard, "boardId", 2L);
+
+        BoardSubscription subscription = BoardSubscription.builder()
+                .user(user)
+                .board(hiddenBoard)
+                .role("MEMBER")
+                .sortOrder(1)
+                .build();
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(boardRepository.findByBoardUrl("hidden-board")).thenReturn(Optional.of(hiddenBoard));
+        when(boardSubscriptionRepository.findById(new BoardSubscriptionId(1L, 2L)))
+                .thenReturn(Optional.of(subscription));
+
+        boardService.unsubscribeBoard(1L, "hidden-board");
+
+        verify(boardSubscriptionRepository).delete(subscription);
+    }
+
+    @Test
     @DisplayName("내 구독 게시판 조회는 total 과 구독 플래그를 유지한다")
     void getMySubscriptions_preservesTotalAndFlags() {
         BoardSubscription subscription = BoardSubscription.builder()
@@ -1028,5 +1056,44 @@ class BoardServiceTest {
         assertThat(result.getTotalElements()).isEqualTo(1);
         assertThat(result.getContent()).hasSize(1);
         assertThat(result.getContent().get(0).getBoardUrl()).isEqualTo("test-board");
+    }
+
+    @Test
+    @DisplayName("내 구독 목록은 includeUnavailable 요청 시 숨겨진 구독을 tombstone 으로 노출한다")
+    void getMySubscriptions_includeUnavailableReturnsTombstones() {
+        User hiddenBoardCreator = User.builder()
+                .loginId("hidden-owner")
+                .password("password")
+                .email("hidden@test.com")
+                .displayName("Hidden Owner")
+                .build();
+        ReflectionTestUtils.setField(hiddenBoardCreator, "userId", 99L);
+
+        Board hiddenBoard = Board.builder()
+                .boardName("Hidden Board")
+                .boardUrl("hidden-board")
+                .creator(hiddenBoardCreator)
+                .isPublic(false)
+                .build();
+        ReflectionTestUtils.setField(hiddenBoard, "boardId", 3L);
+
+        BoardSubscription hiddenSubscription = BoardSubscription.builder()
+                .user(user)
+                .board(hiddenBoard)
+                .role("MEMBER")
+                .sortOrder(1)
+                .build();
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(boardSubscriptionRepository.findByUserOrderBySortOrderAsc(user, PageRequest.of(0, 10)))
+                .thenReturn(new PageImpl<>(List.of(hiddenSubscription), PageRequest.of(0, 10), 1));
+
+        var result = boardService.getMySubscriptions(1L, PageRequest.of(0, 10), true);
+
+        assertThat(result.getContent()).hasSize(1);
+        assertThat(result.getContent().get(0).getBoardName()).isNull();
+        assertThat(result.getContent().get(0).getDescription()).isNull();
+        assertThat(result.getContent().get(0).isSubscriptionAccessible()).isFalse();
+        assertThat(result.getContent().get(0).getBoardUrl()).isEqualTo("hidden-board");
     }
 }

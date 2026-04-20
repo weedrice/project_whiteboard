@@ -69,7 +69,6 @@ class BoardSubscriptionService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         Board board = boardRepository.findByBoardUrl(boardUrl)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
-        boardAccessPolicy.validateReadable(board, user);
 
         BoardSubscription subscription = boardSubscriptionRepository
                 .findById(new BoardSubscriptionId(userId, board.getBoardId()))

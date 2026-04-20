@@ -166,7 +166,7 @@ public class UserAdminQueryService {
     }
 
     public Page<BoardResponse> getUserSubscriptionsForAdmin(Long userId, Pageable pageable) {
-        return boardService.getMySubscriptions(userId, pageable);
+        return boardService.getMySubscriptions(userId, pageable, true);
     }
 
     @Transactional

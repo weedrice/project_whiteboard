@@ -160,8 +160,13 @@ public class UserController {
 
         @GetMapping("/me/subscriptions")
         public ApiResponse<PageResponse<BoardResponse>> getMySubscriptions(
-                        @AuthenticationPrincipal CustomUserDetails userDetails, Pageable pageable) {
-                Page<BoardResponse> response = boardService.getMySubscriptions(userDetails.getUserId(), pageable);
+                        @AuthenticationPrincipal CustomUserDetails userDetails,
+                        @RequestParam(defaultValue = "false") boolean includeUnavailable,
+                        Pageable pageable) {
+                Page<BoardResponse> response = boardService.getMySubscriptions(
+                                userDetails.getUserId(),
+                                pageable,
+                                includeUnavailable);
                 return ApiResponse.success(new PageResponse<>(response));
         }
 

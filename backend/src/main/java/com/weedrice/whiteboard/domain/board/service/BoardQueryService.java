@@ -20,6 +20,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
@@ -94,11 +96,29 @@ class BoardQueryService {
     }
 
     Page<BoardResponse> getMySubscriptions(Long userId, Pageable pageable) {
+        return getMySubscriptions(userId, pageable, false);
+    }
+
+    Page<BoardResponse> getMySubscriptions(Long userId, Pageable pageable, boolean includeUnavailable) {
         if (userId == null) {
             throw new BusinessException(ErrorCode.USER_NOT_FOUND);
         }
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        if (includeUnavailable) {
+            Page<BoardSubscription> subscriptions = boardSubscriptionRepository.findByUserOrderBySortOrderAsc(user, pageable);
+            List<Board> readableBoards = subscriptions.getContent().stream()
+                    .map(BoardSubscription::getBoard)
+                    .filter(board -> boardAccessPolicy.canReadBoard(board, user))
+                    .toList();
+            Map<Long, BoardResponse> readableResponsesByBoardId = boardResponseAssembler.assembleAll(readableBoards, user)
+                    .stream()
+                    .collect(Collectors.toMap(BoardResponse::getBoardId, Function.identity()));
+            List<BoardResponse> responses = subscriptions.getContent().stream()
+                    .map(subscription -> toSubscriptionResponse(subscription, readableResponsesByBoardId))
+                    .toList();
+            return new PageImpl<>(responses, pageable, subscriptions.getTotalElements());
+        }
         Page<BoardSubscription> visibleSubscriptions = boardSubscriptionRepository.findVisibleByUserOrderBySortOrderAsc(
                 user,
                 Boolean.TRUE.equals(user.getIsSuperAdmin()),
@@ -108,6 +128,16 @@ class BoardQueryService {
                 .toList();
         List<BoardResponse> responses = boardResponseAssembler.assembleAll(visibleBoards, user);
         return new PageImpl<>(responses, pageable, visibleSubscriptions.getTotalElements());
+    }
+
+    private BoardResponse toSubscriptionResponse(BoardSubscription subscription,
+            Map<Long, BoardResponse> readableResponsesByBoardId) {
+        Board board = subscription.getBoard();
+        BoardResponse readableResponse = readableResponsesByBoardId.get(board.getBoardId());
+        if (readableResponse != null) {
+            return readableResponse;
+        }
+        return BoardResponse.unavailableSubscription(board);
     }
 
     private User getCurrentUserOrNull(UserDetails userDetails) {

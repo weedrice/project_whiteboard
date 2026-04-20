@@ -5,6 +5,7 @@ import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.admin.service.ModerationActorResolver;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
+import com.weedrice.whiteboard.domain.report.dto.MyReportResponse;
 import com.weedrice.whiteboard.domain.report.dto.ReportResponse;
 import com.weedrice.whiteboard.domain.report.entity.Report;
 import com.weedrice.whiteboard.domain.report.repository.ReportRepository;
@@ -331,10 +332,12 @@ class ReportServiceTest {
         when(reportRepository.findByReporterOrderByCreatedAtDesc(reporter, pageable)).thenReturn(reportPage);
 
         // when
-        org.springframework.data.domain.Page<ReportResponse> result = reportService.getMyReports(userId, pageable);
+        org.springframework.data.domain.Page<MyReportResponse> result = reportService.getMyReports(userId, pageable);
 
         // then
         assertThat(result.getContent()).isNotEmpty();
+        assertThat(result.getContent().get(0).getTargetType()).isEqualTo("POST");
+        assertThat(result.getContent().get(0).getStatus()).isEqualTo(report.getStatus());
         verify(userRepository).findById(userId);
     }
 }

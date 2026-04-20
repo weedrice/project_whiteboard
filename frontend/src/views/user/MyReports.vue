@@ -8,9 +8,9 @@ import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import EmptyState from '@/components/common/ui/EmptyState.vue'
 import { Flag } from 'lucide-vue-next'
 import logger from '@/utils/logger'
-import type { Report } from '@/types'
+import type { MyReport } from '@/types'
 
-const reports = ref<Report[]>([])
+const reports = ref<MyReport[]>([])
 const loading = ref(false)
 const page = ref(0)
 const size = ref(15)

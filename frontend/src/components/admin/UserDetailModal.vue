@@ -214,11 +214,11 @@ function isCommentEmoticonOnly(content: string | undefined): boolean {
         <div v-else class="space-y-2">
           <div v-if="isSubscriptionsLoading" class="py-6 text-center text-sm text-gray-500 dark:text-gray-400">로딩 중...</div>
           <div v-else-if="!userSubscriptions?.content?.length" class="py-6 text-center text-sm text-gray-500 dark:text-gray-400">데이터가 없습니다.</div>
-          <div v-else class="max-h-72 space-y-2 overflow-y-auto pr-1">
-            <div v-for="board in userSubscriptions.content" :key="board.boardId" class="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
-              <div class="truncate text-sm font-medium text-gray-900 dark:text-white">{{ board.boardName }}</div>
-              <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">/{{ board.boardUrl }}</div>
-            </div>
+            <div v-else class="max-h-72 space-y-2 overflow-y-auto pr-1">
+              <div v-for="board in userSubscriptions.content" :key="board.boardId" class="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
+                <div class="truncate text-sm font-medium text-gray-900 dark:text-white">{{ board.boardName || t('user.subscriptions.unavailableBoard') }}</div>
+                <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">/{{ board.boardUrl }}</div>
+              </div>
           </div>
           <div v-if="userSubscriptions && userSubscriptions.totalPages > 0" class="mt-2 flex items-center justify-end gap-2">
             <BaseButton variant="secondary" size="sm" :disabled="userSubscriptions.number <= 0" @click="prevSubscriptionsPage">이전</BaseButton>

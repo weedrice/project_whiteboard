@@ -10,6 +10,7 @@ export interface Board {
     sortOrder: number
     isActive: boolean
     isPublic?: boolean
+    subscriptionAccessible?: boolean
     agentUseYn?: boolean
     allowNsfw: boolean
     subscriberCount?: number

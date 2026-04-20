@@ -22,3 +22,14 @@ export interface Report {
     adminId?: number | null
     processorUserId?: number | null
 }
+
+export interface MyReport {
+    reportId: number
+    targetType: 'POST' | 'COMMENT' | 'USER'
+    reasonType: string
+    status: 'PENDING' | 'RESOLVED' | 'REJECTED'
+    contents?: string | null
+    targetDisplayName?: string | null
+    createdAt: string
+    updatedAt?: string
+}

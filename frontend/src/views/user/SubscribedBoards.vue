@@ -20,27 +20,31 @@
         </div>
 
         <EmptyState 
-            v-else-if="boards.length === 0"
+            v-else-if="!hasSubscriptions"
             :title="$t('user.subscriptions.empty')"
             :icon="Users"
         />
 
-        <draggable v-else v-model="boards" item-key="boardId" class="divide-y divide-gray-200 dark:divide-gray-700"
+        <draggable v-else-if="accessibleBoards.length > 0" v-model="accessibleBoards" item-key="boardId" class="divide-y divide-gray-200 dark:divide-gray-700"
             tag="ul" :handle="isMobile ? undefined : '.handle'" :disabled="isMobile" @end="handleDragEnd">
             <template #item="{ element: board }">
                 <li
                     class="px-3 py-3 sm:px-6 sm:py-4 hover:bg-gray-50 dark:hover:bg-gray-700 flex flex-row items-center justify-between gap-2 sm:gap-3 bg-white dark:bg-gray-800 transition-colors duration-200">
-                    <div class="flex items-center flex-1 cursor-pointer min-w-0" @click="$router.push(`/board/${board.boardUrl}`)">
+                    <div
+                        class="flex items-center flex-1 min-w-0"
+                        :class="board.subscriptionAccessible === false ? 'cursor-default' : 'cursor-pointer'"
+                        @click="board.subscriptionAccessible === false ? undefined : $router.push(`/board/${board.boardUrl}`)">
                         <div
-                            v-if="!isMobile"
+                            v-if="!isMobile && board.subscriptionAccessible !== false"
                             class="handle mr-3 sm:mr-4 p-2 -m-2 cursor-move text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center"
                             @click.stop>
                             <Menu class="h-5 w-5" />
                         </div>
                         <div class="flex-1 min-w-0 py-1 sm:py-0">
                             <div class="text-sm font-medium text-indigo-600 dark:text-indigo-400 truncate">{{
-                                board.boardName }}</div>
-                            <p class="mt-0.5 sm:mt-1 text-xs sm:text-sm text-gray-500 dark:text-gray-400 line-clamp-1 sm:line-clamp-2">{{ board.description }}</p>
+                                board.boardName || $t('user.subscriptions.unavailableBoard') }}</div>
+                            <p class="mt-0.5 sm:mt-1 text-xs sm:text-sm text-gray-500 dark:text-gray-400 line-clamp-1 sm:line-clamp-2">{{
+                                board.description || $t('user.subscriptions.unavailableBoardDescription') }}</p>
                         </div>
                     </div>
                     <BaseButton @click.stop="handleUnsubscribe(board)" variant="danger" size="sm"
@@ -51,12 +55,32 @@
                 </li>
             </template>
         </draggable>
+
+        <ul v-if="unavailableBoards.length > 0" class="divide-y divide-gray-200 dark:divide-gray-700">
+            <li
+                v-for="board in unavailableBoards"
+                :key="board.boardId"
+                class="px-3 py-3 sm:px-6 sm:py-4 hover:bg-gray-50 dark:hover:bg-gray-700 flex flex-row items-center justify-between gap-2 sm:gap-3 bg-white dark:bg-gray-800 transition-colors duration-200">
+                <div class="flex items-center flex-1 min-w-0 cursor-default">
+                    <div class="flex-1 min-w-0 py-1 sm:py-0">
+                        <div class="text-sm font-medium text-indigo-600 dark:text-indigo-400 truncate">{{
+                            board.boardName || $t('user.subscriptions.unavailableBoard') }}</div>
+                        <p class="mt-0.5 sm:mt-1 text-xs sm:text-sm text-gray-500 dark:text-gray-400 line-clamp-1 sm:line-clamp-2">{{
+                            board.description || $t('user.subscriptions.unavailableBoardDescription') }}</p>
+                    </div>
+                </div>
+                <BaseButton @click.stop="handleUnsubscribe(board)" variant="danger" size="sm"
+                    class="flex-shrink-0 px-2 py-1.5 sm:px-4 sm:py-2 text-[11px] sm:text-sm min-h-0 h-7 sm:min-h-[40px] rounded-md sm:rounded-lg touch-manipulation">
+                    {{ $t('user.subscriptions.unsubscribe') }}
+                </BaseButton>
+            </li>
+        </ul>
         </div>
     </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { userApi } from '@/api/user'
 import { boardApi } from '@/api/board'
 import { useI18n } from 'vue-i18n'
@@ -74,9 +98,13 @@ const { t } = useI18n()
 const toastStore = useToastStore()
 const { confirm } = useConfirm()
 const { handleSilentError, handleError } = useErrorHandler()
-const boards = ref<Board[]>([])
+const accessibleBoards = ref<Board[]>([])
+const unavailableBoards = ref<Board[]>([])
 const loading = ref(false)
 const isMobile = ref(typeof window !== 'undefined' && window.innerWidth < 640)
+const hasSubscriptions = computed(() =>
+  accessibleBoards.value.length > 0 || unavailableBoards.value.length > 0
+)
 
 function updateIsMobile() {
   isMobile.value = window.innerWidth < 640
@@ -85,9 +113,10 @@ function updateIsMobile() {
 async function fetchSubscriptions() {
     loading.value = true
     try {
-        const { data } = await userApi.getMySubscriptions({ page: 0, size: 100 })
+        const { data } = await userApi.getMySubscriptions({ page: 0, size: 100, includeUnavailable: true })
         if (data.success) {
-            boards.value = data.data.content
+            accessibleBoards.value = data.data.content.filter(board => board.subscriptionAccessible !== false)
+            unavailableBoards.value = data.data.content.filter(board => board.subscriptionAccessible === false)
         }
     } catch (error) {
         handleSilentError(error, 'Failed to load subscriptions')
@@ -111,7 +140,7 @@ async function handleUnsubscribe(board: Board) {
 }
 
 async function handleDragEnd() {
-    const boardUrls = boards.value.map(b => b.boardUrl)
+    const boardUrls = accessibleBoards.value.map(board => board.boardUrl)
     try {
         await boardApi.updateSubscriptionOrder(boardUrls)
     } catch (error) {

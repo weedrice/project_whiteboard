@@ -13,6 +13,8 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Optional;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -36,6 +38,23 @@ class FeedGenerationEventListenerTest {
         PostPublishedEvent event = new PostPublishedEvent(100L, 10L);
 
         when(boardRepository.findById(10L)).thenReturn(Optional.of(board));
+
+        feedGenerationEventListener.handlePostPublished(event);
+
+        verify(feedGenerationService).generatePostFeeds(board, 100L);
+    }
+
+    @Test
+    @DisplayName("피드 생성 중 예외가 나도 게시글 발행 후속 처리는 예외를 삼킨다")
+    void handlePostPublished_swallowsGenerationFailure() {
+        Board board = Board.builder().boardName("free").build();
+        ReflectionTestUtils.setField(board, "boardId", 10L);
+        PostPublishedEvent event = new PostPublishedEvent(100L, 10L);
+
+        when(boardRepository.findById(10L)).thenReturn(Optional.of(board));
+        doThrow(new IllegalStateException("feed failure"))
+                .when(feedGenerationService)
+                .generatePostFeeds(any(Board.class), any(Long.class));
 
         feedGenerationEventListener.handlePostPublished(event);
 

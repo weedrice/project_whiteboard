@@ -6,6 +6,7 @@ import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
+import com.weedrice.whiteboard.domain.report.dto.MyReportResponse;
 import com.weedrice.whiteboard.domain.report.dto.ReportResponse;
 import com.weedrice.whiteboard.domain.report.entity.Report;
 import com.weedrice.whiteboard.domain.report.repository.ReportRepository;
@@ -84,21 +85,26 @@ public class ReportService {
     }
 
     public Page<ReportResponse> getReports(String status, String targetType, Pageable pageable) {
-        return toResponsePage(reportRepository.findAdminReports(status, targetType, pageable));
+        return toAdminResponsePage(reportRepository.findAdminReports(status, targetType, pageable));
     }
 
-    public Page<ReportResponse> getMyReports(Long userId, Pageable pageable) {
+    public Page<MyReportResponse> getMyReports(Long userId, Pageable pageable) {
         User reporter = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        return toResponsePage(reportRepository.findByReporterOrderByCreatedAtDesc(reporter, pageable));
+        return toMyReportResponsePage(reportRepository.findByReporterOrderByCreatedAtDesc(reporter, pageable));
     }
 
-    private Page<ReportResponse> toResponsePage(Page<Report> reports) {
+    private Page<ReportResponse> toAdminResponsePage(Page<Report> reports) {
         ReportTargetMetadata targetMetadata = loadTargetMetadata(reports.getContent());
-        return reports.map(report -> toResponse(report, targetMetadata));
+        return reports.map(report -> toAdminResponse(report, targetMetadata));
     }
 
-    private ReportResponse toResponse(Report report, ReportTargetMetadata targetMetadata) {
+    private Page<MyReportResponse> toMyReportResponsePage(Page<Report> reports) {
+        ReportTargetMetadata targetMetadata = loadTargetMetadata(reports.getContent());
+        return reports.map(report -> toMyReportResponse(report, targetMetadata));
+    }
+
+    private ReportResponse toAdminResponse(Report report, ReportTargetMetadata targetMetadata) {
         User targetUser = isUserTarget(report)
                 ? targetMetadata.userTargets().get(report.getTargetId())
                 : null;
@@ -124,6 +130,23 @@ public class ReportService {
                 .build();
     }
 
+    private MyReportResponse toMyReportResponse(Report report, ReportTargetMetadata targetMetadata) {
+        User targetUser = isUserTarget(report)
+                ? targetMetadata.userTargets().get(report.getTargetId())
+                : null;
+
+        return MyReportResponse.builder()
+                .reportId(report.getReportId())
+                .targetType(report.getTargetType())
+                .targetDisplayName(targetUser != null ? targetUser.getDisplayName() : null)
+                .reasonType(report.getReasonType())
+                .status(report.getStatus())
+                .contents(report.getContents())
+                .createdAt(report.getCreatedAt())
+                .updatedAt(report.getModifiedAt())
+                .build();
+    }
+
     @Transactional
     public ReportResponse processReport(Long adminUserId, Long reportId, String status, String remark) {
         Report report = reportRepository.findById(reportId)
@@ -134,7 +157,7 @@ public class ReportService {
 
         report.processReport(admin, adminUserId, status, remark);
         reportRepository.save(report);
-        return toResponse(report, loadTargetMetadata(List.of(report)));
+        return toAdminResponse(report, loadTargetMetadata(List.of(report)));
     }
 
     private void validateTarget(String targetType, Long targetId) {

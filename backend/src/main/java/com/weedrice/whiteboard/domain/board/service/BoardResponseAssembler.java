@@ -68,6 +68,7 @@ class BoardResponseAssembler {
                 adminUser.getUserId(),
                 isAdmin,
                 isSubscribed,
+                true,
                 categoriesByBoardId.getOrDefault(boardId, Collections.emptyList()),
                 latestPostsByBoardId.getOrDefault(boardId, Collections.emptyList()),
                 board.isAgentEnabled(),

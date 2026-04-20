@@ -1,8 +1,8 @@
 package com.weedrice.whiteboard.domain.report.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.weedrice.whiteboard.domain.report.dto.MyReportResponse;
 import com.weedrice.whiteboard.domain.report.dto.ReportCreateRequest;
-import com.weedrice.whiteboard.domain.report.dto.ReportResponse;
 import com.weedrice.whiteboard.domain.report.service.ReportService;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import jakarta.servlet.FilterChain;
@@ -162,10 +162,9 @@ class ReportControllerTest {
     @Test
     @DisplayName("내 신고 목록은 PageResponse 로 반환한다")
     void getMyReports_returnsPageResponse() throws Exception {
-        ReportResponse response = ReportResponse.builder()
+        MyReportResponse response = MyReportResponse.builder()
                 .reportId(1L)
                 .targetType("POST")
-                .targetId(3L)
                 .reasonType("SPAM")
                 .status("PENDING")
                 .build();
@@ -176,6 +175,11 @@ class ReportControllerTest {
                         .with(user(customUserDetails)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.content").isArray())
+                .andExpect(jsonPath("$.data.content[0].targetId").doesNotExist())
+                .andExpect(jsonPath("$.data.content[0].targetLoginId").doesNotExist())
+                .andExpect(jsonPath("$.data.content[0].adminId").doesNotExist())
+                .andExpect(jsonPath("$.data.content[0].processorUserId").doesNotExist())
+                .andExpect(jsonPath("$.data.content[0].processedRemark").doesNotExist())
                 .andExpect(jsonPath("$.data.totalPages").value(1))
                 .andExpect(jsonPath("$.data.page").value(0));
     }
