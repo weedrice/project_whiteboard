@@ -35,14 +35,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
@@ -92,15 +89,15 @@ class AgentServiceTest {
     private CommentService commentService;
     @Mock
     private SanctionService sanctionService;
-    @Spy
-    @InjectMocks
-    private AgentOwnershipService agentOwnershipService;
-    @Spy
-    @InjectMocks
-    private AgentPostSummaryEnricher agentPostSummaryEnricher;
 
-    @InjectMocks
-    private AgentService agentService;
+    private AgentOwnershipService agentOwnershipService;
+    private AgentAuditService agentAuditService;
+    private AgentBoardAccessService agentBoardAccessService;
+    private AgentPostSummaryEnricher agentPostSummaryEnricher;
+    private AgentLifecycleService agentLifecycleService;
+    private AgentAuthService agentAuthService;
+    private AgentQueryService agentQueryService;
+    private AgentCommandService agentCommandService;
 
     private User user;
     private Agent agent;
@@ -111,9 +108,37 @@ class AgentServiceTest {
 
     @BeforeEach
     void setUp() {
-        agentPostSummaryEnricher = new AgentPostSummaryEnricher(commentRepository);
-        ReflectionTestUtils.setField(agentService, "agentPostSummaryEnricher", agentPostSummaryEnricher);
-        ReflectionTestUtils.setField(agentService, "agentOwnershipService", agentOwnershipService);
+        agentOwnershipService = spy(new AgentOwnershipService(agentRepository, sanctionService));
+        agentAuditService = spy(new AgentAuditService(agentActivityLogRepository));
+        agentBoardAccessService = spy(new AgentBoardAccessService(
+                adminRepository,
+                boardRepository,
+                boardCategoryRepository,
+                postService));
+        agentPostSummaryEnricher = spy(new AgentPostSummaryEnricher(commentRepository));
+        agentLifecycleService = new AgentLifecycleService(agentRepository, userRepository, agentAuditService);
+        agentAuthService = new AgentAuthService(agentRepository, agentOwnershipService);
+        agentQueryService = new AgentQueryService(
+                boardRepository,
+                boardAiInfoRepository,
+                postRepository,
+                commentRepository,
+                postService,
+                commentService,
+                userBlockService,
+                agentOwnershipService,
+                agentBoardAccessService,
+                agentPostSummaryEnricher);
+        agentCommandService = new AgentCommandService(
+                boardRepository,
+                postRepository,
+                commentRepository,
+                postService,
+                commentService,
+                agentOwnershipService,
+                agentBoardAccessService,
+                agentAuditService);
+        ReflectionTestUtils.setField(agentCommandService, "frontendUrl", "https://noviis.kr");
 
         lenient().when(commentRepository.findDistinctPostIdsByPost_PostIdInAndAgent_AgentIdAndIsDeletedFalse(any(), anyLong()))
                 .thenReturn(List.of());
@@ -183,7 +208,7 @@ class AgentServiceTest {
         when(commentRepository.findDistinctPostIdsByPost_PostIdInAndAgent_AgentIdAndIsDeletedFalse(List.of(100L), 7L))
                 .thenReturn(List.of());
 
-        Page<PostSummary> response = agentService.getFeed(7L, null, PageRequest.of(0, 10));
+        Page<PostSummary> response = agentQueryService.getFeed(7L, null, PageRequest.of(0, 10));
 
         assertThat(response.getContent()).hasSize(1);
         assertThat(response.getContent().get(0).getBoardId()).isEqualTo(10L);
@@ -201,7 +226,7 @@ class AgentServiceTest {
 
         when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
 
-        assertThatThrownBy(() -> agentService.claim(1L, request, null))
+        assertThatThrownBy(() -> agentLifecycleService.claim(1L, request, null))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.EMAIL_NOT_VERIFIED);
 
@@ -210,7 +235,7 @@ class AgentServiceTest {
 
     @Test
     void register_generatesRandomKoreanNicknameWhenNameIsBlank() {
-        AgentService spyService = spy(agentService);
+        AgentLifecycleService spyService = spy(agentLifecycleService);
         AgentRegisterRequest request = new AgentRegisterRequest();
         ReflectionTestUtils.setField(request, "description", "desc");
 
@@ -224,7 +249,7 @@ class AgentServiceTest {
 
     @Test
     void register_appendsSuffixWhenGeneratedNicknameAlreadyExists() {
-        AgentService spyService = spy(agentService);
+        AgentLifecycleService spyService = spy(agentLifecycleService);
         AgentRegisterRequest request = new AgentRegisterRequest();
         ReflectionTestUtils.setField(request, "description", "desc");
 
@@ -241,7 +266,7 @@ class AgentServiceTest {
 
     @Test
     void register_ignoresRequestedNameAndAlwaysGeneratesNickname() {
-        AgentService spyService = spy(agentService);
+        AgentLifecycleService spyService = spy(agentLifecycleService);
         AgentRegisterRequest request = new AgentRegisterRequest();
         ReflectionTestUtils.setField(request, "description", "desc");
 
@@ -258,7 +283,7 @@ class AgentServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
 
-        AgentResponse response = agentService.suspendMyAgent(1L, 7L, null);
+        AgentResponse response = agentLifecycleService.suspendMyAgent(1L, 7L, null);
 
         assertThat(response.getStatus()).isEqualTo(Agent.STATUS_SUSPENDED);
         assertThat(agent.getName()).isEqualTo("agent");
@@ -268,7 +293,7 @@ class AgentServiceTest {
     @Test
     void claim_reactivatesSuspendedAgentForSameUser() {
         agent.suspend();
-        AgentService spyService = spy(agentService);
+        AgentLifecycleService spyService = spy(agentLifecycleService);
         AgentClaimRequest request = new AgentClaimRequest();
         ReflectionTestUtils.setField(request, "agentToken", "noviis_agt_token");
 
@@ -287,7 +312,7 @@ class AgentServiceTest {
         user.suspend();
         when(agentRepository.findByAgentTokenHashAndIsDeletedFalse(any())).thenReturn(Optional.of(agent));
 
-        assertThatThrownBy(() -> agentService.authenticate("noviis_agt_token"))
+        assertThatThrownBy(() -> agentAuthService.authenticate("noviis_agt_token"))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_ACTIVE);
     }
@@ -319,7 +344,7 @@ class AgentServiceTest {
         when(agentRepository.findByUserAndIsDeletedFalseOrderByCreatedAtDesc(user))
                 .thenReturn(List.of(previousAgent));
 
-        AgentResponse response = agentService.claim(1L, request, null);
+        AgentResponse response = agentLifecycleService.claim(1L, request, null);
 
         assertThat(response.getAgentId()).isEqualTo(9L);
         assertThat(response.getStatus()).isEqualTo(Agent.STATUS_ACTIVE);
@@ -343,11 +368,24 @@ class AgentServiceTest {
         when(agentRepository.findByUserAndIsDeletedFalseOrderByCreatedAtDesc(user))
                 .thenReturn(List.of(activeAgent));
 
-        var response = agentService.getMyAgents(1L);
+        var response = agentLifecycleService.getMyAgents(1L);
 
         assertThat(response.getAgents()).hasSize(1);
         assertThat(response.getAgents().get(0).getAgentId()).isEqualTo(11L);
         verify(agentRepository).findByUserAndIsDeletedFalseOrderByCreatedAtDesc(user);
+    }
+
+    @Test
+    void getMyPosts_returnsAgentPosts() {
+        when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+        when(postRepository.findByAgent_AgentIdAndIsDeletedOrderByCreatedAtDesc(eq(7L), eq(false), any()))
+                .thenReturn(new PageImpl<>(List.of(writablePost), PageRequest.of(0, 10), 1));
+
+        Page<PostSummary> response = agentQueryService.getMyPosts(7L, PageRequest.of(0, 10));
+
+        assertThat(response.getContent()).hasSize(1);
+        assertThat(response.getContent().get(0).getPostId()).isEqualTo(100L);
+        verify(postRepository).findByAgent_AgentIdAndIsDeletedOrderByCreatedAtDesc(eq(7L), eq(false), any());
     }
 
     @Test
@@ -369,7 +407,7 @@ class AgentServiceTest {
         when(postRepository.countActiveByBoardIds(List.of(10L, 20L)))
                 .thenReturn(List.of(boardPostCount(10L, 7L), boardPostCount(20L, 3L)));
 
-        AgentBoardListResponse response = agentService.getBoards(7L);
+        AgentBoardListResponse response = agentQueryService.getBoards(7L);
 
         assertThat(response.getBoards()).hasSize(1);
         assertThat(response.getBoards().get(0).getBoardId()).isEqualTo(10L);
@@ -399,7 +437,7 @@ class AgentServiceTest {
         when(adminRepository.findByUserAndBoard_BoardIdInAndIsActive(user, List.of(30L), true))
                 .thenReturn(List.of(activeAdmin(user, managedBoard)));
 
-        AgentBoardListResponse response = agentService.getBoards(7L);
+        AgentBoardListResponse response = agentQueryService.getBoards(7L);
 
         assertThat(response.getBoards()).hasSize(1);
         assertThat(response.getBoards().get(0).getBoardId()).isEqualTo(30L);
@@ -425,7 +463,7 @@ class AgentServiceTest {
         when(boardAiInfoRepository.findByBoard_BoardIdIn(List.of(40L))).thenReturn(List.of());
         when(postRepository.countActiveByBoardIds(List.of(40L))).thenReturn(List.of(boardPostCount(40L, 1L)));
 
-        AgentBoardListResponse response = agentService.getBoards(7L);
+        AgentBoardListResponse response = agentQueryService.getBoards(7L);
 
         assertThat(response.getBoards()).isEmpty();
         verify(postService, never()).canWriteToBoard(anyLong(), any());
@@ -452,7 +490,7 @@ class AgentServiceTest {
         when(commentRepository.findDistinctPostIdsByPost_PostIdInAndAgent_AgentIdAndIsDeletedFalse(
                 List.of(100L, 101L), 7L)).thenReturn(List.of());
 
-        Page<PostSummary> response = agentService.getFeed(7L, null, PageRequest.of(0, 10));
+        Page<PostSummary> response = agentQueryService.getFeed(7L, null, PageRequest.of(0, 10));
 
         assertThat(response.getContent()).hasSize(2);
         verify(postService, never()).canWriteToBoard(anyLong(), any());
@@ -465,7 +503,7 @@ class AgentServiceTest {
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
         when(boardRepository.findByBoardId(20L)).thenReturn(Optional.of(blockedBoard));
 
-        Page<PostSummary> response = agentService.getFeed(7L, 20L, PageRequest.of(0, 10));
+        Page<PostSummary> response = agentQueryService.getFeed(7L, 20L, PageRequest.of(0, 10));
 
         assertThat(response.getContent()).isEmpty();
         assertThat(response.getTotalElements()).isZero();
@@ -487,7 +525,7 @@ class AgentServiceTest {
         when(commentRepository.findDistinctPostIdsByPost_PostIdInAndAgent_AgentIdAndIsDeletedFalse(List.of(100L), 7L))
                 .thenReturn(List.of());
 
-        Page<PostSummary> response = agentService.getFeed(7L, 10L, PageRequest.of(0, 10));
+        Page<PostSummary> response = agentQueryService.getFeed(7L, 10L, PageRequest.of(0, 10));
 
         assertThat(response.getContent()).hasSize(1);
         assertThat(response.getContent().get(0).getBoardId()).isEqualTo(10L);
@@ -510,12 +548,32 @@ class AgentServiceTest {
         when(commentRepository.findDistinctPostIdsByPost_PostIdInAndAgent_AgentIdAndIsDeletedFalse(List.of(100L), 7L))
                 .thenReturn(List.of());
 
-        Page<PostSummary> response = agentService.getFeed(7L, null, PageRequest.of(0, 10));
+        Page<PostSummary> response = agentQueryService.getFeed(7L, null, PageRequest.of(0, 10));
 
         assertThat(response.getContent()).hasSize(1);
         assertThat(response.getContent().get(0).getPostId()).isEqualTo(100L);
         assertThat(response.getTotalElements()).isEqualTo(1L);
         verify(postService, never()).canWriteToBoard(anyLong(), any());
+    }
+
+    @Test
+    void getBoardPosts_forbiddenWhenBoardIsNotWritable() {
+        when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+        when(boardRepository.findByBoardId(20L)).thenReturn(Optional.of(blockedBoard));
+
+        assertThatThrownBy(() -> agentQueryService.getBoardPosts(7L, 20L, null, PageRequest.of(0, 10)))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
+    }
+
+    @Test
+    void getPostComments_forbiddenWhenPostBoardIsNotWritable() {
+        when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+        when(postService.getPostById(200L, 1L, false)).thenReturn(blockedPost);
+
+        assertThatThrownBy(() -> agentQueryService.getPostComments(7L, 200L, PageRequest.of(0, 10)))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
     }
 
     @Test
@@ -531,7 +589,7 @@ class AgentServiceTest {
         when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(true);
         when(postRepository.countByAgent_AgentIdAndCreatedAtBetween(eq(7L), any(), any())).thenReturn(50L);
 
-        assertThatThrownBy(() -> agentService.createPost(7L, request, null))
+        assertThatThrownBy(() -> agentCommandService.createPost(7L, request, null))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.RATE_LIMIT_EXCEEDED);
 
@@ -549,7 +607,7 @@ class AgentServiceTest {
         when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(true);
         when(commentRepository.countByAgent_AgentIdAndCreatedAtBetween(eq(7L), any(), any())).thenReturn(100L);
 
-        assertThatThrownBy(() -> agentService.createComment(7L, 100L, request, null))
+        assertThatThrownBy(() -> agentCommandService.createComment(7L, 100L, request, null))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.RATE_LIMIT_EXCEEDED);
 
@@ -570,7 +628,7 @@ class AgentServiceTest {
         when(postRepository.countByAgent_AgentIdAndCreatedAtBetween(eq(7L), any(), any())).thenReturn(49L);
         when(postService.createPostAsAgent(eq(1L), eq(7L), eq("free"), any())).thenReturn(writablePost);
 
-        var response = agentService.createPost(7L, request, null);
+        var response = agentCommandService.createPost(7L, request, null);
 
         assertThat(response.getPostId()).isEqualTo(100L);
         verify(agentRepository).findByAgentIdForUpdate(7L);
@@ -590,7 +648,7 @@ class AgentServiceTest {
         when(postRepository.countByAgent_AgentIdAndCreatedAtBetween(eq(7L), any(), any())).thenReturn(0L);
         when(postService.createPostAsAgent(eq(1L), eq(7L), eq("free"), any())).thenReturn(writablePost);
 
-        agentService.createPost(7L, request, null);
+        agentCommandService.createPost(7L, request, null);
 
         verify(postService).createPostAsAgent(eq(1L), eq(7L), eq("free"), argThat(postRequest ->
                 "<p>첫 줄<br>둘째 줄</p><p>다음 문단</p>".equals(postRequest.getContents())));
@@ -611,7 +669,7 @@ class AgentServiceTest {
         when(commentRepository.countByAgent_AgentIdAndCreatedAtBetween(eq(7L), any(), any())).thenReturn(99L);
         when(commentService.createCommentAsAgent(1L, 7L, 100L, null, "b".repeat(25))).thenReturn(comment);
 
-        var response = agentService.createComment(7L, 100L, request, null);
+        var response = agentCommandService.createComment(7L, 100L, request, null);
 
         assertThat(response.getCommentId()).isEqualTo(300L);
         verify(agentRepository).findByAgentIdForUpdate(7L);
@@ -636,11 +694,26 @@ class AgentServiceTest {
         when(commentRepository.countByAgent_AgentIdAndCreatedAtBetween(eq(7L), any(), any())).thenReturn(99L);
         when(commentService.createCommentAsAgent(1L, 7L, 100L, 500L, "reply")).thenReturn(reply);
 
-        var response = agentService.createReply(7L, 500L, request, null);
+        var response = agentCommandService.createReply(7L, 500L, request, null);
 
         assertThat(response.getCommentId()).isEqualTo(501L);
         verify(agentRepository).findByAgentIdForUpdate(7L);
         verify(commentService).createCommentAsAgent(1L, 7L, 100L, 500L, "reply");
+    }
+
+    @Test
+    void likePost_success() {
+        when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+        when(postService.getPostById(100L, 1L, false)).thenReturn(writablePost);
+        when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(true);
+        when(postService.likePost(1L, 7L, 100L)).thenReturn(3);
+
+        var response = agentCommandService.likePost(7L, 100L, null);
+
+        assertThat(response.getPostId()).isEqualTo(100L);
+        assertThat(response.getLikeCount()).isEqualTo(3);
+        assertThat(response.isLiked()).isTrue();
+        verify(agentActivityLogRepository).save(any());
     }
 
     private BoardCategory defaultCategory(Board board, String minWriteRole) {

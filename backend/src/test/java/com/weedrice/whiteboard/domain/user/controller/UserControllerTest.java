@@ -3,7 +3,7 @@ package com.weedrice.whiteboard.domain.user.controller;
 import com.weedrice.whiteboard.domain.agent.dto.AgentClaimRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentListResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentResponse;
-import com.weedrice.whiteboard.domain.agent.service.AgentService;
+import com.weedrice.whiteboard.domain.agent.service.AgentLifecycleService;
 import com.weedrice.whiteboard.domain.board.dto.BoardResponse;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.service.BoardService;
@@ -77,7 +77,7 @@ class UserControllerTest {
         private CommentService commentService;
 
         @Mock
-        private AgentService agentService;
+        private AgentLifecycleService agentLifecycleService;
 
         @Mock
         private org.springframework.context.MessageSource messageSource;
@@ -392,7 +392,7 @@ class UserControllerTest {
                                         .claimedAt(LocalDateTime.now())
                                         .build();
 
-                        given(agentService.claim(eq(1L), any(AgentClaimRequest.class), isNull()))
+                        given(agentLifecycleService.claim(eq(1L), any(AgentClaimRequest.class), isNull()))
                                         .willReturn(agentResponse);
 
                         ApiResponse<AgentResponse> response = userController.claimAgent(request, customUserDetails, null);
@@ -400,7 +400,7 @@ class UserControllerTest {
                         assertThat(response.isSuccess()).isTrue();
                         assertThat(response.getData().getAgentId()).isEqualTo(10L);
                         assertThat(response.getData().getStatus()).isEqualTo("ACTIVE");
-                        verify(agentService).claim(eq(1L), any(AgentClaimRequest.class), isNull());
+                        verify(agentLifecycleService).claim(eq(1L), any(AgentClaimRequest.class), isNull());
                 }
 
                 @Test
@@ -421,7 +421,7 @@ class UserControllerTest {
                                         .createdAt(LocalDateTime.now())
                                         .build();
 
-                        given(agentService.getMyAgents(1L))
+                        given(agentLifecycleService.getMyAgents(1L))
                                         .willReturn(new AgentListResponse(List.of(first, second)));
 
                         ApiResponse<AgentListResponse> response = userController.getMyAgents(customUserDetails);
@@ -442,7 +442,7 @@ class UserControllerTest {
                                         .createdAt(LocalDateTime.now())
                                         .build();
 
-                        given(agentService.suspendMyAgent(eq(1L), eq(10L), isNull()))
+                        given(agentLifecycleService.suspendMyAgent(eq(1L), eq(10L), isNull()))
                                         .willReturn(agentResponse);
 
                         ApiResponse<AgentResponse> response = userController.suspendMyAgent(10L, customUserDetails, null);
@@ -454,13 +454,13 @@ class UserControllerTest {
                 @Test
                 @DisplayName("??Agent ??젣 API ?깃났")
                 void deleteMyAgent_success() {
-                        doNothing().when(agentService).deleteMyAgent(1L, 10L, null);
+                        doNothing().when(agentLifecycleService).deleteMyAgent(1L, 10L, null);
 
                         ApiResponse<Void> response = userController.deleteMyAgent(10L, customUserDetails, null);
 
                         assertThat(response.isSuccess()).isTrue();
                         assertThat(response.getData()).isNull();
-                        verify(agentService).deleteMyAgent(1L, 10L, null);
+                        verify(agentLifecycleService).deleteMyAgent(1L, 10L, null);
                 }
         }
 }

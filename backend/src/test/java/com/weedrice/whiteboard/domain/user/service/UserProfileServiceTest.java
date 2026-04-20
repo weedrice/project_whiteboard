@@ -1,6 +1,6 @@
 package com.weedrice.whiteboard.domain.user.service;
 
-import com.weedrice.whiteboard.domain.agent.service.AgentService;
+import com.weedrice.whiteboard.domain.agent.service.AgentLifecycleService;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.file.service.FileService;
 import com.weedrice.whiteboard.domain.point.entity.UserPoint;
@@ -47,7 +47,7 @@ class UserProfileServiceTest {
     @Mock private FileService fileService;
     @Mock private UserPointRepository userPointRepository;
     @Mock private SanctionService sanctionService;
-    @Mock private AgentService agentService;
+    @Mock private AgentLifecycleService agentLifecycleService;
     @Mock private PasswordEncoder passwordEncoder;
 
     @Test
@@ -132,7 +132,7 @@ class UserProfileServiceTest {
         userProfileService.deleteAccount(1L, "pass");
 
         assertThat(user.getStatus()).isEqualTo("DELETED");
-        verify(agentService).suspendAllForUser(user);
+        verify(agentLifecycleService).suspendAllForUser(user);
     }
 
     @Test
@@ -147,7 +147,7 @@ class UserProfileServiceTest {
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.INVALID_PASSWORD);
 
-        verify(agentService, never()).suspendAllForUser(any());
+        verify(agentLifecycleService, never()).suspendAllForUser(any());
     }
 
     @Test

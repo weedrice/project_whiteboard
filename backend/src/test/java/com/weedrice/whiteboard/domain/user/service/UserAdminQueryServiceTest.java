@@ -2,7 +2,7 @@ package com.weedrice.whiteboard.domain.user.service;
 
 import com.weedrice.whiteboard.domain.admin.entity.Admin;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
-import com.weedrice.whiteboard.domain.agent.service.AgentService;
+import com.weedrice.whiteboard.domain.agent.service.AgentLifecycleService;
 import com.weedrice.whiteboard.domain.admin.service.ModerationActorResolver;
 import com.weedrice.whiteboard.domain.auth.repository.LoginHistoryRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository;
@@ -60,7 +60,7 @@ class UserAdminQueryServiceTest {
     @Mock private SanctionRepository sanctionRepository;
     @Mock private SanctionService sanctionService;
     @Mock private ReportRepository reportRepository;
-    @Mock private AgentService agentService;
+    @Mock private AgentLifecycleService agentLifecycleService;
 
     @Test
     @DisplayName("관리자 사용자 검색은 역할을 일괄 조회한다")
@@ -111,7 +111,7 @@ class UserAdminQueryServiceTest {
         userAdminQueryService.updateUserStatus(1L, "SUSPENDED");
 
         assertThat(user.getStatus()).isEqualTo("SUSPENDED");
-        verify(agentService).suspendAllForUser(user);
+        verify(agentLifecycleService).suspendAllForUser(user);
     }
 
     @Test

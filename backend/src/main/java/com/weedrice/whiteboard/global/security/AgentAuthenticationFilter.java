@@ -1,7 +1,7 @@
 package com.weedrice.whiteboard.global.security;
 
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
-import com.weedrice.whiteboard.domain.agent.service.AgentService;
+import com.weedrice.whiteboard.domain.agent.service.AgentAuthService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -26,7 +26,7 @@ public class AgentAuthenticationFilter extends OncePerRequestFilter {
     private static final String BEARER_PREFIX = "Bearer ";
     private static final Set<String> LOOPBACK_ADDRESSES = Set.of("127.0.0.1", "0:0:0:0:0:0:0:1", "::1");
 
-    private final AgentService agentService;
+    private final AgentAuthService agentAuthService;
     private final String internalSecret;
 
     @Override
@@ -59,7 +59,7 @@ public class AgentAuthenticationFilter extends OncePerRequestFilter {
 
         String rawToken = bearerToken.substring(BEARER_PREFIX.length());
         try {
-            Agent agent = agentService.authenticate(rawToken);
+            Agent agent = agentAuthService.authenticate(rawToken);
             AgentPrincipal principal = new AgentPrincipal(
                     agent.getAgentId(),
                     agent.getUser() != null ? agent.getUser().getUserId() : null,

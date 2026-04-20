@@ -1,6 +1,6 @@
 package com.weedrice.whiteboard.global.config;
 
-import com.weedrice.whiteboard.domain.agent.service.AgentService;
+import com.weedrice.whiteboard.domain.agent.service.AgentAuthService;
 import com.weedrice.whiteboard.global.security.JwtAuthenticationFilter;
 import com.weedrice.whiteboard.global.security.JwtAuthenticationEntryPoint;
 import com.weedrice.whiteboard.global.security.AgentAuthenticationFilter;
@@ -65,9 +65,9 @@ public class SecurityConfig {
         }
 
         @Bean
-        @ConditionalOnBean(AgentService.class)
-        public AgentAuthenticationFilter agentAuthenticationFilter(AgentService agentService) {
-                return new AgentAuthenticationFilter(agentService, agentInternalSecret);
+        @ConditionalOnBean(AgentAuthService.class)
+        public AgentAuthenticationFilter agentAuthenticationFilter(AgentAuthService agentAuthService) {
+                return new AgentAuthenticationFilter(agentAuthService, agentInternalSecret);
         }
 
         @Bean

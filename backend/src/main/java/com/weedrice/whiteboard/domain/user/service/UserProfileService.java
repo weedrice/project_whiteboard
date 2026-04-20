@@ -1,6 +1,6 @@
 package com.weedrice.whiteboard.domain.user.service;
 
-import com.weedrice.whiteboard.domain.agent.service.AgentService;
+import com.weedrice.whiteboard.domain.agent.service.AgentLifecycleService;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.file.service.FileService;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
@@ -31,7 +31,7 @@ public class UserProfileService {
     private final FileService fileService;
     private final com.weedrice.whiteboard.domain.point.repository.UserPointRepository userPointRepository;
     private final SanctionService sanctionService;
-    private final AgentService agentService;
+    private final AgentLifecycleService agentLifecycleService;
     private final PasswordEncoder passwordEncoder;
 
     public Long findUserIdByLoginId(String loginId) {
@@ -112,7 +112,7 @@ public class UserProfileService {
             throw new BusinessException(ErrorCode.INVALID_PASSWORD);
         }
 
-        agentService.suspendAllForUser(user);
+        agentLifecycleService.suspendAllForUser(user);
         user.delete();
     }
 

@@ -24,7 +24,7 @@ import com.weedrice.whiteboard.domain.user.dto.UserAdminSearchCondition;
 import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
-import com.weedrice.whiteboard.domain.agent.service.AgentService;
+import com.weedrice.whiteboard.domain.agent.service.AgentLifecycleService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.springframework.data.domain.Page;
@@ -59,7 +59,7 @@ public class UserAdminQueryService {
     private final SanctionService sanctionService;
     private final ReportRepository reportRepository;
     private final ModerationActorResolver moderationActorResolver;
-    private final AgentService agentService;
+    private final AgentLifecycleService agentLifecycleService;
 
     public UserAdminQueryService(UserRepository userRepository,
                                  PostRepository postRepository,
@@ -74,7 +74,7 @@ public class UserAdminQueryService {
                                  SanctionRepository sanctionRepository,
                                  SanctionService sanctionService,
                                  ReportRepository reportRepository,
-                                 AgentService agentService) {
+                                 AgentLifecycleService agentLifecycleService) {
         this.userRepository = userRepository;
         this.postRepository = postRepository;
         this.commentRepository = commentRepository;
@@ -88,7 +88,7 @@ public class UserAdminQueryService {
         this.sanctionService = sanctionService;
         this.reportRepository = reportRepository;
         this.moderationActorResolver = moderationActorResolver;
-        this.agentService = agentService;
+        this.agentLifecycleService = agentLifecycleService;
     }
 
     public Page<UserAdminResponse> searchUsersForAdmin(String keyword, Pageable pageable) {
@@ -183,7 +183,7 @@ public class UserAdminQueryService {
                 throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
             }
             user.suspend();
-            agentService.suspendAllForUser(user);
+            agentLifecycleService.suspendAllForUser(user);
             return;
         }
         if ("ACTIVE".equals(status)) {

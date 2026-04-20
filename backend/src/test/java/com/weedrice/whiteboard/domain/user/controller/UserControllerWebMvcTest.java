@@ -1,7 +1,7 @@
 package com.weedrice.whiteboard.domain.user.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.weedrice.whiteboard.domain.agent.service.AgentService;
+import com.weedrice.whiteboard.domain.agent.service.AgentLifecycleService;
 import com.weedrice.whiteboard.domain.board.service.BoardService;
 import com.weedrice.whiteboard.domain.comment.service.CommentService;
 import com.weedrice.whiteboard.domain.post.service.PostService;
@@ -79,7 +79,7 @@ class UserControllerWebMvcTest {
     private CommentService commentService;
 
     @MockitoBean
-    private AgentService agentService;
+    private AgentLifecycleService agentLifecycleService;
 
     @MockitoBean
     private org.springframework.context.MessageSource messageSource;
