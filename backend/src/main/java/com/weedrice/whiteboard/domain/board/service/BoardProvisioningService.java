@@ -40,6 +40,13 @@ class BoardProvisioningService {
     private static final String LEGACY_BOARD_URL_CONSTRAINT = "boards_board_url_key";
     private static final String BOARD_NAME_COLUMN = "board_name";
     private static final String BOARD_URL_COLUMN = "board_url";
+    private static final String BOARD_CATEGORY_ACTIVE_CONSTRAINT = "uq_board_categories_active_name";
+    private static final String ORM_BOARD_CATEGORY_ACTIVE_CONSTRAINT = "uk_board_categories_board_name_active";
+    private static final String LEGACY_BOARD_CATEGORY_ACTIVE_CONSTRAINT = "board_categories_board_id_name_is_active_key";
+    private static final String ADMIN_ACTIVE_CONSTRAINT = "uq_admins_active_user_board_role";
+    private static final String BOARD_ADMIN_ACTIVE_CONSTRAINT = "uq_admins_active_board_admin";
+    private static final String ORM_ADMIN_ACTIVE_CONSTRAINT = "uk_admins_user_board_role_active";
+    private static final String LEGACY_ADMIN_ACTIVE_CONSTRAINT = "admins_user_id_board_id_role_is_active_key";
 
     private final BoardRepository boardRepository;
     private final BoardAiInfoRepository boardAiInfoRepository;
@@ -69,11 +76,12 @@ class BoardProvisioningService {
         User currentUser = getCurrentUserOrNull(userDetails);
         String inquiryBoardUrl = normalizeInquiryBoardUrl(requestedBoardUrl);
 
-        Board board = boardRepository.findByBoardUrl(inquiryBoardUrl)
+        Board board = boardRepository.findByBoardUrlForUpdate(inquiryBoardUrl)
                 .orElseGet(() -> createInquiryBoard(currentUser, inquiryBoardUrl));
 
         ensureInquiryBoardIsPrivate(board);
         ensureInquiryBoardCategory(board);
+        ensureInquiryBoardManager(board, currentUser);
     }
 
     Board createBoard(Long creatorId, BoardCreateRequest request) {
@@ -249,24 +257,17 @@ class BoardProvisioningService {
 
         Board savedBoard;
         try {
-            savedBoard = boardRepository.save(board);
+            savedBoard = boardRepository.saveAndFlush(board);
         } catch (DataIntegrityViolationException ex) {
-            return boardRepository.findByBoardUrl(inquiryBoardUrl)
+            if (!containsBoardUrlConstraint(ex) && !containsBoardNameConstraint(ex)) {
+                throw ex;
+            }
+            return boardRepository.findByBoardUrlForUpdate(inquiryBoardUrl)
                     .orElseThrow(() -> ex);
         }
 
-        boardCategoryRepository.save(BoardCategory.builder()
-                .board(savedBoard)
-                .name(DEFAULT_CATEGORY_NAME)
-                .sortOrder(1)
-                .build());
-
-        adminRepository.findByUserAndBoardAndRole(creator, savedBoard, Role.BOARD_ADMIN)
-                .orElseGet(() -> adminRepository.save(Admin.builder()
-                        .user(creator)
-                        .board(savedBoard)
-                        .role(Role.BOARD_ADMIN)
-                        .build()));
+        ensureInquiryBoardCategory(savedBoard);
+        ensureInquiryBoardManager(savedBoard, creator);
 
         return savedBoard;
     }
@@ -289,13 +290,87 @@ class BoardProvisioningService {
     }
 
     private void ensureInquiryBoardCategory(Board board) {
-        if (boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(board.getBoardId(), true)
-                .isEmpty()) {
-            boardCategoryRepository.save(BoardCategory.builder()
+        List<BoardCategory> activeCategories = boardCategoryRepository
+                .findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(board.getBoardId(), true);
+        List<BoardCategory> defaultCategories = activeCategories.stream()
+                .filter(category -> DEFAULT_CATEGORY_NAME.equals(category.getName()))
+                .sorted(Comparator.comparing(BoardCategory::getSortOrder)
+                        .thenComparing(BoardCategory::getCategoryId, Comparator.nullsLast(Long::compareTo)))
+                .toList();
+
+        if (defaultCategories.isEmpty()) {
+            createDefaultInquiryCategory(board);
+            return;
+        }
+
+        BoardCategory canonicalCategory = defaultCategories.get(0);
+        if (!Objects.equals(canonicalCategory.getSortOrder(), 1)) {
+            canonicalCategory.update(canonicalCategory.getName(), 1, canonicalCategory.getMinWriteRole());
+        }
+        defaultCategories.stream()
+                .skip(1)
+                .forEach(BoardCategory::deactivate);
+    }
+
+    private void createDefaultInquiryCategory(Board board) {
+        try {
+            boardCategoryRepository.saveAndFlush(BoardCategory.builder()
                     .board(board)
                     .name(DEFAULT_CATEGORY_NAME)
                     .sortOrder(1)
                     .build());
+        } catch (DataIntegrityViolationException ex) {
+            if (!containsBoardCategoryConstraint(ex)) {
+                throw ex;
+            }
+        }
+    }
+
+    private void ensureInquiryBoardManager(Board board, User requester) {
+        User manager = resolveInquiryBoardCreator(requester);
+        List<Admin> activeManagers = adminRepository.findByBoardAndRoleAndIsActive(board, Role.BOARD_ADMIN, true)
+                .stream()
+                .sorted(Comparator.comparing(Admin::getAdminId, Comparator.nullsLast(Long::compareTo)).reversed())
+                .toList();
+
+        Admin canonicalManager = activeManagers.stream()
+                .filter(admin -> Objects.equals(admin.getUser().getUserId(), manager.getUserId()))
+                .findFirst()
+                .orElse(null);
+
+        if (canonicalManager != null) {
+            activeManagers.stream()
+                    .filter(admin -> !Objects.equals(admin.getAdminId(), canonicalManager.getAdminId()))
+                    .forEach(Admin::deactivate);
+            return;
+        }
+
+        activeManagers.stream()
+                .forEach(Admin::deactivate);
+
+        activateOrCreateInquiryBoardManager(board, manager);
+    }
+
+    private Admin activateOrCreateInquiryBoardManager(Board board, User manager) {
+        Admin reusableManager = adminRepository.findByUserAndBoardAndRole(manager, board, Role.BOARD_ADMIN)
+                .orElse(null);
+        if (reusableManager != null) {
+            reusableManager.activate();
+            return reusableManager;
+        }
+
+        try {
+            return adminRepository.saveAndFlush(Admin.builder()
+                    .user(manager)
+                    .board(board)
+                    .role(Role.BOARD_ADMIN)
+                    .build());
+        } catch (DataIntegrityViolationException ex) {
+            if (!containsAdminActiveConstraint(ex)) {
+                throw ex;
+            }
+            return adminRepository.findByUserAndBoardAndRoleAndIsActive(manager, board, Role.BOARD_ADMIN, true)
+                    .orElseThrow(() -> ex);
         }
     }
 
@@ -342,6 +417,23 @@ class BoardProvisioningService {
 
     private boolean containsBoardUrlConstraint(Throwable throwable) {
         return containsConstraint(throwable, BOARD_URL_CONSTRAINT, LEGACY_BOARD_URL_CONSTRAINT, BOARD_URL_COLUMN);
+    }
+
+    private boolean containsBoardCategoryConstraint(Throwable throwable) {
+        return containsConstraint(
+                throwable,
+                BOARD_CATEGORY_ACTIVE_CONSTRAINT,
+                ORM_BOARD_CATEGORY_ACTIVE_CONSTRAINT,
+                LEGACY_BOARD_CATEGORY_ACTIVE_CONSTRAINT);
+    }
+
+    private boolean containsAdminActiveConstraint(Throwable throwable) {
+        return containsConstraint(
+                throwable,
+                ADMIN_ACTIVE_CONSTRAINT,
+                BOARD_ADMIN_ACTIVE_CONSTRAINT,
+                ORM_ADMIN_ACTIVE_CONSTRAINT,
+                LEGACY_ADMIN_ACTIVE_CONSTRAINT);
     }
 
     private boolean containsConstraint(Throwable throwable, String... candidates) {
