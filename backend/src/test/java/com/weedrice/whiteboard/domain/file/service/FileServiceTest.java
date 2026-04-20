@@ -213,6 +213,48 @@ class FileServiceTest {
     }
 
     @Test
+    @DisplayName("게시판 아이콘 교체 시 기존 아이콘 파일은 삭제 예정 상태로 전환한다")
+    void replaceBoardIcon_marksPreviousFilesPendingDelete() {
+        User uploader = User.builder().build();
+        ReflectionTestUtils.setField(uploader, "userId", 1L);
+
+        File newBoardIcon = File.builder()
+                .filePath("new-board-icon.jpg")
+                .originalName("new-board-icon.jpg")
+                .fileSize(4L)
+                .mimeType("image/jpeg")
+                .uploader(uploader)
+                .build();
+        ReflectionTestUtils.setField(newBoardIcon, "fileId", 200L);
+
+        File previousBoardIcon = File.builder()
+                .filePath("old-board-icon.jpg")
+                .originalName("old-board-icon.jpg")
+                .fileSize(4L)
+                .mimeType("image/jpeg")
+                .uploader(uploader)
+                .relatedId(10L)
+                .relatedType(FileService.RELATED_TYPE_BOARD_ICON)
+                .build();
+        ReflectionTestUtils.setField(previousBoardIcon, "fileId", 150L);
+
+        when(fileRepository.findByFileIdAndStorageStatus(200L, FileStorageStatus.ACTIVE))
+                .thenReturn(Optional.of(newBoardIcon));
+        when(fileRepository.associateIfUnassociated(200L, 1L, 10L, FileService.RELATED_TYPE_BOARD_ICON))
+                .thenReturn(1);
+        when(fileRepository.findByRelatedIdAndRelatedTypeAndStorageStatus(
+                10L,
+                FileService.RELATED_TYPE_BOARD_ICON,
+                FileStorageStatus.ACTIVE)).thenReturn(List.of(newBoardIcon, previousBoardIcon));
+
+        String boardIconUrl = fileService.replaceBoardIcon(200L, 1L, 10L);
+
+        assertThat(boardIconUrl).isEqualTo("/api/v1/files/200");
+        assertThat(previousBoardIcon.getStorageStatus()).isEqualTo(FileStorageStatus.PENDING_DELETE);
+        assertThat(newBoardIcon.getStorageStatus()).isEqualTo(FileStorageStatus.ACTIVE);
+    }
+
+    @Test
     @DisplayName("임시 파일 정리는 바로 삭제하지 않고 pending 상태로 전환한다")
     void cleanUpTemporaryFiles_marksFilesPendingDeleteInBatches() {
         when(fileRepository.findTemporaryFileIdsForCleanup(any(LocalDateTime.class), eq(PageRequest.of(0, 500))))

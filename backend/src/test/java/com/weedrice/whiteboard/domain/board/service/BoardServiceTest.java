@@ -3,6 +3,7 @@ package com.weedrice.whiteboard.domain.board.service;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.board.dto.BoardCreateRequest;
 import com.weedrice.whiteboard.domain.board.dto.BoardResponse;
+import com.weedrice.whiteboard.domain.board.dto.BoardUpdateRequest;
 import com.weedrice.whiteboard.domain.board.entity.BoardAiInfo;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardSubscription;
@@ -11,6 +12,7 @@ import com.weedrice.whiteboard.domain.board.repository.BoardAiInfoRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardCategoryRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository;
+import com.weedrice.whiteboard.domain.file.service.FileService;
 import com.weedrice.whiteboard.domain.post.repository.DraftPostRepository;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.service.PostService;
@@ -18,8 +20,10 @@ import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.point.service.PointService;
 import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
+import com.weedrice.whiteboard.global.common.util.SecurityUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import org.hibernate.exception.ConstraintViolationException;
 import org.mockito.ArgumentCaptor;
 import org.junit.jupiter.api.BeforeEach;
@@ -32,6 +36,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -79,6 +85,8 @@ class BoardServiceTest {
     private PointService pointService;
     @Mock
     private GlobalConfigService globalConfigService;
+    @Mock
+    private FileService fileService;
     private BoardResponseReadService boardResponseReadService;
     private BoardResponseAssembler boardResponseAssembler;
 
@@ -112,7 +120,8 @@ class BoardServiceTest {
                 userRepository,
                 adminRepository,
                 pointService,
-                globalConfigService);
+                globalConfigService,
+                fileService);
         BoardSubscriptionService subscriptionService = new BoardSubscriptionService(
                 boardRepository,
                 boardSubscriptionRepository,
@@ -124,6 +133,7 @@ class BoardServiceTest {
                 provisioningService,
                 subscriptionService,
                 categoryService);
+        new SecurityUtils(userRepository, adminRepository).init();
 
         lenient().when(boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(anyLong(), any()))
                 .thenReturn(Collections.emptyList());
@@ -153,6 +163,7 @@ class BoardServiceTest {
                 .displayName("Test User")
                 .build();
         ReflectionTestUtils.setField(user, "userId", 1L);
+        lenient().when(userRepository.findByLoginId(anyString())).thenReturn(Optional.of(user));
 
         board = Board.builder()
                 .boardName("Test Board")
@@ -263,6 +274,37 @@ class BoardServiceTest {
     }
 
     @Test
+    @DisplayName("게시판 생성 시 파일 기반 아이콘이면 영구 연관한다")
+    void createBoard_withUploadedIcon_associatesBoardIcon() {
+        Long creatorId = 1L;
+        BoardCreateRequest request = new BoardCreateRequest(
+                "New Board",
+                "new-board",
+                "New Description",
+                "/api/v1/files/55",
+                null);
+
+        when(userRepository.findById(creatorId)).thenReturn(Optional.of(user));
+        when(boardRepository.existsByBoardName(request.getBoardName())).thenReturn(false);
+        when(boardRepository.existsByBoardUrl(request.getBoardUrl())).thenReturn(false);
+        when(globalConfigService.getConfig(anyString())).thenReturn("500");
+        when(boardRepository.saveAndFlush(any(Board.class))).thenAnswer(invocation -> {
+            Board savedBoard = invocation.getArgument(0);
+            ReflectionTestUtils.setField(savedBoard, "boardId", 1L);
+            return savedBoard;
+        });
+        when(boardCategoryRepository.save(any(com.weedrice.whiteboard.domain.board.entity.BoardCategory.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(adminRepository.save(any(com.weedrice.whiteboard.domain.admin.entity.Admin.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(boardRepository.findMaxSortOrder()).thenReturn(0);
+
+        boardService.createBoard(creatorId, request);
+
+        verify(fileService).replaceBoardIcon(55L, creatorId, 1L);
+    }
+
+    @Test
     @DisplayName("AI ?ъ슜 寃뚯떆???앹꽦 ????λ맂 媛?대뱶 ?꾨줉?꽣? ??ν솕?쒕떎")
     void createBoard_agentEnabled_createsBoardAiInfo() {
         Long creatorId = 1L;
@@ -294,6 +336,42 @@ class BoardServiceTest {
 
         verify(boardAiInfoRepository).save(any(BoardAiInfo.class));
         verify(pointService).spendPoint(eq(creatorId), eq(500), anyString(), eq(2L), eq("BOARD_CREATE"));
+    }
+
+    @Test
+    @DisplayName("게시판 수정 시 아이콘 교체를 파일 서비스에 반영한다")
+    void updateBoard_replacesBoardIcon() {
+        UserDetails userDetails = mock(UserDetails.class);
+        BoardUpdateRequest request = new BoardUpdateRequest();
+        ReflectionTestUtils.setField(request, "boardName", "Updated Board");
+        ReflectionTestUtils.setField(request, "description", "Updated Description");
+        ReflectionTestUtils.setField(request, "boardUrl", "test-board");
+        ReflectionTestUtils.setField(request, "iconUrl", "/api/v1/files/88");
+        ReflectionTestUtils.setField(request, "sortOrder", 1);
+        ReflectionTestUtils.setField(request, "isActive", true);
+        ReflectionTestUtils.setField(request, "isPublic", true);
+
+        ReflectionTestUtils.setField(board, "iconUrl", "/api/v1/files/77");
+
+        when(userDetails.getUsername()).thenReturn(user.getLoginId());
+        when(userRepository.findByLoginId(user.getLoginId())).thenReturn(Optional.of(user));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(adminRepository.findByUserAndBoardAndIsActive(user, board, true)).thenReturn(Optional.empty());
+        when(boardRepository.findByBoardUrl("test-board")).thenReturn(Optional.of(board));
+
+        CustomUserDetails principal = new CustomUserDetails(1L, user.getLoginId(), "password", Collections.emptyList());
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities()));
+        Board updatedBoard;
+        try {
+            updatedBoard = boardService.updateBoard("test-board", request, userDetails);
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
+
+        assertThat(updatedBoard.getIconUrl()).isEqualTo("/api/v1/files/88");
+        verify(fileService).replaceBoardIcon(88L, 1L, 1L);
+        verify(fileService).deleteFileWithStorageIfAssociated(77L, 1L, FileService.RELATED_TYPE_BOARD_ICON);
     }
 
     @Test

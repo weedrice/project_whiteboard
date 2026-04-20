@@ -39,6 +39,7 @@ public class FileService {
 
     public static final String RELATED_TYPE_POST_CONTENT = "POST_CONTENT";
     public static final String RELATED_TYPE_USER_PROFILE = "USER_PROFILE";
+    public static final String RELATED_TYPE_BOARD_ICON = "BOARD_ICON";
     private static final int MAX_DELETE_RETRY_COUNT = 5;
     private static final int TEMPORARY_FILE_CLEANUP_BATCH_SIZE = 500;
 
@@ -168,6 +169,24 @@ public class FileService {
         }
 
         return FileUrlResolver.resolve(profileImageId);
+    }
+
+    @Transactional
+    public String replaceBoardIcon(Long boardIconFileId, Long ownerUserId, Long boardId) {
+        associateFileWithEntity(boardIconFileId, ownerUserId, boardId, RELATED_TYPE_BOARD_ICON);
+
+        List<File> boardIconFiles = fileRepository.findByRelatedIdAndRelatedTypeAndStorageStatus(
+                boardId,
+                RELATED_TYPE_BOARD_ICON,
+                FileStorageStatus.ACTIVE);
+
+        for (File boardIconFile : boardIconFiles) {
+            if (!boardIconFileId.equals(boardIconFile.getFileId())) {
+                boardIconFile.markDeletionPending();
+            }
+        }
+
+        return FileUrlResolver.resolve(boardIconFileId);
     }
 
     @Transactional

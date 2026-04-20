@@ -10,6 +10,7 @@ import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
 import com.weedrice.whiteboard.domain.board.repository.BoardAiInfoRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardCategoryRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
+import com.weedrice.whiteboard.domain.file.service.FileService;
 import com.weedrice.whiteboard.domain.point.service.PointService;
 import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -55,6 +56,7 @@ class BoardProvisioningService {
     private final AdminRepository adminRepository;
     private final PointService pointService;
     private final GlobalConfigService globalConfigService;
+    private final FileService fileService;
 
     BoardProvisioningService(BoardRepository boardRepository,
                              BoardAiInfoRepository boardAiInfoRepository,
@@ -62,7 +64,8 @@ class BoardProvisioningService {
                              UserRepository userRepository,
                              AdminRepository adminRepository,
                              PointService pointService,
-                             GlobalConfigService globalConfigService) {
+                             GlobalConfigService globalConfigService,
+                             FileService fileService) {
         this.boardRepository = boardRepository;
         this.boardAiInfoRepository = boardAiInfoRepository;
         this.boardCategoryRepository = boardCategoryRepository;
@@ -70,6 +73,7 @@ class BoardProvisioningService {
         this.adminRepository = adminRepository;
         this.pointService = pointService;
         this.globalConfigService = globalConfigService;
+        this.fileService = fileService;
     }
 
     void ensureInquiryBoard(UserDetails userDetails, String requestedBoardUrl) {
@@ -116,6 +120,7 @@ class BoardProvisioningService {
         } catch (DataIntegrityViolationException ex) {
             throw resolveBoardCreateConflict(ex);
         }
+        syncBoardIcon(creatorId, savedBoard, null);
         pointService.spendPoint(
                 creatorId,
                 resolveBoardCreateCost(),
@@ -154,6 +159,8 @@ class BoardProvisioningService {
     Board updateBoard(String boardUrl, BoardUpdateRequest request, UserDetails userDetails) {
         Board board = boardRepository.findByBoardUrl(boardUrl)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
+        User currentUser = getCurrentUser(userDetails);
+        String previousIconUrl = board.getIconUrl();
 
         SecurityUtils.validateBoardAdminPermission(board);
 
@@ -179,6 +186,7 @@ class BoardProvisioningService {
                 request.getIsActive(),
                 request.getIsPublic(),
                 request.getAgentUseYn());
+        syncBoardIcon(currentUser.getUserId(), board, previousIconUrl);
         upsertBoardAiInfoIfEnabled(board, request.getGuidePrompt(), false);
         return board;
     }
@@ -233,6 +241,14 @@ class BoardProvisioningService {
         }
         return userRepository.findByLoginId(userDetails.getUsername())
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+    }
+
+    private User getCurrentUser(UserDetails userDetails) {
+        User user = getCurrentUserOrNull(userDetails);
+        if (user == null) {
+            throw new BusinessException(ErrorCode.USER_NOT_FOUND);
+        }
+        return user;
     }
 
     private String normalizeInquiryBoardUrl(String requestedBoardUrl) {
@@ -506,6 +522,22 @@ class BoardProvisioningService {
     private int resolveBoardCreateCost() {
         String boardCreateCostStr = globalConfigService.getConfig("POINT_BOARD_CREATE_COST");
         return boardCreateCostStr != null ? Integer.parseInt(boardCreateCostStr) : 500;
+    }
+
+    private void syncBoardIcon(Long ownerUserId, Board board, String previousIconUrl) {
+        Long currentFileId = FileService.extractFileIdFromUrl(board.getIconUrl());
+        Long previousFileId = FileService.extractFileIdFromUrl(previousIconUrl);
+
+        if (currentFileId != null) {
+            fileService.replaceBoardIcon(currentFileId, ownerUserId, board.getBoardId());
+        }
+
+        if (previousFileId != null && !Objects.equals(previousFileId, currentFileId)) {
+            fileService.deleteFileWithStorageIfAssociated(
+                    previousFileId,
+                    board.getBoardId(),
+                    FileService.RELATED_TYPE_BOARD_ICON);
+        }
     }
 
     private String normalizeGuidePrompt(String guidePrompt) {
