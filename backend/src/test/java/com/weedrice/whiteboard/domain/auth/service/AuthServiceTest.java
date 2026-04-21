@@ -89,6 +89,7 @@ class AuthServiceTest {
     @Mock private TransactionTemplate transactionTemplate;
     @Mock private SanctionService sanctionService;
     @Mock private EntityManager entityManager;
+    @Mock private RefreshTokenLifecycleService refreshTokenLifecycleService;
 
     private AuthService authService;
     private User user;
@@ -100,7 +101,8 @@ class AuthServiceTest {
         TokenHashService tokenHashService = new TokenHashService();
         SessionTokenService sessionTokenService = new SessionTokenService(
                 userRepository, userPointRepository, jwtTokenProvider, authenticationManagerBuilder,
-                refreshTokenRepository, loginHistoryRepository, sanctionService, tokenHashService);
+                refreshTokenRepository, loginHistoryRepository, sanctionService, tokenHashService,
+                refreshTokenLifecycleService);
         PasswordResetTokenOrchestrationService passwordResetTokenOrchestrationService =
                 new PasswordResetTokenOrchestrationService(
                         passwordResetTokenRepository,
@@ -109,7 +111,7 @@ class AuthServiceTest {
                         tokenHashService);
         PasswordResetService passwordResetService = new PasswordResetService(
                 userRepository, passwordEncoder, verificationCodeService, passwordResetTokenRepository,
-                passwordHistoryRepository, sessionTokenService, tokenHashService,
+                passwordHistoryRepository, refreshTokenLifecycleService, tokenHashService,
                 passwordResetTokenOrchestrationService);
         SignupService signupService = new SignupService(
                 userRepository, pointService, passwordEncoder, userSettingsRepository,
@@ -327,10 +329,6 @@ class AuthServiceTest {
         verify(jwtTokenProvider, never()).createAccessToken(any());
     }
 
-    /*
-    @Test
-    @DisplayName("BAN 사용자는 refresh 할 수 없다")
-    */
     @Test
     @DisplayName("refresh rotates token with persisted client metadata")
     void refresh_success_reusesClientMetadata() {
@@ -367,7 +365,7 @@ class AuthServiceTest {
     }
 
     @Test
-    @DisplayName("BAN ?ъ슜?먮뒗 refresh ?????녿떎")
+    @DisplayName("refresh fails when user is banned")
     void refresh_fail_whenUserIsBanned() {
         RefreshToken refreshToken = RefreshToken.builder()
                 .user(user)
@@ -479,24 +477,15 @@ class AuthServiceTest {
         String email = "test@example.com";
         String verificationTicket = "ticket-1";
         String newPassword = "newPassword123!";
-        RefreshToken refreshToken = RefreshToken.builder()
-                .user(user)
-                .tokenHash("hash")
-                .ipAddress("127.0.0.1")
-                .deviceInfo("browser")
-                .expiresAt(LocalDateTime.now().plusDays(1))
-                .build();
 
         when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
         when(passwordHistoryRepository.findTop3ByUserOrderByCreatedAtDesc(user)).thenReturn(Collections.emptyList());
-        when(refreshTokenRepository.findByUserAndIsRevoked(user, false)).thenReturn(List.of(refreshToken));
         when(passwordEncoder.matches(newPassword, "encodedPassword")).thenReturn(false);
         when(passwordEncoder.encode(newPassword)).thenReturn("encodedNewPassword");
 
         authService.resetPasswordByCode(email, verificationTicket, newPassword);
 
-        assertThat(refreshToken.getIsRevoked()).isTrue();
-        verify(refreshTokenRepository).saveAll(any());
+        verify(refreshTokenLifecycleService).revokeActiveRefreshTokens(user);
     }
 
     @Test
@@ -515,23 +504,14 @@ class AuthServiceTest {
         passwordResetToken.markSent();
         passwordResetTokens.put(1L, passwordResetToken);
 
-        RefreshToken refreshToken = RefreshToken.builder()
-                .user(user)
-                .tokenHash("hash")
-                .ipAddress("127.0.0.1")
-                .deviceInfo("browser")
-                .expiresAt(LocalDateTime.now().plusDays(1))
-                .build();
-
         when(passwordHistoryRepository.findTop3ByUserOrderByCreatedAtDesc(user)).thenReturn(Collections.emptyList());
-        when(refreshTokenRepository.findByUserAndIsRevoked(user, false)).thenReturn(List.of(refreshToken));
         when(passwordEncoder.matches(newPassword, "encodedPassword")).thenReturn(false);
         when(passwordEncoder.encode(newPassword)).thenReturn("encodedNewPassword");
 
         authService.resetPasswordWithToken(rawToken, newPassword);
 
         assertThat(passwordResetToken.getIsUsed()).isTrue();
-        assertThat(refreshToken.getIsRevoked()).isTrue();
+        verify(refreshTokenLifecycleService).revokeActiveRefreshTokens(user);
         verify(passwordHistoryRepository).save(any(PasswordHistory.class));
         verify(verificationCodeService, never()).consumeVerificationTicket(anyString(), any(), anyString());
     }
@@ -586,3 +566,4 @@ class AuthServiceTest {
                 .build();
     }
 }
+

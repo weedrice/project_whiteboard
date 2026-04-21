@@ -17,14 +17,12 @@ import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.domain.report.repository.ReportRepository;
 import com.weedrice.whiteboard.domain.sanction.entity.Sanction;
 import com.weedrice.whiteboard.domain.sanction.repository.SanctionRepository;
-import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.dto.AdminUserDetailResponse;
 import com.weedrice.whiteboard.domain.user.dto.UserAdminResponse;
 import com.weedrice.whiteboard.domain.user.dto.UserAdminSearchCondition;
 import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
-import com.weedrice.whiteboard.domain.agent.service.AgentLifecycleService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.springframework.data.domain.Page;
@@ -56,10 +54,9 @@ public class UserAdminQueryService {
     private final BoardSubscriptionRepository boardSubscriptionRepository;
     private final LoginHistoryRepository loginHistoryRepository;
     private final SanctionRepository sanctionRepository;
-    private final SanctionService sanctionService;
     private final ReportRepository reportRepository;
     private final ModerationActorResolver moderationActorResolver;
-    private final AgentLifecycleService agentLifecycleService;
+    private final UserLifecycleService userLifecycleService;
 
     public UserAdminQueryService(UserRepository userRepository,
                                  PostRepository postRepository,
@@ -72,9 +69,8 @@ public class UserAdminQueryService {
                                  BoardSubscriptionRepository boardSubscriptionRepository,
                                  LoginHistoryRepository loginHistoryRepository,
                                  SanctionRepository sanctionRepository,
-                                 SanctionService sanctionService,
                                  ReportRepository reportRepository,
-                                 AgentLifecycleService agentLifecycleService) {
+                                 UserLifecycleService userLifecycleService) {
         this.userRepository = userRepository;
         this.postRepository = postRepository;
         this.commentRepository = commentRepository;
@@ -85,10 +81,9 @@ public class UserAdminQueryService {
         this.boardSubscriptionRepository = boardSubscriptionRepository;
         this.loginHistoryRepository = loginHistoryRepository;
         this.sanctionRepository = sanctionRepository;
-        this.sanctionService = sanctionService;
         this.reportRepository = reportRepository;
         this.moderationActorResolver = moderationActorResolver;
-        this.agentLifecycleService = agentLifecycleService;
+        this.userLifecycleService = userLifecycleService;
     }
 
     public Page<UserAdminResponse> searchUsersForAdmin(String keyword, Pageable pageable) {
@@ -175,28 +170,7 @@ public class UserAdminQueryService {
 
     @Transactional
     public void updateUserStatus(Long userId, String status) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-
-        if ("SUSPENDED".equals(status)) {
-            if ("DELETED".equals(user.getStatus())) {
-                throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
-            }
-            user.suspend();
-            agentLifecycleService.suspendAllForUser(user);
-            return;
-        }
-        if ("ACTIVE".equals(status)) {
-            if ("DELETED".equals(user.getStatus())) {
-                throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
-            }
-            if (sanctionService.isUserBanned(user)) {
-                throw new BusinessException(ErrorCode.USER_NOT_ACTIVE);
-            }
-            user.activate();
-            return;
-        }
-        throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        userLifecycleService.updateAdminManagedStatus(userId, status);
     }
 
     private String resolveRoleForAdmin(User user) {

@@ -2,18 +2,13 @@ package com.weedrice.whiteboard.domain.auth.service;
 
 import com.weedrice.whiteboard.domain.auth.entity.PasswordResetToken;
 import com.weedrice.whiteboard.domain.auth.entity.VerificationPurpose;
-import com.weedrice.whiteboard.domain.auth.repository.LoginHistoryRepository;
 import com.weedrice.whiteboard.domain.auth.repository.PasswordResetTokenRepository;
-import com.weedrice.whiteboard.domain.auth.repository.RefreshTokenRepository;
-import com.weedrice.whiteboard.domain.point.repository.UserPointRepository;
-import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.PasswordHistoryRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.email.EmailService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
-import com.weedrice.whiteboard.global.security.JwtTokenProvider;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -22,7 +17,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
-import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -54,12 +48,7 @@ class AuthPasswordResetMailFlowTest {
     @Mock private PasswordHistoryRepository passwordHistoryRepository;
     @Mock private EmailService emailService;
     @Mock private TransactionTemplate transactionTemplate;
-    @Mock private UserPointRepository userPointRepository;
-    @Mock private JwtTokenProvider jwtTokenProvider;
-    @Mock private AuthenticationManagerBuilder authenticationManagerBuilder;
-    @Mock private RefreshTokenRepository refreshTokenRepository;
-    @Mock private LoginHistoryRepository loginHistoryRepository;
-    @Mock private SanctionService sanctionService;
+    @Mock private RefreshTokenLifecycleService refreshTokenLifecycleService;
 
     private PasswordResetService passwordResetService;
 
@@ -70,9 +59,6 @@ class AuthPasswordResetMailFlowTest {
     @BeforeEach
     void setUp() {
         TokenHashService tokenHashService = new TokenHashService();
-        SessionTokenService sessionTokenService = new SessionTokenService(
-                userRepository, userPointRepository, jwtTokenProvider, authenticationManagerBuilder,
-                refreshTokenRepository, loginHistoryRepository, sanctionService, tokenHashService);
         PasswordResetTokenOrchestrationService passwordResetTokenOrchestrationService =
                 new PasswordResetTokenOrchestrationService(
                         passwordResetTokenRepository,
@@ -81,7 +67,7 @@ class AuthPasswordResetMailFlowTest {
                         tokenHashService);
         passwordResetService = new PasswordResetService(
                 userRepository, passwordEncoder, verificationCodeService, passwordResetTokenRepository,
-                passwordHistoryRepository, sessionTokenService, tokenHashService,
+                passwordHistoryRepository, refreshTokenLifecycleService, tokenHashService,
                 passwordResetTokenOrchestrationService);
 
         user = User.builder()
@@ -126,7 +112,7 @@ class AuthPasswordResetMailFlowTest {
     }
 
     @Test
-    @DisplayName("비밀번호 재설정 메일 발송 성공 시 새 토큰만 SENT 상태로 남는다")
+    @DisplayName("sendPasswordResetLinkByEmail invalidates previous sent token on success")
     void sendPasswordResetLinkByEmail_success_invalidatesPreviousSentToken() {
         when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(user));
 
@@ -155,7 +141,7 @@ class AuthPasswordResetMailFlowTest {
     }
 
     @Test
-    @DisplayName("비밀번호 재설정 메일 발송 실패 시 새 토큰은 FAILED, 이전 SENT 토큰은 유지된다")
+    @DisplayName("sendPasswordResetLinkByEmail keeps previous sent token when email send fails")
     void sendPasswordResetLinkByEmail_failure_keepsPreviousSentToken() {
         when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(user));
         doThrow(new BusinessException(ErrorCode.EMAIL_SEND_FAILED))
@@ -183,7 +169,7 @@ class AuthPasswordResetMailFlowTest {
     }
 
     @Test
-    @DisplayName("SENT 전환 중 예외가 나도 복구 경로에서 새 SENT 토큰을 남긴다")
+    @DisplayName("sendPasswordResetLinkByEmail recovers with a sent token after promotion failure")
     void sendPasswordResetLinkByEmail_promoteFailure_savesReplacementSentToken() {
         when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(user));
 
@@ -206,7 +192,7 @@ class AuthPasswordResetMailFlowTest {
     }
 
     @Test
-    @DisplayName("PENDING 비밀번호 재설정 토큰은 사용할 수 없다")
+    @DisplayName("resetPasswordWithToken rejects pending tokens")
     void resetPasswordWithToken_rejectsPendingToken() {
         PasswordResetToken pendingToken = PasswordResetToken.builder()
                 .token("hashed")
@@ -226,7 +212,7 @@ class AuthPasswordResetMailFlowTest {
     }
 
     @Test
-    @DisplayName("FAILED 비밀번호 재설정 토큰은 사용할 수 없다")
+    @DisplayName("resetPasswordWithToken rejects failed tokens")
     void resetPasswordWithToken_rejectsFailedToken() {
         PasswordResetToken failedToken = PasswordResetToken.builder()
                 .token("hashed")
@@ -247,7 +233,7 @@ class AuthPasswordResetMailFlowTest {
     }
 
     @Test
-    @DisplayName("가장 최신 SENT가 아닌 토큰은 사용할 수 없다")
+    @DisplayName("resetPasswordWithToken rejects older sent tokens")
     void resetPasswordWithToken_rejectsOlderSentToken() {
         PasswordResetToken olderSentToken = PasswordResetToken.builder()
                 .token("older-hashed")

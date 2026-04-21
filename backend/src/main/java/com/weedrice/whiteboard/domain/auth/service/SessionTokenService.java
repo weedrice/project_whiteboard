@@ -31,7 +31,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -49,6 +48,7 @@ public class SessionTokenService {
     private final LoginHistoryRepository loginHistoryRepository;
     private final SanctionService sanctionService;
     private final TokenHashService tokenHashService;
+    private final RefreshTokenLifecycleService refreshTokenLifecycleService;
 
     @Transactional
     public LoginResult login(LoginRequest request, HttpServletRequest httpServletRequest) {
@@ -148,14 +148,7 @@ public class SessionTokenService {
 
     @Transactional
     public void revokeActiveRefreshTokens(User user) {
-        List<RefreshToken> activeTokens = refreshTokenRepository.findByUserAndIsRevoked(user, false);
-        List<RefreshToken> tokensToRevoke = activeTokens != null ? activeTokens : Collections.emptyList();
-        for (RefreshToken token : tokensToRevoke) {
-            token.revoke();
-        }
-        if (!tokensToRevoke.isEmpty()) {
-            refreshTokenRepository.saveAll(tokensToRevoke);
-        }
+        refreshTokenLifecycleService.revokeActiveRefreshTokens(user);
     }
 
     private Authentication createRefreshAuthentication(User user) {

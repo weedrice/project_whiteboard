@@ -1,8 +1,7 @@
 package com.weedrice.whiteboard.domain.user.service;
 
-import com.weedrice.whiteboard.domain.auth.entity.RefreshToken;
 import com.weedrice.whiteboard.domain.auth.entity.VerificationPurpose;
-import com.weedrice.whiteboard.domain.auth.repository.RefreshTokenRepository;
+import com.weedrice.whiteboard.domain.auth.service.RefreshTokenLifecycleService;
 import com.weedrice.whiteboard.domain.auth.service.VerificationCodeService;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.entity.PasswordHistory;
@@ -28,7 +27,7 @@ public class UserSecurityService {
     private final UserRepository userRepository;
     private final PasswordHistoryRepository passwordHistoryRepository;
     private final PasswordEncoder passwordEncoder;
-    private final RefreshTokenRepository refreshTokenRepository;
+    private final RefreshTokenLifecycleService refreshTokenLifecycleService;
     private final SanctionService sanctionService;
     private final VerificationCodeService verificationCodeService;
     private final EntityManager entityManager;
@@ -59,7 +58,7 @@ public class UserSecurityService {
                 .passwordHash(newPasswordHash)
                 .build());
 
-        revokeActiveRefreshTokens(user);
+        refreshTokenLifecycleService.revokeActiveRefreshTokens(user);
     }
 
     @Transactional
@@ -91,16 +90,6 @@ public class UserSecurityService {
                 throw new BusinessException(ErrorCode.DUPLICATE_EMAIL);
             }
             throw ex;
-        }
-    }
-
-    private void revokeActiveRefreshTokens(User user) {
-        List<RefreshToken> activeTokens = refreshTokenRepository.findByUserAndIsRevoked(user, false);
-        for (RefreshToken token : activeTokens) {
-            token.revoke();
-        }
-        if (!activeTokens.isEmpty()) {
-            refreshTokenRepository.saveAll(activeTokens);
         }
     }
 

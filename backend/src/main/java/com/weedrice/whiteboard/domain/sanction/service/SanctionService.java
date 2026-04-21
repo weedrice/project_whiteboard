@@ -7,6 +7,7 @@ import com.weedrice.whiteboard.domain.sanction.entity.Sanction;
 import com.weedrice.whiteboard.domain.sanction.repository.SanctionRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.domain.user.service.UserLifecycleService;
 import com.weedrice.whiteboard.global.common.util.SecurityUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -27,13 +28,16 @@ public class SanctionService {
     private final SanctionRepository sanctionRepository;
     private final UserRepository userRepository;
     private final ModerationActorResolver moderationActorResolver;
+    private final UserLifecycleService userLifecycleService;
 
     public SanctionService(SanctionRepository sanctionRepository,
                            UserRepository userRepository,
-                           ModerationActorResolver moderationActorResolver) {
+                           ModerationActorResolver moderationActorResolver,
+                           UserLifecycleService userLifecycleService) {
         this.sanctionRepository = sanctionRepository;
         this.userRepository = userRepository;
         this.moderationActorResolver = moderationActorResolver;
+        this.userLifecycleService = userLifecycleService;
     }
 
     @Transactional
@@ -48,7 +52,7 @@ public class SanctionService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
         if (isPermanentBan(normalizedType, endDate)) {
-            targetUser.suspend();
+            userLifecycleService.suspendUser(targetUser);
         }
 
         Sanction sanction = Sanction.builder()

@@ -29,7 +29,7 @@ public class PasswordResetService {
     private final VerificationCodeService verificationCodeService;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final PasswordHistoryRepository passwordHistoryRepository;
-    private final SessionTokenService sessionTokenService;
+    private final RefreshTokenLifecycleService refreshTokenLifecycleService;
     private final TokenHashService tokenHashService;
     private final PasswordResetTokenOrchestrationService passwordResetTokenOrchestrationService;
 
@@ -46,9 +46,10 @@ public class PasswordResetService {
         User user = getActivePasswordResetUser(email, ErrorCode.USER_NOT_FOUND);
         String rawToken = UUID.randomUUID().toString();
         String resetLink = passwordResetFrontendUrl + rawToken;
-        String subject = "[noviIs] 비밀번호 재설정 링크";
-        String body = "<h1>비밀번호 재설정</h1><p>아래 링크를 클릭하여 비밀번호를 재설정해 주세요.</p><p><a href=\""
-                + resetLink + "\">" + resetLink + "</a></p>";
+        String subject = "[noviIs] Password reset link";
+        String body = "<h1>Password reset</h1>"
+                + "<p>Use the link below to reset your password.</p>"
+                + "<p><a href=\"" + resetLink + "\">" + resetLink + "</a></p>";
 
         passwordResetTokenOrchestrationService.sendPasswordResetEmail(
                 user,
@@ -68,11 +69,11 @@ public class PasswordResetService {
         User user = getActivePasswordResetUser(email, ErrorCode.USER_NOT_FOUND_BY_EMAIL);
         String rawToken = UUID.randomUUID().toString();
         String resetLink = passwordResetFrontendUrl + rawToken;
-        String subject = "[noviIs] 비밀번호 재설정";
-        String body = "<h1>비밀번호 재설정</h1>"
-                + "<p>해당 이메일로 등록된 ID: <strong>" + user.getLoginId() + "</strong></p>"
-                + "<p>아래 링크를 클릭하여 비밀번호를 재설정해 주세요.</p>"
-                + "<p><a href=\"" + resetLink + "\">비밀번호 재설정 링크</a></p>";
+        String subject = "[noviIs] Password reset link";
+        String body = "<h1>Password reset</h1>"
+                + "<p>Registered ID for this email: <strong>" + user.getLoginId() + "</strong></p>"
+                + "<p>Use the link below to reset your password.</p>"
+                + "<p><a href=\"" + resetLink + "\">Reset password</a></p>";
 
         passwordResetTokenOrchestrationService.sendPasswordResetEmail(
                 user,
@@ -139,7 +140,7 @@ public class PasswordResetService {
                 .passwordHash(newPasswordHash)
                 .build());
 
-        sessionTokenService.revokeActiveRefreshTokens(user);
+        refreshTokenLifecycleService.revokeActiveRefreshTokens(user);
     }
 
     private void validatePasswordNotRecentlyUsed(User user, String newPassword) {

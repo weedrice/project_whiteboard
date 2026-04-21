@@ -1,8 +1,7 @@
 package com.weedrice.whiteboard.domain.user.service;
 
 import com.weedrice.whiteboard.domain.auth.entity.VerificationPurpose;
-import com.weedrice.whiteboard.domain.auth.entity.RefreshToken;
-import com.weedrice.whiteboard.domain.auth.repository.RefreshTokenRepository;
+import com.weedrice.whiteboard.domain.auth.service.RefreshTokenLifecycleService;
 import com.weedrice.whiteboard.domain.auth.service.VerificationCodeService;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.entity.PasswordHistory;
@@ -41,40 +40,31 @@ class UserSecurityServiceTest {
     @Mock private UserRepository userRepository;
     @Mock private PasswordHistoryRepository passwordHistoryRepository;
     @Mock private PasswordEncoder passwordEncoder;
-    @Mock private RefreshTokenRepository refreshTokenRepository;
+    @Mock private RefreshTokenLifecycleService refreshTokenLifecycleService;
     @Mock private SanctionService sanctionService;
     @Mock private VerificationCodeService verificationCodeService;
     @Mock private EntityManager entityManager;
 
     @Test
-    @DisplayName("비밀번호 변경 성공 시 이력 저장과 refresh token 폐기를 수행한다")
+    @DisplayName("updatePassword stores history and revokes refresh tokens")
     void updatePassword_success() {
         User user = User.builder().password("encodedOld").build();
-        RefreshToken refreshToken = RefreshToken.builder()
-                .user(user)
-                .tokenHash("hash")
-                .ipAddress("127.0.0.1")
-                .deviceInfo("browser")
-                .expiresAt(java.time.LocalDateTime.now().plusDays(1))
-                .build();
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("old", "encodedOld")).thenReturn(true);
         when(passwordEncoder.matches("new", "encodedOld")).thenReturn(false);
         when(passwordHistoryRepository.findTop3ByUserOrderByCreatedAtDesc(user)).thenReturn(Collections.emptyList());
         when(passwordEncoder.encode("new")).thenReturn("encodedNew");
-        when(refreshTokenRepository.findByUserAndIsRevoked(user, false)).thenReturn(List.of(refreshToken));
 
         userSecurityService.updatePassword(1L, "old", "new");
 
         assertThat(user.getPassword()).isEqualTo("encodedNew");
-        assertThat(refreshToken.getIsRevoked()).isTrue();
         verify(passwordHistoryRepository).save(any(PasswordHistory.class));
-        verify(refreshTokenRepository).saveAll(List.of(refreshToken));
+        verify(refreshTokenLifecycleService).revokeActiveRefreshTokens(user);
     }
 
     @Test
-    @DisplayName("최근 사용한 비밀번호는 거부한다")
+    @DisplayName("updatePassword rejects recently used passwords")
     void updatePassword_recentlyUsed() {
         User user = User.builder().password("encodedOld").build();
         PasswordHistory history = PasswordHistory.builder().passwordHash("encodedRecent").build();
@@ -92,7 +82,7 @@ class UserSecurityServiceTest {
     }
 
     @Test
-    @DisplayName("이메일 변경 flush 충돌은 DUPLICATE_EMAIL로 매핑한다")
+    @DisplayName("verifyAndChangeEmail maps flush conflicts to duplicate email")
     void verifyAndChangeEmail_duplicateEmailOnFlush() {
         User user = User.builder().email("current@example.com").build();
         ReflectionTestUtils.setField(user, "userId", 1L);

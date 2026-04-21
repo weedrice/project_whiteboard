@@ -1,13 +1,13 @@
 package com.weedrice.whiteboard.domain.sanction.service;
 
 import com.weedrice.whiteboard.domain.admin.entity.Admin;
-import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.admin.service.ModerationActorResolver;
-import com.weedrice.whiteboard.domain.sanction.entity.Sanction;
 import com.weedrice.whiteboard.domain.sanction.dto.SanctionResponse;
+import com.weedrice.whiteboard.domain.sanction.entity.Sanction;
 import com.weedrice.whiteboard.domain.sanction.repository.SanctionRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.domain.user.service.UserLifecycleService;
 import com.weedrice.whiteboard.global.common.util.SecurityUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -31,24 +31,23 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class SanctionServiceTest {
 
-    @Mock
-    private SanctionRepository sanctionRepository;
-    @Mock
-    private UserRepository userRepository;
-    @Mock
-    private AdminRepository adminRepository;
-    @Mock
-    private ModerationActorResolver moderationActorResolver;
+    @Mock private SanctionRepository sanctionRepository;
+    @Mock private UserRepository userRepository;
+    @Mock private ModerationActorResolver moderationActorResolver;
+    @Mock private UserLifecycleService userLifecycleService;
 
     @InjectMocks
     private SanctionService sanctionService;
@@ -79,36 +78,31 @@ class SanctionServiceTest {
     }
 
     @Test
-    @DisplayName("사용자 제재 성공")
+    @DisplayName("create sanction succeeds")
     void createSanction_success() {
-        // given
-        Long adminUserId = 1L;
-        Long targetUserId = 2L;
-        String type = "BAN";
         mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).then(invocation -> null);
-        when(moderationActorResolver.resolveActiveAdmin(adminUserId)).thenReturn(admin);
-        when(userRepository.findById(targetUserId)).thenReturn(Optional.of(targetUser));
+        when(moderationActorResolver.resolveActiveAdmin(1L)).thenReturn(admin);
+        when(userRepository.findById(2L)).thenReturn(Optional.of(targetUser));
+
         Sanction savedSanction = Sanction.builder()
                 .targetUser(targetUser)
                 .admin(admin)
-                .type(type)
+                .type("BAN")
                 .remark("Test")
-                .startDate(java.time.LocalDateTime.now())
+                .startDate(LocalDateTime.now())
                 .build();
         ReflectionTestUtils.setField(savedSanction, "sanctionId", 1L);
         when(sanctionRepository.save(any(Sanction.class))).thenReturn(savedSanction);
 
-        // when
-        Long sanctionId = sanctionService.createSanction(adminUserId, targetUserId, type, "Test", null);
+        Long sanctionId = sanctionService.createSanction(1L, 2L, "BAN", "Test", null);
 
-        // then
-        assertThat(sanctionId).isNotNull();
-        assertThat(targetUser.getStatus()).isEqualTo("SUSPENDED");
+        assertThat(sanctionId).isEqualTo(1L);
+        verify(userLifecycleService).suspendUser(targetUser);
         verify(sanctionRepository).save(any(Sanction.class));
     }
 
     @Test
-    @DisplayName("기간제 BAN은 사용자 상태를 즉시 영구 정지로 바꾸지 않는다")
+    @DisplayName("temporary ban keeps user status active")
     void createSanction_temporaryBan_keepsUserStatusActive() {
         mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).then(invocation -> null);
         when(moderationActorResolver.resolveActiveAdmin(1L)).thenReturn(admin);
@@ -128,10 +122,26 @@ class SanctionServiceTest {
         sanctionService.createSanction(1L, 2L, "BAN", "Temp ban", LocalDateTime.now().plusDays(1));
 
         assertThat(targetUser.getStatus()).isEqualTo("ACTIVE");
+        verify(userLifecycleService, never()).suspendUser(targetUser);
     }
 
     @Test
-    @DisplayName("?쒖옱 ?좏삎? ?臾몄옄濡?泥섎━?쒕떎")
+    @DisplayName("permanent ban rejects deleted users")
+    void createSanction_permanentBanRejectsDeletedUser() {
+        mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).then(invocation -> null);
+        targetUser.delete();
+        when(userRepository.findById(2L)).thenReturn(Optional.of(targetUser));
+        doThrow(new BusinessException(ErrorCode.INVALID_INPUT_VALUE))
+                .when(userLifecycleService).suspendUser(targetUser);
+
+        assertThatThrownBy(() -> sanctionService.createSanction(1L, 2L, "BAN", "Deleted user", null))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+    }
+
+    @Test
+    @DisplayName("create sanction normalizes type to uppercase")
     void createSanction_normalizesTypeToUpperCase() {
         mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).then(invocation -> null);
         when(userRepository.findById(2L)).thenReturn(Optional.of(targetUser));
@@ -175,7 +185,7 @@ class SanctionServiceTest {
     }
 
     @Test
-    @DisplayName("활성 관리자 엔티티가 없으면 제재 생성은 FORBIDDEN으로 실패한다")
+    @DisplayName("create sanction without admin throws forbidden")
     void createSanction_withoutAdmin_throwsForbidden() {
         mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).then(invocation -> null);
         when(moderationActorResolver.resolveActiveAdmin(1L))
@@ -188,7 +198,7 @@ class SanctionServiceTest {
     }
 
     @Test
-    @DisplayName("제재 목록 조회는 응답 변환을 유지한다")
+    @DisplayName("get sanctions returns mapped responses")
     void getSanctions_returnsMappedResponses() {
         mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).then(invocation -> null);
 
@@ -213,10 +223,9 @@ class SanctionServiceTest {
     }
 
     @Test
-    @DisplayName("활성 BAN이 있으면 사용자 차단 상태로 판단한다")
+    @DisplayName("isUserBanned returns true when an active ban exists")
     void isUserBanned_trueWhenActiveBanExists() {
-        when(sanctionRepository.existsActiveBan(org.mockito.ArgumentMatchers.eq(targetUser),
-                org.mockito.ArgumentMatchers.any(LocalDateTime.class)))
+        when(sanctionRepository.existsActiveBan(eq(targetUser), any(LocalDateTime.class)))
                 .thenReturn(true);
 
         assertThat(sanctionService.isUserBanned(targetUser)).isTrue();
