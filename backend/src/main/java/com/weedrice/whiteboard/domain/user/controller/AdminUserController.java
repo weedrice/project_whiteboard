@@ -1,9 +1,9 @@
 package com.weedrice.whiteboard.domain.user.controller;
 
-import com.weedrice.whiteboard.domain.board.dto.BoardResponse;
-import com.weedrice.whiteboard.domain.comment.dto.MyCommentResponse;
-import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.user.dto.AdminUserDetailResponse;
+import com.weedrice.whiteboard.domain.user.dto.AdminUserCommentResponse;
+import com.weedrice.whiteboard.domain.user.dto.AdminUserPostResponse;
+import com.weedrice.whiteboard.domain.user.dto.AdminUserSubscriptionResponse;
 import com.weedrice.whiteboard.domain.user.dto.UserAdminResponse;
 import com.weedrice.whiteboard.domain.user.dto.UserStatusUpdateRequest;
 import com.weedrice.whiteboard.domain.user.entity.Role;
@@ -65,21 +65,21 @@ public class AdminUserController {
     }
 
     @GetMapping("/{userId}/posts")
-    public ApiResponse<PageResponse<PostSummary>> getUserPosts(
+    public ApiResponse<PageResponse<AdminUserPostResponse>> getUserPosts(
             @PathVariable Long userId,
             @PageableDefault(size = 10) Pageable pageable) {
         return ApiResponse.success(new PageResponse<>(userAdminQueryService.getUserPostsForAdmin(userId, pageable)));
     }
 
     @GetMapping("/{userId}/comments")
-    public ApiResponse<PageResponse<MyCommentResponse>> getUserComments(
+    public ApiResponse<PageResponse<AdminUserCommentResponse>> getUserComments(
             @PathVariable Long userId,
             @PageableDefault(size = 10) Pageable pageable) {
         return ApiResponse.success(new PageResponse<>(userAdminQueryService.getUserCommentsForAdmin(userId, pageable)));
     }
 
     @GetMapping("/{userId}/subscriptions")
-    public ApiResponse<PageResponse<BoardResponse>> getUserSubscriptions(
+    public ApiResponse<PageResponse<AdminUserSubscriptionResponse>> getUserSubscriptions(
             @PathVariable Long userId,
             @PageableDefault(size = 10) Pageable pageable) {
         return ApiResponse.success(new PageResponse<>(userAdminQueryService.getUserSubscriptionsForAdmin(userId, pageable)));

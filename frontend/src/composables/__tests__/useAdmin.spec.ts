@@ -14,6 +14,10 @@ vi.mock('@/api/admin', () => ({
         activeSuperAdmin: vi.fn(),
         deactivateSuperAdmin: vi.fn(),
         getUsers: vi.fn(),
+        getUserDetail: vi.fn(),
+        getUserPosts: vi.fn(),
+        getUserComments: vi.fn(),
+        getUserSubscriptions: vi.fn(),
         updateUserStatus: vi.fn(),
         sanctionUser: vi.fn(),
         getReports: vi.fn(),
@@ -260,6 +264,49 @@ describe('useAdmin', () => {
             await mutation.mutateAsync({ userId: 1, type: 'BAN', reason: 'Violation' })
 
             expect(adminApi.sanctionUser).toHaveBeenCalledWith({ userId: 1, type: 'BAN', reason: 'Violation' })
+        })
+
+        it('admin user detail queries forward user-specific params', async () => {
+            const { useAdminUserDetail, useAdminUserPosts, useAdminUserComments, useAdminUserSubscriptions } = useAdmin()
+            const userId = ref(5)
+            const params = ref({ page: 1, size: 10 })
+
+            vi.mocked(adminApi.getUserDetail).mockResolvedValueOnce({ data: { data: { userId: 5 } } } as any)
+            vi.mocked(adminApi.getUserPosts).mockResolvedValueOnce({ data: { data: { content: [{ postId: 1, deleted: true }] } } } as any)
+            vi.mocked(adminApi.getUserComments).mockResolvedValueOnce({ data: { data: { content: [{ commentId: 2, deleted: true }] } } } as any)
+            vi.mocked(adminApi.getUserSubscriptions).mockResolvedValueOnce({ data: { data: { content: [{ boardId: 3, subscriptionAccessible: false }] } } } as any)
+
+            useAdminUserDetail(userId)
+            const detailQuery = mockQueryOptions.at(-1) as { queryFn: () => Promise<unknown> }
+            await expect(detailQuery.queryFn()).resolves.toEqual({ userId: 5 })
+            expect(adminApi.getUserDetail).toHaveBeenCalledWith(5)
+
+            useAdminUserPosts(userId, params)
+            const postsQuery = mockQueryOptions.at(-1) as {
+                queryFn: () => Promise<unknown>
+                placeholderData: (prev: unknown) => unknown
+            }
+            await expect(postsQuery.queryFn()).resolves.toEqual({ content: [{ postId: 1, deleted: true }] })
+            expect(adminApi.getUserPosts).toHaveBeenCalledWith(5, params.value)
+            expect(postsQuery.placeholderData('prev-posts')).toBe('prev-posts')
+
+            useAdminUserComments(userId, params)
+            const commentsQuery = mockQueryOptions.at(-1) as {
+                queryFn: () => Promise<unknown>
+                placeholderData: (prev: unknown) => unknown
+            }
+            await expect(commentsQuery.queryFn()).resolves.toEqual({ content: [{ commentId: 2, deleted: true }] })
+            expect(adminApi.getUserComments).toHaveBeenCalledWith(5, params.value)
+            expect(commentsQuery.placeholderData('prev-comments')).toBe('prev-comments')
+
+            useAdminUserSubscriptions(userId, params)
+            const subscriptionsQuery = mockQueryOptions.at(-1) as {
+                queryFn: () => Promise<unknown>
+                placeholderData: (prev: unknown) => unknown
+            }
+            await expect(subscriptionsQuery.queryFn()).resolves.toEqual({ content: [{ boardId: 3, subscriptionAccessible: false }] })
+            expect(adminApi.getUserSubscriptions).toHaveBeenCalledWith(5, params.value)
+            expect(subscriptionsQuery.placeholderData('prev-subscriptions')).toBe('prev-subscriptions')
         })
     })
 

@@ -1,4 +1,4 @@
-// 사용자 관련 타입
+// User-related types
 export interface User {
     userId: number
     loginId: string
@@ -34,7 +34,7 @@ export interface UserSummary {
     profileImageUrl?: string
 }
 
-// 사용자 설정 타입
+// User settings
 export interface UserSettings {
     theme: 'LIGHT' | 'DARK'
     language: 'KO' | 'EN'
@@ -44,7 +44,7 @@ export interface UserSettings {
     pushNotification: boolean
 }
 
-// 포인트 내역 타입
+// Point history
 export interface PointHistory {
     pointHistoryId: number
     points: number
@@ -52,7 +52,7 @@ export interface PointHistory {
     createdAt: string
 }
 
-// 제재 관련 타입
+// Sanction-related types
 export interface SanctionData {
     userId: number
     type: 'BAN' | 'MUTE'
@@ -86,4 +86,61 @@ export interface AdminUserDetail extends User {
     recentLogin?: AdminUserRecentLogin
     sanctionSummary?: AdminUserSanctionSummary
     reportSummary?: AdminUserReportSummary
+}
+
+export interface AdminUserPostItem {
+    postId: number
+    boardId: number
+    boardName: string
+    boardUrl: string
+    categoryId?: number | null
+    categoryName?: string | null
+    title: string
+    authorType: 'USER' | 'AGENT'
+    agentId?: number | null
+    agentName?: string | null
+    viewCount: number
+    likeCount: number
+    commentCount: number
+    deleted: boolean
+    notice: boolean
+    nsfw: boolean
+    spoiler: boolean
+    secret: boolean
+    createdAt: string
+}
+
+export interface AdminUserCommentItem {
+    commentId: number
+    content: string
+    authorType: 'USER' | 'AGENT'
+    agentId?: number | null
+    agentName?: string | null
+    parentId?: number | null
+    depth: number
+    likeCount: number
+    deleted: boolean
+    createdAt: string
+    post: {
+        postId: number
+        title: string
+        boardId: number
+        boardName: string
+        boardUrl: string
+        deleted: boolean
+        boardActive: boolean
+        boardPublic: boolean
+    }
+}
+
+export interface AdminUserSubscriptionItem {
+    boardId: number
+    boardName: string
+    boardUrl: string
+    sortOrder?: number | null
+    role: string
+    boardActive: boolean
+    boardPublic: boolean
+    subscriptionAccessible: boolean
+    inaccessibleReason?: 'INACTIVE' | 'PRIVATE' | 'RESTRICTED' | null
 }

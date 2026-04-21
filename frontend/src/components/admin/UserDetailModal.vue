@@ -111,6 +111,13 @@ function renderCommentContent(content: string | undefined): string {
 function isCommentEmoticonOnly(content: string | undefined): boolean {
   return isEmoticonOnlyContent(content)
 }
+
+function getSubscriptionStateLabel(reason?: string | null) {
+  if (reason === 'INACTIVE') return '비활성'
+  if (reason === 'PRIVATE') return '비공개'
+  if (reason === 'RESTRICTED') return '접근 제한'
+  return '접근 가능'
+}
 </script>
 
 <template>
@@ -193,7 +200,23 @@ function isCommentEmoticonOnly(content: string | undefined): boolean {
           <div v-else class="max-h-72 space-y-2 overflow-y-auto pr-1">
             <div v-for="post in userPosts.content" :key="post.postId" class="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
               <div class="truncate text-sm font-medium text-gray-900 dark:text-white">{{ post.title }}</div>
-              <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ post.boardName }} · {{ formatDate(post.createdAt) }}</div>
+              <div class="mt-2 flex flex-wrap gap-1">
+                <BaseBadge :variant="post.deleted ? 'danger' : 'gray'" size="sm">{{ post.deleted ? '삭제됨' : '노출중' }}</BaseBadge>
+                <BaseBadge v-if="post.notice" variant="warning" size="sm">공지</BaseBadge>
+                <BaseBadge v-if="post.secret" variant="warning" size="sm">비밀글</BaseBadge>
+                <BaseBadge v-if="post.nsfw" variant="danger" size="sm">NSFW</BaseBadge>
+                <BaseBadge v-if="post.spoiler" variant="gray" size="sm">스포일러</BaseBadge>
+                <BaseBadge v-if="post.authorType === 'AGENT'" variant="gray" size="sm">Agent {{ post.agentName || post.agentId }}</BaseBadge>
+              </div>
+              <div class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                {{ post.boardName }} · /{{ post.boardUrl }} · {{ formatDate(post.createdAt) }}
+              </div>
+              <div v-if="post.categoryName" class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                카테고리: {{ post.categoryName }}
+              </div>
+              <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                조회 {{ post.viewCount.toLocaleString() }} · 추천 {{ post.likeCount.toLocaleString() }} · 댓글 {{ post.commentCount.toLocaleString() }}
+              </div>
             </div>
           </div>
           <div v-if="userPosts && userPosts.totalPages > 0" class="mt-2 flex items-center justify-end gap-2">
@@ -207,11 +230,24 @@ function isCommentEmoticonOnly(content: string | undefined): boolean {
           <div v-else-if="!userComments?.content?.length" class="py-6 text-center text-sm text-gray-500 dark:text-gray-400">데이터가 없습니다.</div>
           <div v-else class="max-h-72 space-y-2 overflow-y-auto pr-1">
             <div v-for="comment in userComments.content" :key="comment.commentId" class="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
+              <div class="mb-2 flex flex-wrap gap-1">
+                <BaseBadge :variant="comment.deleted ? 'danger' : 'gray'" size="sm">{{ comment.deleted ? '삭제됨' : '노출중' }}</BaseBadge>
+                <BaseBadge v-if="comment.parentId" variant="gray" size="sm">답글</BaseBadge>
+                <BaseBadge v-if="comment.post.deleted" variant="warning" size="sm">원문 삭제</BaseBadge>
+                <BaseBadge v-if="!comment.post.boardActive" variant="warning" size="sm">게시판 비활성</BaseBadge>
+                <BaseBadge v-if="!comment.post.boardPublic" variant="gray" size="sm">비공개 게시판</BaseBadge>
+                <BaseBadge v-if="comment.authorType === 'AGENT'" variant="gray" size="sm">Agent {{ comment.agentName || comment.agentId }}</BaseBadge>
+              </div>
               <div class="comment-content-list">
                 <p v-if="isCommentEmoticonOnly(comment.content)" v-html="renderCommentContent(comment.content)" class="text-sm"></p>
                 <p v-else v-html="renderCommentContent(comment.content)" class="line-clamp-2 break-words text-sm text-gray-900 dark:text-white"></p>
               </div>
-              <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ comment.post?.title }} · {{ formatDate(comment.createdAt) }}</div>
+              <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                {{ comment.post.title }} · /{{ comment.post.boardUrl }} · {{ formatDate(comment.createdAt) }}
+              </div>
+              <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                좋아요 {{ comment.likeCount.toLocaleString() }} · depth {{ comment.depth }}
+              </div>
             </div>
           </div>
           <div v-if="userComments && userComments.totalPages > 0" class="mt-2 flex items-center justify-end gap-2">
@@ -225,8 +261,15 @@ function isCommentEmoticonOnly(content: string | undefined): boolean {
           <div v-else-if="!userSubscriptions?.content?.length" class="py-6 text-center text-sm text-gray-500 dark:text-gray-400">데이터가 없습니다.</div>
             <div v-else class="max-h-72 space-y-2 overflow-y-auto pr-1">
               <div v-for="board in userSubscriptions.content" :key="board.boardId" class="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
-                <div class="truncate text-sm font-medium text-gray-900 dark:text-white">{{ board.boardName || t('user.subscriptions.unavailableBoard') }}</div>
+                <div class="truncate text-sm font-medium text-gray-900 dark:text-white">{{ board.boardName }}</div>
+                <div class="mt-2 flex flex-wrap gap-1">
+                  <BaseBadge :variant="board.subscriptionAccessible ? 'success' : 'warning'" size="sm">{{ getSubscriptionStateLabel(board.inaccessibleReason) }}</BaseBadge>
+                  <BaseBadge :variant="board.boardActive ? 'success' : 'warning'" size="sm">{{ board.boardActive ? '활성' : '비활성' }}</BaseBadge>
+                  <BaseBadge :variant="board.boardPublic ? 'gray' : 'warning'" size="sm">{{ board.boardPublic ? '공개' : '비공개' }}</BaseBadge>
+                  <BaseBadge variant="gray" size="sm">{{ board.role }}</BaseBadge>
+                </div>
                 <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">/{{ board.boardUrl }}</div>
+                <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">정렬 순서 {{ board.sortOrder ?? '-' }}</div>
               </div>
           </div>
           <div v-if="userSubscriptions && userSubscriptions.totalPages > 0" class="mt-2 flex items-center justify-end gap-2">

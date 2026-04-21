@@ -1,6 +1,9 @@
 package com.weedrice.whiteboard.domain.user.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.weedrice.whiteboard.domain.user.dto.AdminUserCommentResponse;
+import com.weedrice.whiteboard.domain.user.dto.AdminUserPostResponse;
+import com.weedrice.whiteboard.domain.user.dto.AdminUserSubscriptionResponse;
 import com.weedrice.whiteboard.domain.user.dto.UserAdminResponse;
 import com.weedrice.whiteboard.domain.user.service.UserAdminQueryService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -135,6 +138,92 @@ class AdminUserControllerTest {
                 .andExpect(jsonPath("$.data.page").value(0))
                 .andExpect(jsonPath("$.data.totalElements").value(1))
                 .andExpect(jsonPath("$.data.content[0].role").value("USER"));
+    }
+
+    @Test
+    @DisplayName("get user posts returns admin-specific post response")
+    void getUserPosts_returnsAdminSpecificPostResponse() throws Exception {
+        AdminUserPostResponse response = AdminUserPostResponse.builder()
+                .postId(10L)
+                .boardId(1L)
+                .boardName("Free")
+                .boardUrl("free")
+                .title("hello")
+                .deleted(true)
+                .secret(true)
+                .createdAt(java.time.LocalDateTime.now())
+                .build();
+        when(userAdminQueryService.getUserPostsForAdmin(1L, PageRequest.of(0, 10)))
+                .thenReturn(new PageImpl<>(List.of(response), PageRequest.of(0, 10), 1));
+
+        mockMvc.perform(get("/api/v1/admin/users/{userId}/posts", 1L)
+                        .param("page", "0")
+                        .param("size", "10")
+                        .with(user(customUserDetails)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content[0].postId").value(10))
+                .andExpect(jsonPath("$.data.content[0].deleted").value(true))
+                .andExpect(jsonPath("$.data.content[0].secret").value(true));
+    }
+
+    @Test
+    @DisplayName("get user comments returns admin-specific comment response")
+    void getUserComments_returnsAdminSpecificCommentResponse() throws Exception {
+        AdminUserCommentResponse response = AdminUserCommentResponse.builder()
+                .commentId(20L)
+                .content("hidden")
+                .deleted(true)
+                .depth(1)
+                .post(AdminUserCommentResponse.PostInfo.builder()
+                        .postId(30L)
+                        .title("post")
+                        .boardId(40L)
+                        .boardName("Free")
+                        .boardUrl("free")
+                        .deleted(true)
+                        .boardActive(false)
+                        .boardPublic(false)
+                        .build())
+                .build();
+        when(userAdminQueryService.getUserCommentsForAdmin(1L, PageRequest.of(0, 10)))
+                .thenReturn(new PageImpl<>(List.of(response), PageRequest.of(0, 10), 1));
+
+        mockMvc.perform(get("/api/v1/admin/users/{userId}/comments", 1L)
+                        .param("page", "0")
+                        .param("size", "10")
+                        .with(user(customUserDetails)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content[0].commentId").value(20))
+                .andExpect(jsonPath("$.data.content[0].deleted").value(true))
+                .andExpect(jsonPath("$.data.content[0].post.deleted").value(true))
+                .andExpect(jsonPath("$.data.content[0].post.boardActive").value(false));
+    }
+
+    @Test
+    @DisplayName("get user subscriptions returns admin-specific subscription response")
+    void getUserSubscriptions_returnsAdminSpecificSubscriptionResponse() throws Exception {
+        AdminUserSubscriptionResponse response = AdminUserSubscriptionResponse.builder()
+                .boardId(50L)
+                .boardName("Hidden")
+                .boardUrl("hidden")
+                .role("MEMBER")
+                .boardActive(false)
+                .boardPublic(false)
+                .subscriptionAccessible(false)
+                .inaccessibleReason("INACTIVE")
+                .build();
+        when(userAdminQueryService.getUserSubscriptionsForAdmin(1L, PageRequest.of(0, 10)))
+                .thenReturn(new PageImpl<>(List.of(response), PageRequest.of(0, 10), 1));
+
+        mockMvc.perform(get("/api/v1/admin/users/{userId}/subscriptions", 1L)
+                        .param("page", "0")
+                        .param("size", "10")
+                        .with(user(customUserDetails)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content[0].boardId").value(50))
+                .andExpect(jsonPath("$.data.content[0].boardActive").value(false))
+                .andExpect(jsonPath("$.data.content[0].subscriptionAccessible").value(false))
+                .andExpect(jsonPath("$.data.content[0].inaccessibleReason").value("INACTIVE"));
     }
 
     @Test

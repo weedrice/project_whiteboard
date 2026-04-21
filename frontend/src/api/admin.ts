@@ -17,9 +17,11 @@ import type {
     BoardAdminInfo,
     SuperAdminInfo,
     AdminUserDetail,
-    Post,
+    AdminUserPostItem,
+    AdminUserCommentItem,
+    AdminUserSubscriptionItem,
     PostSummary,
-    MyComment
+    Post
 } from '@/types'
 
 export type AdminRole = 'BOARD_ADMIN' | 'MODERATOR'
@@ -74,7 +76,7 @@ interface BoardManagerUpdateData {
 }
 
 export const adminApi = {
-    // 관리자 관리
+    // Admin management
     getAdmins(params: PaginationParams) {
         return api.get<ApiResponse<PageResponse<BoardAdminInfo>>>('/admin/admins', { params })
     },
@@ -103,7 +105,7 @@ export const adminApi = {
         return api.put<ApiResponse<void>>('/admin/super/deactive', data)
     },
 
-    // IP 차단 관리
+    // IP block management
     getIpBlocks(params: PaginationParams) {
         return api.get<ApiResponse<PageResponse<IpBlock>>>('/admin/ip-blocks', { params })
     },
@@ -114,7 +116,7 @@ export const adminApi = {
         return api.delete<ApiResponse<void>>(`/admin/ip-blocks/${ipAddress}`)
     },
 
-    // 사용자 관리
+    // User management
     getUsers(params: UserSearchParams) {
         return api.get<ApiResponse<PageResponse<User>>>('/admin/users', { params })
     },
@@ -122,13 +124,13 @@ export const adminApi = {
         return api.get<ApiResponse<AdminUserDetail>>(`/admin/users/${userId}`)
     },
     getUserPosts(userId: string | number, params: PaginationParams) {
-        return api.get<ApiResponse<PageResponse<PostSummary>>>(`/admin/users/${userId}/posts`, { params })
+        return api.get<ApiResponse<PageResponse<AdminUserPostItem>>>(`/admin/users/${userId}/posts`, { params })
     },
     getUserComments(userId: string | number, params: PaginationParams) {
-        return api.get<ApiResponse<PageResponse<MyComment>>>(`/admin/users/${userId}/comments`, { params })
+        return api.get<ApiResponse<PageResponse<AdminUserCommentItem>>>(`/admin/users/${userId}/comments`, { params })
     },
     getUserSubscriptions(userId: string | number, params: PaginationParams) {
-        return api.get<ApiResponse<PageResponse<Board>>>(`/admin/users/${userId}/subscriptions`, { params })
+        return api.get<ApiResponse<PageResponse<AdminUserSubscriptionItem>>>(`/admin/users/${userId}/subscriptions`, { params })
     },
     updateUserStatus(userId: string | number, status: string) {
         return api.put<ApiResponse<void>>(`/admin/users/${userId}/status`, { status })
@@ -137,7 +139,7 @@ export const adminApi = {
         return api.post<ApiResponse<void>>('/admin/sanctions', data)
     },
 
-    // 신고 관리
+    // Report management
     getReports(params: PaginationParams) {
         return api.get<ApiResponse<PageResponse<Report>>>('/admin/reports', { params })
     },
@@ -145,7 +147,7 @@ export const adminApi = {
         return api.put<ApiResponse<void>>(`/admin/reports/${reportId}`, data)
     },
 
-    // 전역 설정
+    // Global settings
     getConfigs() {
         return api.get<ApiResponse<GlobalConfig[]>>('/admin/configs')
     },
@@ -162,7 +164,7 @@ export const adminApi = {
         return api.delete<ApiResponse<void>>(`/admin/configs/${key}`)
     },
 
-    // 대시보드 통계
+    // Dashboard statistics
     getDashboardStats() {
         return api.get<ApiResponse<DashboardStats>>('/admin/stats')
     },
@@ -173,7 +175,7 @@ export const adminApi = {
         return api.get<ApiResponse<Post>>(`/admin/inquiries/${postId}`)
     },
 
-    // 게시판 관리
+    // Board management
     getBoards() {
         return api.get<ApiResponse<Board[]>>('/boards/all')
     },
@@ -187,7 +189,7 @@ export const adminApi = {
         return api.delete<ApiResponse<void>>(`/boards/${boardUrl}`)
     },
 
-    // 에러 로그 관리
+    // Error log management
     getErrorLogs(params: ErrorLogSearchParams) {
         return api.get<ApiResponse<PageResponse<ErrorLogItem>>>('/admin/error-logs', { params })
     },

@@ -5,19 +5,18 @@ import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.admin.service.ModerationActorResolver;
 import com.weedrice.whiteboard.domain.auth.entity.LoginHistory;
 import com.weedrice.whiteboard.domain.auth.repository.LoginHistoryRepository;
-import com.weedrice.whiteboard.domain.board.dto.BoardResponse;
+import com.weedrice.whiteboard.domain.board.entity.BoardSubscription;
 import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository;
-import com.weedrice.whiteboard.domain.board.service.BoardService;
-import com.weedrice.whiteboard.domain.comment.dto.MyCommentResponse;
+import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
-import com.weedrice.whiteboard.domain.comment.service.CommentService;
-import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
-import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.domain.report.repository.ReportRepository;
 import com.weedrice.whiteboard.domain.sanction.entity.Sanction;
 import com.weedrice.whiteboard.domain.sanction.repository.SanctionRepository;
+import com.weedrice.whiteboard.domain.user.dto.AdminUserCommentResponse;
 import com.weedrice.whiteboard.domain.user.dto.AdminUserDetailResponse;
+import com.weedrice.whiteboard.domain.user.dto.AdminUserPostResponse;
+import com.weedrice.whiteboard.domain.user.dto.AdminUserSubscriptionResponse;
 import com.weedrice.whiteboard.domain.user.dto.UserAdminResponse;
 import com.weedrice.whiteboard.domain.user.dto.UserAdminSearchCondition;
 import com.weedrice.whiteboard.domain.user.entity.Role;
@@ -48,9 +47,7 @@ public class UserAdminQueryService {
     private final PostRepository postRepository;
     private final CommentRepository commentRepository;
     private final AdminRepository adminRepository;
-    private final PostService postService;
-    private final CommentService commentService;
-    private final BoardService boardService;
+    private final BoardAccessPolicy boardAccessPolicy;
     private final BoardSubscriptionRepository boardSubscriptionRepository;
     private final LoginHistoryRepository loginHistoryRepository;
     private final SanctionRepository sanctionRepository;
@@ -63,9 +60,7 @@ public class UserAdminQueryService {
                                  CommentRepository commentRepository,
                                  AdminRepository adminRepository,
                                  ModerationActorResolver moderationActorResolver,
-                                 PostService postService,
-                                 CommentService commentService,
-                                 BoardService boardService,
+                                 BoardAccessPolicy boardAccessPolicy,
                                  BoardSubscriptionRepository boardSubscriptionRepository,
                                  LoginHistoryRepository loginHistoryRepository,
                                  SanctionRepository sanctionRepository,
@@ -75,9 +70,7 @@ public class UserAdminQueryService {
         this.postRepository = postRepository;
         this.commentRepository = commentRepository;
         this.adminRepository = adminRepository;
-        this.postService = postService;
-        this.commentService = commentService;
-        this.boardService = boardService;
+        this.boardAccessPolicy = boardAccessPolicy;
         this.boardSubscriptionRepository = boardSubscriptionRepository;
         this.loginHistoryRepository = loginHistoryRepository;
         this.sanctionRepository = sanctionRepository;
@@ -130,8 +123,7 @@ public class UserAdminQueryService {
     }
 
     public AdminUserDetailResponse getUserDetailForAdmin(Long userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        User user = getUserOrThrow(userId);
 
         String role = resolveRoleForAdmin(user);
         long postCount = postRepository.countByUserAndIsDeleted(user, false);
@@ -156,16 +148,24 @@ public class UserAdminQueryService {
                 reportPendingCount);
     }
 
-    public Page<PostSummary> getUserPostsForAdmin(Long userId, Pageable pageable) {
-        return postService.getMyPosts(userId, pageable);
+    public Page<AdminUserPostResponse> getUserPostsForAdmin(Long userId, Pageable pageable) {
+        User user = getUserOrThrow(userId);
+        return postRepository.findByUserOrderByCreatedAtDesc(user, pageable)
+                .map(AdminUserPostResponse::from);
     }
 
-    public Page<MyCommentResponse> getUserCommentsForAdmin(Long userId, Pageable pageable) {
-        return commentService.getMyComments(userId, pageable);
+    public Page<AdminUserCommentResponse> getUserCommentsForAdmin(Long userId, Pageable pageable) {
+        User user = getUserOrThrow(userId);
+        return commentRepository.findByUserOrderByCreatedAtDesc(user, pageable)
+                .map(AdminUserCommentResponse::from);
     }
 
-    public Page<BoardResponse> getUserSubscriptionsForAdmin(Long userId, Pageable pageable) {
-        return boardService.getMySubscriptions(userId, pageable, true);
+    public Page<AdminUserSubscriptionResponse> getUserSubscriptionsForAdmin(Long userId, Pageable pageable) {
+        User user = getUserOrThrow(userId);
+        return boardSubscriptionRepository.findByUserOrderBySortOrderAsc(user, pageable)
+                .map(subscription -> AdminUserSubscriptionResponse.from(
+                        subscription,
+                        boardAccessPolicy.canReadBoard(subscription.getBoard(), user)));
     }
 
     @Transactional
@@ -180,6 +180,11 @@ public class UserAdminQueryService {
         return moderationActorResolver.findActiveAdmin(user)
                 .map(Admin::getRole)
                 .orElse(Role.USER);
+    }
+
+    private User getUserOrThrow(Long userId) {
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
     }
 
     private Map<Long, String> resolveRolesForAdmin(List<User> users) {

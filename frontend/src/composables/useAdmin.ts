@@ -10,10 +10,11 @@ import type {
     ErrorLogSearchParams,
     ErrorLogStats,
     AdminUserDetail,
+    AdminUserPostItem,
+    AdminUserCommentItem,
+    AdminUserSubscriptionItem,
     BoardAdminInfo,
     SuperAdminInfo,
-    PostSummary,
-    MyComment,
     Board,
     IpBlock
 } from '@/types'
@@ -177,7 +178,7 @@ export function useAdmin() {
             queryFn: async () => {
                 if (userId.value == null) return null
                 const { data } = await adminApi.getUserPosts(userId.value, params.value)
-                return data?.data as PageResponse<PostSummary>
+                return data?.data as PageResponse<AdminUserPostItem>
             },
             enabled: computed(() => userId.value !== null),
             placeholderData: (previousData) => previousData
@@ -190,7 +191,7 @@ export function useAdmin() {
             queryFn: async () => {
                 if (userId.value == null) return null
                 const { data } = await adminApi.getUserComments(userId.value, params.value)
-                return data?.data as PageResponse<MyComment>
+                return data?.data as PageResponse<AdminUserCommentItem>
             },
             enabled: computed(() => userId.value !== null),
             placeholderData: (previousData) => previousData
@@ -203,7 +204,7 @@ export function useAdmin() {
             queryFn: async () => {
                 if (userId.value == null) return null
                 const { data } = await adminApi.getUserSubscriptions(userId.value, params.value)
-                return data?.data as PageResponse<Board>
+                return data?.data as PageResponse<AdminUserSubscriptionItem>
             },
             enabled: computed(() => userId.value !== null),
             placeholderData: (previousData) => previousData
