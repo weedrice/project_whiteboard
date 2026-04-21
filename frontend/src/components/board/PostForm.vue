@@ -62,17 +62,48 @@ const isLoading = computed(() =>
   isBoardLoading.value || isCategoriesLoading.value || (props.mode === 'edit' && isPostLoading.value)
 )
 
-const filteredCategories = computed(() => {
-  if (!categories.value) return []
-  if (props.mode === 'edit') return categories.value
+type CategoryOption = {
+  categoryId: number
+  name: string
+  minWriteRole?: string
+  disabled?: boolean
+}
+
+function canWriteCategory(minWriteRole?: string) {
   const userRole = authStore.user?.role || 'USER'
   const isBoardAdmin = board.value?.isAdmin || false
-  return categories.value.filter(cat => {
-    const minRole = cat.minWriteRole || 'USER'
-    if (minRole === 'SUPER_ADMIN') return userRole === 'SUPER_ADMIN'
-    if (minRole === 'BOARD_ADMIN') return userRole === 'SUPER_ADMIN' || isBoardAdmin
-    return true
-  })
+  const normalizedRole = minWriteRole || 'USER'
+
+  switch (normalizedRole) {
+    case 'USER':
+      return true
+    case 'BOARD_ADMIN':
+      return userRole === 'SUPER_ADMIN' || isBoardAdmin
+    case 'SUPER_ADMIN':
+      return userRole === 'SUPER_ADMIN'
+    default:
+      return false
+  }
+}
+
+const filteredCategories = computed<CategoryOption[]>(() => {
+  if (!categories.value) return []
+  const selectableCategories = categories.value.filter(cat => canWriteCategory(cat.minWriteRole))
+  if (props.mode !== 'edit') return selectableCategories
+
+  const currentCategory = post.value?.category
+  if (!currentCategory) return selectableCategories
+
+  const hasCurrentCategory = selectableCategories.some(cat => cat.categoryId === currentCategory.categoryId)
+  if (hasCurrentCategory) return selectableCategories
+
+  return [
+    {
+      ...currentCategory,
+      disabled: true,
+    },
+    ...selectableCategories,
+  ]
 })
 
 const tiptapEditorRef = ref<InstanceType<typeof PostEditorTipTap> | null>(null)
@@ -245,12 +276,15 @@ watch(isLoading, (loading) => {
 function buildPayload() {
   const fileIdsRef = tiptapEditorRef.value?.fileIds
   const fileIdsArray = (fileIdsRef && typeof fileIdsRef === 'object' && 'value' in fileIdsRef ? fileIdsRef.value : []) as number[]
-  const categoryId = props.hideCategory
+  const parsedCategoryId = typeof form.value.categoryId === 'string'
+    ? parseInt(form.value.categoryId, 10)
+    : form.value.categoryId
+  const categoryId = props.hideCategory || Number.isNaN(parsedCategoryId) || !parsedCategoryId
     ? undefined
-    : (typeof form.value.categoryId === 'string' ? parseInt(form.value.categoryId) || 0 : form.value.categoryId)
+    : parsedCategoryId
   return {
     title: form.value.title,
-    categoryId,
+    ...(categoryId !== undefined && { categoryId }),
     tags: props.hideTags ? [] : form.value.tags,
     contents: form.value.content,
     isNsfw: board.value?.allowNsfw ? form.value.isNsfw : false,
@@ -402,7 +436,7 @@ const showNotice = computed(() => !props.hideNotice && props.mode === 'create' &
           <BaseSelect id="category" v-model="form.categoryId" :label="$t('common.category')"
             labelClass="text-[11px] sm:text-sm" inputClass="!text-xs !py-2 sm:!text-sm sm:!py-2">
             <option value="" disabled>{{ $t('board.writePost.selectCategory') }}</option>
-            <option v-for="cat in filteredCategories" :key="cat.categoryId" :value="cat.categoryId">
+            <option v-for="cat in filteredCategories" :key="cat.categoryId" :value="cat.categoryId" :disabled="cat.disabled">
               {{ cat.name }}
             </option>
           </BaseSelect>

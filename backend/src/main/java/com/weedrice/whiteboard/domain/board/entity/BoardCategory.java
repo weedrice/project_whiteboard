@@ -3,6 +3,8 @@ package com.weedrice.whiteboard.domain.board.entity;
 import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.global.common.converter.BooleanToYNConverter;
 import com.weedrice.whiteboard.global.common.entity.BaseTimeEntity;
+import com.weedrice.whiteboard.global.exception.BusinessException;
+import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -45,7 +47,7 @@ public class BoardCategory extends BaseTimeEntity {
         this.board = board;
         this.name = name;
         this.sortOrder = sortOrder != null ? sortOrder : 0;
-        this.minWriteRole = minWriteRole != null ? minWriteRole : Role.USER;
+        this.minWriteRole = resolveMinWriteRole(minWriteRole);
         this.isActive = true;
     }
 
@@ -53,7 +55,7 @@ public class BoardCategory extends BaseTimeEntity {
         this.name = name;
         this.sortOrder = sortOrder;
         if (minWriteRole != null) {
-            this.minWriteRole = minWriteRole;
+            this.minWriteRole = resolveMinWriteRole(minWriteRole);
         }
     }
 
@@ -64,5 +66,21 @@ public class BoardCategory extends BaseTimeEntity {
 
     public void deactivate() {
         this.isActive = false;
+    }
+
+    public static String resolveMinWriteRole(String minWriteRole) {
+        if (minWriteRole == null) {
+            return Role.USER;
+        }
+
+        String normalized = minWriteRole.trim();
+        if (normalized.isEmpty()) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+
+        return switch (normalized) {
+            case Role.USER, Role.BOARD_ADMIN, Role.SUPER_ADMIN -> normalized;
+            default -> throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        };
     }
 }

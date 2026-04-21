@@ -385,10 +385,7 @@ public class PostService {
 
         BoardCategory category = null;
         if (request.getCategoryId() != null) {
-            category = boardCategoryRepository.findById(request.getCategoryId())
-                    .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
-            validateCategoryInBoard(board, category);
-
+            category = findActiveCategory(board, request.getCategoryId());
             validateWriteRole(board, user, category.getMinWriteRole());
         }
 
@@ -442,12 +439,7 @@ public class PostService {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
 
-        BoardCategory category = null;
-        if (request.getCategoryId() != null) {
-            category = boardCategoryRepository.findById(request.getCategoryId())
-                    .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
-            validateCategoryInBoard(post.getBoard(), category);
-        }
+        BoardCategory category = resolveUpdatedCategory(post, modifier, request.getCategoryId());
 
         String originalTitle = post.getTitle();
         String originalContents = post.getContents();
@@ -770,16 +762,27 @@ public class PostService {
         return boardAccessPolicy.canViewSecretPosts(board, user);
     }
 
-    private void validateCategoryInBoard(Board board, BoardCategory category) {
-        if (board == null || category == null || category.getBoard() == null) {
+    private BoardCategory findActiveCategory(Board board, Long categoryId) {
+        if (board == null || categoryId == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND);
+        }
+        return boardCategoryRepository.findByCategoryIdAndBoard_BoardIdAndIsActive(categoryId, board.getBoardId(), true)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+    }
+
+    private BoardCategory resolveUpdatedCategory(Post post, User modifier, Long categoryId) {
+        if (categoryId == null) {
+            return null;
         }
 
-        Long boardId = board.getBoardId();
-        Long categoryBoardId = category.getBoard().getBoardId();
-        if (!Objects.equals(boardId, categoryBoardId)) {
-            throw new BusinessException(ErrorCode.NOT_FOUND);
+        BoardCategory currentCategory = post.getCategory();
+        if (currentCategory != null && Objects.equals(currentCategory.getCategoryId(), categoryId)) {
+            return currentCategory;
         }
+
+        BoardCategory category = findActiveCategory(post.getBoard(), categoryId);
+        validateWriteRole(post.getBoard(), modifier, category.getMinWriteRole());
+        return category;
     }
 
     private void validateBoardWriteRole(Board board, User user) {
@@ -790,15 +793,22 @@ public class PostService {
     }
 
     private void validateWriteRole(Board board, User user, String minRole) {
-        if (Role.SUPER_ADMIN.equals(minRole)) {
-            if (!user.getIsSuperAdmin()) {
-                throw new BusinessException(ErrorCode.FORBIDDEN);
-            }
-            return;
-        }
-
-        if (Role.BOARD_ADMIN.equals(minRole) && !boardAccessPolicy.hasBoardAdminAccess(board, user)) {
-            throw new BusinessException(ErrorCode.FORBIDDEN);
+        String normalizedMinRole = BoardCategory.resolveMinWriteRole(minRole);
+        switch (normalizedMinRole) {
+            case Role.USER:
+                return;
+            case Role.BOARD_ADMIN:
+                if (!boardAccessPolicy.hasBoardAdminAccess(board, user)) {
+                    throw new BusinessException(ErrorCode.FORBIDDEN);
+                }
+                return;
+            case Role.SUPER_ADMIN:
+                if (!user.getIsSuperAdmin()) {
+                    throw new BusinessException(ErrorCode.FORBIDDEN);
+                }
+                return;
+            default:
+                throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
     }
 

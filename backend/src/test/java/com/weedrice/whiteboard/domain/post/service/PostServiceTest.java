@@ -247,12 +247,13 @@ class PostServiceTest {
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
-        when(boardCategoryRepository.findById(1L)).thenReturn(Optional.of(category));
+        when(boardCategoryRepository.findByCategoryIdAndBoard_BoardIdAndIsActive(1L, 1L, true))
+                .thenReturn(Optional.of(category));
         when(postRepository.save(any(Post.class))).thenReturn(post);
 
         postService.createPost(1L, 1L, request);
 
-        verify(boardCategoryRepository).findById(1L);
+        verify(boardCategoryRepository).findByCategoryIdAndBoard_BoardIdAndIsActive(1L, 1L, true);
     }
 
     @Test
@@ -261,14 +262,10 @@ class PostServiceTest {
         PostCreateRequest request = new PostCreateRequest(2L, "New Post", "New Contents", Collections.emptyList(),
                 false, false, false, false, null);
 
-        Board otherBoard = Board.builder().boardName("Other Board").creator(user).build();
-        ReflectionTestUtils.setField(otherBoard, "boardId", 2L);
-        BoardCategory otherCategory = BoardCategory.builder().name("Other").board(otherBoard).build();
-        ReflectionTestUtils.setField(otherCategory, "categoryId", 2L);
-
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
-        when(boardCategoryRepository.findById(2L)).thenReturn(Optional.of(otherCategory));
+        when(boardCategoryRepository.findByCategoryIdAndBoard_BoardIdAndIsActive(2L, 1L, true))
+                .thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> postService.createPost(1L, 1L, request))
                 .isInstanceOf(BusinessException.class)
@@ -509,14 +506,10 @@ class PostServiceTest {
         PostUpdateRequest request = new PostUpdateRequest(2L, "Updated Title", "Updated Contents",
                 Collections.emptyList(), false, false, false, null);
 
-        Board otherBoard = Board.builder().boardName("Other Board").creator(user).build();
-        ReflectionTestUtils.setField(otherBoard, "boardId", 2L);
-        BoardCategory otherCategory = BoardCategory.builder().name("Other").board(otherBoard).build();
-        ReflectionTestUtils.setField(otherCategory, "categoryId", 2L);
-
         when(postRepository.findById(1L)).thenReturn(Optional.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(boardCategoryRepository.findById(2L)).thenReturn(Optional.of(otherCategory));
+        when(boardCategoryRepository.findByCategoryIdAndBoard_BoardIdAndIsActive(2L, 1L, true))
+                .thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> postService.updatePost(1L, 1L, request))
                 .isInstanceOf(BusinessException.class)
@@ -1351,7 +1344,8 @@ class PostServiceTest {
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
-        when(boardCategoryRepository.findById(1L)).thenReturn(Optional.of(category));
+        when(boardCategoryRepository.findByCategoryIdAndBoard_BoardIdAndIsActive(1L, 1L, true))
+                .thenReturn(Optional.of(category));
 
         assertThatThrownBy(() -> postService.createPost(1L, 1L, request))
                 .isInstanceOf(BusinessException.class)
@@ -1371,12 +1365,98 @@ class PostServiceTest {
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
-        when(boardCategoryRepository.findById(1L)).thenReturn(Optional.of(category));
+        when(boardCategoryRepository.findByCategoryIdAndBoard_BoardIdAndIsActive(1L, 1L, true))
+                .thenReturn(Optional.of(category));
         when(adminRepository.existsByUserAndBoardAndIsActive(user, board, true)).thenReturn(false);
 
         assertThatThrownBy(() -> postService.createPost(1L, 1L, request))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
+    }
+
+    @Test
+    @DisplayName("게시글 생성 - 비활성 카테고리는 사용할 수 없음")
+    void createPost_inactiveCategory_notFound() {
+        PostCreateRequest request = new PostCreateRequest(1L, "Title", "Content", null, false, false, false, false, null);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
+        when(boardCategoryRepository.findByCategoryIdAndBoard_BoardIdAndIsActive(1L, 1L, true))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> postService.createPost(1L, 1L, request))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("게시글 생성 - 잘못된 카테고리 권한값은 실패")
+    void createPost_invalidCategoryMinWriteRole_throwsInvalidInput() {
+        ReflectionTestUtils.setField(category, "minWriteRole", "BOARD_ADMINN");
+        PostCreateRequest request = new PostCreateRequest(1L, "Title", "Content", null, false, false, false, false, null);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
+        when(boardCategoryRepository.findByCategoryIdAndBoard_BoardIdAndIsActive(1L, 1L, true))
+                .thenReturn(Optional.of(category));
+
+        assertThatThrownBy(() -> postService.createPost(1L, 1L, request))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+    }
+
+    @Test
+    @DisplayName("게시글 수정 - 관리자 전용 카테고리 이동은 차단")
+    void updatePost_categoryPermission_boardAdmin_forbidden() {
+        BoardCategory otherCategory = BoardCategory.builder().name("Admin Only").board(board).minWriteRole("BOARD_ADMIN").build();
+        ReflectionTestUtils.setField(otherCategory, "categoryId", 2L);
+        User boardOwner = User.builder().loginId("owner").build();
+        ReflectionTestUtils.setField(boardOwner, "userId", 99L);
+        ReflectionTestUtils.setField(board, "creator", boardOwner);
+        PostUpdateRequest request = new PostUpdateRequest(2L, "Title", "Content", null, false, false, false, null);
+
+        when(postRepository.findById(1L)).thenReturn(Optional.of(post));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(boardCategoryRepository.findByCategoryIdAndBoard_BoardIdAndIsActive(2L, 1L, true))
+                .thenReturn(Optional.of(otherCategory));
+        when(adminRepository.existsByUserAndBoardAndIsActive(user, board, true)).thenReturn(false);
+
+        assertThatThrownBy(() -> postService.updatePost(1L, 1L, request))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
+    }
+
+    @Test
+    @DisplayName("게시글 수정 - 비활성 카테고리 이동은 차단")
+    void updatePost_inactiveCategory_notFound() {
+        PostUpdateRequest request = new PostUpdateRequest(2L, "Title", "Content", null, false, false, false, null);
+
+        when(postRepository.findById(1L)).thenReturn(Optional.of(post));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(boardCategoryRepository.findByCategoryIdAndBoard_BoardIdAndIsActive(2L, 1L, true))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> postService.updatePost(1L, 1L, request))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("게시글 수정 - 기존 비활성 카테고리는 유지한 채 수정 가능")
+    void updatePost_sameInactiveCategory_success() {
+        category.deactivate();
+        ReflectionTestUtils.setField(post, "category", category);
+        PostUpdateRequest request = new PostUpdateRequest(1L, "Updated Title", "Updated Contents",
+                Collections.emptyList(), false, false, false, null);
+
+        when(postRepository.findById(1L)).thenReturn(Optional.of(post));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        Post updated = postService.updatePost(1L, 1L, request);
+
+        assertThat(updated.getCategory()).isEqualTo(category);
+        assertThat(updated.getTitle()).isEqualTo("Updated Title");
+        verify(boardCategoryRepository, never()).findByCategoryIdAndBoard_BoardIdAndIsActive(anyLong(), anyLong(), anyBoolean());
     }
 
     @Test

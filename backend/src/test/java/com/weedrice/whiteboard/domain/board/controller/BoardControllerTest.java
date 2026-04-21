@@ -279,4 +279,30 @@ class BoardControllerTest {
                         .with(csrf()))
                 .andExpect(status().isBadRequest());
     }
+
+    @Test
+    @DisplayName("카테고리 생성 - 잘못된 최소 작성 권한은 400")
+    void createCategory_invalidMinWriteRole_badRequest() throws Exception {
+        mockMvc.perform(post("/api/v1/boards/{boardUrl}/categories", "free")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"Cat","sortOrder":1,"minWriteRole":"ADMIN"}
+                                """)
+                        .with(user(customUserDetails))
+                        .with(csrf()))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("카테고리 수정 - 잘못된 최소 작성 권한은 400")
+    void updateCategory_invalidMinWriteRole_badRequest() throws Exception {
+        mockMvc.perform(put("/api/v1/boards/categories/{categoryId}", 1L)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"Cat","sortOrder":1,"minWriteRole":"ADMIN"}
+                                """)
+                        .with(user(customUserDetails))
+                        .with(csrf()))
+                .andExpect(status().isBadRequest());
+    }
 }

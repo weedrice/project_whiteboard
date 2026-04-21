@@ -354,11 +354,12 @@ describe('PostForm', () => {
         expect((editCall[1] as { enabled: { value: boolean } }).enabled.value).toBe(true)
     })
 
-    it('filters categories by role in create mode and keeps all in edit mode', async () => {
+    it('filters categories by role in create mode and keeps only selectable categories plus current one in edit mode', async () => {
         categoriesRef.value = [
             { categoryId: 1, name: 'General', minWriteRole: 'USER' },
             { categoryId: 2, name: 'Board Admin', minWriteRole: 'BOARD_ADMIN' },
             { categoryId: 3, name: 'Super Admin', minWriteRole: 'SUPER_ADMIN' },
+            { categoryId: 4, name: 'Legacy', minWriteRole: 'ADMIN' },
         ]
         const createWrapper = mountPostForm('create')
         await nextTick()
@@ -367,14 +368,27 @@ describe('PostForm', () => {
         expect(createOptionTexts).toContain('General')
         expect(createOptionTexts).not.toContain('Board Admin')
         expect(createOptionTexts).not.toContain('Super Admin')
+        expect(createOptionTexts).not.toContain('Legacy')
 
+        postRef.value = {
+            postId: 1,
+            title: 'Edit me',
+            contents: 'Edit content',
+            category: { categoryId: 2, name: 'Board Admin', minWriteRole: 'BOARD_ADMIN' },
+            tags: [],
+            isNsfw: false,
+            isSpoiler: false,
+        }
         const editWrapper = mountPostForm('edit')
         await nextTick()
         const editOptionTexts = editWrapper.findAll('option').map((option) => option.text())
 
         expect(editOptionTexts).toContain('General')
         expect(editOptionTexts).toContain('Board Admin')
-        expect(editOptionTexts).toContain('Super Admin')
+        expect(editOptionTexts).not.toContain('Super Admin')
+        expect(editOptionTexts).not.toContain('Legacy')
+        const currentCategoryOption = editWrapper.findAll('option').find((option) => option.text() === 'Board Admin')
+        expect(currentCategoryOption?.attributes('disabled')).toBeDefined()
     })
 
     it('hydrates form from post detail in edit mode', async () => {
@@ -553,6 +567,34 @@ describe('PostForm', () => {
 
         options.onSuccess()
         expect(mockPush).toHaveBeenCalledWith('/board/free/post/77')
+    })
+
+    it('keeps current edit category when it is no longer selectable', async () => {
+        routeState.params.postId = '88'
+        categoriesRef.value = [{ categoryId: 1, name: 'General', minWriteRole: 'USER' }]
+        postRef.value = {
+            postId: 88,
+            title: 'Before title',
+            contents: 'Before body',
+            category: { categoryId: 9, name: 'Archived', minWriteRole: 'BOARD_ADMIN' },
+            tags: [],
+            isNsfw: false,
+            isSpoiler: false,
+        }
+
+        const wrapper = mountPostForm('edit')
+        await nextTick()
+
+        const categoryOptions = wrapper.findAll('option')
+        expect(categoryOptions.map((option) => option.text())).toContain('Archived')
+        expect(categoryOptions.find((option) => option.text() === 'Archived')?.attributes('disabled')).toBeDefined()
+        expect((wrapper.get('#category').element as HTMLSelectElement).value).toBe('9')
+
+        await wrapper.get('#title').setValue('After title')
+        await wrapper.get('form').trigger('submit')
+
+        const [variables] = mockUpdateMutate.mock.calls.at(-1) as [any]
+        expect(variables.data.categoryId).toBe(9)
     })
 
     it('handles video popover and emoticon insertion', async () => {
@@ -810,7 +852,7 @@ describe('PostForm', () => {
         expect(lastToastArgs?.[1]).toBe('error')
     })
 
-    it('falls back categoryId to 0 when edit payload category is empty string', async () => {
+    it('omits categoryId when edit payload category is empty string', async () => {
         routeState.params.postId = '31'
         postRef.value = {
             postId: 31,
@@ -828,7 +870,7 @@ describe('PostForm', () => {
         await wrapper.get('form').trigger('submit')
 
         const [variables] = mockUpdateMutate.mock.calls.at(-1) as [any]
-        expect(variables.data.categoryId).toBe(0)
+        expect(variables.data).not.toHaveProperty('categoryId')
     })
 
     it('submits with empty fileIds when editor does not expose fileIds ref', async () => {

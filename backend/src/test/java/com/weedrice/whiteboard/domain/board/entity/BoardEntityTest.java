@@ -1,10 +1,13 @@
 package com.weedrice.whiteboard.domain.board.entity;
 
 import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.global.exception.BusinessException;
+import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class BoardEntityTest {
 
@@ -59,11 +62,34 @@ class BoardEntityTest {
 
         assertThat(category.getIsActive()).isTrue();
 
-        category.update("New Cat", 5, "ADMIN");
+        category.update("New Cat", 5, "BOARD_ADMIN");
         
         assertThat(category.getName()).isEqualTo("New Cat");
         assertThat(category.getSortOrder()).isEqualTo(5);
-        assertThat(category.getMinWriteRole()).isEqualTo("ADMIN");
+        assertThat(category.getMinWriteRole()).isEqualTo("BOARD_ADMIN");
+    }
+
+    @Test
+    @DisplayName("BoardCategory 기본 권한은 USER")
+    void categoryDefaultMinWriteRoleIsUser() {
+        BoardCategory category = BoardCategory.builder()
+                .board(Board.builder().build())
+                .name("Cat")
+                .build();
+
+        assertThat(category.getMinWriteRole()).isEqualTo("USER");
+    }
+
+    @Test
+    @DisplayName("BoardCategory 잘못된 최소 작성 권한은 실패")
+    void categoryInvalidMinWriteRoleThrows() {
+        assertThatThrownBy(() -> BoardCategory.builder()
+                .board(Board.builder().build())
+                .name("Cat")
+                .minWriteRole("ADMIN")
+                .build())
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
     }
 
     @Test
