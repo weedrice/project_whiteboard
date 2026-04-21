@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.search.service;
 
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
+import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.file.service.FileService;
@@ -115,13 +116,17 @@ class SearchServiceTest {
                 .thenReturn(Page.empty(previewPageable));
         when(userRepository.searchUsersVisibleTo(eq(keyword), isNull(), any(Pageable.class)))
                 .thenReturn(Page.empty(previewPageable));
-        when(boardRepository.findByBoardNameContainingIgnoreCaseAndIsActiveTrue(keyword))
+        when(boardRepository.findByBoardNameContainingIgnoreCaseAndIsActiveTrueAndIsPublicTrueOrderBySortOrderAscBoardIdAsc(
+                eq(keyword), any(Pageable.class)))
                 .thenReturn(Collections.emptyList());
 
         var result = searchService.integratedSearch(keyword, null);
 
         assertThat(result.getComments().getTotalElements()).isZero();
+        assertThat(result.getBoards()).isEmpty();
         verify(commentRepository).searchCommentsByKeyword(eq(keyword), isNull(), isNull(), any(Pageable.class));
+        verify(boardRepository).findByBoardNameContainingIgnoreCaseAndIsActiveTrueAndIsPublicTrueOrderBySortOrderAscBoardIdAsc(
+                eq(keyword), eq(previewPageable));
         verify(fileService, never()).getRelatedIdsWithImages(anyList(), anyString());
     }
 
@@ -140,14 +145,49 @@ class SearchServiceTest {
                 any(Pageable.class))).thenReturn(Page.empty(previewPageable));
         when(userRepository.searchUsersVisibleTo(eq(keyword), eq(blockedUserIds), any(Pageable.class)))
                 .thenReturn(Page.empty(previewPageable));
-        when(boardRepository.findByBoardNameContainingIgnoreCaseAndIsActiveTrue(keyword))
+        when(boardRepository.findByBoardNameContainingIgnoreCaseAndIsActiveTrueAndIsPublicTrueOrderBySortOrderAscBoardIdAsc(
+                eq(keyword), any(Pageable.class)))
                 .thenReturn(Collections.emptyList());
 
         var result = searchService.integratedSearch(keyword, currentUserId);
 
         assertThat(result.getComments().getTotalElements()).isZero();
+        assertThat(result.getBoards()).isEmpty();
         verify(commentRepository).searchCommentsByKeyword(eq(keyword), eq(blockedUserIds), eq(currentUserId),
                 any(Pageable.class));
+        verify(boardRepository).findByBoardNameContainingIgnoreCaseAndIsActiveTrueAndIsPublicTrueOrderBySortOrderAscBoardIdAsc(
+                eq(keyword), eq(previewPageable));
+    }
+
+    @Test
+    @DisplayName("통합 검색 - 보드 미리보기는 공개 활성 게시판 5개만 조회")
+    void integratedSearch_limitsBoardPreviewAtRepositoryLevel() {
+        String keyword = "test";
+        Pageable previewPageable = PageRequest.of(0, 5);
+        List<Board> boards = List.of(
+                board(1L, "Board 1", "board1"),
+                board(2L, "Board 2", "board2"),
+                board(3L, "Board 3", "board3"),
+                board(4L, "Board 4", "board4"),
+                board(5L, "Board 5", "board5"));
+
+        when(postRepository.searchPostsByKeyword(eq(keyword), isNull(), isNull(), any(Pageable.class)))
+                .thenReturn(Page.empty(previewPageable));
+        when(commentRepository.searchCommentsByKeyword(eq(keyword), isNull(), isNull(), any(Pageable.class)))
+                .thenReturn(Page.empty(previewPageable));
+        when(userRepository.searchUsersVisibleTo(eq(keyword), isNull(), any(Pageable.class)))
+                .thenReturn(Page.empty(previewPageable));
+        when(boardRepository.findByBoardNameContainingIgnoreCaseAndIsActiveTrueAndIsPublicTrueOrderBySortOrderAscBoardIdAsc(
+                eq(keyword), any(Pageable.class)))
+                .thenReturn(boards);
+
+        var result = searchService.integratedSearch(keyword, null);
+
+        assertThat(result.getBoards()).hasSize(5);
+        assertThat(result.getBoards()).extracting("boardName")
+                .containsExactly("Board 1", "Board 2", "Board 3", "Board 4", "Board 5");
+        verify(boardRepository).findByBoardNameContainingIgnoreCaseAndIsActiveTrueAndIsPublicTrueOrderBySortOrderAscBoardIdAsc(
+                eq(keyword), eq(previewPageable));
     }
 
     @Test
@@ -277,5 +317,18 @@ class SearchServiceTest {
                 return count;
             }
         };
+    }
+
+    private Board board(Long boardId, String boardName, String boardUrl) {
+        Board board = Board.builder()
+                .boardName(boardName)
+                .boardUrl(boardUrl)
+                .creator(user)
+                .isPublic(true)
+                .build();
+        ReflectionTestUtils.setField(board, "boardId", boardId);
+        ReflectionTestUtils.setField(board, "isActive", true);
+        ReflectionTestUtils.setField(board, "sortOrder", boardId.intValue());
+        return board;
     }
 }

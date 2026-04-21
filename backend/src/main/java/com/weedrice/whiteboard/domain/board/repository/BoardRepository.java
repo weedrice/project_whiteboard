@@ -22,6 +22,9 @@ public interface BoardRepository extends JpaRepository<Board, Long> {
 
     List<Board> findByBoardNameContainingIgnoreCaseAndIsActiveTrue(String keyword);
 
+    List<Board> findByBoardNameContainingIgnoreCaseAndIsActiveTrueAndIsPublicTrueOrderBySortOrderAscBoardIdAsc(String keyword,
+            Pageable pageable);
+
     boolean existsByBoardName(String boardName);
 
     boolean existsByBoardUrl(String boardUrl);
