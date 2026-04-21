@@ -471,6 +471,7 @@ class CommentServiceTest {
         assertThat(response.getReplyCount()).isEqualTo(1L);
         assertThat(response.isHasReplies()).isTrue();
         assertThat(response.getChildren()).isEmpty();
+        verify(commentRepository, never()).findAllDescendants(anyList());
     }
 
     @Test

@@ -62,6 +62,7 @@ public class CommentService {
     private final SanctionService sanctionService;
     private final PostAccessPolicy postAccessPolicy;
 
+    // Contract: /posts/{postId}/comments pages only parent comments; replies are fetched lazily via /comments/{id}/replies.
     public Page<CommentResponse> getComments(Long postId, Long currentUserId, Pageable pageable) {
         Objects.requireNonNull(pageable, "Pageable must not be null");
         Post post = postRepository.findByIdWithRelations(postId)
