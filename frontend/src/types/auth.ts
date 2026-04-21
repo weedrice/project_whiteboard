@@ -17,5 +17,6 @@ export interface SignupData {
     loginId: string
     password: string
     email: string
+    verificationTicket: string
     displayName: string
 }

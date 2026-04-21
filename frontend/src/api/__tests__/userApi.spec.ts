@@ -35,7 +35,7 @@ describe('userApi', () => {
         userApi.updateMyProfile(profileData)
         userApi.updatePassword(passwordData.currentPassword, passwordData.newPassword)
         userApi.deleteAccount('secret')
-        userApi.verifyEmail({ email: 'test@example.com', code: '123456' })
+        userApi.verifyEmail({ email: 'test@example.com', verificationTicket: 'ticket-1' })
         userApi.getUserSettings()
         userApi.updateUserSettings(settingsData as never)
         userApi.getNotificationSettings()
@@ -57,7 +57,7 @@ describe('userApi', () => {
         expect(apiMock.post).toHaveBeenNthCalledWith(
             1,
             '/users/me/email-verification',
-            { email: 'test@example.com', code: '123456' },
+            { email: 'test@example.com', verificationTicket: 'ticket-1' },
         )
         expect(apiMock.get).toHaveBeenNthCalledWith(3, '/users/me/settings')
         expect(apiMock.put).toHaveBeenNthCalledWith(3, '/users/me/settings', settingsData)

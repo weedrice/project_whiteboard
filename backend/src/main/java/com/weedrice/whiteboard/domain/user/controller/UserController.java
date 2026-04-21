@@ -4,7 +4,7 @@ import com.weedrice.whiteboard.domain.agent.dto.AgentClaimRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentListResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentResponse;
 import com.weedrice.whiteboard.domain.agent.service.AgentLifecycleService;
-import com.weedrice.whiteboard.domain.auth.dto.VerifyCodeRequest;
+import com.weedrice.whiteboard.domain.auth.dto.EmailVerificationConfirmRequest;
 import com.weedrice.whiteboard.domain.board.dto.BoardResponse;
 import com.weedrice.whiteboard.domain.board.service.BoardService;
 import com.weedrice.whiteboard.domain.comment.dto.MyCommentResponse;
@@ -70,9 +70,12 @@ public class UserController {
 
         @PostMapping("/me/email-verification")
         public ResponseEntity<ApiResponse<Void>> verifyEmail(
-                        @Valid @RequestBody VerifyCodeRequest request,
+                        @Valid @RequestBody EmailVerificationConfirmRequest request,
                         @AuthenticationPrincipal CustomUserDetails userDetails) {
-                userSecurityService.verifyAndChangeEmail(userDetails.getUserId(), request.getEmail(), request.getCode());
+                userSecurityService.verifyAndChangeEmail(
+                                userDetails.getUserId(),
+                                request.getEmail(),
+                                request.getVerificationTicket());
                 return ResponseEntity.ok(ApiResponse.success(null));
         }
 

@@ -184,20 +184,23 @@ public class AuthController {
         Long currentUserId = userDetails != null ? userDetails.getUserId() : null;
         verificationCodeService.sendVerificationCode(
                 request.getEmail(),
-                Boolean.TRUE.equals(request.getForSignup()),
+                request.getPurpose().toPurpose(),
                 currentUserId);
         return ResponseEntity.ok(ApiResponse.success(null));
     }
 
     @PostMapping("/email/verify")
     public ResponseEntity<ApiResponse<VerifyCodeResponse>> verifyCode(@Valid @RequestBody VerifyCodeRequest request) {
-        VerifyCodeResponse response = verificationCodeService.verifyCode(request.getEmail(), request.getCode());
+        VerifyCodeResponse response = verificationCodeService.verifyCode(
+                request.getEmail(),
+                request.getCode(),
+                request.getPurpose().toPurpose());
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
     @PostMapping("/find-id")
     public ResponseEntity<ApiResponse<FindIdResponse>> findId(@Valid @RequestBody FindIdRequest request) {
-        FindIdResponse response = authService.findLoginId(request.getEmail());
+        FindIdResponse response = authService.findLoginId(request.getEmail(), request.getVerificationTicket());
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
@@ -211,7 +214,7 @@ public class AuthController {
 
     @PostMapping("/password/send-reset-link")
     public ResponseEntity<ApiResponse<Void>> sendPasswordResetLink(@Valid @RequestBody PasswordResetRequest request) {
-        authService.sendPasswordResetLink(request.getEmail());
+        authService.sendPasswordResetLink(request.getEmail(), request.getVerificationTicket());
         return ResponseEntity.ok(ApiResponse.success(null));
     }
 
@@ -219,7 +222,7 @@ public class AuthController {
     @PostMapping("/password/send-reset-link-by-email")
     public ResponseEntity<ApiResponse<Void>> sendPasswordResetLinkByEmail(
             @Valid @RequestBody PasswordResetRequest request) {
-        authService.sendPasswordResetLinkByEmail(request.getEmail());
+        authService.sendPasswordResetLinkByEmail(request.getEmail(), request.getVerificationTicket());
         return ResponseEntity.ok(ApiResponse.success(null));
     }
 
@@ -232,7 +235,10 @@ public class AuthController {
     @PostMapping("/password/reset-by-code")
     public ResponseEntity<ApiResponse<Void>> resetPasswordByCode(
             @Valid @RequestBody PasswordResetByCodeRequest request) {
-        authService.resetPasswordByCode(request.getEmail(), request.getCode(), request.getNewPassword());
+        authService.resetPasswordByCode(
+                request.getEmail(),
+                request.getVerificationTicket(),
+                request.getNewPassword());
         return ResponseEntity.ok(ApiResponse.success(null));
     }
 

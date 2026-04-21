@@ -77,12 +77,11 @@ export const userApi = {
         return api.put<ApiResponse<void>>('/users/me/password', { currentPassword, newPassword })
     },
     deleteAccount(password: string) {
-        return api.delete<ApiResponse<void>>('/users/me', { data: { password } }) // DELETE usually sends data in config
+        return api.delete<ApiResponse<void>>('/users/me', { data: { password } })
     },
-    verifyEmail(payload: { email: string, code: string }) {
+    verifyEmail(payload: { email: string, verificationTicket: string }) {
         return api.post<ApiResponse<void>>('/users/me/email-verification', payload)
     },
-    // Settings
     getUserSettings() {
         return api.get<ApiResponse<UserSettings>>('/users/me/settings')
     },
@@ -107,7 +106,6 @@ export const userApi = {
     deleteMyAgent(agentId: string | number) {
         return api.delete<ApiResponse<void>>(`/users/me/agents/${agentId}`)
     },
-    // Blocks
     blockUser(userId: string | number) {
         return api.post<ApiResponse<void>>(`/users/${userId}/block`)
     },
@@ -117,7 +115,6 @@ export const userApi = {
     getBlockList() {
         return api.get<ApiResponse<PageResponse<BlockedUserSummary> | BlockedUserSummary[]>>('/users/me/blocks')
     },
-    // Activity
     getMyPosts(params: PaginationParams) {
         return api.get<ApiResponse<PageResponse<PostSummary>>>('/users/me/posts', { params })
     },
@@ -137,4 +134,3 @@ export const userApi = {
         return api.get<ApiResponse<PageResponse<Board>>>('/users/me/subscriptions', { params })
     }
 }
-

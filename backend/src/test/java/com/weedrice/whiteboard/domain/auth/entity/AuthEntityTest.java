@@ -42,6 +42,7 @@ class AuthEntityTest {
         LocalDateTime future = LocalDateTime.now().plusMinutes(5);
         VerificationCode code = VerificationCode.builder()
                 .email("test@test.com")
+                .purpose(VerificationPurpose.SIGNUP)
                 .code("123456")
                 .expiryDate(future)
                 .build();
@@ -52,8 +53,9 @@ class AuthEntityTest {
 
         code.markSent();
         assertThat(code.getDeliveryStatus()).isEqualTo(VerificationCode.DELIVERY_STATUS_SENT);
-        code.verify();
+        code.issueVerificationTicket("ticket-1", LocalDateTime.now().plusMinutes(5));
         assertThat(code.getIsVerified()).isTrue();
+        assertThat(code.getVerificationTicket()).isEqualTo("ticket-1");
 
         code.markFailed();
         assertThat(code.getDeliveryStatus()).isEqualTo(VerificationCode.DELIVERY_STATUS_FAILED);

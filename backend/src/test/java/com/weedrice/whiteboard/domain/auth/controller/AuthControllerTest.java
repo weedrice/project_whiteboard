@@ -96,6 +96,7 @@ class AuthControllerTest {
                 .email("test@example.com")
                 .loginId("testuser")
                 .password("Password123!")
+                .verificationTicket("ticket-1")
                 .displayName("Test User")
                 .build();
         SignupResponse response = SignupResponse.builder()

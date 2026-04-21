@@ -33,6 +33,11 @@ public class SignupRequest {
     private String email;
 
     @NotBlank
+    @Size(max = 64)
+    @NoHtml
+    private String verificationTicket;
+
+    @NotBlank
     @Size(min = 2, max = 50)
     @NoHtml
     private String displayName;

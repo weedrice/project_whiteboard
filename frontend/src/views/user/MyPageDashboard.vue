@@ -205,6 +205,7 @@ const isVerifyModalOpen = ref(false)
 const emailVerification = reactive({
   email: '',
   code: '',
+  verificationTicket: '',
   isCodeSent: false,
   isVerified: false,
   loading: false,
@@ -217,6 +218,7 @@ let verifyResendInterval: ReturnType<typeof setInterval> | null = null
 function openVerifyModal() {
   emailVerification.email = profile.value?.email || ''
   emailVerification.code = ''
+  emailVerification.verificationTicket = ''
   emailVerification.isCodeSent = false
   emailVerification.isVerified = false
   emailVerification.loading = false
@@ -286,8 +288,10 @@ async function sendVerifyCode() {
 
   emailVerification.loading = true
   try {
-    const { data } = await authApi.sendVerificationCode(emailVerification.email)
+    const { data } = await authApi.sendVerificationCode(trimmed, 'CHANGE_EMAIL')
     if (data.success) {
+      emailVerification.verificationTicket = ''
+      emailVerification.isVerified = false
       emailVerification.isCodeSent = true
       startVerifyTimer()
       startVerifyResendCooldown()
@@ -304,7 +308,8 @@ async function sendVerifyCode() {
 }
 
 async function verifyEmailCode() {
-  if (!emailVerification.code || !emailVerification.email) return
+  const trimmed = emailVerification.email.trim()
+  if (!emailVerification.code || !trimmed) return
 
   if (emailVerification.timeLeft <= 0) {
     toastStore.addToast(t('auth.codeExpired'), 'error')
@@ -313,9 +318,16 @@ async function verifyEmailCode() {
 
   emailVerification.loading = true
   try {
+    const verifyResponse = await authApi.verifyCode(trimmed, emailVerification.code, 'CHANGE_EMAIL')
+    if (!verifyResponse.data.success || !verifyResponse.data.data?.verificationTicket) {
+      throw new Error(t('auth.verificationFailed'))
+    }
+
+    emailVerification.verificationTicket = verifyResponse.data.data.verificationTicket
+
     const { data } = await userApi.verifyEmail({
-      email: emailVerification.email,
-      code: emailVerification.code
+      email: trimmed,
+      verificationTicket: emailVerification.verificationTicket
     })
     if (data.success) {
       emailVerification.isVerified = true

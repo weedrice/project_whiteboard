@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.auth.dto;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -16,6 +17,6 @@ public class EmailVerificationRequest {
     @Email(message = "{validation.email.format}")
     private String email;
 
-    /** true면 회원가입용 - 이미 가입된 이메일이면 중복 에러 */
-    private Boolean forSignup = false;
+    @NotNull
+    private EmailVerificationPurpose purpose;
 }

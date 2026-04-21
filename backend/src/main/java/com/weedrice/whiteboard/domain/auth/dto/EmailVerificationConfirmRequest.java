@@ -11,9 +11,10 @@ import lombok.NoArgsConstructor;
 @Getter
 @NoArgsConstructor
 @AllArgsConstructor
-public class PasswordResetRequest {
+public class EmailVerificationConfirmRequest {
     @NotBlank
     @Email
+    @NoHtml
     private String email;
 
     @NotBlank

@@ -14,9 +14,7 @@ const { t } = useI18n()
 const router = useRouter()
 const toastStore = useToastStore()
 
-const activeTab = ref('id') // 'id' or 'password'
-
-// State
+const activeTab = ref('id')
 const form = reactive({
     email: '',
     code: '',
@@ -27,6 +25,7 @@ const form = reactive({
 const status = reactive({
     isCodeSent: false,
     isVerified: false,
+    verificationTicket: '',
     loading: false,
     foundId: ''
 })
@@ -38,8 +37,16 @@ const resetState = () => {
     form.confirmPassword = ''
     status.isCodeSent = false
     status.isVerified = false
+    status.verificationTicket = ''
     status.foundId = ''
     status.loading = false
+}
+
+const resetVerificationState = () => {
+    form.code = ''
+    status.isCodeSent = false
+    status.isVerified = false
+    status.verificationTicket = ''
 }
 
 const switchTab = (tab: string) => {
@@ -48,16 +55,20 @@ const switchTab = (tab: string) => {
 }
 
 const handleSendCode = async () => {
-    if (!form.email) {
+    const email = form.email.trim()
+    if (!email) {
         toastStore.addToast(t('auth.placeholders.email'), 'error')
         return
     }
 
     status.loading = true
     try {
-        const { data } = await authApi.sendVerificationCode(form.email)
+        const purpose = activeTab.value === 'id' ? 'FIND_ID' : 'PASSWORD_RESET'
+        const { data } = await authApi.sendVerificationCode(email, purpose)
         if (data.success) {
+            resetVerificationState()
             status.isCodeSent = true
+            status.foundId = ''
             toastStore.addToast(t('auth.codeSent'), 'success')
         }
     } catch {
@@ -75,14 +86,19 @@ const handleVerifyCode = async () => {
 
     status.loading = true
     try {
-        const { data } = await authApi.verifyCode(form.email, form.code)
-        if (data.success) {
-            status.isVerified = true
-            toastStore.addToast(t('auth.codeVerified'), 'success')
+        const purpose = activeTab.value === 'id' ? 'FIND_ID' : 'PASSWORD_RESET'
+        const { data } = await authApi.verifyCode(form.email.trim(), form.code, purpose)
+        const verificationTicket = data.data?.verificationTicket
+        if (!data.success || !verificationTicket) {
+            throw new Error(t('auth.verificationFailed'))
+        }
 
-            if (activeTab.value === 'id') {
-                findId()
-            }
+        if (activeTab.value === 'id') {
+            await findId(verificationTicket)
+        } else {
+            status.isVerified = true
+            status.verificationTicket = verificationTicket
+            toastStore.addToast(t('auth.codeVerified'), 'success')
         }
     } catch (error: unknown) {
         const message = extractErrorMessage(error) || t('auth.verificationFailed')
@@ -92,16 +108,19 @@ const handleVerifyCode = async () => {
     }
 }
 
-const findId = async () => {
+const findId = async (verificationTicket: string) => {
     try {
-        const { data } = await authApi.findId(form.email)
+        const { data } = await authApi.findId(form.email.trim(), verificationTicket)
         if (data.success) {
+            status.isVerified = true
+            status.verificationTicket = verificationTicket
             status.foundId = data.data.loginId
+            toastStore.addToast(t('auth.codeVerified'), 'success')
         }
     } catch (error: unknown) {
         if (axios.isAxiosError(error) && error.response?.data?.error?.code === 'A009') {
             toastStore.addToast(t('auth.userDeleted'), 'info')
-            router.push(`/signup?email=${encodeURIComponent(form.email)}`)
+            router.push(`/signup?email=${encodeURIComponent(form.email.trim())}`)
         } else {
             const message = extractErrorMessage(error) || t('auth.verificationFailed')
             toastStore.addToast(message, 'error')
@@ -118,8 +137,8 @@ const handleResetPassword = async () => {
     status.loading = true
     try {
         const { data } = await authApi.resetPassword({
-            email: form.email,
-            code: form.code,
+            email: form.email.trim(),
+            verificationTicket: status.verificationTicket,
             newPassword: form.newPassword
         })
         if (data.success) {
@@ -129,7 +148,7 @@ const handleResetPassword = async () => {
     } catch (error: unknown) {
         if (axios.isAxiosError(error) && error.response?.data?.error?.code === 'A009') {
             toastStore.addToast(t('auth.userDeleted'), 'info')
-            router.push(`/signup?email=${encodeURIComponent(form.email)}`)
+            router.push(`/signup?email=${encodeURIComponent(form.email.trim())}`)
         } else {
             const message = extractErrorMessage(error) || t('auth.verificationFailed')
             toastStore.addToast(message, 'error')
@@ -174,15 +193,15 @@ const handleResetPassword = async () => {
                         <div class="flex gap-2 items-end">
                             <div class="flex-grow">
                                 <BaseInput v-model="form.email" type="email" :label="t('auth.email')"
-                                    :placeholder="t('auth.placeholders.email')" :disabled="status.isCodeSent" hideLabel>
+                                    :placeholder="t('auth.placeholders.email')" :disabled="status.loading" hideLabel>
                                     <template #prefix>
                                         <Mail class="h-5 w-5 text-gray-400" />
                                     </template>
                                 </BaseInput>
                             </div>
-                            <BaseButton @click="handleSendCode" :disabled="status.isCodeSent || status.loading"
+                            <BaseButton @click="handleSendCode" :disabled="status.loading"
                                 :loading="status.loading && !status.isCodeSent" class="mb-[2px] h-[42px]">
-                                {{ status.isCodeSent ? t('common.sent') : t('auth.sendCode') }}
+                                {{ status.isCodeSent ? t('auth.resendCode') : t('auth.sendCode') }}
                             </BaseButton>
                         </div>
 

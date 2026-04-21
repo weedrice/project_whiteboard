@@ -1,6 +1,6 @@
 package com.weedrice.whiteboard.domain.user.service;
 
-import com.weedrice.whiteboard.domain.auth.dto.VerifyCodeResponse;
+import com.weedrice.whiteboard.domain.auth.entity.VerificationPurpose;
 import com.weedrice.whiteboard.domain.auth.entity.RefreshToken;
 import com.weedrice.whiteboard.domain.auth.repository.RefreshTokenRepository;
 import com.weedrice.whiteboard.domain.auth.service.VerificationCodeService;
@@ -29,7 +29,6 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -103,8 +102,6 @@ class UserSecurityServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(userRepository.findByEmail("next@example.com"))
                 .thenReturn(Optional.empty(), Optional.of(other));
-        when(verificationCodeService.verifyCode("next@example.com", "123456"))
-                .thenReturn(new VerifyCodeResponse(true, null, false));
         when(userRepository.saveAndFlush(user)).thenThrow(new DataIntegrityViolationException("duplicate email"));
 
         assertThatThrownBy(() -> userSecurityService.verifyAndChangeEmail(1L, "next@example.com", "123456"))
@@ -113,5 +110,9 @@ class UserSecurityServiceTest {
                 .isEqualTo(ErrorCode.DUPLICATE_EMAIL);
 
         verify(entityManager).clear();
+        verify(verificationCodeService).consumeVerificationTicket(
+                "next@example.com",
+                VerificationPurpose.CHANGE_EMAIL,
+                "123456");
     }
 }

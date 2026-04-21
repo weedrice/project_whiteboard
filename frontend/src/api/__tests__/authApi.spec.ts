@@ -22,7 +22,13 @@ describe('authApi', () => {
 
     it('calls login and signup with skipGlobalErrorHandler', () => {
         const credentials = { loginId: 'tester', password: 'secret' }
-        const signupData = { loginId: 'tester', password: 'secret', email: 'a@b.com', displayName: 'tester' }
+        const signupData = {
+            loginId: 'tester',
+            password: 'secret',
+            email: 'a@b.com',
+            verificationTicket: 'ticket-1',
+            displayName: 'tester',
+        }
 
         authApi.login(credentials)
         authApi.signup(signupData)
@@ -56,32 +62,22 @@ describe('authApi', () => {
         expect(apiMock.get).toHaveBeenCalledWith('/users/me', config)
     })
 
-    it('uses default false for sendVerificationCode forSignup flag', () => {
-        authApi.sendVerificationCode('test@example.com')
+    it('sends verification code with explicit purpose', () => {
+        authApi.sendVerificationCode('test@example.com', 'SIGNUP')
 
         expect(apiMock.post).toHaveBeenCalledWith(
             '/auth/email/send-verification',
-            { email: 'test@example.com', forSignup: false },
+            { email: 'test@example.com', purpose: 'SIGNUP' },
             { skipAuthRefresh: true },
         )
     })
 
-    it('supports true for sendVerificationCode forSignup flag', () => {
-        authApi.sendVerificationCode('test@example.com', true)
-
-        expect(apiMock.post).toHaveBeenCalledWith(
-            '/auth/email/send-verification',
-            { email: 'test@example.com', forSignup: true },
-            { skipAuthRefresh: true },
-        )
-    })
-
-    it('calls verifyCode with required flags', () => {
-        authApi.verifyCode('test@example.com', '123456')
+    it('calls verifyCode with purpose and flags', () => {
+        authApi.verifyCode('test@example.com', '123456', 'PASSWORD_RESET')
 
         expect(apiMock.post).toHaveBeenCalledWith(
             '/auth/email/verify',
-            { email: 'test@example.com', code: '123456' },
+            { email: 'test@example.com', code: '123456', purpose: 'PASSWORD_RESET' },
             {
                 skipAuthRefresh: true,
                 skipGlobalErrorHandler: true,
@@ -101,12 +97,12 @@ describe('authApi', () => {
         )
     })
 
-    it('calls findId with skip flags', () => {
-        authApi.findId('test@example.com')
+    it('calls findId with verification ticket and skip flags', () => {
+        authApi.findId('test@example.com', 'ticket-1')
 
         expect(apiMock.post).toHaveBeenCalledWith(
             '/auth/find-id',
-            { email: 'test@example.com' },
+            { email: 'test@example.com', verificationTicket: 'ticket-1' },
             {
                 skipAuthRefresh: true,
                 skipGlobalErrorHandler: true,
@@ -117,19 +113,19 @@ describe('authApi', () => {
     it('calls password reset APIs with proper payload and flags', () => {
         const resetData = {
             email: 'test@example.com',
-            code: '111111',
+            verificationTicket: 'ticket-2',
             newPassword: 'new-password',
         }
 
-        authApi.sendPasswordReset('test@example.com')
+        authApi.sendPasswordReset('test@example.com', 'ticket-1')
         authApi.resetPassword(resetData)
-        authApi.sendPasswordResetLinkByEmail('test@example.com')
+        authApi.sendPasswordResetLinkByEmail('test@example.com', 'ticket-3')
         authApi.resetPasswordWithToken('token-1', 'new-password')
 
         expect(apiMock.post).toHaveBeenNthCalledWith(
             1,
             '/auth/password/send-reset-link',
-            { email: 'test@example.com' },
+            { email: 'test@example.com', verificationTicket: 'ticket-1' },
             { skipAuthRefresh: true },
         )
         expect(apiMock.post).toHaveBeenNthCalledWith(
@@ -141,7 +137,7 @@ describe('authApi', () => {
         expect(apiMock.post).toHaveBeenNthCalledWith(
             3,
             '/auth/password/send-reset-link-by-email',
-            { email: 'test@example.com' },
+            { email: 'test@example.com', verificationTicket: 'ticket-3' },
             { skipAuthRefresh: true, skipGlobalErrorHandler: true },
         )
         expect(apiMock.post).toHaveBeenNthCalledWith(

@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.user.service;
 
 import com.weedrice.whiteboard.domain.auth.entity.RefreshToken;
+import com.weedrice.whiteboard.domain.auth.entity.VerificationPurpose;
 import com.weedrice.whiteboard.domain.auth.repository.RefreshTokenRepository;
 import com.weedrice.whiteboard.domain.auth.service.VerificationCodeService;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
@@ -62,7 +63,7 @@ public class UserSecurityService {
     }
 
     @Transactional
-    public void verifyAndChangeEmail(Long userId, String email, String code) {
+    public void verifyAndChangeEmail(Long userId, String email, String verificationTicket) {
         User user = getWritableUser(userId);
 
         if (!user.getEmail().equals(email)) {
@@ -73,7 +74,7 @@ public class UserSecurityService {
             });
         }
 
-        verificationCodeService.verifyCode(email, code);
+        verificationCodeService.consumeVerificationTicket(email, VerificationPurpose.CHANGE_EMAIL, verificationTicket);
 
         if (!user.getEmail().equals(email)) {
             user.updateEmail(email);

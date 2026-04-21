@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.auth.service;
 
 import com.weedrice.whiteboard.domain.auth.entity.PasswordResetToken;
+import com.weedrice.whiteboard.domain.auth.entity.VerificationPurpose;
 import com.weedrice.whiteboard.domain.auth.repository.PasswordResetTokenRepository;
 import com.weedrice.whiteboard.domain.user.entity.PasswordHistory;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -12,7 +13,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collections;
@@ -36,11 +36,12 @@ public class PasswordResetService {
     @Value("${cloud.aws.password-reset.frontend-url}")
     private String passwordResetFrontendUrl;
 
-    @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public void sendPasswordResetLink(String email) {
-        if (!verificationCodeService.isVerified(email)) {
-            throw new BusinessException(ErrorCode.EMAIL_NOT_VERIFIED);
-        }
+    @Transactional
+    public void sendPasswordResetLink(String email, String verificationTicket) {
+        verificationCodeService.consumeVerificationTicket(
+                email,
+                VerificationPurpose.PASSWORD_RESET,
+                verificationTicket);
 
         User user = getActivePasswordResetUser(email, ErrorCode.USER_NOT_FOUND);
         String rawToken = UUID.randomUUID().toString();
@@ -57,8 +58,13 @@ public class PasswordResetService {
                 body);
     }
 
-    @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public void sendPasswordResetLinkByEmail(String email) {
+    @Transactional
+    public void sendPasswordResetLinkByEmail(String email, String verificationTicket) {
+        verificationCodeService.consumeVerificationTicket(
+                email,
+                VerificationPurpose.PASSWORD_RESET,
+                verificationTicket);
+
         User user = getActivePasswordResetUser(email, ErrorCode.USER_NOT_FOUND_BY_EMAIL);
         String rawToken = UUID.randomUUID().toString();
         String resetLink = passwordResetFrontendUrl + rawToken;
@@ -103,12 +109,14 @@ public class PasswordResetService {
         User user = passwordResetToken.getUser();
         applyPasswordReset(user, newPassword);
         passwordResetTokenOrchestrationService.markTokenUsed(passwordResetToken);
-        verificationCodeService.clearVerificationStatus(user.getEmail());
     }
 
     @Transactional
-    public void resetPasswordByCode(String email, String code, String newPassword) {
-        verificationCodeService.verifyCode(email, code);
+    public void resetPasswordByCode(String email, String verificationTicket, String newPassword) {
+        verificationCodeService.consumeVerificationTicket(
+                email,
+                VerificationPurpose.PASSWORD_RESET,
+                verificationTicket);
 
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
@@ -117,7 +125,6 @@ public class PasswordResetService {
         }
 
         applyPasswordReset(user, newPassword);
-        verificationCodeService.clearVerificationStatus(email);
     }
 
     private void applyPasswordReset(User user, String newPassword) {

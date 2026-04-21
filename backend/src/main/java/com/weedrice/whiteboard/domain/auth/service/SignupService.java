@@ -4,6 +4,7 @@ import com.weedrice.whiteboard.domain.auth.dto.FindIdResponse;
 import com.weedrice.whiteboard.domain.auth.dto.ReregisterCheckResponse;
 import com.weedrice.whiteboard.domain.auth.dto.SignupRequest;
 import com.weedrice.whiteboard.domain.auth.dto.SignupResponse;
+import com.weedrice.whiteboard.domain.auth.entity.VerificationPurpose;
 import com.weedrice.whiteboard.domain.point.service.PointService;
 import com.weedrice.whiteboard.domain.user.entity.SocialAccount;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -54,9 +55,10 @@ public class SignupService {
             throw new BusinessException(ErrorCode.DUPLICATE_LOGIN_ID);
         }
 
-        if (!verificationCodeService.isVerified(request.getEmail())) {
-            throw new BusinessException(ErrorCode.EMAIL_NOT_VERIFIED);
-        }
+        verificationCodeService.consumeVerificationTicket(
+                request.getEmail(),
+                VerificationPurpose.SIGNUP,
+                request.getVerificationTicket());
 
         User user = User.builder()
                 .loginId(request.getLoginId())
@@ -88,9 +90,10 @@ public class SignupService {
 
     @Transactional
     public SignupResponse reregister(User existingUser, SignupRequest request) {
-        if (!verificationCodeService.isVerified(request.getEmail())) {
-            throw new BusinessException(ErrorCode.EMAIL_NOT_VERIFIED);
-        }
+        verificationCodeService.consumeVerificationTicket(
+                request.getEmail(),
+                VerificationPurpose.SIGNUP,
+                request.getVerificationTicket());
 
         existingUser.activate();
         existingUser.updatePassword(passwordEncoder.encode(request.getPassword()));
@@ -118,10 +121,9 @@ public class SignupService {
                 .orElse(ReregisterCheckResponse.builder().canReregister(false).build());
     }
 
-    public FindIdResponse findLoginId(String email) {
-        if (!verificationCodeService.isVerified(email)) {
-            throw new BusinessException(ErrorCode.EMAIL_NOT_VERIFIED);
-        }
+    public FindIdResponse findLoginId(String email, String verificationTicket) {
+        verificationCodeService.consumeVerificationTicket(email, VerificationPurpose.FIND_ID, verificationTicket);
+
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         if ("DELETED".equals(user.getStatus())) {

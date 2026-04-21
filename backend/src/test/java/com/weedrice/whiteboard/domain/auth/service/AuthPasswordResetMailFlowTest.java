@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.auth.service;
 
 import com.weedrice.whiteboard.domain.auth.entity.PasswordResetToken;
+import com.weedrice.whiteboard.domain.auth.entity.VerificationPurpose;
 import com.weedrice.whiteboard.domain.auth.repository.LoginHistoryRepository;
 import com.weedrice.whiteboard.domain.auth.repository.PasswordResetTokenRepository;
 import com.weedrice.whiteboard.domain.auth.repository.RefreshTokenRepository;
@@ -139,7 +140,7 @@ class AuthPasswordResetMailFlowTest {
         previousToken.markSent();
         passwordResetTokens.put(100L, previousToken);
 
-        passwordResetService.sendPasswordResetLinkByEmail("test@example.com");
+        passwordResetService.sendPasswordResetLinkByEmail("test@example.com", "ticket-1");
 
         assertThat(passwordResetTokens.values())
                 .filteredOn(PasswordResetToken::isSent)
@@ -147,6 +148,10 @@ class AuthPasswordResetMailFlowTest {
                 .hasSize(1);
         assertThat(previousToken.getIsUsed()).isTrue();
         verify(emailService).sendEmail(anyString(), anyString(), anyString());
+        verify(verificationCodeService).consumeVerificationTicket(
+                "test@example.com",
+                VerificationPurpose.PASSWORD_RESET,
+                "ticket-1");
     }
 
     @Test
@@ -166,7 +171,7 @@ class AuthPasswordResetMailFlowTest {
         previousToken.markSent();
         passwordResetTokens.put(100L, previousToken);
 
-        assertThatThrownBy(() -> passwordResetService.sendPasswordResetLinkByEmail("test@example.com"))
+        assertThatThrownBy(() -> passwordResetService.sendPasswordResetLinkByEmail("test@example.com", "ticket-2"))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.EMAIL_SEND_FAILED);
@@ -193,7 +198,7 @@ class AuthPasswordResetMailFlowTest {
             return null;
         }).when(transactionTemplate).executeWithoutResult(any());
 
-        passwordResetService.sendPasswordResetLinkByEmail("test@example.com");
+        passwordResetService.sendPasswordResetLinkByEmail("test@example.com", "ticket-3");
 
         assertThat(passwordResetTokens.values())
                 .filteredOn(token -> PasswordResetToken.DELIVERY_STATUS_SENT.equals(token.getDeliveryStatus()))

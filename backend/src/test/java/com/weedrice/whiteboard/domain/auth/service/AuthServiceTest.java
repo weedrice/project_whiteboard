@@ -4,9 +4,9 @@ import com.weedrice.whiteboard.domain.auth.dto.LoginRequest;
 import com.weedrice.whiteboard.domain.auth.dto.LoginResult;
 import com.weedrice.whiteboard.domain.auth.dto.SignupRequest;
 import com.weedrice.whiteboard.domain.auth.dto.SignupResponse;
-import com.weedrice.whiteboard.domain.auth.dto.VerifyCodeResponse;
 import com.weedrice.whiteboard.domain.auth.entity.PasswordResetToken;
 import com.weedrice.whiteboard.domain.auth.entity.RefreshToken;
+import com.weedrice.whiteboard.domain.auth.entity.VerificationPurpose;
 import com.weedrice.whiteboard.domain.auth.repository.LoginHistoryRepository;
 import com.weedrice.whiteboard.domain.auth.repository.PasswordResetTokenRepository;
 import com.weedrice.whiteboard.domain.auth.repository.RefreshTokenRepository;
@@ -58,7 +58,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -157,16 +159,10 @@ class AuthServiceTest {
     @Test
     @DisplayName("회원가입 성공")
     void signup_success() {
-        SignupRequest request = SignupRequest.builder()
-                .loginId("testuser")
-                .password("password123")
-                .email("test@example.com")
-                .displayName("Test User")
-                .build();
+        SignupRequest request = signupRequest();
 
         when(userRepository.findByEmail(request.getEmail())).thenReturn(Optional.empty());
         when(userRepository.existsByLoginId(request.getLoginId())).thenReturn(false);
-        when(verificationCodeService.isVerified(request.getEmail())).thenReturn(true);
         when(passwordEncoder.encode(request.getPassword())).thenReturn("encodedPassword");
         when(globalConfigService.getConfig(anyString())).thenReturn("500");
         when(userRepository.saveAndFlush(any(User.class))).thenReturn(user);
@@ -177,35 +173,31 @@ class AuthServiceTest {
         assertThat(response.getLoginId()).isEqualTo(request.getLoginId());
         assertThat(response.getEmail()).isEqualTo(request.getEmail());
         assertThat(response.getDisplayName()).isEqualTo(request.getDisplayName());
-        verify(pointService).addPoint(1L, 500, "회원가입 축하 포인트", 1L, "USER");
+        verify(verificationCodeService).consumeVerificationTicket(
+                request.getEmail(),
+                VerificationPurpose.SIGNUP,
+                request.getVerificationTicket());
+        verify(pointService).addPoint(eq(1L), eq(500), anyString(), eq(1L), eq("USER"));
     }
 
     @Test
     @DisplayName("회원가입 실패 - 중복 로그인 ID")
     void signup_fail_duplicateLoginId() {
-        SignupRequest request = SignupRequest.builder()
-                .loginId("testuser")
-                .password("password123")
-                .email("test@example.com")
-                .displayName("Test User")
-                .build();
+        SignupRequest request = signupRequest();
+
         when(userRepository.findByEmail(request.getEmail())).thenReturn(Optional.empty());
         when(userRepository.existsByLoginId(request.getLoginId())).thenReturn(true);
 
         BusinessException exception = assertThrows(BusinessException.class, () -> authService.signup(request));
 
         assertThat(exception.getErrorCode().getCode()).isEqualTo("U002");
+        verify(verificationCodeService, never()).consumeVerificationTicket(anyString(), any(), anyString());
     }
 
     @Test
     @DisplayName("회원가입 실패 - 중복 이메일")
     void signup_fail_duplicateEmail() {
-        SignupRequest request = SignupRequest.builder()
-                .loginId("testuser")
-                .password("password123")
-                .email("test@example.com")
-                .displayName("Test User")
-                .build();
+        SignupRequest request = signupRequest();
         User activeUser = User.builder()
                 .loginId("other")
                 .email("test@example.com")
@@ -218,21 +210,16 @@ class AuthServiceTest {
         BusinessException exception = assertThrows(BusinessException.class, () -> authService.signup(request));
 
         assertThat(exception.getErrorCode().getCode()).isEqualTo("U003");
+        verify(verificationCodeService, never()).consumeVerificationTicket(anyString(), any(), anyString());
     }
 
     @Test
-    @DisplayName("회원가입 실패 - 저장 시점 이메일 중복은 DUPLICATE_EMAIL")
+    @DisplayName("회원가입 실패 - 저장 시점 이메일 충돌")
     void signup_fail_duplicateEmail_onFlush() {
-        SignupRequest request = SignupRequest.builder()
-                .loginId("testuser")
-                .password("password123")
-                .email("test@example.com")
-                .displayName("Test User")
-                .build();
+        SignupRequest request = signupRequest();
 
         when(userRepository.findByEmail(request.getEmail())).thenReturn(Optional.empty(), Optional.of(user));
         when(userRepository.existsByLoginId(request.getLoginId())).thenReturn(false);
-        when(verificationCodeService.isVerified(request.getEmail())).thenReturn(true);
         when(passwordEncoder.encode(request.getPassword())).thenReturn("encodedPassword");
         when(userRepository.saveAndFlush(any(User.class)))
                 .thenThrow(new DataIntegrityViolationException("duplicate email"));
@@ -241,21 +228,19 @@ class AuthServiceTest {
 
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.DUPLICATE_EMAIL);
         verify(entityManager).clear();
+        verify(verificationCodeService).consumeVerificationTicket(
+                request.getEmail(),
+                VerificationPurpose.SIGNUP,
+                request.getVerificationTicket());
     }
 
     @Test
-    @DisplayName("회원가입 실패 - 저장 시점 로그인 ID 중복은 DUPLICATE_LOGIN_ID")
+    @DisplayName("회원가입 실패 - 저장 시점 로그인 ID 충돌")
     void signup_fail_duplicateLoginId_onFlush() {
-        SignupRequest request = SignupRequest.builder()
-                .loginId("testuser")
-                .password("password123")
-                .email("test@example.com")
-                .displayName("Test User")
-                .build();
+        SignupRequest request = signupRequest();
 
         when(userRepository.findByEmail(request.getEmail())).thenReturn(Optional.empty(), Optional.empty());
         when(userRepository.existsByLoginId(request.getLoginId())).thenReturn(false, true);
-        when(verificationCodeService.isVerified(request.getEmail())).thenReturn(true);
         when(passwordEncoder.encode(request.getPassword())).thenReturn("encodedPassword");
         when(userRepository.saveAndFlush(any(User.class)))
                 .thenThrow(new DataIntegrityViolationException("duplicate login"));
@@ -269,17 +254,11 @@ class AuthServiceTest {
     @Test
     @DisplayName("재가입 시 deletedAt 초기화")
     void signup_reregister_clearsDeletedAt() {
-        SignupRequest request = SignupRequest.builder()
-                .loginId("testuser")
-                .password("password123")
-                .email("test@example.com")
-                .displayName("Rejoined User")
-                .build();
+        SignupRequest request = signupRequest();
         ReflectionTestUtils.setField(user, "status", "DELETED");
         ReflectionTestUtils.setField(user, "deletedAt", LocalDateTime.now().minusDays(1));
 
         when(userRepository.findByEmail(request.getEmail())).thenReturn(Optional.of(user));
-        when(verificationCodeService.isVerified(request.getEmail())).thenReturn(true);
         when(passwordEncoder.encode(request.getPassword())).thenReturn("encodedRejoinedPassword");
         when(userRepository.save(user)).thenReturn(user);
 
@@ -288,6 +267,10 @@ class AuthServiceTest {
         assertThat(response.getUserId()).isEqualTo(1L);
         assertThat(user.getStatus()).isEqualTo("ACTIVE");
         assertThat(user.getDeletedAt()).isNull();
+        verify(verificationCodeService).consumeVerificationTicket(
+                request.getEmail(),
+                VerificationPurpose.SIGNUP,
+                request.getVerificationTicket());
     }
 
     @Test
@@ -320,7 +303,7 @@ class AuthServiceTest {
     }
 
     @Test
-    @DisplayName("활성 BAN 사용자는 로그인할 수 없다")
+    @DisplayName("BAN 사용자는 로그인할 수 없다")
     void login_fail_whenUserIsBanned() {
         LoginRequest request = new LoginRequest("testuser", "password123");
         CustomUserDetails userDetails = new CustomUserDetails(1L, "testuser", "encodedPassword",
@@ -370,80 +353,91 @@ class AuthServiceTest {
     @DisplayName("로그인 ID 찾기 성공")
     void findLoginId_success() {
         String email = "test@example.com";
-        when(verificationCodeService.isVerified(email)).thenReturn(true);
+        String verificationTicket = "ticket-1";
         when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
 
-        var response = authService.findLoginId(email);
+        var response = authService.findLoginId(email, verificationTicket);
 
         assertThat(response.getLoginId()).isEqualTo("testuser");
-        verify(verificationCodeService).isVerified(email);
+        verify(verificationCodeService).consumeVerificationTicket(
+                email,
+                VerificationPurpose.FIND_ID,
+                verificationTicket);
         verify(userRepository).findByEmail(email);
     }
 
     @Test
-    @DisplayName("비밀번호 재설정 링크 발송 성공")
+    @DisplayName("비밀번호 재설정 링크 메일 발송 성공")
     void sendPasswordResetLinkByEmail_success() {
         String email = "test@example.com";
+        String verificationTicket = "ticket-1";
         when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
 
-        authService.sendPasswordResetLinkByEmail(email);
+        authService.sendPasswordResetLinkByEmail(email, verificationTicket);
 
+        verify(verificationCodeService).consumeVerificationTicket(
+                email,
+                VerificationPurpose.PASSWORD_RESET,
+                verificationTicket);
         verify(userRepository).findByEmail(email);
         verify(emailService).sendEmail(anyString(), anyString(), anyString());
     }
 
     @Test
-    @DisplayName("비밀번호 재설정 링크 발송 실패 - 사용자 없음")
+    @DisplayName("비밀번호 재설정 링크 메일 발송 실패 - 사용자 없음")
     void sendPasswordResetLinkByEmail_userNotFound() {
         String email = "unknown@example.com";
+        String verificationTicket = "ticket-1";
         when(userRepository.findByEmail(email)).thenReturn(Optional.empty());
 
         BusinessException exception = assertThrows(BusinessException.class,
-                () -> authService.sendPasswordResetLinkByEmail(email));
+                () -> authService.sendPasswordResetLinkByEmail(email, verificationTicket));
+
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.USER_NOT_FOUND_BY_EMAIL);
     }
 
     @Test
-    @DisplayName("비밀번호 재설정 링크 발송 실패 - 삭제된 사용자")
+    @DisplayName("비밀번호 재설정 링크 메일 발송 실패 - 탈퇴 사용자")
     void sendPasswordResetLinkByEmail_deletedUser() {
         String email = "test@example.com";
+        String verificationTicket = "ticket-1";
         ReflectionTestUtils.setField(user, "status", "DELETED");
         when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
 
         BusinessException exception = assertThrows(BusinessException.class,
-                () -> authService.sendPasswordResetLinkByEmail(email));
+                () -> authService.sendPasswordResetLinkByEmail(email, verificationTicket));
+
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.USER_DELETED);
     }
 
     @Test
-    @DisplayName("resetPasswordByCode는 인증 코드를 먼저 검증한다")
+    @DisplayName("resetPasswordByCode는 verificationTicket을 먼저 소비한다")
     void resetPasswordByCode_success() {
         String email = "test@example.com";
-        String code = "123456";
+        String verificationTicket = "ticket-1";
         String newPassword = "newPassword123!";
 
-        when(verificationCodeService.verifyCode(email, code))
-                .thenReturn(new VerifyCodeResponse(true, null, false));
         when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
         when(passwordHistoryRepository.findTop3ByUserOrderByCreatedAtDesc(user)).thenReturn(Collections.emptyList());
         when(refreshTokenRepository.findByUserAndIsRevoked(user, false)).thenReturn(Collections.emptyList());
         when(passwordEncoder.matches(newPassword, "encodedPassword")).thenReturn(false);
         when(passwordEncoder.encode(newPassword)).thenReturn("encodedNewPassword");
 
-        authService.resetPasswordByCode(email, code, newPassword);
+        authService.resetPasswordByCode(email, verificationTicket, newPassword);
 
-        verify(verificationCodeService).verifyCode(email, code);
-        verify(verificationCodeService, never()).isVerified(anyString());
+        verify(verificationCodeService).consumeVerificationTicket(
+                email,
+                VerificationPurpose.PASSWORD_RESET,
+                verificationTicket);
         verify(userRepository).save(user);
         verify(passwordHistoryRepository).save(any(PasswordHistory.class));
-        verify(verificationCodeService).clearVerificationStatus(email);
     }
 
     @Test
-    @DisplayName("resetPasswordByCode는 활성 refresh token을 폐기한다")
+    @DisplayName("resetPasswordByCode는 활성 refresh token을 모두 만료시킨다")
     void resetPasswordByCode_revokesRefreshTokens() {
         String email = "test@example.com";
-        String code = "123456";
+        String verificationTicket = "ticket-1";
         String newPassword = "newPassword123!";
         RefreshToken refreshToken = RefreshToken.builder()
                 .user(user)
@@ -453,22 +447,20 @@ class AuthServiceTest {
                 .expiresAt(LocalDateTime.now().plusDays(1))
                 .build();
 
-        when(verificationCodeService.verifyCode(email, code))
-                .thenReturn(new VerifyCodeResponse(true, null, false));
         when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
         when(passwordHistoryRepository.findTop3ByUserOrderByCreatedAtDesc(user)).thenReturn(Collections.emptyList());
         when(refreshTokenRepository.findByUserAndIsRevoked(user, false)).thenReturn(List.of(refreshToken));
         when(passwordEncoder.matches(newPassword, "encodedPassword")).thenReturn(false);
         when(passwordEncoder.encode(newPassword)).thenReturn("encodedNewPassword");
 
-        authService.resetPasswordByCode(email, code, newPassword);
+        authService.resetPasswordByCode(email, verificationTicket, newPassword);
 
         assertThat(refreshToken.getIsRevoked()).isTrue();
         verify(refreshTokenRepository).saveAll(any());
     }
 
     @Test
-    @DisplayName("resetPasswordWithToken은 히스토리를 남기고 세션을 폐기한다")
+    @DisplayName("resetPasswordWithToken은 히스토리를 남기고 세션을 만료시킨다")
     void resetPasswordWithToken_success() {
         String rawToken = "raw-token";
         String hashedToken = new TokenHashService().hashSha256(rawToken);
@@ -501,47 +493,56 @@ class AuthServiceTest {
         assertThat(passwordResetToken.getIsUsed()).isTrue();
         assertThat(refreshToken.getIsRevoked()).isTrue();
         verify(passwordHistoryRepository).save(any(PasswordHistory.class));
-        verify(verificationCodeService).clearVerificationStatus(user.getEmail());
+        verify(verificationCodeService, never()).consumeVerificationTicket(anyString(), any(), anyString());
     }
 
     @Test
     @DisplayName("resetPasswordByCode는 최근 비밀번호 재사용을 거절한다")
     void resetPasswordByCode_recentlyUsed() {
         String email = "test@example.com";
-        String code = "123456";
+        String verificationTicket = "ticket-1";
         String newPassword = "newPassword123!";
         PasswordHistory recentHistory = PasswordHistory.builder()
                 .user(user)
                 .passwordHash("recentHash")
                 .build();
 
-        when(verificationCodeService.verifyCode(email, code))
-                .thenReturn(new VerifyCodeResponse(true, null, false));
         when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
         when(passwordHistoryRepository.findTop3ByUserOrderByCreatedAtDesc(user)).thenReturn(List.of(recentHistory));
         when(passwordEncoder.matches(newPassword, "encodedPassword")).thenReturn(false);
         when(passwordEncoder.matches(newPassword, "recentHash")).thenReturn(true);
 
         BusinessException exception = assertThrows(BusinessException.class,
-                () -> authService.resetPasswordByCode(email, code, newPassword));
+                () -> authService.resetPasswordByCode(email, verificationTicket, newPassword));
 
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.PASSWORD_RECENTLY_USED);
         verify(userRepository, never()).save(any());
     }
 
     @Test
-    @DisplayName("resetPasswordByCode는 잘못된 인증 코드를 전달하면 실패한다")
-    void resetPasswordByCode_invalidCode() {
+    @DisplayName("resetPasswordByCode는 잘못된 verificationTicket이면 실패한다")
+    void resetPasswordByCode_invalidTicket() {
         String email = "test@example.com";
-        String code = "123456";
+        String verificationTicket = "ticket-1";
 
-        when(verificationCodeService.verifyCode(email, code))
-                .thenThrow(new BusinessException(ErrorCode.VALIDATION_ERROR));
+        doThrow(new BusinessException(ErrorCode.VALIDATION_ERROR))
+                .when(verificationCodeService)
+                .consumeVerificationTicket(email, VerificationPurpose.PASSWORD_RESET, verificationTicket);
 
         BusinessException exception = assertThrows(BusinessException.class,
-                () -> authService.resetPasswordByCode(email, code, "newPassword123!"));
+                () -> authService.resetPasswordByCode(email, verificationTicket, "newPassword123!"));
 
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.VALIDATION_ERROR);
         verify(userRepository, never()).findByEmail(anyString());
+    }
+
+    private SignupRequest signupRequest() {
+        return SignupRequest.builder()
+                .loginId("testuser")
+                .password("password123")
+                .email("test@example.com")
+                .displayName("Test User")
+                .verificationTicket("ticket-1")
+                .build();
     }
 }

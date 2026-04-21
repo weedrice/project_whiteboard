@@ -135,6 +135,7 @@ watch(() => form.value.displayName, () => {
 
 const verification = reactive({
   code: '',
+  verificationTicket: '',
   isCodeSent: false,
   isVerified: false,
   loading: false,
@@ -199,7 +200,8 @@ onUnmounted(() => {
 })
 
 async function sendVerificationCode() {
-  if (!form.value.email) {
+  const email = form.value.email.trim()
+  if (!email) {
     toastStore.addToast(t('auth.placeholders.email'), 'error')
     return
   }
@@ -207,7 +209,7 @@ async function sendVerificationCode() {
   verification.loading = true
   try {
     // 인증코드 발송 전 DB 조회: 재가입(DELETED) vs 신규가입 판단
-    const checkRes = await authApi.checkEmailForReregister(form.value.email)
+    const checkRes = await authApi.checkEmailForReregister(email)
     if (checkRes.data.success && checkRes.data.data?.canReregister && checkRes.data.data?.maskedLoginId) {
       isReregister.value = true
       form.value.loginId = checkRes.data.data.maskedLoginId
@@ -216,8 +218,11 @@ async function sendVerificationCode() {
       form.value.loginId = ''
     }
 
-    const { data } = await authApi.sendVerificationCode(form.value.email, true)
+    const { data } = await authApi.sendVerificationCode(email, 'SIGNUP')
     if (data.success) {
+      verification.code = ''
+      verification.verificationTicket = ''
+      verification.isVerified = false
       verification.isCodeSent = true
       startTimer()
       startResendCooldown()
@@ -246,16 +251,19 @@ async function verifyCode() {
 
   verification.loading = true
   try {
-    const { data } = await authApi.verifyCode(form.value.email, verification.code)
-    if (data.success) {
-      verification.isVerified = true
-      stopTimer()
-      toastStore.addToast(t('auth.codeVerified'), 'success')
-      // 재가입 시: 인증 완료 후 loginId 마스킹 해제 (Jackson은 isReregister를 reregister로 직렬화할 수 있음)
-      const resp = data.data
-      if ((resp?.isReregister || resp?.reregister) && resp?.loginId) {
-        form.value.loginId = resp.loginId
-      }
+    const { data } = await authApi.verifyCode(form.value.email.trim(), verification.code, 'SIGNUP')
+    const verificationTicket = data.data?.verificationTicket
+    if (!data.success || !verificationTicket) {
+      throw new Error(t('auth.verificationFailed'))
+    }
+    verification.isVerified = true
+    verification.verificationTicket = verificationTicket
+    stopTimer()
+    toastStore.addToast(t('auth.codeVerified'), 'success')
+    // Restore the original loginId after signup-purpose verification for re-registration.
+    const resp = data.data
+    if (resp?.isReregister && resp?.loginId) {
+      form.value.loginId = resp.loginId
     }
   } catch (err: unknown) {
     const message = extractErrorMessage(err) || t('auth.verificationFailed')
@@ -313,7 +321,7 @@ async function handleSignup() {
   }
 
   // 이메일 인증 여부 체크
-  if (!verification.isVerified) {
+  if (!verification.isVerified || !verification.verificationTicket) {
     toastStore.addToast(t('auth.verificationRequired'), 'error')
     return
   }
@@ -330,6 +338,8 @@ async function handleSignup() {
     const { passwordConfirm, ...formData } = form.value
     const signupData = {
       ...formData,
+      email: form.value.email.trim(),
+      verificationTicket: verification.verificationTicket,
       provider: (route.query.provider as string) || null,
       providerId: (route.query.providerId as string) || null
     }
@@ -427,7 +437,7 @@ onMounted(async () => {
             <div class="flex-grow">
               <BaseInput id="email" v-model="form.email" name="email" type="email" required
                 :placeholder="$t('auth.placeholders.newEmail')" :label="$t('common.email')" hideLabel
-                :disabled="verification.isVerified || verification.isCodeSent">
+                :disabled="verification.isVerified || verification.loading">
                 <template #prefix>
                   <Mail class="h-5 w-5 text-gray-400" />
                 </template>

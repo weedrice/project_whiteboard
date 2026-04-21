@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import type { AxiosError } from 'axios'
@@ -8,25 +8,59 @@ import { extractErrorResponse } from '@/utils/errorHandler'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import { useToastStore } from '@/stores/toast'
-import { ChevronLeft, Mail } from 'lucide-vue-next'
+import { ChevronLeft, Mail, CheckCircle } from 'lucide-vue-next'
 
 const { t } = useI18n()
 const router = useRouter()
 const toastStore = useToastStore()
 
-const email = ref('')
+const form = reactive({
+  email: '',
+  code: '',
+})
 const isLoading = ref(false)
 const isSent = ref(false)
+const isCodeSent = ref(false)
 
-async function handleSendResetLink() {
-  if (!email.value.trim()) {
+async function handleSendCode() {
+  if (!form.email.trim()) {
     toastStore.addToast(t('auth.placeholders.email'), 'error')
     return
   }
 
   isLoading.value = true
   try {
-    const { data } = await authApi.sendPasswordResetLinkByEmail(email.value.trim())
+    const { data } = await authApi.sendVerificationCode(form.email.trim(), 'PASSWORD_RESET')
+    if (data.success) {
+      isCodeSent.value = true
+      form.code = ''
+      toastStore.addToast(t('auth.codeSent'), 'success')
+    }
+  } catch (error) {
+    const errRes = extractErrorResponse(error as AxiosError)
+    const message = errRes?.message || t('auth.sendCodeFailed')
+    toastStore.addToast(message, 'error')
+  } finally {
+    isLoading.value = false
+  }
+}
+
+async function handleSendResetLink() {
+  if (!form.code.trim()) {
+    toastStore.addToast(t('auth.codeInvalid'), 'error')
+    return
+  }
+
+  isLoading.value = true
+  try {
+    const verifyResponse = await authApi.verifyCode(form.email.trim(), form.code.trim(), 'PASSWORD_RESET')
+    const verificationTicket = verifyResponse.data.data?.verificationTicket
+
+    if (!verifyResponse.data.success || !verificationTicket) {
+      throw new Error(t('auth.verificationFailed'))
+    }
+
+    const { data } = await authApi.sendPasswordResetLinkByEmail(form.email.trim(), verificationTicket)
     if (data.success) {
       isSent.value = true
       toastStore.addToast(t('auth.resetLinkSent'), 'success')
@@ -35,7 +69,7 @@ async function handleSendResetLink() {
     const errRes = extractErrorResponse(error as AxiosError)
     if (errRes?.code === 'A009') {
       toastStore.addToast(t('auth.userDeleted'), 'info')
-      router.push(`/signup?email=${encodeURIComponent(email.value.trim())}`)
+      router.push(`/signup?email=${encodeURIComponent(form.email.trim())}`)
     } else {
       const message = errRes?.message || t('auth.verificationFailed')
       toastStore.addToast(message, 'error')
@@ -70,26 +104,54 @@ async function handleSendResetLink() {
     <div v-if="!isSent" class="w-[80%] mx-auto space-y-6">
       <BaseInput
         id="email"
-        v-model="email"
+        v-model="form.email"
         type="email"
         :placeholder="t('auth.placeholders.email')"
         :label="t('auth.email')"
+        :disabled="isCodeSent"
         hideLabel
       >
         <template #prefix>
           <Mail class="h-5 w-5 text-gray-400" />
         </template>
       </BaseInput>
+
       <BaseButton
         type="button"
         variant="primary"
         class="w-full"
         :loading="isLoading"
         :disabled="isLoading"
-        @click="handleSendResetLink"
+        @click="handleSendCode"
       >
-        {{ t('auth.sendResetLink') }}
+        {{ isCodeSent ? t('auth.resendCode') : t('auth.sendCode') }}
       </BaseButton>
+
+      <div v-if="isCodeSent" class="space-y-4">
+        <BaseInput
+          id="verification-code"
+          v-model="form.code"
+          type="text"
+          :placeholder="t('auth.codePlaceholder')"
+          :label="t('auth.codePlaceholder')"
+          hideLabel
+        >
+          <template #prefix>
+            <CheckCircle class="h-5 w-5 text-gray-400" />
+          </template>
+        </BaseInput>
+
+        <BaseButton
+          type="button"
+          variant="primary"
+          class="w-full"
+          :loading="isLoading"
+          :disabled="isLoading"
+          @click="handleSendResetLink"
+        >
+          {{ t('auth.sendResetLink') }}
+        </BaseButton>
+      </div>
     </div>
 
     <div v-else class="w-[80%] mx-auto text-center animate-fade-in">

@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.auth.service;
 
 import com.weedrice.whiteboard.domain.auth.dto.VerifyCodeResponse;
 import com.weedrice.whiteboard.domain.auth.entity.VerificationCode;
+import com.weedrice.whiteboard.domain.auth.entity.VerificationPurpose;
 import com.weedrice.whiteboard.domain.auth.repository.VerificationCodeRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
@@ -14,8 +15,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -33,7 +34,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -69,34 +69,34 @@ class VerificationCodeServiceTest {
             if (verificationCode.getVerificationId() == null) {
                 ReflectionTestUtils.setField(verificationCode, "verificationId", idSequence.getAndIncrement());
             }
+            if (verificationCode.getCreatedAt() == null) {
+                ReflectionTestUtils.setField(verificationCode, "createdAt", LocalDateTime.now());
+            }
             verificationCodes.put(verificationCode.getVerificationId(), verificationCode);
             return verificationCode;
         }).when(verificationCodeRepository).save(any(VerificationCode.class));
 
         when(verificationCodeRepository.findById(any())).thenAnswer(invocation ->
                 Optional.ofNullable(verificationCodes.get(invocation.getArgument(0))));
-        when(verificationCodeRepository.findLatestSentByEmail(anyString()))
+        when(verificationCodeRepository.findLatestSentByEmailAndPurpose(anyString(), anyString()))
+                .thenAnswer(invocation -> findLatestSentCode(
+                        invocation.getArgument(0),
+                        invocation.getArgument(1)));
+        when(verificationCodeRepository.findLatestSentByEmailAndPurposeForUpdate(anyString(), anyString()))
+                .thenAnswer(invocation -> findLatestSentCode(
+                        invocation.getArgument(0),
+                        invocation.getArgument(1)));
+        when(verificationCodeRepository.findByEmailAndPurposeAndVerificationTicket(anyString(), any(), anyString()))
                 .thenAnswer(invocation -> verificationCodes.values().stream()
                         .filter(code -> invocation.getArgument(0).equals(code.getEmail()))
-                        .filter(code -> code.getDeliveryStatus() == null
-                                || VerificationCode.DELIVERY_STATUS_SENT.equals(code.getDeliveryStatus()))
-                        .sorted((left, right) -> right.getCreatedAt().compareTo(left.getCreatedAt()))
+                        .filter(code -> invocation.getArgument(1) == code.getPurpose())
+                        .filter(code -> invocation.getArgument(2).equals(code.getVerificationTicket()))
                         .findFirst());
-        when(verificationCodeRepository.clearVerifiedSentCodes(anyString()))
-                .thenAnswer(invocation -> {
-                    String email = invocation.getArgument(0);
-                    int clearedCount = 0;
-                    for (VerificationCode verificationCode : verificationCodes.values()) {
-                        if (email.equals(verificationCode.getEmail())
-                                && Boolean.TRUE.equals(verificationCode.getIsVerified())
-                                && (verificationCode.getDeliveryStatus() == null
-                                        || VerificationCode.DELIVERY_STATUS_SENT.equals(verificationCode.getDeliveryStatus()))) {
-                            verificationCode.clearVerification();
-                            clearedCount++;
-                        }
-                    }
-                    return clearedCount;
-                });
+        when(verificationCodeRepository.findAllByEmailAndPurpose(anyString(), any()))
+                .thenAnswer(invocation -> verificationCodes.values().stream()
+                        .filter(code -> invocation.getArgument(0).equals(code.getEmail()))
+                        .filter(code -> invocation.getArgument(1) == code.getPurpose())
+                        .toList());
     }
 
     @Test
@@ -104,22 +104,41 @@ class VerificationCodeServiceTest {
     void sendVerificationCode_success_marksSent() {
         when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.empty());
 
-        verificationCodeService.sendVerificationCode("test@example.com", true, null);
+        verificationCodeService.sendVerificationCode("test@example.com", VerificationPurpose.SIGNUP, null);
 
         assertThat(verificationCodes.values()).hasSize(1);
         VerificationCode verificationCode = verificationCodes.values().iterator().next();
         assertThat(verificationCode.getDeliveryStatus()).isEqualTo(VerificationCode.DELIVERY_STATUS_SENT);
+        assertThat(verificationCode.getPurpose()).isEqualTo(VerificationPurpose.SIGNUP);
         verify(emailService).sendEmail(anyString(), anyString(), anyString());
     }
 
     @Test
-    @DisplayName("인증 코드 발송 실패 시 FAILED 상태로 저장하고 예외를 다시 던진다")
+    @DisplayName("인증 코드 재발송 시 같은 목적의 이전 ticket을 무효화한다")
+    void sendVerificationCode_invalidatesPreviousTicket() {
+        when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.empty());
+
+        VerificationCode oldCode = createSentCode(100L, "test@example.com", VerificationPurpose.SIGNUP, "111111");
+        oldCode.issueVerificationTicket("ticket-old", LocalDateTime.now().plusMinutes(5));
+        verificationCodes.put(100L, oldCode);
+
+        verificationCodeService.sendVerificationCode("test@example.com", VerificationPurpose.SIGNUP, null);
+
+        assertThat(oldCode.getVerificationTicket()).isNull();
+        assertThat(oldCode.getIsTicketConsumed()).isTrue();
+    }
+
+    @Test
+    @DisplayName("인증 코드 발송 실패 시 FAILED 상태로 저장한다")
     void sendVerificationCode_failure_marksFailed() {
         when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.empty());
         doThrow(new BusinessException(ErrorCode.EMAIL_SEND_FAILED))
                 .when(emailService).sendEmail(anyString(), anyString(), anyString());
 
-        assertThatThrownBy(() -> verificationCodeService.sendVerificationCode("test@example.com", true, null))
+        assertThatThrownBy(() -> verificationCodeService.sendVerificationCode(
+                "test@example.com",
+                VerificationPurpose.SIGNUP,
+                null))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.EMAIL_SEND_FAILED);
@@ -130,120 +149,144 @@ class VerificationCodeServiceTest {
     }
 
     @Test
-    @DisplayName("메일 발송 후 SENT 승격이 실패하면 대체 SENT 레코드를 저장한다")
-    void sendVerificationCode_promoteFailure_savesReplacementSentCode() {
-        when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.empty());
-
-        final AtomicLong executionCount = new AtomicLong();
-        doAnswer(invocation -> {
-            long current = executionCount.incrementAndGet();
-            Consumer<Object> consumer = invocation.getArgument(0);
-            if (current == 2L) {
-                throw new IllegalStateException("status update failed");
-            }
-            consumer.accept(null);
-            return null;
-        }).when(transactionTemplate).executeWithoutResult(any());
-
-        verificationCodeService.sendVerificationCode("test@example.com", true, null);
-
-        assertThat(verificationCodes.values())
-                .filteredOn(code -> VerificationCode.DELIVERY_STATUS_SENT.equals(code.getDeliveryStatus()))
-                .hasSize(1);
-    }
-
-    @Test
-    @DisplayName("최신 요청이 FAILED여도 가장 최근 SENT 코드로 인증한다")
-    void verifyCode_usesLatestSentCode() {
+    @DisplayName("목적별 최신 SENT 코드만 검증하고 verification ticket을 발급한다")
+    void verifyCode_issuesPurposeScopedTicket() {
         User deletedUser = User.builder().loginId("old-user").build();
         ReflectionTestUtils.setField(deletedUser, "status", "DELETED");
         when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(deletedUser));
 
-        VerificationCode sentCode = VerificationCode.builder()
-                .email("test@example.com")
-                .code("123456")
-                .expiryDate(LocalDateTime.now().plusMinutes(5))
-                .build();
-        ReflectionTestUtils.setField(sentCode, "verificationId", 1L);
-        ReflectionTestUtils.setField(sentCode, "createdAt", LocalDateTime.now().minusMinutes(1));
-        sentCode.markSent();
+        VerificationCode sentCode = createSentCode(1L, "test@example.com", VerificationPurpose.SIGNUP, "123456");
+        VerificationCode otherPurposeCode = createSentCode(
+                2L,
+                "test@example.com",
+                VerificationPurpose.PASSWORD_RESET,
+                "654321");
+        ReflectionTestUtils.setField(otherPurposeCode, "createdAt", LocalDateTime.now());
+
         verificationCodes.put(1L, sentCode);
+        verificationCodes.put(2L, otherPurposeCode);
 
-        VerificationCode failedCode = VerificationCode.builder()
-                .email("test@example.com")
-                .code("999999")
-                .expiryDate(LocalDateTime.now().plusMinutes(5))
-                .build();
-        ReflectionTestUtils.setField(failedCode, "verificationId", 2L);
-        ReflectionTestUtils.setField(failedCode, "createdAt", LocalDateTime.now());
-        failedCode.markFailed();
-        verificationCodes.put(2L, failedCode);
-
-        VerifyCodeResponse response = verificationCodeService.verifyCode("test@example.com", "123456");
+        VerifyCodeResponse response = verificationCodeService.verifyCode(
+                "test@example.com",
+                "123456",
+                VerificationPurpose.SIGNUP);
 
         assertThat(response.isVerified()).isTrue();
+        assertThat(response.getVerificationTicket()).isNotBlank();
         assertThat(response.isReregister()).isTrue();
-        assertThat(sentCode.getIsVerified()).isTrue();
-        assertThat(failedCode.getIsVerified()).isFalse();
+        assertThat(sentCode.getVerificationTicket()).isEqualTo(response.getVerificationTicket());
+        assertThat(otherPurposeCode.getVerificationTicket()).isNull();
     }
 
     @Test
-    @DisplayName("isVerified는 가장 최근 SENT 코드만 기준으로 판단한다")
-    void isVerified_ignoresFailedLatestAttempt() {
-        VerificationCode sentCode = VerificationCode.builder()
-                .email("test@example.com")
-                .code("123456")
-                .expiryDate(LocalDateTime.now().plusMinutes(5))
-                .build();
-        ReflectionTestUtils.setField(sentCode, "verificationId", 1L);
-        ReflectionTestUtils.setField(sentCode, "createdAt", LocalDateTime.now().minusMinutes(1));
-        sentCode.markSent();
-        sentCode.verify();
+    @DisplayName("같은 코드로 재검증해도 새로운 ticket을 재발급하지 않는다")
+    void verifyCode_reusesActiveTicket() {
+        VerificationCode sentCode = createSentCode(1L, "test@example.com", VerificationPurpose.FIND_ID, "123456");
+        sentCode.issueVerificationTicket("ticket-1", LocalDateTime.now().plusMinutes(5));
         verificationCodes.put(1L, sentCode);
 
-        VerificationCode failedCode = VerificationCode.builder()
-                .email("test@example.com")
-                .code("999999")
-                .expiryDate(LocalDateTime.now().plusMinutes(5))
-                .build();
-        ReflectionTestUtils.setField(failedCode, "verificationId", 2L);
-        ReflectionTestUtils.setField(failedCode, "createdAt", LocalDateTime.now());
-        failedCode.markFailed();
-        verificationCodes.put(2L, failedCode);
+        VerifyCodeResponse response = verificationCodeService.verifyCode(
+                "test@example.com",
+                "123456",
+                VerificationPurpose.FIND_ID);
 
-        assertThat(verificationCodeService.isVerified("test@example.com")).isTrue();
-        verify(verificationCodeRepository, never()).findTopByEmailOrderByCreatedAtDesc(anyString());
-        verify(verificationCodeRepository, never()).findByEmailOrderByCreatedAtDesc(anyString());
+        assertThat(response.getVerificationTicket()).isEqualTo("ticket-1");
     }
 
     @Test
-    @DisplayName("clearVerificationStatus는 해당 이메일의 검증된 SENT 코드를 모두 초기화한다")
-    void clearVerificationStatus_clearsAllVerifiedSentCodes() {
-        VerificationCode latestSentCode = VerificationCode.builder()
-                .email("test@example.com")
-                .code("123456")
+    @DisplayName("이미 소비된 코드로는 새 ticket을 발급할 수 없다")
+    void verifyCode_rejectsConsumedTicketCodeReuse() {
+        VerificationCode sentCode = createSentCode(1L, "test@example.com", VerificationPurpose.PASSWORD_RESET, "123456");
+        sentCode.issueVerificationTicket("ticket-1", LocalDateTime.now().plusMinutes(5));
+        sentCode.consumeVerificationTicket();
+        verificationCodes.put(1L, sentCode);
+
+        assertThatThrownBy(() -> verificationCodeService.verifyCode(
+                "test@example.com",
+                "123456",
+                VerificationPurpose.PASSWORD_RESET))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.VALIDATION_ERROR);
+    }
+
+    @Test
+    @DisplayName("유효한 verification ticket은 한 번만 소비된다")
+    void consumeVerificationTicket_marksConsumed() {
+        VerificationCode sentCode = createSentCode(1L, "test@example.com", VerificationPurpose.FIND_ID, "123456");
+        sentCode.issueVerificationTicket("ticket-1", LocalDateTime.now().plusMinutes(5));
+        verificationCodes.put(1L, sentCode);
+
+        verificationCodeService.consumeVerificationTicket("test@example.com", VerificationPurpose.FIND_ID, "ticket-1");
+
+        assertThat(sentCode.getIsTicketConsumed()).isTrue();
+        assertThat(sentCode.getVerificationTicket()).isNull();
+
+        assertThatThrownBy(() -> verificationCodeService.consumeVerificationTicket(
+                "test@example.com",
+                VerificationPurpose.FIND_ID,
+                "ticket-1"))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.EMAIL_NOT_VERIFIED);
+    }
+
+    @Test
+    @DisplayName("다른 목적의 ticket은 소비할 수 없다")
+    void consumeVerificationTicket_rejectsOtherPurpose() {
+        VerificationCode sentCode = createSentCode(1L, "test@example.com", VerificationPurpose.SIGNUP, "123456");
+        sentCode.issueVerificationTicket("ticket-1", LocalDateTime.now().plusMinutes(5));
+        verificationCodes.put(1L, sentCode);
+
+        assertThatThrownBy(() -> verificationCodeService.consumeVerificationTicket(
+                "test@example.com",
+                VerificationPurpose.FIND_ID,
+                "ticket-1"))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.EMAIL_NOT_VERIFIED);
+    }
+
+    @Test
+    @DisplayName("만료된 ticket은 소비할 수 없다")
+    void consumeVerificationTicket_rejectsExpiredTicket() {
+        VerificationCode sentCode = createSentCode(1L, "test@example.com", VerificationPurpose.CHANGE_EMAIL, "123456");
+        sentCode.issueVerificationTicket("ticket-1", LocalDateTime.now().minusMinutes(1));
+        verificationCodes.put(1L, sentCode);
+
+        assertThatThrownBy(() -> verificationCodeService.consumeVerificationTicket(
+                "test@example.com",
+                VerificationPurpose.CHANGE_EMAIL,
+                "ticket-1"))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.EMAIL_NOT_VERIFIED);
+    }
+
+    private Optional<VerificationCode> findLatestSentCode(String email, String purposeName) {
+        return verificationCodes.values().stream()
+                .filter(code -> email.equals(code.getEmail()))
+                .filter(code -> purposeName.equals(code.getPurpose().name()))
+                .filter(code -> code.getDeliveryStatus() == null
+                        || VerificationCode.DELIVERY_STATUS_SENT.equals(code.getDeliveryStatus()))
+                .sorted((left, right) -> right.getCreatedAt().compareTo(left.getCreatedAt()))
+                .findFirst();
+    }
+
+    private VerificationCode createSentCode(
+            Long verificationId,
+            String email,
+            VerificationPurpose purpose,
+            String code) {
+        VerificationCode sentCode = VerificationCode.builder()
+                .email(email)
+                .purpose(purpose)
+                .code(code)
                 .expiryDate(LocalDateTime.now().plusMinutes(5))
                 .build();
-        ReflectionTestUtils.setField(latestSentCode, "verificationId", 1L);
-        ReflectionTestUtils.setField(latestSentCode, "createdAt", LocalDateTime.now());
-        latestSentCode.markSent();
-        latestSentCode.verify();
-        verificationCodes.put(1L, latestSentCode);
-
-        VerificationCode olderSentCode = VerificationCode.builder()
-                .email("test@example.com")
-                .code("654321")
-                .expiryDate(LocalDateTime.now().plusMinutes(5))
-                .build();
-        ReflectionTestUtils.setField(olderSentCode, "verificationId", 2L);
-        ReflectionTestUtils.setField(olderSentCode, "createdAt", LocalDateTime.now().minusMinutes(1));
-        olderSentCode.markSent();
-        olderSentCode.verify();
-        verificationCodes.put(2L, olderSentCode);
-
-        verificationCodeService.clearVerificationStatus("test@example.com");
-
-        assertThat(latestSentCode.getIsVerified()).isFalse();
-        assertThat(olderSentCode.getIsVerified()).isFalse();
+        ReflectionTestUtils.setField(sentCode, "verificationId", verificationId);
+        ReflectionTestUtils.setField(sentCode, "createdAt", LocalDateTime.now().minusMinutes(1));
+        sentCode.markSent();
+        return sentCode;
     }
 }

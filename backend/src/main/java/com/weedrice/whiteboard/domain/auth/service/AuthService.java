@@ -39,23 +39,23 @@ public class AuthService {
         return signupService.checkEmailForReregister(email);
     }
 
-    public FindIdResponse findLoginId(String email) {
-        return signupService.findLoginId(email);
+    public FindIdResponse findLoginId(String email, String verificationTicket) {
+        return signupService.findLoginId(email, verificationTicket);
     }
 
-    public void sendPasswordResetLink(String email) {
-        passwordResetService.sendPasswordResetLink(email);
+    public void sendPasswordResetLink(String email, String verificationTicket) {
+        passwordResetService.sendPasswordResetLink(email, verificationTicket);
     }
 
-    public void sendPasswordResetLinkByEmail(String email) {
-        passwordResetService.sendPasswordResetLinkByEmail(email);
+    public void sendPasswordResetLinkByEmail(String email, String verificationTicket) {
+        passwordResetService.sendPasswordResetLinkByEmail(email, verificationTicket);
     }
 
     public void resetPasswordWithToken(String rawToken, String newPassword) {
         passwordResetService.resetPasswordWithToken(rawToken, newPassword);
     }
 
-    public void resetPasswordByCode(String email, String code, String newPassword) {
-        passwordResetService.resetPasswordByCode(email, code, newPassword);
+    public void resetPasswordByCode(String email, String verificationTicket, String newPassword) {
+        passwordResetService.resetPasswordByCode(email, verificationTicket, newPassword);
     }
 }

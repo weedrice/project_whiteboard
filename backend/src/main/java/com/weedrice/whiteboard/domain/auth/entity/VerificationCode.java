@@ -27,6 +27,10 @@ public class VerificationCode extends BaseTimeEntity {
     @Column(name = "email", nullable = false, length = 100)
     private String email;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "purpose", nullable = false, length = 30)
+    private VerificationPurpose purpose;
+
     @Column(name = "code", nullable = false, length = 6)
     private String code;
 
@@ -40,13 +44,25 @@ public class VerificationCode extends BaseTimeEntity {
     @Column(name = "delivery_status", length = 20)
     private String deliveryStatus;
 
+    @Column(name = "verification_ticket", length = 64)
+    private String verificationTicket;
+
+    @Column(name = "ticket_expiry_date")
+    private LocalDateTime ticketExpiryDate;
+
+    @Convert(converter = BooleanToYNConverter.class)
+    @Column(name = "is_ticket_consumed", nullable = false, length = 1)
+    private Boolean isTicketConsumed;
+
     @Builder
-    public VerificationCode(String email, String code, LocalDateTime expiryDate) {
+    public VerificationCode(String email, VerificationPurpose purpose, String code, LocalDateTime expiryDate) {
         this.email = email;
+        this.purpose = purpose;
         this.code = code;
         this.expiryDate = expiryDate;
         this.isVerified = false;
         this.deliveryStatus = DELIVERY_STATUS_PENDING;
+        this.isTicketConsumed = false;
     }
 
     public void verify() {
@@ -55,6 +71,7 @@ public class VerificationCode extends BaseTimeEntity {
 
     public void clearVerification() {
         this.isVerified = false;
+        clearVerificationTicket();
     }
 
     public void markSent() {
@@ -71,5 +88,37 @@ public class VerificationCode extends BaseTimeEntity {
 
     public boolean isExpired() {
         return LocalDateTime.now().isAfter(this.expiryDate);
+    }
+
+    public void issueVerificationTicket(String ticket, LocalDateTime ticketExpiryDate) {
+        this.isVerified = true;
+        this.verificationTicket = ticket;
+        this.ticketExpiryDate = ticketExpiryDate;
+        this.isTicketConsumed = false;
+    }
+
+    public void consumeVerificationTicket() {
+        this.isTicketConsumed = true;
+        clearVerificationTicket();
+    }
+
+    public void invalidateVerificationTicket() {
+        this.isTicketConsumed = true;
+        clearVerificationTicket();
+    }
+
+    public boolean hasActiveVerificationTicket() {
+        return this.verificationTicket != null
+                && !Boolean.TRUE.equals(this.isTicketConsumed)
+                && !isVerificationTicketExpired();
+    }
+
+    public boolean isVerificationTicketExpired() {
+        return this.ticketExpiryDate == null || LocalDateTime.now().isAfter(this.ticketExpiryDate);
+    }
+
+    private void clearVerificationTicket() {
+        this.verificationTicket = null;
+        this.ticketExpiryDate = null;
     }
 }
