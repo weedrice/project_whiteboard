@@ -259,7 +259,7 @@ import { useI18n } from 'vue-i18n'
 import logger from '@/utils/logger'
 import { useToastStore } from '@/stores/toast'
 import { useConfirm } from '@/composables/useConfirm'
-import type { Board, User } from '@/types'
+import type { AdminBoard, User } from '@/types'
 
 const { t } = useI18n()
 const toastStore = useToastStore()
@@ -272,7 +272,7 @@ const {
   useUpdateBoardManager
 } = useAdmin()
 
-const boards = ref<Board[]>([])
+const boards = ref<AdminBoard[]>([])
 const originalBoardUrls = ref<Record<number, string>>({})
 const modifiedBoardIds = ref<number[]>([])
 
@@ -312,7 +312,7 @@ const { mutateAsync: updateBoard } = useUpdateBoard()
 const { data: boardManagerData, isLoading: isBoardManagerLoading } = useBoardManager(selectedBoardId)
 const { mutateAsync: updateBoardManager } = useUpdateBoardManager()
 
-const selectedBoard = computed<Board | null>(() => {
+const selectedBoard = computed<AdminBoard | null>(() => {
   if (!selectedBoardId.value) return null
   return boards.value.find((board) => board.boardId === selectedBoardId.value) || null
 })
@@ -353,8 +353,8 @@ const currentManagerLabel = computed(() => {
 })
 
 watch(boardsData, (newData) => {
-  const list = (newData || []) as Board[]
-  const copied = JSON.parse(JSON.stringify(list)) as Board[]
+  const list = (newData || []) as AdminBoard[]
+  const copied = JSON.parse(JSON.stringify(list)) as AdminBoard[]
   copied.sort((a, b) => a.sortOrder - b.sortOrder)
 
   boards.value = copied
@@ -464,7 +464,7 @@ function toggleBoardStatus() {
   form.isActive = !form.isActive
 }
 
-async function selectBoard(board: Board) {
+async function selectBoard(board: AdminBoard) {
   if (selectedBoardId.value === board.boardId) return
 
   if (hasUnsavedChanges.value) {

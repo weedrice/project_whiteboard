@@ -4,7 +4,7 @@ import com.weedrice.whiteboard.domain.agent.dto.AgentClaimRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentListResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentResponse;
 import com.weedrice.whiteboard.domain.agent.service.AgentLifecycleService;
-import com.weedrice.whiteboard.domain.board.dto.BoardResponse;
+import com.weedrice.whiteboard.domain.board.dto.BoardListResponse;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.service.BoardService;
 import com.weedrice.whiteboard.domain.comment.dto.MyCommentResponse;
@@ -249,15 +249,14 @@ class UserControllerTest {
                                         .build();
                         ReflectionTestUtils.setField(board, "boardId", 1L);
 
-                        BoardResponse boardResponse = new BoardResponse(
-                                        board, 100L, "Admin User", 1L, false, true, Collections.emptyList(),
-                                        Collections.emptyList());
-                        Page<BoardResponse> boardPage = new PageImpl<>(List.of(boardResponse), pageable, 1);
+                        BoardListResponse boardResponse = new BoardListResponse(
+                                        board, 100L, "Admin User", true);
+                        Page<BoardListResponse> boardPage = new PageImpl<>(List.of(boardResponse), pageable, 1);
 
                         given(boardService.getMySubscriptions(1L, pageable, false)).willReturn(boardPage);
 
                         // when
-                        ApiResponse<PageResponse<BoardResponse>> response = userController
+                        ApiResponse<PageResponse<BoardListResponse>> response = userController
                                         .getMySubscriptions(customUserDetails, false, pageable);
 
                         // then

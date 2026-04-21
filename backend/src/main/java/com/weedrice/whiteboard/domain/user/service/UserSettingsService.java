@@ -7,7 +7,6 @@ import com.weedrice.whiteboard.domain.user.dto.UpdateNotificationSettingItem;
 import com.weedrice.whiteboard.domain.user.dto.UserSettingsResponse;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.entity.UserNotificationSettings;
-import com.weedrice.whiteboard.domain.user.entity.UserNotificationSettingsId;
 import com.weedrice.whiteboard.domain.user.entity.UserSettings;
 import com.weedrice.whiteboard.domain.user.repository.UserNotificationSettingsRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
@@ -21,6 +20,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -78,40 +78,44 @@ public class UserSettingsService {
 
         public List<NotificationSettingResponse> getNotificationSettings(Long userId) {
                 validateUserExists(userId);
-
-                Map<NotificationType, UserNotificationSettings> settingsByType = userNotificationSettingsRepository
-                                .findByUserIdOrderByModifiedAtDescCreatedAtDesc(userId).stream()
-                                .collect(Collectors.toMap(
-                                                UserNotificationSettings::getNotificationType,
-                                                setting -> setting,
-                                                (existing, duplicate) -> {
-                                                        log.warn("Duplicate notification setting detected for userId={} type={}. Keeping the most recently updated row.",
-                                                                        userId, existing.getNotificationType());
-                                                        return existing;
-                                                },
-                                                LinkedHashMap::new));
-
-                return List.of(NotificationType.values()).stream()
-                                .map(type -> {
-                                        UserNotificationSettings setting = settingsByType.get(type);
-                                        boolean enabled = setting == null || Boolean.TRUE.equals(setting.getIsEnabled());
-                                        return new NotificationSettingResponse(type.name(), enabled);
-                                })
-                                .collect(Collectors.toList());
+                return buildNotificationSettingResponses(loadNotificationSettingsByType(userId));
         }
 
         @Transactional
         public List<NotificationSettingResponse> updateNotificationSettings(Long userId,
                         List<UpdateNotificationSettingItem> requests) {
                 validateUserCanWrite(userId);
-                validateNoDuplicateNotificationTypes(requests);
+                List<NormalizedNotificationSettingRequest> normalizedRequests = normalizeNotificationSettingRequests(requests);
+                validateNoDuplicateNotificationTypes(normalizedRequests);
 
-                for (UpdateNotificationSettingItem request : requests) {
-                        NotificationType normalizedType = NotificationType.normalize(request.getNotificationType());
-                        upsertNotificationSetting(userId, normalizedType, request.getIsEnabled());
+                Map<NotificationType, UserNotificationSettings> settingsByType = loadNotificationSettingsByType(userId);
+                List<UserNotificationSettings> settingsToSave = new ArrayList<>();
+
+                for (NormalizedNotificationSettingRequest request : normalizedRequests) {
+                        UserNotificationSettings setting = settingsByType.get(request.notificationType());
+                        if (setting == null) {
+                                setting = UserNotificationSettings.builder()
+                                                .userId(userId)
+                                                .notificationType(request.notificationType())
+                                                .isEnabled(true)
+                                                .build();
+                                settingsByType.put(request.notificationType(), setting);
+                        }
+
+                        boolean enabled = request.enabled();
+                        if (Boolean.valueOf(enabled).equals(setting.getIsEnabled())) {
+                                continue;
+                        }
+
+                        setting.setEnabled(enabled);
+                        settingsToSave.add(setting);
                 }
 
-                return getNotificationSettings(userId);
+                if (!settingsToSave.isEmpty()) {
+                        userNotificationSettingsRepository.saveAll(settingsToSave);
+                }
+
+                return buildNotificationSettingResponses(settingsByType);
         }
 
         private void validateUserExists(Long userId) {
@@ -134,9 +138,18 @@ public class UserSettingsService {
                 return new UserSettingsResponse(DEFAULT_THEME, DEFAULT_LANGUAGE, DEFAULT_TIMEZONE, DEFAULT_HIDE_NSFW);
         }
 
-        private void validateNoDuplicateNotificationTypes(List<UpdateNotificationSettingItem> requests) {
+        private List<NormalizedNotificationSettingRequest> normalizeNotificationSettingRequests(
+                        List<UpdateNotificationSettingItem> requests) {
+                return requests.stream()
+                                .map(request -> new NormalizedNotificationSettingRequest(
+                                                NotificationType.normalize(request.getNotificationType()),
+                                                Boolean.TRUE.equals(request.getIsEnabled())))
+                                .toList();
+        }
+
+        private void validateNoDuplicateNotificationTypes(List<NormalizedNotificationSettingRequest> requests) {
                 Set<NotificationType> uniqueTypes = requests.stream()
-                                .map(request -> NotificationType.normalize(request.getNotificationType()))
+                                .map(NormalizedNotificationSettingRequest::notificationType)
                                 .collect(Collectors.toSet());
 
                 if (uniqueTypes.size() != requests.size()) {
@@ -144,18 +157,28 @@ public class UserSettingsService {
                 }
         }
 
-        private UserNotificationSettings upsertNotificationSetting(Long userId, NotificationType notificationType,
-                        Boolean isEnabled) {
-                UserNotificationSettingsId id = new UserNotificationSettingsId(userId, notificationType);
-                UserNotificationSettings setting = userNotificationSettingsRepository.findById(id)
-                                .orElse(UserNotificationSettings.builder()
-                                                .userId(userId)
-                                                .notificationType(notificationType)
-                                                .isEnabled(true)
-                                                .build());
+        private Map<NotificationType, UserNotificationSettings> loadNotificationSettingsByType(Long userId) {
+                return userNotificationSettingsRepository.findByUserIdOrderByModifiedAtDescCreatedAtDesc(userId).stream()
+                                .collect(Collectors.toMap(
+                                                UserNotificationSettings::getNotificationType,
+                                                setting -> setting,
+                                                (existing, duplicate) -> {
+                                                        log.warn("Duplicate notification setting detected for userId={} type={}. Keeping the most recently updated row.",
+                                                                        userId, existing.getNotificationType());
+                                                        return existing;
+                                                },
+                                                LinkedHashMap::new));
+        }
 
-                setting.setEnabled(Boolean.TRUE.equals(isEnabled));
-                return userNotificationSettingsRepository.save(setting);
+        private List<NotificationSettingResponse> buildNotificationSettingResponses(
+                        Map<NotificationType, UserNotificationSettings> settingsByType) {
+                return List.of(NotificationType.values()).stream()
+                                .map(type -> {
+                                        UserNotificationSettings setting = settingsByType.get(type);
+                                        boolean enabled = setting == null || Boolean.TRUE.equals(setting.getIsEnabled());
+                                        return new NotificationSettingResponse(type.name(), enabled);
+                                })
+                                .collect(Collectors.toList());
         }
 
         private UserSettings createSettingsEntity(User user) {
@@ -169,5 +192,8 @@ public class UserSettingsService {
                         return userSettingsRepository.findById(user.getUserId())
                                         .orElseThrow(() -> ex);
                 }
+        }
+
+        private record NormalizedNotificationSettingRequest(NotificationType notificationType, boolean enabled) {
         }
 }

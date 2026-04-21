@@ -89,18 +89,20 @@ class NotificationSettingsFlowTest {
         ReflectionTestUtils.setField(actor, "displayName", "writer");
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(receiver));
-        when(userNotificationSettingsRepository.findById(any(UserNotificationSettingsId.class)))
-                .thenAnswer(invocation -> Optional.ofNullable(storedSettings.get(invocation.getArgument(0))));
         when(userNotificationSettingsRepository.findByUserIdOrderByModifiedAtDescCreatedAtDesc(1L))
                 .thenAnswer(invocation -> new ArrayList<>(storedSettings.values()));
         when(userNotificationSettingsRepository.findByUserIdAndNotificationType(anyLong(), any(NotificationType.class)))
                 .thenAnswer(invocation -> Optional.ofNullable(
                         storedSettings.get(new UserNotificationSettingsId(invocation.getArgument(0), invocation.getArgument(1)))));
-        when(userNotificationSettingsRepository.save(any(UserNotificationSettings.class)))
+        when(userNotificationSettingsRepository.saveAll(any()))
                 .thenAnswer(invocation -> {
-                    UserNotificationSettings setting = invocation.getArgument(0);
-                    storedSettings.put(new UserNotificationSettingsId(setting.getUserId(), setting.getNotificationType()), setting);
-                    return setting;
+                    Iterable<UserNotificationSettings> settings = invocation.getArgument(0);
+                    for (UserNotificationSettings setting : settings) {
+                        storedSettings.put(
+                                new UserNotificationSettingsId(setting.getUserId(), setting.getNotificationType()),
+                                setting);
+                    }
+                    return settings;
                 });
         when(notificationRepository.save(any(Notification.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));

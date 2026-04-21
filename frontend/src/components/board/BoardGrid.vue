@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import BoardCard from './BoardCard.vue'
-import type { Board } from '@/types'
+import type { BoardListItem } from '@/types'
 
 defineProps<{
-  boards: Board[]
+  boards: BoardListItem[]
 }>()
 </script>
 

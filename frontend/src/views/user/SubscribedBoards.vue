@@ -92,14 +92,14 @@ import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import EmptyState from '@/components/common/ui/EmptyState.vue'
 import { useConfirm } from '@/composables/useConfirm'
 import { useErrorHandler } from '@/composables/useErrorHandler'
-import type { Board } from '@/types'
+import type { SubscriptionBoardListItem } from '@/types'
 
 const { t } = useI18n()
 const toastStore = useToastStore()
 const { confirm } = useConfirm()
 const { handleSilentError, handleError } = useErrorHandler()
-const accessibleBoards = ref<Board[]>([])
-const unavailableBoards = ref<Board[]>([])
+const accessibleBoards = ref<SubscriptionBoardListItem[]>([])
+const unavailableBoards = ref<SubscriptionBoardListItem[]>([])
 const loading = ref(false)
 const isMobile = ref(typeof window !== 'undefined' && window.innerWidth < 640)
 const hasSubscriptions = computed(() =>
@@ -125,7 +125,7 @@ async function fetchSubscriptions() {
     }
 }
 
-async function handleUnsubscribe(board: Board) {
+async function handleUnsubscribe(board: SubscriptionBoardListItem) {
     const isConfirmed = await confirm(t('user.subscriptions.unsubscribeConfirm'))
     if (!isConfirmed) return
     try {

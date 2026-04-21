@@ -1,7 +1,9 @@
 package com.weedrice.whiteboard.domain.board.service;
 
 import com.weedrice.whiteboard.domain.board.dto.BoardCreateRequest;
-import com.weedrice.whiteboard.domain.board.dto.BoardResponse;
+import com.weedrice.whiteboard.domain.board.dto.AdminBoardResponse;
+import com.weedrice.whiteboard.domain.board.dto.BoardDetailResponse;
+import com.weedrice.whiteboard.domain.board.dto.BoardListResponse;
 import com.weedrice.whiteboard.domain.board.dto.BoardUpdateRequest;
 import com.weedrice.whiteboard.domain.board.dto.CategoryRequest;
 import com.weedrice.whiteboard.domain.board.dto.CategoryResponse;
@@ -33,19 +35,19 @@ public class BoardService {
         this.categoryService = categoryService;
     }
 
-    public List<BoardResponse> getActiveBoards(UserDetails userDetails) {
+    public List<BoardListResponse> getActiveBoards(UserDetails userDetails) {
         return queryService.getActiveBoards(userDetails);
     }
 
-    public List<BoardResponse> getTopBoards(UserDetails userDetails) {
+    public List<BoardListResponse> getTopBoards(UserDetails userDetails) {
         return queryService.getTopBoards(userDetails);
     }
 
-    public List<BoardResponse> getAllBoards(UserDetails userDetails) {
+    public List<AdminBoardResponse> getAllBoards(UserDetails userDetails) {
         return queryService.getAllBoards(userDetails);
     }
 
-    public BoardResponse getBoardDetails(String boardUrl, UserDetails userDetails) {
+    public BoardDetailResponse getBoardDetails(String boardUrl, UserDetails userDetails) {
         return queryService.getBoardDetails(boardUrl, userDetails);
     }
 
@@ -68,11 +70,11 @@ public class BoardService {
         subscriptionService.unsubscribeBoard(userId, boardUrl);
     }
 
-    public Page<BoardResponse> getMySubscriptions(Long userId, Pageable pageable) {
+    public Page<BoardListResponse> getMySubscriptions(Long userId, Pageable pageable) {
         return queryService.getMySubscriptions(userId, pageable);
     }
 
-    public Page<BoardResponse> getMySubscriptions(Long userId, Pageable pageable, boolean includeUnavailable) {
+    public Page<BoardListResponse> getMySubscriptions(Long userId, Pageable pageable, boolean includeUnavailable) {
         return queryService.getMySubscriptions(userId, pageable, includeUnavailable);
     }
 

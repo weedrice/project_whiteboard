@@ -1,8 +1,7 @@
 import type { PageResponse } from './common'
-import type { PostSummary } from './board'
+import type { BoardSearchItem, PostSummary } from './board'
 import type { CommentResponse } from './comment'
 import type { UserSummary } from './user'
-import type { Board } from './board'
 
 export * from './common'
 export * from './user'
@@ -22,6 +21,6 @@ export interface IntegratedSearchResponse {
     posts: PageResponse<PostSummary>
     comments: PageResponse<CommentResponse>
     users: PageResponse<UserSummary>
-    boards: Board[]
+    boards: BoardSearchItem[]
     keyword: string
 }

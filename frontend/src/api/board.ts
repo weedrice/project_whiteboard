@@ -1,6 +1,15 @@
 import api from './index'
 import type { AxiosRequestConfig } from 'axios'
-import type { ApiResponse, PageResponse, Board, Category, PostSummary, BoardCreateData, BoardUpdateData } from '@/types'
+import type {
+    ApiResponse,
+    PageResponse,
+    BoardCreateData,
+    BoardDetail,
+    BoardListItem,
+    BoardUpdateData,
+    Category,
+    PostSummary
+} from '@/types'
 
 interface PostsParams {
     page?: number
@@ -28,13 +37,13 @@ interface BoardManagerTransferData {
 
 export const boardApi = {
     // Get all boards
-    getBoards: () => api.get<ApiResponse<Board[]>>('/boards'),
+    getBoards: () => api.get<ApiResponse<BoardListItem[]>>('/boards'),
 
     // Get board details
-    getBoard: (boardUrl: string, config?: AxiosRequestConfig) => api.get<ApiResponse<Board>>(`/boards/${boardUrl}`, config),
+    getBoard: (boardUrl: string, config?: AxiosRequestConfig) => api.get<ApiResponse<BoardDetail>>(`/boards/${boardUrl}`, config),
 
     // Create a new board
-    createBoard: (data: BoardCreateData) => api.post<ApiResponse<Board>>('/boards', data),
+    createBoard: (data: BoardCreateData) => api.post<ApiResponse<BoardDetail>>('/boards', data),
 
     // Ensure inquiry board exists (create if absent)
     ensureInquiryBoard: (boardUrl?: string) =>
@@ -47,11 +56,11 @@ export const boardApi = {
     getCategories: (boardUrl: string) => api.get<ApiResponse<Category[]>>(`/boards/${boardUrl}/categories`),
 
     // Update board
-    updateBoard: (boardUrl: string, data: BoardUpdateData) => api.put<ApiResponse<Board>>(`/boards/${boardUrl}`, data),
+    updateBoard: (boardUrl: string, data: BoardUpdateData) => api.put<ApiResponse<BoardDetail>>(`/boards/${boardUrl}`, data),
 
     // Transfer board manager
     updateBoardManager: (boardUrl: string, data: BoardManagerTransferData) =>
-        api.put<ApiResponse<Board>>(`/boards/${boardUrl}/manager`, data),
+        api.put<ApiResponse<BoardDetail>>(`/boards/${boardUrl}/manager`, data),
 
     // Delete board
     deleteBoard: (boardUrl: string) => api.delete<ApiResponse<void>>(`/boards/${boardUrl}`),

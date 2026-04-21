@@ -1,8 +1,10 @@
 package com.weedrice.whiteboard.domain.board.controller;
 
+import com.weedrice.whiteboard.domain.board.dto.AdminBoardResponse;
 import com.weedrice.whiteboard.domain.board.dto.BoardCreateRequest;
+import com.weedrice.whiteboard.domain.board.dto.BoardDetailResponse;
 import com.weedrice.whiteboard.domain.board.dto.BoardManagerTransferRequest;
-import com.weedrice.whiteboard.domain.board.dto.BoardResponse;
+import com.weedrice.whiteboard.domain.board.dto.BoardListResponse;
 import com.weedrice.whiteboard.domain.board.dto.BoardSubscriptionOrderRequest;
 import com.weedrice.whiteboard.domain.board.dto.BoardUpdateRequest;
 import com.weedrice.whiteboard.domain.board.dto.CategoryRequest;
@@ -34,23 +36,23 @@ public class BoardController {
     private final PostService postService; // PostService 주입
 
     @GetMapping
-    public ApiResponse<List<BoardResponse>> getBoards(@AuthenticationPrincipal UserDetails userDetails) {
+    public ApiResponse<List<BoardListResponse>> getBoards(@AuthenticationPrincipal UserDetails userDetails) {
         return ApiResponse.success(boardService.getActiveBoards(userDetails));
     }
 
     @GetMapping("/all")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
-    public ApiResponse<List<BoardResponse>> getAllBoards(@AuthenticationPrincipal UserDetails userDetails) {
+    public ApiResponse<List<AdminBoardResponse>> getAllBoards(@AuthenticationPrincipal UserDetails userDetails) {
         return ApiResponse.success(boardService.getAllBoards(userDetails));
     }
 
     @GetMapping("/top")
-    public ApiResponse<List<BoardResponse>> getTopBoards(@AuthenticationPrincipal UserDetails userDetails) {
+    public ApiResponse<List<BoardListResponse>> getTopBoards(@AuthenticationPrincipal UserDetails userDetails) {
         return ApiResponse.success(boardService.getTopBoards(userDetails));
     }
 
     @GetMapping("/{boardUrl}")
-    public ApiResponse<BoardResponse> getBoardDetails(@PathVariable String boardUrl,
+    public ApiResponse<BoardDetailResponse> getBoardDetails(@PathVariable String boardUrl,
             @AuthenticationPrincipal UserDetails userDetails) {
         validateBlockedInquiryBoardPath(boardUrl);
         return ApiResponse.success(boardService.getBoardDetails(boardUrl, userDetails));
@@ -66,7 +68,7 @@ public class BoardController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse<BoardResponse> createBoard(@Valid @RequestBody BoardCreateRequest request,
+    public ApiResponse<BoardDetailResponse> createBoard(@Valid @RequestBody BoardCreateRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         Board board = boardService.createBoard(userDetails.getUserId(), request);
         return ApiResponse.success(boardService.getBoardDetails(board.getBoardUrl(), userDetails));
@@ -81,7 +83,7 @@ public class BoardController {
     }
 
     @PutMapping("/{boardUrl}")
-    public ApiResponse<BoardResponse> updateBoard(@PathVariable String boardUrl,
+    public ApiResponse<BoardDetailResponse> updateBoard(@PathVariable String boardUrl,
             @Valid @RequestBody BoardUpdateRequest request, @AuthenticationPrincipal UserDetails userDetails) {
         validateBlockedInquiryBoardPath(boardUrl);
         Board updatedBoard = boardService.updateBoard(boardUrl, request, userDetails);
@@ -89,7 +91,7 @@ public class BoardController {
     }
 
     @PutMapping("/{boardUrl}/manager")
-    public ApiResponse<BoardResponse> transferBoardManager(@PathVariable String boardUrl,
+    public ApiResponse<BoardDetailResponse> transferBoardManager(@PathVariable String boardUrl,
             @Valid @RequestBody BoardManagerTransferRequest request,
             @AuthenticationPrincipal UserDetails userDetails) {
         validateBlockedInquiryBoardPath(boardUrl);

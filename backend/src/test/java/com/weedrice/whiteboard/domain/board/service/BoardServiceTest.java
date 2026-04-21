@@ -2,7 +2,8 @@ package com.weedrice.whiteboard.domain.board.service;
 
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.board.dto.BoardCreateRequest;
-import com.weedrice.whiteboard.domain.board.dto.BoardResponse;
+import com.weedrice.whiteboard.domain.board.dto.BoardDetailResponse;
+import com.weedrice.whiteboard.domain.board.dto.BoardListResponse;
 import com.weedrice.whiteboard.domain.board.dto.BoardUpdateRequest;
 import com.weedrice.whiteboard.domain.board.entity.BoardAiInfo;
 import com.weedrice.whiteboard.domain.board.entity.Board;
@@ -182,7 +183,7 @@ class BoardServiceTest {
         when(boardRepository.findByIsActiveOrderBySortOrderAsc(true)).thenReturn(Collections.singletonList(board));
 
         // when
-        List<BoardResponse> activeBoards = boardService.getActiveBoards(null);
+        List<BoardListResponse> activeBoards = boardService.getActiveBoards(null);
 
         // then
         assertThat(activeBoards).hasSize(1);
@@ -530,7 +531,7 @@ class BoardServiceTest {
         when(boardRepository.findTopPublicBoardsByPostCount(any())).thenReturn(Collections.singletonList(board));
 
         // when
-        List<BoardResponse> boards = boardService.getTopBoards(null);
+        List<BoardListResponse> boards = boardService.getTopBoards(null);
 
         // then
         assertThat(boards).hasSize(1);
@@ -538,21 +539,21 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("인증 사용자의 인기 게시판 조회는 읽을 수 있는 비공개 게시판도 포함할 수 있다")
+    @DisplayName("일반 로그인 사용자는 공개 인기 게시판 전용 쿼리를 사용한다")
     void getTopBoards_authenticatedUsesPublicQueryWhenUserHasNoElevatedAccess() {
         UserDetails userDetails = mock(UserDetails.class);
         when(userDetails.getUsername()).thenReturn(user.getLoginId());
         when(boardRepository.findTopPublicBoardsByPostCount(any())).thenReturn(Collections.singletonList(board));
 
-        List<BoardResponse> boards = boardService.getTopBoards(userDetails);
+        List<BoardListResponse> boards = boardService.getTopBoards(userDetails);
 
-        assertThat(boards).extracting(BoardResponse::getBoardUrl).containsExactly("test-board");
+        assertThat(boards).extracting(BoardListResponse::getBoardUrl).containsExactly("test-board");
         verify(boardRepository).findTopPublicBoardsByPostCount(any());
         verify(boardRepository, never()).findTopBoardsByPostCount(any());
     }
 
     @Test
-    @DisplayName("?뚯썝 ?뚰븳 ?ъ슜?먮뒗 ?쎌쓣 ???덈뒗 鍮꾧났媛?寃뚯떆?먮룄 ?ы븿?????덈떎")
+    @DisplayName("권한 사용자는 읽을 수 있는 비공개 게시판도 인기 게시판에 포함한다")
     void getTopBoards_privilegedUserIncludesReadablePrivateBoard() {
         Board privateBoard = Board.builder()
                 .boardName("Private Board")
@@ -568,9 +569,9 @@ class BoardServiceTest {
         when(userDetails.getUsername()).thenReturn(user.getLoginId());
         when(boardRepository.findTopBoardsByPostCount(any())).thenReturn(List.of(privateBoard));
 
-        List<BoardResponse> boards = boardService.getTopBoards(userDetails);
+        List<BoardListResponse> boards = boardService.getTopBoards(userDetails);
 
-        assertThat(boards).extracting(BoardResponse::getBoardUrl).containsExactly("private-board");
+        assertThat(boards).extracting(BoardListResponse::getBoardUrl).containsExactly("private-board");
         verify(boardRepository).findTopBoardsByPostCount(any());
     }
 
@@ -582,7 +583,7 @@ class BoardServiceTest {
         when(boardRepository.findByBoardUrl(boardUrl)).thenReturn(Optional.of(board));
 
         // when
-        BoardResponse response = boardService.getBoardDetails(boardUrl, null);
+        BoardDetailResponse response = boardService.getBoardDetails(boardUrl, null);
 
         // then
         assertThat(response).isNotNull();

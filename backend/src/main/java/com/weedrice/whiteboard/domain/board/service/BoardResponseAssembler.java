@@ -1,10 +1,10 @@
 package com.weedrice.whiteboard.domain.board.service;
 
 import com.weedrice.whiteboard.domain.admin.entity.Admin;
-import com.weedrice.whiteboard.domain.board.dto.BoardResponse;
-import com.weedrice.whiteboard.domain.board.dto.CategoryResponse;
+import com.weedrice.whiteboard.domain.board.dto.AdminBoardResponse;
+import com.weedrice.whiteboard.domain.board.dto.BoardDetailResponse;
+import com.weedrice.whiteboard.domain.board.dto.BoardListResponse;
 import com.weedrice.whiteboard.domain.board.entity.Board;
-import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -20,67 +20,85 @@ class BoardResponseAssembler {
 
     private final BoardResponseReadService boardResponseReadService;
 
-    BoardResponse assemble(Board board, User currentUser) {
-        return assembleAll(List.of(board), currentUser).stream()
-                .findFirst()
-                .orElseThrow();
+    BoardDetailResponse assembleDetail(Board board, User currentUser) {
+        BoardResponseReadService.DetailReadContext readContext = boardResponseReadService.loadDetail(board, currentUser);
+        BoardResponseReadService.ListReadContext listReadContext = readContext.listReadContext();
+        Long boardId = board.getBoardId();
+        User adminUser = resolveAdminUser(board, listReadContext.boardAdmins().get(boardId));
+        boolean isAdmin = currentUser != null && listReadContext.adminBoardIds().contains(boardId);
+        boolean isSubscribed = currentUser != null && listReadContext.subscribedBoardIds().contains(boardId);
+
+        return new BoardDetailResponse(
+                board,
+                listReadContext.subscriberCounts().getOrDefault(boardId, 0L),
+                adminUser.getDisplayName(),
+                adminUser.getUserId(),
+                isAdmin,
+                isSubscribed,
+                readContext.categories(),
+                readContext.latestPosts(),
+                board.isAgentEnabled(),
+                isAdmin ? resolveGuidePrompt(board, readContext.guidePrompt()) : null);
     }
 
-    List<BoardResponse> assembleAll(List<Board> boards, User currentUser) {
+    List<BoardListResponse> assembleListAll(List<Board> boards, User currentUser) {
         if (boards == null || boards.isEmpty()) {
             return Collections.emptyList();
         }
 
-        BoardResponseReadService.ReadContext readContext = boardResponseReadService.load(boards, currentUser);
+        BoardResponseReadService.ListReadContext readContext = boardResponseReadService.loadList(boards, currentUser);
 
         return boards.stream()
                 .map(board -> buildResponse(
                         board,
                         readContext.subscriberCounts(),
                         readContext.boardAdmins(),
-                        readContext.categoriesByBoardId(),
-                        readContext.guidePromptsByBoardId(),
-                        readContext.latestPostsByBoardId(),
-                        readContext.adminBoardIds(),
                         readContext.subscribedBoardIds(),
                         currentUser))
                 .toList();
     }
 
-    private BoardResponse buildResponse(Board board,
+    List<AdminBoardResponse> assembleAdminAll(List<Board> boards) {
+        if (boards == null || boards.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        BoardResponseReadService.AdminReadContext readContext = boardResponseReadService.loadAdmin(boards);
+        return boards.stream()
+                .map(board -> buildAdminResponse(board, readContext))
+                .toList();
+    }
+
+    private BoardListResponse buildResponse(Board board,
             Map<Long, Long> subscriberCounts,
             Map<Long, Admin> boardAdmins,
-            Map<Long, List<CategoryResponse>> categoriesByBoardId,
-            Map<Long, String> guidePromptsByBoardId,
-            Map<Long, List<PostSummary>> latestPostsByBoardId,
-            Set<Long> adminBoardIds,
             Set<Long> subscribedBoardIds,
             User currentUser) {
         Long boardId = board.getBoardId();
         User adminUser = resolveAdminUser(board, boardAdmins.get(boardId));
-        boolean isAdmin = currentUser != null && adminBoardIds.contains(boardId);
         boolean isSubscribed = currentUser != null && subscribedBoardIds.contains(boardId);
 
-        return new BoardResponse(
+        return new BoardListResponse(
                 board,
                 subscriberCounts.getOrDefault(boardId, 0L),
                 adminUser.getDisplayName(),
+                isSubscribed);
+    }
+
+    private AdminBoardResponse buildAdminResponse(Board board, BoardResponseReadService.AdminReadContext readContext) {
+        User adminUser = resolveAdminUser(board, readContext.boardAdmins().get(board.getBoardId()));
+        return new AdminBoardResponse(
+                board,
+                adminUser.getDisplayName(),
                 adminUser.getUserId(),
-                isAdmin,
-                isSubscribed,
-                true,
-                categoriesByBoardId.getOrDefault(boardId, Collections.emptyList()),
-                latestPostsByBoardId.getOrDefault(boardId, Collections.emptyList()),
-                board.isAgentEnabled(),
-                isAdmin ? resolveGuidePrompt(board, guidePromptsByBoardId) : null);
+                resolveGuidePrompt(board, readContext.guidePromptsByBoardId().get(board.getBoardId())));
     }
 
     private User resolveAdminUser(Board board, Admin boardAdmin) {
         return boardAdmin != null ? boardAdmin.getUser() : board.getCreator();
     }
 
-    private String resolveGuidePrompt(Board board, Map<Long, String> guidePromptsByBoardId) {
-        String guidePrompt = guidePromptsByBoardId.get(board.getBoardId());
+    private String resolveGuidePrompt(Board board, String guidePrompt) {
         if (guidePrompt != null) {
             return guidePrompt;
         }

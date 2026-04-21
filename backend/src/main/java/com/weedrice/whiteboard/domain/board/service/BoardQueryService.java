@@ -1,6 +1,8 @@
 package com.weedrice.whiteboard.domain.board.service;
 
-import com.weedrice.whiteboard.domain.board.dto.BoardResponse;
+import com.weedrice.whiteboard.domain.board.dto.AdminBoardResponse;
+import com.weedrice.whiteboard.domain.board.dto.BoardDetailResponse;
+import com.weedrice.whiteboard.domain.board.dto.BoardListResponse;
 import com.weedrice.whiteboard.domain.board.dto.CategoryResponse;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardSubscription;
@@ -51,21 +53,21 @@ class BoardQueryService {
         this.boardAccessPolicy = boardAccessPolicy;
     }
 
-    List<BoardResponse> getActiveBoards(UserDetails userDetails) {
+    List<BoardListResponse> getActiveBoards(UserDetails userDetails) {
         User currentUser = getCurrentUserOrNull(userDetails);
         List<Board> boards = boardRepository.findByIsActiveOrderBySortOrderAsc(true);
         List<Board> visibleBoards = boards.stream()
                 .filter(board -> !boardAccessPolicy.isInquiryBoard(board))
                 .filter(board -> boardAccessPolicy.canReadBoard(board, currentUser))
                 .collect(Collectors.toList());
-        return boardResponseAssembler.assembleAll(visibleBoards, currentUser);
+        return boardResponseAssembler.assembleListAll(visibleBoards, currentUser);
     }
 
-    List<BoardResponse> getTopBoards(UserDetails userDetails) {
+    List<BoardListResponse> getTopBoards(UserDetails userDetails) {
         User currentUser = getCurrentUserOrNull(userDetails);
         if (currentUser == null || !boardAccessPolicy.hasElevatedBoardVisibility(currentUser)) {
             List<Board> boards = boardRepository.findTopPublicBoardsByPostCount(PageRequest.of(0, TOP_BOARD_LIMIT));
-            return boardResponseAssembler.assembleAll(boards, currentUser);
+            return boardResponseAssembler.assembleListAll(boards, currentUser);
         }
 
         List<Board> visibleBoards = boardRepository.findTopBoardsByPostCount(PageRequest.of(0, TOP_BOARD_OVERFETCH_LIMIT))
@@ -74,22 +76,22 @@ class BoardQueryService {
                 .filter(board -> boardAccessPolicy.canReadBoard(board, currentUser))
                 .limit(TOP_BOARD_LIMIT)
                 .toList();
-        return boardResponseAssembler.assembleAll(visibleBoards, currentUser);
+        return boardResponseAssembler.assembleListAll(visibleBoards, currentUser);
     }
 
-    List<BoardResponse> getAllBoards(UserDetails userDetails) {
+    List<AdminBoardResponse> getAllBoards(UserDetails userDetails) {
         User currentUser = getCurrentUserOrNull(userDetails);
         List<Board> boards = boardRepository.findAllByOrderBySortOrderAsc();
-        return boardResponseAssembler.assembleAll(boards, currentUser);
+        return boardResponseAssembler.assembleAdminAll(boards);
     }
 
-    BoardResponse getBoardDetails(String boardUrl, UserDetails userDetails) {
+    BoardDetailResponse getBoardDetails(String boardUrl, UserDetails userDetails) {
         Board board = boardRepository.findByBoardUrl(boardUrl)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
         User currentUser = getCurrentUserOrNull(userDetails);
         boardAccessPolicy.validateReadable(board, currentUser);
 
-        return boardResponseAssembler.assemble(board, currentUser);
+        return boardResponseAssembler.assembleDetail(board, currentUser);
     }
 
     List<CategoryResponse> getActiveCategories(String boardUrl, UserDetails userDetails) {
@@ -103,11 +105,11 @@ class BoardQueryService {
                 .collect(Collectors.toList());
     }
 
-    Page<BoardResponse> getMySubscriptions(Long userId, Pageable pageable) {
+    Page<BoardListResponse> getMySubscriptions(Long userId, Pageable pageable) {
         return getMySubscriptions(userId, pageable, false);
     }
 
-    Page<BoardResponse> getMySubscriptions(Long userId, Pageable pageable, boolean includeUnavailable) {
+    Page<BoardListResponse> getMySubscriptions(Long userId, Pageable pageable, boolean includeUnavailable) {
         if (userId == null) {
             throw new BusinessException(ErrorCode.USER_NOT_FOUND);
         }
@@ -119,10 +121,10 @@ class BoardQueryService {
                     .map(BoardSubscription::getBoard)
                     .filter(board -> boardAccessPolicy.canReadBoard(board, user))
                     .toList();
-            Map<Long, BoardResponse> readableResponsesByBoardId = boardResponseAssembler.assembleAll(readableBoards, user)
+            Map<Long, BoardListResponse> readableResponsesByBoardId = boardResponseAssembler.assembleListAll(readableBoards, user)
                     .stream()
-                    .collect(Collectors.toMap(BoardResponse::getBoardId, Function.identity()));
-            List<BoardResponse> responses = subscriptions.getContent().stream()
+                    .collect(Collectors.toMap(BoardListResponse::getBoardId, Function.identity()));
+            List<BoardListResponse> responses = subscriptions.getContent().stream()
                     .map(subscription -> toSubscriptionResponse(subscription, readableResponsesByBoardId))
                     .toList();
             return new PageImpl<>(responses, pageable, subscriptions.getTotalElements());
@@ -134,18 +136,18 @@ class BoardQueryService {
         List<Board> visibleBoards = visibleSubscriptions.getContent().stream()
                 .map(BoardSubscription::getBoard)
                 .toList();
-        List<BoardResponse> responses = boardResponseAssembler.assembleAll(visibleBoards, user);
+        List<BoardListResponse> responses = boardResponseAssembler.assembleListAll(visibleBoards, user);
         return new PageImpl<>(responses, pageable, visibleSubscriptions.getTotalElements());
     }
 
-    private BoardResponse toSubscriptionResponse(BoardSubscription subscription,
-            Map<Long, BoardResponse> readableResponsesByBoardId) {
+    private BoardListResponse toSubscriptionResponse(BoardSubscription subscription,
+            Map<Long, BoardListResponse> readableResponsesByBoardId) {
         Board board = subscription.getBoard();
-        BoardResponse readableResponse = readableResponsesByBoardId.get(board.getBoardId());
+        BoardListResponse readableResponse = readableResponsesByBoardId.get(board.getBoardId());
         if (readableResponse != null) {
             return readableResponse;
         }
-        return BoardResponse.unavailableSubscription(board);
+        return BoardListResponse.unavailableSubscription(board);
     }
 
     private User getCurrentUserOrNull(UserDetails userDetails) {

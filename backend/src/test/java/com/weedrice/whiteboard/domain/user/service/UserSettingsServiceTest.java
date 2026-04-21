@@ -7,7 +7,6 @@ import com.weedrice.whiteboard.domain.user.dto.UpdateNotificationSettingItem;
 import com.weedrice.whiteboard.domain.user.dto.UserSettingsResponse;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.entity.UserNotificationSettings;
-import com.weedrice.whiteboard.domain.user.entity.UserNotificationSettingsId;
 import com.weedrice.whiteboard.domain.user.entity.UserSettings;
 import com.weedrice.whiteboard.domain.user.repository.UserNotificationSettingsRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
@@ -26,6 +25,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.StreamSupport;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -248,14 +248,10 @@ class UserSettingsServiceTest {
         UserNotificationSettings replySetting = new UserNotificationSettings(1L, NotificationType.REPLY, false);
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(userNotificationSettingsRepository.findById(new UserNotificationSettingsId(1L, NotificationType.LIKE)))
-                .thenReturn(Optional.of(likeSetting));
-        when(userNotificationSettingsRepository.findById(new UserNotificationSettingsId(1L, NotificationType.COMMENT)))
-                .thenReturn(Optional.empty());
-        when(userNotificationSettingsRepository.findById(new UserNotificationSettingsId(1L, NotificationType.REPLY)))
-                .thenReturn(Optional.of(replySetting));
         when(userNotificationSettingsRepository.findByUserIdOrderByModifiedAtDescCreatedAtDesc(1L))
-                .thenReturn(List.of(likeSetting, new UserNotificationSettings(1L, NotificationType.COMMENT, false), replySetting));
+                .thenReturn(List.of(likeSetting, replySetting));
+        when(userNotificationSettingsRepository.saveAll(org.mockito.ArgumentMatchers.<Iterable<UserNotificationSettings>>any()))
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
         List<NotificationSettingResponse> responses = userSettingsService.updateNotificationSettings(1L, List.of(
                 new UpdateNotificationSettingItem("like", false),
@@ -279,12 +275,47 @@ class UserSettingsServiceTest {
                 .extracting(NotificationSettingResponse::isEnabled)
                 .isEqualTo(true);
 
-        verify(userNotificationSettingsRepository).save(argThat(setting ->
-                setting.getNotificationType() == NotificationType.LIKE && !setting.getIsEnabled()));
-        verify(userNotificationSettingsRepository).save(argThat(setting ->
-                setting.getNotificationType() == NotificationType.COMMENT && !setting.getIsEnabled()));
-        verify(userNotificationSettingsRepository).save(argThat(setting ->
-                setting.getNotificationType() == NotificationType.REPLY && setting.getIsEnabled()));
+        verify(userNotificationSettingsRepository).saveAll(argThat((Iterable<UserNotificationSettings> settings) -> {
+            List<UserNotificationSettings> saved = StreamSupport
+                    .stream(settings.spliterator(), false)
+                    .toList();
+            return saved.size() == 3
+                    && saved.stream().anyMatch(setting ->
+                            setting.getNotificationType() == NotificationType.LIKE && !setting.getIsEnabled())
+                    && saved.stream().anyMatch(setting ->
+                            setting.getNotificationType() == NotificationType.COMMENT && !setting.getIsEnabled())
+                    && saved.stream().anyMatch(setting ->
+                            setting.getNotificationType() == NotificationType.REPLY && setting.getIsEnabled());
+        }));
+    }
+
+    @Test
+    @DisplayName("Bulk notification settings update skips saveAll when nothing changes")
+    void updateNotificationSettings_noChanges_skipsSaveAll() {
+        User user = User.builder().build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+        UserNotificationSettings likeSetting = new UserNotificationSettings(1L, NotificationType.LIKE, false);
+        UserNotificationSettings replySetting = new UserNotificationSettings(1L, NotificationType.REPLY, true);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userNotificationSettingsRepository.findByUserIdOrderByModifiedAtDescCreatedAtDesc(1L))
+                .thenReturn(List.of(likeSetting, replySetting));
+
+        List<NotificationSettingResponse> responses = userSettingsService.updateNotificationSettings(1L, List.of(
+                new UpdateNotificationSettingItem("like", false),
+                new UpdateNotificationSettingItem("reply", true)));
+
+        assertThat(responses)
+                .filteredOn(response -> NotificationType.LIKE.name().equals(response.getNotificationType()))
+                .singleElement()
+                .extracting(NotificationSettingResponse::isEnabled)
+                .isEqualTo(false);
+        assertThat(responses)
+                .filteredOn(response -> NotificationType.REPLY.name().equals(response.getNotificationType()))
+                .singleElement()
+                .extracting(NotificationSettingResponse::isEnabled)
+                .isEqualTo(true);
+        verify(userNotificationSettingsRepository, never()).saveAll(any());
     }
 
     @Test
@@ -314,6 +345,6 @@ class UserSettingsServiceTest {
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.USER_NOT_ACTIVE);
 
-        verify(userNotificationSettingsRepository, never()).save(any());
+        verify(userNotificationSettingsRepository, never()).saveAll(any());
     }
 }

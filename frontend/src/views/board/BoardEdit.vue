@@ -12,7 +12,7 @@ import { useConfirm } from '@/composables/useConfirm'
 import { useFormSubmit } from '@/composables/useFormSubmit'
 import { useErrorHandler } from '@/composables/useErrorHandler'
 import { useBoard } from '@/composables/useBoard'
-import type { BoardUpdateData, User } from '@/types'
+import type { BoardDetail, BoardUpdateData, User } from '@/types'
 
 interface BoardData {
   boardName: string
@@ -63,7 +63,7 @@ async function fetchBoard() {
   try {
     const { data } = await boardApi.getBoard(boardUrl)
     if (data.success) {
-      const board = data.data
+      const board = data.data as BoardDetail
       form.value = {
         boardName: board.boardName,
         boardUrl: board.boardUrl,

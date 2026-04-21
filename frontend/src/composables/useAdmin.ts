@@ -13,9 +13,9 @@ import type {
     AdminUserPostItem,
     AdminUserCommentItem,
     AdminUserSubscriptionItem,
+    AdminBoard,
     BoardAdminInfo,
     SuperAdminInfo,
-    Board,
     IpBlock
 } from '@/types'
 
@@ -312,7 +312,7 @@ export function useAdmin() {
             queryKey: ['admin', 'boards'],
             queryFn: async () => {
                 const { data } = await adminApi.getBoards()
-                return data.data
+                return data.data as AdminBoard[]
             }
         })
     }

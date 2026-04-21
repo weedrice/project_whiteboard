@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import type { Board } from '@/types'
+import type { BoardListItem } from '@/types'
 
 defineProps<{
-  boards: Board[]
+  boards: BoardListItem[]
 }>()
 </script>
 

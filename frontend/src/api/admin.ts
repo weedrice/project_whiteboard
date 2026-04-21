@@ -6,7 +6,8 @@ import type {
     Report,
     GlobalConfig,
     IpBlock,
-    Board,
+    AdminBoard,
+    BoardDetail,
     BoardCreateData,
     BoardUpdateData,
     SanctionData,
@@ -177,13 +178,13 @@ export const adminApi = {
 
     // Board management
     getBoards() {
-        return api.get<ApiResponse<Board[]>>('/boards/all')
+        return api.get<ApiResponse<AdminBoard[]>>('/boards/all')
     },
     createBoard(data: BoardCreateData) {
-        return api.post<ApiResponse<Board>>('/boards', data)
+        return api.post<ApiResponse<BoardDetail>>('/boards', data)
     },
     updateBoard(boardUrl: string, data: BoardUpdateData) {
-        return api.put<ApiResponse<Board>>(`/boards/${boardUrl}`, data)
+        return api.put<ApiResponse<BoardDetail>>(`/boards/${boardUrl}`, data)
     },
     deleteBoard(boardUrl: string) {
         return api.delete<ApiResponse<void>>(`/boards/${boardUrl}`)

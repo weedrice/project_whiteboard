@@ -249,9 +249,7 @@ class SearchServiceTest {
     }
 
     @Test
-    @DisplayName("인기 검색어 조회 성공")
-    @Test
-    @DisplayName("寃뚯떆湲 寃?됱? createdAt ?ㅻ쫫李⑥닚???ы븿???ㅼ쨷 ?뺣젹??rowNum? ?뺤닚??留욌땲?ㅼ떎")
+    @DisplayName("게시글 검색은 createdAt 오름차순이 포함된 다중 정렬에서도 rowNum을 정순으로 부여한다")
     void searchPosts_assignsAscendingRowNumbersWhenCreatedAtAscendingAppearsInMultiSort() {
         Pageable pageable = PageRequest.of(0, 2, Sort.by(Sort.Order.desc("title"), Sort.Order.asc("createdAt")));
         var firstPost = post(10L, "zeta", LocalDateTime.of(2026, 4, 20, 9, 0));

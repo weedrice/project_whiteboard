@@ -37,6 +37,16 @@ public class BoardAccessPolicy {
         return adminRepository.existsByUserAndBoardAndIsActive(user, board, true);
     }
 
+    public boolean hasElevatedBoardVisibility(User user) {
+        if (user == null) {
+            return false;
+        }
+        if (Boolean.TRUE.equals(user.getIsSuperAdmin())) {
+            return true;
+        }
+        return adminRepository.findByUserAndIsActive(user, true).isPresent();
+    }
+
     public boolean canReadBoard(Board board, User user) {
         if (board == null) {
             return false;

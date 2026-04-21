@@ -7,7 +7,7 @@ import type {
     UserSettings,
     PostSummary,
     Comment,
-    Board,
+    SubscriptionBoardListItem,
     PublicUserProfile,
 } from '@/types'
 
@@ -131,6 +131,6 @@ export const userApi = {
         return api.get<ApiResponse<PageResponse<PostSummary>>>('/users/me/history/views', { params })
     },
     getMySubscriptions(params: SubscriptionParams) {
-        return api.get<ApiResponse<PageResponse<Board>>>('/users/me/subscriptions', { params })
+        return api.get<ApiResponse<PageResponse<SubscriptionBoardListItem>>>('/users/me/subscriptions', { params })
     }
 }

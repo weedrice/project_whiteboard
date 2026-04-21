@@ -126,6 +126,7 @@ class BoardRepositoryTest {
         Board visibleTop = persistBoard("Visible Top", "visible-top", 30, true, true);
         Board visibleTieFirst = persistBoard("Visible Tie First", "visible-tie-first", 10, true, true);
         Board visibleTieSecond = persistBoard("Visible Tie Second", "visible-tie-second", 10, true, true);
+        Board deletedOnlyBoard = persistBoard("Deleted Only", "deleted-only", 15, true, true);
         Board privateBoard = persistBoard("Private Top", "private-top", 1, true, false);
         Board inactiveBoard = persistBoard("Inactive Top", "inactive-top", 2, false, true);
         Board inquiryBoard = persistBoard("Inquiry Top", "Inquiry", 3, true, true);
@@ -133,6 +134,7 @@ class BoardRepositoryTest {
         persistPosts(visibleTop, 4);
         persistPosts(visibleTieFirst, 2);
         persistPosts(visibleTieSecond, 2);
+        persistDeletedPosts(deletedOnlyBoard, 3);
         persistPosts(privateBoard, 6);
         persistPosts(inactiveBoard, 5);
         persistPosts(inquiryBoard, 7);
@@ -173,6 +175,23 @@ class BoardRepositoryTest {
                     .isSpoiler(false)
                     .isSecret(false)
                     .build());
+        }
+    }
+
+    private void persistDeletedPosts(Board board, int count) {
+        for (int index = 0; index < count; index++) {
+            Post post = Post.builder()
+                    .title(board.getBoardName() + " Deleted Post " + index)
+                    .contents("contents")
+                    .user(creator)
+                    .board(board)
+                    .isNotice(false)
+                    .isNsfw(false)
+                    .isSpoiler(false)
+                    .isSecret(false)
+                    .build();
+            post.deletePost();
+            entityManager.persist(post);
         }
     }
 }

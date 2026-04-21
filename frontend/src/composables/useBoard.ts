@@ -4,7 +4,7 @@ import type { BoardCreateData, BoardUpdateData } from '@/types'
 import { userApi } from '@/api/user'
 import { searchApi } from '@/api/search'
 import { computed, type Ref } from 'vue'
-import type { PageResponse, PostSummary, Board } from '@/types'
+import type { BoardDetail, BoardListItem, PageResponse, PostSummary, SubscriptionBoardListItem } from '@/types'
 import { QUERY_STALE_TIME } from '@/utils/constants'
 import type { AxiosRequestConfig } from 'axios'
 
@@ -16,6 +16,9 @@ interface BoardPostParams {
     q?: string
     searchType?: string
 }
+
+const isVisibleSubscriptionBoard = (board: SubscriptionBoardListItem): board is BoardListItem =>
+    board.subscriptionAccessible !== false && board.boardName !== null
 
 export function useBoard() {
     const queryClient = useQueryClient()
@@ -41,7 +44,7 @@ export function useBoard() {
             queryKey: ['boards', 'subscriptions', size],
             queryFn: async () => {
                 const { data } = await userApi.getMySubscriptions({ size })
-                return data.data.content as Board[]
+                return data.data.content.filter(isVisibleSubscriptionBoard)
             },
             staleTime: QUERY_STALE_TIME.MEDIUM, // 5 minutes
             enabled: enabledValue,
@@ -55,7 +58,7 @@ export function useBoard() {
             queryKey: ['board', boardUrl],
             queryFn: async () => {
                 const { data } = await boardApi.getBoard(boardUrl.value, requestConfig)
-                return data.data
+                return data.data as BoardDetail
             },
             enabled: computed(() => !!boardUrl.value),
             ...queryOptions

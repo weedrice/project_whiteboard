@@ -1,27 +1,67 @@
 import type { UserSummary } from './user'
 
-// 게시판 관련 타입
-export interface Board {
+export interface BoardListItem {
     boardId: number
     boardName: string
     boardUrl: string
     description?: string
     iconUrl?: string
     sortOrder: number
-    isActive: boolean
-    isPublic?: boolean
-    subscriptionAccessible?: boolean
-    agentUseYn?: boolean
-    allowNsfw: boolean
-    subscriberCount?: number
-    isAdmin?: boolean
-    isSubscribed?: boolean
-    createdAt: string
-    modifiedAt?: string
-    categories?: Category[]
-    adminUserId?: number
+    subscriberCount: number
     adminDisplayName?: string
+    isSubscribed: boolean
+    isActive: boolean
+    isPublic: boolean
+    subscriptionAccessible: boolean
+}
+
+export interface SubscriptionBoardListItem {
+    boardId: number
+    boardName: string | null
+    boardUrl: string
+    description?: string | null
+    iconUrl?: string | null
+    sortOrder: number
+    subscriberCount: number
+    adminDisplayName?: string | null
+    isSubscribed: boolean
+    isActive: boolean
+    isPublic: boolean
+    subscriptionAccessible: boolean
+}
+
+export interface BoardDetail extends BoardListItem {
+    allowNsfw: boolean
+    isAdmin: boolean
+    categories: Category[]
+    latestPosts: PostSummary[]
+    adminUserId?: number
+    agentUseYn: boolean
     guidePrompt?: string
+}
+
+export interface AdminBoard {
+    boardId: number
+    boardName: string
+    boardUrl: string
+    description?: string
+    iconUrl?: string
+    sortOrder: number
+    adminDisplayName?: string
+    adminUserId?: number
+    allowNsfw: boolean
+    isActive: boolean
+    isPublic: boolean
+    agentUseYn: boolean
+    guidePrompt?: string
+}
+
+export interface BoardSearchItem {
+    boardId: number
+    boardName: string
+    boardUrl: string
+    description?: string
+    iconUrl?: string
 }
 
 export interface BoardCreateData {
@@ -57,7 +97,6 @@ export interface Category {
     minWriteRole: string
 }
 
-// 게시글 관련 타입
 export interface Post {
     postId: number
     title: string
@@ -109,15 +148,11 @@ export interface PostSummary {
     authorName?: string
     inquiryAnswered?: boolean
     summary?: string
-    /** Feed용: HTML 본문 앞부분(약 5줄) */
     contentsExcerpt?: string
-    /** Feed용: 최초 미디어 타입 'image' | 'video' */
     firstMediaType?: string
-    /** Feed용: 최초 미디어 URL */
     firstMediaUrl?: string
 }
 
-// FeedPost extends PostSummary with required feed-specific fields
 export interface FeedPost extends Omit<PostSummary, 'liked' | 'scrapped' | 'subscribed' | 'boardUrl' | 'boardName' | 'authorName'> {
     boardUrl: string | number
     boardName: string

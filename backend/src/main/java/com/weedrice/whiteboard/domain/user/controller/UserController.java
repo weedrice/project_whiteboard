@@ -5,7 +5,7 @@ import com.weedrice.whiteboard.domain.agent.dto.AgentListResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentResponse;
 import com.weedrice.whiteboard.domain.agent.service.AgentLifecycleService;
 import com.weedrice.whiteboard.domain.auth.dto.EmailVerificationConfirmRequest;
-import com.weedrice.whiteboard.domain.board.dto.BoardResponse;
+import com.weedrice.whiteboard.domain.board.dto.BoardListResponse;
 import com.weedrice.whiteboard.domain.board.service.BoardService;
 import com.weedrice.whiteboard.domain.comment.dto.MyCommentResponse;
 import com.weedrice.whiteboard.domain.comment.service.CommentService;
@@ -162,11 +162,11 @@ public class UserController {
         }
 
         @GetMapping("/me/subscriptions")
-        public ApiResponse<PageResponse<BoardResponse>> getMySubscriptions(
+        public ApiResponse<PageResponse<BoardListResponse>> getMySubscriptions(
                         @AuthenticationPrincipal CustomUserDetails userDetails,
                         @RequestParam(defaultValue = "false") boolean includeUnavailable,
                         Pageable pageable) {
-                Page<BoardResponse> response = boardService.getMySubscriptions(
+                Page<BoardListResponse> response = boardService.getMySubscriptions(
                                 userDetails.getUserId(),
                                 pageable,
                                 includeUnavailable);

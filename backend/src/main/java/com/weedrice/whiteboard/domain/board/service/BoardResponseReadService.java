@@ -35,21 +35,75 @@ class BoardResponseReadService {
     private final BoardAiInfoRepository boardAiInfoRepository;
     private final PostService postService;
 
-    ReadContext load(List<Board> boards, User currentUser) {
+    ListReadContext loadList(List<Board> boards, User currentUser) {
         if (boards == null || boards.isEmpty()) {
-            return ReadContext.empty();
+            return ListReadContext.empty();
         }
 
         List<Long> boardIds = boards.stream()
                 .map(Board::getBoardId)
                 .toList();
-        Long currentUserId = currentUser != null ? currentUser.getUserId() : null;
 
         Map<Long, Long> subscriberCounts = boardSubscriptionRepository.countByBoardIds(boardIds).stream()
                 .collect(Collectors.toMap(
                         BoardSubscriptionRepository.BoardSubscriberCountProjection::getBoardId,
                         BoardSubscriptionRepository.BoardSubscriberCountProjection::getSubscriberCount));
-        Map<Long, Admin> boardAdmins = adminRepository
+        Map<Long, Admin> boardAdmins = resolveBoardAdmins(boardIds);
+        Set<Long> adminBoardIds = resolveAdminBoardIds(currentUser, boards, boardIds);
+        Set<Long> subscribedBoardIds = resolveSubscribedBoardIds(currentUser, boards);
+        return new ListReadContext(
+                subscriberCounts,
+                boardAdmins,
+                adminBoardIds,
+                subscribedBoardIds);
+    }
+
+    DetailReadContext loadDetail(Board board, User currentUser) {
+        ListReadContext listReadContext = loadList(List.of(board), currentUser);
+        Long currentUserId = currentUser != null ? currentUser.getUserId() : null;
+        Long boardId = board.getBoardId();
+
+        List<CategoryResponse> categories = boardCategoryRepository
+                .findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(boardId, true)
+                .stream()
+                .map(CategoryResponse::new)
+                .toList();
+        Set<Long> adminBoardIds = listReadContext.adminBoardIds();
+        List<PostSummary> latestPosts = postService.getLatestPostsByBoards(
+                List.of(boardId),
+                15,
+                currentUserId,
+                adminBoardIds)
+                .getOrDefault(boardId, Collections.emptyList());
+        String guidePrompt = boardAiInfoRepository.findByBoard_BoardIdIn(List.of(boardId)).stream()
+                .findFirst()
+                .map(BoardAiInfo::getGuidePrompt)
+                .orElse(null);
+
+        return new DetailReadContext(
+                listReadContext,
+                categories,
+                latestPosts,
+                guidePrompt);
+    }
+
+    AdminReadContext loadAdmin(List<Board> boards) {
+        if (boards == null || boards.isEmpty()) {
+            return AdminReadContext.empty();
+        }
+        List<Long> boardIds = boards.stream()
+                .map(Board::getBoardId)
+                .toList();
+        Map<Long, Admin> boardAdmins = resolveBoardAdmins(boardIds);
+        Map<Long, String> guidePromptsByBoardId = boardAiInfoRepository.findByBoard_BoardIdIn(boardIds).stream()
+                .collect(Collectors.toMap(
+                        boardAiInfo -> boardAiInfo.getBoard().getBoardId(),
+                        BoardAiInfo::getGuidePrompt));
+        return new AdminReadContext(boardAdmins, guidePromptsByBoardId);
+    }
+
+    private Map<Long, Admin> resolveBoardAdmins(Collection<Long> boardIds) {
+        return adminRepository
                 .findByBoard_BoardIdInAndRoleAndIsActiveOrderByBoard_BoardIdAscAdminIdDesc(
                         boardIds, Role.BOARD_ADMIN, true)
                 .stream()
@@ -58,29 +112,6 @@ class BoardResponseReadService {
                         Function.identity(),
                         (existing, ignored) -> existing,
                         LinkedHashMap::new));
-        Map<Long, List<CategoryResponse>> categoriesByBoardId = toCategoryMap(
-                boardCategoryRepository.findByBoard_BoardIdInAndIsActiveOrderByBoard_BoardIdAscSortOrderAsc(boardIds, true));
-        Map<Long, String> guidePromptsByBoardId = boardAiInfoRepository.findByBoard_BoardIdIn(boardIds).stream()
-                .collect(Collectors.toMap(
-                        boardAiInfo -> boardAiInfo.getBoard().getBoardId(),
-                        BoardAiInfo::getGuidePrompt));
-
-        Set<Long> adminBoardIds = resolveAdminBoardIds(currentUser, boards, boardIds);
-        Set<Long> subscribedBoardIds = resolveSubscribedBoardIds(currentUser, boards);
-        Map<Long, List<PostSummary>> latestPostsByBoardId = postService.getLatestPostsByBoards(
-                boardIds,
-                15,
-                currentUserId,
-                adminBoardIds);
-
-        return new ReadContext(
-                subscriberCounts,
-                boardAdmins,
-                categoriesByBoardId,
-                guidePromptsByBoardId,
-                latestPostsByBoardId,
-                adminBoardIds,
-                subscribedBoardIds);
     }
 
     private Set<Long> resolveAdminBoardIds(User currentUser, List<Board> boards, Collection<Long> boardIds) {
@@ -111,33 +142,34 @@ class BoardResponseReadService {
                 .collect(Collectors.toSet());
     }
 
-    private Map<Long, List<CategoryResponse>> toCategoryMap(List<BoardCategory> categories) {
-        Map<Long, List<CategoryResponse>> categoriesByBoardId = new LinkedHashMap<>();
-        for (BoardCategory category : categories) {
-            categoriesByBoardId.computeIfAbsent(category.getBoard().getBoardId(), ignored -> new java.util.ArrayList<>())
-                    .add(new CategoryResponse(category));
-        }
-        return categoriesByBoardId;
-    }
-
-    record ReadContext(
+    record ListReadContext(
             Map<Long, Long> subscriberCounts,
             Map<Long, Admin> boardAdmins,
-            Map<Long, List<CategoryResponse>> categoriesByBoardId,
-            Map<Long, String> guidePromptsByBoardId,
-            Map<Long, List<PostSummary>> latestPostsByBoardId,
             Set<Long> adminBoardIds,
             Set<Long> subscribedBoardIds) {
 
-        private static ReadContext empty() {
-            return new ReadContext(
-                    Collections.emptyMap(),
-                    Collections.emptyMap(),
-                    Collections.emptyMap(),
+        private static ListReadContext empty() {
+            return new ListReadContext(
                     Collections.emptyMap(),
                     Collections.emptyMap(),
                     Collections.emptySet(),
                     Collections.emptySet());
+        }
+    }
+
+    record DetailReadContext(
+            ListReadContext listReadContext,
+            List<CategoryResponse> categories,
+            List<PostSummary> latestPosts,
+            String guidePrompt) {
+    }
+
+    record AdminReadContext(
+            Map<Long, Admin> boardAdmins,
+            Map<Long, String> guidePromptsByBoardId) {
+
+        private static AdminReadContext empty() {
+            return new AdminReadContext(Collections.emptyMap(), Collections.emptyMap());
         }
     }
 }

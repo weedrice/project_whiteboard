@@ -8,7 +8,7 @@ import { useDebounce } from '@/composables/useDebounce'
 import { useKeyboardNavigation } from '@/composables/useKeyboardNavigation'
 import { getOptimizedBoardIconUrl, handleImageError } from '@/utils/image'
 import { DEBOUNCE_DELAY } from '@/utils/constants'
-import type { Board } from '@/types'
+import type { BoardListItem } from '@/types'
 
 const router = useRouter()
 const { useBoards } = useBoard()
@@ -56,7 +56,7 @@ const boards = computed(() => boardsData.value || [])
 const filteredBoards = computed(() => {
   if (!debouncedSearchQuery.value.trim()) return []
   const query = debouncedSearchQuery.value.toLowerCase()
-  return boards.value.filter((board: Board) =>
+  return boards.value.filter((board: BoardListItem) =>
     board.boardName.toLowerCase().includes(query)
   )
 })
