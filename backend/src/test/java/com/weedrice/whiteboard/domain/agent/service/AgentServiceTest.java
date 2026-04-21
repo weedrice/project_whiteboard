@@ -7,7 +7,9 @@ import com.weedrice.whiteboard.domain.agent.dto.AgentBoardListResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostCreateRequest;
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
+import com.weedrice.whiteboard.domain.agent.entity.AgentDailyQuota;
 import com.weedrice.whiteboard.domain.agent.repository.AgentActivityLogRepository;
+import com.weedrice.whiteboard.domain.agent.repository.AgentDailyQuotaRepository;
 import com.weedrice.whiteboard.domain.agent.repository.AgentRepository;
 import com.weedrice.whiteboard.domain.admin.entity.Admin;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
@@ -42,6 +44,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -49,6 +52,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
@@ -67,6 +71,8 @@ class AgentServiceTest {
     private AgentRepository agentRepository;
     @Mock
     private AgentActivityLogRepository agentActivityLogRepository;
+    @Mock
+    private AgentDailyQuotaRepository agentDailyQuotaRepository;
     @Mock
     private UserRepository userRepository;
     @Mock
@@ -97,6 +103,7 @@ class AgentServiceTest {
     private AgentLifecycleService agentLifecycleService;
     private AgentAuthService agentAuthService;
     private AgentQueryService agentQueryService;
+    private AgentQuotaService agentQuotaService;
     private AgentCommandService agentCommandService;
 
     private User user;
@@ -116,6 +123,7 @@ class AgentServiceTest {
                 boardCategoryRepository,
                 postService));
         agentPostSummaryEnricher = spy(new AgentPostSummaryEnricher(commentRepository));
+        agentQuotaService = new AgentQuotaService(agentDailyQuotaRepository);
         agentLifecycleService = new AgentLifecycleService(agentRepository, userRepository, agentAuditService);
         agentAuthService = new AgentAuthService(agentRepository, agentOwnershipService);
         agentQueryService = new AgentQueryService(
@@ -131,15 +139,19 @@ class AgentServiceTest {
                 agentPostSummaryEnricher);
         agentCommandService = new AgentCommandService(
                 boardRepository,
-                postRepository,
                 commentRepository,
                 postService,
                 commentService,
                 agentOwnershipService,
                 agentBoardAccessService,
-                agentAuditService);
+                agentAuditService,
+                agentQuotaService);
         ReflectionTestUtils.setField(agentCommandService, "frontendUrl", "https://noviis.kr");
 
+        lenient().when(agentDailyQuotaRepository.findForUpdate(anyLong(), any(LocalDate.class), anyString()))
+                .thenReturn(Optional.empty());
+        lenient().when(agentDailyQuotaRepository.saveAndFlush(any(AgentDailyQuota.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
         lenient().when(commentRepository.findDistinctPostIdsByPost_PostIdInAndAgent_AgentIdAndIsDeletedFalse(any(), anyLong()))
                 .thenReturn(List.of());
         lenient().when(userBlockService.getBlockedUserIds(1L)).thenReturn(List.of());
@@ -577,7 +589,7 @@ class AgentServiceTest {
     }
 
     @Test
-    @DisplayName("agent 게시글 작성은 하루 50개까지만 가능하다")
+    @DisplayName("agent post creation is limited to 50 items per day")
     void createPost_dailyLimitExceeded() {
         AgentPostCreateRequest request = new AgentPostCreateRequest();
         ReflectionTestUtils.setField(request, "boardUrl", "free");
@@ -587,7 +599,8 @@ class AgentServiceTest {
         when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(writableBoard));
         when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(true);
-        when(postRepository.countByAgent_AgentIdAndCreatedAtBetween(eq(7L), any(), any())).thenReturn(50L);
+        when(agentDailyQuotaRepository.findForUpdate(eq(7L), any(LocalDate.class), eq("POST")))
+                .thenReturn(Optional.of(quota("POST", 50L)));
 
         assertThatThrownBy(() -> agentCommandService.createPost(7L, request, null))
                 .isInstanceOf(BusinessException.class)
@@ -597,7 +610,7 @@ class AgentServiceTest {
     }
 
     @Test
-    @DisplayName("agent 댓글 작성은 하루 100개까지만 가능하다")
+    @DisplayName("agent comment creation is limited to 100 items per day")
     void createComment_dailyLimitExceeded() {
         AgentCommentCreateRequest request = new AgentCommentCreateRequest();
         ReflectionTestUtils.setField(request, "content", "b".repeat(25));
@@ -605,7 +618,8 @@ class AgentServiceTest {
         when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
         when(postService.getPostById(100L, 1L, false)).thenReturn(writablePost);
         when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(true);
-        when(commentRepository.countByAgent_AgentIdAndCreatedAtBetween(eq(7L), any(), any())).thenReturn(100L);
+        when(agentDailyQuotaRepository.findForUpdate(eq(7L), any(LocalDate.class), eq("COMMENT")))
+                .thenReturn(Optional.of(quota("COMMENT", 100L)));
 
         assertThatThrownBy(() -> agentCommandService.createComment(7L, 100L, request, null))
                 .isInstanceOf(BusinessException.class)
@@ -615,7 +629,7 @@ class AgentServiceTest {
     }
 
     @Test
-    @DisplayName("agent 게시글 작성은 제한 미만이면 정상 진행된다")
+    @DisplayName("agent post creation succeeds when the daily limit is not reached")
     void createPost_withinDailyLimit_success() {
         AgentPostCreateRequest request = new AgentPostCreateRequest();
         ReflectionTestUtils.setField(request, "boardUrl", "free");
@@ -625,7 +639,8 @@ class AgentServiceTest {
         when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(writableBoard));
         when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(true);
-        when(postRepository.countByAgent_AgentIdAndCreatedAtBetween(eq(7L), any(), any())).thenReturn(49L);
+        when(agentDailyQuotaRepository.findForUpdate(eq(7L), any(LocalDate.class), eq("POST")))
+                .thenReturn(Optional.of(quota("POST", 49L)));
         when(postService.createPostAsAgent(eq(1L), eq(7L), eq("free"), any())).thenReturn(writablePost);
 
         var response = agentCommandService.createPost(7L, request, null);
@@ -640,22 +655,23 @@ class AgentServiceTest {
         AgentPostCreateRequest request = new AgentPostCreateRequest();
         ReflectionTestUtils.setField(request, "boardUrl", "free");
         ReflectionTestUtils.setField(request, "title", "title");
-        ReflectionTestUtils.setField(request, "content", "첫 줄\n둘째 줄\n\n다음 문단");
+        ReflectionTestUtils.setField(request, "content", "first line\nsecond line\n\nnext paragraph");
 
         when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(writableBoard));
         when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(true);
-        when(postRepository.countByAgent_AgentIdAndCreatedAtBetween(eq(7L), any(), any())).thenReturn(0L);
+        when(agentDailyQuotaRepository.findForUpdate(eq(7L), any(LocalDate.class), eq("POST")))
+                .thenReturn(Optional.of(quota("POST", 0L)));
         when(postService.createPostAsAgent(eq(1L), eq(7L), eq("free"), any())).thenReturn(writablePost);
 
         agentCommandService.createPost(7L, request, null);
 
         verify(postService).createPostAsAgent(eq(1L), eq(7L), eq("free"), argThat(postRequest ->
-                "<p>첫 줄<br>둘째 줄</p><p>다음 문단</p>".equals(postRequest.getContents())));
+                "<p>first line<br>second line</p><p>next paragraph</p>".equals(postRequest.getContents())));
     }
 
     @Test
-    @DisplayName("agent 댓글 작성은 제한 미만이면 정상 진행된다")
+    @DisplayName("agent comment creation succeeds when the daily limit is not reached")
     void createComment_withinDailyLimit_success() {
         AgentCommentCreateRequest request = new AgentCommentCreateRequest();
         ReflectionTestUtils.setField(request, "content", "b".repeat(25));
@@ -666,7 +682,8 @@ class AgentServiceTest {
         when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
         when(postService.getPostById(100L, 1L, false)).thenReturn(writablePost);
         when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(true);
-        when(commentRepository.countByAgent_AgentIdAndCreatedAtBetween(eq(7L), any(), any())).thenReturn(99L);
+        when(agentDailyQuotaRepository.findForUpdate(eq(7L), any(LocalDate.class), eq("COMMENT")))
+                .thenReturn(Optional.of(quota("COMMENT", 99L)));
         when(commentService.createCommentAsAgent(1L, 7L, 100L, null, "b".repeat(25))).thenReturn(comment);
 
         var response = agentCommandService.createComment(7L, 100L, request, null);
@@ -691,7 +708,8 @@ class AgentServiceTest {
         when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
         when(commentRepository.findByIdWithRelations(500L)).thenReturn(Optional.of(parentComment));
         when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(true);
-        when(commentRepository.countByAgent_AgentIdAndCreatedAtBetween(eq(7L), any(), any())).thenReturn(99L);
+        when(agentDailyQuotaRepository.findForUpdate(eq(7L), any(LocalDate.class), eq("COMMENT")))
+                .thenReturn(Optional.of(quota("COMMENT", 99L)));
         when(commentService.createCommentAsAgent(1L, 7L, 100L, 500L, "reply")).thenReturn(reply);
 
         var response = agentCommandService.createReply(7L, 500L, request, null);
@@ -749,5 +767,14 @@ class AgentServiceTest {
                 return postCount;
             }
         };
+    }
+
+    private AgentDailyQuota quota(String actionType, long usedCount) {
+        return AgentDailyQuota.builder()
+                .agent(agent)
+                .quotaDate(LocalDate.now())
+                .actionType(actionType)
+                .usedCount(usedCount)
+                .build();
     }
 }

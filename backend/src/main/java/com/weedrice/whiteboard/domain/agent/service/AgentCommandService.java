@@ -13,7 +13,6 @@ import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.comment.service.CommentService;
 import com.weedrice.whiteboard.domain.post.dto.PostCreateRequest;
 import com.weedrice.whiteboard.domain.post.entity.Post;
-import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -24,9 +23,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.List;
 
@@ -35,18 +31,14 @@ import java.util.List;
 @Transactional(readOnly = true)
 public class AgentCommandService {
 
-    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
-    private static final long DAILY_AGENT_POST_LIMIT = 50;
-    private static final long DAILY_AGENT_COMMENT_LIMIT = 100;
-
     private final BoardRepository boardRepository;
-    private final PostRepository postRepository;
     private final CommentRepository commentRepository;
     private final PostService postService;
     private final CommentService commentService;
     private final AgentOwnershipService agentOwnershipService;
     private final AgentBoardAccessService agentBoardAccessService;
     private final AgentAuditService agentAuditService;
+    private final AgentQuotaService agentQuotaService;
 
     @Value("${app.frontend-url:https://noviis.kr}")
     private String frontendUrl;
@@ -58,7 +50,7 @@ public class AgentCommandService {
         Board board = boardRepository.findByBoardUrl(request.getBoardUrl())
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
         agentBoardAccessService.validateAgentBoardWritable(agent, board);
-        validateDailyPostLimit(agentId);
+        agentQuotaService.reservePostCreation(agent);
         PostCreateRequest postCreateRequest = new PostCreateRequest(
                 request.getCategoryId(),
                 request.getTitle(),
@@ -81,7 +73,7 @@ public class AgentCommandService {
         Agent agent = agentOwnershipService.resolveActiveAgentForUpdate(agentId);
         Post post = postService.getPostById(postId, agent.getUser().getUserId(), false);
         agentBoardAccessService.validateAgentBoardWritable(agent, post.getBoard());
-        validateDailyCommentLimit(agentId);
+        agentQuotaService.reserveCommentCreation(agent);
         Comment comment = commentService.createCommentAsAgent(agent.getUser().getUserId(), agentId, postId, null,
                 request.getContent());
         agentAuditService.saveLog(agent, agent.getUser(), "CREATE_COMMENT", "COMMENT", comment.getCommentId(),
@@ -99,7 +91,7 @@ public class AgentCommandService {
             throw new BusinessException(ErrorCode.COMMENT_NOT_FOUND);
         }
         agentBoardAccessService.validateAgentBoardWritable(agent, parentComment.getPost().getBoard());
-        validateDailyCommentLimit(agentId);
+        agentQuotaService.reserveCommentCreation(agent);
         Comment reply = commentService.createCommentAsAgent(
                 agent.getUser().getUserId(),
                 agentId,
@@ -119,26 +111,6 @@ public class AgentCommandService {
         int likeCount = postService.likePost(agent.getUser().getUserId(), agentId, postId);
         agentAuditService.saveLog(agent, agent.getUser(), "LIKE_POST", "POST", postId, httpServletRequest);
         return new AgentPostLikeResponse(postId, likeCount, true);
-    }
-
-    private void validateDailyPostLimit(Long agentId) {
-        LocalDateTime start = LocalDate.now(KST).atStartOfDay();
-        LocalDateTime end = LocalDate.now(KST).plusDays(1).atStartOfDay();
-        long postsToday = postRepository.countByAgent_AgentIdAndCreatedAtBetween(agentId, start, end);
-        if (postsToday >= DAILY_AGENT_POST_LIMIT) {
-            throw new BusinessException(ErrorCode.RATE_LIMIT_EXCEEDED,
-                    "Daily agent post limit exceeded");
-        }
-    }
-
-    private void validateDailyCommentLimit(Long agentId) {
-        LocalDateTime start = LocalDate.now(KST).atStartOfDay();
-        LocalDateTime end = LocalDate.now(KST).plusDays(1).atStartOfDay();
-        long commentsToday = commentRepository.countByAgent_AgentIdAndCreatedAtBetween(agentId, start, end);
-        if (commentsToday >= DAILY_AGENT_COMMENT_LIMIT) {
-            throw new BusinessException(ErrorCode.RATE_LIMIT_EXCEEDED,
-                    "Daily agent comment limit exceeded");
-        }
     }
 
     private String normalizeAgentPostContent(String content) {
