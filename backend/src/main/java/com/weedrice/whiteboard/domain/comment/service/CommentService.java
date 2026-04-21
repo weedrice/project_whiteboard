@@ -90,7 +90,7 @@ public class CommentService {
     }
 
     public CommentListResponse getReplies(Long parentId, Long currentUserId, Pageable pageable) {
-        Comment parentComment = commentRepository.findByIdWithRelations(parentId)
+        Comment parentComment = commentRepository.findNonDeletedByIdWithRelations(parentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
         validatePostReadable(parentComment.getPost(), currentUserId);
 
@@ -118,7 +118,7 @@ public class CommentService {
     }
 
     public CommentResponse getComment(Long commentId, Long currentUserId) {
-        Comment comment = commentRepository.findByIdWithRelations(commentId)
+        Comment comment = commentRepository.findNonDeletedByIdWithRelations(commentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
         validatePostReadable(comment.getPost(), currentUserId);
         List<Long> blockedUserIds = currentUserId == null ? null : userBlockService.getBlockedUserIds(currentUserId);

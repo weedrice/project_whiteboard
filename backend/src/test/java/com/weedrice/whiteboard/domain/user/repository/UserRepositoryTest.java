@@ -18,7 +18,9 @@ import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -196,5 +198,54 @@ class UserRepositoryTest {
         assertThat(result.getContent())
                 .extracting(User::getDisplayName)
                 .containsExactly("Apple User");
+    }
+
+    @Test
+    @DisplayName("관리자 대시보드 사용자 집계는 ACTIVE 이고 삭제되지 않은 사용자만 포함한다")
+    void countActiveUsersForAdminDashboard_filtersSuspendedAndDeletedUsers() {
+        LocalDateTime since = LocalDateTime.now().minusDays(1);
+
+        User recentActive = User.builder()
+                .loginId("recent-active")
+                .displayName("Recent Active")
+                .email("recent-active@test.com")
+                .password("pass")
+                .build();
+        ReflectionTestUtils.setField(recentActive, "lastLoginAt", since.plusHours(1));
+
+        User oldActive = User.builder()
+                .loginId("old-active")
+                .displayName("Old Active")
+                .email("old-active@test.com")
+                .password("pass")
+                .build();
+        ReflectionTestUtils.setField(oldActive, "lastLoginAt", since.minusHours(1));
+
+        User suspendedRecent = User.builder()
+                .loginId("suspended-recent")
+                .displayName("Suspended Recent")
+                .email("suspended-recent@test.com")
+                .password("pass")
+                .build();
+        suspendedRecent.suspend();
+        ReflectionTestUtils.setField(suspendedRecent, "lastLoginAt", since.plusHours(2));
+
+        User deletedRecent = User.builder()
+                .loginId("deleted-recent")
+                .displayName("Deleted Recent")
+                .email("deleted-recent@test.com")
+                .password("pass")
+                .build();
+        ReflectionTestUtils.setField(deletedRecent, "lastLoginAt", since.plusHours(3));
+        deletedRecent.delete();
+
+        entityManager.persist(recentActive);
+        entityManager.persist(oldActive);
+        entityManager.persist(suspendedRecent);
+        entityManager.persist(deletedRecent);
+        entityManager.flush();
+
+        assertThat(userRepository.countActiveUsersForAdminDashboard()).isEqualTo(5L);
+        assertThat(userRepository.countRecentlyLoggedInActiveUsersForAdminDashboard(since)).isEqualTo(1L);
     }
 }

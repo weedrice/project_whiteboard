@@ -363,7 +363,7 @@ class CommentServiceTest {
         ReflectionTestUtils.setField(reply, "commentId", 10L);
         ReflectionTestUtils.setField(reply, "createdAt", LocalDateTime.now());
 
-        when(commentRepository.findByIdWithRelations(9L)).thenReturn(Optional.of(parent));
+        when(commentRepository.findNonDeletedByIdWithRelations(9L)).thenReturn(Optional.of(parent));
         when(userRepository.findById(1L)).thenReturn(Optional.of(viewer));
         when(userBlockService.getBlockedUserIds(1L)).thenReturn(List.of(2L));
         when(commentRepository.findRepliesWithRelations(9L, false, PageRequest.of(0, 10)))
@@ -455,7 +455,7 @@ class CommentServiceTest {
         ReflectionTestUtils.setField(reply, "commentId", 10L);
         ReflectionTestUtils.setField(reply, "createdAt", LocalDateTime.now());
 
-        when(commentRepository.findByIdWithRelations(9L)).thenReturn(Optional.of(parent));
+        when(commentRepository.findNonDeletedByIdWithRelations(9L)).thenReturn(Optional.of(parent));
         when(userRepository.findById(1L)).thenReturn(Optional.of(viewer));
         when(userBlockService.getBlockedUserIds(1L)).thenReturn(List.of());
         when(commentRepository.findRepliesWithRelations(9L, false, PageRequest.of(0, 10)))
@@ -471,6 +471,18 @@ class CommentServiceTest {
         assertThat(response.getReplyCount()).isEqualTo(1L);
         assertThat(response.isHasReplies()).isTrue();
         assertThat(response.getChildren()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("deleted parent comment is hidden from direct replies lookup")
+    void getReplies_deletedParent_notFound() {
+        when(commentRepository.findNonDeletedByIdWithRelations(9L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> commentService.getReplies(9L, 1L, PageRequest.of(0, 10)))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.COMMENT_NOT_FOUND);
+
+        verify(commentRepository, never()).findRepliesWithRelations(anyLong(), any(), any());
     }
 
     @Test
@@ -498,7 +510,7 @@ class CommentServiceTest {
         ReflectionTestUtils.setField(comment, "commentId", 10L);
         ReflectionTestUtils.setField(comment, "createdAt", LocalDateTime.now());
 
-        when(commentRepository.findByIdWithRelations(10L)).thenReturn(Optional.of(comment));
+        when(commentRepository.findNonDeletedByIdWithRelations(10L)).thenReturn(Optional.of(comment));
         when(userRepository.findById(1L)).thenReturn(Optional.of(viewer));
         when(userBlockService.getBlockedUserIds(1L)).thenReturn(List.of(2L));
 
@@ -506,6 +518,16 @@ class CommentServiceTest {
 
         assertThat(result.getContent()).isNotEqualTo("Blocked comment");
         assertThat(result.getAuthor().getDisplayName()).isNotEqualTo("Blocked");
+    }
+
+    @Test
+    @DisplayName("deleted comment is hidden from direct comment lookup")
+    void getComment_deletedComment_notFound() {
+        when(commentRepository.findNonDeletedByIdWithRelations(10L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> commentService.getComment(10L, 1L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.COMMENT_NOT_FOUND);
     }
 
     @Test

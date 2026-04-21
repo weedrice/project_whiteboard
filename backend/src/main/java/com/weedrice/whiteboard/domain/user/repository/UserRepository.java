@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -22,12 +23,29 @@ public interface UserRepository extends JpaRepository<User, Long>, UserRepositor
     boolean existsByEmailAndIsEmailVerifiedTrue(String email);
 
     Optional<User> findByEmail(String email);
-    long countByLastLoginAtAfter(java.time.LocalDateTime lastLoginAt);
+    long countByLastLoginAtAfter(LocalDateTime lastLoginAt);
     Page<User> findByDisplayNameContainingIgnoreCaseAndStatus(String displayName, String status, Pageable pageable);
     Page<User> findByDisplayNameContainingIgnoreCase(String displayName, Pageable pageable); // Added for IntegratedSearch
 
     List<User> findByIsSuperAdminTrue();
     List<User> findByIsSuperAdminTrueAndDeletedAtIsNull();
+
+    @Query("""
+            SELECT COUNT(u)
+            FROM User u
+            WHERE u.status = 'ACTIVE'
+              AND u.deletedAt IS NULL
+            """)
+    long countActiveUsersForAdminDashboard();
+
+    @Query("""
+            SELECT COUNT(u)
+            FROM User u
+            WHERE u.status = 'ACTIVE'
+              AND u.deletedAt IS NULL
+              AND u.lastLoginAt > :since
+            """)
+    long countRecentlyLoggedInActiveUsersForAdminDashboard(@Param("since") LocalDateTime since);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""

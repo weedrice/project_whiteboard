@@ -13,10 +13,12 @@ import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import { formatDate } from '@/utils/date'
 import logger from '@/utils/logger'
+import { useToastStore } from '@/stores/toast'
 import type { Notification } from '@/types'
 
 const { t } = useI18n()
 const router = useRouter()
+const toastStore = useToastStore()
 const { useNotifications, useMarkAsRead, useMarkAllAsRead } = useNotification()
 
 const page = ref(0)
@@ -69,6 +71,7 @@ async function handleNotificationClick(notification: Notification) {
           }
         }
       } catch (err: unknown) {
+        toastStore.addToast(t('common.messages.notFound'), 'warning')
         logger.error('Failed to navigate to comment:', err)
       }
     }

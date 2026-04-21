@@ -294,4 +294,30 @@ class PostRepositoryTest {
         // then
         assertThat(result.getContent()).isEmpty();
     }
+
+    @Test
+    @DisplayName("관리자 대시보드 게시글 집계는 삭제되지 않은 게시글만 포함한다")
+    void countVisiblePostsForAdminDashboard_excludesDeletedPosts() {
+        Post visiblePost = Post.builder()
+                .title("Visible Post")
+                .contents("Visible Contents")
+                .user(user)
+                .board(board)
+                .category(category)
+                .build();
+        entityManager.persist(visiblePost);
+
+        Post deletedPost = Post.builder()
+                .title("Deleted Post")
+                .contents("Deleted Contents")
+                .user(user)
+                .board(board)
+                .category(category)
+                .build();
+        deletedPost.deletePost();
+        entityManager.persist(deletedPost);
+        entityManager.flush();
+
+        assertThat(postRepository.countVisiblePostsForAdminDashboard()).isEqualTo(2L);
+    }
 }

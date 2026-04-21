@@ -41,6 +41,12 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
                 GROUP BY p.board.boardId
                 """)
         List<BoardPostCountProjection> countActiveByBoardIds(@Param("boardIds") Collection<Long> boardIds);
+        @Query("""
+                SELECT COUNT(p)
+                FROM Post p
+                WHERE p.isDeleted = false
+                """)
+        long countVisiblePostsForAdminDashboard();
         List<Post> findByBoard_BoardIdAndIsNoticeAndIsDeletedOrderByCreatedAtDesc(Long boardId, Boolean isNotice, Boolean isDeleted);
         @EntityGraph(attributePaths = {"user", "board", "category"})
         Page<Post> findByBoard_BoardId(Long boardId, Pageable pageable);

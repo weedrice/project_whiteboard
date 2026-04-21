@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useAdmin } from '@/composables/useAdmin'
-import { Users, FileText, ShieldAlert, Activity } from 'lucide-vue-next'
+import { Users, FileText, Activity } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
@@ -13,7 +13,7 @@ const { data: statsData } = useDashboardStats()
 interface DashboardStats {
   totalUsers?: number
   pendingReports?: number
-  blockedIps?: number
+  activeUsers?: number
 }
 
 const stats = computed(() => {
@@ -21,7 +21,7 @@ const stats = computed(() => {
   return [
     { name: t('admin.dashboard.totalUsers'), stat: data.totalUsers || '0', icon: Users, change: '0%', changeType: 'increase', path: '/admin/users' },
     { name: t('admin.dashboard.pendingReports'), stat: data.pendingReports || '0', icon: FileText, change: '0%', changeType: 'decrease', path: '/admin/reports' },
-    { name: t('admin.dashboard.blockedIps'), stat: data.blockedIps || '0', icon: ShieldAlert, change: '0%', changeType: 'increase', path: '/admin/security' },
+    { name: '24시간 활성 사용자', stat: data.activeUsers || '0', icon: Activity, change: '0%', changeType: 'increase', path: '/admin/users' },
   ]
 })
 

@@ -129,6 +129,17 @@ describe('CommentItem', () => {
                 boardUrl: 'free',
             },
             global: {
+                mocks: {
+                    $t: (key: string) => {
+                        if (key === 'common.messages.unknown') {
+                            return '알 수 없음'
+                        }
+                        if (key === 'comment.deleted') {
+                            return commentLocale.deleted
+                        }
+                        return key
+                    },
+                },
                 stubs: {
                     UserMenu: {
                         props: ['displayName'],
@@ -154,5 +165,53 @@ describe('CommentItem', () => {
 
         expect((enabled as ReturnType<typeof computed>).value).toBe(true)
         expect(wrapper.text()).toContain('child reply')
+    })
+
+    it('hides the replies toggle for deleted comments', () => {
+        const wrapper = mount(CommentItem, {
+            props: {
+                comment: {
+                    commentId: 1,
+                    content: 'deleted parent',
+                    author: {
+                        userId: 1,
+                        displayName: 'author',
+                        authorType: 'USER',
+                    },
+                    likeCount: 0,
+                    isDeleted: true,
+                    createdAt: '2026-04-20T12:00:00',
+                    hasReplies: true,
+                    replyCount: 3,
+                    children: [],
+                },
+                postId: 100,
+                boardUrl: 'free',
+            },
+            global: {
+                mocks: {
+                    $t: (key: string) => {
+                        if (key === 'common.messages.unknown') {
+                            return '알 수 없음'
+                        }
+                        return key
+                    },
+                },
+                stubs: {
+                    UserMenu: {
+                        props: ['displayName'],
+                        template: '<span>{{ displayName }}</span>',
+                    },
+                    CommentForm: {
+                        template: '<div />',
+                    },
+                    CornerDownRight: true,
+                    UserIcon: true,
+                },
+            },
+        })
+
+        expect(wrapper.text()).not.toContain(commentLocale.viewReplies.replace('{count}', '3'))
+        expect(wrapper.text()).toContain('comment.deleted')
     })
 })

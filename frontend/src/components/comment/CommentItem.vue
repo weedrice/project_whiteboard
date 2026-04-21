@@ -50,7 +50,7 @@ const replies = computed(() => loadedReplies.value)
 const renderedContent = computed(() => renderCommentContentHtml(props.comment.content))
 const isEmoticonOnly = computed(() => isEmoticonOnlyContent(props.comment.content))
 const isAgentAuthor = computed(() => props.comment.author?.authorType === 'AGENT')
-const canLoadReplies = computed(() => Boolean(props.comment.hasReplies || optimisticHasReplies.value))
+const canLoadReplies = computed(() => !props.comment.isDeleted && Boolean(props.comment.hasReplies || optimisticHasReplies.value))
 const replyToggleLabel = computed(() => {
   if (isRepliesOpen.value) {
     return t('comment.hideReplies')
@@ -121,6 +121,17 @@ watch(() => props.comment.hasReplies, (hasReplies) => {
     replyHasNext.value = false
     isRepliesOpen.value = false
   }
+})
+
+watch(() => props.comment.isDeleted, (isDeleted) => {
+  if (!isDeleted) {
+    return
+  }
+
+  optimisticHasReplies.value = false
+  loadedReplies.value = []
+  replyHasNext.value = false
+  isRepliesOpen.value = false
 })
 </script>
 

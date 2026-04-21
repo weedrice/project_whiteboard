@@ -81,6 +81,22 @@ public class CommentRepositoryCustomImpl implements CommentRepositoryCustom {
         return java.util.Optional.ofNullable(result);
     }
 
+    @Override
+    public java.util.Optional<Comment> findNonDeletedByIdWithRelations(@org.springframework.lang.NonNull Long commentId) {
+        Comment result = queryFactory
+                .selectFrom(comment)
+                .join(comment.user).fetchJoin()
+                .leftJoin(comment.agent).fetchJoin()
+                .join(comment.post).fetchJoin()
+                .join(comment.post.board).fetchJoin()
+                .leftJoin(comment.parent).fetchJoin()
+                .where(
+                        comment.commentId.eq(commentId),
+                        comment.isDeleted.eq(false))
+                .fetchOne();
+        return java.util.Optional.ofNullable(result);
+    }
+
     private BooleanExpression notBlockedCondition(List<Long> blockedUserIds) {
         return blockedUserIds != null && !blockedUserIds.isEmpty()
                 ? comment.user.userId.notIn(blockedUserIds)

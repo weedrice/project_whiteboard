@@ -20,8 +20,8 @@ export interface IpBlock {
 export interface DashboardStats {
     totalUsers: number
     totalPosts: number
-    totalComments: number
-    totalReports: number
+    pendingReports: number
+    activeUsers: number
     [key: string]: number // Allow other fields
 }
 

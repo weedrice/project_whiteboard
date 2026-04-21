@@ -33,10 +33,11 @@ class AdminDashboardServiceTest {
     @Test
     @DisplayName("대시보드 통계를 조회한다")
     void getDashboardStats_success() {
-        when(postRepository.count()).thenReturn(100L);
+        when(postRepository.countVisiblePostsForAdminDashboard()).thenReturn(100L);
         when(reportRepository.countByStatus("PENDING")).thenReturn(5L);
-        when(userRepository.count()).thenReturn(50L);
-        when(userRepository.countByLastLoginAtAfter(any(java.time.LocalDateTime.class))).thenReturn(10L);
+        when(userRepository.countActiveUsersForAdminDashboard()).thenReturn(50L);
+        when(userRepository.countRecentlyLoggedInActiveUsersForAdminDashboard(any(java.time.LocalDateTime.class)))
+                .thenReturn(10L);
 
         var stats = adminDashboardService.getDashboardStats();
 
@@ -45,9 +46,9 @@ class AdminDashboardServiceTest {
         assertThat(stats.getTotalPosts()).isEqualTo(100L);
         assertThat(stats.getPendingReports()).isEqualTo(5L);
         assertThat(stats.getActiveUsers()).isEqualTo(10L);
-        verify(postRepository).count();
+        verify(postRepository).countVisiblePostsForAdminDashboard();
         verify(reportRepository).countByStatus("PENDING");
-        verify(userRepository).count();
-        verify(userRepository).countByLastLoginAtAfter(any(java.time.LocalDateTime.class));
+        verify(userRepository).countActiveUsersForAdminDashboard();
+        verify(userRepository).countRecentlyLoggedInActiveUsersForAdminDashboard(any(java.time.LocalDateTime.class));
     }
 }
