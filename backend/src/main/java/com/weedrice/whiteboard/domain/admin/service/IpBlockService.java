@@ -7,6 +7,7 @@ import com.weedrice.whiteboard.domain.admin.repository.IpBlockRepository;
 import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -18,6 +19,8 @@ import java.time.LocalDateTime;
 @Service
 @Transactional(readOnly = true)
 public class IpBlockService {
+    private static final int MAX_REASON_LENGTH = 255;
+
     private final IpBlockRepository ipBlockRepository;
     private final ModerationActorResolver moderationActorResolver;
 
@@ -36,13 +39,15 @@ public class IpBlockService {
         if (endDate != null && !endDate.isAfter(now)) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "endDate must be in the future");
         }
-
-        if (ipBlockRepository.findActiveByIpAddress(ipAddress, now).isPresent()) {
-            throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE);
+        if (reason != null && reason.length() > MAX_REASON_LENGTH) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "reason must be 255 characters or less");
         }
 
-        IpBlock ipBlock = ipBlockRepository.findById(ipAddress)
+        IpBlock ipBlock = ipBlockRepository.findByIdForUpdate(ipAddress)
                 .map(existingIpBlock -> {
+                    if (existingIpBlock.isActiveAt(now)) {
+                        throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE);
+                    }
                     existingIpBlock.reactivate(admin, reason, now, endDate);
                     return existingIpBlock;
                 })
@@ -54,7 +59,11 @@ public class IpBlockService {
                         .endDate(endDate)
                         .build());
 
-        return IpBlockResponse.from(ipBlockRepository.save(ipBlock));
+        try {
+            return IpBlockResponse.from(ipBlockRepository.saveAndFlush(ipBlock));
+        } catch (DataIntegrityViolationException exception) {
+            throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE);
+        }
     }
 
     @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")

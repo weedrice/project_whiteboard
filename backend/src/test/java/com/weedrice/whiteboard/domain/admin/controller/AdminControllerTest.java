@@ -9,6 +9,7 @@ import com.weedrice.whiteboard.domain.admin.dto.IpBlockResponse;
 import com.weedrice.whiteboard.domain.admin.dto.SuperAdminRequest;
 import com.weedrice.whiteboard.domain.admin.dto.SuperAdminResponse;
 import com.weedrice.whiteboard.domain.admin.dto.SuperAdminUpdateResponse;
+import com.weedrice.whiteboard.domain.admin.entity.AdminRole;
 import com.weedrice.whiteboard.domain.admin.interceptor.IpBlockInterceptor;
 import com.weedrice.whiteboard.domain.admin.service.AdminAssignmentService;
 import com.weedrice.whiteboard.domain.admin.service.AdminDashboardService;
@@ -182,10 +183,10 @@ class AdminControllerTest {
         AdminCreateRequest request = new AdminCreateRequest();
         ReflectionTestUtils.setField(request, "loginId", "admin");
         ReflectionTestUtils.setField(request, "boardId", 1L);
-        ReflectionTestUtils.setField(request, "role", "BOARD_ADMIN");
+        ReflectionTestUtils.setField(request, "role", AdminRole.BOARD_ADMIN);
 
         AdminResponse response = AdminResponse.builder().adminId(1L).role("BOARD_ADMIN").isActive(true).build();
-        when(adminAssignmentService.createAdmin("admin", 1L, "BOARD_ADMIN")).thenReturn(response);
+        when(adminAssignmentService.createAdmin("admin", 1L, AdminRole.BOARD_ADMIN)).thenReturn(response);
 
         mockMvc.perform(post("/api/v1/admin/admins")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -195,6 +196,23 @@ class AdminControllerTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.adminId").value(1L));
+    }
+
+    @Test
+    @DisplayName("지원하지 않는 role 로 관리자 생성 요청 시 400을 반환한다")
+    void createAdmin_returnsBadRequestWhenRoleIsInvalid() throws Exception {
+        mockMvc.perform(post("/api/v1/admin/admins")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "loginId": "admin",
+                                  "boardId": 1,
+                                  "role": "SUPER_ADMIN"
+                                }
+                                """)
+                        .with(user(customUserDetails))
+                        .with(csrf()))
+                .andExpect(status().isBadRequest());
     }
 
     @Test

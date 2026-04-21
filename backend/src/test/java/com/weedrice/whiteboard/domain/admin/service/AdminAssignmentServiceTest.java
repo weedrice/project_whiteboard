@@ -2,12 +2,15 @@ package com.weedrice.whiteboard.domain.admin.service;
 
 import com.weedrice.whiteboard.domain.admin.dto.AdminResponse;
 import com.weedrice.whiteboard.domain.admin.entity.Admin;
+import com.weedrice.whiteboard.domain.admin.entity.AdminRole;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.global.exception.BusinessException;
+import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -22,6 +25,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -80,7 +84,7 @@ class AdminAssignmentServiceTest {
                 .thenReturn(Optional.empty());
         when(adminRepository.saveAndFlush(any(Admin.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        AdminResponse response = adminAssignmentService.createAdmin("testUser", 10L, Role.BOARD_ADMIN);
+        AdminResponse response = adminAssignmentService.createAdmin("testUser", 10L, AdminRole.BOARD_ADMIN);
 
         assertThat(response.getRole()).isEqualTo(Role.BOARD_ADMIN);
         assertThat(currentManager.getIsActive()).isFalse();
@@ -101,11 +105,22 @@ class AdminAssignmentServiceTest {
                 user, board, Role.BOARD_ADMIN, false))
                 .thenReturn(Optional.of(inactiveManager));
 
-        AdminResponse response = adminAssignmentService.createAdmin("testUser", 10L, Role.BOARD_ADMIN);
+        AdminResponse response = adminAssignmentService.createAdmin("testUser", 10L, AdminRole.BOARD_ADMIN);
 
         assertThat(response.getRole()).isEqualTo(Role.BOARD_ADMIN);
         assertThat(inactiveManager.getIsActive()).isTrue();
         verify(adminRepository, never()).saveAndFlush(any(Admin.class));
+    }
+
+    @Test
+    @DisplayName("role 이 없으면 검증 오류를 반환한다")
+    void createAdmin_requiresRole() {
+        assertThatThrownBy(() -> adminAssignmentService.createAdmin("testUser", 10L, null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VALIDATION_ERROR);
+
+        verify(userRepository, never()).findByLoginId(any());
+        verify(boardRepository, never()).findByIdForUpdate(any());
     }
 
     @Test
@@ -123,7 +138,7 @@ class AdminAssignmentServiceTest {
                 user, board, "MODERATOR", false))
                 .thenReturn(Optional.of(inactiveAdmin));
 
-        AdminResponse response = adminAssignmentService.createAdmin("testUser", 10L, "MODERATOR");
+        AdminResponse response = adminAssignmentService.createAdmin("testUser", 10L, AdminRole.MODERATOR);
 
         assertThat(response.getRole()).isEqualTo("MODERATOR");
         assertThat(inactiveAdmin.getIsActive()).isTrue();
@@ -146,7 +161,7 @@ class AdminAssignmentServiceTest {
                 .thenThrow(new DataIntegrityViolationException("duplicate admin"));
 
         org.assertj.core.api.ThrowableAssert.ThrowingCallable action =
-                () -> adminAssignmentService.createAdmin("testUser", 10L, "MODERATOR");
+                () -> adminAssignmentService.createAdmin("testUser", 10L, AdminRole.MODERATOR);
 
         org.assertj.core.api.Assertions.assertThatThrownBy(action)
                 .isInstanceOf(com.weedrice.whiteboard.global.exception.BusinessException.class)
@@ -166,7 +181,7 @@ class AdminAssignmentServiceTest {
                 .thenReturn(Optional.of(activeAdmin));
 
         org.assertj.core.api.Assertions.assertThatThrownBy(
-                () -> adminAssignmentService.createAdmin("testUser", 10L, "MODERATOR"))
+                () -> adminAssignmentService.createAdmin("testUser", 10L, AdminRole.MODERATOR))
                 .isInstanceOf(com.weedrice.whiteboard.global.exception.BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", com.weedrice.whiteboard.global.exception.ErrorCode.DUPLICATE_RESOURCE);
 
@@ -265,7 +280,7 @@ class AdminAssignmentServiceTest {
         when(adminRepository.findByBoardAndRoleAndIsActive(board, Role.BOARD_ADMIN, true))
                 .thenReturn(List.of(olderDuplicate, latestDuplicate, anotherActiveManager));
 
-        AdminResponse response = adminAssignmentService.createAdmin("testUser", 10L, Role.BOARD_ADMIN);
+        AdminResponse response = adminAssignmentService.createAdmin("testUser", 10L, AdminRole.BOARD_ADMIN);
 
         assertThat(response.getAdminId()).isEqualTo(110L);
         assertThat(latestDuplicate.getIsActive()).isTrue();

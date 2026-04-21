@@ -127,10 +127,21 @@ describe('useAdmin', () => {
 
             vi.mocked(adminApi.createAdmin).mockResolvedValue({ data: { success: true } } as any)
 
-            await mutation.mutateAsync({ loginId: 'newadmin', boardId: 1 })
+            await mutation.mutateAsync({ loginId: 'newadmin', boardId: 1, role: 'BOARD_ADMIN' })
 
-            expect(adminApi.createAdmin).toHaveBeenCalledWith({ loginId: 'newadmin', boardId: 1 })
+            expect(adminApi.createAdmin).toHaveBeenCalledWith({ loginId: 'newadmin', boardId: 1, role: 'BOARD_ADMIN' })
             expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['admin', 'admins'] })
+        })
+
+        it('useCreateAdmin accepts moderator role', async () => {
+            const { useCreateAdmin } = useAdmin()
+            const mutation = useCreateAdmin()
+
+            vi.mocked(adminApi.createAdmin).mockResolvedValue({ data: { success: true } } as any)
+
+            await mutation.mutateAsync({ loginId: 'modadmin', boardId: 1, role: 'MODERATOR' })
+
+            expect(adminApi.createAdmin).toHaveBeenCalledWith({ loginId: 'modadmin', boardId: 1, role: 'MODERATOR' })
         })
 
         it('useUpdateAdminStatus calls activate API', async () => {
@@ -489,8 +500,13 @@ describe('useAdmin', () => {
             vi.mocked(adminApi.getBoardManager).mockResolvedValueOnce({ data: { data: { adminId: 99 } } } as any)
 
             useBoardManager(boardId)
-            const query = mockQueryOptions.at(-1) as { queryFn: () => Promise<unknown> }
+            const query = mockQueryOptions.at(-1) as {
+                queryKey: { value: unknown[] } | unknown[]
+                queryFn: () => Promise<unknown>
+            }
             await expect(query.queryFn()).resolves.toEqual({ adminId: 99 })
+            const resolvedQueryKey = Array.isArray(query.queryKey) ? query.queryKey : query.queryKey.value
+            expect(resolvedQueryKey).toEqual(['admin', 'board-manager', 3])
             expect(adminApi.getBoardManager).toHaveBeenCalledWith(3)
         })
 

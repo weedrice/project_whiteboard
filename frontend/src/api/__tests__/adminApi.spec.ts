@@ -83,14 +83,16 @@ describe('adminApi - Other Endpoints', () => {
 
     it('calls admin management endpoints correctly', () => {
         adminApi.getAdmins({ page: 0, size: 20 })
-        adminApi.createAdmin({ loginId: 'testadmin' })
+        adminApi.createAdmin({ loginId: 'testadmin', boardId: 1, role: 'BOARD_ADMIN' })
+        adminApi.createAdmin({ loginId: 'modadmin', boardId: 1, role: 'MODERATOR' })
         adminApi.activateAdmin(1)
         adminApi.deactivateAdmin(1)
         adminApi.getBoardManager(3)
         adminApi.updateBoardManager(3, { loginId: 'next' })
 
         expect(apiMock.get).toHaveBeenNthCalledWith(1, '/admin/admins', { params: { page: 0, size: 20 } })
-        expect(apiMock.post).toHaveBeenNthCalledWith(1, '/admin/admins', { loginId: 'testadmin' })
+        expect(apiMock.post).toHaveBeenNthCalledWith(1, '/admin/admins', { loginId: 'testadmin', boardId: 1, role: 'BOARD_ADMIN' })
+        expect(apiMock.post).toHaveBeenNthCalledWith(2, '/admin/admins', { loginId: 'modadmin', boardId: 1, role: 'MODERATOR' })
         expect(apiMock.put).toHaveBeenNthCalledWith(1, '/admin/admins/1/activate')
         expect(apiMock.put).toHaveBeenNthCalledWith(2, '/admin/admins/1/deactivate')
         expect(apiMock.get).toHaveBeenNthCalledWith(2, '/admin/boards/3/manager')

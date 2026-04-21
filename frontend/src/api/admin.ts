@@ -22,11 +22,13 @@ import type {
     MyComment
 } from '@/types'
 
+export type AdminRole = 'BOARD_ADMIN' | 'MODERATOR'
+
 // Admin types
 interface AdminCreateData {
     loginId: string
-    boardId?: number
-    role?: string
+    boardId: number
+    role: AdminRole
 }
 
 interface SuperAdminData {
@@ -77,7 +79,7 @@ export const adminApi = {
         return api.get<ApiResponse<PageResponse<BoardAdminInfo>>>('/admin/admins', { params })
     },
     createAdmin(data: AdminCreateData) {
-        return api.post<ApiResponse<void>>('/admin/admins', data)
+        return api.post<ApiResponse<BoardAdminInfo>>('/admin/admins', data)
     },
     deactivateAdmin(adminId: string | number) {
         return api.put<ApiResponse<void>>(`/admin/admins/${adminId}/deactivate`)
@@ -106,7 +108,7 @@ export const adminApi = {
         return api.get<ApiResponse<PageResponse<IpBlock>>>('/admin/ip-blocks', { params })
     },
     blockIp(data: IpBlockData) {
-        return api.post<ApiResponse<void>>('/admin/ip-blocks', data)
+        return api.post<ApiResponse<IpBlock>>('/admin/ip-blocks', data)
     },
     unblockIp(ipAddress: string) {
         return api.delete<ApiResponse<void>>(`/admin/ip-blocks/${ipAddress}`)

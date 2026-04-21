@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.admin.service;
 
 import com.weedrice.whiteboard.domain.admin.dto.AdminResponse;
 import com.weedrice.whiteboard.domain.admin.entity.Admin;
+import com.weedrice.whiteboard.domain.admin.entity.AdminRole;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
@@ -28,29 +29,34 @@ public class AdminAssignmentService {
 
     @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
     @Transactional
-    public AdminResponse createAdmin(String loginId, Long boardId, String role) {
+    public AdminResponse createAdmin(String loginId, Long boardId, AdminRole role) {
         if (boardId == null) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "boardId is required");
         }
+        if (role == null) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "role is required");
+        }
+
+        String roleValue = role.name();
 
         User user = userRepository.findByLoginId(loginId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         Board board = boardRepository.findByIdForUpdate(boardId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
 
-        if (Role.BOARD_ADMIN.equals(role)) {
+        if (role == AdminRole.BOARD_ADMIN) {
             return assignBoardAdmin(user, board);
         }
 
         Admin activeAdmin = adminRepository
-                .findFirstByUserAndBoardAndRoleAndIsActiveOrderByAdminIdDesc(user, board, role, true)
+                .findFirstByUserAndBoardAndRoleAndIsActiveOrderByAdminIdDesc(user, board, roleValue, true)
                 .orElse(null);
         if (activeAdmin != null) {
             throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE);
         }
 
         Admin reusableAdmin = adminRepository
-                .findFirstByUserAndBoardAndRoleAndIsActiveOrderByAdminIdDesc(user, board, role, false)
+                .findFirstByUserAndBoardAndRoleAndIsActiveOrderByAdminIdDesc(user, board, roleValue, false)
                 .orElse(null);
         if (reusableAdmin != null) {
             reusableAdmin.activate();
@@ -60,7 +66,7 @@ public class AdminAssignmentService {
         Admin admin = Admin.builder()
                 .user(user)
                 .board(board)
-                .role(role)
+                .role(roleValue)
                 .build();
         return saveAndMapDuplicate(admin);
     }
@@ -79,7 +85,7 @@ public class AdminAssignmentService {
     @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
     @Transactional
     public AdminResponse replaceBoardManager(Long boardId, String loginId) {
-        return createAdmin(loginId, boardId, Role.BOARD_ADMIN);
+        return createAdmin(loginId, boardId, AdminRole.BOARD_ADMIN);
     }
 
     @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")

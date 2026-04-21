@@ -15,6 +15,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -92,15 +93,14 @@ class IpBlockServiceTest {
         String ipAddress = "127.0.0.1";
 
         when(moderationActorResolver.resolveActiveAdmin(1L)).thenReturn(admin);
-        when(ipBlockRepository.findActiveByIpAddress(eq(ipAddress), any(LocalDateTime.class))).thenReturn(Optional.empty());
-        when(ipBlockRepository.findById(ipAddress)).thenReturn(Optional.empty());
-        when(ipBlockRepository.save(any(IpBlock.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(ipBlockRepository.findByIdForUpdate(ipAddress)).thenReturn(Optional.empty());
+        when(ipBlockRepository.saveAndFlush(any(IpBlock.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         IpBlockResponse response = ipBlockService.blockIp(1L, ipAddress, "test", null);
 
         assertThat(response.getIpAddress()).isEqualTo(ipAddress);
         assertThat(response.getAdmin().getAdminId()).isEqualTo(admin.getAdminId());
-        verify(ipBlockRepository).save(any(IpBlock.class));
+        verify(ipBlockRepository).saveAndFlush(any(IpBlock.class));
     }
 
     @Test
@@ -130,7 +130,7 @@ class IpBlockServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
 
-        verify(ipBlockRepository, never()).findActiveByIpAddress(any(), any());
+        verify(ipBlockRepository, never()).findByIdForUpdate(any());
     }
 
     @Test
@@ -147,6 +147,19 @@ class IpBlockServiceTest {
     }
 
     @Test
+    @DisplayName("차단 사유가 너무 길면 검증 오류를 반환한다")
+    void blockIp_rejectsTooLongReason() {
+        String reason = "a".repeat(256);
+
+        assertThatThrownBy(() -> ipBlockService.blockIp(1L, "127.0.0.1", reason, null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VALIDATION_ERROR);
+
+        verify(ipBlockRepository, never()).findByIdForUpdate(any());
+        verify(ipBlockRepository, never()).saveAndFlush(any(IpBlock.class));
+    }
+
+    @Test
     @DisplayName("활성 차단이 이미 있으면 중복으로 막는다")
     void blockIp_duplicateWhenActiveBlockExists() {
         String ipAddress = "127.0.0.1";
@@ -158,8 +171,7 @@ class IpBlockServiceTest {
                 .endDate(null)
                 .build();
 
-        when(ipBlockRepository.findActiveByIpAddress(eq(ipAddress), any(LocalDateTime.class)))
-                .thenReturn(Optional.of(activeBlock));
+        when(ipBlockRepository.findByIdForUpdate(ipAddress)).thenReturn(Optional.of(activeBlock));
 
         assertThatThrownBy(() -> ipBlockService.blockIp(1L, ipAddress, "test", null))
                 .isInstanceOf(BusinessException.class)
@@ -182,9 +194,8 @@ class IpBlockServiceTest {
                 .endDate(expiredAt)
                 .build();
 
-        when(ipBlockRepository.findActiveByIpAddress(eq(ipAddress), any(LocalDateTime.class))).thenReturn(Optional.empty());
-        when(ipBlockRepository.findById(ipAddress)).thenReturn(Optional.of(expiredBlock));
-        when(ipBlockRepository.save(expiredBlock)).thenReturn(expiredBlock);
+        when(ipBlockRepository.findByIdForUpdate(ipAddress)).thenReturn(Optional.of(expiredBlock));
+        when(ipBlockRepository.saveAndFlush(expiredBlock)).thenReturn(expiredBlock);
 
         IpBlockResponse response = ipBlockService.blockIp(1L, ipAddress, "renewed", newEndDate);
 
@@ -192,7 +203,21 @@ class IpBlockServiceTest {
         assertThat(expiredBlock.getReason()).isEqualTo("renewed");
         assertThat(expiredBlock.getEndDate()).isEqualTo(newEndDate);
         assertThat(expiredBlock.isActiveAt(LocalDateTime.now())).isTrue();
-        verify(ipBlockRepository).save(expiredBlock);
+        verify(ipBlockRepository).saveAndFlush(expiredBlock);
+    }
+
+    @Test
+    @DisplayName("동시 차단으로 저장 충돌이 나면 DUPLICATE_RESOURCE로 변환한다")
+    void blockIp_mapsDuplicateSaveConflict() {
+        String ipAddress = "127.0.0.1";
+
+        when(ipBlockRepository.findByIdForUpdate(ipAddress)).thenReturn(Optional.empty());
+        when(ipBlockRepository.saveAndFlush(any(IpBlock.class)))
+                .thenThrow(new DataIntegrityViolationException("duplicate ip block"));
+
+        assertThatThrownBy(() -> ipBlockService.blockIp(1L, ipAddress, "test", null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.DUPLICATE_RESOURCE);
     }
 
     @Test

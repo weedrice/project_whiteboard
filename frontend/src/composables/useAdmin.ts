@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
-import { adminApi } from '@/api/admin'
+import { adminApi, type AdminRole } from '@/api/admin'
 import { computed, type Ref } from 'vue'
 import type {
     SanctionData,
@@ -21,8 +21,8 @@ import type {
 // Admin specific types
 interface AdminCreateData {
     loginId: string
-    boardId?: number
-    role?: string
+    boardId: number
+    role: AdminRole
 }
 
 interface UserSearchParams {
@@ -357,8 +357,10 @@ export function useAdmin() {
     }
 
     const useBoardManager = (boardId: Ref<number | null>) => {
+        const boardManagerQueryKey = computed(() => ['admin', 'board-manager', boardId.value])
+
         return useQuery({
-            queryKey: ['admin', 'board-manager', boardId],
+            queryKey: boardManagerQueryKey,
             queryFn: async () => {
                 if (!boardId.value) return null
                 const { data } = await adminApi.getBoardManager(boardId.value)

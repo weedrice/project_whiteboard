@@ -100,7 +100,8 @@ watch(totalPages, (nextTotalPages) => {
                 </div>
                 <div class="w-full sm:max-w-md">
                     <BaseInput id="reason" v-model="blockReason" name="reason" type="text"
-                        :label="t('admin.security.reason')" :placeholder="t('admin.security.reasonPlaceholder')" />
+                        :label="t('admin.security.reason')" :placeholder="t('admin.security.reasonPlaceholder')"
+                        maxlength="255" />
                 </div>
                 <BaseButton type="submit" variant="danger" class="mt-3 sm:mt-0">
                     <Shield class="h-4 w-4 mr-2" />
