@@ -11,6 +11,7 @@ import org.springframework.data.jpa.repository.Query;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 public interface CommentRepository extends JpaRepository<Comment, Long>, CommentRepositoryCustom {
         interface LatestCommentAuthorProjection {
@@ -132,6 +133,7 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
 
         long countByPost_PostIdAndIsDeleted(Long postId, Boolean isDeleted);
         long countByAgent_AgentIdAndCreatedAtBetween(Long agentId, LocalDateTime start, LocalDateTime end);
+        Optional<Comment> findByCommentIdAndPost_PostId(Long commentId, Long postId);
 
         long countByUser(User user);
         long countByUserAndIsDeleted(User user, Boolean isDeleted);

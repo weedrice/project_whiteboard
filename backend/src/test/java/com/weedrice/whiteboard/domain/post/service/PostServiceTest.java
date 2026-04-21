@@ -881,10 +881,11 @@ class PostServiceTest {
     void updateViewHistory_new() {
         ViewHistoryRequest request = new ViewHistoryRequest(100L, 5000L); // commentId, duration
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(postRepository.findById(1L)).thenReturn(Optional.of(post));
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
         when(viewHistoryRepository.findByUserAndPost(user, post)).thenReturn(Optional.empty());
         when(viewHistoryRepository.saveAndFlush(any(ViewHistory.class))).thenAnswer(i -> i.getArgument(0));
-        when(commentRepository.findById(100L)).thenReturn(Optional.of(Comment.builder().build()));
+        when(commentRepository.findByCommentIdAndPost_PostId(100L, 1L))
+                .thenReturn(Optional.of(Comment.builder().post(post).build()));
 
         postService.updateViewHistory(1L, 1L, request);
 
@@ -898,13 +899,14 @@ class PostServiceTest {
         ViewHistory existing = ViewHistory.builder().user(user).post(post).build();
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(postRepository.findById(1L)).thenReturn(Optional.of(post));
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
         when(viewHistoryRepository.findByUserAndPost(user, post))
                 .thenReturn(Optional.empty())
                 .thenReturn(Optional.of(existing));
         when(viewHistoryRepository.saveAndFlush(any(ViewHistory.class)))
                 .thenThrow(new DataIntegrityViolationException("duplicate"));
-        when(commentRepository.findById(100L)).thenReturn(Optional.of(Comment.builder().build()));
+        when(commentRepository.findByCommentIdAndPost_PostId(100L, 1L))
+                .thenReturn(Optional.of(Comment.builder().post(post).build()));
 
         postService.updateViewHistory(1L, 1L, request);
 
@@ -1128,7 +1130,7 @@ class PostServiceTest {
     @Test
     @DisplayName("조회수 증가")
     void incrementViewCount_success() {
-        when(postRepository.findById(1L)).thenReturn(Optional.of(post));
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
 
         postService.incrementViewCount(1L);
 
@@ -1615,13 +1617,13 @@ class PostServiceTest {
     void updateViewHistory_nullCommentId() {
         ViewHistoryRequest request = new ViewHistoryRequest(null, 1000L);
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(postRepository.findById(1L)).thenReturn(Optional.of(post));
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
         when(viewHistoryRepository.findByUserAndPost(user, post)).thenReturn(Optional.empty());
         when(viewHistoryRepository.saveAndFlush(any(ViewHistory.class))).thenAnswer(i -> i.getArgument(0));
 
         postService.updateViewHistory(1L, 1L, request);
 
-        verify(commentRepository, never()).findById(any());
+        verify(commentRepository, never()).findByCommentIdAndPost_PostId(anyLong(), anyLong());
     }
 
     @Test
@@ -1629,12 +1631,84 @@ class PostServiceTest {
     void updateViewHistory_nullDuration() {
         ViewHistoryRequest request = new ViewHistoryRequest(null, null);
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(postRepository.findById(1L)).thenReturn(Optional.of(post));
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
         when(viewHistoryRepository.findByUserAndPost(user, post)).thenReturn(Optional.empty());
         when(viewHistoryRepository.saveAndFlush(any(ViewHistory.class))).thenAnswer(i -> i.getArgument(0));
 
         postService.updateViewHistory(1L, 1L, request);
 
         verify(viewHistoryRepository).saveAndFlush(any(ViewHistory.class));
+    }
+
+    @Test
+    @DisplayName("조회수 적립 - 공개글은 익명 사용자도 허용")
+    void incrementViewCount_anonymousVisiblePost_success() {
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+
+        postService.incrementViewCount(1L, null);
+
+        assertThat(post.getViewCount()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("조회수 적립 - 차단된 작성자 글은 실패")
+    void incrementViewCount_blockedAuthor_throwsPostNotFound() {
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userBlockService.getBlockedUserIds(1L)).thenReturn(List.of(user.getUserId()));
+
+        assertThatThrownBy(() -> postService.incrementViewCount(1L, 1L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("조회 이력 업데이트 - 음수 체류 시간은 실패")
+    void updateViewHistory_negativeDuration_throwsInvalidInput() {
+        ViewHistoryRequest request = new ViewHistoryRequest(null, -1L);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+
+        assertThatThrownBy(() -> postService.updateViewHistory(1L, 1L, request))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+    }
+
+    @Test
+    @DisplayName("조회 이력 업데이트 - 다른 게시글 댓글은 실패")
+    void updateViewHistory_commentFromAnotherPost_throwsInvalidInput() {
+        ViewHistoryRequest request = new ViewHistoryRequest(200L, 1000L);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+        when(commentRepository.findByCommentIdAndPost_PostId(200L, 1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> postService.updateViewHistory(1L, 1L, request))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+    }
+
+    @Test
+    @DisplayName("조회 이력 업데이트 - 비정상적으로 큰 체류 시간은 실패")
+    void updateViewHistory_excessiveDuration_throwsInvalidInput() {
+        ViewHistoryRequest request = new ViewHistoryRequest(null, 86_400_001L);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+
+        assertThatThrownBy(() -> postService.updateViewHistory(1L, 1L, request))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+    }
+
+    @Test
+    @DisplayName("조회 이력 업데이트 - 비공개 또는 삭제 글은 실패")
+    void updateViewHistory_unreadablePost_throwsPostNotFound() {
+        ViewHistoryRequest request = new ViewHistoryRequest(null, 1000L);
+        ReflectionTestUtils.setField(post, "isDeleted", true);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+
+        assertThatThrownBy(() -> postService.updateViewHistory(1L, 1L, request))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
     }
 }

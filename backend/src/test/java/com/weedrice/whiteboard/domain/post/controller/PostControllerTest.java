@@ -241,12 +241,27 @@ class PostControllerTest {
         @DisplayName("조회수 증가 성공")
         void incrementPostView_success() throws Exception {
             Long postId = 1L;
-            doNothing().when(postService).incrementViewCount(eq(postId));
+            doNothing().when(postService).incrementViewCount(eq(postId), isNull());
 
             mockMvc.perform(post("/api/v1/posts/{postId}/view", postId))
                     .andExpect(status().isOk());
+
+            verify(postService).incrementViewCount(postId, null);
         }
-        
+
+        @Test
+        @DisplayName("조회수 증가 - 인증 사용자 전달")
+        void incrementPostView_authenticatedUser_success() throws Exception {
+            Long postId = 1L;
+            doNothing().when(postService).incrementViewCount(eq(postId), eq(1L));
+
+            mockMvc.perform(post("/api/v1/posts/{postId}/view", postId)
+                    .with(user(customUserDetails)))
+                    .andExpect(status().isOk());
+
+            verify(postService).incrementViewCount(postId, 1L);
+        }
+
         @Test
         @DisplayName("조회 기록 업데이트 성공")
         void updateViewHistory_success() throws Exception {
@@ -259,6 +274,35 @@ class PostControllerTest {
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(request)))
                     .andExpect(status().isOk());
+        }
+
+        @Test
+        @DisplayName("조회 기록 업데이트 - 음수 체류 시간은 400")
+        void updateViewHistory_negativeDuration_validationFailure() throws Exception {
+            Long postId = 1L;
+            ViewHistoryRequest request = new ViewHistoryRequest(100L, -1L);
+
+            mockMvc.perform(put("/api/v1/posts/{postId}/history", postId)
+                    .with(user(customUserDetails))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isBadRequest());
+
+            verify(postService, never()).updateViewHistory(anyLong(), anyLong(), any(ViewHistoryRequest.class));
+        }
+
+        @Test
+        @DisplayName("조회 기록 업데이트 - 비인증 사용자는 401")
+        void updateViewHistory_unauthorized() throws Exception {
+            Long postId = 1L;
+            ViewHistoryRequest request = new ViewHistoryRequest(100L, 0L);
+
+            mockMvc.perform(put("/api/v1/posts/{postId}/history", postId)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isUnauthorized());
+
+            verify(postService, never()).updateViewHistory(anyLong(), anyLong(), any(ViewHistoryRequest.class));
         }
     }
 

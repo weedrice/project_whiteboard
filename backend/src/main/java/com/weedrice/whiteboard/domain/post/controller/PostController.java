@@ -75,16 +75,21 @@ public class PostController {
     }
 
     @PostMapping("/posts/{postId}/view")
-    public ApiResponse<Void> incrementPostView(@PathVariable Long postId) {
-        postService.incrementViewCount(postId);
+    public ApiResponse<Void> incrementPostView(@PathVariable Long postId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        Long userId = (userDetails != null) ? userDetails.getUserId() : null;
+        postService.incrementViewCount(postId, userId);
         return ApiResponse.success(null);
     }
 
     @PutMapping("/posts/{postId}/history")
     public ApiResponse<Void> updateViewHistory(
             @PathVariable Long postId,
-            @RequestBody ViewHistoryRequest request,
+            @Valid @RequestBody ViewHistoryRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
+        if (userDetails == null || userDetails.getUserId() == null) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED);
+        }
         postService.updateViewHistory(userDetails.getUserId(), postId, request);
         return ApiResponse.success(null);
     }

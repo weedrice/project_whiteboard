@@ -56,6 +56,7 @@ import java.util.stream.Collectors;
 public class PostService {
     private static final String DEFAULT_INQUIRY_BOARD_URL = "inquiry";
     private static final String DEFAULT_CATEGORY_NAME = "\uC77C\uBC18";
+    private static final long MAX_VIEW_DURATION_MS = 86_400_000L;
 
     private final PostRepository postRepository;
     private final BoardRepository boardRepository;
@@ -203,18 +204,8 @@ public class PostService {
 
     @Transactional
     public Post getPostById(@NonNull Long postId, Long userId, boolean incrementView) {
-        Post post = postRepository.findByIdWithRelations(postId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
-
-        User viewer = null;
-        boolean authorBlocked = false;
-        if (userId != null) {
-            List<Long> blockedUserIds = userBlockService.getBlockedUserIds(userId);
-            authorBlocked = blockedUserIds != null && blockedUserIds.contains(post.getUser().getUserId());
-            viewer = userRepository.findById(userId)
-                    .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        }
-        postAccessPolicy.validateReadable(post, viewer, authorBlocked);
+        User viewer = getViewer(userId);
+        Post post = getReadablePost(postId, viewer);
 
         if (incrementView) {
             post.incrementViewCount();
@@ -285,25 +276,26 @@ public class PostService {
 
     @Transactional
     public void updateViewHistory(@NonNull Long userId, @NonNull Long postId, ViewHistoryRequest request) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        Post post = postRepository.findById(postId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
-
-        ViewHistory viewHistory = getOrCreateViewHistory(user, post);
-
-        Comment lastReadComment = null;
-        if (request.getLastReadCommentId() != null) {
-            lastReadComment = commentRepository.findById(request.getLastReadCommentId()).orElse(null);
+        User user = getViewer(userId);
+        Post post = getReadablePost(postId, user);
+        long durationMs = resolveDurationMs(request);
+        Comment lastReadComment = resolveLastReadComment(postId, request.getLastReadCommentId());
+        ViewHistory viewHistory = viewHistoryRepository.findByUserAndPost(user, post).orElse(null);
+        validateDurationAccumulation(viewHistory != null ? viewHistory.getDurationMs() : 0L, durationMs);
+        if (viewHistory == null) {
+            viewHistory = createViewHistory(user, post);
         }
-
-        viewHistory.updateView(lastReadComment, request.getDurationMs() != null ? request.getDurationMs() : 0L);
+        viewHistory.updateView(lastReadComment, durationMs);
     }
 
     @Transactional
     public void incrementViewCount(@NonNull Long postId) {
-        Post post = postRepository.findById(postId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
+        incrementViewCount(postId, null);
+    }
+
+    @Transactional
+    public void incrementViewCount(@NonNull Long postId, Long userId) {
+        Post post = getReadablePost(postId, getViewer(userId));
         post.incrementViewCount();
     }
 
@@ -319,6 +311,55 @@ public class PostService {
             return viewHistoryRepository.findByUserAndPost(user, post)
                     .orElseThrow(() -> ex);
         }
+    }
+
+    private long resolveDurationMs(ViewHistoryRequest request) {
+        Long durationMs = request.getDurationMs();
+        if (durationMs == null) {
+            return 0L;
+        }
+        if (durationMs < 0 || durationMs > MAX_VIEW_DURATION_MS) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        return durationMs;
+    }
+
+    private void validateDurationAccumulation(long currentDurationMs, long durationMs) {
+        if (durationMs > 0 && currentDurationMs > Long.MAX_VALUE - durationMs) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+    }
+
+    private Comment resolveLastReadComment(Long postId, Long lastReadCommentId) {
+        if (lastReadCommentId == null) {
+            return null;
+        }
+        return commentRepository.findByCommentIdAndPost_PostId(lastReadCommentId, postId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_INPUT_VALUE));
+    }
+
+    private User getViewer(Long userId) {
+        if (userId == null) {
+            return null;
+        }
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+    }
+
+    private Post getReadablePost(@NonNull Long postId, User viewer) {
+        Post post = postRepository.findByIdWithRelations(postId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
+        validateReadable(post, viewer);
+        return post;
+    }
+
+    private void validateReadable(Post post, User viewer) {
+        boolean authorBlocked = false;
+        if (viewer != null) {
+            List<Long> blockedUserIds = userBlockService.getBlockedUserIds(viewer.getUserId());
+            authorBlocked = blockedUserIds != null && blockedUserIds.contains(post.getUser().getUserId());
+        }
+        postAccessPolicy.validateReadable(post, viewer, authorBlocked);
     }
 
     @Transactional
