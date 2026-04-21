@@ -27,6 +27,8 @@ import java.util.stream.Collectors;
 @Service
 @Transactional(readOnly = true)
 class BoardQueryService {
+    private static final int TOP_BOARD_LIMIT = 15;
+    private static final int TOP_BOARD_OVERFETCH_LIMIT = 100;
 
     private final BoardRepository boardRepository;
     private final BoardCategoryRepository boardCategoryRepository;
@@ -61,11 +63,17 @@ class BoardQueryService {
 
     List<BoardResponse> getTopBoards(UserDetails userDetails) {
         User currentUser = getCurrentUserOrNull(userDetails);
-        List<Board> boards = boardRepository.findTopBoardsByPostCount(PageRequest.of(0, 15));
-        List<Board> visibleBoards = boards.stream()
+        if (currentUser == null || !boardAccessPolicy.hasElevatedBoardVisibility(currentUser)) {
+            List<Board> boards = boardRepository.findTopPublicBoardsByPostCount(PageRequest.of(0, TOP_BOARD_LIMIT));
+            return boardResponseAssembler.assembleAll(boards, currentUser);
+        }
+
+        List<Board> visibleBoards = boardRepository.findTopBoardsByPostCount(PageRequest.of(0, TOP_BOARD_OVERFETCH_LIMIT))
+                .stream()
                 .filter(board -> !boardAccessPolicy.isInquiryBoard(board))
                 .filter(board -> boardAccessPolicy.canReadBoard(board, currentUser))
-                .collect(Collectors.toList());
+                .limit(TOP_BOARD_LIMIT)
+                .toList();
         return boardResponseAssembler.assembleAll(visibleBoards, currentUser);
     }
 

@@ -86,6 +86,7 @@ export interface Post {
 }
 
 export interface PostSummary {
+    rowNum?: number
     postId: number
     title: string
     viewCount: number

@@ -7,6 +7,7 @@ import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.comment.dto.CommentResponse;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.file.service.FileService;
+import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.search.dto.IntegratedSearchResponse;
@@ -27,6 +28,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -78,7 +80,7 @@ public class SearchService {
             blockedUserIds = userBlockService.getBlockedUserIds(currentUserId);
         }
 
-        Page<com.weedrice.whiteboard.domain.post.entity.Post> postPage = postRepository.searchPostsByKeyword(keyword,
+        Page<Post> postPage = postRepository.searchPostsByKeyword(keyword,
                 blockedUserIds, currentUserId, previewPageable);
         Page<PostSummary> posts = mapPostSummaries(postPage);
 
@@ -120,7 +122,7 @@ public class SearchService {
         if (currentUserId != null) {
             blockedUserIds = userBlockService.getBlockedUserIds(currentUserId);
         }
-        Page<com.weedrice.whiteboard.domain.post.entity.Post> postPage = postRepository.searchPosts(keyword, searchType,
+        Page<Post> postPage = postRepository.searchPosts(keyword, searchType,
                 boardUrl, blockedUserIds, includeSecret, currentUserId, pageable);
 
         return mapPostSummaries(postPage);
@@ -189,13 +191,17 @@ public class SearchService {
         return adminRepository.existsByUserAndBoardAndIsActive(user, board, true);
     }
 
-    private Page<PostSummary> mapPostSummaries(Page<com.weedrice.whiteboard.domain.post.entity.Post> postPage) {
+    private Page<PostSummary> mapPostSummaries(Page<Post> postPage) {
         List<Long> postIds = postPage.getContent().stream()
-                .map(com.weedrice.whiteboard.domain.post.entity.Post::getPostId)
+                .map(Post::getPostId)
                 .collect(Collectors.toList());
         Set<Long> postIdsWithImages = postIds.isEmpty()
                 ? Collections.emptySet()
                 : new HashSet<>(fileService.getRelatedIdsWithImages(postIds, "POST_CONTENT"));
+        long totalElements = postPage.getTotalElements();
+        int pageNumber = postPage.getNumber();
+        int pageSize = postPage.getSize();
+        boolean isAscending = isAscendingPostOrder(postPage.getPageable());
 
         List<PostSummary> content = postPage.getContent().stream()
                 .map(post -> {
@@ -205,6 +211,25 @@ public class SearchService {
                 })
                 .collect(Collectors.toList());
 
+        for (int index = 0; index < content.size(); index++) {
+            PostSummary summary = content.get(index);
+            if (isAscending) {
+                summary.setRowNum(((long) pageNumber * pageSize) + index + 1);
+                continue;
+            }
+            summary.setRowNum(totalElements - ((long) pageNumber * pageSize) - index);
+        }
+
         return new PageImpl<>(content, postPage.getPageable(), postPage.getTotalElements());
+    }
+
+    private boolean isAscendingPostOrder(Pageable pageable) {
+        for (Sort.Order order : pageable.getSort()) {
+            if (("createdAt".equals(order.getProperty()) || "postId".equals(order.getProperty()))
+                    && order.isAscending()) {
+                return true;
+            }
+        }
+        return false;
     }
 }

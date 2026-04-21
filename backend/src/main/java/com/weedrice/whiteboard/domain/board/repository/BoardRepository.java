@@ -37,8 +37,30 @@ public interface BoardRepository extends JpaRepository<Board, Long> {
     Optional<Board> findByBoardUrlForUpdate(@Param("boardUrl") String boardUrl);
 
     @EntityGraph(attributePaths = "creator")
-    @Query("SELECT p.board FROM Post p WHERE p.isDeleted = false AND p.board.isActive = true GROUP BY p.board ORDER BY COUNT(p) DESC")
+    @Query("""
+            SELECT b
+            FROM Post p
+            JOIN p.board b
+            WHERE p.isDeleted = false
+              AND b.isActive = true
+            GROUP BY b
+            ORDER BY COUNT(p) DESC, b.sortOrder ASC, b.boardId ASC
+            """)
     List<Board> findTopBoardsByPostCount(Pageable pageable);
+
+    @EntityGraph(attributePaths = "creator")
+    @Query("""
+            SELECT b
+            FROM Post p
+            JOIN p.board b
+            WHERE p.isDeleted = false
+              AND b.isActive = true
+              AND b.isPublic = true
+              AND LOWER(b.boardUrl) <> 'inquiry'
+            GROUP BY b
+            ORDER BY COUNT(p) DESC, b.sortOrder ASC, b.boardId ASC
+            """)
+    List<Board> findTopPublicBoardsByPostCount(Pageable pageable);
 
     @EntityGraph(attributePaths = "creator")
     List<Board> findAllByOrderBySortOrderAsc();

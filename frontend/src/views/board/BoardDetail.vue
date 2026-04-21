@@ -93,7 +93,7 @@ const buildBoardListRoute = () => ({
     query: route.query
 })
 
-type SortField = 'author' | 'category' | 'viewCount' | 'likeCount' | 'commentCount' | 'createdAt' | 'title'
+type SortField = 'author' | 'category' | 'viewCount' | 'likeCount' | 'commentCount' | 'createdAt' | 'title' | 'postId'
 
 const resolveSortField = (field: string): SortField => {
     switch (field) {
@@ -104,6 +104,7 @@ const resolveSortField = (field: string): SortField => {
         case 'commentCount':
         case 'createdAt':
         case 'title':
+        case 'postId':
             return field
         default:
             return 'createdAt'
@@ -124,6 +125,8 @@ const getSortValue = (post: PostSummary, field: SortField): string | number => {
             return post.commentCount || 0
         case 'title':
             return post.title || ''
+        case 'postId':
+            return post.postId || 0
         case 'createdAt':
         default:
             return post.createdAt || ''

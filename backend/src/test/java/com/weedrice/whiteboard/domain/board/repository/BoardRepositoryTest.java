@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.board.repository;
 
 import com.weedrice.whiteboard.domain.board.entity.Board;
+import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -119,6 +120,32 @@ class BoardRepositoryTest {
                 .containsExactly(first.getBoardId(), second.getBoardId());
     }
 
+    @Test
+    @DisplayName("인기 게시판 조회는 공개 활성 게시판만 남기고 동률은 sortOrder와 boardId로 정렬한다")
+    void findTopPublicBoardsByPostCount_filtersAndOrdersByTieBreakers() {
+        Board visibleTop = persistBoard("Visible Top", "visible-top", 30, true, true);
+        Board visibleTieFirst = persistBoard("Visible Tie First", "visible-tie-first", 10, true, true);
+        Board visibleTieSecond = persistBoard("Visible Tie Second", "visible-tie-second", 10, true, true);
+        Board privateBoard = persistBoard("Private Top", "private-top", 1, true, false);
+        Board inactiveBoard = persistBoard("Inactive Top", "inactive-top", 2, false, true);
+        Board inquiryBoard = persistBoard("Inquiry Top", "Inquiry", 3, true, true);
+
+        persistPosts(visibleTop, 4);
+        persistPosts(visibleTieFirst, 2);
+        persistPosts(visibleTieSecond, 2);
+        persistPosts(privateBoard, 6);
+        persistPosts(inactiveBoard, 5);
+        persistPosts(inquiryBoard, 7);
+
+        entityManager.flush();
+        entityManager.clear();
+
+        var boards = boardRepository.findTopPublicBoardsByPostCount(PageRequest.of(0, 10));
+
+        assertThat(boards).extracting(Board::getBoardName)
+                .containsExactly("Visible Top", "Visible Tie First", "Visible Tie Second");
+    }
+
     private Board persistBoard(String boardName, String boardUrl, int sortOrder, boolean isActive, boolean isPublic) {
         Board board = Board.builder()
                 .boardName(boardName)
@@ -132,5 +159,20 @@ class BoardRepositoryTest {
         }
         entityManager.persist(board);
         return board;
+    }
+
+    private void persistPosts(Board board, int count) {
+        for (int index = 0; index < count; index++) {
+            entityManager.persist(Post.builder()
+                    .title(board.getBoardName() + " Post " + index)
+                    .contents("contents")
+                    .user(creator)
+                    .board(board)
+                    .isNotice(false)
+                    .isNsfw(false)
+                    .isSpoiler(false)
+                    .isSecret(false)
+                    .build());
+        }
     }
 }

@@ -5,6 +5,8 @@ import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.file.service.FileService;
+import com.weedrice.whiteboard.domain.post.dto.PostSummary;
+import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.search.dto.PopularKeywordDto;
 import com.weedrice.whiteboard.domain.search.dto.SearchPersonalizationResponse;
@@ -27,8 +29,10 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.LocalDateTime;
 import java.time.LocalDate;
 import java.util.Collections;
 import java.util.List;
@@ -191,7 +195,81 @@ class SearchServiceTest {
     }
 
     @Test
+    @DisplayName("게시글 검색은 createdAt 내림차순 정렬일 때 rowNum을 역순으로 부여한다")
+    void searchPosts_assignsDescendingRowNumbers() {
+        Pageable pageable = PageRequest.of(1, 2, Sort.by(Sort.Order.desc("createdAt")));
+        var firstPost = post(11L, "first", LocalDateTime.of(2026, 4, 20, 10, 0));
+        var secondPost = post(10L, "second", LocalDateTime.of(2026, 4, 20, 9, 0));
+
+        when(postRepository.searchPosts(anyString(), any(), any(), any(), anyBoolean(), any(), eq(pageable)))
+                .thenReturn(new PageImpl<>(List.of(firstPost, secondPost), pageable, 5));
+        when(fileService.getRelatedIdsWithImages(List.of(11L, 10L), "POST_CONTENT"))
+                .thenReturn(Collections.emptyList());
+
+        Page<PostSummary> result = searchService.searchPosts(
+                "test", null, null, pageable, null);
+
+        assertThat(result.getContent()).extracting("rowNum").containsExactly(3L, 2L);
+    }
+
+    @Test
+    @DisplayName("게시글 검색은 createdAt 오름차순 정렬일 때 rowNum을 정순으로 부여한다")
+    void searchPosts_assignsAscendingRowNumbersForCreatedAtSort() {
+        Pageable pageable = PageRequest.of(1, 2, Sort.by(Sort.Order.asc("createdAt")));
+        var firstPost = post(10L, "first", LocalDateTime.of(2026, 4, 20, 9, 0));
+        var secondPost = post(11L, "second", LocalDateTime.of(2026, 4, 20, 10, 0));
+
+        when(postRepository.searchPosts(anyString(), any(), any(), any(), anyBoolean(), any(), eq(pageable)))
+                .thenReturn(new PageImpl<>(List.of(firstPost, secondPost), pageable, 5));
+        when(fileService.getRelatedIdsWithImages(List.of(10L, 11L), "POST_CONTENT"))
+                .thenReturn(Collections.emptyList());
+
+        Page<PostSummary> result = searchService.searchPosts(
+                "test", null, null, pageable, null);
+
+        assertThat(result.getContent()).extracting("rowNum").containsExactly(3L, 4L);
+    }
+
+    @Test
+    @DisplayName("게시글 검색은 postId 오름차순 정렬일 때 rowNum을 정순으로 부여한다")
+    void searchPosts_assignsAscendingRowNumbersForPostIdSort() {
+        Pageable pageable = PageRequest.of(0, 2, Sort.by(Sort.Order.asc("postId")));
+        var firstPost = post(10L, "first", LocalDateTime.of(2026, 4, 20, 9, 0));
+        var secondPost = post(11L, "second", LocalDateTime.of(2026, 4, 20, 10, 0));
+
+        when(postRepository.searchPosts(anyString(), any(), any(), any(), anyBoolean(), any(), eq(pageable)))
+                .thenReturn(new PageImpl<>(List.of(firstPost, secondPost), pageable, 5));
+        when(fileService.getRelatedIdsWithImages(List.of(10L, 11L), "POST_CONTENT"))
+                .thenReturn(Collections.emptyList());
+
+        Page<PostSummary> result = searchService.searchPosts(
+                "test", null, null, pageable, null);
+
+        assertThat(result.getContent()).extracting("rowNum").containsExactly(1L, 2L);
+    }
+
+    @Test
     @DisplayName("인기 검색어 조회 성공")
+    @Test
+    @DisplayName("寃뚯떆湲 寃?됱? createdAt ?ㅻ쫫李⑥닚???ы븿???ㅼ쨷 ?뺣젹??rowNum? ?뺤닚??留욌땲?ㅼ떎")
+    void searchPosts_assignsAscendingRowNumbersWhenCreatedAtAscendingAppearsInMultiSort() {
+        Pageable pageable = PageRequest.of(0, 2, Sort.by(Sort.Order.desc("title"), Sort.Order.asc("createdAt")));
+        var firstPost = post(10L, "zeta", LocalDateTime.of(2026, 4, 20, 9, 0));
+        var secondPost = post(11L, "alpha", LocalDateTime.of(2026, 4, 20, 10, 0));
+
+        when(postRepository.searchPosts(anyString(), any(), any(), any(), anyBoolean(), any(), eq(pageable)))
+                .thenReturn(new PageImpl<>(List.of(firstPost, secondPost), pageable, 5));
+        when(fileService.getRelatedIdsWithImages(List.of(10L, 11L), "POST_CONTENT"))
+                .thenReturn(Collections.emptyList());
+
+        Page<PostSummary> result = searchService.searchPosts(
+                "test", null, null, pageable, null);
+
+        assertThat(result.getContent()).extracting("rowNum").containsExactly(1L, 2L);
+    }
+
+    @Test
+    @DisplayName("?멸린 寃?됱뼱 議고쉶 ?깃났")
     void getPopularKeywords_success() {
         // given
         SearchStatisticRepository.PopularKeywordProjection result1 = popularKeyword("keyword1", 10L);
@@ -330,5 +408,21 @@ class SearchServiceTest {
         ReflectionTestUtils.setField(board, "isActive", true);
         ReflectionTestUtils.setField(board, "sortOrder", boardId.intValue());
         return board;
+    }
+
+    private Post post(Long postId, String title, LocalDateTime createdAt) {
+        Post post = Post.builder()
+                .board(board(1L, "Board", "board"))
+                .user(user)
+                .title(title)
+                .contents("<p>contents</p>")
+                .isNotice(false)
+                .isNsfw(false)
+                .isSpoiler(false)
+                .isSecret(false)
+                .build();
+        ReflectionTestUtils.setField(post, "postId", postId);
+        ReflectionTestUtils.setField(post, "createdAt", createdAt);
+        return post;
     }
 }

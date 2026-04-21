@@ -48,15 +48,6 @@ public class SearchController {
         Long userId = (userDetails != null) ? userDetails.getUserId() : null;
         Page<PostSummary> response = searchService.searchPosts(q, searchType, boardUrl, pageable, userId);
 
-        long totalElements = response.getTotalElements();
-        int pageNumber = response.getNumber();
-        int pageSize = response.getSize();
-        List<PostSummary> content = response.getContent();
-
-        for (int i = 0; i < content.size(); i++) {
-            content.get(i).setRowNum(totalElements - ((long) pageNumber * pageSize) - i);
-        }
-
         searchRecordEventPublisher.publish(userId, q);
         return ApiResponse.success(new PageResponse<>(response));
     }
