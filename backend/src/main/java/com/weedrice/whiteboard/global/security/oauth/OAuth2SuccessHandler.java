@@ -1,6 +1,9 @@
 package com.weedrice.whiteboard.global.security.oauth;
 
+import com.weedrice.whiteboard.domain.auth.dto.TokenResponse;
+import com.weedrice.whiteboard.domain.auth.service.SessionTokenService;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
+import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import com.weedrice.whiteboard.global.security.JwtTokenProvider;
@@ -30,6 +33,7 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
     private static final String LEGACY_REFRESH_TOKEN_COOKIE_PATH = "/api/v1/auth/refresh";
 
     private final JwtTokenProvider jwtTokenProvider;
+    private final SessionTokenService sessionTokenService;
     private final UserRepository userRepository;
     private final SanctionService sanctionService;
 
@@ -54,7 +58,8 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
             return;
         }
 
-        if (isBlockedAuthenticatedUser(authentication)) {
+        User authenticatedUser = getAuthenticatedActiveUser(authentication);
+        if (authenticatedUser == null) {
             String targetUrl = UriComponentsBuilder.fromUriString(frontendUrl + "/auth/oauth/callback")
                     .build(true)
                     .toUriString();
@@ -62,12 +67,10 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
             return;
         }
 
-        // Generate tokens
-        String accessToken = jwtTokenProvider.createAccessToken(authentication);
-        String refreshToken = jwtTokenProvider.createRefreshToken(authentication);
+        TokenResponse issuedTokens = sessionTokenService.issueTokens(authentication, authenticatedUser, request);
 
         // Keep refresh token in HttpOnly cookie; only pass short-lived access token to frontend.
-        ResponseCookie refreshCookie = ResponseCookie.from("refreshToken", refreshToken)
+        ResponseCookie refreshCookie = ResponseCookie.from("refreshToken", issuedTokens.getRefreshToken())
                 .httpOnly(true)
                 .secure(isSecureRequest(request))
                 .sameSite("Lax")
@@ -77,7 +80,9 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
         response.addHeader(HttpHeaders.SET_COOKIE, refreshCookie.toString());
         clearLegacyRefreshTokenCookie(response, isSecureRequest(request));
 
-        String fragment = "accessToken=" + UriUtils.encodeQueryParam(accessToken, StandardCharsets.UTF_8);
+        String fragment = "accessToken=" + UriUtils.encodeQueryParam(
+                issuedTokens.getAccessToken(),
+                StandardCharsets.UTF_8);
         String targetUrl = UriComponentsBuilder.fromUriString(frontendUrl + "/auth/oauth/callback")
                 .fragment(fragment)
                 .build(true)
@@ -108,13 +113,14 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
         response.addHeader(HttpHeaders.SET_COOKIE, legacyCookie.toString());
     }
 
-    private boolean isBlockedAuthenticatedUser(Authentication authentication) {
+    private User getAuthenticatedActiveUser(Authentication authentication) {
         if (authentication == null || !(authentication.getPrincipal() instanceof CustomUserDetails userDetails)) {
-            return false;
+            return null;
         }
 
         return userRepository.findById(userDetails.getUserId())
-                .map(user -> !"ACTIVE".equals(user.getStatus()) || sanctionService.isUserBanned(user))
-                .orElse(true);
+                .filter(user -> "ACTIVE".equals(user.getStatus()))
+                .filter(user -> !sanctionService.isUserBanned(user))
+                .orElse(null);
     }
 }

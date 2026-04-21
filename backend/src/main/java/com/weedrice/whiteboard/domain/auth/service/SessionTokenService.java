@@ -70,21 +70,9 @@ public class SessionTokenService {
             throw new BusinessException(ErrorCode.LOGIN_FAILED);
         }
 
-        String accessToken = jwtTokenProvider.createAccessToken(authentication);
-        String refreshToken = jwtTokenProvider.createRefreshToken(authentication);
-        String refreshTokenHash = tokenHashService.hashSha256(refreshToken);
-
         String ipAddress = ClientUtils.getIp(httpServletRequest);
-        String userAgent = httpServletRequest.getHeader("User-Agent");
-
-        RefreshToken issuedRefreshToken = RefreshToken.builder()
-                .user(user)
-                .tokenHash(refreshTokenHash)
-                .ipAddress(ipAddress)
-                .deviceInfo(userAgent)
-                .expiresAt(LocalDateTime.now().plusDays(getRefreshTokenValidityDays()))
-                .build();
-        refreshTokenRepository.save(issuedRefreshToken);
+        String userAgent = httpServletRequest != null ? httpServletRequest.getHeader("User-Agent") : null;
+        TokenResponse issuedTokens = issueTokens(authentication, user, httpServletRequest);
 
         LoginHistory loginHistory = LoginHistory.success(user, request.getLoginId(), ipAddress, userAgent);
         loginHistoryRepository.save(loginHistory);
@@ -92,9 +80,9 @@ public class SessionTokenService {
         user.updateLastLogin();
 
         return LoginResult.builder()
-                .accessToken(accessToken)
-                .refreshToken(refreshToken)
-                .expiresIn(jwtTokenProvider.getAccessTokenValidityInMilliseconds())
+                .accessToken(issuedTokens.getAccessToken())
+                .refreshToken(issuedTokens.getRefreshToken())
+                .expiresIn(issuedTokens.getExpiresIn())
                 .user(LoginResponse.UserInfo.builder()
                         .userId(user.getUserId())
                         .loginId(user.getLoginId())
@@ -107,6 +95,13 @@ public class SessionTokenService {
                                 .orElse(0))
                         .build())
                 .build();
+    }
+
+    @Transactional
+    public TokenResponse issueTokens(Authentication authentication, User user, HttpServletRequest httpServletRequest) {
+        String ipAddress = ClientUtils.getIp(httpServletRequest);
+        String userAgent = httpServletRequest != null ? httpServletRequest.getHeader("User-Agent") : null;
+        return issueTokens(authentication, user, ipAddress, userAgent);
     }
 
     @Transactional
@@ -148,24 +143,7 @@ public class SessionTokenService {
         user.updateLastLogin();
 
         Authentication authentication = createRefreshAuthentication(user);
-        String newAccessToken = jwtTokenProvider.createAccessToken(authentication);
-        String newRefreshToken = jwtTokenProvider.createRefreshToken(authentication);
-        String newRefreshTokenHash = tokenHashService.hashSha256(newRefreshToken);
-
-        RefreshToken rotatedToken = RefreshToken.builder()
-                .user(user)
-                .tokenHash(newRefreshTokenHash)
-                .ipAddress(refreshToken.getIpAddress())
-                .deviceInfo(refreshToken.getDeviceInfo())
-                .expiresAt(LocalDateTime.now().plusDays(getRefreshTokenValidityDays()))
-                .build();
-        refreshTokenRepository.save(rotatedToken);
-
-        return TokenResponse.builder()
-                .accessToken(newAccessToken)
-                .refreshToken(newRefreshToken)
-                .expiresIn(jwtTokenProvider.getAccessTokenValidityInMilliseconds())
-                .build();
+        return issueTokens(authentication, user, refreshToken.getIpAddress(), refreshToken.getDeviceInfo());
     }
 
     @Transactional
@@ -196,5 +174,31 @@ public class SessionTokenService {
 
     private long getRefreshTokenValidityDays() {
         return jwtTokenProvider.getRefreshTokenValidityInMilliseconds() / (1000 * 60 * 60 * 24);
+    }
+
+    private void persistRefreshToken(User user, String refreshToken, String ipAddress, String userAgent) {
+        String refreshTokenHash = tokenHashService.hashSha256(refreshToken);
+
+        RefreshToken issuedRefreshToken = RefreshToken.builder()
+                .user(user)
+                .tokenHash(refreshTokenHash)
+                .ipAddress(ipAddress != null ? ipAddress : "unknown")
+                .deviceInfo(userAgent)
+                .expiresAt(LocalDateTime.now().plusDays(getRefreshTokenValidityDays()))
+                .build();
+        refreshTokenRepository.save(issuedRefreshToken);
+    }
+
+    private TokenResponse issueTokens(Authentication authentication, User user, String ipAddress, String userAgent) {
+        String accessToken = jwtTokenProvider.createAccessToken(authentication);
+        String refreshToken = jwtTokenProvider.createRefreshToken(authentication);
+
+        persistRefreshToken(user, refreshToken, ipAddress, userAgent);
+
+        return TokenResponse.builder()
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
+                .expiresIn(jwtTokenProvider.getAccessTokenValidityInMilliseconds())
+                .build();
     }
 }

@@ -58,6 +58,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
@@ -326,8 +327,47 @@ class AuthServiceTest {
         verify(jwtTokenProvider, never()).createAccessToken(any());
     }
 
+    /*
     @Test
     @DisplayName("BAN 사용자는 refresh 할 수 없다")
+    */
+    @Test
+    @DisplayName("refresh rotates token with persisted client metadata")
+    void refresh_success_reusesClientMetadata() {
+        RefreshToken storedRefreshToken = RefreshToken.builder()
+                .user(user)
+                .tokenHash("hashed-old-token")
+                .ipAddress("127.0.0.1")
+                .deviceInfo("browser")
+                .expiresAt(LocalDateTime.now().plusDays(7))
+                .build();
+        String expectedRefreshTokenHash = new TokenHashService().hashSha256("new-refresh-token");
+
+        when(jwtTokenProvider.validateToken("old-refresh-token")).thenReturn(true);
+        when(refreshTokenRepository.findByTokenHash(anyString())).thenReturn(Optional.of(storedRefreshToken));
+        when(sanctionService.isUserBanned(user)).thenReturn(false);
+        when(jwtTokenProvider.createAccessToken(any(Authentication.class))).thenReturn("new-access-token");
+        when(jwtTokenProvider.createRefreshToken(any(Authentication.class))).thenReturn("new-refresh-token");
+        when(jwtTokenProvider.getAccessTokenValidityInMilliseconds()).thenReturn(1800L);
+        when(jwtTokenProvider.getRefreshTokenValidityInMilliseconds()).thenReturn(1209600000L);
+
+        var response = authService.refresh("old-refresh-token");
+
+        assertThat(response.getAccessToken()).isEqualTo("new-access-token");
+        assertThat(response.getRefreshToken()).isEqualTo("new-refresh-token");
+        assertThat(storedRefreshToken.getIsRevoked()).isTrue();
+        verify(refreshTokenRepository).save(storedRefreshToken);
+        verify(refreshTokenRepository).save(argThat(rotatedToken ->
+                rotatedToken != storedRefreshToken
+                        && rotatedToken.getUser().equals(user)
+                        && expectedRefreshTokenHash.equals(rotatedToken.getTokenHash())
+                        && "127.0.0.1".equals(rotatedToken.getIpAddress())
+                        && "browser".equals(rotatedToken.getDeviceInfo())
+                        && !rotatedToken.getIsRevoked()));
+    }
+
+    @Test
+    @DisplayName("BAN ?ъ슜?먮뒗 refresh ?????녿떎")
     void refresh_fail_whenUserIsBanned() {
         RefreshToken refreshToken = RefreshToken.builder()
                 .user(user)
