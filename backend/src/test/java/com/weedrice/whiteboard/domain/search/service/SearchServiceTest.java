@@ -51,6 +51,8 @@ class SearchServiceTest {
     @Mock
     private SearchStatisticCommandService searchStatisticCommandService;
     @Mock
+    private RecentSearchCommandService recentSearchCommandService;
+    @Mock
     private SearchPersonalizationRepository searchPersonalizationRepository;
     @Mock
     private UserRepository userRepository;
@@ -85,14 +87,12 @@ class SearchServiceTest {
         Long userId = 1L;
         String keyword = "test";
 
-        when(userRepository.findByIdForUpdate(userId)).thenReturn(Optional.of(user));
-
         // when
         searchService.recordSearch(userId, keyword, LocalDate.now());
 
         // then
         verify(searchStatisticCommandService).recordSearchStatistic(eq(keyword), any(LocalDate.class));
-        verify(searchPersonalizationRepository).save(any());
+        verify(recentSearchCommandService).recordRecentSearch(userId, keyword);
     }
 
     @Test
@@ -105,7 +105,22 @@ class SearchServiceTest {
 
         // then
         verify(searchStatisticCommandService).recordSearchStatistic(eq(keyword), any(LocalDate.class));
-        verify(searchPersonalizationRepository, never()).save(any());
+        verify(recentSearchCommandService, never()).recordRecentSearch(any(), any());
+    }
+
+    @Test
+    @DisplayName("최근 검색어 저장이 실패해도 검색 통계 적재는 유지한다")
+    void recordSearch_keepsStatisticsWhenRecentSearchFails() {
+        Long userId = 1L;
+        String keyword = "test";
+        doThrow(new RuntimeException("recent search failed"))
+                .when(recentSearchCommandService)
+                .recordRecentSearch(userId, keyword);
+
+        searchService.recordSearch(userId, keyword, LocalDate.now());
+
+        verify(searchStatisticCommandService).recordSearchStatistic(eq(keyword), any(LocalDate.class));
+        verify(recentSearchCommandService).recordRecentSearch(userId, keyword);
     }
 
     @Test
@@ -330,11 +345,13 @@ class SearchServiceTest {
         SearchPersonalization personalization = SearchPersonalization.builder()
                 .user(user)
                 .keyword("test")
+                .normalizedKeyword("test")
+                .searchedAt(LocalDateTime.of(2026, 4, 22, 9, 0))
                 .build();
         Page<SearchPersonalization> page = new PageImpl<>(List.of(personalization), pageable, 1);
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        when(searchPersonalizationRepository.findByUserOrderByCreatedAtDesc(eq(user), eq(pageable)))
+        when(searchPersonalizationRepository.findByUserOrderBySearchedAtDesc(eq(user), eq(pageable)))
                 .thenReturn(page);
 
         // when
@@ -354,6 +371,8 @@ class SearchServiceTest {
         SearchPersonalization personalization = SearchPersonalization.builder()
                 .user(user)
                 .keyword("test")
+                .normalizedKeyword("test")
+                .searchedAt(LocalDateTime.of(2026, 4, 22, 9, 0))
                 .build();
         ReflectionTestUtils.setField(personalization, "logId", logId);
 

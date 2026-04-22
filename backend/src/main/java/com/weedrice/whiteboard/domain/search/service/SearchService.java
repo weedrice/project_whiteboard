@@ -24,6 +24,7 @@ import com.weedrice.whiteboard.global.common.util.DateTimeUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -40,6 +41,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class SearchService {
@@ -47,6 +49,7 @@ public class SearchService {
 
     private final SearchStatisticRepository searchStatisticRepository;
     private final SearchStatisticCommandService searchStatisticCommandService;
+    private final RecentSearchCommandService recentSearchCommandService;
     private final SearchPersonalizationRepository searchPersonalizationRepository;
     private final UserRepository userRepository;
     private final PostRepository postRepository;
@@ -61,14 +64,11 @@ public class SearchService {
         searchStatisticCommandService.recordSearchStatistic(keyword, searchDate);
 
         if (userId != null) {
-            User user = userRepository.findByIdForUpdate(userId)
-                    .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-            searchPersonalizationRepository.deleteByUserAndKeyword(user, keyword);
-            SearchPersonalization personalization = SearchPersonalization.builder()
-                    .user(user)
-                    .keyword(keyword)
-                    .build();
-            searchPersonalizationRepository.save(personalization);
+            try {
+                recentSearchCommandService.recordRecentSearch(userId, keyword);
+            } catch (RuntimeException e) {
+                log.warn("Failed to record recent search. userId={}, keyword={}", userId, keyword, e);
+            }
         }
     }
 
@@ -132,7 +132,7 @@ public class SearchService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         return SearchPersonalizationResponse
-                .from(searchPersonalizationRepository.findByUserOrderByCreatedAtDesc(user, pageable));
+                .from(searchPersonalizationRepository.findByUserOrderBySearchedAtDesc(user, pageable));
     }
 
     @Transactional

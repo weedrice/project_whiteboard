@@ -33,7 +33,7 @@ public class SearchPersonalizationResponse {
                 .map(log -> SearchLog.builder()
                         .logId(log.getLogId())
                         .keyword(log.getKeyword())
-                        .searchedAt(log.getCreatedAt())
+                        .searchedAt(log.getSearchedAt())
                         .build())
                 .collect(Collectors.toList());
 
