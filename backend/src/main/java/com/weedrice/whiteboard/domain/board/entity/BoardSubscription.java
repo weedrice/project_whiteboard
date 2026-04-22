@@ -12,7 +12,14 @@ import jakarta.persistence.*;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Entity
-@Table(name = "board_subscriptions")
+@Table(
+        name = "board_subscriptions",
+        uniqueConstraints = {
+                @UniqueConstraint(
+                        name = "uk_board_subscriptions_user_sort_order",
+                        columnNames = {"user_id", "sort_order"})
+        }
+)
 @IdClass(BoardSubscriptionId.class)
 public class BoardSubscription extends BaseTimeEntity {
 
@@ -29,7 +36,7 @@ public class BoardSubscription extends BaseTimeEntity {
     @Column(name = "role", nullable = false, length = 20)
     private String role; // MEMBER, MODERATOR, BANNED
 
-    @Column(name = "sort_order")
+    @Column(name = "sort_order", nullable = false)
     private Integer sortOrder;
 
     @Builder

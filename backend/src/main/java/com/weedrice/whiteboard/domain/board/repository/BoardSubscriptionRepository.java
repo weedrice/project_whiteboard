@@ -23,19 +23,46 @@ public interface BoardSubscriptionRepository extends JpaRepository<BoardSubscrip
     Page<BoardSubscription> findByUser(User user, Pageable pageable);
 
     @EntityGraph(attributePaths = {"board", "board.creator"})
-    Page<BoardSubscription> findByUserOrderBySortOrderAsc(User user, Pageable pageable);
+    @Query("""
+            SELECT bs
+            FROM BoardSubscription bs
+            WHERE bs.user = :user
+            ORDER BY bs.sortOrder ASC, bs.createdAt ASC, bs.board.boardId ASC
+            """)
+    Page<BoardSubscription> findByUserOrderBySortOrderAsc(@Param("user") User user, Pageable pageable);
 
     @EntityGraph(attributePaths = "board")
-    Page<BoardSubscription> findByUserAndBoard_IsActiveOrderBySortOrderAsc(User user, Boolean isActive,
+    @Query("""
+            SELECT bs
+            FROM BoardSubscription bs
+            WHERE bs.user = :user
+              AND bs.board.isActive = :isActive
+            ORDER BY bs.sortOrder ASC, bs.createdAt ASC, bs.board.boardId ASC
+            """)
+    Page<BoardSubscription> findByUserAndBoard_IsActiveOrderBySortOrderAsc(@Param("user") User user,
+            @Param("isActive") Boolean isActive,
             Pageable pageable);
 
     List<BoardSubscription> findAllByUser(User user);
 
     @EntityGraph(attributePaths = "board")
-    List<BoardSubscription> findAllByUserOrderBySortOrderAsc(User user);
+    @Query("""
+            SELECT bs
+            FROM BoardSubscription bs
+            WHERE bs.user = :user
+            ORDER BY bs.sortOrder ASC, bs.createdAt ASC, bs.board.boardId ASC
+            """)
+    List<BoardSubscription> findAllByUserOrderBySortOrderAsc(@Param("user") User user);
 
     @EntityGraph(attributePaths = "board")
-    List<BoardSubscription> findAllByUserAndBoard_IsActiveTrueOrderBySortOrderAsc(User user);
+    @Query("""
+            SELECT bs
+            FROM BoardSubscription bs
+            WHERE bs.user = :user
+              AND bs.board.isActive = true
+            ORDER BY bs.sortOrder ASC, bs.createdAt ASC, bs.board.boardId ASC
+            """)
+    List<BoardSubscription> findAllByUserAndBoard_IsActiveTrueOrderBySortOrderAsc(@Param("user") User user);
 
     @EntityGraph(attributePaths = {"board", "board.creator"})
     @Query("""
@@ -57,7 +84,7 @@ public interface BoardSubscriptionRepository extends JpaRepository<BoardSubscrip
                     )
                     OR b.isPublic = true
                   )
-            ORDER BY bs.sortOrder ASC
+            ORDER BY bs.sortOrder ASC, bs.createdAt ASC, bs.board.boardId ASC
             """)
     List<BoardSubscription> findReorderableByUserAndBoardUrlIn(@Param("user") User user,
             @Param("boardUrls") Collection<String> boardUrls,
@@ -81,7 +108,7 @@ public interface BoardSubscriptionRepository extends JpaRepository<BoardSubscrip
                     )
                     OR (b.isActive = true AND b.isPublic = true)
                   )
-            ORDER BY bs.sortOrder ASC
+            ORDER BY bs.sortOrder ASC, bs.createdAt ASC, bs.board.boardId ASC
             """,
             countQuery = """
             SELECT COUNT(bs)
@@ -115,8 +142,12 @@ public interface BoardSubscriptionRepository extends JpaRepository<BoardSubscrip
 
     void deleteByBoard(Board board);
 
-    @org.springframework.data.jpa.repository.Query("SELECT COALESCE(MAX(bs.sortOrder), 0) FROM BoardSubscription bs WHERE bs.user = :user")
-    Integer findMaxSortOrder(@org.springframework.data.repository.query.Param("user") User user);
+    @Query("""
+            SELECT COALESCE(MAX(bs.sortOrder), 0)
+            FROM BoardSubscription bs
+            WHERE bs.user = :user
+            """)
+    Integer findMaxSortOrder(@Param("user") User user);
 
     @EntityGraph(attributePaths = "board")
     List<BoardSubscription> findByUserAndBoardIn(User user, List<Board> boards);

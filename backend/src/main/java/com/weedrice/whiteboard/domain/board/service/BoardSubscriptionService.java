@@ -9,6 +9,7 @@ import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
@@ -21,6 +22,8 @@ import java.util.stream.Collectors;
 
 @Service
 class BoardSubscriptionService {
+    private static final String USER_SORT_ORDER_CONSTRAINT = "uk_board_subscriptions_user_sort_order";
+
 
     private final BoardRepository boardRepository;
     private final BoardSubscriptionRepository boardSubscriptionRepository;
@@ -38,7 +41,7 @@ class BoardSubscriptionService {
     }
 
     void subscribeBoard(Long userId, String boardUrl) {
-        User user = userRepository.findById(userId)
+        User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         Board board = boardRepository.findByBoardUrl(boardUrl)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
@@ -61,7 +64,7 @@ class BoardSubscriptionService {
         try {
             boardSubscriptionRepository.saveAndFlush(subscription);
         } catch (DataIntegrityViolationException ex) {
-            throw new BusinessException(ErrorCode.ALREADY_SUBSCRIBED);
+            throw resolveSubscriptionConflict(user, board, ex);
         }
     }
 
@@ -78,7 +81,7 @@ class BoardSubscriptionService {
     }
 
     void updateSubscriptionOrder(Long userId, List<String> boardUrls) {
-        User user = userRepository.findById(userId)
+        User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         if (boardUrls == null) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
@@ -108,10 +111,57 @@ class BoardSubscriptionService {
                 .collect(Collectors.toMap(
                         sub -> sub.getBoard().getBoardUrl(),
                         sub -> sub));
-        for (int i = 0; i < boardUrls.size(); i++) {
-            subscriptionByBoardUrl.get(boardUrls.get(i)).updateSortOrder(requestedSortOrders.get(i));
-        }
+        int temporarySortOrderBase = boardSubscriptionRepository.findMaxSortOrder(user) + subscriptions.size();
+        try {
+            for (int i = 0; i < boardUrls.size(); i++) {
+                subscriptionByBoardUrl.get(boardUrls.get(i)).updateSortOrder(temporarySortOrderBase + i + 1);
+            }
+            boardSubscriptionRepository.saveAll(subscriptions);
+            boardSubscriptionRepository.flush();
 
-        boardSubscriptionRepository.saveAll(subscriptions);
+            for (int i = 0; i < boardUrls.size(); i++) {
+                subscriptionByBoardUrl.get(boardUrls.get(i)).updateSortOrder(requestedSortOrders.get(i));
+            }
+            boardSubscriptionRepository.saveAll(subscriptions);
+        } catch (DataIntegrityViolationException ex) {
+            throw resolveSubscriptionConflict(user, null, ex);
+        }
+    }
+
+    private BusinessException resolveSubscriptionConflict(User user, Board board, DataIntegrityViolationException ex) {
+        if (board != null && boardSubscriptionRepository.existsByUserAndBoard(user, board)) {
+            return new BusinessException(ErrorCode.ALREADY_SUBSCRIBED);
+        }
+        if (containsConstraint(ex, USER_SORT_ORDER_CONSTRAINT)) {
+            return new BusinessException(ErrorCode.DUPLICATE_RESOURCE, "Duplicate board subscription sort order");
+        }
+        return new BusinessException(ErrorCode.DUPLICATE_RESOURCE);
+    }
+
+    private boolean containsConstraint(Throwable throwable, String... candidates) {
+        Throwable current = throwable;
+        while (current != null) {
+            String message = current.getMessage() != null ? current.getMessage().toLowerCase() : "";
+            if (containsAny(message, candidates)) {
+                return true;
+            }
+            if (current instanceof ConstraintViolationException constraintViolationException) {
+                String constraintName = constraintViolationException.getConstraintName();
+                if (containsAny(constraintName != null ? constraintName.toLowerCase() : "", candidates)) {
+                    return true;
+                }
+            }
+            current = current.getCause();
+        }
+        return false;
+    }
+
+    private boolean containsAny(String source, String... candidates) {
+        for (String candidate : candidates) {
+            if (candidate != null && source.contains(candidate.toLowerCase())) {
+                return true;
+            }
+        }
+        return false;
     }
 }
