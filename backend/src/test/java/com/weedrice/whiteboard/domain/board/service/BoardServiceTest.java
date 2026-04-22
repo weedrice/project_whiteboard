@@ -185,7 +185,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("?쒖꽦?붾맂 寃뚯떆??紐⑸줉 議고쉶 ?깃났")
+    @DisplayName("활성화된 게시판 목록 조회 성공")
     void getActiveBoards_success() {
         // given
         when(boardRepository.findByIsActiveOrderBySortOrderAsc(true)).thenReturn(Collections.singletonList(board));
@@ -199,7 +199,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("寃뚯떆??援щ룆 ?깃났")
+    @DisplayName("게시판 구독 성공")
     void subscribeBoard_success() {
         // given
         Long userId = 1L;
@@ -280,7 +280,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("寃뚯떆???앹꽦 ?깃났")
+    @DisplayName("게시판 생성 성공")
     void createBoard_success() {
         // given
         Long creatorId = 1L;
@@ -356,7 +356,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("AI ?ъ슜 寃뚯떆???앹꽦 ????λ맂 媛?대뱶 ?꾨줉?꽣? ??ν솕?쒕떎")
+    @DisplayName("AI 사용 게시판 생성 시 BoardAiInfo를 생성한다")
     void createBoard_agentEnabled_createsBoardAiInfo() {
         Long creatorId = 1L;
         BoardCreateRequest request = new BoardCreateRequest("AI Board", "ai-board", null, null, true, true, null);
@@ -572,7 +572,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("?멸린 寃뚯떆??紐⑸줉 議고쉶 ?깃났")
+    @DisplayName("인기 게시판 목록 조회 성공")
     void getTopBoards_success() {
         // given
         when(boardRepository.findTopPublicBoardsByPostCount(any())).thenReturn(Collections.singletonList(board));
@@ -623,7 +623,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("寃뚯떆???곸꽭 議고쉶 ?깃났")
+    @DisplayName("게시판 상세 조회 성공")
     void getBoardDetails_success() {
         // given
         String boardUrl = "test-board";
@@ -638,7 +638,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("寃뚯떆??援щ룆 ?댁젣 ?깃났")
+    @DisplayName("게시판 구독 해제 성공")
     void unsubscribeBoard_success() {
         // given
         Long userId = 1L;
