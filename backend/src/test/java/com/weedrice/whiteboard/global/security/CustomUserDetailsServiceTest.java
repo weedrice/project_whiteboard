@@ -33,40 +33,29 @@ class CustomUserDetailsServiceTest {
     private CustomUserDetailsService customUserDetailsService;
 
     @Test
-    @DisplayName("loads regular user details")
+    @DisplayName("loadUserByUsername loads regular user details")
     void loadUserByUsername_success() {
-        User user = User.builder()
-                .loginId("testuser")
-                .password("password")
-                .email("test@example.com")
-                .displayName("Test User")
-                .build();
+        User user = activeUser("testuser");
         ReflectionTestUtils.setField(user, "userId", 1L);
-        ReflectionTestUtils.setField(user, "isSuperAdmin", false);
-
         when(userRepository.findByLoginId("testuser")).thenReturn(Optional.of(user));
 
         UserDetails userDetails = customUserDetailsService.loadUserByUsername("testuser");
 
-        assertThat(userDetails).isNotNull();
         assertThat(userDetails.getUsername()).isEqualTo("testuser");
         assertThat(userDetails.getPassword()).isEqualTo("password");
-        assertThat(userDetails.getAuthorities()).extracting("authority").contains(Role.ROLE_USER);
-        assertThat(userDetails.getAuthorities()).extracting("authority").doesNotContain(Role.ROLE_SUPER_ADMIN);
+        assertThat(userDetails.isEnabled()).isTrue();
+        assertThat(userDetails.isAccountNonLocked()).isTrue();
+        assertThat(userDetails.getAuthorities()).extracting("authority")
+                .contains(Role.ROLE_USER)
+                .doesNotContain(Role.ROLE_SUPER_ADMIN);
     }
 
     @Test
-    @DisplayName("loads super admin authorities")
-    void loadUserByUsername_superAdmin() {
-        User user = User.builder()
-                .loginId("admin")
-                .password("admin")
-                .email("admin@test.com")
-                .displayName("Admin")
-                .build();
+    @DisplayName("loadUserByUsername grants super admin authority only to usable super admin")
+    void loadUserByUsername_usableSuperAdmin() {
+        User user = activeUser("admin");
+        user.grantSuperAdminRole();
         ReflectionTestUtils.setField(user, "userId", 1L);
-        ReflectionTestUtils.setField(user, "isSuperAdmin", true);
-
         when(userRepository.findByLoginId("admin")).thenReturn(Optional.of(user));
 
         UserDetails userDetails = customUserDetailsService.loadUserByUsername("admin");
@@ -76,31 +65,66 @@ class CustomUserDetailsServiceTest {
     }
 
     @Test
-    @DisplayName("locks account when active ban exists")
-    void loadUserByUsername_bannedUserLocked() {
-        User user = User.builder()
-                .loginId("banned")
-                .password("password")
-                .email("banned@test.com")
-                .displayName("Banned")
-                .build();
+    @DisplayName("loadUserByUsername does not grant super admin authority to suspended super admin")
+    void loadUserByUsername_suspendedSuperAdmin() {
+        User user = activeUser("suspended-admin");
+        user.grantSuperAdminRole();
+        user.suspend();
         ReflectionTestUtils.setField(user, "userId", 1L);
+        when(userRepository.findByLoginId("suspended-admin")).thenReturn(Optional.of(user));
 
+        UserDetails userDetails = customUserDetailsService.loadUserByUsername("suspended-admin");
+
+        assertThat(userDetails.isEnabled()).isFalse();
+        assertThat(userDetails.isAccountNonLocked()).isFalse();
+        assertThat(userDetails.getAuthorities()).extracting("authority")
+                .contains(Role.ROLE_USER)
+                .doesNotContain(Role.ROLE_SUPER_ADMIN);
+    }
+
+    @Test
+    @DisplayName("loadUserByUsername locks banned active user")
+    void loadUserByUsername_bannedUserLocked() {
+        User user = activeUser("banned");
+        ReflectionTestUtils.setField(user, "userId", 1L);
         when(userRepository.findByLoginId("banned")).thenReturn(Optional.of(user));
         when(sanctionService.isUserBanned(user)).thenReturn(true);
 
         UserDetails userDetails = customUserDetailsService.loadUserByUsername("banned");
 
-        assertThat(userDetails.isAccountNonLocked()).isFalse();
         assertThat(userDetails.isEnabled()).isTrue();
+        assertThat(userDetails.isAccountNonLocked()).isFalse();
     }
 
     @Test
-    @DisplayName("throws when user is missing")
+    @DisplayName("loadUserByUsername disables deleted user")
+    void loadUserByUsername_deletedUserDisabled() {
+        User user = activeUser("deleted");
+        user.delete();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+        when(userRepository.findByLoginId("deleted")).thenReturn(Optional.of(user));
+
+        UserDetails userDetails = customUserDetailsService.loadUserByUsername("deleted");
+
+        assertThat(userDetails.isEnabled()).isFalse();
+        assertThat(userDetails.isAccountNonLocked()).isFalse();
+    }
+
+    @Test
+    @DisplayName("loadUserByUsername throws when user is missing")
     void loadUserByUsername_notFound() {
         when(userRepository.findByLoginId("unknown")).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> customUserDetailsService.loadUserByUsername("unknown"))
                 .isInstanceOf(UsernameNotFoundException.class);
+    }
+
+    private User activeUser(String loginId) {
+        return User.builder()
+                .loginId(loginId)
+                .password("password")
+                .email(loginId + "@test.com")
+                .displayName(loginId)
+                .build();
     }
 }

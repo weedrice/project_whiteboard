@@ -18,17 +18,15 @@ public interface UserRepository extends JpaRepository<User, Long>, UserRepositor
     Optional<User> findByUserIdAndStatusAndDeletedAtIsNull(Long userId, String status);
     boolean existsByLoginId(String loginId);
     boolean existsByEmail(String email);
-
-    /** 이메일 중복 검사 시 사용 - 인증 완료(is_email_verified=Y)인 사용자만 대상 */
     boolean existsByEmailAndIsEmailVerifiedTrue(String email);
-
     Optional<User> findByEmail(String email);
     long countByLastLoginAtAfter(LocalDateTime lastLoginAt);
     Page<User> findByDisplayNameContainingIgnoreCaseAndStatus(String displayName, String status, Pageable pageable);
-    Page<User> findByDisplayNameContainingIgnoreCase(String displayName, Pageable pageable); // Added for IntegratedSearch
+    Page<User> findByDisplayNameContainingIgnoreCase(String displayName, Pageable pageable);
 
     List<User> findByIsSuperAdminTrue();
     List<User> findByIsSuperAdminTrueAndDeletedAtIsNull();
+    List<User> findByIsSuperAdminTrueAndStatusAndDeletedAtIsNull(String status);
 
     @Query("""
             SELECT COUNT(u)
@@ -55,6 +53,25 @@ public interface UserRepository extends JpaRepository<User, Long>, UserRepositor
               AND u.deletedAt IS NULL
             """)
     List<User> findByIsSuperAdminTrueAndDeletedAtIsNullForUpdate();
+
+    @Query("""
+            SELECT u
+            FROM User u
+            WHERE u.isSuperAdmin = true
+              AND u.status = 'ACTIVE'
+              AND u.deletedAt IS NULL
+            """)
+    List<User> findUsableSuperAdmins();
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            SELECT u
+            FROM User u
+            WHERE u.isSuperAdmin = true
+              AND u.status = 'ACTIVE'
+              AND u.deletedAt IS NULL
+            """)
+    List<User> findUsableSuperAdminsForUpdate();
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT u FROM User u WHERE u.userId = :userId")

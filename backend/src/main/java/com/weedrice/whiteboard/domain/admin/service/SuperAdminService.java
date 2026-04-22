@@ -9,14 +9,13 @@ import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -31,8 +30,11 @@ public class SuperAdminService {
         User user = userRepository.findByLoginId(loginId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
-        if (user.getIsSuperAdmin()) {
+        if (Boolean.TRUE.equals(user.getIsSuperAdmin())) {
             throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE);
+        }
+        if (!user.isActiveAccount()) {
+            throw new BusinessException(ErrorCode.USER_NOT_ACTIVE);
         }
 
         user.grantSuperAdminRole();
@@ -45,13 +47,13 @@ public class SuperAdminService {
         User user = userRepository.findByLoginId(loginId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
-        if (!user.getIsSuperAdmin()) {
+        if (!Boolean.TRUE.equals(user.getIsSuperAdmin())) {
             throw new BusinessException(ErrorCode.INVALID_TARGET);
         }
         if (isCurrentSuperAdmin(loginId)) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
-        if (getActiveSuperAdminsForUpdate().size() <= 1) {
+        if (user.isUsableSuperAdmin() && getUsableSuperAdminsForUpdate().size() <= 1) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
 
@@ -61,7 +63,7 @@ public class SuperAdminService {
 
     @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
     public List<SuperAdminResponse> getSuperAdmin() {
-        return getActiveSuperAdmins().stream()
+        return getUsableSuperAdmins().stream()
                 .map(SuperAdminResponse::from)
                 .toList();
     }
@@ -71,17 +73,11 @@ public class SuperAdminService {
         return authentication != null && loginId.equals(authentication.getName());
     }
 
-    private List<User> getActiveSuperAdmins() {
-        return userRepository.findByIsSuperAdminTrueAndDeletedAtIsNull().stream()
-                .filter(Objects::nonNull)
-                .filter(user -> user.getDeletedAt() == null)
-                .toList();
+    private List<User> getUsableSuperAdmins() {
+        return userRepository.findUsableSuperAdmins();
     }
 
-    private List<User> getActiveSuperAdminsForUpdate() {
-        return userRepository.findByIsSuperAdminTrueAndDeletedAtIsNullForUpdate().stream()
-                .filter(Objects::nonNull)
-                .filter(user -> user.getDeletedAt() == null)
-                .toList();
+    private List<User> getUsableSuperAdminsForUpdate() {
+        return userRepository.findUsableSuperAdminsForUpdate();
     }
 }

@@ -248,4 +248,73 @@ class UserRepositoryTest {
         assertThat(userRepository.countActiveUsersForAdminDashboard()).isEqualTo(5L);
         assertThat(userRepository.countRecentlyLoggedInActiveUsersForAdminDashboard(since)).isEqualTo(1L);
     }
+    @Test
+    @DisplayName("usable super admin query returns only active non-deleted super admins")
+    void findUsableSuperAdmins_returnsOnlyUsableSuperAdmins() {
+        User usable = User.builder()
+                .loginId("usable-super")
+                .displayName("Usable Super")
+                .email("usable-super@test.com")
+                .password("pass")
+                .build();
+        usable.grantSuperAdminRole();
+
+        User suspended = User.builder()
+                .loginId("suspended-super")
+                .displayName("Suspended Super")
+                .email("suspended-super@test.com")
+                .password("pass")
+                .build();
+        suspended.grantSuperAdminRole();
+        suspended.suspend();
+
+        User deleted = User.builder()
+                .loginId("deleted-super")
+                .displayName("Deleted Super")
+                .email("deleted-super@test.com")
+                .password("pass")
+                .build();
+        deleted.grantSuperAdminRole();
+        deleted.delete();
+
+        entityManager.persist(usable);
+        entityManager.persist(suspended);
+        entityManager.persist(deleted);
+        entityManager.flush();
+        entityManager.clear();
+
+        List<User> result = userRepository.findUsableSuperAdmins();
+
+        assertThat(result).extracting(User::getLoginId).containsExactly("usable-super");
+    }
+
+    @Test
+    @DisplayName("usable super admin for-update query applies the same active filters")
+    void findUsableSuperAdminsForUpdate_returnsOnlyUsableSuperAdmins() {
+        User usable = User.builder()
+                .loginId("usable-super-lock")
+                .displayName("Usable Super Lock")
+                .email("usable-super-lock@test.com")
+                .password("pass")
+                .build();
+        usable.grantSuperAdminRole();
+
+        User suspended = User.builder()
+                .loginId("suspended-super-lock")
+                .displayName("Suspended Super Lock")
+                .email("suspended-super-lock@test.com")
+                .password("pass")
+                .build();
+        suspended.grantSuperAdminRole();
+        suspended.suspend();
+
+        entityManager.persist(usable);
+        entityManager.persist(suspended);
+        entityManager.flush();
+        entityManager.clear();
+
+        List<User> result = userRepository.findUsableSuperAdminsForUpdate();
+
+        assertThat(result).extracting(User::getLoginId).containsExactly("usable-super-lock");
+    }
 }

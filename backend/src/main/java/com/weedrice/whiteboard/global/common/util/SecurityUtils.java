@@ -31,22 +31,22 @@ public class SecurityUtils {
     }
 
     public static Long getCurrentUserId() {
-        final Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
         if (authentication == null || authentication.getName() == null) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED);
         }
 
         Object principal = authentication.getPrincipal();
-        if (principal instanceof CustomUserDetails) {
-            return ((CustomUserDetails) principal).getUserId();
+        if (principal instanceof CustomUserDetails userDetails) {
+            return userDetails.getUserId();
         }
-        
+
         throw new BusinessException(ErrorCode.UNAUTHORIZED);
     }
 
     public static boolean isSuperAdmin() {
-        final Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
         if (authentication == null) {
             return false;
@@ -61,11 +61,11 @@ public class SecurityUtils {
         User currentUser = staticUserRepository.findById(currentUserId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
-        boolean isSuperAdmin = currentUser.getIsSuperAdmin();
+        boolean usableSuperAdmin = currentUser.isUsableSuperAdmin();
         boolean isBoardAdmin = staticAdminRepository.findByUserAndBoardAndIsActive(currentUser, board, true).isPresent();
         boolean isCreator = board.getCreator().getUserId().equals(currentUser.getUserId());
 
-        if (!isSuperAdmin && !isBoardAdmin && !isCreator) {
+        if (!usableSuperAdmin && !isBoardAdmin && !isCreator) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
     }
@@ -75,7 +75,7 @@ public class SecurityUtils {
         User currentUser = staticUserRepository.findById(currentUserId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
-        if (!currentUser.getIsSuperAdmin()) {
+        if (!currentUser.isUsableSuperAdmin()) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
     }

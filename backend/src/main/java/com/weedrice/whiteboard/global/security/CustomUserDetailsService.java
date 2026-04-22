@@ -30,21 +30,22 @@ public class CustomUserDetailsService implements UserDetailsService {
         List<GrantedAuthority> authorities = new ArrayList<>();
         authorities.add(new SimpleGrantedAuthority(Role.ROLE_USER));
 
-        if (user.getIsSuperAdmin()) {
+        if (user.isUsableSuperAdmin()) {
             authorities.add(new SimpleGrantedAuthority(Role.ROLE_SUPER_ADMIN));
         }
 
         boolean activeBan = sanctionService.isUserBanned(user);
-        boolean enabled = !"DELETED".equals(user.getStatus());
-        boolean accountNonLocked = !"SUSPENDED".equals(user.getStatus()) && !activeBan;
+        boolean activeAccount = user.isActiveAccount();
+        boolean enabled = activeAccount;
+        boolean accountNonLocked = activeAccount && !activeBan;
 
         return new CustomUserDetails(
                 user.getUserId(),
                 user.getLoginId(),
                 user.getPassword(),
                 enabled,
-                true, // accountNonExpired
-                true, // credentialsNonExpired
+                true,
+                true,
                 accountNonLocked,
                 authorities);
     }

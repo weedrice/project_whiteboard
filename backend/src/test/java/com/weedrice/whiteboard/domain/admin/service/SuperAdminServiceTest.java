@@ -41,119 +41,128 @@ class SuperAdminServiceTest {
     }
 
     @Test
-    @DisplayName("슈퍼 관리자 생성 성공")
+    @DisplayName("createSuperAdmin grants role to active user")
     void createSuperAdmin_success() {
-        String loginId = "testUser";
-        User user = User.builder().loginId(loginId).build();
-        when(userRepository.findByLoginId(loginId)).thenReturn(Optional.of(user));
+        User user = activeUser("target");
+        when(userRepository.findByLoginId("target")).thenReturn(Optional.of(user));
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        SuperAdminUpdateResponse response = superAdminService.createSuperAdmin(loginId);
+        SuperAdminUpdateResponse response = superAdminService.createSuperAdmin("target");
 
         assertThat(response.isSuperAdmin()).isTrue();
-        assertThat(response.getLoginId()).isEqualTo(loginId);
+        assertThat(response.getLoginId()).isEqualTo("target");
     }
 
     @Test
-    @DisplayName("슈퍼 관리자 해제 성공")
+    @DisplayName("createSuperAdmin rejects suspended user")
+    void createSuperAdmin_rejectsSuspendedUser() {
+        User user = activeUser("target");
+        user.suspend();
+        when(userRepository.findByLoginId("target")).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> superAdminService.createSuperAdmin("target"))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode()).isEqualTo(ErrorCode.USER_NOT_ACTIVE));
+    }
+
+    @Test
+    @DisplayName("createSuperAdmin rejects deleted user")
+    void createSuperAdmin_rejectsDeletedUser() {
+        User user = activeUser("target");
+        user.delete();
+        when(userRepository.findByLoginId("target")).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> superAdminService.createSuperAdmin("target"))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode()).isEqualTo(ErrorCode.USER_NOT_ACTIVE));
+    }
+
+    @Test
+    @DisplayName("deactivateSuperAdmin revokes role when another usable super admin exists")
     void deactivateSuperAdmin_success() {
-        String loginId = "testUser";
-        User user = User.builder().loginId(loginId).build();
-        user.grantSuperAdminRole();
+        User target = activeSuperAdmin("target");
+        User other = activeSuperAdmin("other-admin");
         SecurityContextHolder.getContext().setAuthentication(
-                new UsernamePasswordAuthenticationToken("otherAdmin", "", List.of()));
-        when(userRepository.findByLoginId(loginId)).thenReturn(Optional.of(user));
-        when(userRepository.findByIsSuperAdminTrueAndDeletedAtIsNullForUpdate()).thenReturn(List.of(
-                user,
-                User.builder().loginId("otherAdmin").build()));
+                new UsernamePasswordAuthenticationToken("other-admin", "", List.of()));
+        when(userRepository.findByLoginId("target")).thenReturn(Optional.of(target));
+        when(userRepository.findUsableSuperAdminsForUpdate()).thenReturn(List.of(target, other));
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        SuperAdminUpdateResponse response = superAdminService.deactivateSuperAdmin(loginId);
+        SuperAdminUpdateResponse response = superAdminService.deactivateSuperAdmin("target");
 
         assertThat(response.isSuperAdmin()).isFalse();
-        assertThat(response.getLoginId()).isEqualTo(loginId);
+        assertThat(response.getLoginId()).isEqualTo("target");
     }
 
     @Test
-    @DisplayName("마지막 super admin 해제는 차단한다")
-    void deactivateSuperAdmin_lastAdmin_forbidden() {
-        String loginId = "testUser";
-        User user = User.builder().loginId(loginId).build();
-        user.grantSuperAdminRole();
+    @DisplayName("deactivateSuperAdmin blocks removing the last usable super admin")
+    void deactivateSuperAdmin_lastUsableAdmin_forbidden() {
+        User target = activeSuperAdmin("target");
         SecurityContextHolder.getContext().setAuthentication(
-                new UsernamePasswordAuthenticationToken("otherAdmin", "", List.of()));
-        when(userRepository.findByLoginId(loginId)).thenReturn(Optional.of(user));
-        when(userRepository.findByIsSuperAdminTrueAndDeletedAtIsNullForUpdate()).thenReturn(List.of(user));
+                new UsernamePasswordAuthenticationToken("other-admin", "", List.of()));
+        when(userRepository.findByLoginId("target")).thenReturn(Optional.of(target));
+        when(userRepository.findUsableSuperAdminsForUpdate()).thenReturn(List.of(target));
 
-        assertThatThrownBy(() -> superAdminService.deactivateSuperAdmin(loginId))
+        assertThatThrownBy(() -> superAdminService.deactivateSuperAdmin("target"))
                 .isInstanceOf(BusinessException.class)
                 .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode()).isEqualTo(ErrorCode.FORBIDDEN));
     }
 
     @Test
-    @DisplayName("자기 자신의 super admin 해제는 차단한다")
+    @DisplayName("deactivateSuperAdmin allows revoking unusable super admin without usable-count guard")
+    void deactivateSuperAdmin_allowsRevokingUnusableSuperAdmin() {
+        User suspendedTarget = activeSuperAdmin("target");
+        suspendedTarget.suspend();
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken("other-admin", "", List.of()));
+        when(userRepository.findByLoginId("target")).thenReturn(Optional.of(suspendedTarget));
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        SuperAdminUpdateResponse response = superAdminService.deactivateSuperAdmin("target");
+
+        assertThat(response.isSuperAdmin()).isFalse();
+        verify(userRepository, never()).findUsableSuperAdminsForUpdate();
+    }
+
+    @Test
+    @DisplayName("deactivateSuperAdmin blocks self revocation")
     void deactivateSuperAdmin_self_forbidden() {
-        String loginId = "testUser";
-        User user = User.builder().loginId(loginId).build();
-        user.grantSuperAdminRole();
+        User target = activeSuperAdmin("target");
         SecurityContextHolder.getContext().setAuthentication(
-                new UsernamePasswordAuthenticationToken(loginId, "", List.of()));
-        when(userRepository.findByLoginId(loginId)).thenReturn(Optional.of(user));
+                new UsernamePasswordAuthenticationToken("target", "", List.of()));
+        when(userRepository.findByLoginId("target")).thenReturn(Optional.of(target));
 
-        assertThatThrownBy(() -> superAdminService.deactivateSuperAdmin(loginId))
+        assertThatThrownBy(() -> superAdminService.deactivateSuperAdmin("target"))
                 .isInstanceOf(BusinessException.class)
                 .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode()).isEqualTo(ErrorCode.FORBIDDEN));
     }
 
     @Test
-    @DisplayName("슈퍼 관리자 목록 조회 성공")
-    void getSuperAdmin_success() {
-        User superAdmin1 = User.builder().loginId("super1").build();
-        superAdmin1.grantSuperAdminRole();
-        User superAdmin2 = User.builder().loginId("super2").build();
-        superAdmin2.grantSuperAdminRole();
-        when(userRepository.findByIsSuperAdminTrueAndDeletedAtIsNull()).thenReturn(List.of(superAdmin1, superAdmin2));
-
-        List<SuperAdminResponse> superAdmins = superAdminService.getSuperAdmin();
-
-        assertThat(superAdmins).hasSize(2);
-        assertThat(superAdmins.get(0).getLoginId()).isEqualTo("super1");
-        assertThat(superAdmins.get(1).getLoginId()).isEqualTo("super2");
-    }
-
-    @Test
-    @DisplayName("super admin 해제 시 활성 계정 전용 조회를 사용한다")
-    void deactivateSuperAdmin_usesActiveSuperAdminQuery() {
-        String loginId = "testUser";
-        User user = User.builder().loginId(loginId).build();
-        user.grantSuperAdminRole();
-        User deletedSuperAdmin = User.builder().loginId("deletedAdmin").build();
-        deletedSuperAdmin.grantSuperAdminRole();
-        deletedSuperAdmin.delete();
-        SecurityContextHolder.getContext().setAuthentication(
-                new UsernamePasswordAuthenticationToken("otherAdmin", "", List.of()));
-        List<User> allSuperAdmins = List.of(deletedSuperAdmin, user);
-        when(userRepository.findByLoginId(loginId)).thenReturn(Optional.of(user));
-        when(userRepository.findByIsSuperAdminTrueAndDeletedAtIsNullForUpdate()).thenReturn(allSuperAdmins);
-
-        assertThatThrownBy(() -> superAdminService.deactivateSuperAdmin(loginId))
-                .isInstanceOf(BusinessException.class)
-                .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode()).isEqualTo(ErrorCode.FORBIDDEN));
-        verify(userRepository).findByIsSuperAdminTrueAndDeletedAtIsNullForUpdate();
-        verify(userRepository, never()).findByIsSuperAdminTrue();
-    }
-
-    @Test
-    @DisplayName("super admin 목록 조회는 활성 계정만 사용한다")
-    void getSuperAdmin_usesActiveSuperAdminQuery() {
-        User superAdmin = User.builder().loginId("super1").build();
-        superAdmin.grantSuperAdminRole();
-        when(userRepository.findByIsSuperAdminTrueAndDeletedAtIsNull()).thenReturn(List.of(superAdmin));
+    @DisplayName("getSuperAdmin returns only usable super admins")
+    void getSuperAdmin_returnsOnlyUsableSuperAdmins() {
+        User usable = activeSuperAdmin("usable");
+        when(userRepository.findUsableSuperAdmins()).thenReturn(List.of(usable));
 
         List<SuperAdminResponse> superAdmins = superAdminService.getSuperAdmin();
 
         assertThat(superAdmins).hasSize(1);
-        assertThat(superAdmins.get(0).getLoginId()).isEqualTo("super1");
-        verify(userRepository).findByIsSuperAdminTrueAndDeletedAtIsNull();
+        assertThat(superAdmins.get(0).getLoginId()).isEqualTo("usable");
+        verify(userRepository).findUsableSuperAdmins();
+        verify(userRepository, never()).findByIsSuperAdminTrueAndDeletedAtIsNull();
+    }
+
+    private User activeUser(String loginId) {
+        return User.builder()
+                .loginId(loginId)
+                .password("password")
+                .email(loginId + "@test.com")
+                .displayName(loginId)
+                .build();
+    }
+
+    private User activeSuperAdmin(String loginId) {
+        User user = activeUser(loginId);
+        user.grantSuperAdminRole();
+        return user;
     }
 }

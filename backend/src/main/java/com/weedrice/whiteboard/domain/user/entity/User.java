@@ -2,7 +2,13 @@ package com.weedrice.whiteboard.domain.user.entity;
 
 import com.weedrice.whiteboard.global.common.converter.BooleanToYNConverter;
 import com.weedrice.whiteboard.global.common.entity.BaseTimeEntity;
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -15,6 +21,9 @@ import java.time.LocalDateTime;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class User extends BaseTimeEntity {
+    public static final String STATUS_ACTIVE = "ACTIVE";
+    public static final String STATUS_SUSPENDED = "SUSPENDED";
+    public static final String STATUS_DELETED = "DELETED";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -37,15 +46,15 @@ public class User extends BaseTimeEntity {
     private String profileImageUrl;
 
     @Column(name = "status", nullable = false, length = 20)
-    private String status; // ACTIVE, SUSPENDED, DELETED
+    private String status;
 
     @Convert(converter = BooleanToYNConverter.class)
     @Column(name = "is_email_verified", nullable = false, length = 1)
-    private Boolean isEmailVerified; // Y, N
+    private Boolean isEmailVerified;
 
     @Convert(converter = BooleanToYNConverter.class)
     @Column(name = "is_super_admin", nullable = false, length = 1, columnDefinition = "varchar(1) default 'N'")
-    private Boolean isSuperAdmin; // Y, N
+    private Boolean isSuperAdmin;
 
     @Column(name = "last_login_at")
     private LocalDateTime lastLoginAt;
@@ -59,9 +68,9 @@ public class User extends BaseTimeEntity {
         this.password = password;
         this.email = email;
         this.displayName = displayName;
-        this.status = "ACTIVE";
-        this.isEmailVerified = false; // 기본값은 false
-        this.isSuperAdmin = false; // 기본값은 일반 사용자
+        this.status = STATUS_ACTIVE;
+        this.isEmailVerified = false;
+        this.isSuperAdmin = false;
     }
 
     public void updateLastLogin() {
@@ -89,16 +98,16 @@ public class User extends BaseTimeEntity {
     }
 
     public void delete() {
-        this.status = "DELETED";
+        this.status = STATUS_DELETED;
         this.deletedAt = LocalDateTime.now();
     }
 
     public void suspend() {
-        this.status = "SUSPENDED";
+        this.status = STATUS_SUSPENDED;
     }
 
     public void activate() {
-        this.status = "ACTIVE";
+        this.status = STATUS_ACTIVE;
         this.deletedAt = null;
     }
 
@@ -108,5 +117,13 @@ public class User extends BaseTimeEntity {
 
     public void revokeSuperAdminRole() {
         this.isSuperAdmin = false;
+    }
+
+    public boolean isActiveAccount() {
+        return STATUS_ACTIVE.equals(this.status) && this.deletedAt == null;
+    }
+
+    public boolean isUsableSuperAdmin() {
+        return Boolean.TRUE.equals(this.isSuperAdmin) && isActiveAccount();
     }
 }
