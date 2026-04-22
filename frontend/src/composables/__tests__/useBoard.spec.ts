@@ -184,7 +184,7 @@ describe('useBoard', () => {
             page: 1,
             size: 10,
             q: 'keyword',
-            searchType: 'TITLE',
+            type: 'TITLE',
             boardUrl: 'free',
         })
         expect(result).toEqual({ content: [{ postId: 2 }] })

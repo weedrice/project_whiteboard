@@ -1,3 +1,4 @@
+import { defineComponent } from 'vue'
 import { describe, expect, it, vi } from 'vitest'
 import { mount, RouterLinkStub } from '@vue/test-utils'
 import PostList from '../PostList.vue'
@@ -24,7 +25,7 @@ describe('PostList', () => {
           {
             postId: 101,
             boardUrl: 'free',
-            title: '페이지 유지 테스트',
+            title: '페이지 링크 테스트',
             createdAt: '2026-04-15T00:00:00',
             viewCount: 1,
             likeCount: 2,
@@ -58,5 +59,147 @@ describe('PostList', () => {
         q: 'vue'
       }
     })
+  })
+
+  it('uses the noviis column order on desktop', () => {
+    const BaseTableStub = defineComponent({
+      name: 'BaseTable',
+      props: {
+        columns: {
+          type: Array,
+          required: true
+        }
+      },
+      template: '<div />'
+    })
+
+    const wrapper = mount(PostList, {
+      props: {
+        posts: []
+      },
+      global: {
+        mocks: {
+          $t: (key: string) => key
+        },
+        stubs: {
+          BaseTable: BaseTableStub,
+          RouterLink: RouterLinkStub,
+          UserMenu: true
+        }
+      }
+    })
+
+    const table = wrapper.findComponent(BaseTableStub)
+    const columns = table.props('columns') as Array<{ key: string }>
+
+    expect(columns.map((column) => column.key)).toEqual([
+      'postId',
+      'title',
+      'author',
+      'likeCount',
+      'viewCount',
+      'createdAt'
+    ])
+  })
+
+  it('keeps desktop column widths within 100 percent when board names are shown', () => {
+    const BaseTableStub = defineComponent({
+      name: 'BaseTable',
+      props: {
+        columns: {
+          type: Array,
+          required: true
+        }
+      },
+      template: '<div />'
+    })
+
+    const wrapper = mount(PostList, {
+      props: {
+        posts: [],
+        showBoardName: true
+      },
+      global: {
+        mocks: {
+          $t: (key: string) => key
+        },
+        stubs: {
+          BaseTable: BaseTableStub,
+          RouterLink: RouterLinkStub,
+          UserMenu: true
+        }
+      }
+    })
+
+    const table = wrapper.findComponent(BaseTableStub)
+    const columns = table.props('columns') as Array<{ width?: string }>
+    const totalWidth = columns.reduce((sum, column) => sum + Number.parseInt(column.width || '0', 10), 0)
+
+    expect(totalWidth).toBeLessThanOrEqual(100)
+  })
+
+  it('keeps invalid board targets non-interactive on mobile', () => {
+    const wrapper = mount(PostList, {
+      props: {
+        posts: [
+          {
+            postId: 202,
+            title: '잘못된 링크 글',
+            createdAt: '2026-04-15T00:00:00',
+            viewCount: 4,
+            likeCount: 5,
+            commentCount: 0
+          }
+        ]
+      },
+      global: {
+        mocks: {
+          $t: (key: string) => key
+        },
+        stubs: {
+          RouterLink: RouterLinkStub,
+          BaseTable: true,
+          UserMenu: true
+        }
+      }
+    })
+
+    expect(wrapper.findComponent(RouterLinkStub).exists()).toBe(false)
+    expect(wrapper.text()).toContain('잘못된 링크 글')
+  })
+
+  it('intercepts inquiry clicks without navigating', async () => {
+    const wrapper = mount(PostList, {
+      props: {
+        posts: [
+          {
+            postId: 303,
+            boardUrl: 'inquiry',
+            title: '문의 글',
+            createdAt: '2026-04-15T00:00:00',
+            viewCount: 4,
+            likeCount: 1,
+            commentCount: 0,
+            inquiryAnswered: false
+          }
+        ],
+        interceptInquiry: true
+      },
+      global: {
+        mocks: {
+          $t: (key: string) => key
+        },
+        stubs: {
+          RouterLink: RouterLinkStub,
+          BaseTable: true,
+          UserMenu: true
+        }
+      }
+    })
+
+    await wrapper.find('button').trigger('click')
+
+    expect(wrapper.emitted('inquiry-click')).toHaveLength(1)
+    expect(wrapper.findComponent(RouterLinkStub).exists()).toBe(false)
   })
 })

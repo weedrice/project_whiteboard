@@ -1,15 +1,27 @@
 <script setup lang="ts">
-// defineProps and defineEmits are compiler macros and don't need to be imported
-import { MessageSquare, ThumbsUp, User, Clock, Image as ImageIcon, Lock, ArrowUp, ArrowDown, Eye } from 'lucide-vue-next'
-import UserMenu from '@/components/common/widgets/UserMenu.vue'
-import BaseTable from '@/components/common/ui/BaseTable.vue'
 import { computed } from 'vue'
+import {
+  Clock,
+  Eye,
+  Image as ImageIcon,
+  Lock,
+  MessageSquare,
+  ThumbsUp,
+  User
+} from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import type { LocationQueryRaw, RouteLocationRaw } from 'vue-router'
+import BaseTable from '@/components/common/ui/BaseTable.vue'
+import UserMenu from '@/components/common/widgets/UserMenu.vue'
+import { formatRelativeDate } from '@/utils/date'
 
-const { t } = useI18n()
+const GENERAL_CATEGORY_NAMES = new Set(['일반', 'general'])
 
-// Define interfaces for props
+const isGeneralCategory = (name?: string | null): boolean => {
+  const normalized = name?.trim().toLowerCase()
+  return normalized ? GENERAL_CATEGORY_NAMES.has(normalized) : false
+}
+
 interface Post {
   postId: number
   boardUrl?: string | number
@@ -57,6 +69,13 @@ const props = withDefaults(defineProps<{
   interceptInquiry: false
 })
 
+const emit = defineEmits<{
+  (e: 'update:sort', sort: string): void
+  (e: 'inquiry-click', post: Post): void
+}>()
+
+const { t } = useI18n()
+
 function isCurrentPost(item: Post): boolean {
   return String(item.postId) === String(props.currentPostId ?? '')
 }
@@ -66,11 +85,13 @@ function getResolvedBoardUrl(item: Post): string {
   return raw.replace(/^\/+|\/+$/g, '')
 }
 
-function getPostLink(item: Post): RouteLocationRaw {
-  const boardUrl = getResolvedBoardUrl(item)
+function hasValidBoardTarget(item: Post): boolean {
+  return getResolvedBoardUrl(item).length > 0
+}
 
+function getPostLink(item: Post): RouteLocationRaw {
   return {
-    path: `/board/${boardUrl}/post/${item.postId}`,
+    path: `/board/${getResolvedBoardUrl(item)}/post/${item.postId}`,
     query: props.linkQuery
   }
 }
@@ -91,15 +112,31 @@ function getInquiryStatusLabel(item: Post): string {
   return item.inquiryAnswered ? '답변완료' : '답변대기'
 }
 
+function getInteractiveTag(item: Post): 'button' | 'router-link' | 'div' {
+  if (shouldInterceptInquiry(item)) return 'button'
+  if (hasValidBoardTarget(item)) return 'router-link'
+  return 'div'
+}
+
+function isAgentAuthor(item: Post): boolean {
+  return item.author?.authorType === 'AGENT'
+}
+
+function handleSort(field: string) {
+  const [currentField, currentDirection] = props.currentSort.split(',')
+  let nextDirection = 'desc'
+
+  if (field === currentField) {
+    nextDirection = currentDirection === 'desc' ? 'asc' : 'desc'
+  }
+
+  emit('update:sort', `${field},${nextDirection}`)
+}
+
 function onPostClick(event: Event, item: Post) {
   if (shouldInterceptInquiry(item)) {
     event.preventDefault()
     emit('inquiry-click', item)
-    return
-  }
-  if (isCurrentPost(item)) {
-    event.preventDefault()
-    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 }
 
@@ -107,11 +144,6 @@ function onTitleClick(event: Event, item: Post) {
   if (shouldInterceptInquiry(item)) {
     event.preventDefault()
     emit('inquiry-click', item)
-    return
-  }
-  if (isCurrentPost(item)) {
-    event.preventDefault()
-    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 }
 
@@ -120,24 +152,6 @@ function onBoardClick(event: Event, item: Post) {
     event.preventDefault()
     emit('inquiry-click', item)
   }
-}
-
-import { formatRelativeDate } from '@/utils/date'
-
-const emit = defineEmits<{
-  (e: 'update:sort', sort: string): void
-  (e: 'inquiry-click', post: Post): void
-}>()
-
-function handleSort(field: string) {
-  const [currentField, currentDirection] = props.currentSort.split(',')
-  let newDirection = 'desc'
-
-  if (field === currentField) {
-    newDirection = currentDirection === 'desc' ? 'asc' : 'desc'
-  }
-
-  emit('update:sort', `${field},${newDirection}`)
 }
 
 const columns = computed(() => {
@@ -157,15 +171,15 @@ const columns = computed(() => {
     cols.push({
       key: 'boardName',
       label: t('common.board'),
-      width: '15%',
-      align: 'center' as const
+      width: '14%',
+      align: 'left' as const
     })
   }
 
   cols.push({
     key: 'title',
     label: t('common.title'),
-    width: props.showBoardName ? '28%' : '38%',
+    width: props.showBoardName ? '32%' : '46%',
     align: 'left' as const
   })
 
@@ -173,21 +187,6 @@ const columns = computed(() => {
     key: 'author',
     label: t('common.author'),
     width: '15%',
-    align: 'center' as const
-  })
-
-  cols.push({
-    key: 'createdAt',
-    label: t('common.date'),
-    width: '12%',
-    align: 'center' as const,
-    sortable: true
-  })
-
-  cols.push({
-    key: 'viewCount',
-    label: t('common.views'),
-    width: '10%',
     align: 'center' as const,
     sortable: true
   })
@@ -195,86 +194,124 @@ const columns = computed(() => {
   cols.push({
     key: 'likeCount',
     label: t('common.likes'),
-    width: '10%',
+    width: '9%',
+    align: 'center' as const,
+    sortable: true
+  })
+
+  cols.push({
+    key: 'viewCount',
+    label: t('common.views'),
+    width: '9%',
+    align: 'center' as const,
+    sortable: true
+  })
+
+  cols.push({
+    key: 'createdAt',
+    label: t('common.date'),
+    width: '11%',
     align: 'center' as const,
     sortable: true
   })
 
   return cols
 })
-
-function isAgentAuthor(item: Post): boolean {
-  return item.author?.authorType === 'AGENT'
-}
 </script>
 
 <template>
-  <div class="card">
-    <!-- Mobile: 제목·날짜 상단, 글쓴이·조회·추천 하단 (번호 없음, 공지 배경 구분) -->
-    <div class="sm:hidden divide-y divide-gray-200 dark:divide-gray-700">
+  <div class="card border-0 bg-transparent shadow-none">
+    <div class="sm:hidden divide-y divide-[var(--nv-line)]">
       <template v-if="posts.length === 0">
-        <div class="px-4 py-8 text-center text-xs text-gray-500 dark:text-gray-400">
+        <div class="px-4 py-10 text-center text-xs text-[var(--nv-muted)]">
           {{ $t('board.list.noPosts') }}
         </div>
       </template>
+
       <component
-        v-for="(item, index) in posts"
-        :is="shouldInterceptInquiry(item) ? 'button' : 'router-link'"
+        v-for="item in posts"
+        :is="getInteractiveTag(item)"
         :key="item.postId"
-        :to="!shouldInterceptInquiry(item) ? getPostLink(item) : undefined"
-        :type="shouldInterceptInquiry(item) ? 'button' : undefined"
+        :to="getInteractiveTag(item) === 'router-link' ? getPostLink(item) : undefined"
+        :type="getInteractiveTag(item) === 'button' ? 'button' : undefined"
+        :aria-disabled="getInteractiveTag(item) === 'div' ? 'true' : undefined"
         :class="[
-          'block w-full text-left px-3 py-3 transition-colors',
-          item.isNotice ? 'bg-gray-100/80 dark:bg-gray-700/40 hover:bg-gray-200/80 dark:hover:bg-gray-700/60' : 'hover:bg-gray-50 dark:hover:bg-gray-700/50',
-          isCurrentPost(item) ? 'bg-indigo-50 dark:bg-indigo-900/20 ring-1 ring-inset ring-indigo-200 dark:ring-indigo-700' : ''
+          'nv-post-card block w-full px-4 py-4 text-left transition-colors',
+          item.isNotice ? 'nv-post-card-notice' : '',
+          isCurrentPost(item) ? 'nv-post-card-current' : '',
+          getInteractiveTag(item) === 'div' ? 'cursor-not-allowed opacity-70' : ''
         ]"
-        active-class=""
         @click="onPostClick($event, item)"
       >
-        <div class="flex items-center gap-2 min-w-0">
-          <span class="flex-1 min-w-0 truncate text-xs text-gray-900 dark:text-white">
-            <span v-if="item.category && item.category.name !== '일반'" class="badge badge-gray mr-1 text-[10px]">{{ item.category.name }}</span>
-            <span v-if="item.isNotice" class="badge badge-red mr-1 text-[10px]">{{ $t('common.notice') }}</span>
-            <span v-if="item.isSecret" class="mr-0.5 inline-flex text-amber-500" :title="$t('board.writePost.secret')">
-              <Lock class="h-3.5 w-3.5" />
-            </span>
-            <span v-if="item.hasImage" class="mr-0.5 inline-flex text-gray-400"><ImageIcon class="h-3.5 w-3.5" /></span>
-            <span
-              v-if="hasInquiryStatus(item)"
-              class="mr-1 rounded px-1 py-0.5 text-[9px] font-medium"
-              :class="item.inquiryAnswered ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'"
-            >
-              {{ getInquiryStatusLabel(item) }}
-            </span>
-            {{ item.title }}
-            <span v-if="item.commentCount > 0" class="text-indigo-600 dark:text-indigo-400">[{{ item.commentCount }}]</span>
+        <div class="flex items-start justify-between gap-3">
+          <div class="min-w-0 flex-1">
+            <div class="flex flex-wrap items-center gap-1.5">
+              <span
+                v-if="item.category && !isGeneralCategory(item.category.name)"
+                class="badge badge-gray !mr-0 text-[10px]"
+              >
+                {{ item.category.name }}
+              </span>
+              <span v-if="item.isNotice" class="badge badge-red !mr-0 text-[10px]">
+                {{ $t('common.notice') }}
+              </span>
+              <span
+                v-if="hasInquiryStatus(item)"
+                class="rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                :class="item.inquiryAnswered ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'"
+              >
+                {{ getInquiryStatusLabel(item) }}
+              </span>
+            </div>
+
+            <div class="mt-2 flex items-start gap-1.5 text-sm font-medium text-[var(--nv-ink)]">
+              <span
+                v-if="item.isSecret"
+                class="mt-0.5 inline-flex flex-shrink-0 text-amber-500"
+                :title="$t('board.writePost.secret')"
+              >
+                <Lock class="h-4 w-4" />
+              </span>
+              <span v-if="item.hasImage" class="mt-0.5 inline-flex flex-shrink-0 text-[var(--nv-muted)]">
+                <ImageIcon class="h-4 w-4" />
+              </span>
+              <span class="min-w-0 flex-1 break-words">
+                {{ item.title }}
+                <span v-if="item.commentCount > 0" class="ml-1 text-indigo-600 dark:text-indigo-400">
+                  [{{ item.commentCount }}]
+                </span>
+              </span>
+            </div>
+          </div>
+
+          <span class="mt-0.5 flex-shrink-0 text-[11px] text-[var(--nv-muted)]">
+            {{ formatRelativeDate(item.createdAt) }}
           </span>
-          <span class="flex-shrink-0 text-[10px] text-gray-500 dark:text-gray-400">{{ formatRelativeDate(item.createdAt) }}</span>
         </div>
-        <div class="flex items-center gap-3 mt-1.5 text-[10px] text-gray-500 dark:text-gray-400">
-          <span class="flex items-center gap-0.5">
-            <User class="h-3 w-3" />
-            {{ item.author?.displayName || '-' }}
+
+        <div class="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 text-[11px] text-[var(--nv-ink-soft)]">
+          <span class="inline-flex items-center gap-1">
+            <User class="h-3.5 w-3.5" />
+            <span>{{ item.author?.displayName || '-' }}</span>
             <span
               v-if="isAgentAuthor(item)"
-              class="ml-1 inline-flex items-center rounded-full bg-sky-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-sky-700 dark:bg-sky-900/40 dark:text-sky-300"
+              class="rounded-full bg-sky-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-sky-700 dark:bg-sky-900/40 dark:text-sky-300"
             >
-              에이전트
+              AGENT
             </span>
           </span>
-          <span class="flex items-center gap-0.5">
-            <Eye class="h-3 w-3" />
-            {{ item.viewCount }}
-          </span>
-          <span class="flex items-center gap-0.5">
-            <ThumbsUp class="h-3 w-3" />
+          <span class="inline-flex items-center gap-1">
+            <ThumbsUp class="h-3.5 w-3.5" />
             {{ item.likeCount }}
+          </span>
+          <span class="inline-flex items-center gap-1">
+            <Eye class="h-3.5 w-3.5" />
+            {{ item.viewCount }}
           </span>
         </div>
       </component>
     </div>
 
-    <!-- Desktop: 테이블 -->
     <div class="hidden sm:block table-container">
       <BaseTable
         :columns="columns"
@@ -284,7 +321,9 @@ function isAgentAuthor(item: Post): boolean {
         @sort="handleSort"
       >
         <template #cell-postId="{ item }">
-          <span v-if="item.isNotice" class="font-bold text-red-600 dark:text-red-400">{{ $t('common.notice') }}</span>
+          <span v-if="item.isNotice" class="font-semibold text-red-600 dark:text-red-400">
+            {{ $t('common.notice') }}
+          </span>
           <span v-else>{{ item.rowNum }}</span>
         </template>
 
@@ -292,110 +331,142 @@ function isAgentAuthor(item: Post): boolean {
           <button
             v-if="shouldInterceptInquiry(item)"
             type="button"
-            class="hover:text-indigo-600 dark:hover:text-indigo-400 text-gray-700 dark:text-gray-300"
+            class="truncate text-left text-[var(--nv-ink-soft)] hover:text-[var(--nv-accent)]"
             @click="onBoardClick($event, item)"
           >
             {{ item.boardName || '-' }}
           </button>
-          <router-link v-else-if="getResolvedBoardUrl(item)" :to="`/board/${getResolvedBoardUrl(item)}`"
-            class="hover:text-indigo-600 dark:hover:text-indigo-400 text-gray-700 dark:text-gray-300"
-            @click="onBoardClick($event, item)">
+          <router-link
+            v-else-if="hasValidBoardTarget(item)"
+            :to="`/board/${getResolvedBoardUrl(item)}`"
+            class="truncate text-[var(--nv-ink-soft)] hover:text-[var(--nv-accent)]"
+            @click="onBoardClick($event, item)"
+          >
             {{ item.boardName || '-' }}
           </router-link>
-          <span v-else>{{ item.boardName || '-' }}</span>
+          <span v-else class="truncate text-[var(--nv-muted)]">{{ item.boardName || '-' }}</span>
         </template>
 
         <template #cell-title="{ item }">
-          <div class="flex items-center h-full min-w-0 overflow-hidden">
+          <div class="flex min-w-0 items-center gap-1.5 overflow-hidden">
             <button
               v-if="shouldInterceptInquiry(item)"
               type="button"
-              class="hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center h-full min-w-0 flex-1 overflow-hidden text-left"
+              class="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden text-left hover:text-[var(--nv-accent)]"
               @click="onTitleClick($event, item)"
             >
-              <span v-if="item.category && item.category.name !== '?쇰컲'" class="badge badge-gray mr-1.5 sm:mr-2 text-[10px] sm:text-xs flex-shrink-0">
+              <span
+                v-if="item.category && !isGeneralCategory(item.category.name)"
+                class="badge badge-gray !mr-0 flex-shrink-0 text-[10px]"
+              >
                 {{ item.category.name }}
               </span>
-              <span v-if="item.isNotice" class="badge badge-red mr-1.5 sm:mr-2 text-[10px] sm:text-xs flex-shrink-0">
+              <span v-if="item.isNotice" class="badge badge-red !mr-0 flex-shrink-0 text-[10px]">
                 {{ $t('common.notice') }}
               </span>
-              <span v-if="item.isSecret" class="mr-1 text-amber-500 flex items-center flex-shrink-0" :title="$t('board.writePost.secret')">
+              <span
+                v-if="item.isSecret"
+                class="inline-flex flex-shrink-0 text-amber-500"
+                :title="$t('board.writePost.secret')"
+              >
                 <Lock class="h-4 w-4" />
               </span>
-              <span v-if="item.hasImage" class="mr-1 text-gray-400 flex items-center flex-shrink-0">
+              <span v-if="item.hasImage" class="inline-flex flex-shrink-0 text-[var(--nv-muted)]">
                 <ImageIcon class="h-4 w-4" />
               </span>
               <span
                 v-if="hasInquiryStatus(item)"
-                class="mr-1 rounded px-1.5 py-0.5 text-[10px] font-medium flex-shrink-0"
+                class="rounded-full px-2 py-0.5 text-[10px] font-semibold flex-shrink-0"
                 :class="item.inquiryAnswered ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'"
               >
                 {{ getInquiryStatusLabel(item) }}
               </span>
-              <span class="truncate min-w-0">{{ item.title }}</span>
-              <span v-if="item.commentCount > 0"
-                class="ml-1 text-indigo-600 dark:text-indigo-400 text-[10px] sm:text-xs flex-shrink-0">
+              <span class="truncate">{{ item.title }}</span>
+              <span v-if="item.commentCount > 0" class="flex-shrink-0 text-indigo-600 dark:text-indigo-400">
                 [{{ item.commentCount }}]
               </span>
             </button>
-            <router-link :to="getPostLink(item)"
-              class="hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center h-full min-w-0 flex-1 overflow-hidden"
-              v-else-if="getResolvedBoardUrl(item)"
-              @click="onTitleClick($event, item)">
-              <span v-if="item.category && item.category.name !== '일반'" class="badge badge-gray mr-1.5 sm:mr-2 text-[10px] sm:text-xs flex-shrink-0">
+
+            <router-link
+              v-else-if="hasValidBoardTarget(item)"
+              :to="getPostLink(item)"
+              class="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden hover:text-[var(--nv-accent)]"
+              @click="onTitleClick($event, item)"
+            >
+              <span
+                v-if="item.category && !isGeneralCategory(item.category.name)"
+                class="badge badge-gray !mr-0 flex-shrink-0 text-[10px]"
+              >
                 {{ item.category.name }}
               </span>
-              <span v-if="item.isNotice" class="badge badge-red mr-1.5 sm:mr-2 text-[10px] sm:text-xs flex-shrink-0">
+              <span v-if="item.isNotice" class="badge badge-red !mr-0 flex-shrink-0 text-[10px]">
                 {{ $t('common.notice') }}
               </span>
-              <span v-if="item.isSecret" class="mr-1 text-amber-500 flex items-center flex-shrink-0" :title="$t('board.writePost.secret')">
+              <span
+                v-if="item.isSecret"
+                class="inline-flex flex-shrink-0 text-amber-500"
+                :title="$t('board.writePost.secret')"
+              >
                 <Lock class="h-4 w-4" />
               </span>
-              <span v-if="item.hasImage" class="mr-1 text-gray-400 flex items-center flex-shrink-0">
+              <span v-if="item.hasImage" class="inline-flex flex-shrink-0 text-[var(--nv-muted)]">
                 <ImageIcon class="h-4 w-4" />
               </span>
               <span
                 v-if="hasInquiryStatus(item)"
-                class="mr-1 rounded px-1.5 py-0.5 text-[10px] font-medium flex-shrink-0"
+                class="rounded-full px-2 py-0.5 text-[10px] font-semibold flex-shrink-0"
                 :class="item.inquiryAnswered ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'"
               >
                 {{ getInquiryStatusLabel(item) }}
               </span>
-              <span class="truncate min-w-0">{{ item.title }}</span>
-              <span v-if="item.commentCount > 0"
-                class="ml-1 text-indigo-600 dark:text-indigo-400 text-[10px] sm:text-xs flex-shrink-0">
+              <span class="truncate">{{ item.title }}</span>
+              <span v-if="item.commentCount > 0" class="flex-shrink-0 text-indigo-600 dark:text-indigo-400">
                 [{{ item.commentCount }}]
               </span>
             </router-link>
-            <span v-else class="text-gray-400 flex items-center h-full cursor-not-allowed min-w-0 overflow-hidden"
-              :title="$t('board.invalidUrl')">
-              <span class="truncate min-w-0">{{ item.title }}</span>
+
+            <span v-else class="truncate text-[var(--nv-muted)]" :title="$t('board.invalidUrl')">
+              {{ item.title }}
             </span>
           </div>
         </template>
 
         <template #cell-author="{ item }">
           <span class="inline-flex min-w-0 max-w-full items-center gap-1 overflow-hidden">
-            <UserMenu v-if="item.author" :user-id="item.author.userId" :display-name="item.author.displayName" />
+            <UserMenu
+              v-if="item.author"
+              :user-id="item.author.userId"
+              :display-name="item.author.displayName"
+            />
+            <span v-else>-</span>
             <span
               v-if="isAgentAuthor(item)"
-              class="inline-flex items-center rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-semibold text-sky-700 dark:bg-sky-900/40 dark:text-sky-300"
+              class="rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-semibold text-sky-700 dark:bg-sky-900/40 dark:text-sky-300"
             >
-              에이전트
+              AGENT
             </span>
           </span>
         </template>
 
-        <template #cell-createdAt="{ item }">
-          {{ formatRelativeDate(item.createdAt) }}
+        <template #cell-likeCount="{ item }">
+          <span class="inline-flex items-center justify-center gap-1">
+            <ThumbsUp class="h-3.5 w-3.5 text-[var(--nv-muted)]" />
+            {{ item.likeCount }}
+          </span>
         </template>
 
         <template #cell-viewCount="{ item }">
-          {{ item.viewCount }}
+          <span class="inline-flex items-center justify-center gap-1">
+            <Eye class="h-3.5 w-3.5 text-[var(--nv-muted)]" />
+            {{ item.viewCount }}
+          </span>
         </template>
 
-        <template #cell-likeCount="{ item }">
-          {{ item.likeCount }}
+        <template #cell-createdAt="{ item }">
+          <span class="inline-flex items-center justify-center gap-1">
+            <Clock class="h-3.5 w-3.5 text-[var(--nv-muted)]" />
+            {{ formatRelativeDate(item.createdAt) }}
+          </span>
         </template>
       </BaseTable>
     </div>
@@ -403,20 +474,54 @@ function isAgentAuthor(item: Post): boolean {
 </template>
 
 <style scoped>
-/* 현재 읽는 글 하이라이트: td에만 배경 적용, 셀별 테두리 없음(한 줄로 보이게) */
+.nv-post-card {
+  background: transparent;
+}
+
+.nv-post-card:hover {
+  background: color-mix(in srgb, var(--nv-surface-2) 72%, transparent);
+}
+
+.nv-post-card-notice {
+  background: color-mix(in srgb, var(--nv-surface-2) 86%, transparent);
+}
+
+.nv-post-card-current {
+  background: color-mix(in srgb, var(--nv-accent-bg) 86%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--nv-accent) 24%, transparent);
+}
+
+:deep(.table-container > div) {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  border-radius: 0;
+}
+
+:deep(thead) {
+  background: color-mix(in srgb, var(--nv-surface-2) 65%, transparent);
+}
+
+:deep(th) {
+  color: var(--nv-muted);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+}
+
+:deep(tbody) {
+  background: transparent;
+}
+
+:deep(tr:hover td) {
+  background: color-mix(in srgb, var(--nv-surface-2) 70%, transparent);
+}
+
 :deep(.post-list-row-current td) {
-  background-color: rgb(238 242 255);
+  background: color-mix(in srgb, var(--nv-accent-bg) 82%, transparent);
 }
+
 :deep(.post-list-row-current td:first-child) {
-  border-left: 4px solid rgb(99 102 241);
-}
-</style>
-<style>
-/* 다크모드: 별도 비-scoped 블록으로 적용 (scoped + :global 조합 시 미적용 이슈 방지) */
-html.dark .post-list-row-current td {
-  background-color: rgb(49 46 129 / 0.35);
-}
-html.dark .post-list-row-current td:first-child {
-  border-left-color: rgb(129 140 248);
+  border-left: 4px solid var(--nv-accent);
 }
 </style>

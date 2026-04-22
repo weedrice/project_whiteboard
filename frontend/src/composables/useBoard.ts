@@ -14,6 +14,7 @@ interface BoardPostParams {
     categoryId?: number
     sort?: string
     q?: string
+    type?: string
     searchType?: string
 }
 
@@ -71,7 +72,12 @@ export function useBoard() {
             queryKey: ['board', boardUrl, 'posts', params, isSearching],
             queryFn: async () => {
                 if (isSearching?.value) {
-                    const { data } = await searchApi.searchPosts({ ...params.value, boardUrl: boardUrl.value })
+                    const { searchType, ...restParams } = params.value
+                    const { data } = await searchApi.searchPosts({
+                        ...restParams,
+                        type: params.value.type ?? searchType,
+                        boardUrl: boardUrl.value
+                    })
                     return data.data
                 } else {
                     const { data } = await boardApi.getPosts(boardUrl.value, params.value)
