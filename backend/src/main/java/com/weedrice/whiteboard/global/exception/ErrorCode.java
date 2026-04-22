@@ -44,6 +44,7 @@ public enum ErrorCode {
     POST_NOT_FOUND(HttpStatus.NOT_FOUND, "P001", "error.post.notFound"),
     ALREADY_SCRAPED(HttpStatus.CONFLICT, "P002", "error.post.alreadyScraped"),
     NOT_SCRAPED(HttpStatus.BAD_REQUEST, "P003", "error.post.notScraped"),
+    DRAFT_OUTDATED(HttpStatus.CONFLICT, "P004", "error.post.draftOutdated"),
 
     // Comment
     COMMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "C001", "error.comment.notFound"),

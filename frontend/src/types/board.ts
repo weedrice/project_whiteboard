@@ -166,3 +166,58 @@ export interface FeedPost extends Omit<PostSummary, 'liked' | 'scrapped' | 'subs
     firstMediaType?: string
     firstMediaUrl?: string
 }
+
+export interface HomeLandingStats {
+    boardCount: number
+    postCount: number
+    liveCount: number
+}
+
+export interface HomeLandingResponse {
+    featuredPost: PostSummary | null
+    editorPicks: PostSummary[]
+    trendingPosts: PostSummary[]
+    liveActivity: PostSummary[]
+    boards: BoardListItem[]
+    stats: HomeLandingStats
+}
+
+export interface DraftPostSummary {
+    draftId: number
+    title?: string
+    boardId: number
+    boardUrl: string
+    boardName: string
+    originalPostId?: number | null
+    updatedAt?: string
+    modifiedAt?: string
+}
+
+export interface DraftPostListResponse {
+    content: DraftPostSummary[]
+    page: number
+    size: number
+    totalElements: number
+    totalPages: number
+    hasNext: boolean
+    hasPrevious: boolean
+}
+
+export interface DraftPost {
+    draftId: number
+    boardId: number
+    boardUrl: string
+    boardName: string
+    title?: string
+    contents?: string
+    categoryId?: number | null
+    tags: string[]
+    isNotice: boolean
+    isNsfw: boolean
+    isSpoiler: boolean
+    isSecret: boolean
+    fileIds: number[]
+    originalPostId?: number | null
+    updatedAt?: string
+    modifiedAt?: string
+}

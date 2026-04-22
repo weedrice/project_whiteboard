@@ -575,14 +575,16 @@ class BoardServiceTest {
     @DisplayName("인기 게시판 목록 조회 성공")
     void getTopBoards_success() {
         // given
-        when(boardRepository.findTopPublicBoardsByPostCount(any())).thenReturn(Collections.singletonList(board));
+        when(boardRepository.findTopPublicBoardIdsByPostCount(any())).thenReturn(Collections.singletonList(1L));
+        when(boardRepository.findByBoardIdIn(List.of(1L))).thenReturn(Collections.singletonList(board));
 
         // when
         List<BoardListResponse> boards = boardService.getTopBoards(null);
 
         // then
         assertThat(boards).hasSize(1);
-        verify(boardRepository).findTopPublicBoardsByPostCount(any());
+        verify(boardRepository).findTopPublicBoardIdsByPostCount(any());
+        verify(boardRepository).findByBoardIdIn(List.of(1L));
     }
 
     @Test
@@ -590,13 +592,15 @@ class BoardServiceTest {
     void getTopBoards_authenticatedUsesPublicQueryWhenUserHasNoElevatedAccess() {
         UserDetails userDetails = mock(UserDetails.class);
         when(userDetails.getUsername()).thenReturn(user.getLoginId());
-        when(boardRepository.findTopPublicBoardsByPostCount(any())).thenReturn(Collections.singletonList(board));
+        when(boardRepository.findTopPublicBoardIdsByPostCount(any())).thenReturn(Collections.singletonList(1L));
+        when(boardRepository.findByBoardIdIn(List.of(1L))).thenReturn(Collections.singletonList(board));
 
         List<BoardListResponse> boards = boardService.getTopBoards(userDetails);
 
         assertThat(boards).extracting(BoardListResponse::getBoardUrl).containsExactly("test-board");
-        verify(boardRepository).findTopPublicBoardsByPostCount(any());
-        verify(boardRepository, never()).findTopBoardsByPostCount(any());
+        verify(boardRepository).findTopPublicBoardIdsByPostCount(any());
+        verify(boardRepository).findByBoardIdIn(List.of(1L));
+        verify(boardRepository, never()).findTopBoardIdsByPostCount(any());
     }
 
     @Test
@@ -614,12 +618,14 @@ class BoardServiceTest {
 
         UserDetails userDetails = mock(UserDetails.class);
         when(userDetails.getUsername()).thenReturn(user.getLoginId());
-        when(boardRepository.findTopBoardsByPostCount(any())).thenReturn(List.of(privateBoard));
+        when(boardRepository.findTopBoardIdsByPostCount(any())).thenReturn(List.of(2L));
+        when(boardRepository.findByBoardIdIn(List.of(2L))).thenReturn(List.of(privateBoard));
 
         List<BoardListResponse> boards = boardService.getTopBoards(userDetails);
 
         assertThat(boards).extracting(BoardListResponse::getBoardUrl).containsExactly("private-board");
-        verify(boardRepository).findTopBoardsByPostCount(any());
+        verify(boardRepository).findTopBoardIdsByPostCount(any());
+        verify(boardRepository).findByBoardIdIn(List.of(2L));
     }
 
     @Test

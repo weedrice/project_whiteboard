@@ -239,6 +239,10 @@ const mockUpdateMutate = vi.fn()
 const mockUsePostDetail = vi.fn()
 const mockUseCreatePost = vi.fn()
 const mockUseUpdatePost = vi.fn()
+const mockSaveDraftMutateAsync = vi.fn()
+const mockDeleteDraftMutateAsync = vi.fn()
+const isSaveDraftPendingRef = ref(false)
+const isDeleteDraftPendingRef = ref(false)
 
 const routeState = {
     params: {
@@ -318,11 +322,34 @@ describe('PostForm', () => {
             usePostDetail: mockUsePostDetail,
             useCreatePost: mockUseCreatePost,
             useUpdatePost: mockUseUpdatePost,
+            useSaveDraft: () => ({ isPending: isSaveDraftPendingRef, mutateAsync: mockSaveDraftMutateAsync }),
+            useDeleteDraft: () => ({ isPending: isDeleteDraftPendingRef, mutateAsync: mockDeleteDraftMutateAsync }),
         } as any)
 
         mockUsePostDetail.mockImplementation(() => ({ data: postRef, isLoading: isPostLoadingRef }))
         mockUseCreatePost.mockImplementation(() => ({ mutate: mockCreateMutate, isPending: isCreatePendingRef }))
         mockUseUpdatePost.mockImplementation(() => ({ mutate: mockUpdateMutate, isPending: isUpdatePendingRef }))
+        mockSaveDraftMutateAsync.mockResolvedValue({
+            data: {
+                data: {
+                    draftId: 91,
+                    boardId: 1,
+                    boardUrl: 'free',
+                    boardName: 'Free',
+                    title: 'Draft',
+                    contents: 'Draft body',
+                    tags: [],
+                    fileIds: [],
+                    isNotice: false,
+                    isNsfw: false,
+                    isSpoiler: false,
+                    isSecret: false,
+                    updatedAt: '2025-01-01T00:00:00.000Z',
+                    modifiedAt: '2025-01-01T00:00:00.000Z',
+                },
+            },
+        })
+        mockDeleteDraftMutateAsync.mockResolvedValue({ data: { data: null } })
     })
 
     it('renders create and edit titles', async () => {

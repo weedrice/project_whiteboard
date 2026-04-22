@@ -51,9 +51,9 @@ const isAuthRoute = computed(() => {
   return ['login', 'signup', 'find-account', 'forgot-password', 'reset-password', 'oauth-callback'].includes(String(route.name ?? ''))
 })
 const isAdminRoute = computed(() => String(route.name ?? '').startsWith('Admin'))
-const isEditorRoute = computed(() => ['post-write', 'post-edit', 'board-create', 'board-edit'].includes(String(route.name ?? '')))
 const showRecentBoardsBar = computed(() => !isAuthRoute.value && !isAdminRoute.value)
 const showMobileBottomNav = computed(() => !isAuthRoute.value && !isAdminRoute.value)
+const isEditorFocused = ref(false)
 
 const closeAllDropdowns = () => {
   isNotificationOpen.value = false
@@ -186,6 +186,11 @@ const updateIsMobile = () => {
   }
 }
 
+const handleEditorFocusChange = (event: Event) => {
+  const customEvent = event as CustomEvent<boolean>
+  isEditorFocused.value = Boolean(customEvent.detail)
+}
+
 onMounted(() => {
   if (mediaQuery) {
     isMobile.value = mediaQuery.matches
@@ -194,6 +199,7 @@ onMounted(() => {
 
   document.addEventListener('click', handleClickOutside)
   document.addEventListener('keydown', handleKeyDown)
+  window.addEventListener('noviis:editor-focus-change', handleEditorFocusChange as EventListener)
 })
 
 onUnmounted(() => {
@@ -204,6 +210,7 @@ onUnmounted(() => {
   closeSse()
   document.removeEventListener('click', handleClickOutside)
   document.removeEventListener('keydown', handleKeyDown)
+  window.removeEventListener('noviis:editor-focus-change', handleEditorFocusChange as EventListener)
 })
 
 const skipToMainContent = (event: Event) => {
@@ -317,7 +324,7 @@ const goToNotificationsPage = async () => {
     </main>
 
     <Footer />
-    <MobileBottomNav :hidden="!showMobileBottomNav || isEditorRoute" />
+    <MobileBottomNav :hidden="!showMobileBottomNav || isEditorFocused" />
     <KeyboardShortcutsModal v-if="!isMobile" />
   </div>
 </template>

@@ -66,11 +66,13 @@ class BoardQueryService {
     List<BoardListResponse> getTopBoards(UserDetails userDetails) {
         User currentUser = getCurrentUserOrNull(userDetails);
         if (currentUser == null || !boardAccessPolicy.hasElevatedBoardVisibility(currentUser)) {
-            List<Board> boards = boardRepository.findTopPublicBoardsByPostCount(PageRequest.of(0, TOP_BOARD_LIMIT));
+            List<Long> boardIds = boardRepository.findTopPublicBoardIdsByPostCount(PageRequest.of(0, TOP_BOARD_LIMIT));
+            List<Board> boards = findBoardsByIdsInOrder(boardIds);
             return boardResponseAssembler.assembleListAll(boards, currentUser);
         }
 
-        List<Board> visibleBoards = boardRepository.findTopBoardsByPostCount(PageRequest.of(0, TOP_BOARD_OVERFETCH_LIMIT))
+        List<Long> boardIds = boardRepository.findTopBoardIdsByPostCount(PageRequest.of(0, TOP_BOARD_OVERFETCH_LIMIT));
+        List<Board> visibleBoards = findBoardsByIdsInOrder(boardIds)
                 .stream()
                 .filter(board -> !boardAccessPolicy.isInquiryBoard(board))
                 .filter(board -> boardAccessPolicy.canReadBoard(board, currentUser))
@@ -156,5 +158,20 @@ class BoardQueryService {
         }
         return userRepository.findByLoginId(userDetails.getUsername())
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+    }
+
+    private List<Board> findBoardsByIdsInOrder(List<Long> boardIds) {
+        if (boardIds == null || boardIds.isEmpty()) {
+            return List.of();
+        }
+
+        Map<Long, Board> boardsById = boardRepository.findByBoardIdIn(boardIds)
+                .stream()
+                .collect(Collectors.toMap(Board::getBoardId, Function.identity()));
+
+        return boardIds.stream()
+                .map(boardsById::get)
+                .filter(board -> board != null)
+                .toList();
     }
 }

@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
-import { postApi, type PostCreateData, type PostUpdateData, type ReportData } from '@/api/post'
+import { postApi, type PostCreateData, type PostDraftData, type PostUpdateData, type ReportData } from '@/api/post'
 import { computed, type Ref } from 'vue'
 import type { Post } from '@/types'
 import type { AxiosRequestConfig } from 'axios'
@@ -304,6 +304,22 @@ export function usePost() {
         })
     }
 
+    const useSaveDraft = () => {
+        return useMutation({
+            mutationFn: async (data: PostDraftData) => {
+                return await postApi.saveDraft(data)
+            },
+        })
+    }
+
+    const useDeleteDraft = () => {
+        return useMutation({
+            mutationFn: async (draftId: string | number) => {
+                return await postApi.deleteDraft(draftId)
+            },
+        })
+    }
+
     return {
         usePostDetail,
         useCreatePost,
@@ -313,6 +329,8 @@ export function usePost() {
         useUnlikePost,
         useScrapPost,
         useUnscrapPost,
-        useReportPost
+        useReportPost,
+        useSaveDraft,
+        useDeleteDraft,
     }
 }

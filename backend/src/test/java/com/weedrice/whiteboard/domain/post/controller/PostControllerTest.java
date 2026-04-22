@@ -107,6 +107,7 @@ class PostControllerTest {
         ReflectionTestUtils.setField(user, "profileImageUrl", "profile.jpg");
 
         board = Board.builder().boardName("Test Board").build();
+        ReflectionTestUtils.setField(board, "boardId", 1L);
         ReflectionTestUtils.setField(board, "boardUrl", "free");
         ReflectionTestUtils.setField(board, "iconUrl", "icon.png");
 
@@ -450,23 +451,103 @@ class PostControllerTest {
         @DisplayName("임시저장 단건 조회")
         void getDraft_success() throws Exception {
             Long draftId = 1L;
-            DraftResponse response = DraftResponse.builder().build();
+            DraftResponse response = DraftResponse.builder()
+                    .draftId(draftId)
+                    .boardId(1L)
+                    .boardUrl("free")
+                    .boardName("Test Board")
+                    .title("Draft title")
+                    .contents("<p>Draft body</p>")
+                    .categoryId(1L)
+                    .tags(List.of("tag-a", "tag-b"))
+                    .isNotice(true)
+                    .isNsfw(false)
+                    .isSpoiler(true)
+                    .isSecret(false)
+                    .fileIds(List.of(10L, 11L))
+                    .originalPostId(99L)
+                    .updatedAt(LocalDateTime.of(2025, 1, 2, 3, 4))
+                    .modifiedAt(LocalDateTime.of(2025, 1, 2, 3, 4))
+                    .build();
             when(postService.getDraftPost(anyLong(), eq(draftId))).thenReturn(response);
             mockMvc.perform(get("/api/v1/drafts/{draftId}", draftId).with(user(customUserDetails)))
-                    .andExpect(status().isOk());
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.draftId").value(1))
+                    .andExpect(jsonPath("$.data.boardId").value(1))
+                    .andExpect(jsonPath("$.data.boardUrl").value("free"))
+                    .andExpect(jsonPath("$.data.boardName").value("Test Board"))
+                    .andExpect(jsonPath("$.data.title").value("Draft title"))
+                    .andExpect(jsonPath("$.data.contents").value("<p>Draft body</p>"))
+                    .andExpect(jsonPath("$.data.categoryId").value(1))
+                    .andExpect(jsonPath("$.data.tags[0]").value("tag-a"))
+                    .andExpect(jsonPath("$.data.tags[1]").value("tag-b"))
+                    .andExpect(jsonPath("$.data.isNotice").value(true))
+                    .andExpect(jsonPath("$.data.isNsfw").value(false))
+                    .andExpect(jsonPath("$.data.isSpoiler").value(true))
+                    .andExpect(jsonPath("$.data.isSecret").value(false))
+                    .andExpect(jsonPath("$.data.fileIds[0]").value(10))
+                    .andExpect(jsonPath("$.data.fileIds[1]").value(11))
+                    .andExpect(jsonPath("$.data.originalPostId").value(99))
+                    .andExpect(jsonPath("$.data.updatedAt").exists())
+                    .andExpect(jsonPath("$.data.modifiedAt").exists());
         }
 
         @Test
         @DisplayName("임시저장 저장")
         void saveDraft_success() throws Exception {
-            PostDraftRequest request = new PostDraftRequest(null, "free", "Title", "Content", null);
-            DraftPost draft = DraftPost.builder().title("Title").build();
+            PostDraftRequest request = PostDraftRequest.builder()
+                    .boardUrl("free")
+                    .title("Title")
+                    .contents("Content")
+                    .categoryId(1L)
+                    .tags(List.of("tag-a", "tag-b"))
+                    .isNotice(true)
+                    .isNsfw(false)
+                    .isSpoiler(true)
+                    .isSecret(false)
+                    .fileIds(List.of(10L, 11L))
+                    .originalPostId(1L)
+                    .updatedAt(LocalDateTime.of(2025, 1, 2, 3, 4))
+                    .build();
+            DraftPost draft = DraftPost.builder()
+                    .user(user)
+                    .board(board)
+                    .category(category)
+                    .title("Title")
+                    .contents("Content")
+                    .tags(List.of("tag-a", "tag-b"))
+                    .isNotice(true)
+                    .isNsfw(false)
+                    .isSpoiler(true)
+                    .isSecret(false)
+                    .fileIds(List.of(10L, 11L))
+                    .originalPost(post)
+                    .build();
             ReflectionTestUtils.setField(draft, "draftId", 1L);
+            ReflectionTestUtils.setField(draft, "modifiedAt", LocalDateTime.of(2025, 1, 2, 3, 4));
             when(postService.saveDraftPost(anyLong(), any())).thenReturn(draft);
 
             mockMvc.perform(post("/api/v1/drafts").with(user(customUserDetails))
                     .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(request)))
-                    .andExpect(status().isCreated());
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.data.draftId").value(1))
+                    .andExpect(jsonPath("$.data.boardId").value(1))
+                    .andExpect(jsonPath("$.data.boardUrl").value("free"))
+                    .andExpect(jsonPath("$.data.boardName").value("Test Board"))
+                    .andExpect(jsonPath("$.data.title").value("Title"))
+                    .andExpect(jsonPath("$.data.contents").value("Content"))
+                    .andExpect(jsonPath("$.data.categoryId").value(1))
+                    .andExpect(jsonPath("$.data.tags[0]").value("tag-a"))
+                    .andExpect(jsonPath("$.data.tags[1]").value("tag-b"))
+                    .andExpect(jsonPath("$.data.isNotice").value(true))
+                    .andExpect(jsonPath("$.data.isNsfw").value(false))
+                    .andExpect(jsonPath("$.data.isSpoiler").value(true))
+                    .andExpect(jsonPath("$.data.isSecret").value(false))
+                    .andExpect(jsonPath("$.data.fileIds[0]").value(10))
+                    .andExpect(jsonPath("$.data.fileIds[1]").value(11))
+                    .andExpect(jsonPath("$.data.originalPostId").value(1))
+                    .andExpect(jsonPath("$.data.updatedAt").exists())
+                    .andExpect(jsonPath("$.data.modifiedAt").exists());
         }
 
         @Test

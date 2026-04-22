@@ -1,9 +1,9 @@
 import { computed } from 'vue'
 import { useQuery } from '@tanstack/vue-query'
 import { postApi } from '@/api/post'
-import { useBoard } from '@/composables/useBoard'
+import { useAuthStore } from '@/stores/auth'
 import { QUERY_STALE_TIME } from '@/utils/constants'
-import type { FeedPost, PageResponse, PostSummary } from '@/types'
+import type { FeedPost, HomeLandingResponse, PostSummary } from '@/types'
 
 const mapToFeedPost = (post: PostSummary): FeedPost | null => {
     if (
@@ -27,65 +27,60 @@ const mapToFeedPost = (post: PostSummary): FeedPost | null => {
     }
 }
 
-const unwrapTrendingResponse = (payload: PageResponse<PostSummary> | PostSummary[]): PostSummary[] => {
-    if (Array.isArray(payload)) {
-        return payload
-    }
-
-    return payload.content ?? []
+const mapPosts = (posts: PostSummary[] | undefined): FeedPost[] => {
+    return (posts ?? [])
+        .map(mapToFeedPost)
+        .filter((post): post is FeedPost => post != null)
 }
 
+const emptyLanding = (): HomeLandingResponse => ({
+    featuredPost: null,
+    editorPicks: [],
+    trendingPosts: [],
+    liveActivity: [],
+    boards: [],
+    stats: {
+        boardCount: 0,
+        postCount: 0,
+        liveCount: 0,
+    },
+})
+
 export function useHomeLanding() {
-    const { useBoards } = useBoard()
-    const trendingQuery = useQuery({
-        queryKey: ['home', 'landing', 'trending'],
+    const authStore = useAuthStore()
+    const landingQuery = useQuery({
+        queryKey: computed(() => ['home', 'landing', authStore.isAuthenticated ? (authStore.user?.userId ?? 'auth') : 'guest']),
         queryFn: async () => {
-            const { data } = await postApi.getTrendingPosts(0, 16)
-            return unwrapTrendingResponse(data.data)
+            const { data } = await postApi.getHomeLanding()
+            return data.data
         },
+        placeholderData: undefined,
         staleTime: QUERY_STALE_TIME.SHORT,
     })
 
-    const boardsQuery = useBoards()
-
-    const posts = computed<FeedPost[]>(() => {
-        return (trendingQuery.data.value ?? [])
-            .map(mapToFeedPost)
-            .filter((post): post is FeedPost => post != null)
-    })
-
-    const boards = computed(() => boardsQuery.data.value ?? [])
-
-    const featured = computed(() => posts.value[0] ?? null)
-    const editorPicks = computed(() => posts.value.slice(1, 4))
-    const trending = computed(() => posts.value.slice(4, 10))
-    const liveActivity = computed(() => posts.value.slice(0, 6))
-    const spotlightBoards = computed(() => {
-        if (boardsQuery.isError.value) return []
-        return boards.value.slice(0, 6)
-    })
-
-    const isLoading = computed(() => trendingQuery.isLoading.value)
-    const isError = computed(() => trendingQuery.isError.value)
-    const error = computed(() => trendingQuery.error.value ?? null)
-    const isBoardsLoading = computed(() => boardsQuery.isLoading.value)
-    const isBoardsError = computed(() => boardsQuery.isError.value)
+    const landing = computed(() => landingQuery.data.value ?? emptyLanding())
+    const posts = computed(() => mapPosts([
+        ...(landing.value.featuredPost ? [landing.value.featuredPost] : []),
+        ...landing.value.editorPicks,
+        ...landing.value.trendingPosts,
+    ]))
 
     return {
-        featured,
-        editorPicks,
-        trending,
-        liveActivity,
-        spotlightBoards,
+        featured: computed(() => landing.value.featuredPost ? mapToFeedPost(landing.value.featuredPost) : null),
+        editorPicks: computed(() => mapPosts(landing.value.editorPicks)),
+        trending: computed(() => mapPosts(landing.value.trendingPosts)),
+        liveActivity: computed(() => mapPosts(landing.value.liveActivity)),
+        spotlightBoards: computed(() => landing.value.boards),
+        boards: computed(() => landing.value.boards),
+        stats: computed(() => landing.value.stats),
         posts,
-        boards,
-        isLoading,
-        isError,
-        isBoardsLoading,
-        isBoardsError,
-        error,
+        isLoading: computed(() => landingQuery.isLoading.value),
+        isError: computed(() => landingQuery.isError.value),
+        isBoardsLoading: computed(() => landingQuery.isLoading.value),
+        isBoardsError: computed(() => landingQuery.isError.value),
+        error: computed(() => landingQuery.error.value ?? null),
         refetch: async () => {
-            await Promise.all([trendingQuery.refetch(), boardsQuery.refetch()])
+            await landingQuery.refetch()
         },
     }
 }

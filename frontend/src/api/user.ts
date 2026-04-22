@@ -1,6 +1,7 @@
 import api from '@/api'
 import type {
     ApiResponse,
+    DraftPostListResponse,
     PageResponse,
     User,
     UserSummary,
@@ -125,7 +126,7 @@ export const userApi = {
         return api.get<ApiResponse<PageResponse<PostSummary>>>('/users/me/scraps', { params })
     },
     getMyDrafts(params: PaginationParams) {
-        return api.get<ApiResponse<PageResponse<PostSummary>>>('/users/me/drafts', { params })
+        return api.get<ApiResponse<DraftPostListResponse>>('/users/me/drafts', { params })
     },
     getRecentlyViewedPosts(params: PaginationParams) {
         return api.get<ApiResponse<PageResponse<PostSummary>>>('/users/me/history/views', { params })

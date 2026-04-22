@@ -28,9 +28,12 @@ import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -38,6 +41,7 @@ import java.util.Map;
 public class FileService {
 
     public static final String RELATED_TYPE_POST_CONTENT = "POST_CONTENT";
+    public static final String RELATED_TYPE_DRAFT_POST = "DRAFT_POST";
     public static final String RELATED_TYPE_USER_PROFILE = "USER_PROFILE";
     public static final String RELATED_TYPE_BOARD_ICON = "BOARD_ICON";
     private static final int MAX_DELETE_RETRY_COUNT = 5;
@@ -148,6 +152,68 @@ public class FileService {
         }
         File current = file;
         if (current.isAssociatedWith(relatedId, relatedType)) {
+            return;
+        }
+        throw new BusinessException(ErrorCode.FILE_ALREADY_ASSOCIATED);
+    }
+
+    @Transactional
+    public void syncDraftFiles(List<Long> fileIds, Long ownerUserId, Long draftId) {
+        Set<Long> requestedFileIds = normalizeFileIds(fileIds);
+        List<File> existingDraftFiles = fileRepository.findByRelatedIdAndRelatedTypeAndStorageStatus(
+                draftId,
+                RELATED_TYPE_DRAFT_POST,
+                FileStorageStatus.ACTIVE);
+
+        for (File existingDraftFile : existingDraftFiles) {
+            if (!requestedFileIds.contains(existingDraftFile.getFileId())) {
+                existingDraftFile.markDeletionPending();
+            }
+        }
+
+        for (Long fileId : requestedFileIds) {
+            associateOrMoveOwnedFile(fileId, ownerUserId, draftId, RELATED_TYPE_DRAFT_POST);
+        }
+    }
+
+    @Transactional
+    public void attachFilesToPost(List<Long> fileIds, Long ownerUserId, Long postId) {
+        for (Long fileId : normalizeFileIds(fileIds)) {
+            associateOrMoveOwnedFile(fileId, ownerUserId, postId, RELATED_TYPE_POST_CONTENT);
+        }
+    }
+
+    @Transactional
+    public void markDraftFilesDeletionPending(Long draftId) {
+        List<File> draftFiles = fileRepository.findByRelatedIdAndRelatedTypeAndStorageStatus(
+                draftId,
+                RELATED_TYPE_DRAFT_POST,
+                FileStorageStatus.ACTIVE);
+        for (File draftFile : draftFiles) {
+            draftFile.markDeletionPending();
+        }
+    }
+
+    private Set<Long> normalizeFileIds(List<Long> fileIds) {
+        if (fileIds == null || fileIds.isEmpty()) {
+            return Set.of();
+        }
+        return new HashSet<>(fileIds.stream()
+                .filter(Objects::nonNull)
+                .toList());
+    }
+
+    private void associateOrMoveOwnedFile(Long fileId, Long ownerUserId, Long relatedId, String relatedType) {
+        File file = fileRepository.findByFileIdAndStorageStatus(fileId, FileStorageStatus.ACTIVE)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+        if (file.getUploader() == null || !ownerUserId.equals(file.getUploader().getUserId())) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
+        if (file.isAssociatedWith(relatedId, relatedType)) {
+            return;
+        }
+        if (file.isUnassociated() || RELATED_TYPE_DRAFT_POST.equals(file.getRelatedType())) {
+            file.updateRelatedInfo(relatedId, relatedType);
             return;
         }
         throw new BusinessException(ErrorCode.FILE_ALREADY_ASSOCIATED);

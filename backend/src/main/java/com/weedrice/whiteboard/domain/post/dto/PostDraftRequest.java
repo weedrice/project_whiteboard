@@ -1,20 +1,52 @@
 package com.weedrice.whiteboard.domain.post.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
+import java.util.List;
+
 @Getter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class PostDraftRequest {
-    private Long draftId; // 수정 시 필요
+    private Long draftId;
     @NotNull
     private String boardUrl;
     private String title;
     private String contents;
-    private Long originalPostId; // 기존 게시글 수정 시 해당 게시글 ID
+    private Long categoryId;
+    private List<String> tags;
+    @JsonProperty("isNotice")
+    private boolean isNotice;
+    @JsonProperty("isNsfw")
+    private boolean isNsfw;
+    @JsonProperty("isSpoiler")
+    private boolean isSpoiler;
+    @JsonProperty("isSecret")
+    private boolean isSecret;
+    private List<Long> fileIds;
+    private LocalDateTime updatedAt;
+    private Long originalPostId;
+
+    public PostDraftRequest(Long draftId, String boardUrl, String title, String contents, Long originalPostId) {
+        this.draftId = draftId;
+        this.boardUrl = boardUrl;
+        this.title = title;
+        this.contents = contents;
+        this.originalPostId = originalPostId;
+        this.categoryId = null;
+        this.tags = List.of();
+        this.isNotice = false;
+        this.isNsfw = false;
+        this.isSpoiler = false;
+        this.isSecret = false;
+        this.fileIds = List.of();
+        this.updatedAt = null;
+    }
 }

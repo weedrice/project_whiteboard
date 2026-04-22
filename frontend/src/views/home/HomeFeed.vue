@@ -22,6 +22,7 @@ const {
   spotlightBoards,
   posts,
   boards,
+  stats,
   isLoading,
   isError,
   isBoardsLoading,
@@ -29,11 +30,26 @@ const {
   refetch,
 } = useHomeLanding()
 
-const stats = computed(() => ({
-  boardCount: isBoardsLoading.value || isBoardsError.value ? null : boards.value.length,
-  postCount: posts.value.length,
-  liveCount: liveActivity.value.length,
-}))
+const hasLandingContent = computed(() =>
+  Boolean(
+    featured.value
+    || editorPicks.value.length
+    || trending.value.length
+    || liveActivity.value.length
+    || boards.value.length,
+  ),
+)
+const heroPost = computed(() =>
+  featured.value
+  ?? editorPicks.value[0]
+  ?? trending.value[0]
+  ?? liveActivity.value[0]
+  ?? null,
+)
+const heroPostId = computed(() => heroPost.value?.postId ?? null)
+const visibleEditorPicks = computed(() => editorPicks.value.filter((post) => post.postId !== heroPostId.value))
+const visibleTrending = computed(() => trending.value.filter((post) => post.postId !== heroPostId.value))
+const visibleLiveActivity = computed(() => liveActivity.value.filter((post) => post.postId !== heroPostId.value))
 
 useHead({
   titleTemplate: '%s',
@@ -67,7 +83,7 @@ useHead({
     />
 
     <EmptyState
-      v-else-if="!featured"
+      v-else-if="!hasLandingContent"
       :title="$t('common.noData')"
       :description="$t('board.list.noPosts')"
       :icon="FileText"
@@ -94,22 +110,28 @@ useHead({
             </div>
             <div class="nv-home-stat">
               <span class="nv-home-stat-label">BOARDS</span>
-              <strong>{{ stats.boardCount ?? '...' }}</strong>
+              <strong>{{ isBoardsLoading || isBoardsError ? '...' : stats.boardCount }}</strong>
             </div>
           </div>
         </div>
 
         <div class="grid gap-5 lg:grid-cols-[1.45fr_0.95fr]">
-          <HomePostCard :post="featured" variant="featured" />
+          <HomePostCard v-if="heroPost" :post="heroPost" variant="featured" />
+          <div
+            v-else
+            class="rounded-[28px] border border-dashed border-[var(--nv-line)] px-6 py-8 text-sm text-[var(--nv-muted)]"
+          >
+            Featured stories are loading.
+          </div>
 
           <div class="space-y-3">
             <div class="flex items-center gap-2">
               <Sparkles class="h-4 w-4 text-[var(--nv-accent)]" />
               <p class="nv-home-section-kicker">EDITOR&apos;S PICKS</p>
             </div>
-            <template v-if="editorPicks.length">
+            <template v-if="visibleEditorPicks.length">
               <HomePostCard
-                v-for="post in editorPicks"
+                v-for="post in visibleEditorPicks"
                 :key="post.postId"
                 :post="post"
                 variant="compact"
@@ -178,9 +200,9 @@ useHead({
           </div>
         </div>
 
-        <div v-if="trending.length" class="grid gap-4 lg:grid-cols-2">
+        <div v-if="visibleTrending.length" class="grid gap-4 lg:grid-cols-2">
           <HomePostCard
-            v-for="post in trending"
+            v-for="post in visibleTrending"
             :key="post.postId"
             :post="post"
             variant="grid"
@@ -201,7 +223,7 @@ useHead({
             <h2 class="text-xl font-semibold tracking-[-0.04em] text-[var(--nv-ink)]">Live activity</h2>
           </div>
         </div>
-        <HomeActivityList :posts="liveActivity" />
+        <HomeActivityList :posts="visibleLiveActivity" />
       </section>
     </template>
   </div>

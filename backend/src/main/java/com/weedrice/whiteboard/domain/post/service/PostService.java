@@ -412,9 +412,7 @@ public class PostService {
         savePostVersion(savedPost, user, "CREATE", null, null);
 
         if (request.getFileIds() != null && !request.getFileIds().isEmpty()) {
-            for (Long fileId : request.getFileIds()) {
-                fileService.associateFileWithEntity(fileId, userId, savedPost.getPostId(), "POST_CONTENT");
-            }
+            fileService.attachFilesToPost(request.getFileIds(), userId, savedPost.getPostId());
         }
 
         // ?ъ씤??吏湲?(寃뚯떆湲 ?묒꽦)
@@ -453,9 +451,7 @@ public class PostService {
         tagAssignmentService.assignTags(post, request.getTags());
 
         if (request.getFileIds() != null && !request.getFileIds().isEmpty()) {
-            for (Long fileId : request.getFileIds()) {
-                fileService.associateFileWithEntity(fileId, userId, post.getPostId(), "POST_CONTENT");
-            }
+            fileService.attachFilesToPost(request.getFileIds(), userId, post.getPostId());
         }
 
         savePostVersion(post, modifier, "MODIFY", originalTitle, originalContents);
@@ -597,6 +593,14 @@ public class PostService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
         boardAccessPolicy.validateWritable(board, user);
         validateBoardWriteRole(board, user);
+        BoardCategory category = null;
+        if (request.getCategoryId() != null) {
+            category = findActiveCategory(board, request.getCategoryId());
+            validateWriteRole(board, user, category.getMinWriteRole());
+        }
+        if (request.isNotice() && !boardAccessPolicy.hasBoardAdminAccess(board, user)) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
         Post originalPost = null;
         if (request.getOriginalPostId() != null) {
             originalPost = postRepository.findById(request.getOriginalPostId())
@@ -607,17 +611,42 @@ public class PostService {
         if (request.getDraftId() != null) {
             draftPost = draftPostRepository.findByDraftIdAndUser(request.getDraftId(), user)
                     .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
-            draftPost.updateDraft(board, request.getTitle(), request.getContents(), originalPost);
+            if (request.getUpdatedAt() != null
+                    && draftPost.getModifiedAt() != null
+                    && request.getUpdatedAt().isBefore(draftPost.getModifiedAt())) {
+                throw new BusinessException(ErrorCode.DRAFT_OUTDATED);
+            }
+            draftPost.updateDraft(
+                    board,
+                    category,
+                    request.getTitle(),
+                    request.getContents(),
+                    request.getTags(),
+                    request.isNotice(),
+                    request.isNsfw(),
+                    request.isSpoiler(),
+                    request.isSecret(),
+                    request.getFileIds(),
+                    originalPost);
         } else {
             draftPost = DraftPost.builder()
                     .user(user)
                     .board(board)
+                    .category(category)
                     .title(request.getTitle())
                     .contents(request.getContents())
+                    .tags(request.getTags())
+                    .isNotice(request.isNotice())
+                    .isNsfw(request.isNsfw())
+                    .isSpoiler(request.isSpoiler())
+                    .isSecret(request.isSecret())
+                    .fileIds(request.getFileIds())
                     .originalPost(originalPost)
                     .build();
         }
-        return draftPostRepository.save(draftPost);
+        DraftPost savedDraftPost = draftPostRepository.save(draftPost);
+        fileService.syncDraftFiles(request.getFileIds(), userId, savedDraftPost.getDraftId());
+        return savedDraftPost;
     }
 
     @Transactional
@@ -625,6 +654,7 @@ public class PostService {
         User user = getWritableUser(userId);
         DraftPost draftPost = draftPostRepository.findByDraftIdAndUser(draftId, user)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+        fileService.markDraftFilesDeletionPending(draftId);
         draftPostRepository.delete(draftPost);
     }
 

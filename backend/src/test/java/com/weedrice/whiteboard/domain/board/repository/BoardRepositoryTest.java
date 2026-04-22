@@ -142,10 +142,15 @@ class BoardRepositoryTest {
         entityManager.flush();
         entityManager.clear();
 
-        var boards = boardRepository.findTopPublicBoardsByPostCount(PageRequest.of(0, 10));
+        var boardIds = boardRepository.findTopPublicBoardIdsByPostCount(PageRequest.of(0, 10));
+        var boards = boardRepository.findByBoardIdIn(boardIds);
 
+        assertThat(boardIds).containsExactly(
+                visibleTop.getBoardId(),
+                visibleTieFirst.getBoardId(),
+                visibleTieSecond.getBoardId());
         assertThat(boards).extracting(Board::getBoardName)
-                .containsExactly("Visible Top", "Visible Tie First", "Visible Tie Second");
+                .containsExactlyInAnyOrder("Visible Top", "Visible Tie First", "Visible Tie Second");
     }
 
     private Board persistBoard(String boardName, String boardUrl, int sortOrder, boolean isActive, boolean isPublic) {

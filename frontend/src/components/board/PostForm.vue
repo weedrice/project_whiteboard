@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, computed, watch, watchEffect, onMounted, onUnmounted, nextTick } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch, watchEffect } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useBoard } from '@/composables/useBoard'
 import { usePost } from '@/composables/usePost'
+import { usePostDraft } from '@/composables/usePostDraft'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
@@ -10,10 +11,12 @@ import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseSelect from '@/components/common/ui/BaseSelect.vue'
 import BaseCheckbox from '@/components/common/ui/BaseCheckbox.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
+import BaseModal from '@/components/common/ui/BaseModal.vue'
 import PostTags from '@/components/tag/PostTags.vue'
 import { useToastStore } from '@/stores/toast'
 import EmoticonPicker from '@/components/common/widgets/EmoticonPicker.vue'
 import PostEditorTipTap from '@/components/board/PostEditorTipTap.vue'
+import { sanitizeQuillHtml } from '@/utils/sanitize'
 import logger from '@/utils/logger'
 
 const props = defineProps<{
@@ -31,6 +34,24 @@ const props = defineProps<{
   skipBoardLookup?: boolean
 }>()
 
+type CategoryOption = {
+  categoryId: number
+  name: string
+  minWriteRole?: string
+  disabled?: boolean
+}
+
+type FormState = {
+  title: string
+  content: string
+  categoryId: string | number
+  tags: string[]
+  isNsfw: boolean
+  isSpoiler: boolean
+  isNotice: boolean
+  isSecret: boolean
+}
+
 const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
@@ -41,32 +62,74 @@ const boardUrl = computed(() => props.boardUrl ?? (route.params.boardUrl as stri
 const postId = computed(() => route.params.postId as string)
 
 const { useBoardDetail, useBoardCategories } = useBoard()
-const { usePostDetail, useCreatePost, useUpdatePost } = usePost()
+const {
+  usePostDetail,
+  useCreatePost,
+  useUpdatePost,
+} = usePost()
 
 const queryEnabled = computed(() => !!boardUrl.value && !props.skipBoardLookup)
 const { data: board, isLoading: isBoardLoading } = useBoardDetail(boardUrl, {
-  enabled: queryEnabled
+  enabled: queryEnabled,
 })
 const { data: categories, isLoading: isCategoriesLoading } = useBoardCategories(boardUrl, {
-  enabled: queryEnabled
+  enabled: queryEnabled,
 })
 const postIdRef = computed(() => (props.mode === 'edit' ? postId.value : '') as string)
 const { data: post, isLoading: isPostLoading } = usePostDetail(postIdRef, {
-  enabled: computed(() => props.mode === 'edit' && !!postId.value)
+  enabled: computed(() => props.mode === 'edit' && !!postId.value),
 })
 const { mutate: createPost, isPending: isCreateSubmitting } = useCreatePost()
 const { mutate: updatePost, isPending: isUpdateSubmitting } = useUpdatePost()
 
+const tiptapEditorRef = ref<InstanceType<typeof PostEditorTipTap> | null>(null)
+const editorWrapperRef = ref<HTMLElement | null>(null)
+const composePageRef = ref<HTMLElement | null>(null)
+const draftFileIds = ref<number[]>([])
+
+const showPreview = ref(false)
+const showEmoticonPicker = ref(false)
+const showVideoPopover = ref(false)
+const videoUrl = ref('')
+const videoPopoverStyle = ref<{ top: string; left: string }>({ top: '0', left: '0' })
+const editorViewMode = ref<'visual' | 'html'>('visual')
+const hasRestoredDraft = ref(false)
+const hasHydratedEditPost = ref(false)
+const isEditorFocusWithin = ref(false)
+
+const form = ref<FormState>({
+  title: '',
+  content: '',
+  categoryId: '',
+  tags: [],
+  isNsfw: false,
+  isSpoiler: false,
+  isNotice: false,
+  isSecret: false,
+})
+
+const initialFormSnapshot = ref<FormState | null>(null)
+
 const isSubmitting = computed(() => isCreateSubmitting.value || isUpdateSubmitting.value)
 const isLoading = computed(() =>
-  isBoardLoading.value || isCategoriesLoading.value || (props.mode === 'edit' && isPostLoading.value)
+  isBoardLoading.value || isCategoriesLoading.value || (props.mode === 'edit' && isPostLoading.value),
 )
 
-type CategoryOption = {
-  categoryId: number
-  name: string
-  minWriteRole?: string
-  disabled?: boolean
+function copyFormSnapshot(src: FormState): FormState {
+  return {
+    title: src.title,
+    content: src.content,
+    categoryId: src.categoryId,
+    tags: [...src.tags],
+    isNsfw: src.isNsfw,
+    isSpoiler: src.isSpoiler,
+    isNotice: src.isNotice,
+    isSecret: src.isSecret,
+  }
+}
+
+function markCurrentSnapshotSaved() {
+  initialFormSnapshot.value = copyFormSnapshot(form.value)
 }
 
 function canWriteCategory(minWriteRole?: string) {
@@ -88,93 +151,226 @@ function canWriteCategory(minWriteRole?: string) {
 
 const filteredCategories = computed<CategoryOption[]>(() => {
   if (!categories.value) return []
-  const selectableCategories = categories.value.filter(cat => canWriteCategory(cat.minWriteRole))
-  if (props.mode !== 'edit') return selectableCategories
-
-  const currentCategory = post.value?.category
-  if (!currentCategory) return selectableCategories
-
-  const hasCurrentCategory = selectableCategories.some(cat => cat.categoryId === currentCategory.categoryId)
-  if (hasCurrentCategory) return selectableCategories
-
+  const selectableCategories = categories.value.filter((cat) => canWriteCategory(cat.minWriteRole))
+  const selectedCategoryId = Number(form.value.categoryId)
+  const selectedCategory = categories.value.find((category) => category.categoryId === selectedCategoryId)
+    ?? (post.value?.category?.categoryId === selectedCategoryId
+      ? {
+          categoryId: post.value.category.categoryId,
+          name: post.value.category.name,
+          minWriteRole: post.value.category.minWriteRole,
+        }
+      : null)
+  if (!selectedCategory) return selectableCategories
+  if (selectableCategories.some((category) => category.categoryId === selectedCategory.categoryId)) {
+    return selectableCategories
+  }
   return [
     {
-      ...currentCategory,
+      ...selectedCategory,
       disabled: true,
     },
     ...selectableCategories,
   ]
 })
 
-const tiptapEditorRef = ref<InstanceType<typeof PostEditorTipTap> | null>(null)
-const showEmoticonPicker = ref(false)
-const showVideoPopover = ref(false)
-const videoUrl = ref('')
-const editorWrapperRef = ref<HTMLElement | null>(null)
-const videoPopoverStyle = ref<{ top: string; left: string }>({ top: '0', left: '0' })
-/** 에디터 표시 모드: 보기(WYSIWYG) | HTML 원본 */
-const editorViewMode = ref<'visual' | 'html'>('visual')
+const pageTitle = computed(() =>
+  props.mode === 'create'
+    ? (props.createTitleOverride || t('board.writePost.createTitle'))
+    : t('board.writePost.editTitle'),
+)
 
-const form = ref({
-  title: '',
-  content: '',
-  categoryId: '' as string | number,
-  tags: [] as string[],
-  isNsfw: false,
-  isSpoiler: false,
-  isNotice: false,
-  isSecret: false
-})
+const submitLabel = computed(() =>
+  isSubmitting.value
+    ? (props.mode === 'create' ? t('board.writePost.submitting') : t('board.writePost.updating'))
+    : (props.mode === 'create' ? t('common.submit') : t('board.writePost.update')),
+)
 
-type FormSnapshot = typeof form.value
-const initialFormSnapshot = ref<FormSnapshot | null>(null)
-const lastEditPostId = ref<string | null>(null)
-
-function copyFormSnapshot(src: FormSnapshot): FormSnapshot {
-  return {
-    title: src.title,
-    content: src.content,
-    categoryId: src.categoryId,
-    tags: [...(src.tags || [])],
-    isNsfw: src.isNsfw,
-    isSpoiler: src.isSpoiler,
-    isNotice: src.isNotice,
-    isSecret: src.isSecret
-  }
-}
+const showNotice = computed(() => !props.hideNotice && props.mode === 'create' && board.value?.isAdmin)
+const canShowNsfw = computed(() => Boolean(board.value?.allowNsfw))
+const draftEnabled = computed(() => authStore.isAuthenticated && !!boardUrl.value)
+const draftStorageKey = computed(() => `noviis:draft:${authStore.user?.userId ?? 'guest'}:${props.mode}:${boardUrl.value || 'unknown'}:${postId.value || 'new'}`)
+const previewHtml = computed(() => sanitizeQuillHtml(form.value.content || '<p>No content yet.</p>'))
 
 function isFormDirty(): boolean {
   const init = initialFormSnapshot.value
   if (!init) return false
-  const f = form.value
-  if (f.title !== init.title || f.content !== init.content || f.isNsfw !== init.isNsfw || f.isSpoiler !== init.isSpoiler || f.isNotice !== init.isNotice || f.isSecret !== init.isSecret) return true
-  const catEqual = String(f.categoryId) === String(init.categoryId)
-  if (!catEqual) return true
-  if (f.tags.length !== init.tags.length) return true
-  return f.tags.some((t, i) => t !== init.tags[i])
+  const current = form.value
+  if (
+    current.title !== init.title
+    || current.content !== init.content
+    || current.isNsfw !== init.isNsfw
+    || current.isSpoiler !== init.isSpoiler
+    || current.isNotice !== init.isNotice
+    || current.isSecret !== init.isSecret
+  ) {
+    return true
+  }
+  if (String(current.categoryId) !== String(init.categoryId)) return true
+  if (current.tags.length !== init.tags.length) return true
+  return current.tags.some((tag, index) => tag !== init.tags[index])
 }
 
 const isDirty = computed(() => isFormDirty())
+const leaveConfirmMessage = computed(() =>
+  t('board.writePost.leaveConfirm') || 'Leave this page? Unsaved changes may be lost.',
+)
 
-const leaveConfirmMessage = computed(() => t('board.writePost.leaveConfirm') || '사이트에서 나가시겠습니까? 변경사항이 저장되지 않을 수 있습니다.')
+function onBeforeUnload(event: BeforeUnloadEvent) {
+  if (!isDirty.value) return
+  event.preventDefault()
+  event.returnValue = leaveConfirmMessage.value
+  return leaveConfirmMessage.value
+}
 
-function onBeforeUnload(e: BeforeUnloadEvent) {
-  if (isDirty.value) {
-    e.preventDefault()
-    e.returnValue = leaveConfirmMessage.value
-    return leaveConfirmMessage.value
+function applyDraftSnapshot(draft: {
+  title?: string
+  contents?: string
+  categoryId?: number | null
+  tags?: string[]
+  isNsfw?: boolean
+  isSpoiler?: boolean
+  isNotice?: boolean
+  isSecret?: boolean
+  fileIds?: number[]
+}) {
+  form.value = {
+    title: draft.title ?? '',
+    content: draft.contents ?? '',
+    categoryId: draft.categoryId ?? '',
+    tags: [...(draft.tags ?? [])],
+    isNsfw: Boolean(draft.isNsfw),
+    isSpoiler: Boolean(draft.isSpoiler),
+    isNotice: Boolean(draft.isNotice),
+    isSecret: Boolean(draft.isSecret),
+  }
+  draftFileIds.value = [...(draft.fileIds ?? [])]
+}
+
+const buildPayload = () => {
+  const editorFileIds = (tiptapEditorRef.value as { fileIds?: { value?: number[] } | number[] } | null)?.fileIds
+  const sessionFileIds = Array.isArray(editorFileIds)
+    ? editorFileIds
+    : editorFileIds?.value ?? []
+  const fileIds = Array.from(new Set([...draftFileIds.value, ...sessionFileIds]))
+  const parsedCategoryId = typeof form.value.categoryId === 'string'
+    ? parseInt(form.value.categoryId, 10)
+    : form.value.categoryId
+  const categoryId = props.hideCategory || Number.isNaN(parsedCategoryId) || !parsedCategoryId
+    ? undefined
+    : parsedCategoryId
+
+  return {
+    title: form.value.title,
+    ...(categoryId !== undefined && { categoryId }),
+    tags: props.hideTags ? [] : form.value.tags,
+    contents: form.value.content,
+    isNsfw: canShowNsfw.value ? form.value.isNsfw : false,
+    isSpoiler: props.hideSpoiler ? false : form.value.isSpoiler,
+    isSecret: props.hideSecret ? false : form.value.isSecret,
+    ...(props.mode === 'create' && { isNotice: showNotice.value ? form.value.isNotice : false }),
+    fileIds,
   }
 }
 
-/** YouTube/Vimeo URL을 embed URL로 변환 */
+const {
+  saveNow: saveDraftNow,
+  scheduleAutosave,
+  restoreDraft,
+  cleanupDraft,
+  clearRecovery,
+  writeLocalSnapshot,
+  lastSavedAt,
+  isSavingDraft,
+  restoreSource,
+} = usePostDraft({
+  enabled: draftEnabled,
+  storageKey: draftStorageKey,
+  buildPayload: () => ({
+    ...buildPayload(),
+    boardUrl: boardUrl.value,
+    originalPostId: props.mode === 'edit' ? Number(postId.value) : undefined,
+  }),
+  applyDraft: applyDraftSnapshot,
+})
+
+const draftStatusLabel = computed(() => {
+  if (!draftEnabled.value) return ''
+  if (isSavingDraft.value) return 'Saving draft...'
+  if (lastSavedAt.value) {
+    return `Saved ${new Date(lastSavedAt.value).toLocaleTimeString()}`
+  }
+  return 'Draft autosave is ready'
+})
+
+watchEffect(() => {
+  if (props.mode !== 'edit' || !post.value || hasHydratedEditPost.value) return
+  hasHydratedEditPost.value = true
+  applyDraftSnapshot({
+    title: post.value.title,
+    contents: post.value.contents,
+    categoryId: post.value.category?.categoryId,
+    tags: post.value.tags?.map((tag: { name?: string } | string) => typeof tag === 'string' ? tag : (tag.name ?? '')) ?? [],
+    isNsfw: post.value.isNsfw,
+    isSpoiler: post.value.isSpoiler,
+    isSecret: post.value.isSecret ?? false,
+    isNotice: false,
+    fileIds: [],
+  })
+  markCurrentSnapshotSaved()
+})
+
+watch(
+  isLoading,
+  async (loading) => {
+    if (loading || hasRestoredDraft.value) return
+    hasRestoredDraft.value = true
+
+    if (props.mode === 'create' && !form.value.categoryId && filteredCategories.value.length > 0) {
+      form.value.categoryId = filteredCategories.value[0].categoryId
+    }
+
+    await restoreDraft()
+    const restoredDraftSource = restoreSource.value
+    if (restoredDraftSource !== 'idle') {
+      toastStore.addToast(
+        restoredDraftSource === 'local' ? 'Restored local draft.' : 'Restored saved server draft.',
+        'info',
+      )
+    }
+    markCurrentSnapshotSaved()
+  },
+  { immediate: true },
+)
+
+const draftSignature = computed(() => JSON.stringify({
+  ...buildPayload(),
+  boardUrl: boardUrl.value,
+  originalPostId: props.mode === 'edit' ? Number(postId.value) : undefined,
+}))
+
+watch(
+  draftSignature,
+  () => {
+    if (!hasRestoredDraft.value || !draftEnabled.value || isLoading.value) return
+    writeLocalSnapshot()
+    scheduleAutosave()
+  },
+  { flush: 'post' },
+)
+
 function toEmbedVideoUrl(url: string): string {
   const trimmed = (url || '').trim()
   if (!trimmed) return ''
-  const yt = trimmed.match(/^(?:(https?):\/\/)?(?:(?:www|m)\.)?youtube\.com\/watch.*v=([a-zA-Z0-9_-]+)/) ||
-    trimmed.match(/^(?:(https?):\/\/)?(?:(?:www|m)\.)?youtu\.be\/([a-zA-Z0-9_-]+)/)
-  if (yt) return (yt[1] || 'https') + '://www.youtube.com/embed/' + yt[2] + '?showinfo=0'
-  const vimeo = trimmed.match(/^(?:(https?):\/\/)?(?:www\.)?vimeo\.com\/(\d+)/)
-  if (vimeo) return (vimeo[1] || 'https') + '://player.vimeo.com/video/' + vimeo[2] + '/'
+  const youtubeMatch = trimmed.match(/^(?:(https?):\/\/)?(?:(?:www|m)\.)?youtube\.com\/watch.*v=([a-zA-Z0-9_-]+)/)
+    || trimmed.match(/^(?:(https?):\/\/)?(?:(?:www|m)\.)?youtu\.be\/([a-zA-Z0-9_-]+)/)
+  if (youtubeMatch) {
+    return `${youtubeMatch[1] || 'https'}://www.youtube.com/embed/${youtubeMatch[2]}?showinfo=0`
+  }
+  const vimeoMatch = trimmed.match(/^(?:(https?):\/\/)?(?:www\.)?vimeo\.com\/(\d+)/)
+  if (vimeoMatch) {
+    return `${vimeoMatch[1] || 'https'}://player.vimeo.com/video/${vimeoMatch[2]}/`
+  }
   return trimmed
 }
 
@@ -192,19 +388,20 @@ function openVideoPopover() {
       const rect = toolbar.getBoundingClientRect()
       videoPopoverStyle.value = {
         top: `${rect.bottom + 8}px`,
-        left: `${rect.left + rect.width / 2}px`
+        left: `${rect.left + rect.width / 2}px`,
       }
     } else {
       const rect = editorWrapperRef.value.getBoundingClientRect()
       videoPopoverStyle.value = {
         top: `${rect.top + 60}px`,
-        left: `${rect.left + rect.width / 2}px`
+        left: `${rect.left + rect.width / 2}px`,
       }
     }
   } else {
-    const cx = window.innerWidth / 2
-    const cy = window.innerHeight / 2
-    videoPopoverStyle.value = { top: `${cy}px`, left: `${cx}px` }
+    videoPopoverStyle.value = {
+      top: `${window.innerHeight / 2}px`,
+      left: `${window.innerWidth / 2}px`,
+    }
   }
   videoUrl.value = ''
   showVideoPopover.value = true
@@ -218,7 +415,7 @@ function closeVideoPopover() {
 function insertVideoFromPopover() {
   const embedUrl = toEmbedVideoUrl(videoUrl.value)
   if (!embedUrl) {
-    toastStore.addToast(t('board.writePost.videoUrlRequired') || '동영상 URL을 입력해 주세요.', 'error')
+    toastStore.addToast(t('board.writePost.videoUrlRequired') || 'Please enter a video URL.', 'error')
     return
   }
   tiptapEditorRef.value?.setVideo(embedUrl)
@@ -230,69 +427,66 @@ function handleEmoticonSelect(image: import('@/types/emoticon').EmoticonImage) {
   showEmoticonPicker.value = false
 }
 
-// Edit: fill form from post and set initial snapshot once per post
-watchEffect(() => {
-  if (props.mode === 'edit' && post.value) {
-    const id = String(post.value.postId)
-    if (lastEditPostId.value !== id) {
-      lastEditPostId.value = id
-      form.value = {
-        title: post.value.title,
-        content: post.value.contents,
-        categoryId: post.value.category?.categoryId ?? '',
-        tags: post.value.tags?.map((t: { name?: string } | string) => typeof t === 'string' ? t : (t.name ?? '')) ?? [],
-        isNsfw: post.value.isNsfw,
-        isSpoiler: post.value.isSpoiler,
-        isNotice: false,
-        isSecret: post.value.isSecret ?? false
-      }
-      initialFormSnapshot.value = copyFormSnapshot(form.value)
-    }
-  }
-})
+function syncEditorFocus(value: boolean) {
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(new CustomEvent('noviis:editor-focus-change', { detail: value }))
+}
 
-// Create: default category and set initial snapshot once ready
-const createInitialSet = ref(false)
-watchEffect(() => {
-  if (props.mode === 'create' && filteredCategories.value?.length) {
-    if (!form.value.categoryId) form.value.categoryId = filteredCategories.value[0].categoryId
-    if (!createInitialSet.value) {
-      createInitialSet.value = true
-      nextTick(() => {
-        if (!initialFormSnapshot.value) initialFormSnapshot.value = copyFormSnapshot(form.value)
-      })
-    }
-  }
-})
-// Create: when loading finishes, ensure initial snapshot is set (e.g. no categories case)
-watch(isLoading, (loading) => {
-  if (props.mode === 'create' && !loading && !initialFormSnapshot.value) {
-    nextTick(() => {
-      if (!initialFormSnapshot.value) initialFormSnapshot.value = copyFormSnapshot(form.value)
-    })
-  }
-}, { immediate: true })
+function handleFocusIn() {
+  isEditorFocusWithin.value = true
+  syncEditorFocus(true)
+}
 
-function buildPayload() {
-  const fileIdsRef = tiptapEditorRef.value?.fileIds
-  const fileIdsArray = (fileIdsRef && typeof fileIdsRef === 'object' && 'value' in fileIdsRef ? fileIdsRef.value : []) as number[]
-  const parsedCategoryId = typeof form.value.categoryId === 'string'
-    ? parseInt(form.value.categoryId, 10)
-    : form.value.categoryId
-  const categoryId = props.hideCategory || Number.isNaN(parsedCategoryId) || !parsedCategoryId
-    ? undefined
-    : parsedCategoryId
-  return {
-    title: form.value.title,
-    ...(categoryId !== undefined && { categoryId }),
-    tags: props.hideTags ? [] : form.value.tags,
-    contents: form.value.content,
-    isNsfw: board.value?.allowNsfw ? form.value.isNsfw : false,
-    isSpoiler: props.hideSpoiler ? false : form.value.isSpoiler,
-    isSecret: props.hideSecret ? false : form.value.isSecret,
-    ...(props.mode === 'create' && { isNotice: props.hideNotice ? false : form.value.isNotice }),
-    fileIds: fileIdsArray
+function handleFocusOut() {
+  setTimeout(() => {
+    if (!composePageRef.value?.contains(document.activeElement)) {
+      isEditorFocusWithin.value = false
+      syncEditorFocus(false)
+    }
+  }, 0)
+}
+
+async function handleSaveDraft() {
+  try {
+    const savedDraft = await saveDraftNow()
+    if (savedDraft) {
+      markCurrentSnapshotSaved()
+      toastStore.addToast('Draft saved.', 'success')
+    }
+  } catch (error) {
+    logger.error('Failed to save draft:', error)
   }
+}
+
+function cleanupPublishedDraft() {
+  void cleanupDraft().catch((error) => {
+    logger.error('Failed to clean up published draft:', error)
+    toastStore.addToast('Draft cleanup failed. It may reappear until the server draft is removed.', 'error')
+  })
+}
+
+function navigateAfterCreate(newPostId: string | number, payload: ReturnType<typeof buildPayload>) {
+  if (props.goBackOnCreate) {
+    if (typeof window !== 'undefined' && window.history.length > 1) {
+      router.back()
+      return
+    }
+    if (props.redirectOnCreate) {
+      router.push(props.redirectOnCreate)
+      return
+    }
+    router.push('/')
+    return
+  }
+  if (props.redirectOnCreate) {
+    router.push(props.redirectOnCreate)
+    return
+  }
+  if (payload.isSecret && !board.value?.isAdmin) {
+    router.push(`/board/${boardUrl.value}`)
+    return
+  }
+  router.push(`/board/${boardUrl.value}/post/${newPostId}`)
 }
 
 function handleSubmit() {
@@ -310,52 +504,33 @@ function handleSubmit() {
   if (props.mode === 'create') {
     createPost({ boardUrl: boardUrl.value, data: payload }, {
       onSuccess: (response) => {
-        const newPostId = response.data.data
-        initialFormSnapshot.value = copyFormSnapshot(form.value)
+        markCurrentSnapshotSaved()
+        cleanupPublishedDraft()
         if (props.createSuccessToastMessage) {
           toastStore.addToast(props.createSuccessToastMessage, 'success')
         }
-        if (props.goBackOnCreate) {
-          if (typeof window !== 'undefined' && window.history.length > 1) {
-            router.back()
-            return
-          }
-          if (props.redirectOnCreate) {
-            router.push(props.redirectOnCreate)
-            return
-          }
-          router.push('/')
-          return
-        }
-        if (props.redirectOnCreate) {
-          router.push(props.redirectOnCreate)
-          return
-        }
-        if (payload.isSecret && !board.value?.isAdmin) {
-          router.push(`/board/${boardUrl.value}`)
-          return
-        }
-        router.push(`/board/${boardUrl.value}/post/${newPostId}`)
+        navigateAfterCreate(response.data.data, payload)
       },
-      onError: (err) => {
-        logger.error('Failed to create post:', err)
-      }
-    })
-  } else {
-    updatePost({ postId: postId.value, data: payload }, {
-      onSuccess: () => {
-        initialFormSnapshot.value = copyFormSnapshot(form.value)
-        router.push(`/board/${boardUrl.value}/post/${postId.value}`)
+      onError: (error) => {
+        logger.error('Failed to create post:', error)
       },
-      onError: (err) => {
-        logger.error('Failed to update post:', err)
-      }
     })
+    return
   }
+
+  updatePost({ postId: postId.value, data: payload }, {
+    onSuccess: () => {
+      markCurrentSnapshotSaved()
+      cleanupPublishedDraft()
+      router.push(`/board/${boardUrl.value}/post/${postId.value}`)
+    },
+    onError: (error) => {
+      logger.error('Failed to update post:', error)
+    },
+  })
 }
 
 function handleCancel() {
-  // 확인은 라우트 가드(onBeforeRouteLeave)에서만 한 번 수행 (중복 팝업 방지)
   router.back()
 }
 
@@ -364,6 +539,11 @@ function handleKeyDown(event: KeyboardEvent) {
   if ((ctrlKey || metaKey) && key === 'Enter') {
     event.preventDefault()
     handleSubmit()
+    return
+  }
+  if ((ctrlKey || metaKey) && (key === 's' || key === 'S')) {
+    event.preventDefault()
+    void handleSaveDraft()
     return
   }
   if (key === 'Escape') {
@@ -377,6 +557,11 @@ function handleKeyDown(event: KeyboardEvent) {
       showEmoticonPicker.value = false
       return
     }
+    if (showPreview.value) {
+      event.preventDefault()
+      showPreview.value = false
+      return
+    }
     event.preventDefault()
     handleCancel()
   }
@@ -385,316 +570,419 @@ function handleKeyDown(event: KeyboardEvent) {
 onMounted(() => {
   document.addEventListener('keydown', handleKeyDown)
   window.addEventListener('beforeunload', onBeforeUnload)
-  if (props.mode === 'create') {
-    nextTick(() => {
-      if (!initialFormSnapshot.value) initialFormSnapshot.value = copyFormSnapshot(form.value)
-    })
-  }
 })
+
 onUnmounted(() => {
   document.removeEventListener('keydown', handleKeyDown)
   window.removeEventListener('beforeunload', onBeforeUnload)
+  syncEditorFocus(false)
 })
 
 defineExpose({
   hasUnsavedChanges: () => isFormDirty(),
-  getLeaveConfirmMessage: () => leaveConfirmMessage.value
+  getLeaveConfirmMessage: () => leaveConfirmMessage.value,
 })
-
-const pageTitle = computed(() =>
-  props.mode === 'create'
-    ? (props.createTitleOverride || t('board.writePost.createTitle'))
-    : t('board.writePost.editTitle')
-)
-const submitLabel = computed(() =>
-  isSubmitting.value
-    ? (props.mode === 'create' ? t('board.writePost.submitting') : t('board.writePost.updating'))
-    : (props.mode === 'create' ? t('common.submit') : t('board.writePost.update'))
-)
-const showNotice = computed(() => !props.hideNotice && props.mode === 'create' && board.value?.isAdmin)
 </script>
 
 <template>
   <div class="w-full max-w-full overflow-x-hidden">
-    <div class="md:flex md:items-center md:justify-between mb-4 sm:mb-6 ml-2 sm:ml-0">
-      <div class="flex-1 min-w-0">
-        <h2 class="text-xl font-bold leading-tight text-gray-900 dark:text-white sm:text-3xl sm:leading-8 sm:truncate">
-          {{ pageTitle }}
-        </h2>
+    <div
+      ref="composePageRef"
+      class="nv-compose-page"
+      @focusin="handleFocusIn"
+      @focusout="handleFocusOut"
+    >
+      <div class="nv-compose-header">
+        <div class="min-w-0">
+          <p class="nv-compose-kicker">{{ props.mode === 'create' ? 'COMPOSE' : 'REFINE' }}</p>
+          <h2 class="truncate text-2xl font-semibold tracking-[-0.05em] text-[var(--nv-ink)] sm:text-3xl">
+            {{ pageTitle }}
+          </h2>
+          <p class="mt-2 text-sm text-[var(--nv-ink-soft)]">
+            {{ board?.boardName || boardUrl }}
+          </p>
+        </div>
+
+        <div class="flex flex-wrap items-center justify-end gap-2">
+          <BaseButton type="button" variant="ghost" size="sm" @click="showPreview = true">
+            Preview
+          </BaseButton>
+          <BaseButton v-if="draftEnabled" type="button" variant="secondary" size="sm" @click="handleSaveDraft">
+            Save Draft
+          </BaseButton>
+          <BaseButton type="button" variant="secondary" size="sm" @click="handleCancel">
+            {{ $t('common.cancel') }}
+          </BaseButton>
+          <BaseButton type="button" variant="primary" size="sm" :loading="isSubmitting" @click="handleSubmit">
+            {{ submitLabel }}
+          </BaseButton>
+        </div>
       </div>
-    </div>
 
-    <div v-if="isLoading" class="text-center py-6 sm:py-10">
-      <BaseSpinner size="lg" />
-    </div>
+      <div v-if="isLoading" class="py-10 text-center">
+        <BaseSpinner size="lg" />
+      </div>
 
-    <form v-else @submit.prevent="handleSubmit"
-      class="space-y-4 sm:space-y-6 bg-white dark:bg-gray-800 shadow px-3 py-4 sm:rounded-lg sm:px-6 sm:py-6 transition-colors duration-200">
-      <div class="grid grid-cols-1 gap-y-4 gap-x-3 sm:grid-cols-6 sm:gap-y-6 sm:gap-x-4">
-
-        <div v-if="!props.hideCategory && filteredCategories && filteredCategories.length > 0" class="sm:col-span-3">
-          <BaseSelect id="category" v-model="form.categoryId" :label="$t('common.category')"
-            labelClass="text-[11px] sm:text-sm" inputClass="!text-xs !py-2 sm:!text-sm sm:!py-2">
-            <option value="" disabled>{{ $t('board.writePost.selectCategory') }}</option>
-            <option v-for="cat in filteredCategories" :key="cat.categoryId" :value="cat.categoryId" :disabled="cat.disabled">
-              {{ cat.name }}
-            </option>
-          </BaseSelect>
-        </div>
-
-        <div class="sm:col-span-6">
-          <BaseInput id="title" v-model="form.title" name="title" type="text" required
-            :placeholder="$t('board.writePost.placeholder.title')" :label="$t('common.title')"
-            labelClass="text-[11px] sm:text-sm" inputClass="!text-xs !py-2 sm:!text-sm sm:!py-2" />
-        </div>
-
-        <div class="sm:col-span-6">
-          <label for="content" class="block text-[11px] font-medium text-gray-700 dark:text-gray-300 sm:text-sm mb-1">{{
-            $t('common.content') }}</label>
-          <div class="editor-area-container mt-1 h-80 min-h-[260px] sm:h-96 rounded border border-gray-200 dark:border-gray-600 overflow-hidden flex flex-col">
-            <div class="editor-area-toggle-row">
-              <button
-                type="button"
-                class="editor-view-toggle-btn"
-                :class="{ active: editorViewMode === 'visual' }"
-                @click="editorViewMode = 'visual'"
-              >
-                {{ $t('board.writePost.visualMode') }}
-              </button>
-              <button
-                type="button"
-                class="editor-view-toggle-btn"
-                :class="{ active: editorViewMode === 'html' }"
-                @click="editorViewMode = 'html'"
-              >
-                {{ $t('board.writePost.viewHtmlSource') }}
-              </button>
-            </div>
-            <div v-if="editorViewMode === 'visual'" ref="editorWrapperRef" class="tiptap-editor-wrapper flex-1 min-h-0 relative overflow-hidden border-t border-gray-200 dark:border-gray-600 flex flex-col">
-              <PostEditorTipTap
-                ref="tiptapEditorRef"
-                v-model="form.content"
-                @open-video="openVideoPopover"
-                @open-emoticon="showEmoticonPicker = true"
-              />
-              <Teleport to="body">
-                <div v-if="showVideoPopover" class="video-url-popover-mask" @click.self="closeVideoPopover">
-                  <div
-                    class="video-url-popover"
-                    :style="{
-                      top: videoPopoverStyle.top,
-                      left: videoPopoverStyle.left
-                    }"
-                    role="dialog"
-                    aria-label="동영상 URL 입력"
+      <form
+        v-else
+        class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_18.5rem]"
+        @submit.prevent="handleSubmit"
+      >
+        <section class="nv-compose-main">
+          <div class="rounded-[28px] border border-[var(--nv-line)] bg-[var(--nv-surface)] p-4 shadow-[var(--nv-shadow-soft)] sm:p-5">
+            <div class="mb-4 flex flex-wrap items-center gap-2 lg:hidden">
+              <div v-if="!props.hideCategory && filteredCategories.length > 0" class="min-w-[10rem] flex-1">
+                <BaseSelect id="category" v-model="form.categoryId" :label="$t('common.category')">
+                  <option value="" disabled>{{ $t('board.writePost.selectCategory') }}</option>
+                  <option
+                    v-for="cat in filteredCategories"
+                    :key="cat.categoryId"
+                    :value="cat.categoryId"
+                    :disabled="cat.disabled"
                   >
-                    <span class="video-url-popover-label">동영상 URL:</span>
-                    <input
-                      v-model="videoUrl"
-                      type="url"
-                      class="video-url-popover-input"
-                      :placeholder="'YouTube / Vimeo URL'"
-                      @keydown.enter="insertVideoFromPopover"
-                      @keydown.escape="closeVideoPopover"
-                    />
-                    <div class="video-url-popover-actions">
-                      <BaseButton type="button" variant="secondary" size="sm" @click="closeVideoPopover">
-                        {{ $t('common.cancel') }}
-                      </BaseButton>
-                      <BaseButton type="button" variant="primary" size="sm" @click="insertVideoFromPopover">
-                        {{ $t('common.confirm') || '확인' }}
-                      </BaseButton>
-                    </div>
-                  </div>
+                    {{ cat.name }}
+                  </option>
+                </BaseSelect>
+              </div>
+              <div class="flex flex-wrap gap-2">
+                <BaseCheckbox v-if="showNotice" id="isNotice-m" v-model="form.isNotice" :label="$t('common.notice')" />
+                <BaseCheckbox v-if="canShowNsfw" id="nsfw-m" v-model="form.isNsfw" :label="$t('board.writePost.nsfw')" />
+                <BaseCheckbox v-if="!props.hideSpoiler" id="spoiler-m" v-model="form.isSpoiler" :label="$t('board.writePost.spoiler')" />
+                <BaseCheckbox v-if="!props.hideSecret" id="secret-m" v-model="form.isSecret" :label="$t('board.writePost.secret')" />
+              </div>
+            </div>
+
+            <BaseInput
+              id="title"
+              v-model="form.title"
+              name="title"
+              type="text"
+              required
+              :placeholder="$t('board.writePost.placeholder.title')"
+              :label="$t('common.title')"
+              inputClass="!rounded-2xl !border-[var(--nv-line)] !bg-[var(--nv-elevated)] !px-4 !py-3 !text-sm sm:!text-base"
+            />
+
+            <div class="mt-4">
+              <div class="flex items-center justify-between rounded-t-[20px] border border-[var(--nv-line)] border-b-0 bg-[var(--nv-elevated)] px-3 py-2">
+                <div class="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.18em] text-[var(--nv-muted)]">
+                  <span>Editor</span>
+                  <span class="hidden sm:inline">{{ draftStatusLabel }}</span>
                 </div>
-              </Teleport>
-              <EmoticonPicker :show="showEmoticonPicker" @select="handleEmoticonSelect"
-                @close="showEmoticonPicker = false" />
+                <div class="flex items-center gap-2">
+                  <button
+                    type="button"
+                    class="editor-view-toggle-btn"
+                    :class="{ active: editorViewMode === 'visual' }"
+                    @click="editorViewMode = 'visual'"
+                  >
+                    {{ $t('board.writePost.visualMode') }}
+                  </button>
+                  <button
+                    type="button"
+                    class="editor-view-toggle-btn"
+                    :class="{ active: editorViewMode === 'html' }"
+                    @click="editorViewMode = 'html'"
+                  >
+                    HTML
+                  </button>
+                </div>
+              </div>
+
+              <div class="editor-area-container rounded-b-[24px] border border-[var(--nv-line)]">
+                <div
+                  v-if="editorViewMode === 'visual'"
+                  ref="editorWrapperRef"
+                  class="tiptap-editor-wrapper"
+                >
+                  <PostEditorTipTap
+                    ref="tiptapEditorRef"
+                    v-model="form.content"
+                    @open-video="openVideoPopover"
+                    @open-emoticon="showEmoticonPicker = true"
+                  />
+                  <Teleport to="body">
+                    <div v-if="showVideoPopover" class="video-url-popover-mask" @click.self="closeVideoPopover">
+                      <div class="video-url-popover" :style="{ top: videoPopoverStyle.top, left: videoPopoverStyle.left }" role="dialog" aria-label="Video URL">
+                        <span class="video-url-popover-label">Video URL</span>
+                        <input
+                          v-model="videoUrl"
+                          type="url"
+                          class="video-url-popover-input"
+                          placeholder="YouTube / Vimeo URL"
+                          @keydown.enter="insertVideoFromPopover"
+                          @keydown.escape="closeVideoPopover"
+                        >
+                        <div class="video-url-popover-actions">
+                          <BaseButton type="button" variant="secondary" size="sm" @click="closeVideoPopover">
+                            {{ $t('common.cancel') }}
+                          </BaseButton>
+                          <BaseButton type="button" variant="primary" size="sm" @click="insertVideoFromPopover">
+                            {{ $t('common.confirm') || 'Confirm' }}
+                          </BaseButton>
+                        </div>
+                      </div>
+                    </div>
+                  </Teleport>
+                  <EmoticonPicker :show="showEmoticonPicker" @select="handleEmoticonSelect" @close="showEmoticonPicker = false" />
+                </div>
+
+                <div v-else class="html-source-editor-wrap">
+                  <textarea
+                    id="content"
+                    v-model="form.content"
+                    class="html-source-textarea"
+                    :placeholder="$t('board.writePost.htmlSourcePlaceholder')"
+                    spellcheck="false"
+                  />
+                </div>
+              </div>
             </div>
-            <div v-if="editorViewMode === 'html'" class="html-source-editor-wrap flex-1 min-h-0 overflow-hidden border-t border-gray-200 dark:border-gray-600">
-              <textarea
-                id="content"
-                v-model="form.content"
-                class="html-source-textarea"
-                :placeholder="$t('board.writePost.htmlSourcePlaceholder')"
-                spellcheck="false"
-              />
+
+            <div class="mt-4 flex items-center justify-between gap-3 text-xs text-[var(--nv-muted)] sm:hidden">
+              <span>{{ draftStatusLabel }}</span>
+              <button v-if="draftEnabled" type="button" class="font-medium text-[var(--nv-accent)]" @click="handleSaveDraft">
+                Save now
+              </button>
+            </div>
+
+            <div v-if="!props.hideTags" class="mt-5 lg:hidden">
+              <label for="tags" class="mb-2 block text-xs font-medium uppercase tracking-[0.18em] text-[var(--nv-muted)]">
+                {{ $t('common.tags') }}
+              </label>
+              <PostTags v-model="form.tags" />
             </div>
           </div>
-        </div>
+        </section>
 
-        <div v-if="!props.hideTags" class="sm:col-span-6 mt-4 pt-3 sm:mt-6 sm:pt-0 border-t border-gray-100 dark:border-gray-700 sm:border-0">
-          <label for="tags" class="block text-[11px] font-medium text-gray-700 dark:text-gray-300 sm:text-sm">{{ $t('common.tags') }}</label>
-          <div class="mt-1 sm:max-w-md">
-            <PostTags v-model="form.tags" />
-          </div>
-        </div>
+        <aside class="space-y-4">
+          <section class="rounded-[28px] border border-[var(--nv-line)] bg-[var(--nv-surface)] p-4 shadow-[var(--nv-shadow-soft)]">
+            <div class="mb-4">
+              <p class="nv-compose-kicker">METADATA</p>
+              <h3 class="text-lg font-semibold text-[var(--nv-ink)]">Post settings</h3>
+            </div>
 
-        <div class="sm:col-span-6">
-          <div class="flex flex-row flex-wrap gap-4 sm:hidden items-center">
-            <BaseCheckbox v-if="showNotice" id="isNotice-m" v-model="form.isNotice" :label="$t('common.notice')" />
-            <BaseCheckbox v-if="board?.allowNsfw" id="nsfw-m" v-model="form.isNsfw" :label="$t('board.writePost.nsfw')" />
-            <BaseCheckbox v-if="!props.hideSpoiler" id="spoiler-m" v-model="form.isSpoiler" :label="$t('board.writePost.spoiler')" />
-            <BaseCheckbox v-if="!props.hideSecret" id="secret-m" v-model="form.isSecret" :label="$t('board.writePost.secret')" />
-          </div>
-          <div class="hidden sm:block">
-            <BaseCheckbox v-if="showNotice" id="isNotice" v-model="form.isNotice" :label="$t('common.notice')"
-              :description="$t('board.writePost.noticeDesc')" class="mb-3 sm:mb-4" />
-            <BaseCheckbox v-if="board?.allowNsfw" id="nsfw" v-model="form.isNsfw" :label="$t('board.writePost.nsfw')"
-              :description="$t('board.writePost.nsfwDesc')" />
-            <BaseCheckbox v-if="!props.hideSpoiler" id="spoiler" v-model="form.isSpoiler" :label="$t('board.writePost.spoiler')"
-              :description="$t('board.writePost.spoilerDesc')" class="mt-3 sm:mt-4" />
-            <BaseCheckbox v-if="!props.hideSecret" id="secret" v-model="form.isSecret" :label="$t('board.writePost.secret')"
-              :description="$t('board.writePost.secretDesc')" class="mt-3 sm:mt-4" />
-          </div>
+            <div v-if="!props.hideCategory && filteredCategories.length > 0" class="mb-4 hidden lg:block">
+              <BaseSelect id="category" v-model="form.categoryId" :label="$t('common.category')">
+                <option value="" disabled>{{ $t('board.writePost.selectCategory') }}</option>
+                <option
+                  v-for="cat in filteredCategories"
+                  :key="cat.categoryId"
+                  :value="cat.categoryId"
+                  :disabled="cat.disabled"
+                >
+                  {{ cat.name }}
+                </option>
+              </BaseSelect>
+            </div>
+
+            <div v-if="!props.hideTags" class="mb-4 hidden lg:block">
+              <label for="tags" class="mb-2 block text-xs font-medium uppercase tracking-[0.18em] text-[var(--nv-muted)]">
+                {{ $t('common.tags') }}
+              </label>
+              <PostTags v-model="form.tags" />
+            </div>
+
+            <div class="space-y-3">
+              <BaseCheckbox v-if="showNotice" id="isNotice" v-model="form.isNotice" :label="$t('common.notice')" :description="$t('board.writePost.noticeDesc')" />
+              <BaseCheckbox v-if="canShowNsfw" id="nsfw" v-model="form.isNsfw" :label="$t('board.writePost.nsfw')" :description="$t('board.writePost.nsfwDesc')" />
+              <BaseCheckbox v-if="!props.hideSpoiler" id="spoiler" v-model="form.isSpoiler" :label="$t('board.writePost.spoiler')" :description="$t('board.writePost.spoilerDesc')" />
+              <BaseCheckbox v-if="!props.hideSecret" id="secret" v-model="form.isSecret" :label="$t('board.writePost.secret')" :description="$t('board.writePost.secretDesc')" />
+            </div>
+          </section>
+
+          <section class="rounded-[28px] border border-[var(--nv-line)] bg-[var(--nv-surface)] p-4 shadow-[var(--nv-shadow-soft)]">
+            <div class="mb-3">
+              <p class="nv-compose-kicker">STATUS</p>
+              <h3 class="text-lg font-semibold text-[var(--nv-ink)]">Draft state</h3>
+            </div>
+            <p class="text-sm text-[var(--nv-ink-soft)]">{{ draftStatusLabel }}</p>
+            <div class="mt-4 flex flex-wrap gap-2">
+              <BaseButton v-if="draftEnabled" type="button" variant="secondary" size="sm" @click="handleSaveDraft">
+                Save Draft
+              </BaseButton>
+              <BaseButton type="button" variant="ghost" size="sm" @click="showPreview = true">
+                Preview
+              </BaseButton>
+              <BaseButton v-if="draftEnabled" type="button" variant="ghost" size="sm" @click="clearRecovery">
+                Clear local backup
+              </BaseButton>
+            </div>
+            <p class="mt-4 text-xs text-[var(--nv-muted)]">
+              <kbd class="rounded border border-[var(--nv-line)] px-2 py-1">Ctrl/Cmd + S</kbd>
+              Save draft
+              <span class="mx-2">쨌</span>
+              <kbd class="rounded border border-[var(--nv-line)] px-2 py-1">Ctrl/Cmd + Enter</kbd>
+              Publish
+            </p>
+          </section>
+        </aside>
+      </form>
+    </div>
+
+    <BaseModal :is-open="showPreview" title="Preview" size="2xl" mobile-fit-content @close="showPreview = false">
+      <div class="space-y-4">
+        <div>
+          <p class="text-xs font-medium uppercase tracking-[0.18em] text-[var(--nv-muted)]">{{ board?.boardName || boardUrl }}</p>
+          <h3 class="mt-2 text-2xl font-semibold text-[var(--nv-ink)]">{{ form.title || 'Untitled post' }}</h3>
         </div>
+        <div v-if="!props.hideTags && form.tags.length" class="flex flex-wrap gap-2">
+          <span
+            v-for="tag in form.tags"
+            :key="tag"
+            class="rounded-full border border-[var(--nv-line)] px-3 py-1 text-xs text-[var(--nv-ink-soft)]"
+          >
+            #{{ tag }}
+          </span>
+        </div>
+        <article class="prose max-w-none dark:prose-invert" v-html="previewHtml" />
       </div>
-
-      <div class="flex justify-end gap-2 sm:gap-3 pt-1">
-        <BaseButton type="button" variant="secondary" size="sm" class="!text-xs !px-3 !py-2 sm:!text-sm sm:!px-4 sm:!py-2"
-          @click="handleCancel()">
-          {{ $t('common.cancel') }}
-        </BaseButton>
-        <BaseButton type="submit" variant="primary" size="sm" class="!text-xs !px-3 !py-2 sm:!text-sm sm:!px-4 sm:!py-2"
-          :loading="isSubmitting">
-          {{ submitLabel }}
-        </BaseButton>
-      </div>
-    </form>
+      <template #footer>
+        <div class="flex justify-end gap-2">
+          <BaseButton type="button" variant="secondary" size="sm" @click="showPreview = false">
+            {{ $t('common.close') || 'Close' }}
+          </BaseButton>
+        </div>
+      </template>
+    </BaseModal>
   </div>
 </template>
 
 <style scoped>
-.tiptap-editor-wrapper {
+.nv-compose-page {
   display: flex;
   flex-direction: column;
+  gap: 1.25rem;
+}
+
+.nv-compose-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.nv-compose-kicker {
+  color: var(--nv-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.nv-compose-main {
+  min-width: 0;
+}
+
+.editor-area-container {
+  background: var(--nv-surface);
+}
+
+.tiptap-editor-wrapper {
+  display: flex;
+  min-height: 26rem;
+  flex-direction: column;
+}
+
+.editor-view-toggle-btn {
+  border-radius: 999px;
+  border: 1px solid transparent;
+  padding: 0.45rem 0.85rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--nv-muted);
+  transition: all 0.15s ease;
+}
+
+.editor-view-toggle-btn:hover {
+  border-color: var(--nv-line);
+  background: var(--nv-surface-alt);
+  color: var(--nv-ink);
+}
+
+.editor-view-toggle-btn.active {
+  border-color: color-mix(in srgb, var(--nv-accent) 35%, transparent);
+  background: color-mix(in srgb, var(--nv-accent) 14%, var(--nv-surface));
+  color: var(--nv-accent);
+}
+
+.nv-compose-page .text-xs.text-\[var\(--nv-muted\)\] > span.mx-2 {
+  font-size: 0;
+}
+
+.nv-compose-page .text-xs.text-\[var\(--nv-muted\)\] > span.mx-2::before {
+  content: '쨌';
+  font-size: 0.75rem;
 }
 </style>
 
 <style>
-/* 비디오 URL 팝오버: 툴바 아래 고정 위치 */
 .video-url-popover-mask {
   position: fixed;
   inset: 0;
   z-index: 9999;
   background: transparent;
 }
+
 .video-url-popover {
   position: fixed;
   transform: translateX(-50%);
-  margin-top: 0;
   min-width: 320px;
   max-width: 90vw;
   padding: 12px 14px;
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  background: var(--nv-surface);
+  border: 1px solid var(--nv-line);
+  border-radius: 16px;
+  box-shadow: var(--nv-shadow-soft);
   z-index: 10000;
 }
-.dark .video-url-popover {
-  background: #1f2937;
-  border-color: #4b5563;
-  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.3);
-}
+
 .video-url-popover-label {
   display: block;
-  font-size: 12px;
-  font-weight: 500;
-  color: #374151;
   margin-bottom: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--nv-ink-soft);
 }
-.dark .video-url-popover-label { color: #d1d5db; }
+
 .video-url-popover-input {
   display: block;
   width: 100%;
-  padding: 8px 10px;
-  font-size: 14px;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
   margin-bottom: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--nv-line);
+  border-radius: 12px;
+  background: var(--nv-elevated);
+  color: var(--nv-ink);
   box-sizing: border-box;
 }
-.dark .video-url-popover-input {
-  background: #374151;
-  border-color: #4b5563;
-  color: #f3f4f6;
-}
+
 .video-url-popover-actions {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
 }
 
-/* 에디터 영역 컨테이너 (전환 탭 + 본문) */
-.editor-area-container {
-  background: #fff;
-}
-.dark .editor-area-container {
-  background: #1f2937;
-}
-.editor-area-toggle-row {
-  display: flex;
-  flex-shrink: 0;
-  gap: 2px;
-  padding: 6px 8px 0;
-  border-bottom: 1px solid #e5e7eb;
-  background: #f9fafb;
-}
-.dark .editor-area-toggle-row {
-  border-color: #4b5563;
-  background: #374151;
-}
-.editor-view-toggle-btn {
-  padding: 6px 12px;
-  font-size: 12px;
-  font-weight: 500;
-  color: #6b7280;
-  background: transparent;
-  border: none;
-  border-radius: 6px 6px 0 0;
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s;
-}
-.dark .editor-view-toggle-btn { color: #9ca3af; }
-.editor-view-toggle-btn:hover { color: #111827; background: #f3f4f6; }
-.dark .editor-view-toggle-btn:hover { color: #f3f4f6; background: #4b5563; }
-.editor-view-toggle-btn.active {
-  color: #fff;
-  background: #4f46e5;
-}
-.dark .editor-view-toggle-btn.active { background: #6366f1; }
-
-/* HTML 원본 텍스트 영역 */
 .html-source-editor-wrap {
-  background: #fff;
+  min-height: 26rem;
 }
-.dark .html-source-editor-wrap {
-  background: #1f2937;
-}
+
 .html-source-textarea {
   display: block;
   width: 100%;
-  height: 100%;
-  min-height: 240px;
-  padding: 12px;
+  min-height: 26rem;
+  padding: 16px;
   font-size: 13px;
-  line-height: 1.5;
-  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
-  color: #111827;
+  line-height: 1.6;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: var(--nv-ink);
   background: transparent;
   border: none;
   outline: none;
-  resize: none;
+  resize: vertical;
   white-space: pre-wrap;
-  word-break: break-all;
+  word-break: break-word;
   box-sizing: border-box;
 }
-.dark .html-source-textarea {
-  color: #e5e7eb;
-}
-.html-source-textarea::placeholder {
-  color: #9ca3af;
-}
-.dark .html-source-textarea::placeholder { color: #6b7280; }
 </style>

@@ -26,7 +26,10 @@ public class DraftListResponse {
         private Long draftId;
         private String title;
         private Long boardId;
+        private String boardUrl;
         private String boardName;
+        private Long originalPostId;
+        private LocalDateTime updatedAt;
         private LocalDateTime modifiedAt;
     }
 
@@ -36,7 +39,10 @@ public class DraftListResponse {
                         .draftId(draft.getDraftId())
                         .title(draft.getTitle())
                         .boardId(draft.getBoard().getBoardId())
+                        .boardUrl(draft.getBoard().getBoardUrl())
                         .boardName(draft.getBoard().getBoardName())
+                        .originalPostId(draft.getOriginalPost() != null ? draft.getOriginalPost().getPostId() : null)
+                        .updatedAt(draft.getModifiedAt())
                         .modifiedAt(draft.getModifiedAt())
                         .build())
                 .collect(Collectors.toList());

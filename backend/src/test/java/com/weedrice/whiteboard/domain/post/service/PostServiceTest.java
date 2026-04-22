@@ -193,7 +193,7 @@ class PostServiceTest {
         assertThat(created).isNotNull();
         assertThat(created.getTitle()).isEqualTo("New Post");
         verify(tagAssignmentService).assignTags(created, request.getTags());
-        verify(fileService, times(2)).associateFileWithEntity(anyLong(), eq(1L), eq(100L), eq("POST_CONTENT"));
+        verify(fileService).attachFilesToPost(List.of(1L, 2L), 1L, 100L);
         verify(pointService).addPoint(eq(1L), eq(50), anyString(), eq(100L), eq("POST"));
     }
 
@@ -465,7 +465,7 @@ class PostServiceTest {
 
         assertThat(updated.getTitle()).isEqualTo("Updated Title");
         verify(tagAssignmentService).assignTags(post, request.getTags());
-        verify(fileService).associateFileWithEntity(eq(5L), eq(1L), eq(1L), eq("POST_CONTENT"));
+        verify(fileService).attachFilesToPost(List.of(5L), 1L, 1L);
         verify(postVersionRepository).save(any(PostVersion.class));
     }
 
@@ -767,11 +767,58 @@ class PostServiceTest {
         PostDraftRequest request = new PostDraftRequest(null, "free", "Draft Title", "Draft Content", null);
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
-        when(draftPostRepository.save(any(DraftPost.class))).thenAnswer(i -> i.getArgument(0));
+        when(draftPostRepository.save(any(DraftPost.class))).thenAnswer(i -> {
+            DraftPost draftPost = i.getArgument(0);
+            ReflectionTestUtils.setField(draftPost, "draftId", 10L);
+            return draftPost;
+        });
 
         DraftPost draft = postService.saveDraftPost(1L, request);
 
         assertThat(draft.getTitle()).isEqualTo("Draft Title");
+        verify(fileService).syncDraftFiles(Collections.emptyList(), 1L, 10L);
+    }
+
+    @Test
+    @DisplayName("초안 저장 시 확장 필드와 파일 연결 정보를 함께 보존한다")
+    void saveDraftPost_persistsExtendedFields() {
+        Post originalPost = Post.builder().title("Original").board(board).user(user).build();
+        ReflectionTestUtils.setField(originalPost, "postId", 77L);
+        PostDraftRequest request = PostDraftRequest.builder()
+                .boardUrl("free")
+                .title("Draft Title")
+                .contents("Draft Content")
+                .categoryId(1L)
+                .tags(List.of("tag-a", "tag-b"))
+                .isNotice(false)
+                .isNsfw(true)
+                .isSpoiler(true)
+                .isSecret(true)
+                .fileIds(List.of(11L, 12L))
+                .originalPostId(77L)
+                .build();
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
+        when(boardCategoryRepository.findByCategoryIdAndBoard_BoardIdAndIsActive(1L, 1L, true))
+                .thenReturn(Optional.of(category));
+        when(postRepository.findById(77L)).thenReturn(Optional.of(originalPost));
+        when(draftPostRepository.save(any(DraftPost.class))).thenAnswer(i -> {
+            DraftPost draftPost = i.getArgument(0);
+            ReflectionTestUtils.setField(draftPost, "draftId", 22L);
+            return draftPost;
+        });
+
+        DraftPost draft = postService.saveDraftPost(1L, request);
+
+        assertThat(draft.getCategory()).isEqualTo(category);
+        assertThat(draft.getTags()).containsExactly("tag-a", "tag-b");
+        assertThat(draft.isNsfw()).isTrue();
+        assertThat(draft.isSpoiler()).isTrue();
+        assertThat(draft.isSecret()).isTrue();
+        assertThat(draft.getFileIds()).containsExactly(11L, 12L);
+        assertThat(draft.getOriginalPost()).isEqualTo(originalPost);
+        verify(fileService).syncDraftFiles(List.of(11L, 12L), 1L, 22L);
     }
 
     @Test
@@ -792,6 +839,7 @@ class PostServiceTest {
     @DisplayName("초안 저장 - 수정")
     void saveDraftPost_update() {
         DraftPost existingDraft = DraftPost.builder().user(user).board(board).title("Old").build();
+        ReflectionTestUtils.setField(existingDraft, "draftId", 10L);
         PostDraftRequest request = new PostDraftRequest(10L, "free", "New Title", "New Content", null);
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
@@ -802,6 +850,31 @@ class PostServiceTest {
         DraftPost draft = postService.saveDraftPost(1L, request);
 
         assertThat(draft.getTitle()).isEqualTo("New Title");
+        verify(fileService).syncDraftFiles(Collections.emptyList(), 1L, 10L);
+    }
+
+    @Test
+    @DisplayName("더 오래된 초안 타임스탬프로 저장하면 충돌을 반환한다")
+    void saveDraftPost_rejectsOutdatedRequest() {
+        DraftPost existingDraft = DraftPost.builder().user(user).board(board).title("Old").build();
+        ReflectionTestUtils.setField(existingDraft, "modifiedAt", LocalDateTime.of(2025, 1, 2, 12, 0));
+        PostDraftRequest request = PostDraftRequest.builder()
+                .draftId(10L)
+                .boardUrl("free")
+                .title("New Title")
+                .contents("New Content")
+                .updatedAt(LocalDateTime.of(2025, 1, 1, 12, 0))
+                .build();
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
+        when(draftPostRepository.findByDraftIdAndUser(10L, user)).thenReturn(Optional.of(existingDraft));
+
+        assertThatThrownBy(() -> postService.saveDraftPost(1L, request))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.DRAFT_OUTDATED);
+
+        verify(fileService, never()).syncDraftFiles(any(), anyLong(), anyLong());
     }
 
     @Test
@@ -851,6 +924,7 @@ class PostServiceTest {
 
         postService.deleteDraftPost(1L, 10L);
 
+        verify(fileService).markDraftFilesDeletionPending(10L);
         verify(draftPostRepository).delete(existingDraft);
     }
 

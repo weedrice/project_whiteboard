@@ -173,10 +173,10 @@ public class PostController {
 
     @PostMapping("/drafts")
     @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse<Long> saveDraft(
+    public ApiResponse<DraftResponse> saveDraft(
             @Valid @RequestBody PostDraftRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        return ApiResponse.success(postService.saveDraftPost(userDetails.getUserId(), request).getDraftId());
+        return ApiResponse.success(DraftResponse.from(postService.saveDraftPost(userDetails.getUserId(), request)));
     }
 
     @DeleteMapping("/drafts/{draftId}")
