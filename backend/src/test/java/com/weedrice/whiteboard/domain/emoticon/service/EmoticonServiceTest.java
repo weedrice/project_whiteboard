@@ -672,6 +672,7 @@ class EmoticonServiceTest {
             ReflectionTestUtils.setField(buyer, "userId", 2L);
             when(userRepository.findById(2L)).thenReturn(Optional.of(buyer));
             when(emoticonMasterRepository.findByIdWithImages(1L)).thenReturn(Optional.of(emoticonMaster));
+            when(emoticonMasterRepository.incrementPurchaseCount(1L)).thenReturn(1);
             doNothing().when(pointService).spendPoint(eq(2L), eq(100), anyString(), eq(1L), eq("EMOTICON"));
             when(emoticonPurchaseRepository.saveAndFlush(any())).thenAnswer(inv -> inv.getArgument(0));
 
@@ -680,6 +681,7 @@ class EmoticonServiceTest {
             assertThat(result).isNotNull();
             verify(pointService).spendPoint(eq(2L), eq(100), anyString(), eq(1L), eq("EMOTICON"));
             verify(emoticonPurchaseRepository).saveAndFlush(any());
+            verify(emoticonMasterRepository).incrementPurchaseCount(1L);
         }
 
         @Test
@@ -697,6 +699,7 @@ class EmoticonServiceTest {
                     .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode()).isEqualTo(ErrorCode.EMOTICON_ALREADY_PURCHASED));
 
             verify(pointService).spendPoint(eq(2L), eq(100), anyString(), eq(1L), eq("EMOTICON"));
+            verify(emoticonMasterRepository, never()).incrementPurchaseCount(any());
         }
 
         @Test

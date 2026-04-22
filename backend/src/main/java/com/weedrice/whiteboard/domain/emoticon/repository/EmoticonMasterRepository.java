@@ -5,6 +5,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -48,6 +49,14 @@ public interface EmoticonMasterRepository extends JpaRepository<EmoticonMaster, 
     // 이모티콘 상세 조회 (이미지 포함)
     @Query("SELECT e FROM EmoticonMaster e LEFT JOIN FETCH e.images LEFT JOIN FETCH e.creator WHERE e.emoticonId = :emoticonId")
     Optional<EmoticonMaster> findByIdWithImages(@Param("emoticonId") Long emoticonId);
+
+    @Modifying(flushAutomatically = true)
+    @Query("""
+            UPDATE EmoticonMaster e
+            SET e.purchaseCount = e.purchaseCount + 1
+            WHERE e.emoticonId = :emoticonId
+            """)
+    int incrementPurchaseCount(@Param("emoticonId") Long emoticonId);
 
     // 인기 이모티콘 조회 (특정 기간 내 구매 횟수 기준) - 상위 5개
     @Query(value = """

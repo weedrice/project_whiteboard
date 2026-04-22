@@ -118,6 +118,7 @@ class EmoticonEntitlementGrantServiceTest {
             when(userRepository.findById(1L)).thenReturn(Optional.of(buyer));
             when(emoticonMasterRepository.findByIdWithImages(10L)).thenReturn(Optional.of(emoticon));
             when(emoticonPurchaseRepository.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+            when(emoticonMasterRepository.incrementPurchaseCount(10L)).thenReturn(1);
 
             EmoticonEntitlementGrantService.EmoticonGrantContext context = grantService.prepareGrant(1L, 10L);
             EmoticonMaster granted = grantService.grant(context, 100);
@@ -125,6 +126,7 @@ class EmoticonEntitlementGrantServiceTest {
             assertThat(granted).isSameAs(emoticon);
             assertThat(emoticon.getPurchaseCount()).isEqualTo(1);
             verify(emoticonPurchaseRepository).saveAndFlush(any());
+            verify(emoticonMasterRepository).incrementPurchaseCount(10L);
         }
 
         @Test
@@ -141,6 +143,23 @@ class EmoticonEntitlementGrantServiceTest {
                     .isInstanceOf(BusinessException.class)
                     .extracting("errorCode")
                     .isEqualTo(ErrorCode.EMOTICON_ALREADY_PURCHASED);
+            verify(emoticonMasterRepository, org.mockito.Mockito.never()).incrementPurchaseCount(any());
+        }
+
+        @Test
+        @DisplayName("Fails when purchase count update does not affect a row")
+        void grant_purchaseCountUpdateMiss_throwsNotFound() {
+            when(userRepository.findById(1L)).thenReturn(Optional.of(buyer));
+            when(emoticonMasterRepository.findByIdWithImages(10L)).thenReturn(Optional.of(emoticon));
+            when(emoticonPurchaseRepository.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+            when(emoticonMasterRepository.incrementPurchaseCount(10L)).thenReturn(0);
+
+            EmoticonEntitlementGrantService.EmoticonGrantContext context = grantService.prepareGrant(1L, 10L);
+
+            assertThatThrownBy(() -> grantService.grant(context, 100))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.EMOTICON_NOT_FOUND);
         }
 
         @Test

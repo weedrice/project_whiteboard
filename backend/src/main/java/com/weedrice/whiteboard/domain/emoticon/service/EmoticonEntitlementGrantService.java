@@ -9,6 +9,7 @@ import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.transaction.annotation.Transactional;
 
 class EmoticonEntitlementGrantService {
 
@@ -54,6 +55,7 @@ class EmoticonEntitlementGrantService {
         }
     }
 
+    @Transactional
     EmoticonMaster grant(EmoticonGrantContext grantContext, int purchasedPrice) {
         EmoticonPurchase purchase = EmoticonPurchase.builder()
                 .user(grantContext.user())
@@ -67,6 +69,10 @@ class EmoticonEntitlementGrantService {
             throw new BusinessException(ErrorCode.EMOTICON_ALREADY_PURCHASED);
         }
 
+        int updatedCount = emoticonMasterRepository.incrementPurchaseCount(grantContext.emoticon().getEmoticonId());
+        if (updatedCount == 0) {
+            throw new BusinessException(ErrorCode.EMOTICON_NOT_FOUND);
+        }
         grantContext.emoticon().incrementPurchaseCount();
         return grantContext.emoticon();
     }
