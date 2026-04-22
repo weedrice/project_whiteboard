@@ -80,28 +80,29 @@ public class Report extends BaseTimeEntity {
     @Builder
     public Report(User reporter, String targetType, Long targetId, String reasonType, String remark, String contents) {
         this.reporter = reporter;
-        this.targetType = targetType;
+        this.targetType = ReportTargetType.from(targetType).name();
         this.targetId = targetId;
-        this.reasonType = reasonType;
+        this.reasonType = ReportReasonType.from(reasonType).name();
         this.remark = remark;
         this.contents = contents;
         this.status = STATUS_PENDING;
     }
 
     public void processReport(Admin admin, Long processorUserId, String status, String remark) {
-        validateTransition(status);
+        ReportStatus nextStatus = ReportStatus.from(status);
+        validateTransition(nextStatus);
         this.admin = admin;
         this.processorUserId = processorUserId;
-        this.status = status;
+        this.status = nextStatus.name();
         this.processedRemark = remark;
     }
 
-    private void validateTransition(String nextStatus) {
+    private void validateTransition(ReportStatus nextStatus) {
         if (!STATUS_PENDING.equals(this.status)) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR);
         }
 
-        if (!TERMINAL_STATUSES.contains(nextStatus)) {
+        if (!TERMINAL_STATUSES.contains(nextStatus.name())) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR);
         }
     }

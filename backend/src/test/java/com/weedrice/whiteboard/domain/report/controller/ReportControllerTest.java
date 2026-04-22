@@ -3,6 +3,8 @@ package com.weedrice.whiteboard.domain.report.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.weedrice.whiteboard.domain.report.dto.MyReportResponse;
 import com.weedrice.whiteboard.domain.report.dto.ReportCreateRequest;
+import com.weedrice.whiteboard.domain.report.entity.ReportReasonType;
+import com.weedrice.whiteboard.domain.report.entity.ReportTargetType;
 import com.weedrice.whiteboard.domain.report.service.ReportService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -120,9 +122,9 @@ class ReportControllerTest {
     @DisplayName("createReport returns created")
     void createReport_success() throws Exception {
         ReportCreateRequest request = new ReportCreateRequest();
-        org.springframework.test.util.ReflectionTestUtils.setField(request, "targetType", "POST");
+        org.springframework.test.util.ReflectionTestUtils.setField(request, "targetType", ReportTargetType.POST);
         org.springframework.test.util.ReflectionTestUtils.setField(request, "targetId", 1L);
-        org.springframework.test.util.ReflectionTestUtils.setField(request, "reasonType", "SPAM");
+        org.springframework.test.util.ReflectionTestUtils.setField(request, "reasonType", ReportReasonType.SPAM);
 
         when(reportService.createReport(any(), any(), any(), any(), any(), any())).thenReturn(1L);
 
@@ -146,7 +148,7 @@ class ReportControllerTest {
     }
 
     @Test
-    @DisplayName("reportPost passes the provided reasonType")
+    @DisplayName("reportPost normalizes the provided reasonType")
     void reportPost_usesProvidedReasonType() throws Exception {
         when(reportService.createReport(any(), any(), any(), any(), any(), any())).thenReturn(3L);
 
@@ -157,12 +159,111 @@ class ReportControllerTest {
                                 {
                                   "targetPostId": 10,
                                   "reason": "spam post",
-                                  "reasonType": "SPAM"
+                                  "reasonType": "spam"
                                 }
                                 """))
                 .andExpect(status().isCreated());
 
         verify(reportService).createReport(1L, "POST", 10L, "SPAM", null, "spam post");
+    }
+
+    @Test
+    @DisplayName("reportPost defaults missing reasonType to ETC")
+    void reportPost_defaultsMissingReasonTypeToEtc() throws Exception {
+        when(reportService.createReport(any(), any(), any(), any(), any(), any())).thenReturn(4L);
+
+        mockMvc.perform(post("/api/v1/reports/posts")
+                        .with(user(customUserDetails))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "targetPostId": 10,
+                                  "reason": "spam post"
+                                }
+                                """))
+                .andExpect(status().isCreated());
+
+        verify(reportService).createReport(1L, "POST", 10L, "ETC", null, "spam post");
+    }
+
+    @Test
+    @DisplayName("reportUser defaults blank reasonType to ETC")
+    void reportUser_defaultsBlankReasonTypeToEtc() throws Exception {
+        when(reportService.createReport(any(), any(), any(), any(), any(), any())).thenReturn(5L);
+
+        mockMvc.perform(post("/api/v1/reports/users")
+                        .with(user(customUserDetails))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "targetUserId": 11,
+                                  "reason": "spam user",
+                                  "reasonType": " "
+                                }
+                                """))
+                .andExpect(status().isCreated());
+
+        verify(reportService).createReport(1L, "USER", 11L, "ETC", null, "spam user");
+    }
+
+    @Test
+    @DisplayName("reportComment defaults missing reasonType to ETC")
+    void reportComment_defaultsMissingReasonTypeToEtc() throws Exception {
+        when(reportService.createReport(any(), any(), any(), any(), any(), any())).thenReturn(6L);
+
+        mockMvc.perform(post("/api/v1/reports/comments")
+                        .with(user(customUserDetails))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "targetCommentId": 12,
+                                  "reason": "spam comment"
+                                }
+                                """))
+                .andExpect(status().isCreated());
+
+        verify(reportService).createReport(1L, "COMMENT", 12L, "ETC", null, "spam comment");
+    }
+
+    @Test
+    @DisplayName("createReport accepts lowercase enum values and forwards canonical strings")
+    void createReport_normalizesEnumValues() throws Exception {
+        when(reportService.createReport(any(), any(), any(), any(), any(), any())).thenReturn(7L);
+
+        mockMvc.perform(post("/api/v1/reports")
+                        .with(user(customUserDetails))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "targetType": "post",
+                                  "targetId": 1,
+                                  "reasonType": "abuse",
+                                  "contents": "details"
+                                }
+                                """))
+                .andExpect(status().isCreated());
+
+        verify(reportService).createReport(1L, "POST", 1L, "ABUSE", null, "details");
+    }
+
+    @Test
+    @DisplayName("createReport rejects invalid enum values")
+    void createReport_rejectsInvalidEnumValues() throws Exception {
+        mockMvc.perform(post("/api/v1/reports")
+                        .with(user(customUserDetails))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "targetType": "invalid",
+                                  "targetId": 1,
+                                  "reasonType": "spam"
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.error.code").value(ErrorCode.VALIDATION_ERROR.getCode()));
+
+        verify(reportService, never()).createReport(anyLong(), anyString(), anyLong(), anyString(), any(), any());
     }
 
     @Test

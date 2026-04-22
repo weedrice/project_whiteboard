@@ -3,6 +3,7 @@ package com.weedrice.whiteboard.domain.report.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.weedrice.whiteboard.domain.report.dto.ReportProcessRequest;
 import com.weedrice.whiteboard.domain.report.dto.ReportResponse;
+import com.weedrice.whiteboard.domain.report.entity.ReportStatus;
 import com.weedrice.whiteboard.domain.report.service.ReportService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -140,7 +141,7 @@ class AdminReportControllerTest {
     @DisplayName("신고 처리 성공")
     void processReport_returnsSuccess() throws Exception {
         ReportProcessRequest request = new ReportProcessRequest();
-        org.springframework.test.util.ReflectionTestUtils.setField(request, "status", "RESOLVED");
+        org.springframework.test.util.ReflectionTestUtils.setField(request, "status", ReportStatus.RESOLVED);
         org.springframework.test.util.ReflectionTestUtils.setField(request, "remark", "Processed");
 
         ReportResponse response = ReportResponse.builder()
@@ -159,15 +160,38 @@ class AdminReportControllerTest {
     }
 
     @Test
-    @DisplayName("허용되지 않은 신고 처리 상태는 400을 반환한다")
-    void processReport_rejectsInvalidStatus() throws Exception {
-        ReportProcessRequest request = new ReportProcessRequest();
-        org.springframework.test.util.ReflectionTestUtils.setField(request, "status", "APPROVED");
-        org.springframework.test.util.ReflectionTestUtils.setField(request, "remark", "Processed");
+    @DisplayName("소문자 신고 처리 상태를 canonical value로 전달한다")
+    void processReport_normalizesLowercaseStatus() throws Exception {
+        when(reportService.processReport(eq(1L), eq(1L), anyString(), anyString()))
+                .thenReturn(ReportResponse.builder().reportId(1L).build());
 
         mockMvc.perform(put("/api/v1/admin/reports/{reportId}", 1L)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request))
+                        .content("""
+                                {
+                                  "status": "resolved",
+                                  "remark": "Processed"
+                                }
+                                """)
+                        .with(user(customUserDetails))
+                        .with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+
+        verify(reportService).processReport(1L, 1L, "RESOLVED", "Processed");
+    }
+
+    @Test
+    @DisplayName("허용되지 않은 신고 처리 상태는 400을 반환한다")
+    void processReport_rejectsInvalidStatus() throws Exception {
+        mockMvc.perform(put("/api/v1/admin/reports/{reportId}", 1L)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "status": "APPROVED",
+                                  "remark": "Processed"
+                                }
+                                """)
                         .with(user(customUserDetails))
                         .with(csrf()))
                 .andExpect(status().isBadRequest())
@@ -179,13 +203,14 @@ class AdminReportControllerTest {
     @Test
     @DisplayName("비어 있는 신고 처리 상태는 400을 반환한다")
     void processReport_rejectsBlankStatus() throws Exception {
-        ReportProcessRequest request = new ReportProcessRequest();
-        org.springframework.test.util.ReflectionTestUtils.setField(request, "status", " ");
-        org.springframework.test.util.ReflectionTestUtils.setField(request, "remark", "Processed");
-
         mockMvc.perform(put("/api/v1/admin/reports/{reportId}", 1L)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request))
+                        .content("""
+                                {
+                                  "status": " ",
+                                  "remark": "Processed"
+                                }
+                                """)
                         .with(user(customUserDetails))
                         .with(csrf()))
                 .andExpect(status().isBadRequest())
@@ -214,10 +239,29 @@ class AdminReportControllerTest {
     }
 
     @Test
+    @DisplayName("PENDING status는 신고 처리 요청에서 거부한다")
+    void processReport_rejectsPendingStatus() throws Exception {
+        mockMvc.perform(put("/api/v1/admin/reports/{reportId}", 1L)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "status": "PENDING",
+                                  "remark": "Processed"
+                                }
+                                """)
+                        .with(user(customUserDetails))
+                        .with(csrf()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+
+        verify(reportService, never()).processReport(anyLong(), anyLong(), anyString(), anyString());
+    }
+
+    @Test
     @DisplayName("이미 처리된 신고는 API 에서도 400을 유지한다")
     void processReport_returnsBadRequestWhenAlreadyProcessed() throws Exception {
         ReportProcessRequest request = new ReportProcessRequest();
-        org.springframework.test.util.ReflectionTestUtils.setField(request, "status", "RESOLVED");
+        org.springframework.test.util.ReflectionTestUtils.setField(request, "status", ReportStatus.RESOLVED);
         org.springframework.test.util.ReflectionTestUtils.setField(request, "remark", "Processed");
 
         when(reportService.processReport(eq(1L), eq(1L), anyString(), anyString()))

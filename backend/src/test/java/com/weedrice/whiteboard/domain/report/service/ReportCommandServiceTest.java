@@ -104,6 +104,47 @@ class ReportCommandServiceTest {
     }
 
     @Test
+    @DisplayName("createReport normalizes reasonType before save")
+    void createReport_normalizesReasonType() {
+        User reporter = User.builder().build();
+        ReflectionTestUtils.setField(reporter, "userId", 1L);
+        Report savedReport = Report.builder()
+                .reporter(reporter)
+                .targetType("POST")
+                .targetId(2L)
+                .reasonType("ABUSE")
+                .build();
+        ReflectionTestUtils.setField(savedReport, "reportId", 12L);
+        com.weedrice.whiteboard.domain.post.entity.Post targetPost = mock(com.weedrice.whiteboard.domain.post.entity.Post.class);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(reporter));
+        when(reportRepository.findByReporterAndTargetTypeAndTargetId(reporter, "POST", 2L))
+                .thenReturn(Optional.empty());
+        when(postService.getPostById(2L, 1L, false)).thenReturn(targetPost);
+        when(reportRepository.saveAndFlush(any(Report.class))).thenReturn(savedReport);
+
+        Long reportId = reportCommandService.createReport(1L, "POST", 2L, "abuse", null, null);
+
+        ArgumentCaptor<Report> captor = ArgumentCaptor.forClass(Report.class);
+        verify(reportRepository).saveAndFlush(captor.capture());
+        assertThat(reportId).isEqualTo(12L);
+        assertThat(captor.getValue().getReasonType()).isEqualTo("ABUSE");
+    }
+
+    @Test
+    @DisplayName("createReport rejects invalid reasonType")
+    void createReport_invalidReasonType_throwsValidationError() {
+        User reporter = User.builder().build();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(reporter));
+
+        assertThatThrownBy(() -> reportCommandService.createReport(1L, "POST", 2L, "INVALID", null, null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VALIDATION_ERROR);
+
+        verify(reportRepository, never()).saveAndFlush(any(Report.class));
+    }
+
+    @Test
     @DisplayName("createReport maps duplicate conflict to already reported")
     void createReport_duplicateConflict_throwsAlreadyReported() {
         User reporter = User.builder().build();

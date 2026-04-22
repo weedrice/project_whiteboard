@@ -41,7 +41,7 @@ public class AdminReportController {
         ReportResponse response = reportService.processReport(
                 adminUserId,
                 reportId,
-                request.getStatus(),
+                request.getStatus().name(),
                 request.getRemark());
         return ApiResponse.success(response);
     }

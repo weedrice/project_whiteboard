@@ -5,6 +5,7 @@ import com.weedrice.whiteboard.domain.report.dto.MyReportResponse;
 import com.weedrice.whiteboard.domain.report.dto.PostReportRequest;
 import com.weedrice.whiteboard.domain.report.dto.ReportCreateRequest;
 import com.weedrice.whiteboard.domain.report.dto.UserReportRequest;
+import com.weedrice.whiteboard.domain.report.entity.ReportReasonType;
 import com.weedrice.whiteboard.domain.report.service.ReportService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
@@ -40,7 +41,7 @@ public class ReportController {
                 reporterId,
                 "USER",
                 request.getTargetUserId(),
-                normalizeReasonType(request.getReasonType()),
+                resolveLegacyReasonType(request.getReasonType()),
                 request.getLink(),
                 request.getReason());
         return ApiResponse.success(reportId);
@@ -56,7 +57,7 @@ public class ReportController {
                 reporterId,
                 "POST",
                 request.getTargetPostId(),
-                normalizeReasonType(request.getReasonType()),
+                resolveLegacyReasonType(request.getReasonType()),
                 null,
                 request.getReason());
         return ApiResponse.success(reportId);
@@ -72,7 +73,7 @@ public class ReportController {
                 reporterId,
                 "COMMENT",
                 request.getTargetCommentId(),
-                normalizeReasonType(request.getReasonType()),
+                resolveLegacyReasonType(request.getReasonType()),
                 null,
                 request.getReason());
         return ApiResponse.success(reportId);
@@ -86,9 +87,9 @@ public class ReportController {
         Long reporterId = ((CustomUserDetails) authentication.getPrincipal()).getUserId();
         Long reportId = reportService.createReport(
                 reporterId,
-                request.getTargetType(),
+                request.getTargetType().name(),
                 request.getTargetId(),
-                request.getReasonType(),
+                request.getReasonType().name(),
                 request.getRemark(),
                 request.getContents());
         return ApiResponse.success(reportId);
@@ -104,7 +105,15 @@ public class ReportController {
         return ApiResponse.success(new PageResponse<>(reportService.getMyReports(userId, pageable)));
     }
 
-    private String normalizeReasonType(String reasonType) {
-        return reasonType == null || reasonType.isBlank() ? "ETC" : reasonType;
+    private String resolveLegacyReasonType(String reasonType) {
+        if (reasonType == null || reasonType.isBlank()) {
+            return ReportReasonType.ETC.name();
+        }
+        try {
+            return ReportReasonType.from(reasonType).name();
+        } catch (IllegalArgumentException ex) {
+            throw new com.weedrice.whiteboard.global.exception.BusinessException(
+                    com.weedrice.whiteboard.global.exception.ErrorCode.VALIDATION_ERROR);
+        }
     }
 }

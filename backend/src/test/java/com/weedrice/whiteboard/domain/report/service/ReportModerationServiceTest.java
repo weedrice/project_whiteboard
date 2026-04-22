@@ -87,6 +87,22 @@ class ReportModerationServiceTest {
     }
 
     @Test
+    @DisplayName("getReports normalizes filter values before querying repository")
+    void getReports_normalizesFilters() {
+        PageRequest pageable = PageRequest.of(0, 20);
+        Page<Report> reportPage = new PageImpl<>(List.of(report), pageable, 1);
+        Page<ReportResponse> responsePage = new PageImpl<>(List.of(ReportResponse.builder().reportId(7L).build()), pageable, 1);
+
+        when(reportRepository.findAdminReports("PENDING", "POST", pageable)).thenReturn(reportPage);
+        when(reportReadAssembler.toAdminResponsePage(reportPage)).thenReturn(responsePage);
+
+        Page<ReportResponse> result = reportModerationService.getReports("pending", "post", pageable);
+
+        assertThat(result.getContent()).hasSize(1);
+        verify(reportRepository).findAdminReports("PENDING", "POST", pageable);
+    }
+
+    @Test
     @DisplayName("getMyReports loads reporter and assembles responses")
     void getMyReports_usesAssembler() {
         PageRequest pageable = PageRequest.of(0, 20);
@@ -141,6 +157,25 @@ class ReportModerationServiceTest {
         assertThat(report.getAdmin()).isEqualTo(admin);
         assertThat(report.getProcessorUserId()).isEqualTo(2L);
         assertThat(report.getProcessedRemark()).isEqualTo("done");
+    }
+
+    @Test
+    @DisplayName("processReport normalizes lowercase terminal statuses")
+    void processReport_normalizesLowercaseStatus() {
+        ReportResponse response = ReportResponse.builder()
+                .reportId(7L)
+                .status(Report.STATUS_RESOLVED)
+                .build();
+
+        when(reportRepository.findById(7L)).thenReturn(Optional.of(report));
+        when(userRepository.findById(2L)).thenReturn(Optional.of(adminUser));
+        when(moderationActorResolver.findActiveAdmin(adminUser)).thenReturn(Optional.of(admin));
+        when(reportReadAssembler.toAdminResponse(report)).thenReturn(response);
+
+        ReportResponse result = reportModerationService.processReport(2L, 7L, "resolved", "done");
+
+        assertThat(result.getStatus()).isEqualTo(Report.STATUS_RESOLVED);
+        assertThat(report.getStatus()).isEqualTo(Report.STATUS_RESOLVED);
     }
 
     @Test

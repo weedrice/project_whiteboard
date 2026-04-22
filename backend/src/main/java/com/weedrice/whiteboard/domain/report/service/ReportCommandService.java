@@ -3,6 +3,8 @@ package com.weedrice.whiteboard.domain.report.service;
 import com.weedrice.whiteboard.domain.comment.service.CommentService;
 import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.domain.report.entity.Report;
+import com.weedrice.whiteboard.domain.report.entity.ReportReasonType;
+import com.weedrice.whiteboard.domain.report.entity.ReportTargetType;
 import com.weedrice.whiteboard.domain.report.repository.ReportRepository;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -32,6 +34,7 @@ class ReportCommandService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         sanctionService.validateNotBanned(reporter);
         String normalizedTargetType = normalizeTargetType(targetType);
+        String normalizedReasonType = normalizeReasonType(reasonType);
 
         reportRepository.findByReporterAndTargetTypeAndTargetId(reporter, normalizedTargetType, targetId)
                 .ifPresent(report -> {
@@ -44,7 +47,7 @@ class ReportCommandService {
                 .reporter(reporter)
                 .targetType(normalizedTargetType)
                 .targetId(targetId)
-                .reasonType(reasonType)
+                .reasonType(normalizedReasonType)
                 .remark(remark)
                 .contents(contents)
                 .build();
@@ -59,7 +62,7 @@ class ReportCommandService {
     }
 
     private void validateTarget(String targetType, Long targetId, Long reporterId) {
-        switch (targetType.toUpperCase()) {
+        switch (targetType) {
             case "POST":
                 postService.getPostById(targetId, reporterId, false);
                 break;
@@ -77,9 +80,18 @@ class ReportCommandService {
     }
 
     private String normalizeTargetType(String targetType) {
-        if (targetType == null || targetType.isBlank()) {
+        try {
+            return ReportTargetType.from(targetType).name();
+        } catch (IllegalArgumentException ex) {
             throw new BusinessException(ErrorCode.INVALID_TARGET);
         }
-        return targetType.trim().toUpperCase();
+    }
+
+    private String normalizeReasonType(String reasonType) {
+        try {
+            return ReportReasonType.from(reasonType).name();
+        } catch (IllegalArgumentException ex) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR);
+        }
     }
 }
