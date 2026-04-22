@@ -12,6 +12,7 @@ import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 
+import java.util.Comparator;
 import java.util.concurrent.atomic.AtomicInteger;
 
 class EmoticonCommandService {
@@ -134,7 +135,7 @@ class EmoticonCommandService {
 
         validateOwner(master, userId, "?섏젙 沅뚰븳???놁뒿?덈떎.");
 
-        int nextSortOrder = master.getImages().size();
+        int nextSortOrder = resolveNextSortOrder(master);
         EmoticonImage image = EmoticonImage.builder()
                 .emoticonMaster(master)
                 .imageUrl(attachmentHelper.attachFile(fileId, userId, master.getEmoticonId(), emoticonImageType))
@@ -162,5 +163,13 @@ class EmoticonCommandService {
         if (!master.isOwner(userId)) {
             throw new BusinessException(ErrorCode.FORBIDDEN, message);
         }
+    }
+
+    private int resolveNextSortOrder(EmoticonMaster master) {
+        return master.getImages().stream()
+                .map(EmoticonImage::getSortOrder)
+                .filter(java.util.Objects::nonNull)
+                .max(Comparator.naturalOrder())
+                .orElse(-1) + 1;
     }
 }

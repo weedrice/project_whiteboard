@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.emoticon.dto;
 
+import com.weedrice.whiteboard.domain.emoticon.entity.EmoticonImage;
 import com.weedrice.whiteboard.domain.emoticon.entity.EmoticonMaster;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -7,6 +8,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -38,6 +40,8 @@ public class EmoticonMasterDto {
                 .creatorName(master.getCreator() != null ? master.getCreator().getDisplayName() : null)
                 .purchaseCount(master.getPurchaseCount())
                 .images(master.getImages().stream()
+                        .sorted(Comparator.comparing(EmoticonImage::getSortOrder, Comparator.nullsLast(Integer::compareTo))
+                                .thenComparing(EmoticonImage::getImageId, Comparator.nullsLast(Long::compareTo)))
                         .map(EmoticonImageDto::from)
                         .collect(Collectors.toList()))
                 .createdAt(master.getCreatedAt())

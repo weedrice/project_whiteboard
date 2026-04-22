@@ -48,6 +48,7 @@ public class EmoticonMaster extends BaseTimeEntity {
     private Integer purchaseCount;
 
     @OneToMany(mappedBy = "emoticonMaster", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("sortOrder ASC, imageId ASC")
     private List<EmoticonImage> images = new ArrayList<>();
 
     @Builder

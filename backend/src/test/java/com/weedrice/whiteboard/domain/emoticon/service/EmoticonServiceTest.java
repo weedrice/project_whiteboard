@@ -582,7 +582,32 @@ class EmoticonServiceTest {
             EmoticonMasterDto result = emoticonService.addImage(1L, 1L, 30L);
 
             assertThat(result).isNotNull();
+            assertThat(result.getImages()).hasSize(1);
+            assertThat(result.getImages().get(0).getSortOrder()).isEqualTo(0);
             verify(emoticonMasterRepository).findByIdWithImages(1L);
+        }
+
+        @Test
+        @DisplayName("이미지 삭제 후 재추가는 기존 최대 순번 다음 값을 사용한다")
+        void addImage_afterDeletion_usesMaxSortOrderPlusOne() {
+            EmoticonImage firstImage = EmoticonImage.builder()
+                    .emoticonMaster(emoticonMaster)
+                    .imageUrl("/api/v1/files/10")
+                    .sortOrder(0)
+                    .build();
+            ReflectionTestUtils.setField(firstImage, "imageId", 10L);
+            EmoticonImage lastImage = EmoticonImage.builder()
+                    .emoticonMaster(emoticonMaster)
+                    .imageUrl("/api/v1/files/20")
+                    .sortOrder(2)
+                    .build();
+            ReflectionTestUtils.setField(lastImage, "imageId", 20L);
+            ReflectionTestUtils.setField(emoticonMaster, "images", new java.util.ArrayList<>(List.of(firstImage, lastImage)));
+            when(emoticonMasterRepository.findByIdWithImages(1L)).thenReturn(Optional.of(emoticonMaster));
+
+            EmoticonMasterDto result = emoticonService.addImage(1L, 1L, 30L);
+
+            assertThat(result.getImages()).extracting("sortOrder").containsExactly(0, 2, 3);
         }
 
         @Test

@@ -96,6 +96,35 @@ class EmoticonMasterDtoTest {
             assertThat(dto.getImages().get(0).getImageId()).isEqualTo(100L);
             assertThat(dto.getImages().get(0).getImageUrl()).isEqualTo("url");
         }
+
+        @Test
+        @DisplayName("images는 sortOrder와 imageId 기준으로 안정 정렬된다")
+        void from_sortsImagesBySortOrderAndImageId() {
+            EmoticonMaster master = createMaster(1L, null, "Y", Collections.emptyList());
+            EmoticonImage second = EmoticonImage.builder()
+                    .emoticonMaster(master)
+                    .imageUrl("second")
+                    .sortOrder(2)
+                    .build();
+            ReflectionTestUtils.setField(second, "imageId", 200L);
+            EmoticonImage first = EmoticonImage.builder()
+                    .emoticonMaster(master)
+                    .imageUrl("first")
+                    .sortOrder(1)
+                    .build();
+            ReflectionTestUtils.setField(first, "imageId", 300L);
+            EmoticonImage tied = EmoticonImage.builder()
+                    .emoticonMaster(master)
+                    .imageUrl("tied")
+                    .sortOrder(1)
+                    .build();
+            ReflectionTestUtils.setField(tied, "imageId", 100L);
+            ReflectionTestUtils.setField(master, "images", List.of(second, first, tied));
+
+            EmoticonMasterDto dto = EmoticonMasterDto.from(master);
+
+            assertThat(dto.getImages()).extracting(EmoticonImageDto::getImageId).containsExactly(100L, 300L, 200L);
+        }
     }
 
     @Nested
