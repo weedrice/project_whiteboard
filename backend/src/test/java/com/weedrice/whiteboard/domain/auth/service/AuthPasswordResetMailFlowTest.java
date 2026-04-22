@@ -108,6 +108,10 @@ class AuthPasswordResetMailFlowTest {
                         .filter(passwordResetToken -> passwordResetToken.getUser().equals(user))
                         .sorted((left, right) -> right.getCreatedAt().compareTo(left.getCreatedAt()))
                         .toList());
+        when(passwordResetTokenRepository.findByToken(anyString())).thenAnswer(invocation ->
+                passwordResetTokens.values().stream()
+                        .filter(passwordResetToken -> invocation.getArgument(0).equals(passwordResetToken.getToken()))
+                        .findFirst());
         when(passwordResetTokenRepository.findByTokenForUpdate(anyString())).thenAnswer(invocation ->
                 passwordResetTokens.values().stream()
                         .filter(passwordResetToken -> invocation.getArgument(0).equals(passwordResetToken.getToken()))
@@ -205,6 +209,7 @@ class AuthPasswordResetMailFlowTest {
         ReflectionTestUtils.setField(pendingToken, "tokenId", 1L);
         ReflectionTestUtils.setField(pendingToken, "createdAt", LocalDateTime.now());
 
+        when(passwordResetTokenRepository.findByToken(anyString())).thenReturn(Optional.of(pendingToken));
         when(passwordResetTokenRepository.findByTokenForUpdate(anyString())).thenReturn(Optional.of(pendingToken));
         when(passwordResetTokenRepository.findByUserOrderByCreatedAtDesc(user)).thenReturn(java.util.List.of(pendingToken));
 
@@ -226,6 +231,7 @@ class AuthPasswordResetMailFlowTest {
         ReflectionTestUtils.setField(failedToken, "createdAt", LocalDateTime.now());
         failedToken.markFailed();
 
+        when(passwordResetTokenRepository.findByToken(anyString())).thenReturn(Optional.of(failedToken));
         when(passwordResetTokenRepository.findByTokenForUpdate(anyString())).thenReturn(Optional.of(failedToken));
         when(passwordResetTokenRepository.findByUserOrderByCreatedAtDesc(user)).thenReturn(java.util.List.of(failedToken));
 
@@ -256,6 +262,7 @@ class AuthPasswordResetMailFlowTest {
         ReflectionTestUtils.setField(latestSentToken, "createdAt", LocalDateTime.now());
         latestSentToken.markSent();
 
+        when(passwordResetTokenRepository.findByToken(anyString())).thenReturn(Optional.of(olderSentToken));
         when(passwordResetTokenRepository.findByTokenForUpdate(anyString())).thenReturn(Optional.of(olderSentToken));
         when(passwordResetTokenRepository.findByUserOrderByCreatedAtDesc(user))
                 .thenReturn(java.util.List.of(latestSentToken, olderSentToken));
@@ -278,6 +285,7 @@ class AuthPasswordResetMailFlowTest {
         ReflectionTestUtils.setField(latestSentToken, "createdAt", LocalDateTime.now());
         latestSentToken.markSent();
 
+        when(passwordResetTokenRepository.findByToken(anyString())).thenReturn(Optional.of(latestSentToken));
         when(passwordResetTokenRepository.findByTokenForUpdate(anyString())).thenReturn(Optional.of(latestSentToken));
         when(userRepository.findByIdForUpdate(user.getUserId())).thenReturn(Optional.of(user));
         when(passwordResetTokenRepository.findByUserOrderByCreatedAtDesc(user))
@@ -290,8 +298,9 @@ class AuthPasswordResetMailFlowTest {
 
         assertThat(latestSentToken.getIsUsed()).isTrue();
         var inOrder = inOrder(passwordResetTokenRepository, userRepository, passwordHistoryRepository, refreshTokenLifecycleService);
-        inOrder.verify(passwordResetTokenRepository).findByTokenForUpdate(anyString());
+        inOrder.verify(passwordResetTokenRepository).findByToken(anyString());
         inOrder.verify(userRepository).findByIdForUpdate(user.getUserId());
+        inOrder.verify(passwordResetTokenRepository).findByTokenForUpdate(anyString());
         inOrder.verify(passwordResetTokenRepository).save(latestSentToken);
         inOrder.verify(passwordHistoryRepository).save(any());
         inOrder.verify(refreshTokenLifecycleService).revokeActiveRefreshTokens(user);
