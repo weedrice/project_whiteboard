@@ -4,14 +4,12 @@ import { useI18n } from 'vue-i18n'
 import type { Comment } from '@/api/comment'
 import { useComment } from '@/composables/useComment'
 import { useAuthStore } from '@/stores/auth'
-import { useToastStore } from '@/stores/toast'
 import { useConfirm } from '@/composables/useConfirm'
 import logger from '@/utils/logger'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import CommentForm from './CommentForm.vue'
 import CommentItem from './CommentItem.vue'
 
-const toastStore = useToastStore()
 const { confirm } = useConfirm()
 
 const props = defineProps<{
@@ -25,8 +23,12 @@ const { useComments, useDeleteComment } = useComment()
 
 const params = ref({ page: 0, size: 50 })
 const postId = computed(() => props.postId)
-const { data: commentsData, isLoading } = useComments(postId, params)
+const { data: commentsData, isLoading, error: commentsError } = useComments(postId, params)
 const comments = computed<Comment[]>(() => commentsData.value?.content || [])
+const commentLoadFailedMessage = computed(() => {
+  const translated = t('common.messages.loadFailed')
+  return translated === 'common.messages.loadFailed' ? '댓글을 불러오지 못했습니다.' : translated
+})
 
 const { mutate: deleteComment } = useDeleteComment()
 
@@ -39,7 +41,6 @@ async function handleDelete(comment: Comment) {
   deleteComment(comment.commentId, {
     onError: (err) => {
       logger.error('Failed to delete comment:', err)
-      toastStore.addToast(t('comment.deleteFailed'), 'error')
     },
   })
 }
@@ -50,6 +51,24 @@ async function handleDelete(comment: Comment) {
     <h3 class="mb-4 text-base font-medium text-gray-900 dark:text-gray-100 sm:mb-6 sm:text-lg">
       {{ $t('comment.title') }}
     </h3>
+
+    <div
+      id="comment-composer"
+      class="mb-6 rounded-[24px] border border-[var(--nv-line)] bg-[color:var(--nv-surface)] px-4 py-4 sm:mb-8 sm:px-5"
+    >
+      <div v-if="authStore.isAuthenticated">
+        <CommentForm :postId="postId" />
+      </div>
+      <div v-else class="text-xs text-gray-500 dark:text-gray-400 sm:text-sm">
+        <router-link
+          to="/login"
+          class="text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300"
+        >
+          {{ $t('common.login') }}
+        </router-link>
+        {{ $t('comment.loginRequired', { login: '' }) }}
+      </div>
+    </div>
 
     <div v-if="isLoading" class="space-y-4 sm:space-y-6">
       <div v-for="i in 3" :key="i" class="flex space-x-3">
@@ -65,11 +84,15 @@ async function handleDelete(comment: Comment) {
       </div>
     </div>
 
+    <div v-else-if="commentsError" class="py-4 text-center text-xs text-red-500 sm:text-sm">
+      {{ commentLoadFailedMessage }}
+    </div>
+
     <div v-else class="space-y-4 sm:space-y-6">
       <CommentItem
         v-for="comment in comments"
         :key="comment.commentId"
-        v-memo="[comment.commentId, comment.content, comment.likeCount, comment.createdAt, comment.isDeleted, comment.replyCount, comment.hasReplies]"
+        v-memo="[postId, boardUrl, comment.commentId, comment.content, comment.likeCount, comment.createdAt, comment.isDeleted, comment.replyCount, comment.hasReplies]"
         :comment="comment"
         :postId="postId"
         :boardUrl="boardUrl"
@@ -82,19 +105,6 @@ async function handleDelete(comment: Comment) {
       >
         {{ $t('comment.empty') }}
       </div>
-    </div>
-
-    <div v-if="authStore.isAuthenticated" class="mb-6 mt-6 sm:mb-8 sm:mt-8">
-      <CommentForm :postId="postId" />
-    </div>
-    <div v-else class="mb-6 mt-6 text-xs text-gray-500 dark:text-gray-400 sm:mb-8 sm:mt-8 sm:text-sm">
-      <router-link
-        to="/login"
-        class="text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300"
-      >
-        {{ $t('common.login') }}
-      </router-link>
-      {{ $t('comment.loginRequired', { login: '' }) }}
     </div>
   </div>
 </template>

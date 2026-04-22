@@ -1,27 +1,45 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed, watch, nextTick } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import {
+  AlertTriangle,
+  ArrowLeft,
+  Bookmark,
+  Clock,
+  Copy,
+  Eye,
+  List,
+  MessageSquare,
+  MoreHorizontal,
+  Share2,
+  ThumbsUp,
+  User
+} from 'lucide-vue-next'
+import { useHead } from '@unhead/vue'
+import { useI18n } from 'vue-i18n'
+import BaseButton from '@/components/common/ui/BaseButton.vue'
+import BaseCard from '@/components/common/ui/BaseCard.vue'
+import BaseModal from '@/components/common/ui/BaseModal.vue'
+import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
+import BaseTextarea from '@/components/common/ui/BaseTextarea.vue'
+import CommentList from '@/components/comment/CommentList.vue'
+import UserMenu from '@/components/common/widgets/UserMenu.vue'
+import PostTags from '@/components/tag/PostTags.vue'
+import { useConfirm } from '@/composables/useConfirm'
 import { usePost } from '@/composables/usePost'
 import { useAuthStore } from '@/stores/auth'
-import { User, Clock, ThumbsUp, MessageSquare, Eye, ArrowLeft, MoreHorizontal, Bookmark, AlertTriangle, Share2, Copy, ArrowUp, List } from 'lucide-vue-next'
-import BaseModal from '@/components/common/ui/BaseModal.vue'
-import BaseButton from '@/components/common/ui/BaseButton.vue'
-import BaseTextarea from '@/components/common/ui/BaseTextarea.vue'
-import BaseCard from '@/components/common/ui/BaseCard.vue'
-import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
-import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
-import CommentList from '@/components/comment/CommentList.vue'
-import PostTags from '@/components/tag/PostTags.vue'
-import UserMenu from '@/components/common/widgets/UserMenu.vue'
-import { useI18n } from 'vue-i18n'
-import logger from '@/utils/logger'
 import { useToastStore } from '@/stores/toast'
-import { useConfirm } from '@/composables/useConfirm'
 import { formatDate } from '@/utils/date'
-import { sanitizeQuillHtml } from '@/utils/sanitize'
-import { useHead } from '@unhead/vue'
-import { isInputFocused } from '@/utils/keyboard'
 import { isRestrictedResourceError } from '@/utils/errorHandler'
+import { isInputFocused } from '@/utils/keyboard'
+import logger from '@/utils/logger'
+import { sanitizeQuillHtml } from '@/utils/sanitize'
+
+interface TocItem {
+  id: string
+  text: string
+  level: 2 | 3
+}
 
 const route = useRoute()
 const router = useRouter()
@@ -30,13 +48,26 @@ const { t } = useI18n()
 const toastStore = useToastStore()
 const { confirm } = useConfirm()
 
-const { usePostDetail, useDeletePost, useLikePost, useUnlikePost, useScrapPost, useUnscrapPost, useReportPost } = usePost()
+const {
+  useDeletePost,
+  useLikePost,
+  usePostDetail,
+  useReportPost,
+  useScrapPost,
+  useUnlikePost,
+  useUnscrapPost
+} = usePost()
 
 const postId = computed(() => route.params.postId as string)
-const { data: post, isLoading, error: postError } = usePostDetail(postId, {
+const {
+  data: post,
+  isLoading,
+  error: postError
+} = usePostDetail(postId, {
   meta: { errorMessage: false },
   requestConfig: { skipGlobalErrorHandler: true }
 })
+
 const postPageTitle = computed(() => {
   const postTitle = post.value?.title?.trim()
   const boardName = post.value?.board?.boardName?.trim()
@@ -77,7 +108,6 @@ const articleStructuredData = computed(() => {
   })
 })
 
-// SEO
 useHead({
   titleTemplate: '%s',
   title: postPageTitle,
@@ -85,13 +115,9 @@ useHead({
     { rel: 'canonical', href: canonicalUrl }
   ],
   meta: [
-    {
-      name: 'description', content: postDescription
-    },
+    { name: 'description', content: postDescription },
     { property: 'og:title', content: computed(() => `${post.value?.title || 'Post'} - ${t('common.appName')}`) },
-    {
-      property: 'og:description', content: postDescription
-    },
+    { property: 'og:description', content: postDescription },
     { property: 'og:type', content: 'article' },
     { property: 'og:url', content: canonicalUrl }
   ],
@@ -120,40 +146,129 @@ const { mutate: reportMutate } = useReportPost()
 const error = computed(() => {
   if (!postError.value) return ''
   if (isRestrictedResourceError(postError.value)) {
-    return '접근이 제한된 게시글입니다.'
+    return '접근 권한이 없는 게시글입니다.'
   }
   return t('board.postDetail.loadFailed')
 })
 
-// 조회수·최근 읽은 글은 usePostDetail의 getPost(incrementView: true) 한 번으로 처리됨. 별도 incrementView 호출 제거.
-
 const isAuthor = computed(() => {
-  return authStore.user && post.value && authStore.user.userId === post.value.author.userId
+  return !!authStore.user && !!post.value && authStore.user.userId === post.value.author.userId
 })
 
 const isAgentAuthor = computed(() => post.value?.author?.authorType === 'AGENT')
+const isAdmin = computed(() => authStore.isAdmin)
+const canEdit = computed(() => isAuthor.value && !!post.value)
+const canDelete = computed(() => !!post.value && (isAuthor.value || isAdmin.value || !!post.value.board.isAdmin))
+const canReport = computed(() => authStore.isAuthenticated && !isAuthor.value)
 
 const processedContents = computed(() => {
-  if (!post.value || !post.value.contents) return ''
+  if (!post.value?.contents) return ''
   const normalizedContents = post.value.contents.replace(/<p>\s*<\/p>/gi, '<p><br></p>')
-  // Sanitize HTML to prevent XSS attacks
   const sanitized = sanitizeQuillHtml(normalizedContents)
-  // Add loading="lazy" to all img tags that don't already have it
   return sanitized.replace(/<img(?![^>]*\bloading=)([^>]+)>/gi, '<img loading="lazy"$1>')
 })
 
-const isAdmin = computed(() => authStore.isAdmin)
-
+const tocItems = ref<TocItem[]>([])
 const isBlurred = ref(false)
-const blurTimer = ref<ReturnType<typeof setInterval> | null>(null)
 const timeLeft = ref(5)
-
 const isLikeAnimating = ref(false)
-const likeAnimationTimer = ref<ReturnType<typeof setTimeout> | null>(null)
-const isScrapAnimating = ref(false)
-const scrapAnimationTimer = ref<ReturnType<typeof setTimeout> | null>(null)
+const isBookmarkAnimating = ref(false)
+const showReportModal = ref(false)
+const reportReason = ref('')
+const showOverflowMenu = ref(false)
+const showCopyHint = ref(false)
+const showComposerCta = ref(false)
 
 const titleRef = ref<HTMLElement | null>(null)
+const contentRef = ref<HTMLElement | null>(null)
+const commentsRef = ref<HTMLElement | null>(null)
+const overflowRef = ref<HTMLElement | null>(null)
+const overflowButtonRef = ref<HTMLElement | null>(null)
+
+let blurTimer: ReturnType<typeof setInterval> | null = null
+let likeAnimationTimer: ReturnType<typeof setTimeout> | null = null
+let bookmarkAnimationTimer: ReturnType<typeof setTimeout> | null = null
+let copyHintTimer: ReturnType<typeof setTimeout> | null = null
+let composerObserver: IntersectionObserver | null = null
+
+const translateOrFallback = (key: string, fallback: string) => {
+  const translated = t(key)
+  return translated === key ? fallback : translated
+}
+
+const currentUrl = computed(() => {
+  if (typeof window === 'undefined') return ''
+  return `${window.location.origin}${route.fullPath}`
+})
+
+const hasToc = computed(() => tocItems.value.length > 0)
+
+function slugifyHeading(text: string, index: number) {
+  const slug = text
+    .toLowerCase()
+    .replace(/[^\w가-힣]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+
+  return `post-heading-${index}-${slug || 'section'}`
+}
+
+function syncToc() {
+  if (!contentRef.value) {
+    tocItems.value = []
+    return
+  }
+
+  const headings = Array.from(contentRef.value.querySelectorAll<HTMLElement>('h2, h3'))
+  tocItems.value = headings
+    .map((heading, index) => {
+      const text = heading.textContent?.trim() || ''
+      if (!text) return null
+
+      const id = heading.id || slugifyHeading(text, index)
+      heading.id = id
+
+      return {
+        id,
+        text,
+        level: heading.tagName === 'H2' ? 2 : 3
+      } satisfies TocItem
+    })
+    .filter((item): item is TocItem => item !== null)
+}
+
+function clearBlurTimer() {
+  if (blurTimer) {
+    clearInterval(blurTimer)
+    blurTimer = null
+  }
+}
+
+function startBlurTimer() {
+  clearBlurTimer()
+  blurTimer = setInterval(() => {
+    timeLeft.value -= 1
+    if (timeLeft.value <= 0) {
+      revealSpoiler()
+    }
+  }, 1000)
+}
+
+function revealSpoiler() {
+  isBlurred.value = false
+  clearBlurTimer()
+}
+
+function buildBoardListRoute(boardUrl: string) {
+  return {
+    path: `/board/${boardUrl}`,
+    query: route.query
+  }
+}
+
+function buildEditRoute() {
+  if (!post.value) return '/'
+  return `/board/${post.value.board.boardUrl}/post/${post.value.postId}/edit`
+}
 
 async function handleDelete() {
   const isConfirmed = await confirm(t('common.messages.confirmDelete'))
@@ -167,74 +282,77 @@ async function handleDelete() {
     },
     onError: (err) => {
       logger.error('Failed to delete post:', err)
-      toastStore.addToast(t('board.postDetail.deleteFailed'), 'error')
     }
   })
 }
 
+function triggerLikeAnimation() {
+  isLikeAnimating.value = true
+  if (likeAnimationTimer) clearTimeout(likeAnimationTimer)
+  likeAnimationTimer = setTimeout(() => {
+    isLikeAnimating.value = false
+    likeAnimationTimer = null
+  }, 300)
+}
+
+function triggerBookmarkAnimation() {
+  isBookmarkAnimating.value = true
+  if (bookmarkAnimationTimer) clearTimeout(bookmarkAnimationTimer)
+  bookmarkAnimationTimer = setTimeout(() => {
+    isBookmarkAnimating.value = false
+    bookmarkAnimationTimer = null
+  }, 300)
+}
+
 async function handleLike() {
   if (!authStore.isAuthenticated || !post.value) return
+
   if (post.value.liked) {
     unlikeMutate(route.params.postId as string | number, {
       onError: (err) => logger.error(t('board.postDetail.likeFailed'), err)
     })
-  } else {
-    // Optimistic animation
-    isLikeAnimating.value = true
-    // 이전 타이머 정리
-    if (likeAnimationTimer.value) {
-      clearTimeout(likeAnimationTimer.value)
-    }
-    likeAnimationTimer.value = setTimeout(() => {
-      isLikeAnimating.value = false
-      likeAnimationTimer.value = null
-    }, 300)
-
-    likeMutate(route.params.postId as string | number, {
-      onError: (err) => logger.error(t('board.postDetail.likeFailed'), err)
-    })
+    return
   }
+
+  triggerLikeAnimation()
+  likeMutate(route.params.postId as string | number, {
+    onError: (err) => logger.error(t('board.postDetail.likeFailed'), err)
+  })
 }
 
-async function handleScrap() {
+async function handleBookmark() {
   if (!authStore.isAuthenticated || !post.value) return
+
   if (post.value.scrapped) {
     unscrapMutate(route.params.postId as string | number, {
       onError: (err) => logger.error(t('board.postDetail.scrapFailed'), err)
     })
-  } else {
-    // Optimistic animation
-    isScrapAnimating.value = true
-    // 이전 타이머 정리
-    if (scrapAnimationTimer.value) {
-      clearTimeout(scrapAnimationTimer.value)
-    }
-    scrapAnimationTimer.value = setTimeout(() => {
-      isScrapAnimating.value = false
-      scrapAnimationTimer.value = null
-    }, 300)
-
-    scrapMutate(route.params.postId as string | number, {
-      onError: (err) => logger.error(t('board.postDetail.scrapFailed'), err)
-    })
+    return
   }
+
+  triggerBookmarkAnimation()
+  scrapMutate(route.params.postId as string | number, {
+    onError: (err) => logger.error(t('board.postDetail.scrapFailed'), err)
+  })
 }
 
-const showReportModal = ref(false)
-const reportReason = ref('')
-
-function handleReport() {
-  if (!authStore.isAuthenticated) return
+function openReportModal() {
+  if (!canReport.value) return
   showReportModal.value = true
   reportReason.value = ''
+  showOverflowMenu.value = false
 }
+
 async function submitReport() {
   if (!reportReason.value.trim()) {
     toastStore.addToast(t('board.postDetail.reportReasonRequired'), 'error')
     return
   }
 
-  reportMutate({ targetPostId: route.params.postId as string | number, reason: reportReason.value }, {
+  reportMutate({
+    targetPostId: route.params.postId as string | number,
+    reason: reportReason.value
+  }, {
     onSuccess: () => {
       toastStore.addToast(t('board.postDetail.reportSuccess'), 'success')
       showReportModal.value = false
@@ -246,92 +364,25 @@ async function submitReport() {
   })
 }
 
-function startBlurTimer() {
-  // 기존 타이머 정리
-  if (blurTimer.value) {
-    clearInterval(blurTimer.value)
-  }
-  blurTimer.value = setInterval(() => {
-    timeLeft.value--
-    if (timeLeft.value <= 0) {
-      revealSpoiler()
-    }
-  }, 1000)
-}
-
-function revealSpoiler() {
-  isBlurred.value = false
-  if (blurTimer.value) {
-    clearInterval(blurTimer.value)
-    blurTimer.value = null
-  }
-}
-
-watch(() => route.hash, (newHash) => {
-  if (!newHash) return
-  nextTick(() => {
-    if (newHash === '#comments') {
-      scrollToCommentsAfterImagesLoad()
-      return
-    }
-    const element = document.querySelector(newHash)
-    if (element) element.scrollIntoView({ behavior: 'smooth' })
-  })
-})
-
-watch(post, (newPost, oldPost) => {
-  if (newPost) {
-    if (newPost.isSpoiler) {
-      isBlurred.value = true
-      timeLeft.value = 5
-      startBlurTimer()
-    }
-
-    // Only scroll if it's a new post (different ID) or initial load
-    if (!oldPost || newPost.postId !== oldPost.postId) {
-      nextTick(() => {
-        const hash = route.hash
-        if (hash === '#comments') {
-          scrollToCommentsAfterImagesLoad()
-          return
-        }
-        window.scrollTo(0, 0)
-        if (hash) {
-          const element = document.querySelector(hash)
-          if (element) element.scrollIntoView({ behavior: 'smooth' })
-        }
-      })
-    }
-  }
-})
-
-const currentUrl = computed(() => window.location.origin + route.fullPath)
-
-const showCopyHint = ref(false)
-let copyHintTimer: ReturnType<typeof setTimeout> | null = null
-
-function buildBoardListRoute(boardUrl: string) {
-  return {
-    path: `/board/${boardUrl}`,
-    query: route.query
-  }
-}
-
 function handleCopyUrl(showToast = true) {
+  if (!currentUrl.value) return
+
   navigator.clipboard.writeText(currentUrl.value).then(() => {
     if (showToast) {
       toastStore.addToast(t('common.messages.urlCopied'), 'success')
-    } else {
-      showCopyHint.value = true
-      if (copyHintTimer) clearTimeout(copyHintTimer)
-      copyHintTimer = setTimeout(() => {
-        showCopyHint.value = false
-        copyHintTimer = null
-      }, 1500)
-        ; (document.activeElement as HTMLElement)?.blur()
+      return
     }
-  }).catch(err => {
+
+    showCopyHint.value = true
+    if (copyHintTimer) clearTimeout(copyHintTimer)
+    copyHintTimer = setTimeout(() => {
+      showCopyHint.value = false
+      copyHintTimer = null
+    }, 1500)
+    ;(document.activeElement as HTMLElement | null)?.blur()
+  }).catch((err) => {
     logger.error('Failed to copy URL:', err)
+    toastStore.addToast(translateOrFallback('common.messages.processFailed', '주소 복사에 실패했습니다.'), 'error')
   })
 }
 
@@ -344,95 +395,81 @@ function handleShare() {
   if (navigator.share && post.value) {
     navigator.share({
       title: post.value.title,
-      url: currentUrl.value,
-    }).catch(err => {
-      if (err.name !== 'AbortError') logger.error('Share failed:', err)
+      url: currentUrl.value
+    }).catch((err) => {
+      if (err.name !== 'AbortError') {
+        logger.error('Share failed:', err)
+        toastStore.addToast(translateOrFallback('common.messages.processFailed', '공유에 실패했습니다.'), 'error')
+      }
     })
-  } else {
-    handleCopyUrl()
+    return
   }
-}
 
-const showFloatingNav = ref(false)
-const commentsRef = ref<HTMLElement | null>(null)
-const contentRef = ref<HTMLElement | null>(null)
-
-let observer: IntersectionObserver | null = null
-
-function setupObserver() {
-  if (observer) observer.disconnect()
-
-  if (titleRef.value) {
-    // 모바일에서는 플로팅 버튼을 더 일찍 표시 (rootMargin으로 감지 영역 축소)
-    const isMobile = typeof window !== 'undefined' && window.innerWidth < 640
-    const rootMargin = isMobile ? '0px 0px -45% 0px' : '0px'
-    observer = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        showFloatingNav.value = !entry.isIntersecting
-      })
-    }, {
-      threshold: 0,
-      rootMargin
-    })
-    observer.observe(titleRef.value)
-  }
-}
-
-watch(() => post.value, () => {
-  nextTick(() => {
-    setupObserver()
-  })
-})
-
-// 모바일 리사이즈 시 플로팅 네비 감지 영역 갱신
-function onResize() {
-  if (titleRef.value && observer) {
-    observer.disconnect()
-    setupObserver()
-  }
+  handleCopyUrl()
 }
 
 function scrollToTop() {
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
-/** 본문(contentRef) 내 이미지 로드 완료 후 resolve. lazy 이미지는 즉시 로드 시작하도록 트리거. */
+function scrollToHeading(id: string) {
+  const target = document.getElementById(id)
+  target?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+
+function scrollToCommentComposer() {
+  const composer = document.getElementById('comment-composer')
+  if (!composer) {
+    scrollToComments()
+    return
+  }
+
+  composer.scrollIntoView({ behavior: 'smooth', block: 'start' })
+
+  window.setTimeout(() => {
+    const textarea = composer.querySelector('textarea') as HTMLTextAreaElement | null
+    textarea?.focus()
+  }, 250)
+}
+
+function scrollToComments() {
+  const target = document.getElementById('comment-composer') || commentsRef.value
+  if (!target) return
+
+  const headerOffset = 96
+  const elementPosition = target.getBoundingClientRect().top
+  const offsetPosition = elementPosition + window.scrollY - headerOffset
+
+  window.scrollTo({
+    top: offsetPosition,
+    behavior: 'smooth'
+  })
+}
+
 function waitForImagesInContent(): Promise<void> {
   const container = contentRef.value
   if (!container) return Promise.resolve()
 
-  const imgs = container.querySelectorAll<HTMLImageElement>('img')
-  if (imgs.length === 0) return Promise.resolve()
+  const images = container.querySelectorAll<HTMLImageElement>('img')
+  if (images.length === 0) return Promise.resolve()
 
-  const IMAGE_LOAD_TIMEOUT_MS = 8000
-  const promises = Array.from(imgs).map((img) => {
-    if (img.complete) return Promise.resolve()
-    if (img.loading === 'lazy') img.loading = 'eager'
+  const imageLoadTimeout = 8000
+  const promises = Array.from(images).map((image) => {
+    if (image.complete) return Promise.resolve()
+    if (image.loading === 'lazy') image.loading = 'eager'
+
     return Promise.race([
       new Promise<void>((resolve) => {
-        img.onload = () => resolve()
-        img.onerror = () => resolve()
+        image.onload = () => resolve()
+        image.onerror = () => resolve()
       }),
-      new Promise<void>((resolve) => setTimeout(resolve, IMAGE_LOAD_TIMEOUT_MS))
+      new Promise<void>((resolve) => setTimeout(resolve, imageLoadTimeout))
     ])
   })
-  return Promise.all(promises).then(() => { })
+
+  return Promise.all(promises).then(() => {})
 }
 
-function scrollToComments() {
-  if (commentsRef.value) {
-    const headerOffset = 100 // Adjust based on sticky header height if any
-    const elementPosition = commentsRef.value.getBoundingClientRect().top
-    const offsetPosition = elementPosition + window.scrollY - headerOffset
-
-    window.scrollTo({
-      top: offsetPosition,
-      behavior: 'smooth'
-    })
-  }
-}
-
-/** 이미지 로드까지 기다린 뒤 댓글 영역으로 스크롤 (전체 글 높이 확정 후 정확한 위치) */
 function scrollToCommentsAfterImagesLoad() {
   waitForImagesInContent().then(() => {
     nextTick(() => scrollToComments())
@@ -440,380 +477,828 @@ function scrollToCommentsAfterImagesLoad() {
 }
 
 function goToList() {
-  const listEl = document.getElementById('board-post-list')
-  if (listEl) {
-    listEl.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  } else if (post.value?.board) {
-    router.push(buildBoardListRoute(post.value.board.boardUrl))
-  } else {
-    router.back()
+  const listElement = document.getElementById('board-post-list')
+  if (listElement) {
+    listElement.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    return
   }
+
+  if (post.value?.board) {
+    router.push(buildBoardListRoute(post.value.board.boardUrl))
+    return
+  }
+
+  router.back()
 }
 
+function setupComposerObserver() {
+  if (composerObserver) {
+    composerObserver.disconnect()
+    composerObserver = null
+  }
 
+  if (typeof window === 'undefined' || window.innerWidth >= 640) {
+    showComposerCta.value = false
+    return
+  }
 
-// 키보드 단축키 핸들러
+  const composer = document.getElementById('comment-composer')
+  if (!composer) {
+    showComposerCta.value = false
+    return
+  }
+
+  composerObserver = new IntersectionObserver(([entry]) => {
+    showComposerCta.value = !entry.isIntersecting
+  }, {
+    threshold: 0,
+    rootMargin: '0px 0px -18% 0px'
+  })
+
+  composerObserver.observe(composer)
+}
+
+function closeOverflowMenu() {
+  showOverflowMenu.value = false
+}
+
+function toggleOverflowMenu() {
+  showOverflowMenu.value = !showOverflowMenu.value
+}
+
+function handleDocumentClick(event: MouseEvent) {
+  if (!showOverflowMenu.value) return
+
+  const target = event.target as Node | null
+  if (
+    overflowRef.value?.contains(target) ||
+    overflowButtonRef.value?.contains(target)
+  ) {
+    return
+  }
+
+  closeOverflowMenu()
+}
+
+function handleResize() {
+  setupComposerObserver()
+}
+
 const handleKeyDown = (event: KeyboardEvent) => {
   const { key, shiftKey, ctrlKey, altKey, metaKey } = event
 
   if (ctrlKey || altKey || metaKey) return
   if (isInputFocused()) return
 
-  // Shift 조합
   if (shiftKey) {
     if (key === 'S') {
-      // 스크랩 (S와 충돌하므로 Shift 사용)
       if (authStore.isAuthenticated && post.value) {
         event.preventDefault()
-        handleScrap()
+        handleBookmark()
       }
       return
     }
     if (key === 'Y') {
-      // 공유
       event.preventDefault()
       handleShare()
-      return
     }
     return
   }
 
   switch (key) {
     case 'c':
-      // 댓글 영역으로 이동 (플로팅 네비 함수 재사용)
       event.preventDefault()
       scrollToComments()
       break
-
     case 'u':
-      // 목록으로 이동 (플로팅 네비 함수 재사용)
       event.preventDefault()
       goToList()
       break
-
     case 'l':
-      // 좋아요
       if (authStore.isAuthenticated && post.value) {
         event.preventDefault()
         handleLike()
       }
       break
-
     case 'y':
-      // URL 복사
       event.preventDefault()
       handleCopyUrl()
       break
-
     case 'e':
-      // 수정 (작성자만)
-      if (isAuthor.value && post.value) {
+      if (canEdit.value && post.value) {
         event.preventDefault()
-        router.push(`/board/${post.value.board.boardUrl}/post/${post.value.postId}/edit`)
+        router.push(buildEditRoute())
       }
       break
-
     case 'Escape':
-      // 목록으로 이동
       event.preventDefault()
-      goToList()
+      if (showOverflowMenu.value) {
+        closeOverflowMenu()
+      } else {
+        goToList()
+      }
       break
   }
 }
 
+watch(() => route.hash, (newHash) => {
+  if (!newHash) return
+
+  nextTick(() => {
+    if (newHash === '#comments') {
+      scrollToCommentsAfterImagesLoad()
+      return
+    }
+
+    const element = document.querySelector(newHash)
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth' })
+    }
+  })
+})
+
+watch(post, (newPost, oldPost) => {
+  if (!newPost) return
+
+  if (newPost.isSpoiler) {
+    isBlurred.value = true
+    timeLeft.value = 5
+    startBlurTimer()
+  } else {
+    isBlurred.value = false
+    clearBlurTimer()
+  }
+
+  nextTick(() => {
+    syncToc()
+    setupComposerObserver()
+  })
+
+  if (!oldPost || newPost.postId !== oldPost.postId) {
+    nextTick(() => {
+      const hash = route.hash
+      if (hash === '#comments') {
+        scrollToCommentsAfterImagesLoad()
+        return
+      }
+
+      window.scrollTo(0, 0)
+      if (hash) {
+        const element = document.querySelector(hash)
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth' })
+        }
+      }
+    })
+  }
+})
+
+watch(processedContents, () => {
+  nextTick(() => {
+    syncToc()
+  })
+})
+
 onMounted(() => {
-  setupObserver()
+  nextTick(() => {
+    syncToc()
+    setupComposerObserver()
+  })
+
   document.addEventListener('keydown', handleKeyDown)
-  window.addEventListener('resize', onResize)
+  document.addEventListener('click', handleDocumentClick)
+  window.addEventListener('resize', handleResize)
 })
 
 onUnmounted(() => {
-  window.removeEventListener('resize', onResize)
-  // Observer 정리
-  if (observer) {
-    observer.disconnect()
-    observer = null
+  document.removeEventListener('keydown', handleKeyDown)
+  document.removeEventListener('click', handleDocumentClick)
+  window.removeEventListener('resize', handleResize)
+
+  clearBlurTimer()
+  if (composerObserver) {
+    composerObserver.disconnect()
+    composerObserver = null
   }
-  // 모든 타이머 정리
-  if (blurTimer.value) {
-    clearInterval(blurTimer.value)
-    blurTimer.value = null
+  if (likeAnimationTimer) {
+    clearTimeout(likeAnimationTimer)
+    likeAnimationTimer = null
   }
-  if (likeAnimationTimer.value) {
-    clearTimeout(likeAnimationTimer.value)
-    likeAnimationTimer.value = null
-  }
-  if (scrapAnimationTimer.value) {
-    clearTimeout(scrapAnimationTimer.value)
-    scrapAnimationTimer.value = null
+  if (bookmarkAnimationTimer) {
+    clearTimeout(bookmarkAnimationTimer)
+    bookmarkAnimationTimer = null
   }
   if (copyHintTimer) {
     clearTimeout(copyHintTimer)
     copyHintTimer = null
   }
-  document.removeEventListener('keydown', handleKeyDown)
 })
 </script>
 
 <template>
-  <BaseCard noPadding>
-    <div v-if="isLoading" class="px-3 py-4 sm:px-6 sm:py-5">
-      <!-- Header Skeleton -->
-      <div class="flex items-center justify-between mb-3 sm:mb-4">
-        <BaseSkeleton width="80px" height="24px" />
-        <div class="flex gap-1.5 sm:space-x-2">
-          <BaseSkeleton width="60px" height="32px" />
-          <BaseSkeleton width="60px" height="32px" />
+  <div class="nv-post-shell">
+    <BaseCard noPadding>
+      <div v-if="isLoading" class="px-4 py-5 sm:px-6 sm:py-6">
+        <div class="mb-4 flex items-center justify-between">
+          <BaseSkeleton width="96px" height="36px" rounded="rounded-full" />
+          <div class="flex gap-2">
+            <BaseSkeleton width="40px" height="40px" rounded="rounded-full" />
+            <BaseSkeleton width="40px" height="40px" rounded="rounded-full" />
+          </div>
+        </div>
+        <div class="space-y-3">
+          <BaseSkeleton width="72%" height="34px" />
+          <div class="flex gap-3">
+            <BaseSkeleton width="128px" height="18px" />
+            <BaseSkeleton width="96px" height="18px" />
+            <BaseSkeleton width="72px" height="18px" />
+          </div>
+        </div>
+        <div class="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
+          <div class="space-y-3">
+            <BaseSkeleton width="100%" height="40px" rounded="rounded-2xl" />
+            <BaseSkeleton width="100%" height="420px" rounded="rounded-[28px]" />
+          </div>
+          <div class="hidden gap-4 lg:grid">
+            <BaseSkeleton width="100%" height="160px" rounded="rounded-[28px]" />
+            <BaseSkeleton width="100%" height="220px" rounded="rounded-[28px]" />
+          </div>
         </div>
       </div>
-      <div class="mt-3 sm:mt-4 space-y-2 sm:space-y-3">
-        <BaseSkeleton width="70%" height="28px" />
-        <div class="flex gap-3 sm:space-x-4">
-          <BaseSkeleton width="100px" height="20px" />
-          <BaseSkeleton width="120px" height="20px" />
-          <BaseSkeleton width="60px" height="20px" />
-        </div>
-      </div>
-      <div class="mt-6 sm:mt-8 space-y-3 sm:space-y-4">
-        <BaseSkeleton width="100%" height="20px" />
-        <BaseSkeleton width="100%" height="20px" />
-        <BaseSkeleton width="90%" height="20px" />
-        <BaseSkeleton width="95%" height="20px" />
-        <BaseSkeleton width="80%" height="20px" />
-      </div>
-    </div>
 
-    <div v-else-if="error" class="text-center py-8 sm:py-10 text-sm sm:text-base text-red-500 px-3">
-      {{ error }}
-      <div class="mt-3 sm:mt-4">
-        <BaseButton @click="router.back()" variant="ghost" size="sm">
-          {{ $t('common.back') }}
-        </BaseButton>
-      </div>
-    </div>
-
-    <div v-else-if="post">
-      <!-- Header -->
-      <div class="px-3 py-4 sm:px-6 sm:py-5 border-b border-gray-200 dark:border-gray-700">
-        <div class="flex items-center justify-between gap-2">
-          <BaseButton @click="router.push(buildBoardListRoute(post.board.boardUrl))" variant="ghost" size="sm">
-            <ArrowLeft class="hidden sm:inline-block h-4 w-4 mr-1" />
-            {{ $t('board.postDetail.toList') }}
+      <div v-else-if="error" class="px-4 py-12 text-center text-sm text-red-500 sm:px-6">
+        {{ error }}
+        <div class="mt-4">
+          <BaseButton @click="router.back()" variant="ghost" size="sm">
+            {{ $t('common.back') }}
           </BaseButton>
-
-          <div class="flex gap-1.5 sm:space-x-2">
-            <router-link v-if="isAuthor" :to="`/board/${post.board.boardUrl}/post/${post.postId}/edit`"
-              class="inline-flex items-center justify-center px-2 py-1.5 sm:px-3 sm:py-1.5 border border-gray-300 dark:border-gray-600 shadow-sm text-xs sm:text-sm font-medium rounded-md leading-4 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 cursor-pointer transition-colors duration-200">
-              {{ $t('common.edit') }}
-            </router-link>
-            <BaseButton v-if="isAuthor || isAdmin || post.board.isAdmin" @click="handleDelete" variant="danger"
-              size="sm">
-              {{ $t('common.delete') }}
-            </BaseButton>
-          </div>
         </div>
+      </div>
 
-        <div class="mt-3 sm:mt-4">
-          <h1 class="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white break-words" ref="titleRef">{{
-            post.title }}</h1>
-          <div
-            class="mt-1.5 sm:mt-2 flex flex-wrap items-center text-xs sm:text-sm text-gray-500 dark:text-gray-400 gap-x-3 gap-y-1 sm:space-x-4 sm:gap-0">
-            <div class="flex items-center text-inherit">
-              <User class="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1 flex-shrink-0" />
-              <UserMenu :user-id="post.author.userId" :display-name="post.author.displayName" size="inherit" />
-              <span
-                v-if="isAgentAuthor"
-                class="ml-1 inline-flex items-center rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-semibold text-sky-700 dark:bg-sky-900/40 dark:text-sky-300"
+      <template v-else-if="post">
+        <header class="nv-post-header px-4 py-4 sm:px-6 sm:py-5">
+          <div class="flex items-start justify-between gap-4">
+            <div class="min-w-0 flex-1 space-y-4">
+              <div class="flex items-center justify-between gap-2">
+                <BaseButton
+                  @click="router.push(buildBoardListRoute(post.board.boardUrl))"
+                  variant="ghost"
+                  size="sm"
+                  class="nv-post-back-btn"
+                >
+                  <ArrowLeft class="h-4 w-4" />
+                  <span class="hidden sm:inline">{{ $t('board.postDetail.toList') }}</span>
+                </BaseButton>
+
+                <div class="flex items-center gap-2">
+                  <button
+                    type="button"
+                    class="nv-post-icon-btn"
+                    :aria-label="$t('common.share')"
+                    @click="handleShare"
+                  >
+                    <Share2 class="h-4 w-4" />
+                  </button>
+
+                  <div class="relative">
+                    <button
+                      ref="overflowButtonRef"
+                      type="button"
+                      class="nv-post-icon-btn"
+                      :aria-expanded="showOverflowMenu"
+                      aria-haspopup="menu"
+                      aria-label="더보기"
+                      @click="toggleOverflowMenu"
+                    >
+                      <MoreHorizontal class="h-4 w-4" />
+                    </button>
+
+                    <div
+                      v-if="showOverflowMenu"
+                      ref="overflowRef"
+                      class="nv-post-overflow"
+                      role="menu"
+                    >
+                      <router-link
+                        v-if="canEdit"
+                        :to="buildEditRoute()"
+                        class="nv-post-overflow-item"
+                        role="menuitem"
+                        @click="closeOverflowMenu"
+                      >
+                        {{ $t('common.edit') }}
+                      </router-link>
+                      <button
+                        v-if="canDelete"
+                        type="button"
+                        class="nv-post-overflow-item"
+                        role="menuitem"
+                        @click="closeOverflowMenu(); handleDelete()"
+                      >
+                        {{ $t('common.delete') }}
+                      </button>
+                      <button
+                        v-if="canReport"
+                        type="button"
+                        class="nv-post-overflow-item"
+                        role="menuitem"
+                        @click="openReportModal"
+                      >
+                        {{ $t('common.report') }}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="space-y-3">
+                <p class="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--nv-muted)]">
+                  {{ post.board.boardName }}
+                </p>
+                <h1 ref="titleRef" class="text-2xl font-semibold tracking-[-0.04em] text-[var(--nv-ink)] sm:text-4xl">
+                  {{ post.title }}
+                </h1>
+                <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-[var(--nv-ink-soft)]">
+                  <span class="inline-flex items-center gap-1.5">
+                    <User class="h-4 w-4" />
+                    <UserMenu :user-id="post.author.userId" :display-name="post.author.displayName" size="inherit" />
+                    <span
+                      v-if="isAgentAuthor"
+                      class="rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-semibold text-sky-700 dark:bg-sky-900/40 dark:text-sky-300"
+                    >
+                      AGENT
+                    </span>
+                  </span>
+                  <span class="inline-flex items-center gap-1.5">
+                    <Clock class="h-4 w-4" />
+                    {{ formatDate(post.createdAt) }}
+                  </span>
+                  <span class="inline-flex items-center gap-1.5">
+                    <Eye class="h-4 w-4" />
+                    {{ post.viewCount }}
+                  </span>
+                  <span class="inline-flex items-center gap-1.5">
+                    <MessageSquare class="h-4 w-4" />
+                    {{ post.commentCount }}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <div class="grid gap-6 px-4 pb-4 pt-5 lg:grid-cols-[minmax(0,1fr)_18rem] lg:px-6 lg:pb-6">
+          <article class="min-w-0 space-y-5">
+            <div class="relative">
+              <Transition name="fade">
+                <span
+                  v-if="showCopyHint"
+                  class="absolute right-0 top-[-2rem] z-10 rounded-full bg-green-50 px-3 py-1 text-[11px] font-medium text-green-600 shadow-sm dark:bg-green-900/30 dark:text-green-400 sm:hidden"
+                >
+                  {{ $t('common.messages.urlCopied') }}
+                </span>
+              </Transition>
+
+              <div
+                class="nv-post-urlbar"
+                role="button"
+                tabindex="0"
+                :aria-label="$t('common.copy')"
+                @click="onUrlBarClick"
+                @keydown.enter="onUrlBarClick"
+                @keydown.space.prevent="onUrlBarClick"
               >
-                에이전트
-              </span>
+                <span class="truncate text-[11px] text-[var(--nv-muted)] sm:text-xs">{{ currentUrl }}</span>
+                <div class="hidden h-3 w-px bg-[var(--nv-line)] sm:block"></div>
+                <BaseButton
+                  @click.stop="handleCopyUrl(true)"
+                  variant="ghost"
+                  size="sm"
+                  class="hidden sm:!inline-flex sm:!px-2 sm:!py-1 sm:!text-xs"
+                >
+                  <Copy class="mr-1 h-3.5 w-3.5" />
+                  {{ $t('common.copy') }}
+                </BaseButton>
+              </div>
             </div>
-            <div class="flex items-center">
-              <Clock class="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1 flex-shrink-0" />
-              {{ formatDate(post.createdAt) }}
+
+            <div class="nv-post-article relative overflow-hidden">
+              <div
+                ref="contentRef"
+                class="ql-editor prose prose-sm max-w-none text-sm text-[var(--nv-ink)] sm:prose-base dark:prose-invert sm:text-base"
+                :class="{ 'blur-md select-none': isBlurred }"
+                v-html="processedContents"
+              ></div>
+
+              <div v-if="isBlurred" class="nv-post-spoiler">
+                <div class="nv-post-spoiler-card">
+                  <h3 class="text-lg font-semibold text-[var(--nv-ink)]">
+                    {{ $t('board.postDetail.spoilerWarning') }}
+                  </h3>
+                  <p class="mt-2 text-sm text-[var(--nv-ink-soft)]">
+                    {{ $t('board.postDetail.spoilerTimer', { time: timeLeft }) }}
+                  </p>
+                  <BaseButton @click="revealSpoiler" size="sm" class="mt-4">
+                    {{ $t('board.postDetail.revealSpoiler') }}
+                  </BaseButton>
+                </div>
+              </div>
             </div>
-            <div class="flex items-center">
-              <Eye class="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1 flex-shrink-0" />
-              {{ post.viewCount }}
+
+            <div
+              v-if="post.tags && post.tags.length > 0"
+              class="rounded-[28px] border border-[var(--nv-line)] bg-[color:var(--nv-surface)] px-4 py-4"
+            >
+              <PostTags :modelValue="post.tags" :readOnly="true" :boardUrl="post.board.boardUrl" />
             </div>
-            <div class="flex items-center">
-              <MessageSquare class="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1 flex-shrink-0" />
-              {{ post.commentCount }}
+
+            <div class="hidden rounded-[28px] border border-[var(--nv-line)] bg-[color:var(--nv-surface)] px-4 py-4 sm:block">
+              <div class="grid grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  class="nv-post-action-btn"
+                  :class="{ 'is-active': post.liked }"
+                  :disabled="!authStore.isAuthenticated"
+                  @click="handleLike"
+                >
+                  <ThumbsUp class="h-5 w-5" :class="{ 'fill-current bounce-in': isLikeAnimating }" />
+                  <span>{{ post.likeCount }}</span>
+                </button>
+                <button
+                  type="button"
+                  class="nv-post-action-btn"
+                  :class="{ 'is-active is-bookmark': post.scrapped }"
+                  :disabled="!authStore.isAuthenticated"
+                  @click="handleBookmark"
+                >
+                  <Bookmark class="h-5 w-5" :class="{ 'fill-current bounce-in': isBookmarkAnimating }" />
+                  <span>북마크</span>
+                </button>
+                <button type="button" class="nv-post-action-btn" @click="handleShare">
+                  <Share2 class="h-5 w-5" />
+                  <span>{{ $t('common.share') }}</span>
+                </button>
+              </div>
             </div>
-          </div>
+
+            <section id="comments" ref="commentsRef" class="nv-post-comments">
+              <CommentList :postId="post.postId" :boardUrl="post.board.boardUrl" />
+            </section>
+          </article>
+
+          <aside class="hidden lg:block">
+            <div class="sticky top-24 space-y-4">
+              <section class="nv-post-sidebar-card">
+                <h2 class="nv-post-sidebar-title">Quick Actions</h2>
+                <div class="mt-3 grid gap-2">
+                  <button type="button" class="nv-post-sidebar-btn" @click="scrollToComments">
+                    <MessageSquare class="h-4 w-4" />
+                    댓글로 이동
+                  </button>
+                  <button type="button" class="nv-post-sidebar-btn" @click="goToList">
+                    <List class="h-4 w-4" />
+                    목록으로
+                  </button>
+                  <button type="button" class="nv-post-sidebar-btn" @click="scrollToTop">
+                    <ArrowLeft class="h-4 w-4 rotate-90" />
+                    상단으로
+                  </button>
+                </div>
+              </section>
+
+              <section v-if="hasToc" class="nv-post-sidebar-card">
+                <h2 class="nv-post-sidebar-title">Table of Contents</h2>
+                <nav class="mt-3 space-y-1.5" aria-label="Post table of contents">
+                  <button
+                    v-for="item in tocItems"
+                    :key="item.id"
+                    type="button"
+                    class="nv-post-toc-item"
+                    :class="{ 'is-nested': item.level === 3 }"
+                    @click="scrollToHeading(item.id)"
+                  >
+                    {{ item.text }}
+                  </button>
+                </nav>
+              </section>
+            </div>
+          </aside>
         </div>
-      </div>
+      </template>
+    </BaseCard>
 
+    <Transition name="slide-up">
+      <button
+        v-if="showComposerCta"
+        type="button"
+        class="nv-post-mobile-comment-cta sm:hidden"
+        @click="scrollToCommentComposer"
+      >
+        댓글 작성창으로 이동
+      </button>
+    </Transition>
 
-      <!-- Content (ref for waiting images before scroll-to-comments) -->
-      <div ref="contentRef"
-        class="px-3 py-4 sm:px-6 sm:py-5 min-h-[160px] sm:min-h-[200px] prose prose-sm sm:prose-base dark:prose-invert max-w-none relative text-gray-900 dark:text-gray-100 text-sm sm:text-base">
-
-        <!-- URL Copy (모바일: 주소 탭 시 복사 + 작은 메시지, 데스크톱: 복사 버튼) -->
-        <div class="flex justify-end mb-3 sm:mb-4 not-prose relative">
-          <Transition name="fade">
-            <span v-if="showCopyHint"
-              class="absolute right-0 -top-6 sm:hidden text-[10px] text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30 px-2 py-1 rounded shadow-sm whitespace-nowrap z-10">
-              {{ $t('common.messages.urlCopied') }}
-            </span>
-          </Transition>
-          <div
-            class="flex items-center gap-1 sm:space-x-2 bg-gray-100 dark:bg-gray-700 rounded-md px-2 py-1 sm:px-3 sm:py-1.5 max-w-full min-w-0 cursor-pointer sm:cursor-default active:bg-gray-200 dark:active:bg-gray-600 sm:active:bg-transparent transition-colors"
-            role="button" tabindex="0" :aria-label="$t('common.messages.urlCopied')" @click="onUrlBarClick"
-            @keydown.enter="onUrlBarClick" @keydown.space.prevent="onUrlBarClick">
-            <span class="text-[9px] sm:text-[10px] text-gray-500 dark:text-gray-400 select-all truncate">{{ currentUrl
-              }}</span>
-            <div class="hidden sm:block h-3 w-px bg-gray-300 dark:bg-gray-600 flex-shrink-0"></div>
-            <BaseButton @click.stop="handleCopyUrl(true)" variant="ghost" size="sm"
-              class="hidden sm:!inline-flex !px-2 !py-1 !text-[10px] sm:!text-xs flex-shrink-0">
-              {{ $t('common.copy') }}
-            </BaseButton>
-          </div>
-        </div>
-
-        <div v-html="processedContents" class="ql-editor transition-all duration-500"
-          :class="{ 'blur-md select-none': isBlurred }"></div>
-
-        <!-- Spoiler Overlay -->
-        <div v-if="isBlurred"
-          class="absolute inset-0 flex flex-col items-center justify-center z-10 bg-white/50 dark:bg-black/50 px-3">
-          <div
-            class="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg shadow-lg text-center border border-gray-200 dark:border-gray-700 max-w-full flex flex-col items-center">
-            <h3 class="text-base sm:text-lg font-bold text-gray-900 dark:text-white mb-1.5 sm:mb-2">{{
-              $t('board.postDetail.spoilerWarning') }}
-            </h3>
-            <p class="text-sm sm:text-base text-gray-600 dark:text-gray-300 mb-3 sm:mb-4">{{
-              $t('board.postDetail.spoilerTimer', { time: timeLeft })
-              }}</p>
-            <div class="flex justify-center w-full">
-              <BaseButton @click="revealSpoiler" variant="primary" size="sm">
-                {{ $t('board.postDetail.revealSpoiler') }}
-              </BaseButton>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Tags -->
-      <div v-if="post.tags && post.tags.length > 0"
-        class="px-3 py-3 sm:px-6 sm:py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
-        <PostTags :modelValue="post.tags" :readOnly="true" :boardUrl="post.board.boardUrl" />
-      </div>
-
-      <!-- Stats & Actions -->
-      <div
-        class="px-3 py-3 sm:px-6 sm:py-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex items-center justify-center gap-4 sm:gap-0 sm:space-x-8 transition-colors duration-200">
-        <BaseButton @click="handleLike" :disabled="!authStore.isAuthenticated" variant="ghost"
-          class="flex flex-col items-center group cursor-pointer h-auto py-1.5 sm:py-2"
-          :class="{ 'text-indigo-600 dark:text-indigo-400': post.liked, 'text-gray-500 dark:text-gray-400': !post.liked, 'opacity-50 cursor-not-allowed': !authStore.isAuthenticated }">
-          <div
-            class="p-1.5 sm:p-2 rounded-full group-hover:bg-indigo-50 dark:group-hover:bg-indigo-900/30 transition-colors">
-            <ThumbsUp class="h-5 w-5 sm:h-6 sm:w-6"
-              :class="{ 'fill-current': post.liked, 'bounce-in': isLikeAnimating }" />
-          </div>
-          <span class="text-xs sm:text-sm font-medium mt-0.5 sm:mt-1">{{ post.likeCount }}</span>
-        </BaseButton>
-
-        <BaseButton @click="handleScrap" :disabled="!authStore.isAuthenticated" variant="ghost"
-          class="flex flex-col items-center group cursor-pointer h-auto py-1.5 sm:py-2"
-          :class="{ 'text-yellow-500': post.scrapped, 'text-gray-500 dark:text-gray-400': !post.scrapped, 'opacity-50 cursor-not-allowed': !authStore.isAuthenticated }">
-          <div
-            class="p-1.5 sm:p-2 rounded-full group-hover:bg-yellow-50 dark:group-hover:bg-yellow-900/30 transition-colors">
-            <Bookmark class="h-5 w-5 sm:h-6 sm:w-6"
-              :class="{ 'fill-current': post.scrapped, 'bounce-in': isScrapAnimating }" />
-          </div>
-          <span class="text-xs sm:text-sm font-medium mt-0.5 sm:mt-1">{{ $t('common.scrap') }}</span>
-        </BaseButton>
-
-        <BaseButton @click="handleShare" variant="ghost"
-          class="flex flex-col items-center group cursor-pointer text-gray-500 dark:text-gray-400 h-auto py-1.5 sm:py-2">
-          <div
-            class="p-1.5 sm:p-2 rounded-full group-hover:bg-indigo-50 dark:group-hover:bg-indigo-900/30 transition-colors">
-            <Share2 class="h-5 w-5 sm:h-6 sm:w-6" />
-          </div>
-          <span class="text-xs sm:text-sm font-medium mt-0.5 sm:mt-1">{{ $t('common.share') }}</span>
-        </BaseButton>
-
-        <BaseButton v-if="authStore.isAuthenticated && !isAuthor" @click="handleReport" variant="ghost"
-          class="flex flex-col items-center group cursor-pointer text-gray-500 dark:text-gray-400 h-auto py-1.5 sm:py-2">
-          <div class="p-1.5 sm:p-2 rounded-full group-hover:bg-red-50 dark:group-hover:bg-red-900/30 transition-colors">
-            <AlertTriangle class="h-5 w-5 sm:h-6 sm:w-6" />
-          </div>
-          <span class="text-xs sm:text-sm font-medium mt-0.5 sm:mt-1">{{ $t('common.report') }}</span>
-        </BaseButton>
-      </div>
-
-      <!-- Comments Section (id for hash scroll from feed comment button) -->
-      <div id="comments" ref="commentsRef"
-        class="border-t border-gray-200 dark:border-gray-700 mt-6 sm:mt-8 px-3 py-4 sm:p-4">
-        <CommentList :postId="post.postId" :boardUrl="post.board.boardUrl" />
-      </div>
-
-      <!-- Floating Navigation -->
-      <Transition name="slide-fade">
-        <div v-show="showFloatingNav"
-          class="fixed right-4 sm:right-8 top-1/2 -translate-y-1/2 flex flex-col gap-1.5 sm:gap-2 z-50">
-
-          <button @click="scrollToTop"
-            class="p-2 sm:p-3 bg-white dark:bg-gray-800 rounded-full shadow-lg border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200 group"
-            :title="$t('common.top')">
-            <ArrowUp class="w-4 h-4 sm:w-5 sm:h-5" />
-          </button>
-
-          <button @click="scrollToComments"
-            class="p-2 sm:p-3 bg-white dark:bg-gray-800 rounded-full shadow-lg border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200 group"
-            :title="$t('board.postDetail.comments')">
-            <MessageSquare class="w-4 h-4 sm:w-5 sm:h-5" />
-          </button>
-
-          <button @click="goToList"
-            class="p-2 sm:p-3 bg-white dark:bg-gray-800 rounded-full shadow-lg border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200 group"
-            :title="$t('board.postDetail.toList')">
-            <List class="w-4 h-4 sm:w-5 sm:h-5" />
-          </button>
-        </div>
-      </Transition>
-
-      <!-- Report Modal -->
-      <BaseModal :isOpen="showReportModal" :title="$t('common.report')" @close="showReportModal = false">
-        <div class="space-y-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              {{ $t('report.target') }}
-            </label>
-            <div class="mt-1 text-sm text-gray-900 dark:text-white font-medium">
-              {{ $t('common.post') }} | {{ post.title }}
-            </div>
-          </div>
-          <div>
-            <BaseTextarea id="report-reason" v-model="reportReason" :label="$t('report.reason')" rows="4"
-              :placeholder="$t('report.inputReason')" />
-          </div>
-        </div>
-        <template #footer>
-          <div class="flex justify-end gap-2 sm:space-x-3">
-            <BaseButton @click="showReportModal = false" variant="secondary" size="sm">
-              {{ $t('common.cancel') }}
-            </BaseButton>
-            <BaseButton @click="submitReport" variant="danger" size="sm">
-              {{ $t('common.submit') }}
-            </BaseButton>
-          </div>
-        </template>
-      </BaseModal>
+    <div v-if="post" class="nv-post-mobile-bar sm:hidden">
+      <button
+        type="button"
+        class="nv-post-mobile-action"
+        :class="{ 'is-active': post.liked }"
+        :disabled="!authStore.isAuthenticated"
+        @click="handleLike"
+      >
+        <ThumbsUp class="h-5 w-5" :class="{ 'fill-current bounce-in': isLikeAnimating }" />
+        <span>{{ post.likeCount }}</span>
+      </button>
+      <button
+        type="button"
+        class="nv-post-mobile-action"
+        :class="{ 'is-active is-bookmark': post.scrapped }"
+        :disabled="!authStore.isAuthenticated"
+        @click="handleBookmark"
+      >
+        <Bookmark class="h-5 w-5" :class="{ 'fill-current bounce-in': isBookmarkAnimating }" />
+        <span>북마크</span>
+      </button>
+      <button type="button" class="nv-post-mobile-action" @click="scrollToComments">
+        <MessageSquare class="h-5 w-5" />
+        <span>댓글</span>
+      </button>
+      <button type="button" class="nv-post-mobile-action" @click="handleShare">
+        <Share2 class="h-5 w-5" />
+        <span>{{ $t('common.share') }}</span>
+      </button>
     </div>
-  </BaseCard>
+
+    <BaseModal :isOpen="showReportModal" :title="$t('common.report')" @close="showReportModal = false">
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+            {{ $t('report.target') }}
+          </label>
+          <div class="mt-1 text-sm font-medium text-gray-900 dark:text-white">
+            {{ $t('common.post') }} | {{ post?.title }}
+          </div>
+        </div>
+        <div>
+          <BaseTextarea
+            id="report-reason"
+            v-model="reportReason"
+            :label="$t('report.reason')"
+            rows="4"
+            :placeholder="$t('report.inputReason')"
+          />
+        </div>
+      </div>
+      <template #footer>
+        <div class="flex justify-end gap-2">
+          <BaseButton @click="showReportModal = false" variant="secondary" size="sm">
+            {{ $t('common.cancel') }}
+          </BaseButton>
+          <BaseButton @click="submitReport" variant="danger" size="sm">
+            {{ $t('common.submit') }}
+          </BaseButton>
+        </div>
+      </template>
+    </BaseModal>
+  </div>
 </template>
 
 <style scoped>
+.nv-post-shell {
+  color: var(--nv-ink);
+  position: relative;
+}
+
+.nv-post-header {
+  border-bottom: 1px solid var(--nv-line);
+}
+
+.nv-post-back-btn {
+  gap: 0.375rem;
+}
+
+.nv-post-icon-btn {
+  align-items: center;
+  background: var(--nv-surface);
+  border: 1px solid var(--nv-line);
+  border-radius: 9999px;
+  color: var(--nv-ink-soft);
+  display: inline-flex;
+  height: 2.5rem;
+  justify-content: center;
+  transition: background-color 0.2s ease, color 0.2s ease;
+  width: 2.5rem;
+}
+
+.nv-post-icon-btn:hover {
+  background: var(--nv-surface-2);
+  color: var(--nv-ink);
+}
+
+.nv-post-overflow {
+  background: var(--nv-surface);
+  border: 1px solid var(--nv-line);
+  border-radius: 1.25rem;
+  box-shadow: var(--nv-shadow-popup);
+  min-width: 10rem;
+  padding: 0.4rem;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.5rem);
+  z-index: 30;
+}
+
+.nv-post-overflow-item {
+  align-items: center;
+  border-radius: 0.95rem;
+  color: var(--nv-ink);
+  display: flex;
+  font-size: 0.9rem;
+  justify-content: flex-start;
+  padding: 0.7rem 0.9rem;
+  transition: background-color 0.2s ease;
+  width: 100%;
+}
+
+.nv-post-overflow-item:hover {
+  background: var(--nv-surface-2);
+}
+
+.nv-post-urlbar {
+  align-items: center;
+  background: color-mix(in srgb, var(--nv-surface-2) 72%, transparent);
+  border: 1px solid var(--nv-line);
+  border-radius: 1rem;
+  cursor: pointer;
+  display: flex;
+  gap: 0.75rem;
+  max-width: 100%;
+  min-width: 0;
+  padding: 0.75rem 0.9rem;
+}
+
+.nv-post-article,
+.nv-post-comments,
+.nv-post-sidebar-card {
+  background: color-mix(in srgb, var(--nv-surface) 94%, transparent);
+  border: 1px solid var(--nv-line);
+  border-radius: 1.75rem;
+  box-shadow: var(--nv-shadow-card);
+}
+
+.nv-post-article {
+  padding: 1.15rem 1rem;
+}
+
+.nv-post-comments {
+  padding: 1.15rem 1rem;
+}
+
+.nv-post-spoiler {
+  align-items: center;
+  background: color-mix(in srgb, var(--nv-surface) 45%, transparent);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 1.5rem;
+  position: absolute;
+}
+
+.nv-post-spoiler-card {
+  background: color-mix(in srgb, var(--nv-surface) 96%, transparent);
+  border: 1px solid var(--nv-line);
+  border-radius: 1.5rem;
+  box-shadow: var(--nv-shadow-card);
+  max-width: 22rem;
+  padding: 1.5rem;
+  text-align: center;
+  width: 100%;
+}
+
+.nv-post-action-btn,
+.nv-post-mobile-action,
+.nv-post-sidebar-btn {
+  align-items: center;
+  background: var(--nv-surface);
+  border: 1px solid var(--nv-line);
+  border-radius: 1.1rem;
+  color: var(--nv-ink-soft);
+  display: inline-flex;
+  gap: 0.55rem;
+  justify-content: center;
+  min-height: 3rem;
+  padding: 0.8rem 1rem;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.nv-post-action-btn:hover,
+.nv-post-sidebar-btn:hover,
+.nv-post-mobile-action:hover {
+  background: var(--nv-surface-2);
+  color: var(--nv-ink);
+}
+
+.nv-post-action-btn.is-active,
+.nv-post-mobile-action.is-active {
+  background: var(--nv-accent-bg);
+  border-color: color-mix(in srgb, var(--nv-accent) 30%, var(--nv-line));
+  color: var(--nv-accent);
+}
+
+.nv-post-action-btn.is-bookmark,
+.nv-post-mobile-action.is-bookmark {
+  color: #bb7a00;
+}
+
+.nv-post-sidebar-card {
+  padding: 1.15rem;
+}
+
+.nv-post-sidebar-title {
+  color: var(--nv-muted);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.nv-post-sidebar-btn {
+  justify-content: flex-start;
+  width: 100%;
+}
+
+.nv-post-toc-item {
+  color: var(--nv-ink-soft);
+  display: block;
+  font-size: 0.9rem;
+  padding: 0.2rem 0;
+  text-align: left;
+  width: 100%;
+}
+
+.nv-post-toc-item:hover {
+  color: var(--nv-accent);
+}
+
+.nv-post-toc-item.is-nested {
+  padding-left: 1rem;
+}
+
+.nv-post-mobile-comment-cta {
+  background: var(--nv-surface);
+  border: 1px solid var(--nv-line);
+  border-radius: 9999px;
+  bottom: calc(9.5rem + env(safe-area-inset-bottom));
+  box-shadow: var(--nv-shadow-popup);
+  color: var(--nv-ink);
+  left: 50%;
+  padding: 0.75rem 1rem;
+  position: fixed;
+  transform: translateX(-50%);
+  z-index: 75;
+}
+
+.nv-post-mobile-bar {
+  align-items: center;
+  background: color-mix(in srgb, var(--nv-surface) 92%, transparent);
+  border: 1px solid var(--nv-line);
+  border-radius: 1.35rem;
+  bottom: calc(5.75rem + env(safe-area-inset-bottom));
+  box-shadow: var(--nv-shadow-popup);
+  display: grid;
+  gap: 0.5rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  left: 0.75rem;
+  padding: 0.55rem;
+  position: fixed;
+  right: 0.75rem;
+  z-index: 74;
+}
+
+.nv-post-mobile-action {
+  flex-direction: column;
+  gap: 0.25rem;
+  min-height: 3.5rem;
+  padding: 0.55rem 0.35rem;
+}
+
 .fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.2s ease;
+.fade-leave-active,
+.slide-up-enter-active,
+.slide-up-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
 }
 
 .fade-enter-from,
-.fade-leave-to {
+.fade-leave-to,
+.slide-up-enter-from,
+.slide-up-leave-to {
   opacity: 0;
+}
+
+.slide-up-enter-from,
+.slide-up-leave-to {
+  transform: translate(-50%, 0.4rem);
 }
 
 .bounce-in {
@@ -824,29 +1309,28 @@ onUnmounted(() => {
   0% {
     transform: scale(1);
   }
-
   50% {
     transform: scale(1.3);
   }
-
   100% {
     transform: scale(1);
   }
 }
 
-.slide-fade-enter-active,
-.slide-fade-leave-active {
-  transition: all 0.3s ease;
+@media (min-width: 640px) {
+  .nv-post-article,
+  .nv-post-comments {
+    padding: 1.5rem;
+  }
 }
 
-.slide-fade-enter-from,
-.slide-fade-leave-to {
-  opacity: 0;
-  transform: translateY(-50%) translateX(20px);
+@media (max-width: 639px) {
+  .nv-post-shell {
+    padding-bottom: calc(12rem + env(safe-area-inset-bottom));
+  }
 }
 </style>
 
-<!-- 본문 스타일: 리스트(ul/ol) + TipTap 비디오 embed -->
 <style>
 .ql-editor ul {
   list-style-type: disc;
