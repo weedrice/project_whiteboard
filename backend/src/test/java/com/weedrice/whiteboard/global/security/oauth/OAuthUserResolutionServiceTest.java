@@ -41,10 +41,10 @@ class OAuthUserResolutionServiceTest {
     private SanctionService sanctionService;
 
     @InjectMocks
-    private OAuthUserResolutionService oAuthUserResolutionService;
+    private OAuthUserResolutionService oauthUserResolutionService;
 
     private User user;
-    private OAuthAttributes oAuthAttributes;
+    private OAuthAttributes oauthAttributes;
 
     @BeforeEach
     void setUp() {
@@ -56,7 +56,7 @@ class OAuthUserResolutionServiceTest {
                 .build();
         ReflectionTestUtils.setField(user, "userId", 1L);
 
-        oAuthAttributes = OAuthAttributes.of(
+        oauthAttributes = OAuthAttributes.of(
                 "google",
                 "sub",
                 Map.of(
@@ -78,7 +78,7 @@ class OAuthUserResolutionServiceTest {
         when(socialAccountRepository.findByProviderAndProviderId("google", "provider-user-id"))
                 .thenReturn(Optional.of(socialAccount));
 
-        Optional<User> resolvedUser = oAuthUserResolutionService.resolveUser("google", oAuthAttributes);
+        Optional<User> resolvedUser = oauthUserResolutionService.resolveUser("google", oauthAttributes);
 
         assertThat(resolvedUser).contains(user);
         verify(sanctionService).validateNotBanned(user);
@@ -92,7 +92,7 @@ class OAuthUserResolutionServiceTest {
                 .thenReturn(Optional.empty());
         when(userRepository.findByEmail("oauth@example.com")).thenReturn(Optional.of(user));
 
-        Optional<User> resolvedUser = oAuthUserResolutionService.resolveUser("google", oAuthAttributes);
+        Optional<User> resolvedUser = oauthUserResolutionService.resolveUser("google", oauthAttributes);
 
         assertThat(resolvedUser).contains(user);
         verify(sanctionService).validateNotBanned(user);
@@ -106,7 +106,7 @@ class OAuthUserResolutionServiceTest {
                 .thenReturn(Optional.empty());
         when(userRepository.findByEmail("oauth@example.com")).thenReturn(Optional.empty());
 
-        Optional<User> resolvedUser = oAuthUserResolutionService.resolveUser("google", oAuthAttributes);
+        Optional<User> resolvedUser = oauthUserResolutionService.resolveUser("google", oauthAttributes);
 
         assertThat(resolvedUser).isEmpty();
         verify(socialAccountLinkService, never()).linkSocialAccount(any(), any(), any());

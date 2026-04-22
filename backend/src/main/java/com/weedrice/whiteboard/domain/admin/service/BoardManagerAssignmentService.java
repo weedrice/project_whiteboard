@@ -21,10 +21,11 @@ import java.util.Objects;
 public class BoardManagerAssignmentService {
 
     private final AdminRepository adminRepository;
+    private final AdminEligibleUserService adminEligibleUserService;
 
     @Transactional
     public Admin assignBoardManager(Board board, User user) {
-        requireActiveAccount(user);
+        adminEligibleUserService.validateActiveUser(user);
 
         List<Admin> activeManagers = adminRepository.findByBoardAndRoleAndIsActive(board, Role.BOARD_ADMIN, true);
         Admin targetActiveManager = activeManagers.stream()
@@ -57,7 +58,7 @@ public class BoardManagerAssignmentService {
 
     @Transactional
     public Admin activateBoardManager(Admin admin, Board board) {
-        requireActiveAccount(admin.getUser());
+        adminEligibleUserService.validateActiveUser(admin.getUser());
 
         List<Admin> activeManagers = adminRepository.findByBoardAndRoleAndIsActive(board, Role.BOARD_ADMIN, true);
         activeManagers.stream()
@@ -82,15 +83,6 @@ public class BoardManagerAssignmentService {
             return admin;
         } catch (DataIntegrityViolationException exception) {
             throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE);
-        }
-    }
-
-    private void requireActiveAccount(User user) {
-        if (user == null) {
-            throw new BusinessException(ErrorCode.USER_NOT_FOUND);
-        }
-        if (!user.isActiveAccount()) {
-            throw new BusinessException(ErrorCode.USER_NOT_ACTIVE);
         }
     }
 }

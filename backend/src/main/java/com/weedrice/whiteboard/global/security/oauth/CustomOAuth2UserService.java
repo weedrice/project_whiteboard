@@ -19,7 +19,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequest, OAuth2User> {
 
-        private final OAuthUserResolutionService oAuthUserResolutionService;
+        private final OAuthUserResolutionService oauthUserResolutionService;
 
         @Override
         public OAuth2User loadUser(OAuth2UserRequest userRequest) throws OAuth2AuthenticationException {
@@ -36,7 +36,7 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
 
                 String providerId = extractAttributes.getProviderId();
 
-                User user = oAuthUserResolutionService.resolveUser(registrationId, extractAttributes)
+                User user = oauthUserResolutionService.resolveUser(registrationId, extractAttributes)
                         .orElse(null);
                 if (user != null) {
                         return new CustomOAuth2User(

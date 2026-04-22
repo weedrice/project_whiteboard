@@ -93,8 +93,10 @@ public class PasswordResetService {
             throw new BusinessException(ErrorCode.INVALID_PASSWORD_RESET_TOKEN);
         }
 
+        User user = userRepository.findByIdForUpdate(passwordResetToken.getUser().getUserId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         PasswordResetToken latestSentToken = passwordResetTokenOrchestrationService
-                .findLatestSentCompatibleToken(passwordResetToken.getUser())
+                .findLatestSentCompatibleToken(user)
                 .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_PASSWORD_RESET_TOKEN));
         if (!latestSentToken.getTokenId().equals(passwordResetToken.getTokenId())) {
             throw new BusinessException(ErrorCode.INVALID_PASSWORD_RESET_TOKEN);
@@ -107,10 +109,9 @@ public class PasswordResetService {
             throw new BusinessException(ErrorCode.USED_PASSWORD_RESET_TOKEN);
         }
 
-        User user = passwordResetToken.getUser();
         passwordResetToken.useToken();
-        applyPasswordReset(user, newPassword);
         passwordResetTokenRepository.save(passwordResetToken);
+        applyPasswordReset(user, newPassword);
     }
 
     @Transactional

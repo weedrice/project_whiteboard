@@ -3,6 +3,7 @@ package com.weedrice.whiteboard.domain.auth.service;
 import com.weedrice.whiteboard.domain.auth.entity.PasswordResetToken;
 import com.weedrice.whiteboard.domain.auth.repository.PasswordResetTokenRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.email.EmailService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,6 +22,7 @@ import java.util.Optional;
 public class PasswordResetTokenOrchestrationService {
 
     private final PasswordResetTokenRepository passwordResetTokenRepository;
+    private final UserRepository userRepository;
     private final EmailService emailService;
     private final TransactionTemplate transactionTemplate;
     private final TokenHashService tokenHashService;
@@ -98,6 +100,8 @@ public class PasswordResetTokenOrchestrationService {
 
     private void markTokenSentAfterInvalidatingPrevious(User user, Long tokenId) {
         transactionTemplate.executeWithoutResult(status -> {
+            userRepository.findByIdForUpdate(user.getUserId())
+                    .orElseThrow(() -> new IllegalStateException("Password reset user not found"));
             invalidatePreviousSentTokens(user, tokenId);
             passwordResetTokenRepository.findById(tokenId)
                     .ifPresent(passwordResetToken -> {

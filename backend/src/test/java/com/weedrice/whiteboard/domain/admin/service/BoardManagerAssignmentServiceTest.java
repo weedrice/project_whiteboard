@@ -23,6 +23,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -32,6 +33,9 @@ class BoardManagerAssignmentServiceTest {
 
     @Mock
     private AdminRepository adminRepository;
+
+    @Mock
+    private AdminEligibleUserService adminEligibleUserService;
 
     @InjectMocks
     private BoardManagerAssignmentService boardManagerAssignmentService;
@@ -130,7 +134,9 @@ class BoardManagerAssignmentServiceTest {
     @Test
     @DisplayName("비활성 사용자는 게시판 관리자로 배정할 수 없다")
     void assignBoardManager_rejectsInactiveUser() {
-        user.suspend();
+        doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE))
+                .when(adminEligibleUserService)
+                .validateActiveUser(user);
 
         assertThatThrownBy(() -> boardManagerAssignmentService.assignBoardManager(board, user))
                 .isInstanceOf(BusinessException.class)

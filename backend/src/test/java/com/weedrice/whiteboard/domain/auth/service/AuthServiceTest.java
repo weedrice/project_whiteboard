@@ -105,6 +105,7 @@ class AuthServiceTest {
         PasswordResetTokenOrchestrationService passwordResetTokenOrchestrationService =
                 new PasswordResetTokenOrchestrationService(
                         passwordResetTokenRepository,
+                        userRepository,
                         emailService,
                         transactionTemplate,
                         tokenHashService);
@@ -148,6 +149,7 @@ class AuthServiceTest {
 
         when(passwordResetTokenRepository.findById(any())).thenAnswer(invocation ->
                 Optional.ofNullable(passwordResetTokens.get(invocation.getArgument(0))));
+        when(userRepository.findByIdForUpdate(user.getUserId())).thenReturn(Optional.of(user));
         when(passwordResetTokenRepository.findByUserOrderByCreatedAtDesc(any(User.class))).thenAnswer(invocation ->
                 passwordResetTokens.values().stream()
                         .filter(passwordResetToken -> passwordResetToken.getUser().equals(invocation.getArgument(0)))

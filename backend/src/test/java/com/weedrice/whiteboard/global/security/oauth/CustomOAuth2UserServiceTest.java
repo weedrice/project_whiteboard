@@ -1,6 +1,5 @@
 package com.weedrice.whiteboard.global.security.oauth;
 
-import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
@@ -19,7 +18,6 @@ import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
 import org.springframework.security.oauth2.core.user.DefaultOAuth2User;
 import org.springframework.security.oauth2.core.user.OAuth2User;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
 import java.util.Map;
@@ -35,22 +33,12 @@ import static org.mockito.Mockito.when;
 class CustomOAuth2UserServiceTest {
 
     @Mock
-    private OAuthUserResolutionService oAuthUserResolutionService;
-
-    private User user;
+    private OAuthUserResolutionService oauthUserResolutionService;
     private OAuth2UserRequest userRequest;
     private OAuth2User delegateUser;
 
     @BeforeEach
     void setUp() {
-        user = User.builder()
-                .loginId("oauth-user")
-                .password("encoded")
-                .email("oauth@example.com")
-                .displayName("OAuth User")
-                .build();
-        ReflectionTestUtils.setField(user, "userId", 1L);
-
         Map<String, Object> attributes = Map.of(
                 "sub", "provider-user-id",
                 "email", "oauth@example.com",
@@ -83,9 +71,9 @@ class CustomOAuth2UserServiceTest {
     }
 
     @Test
-    @DisplayName("sanctioned linked user cannot create social account link")
-    void loadUser_bannedExistingEmailUser_doesNotLinkSocialAccount() {
-        CustomOAuth2UserService service = new CustomOAuth2UserService(oAuthUserResolutionService) {
+    @DisplayName("resolved user validation error is propagated")
+    void loadUser_propagatesResolutionFailure() {
+        CustomOAuth2UserService service = new CustomOAuth2UserService(oauthUserResolutionService) {
             @Override
             OAuth2UserService<OAuth2UserRequest, OAuth2User> oauth2UserDelegate() {
                 return request -> delegateUser;
@@ -93,7 +81,7 @@ class CustomOAuth2UserServiceTest {
         };
 
         doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE))
-                .when(oAuthUserResolutionService)
+                .when(oauthUserResolutionService)
                 .resolveUser(org.mockito.ArgumentMatchers.eq("google"), org.mockito.ArgumentMatchers.any());
 
         assertThatThrownBy(() -> service.loadUser(userRequest))
@@ -105,14 +93,14 @@ class CustomOAuth2UserServiceTest {
     @Test
     @DisplayName("unregistered oauth user returns guest principal")
     void loadUser_returnsUnregisteredPrincipalWhenUserNotResolved() {
-        CustomOAuth2UserService service = new CustomOAuth2UserService(oAuthUserResolutionService) {
+        CustomOAuth2UserService service = new CustomOAuth2UserService(oauthUserResolutionService) {
             @Override
             OAuth2UserService<OAuth2UserRequest, OAuth2User> oauth2UserDelegate() {
                 return request -> delegateUser;
             }
         };
 
-        when(oAuthUserResolutionService.resolveUser(org.mockito.ArgumentMatchers.eq("google"), org.mockito.ArgumentMatchers.any()))
+        when(oauthUserResolutionService.resolveUser(org.mockito.ArgumentMatchers.eq("google"), org.mockito.ArgumentMatchers.any()))
                 .thenReturn(Optional.empty());
 
         OAuth2User loadedUser = service.loadUser(userRequest);

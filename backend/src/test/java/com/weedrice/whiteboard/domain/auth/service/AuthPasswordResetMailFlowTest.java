@@ -32,6 +32,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
@@ -62,6 +63,7 @@ class AuthPasswordResetMailFlowTest {
         PasswordResetTokenOrchestrationService passwordResetTokenOrchestrationService =
                 new PasswordResetTokenOrchestrationService(
                         passwordResetTokenRepository,
+                        userRepository,
                         emailService,
                         transactionTemplate,
                         tokenHashService);
@@ -100,6 +102,7 @@ class AuthPasswordResetMailFlowTest {
 
         when(passwordResetTokenRepository.findById(any())).thenAnswer(invocation ->
                 Optional.ofNullable(passwordResetTokens.get(invocation.getArgument(0))));
+        when(userRepository.findByIdForUpdate(user.getUserId())).thenReturn(Optional.of(user));
         when(passwordResetTokenRepository.findByUserOrderByCreatedAtDesc(user)).thenAnswer(invocation ->
                 passwordResetTokens.values().stream()
                         .filter(passwordResetToken -> passwordResetToken.getUser().equals(user))
@@ -264,7 +267,7 @@ class AuthPasswordResetMailFlowTest {
     }
 
     @Test
-    @DisplayName("resetPasswordWithToken marks token used before password reset flow")
+    @DisplayName("resetPasswordWithToken stores used token before password reset side effects")
     void resetPasswordWithToken_marksTokenUsedAndSaves() {
         PasswordResetToken latestSentToken = PasswordResetToken.builder()
                 .token("latest-hashed")
@@ -276,6 +279,7 @@ class AuthPasswordResetMailFlowTest {
         latestSentToken.markSent();
 
         when(passwordResetTokenRepository.findByTokenForUpdate(anyString())).thenReturn(Optional.of(latestSentToken));
+        when(userRepository.findByIdForUpdate(user.getUserId())).thenReturn(Optional.of(user));
         when(passwordResetTokenRepository.findByUserOrderByCreatedAtDesc(user))
                 .thenReturn(java.util.List.of(latestSentToken));
         when(passwordHistoryRepository.findTop3ByUserOrderByCreatedAtDesc(user)).thenReturn(java.util.List.of());
@@ -285,8 +289,11 @@ class AuthPasswordResetMailFlowTest {
         passwordResetService.resetPasswordWithToken("ignored", "newPassword123!");
 
         assertThat(latestSentToken.getIsUsed()).isTrue();
-        verify(passwordResetTokenRepository).findByTokenForUpdate(anyString());
-        verify(passwordResetTokenRepository).save(latestSentToken);
-        verify(refreshTokenLifecycleService).revokeActiveRefreshTokens(user);
+        var inOrder = inOrder(passwordResetTokenRepository, userRepository, passwordHistoryRepository, refreshTokenLifecycleService);
+        inOrder.verify(passwordResetTokenRepository).findByTokenForUpdate(anyString());
+        inOrder.verify(userRepository).findByIdForUpdate(user.getUserId());
+        inOrder.verify(passwordResetTokenRepository).save(latestSentToken);
+        inOrder.verify(passwordHistoryRepository).save(any());
+        inOrder.verify(refreshTokenLifecycleService).revokeActiveRefreshTokens(user);
     }
 }
