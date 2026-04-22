@@ -15,6 +15,7 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "message_queue", indexes = {
         @Index(name = "idx_message_queue_status", columnList = "status, requested_at"),
+        @Index(name = "idx_message_queue_processing_started", columnList = "status, processing_started_at"),
         @Index(name = "idx_message_queue_user", columnList = "target_user_id")
 })
 public class MessageQueue extends BaseTimeEntity {
@@ -43,6 +44,9 @@ public class MessageQueue extends BaseTimeEntity {
     @Column(name = "retry_count", nullable = false)
     private Integer retryCount;
 
+    @Column(name = "processing_started_at")
+    private LocalDateTime processingStartedAt;
+
     @Builder
     public MessageQueue(User targetUser, String deliveryMethod, String content) {
         this.targetUser = targetUser;
@@ -55,13 +59,16 @@ public class MessageQueue extends BaseTimeEntity {
 
     public void sent() {
         this.status = "SENT";
+        this.processingStartedAt = null;
     }
 
-    public void markProcessing() {
-        this.status = "PROCESSING";
+    public void releaseProcessingLease() {
+        this.status = "PENDING";
+        this.processingStartedAt = null;
     }
 
     public void failForRetry(int maxRetryCount) {
+        this.processingStartedAt = null;
         this.retryCount++;
         if (this.retryCount >= maxRetryCount) {
             this.status = "FAILED";

@@ -15,6 +15,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.function.Consumer;
 
@@ -40,63 +41,133 @@ class MqueueServiceTest {
     private MqueueService mqueueService;
 
     @Test
-    @DisplayName("메일 큐에 추가 성공")
+    @DisplayName("queueEmail saves message")
     void queueEmail_success() {
         User user = User.builder().build();
-        String content = "Test Email";
 
-        mqueueService.queueEmail(user, content);
+        mqueueService.queueEmail(user, "Test Email");
 
         verify(messageQueueRepository).save(any(MessageQueue.class));
     }
 
     @Test
-    @DisplayName("메일 전송 성공 시 SENT 처리")
+    @DisplayName("sendEmail marks current lease as sent on success")
     void sendEmail_success() {
         User user = User.builder().email("user@test.com").build();
-        MessageQueue message = MessageQueue.builder()
-                .targetUser(user)
-                .deliveryMethod("EMAIL")
-                .content("<p>Hello</p>")
-                .build();
-        ReflectionTestUtils.setField(message, "status", "PROCESSING");
+        MessageQueue message = processingMessage(user, LocalDateTime.now());
         when(messageQueueRepository.findByIdWithTargetUser(1L)).thenReturn(Optional.of(message));
-        doAnswer(invocation -> {
-            Consumer<Object> consumer = invocation.getArgument(0);
-            consumer.accept(null);
-            return null;
-        }).when(transactionTemplate).executeWithoutResult(any());
+        when(messageQueueRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(message));
+        mockTransactionCallback();
 
         mqueueService.sendEmail(1L);
 
         verify(emailService).sendEmail("user@test.com", "[noviIs] Notification", "<p>Hello</p>");
         verify(messageQueueRepository).save(message);
         assertThat(message.getStatus()).isEqualTo("SENT");
+        assertThat(message.getProcessingStartedAt()).isNull();
     }
 
     @Test
-    @DisplayName("메일 전송 실패 시 재시도 상태로 되돌린다")
+    @DisplayName("sendEmail increments retry and requeues on failure")
     void sendEmail_failure() {
         User user = User.builder().email("user@test.com").build();
-        MessageQueue message = MessageQueue.builder()
-                .targetUser(user)
-                .deliveryMethod("EMAIL")
-                .content("<p>Hello</p>")
-                .build();
-        ReflectionTestUtils.setField(message, "status", "PROCESSING");
+        MessageQueue message = processingMessage(user, LocalDateTime.now());
         when(messageQueueRepository.findByIdWithTargetUser(1L)).thenReturn(Optional.of(message));
+        when(messageQueueRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(message));
         doThrow(new BusinessException(ErrorCode.EMAIL_SEND_FAILED))
                 .when(emailService).sendEmail(eq("user@test.com"), eq("[noviIs] Notification"), eq("<p>Hello</p>"));
-        doAnswer(invocation -> {
-            Consumer<Object> consumer = invocation.getArgument(0);
-            consumer.accept(null);
-            return null;
-        }).when(transactionTemplate).executeWithoutResult(any());
+        mockTransactionCallback();
 
         mqueueService.sendEmail(1L);
 
         verify(messageQueueRepository).save(message);
         assertThat(message.getStatus()).isEqualTo("PENDING");
         assertThat(message.getRetryCount()).isEqualTo(1);
+        assertThat(message.getProcessingStartedAt()).isNull();
+    }
+
+    @Test
+    @DisplayName("sendEmail finalizes recovered message as sent after late success")
+    void sendEmail_successAfterLeaseRecovery_finalizesRecoveredMessage() {
+        LocalDateTime leaseStartedAt = LocalDateTime.now().minusMinutes(6);
+        User user = User.builder().email("user@test.com").build();
+        MessageQueue processingMessage = processingMessage(user, leaseStartedAt);
+        MessageQueue recoveredMessage = MessageQueue.builder()
+                .targetUser(user)
+                .deliveryMethod("EMAIL")
+                .content("<p>Hello</p>")
+                .build();
+        ReflectionTestUtils.setField(recoveredMessage, "status", "PENDING");
+        ReflectionTestUtils.setField(recoveredMessage, "retryCount", 1);
+
+        when(messageQueueRepository.findByIdWithTargetUser(1L)).thenReturn(Optional.of(processingMessage));
+        when(messageQueueRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(recoveredMessage));
+        mockTransactionCallback();
+
+        mqueueService.sendEmail(1L);
+
+        verify(messageQueueRepository).save(recoveredMessage);
+        assertThat(recoveredMessage.getStatus()).isEqualTo("SENT");
+        assertThat(recoveredMessage.getRetryCount()).isEqualTo(1);
+        assertThat(recoveredMessage.getProcessingStartedAt()).isNull();
+    }
+
+    @Test
+    @DisplayName("sendEmail finalizes recovered failed message as sent after late success")
+    void sendEmail_successAfterFailedRecovery_finalizesFailedMessage() {
+        LocalDateTime leaseStartedAt = LocalDateTime.now().minusMinutes(6);
+        User user = User.builder().email("user@test.com").build();
+        MessageQueue processingMessage = processingMessage(user, leaseStartedAt);
+        MessageQueue recoveredMessage = MessageQueue.builder()
+                .targetUser(user)
+                .deliveryMethod("EMAIL")
+                .content("<p>Hello</p>")
+                .build();
+        ReflectionTestUtils.setField(recoveredMessage, "status", "FAILED");
+        ReflectionTestUtils.setField(recoveredMessage, "retryCount", 5);
+
+        when(messageQueueRepository.findByIdWithTargetUser(1L)).thenReturn(Optional.of(processingMessage));
+        when(messageQueueRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(recoveredMessage));
+        mockTransactionCallback();
+
+        mqueueService.sendEmail(1L);
+
+        verify(messageQueueRepository).save(recoveredMessage);
+        assertThat(recoveredMessage.getStatus()).isEqualTo("SENT");
+        assertThat(recoveredMessage.getRetryCount()).isEqualTo(5);
+        assertThat(recoveredMessage.getProcessingStartedAt()).isNull();
+    }
+
+    @Test
+    @DisplayName("recoverRejectedDispatch releases lease without retry increment")
+    void recoverRejectedDispatch_revertsProcessingMessageToPendingWithoutRetryIncrement() {
+        MessageQueue message = processingMessage(User.builder().email("user@test.com").build(), LocalDateTime.now());
+        when(messageQueueRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(message));
+
+        mqueueService.recoverRejectedDispatch(1L);
+
+        verify(messageQueueRepository).save(message);
+        assertThat(message.getStatus()).isEqualTo("PENDING");
+        assertThat(message.getRetryCount()).isEqualTo(0);
+        assertThat(message.getProcessingStartedAt()).isNull();
+    }
+
+    private void mockTransactionCallback() {
+        doAnswer(invocation -> {
+            Consumer<Object> consumer = invocation.getArgument(0);
+            consumer.accept(null);
+            return null;
+        }).when(transactionTemplate).executeWithoutResult(any());
+    }
+
+    private MessageQueue processingMessage(User user, LocalDateTime processingStartedAt) {
+        MessageQueue message = MessageQueue.builder()
+                .targetUser(user)
+                .deliveryMethod("EMAIL")
+                .content("<p>Hello</p>")
+                .build();
+        ReflectionTestUtils.setField(message, "status", "PROCESSING");
+        ReflectionTestUtils.setField(message, "processingStartedAt", processingStartedAt);
+        return message;
     }
 }
