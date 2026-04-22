@@ -86,7 +86,7 @@ public class PasswordResetService {
     @Transactional
     public void resetPasswordWithToken(String rawToken, String newPassword) {
         String hashedToken = tokenHashService.hashSha256(rawToken);
-        PasswordResetToken passwordResetToken = passwordResetTokenRepository.findByToken(hashedToken)
+        PasswordResetToken passwordResetToken = passwordResetTokenRepository.findByTokenForUpdate(hashedToken)
                 .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_PASSWORD_RESET_TOKEN));
 
         if (!passwordResetToken.isSent()) {
@@ -108,8 +108,9 @@ public class PasswordResetService {
         }
 
         User user = passwordResetToken.getUser();
+        passwordResetToken.useToken();
         applyPasswordReset(user, newPassword);
-        passwordResetTokenOrchestrationService.markTokenUsed(passwordResetToken);
+        passwordResetTokenRepository.save(passwordResetToken);
     }
 
     @Transactional
