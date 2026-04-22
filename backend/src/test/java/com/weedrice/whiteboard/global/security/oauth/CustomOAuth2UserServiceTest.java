@@ -1,9 +1,6 @@
 package com.weedrice.whiteboard.global.security.oauth;
 
-import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.entity.User;
-import com.weedrice.whiteboard.domain.user.repository.SocialAccountRepository;
-import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
@@ -30,20 +27,15 @@ import java.util.Optional;
 import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class CustomOAuth2UserServiceTest {
 
     @Mock
-    private UserRepository userRepository;
-    @Mock
-    private SocialAccountRepository socialAccountRepository;
-    @Mock
-    private SanctionService sanctionService;
+    private OAuthUserResolutionService oAuthUserResolutionService;
 
     private User user;
     private OAuth2UserRequest userRequest;
@@ -93,22 +85,38 @@ class CustomOAuth2UserServiceTest {
     @Test
     @DisplayName("sanctioned linked user cannot create social account link")
     void loadUser_bannedExistingEmailUser_doesNotLinkSocialAccount() {
-        CustomOAuth2UserService service = new CustomOAuth2UserService(userRepository, socialAccountRepository, sanctionService) {
+        CustomOAuth2UserService service = new CustomOAuth2UserService(oAuthUserResolutionService) {
             @Override
             OAuth2UserService<OAuth2UserRequest, OAuth2User> oauth2UserDelegate() {
                 return request -> delegateUser;
             }
         };
 
-        when(socialAccountRepository.findByProviderAndProviderId("google", "provider-user-id")).thenReturn(Optional.empty());
-        when(userRepository.findByEmail("oauth@example.com")).thenReturn(Optional.of(user));
-        doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE)).when(sanctionService).validateNotBanned(user);
+        doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE))
+                .when(oAuthUserResolutionService)
+                .resolveUser(org.mockito.ArgumentMatchers.eq("google"), org.mockito.ArgumentMatchers.any());
 
         assertThatThrownBy(() -> service.loadUser(userRequest))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.USER_NOT_ACTIVE);
+    }
 
-        verify(socialAccountRepository, never()).save(org.mockito.ArgumentMatchers.any());
+    @Test
+    @DisplayName("unregistered oauth user returns guest principal")
+    void loadUser_returnsUnregisteredPrincipalWhenUserNotResolved() {
+        CustomOAuth2UserService service = new CustomOAuth2UserService(oAuthUserResolutionService) {
+            @Override
+            OAuth2UserService<OAuth2UserRequest, OAuth2User> oauth2UserDelegate() {
+                return request -> delegateUser;
+            }
+        };
+
+        when(oAuthUserResolutionService.resolveUser(org.mockito.ArgumentMatchers.eq("google"), org.mockito.ArgumentMatchers.any()))
+                .thenReturn(Optional.empty());
+
+        OAuth2User loadedUser = service.loadUser(userRequest);
+
+        assertThat(loadedUser).isInstanceOf(UnregisteredOAuth2User.class);
     }
 }

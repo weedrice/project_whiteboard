@@ -6,12 +6,11 @@ import com.weedrice.whiteboard.domain.auth.dto.SignupRequest;
 import com.weedrice.whiteboard.domain.auth.dto.SignupResponse;
 import com.weedrice.whiteboard.domain.auth.entity.VerificationPurpose;
 import com.weedrice.whiteboard.domain.point.service.PointService;
-import com.weedrice.whiteboard.domain.user.entity.SocialAccount;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.entity.UserSettings;
-import com.weedrice.whiteboard.domain.user.repository.SocialAccountRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserSettingsRepository;
+import com.weedrice.whiteboard.domain.user.service.SocialAccountLinkService;
 import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -31,7 +30,7 @@ public class SignupService {
     private final PointService pointService;
     private final PasswordEncoder passwordEncoder;
     private final UserSettingsRepository userSettingsRepository;
-    private final SocialAccountRepository socialAccountRepository;
+    private final SocialAccountLinkService socialAccountLinkService;
     private final VerificationCodeService verificationCodeService;
     private final GlobalConfigService globalConfigService;
     private final EntityManager entityManager;
@@ -158,12 +157,7 @@ public class SignupService {
             return;
         }
 
-        SocialAccount socialAccount = SocialAccount.builder()
-                .user(user)
-                .provider(request.getProvider())
-                .providerId(request.getProviderId())
-                .build();
-        socialAccountRepository.save(socialAccount);
+        socialAccountLinkService.linkSocialAccount(user, request.getProvider(), request.getProviderId());
     }
 
     private String maskLoginId(String loginId) {

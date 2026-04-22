@@ -17,9 +17,9 @@ import com.weedrice.whiteboard.domain.user.entity.PasswordHistory;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.entity.UserSettings;
 import com.weedrice.whiteboard.domain.user.repository.PasswordHistoryRepository;
-import com.weedrice.whiteboard.domain.user.repository.SocialAccountRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserSettingsRepository;
+import com.weedrice.whiteboard.domain.user.service.SocialAccountLinkService;
 import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
 import com.weedrice.whiteboard.global.email.EmailService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -80,7 +80,7 @@ class AuthServiceTest {
     @Mock private AuthenticationManagerBuilder authenticationManagerBuilder;
     @Mock private RefreshTokenRepository refreshTokenRepository;
     @Mock private LoginHistoryRepository loginHistoryRepository;
-    @Mock private SocialAccountRepository socialAccountRepository;
+    @Mock private SocialAccountLinkService socialAccountLinkService;
     @Mock private PasswordHistoryRepository passwordHistoryRepository;
     @Mock private VerificationCodeService verificationCodeService;
     @Mock private PasswordResetTokenRepository passwordResetTokenRepository;
@@ -114,7 +114,7 @@ class AuthServiceTest {
                 passwordResetTokenOrchestrationService);
         SignupService signupService = new SignupService(
                 userRepository, pointService, passwordEncoder, userSettingsRepository,
-                socialAccountRepository, verificationCodeService, globalConfigService, entityManager,
+                socialAccountLinkService, verificationCodeService, globalConfigService, entityManager,
                 refreshTokenLifecycleService);
         authService = new AuthService(signupService, sessionTokenService, passwordResetService);
 

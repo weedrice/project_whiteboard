@@ -9,7 +9,13 @@ import lombok.NoArgsConstructor;
 @Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@Table(name = "social_accounts")
+@Table(
+        name = "social_accounts",
+        uniqueConstraints = {
+                @UniqueConstraint(name = "uk_social_accounts_provider_provider_id", columnNames = {"provider", "provider_id"}),
+                @UniqueConstraint(name = "uk_social_accounts_user_provider", columnNames = {"user_id", "provider"})
+        }
+)
 public class SocialAccount {
 
     @Id
@@ -24,7 +30,7 @@ public class SocialAccount {
     @Column(nullable = false)
     private String provider; // google, github, discord
 
-    @Column(nullable = false)
+    @Column(name = "provider_id", nullable = false)
     private String providerId; // unique id from provider
 
     @Builder

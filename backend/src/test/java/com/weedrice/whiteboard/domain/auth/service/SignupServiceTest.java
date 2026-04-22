@@ -5,9 +5,9 @@ import com.weedrice.whiteboard.domain.auth.dto.SignupResponse;
 import com.weedrice.whiteboard.domain.auth.entity.VerificationPurpose;
 import com.weedrice.whiteboard.domain.point.service.PointService;
 import com.weedrice.whiteboard.domain.user.entity.User;
-import com.weedrice.whiteboard.domain.user.repository.SocialAccountRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserSettingsRepository;
+import com.weedrice.whiteboard.domain.user.service.SocialAccountLinkService;
 import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -26,9 +26,10 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -39,7 +40,7 @@ class SignupServiceTest {
     @Mock private PointService pointService;
     @Mock private PasswordEncoder passwordEncoder;
     @Mock private UserSettingsRepository userSettingsRepository;
-    @Mock private SocialAccountRepository socialAccountRepository;
+    @Mock private SocialAccountLinkService socialAccountLinkService;
     @Mock private VerificationCodeService verificationCodeService;
     @Mock private GlobalConfigService globalConfigService;
     @Mock private EntityManager entityManager;
@@ -127,5 +128,38 @@ class SignupServiceTest {
 
         verify(refreshTokenLifecycleService, never()).revokeActiveRefreshTokens(deletedUser);
         verify(userRepository, never()).save(deletedUser);
+    }
+
+    @Test
+    @DisplayName("회원가입 시 provider 정보가 있으면 소셜 계정 링크 서비스를 호출한다")
+    void signup_linksSocialAccountWhenProviderExists() {
+        SignupRequest request = SignupRequest.builder()
+                .loginId("testuser")
+                .password("password123")
+                .email("test@example.com")
+                .displayName("Test User")
+                .verificationTicket("ticket-1")
+                .provider("google")
+                .providerId("google-user-1")
+                .build();
+        User savedUser = User.builder()
+                .loginId("testuser")
+                .password("encoded-password")
+                .email("test@example.com")
+                .displayName("Test User")
+                .build();
+        ReflectionTestUtils.setField(savedUser, "userId", 10L);
+
+        when(userRepository.findByEmail(request.getEmail())).thenReturn(Optional.empty());
+        when(userRepository.existsByLoginId(request.getLoginId())).thenReturn(false);
+        when(passwordEncoder.encode(request.getPassword())).thenReturn("encoded-password");
+        when(userRepository.saveAndFlush(org.mockito.ArgumentMatchers.any(User.class))).thenReturn(savedUser);
+        when(userSettingsRepository.save(org.mockito.ArgumentMatchers.any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(globalConfigService.getConfig("POINT_SIGNUP_BONUS")).thenReturn("500");
+
+        SignupResponse response = signupService.signup(request);
+
+        assertThat(response.getUserId()).isEqualTo(10L);
+        verify(socialAccountLinkService).linkSocialAccount(eq(savedUser), eq("google"), eq("google-user-1"));
     }
 }
