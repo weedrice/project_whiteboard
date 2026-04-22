@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.weedrice.whiteboard.domain.report.dto.MyReportResponse;
 import com.weedrice.whiteboard.domain.report.dto.ReportCreateRequest;
 import com.weedrice.whiteboard.domain.report.service.ReportService;
+import com.weedrice.whiteboard.global.exception.BusinessException;
+import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.HttpServletRequest;
@@ -40,22 +42,26 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(controllers = ReportController.class,
-    excludeFilters = {
-        @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = com.weedrice.whiteboard.global.config.WebConfig.class),
-        @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = com.weedrice.whiteboard.global.config.SecurityConfig.class)
-    })
+        excludeFilters = {
+                @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = com.weedrice.whiteboard.global.config.WebConfig.class),
+                @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = com.weedrice.whiteboard.global.config.SecurityConfig.class)
+        })
 @org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
-@org.springframework.context.annotation.Import({ReportControllerTest.TestSecurityConfig.class, com.weedrice.whiteboard.global.exception.GlobalExceptionHandler.class})
+@org.springframework.context.annotation.Import({
+        ReportControllerTest.TestSecurityConfig.class,
+        com.weedrice.whiteboard.global.exception.GlobalExceptionHandler.class
+})
 class ReportControllerTest {
 
     @org.springframework.boot.test.context.TestConfiguration
     @org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
     static class TestSecurityConfig {
         @org.springframework.context.annotation.Bean
-        public org.springframework.security.web.SecurityFilterChain filterChain(org.springframework.security.config.annotation.web.builders.HttpSecurity http) throws Exception {
+        public org.springframework.security.web.SecurityFilterChain filterChain(
+                org.springframework.security.config.annotation.web.builders.HttpSecurity http) throws Exception {
             http
-                .csrf(csrf -> csrf.disable())
-                .authorizeHttpRequests(auth -> auth.anyRequest().permitAll());
+                    .csrf(csrf -> csrf.disable())
+                    .authorizeHttpRequests(auth -> auth.anyRequest().permitAll());
             return http.build();
         }
     }
@@ -111,7 +117,7 @@ class ReportControllerTest {
     }
 
     @Test
-    @DisplayName("범용 신고 생성 성공")
+    @DisplayName("createReport returns created")
     void createReport_success() throws Exception {
         ReportCreateRequest request = new ReportCreateRequest();
         org.springframework.test.util.ReflectionTestUtils.setField(request, "targetType", "POST");
@@ -128,7 +134,7 @@ class ReportControllerTest {
     }
 
     @Test
-    @DisplayName("사용자 신고 레거시 엔드포인트는 DTO 검증을 적용한다")
+    @DisplayName("reportUser applies DTO validation")
     void reportUser_validationFailure() throws Exception {
         mockMvc.perform(post("/api/v1/reports/users")
                         .with(user(customUserDetails))
@@ -140,7 +146,7 @@ class ReportControllerTest {
     }
 
     @Test
-    @DisplayName("게시글 신고 레거시 엔드포인트는 reasonType 을 선택적으로 받는다")
+    @DisplayName("reportPost passes the provided reasonType")
     void reportPost_usesProvidedReasonType() throws Exception {
         when(reportService.createReport(any(), any(), any(), any(), any(), any())).thenReturn(3L);
 
@@ -160,7 +166,70 @@ class ReportControllerTest {
     }
 
     @Test
-    @DisplayName("내 신고 목록은 PageResponse 로 반환한다")
+    @DisplayName("reportPost returns a 404 error response for unreadable targets")
+    void reportPost_notFound_returnsNotFoundErrorResponse() throws Exception {
+        when(reportService.createReport(any(), any(), any(), any(), any(), any()))
+                .thenThrow(new BusinessException(ErrorCode.POST_NOT_FOUND));
+
+        mockMvc.perform(post("/api/v1/reports/posts")
+                        .with(user(customUserDetails))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "targetPostId": 10,
+                                  "reason": "spam post",
+                                  "reasonType": "SPAM"
+                                }
+                                """))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.error.code").value(ErrorCode.POST_NOT_FOUND.getCode()));
+    }
+
+    @Test
+    @DisplayName("reportComment returns a 404 error response for unreadable targets")
+    void reportComment_notFound_returnsNotFoundErrorResponse() throws Exception {
+        when(reportService.createReport(any(), any(), any(), any(), any(), any()))
+                .thenThrow(new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
+
+        mockMvc.perform(post("/api/v1/reports/comments")
+                        .with(user(customUserDetails))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "targetCommentId": 10,
+                                  "reason": "spam comment",
+                                  "reasonType": "SPAM"
+                                }
+                                """))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.error.code").value(ErrorCode.COMMENT_NOT_FOUND.getCode()));
+    }
+
+    @Test
+    @DisplayName("reportComment returns POST_NOT_FOUND when the parent post is unreadable")
+    void reportComment_parentPostNotFound_returnsNotFoundErrorResponse() throws Exception {
+        when(reportService.createReport(any(), any(), any(), any(), any(), any()))
+                .thenThrow(new BusinessException(ErrorCode.POST_NOT_FOUND));
+
+        mockMvc.perform(post("/api/v1/reports/comments")
+                        .with(user(customUserDetails))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "targetCommentId": 10,
+                                  "reason": "spam comment",
+                                  "reasonType": "SPAM"
+                                }
+                                """))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.error.code").value(ErrorCode.POST_NOT_FOUND.getCode()));
+    }
+
+    @Test
+    @DisplayName("getMyReports returns a PageResponse")
     void getMyReports_returnsPageResponse() throws Exception {
         MyReportResponse response = MyReportResponse.builder()
                 .reportId(1L)
