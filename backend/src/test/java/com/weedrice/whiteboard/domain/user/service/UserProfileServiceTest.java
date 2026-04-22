@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.user.service;
 
 import com.weedrice.whiteboard.domain.agent.service.AgentLifecycleService;
+import com.weedrice.whiteboard.domain.auth.service.RefreshTokenLifecycleService;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.file.service.FileService;
 import com.weedrice.whiteboard.domain.point.entity.UserPoint;
@@ -30,6 +31,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -49,6 +52,7 @@ class UserProfileServiceTest {
     @Mock private SanctionService sanctionService;
     @Mock private AgentLifecycleService agentLifecycleService;
     @Mock private PasswordEncoder passwordEncoder;
+    @Mock private RefreshTokenLifecycleService refreshTokenLifecycleService;
 
     @Test
     @DisplayName("로그인 ID로 사용자 ID 조회 성공")
@@ -128,11 +132,17 @@ class UserProfileServiceTest {
         User user = User.builder().password("encodedPass").build();
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("pass", "encodedPass")).thenReturn(true);
+        doAnswer(invocation -> {
+            assertThat(user.getStatus()).isEqualTo("ACTIVE");
+            return null;
+        }).when(agentLifecycleService).suspendAllForUser(user);
 
         userProfileService.deleteAccount(1L, "pass");
 
         assertThat(user.getStatus()).isEqualTo("DELETED");
-        verify(agentLifecycleService).suspendAllForUser(user);
+        var inOrder = inOrder(refreshTokenLifecycleService, agentLifecycleService);
+        inOrder.verify(refreshTokenLifecycleService).revokeActiveRefreshTokens(user);
+        inOrder.verify(agentLifecycleService).suspendAllForUser(user);
     }
 
     @Test
@@ -147,6 +157,7 @@ class UserProfileServiceTest {
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.INVALID_PASSWORD);
 
+        verify(refreshTokenLifecycleService, never()).revokeActiveRefreshTokens(any());
         verify(agentLifecycleService, never()).suspendAllForUser(any());
     }
 

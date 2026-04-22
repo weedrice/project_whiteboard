@@ -114,7 +114,8 @@ class AuthServiceTest {
                 passwordResetTokenOrchestrationService);
         SignupService signupService = new SignupService(
                 userRepository, pointService, passwordEncoder, userSettingsRepository,
-                socialAccountRepository, verificationCodeService, globalConfigService, entityManager);
+                socialAccountRepository, verificationCodeService, globalConfigService, entityManager,
+                refreshTokenLifecycleService);
         authService = new AuthService(signupService, sessionTokenService, passwordResetService);
 
         user = User.builder()

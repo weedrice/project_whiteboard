@@ -35,6 +35,7 @@ public class SignupService {
     private final VerificationCodeService verificationCodeService;
     private final GlobalConfigService globalConfigService;
     private final EntityManager entityManager;
+    private final RefreshTokenLifecycleService refreshTokenLifecycleService;
 
     @Transactional
     public SignupResponse signup(SignupRequest request) {
@@ -95,6 +96,7 @@ public class SignupService {
                 VerificationPurpose.SIGNUP,
                 request.getVerificationTicket());
 
+        refreshTokenLifecycleService.revokeActiveRefreshTokens(existingUser);
         existingUser.activate();
         existingUser.updatePassword(passwordEncoder.encode(request.getPassword()));
         existingUser.updateDisplayName(request.getDisplayName());
