@@ -101,8 +101,7 @@ class AuthServiceTest {
         TokenHashService tokenHashService = new TokenHashService();
         SessionTokenService sessionTokenService = new SessionTokenService(
                 userRepository, userPointRepository, jwtTokenProvider, authenticationManagerBuilder,
-                refreshTokenRepository, loginHistoryRepository, sanctionService, tokenHashService,
-                refreshTokenLifecycleService);
+                refreshTokenRepository, loginHistoryRepository, sanctionService, tokenHashService);
         PasswordResetTokenOrchestrationService passwordResetTokenOrchestrationService =
                 new PasswordResetTokenOrchestrationService(
                         passwordResetTokenRepository,

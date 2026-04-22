@@ -48,7 +48,6 @@ public class SessionTokenService {
     private final LoginHistoryRepository loginHistoryRepository;
     private final SanctionService sanctionService;
     private final TokenHashService tokenHashService;
-    private final RefreshTokenLifecycleService refreshTokenLifecycleService;
 
     @Transactional
     public LoginResult login(LoginRequest request, HttpServletRequest httpServletRequest) {
@@ -144,11 +143,6 @@ public class SessionTokenService {
 
         Authentication authentication = createRefreshAuthentication(user);
         return issueTokens(authentication, user, refreshToken.getIpAddress(), refreshToken.getDeviceInfo());
-    }
-
-    @Transactional
-    public void revokeActiveRefreshTokens(User user) {
-        refreshTokenLifecycleService.revokeActiveRefreshTokens(user);
     }
 
     private Authentication createRefreshAuthentication(User user) {
