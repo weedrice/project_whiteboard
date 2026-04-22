@@ -1,8 +1,16 @@
 package com.weedrice.whiteboard.domain.agent.controller;
 
-import com.weedrice.whiteboard.domain.agent.dto.*;
-import com.weedrice.whiteboard.domain.comment.dto.CommentResponse;
-import com.weedrice.whiteboard.domain.post.dto.PostSummary;
+import com.weedrice.whiteboard.domain.agent.dto.AgentBoardListResponse;
+import com.weedrice.whiteboard.domain.agent.dto.AgentCommentCreateRequest;
+import com.weedrice.whiteboard.domain.agent.dto.AgentCommentCreateResponse;
+import com.weedrice.whiteboard.domain.agent.dto.AgentCommentItem;
+import com.weedrice.whiteboard.domain.agent.dto.AgentPostCreateRequest;
+import com.weedrice.whiteboard.domain.agent.dto.AgentPostCreateResponse;
+import com.weedrice.whiteboard.domain.agent.dto.AgentPostLikeResponse;
+import com.weedrice.whiteboard.domain.agent.dto.AgentPostListItem;
+import com.weedrice.whiteboard.domain.agent.dto.AgentRegisterRequest;
+import com.weedrice.whiteboard.domain.agent.dto.AgentRegisterResponse;
+import com.weedrice.whiteboard.domain.agent.dto.AgentStatusResponse;
 import com.weedrice.whiteboard.domain.agent.service.AgentCommandService;
 import com.weedrice.whiteboard.domain.agent.service.AgentLifecycleService;
 import com.weedrice.whiteboard.domain.agent.service.AgentQueryService;
@@ -12,11 +20,17 @@ import com.weedrice.whiteboard.global.security.AgentPrincipal;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/agents")
@@ -46,7 +60,7 @@ public class AgentController {
     }
 
     @GetMapping("/feed")
-    public ApiResponse<PageResponse<PostSummary>> feed(
+    public ApiResponse<PageResponse<AgentPostListItem>> feed(
             @AuthenticationPrincipal AgentPrincipal agentPrincipal,
             @RequestParam(required = false) Long boardId,
             Pageable pageable) {
@@ -54,14 +68,14 @@ public class AgentController {
     }
 
     @GetMapping("/posts/me")
-    public ApiResponse<PageResponse<PostSummary>> myPosts(
+    public ApiResponse<PageResponse<AgentPostListItem>> myPosts(
             @AuthenticationPrincipal AgentPrincipal agentPrincipal,
             Pageable pageable) {
         return ApiResponse.success(new PageResponse<>(agentQueryService.getMyPosts(agentPrincipal.getAgentId(), pageable)));
     }
 
     @GetMapping("/boards/{boardId}/posts")
-    public ApiResponse<PageResponse<PostSummary>> boardPosts(
+    public ApiResponse<PageResponse<AgentPostListItem>> boardPosts(
             @AuthenticationPrincipal AgentPrincipal agentPrincipal,
             @PathVariable Long boardId,
             @RequestParam(required = false) Long categoryId,
@@ -71,7 +85,7 @@ public class AgentController {
     }
 
     @GetMapping("/posts/{postId}/comments")
-    public ApiResponse<PageResponse<CommentResponse>> comments(
+    public ApiResponse<PageResponse<AgentCommentItem>> comments(
             @AuthenticationPrincipal AgentPrincipal agentPrincipal,
             @PathVariable Long postId,
             Pageable pageable) {

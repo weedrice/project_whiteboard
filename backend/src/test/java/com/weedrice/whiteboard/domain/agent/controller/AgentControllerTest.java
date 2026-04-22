@@ -2,19 +2,19 @@ package com.weedrice.whiteboard.domain.agent.controller;
 
 import com.weedrice.whiteboard.domain.agent.dto.AgentCommentCreateRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentCommentCreateResponse;
+import com.weedrice.whiteboard.domain.agent.dto.AgentCommentItem;
 import com.weedrice.whiteboard.domain.agent.dto.AgentBoardListResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentBoardItem;
+import com.weedrice.whiteboard.domain.agent.dto.AgentPostListItem;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostLikeResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostCreateRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostCreateResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentRegisterRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentRegisterResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentStatusResponse;
-import com.weedrice.whiteboard.domain.comment.dto.CommentResponse;
 import com.weedrice.whiteboard.domain.agent.service.AgentCommandService;
 import com.weedrice.whiteboard.domain.agent.service.AgentLifecycleService;
 import com.weedrice.whiteboard.domain.agent.service.AgentQueryService;
-import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
 import com.weedrice.whiteboard.global.security.AgentPrincipal;
@@ -95,7 +95,7 @@ class AgentControllerTest {
     @Test
     @DisplayName("Agent feed API 성공")
     void feed_success() {
-        PostSummary item = PostSummary.builder()
+        AgentPostListItem item = AgentPostListItem.builder()
                 .postId(101L)
                 .title("Test Post")
                 .boardId(3L)
@@ -108,7 +108,7 @@ class AgentControllerTest {
         given(agentQueryService.getFeed(7L, 3L, PageRequest.of(0, 10)))
                 .willReturn(new org.springframework.data.domain.PageImpl<>(List.of(item), PageRequest.of(0, 10), 1));
 
-        ApiResponse<PageResponse<PostSummary>> response = agentController.feed(agentPrincipal, 3L, PageRequest.of(0, 10));
+        ApiResponse<PageResponse<AgentPostListItem>> response = agentController.feed(agentPrincipal, 3L, PageRequest.of(0, 10));
 
         assertThat(response.isSuccess()).isTrue();
         assertThat(response.getData().getContent()).hasSize(1);
@@ -167,7 +167,7 @@ class AgentControllerTest {
     @Test
     @DisplayName("Agent 내 게시글 API 성공")
     void myPosts_success() {
-        PostSummary item = PostSummary.builder()
+        AgentPostListItem item = AgentPostListItem.builder()
                 .postId(201L)
                 .title("My post")
                 .boardId(3L)
@@ -178,16 +178,16 @@ class AgentControllerTest {
         given(agentQueryService.getMyPosts(7L, PageRequest.of(0, 10)))
                 .willReturn(new org.springframework.data.domain.PageImpl<>(List.of(item), PageRequest.of(0, 10), 1));
 
-        ApiResponse<PageResponse<PostSummary>> response = agentController.myPosts(agentPrincipal, PageRequest.of(0, 10));
+        ApiResponse<PageResponse<AgentPostListItem>> response = agentController.myPosts(agentPrincipal, PageRequest.of(0, 10));
 
         assertThat(response.isSuccess()).isTrue();
-        assertThat(response.getData().getContent()).extracting(PostSummary::getPostId).containsExactly(201L);
+        assertThat(response.getData().getContent()).extracting(AgentPostListItem::getPostId).containsExactly(201L);
     }
 
     @Test
     @DisplayName("Agent 게시판 게시글 API 성공")
     void boardPosts_success() {
-        PostSummary item = PostSummary.builder()
+        AgentPostListItem item = AgentPostListItem.builder()
                 .postId(301L)
                 .title("Board post")
                 .boardId(3L)
@@ -198,30 +198,31 @@ class AgentControllerTest {
         given(agentQueryService.getBoardPosts(7L, 3L, 9L, PageRequest.of(0, 10)))
                 .willReturn(new org.springframework.data.domain.PageImpl<>(List.of(item), PageRequest.of(0, 10), 1));
 
-        ApiResponse<PageResponse<PostSummary>> response = agentController.boardPosts(
+        ApiResponse<PageResponse<AgentPostListItem>> response = agentController.boardPosts(
                 agentPrincipal, 3L, 9L, PageRequest.of(0, 10));
 
         assertThat(response.isSuccess()).isTrue();
-        assertThat(response.getData().getContent()).extracting(PostSummary::getPostId).containsExactly(301L);
+        assertThat(response.getData().getContent()).extracting(AgentPostListItem::getPostId).containsExactly(301L);
     }
 
     @Test
     @DisplayName("Agent 게시글 댓글 API 성공")
     void comments_success() {
-        CommentResponse item = CommentResponse.builder()
+        AgentCommentItem item = AgentCommentItem.builder()
                 .commentId(401L)
                 .content("comment")
+                .status(AgentCommentItem.STATUS_ACTIVE)
                 .createdAt(LocalDateTime.now())
                 .build();
 
         given(agentQueryService.getPostComments(7L, 101L, PageRequest.of(0, 10)))
                 .willReturn(new org.springframework.data.domain.PageImpl<>(List.of(item), PageRequest.of(0, 10), 1));
 
-        ApiResponse<PageResponse<CommentResponse>> response = agentController.comments(
+        ApiResponse<PageResponse<AgentCommentItem>> response = agentController.comments(
                 agentPrincipal, 101L, PageRequest.of(0, 10));
 
         assertThat(response.isSuccess()).isTrue();
-        assertThat(response.getData().getContent()).extracting(CommentResponse::getCommentId).containsExactly(401L);
+        assertThat(response.getData().getContent()).extracting(AgentCommentItem::getCommentId).containsExactly(401L);
     }
 
     @Test

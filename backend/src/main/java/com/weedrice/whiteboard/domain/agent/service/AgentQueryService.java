@@ -2,6 +2,8 @@ package com.weedrice.whiteboard.domain.agent.service;
 
 import com.weedrice.whiteboard.domain.agent.dto.AgentBoardItem;
 import com.weedrice.whiteboard.domain.agent.dto.AgentBoardListResponse;
+import com.weedrice.whiteboard.domain.agent.dto.AgentCommentItem;
+import com.weedrice.whiteboard.domain.agent.dto.AgentPostListItem;
 import com.weedrice.whiteboard.domain.agent.dto.AgentStatusResponse;
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
 import com.weedrice.whiteboard.domain.board.dto.CategoryResponse;
@@ -9,10 +11,8 @@ import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardAiInfo;
 import com.weedrice.whiteboard.domain.board.repository.BoardAiInfoRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
-import com.weedrice.whiteboard.domain.comment.dto.CommentResponse;
+import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
-import com.weedrice.whiteboard.domain.comment.service.CommentService;
-import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.service.PostService;
@@ -21,6 +21,7 @@ import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -48,11 +49,10 @@ public class AgentQueryService {
     private final PostRepository postRepository;
     private final CommentRepository commentRepository;
     private final PostService postService;
-    private final CommentService commentService;
     private final UserBlockService userBlockService;
     private final AgentOwnershipService agentOwnershipService;
     private final AgentBoardAccessService agentBoardAccessService;
-    private final AgentPostSummaryEnricher agentPostSummaryEnricher;
+    private final AgentPostListItemAssembler agentPostListItemAssembler;
 
     public AgentStatusResponse getStatus(Long agentId) {
         Agent agent = agentOwnershipService.resolveActiveAgent(agentId);
@@ -75,7 +75,7 @@ public class AgentQueryService {
                 .build();
     }
 
-    public Page<PostSummary> getFeed(Long agentId, Long boardId, Pageable pageable) {
+    public Page<AgentPostListItem> getFeed(Long agentId, Long boardId, Pageable pageable) {
         Agent agent = agentOwnershipService.resolveActiveAgent(agentId);
         Pageable effectivePageable = PageRequest.of(
                 pageable.getPageNumber(),
@@ -99,7 +99,7 @@ public class AgentQueryService {
                 secretVisibleBoardIds,
                 agent.getUser().getUserId(),
                 effectivePageable);
-        return agentPostSummaryEnricher.fromPosts(posts, agentId);
+        return agentPostListItemAssembler.fromPosts(posts, agentId);
     }
 
     public AgentBoardListResponse getBoards(Long agentId) {
@@ -138,7 +138,7 @@ public class AgentQueryService {
         return new AgentBoardListResponse(items);
     }
 
-    public Page<PostSummary> getMyPosts(Long agentId, Pageable pageable) {
+    public Page<AgentPostListItem> getMyPosts(Long agentId, Pageable pageable) {
         agentOwnershipService.resolveActiveAgent(agentId);
         Pageable effectivePageable = PageRequest.of(
                 pageable.getPageNumber(),
@@ -147,24 +147,44 @@ public class AgentQueryService {
 
         Page<Post> postPage = postRepository.findByAgent_AgentIdAndIsDeletedOrderByCreatedAtDesc(agentId, false,
                 effectivePageable);
-        return agentPostSummaryEnricher.fromPosts(postPage, agentId);
+        return agentPostListItemAssembler.fromPosts(postPage, agentId);
     }
 
-    public Page<PostSummary> getBoardPosts(Long agentId, Long boardId, Long categoryId, Pageable pageable) {
+    public Page<AgentPostListItem> getBoardPosts(Long agentId, Long boardId, Long categoryId, Pageable pageable) {
         Agent agent = agentOwnershipService.resolveActiveAgent(agentId);
         Board board = boardRepository.findByBoardId(boardId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
         agentBoardAccessService.validateAgentBoardWritable(agent, board);
-        Page<PostSummary> postPage = postService.getPosts(board.getBoardUrl(), categoryId, null, null,
-                agent.getUser().getUserId(), pageable);
-        return agentPostSummaryEnricher.enrich(postPage, agentId);
+
+        boolean includeSecret = postService.isBoardAdmin(agent.getUser().getUserId(), boardId);
+        Page<Post> postPage = postService.getPosts(
+                boardId,
+                categoryId,
+                null,
+                null,
+                agent.getUser().getUserId(),
+                includeSecret,
+                pageable);
+        return agentPostListItemAssembler.fromPosts(postPage, agentId);
     }
 
-    public Page<CommentResponse> getPostComments(Long agentId, Long postId, Pageable pageable) {
+    public Page<AgentCommentItem> getPostComments(Long agentId, Long postId, Pageable pageable) {
         Agent agent = agentOwnershipService.resolveActiveAgent(agentId);
         Post post = postService.getPostById(postId, agent.getUser().getUserId(), false);
         agentBoardAccessService.validateAgentBoardWritable(agent, post.getBoard());
-        return commentService.getComments(postId, agent.getUser().getUserId(), pageable);
+
+        List<Long> blockedUserIds = userBlockService.getBlockedUserIds(agent.getUser().getUserId());
+        Page<Comment> parentComments = commentRepository.findParentsWithChildrenOrNotDeleted(postId, pageable);
+        if (parentComments.isEmpty()) {
+            return Page.empty(pageable);
+        }
+
+        Map<Long, Long> replyCounts = loadReplyCounts(parentComments.getContent());
+        Set<Long> blockedUserIdSet = blockedUserIds == null ? Set.of() : Set.copyOf(blockedUserIds);
+        List<AgentCommentItem> content = parentComments.getContent().stream()
+                .map(comment -> toAgentCommentItem(comment, blockedUserIdSet, replyCounts))
+                .toList();
+        return new PageImpl<>(content, pageable, parentComments.getTotalElements());
     }
 
     private String resolveGuidePrompt(Board board, String savedGuidePrompt) {
@@ -173,5 +193,53 @@ public class AgentQueryService {
         }
         String description = board.getDescription();
         return description == null || description.isBlank() ? "" : description;
+    }
+
+    private Map<Long, Long> loadReplyCounts(List<Comment> comments) {
+        List<Long> commentIds = comments.stream()
+                .map(Comment::getCommentId)
+                .toList();
+        if (commentIds.isEmpty()) {
+            return Map.of();
+        }
+        return commentRepository.countVisibleRepliesByParentIds(commentIds).stream()
+                .collect(Collectors.toMap(
+                        CommentRepository.ReplyCountProjection::getParentId,
+                        CommentRepository.ReplyCountProjection::getReplyCount,
+                        (left, right) -> right));
+    }
+
+    private AgentCommentItem toAgentCommentItem(Comment comment, Set<Long> blockedUserIds, Map<Long, Long> replyCounts) {
+        String status = resolveCommentStatus(comment, blockedUserIds);
+        long replyCount = replyCounts.getOrDefault(comment.getCommentId(), 0L);
+
+        return AgentCommentItem.builder()
+                .commentId(comment.getCommentId())
+                .parentId(comment.getParent() != null ? comment.getParent().getCommentId() : null)
+                .postId(comment.getPost().getPostId())
+                .content(AgentCommentItem.STATUS_ACTIVE.equals(status) ? comment.getContent() : null)
+                .depth(comment.getDepth())
+                .likeCount(comment.getLikeCount())
+                .replyCount(replyCount)
+                .hasReplies(replyCount > 0)
+                .createdAt(comment.getCreatedAt())
+                .status(status)
+                .author(AgentCommentItem.STATUS_ACTIVE.equals(status) ? AgentCommentItem.Author.builder()
+                        .userId(comment.getUser().getUserId())
+                        .agentId(comment.getAgent() != null ? comment.getAgent().getAgentId() : null)
+                        .authorType(comment.getAgent() != null ? "AGENT" : "USER")
+                        .displayName(comment.getAgent() != null ? comment.getAgent().getName() : comment.getUser().getDisplayName())
+                        .build() : null)
+                .build();
+    }
+
+    private String resolveCommentStatus(Comment comment, Set<Long> blockedUserIds) {
+        if (comment.getIsDeleted()) {
+            return AgentCommentItem.STATUS_DELETED;
+        }
+        if (comment.getUser() != null && blockedUserIds.contains(comment.getUser().getUserId())) {
+            return AgentCommentItem.STATUS_BLOCKED_AUTHOR;
+        }
+        return AgentCommentItem.STATUS_ACTIVE;
     }
 }
