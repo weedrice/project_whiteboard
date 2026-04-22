@@ -10,6 +10,8 @@ import BaseButton from '@/components/common/ui/BaseButton.vue'
 const props = defineProps<{
   type: 'subscription' | 'all'
   isOpen: boolean
+  desktopLabel?: string
+  mobileLabel?: string
 }>()
 
 const emit = defineEmits<{
@@ -28,8 +30,12 @@ const shouldFetchSubscriptions = computed(() => {
 })
 
 // Use TanStack Query for data fetching
-const { data: allBoards, isLoading: loadingAll } = useBoards()
-const { data: subscribedBoards, isLoading: loadingSubscriptions } = useSubscribedBoards(10, shouldFetchSubscriptions)
+const { data: allBoards, isLoading: loadingAll, isError: allBoardsError } = useBoards()
+const {
+  data: subscribedBoards,
+  isLoading: loadingSubscriptions,
+  isError: subscriptionsError,
+} = useSubscribedBoards(10, shouldFetchSubscriptions)
 
 // Computed values for items and loading state
 const items = computed(() => {
@@ -42,6 +48,10 @@ const items = computed(() => {
 
 const loading = computed(() => {
   return props.type === 'subscription' ? loadingSubscriptions.value : loadingAll.value
+})
+
+const isError = computed(() => {
+  return props.type === 'subscription' ? subscriptionsError.value : allBoardsError.value
 })
 
 // 최대 10개까지 숫자 배지 표시
@@ -121,23 +131,30 @@ onUnmounted(() => {
 <template>
   <div class="relative" ref="dropdownRef">
     <BaseButton @click.stop="toggleDropdown" variant="ghost"
-      class="flex items-center justify-center sm:justify-start space-x-1 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 px-3 py-2 sm:px-3 sm:py-2 rounded-md text-xs sm:text-sm font-medium focus:outline-none whitespace-nowrap min-w-0 min-h-[40px] sm:min-h-0 touch-manipulation">
-      <span v-if="type === 'subscription'" class="sm:hidden">{{ $t('board.list.subscribedShort') }}</span>
-      <span v-if="type === 'subscription'" class="hidden sm:inline">{{ $t('board.list.subscribed') }}</span>
-      <span v-if="type === 'all'" class="sm:hidden">{{ $t('board.list.allShort') }}</span>
-      <span v-if="type === 'all'" class="hidden sm:inline">{{ $t('board.list.all') }}</span>
+      :aria-expanded="isOpen"
+      aria-haspopup="menu"
+      class="nv-shell-tab nv-shell-tab-button flex items-center justify-center sm:justify-start space-x-1 px-3 py-2 rounded-full text-xs sm:text-sm font-medium focus:outline-none whitespace-nowrap min-w-0 min-h-[40px] sm:min-h-0 touch-manipulation">
+      <span v-if="type === 'subscription'" class="sm:hidden">{{ mobileLabel || $t('board.list.subscribedShort') }}</span>
+      <span v-if="type === 'subscription'" class="hidden sm:inline">{{ desktopLabel || $t('board.list.subscribed') }}</span>
+      <span v-if="type === 'all'" class="sm:hidden">{{ mobileLabel || $t('board.list.allShort') }}</span>
+      <span v-if="type === 'all'" class="hidden sm:inline">{{ desktopLabel || $t('board.list.all') }}</span>
       <ChevronDown class="hidden sm:inline-block h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
     </BaseButton>
 
     <div v-if="isOpen"
+      role="menu"
       class="origin-top-left absolute left-0 mt-2 w-[min(16rem,92vw)] sm:w-64 rounded-md shadow-lg py-1 sm:py-1 bg-white dark:bg-gray-800 ring-1 ring-black ring-opacity-5 dark:ring-gray-700 focus:outline-none z-50">
       <div v-if="loading" class="px-3 py-3 sm:py-3 text-center">
         <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-indigo-600 mx-auto"></div>
       </div>
 
+      <div v-else-if="isError" class="px-3 py-3 sm:py-3 text-center text-xs sm:text-sm text-red-500 dark:text-red-400">
+        <span>Unable to load boards.</span>
+      </div>
+
       <div v-else-if="items.length > 0">
         <div class="max-h-96 overflow-y-auto">
-          <button v-for="(board, index) in displayItems" :key="board.boardUrl" @click="navigateToBoard(board.boardUrl)"
+          <button v-for="(board, index) in displayItems" :key="board.boardUrl" role="menuitem" @click="navigateToBoard(board.boardUrl)"
             class="group flex items-center justify-between w-full px-3 py-2.5 sm:py-2 min-h-[40px] sm:min-h-0 text-xs sm:text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 active:bg-gray-100 dark:active:bg-gray-600 hover:text-gray-900 dark:hover:text-white touch-manipulation">
             <span class="truncate">{{ board.boardName }}</span>
             <kbd v-if="index < 10"
@@ -148,7 +165,7 @@ onUnmounted(() => {
         </div>
 
         <div v-if="type === 'all'" class="border-t border-gray-100 dark:border-gray-700 pt-1">
-          <BaseButton @click="handleMoreClick" variant="ghost" full-width
+          <BaseButton @click="handleMoreClick" variant="ghost" full-width role="menuitem"
             class="w-full text-left group flex items-center px-3 py-2.5 sm:py-2 min-h-[40px] sm:min-h-0 text-xs sm:text-sm text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/50 active:bg-indigo-100 dark:active:bg-indigo-900/70 font-medium justify-start touch-manipulation">
             <List class="mr-2 h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
             {{ $t('common.loadMore') }}

@@ -58,7 +58,7 @@ export const postApi = {
     unscrapPost: (postId: string | number) => api.delete<ApiResponse<void>>(`/posts/${postId}/scrap`),
 
     // Get trending posts
-    getTrendingPosts: (page: number = 0, size: number = 10) => api.get<ApiResponse<PageResponse<PostSummary>>>('/posts/trending', { params: { page, size } }),
+    getTrendingPosts: (page: number = 0, size: number = 10) => api.get<ApiResponse<PageResponse<PostSummary> | PostSummary[]>>('/posts/trending', { params: { page, size } }),
 
     // Report post
     reportPost: (data: ReportData) => api.post<ApiResponse<void>>('/reports/posts', data),

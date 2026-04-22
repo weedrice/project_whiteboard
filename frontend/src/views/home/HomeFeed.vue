@@ -1,142 +1,208 @@
-<template>
-  <div class="max-w-2xl mx-auto py-8">
-    <!-- Feed -->
-    <PostListSkeleton v-if="loading" :count="3" />
-
-    <EmptyState v-else-if="posts.length === 0" :title="$t('common.noData')" :description="$t('board.list.noPosts')"
-      :icon="FileText"
-      container-class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg transition-colors duration-200" />
-
-    <div v-else>
-      <template v-for="post in posts" :key="post?.postId">
-        <FeedCard v-if="post && post.postId"
-          v-memo="[post.postId, post.liked, post.scrapped, post.viewCount, post.commentCount, post.subscribed]"
-          :post="post" @like="handleLike" @scrap="handleScrap" @subscribe="handleSubscribe" />
-      </template>
-
-      <!-- Sentinel for infinite scroll -->
-      <div ref="sentinel" class="h-10 flex justify-center items-center mt-4">
-        <BaseSpinner v-if="loadingMore" size="sm" />
-      </div>
-    </div>
-  </div>
-</template>
-
 <script setup lang="ts">
-import { computed, watch, ref } from 'vue'
-import { useTrendingPosts } from '@/composables/useTrendingPosts'
-import { usePost } from '@/composables/usePost'
-import { useBoard } from '@/composables/useBoard'
-import { useAuthGuard } from '@/composables/useAuthGuard'
-import { useIntersectionObserver } from '@/composables/useIntersectionObserverRef'
-import FeedCard from '@/components/feed/FeedCard.vue'
-import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
-import PostListSkeleton from '@/components/common/ui/PostListSkeleton.vue'
-import EmptyState from '@/components/common/ui/EmptyState.vue'
-import { FileText } from 'lucide-vue-next'
-import type { FeedPost, PostSummary } from '@/types'
+import { computed } from 'vue'
+import { RouterLink } from 'vue-router'
+import { FileText, Sparkles } from 'lucide-vue-next'
 import { useHead } from '@unhead/vue'
 import { useI18n } from 'vue-i18n'
+import EmptyState from '@/components/common/ui/EmptyState.vue'
+import ErrorState from '@/components/common/ui/ErrorState.vue'
+import PostListSkeleton from '@/components/common/ui/PostListSkeleton.vue'
+import HomePostCard from '@/components/home/HomePostCard.vue'
+import HomeActivityList from '@/components/home/HomeActivityList.vue'
+import { useHomeLanding } from '@/composables/useHomeLanding'
 
 const { t } = useI18n()
 const homeTitle = computed(() => t('common.appName'))
+
+const {
+  featured,
+  editorPicks,
+  trending,
+  liveActivity,
+  spotlightBoards,
+  posts,
+  boards,
+  isLoading,
+  isError,
+  isBoardsLoading,
+  isBoardsError,
+  refetch,
+} = useHomeLanding()
+
+const stats = computed(() => ({
+  boardCount: isBoardsLoading.value || isBoardsError.value ? null : boards.value.length,
+  postCount: posts.value.length,
+  liveCount: liveActivity.value.length,
+}))
 
 useHead({
   titleTemplate: '%s',
   title: homeTitle,
   meta: [
-    { name: 'description', content: computed(() => `${t('common.appName')} - 다양한 주제의 게시판에서 인기 게시글을 발견하고, 의견을 나누는 커뮤니티. 지금 가입하고 관심 게시판을 구독하세요.`) },
-    { property: 'og:title', content: computed(() => t('common.appName')) },
-    { property: 'og:description', content: computed(() => `${t('common.appName')} - 다양한 주제의 게시판에서 인기 게시글을 발견하고, 의견을 나누는 커뮤니티. 지금 가입하고 관심 게시판을 구독하세요.`) }
-  ]
+    {
+      name: 'description',
+      content: computed(() => `${t('common.appName')} - a curated landing page for trending posts and live board activity.`),
+    },
+    {
+      property: 'og:title',
+      content: computed(() => t('common.appName')),
+    },
+    {
+      property: 'og:description',
+      content: computed(() => `${t('common.appName')} - a curated landing page for trending posts and live board activity.`),
+    },
+  ],
 })
-
-watch(homeTitle, (title) => {
-  if (typeof document === 'undefined') return
-  document.title = title
-}, { immediate: true })
-// Infinite scroll for trending posts
-const { posts: rawPosts, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage } = useTrendingPosts(10)
-
-// Convert PostSummary to FeedPost (filter required fields, then map)
-const posts = computed<FeedPost[]>(() => {
-  return rawPosts.value
-    .filter((post): post is PostSummary & { boardUrl: string; boardName: string } =>
-      post != null &&
-      post.postId != null &&
-      post.boardUrl != null &&
-      post.boardName != null &&
-      (post.authorName != null || post.author?.displayName != null)
-    )
-    .map((post): FeedPost => ({
-      ...post,
-      boardUrl: post.boardUrl,
-      boardName: post.boardName,
-      authorName: post.authorName ?? post.author?.displayName ?? '',
-      liked: post.liked ?? false,
-      scrapped: post.scrapped ?? false,
-      subscribed: post.subscribed ?? false
-    }))
-})
-
-// Mutations
-const { useLikePost, useUnlikePost, useScrapPost, useUnscrapPost } = usePost()
-const { useSubscribeBoard } = useBoard()
-const { requireAuth } = useAuthGuard()
-
-const likePost = useLikePost()
-const unlikePost = useUnlikePost()
-const scrapPost = useScrapPost()
-const unscrapPost = useUnscrapPost()
-const subscribeBoard = useSubscribeBoard()
-
-// Sentinel for infinite scroll
-const sentinel = ref<HTMLElement | null>(null)
-const { isIntersecting } = useIntersectionObserver(sentinel, {
-  rootMargin: '200px',
-  threshold: 0.1
-})
-
-// Auto-load next page when sentinel is visible
-watch([isIntersecting, hasNextPage, isFetchingNextPage],
-  ([intersecting, hasNext, isFetching]) => {
-    if (intersecting && hasNext && !isFetching) {
-      fetchNextPage()
-    }
-  }
-)
-
-const loading = computed(() => isLoading.value)
-const loadingMore = computed(() => isFetchingNextPage.value)
-
-async function handleLike(post: FeedPost) {
-  if (!requireAuth()) return
-
-  if (post.liked) {
-    unlikePost.mutate(post.postId)
-  } else {
-    likePost.mutate(post.postId)
-  }
-}
-
-async function handleScrap(post: FeedPost) {
-  if (!requireAuth()) return
-
-  if (post.scrapped) {
-    unscrapPost.mutate(post.postId)
-  } else {
-    scrapPost.mutate(post.postId)
-  }
-}
-
-async function handleSubscribe(post: FeedPost) {
-  if (!requireAuth()) return
-
-  if (post.subscribed && !window.confirm(t('user.subscriptions.unsubscribeConfirm'))) return
-
-  subscribeBoard.mutate({
-    boardUrl: post.boardUrl as string,
-    isSubscribed: post.subscribed
-  })
-}
 </script>
+
+<template>
+  <div class="space-y-8 pb-8">
+    <PostListSkeleton v-if="isLoading" :count="4" />
+
+    <ErrorState
+      v-else-if="isError"
+      :message="$t('common.messages.loadFailed')"
+      :show-retry="true"
+      @retry="refetch"
+    />
+
+    <EmptyState
+      v-else-if="!featured"
+      :title="$t('common.noData')"
+      :description="$t('board.list.noPosts')"
+      :icon="FileText"
+      container-class="nv-home-empty"
+    />
+
+    <template v-else>
+      <section class="nv-home-hero">
+        <div class="flex items-center justify-between gap-4">
+          <div>
+            <p class="nv-home-section-kicker">CURATED TODAY</p>
+            <h1 class="text-3xl font-semibold tracking-[-0.05em] text-[var(--nv-ink)] sm:text-4xl">
+              Stories worth reading now
+            </h1>
+          </div>
+          <div class="hidden grid-cols-3 gap-3 text-right sm:grid">
+            <div class="nv-home-stat">
+              <span class="nv-home-stat-label">LIVE</span>
+              <strong>{{ stats.liveCount }}</strong>
+            </div>
+            <div class="nv-home-stat">
+              <span class="nv-home-stat-label">POSTS</span>
+              <strong>{{ stats.postCount }}</strong>
+            </div>
+            <div class="nv-home-stat">
+              <span class="nv-home-stat-label">BOARDS</span>
+              <strong>{{ stats.boardCount ?? '...' }}</strong>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid gap-5 lg:grid-cols-[1.45fr_0.95fr]">
+          <HomePostCard :post="featured" variant="featured" />
+
+          <div class="space-y-3">
+            <div class="flex items-center gap-2">
+              <Sparkles class="h-4 w-4 text-[var(--nv-accent)]" />
+              <p class="nv-home-section-kicker">EDITOR&apos;S PICKS</p>
+            </div>
+            <template v-if="editorPicks.length">
+              <HomePostCard
+                v-for="post in editorPicks"
+                :key="post.postId"
+                :post="post"
+                variant="compact"
+              />
+            </template>
+            <div
+              v-else
+              class="rounded-[24px] border border-dashed border-[var(--nv-line)] px-5 py-6 text-sm text-[var(--nv-muted)]"
+            >
+              More curated picks will appear here soon.
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="space-y-4">
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <p class="nv-home-section-kicker">DISCOVER</p>
+            <h2 class="text-xl font-semibold tracking-[-0.04em] text-[var(--nv-ink)]">Browse boards</h2>
+          </div>
+          <RouterLink to="/boards" class="text-sm font-medium text-[var(--nv-accent)] hover:underline">
+            View all
+          </RouterLink>
+        </div>
+
+        <div v-if="isBoardsLoading" class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <div
+            v-for="index in 3"
+            :key="index"
+            class="rounded-[24px] border border-dashed border-[var(--nv-line)] px-5 py-6 text-sm text-[var(--nv-muted)]"
+          >
+            Loading board spotlight...
+          </div>
+        </div>
+        <div v-else-if="spotlightBoards.length" class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <RouterLink
+            v-for="board in spotlightBoards"
+            :key="board.boardId"
+            :to="`/board/${board.boardUrl}`"
+            class="nv-home-board-link"
+          >
+            <div class="min-w-0">
+              <p class="truncate text-base font-semibold text-[var(--nv-ink)]">{{ board.boardName }}</p>
+              <p class="line-clamp-2 text-sm text-[var(--nv-ink-soft)]">{{ board.description }}</p>
+            </div>
+            <div class="text-right">
+              <p class="nv-home-stat-label">SUBSCRIBERS</p>
+              <p class="text-sm font-semibold text-[var(--nv-ink)]">{{ board.subscriberCount }}</p>
+            </div>
+          </RouterLink>
+        </div>
+        <div
+          v-else
+          class="rounded-[24px] border border-dashed border-[var(--nv-line)] px-5 py-6 text-sm text-[var(--nv-muted)]"
+        >
+          {{ isBoardsError ? 'Boards are temporarily unavailable.' : 'No boards to highlight yet.' }}
+        </div>
+      </section>
+
+      <section class="space-y-4">
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <p class="nv-home-section-kicker">TRENDING</p>
+            <h2 class="text-xl font-semibold tracking-[-0.04em] text-[var(--nv-ink)]">Trending now</h2>
+          </div>
+        </div>
+
+        <div v-if="trending.length" class="grid gap-4 lg:grid-cols-2">
+          <HomePostCard
+            v-for="post in trending"
+            :key="post.postId"
+            :post="post"
+            variant="grid"
+          />
+        </div>
+        <div
+          v-else
+          class="rounded-[24px] border border-dashed border-[var(--nv-line)] px-5 py-6 text-sm text-[var(--nv-muted)]"
+        >
+          Trending posts will appear here once more activity arrives.
+        </div>
+      </section>
+
+      <section class="space-y-4">
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <p class="nv-home-section-kicker">LIVE ACTIVITY</p>
+            <h2 class="text-xl font-semibold tracking-[-0.04em] text-[var(--nv-ink)]">Live activity</h2>
+          </div>
+        </div>
+        <HomeActivityList :posts="liveActivity" />
+      </section>
+    </template>
+  </div>
+</template>
