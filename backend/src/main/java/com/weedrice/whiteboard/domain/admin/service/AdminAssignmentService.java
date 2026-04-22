@@ -7,8 +7,6 @@ import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.user.entity.Role;
-import com.weedrice.whiteboard.domain.user.entity.User;
-import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -24,8 +22,9 @@ import java.util.List;
 public class AdminAssignmentService {
 
     private final AdminRepository adminRepository;
-    private final UserRepository userRepository;
     private final BoardRepository boardRepository;
+    private final AdminEligibleUserService adminEligibleUserService;
+    private final BoardManagerAssignmentService boardManagerAssignmentService;
 
     @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
     @Transactional
@@ -39,13 +38,12 @@ public class AdminAssignmentService {
 
         String roleValue = role.name();
 
-        User user = userRepository.findByLoginId(loginId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        var user = adminEligibleUserService.getActiveUserByLoginId(loginId);
         Board board = boardRepository.findByIdForUpdate(boardId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
 
         if (role == AdminRole.BOARD_ADMIN) {
-            return assignBoardAdmin(user, board);
+            return AdminResponse.from(boardManagerAssignmentService.assignBoardManager(board, user));
         }
 
         Admin activeAdmin = adminRepository
@@ -104,14 +102,10 @@ public class AdminAssignmentService {
         Board board = boardRepository.findByIdForUpdate(admin.getBoard().getBoardId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
         if (Role.BOARD_ADMIN.equals(admin.getRole())) {
-            List<Admin> activeManagers = adminRepository.findByBoardAndRoleAndIsActive(
-                    board,
-                    Role.BOARD_ADMIN,
-                    true);
-            activeManagers.stream()
-                    .filter(activeManager -> !activeManager.getAdminId().equals(admin.getAdminId()))
-                    .forEach(Admin::deactivate);
+            boardManagerAssignmentService.activateBoardManager(admin, board);
+            return;
         } else {
+            adminEligibleUserService.validateActiveUser(admin.getUser());
             Admin activeAdmin = adminRepository
                     .findByUserAndBoardAndRoleAndIsActive(admin.getUser(), board, admin.getRole(), true)
                     .orElse(null);
@@ -121,37 +115,6 @@ public class AdminAssignmentService {
         }
         admin.activate();
         flushAndMapDuplicate(admin);
-    }
-
-    private AdminResponse assignBoardAdmin(User user, Board board) {
-        List<Admin> activeManagers = adminRepository.findByBoardAndRoleAndIsActive(board, Role.BOARD_ADMIN, true);
-        Admin targetActiveManager = activeManagers.stream()
-                .filter(activeManager -> activeManager.getUser().getUserId().equals(user.getUserId()))
-                .max((left, right) -> Long.compare(left.getAdminId(), right.getAdminId()))
-                .orElse(null);
-        if (targetActiveManager != null) {
-            activeManagers.stream()
-                    .filter(activeManager -> !activeManager.getAdminId().equals(targetActiveManager.getAdminId()))
-                    .forEach(Admin::deactivate);
-            return flushAndMapDuplicate(targetActiveManager);
-        }
-
-        activeManagers.forEach(Admin::deactivate);
-
-        Admin reusableManager = adminRepository
-                .findFirstByUserAndBoardAndRoleAndIsActiveOrderByAdminIdDesc(user, board, Role.BOARD_ADMIN, false)
-                .orElse(null);
-        if (reusableManager != null) {
-            reusableManager.activate();
-            return flushAndMapDuplicate(reusableManager);
-        }
-
-        Admin boardManager = Admin.builder()
-                .user(user)
-                .board(board)
-                .role(Role.BOARD_ADMIN)
-                .build();
-        return saveAndMapDuplicate(boardManager);
     }
 
     private AdminResponse saveAndMapDuplicate(Admin admin) {

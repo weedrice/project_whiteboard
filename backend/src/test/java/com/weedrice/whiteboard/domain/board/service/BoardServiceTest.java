@@ -1,6 +1,8 @@
 package com.weedrice.whiteboard.domain.board.service;
 
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
+import com.weedrice.whiteboard.domain.admin.service.AdminEligibleUserService;
+import com.weedrice.whiteboard.domain.admin.service.BoardManagerAssignmentService;
 import com.weedrice.whiteboard.domain.board.dto.BoardCreateRequest;
 import com.weedrice.whiteboard.domain.board.dto.BoardDetailResponse;
 import com.weedrice.whiteboard.domain.board.dto.BoardListResponse;
@@ -90,6 +92,10 @@ class BoardServiceTest {
     private GlobalConfigService globalConfigService;
     @Mock
     private FileService fileService;
+    @Mock
+    private AdminEligibleUserService adminEligibleUserService;
+    @Mock
+    private BoardManagerAssignmentService boardManagerAssignmentService;
     private BoardResponseReadService boardResponseReadService;
     private BoardResponseAssembler boardResponseAssembler;
 
@@ -121,10 +127,11 @@ class BoardServiceTest {
                 boardAiInfoRepository,
                 boardCategoryRepository,
                 userRepository,
-                adminRepository,
                 pointService,
                 globalConfigService,
-                fileService);
+                fileService,
+                adminEligibleUserService,
+                boardManagerAssignmentService);
         BoardSubscriptionService subscriptionService = new BoardSubscriptionService(
                 boardRepository,
                 boardSubscriptionRepository,
@@ -286,8 +293,6 @@ class BoardServiceTest {
         when(boardRepository.saveAndFlush(any(Board.class))).thenReturn(board);
         when(boardCategoryRepository.save(any(com.weedrice.whiteboard.domain.board.entity.BoardCategory.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
-        when(adminRepository.save(any(com.weedrice.whiteboard.domain.admin.entity.Admin.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
         when(boardRepository.findMaxSortOrder()).thenReturn(0);
 
         // when
@@ -295,11 +300,11 @@ class BoardServiceTest {
 
         // then
         assertThat(createdBoard.getBoardName()).isEqualTo("Test Board");
-        InOrder inOrder = inOrder(boardRepository, pointService, boardCategoryRepository, adminRepository);
+        InOrder inOrder = inOrder(boardRepository, pointService, boardCategoryRepository, boardManagerAssignmentService);
         inOrder.verify(boardRepository).saveAndFlush(any(Board.class));
         inOrder.verify(pointService).spendPoint(eq(creatorId), eq(500), anyString(), eq(1L), eq("BOARD_CREATE"));
         inOrder.verify(boardCategoryRepository).save(any());
-        inOrder.verify(adminRepository).save(any());
+        inOrder.verify(boardManagerAssignmentService).assignBoardManager(board, user);
     }
 
     @Test
@@ -324,13 +329,30 @@ class BoardServiceTest {
         });
         when(boardCategoryRepository.save(any(com.weedrice.whiteboard.domain.board.entity.BoardCategory.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
-        when(adminRepository.save(any(com.weedrice.whiteboard.domain.admin.entity.Admin.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
         when(boardRepository.findMaxSortOrder()).thenReturn(0);
 
         boardService.createBoard(creatorId, request);
 
         verify(fileService).replaceBoardIcon(55L, creatorId, 1L);
+    }
+
+    @Test
+    @DisplayName("게시판 생성 전 작성자의 활성 상태를 검증한다")
+    void createBoard_requiresActiveCreator() {
+        Long creatorId = 1L;
+        BoardCreateRequest request = new BoardCreateRequest("New Board", "new-board", "New Description", null, null);
+
+        when(userRepository.findById(creatorId)).thenReturn(Optional.of(user));
+        doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE))
+                .when(adminEligibleUserService)
+                .validateActiveUser(user);
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> boardService.createBoard(creatorId, request));
+
+        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.USER_NOT_ACTIVE);
+        verify(boardRepository, never()).saveAndFlush(any(Board.class));
+        verify(boardManagerAssignmentService, never()).assignBoardManager(any(), any());
     }
 
     @Test
@@ -355,8 +377,6 @@ class BoardServiceTest {
         when(globalConfigService.getConfig(anyString())).thenReturn("500");
         when(boardRepository.saveAndFlush(any(Board.class))).thenReturn(savedBoard);
         when(boardCategoryRepository.save(any(com.weedrice.whiteboard.domain.board.entity.BoardCategory.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
-        when(adminRepository.save(any(com.weedrice.whiteboard.domain.admin.entity.Admin.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
         when(boardAiInfoRepository.save(any(BoardAiInfo.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(boardRepository.findMaxSortOrder()).thenReturn(0);
@@ -425,7 +445,7 @@ class BoardServiceTest {
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INSUFFICIENT_POINTS);
         verify(boardRepository).saveAndFlush(any(Board.class));
         verify(boardCategoryRepository, never()).save(any());
-        verify(adminRepository, never()).save(any());
+        verify(boardManagerAssignmentService, never()).assignBoardManager(any(), any());
         verify(boardAiInfoRepository, never()).save(any());
     }
 
@@ -863,12 +883,10 @@ class BoardServiceTest {
         ReflectionTestUtils.setField(deletedSuperAdmin, "userId", 1L);
         deletedSuperAdmin.grantSuperAdminRole();
         deletedSuperAdmin.delete();
-        List<User> allSuperAdmins = List.of(deletedSuperAdmin, activeSuperAdmin);
-
         when(userDetails.getUsername()).thenReturn(user.getLoginId());
         when(userRepository.findByLoginId(user.getLoginId())).thenReturn(Optional.of(user));
         when(boardRepository.findByBoardUrlForUpdate("inquiry")).thenReturn(Optional.empty());
-        when(userRepository.findByIsSuperAdminTrueAndDeletedAtIsNull()).thenReturn(allSuperAdmins);
+        when(userRepository.findUsableSuperAdmins()).thenReturn(List.of(activeSuperAdmin));
         when(boardRepository.findMaxSortOrder()).thenReturn(0);
         when(boardRepository.existsByBoardName(anyString())).thenReturn(false);
         when(boardRepository.saveAndFlush(any(Board.class))).thenAnswer(invocation -> {
@@ -876,8 +894,6 @@ class BoardServiceTest {
             ReflectionTestUtils.setField(savedBoard, "boardId", 2L);
             return savedBoard;
         });
-        when(adminRepository.saveAndFlush(any(com.weedrice.whiteboard.domain.admin.entity.Admin.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
         when(boardCategoryRepository.saveAndFlush(any(com.weedrice.whiteboard.domain.board.entity.BoardCategory.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -886,8 +902,9 @@ class BoardServiceTest {
         ArgumentCaptor<Board> boardCaptor = ArgumentCaptor.forClass(Board.class);
         verify(boardRepository).saveAndFlush(boardCaptor.capture());
         assertThat(boardCaptor.getValue().getCreator()).isEqualTo(activeSuperAdmin);
-        verify(userRepository, org.mockito.Mockito.atLeastOnce()).findByIsSuperAdminTrueAndDeletedAtIsNull();
-        verify(userRepository, never()).findByIsSuperAdminTrue();
+        verify(userRepository, org.mockito.Mockito.atLeastOnce()).findUsableSuperAdmins();
+        verify(boardManagerAssignmentService, org.mockito.Mockito.atLeastOnce())
+                .assignBoardManager(boardCaptor.getValue(), activeSuperAdmin);
     }
 
     @Test
@@ -918,46 +935,20 @@ class BoardServiceTest {
                 .build();
         ReflectionTestUtils.setField(duplicateCategory, "categoryId", 11L);
 
-        User otherManagerUser = User.builder()
-                .loginId("manager")
-                .password("password")
-                .email("manager@test.com")
-                .displayName("Manager")
-                .build();
-        ReflectionTestUtils.setField(otherManagerUser, "userId", 3L);
-
-        com.weedrice.whiteboard.domain.admin.entity.Admin desiredManager = com.weedrice.whiteboard.domain.admin.entity.Admin.builder()
-                .user(superAdmin)
-                .board(board)
-                .role("BOARD_ADMIN")
-                .build();
-        ReflectionTestUtils.setField(desiredManager, "adminId", 20L);
-
-        com.weedrice.whiteboard.domain.admin.entity.Admin duplicateManager = com.weedrice.whiteboard.domain.admin.entity.Admin.builder()
-                .user(otherManagerUser)
-                .board(board)
-                .role("BOARD_ADMIN")
-                .build();
-        ReflectionTestUtils.setField(duplicateManager, "adminId", 21L);
-
         when(userDetails.getUsername()).thenReturn(user.getLoginId());
         when(userRepository.findByLoginId(user.getLoginId())).thenReturn(Optional.of(user));
         when(boardRepository.findByBoardUrlForUpdate("inquiry")).thenReturn(Optional.of(board));
-        when(userRepository.findByIsSuperAdminTrueAndDeletedAtIsNull()).thenReturn(List.of(superAdmin));
+        when(userRepository.findUsableSuperAdmins()).thenReturn(List.of(superAdmin));
         when(boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(board.getBoardId(), true))
                 .thenReturn(List.of(defaultCategory, duplicateCategory));
-        when(adminRepository.findByBoardAndRoleAndIsActive(board, "BOARD_ADMIN", true))
-                .thenReturn(List.of(desiredManager, duplicateManager));
 
         boardService.ensureInquiryBoard(userDetails, "custom-inquiry-url");
 
         assertThat(board.getIsPublic()).isFalse();
         assertThat(defaultCategory.getSortOrder()).isEqualTo(1);
         assertThat(duplicateCategory.getIsActive()).isFalse();
-        assertThat(desiredManager.getIsActive()).isTrue();
-        assertThat(duplicateManager.getIsActive()).isFalse();
         verify(boardCategoryRepository, never()).saveAndFlush(any());
-        verify(adminRepository, never()).saveAndFlush(any());
+        verify(boardManagerAssignmentService).assignBoardManager(board, superAdmin);
     }
 
     @Test
@@ -973,47 +964,18 @@ class BoardServiceTest {
         ReflectionTestUtils.setField(superAdmin, "userId", 2L);
         superAdmin.grantSuperAdminRole();
 
-        User wrongManagerUser = User.builder()
-                .loginId("manager")
-                .password("password")
-                .email("manager@test.com")
-                .displayName("Manager")
-                .build();
-        ReflectionTestUtils.setField(wrongManagerUser, "userId", 3L);
-
-        com.weedrice.whiteboard.domain.admin.entity.Admin wrongActiveManager = com.weedrice.whiteboard.domain.admin.entity.Admin.builder()
-                .user(wrongManagerUser)
-                .board(board)
-                .role("BOARD_ADMIN")
-                .build();
-        ReflectionTestUtils.setField(wrongActiveManager, "adminId", 21L);
-
-        com.weedrice.whiteboard.domain.admin.entity.Admin reusableInactiveManager = com.weedrice.whiteboard.domain.admin.entity.Admin.builder()
-                .user(superAdmin)
-                .board(board)
-                .role("BOARD_ADMIN")
-                .build();
-        ReflectionTestUtils.setField(reusableInactiveManager, "adminId", 22L);
-        reusableInactiveManager.deactivate();
-
         when(userDetails.getUsername()).thenReturn(user.getLoginId());
         when(userRepository.findByLoginId(user.getLoginId())).thenReturn(Optional.of(user));
         when(boardRepository.findByBoardUrlForUpdate("inquiry")).thenReturn(Optional.of(board));
-        when(userRepository.findByIsSuperAdminTrueAndDeletedAtIsNull()).thenReturn(List.of(superAdmin));
+        when(userRepository.findUsableSuperAdmins()).thenReturn(List.of(superAdmin));
         when(boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(board.getBoardId(), true))
                 .thenReturn(Collections.emptyList());
         when(boardCategoryRepository.saveAndFlush(any(com.weedrice.whiteboard.domain.board.entity.BoardCategory.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
-        when(adminRepository.findByBoardAndRoleAndIsActive(board, "BOARD_ADMIN", true))
-                .thenReturn(List.of(wrongActiveManager));
-        when(adminRepository.findByUserAndBoardAndRole(superAdmin, board, "BOARD_ADMIN"))
-                .thenReturn(Optional.of(reusableInactiveManager));
 
         boardService.ensureInquiryBoard(userDetails, "custom-inquiry-url");
 
-        assertThat(wrongActiveManager.getIsActive()).isFalse();
-        assertThat(reusableInactiveManager.getIsActive()).isTrue();
-        verify(adminRepository, never()).saveAndFlush(any());
+        verify(boardManagerAssignmentService).assignBoardManager(board, superAdmin);
     }
 
     @Test
@@ -1034,7 +996,7 @@ class BoardServiceTest {
         when(boardRepository.findByBoardUrlForUpdate("inquiry"))
                 .thenReturn(Optional.empty())
                 .thenReturn(Optional.of(board));
-        when(userRepository.findByIsSuperAdminTrueAndDeletedAtIsNull()).thenReturn(List.of(superAdmin));
+        when(userRepository.findUsableSuperAdmins()).thenReturn(List.of(superAdmin));
         when(boardRepository.findMaxSortOrder()).thenReturn(0);
         when(boardRepository.existsByBoardName(anyString())).thenReturn(false);
         when(boardRepository.saveAndFlush(any(Board.class)))
@@ -1043,21 +1005,13 @@ class BoardServiceTest {
                 .thenReturn(Collections.emptyList());
         when(boardCategoryRepository.saveAndFlush(any(com.weedrice.whiteboard.domain.board.entity.BoardCategory.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
-        when(adminRepository.findByBoardAndRoleAndIsActive(board, "BOARD_ADMIN", true)).thenReturn(Collections.emptyList());
-        when(adminRepository.findByUserAndBoardAndRole(superAdmin, board, "BOARD_ADMIN")).thenReturn(Optional.empty());
-        when(adminRepository.saveAndFlush(any(com.weedrice.whiteboard.domain.admin.entity.Admin.class)))
-                .thenAnswer(invocation -> {
-                    com.weedrice.whiteboard.domain.admin.entity.Admin saved = invocation.getArgument(0);
-                    ReflectionTestUtils.setField(saved, "adminId", 30L);
-                    return saved;
-                });
 
         boardService.ensureInquiryBoard(userDetails, "custom-inquiry-url");
 
         verify(boardRepository).saveAndFlush(any(Board.class));
         verify(boardRepository, org.mockito.Mockito.times(2)).findByBoardUrlForUpdate("inquiry");
         verify(boardCategoryRepository).saveAndFlush(any(com.weedrice.whiteboard.domain.board.entity.BoardCategory.class));
-        verify(adminRepository).saveAndFlush(any(com.weedrice.whiteboard.domain.admin.entity.Admin.class));
+        verify(boardManagerAssignmentService).assignBoardManager(board, superAdmin);
     }
 
     @Test
@@ -1078,7 +1032,7 @@ class BoardServiceTest {
         when(boardRepository.findByBoardUrlForUpdate("inquiry"))
                 .thenReturn(Optional.empty())
                 .thenReturn(Optional.of(board));
-        when(userRepository.findByIsSuperAdminTrueAndDeletedAtIsNull()).thenReturn(List.of(superAdmin));
+        when(userRepository.findUsableSuperAdmins()).thenReturn(List.of(superAdmin));
         when(boardRepository.findMaxSortOrder()).thenReturn(0);
         when(boardRepository.existsByBoardName(anyString())).thenReturn(false);
         when(boardRepository.saveAndFlush(any(Board.class)))
@@ -1087,21 +1041,13 @@ class BoardServiceTest {
                 .thenReturn(Collections.emptyList());
         when(boardCategoryRepository.saveAndFlush(any(com.weedrice.whiteboard.domain.board.entity.BoardCategory.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
-        when(adminRepository.findByBoardAndRoleAndIsActive(board, "BOARD_ADMIN", true)).thenReturn(Collections.emptyList());
-        when(adminRepository.findByUserAndBoardAndRole(superAdmin, board, "BOARD_ADMIN")).thenReturn(Optional.empty());
-        when(adminRepository.saveAndFlush(any(com.weedrice.whiteboard.domain.admin.entity.Admin.class)))
-                .thenAnswer(invocation -> {
-                    com.weedrice.whiteboard.domain.admin.entity.Admin saved = invocation.getArgument(0);
-                    ReflectionTestUtils.setField(saved, "adminId", 31L);
-                    return saved;
-                });
 
         boardService.ensureInquiryBoard(userDetails, "custom-inquiry-url");
 
         verify(boardRepository).saveAndFlush(any(Board.class));
         verify(boardRepository, org.mockito.Mockito.times(2)).findByBoardUrlForUpdate("inquiry");
         verify(boardCategoryRepository).saveAndFlush(any(com.weedrice.whiteboard.domain.board.entity.BoardCategory.class));
-        verify(adminRepository).saveAndFlush(any(com.weedrice.whiteboard.domain.admin.entity.Admin.class));
+        verify(boardManagerAssignmentService).assignBoardManager(board, superAdmin);
     }
 
     @Test

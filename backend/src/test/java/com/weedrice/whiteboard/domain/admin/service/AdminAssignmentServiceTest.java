@@ -8,7 +8,6 @@ import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.User;
-import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
@@ -27,6 +26,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -38,26 +38,30 @@ class AdminAssignmentServiceTest {
     private AdminRepository adminRepository;
 
     @Mock
-    private UserRepository userRepository;
+    private BoardRepository boardRepository;
 
     @Mock
-    private BoardRepository boardRepository;
+    private AdminEligibleUserService adminEligibleUserService;
+
+    @Mock
+    private BoardManagerAssignmentService boardManagerAssignmentService;
 
     @InjectMocks
     private AdminAssignmentService adminAssignmentService;
 
     private User user;
-    private User anotherUser;
     private Board board;
     private Admin admin;
 
     @BeforeEach
     void setUp() {
-        user = User.builder().loginId("testUser").displayName("test").build();
+        user = User.builder()
+                .loginId("testUser")
+                .password("encoded")
+                .email("test@example.com")
+                .displayName("test")
+                .build();
         ReflectionTestUtils.setField(user, "userId", 1L);
-
-        anotherUser = User.builder().loginId("anotherUser").displayName("another").build();
-        ReflectionTestUtils.setField(anotherUser, "userId", 2L);
 
         board = Board.builder()
                 .boardName("test")
@@ -71,45 +75,17 @@ class AdminAssignmentServiceTest {
     }
 
     @Test
-    @DisplayName("게시판 관리자 교체 시 기존 활성 관리자를 비활성화하고 신규 관리자를 저장한다")
-    void createAdmin_replaceBoardManager() {
-        when(userRepository.findByLoginId("testUser")).thenReturn(Optional.of(user));
+    @DisplayName("게시판 관리자 생성은 공통 배정 서비스로 위임한다")
+    void createAdmin_boardAdmin_delegatesToBoardManagerAssignmentService() {
+        when(adminEligibleUserService.getActiveUserByLoginId("testUser")).thenReturn(user);
         when(boardRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(board));
-
-        Admin currentManager = Admin.builder().user(anotherUser).board(board).role(Role.BOARD_ADMIN).build();
-        when(adminRepository.findByBoardAndRoleAndIsActive(board, Role.BOARD_ADMIN, true))
-                .thenReturn(List.of(currentManager));
-        when(adminRepository.findFirstByUserAndBoardAndRoleAndIsActiveOrderByAdminIdDesc(
-                user, board, Role.BOARD_ADMIN, false))
-                .thenReturn(Optional.empty());
-        when(adminRepository.saveAndFlush(any(Admin.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(boardManagerAssignmentService.assignBoardManager(board, user)).thenReturn(admin);
 
         AdminResponse response = adminAssignmentService.createAdmin("testUser", 10L, AdminRole.BOARD_ADMIN);
 
+        assertThat(response.getAdminId()).isEqualTo(100L);
         assertThat(response.getRole()).isEqualTo(Role.BOARD_ADMIN);
-        assertThat(currentManager.getIsActive()).isFalse();
-        verify(adminRepository).saveAndFlush(any(Admin.class));
-    }
-
-    @Test
-    @DisplayName("비활성 관리자 이력이 있으면 재사용한다")
-    void createAdmin_reuseInactiveRow() {
-        when(userRepository.findByLoginId("testUser")).thenReturn(Optional.of(user));
-        when(boardRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(board));
-        when(adminRepository.findByBoardAndRoleAndIsActive(board, Role.BOARD_ADMIN, true))
-                .thenReturn(List.of());
-
-        Admin inactiveManager = Admin.builder().user(user).board(board).role(Role.BOARD_ADMIN).build();
-        inactiveManager.deactivate();
-        when(adminRepository.findFirstByUserAndBoardAndRoleAndIsActiveOrderByAdminIdDesc(
-                user, board, Role.BOARD_ADMIN, false))
-                .thenReturn(Optional.of(inactiveManager));
-
-        AdminResponse response = adminAssignmentService.createAdmin("testUser", 10L, AdminRole.BOARD_ADMIN);
-
-        assertThat(response.getRole()).isEqualTo(Role.BOARD_ADMIN);
-        assertThat(inactiveManager.getIsActive()).isTrue();
-        verify(adminRepository, never()).saveAndFlush(any(Admin.class));
+        verify(boardManagerAssignmentService).assignBoardManager(board, user);
     }
 
     @Test
@@ -119,18 +95,32 @@ class AdminAssignmentServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VALIDATION_ERROR);
 
-        verify(userRepository, never()).findByLoginId(any());
+        verify(adminEligibleUserService, never()).getActiveUserByLoginId(any());
         verify(boardRepository, never()).findByIdForUpdate(any());
+    }
+
+    @Test
+    @DisplayName("비활성 사용자는 관리자 배정 대상이 될 수 없다")
+    void createAdmin_rejectsInactiveCandidate() {
+        when(adminEligibleUserService.getActiveUserByLoginId("testUser"))
+                .thenThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE));
+
+        assertThatThrownBy(() -> adminAssignmentService.createAdmin("testUser", 10L, AdminRole.BOARD_ADMIN))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_ACTIVE);
+
+        verify(boardRepository, never()).findByIdForUpdate(any());
+        verify(boardManagerAssignmentService, never()).assignBoardManager(any(), any());
     }
 
     @Test
     @DisplayName("일반 관리자도 비활성 이력이 있으면 재활성화한다")
     void createAdmin_reuseInactiveScopedAdmin() {
-        when(userRepository.findByLoginId("testUser")).thenReturn(Optional.of(user));
-        when(boardRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(board));
-
         Admin inactiveAdmin = Admin.builder().user(user).board(board).role("MODERATOR").build();
         inactiveAdmin.deactivate();
+
+        when(adminEligibleUserService.getActiveUserByLoginId("testUser")).thenReturn(user);
+        when(boardRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(board));
         when(adminRepository.findFirstByUserAndBoardAndRoleAndIsActiveOrderByAdminIdDesc(
                 user, board, "MODERATOR", true))
                 .thenReturn(Optional.empty());
@@ -149,7 +139,7 @@ class AdminAssignmentServiceTest {
     @Test
     @DisplayName("동시성으로 일반 관리자 중복 저장이 발생하면 DUPLICATE_RESOURCE로 변환한다")
     void createAdmin_duplicateScopedAdmin_throwsBusinessException() {
-        when(userRepository.findByLoginId("testUser")).thenReturn(Optional.of(user));
+        when(adminEligibleUserService.getActiveUserByLoginId("testUser")).thenReturn(user);
         when(boardRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(board));
         when(adminRepository.findFirstByUserAndBoardAndRoleAndIsActiveOrderByAdminIdDesc(
                 user, board, "MODERATOR", true))
@@ -160,12 +150,9 @@ class AdminAssignmentServiceTest {
         when(adminRepository.saveAndFlush(any(Admin.class)))
                 .thenThrow(new DataIntegrityViolationException("duplicate admin"));
 
-        org.assertj.core.api.ThrowableAssert.ThrowingCallable action =
-                () -> adminAssignmentService.createAdmin("testUser", 10L, AdminRole.MODERATOR);
-
-        org.assertj.core.api.Assertions.assertThatThrownBy(action)
-                .isInstanceOf(com.weedrice.whiteboard.global.exception.BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", com.weedrice.whiteboard.global.exception.ErrorCode.DUPLICATE_RESOURCE);
+        assertThatThrownBy(() -> adminAssignmentService.createAdmin("testUser", 10L, AdminRole.MODERATOR))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.DUPLICATE_RESOURCE);
     }
 
     @Test
@@ -174,16 +161,15 @@ class AdminAssignmentServiceTest {
         Admin activeAdmin = Admin.builder().user(user).board(board).role("MODERATOR").build();
         ReflectionTestUtils.setField(activeAdmin, "adminId", 400L);
 
-        when(userRepository.findByLoginId("testUser")).thenReturn(Optional.of(user));
+        when(adminEligibleUserService.getActiveUserByLoginId("testUser")).thenReturn(user);
         when(boardRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(board));
         when(adminRepository.findFirstByUserAndBoardAndRoleAndIsActiveOrderByAdminIdDesc(
                 user, board, "MODERATOR", true))
                 .thenReturn(Optional.of(activeAdmin));
 
-        org.assertj.core.api.Assertions.assertThatThrownBy(
-                () -> adminAssignmentService.createAdmin("testUser", 10L, AdminRole.MODERATOR))
-                .isInstanceOf(com.weedrice.whiteboard.global.exception.BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", com.weedrice.whiteboard.global.exception.ErrorCode.DUPLICATE_RESOURCE);
+        assertThatThrownBy(() -> adminAssignmentService.createAdmin("testUser", 10L, AdminRole.MODERATOR))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.DUPLICATE_RESOURCE);
 
         verify(adminRepository, never()).findFirstByUserAndBoardAndRoleAndIsActiveOrderByAdminIdDesc(
                 user, board, "MODERATOR", false);
@@ -205,9 +191,40 @@ class AdminAssignmentServiceTest {
         when(adminRepository.findByUserAndBoardAndRoleAndIsActive(user, board, "MODERATOR", true))
                 .thenReturn(Optional.of(activeAdmin));
 
-        org.assertj.core.api.Assertions.assertThatThrownBy(() -> adminAssignmentService.activateAdmin(300L))
-                .isInstanceOf(com.weedrice.whiteboard.global.exception.BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", com.weedrice.whiteboard.global.exception.ErrorCode.DUPLICATE_RESOURCE);
+        assertThatThrownBy(() -> adminAssignmentService.activateAdmin(300L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.DUPLICATE_RESOURCE);
+    }
+
+    @Test
+    @DisplayName("BOARD_ADMIN 활성화는 공통 배정 서비스로 위임한다")
+    void activateAdmin_boardAdmin_delegatesToBoardManagerAssignmentService() {
+        admin.deactivate();
+
+        when(adminRepository.findById(1L)).thenReturn(Optional.of(admin));
+        when(boardRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(board));
+
+        adminAssignmentService.activateAdmin(1L);
+
+        verify(boardManagerAssignmentService).activateBoardManager(admin, board);
+    }
+
+    @Test
+    @DisplayName("일반 관리자 활성화 전에 대상 사용자의 활성 상태를 검증한다")
+    void activateAdmin_scopedAdmin_rejectsInactiveUser() {
+        Admin inactiveAdmin = Admin.builder().user(user).board(board).role("MODERATOR").build();
+        inactiveAdmin.deactivate();
+        ReflectionTestUtils.setField(inactiveAdmin, "adminId", 300L);
+
+        when(adminRepository.findById(300L)).thenReturn(Optional.of(inactiveAdmin));
+        when(boardRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(board));
+        doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE))
+                .when(adminEligibleUserService)
+                .validateActiveUser(user);
+
+        assertThatThrownBy(() -> adminAssignmentService.activateAdmin(300L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_ACTIVE);
     }
 
     @Test
@@ -232,61 +249,5 @@ class AdminAssignmentServiceTest {
         adminAssignmentService.deactivateAdmin(1L);
 
         assertThat(admin.getIsActive()).isFalse();
-    }
-
-    @Test
-    @DisplayName("관리자 활성화 성공")
-    void activateAdmin_success() {
-        admin.deactivate();
-        when(adminRepository.findById(1L)).thenReturn(Optional.of(admin));
-        when(boardRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(board));
-        when(adminRepository.findByBoardAndRoleAndIsActive(board, Role.BOARD_ADMIN, true)).thenReturn(List.of());
-
-        adminAssignmentService.activateAdmin(1L);
-
-        assertThat(admin.getIsActive()).isTrue();
-    }
-
-    @Test
-    @DisplayName("BOARD_ADMIN 재활성화 시 기존 활성 관리자를 비활성화한다")
-    void activateAdmin_boardAdmin_deactivatesExistingManagers() {
-        admin.deactivate();
-        Admin currentManager = Admin.builder().user(anotherUser).board(board).role(Role.BOARD_ADMIN).build();
-        ReflectionTestUtils.setField(currentManager, "adminId", 200L);
-
-        when(adminRepository.findById(1L)).thenReturn(Optional.of(admin));
-        when(boardRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(board));
-        when(adminRepository.findByBoardAndRoleAndIsActive(board, Role.BOARD_ADMIN, true))
-                .thenReturn(List.of(currentManager));
-
-        adminAssignmentService.activateAdmin(1L);
-
-        assertThat(admin.getIsActive()).isTrue();
-        assertThat(currentManager.getIsActive()).isFalse();
-    }
-
-    @Test
-    @DisplayName("이미 대상 사용자가 board admin으로 활성 상태여도 나머지 활성 row는 정리한다")
-    void createAdmin_boardAdmin_sameUserCleansUpDuplicateActiveRows() {
-        Admin olderDuplicate = Admin.builder().user(user).board(board).role(Role.BOARD_ADMIN).build();
-        ReflectionTestUtils.setField(olderDuplicate, "adminId", 90L);
-        Admin latestDuplicate = Admin.builder().user(user).board(board).role(Role.BOARD_ADMIN).build();
-        ReflectionTestUtils.setField(latestDuplicate, "adminId", 110L);
-        Admin anotherActiveManager = Admin.builder().user(anotherUser).board(board).role(Role.BOARD_ADMIN).build();
-        ReflectionTestUtils.setField(anotherActiveManager, "adminId", 120L);
-
-        when(userRepository.findByLoginId("testUser")).thenReturn(Optional.of(user));
-        when(boardRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(board));
-        when(adminRepository.findByBoardAndRoleAndIsActive(board, Role.BOARD_ADMIN, true))
-                .thenReturn(List.of(olderDuplicate, latestDuplicate, anotherActiveManager));
-
-        AdminResponse response = adminAssignmentService.createAdmin("testUser", 10L, AdminRole.BOARD_ADMIN);
-
-        assertThat(response.getAdminId()).isEqualTo(110L);
-        assertThat(latestDuplicate.getIsActive()).isTrue();
-        assertThat(olderDuplicate.getIsActive()).isFalse();
-        assertThat(anotherActiveManager.getIsActive()).isFalse();
-        verify(adminRepository).flush();
-        verify(adminRepository, never()).saveAndFlush(any(Admin.class));
     }
 }

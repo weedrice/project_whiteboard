@@ -1,7 +1,7 @@
 package com.weedrice.whiteboard.domain.board.service;
 
-import com.weedrice.whiteboard.domain.admin.entity.Admin;
-import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
+import com.weedrice.whiteboard.domain.admin.service.AdminEligibleUserService;
+import com.weedrice.whiteboard.domain.admin.service.BoardManagerAssignmentService;
 import com.weedrice.whiteboard.domain.board.dto.BoardCreateRequest;
 import com.weedrice.whiteboard.domain.board.dto.BoardUpdateRequest;
 import com.weedrice.whiteboard.domain.board.entity.Board;
@@ -12,7 +12,6 @@ import com.weedrice.whiteboard.domain.board.repository.BoardCategoryRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.file.service.FileService;
 import com.weedrice.whiteboard.domain.point.service.PointService;
-import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
@@ -44,36 +43,35 @@ class BoardProvisioningService {
     private static final String BOARD_CATEGORY_ACTIVE_CONSTRAINT = "uq_board_categories_active_name";
     private static final String ORM_BOARD_CATEGORY_ACTIVE_CONSTRAINT = "uk_board_categories_board_name_active";
     private static final String LEGACY_BOARD_CATEGORY_ACTIVE_CONSTRAINT = "board_categories_board_id_name_is_active_key";
-    private static final String ADMIN_ACTIVE_CONSTRAINT = "uq_admins_active_user_board_role";
-    private static final String BOARD_ADMIN_ACTIVE_CONSTRAINT = "uq_admins_active_board_admin";
-    private static final String ORM_ADMIN_ACTIVE_CONSTRAINT = "uk_admins_user_board_role_active";
-    private static final String LEGACY_ADMIN_ACTIVE_CONSTRAINT = "admins_user_id_board_id_role_is_active_key";
 
     private final BoardRepository boardRepository;
     private final BoardAiInfoRepository boardAiInfoRepository;
     private final BoardCategoryRepository boardCategoryRepository;
     private final UserRepository userRepository;
-    private final AdminRepository adminRepository;
     private final PointService pointService;
     private final GlobalConfigService globalConfigService;
     private final FileService fileService;
+    private final AdminEligibleUserService adminEligibleUserService;
+    private final BoardManagerAssignmentService boardManagerAssignmentService;
 
     BoardProvisioningService(BoardRepository boardRepository,
                              BoardAiInfoRepository boardAiInfoRepository,
                              BoardCategoryRepository boardCategoryRepository,
                              UserRepository userRepository,
-                             AdminRepository adminRepository,
                              PointService pointService,
                              GlobalConfigService globalConfigService,
-                             FileService fileService) {
+                             FileService fileService,
+                             AdminEligibleUserService adminEligibleUserService,
+                             BoardManagerAssignmentService boardManagerAssignmentService) {
         this.boardRepository = boardRepository;
         this.boardAiInfoRepository = boardAiInfoRepository;
         this.boardCategoryRepository = boardCategoryRepository;
         this.userRepository = userRepository;
-        this.adminRepository = adminRepository;
         this.pointService = pointService;
         this.globalConfigService = globalConfigService;
         this.fileService = fileService;
+        this.adminEligibleUserService = adminEligibleUserService;
+        this.boardManagerAssignmentService = boardManagerAssignmentService;
     }
 
     void ensureInquiryBoard(UserDetails userDetails, String requestedBoardUrl) {
@@ -91,6 +89,7 @@ class BoardProvisioningService {
     Board createBoard(Long creatorId, BoardCreateRequest request) {
         User creator = userRepository.findById(creatorId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        adminEligibleUserService.validateActiveUser(creator);
 
         validateCreatableBoardUrl(request.getBoardUrl());
 
@@ -136,12 +135,7 @@ class BoardProvisioningService {
                 .build();
         boardCategoryRepository.save(defaultCategory);
 
-        Admin boardAdmin = Admin.builder()
-                .user(creator)
-                .board(savedBoard)
-                .role(Role.BOARD_ADMIN)
-                .build();
-        adminRepository.save(boardAdmin);
+        boardManagerAssignmentService.assignBoardManager(savedBoard, creator);
 
         return savedBoard;
     }
@@ -197,33 +191,8 @@ class BoardProvisioningService {
 
         SecurityUtils.validateBoardAdminPermission(board);
 
-        User nextManager = userRepository.findByLoginId(loginId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-
-        Admin currentManager = adminRepository
-                .findFirstByBoardAndRoleAndIsActiveOrderByAdminIdDesc(board, Role.BOARD_ADMIN, true)
-                .orElse(null);
-
-        if (currentManager != null && currentManager.getUser().getUserId().equals(nextManager.getUserId())) {
-            return;
-        }
-
-        List<Admin> activeManagers = adminRepository.findByBoardAndRoleAndIsActive(board, Role.BOARD_ADMIN, true);
-        activeManagers.forEach(Admin::deactivate);
-
-        Admin reusableManager = adminRepository.findByUserAndBoardAndRole(nextManager, board, Role.BOARD_ADMIN)
-                .orElse(null);
-        if (reusableManager != null) {
-            reusableManager.activate();
-            return;
-        }
-
-        Admin boardManager = Admin.builder()
-                .user(nextManager)
-                .board(board)
-                .role(Role.BOARD_ADMIN)
-                .build();
-        adminRepository.save(boardManager);
+        User nextManager = adminEligibleUserService.getActiveUserByLoginId(loginId);
+        boardManagerAssignmentService.assignBoardManager(board, nextManager);
     }
 
     void deleteBoard(String boardUrl, UserDetails userDetails) {
@@ -344,61 +313,18 @@ class BoardProvisioningService {
 
     private void ensureInquiryBoardManager(Board board, User requester) {
         User manager = resolveInquiryBoardCreator(requester);
-        List<Admin> activeManagers = adminRepository.findByBoardAndRoleAndIsActive(board, Role.BOARD_ADMIN, true)
-                .stream()
-                .sorted(Comparator.comparing(Admin::getAdminId, Comparator.nullsLast(Long::compareTo)).reversed())
-                .toList();
-
-        Admin canonicalManager = activeManagers.stream()
-                .filter(admin -> Objects.equals(admin.getUser().getUserId(), manager.getUserId()))
-                .findFirst()
-                .orElse(null);
-
-        if (canonicalManager != null) {
-            activeManagers.stream()
-                    .filter(admin -> !Objects.equals(admin.getAdminId(), canonicalManager.getAdminId()))
-                    .forEach(Admin::deactivate);
-            return;
-        }
-
-        activeManagers.stream()
-                .forEach(Admin::deactivate);
-
-        activateOrCreateInquiryBoardManager(board, manager);
-    }
-
-    private Admin activateOrCreateInquiryBoardManager(Board board, User manager) {
-        Admin reusableManager = adminRepository.findByUserAndBoardAndRole(manager, board, Role.BOARD_ADMIN)
-                .orElse(null);
-        if (reusableManager != null) {
-            reusableManager.activate();
-            return reusableManager;
-        }
-
-        try {
-            return adminRepository.saveAndFlush(Admin.builder()
-                    .user(manager)
-                    .board(board)
-                    .role(Role.BOARD_ADMIN)
-                    .build());
-        } catch (DataIntegrityViolationException ex) {
-            if (!containsAdminActiveConstraint(ex)) {
-                throw ex;
-            }
-            return adminRepository.findByUserAndBoardAndRoleAndIsActive(manager, board, Role.BOARD_ADMIN, true)
-                    .orElseThrow(() -> ex);
-        }
+        boardManagerAssignmentService.assignBoardManager(board, manager);
     }
 
     private User resolveInquiryBoardCreator(User fallbackUser) {
-        User creator = userRepository.findByIsSuperAdminTrueAndDeletedAtIsNull().stream()
+        User creator = userRepository.findUsableSuperAdmins().stream()
                 .filter(Objects::nonNull)
-                .filter(superAdmin -> superAdmin.getDeletedAt() == null)
                 .min(Comparator.comparing(User::getUserId))
                 .orElse(fallbackUser);
         if (creator == null) {
             throw new BusinessException(ErrorCode.USER_NOT_FOUND);
         }
+        adminEligibleUserService.validateActiveUser(creator);
         return creator;
     }
 
@@ -441,15 +367,6 @@ class BoardProvisioningService {
                 BOARD_CATEGORY_ACTIVE_CONSTRAINT,
                 ORM_BOARD_CATEGORY_ACTIVE_CONSTRAINT,
                 LEGACY_BOARD_CATEGORY_ACTIVE_CONSTRAINT);
-    }
-
-    private boolean containsAdminActiveConstraint(Throwable throwable) {
-        return containsConstraint(
-                throwable,
-                ADMIN_ACTIVE_CONSTRAINT,
-                BOARD_ADMIN_ACTIVE_CONSTRAINT,
-                ORM_ADMIN_ACTIVE_CONSTRAINT,
-                LEGACY_ADMIN_ACTIVE_CONSTRAINT);
     }
 
     private boolean containsConstraint(Throwable throwable, String... candidates) {
