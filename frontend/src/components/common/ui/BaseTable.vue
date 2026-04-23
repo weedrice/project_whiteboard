@@ -100,23 +100,23 @@ const getCellValue = (item: T, key: string): unknown => {
 
 <template>
     <div
-        class="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg border border-gray-200 dark:border-gray-700">
+        class="nv-base-table shadow overflow-hidden sm:rounded-lg">
         <div class="overflow-x-auto">
-            <table class="min-w-full table-fixed divide-y divide-gray-200 dark:divide-gray-700" style="table-layout: fixed;">
+            <table class="min-w-full table-fixed nv-base-table-table" style="table-layout: fixed;">
                 <colgroup>
                     <col v-for="col in columns" :key="col.key" :style="{ width: col.width || 'auto' }" />
                 </colgroup>
-                <thead class="bg-gray-50 dark:bg-gray-700">
+                <thead class="nv-base-table-head">
                     <tr>
                         <th v-for="col in columns" :key="col.key" scope="col"
                             :aria-sort="getAriaSort(col)"
-                            class="px-3 sm:px-6 py-2 sm:py-3 text-[10px] sm:text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap"
+                            class="nv-base-table-header px-3 sm:px-6 py-2 sm:py-3 text-[10px] sm:text-xs font-medium uppercase tracking-wider whitespace-nowrap"
                             :class="alignClass(col.align)"
                             :style="{ width: col.width }">
                             <button
                                 v-if="col.sortable"
                                 type="button"
-                                class="inline-flex w-full items-center gap-2 hover:text-gray-700 dark:hover:text-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                                class="nv-base-table-header-button inline-flex w-full items-center gap-2 focus:outline-none focus-visible:ring-2"
                                 :class="alignButtonClass(col.align)"
                                 @click="emit('sort', col.key)">
                                 <span>{{ col.label }}</span>
@@ -128,30 +128,30 @@ const getCellValue = (item: T, key: string): unknown => {
                         </th>
                     </tr>
                 </thead>
-                <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                <tbody class="nv-base-table-body">
                     <tr v-if="loading">
                         <td :colspan="columns.length"
-                            class="px-3 sm:px-6 py-6 sm:py-10 text-center text-xs sm:text-sm text-gray-500 dark:text-gray-400">
+                            class="nv-base-table-status px-3 sm:px-6 py-6 sm:py-10 text-center text-xs sm:text-sm">
                             <div class="flex justify-center">
                                 <slot name="loading">
-                                    <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600"></div>
+                                    <div class="nv-base-table-spinner animate-spin rounded-full h-6 w-6 border-b-2"></div>
                                 </slot>
                             </div>
                         </td>
                     </tr>
                     <tr v-else-if="items.length === 0">
                         <td :colspan="columns.length"
-                            class="px-3 sm:px-6 py-6 sm:py-10 text-center text-xs sm:text-sm text-gray-500 dark:text-gray-400">
+                            class="nv-base-table-status px-3 sm:px-6 py-6 sm:py-10 text-center text-xs sm:text-sm">
                             {{ emptyText }}
                         </td>
                     </tr>
                     <tr v-else v-for="(item, index) in items" :key="getRowKey(item, index)"
-                        class="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-150"
+                        class="nv-base-table-row transition-colors duration-150"
                         :class="rowClass?.(item) || ''"
                         @click="emit('row-click', item)"
                         @dblclick="emit('row-dblclick', item)">
                         <td v-for="col in columns" :key="col.key"
-                            class="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900 dark:text-white min-w-0 overflow-hidden align-middle"
+                            class="nv-base-table-cell px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm min-w-0 overflow-hidden align-middle"
                             :class="alignClass(col.align)">
                             <slot :name="`cell-${col.key}`" :item="item" :value="getCellValue(item, col.key)">
                                 {{ getCellValue(item, col.key) }}
@@ -163,3 +163,57 @@ const getCellValue = (item: T, key: string): unknown => {
         </div>
     </div>
 </template>
+
+<style scoped>
+.nv-base-table {
+    background: color-mix(in srgb, var(--nv-surface) 96%, transparent);
+    border: 1px solid var(--nv-line);
+}
+
+.nv-base-table-table {
+    border-color: var(--nv-line);
+}
+
+.nv-base-table-head {
+    background: color-mix(in srgb, var(--nv-surface-2) 72%, transparent);
+}
+
+.nv-base-table-body {
+    background: color-mix(in srgb, var(--nv-surface) 98%, transparent);
+    border-top: 1px solid var(--nv-line);
+}
+
+.nv-base-table-header {
+    color: var(--nv-muted);
+}
+
+.nv-base-table-header-button {
+    color: inherit;
+    transition: color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.nv-base-table-header-button:hover {
+    color: var(--nv-ink);
+}
+
+.nv-base-table-header-button:focus-visible {
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--nv-accent) 38%, transparent);
+}
+
+.nv-base-table-cell {
+    color: var(--nv-ink);
+}
+
+.nv-base-table-status {
+    color: var(--nv-muted);
+}
+
+.nv-base-table-spinner {
+    border-color: color-mix(in srgb, var(--nv-accent) 24%, transparent);
+    border-bottom-color: var(--nv-accent);
+}
+
+.nv-base-table-row:hover {
+    background: color-mix(in srgb, var(--nv-surface-2) 78%, transparent);
+}
+</style>

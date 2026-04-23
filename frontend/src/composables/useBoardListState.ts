@@ -144,6 +144,14 @@ export function useBoardListState(route: RouteLocationNormalizedLoaded, router: 
     return params
   })
 
+  const resetToDefaultList = () => {
+    searchQuery.value = ''
+    isSearching.value = false
+    conceptOnly.value = false
+    selectedCategoryId.value = null
+    setPage(0, { skipRouteSync: true })
+  }
+
   function handleSearch() {
     const trimmedQuery = searchQuery.value.trim()
     if (!trimmedQuery) {
@@ -162,10 +170,12 @@ export function useBoardListState(route: RouteLocationNormalizedLoaded, router: 
   }
 
   function clearSearch() {
-    searchQuery.value = ''
-    isSearching.value = false
-    conceptOnly.value = false
-    setPage(0, { skipRouteSync: true })
+    resetToDefaultList()
+    syncListQuery(0, null, null, false)
+  }
+
+  function selectAllPosts() {
+    resetToDefaultList()
     syncListQuery(0, null, null, false)
   }
 
@@ -265,6 +275,7 @@ export function useBoardListState(route: RouteLocationNormalizedLoaded, router: 
     buildPaginationRoute,
     handleSearch,
     clearSearch,
+    selectAllPosts,
     toggleConceptPosts,
     toggleCategory,
     handleSortChange,

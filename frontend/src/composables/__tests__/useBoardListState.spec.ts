@@ -124,6 +124,30 @@ describe('useBoardListState', () => {
     })
   })
 
+  it('resets category, concept, and search state when selecting all posts', async () => {
+    route.query = {
+      q: 'keyword',
+      type: 'TITLE',
+      concept: '1'
+    }
+
+    const state = useBoardListState(route as never, router as never)
+    await nextTick()
+    router.replace.mockReset()
+
+    state.selectAllPosts()
+    await nextTick()
+
+    expect(state.searchQuery.value).toBe('')
+    expect(state.isSearching.value).toBe(false)
+    expect(state.conceptOnly.value).toBe(false)
+    expect(state.selectedCategoryId.value).toBeNull()
+    expect(router.replace).toHaveBeenCalledWith({
+      path: '/board/free',
+      query: {}
+    })
+  })
+
   it('switches to a category filter and clears the active search', async () => {
     route.query = {
       q: 'keyword',

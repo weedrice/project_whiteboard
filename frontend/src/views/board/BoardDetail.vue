@@ -36,6 +36,7 @@ const {
   buildPaginationRoute,
   handleSearch,
   clearSearch,
+  selectAllPosts,
   toggleConceptPosts,
   toggleCategory,
   handleSortChange,
@@ -147,6 +148,11 @@ const transientListError = computed(() => {
 
 const canWrite = computed(() => (
   canWriteBoardPost(board.value, authStore.isAuthenticated, authStore.user?.role)
+))
+const isAllPostsActive = computed(() => (
+  !isSearching.value
+  && !conceptOnly.value
+  && selectedCategoryId.value === null
 ))
 
 function onPageChange(newPage: number) {
@@ -399,6 +405,15 @@ onUnmounted(() => {
         <div class="nv-board-toolbar-sticky border-b border-[var(--nv-line)] px-4 py-3 sm:px-5">
           <div class="nv-board-filter-rail" aria-label="Category filters">
             <div class="nv-board-filter-track">
+              <button
+                type="button"
+                class="nv-board-filter-chip"
+                :class="{ 'is-active': isAllPostsActive }"
+                :aria-pressed="isAllPostsActive"
+                @click="selectAllPosts"
+              >
+                {{ $t('board.detail.filter.all') }}
+              </button>
               <button
                 type="button"
                 class="nv-board-filter-chip"
@@ -677,8 +692,8 @@ onUnmounted(() => {
 .nv-board-search-group {
   display: grid;
   gap: 0.5rem;
-  grid-template-columns: minmax(6.5rem, 8rem) minmax(0, 20rem) auto;
-  width: min(100%, 36rem);
+  grid-template-columns: minmax(6.1rem, 7.25rem) minmax(0, 20rem) auto;
+  width: min(100%, 34rem);
 }
 
 .nv-board-search-select,
@@ -691,8 +706,10 @@ onUnmounted(() => {
 }
 
 .nv-board-search-select {
+  font-size: 0.74rem;
+  font-weight: 500;
   outline: none;
-  padding: 0.45rem 0.6rem;
+  padding: 0.4rem 0.55rem;
 }
 
 .nv-board-search-select:focus,
@@ -706,10 +723,18 @@ onUnmounted(() => {
 }
 
 .nv-board-search-btn {
+  background: var(--nv-accent);
+  border-color: var(--nv-accent);
   border-radius: 0;
+  color: #fff;
   min-height: 2.2rem;
-  padding-inline: 0.8rem;
+  min-width: 3.9rem;
+  padding-inline: 0.6rem;
   white-space: nowrap;
+}
+
+.nv-board-search-btn:hover {
+  filter: brightness(1.04);
 }
 
 .nv-board-state-panel {
