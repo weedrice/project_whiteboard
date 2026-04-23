@@ -12,6 +12,7 @@ const API_PATHS = {
     REFRESH: '/auth/refresh',
     LOGIN: '/login'
 }
+const SESSION_EXPIRED_TOAST_DEBOUNCE_MS = 5000
 
 // Extend InternalAxiosRequestConfig to include _retry property
 declare module 'axios' {
@@ -133,6 +134,7 @@ api.interceptors.request.use(
 // Concurrency handling for token refresh
 let isRefreshing = false
 let failedQueue: FailedRequest[] = []
+let lastSessionExpiredToastAt = 0
 
 const processQueue = (error: unknown, token: string | null = null) => {
     failedQueue.forEach((prom) => {
@@ -143,6 +145,16 @@ const processQueue = (error: unknown, token: string | null = null) => {
         }
     })
     failedQueue = []
+}
+
+const notifySessionExpired = (toastStore: ToastStore) => {
+    const now = Date.now()
+    if (now - lastSessionExpiredToastAt < SESSION_EXPIRED_TOAST_DEBOUNCE_MS) {
+        return
+    }
+
+    lastSessionExpiredToastAt = now
+    toastStore.addToast(t('common.messages.sessionExpired'), 'warning', 3000, 'top-center')
 }
 
 const handleApiError = (error: AxiosError, toastStore: ToastStore) => {
@@ -256,6 +268,7 @@ api.interceptors.response.use(
 
                 if (data.success) {
                     const newAccessToken = data.data.accessToken
+                    lastSessionExpiredToastAt = 0
                     Storage.setString('accessToken', newAccessToken)
                     Storage.remove('refreshToken')
 
@@ -305,6 +318,7 @@ api.interceptors.response.use(
 
                     if (!isLoginPage) {
                         if (router.currentRoute.value.meta.requiresAuth) {
+                            notifySessionExpired(toastStore)
                             void router.push({
                                 path: API_PATHS.LOGIN,
                                 query: { redirect: router.currentRoute.value.fullPath }

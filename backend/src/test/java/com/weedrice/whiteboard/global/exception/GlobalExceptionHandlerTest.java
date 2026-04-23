@@ -95,6 +95,52 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    @DisplayName("refresh token 예외는 세션 만료 메시지로 응답하고 에러 로그 저장을 생략한다")
+    void handleBusinessException_refreshTokenError_masksResponseMessage() {
+        BusinessException ex = new BusinessException(ErrorCode.INVALID_REFRESH_TOKEN);
+        request.setRequestURI("/api/v1/auth/refresh");
+        when(messageSource.getMessage(eq(ErrorCode.INVALID_REFRESH_TOKEN.getMessage()), isNull(), any(Locale.class)))
+                .thenReturn("유효하지 않은 리프레시 토큰입니다.");
+        when(messageSource.getMessage(eq("error.auth.sessionExpired"), isNull(), any(Locale.class)))
+                .thenReturn("세션이 만료되었습니다. 다시 로그인해주세요.");
+
+        ResponseEntity<ApiResponse<Void>> response = globalExceptionHandler.handleBusinessException(ex, request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getError().getCode()).isEqualTo(ErrorCode.INVALID_REFRESH_TOKEN.getCode());
+        assertThat(response.getBody().getError().getMessage()).isEqualTo("세션이 만료되었습니다. 다시 로그인해주세요.");
+        verify(errorLogService, never()).saveErrorLog(anyString(), anyString(), anyInt(), anyString(),
+                anyString(), anyString(), any(), anyString(), anyString(), any());
+    }
+
+    @Test
+    @DisplayName("refresh 외 경로의 refresh token 예외는 기존 메시지를 유지한다")
+    void handleBusinessException_nonRefreshUriKeepsOriginalMessage() {
+        BusinessException ex = new BusinessException(ErrorCode.INVALID_REFRESH_TOKEN);
+        when(messageSource.getMessage(eq(ErrorCode.INVALID_REFRESH_TOKEN.getMessage()), isNull(), any(Locale.class)))
+                .thenReturn("유효하지 않은 리프레시 토큰입니다.");
+
+        ResponseEntity<ApiResponse<Void>> response = globalExceptionHandler.handleBusinessException(ex, request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getError().getCode()).isEqualTo(ErrorCode.INVALID_REFRESH_TOKEN.getCode());
+        assertThat(response.getBody().getError().getMessage()).isEqualTo("유효하지 않은 리프레시 토큰입니다.");
+        verify(errorLogService).saveErrorLog(
+                eq(ErrorCode.INVALID_REFRESH_TOKEN.getCode()),
+                eq("BusinessException"),
+                eq(HttpStatus.UNAUTHORIZED.value()),
+                eq("유효하지 않은 리프레시 토큰입니다."),
+                anyString(),
+                anyString(),
+                isNull(),
+                anyString(),
+                isNull(),
+                isNull());
+    }
+
+    @Test
     @DisplayName("Validation Exception 처리")
     void handleValidationExceptions() {
         // given

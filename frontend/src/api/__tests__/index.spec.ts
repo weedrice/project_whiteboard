@@ -682,6 +682,13 @@ describe('API Interceptors', () => {
 
         await expect(p1).rejects.toBe(refreshError)
         await expect(p2).rejects.toBe(refreshError)
+        expect(mocks.mockAddToast).toHaveBeenCalledTimes(1)
+        expect(mocks.mockAddToast).toHaveBeenCalledWith(
+            'common.messages.sessionExpired',
+            'warning',
+            3000,
+            'top-center',
+        )
     })
 
     it('attempts refresh without local refresh token state', async () => {
@@ -768,7 +775,7 @@ describe('API Interceptors', () => {
         } as any
 
         await expect(responseRejected(error)).rejects.toBeDefined()
-        expect(mocks.mockAddToast).not.toHaveBeenCalledWith('common.messages.sessionExpired', 'warning')
+        expect(mocks.mockAddToast).not.toHaveBeenCalled()
         expect(mocks.mockRouterPush).not.toHaveBeenCalled()
     })
 
@@ -800,7 +807,15 @@ describe('API Interceptors', () => {
         history.pushState({}, '', '/boards')
         mocks.mockCurrentRoute.value.fullPath = '/boards'
         mocks.mockAxiosPost.mockRejectedValueOnce({
-            response: { status: 401 },
+            response: {
+                status: 401,
+                data: {
+                    error: {
+                        code: 'A001',
+                        message: '유효하지 않은 리프레시 토큰입니다.',
+                    },
+                },
+            },
         })
 
         const error = {
@@ -817,7 +832,19 @@ describe('API Interceptors', () => {
         expect(localStorage.getItem('refreshToken')).toBeNull()
         expect(authStore.user).toBeNull()
         expect(authStore.accessToken).toBe('')
-        expect(mocks.mockAddToast).not.toHaveBeenCalledWith('common.messages.sessionExpired', 'warning')
+        expect(mocks.mockAddToast).toHaveBeenCalledTimes(1)
+        expect(mocks.mockAddToast).toHaveBeenCalledWith(
+            'common.messages.sessionExpired',
+            'warning',
+            3000,
+            'top-center',
+        )
+        expect(mocks.mockAddToast).not.toHaveBeenCalledWith(
+            '유효하지 않은 리프레시 토큰입니다.',
+            'warning',
+            3000,
+            'top-center',
+        )
         expect(mocks.mockRouterPush).toHaveBeenCalledWith({
             path: '/login',
             query: { redirect: '/boards' },

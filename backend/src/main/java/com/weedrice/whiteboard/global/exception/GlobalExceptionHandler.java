@@ -35,6 +35,7 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class GlobalExceptionHandler {
     private static final String AUTH_REFRESH_URI = "/api/v1/auth/refresh";
+    private static final String AUTH_SESSION_EXPIRED_MESSAGE = "error.auth.sessionExpired";
     private static final Set<ErrorCode> SUPPRESSED_REFRESH_BUSINESS_CODES = EnumSet.of(
             ErrorCode.INVALID_REFRESH_TOKEN,
             ErrorCode.EXPIRED_REFRESH_TOKEN
@@ -50,10 +51,8 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ApiResponse<Void>> handleBusinessException(BusinessException e, HttpServletRequest request) {
-        // Custom message (2-arg constructor) takes precedence over message key
-        String message = (e.getMessage() != null && !e.getMessage().equals(e.getErrorCode().getMessage()))
-                ? e.getMessage()
-                : messageSource.getMessage(e.getErrorCode().getMessage(), null, LocaleContextHolder.getLocale());
+        String message = resolveBusinessExceptionMessage(e);
+        String responseMessage = resolveResponseMessage(request, e.getErrorCode(), message);
         MDC.put("errorCode", e.getErrorCode().getCode());
         MDC.put("errorType", "BusinessException");
         log.warn("[{}] Business exception: {} - {}", request.getRequestURI(), e.getErrorCode().getCode(), message);
@@ -67,7 +66,21 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity
                 .status(e.getErrorCode().getStatus())
-                .body(ApiResponse.error(e.getErrorCode().getCode(), message));
+                .body(ApiResponse.error(e.getErrorCode().getCode(), responseMessage));
+    }
+
+    private String resolveBusinessExceptionMessage(BusinessException e) {
+        // Custom message (2-arg constructor) takes precedence over message key
+        return (e.getMessage() != null && !e.getMessage().equals(e.getErrorCode().getMessage()))
+                ? e.getMessage()
+                : messageSource.getMessage(e.getErrorCode().getMessage(), null, LocaleContextHolder.getLocale());
+    }
+
+    private String resolveResponseMessage(HttpServletRequest request, ErrorCode errorCode, String defaultMessage) {
+        if (isRefreshTokenBusinessError(request, errorCode)) {
+            return messageSource.getMessage(AUTH_SESSION_EXPIRED_MESSAGE, null, LocaleContextHolder.getLocale());
+        }
+        return defaultMessage;
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -248,6 +261,14 @@ public class GlobalExceptionHandler {
         }
 
         if (request == null) {
+            return false;
+        }
+
+        return isRefreshTokenBusinessError(request, errorCode);
+    }
+
+    private boolean isRefreshTokenBusinessError(HttpServletRequest request, ErrorCode errorCode) {
+        if (request == null || errorCode == null) {
             return false;
         }
 
