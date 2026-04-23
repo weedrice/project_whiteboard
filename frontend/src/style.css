@@ -352,11 +352,9 @@ html {
 
   /* Recent Boards Bar */
   .recent-boards-bar {
-    @apply bg-white/80 backdrop-blur-sm border-b border-gray-200 transition-colors duration-200;
-  }
-
-  .dark .recent-boards-bar {
-    @apply bg-gray-800/80 border-gray-700;
+    @apply backdrop-blur-sm border-b transition-colors duration-200;
+    background: color-mix(in srgb, var(--nv-surface) 92%, transparent);
+    border-color: var(--nv-line);
   }
 
   .recent-boards-inner {
@@ -364,11 +362,8 @@ html {
   }
 
   .recent-boards-label {
-    @apply text-xs font-medium text-gray-400 whitespace-nowrap shrink-0;
-  }
-
-  .dark .recent-boards-label {
-    @apply text-gray-500;
+    @apply text-xs font-medium whitespace-nowrap shrink-0;
+    color: var(--nv-muted);
   }
 
   /* 모바일에서 라벨 숨김 */
@@ -389,20 +384,22 @@ html {
   }
 
   .recent-board-chip {
-    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap shrink-0 bg-gray-100 text-gray-700 transition-all duration-200 cursor-pointer;
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap shrink-0 transition-all duration-200 cursor-pointer;
+    background: color-mix(in srgb, var(--nv-surface-2) 88%, transparent);
+    border: 1px solid var(--nv-line);
+    color: var(--nv-ink-soft);
     text-decoration: none;
   }
 
-  .dark .recent-board-chip {
-    @apply bg-gray-700/70 text-gray-300;
-  }
-
   .recent-board-chip:hover {
-    @apply bg-indigo-50 text-indigo-700;
+    background: var(--nv-accent-bg);
+    border-color: color-mix(in srgb, var(--nv-accent) 24%, var(--nv-line));
+    color: var(--nv-accent);
   }
 
-  .dark .recent-board-chip:hover {
-    @apply bg-indigo-900/30 text-indigo-300;
+  .recent-board-chip:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--nv-accent) 65%, transparent);
+    outline-offset: 2px;
   }
 
   .recent-board-icon {
@@ -410,12 +407,10 @@ html {
   }
 
   .recent-board-icon-fallback {
-    @apply h-4 w-4 rounded-full bg-indigo-100 text-indigo-600 font-bold flex items-center justify-center shrink-0;
+    @apply h-4 w-4 rounded-full font-bold flex items-center justify-center shrink-0;
+    background: var(--nv-accent-bg);
+    color: var(--nv-accent);
     font-size: 10px;
-  }
-
-  .dark .recent-board-icon-fallback {
-    @apply bg-indigo-900/50 text-indigo-400;
   }
 
   .recent-board-name {
@@ -430,36 +425,38 @@ html {
   }
 
   .recent-board-remove {
-    @apply opacity-0 text-gray-400 transition-opacity duration-150 p-0.5 rounded-full cursor-pointer;
+    @apply opacity-0 transition-opacity duration-150 p-0.5 rounded-full cursor-pointer;
+    color: var(--nv-muted);
   }
 
   .recent-board-chip:hover .recent-board-remove {
     opacity: 1;
   }
 
-  .recent-board-remove:hover {
-    @apply text-red-500 bg-red-50;
+  .recent-board-chip:focus-within .recent-board-remove,
+  .recent-board-remove:focus-visible {
+    opacity: 1;
   }
 
-  .dark .recent-board-remove:hover {
-    @apply text-red-400 bg-red-900/30;
+  .recent-board-remove:hover {
+    color: var(--nv-danger);
+    background: color-mix(in srgb, var(--nv-danger) 12%, transparent);
+  }
+
+  .recent-board-remove:focus-visible,
+  .recent-boards-clear:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--nv-accent) 65%, transparent);
+    outline-offset: 2px;
   }
 
   .recent-boards-clear {
-    @apply text-gray-400 whitespace-nowrap shrink-0 cursor-pointer transition-colors duration-150;
+    @apply whitespace-nowrap shrink-0 cursor-pointer transition-colors duration-150;
+    color: var(--nv-muted);
     font-size: 10px;
   }
 
-  .dark .recent-boards-clear {
-    @apply text-gray-500;
-  }
-
   .recent-boards-clear:hover {
-    @apply text-red-500;
-  }
-
-  .dark .recent-boards-clear:hover {
-    @apply text-red-400;
+    color: var(--nv-danger);
   }
 
   /* 모바일에서는 삭제 버튼 항상 표시 (터치 환경) */
@@ -468,27 +465,6 @@ html {
       opacity: 1;
     }
   }
-
-  .recent-boards-bar {
-    background: color-mix(in srgb, var(--nv-surface) 92%, transparent);
-    border-color: var(--nv-line);
-  }
-
-  .recent-board-chip {
-    background: color-mix(in srgb, var(--nv-surface-2) 88%, transparent);
-    color: var(--nv-ink-soft);
-  }
-
-  .recent-board-chip:hover {
-    background: var(--nv-accent-bg);
-    color: var(--nv-accent);
-  }
-
-  .recent-board-icon-fallback {
-    background: var(--nv-accent-bg);
-    color: var(--nv-accent);
-  }
-
   .nv-shell {
     background:
       radial-gradient(circle at top left, rgba(46, 85, 255, 0.08), transparent 28%),
