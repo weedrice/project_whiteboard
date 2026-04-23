@@ -198,6 +198,17 @@ export interface HomeMessages {
     trendingEmpty: string
     liveActivity: string
     liveActivityTitle: string
+    siteStats: string
+    statsCards: {
+      postsToday: string
+      postsTodayDelta: string
+      activeBoards: string
+      activeBoardsMeta: string
+      newMembers: string
+      newMembersMeta: string
+      comments: string
+      commentsMeta: string
+    }
   }
   card: {
     ariaLabel: string

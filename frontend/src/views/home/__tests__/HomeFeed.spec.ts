@@ -112,7 +112,7 @@ describe('HomeFeed', () => {
         state.refetch.mockReset()
     })
 
-    it('filters the fallback hero post out of the editor picks section', () => {
+    it('keeps the fallback hero post out of duplicate post cards and renders site stats', () => {
         state.editorPicks.value = [makePost(101, 'Hero'), makePost(202, 'Second pick')]
         state.trending.value = [makePost(303, 'Trending')]
         state.liveActivity.value = [makePost(404, 'Live')]
@@ -133,10 +133,13 @@ describe('HomeFeed', () => {
             },
         })
         const cards = wrapper.findAll('[data-testid="post-card"]')
-        expect(cards.map((card) => card.attributes('data-post-id'))).toEqual(['101', '202', '303'])
+        expect(cards.map((card) => card.attributes('data-post-id'))).toEqual(['101', '303'])
         expect(cards.filter((card) => card.attributes('data-post-id') === '101')).toHaveLength(1)
         expect(cards.find((card) => card.attributes('data-variant') === 'featured')?.attributes('data-post-id')).toBe('101')
-        expect(cards.find((card) => card.attributes('data-variant') === 'compact')?.attributes('data-post-id')).toBe('202')
+        expect(cards.some((card) => card.attributes('data-variant') === 'compact')).toBe(false)
+        expect(wrapper.text()).toContain('home.landing.siteStats')
+        expect(wrapper.text()).toContain('312')
+        expect(wrapper.text()).toContain('1,824')
     })
 
     it('shows the empty state when every landing section is empty', () => {

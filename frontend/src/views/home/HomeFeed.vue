@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
-import { FileText, Sparkles } from 'lucide-vue-next'
+import { FileText, TrendingUp } from 'lucide-vue-next'
 import { useHead } from '@unhead/vue'
 import { useI18n } from 'vue-i18n'
 import EmptyState from '@/components/common/ui/EmptyState.vue'
@@ -47,9 +47,30 @@ const heroPost = computed(() =>
   ?? null,
 )
 const heroPostId = computed(() => heroPost.value?.postId ?? null)
-const visibleEditorPicks = computed(() => editorPicks.value.filter((post) => post.postId !== heroPostId.value))
 const visibleTrending = computed(() => trending.value.filter((post) => post.postId !== heroPostId.value))
 const visibleLiveActivity = computed(() => liveActivity.value.filter((post) => post.postId !== heroPostId.value))
+const siteStatsCards = computed(() => [
+  {
+    label: t('home.landing.statsCards.postsToday'),
+    value: '312',
+    meta: t('home.landing.statsCards.postsTodayDelta'),
+  },
+  {
+    label: t('home.landing.statsCards.activeBoards'),
+    value: '11',
+    meta: t('home.landing.statsCards.activeBoardsMeta'),
+  },
+  {
+    label: t('home.landing.statsCards.newMembers'),
+    value: '+47',
+    meta: t('home.landing.statsCards.newMembersMeta'),
+  },
+  {
+    label: t('home.landing.statsCards.comments'),
+    value: '1,824',
+    meta: t('home.landing.statsCards.commentsMeta'),
+  },
+])
 
 useHead({
   titleTemplate: '%s',
@@ -126,22 +147,25 @@ useHead({
 
           <div class="space-y-3">
             <div class="flex items-center gap-2">
-              <Sparkles class="h-4 w-4 text-[var(--nv-accent)]" />
-              <p class="nv-home-section-kicker">{{ $t('home.landing.editorsPicks') }}</p>
+              <TrendingUp class="h-4 w-4 text-[var(--nv-accent)]" />
+              <p class="nv-home-section-kicker">{{ $t('home.landing.siteStats') }}</p>
             </div>
-            <template v-if="visibleEditorPicks.length">
-              <HomePostCard
-                v-for="post in visibleEditorPicks"
-                :key="post.postId"
-                :post="post"
-                variant="compact"
-              />
-            </template>
-            <div
-              v-else
-              class="rounded-[24px] border border-dashed border-[var(--nv-line)] px-5 py-6 text-sm text-[var(--nv-muted)]"
-            >
-              {{ $t('home.landing.editorsPicksEmpty') }}
+            <div class="grid grid-cols-2 gap-3">
+              <article
+                v-for="card in siteStatsCards"
+                :key="card.label"
+                class="rounded-[24px] border border-[var(--nv-line)] bg-[var(--nv-surface)] px-4 py-4 shadow-[var(--nv-shadow-soft)]"
+              >
+                <p class="text-[11px] font-medium uppercase tracking-[0.18em] text-[var(--nv-muted)]">
+                  {{ card.label }}
+                </p>
+                <p class="mt-3 text-2xl font-semibold tracking-[-0.05em] text-[var(--nv-ink)]">
+                  {{ card.value }}
+                </p>
+                <p class="mt-2 text-xs text-[var(--nv-ink-soft)]">
+                  {{ card.meta }}
+                </p>
+              </article>
             </div>
           </div>
         </div>
