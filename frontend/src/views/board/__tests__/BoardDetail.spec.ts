@@ -9,8 +9,7 @@ const {
   addRecentBoard,
   subscribeMutate,
   boardPayload,
-  postsPayload,
-  noticesPayload
+  postsPayload
 } = vi.hoisted(() => ({
   route: {
     params: {
@@ -28,13 +27,13 @@ const {
   subscribeMutate: vi.fn(),
   boardPayload: {
     boardId: 1,
-    boardName: '자유게시판',
+    boardName: 'Free Board',
     boardUrl: 'free',
-    description: '자유롭게 이야기하는 공간입니다.',
+    description: 'Open discussion board',
     iconUrl: '',
     sortOrder: 1,
     subscriberCount: 12,
-    adminDisplayName: '관리자',
+    adminDisplayName: 'Admin',
     adminUserId: 44,
     isSubscribed: false,
     isActive: true,
@@ -43,8 +42,8 @@ const {
     allowNsfw: false,
     isAdmin: true,
     categories: [
-      { categoryId: 1, name: '일반', sortOrder: 1, isActive: true, minWriteRole: 'USER' },
-      { categoryId: 2, name: '질문', sortOrder: 2, isActive: true, minWriteRole: 'USER' }
+      { categoryId: 1, name: '\uC77C\uBC18', sortOrder: 1, isActive: true, minWriteRole: 'USER' },
+      { categoryId: 2, name: 'QnA', sortOrder: 2, isActive: true, minWriteRole: 'USER' }
     ],
     latestPosts: [],
     agentUseYn: false
@@ -53,8 +52,7 @@ const {
     content: [],
     totalElements: 0,
     totalPages: 0
-  },
-  noticesPayload: []
+  }
 }))
 
 vi.mock('vue-router', async (importOriginal) => {
@@ -104,13 +102,13 @@ vi.mock('@/composables/useBoard', () => ({
     }),
     useBoardPosts: () => ({
       data: ref(postsPayload),
-      isLoading: ref(false)
-    }),
-    useBoardNotices: () => ({
-      data: ref(noticesPayload)
+      isLoading: ref(false),
+      isFetching: ref(false),
+      error: ref(null)
     }),
     useSubscribeBoard: () => ({
-      mutate: subscribeMutate
+      mutate: subscribeMutate,
+      isPending: ref(false)
     })
   })
 }))
@@ -159,8 +157,8 @@ describe('BoardDetail', () => {
       }
     })
 
-    expect(wrapper.text()).toContain('질문')
-    expect(wrapper.text()).not.toContain('일반')
+    expect(wrapper.text()).toContain('QnA')
+    expect(wrapper.text()).not.toContain('\uC77C\uBC18')
     expect(wrapper.text()).not.toContain('board.detail.filter.concept')
     expect(wrapper.html()).toContain('nv-board-header-panel')
     expect(wrapper.html()).toContain('nv-board-toolbar-sticky')
@@ -183,7 +181,7 @@ describe('BoardDetail', () => {
       }
     })
 
-    const categoryButton = wrapper.findAll('button').find((button) => button.text() === '질문')
+    const categoryButton = wrapper.findAll('button').find((button) => button.text() === 'QnA')
 
     await categoryButton?.trigger('click')
 
@@ -214,7 +212,7 @@ describe('BoardDetail', () => {
     })
 
     const searchInput = wrapper.find('#board-search-input')
-    const searchSelect = wrapper.find('select[aria-label="검색 범위"]')
+    const searchSelect = wrapper.find('select[aria-label="Search scope"]')
     const searchButton = wrapper.findAll('button').find((button) => button.text() === 'search.doSearch')
 
     await searchInput.setValue('vue')
@@ -230,40 +228,25 @@ describe('BoardDetail', () => {
     })
   })
 
-  it('preserves the server-provided order for non-default sorts', () => {
-    route.query = { sort: 'likeCount,desc' }
-    postsPayload.content = [
-      {
-        postId: 10,
-        rowNum: 2,
-        title: 'First from server',
-        likeCount: 1,
-        viewCount: 1,
-        commentCount: 0,
-        createdAt: '2026-04-22T10:00:00',
-        author: { displayName: 'A' }
-      } as never,
-      {
-        postId: 11,
-        rowNum: 1,
-        title: 'Second from server',
-        likeCount: 99,
-        viewCount: 1,
-        commentCount: 0,
-        createdAt: '2026-04-22T09:00:00',
-        author: { displayName: 'B' }
-      } as never
-    ]
-    postsPayload.totalElements = 2
-    postsPayload.totalPages = 1
-
+  it('updates the current sort when the list emits a new sort value', async () => {
     const PostListStub = defineComponent({
       name: 'PostListStub',
       props: {
-        posts: { type: Array, default: () => [] }
+        currentSort: {
+          type: String,
+          default: ''
+        }
       },
-      setup(props) {
-        return () => h('div', { 'data-testid': 'post-order' }, (props.posts as Array<{ postId: number }>).map((post) => post.postId).join(','))
+      emits: ['update:sort'],
+      setup(props, { emit }) {
+        return () => h(
+          'button',
+          {
+            'data-testid': 'sort-proxy',
+            onClick: () => emit('update:sort', 'likeCount,desc')
+          },
+          props.currentSort
+        )
       }
     })
 
@@ -283,6 +266,10 @@ describe('BoardDetail', () => {
       }
     })
 
-    expect(wrapper.get('[data-testid=\"post-order\"]').text()).toBe('10,11')
+    expect(wrapper.get('[data-testid="sort-proxy"]').text()).toBe('createdAt,desc')
+
+    await wrapper.get('[data-testid="sort-proxy"]').trigger('click')
+
+    expect(wrapper.get('[data-testid="sort-proxy"]').text()).toBe('likeCount,desc')
   })
 })

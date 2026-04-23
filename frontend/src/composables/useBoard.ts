@@ -14,7 +14,6 @@ interface BoardPostParams {
     categoryId?: number
     sort?: string
     q?: string
-    type?: string
     searchType?: string
 }
 
@@ -67,47 +66,57 @@ export function useBoard() {
     }
 
     // Fetch posts for a board (supports search)
-    const useBoardPosts = (boardUrl: Ref<string>, params: Ref<BoardPostParams>, isSearching?: Ref<boolean>, enabled?: Ref<boolean>) => {
+    const useBoardPosts = (
+        boardUrl: Ref<string>,
+        params: Ref<BoardPostParams>,
+        isSearching?: Ref<boolean>,
+        enabled?: Ref<boolean>,
+        options: { requestConfig?: AxiosRequestConfig } & Record<string, unknown> = {}
+    ) => {
+        const { requestConfig, ...queryOptions } = options
         return useQuery({
             queryKey: ['board', boardUrl, 'posts', params, isSearching],
             queryFn: async () => {
                 if (isSearching?.value) {
                     const { searchType, ...restParams } = params.value
-                    const { data } = await searchApi.searchPosts({
+                    const searchParams = {
                         ...restParams,
-                        type: params.value.type ?? searchType,
+                        searchType,
                         boardUrl: boardUrl.value
-                    })
+                    }
+                    const { data } = requestConfig
+                        ? await searchApi.searchPosts(searchParams, requestConfig)
+                        : await searchApi.searchPosts(searchParams)
                     return data.data
                 } else {
-                    const { data } = await boardApi.getPosts(boardUrl.value, params.value)
+                    const { data } = requestConfig
+                        ? await boardApi.getPosts(boardUrl.value, params.value, requestConfig)
+                        : await boardApi.getPosts(boardUrl.value, params.value)
                     return data.data
                 }
             },
             enabled: computed(() => !!boardUrl.value && (enabled?.value ?? true)),
             placeholderData: (previousData) => previousData,
-        })
-    }
-
-    // Fetch notices for a board
-    const useBoardNotices = (boardUrl: Ref<string>, enabled?: Ref<boolean>) => {
-        return useQuery({
-            queryKey: ['board', boardUrl, 'notices'],
-            queryFn: async () => {
-                const { data } = await boardApi.getNotices(boardUrl.value)
-                return data.data
-            },
-            enabled: computed(() => !!boardUrl.value && (enabled?.value ?? true)),
+            ...queryOptions
         })
     }
 
     // Subscribe/Unsubscribe mutation
-    const useSubscribeBoard = () => {
+    const useSubscribeBoard = (options: { requestConfig?: AxiosRequestConfig } & Record<string, unknown> = {}) => {
+        const { requestConfig, ...mutationOptions } = options
         return useMutation({
             mutationFn: async ({ boardUrl, isSubscribed }: { boardUrl: string, isSubscribed: boolean }) => {
                 if (isSubscribed) {
+                    if (requestConfig) {
+                        await boardApi.unsubscribeBoard(boardUrl, requestConfig)
+                        return
+                    }
                     await boardApi.unsubscribeBoard(boardUrl)
                 } else {
+                    if (requestConfig) {
+                        await boardApi.subscribeBoard(boardUrl, requestConfig)
+                        return
+                    }
                     await boardApi.subscribeBoard(boardUrl)
                 }
             },
@@ -116,7 +125,8 @@ export function useBoard() {
                 queryClient.invalidateQueries({ queryKey: ['board', boardUrl] })
                 queryClient.invalidateQueries({ queryKey: ['boards'] })
                 queryClient.invalidateQueries({ queryKey: ['boards', 'subscriptions'] })
-            }
+            },
+            ...mutationOptions
         })
     }
 
@@ -198,7 +208,6 @@ export function useBoard() {
         useSubscribedBoards,
         useBoardDetail,
         useBoardPosts,
-        useBoardNotices,
         useSubscribeBoard,
         useBoardCategories,
         useCreateBoard,

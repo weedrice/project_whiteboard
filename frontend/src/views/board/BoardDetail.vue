@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Search, ShieldCheck, User, X } from 'lucide-vue-next'
 import { useHead } from '@unhead/vue'
@@ -11,30 +11,49 @@ import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import UserMenu from '@/components/common/widgets/UserMenu.vue'
 import { useBoard } from '@/composables/useBoard'
+import { useBoardListState } from '@/composables/useBoardListState'
 import { useRecentBoards } from '@/composables/useRecentBoards'
 import { useAuthStore } from '@/stores/auth'
-import type { Category, PostSummary } from '@/types'
+import type { Category } from '@/types'
+import { canWriteBoardPost, isGeneralCategoryName } from '@/utils/board'
 import { isRestrictedResourceError } from '@/utils/errorHandler'
 import { getOptimizedBoardIconUrl, handleImageError } from '@/utils/image'
 import { isInputFocused } from '@/utils/keyboard'
-
-const GENERAL_CATEGORY_NAMES = new Set(['일반', 'general'])
-
-const isGeneralCategory = (name?: string | null): boolean => {
-  const normalized = name?.trim().toLowerCase()
-  return normalized ? GENERAL_CATEGORY_NAMES.has(normalized) : false
-}
 
 const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 
-const { useBoardDetail, useBoardPosts, useBoardNotices, useSubscribeBoard } = useBoard()
+const {
+  page,
+  searchQuery,
+  searchType,
+  isSearching,
+  selectedCategoryId,
+  sort,
+  queryParams,
+  searchSummary,
+  buildPaginationRoute,
+  handleSearch,
+  clearSearch,
+  toggleCategory,
+  handleSortChange,
+  handlePageChange,
+  resetListState
+} = useBoardListState(route, router)
+
+const { useBoardDetail, useBoardPosts, useSubscribeBoard } = useBoard()
 const { addRecentBoard } = useRecentBoards()
 
 const boardUrl = computed(() => route.params.boardUrl as string)
 const currentPostId = computed(() => route.params.postId as string | undefined)
+const searchInputElementId = 'board-search-input'
+
+const buildBoardListRoute = () => ({
+  path: `/board/${boardUrl.value}`,
+  query: route.query
+})
 
 const {
   data: board,
@@ -45,10 +64,18 @@ const {
   requestConfig: { skipGlobalErrorHandler: true }
 })
 
+function decodeBoardUrlTitle(rawBoardUrl: string): string {
+  try {
+    return decodeURIComponent(rawBoardUrl).trim()
+  } catch {
+    return rawBoardUrl.trim()
+  }
+}
+
 const boardTitle = computed(() => {
   const boardName = board.value?.boardName?.trim()
   if (boardName) return boardName
-  return decodeURIComponent(boardUrl.value || '').trim() || 'Board'
+  return decodeBoardUrlTitle(boardUrl.value || '') || 'Board'
 })
 
 useHead({
@@ -67,243 +94,87 @@ watch([() => route.name, boardTitle], ([routeName, title]) => {
   document.title = `${title} - ${t('common.appName')}`
 }, { immediate: true })
 
-const page = ref(0)
-const size = ref(20)
-const searchQuery = ref('')
-const searchType = ref('TITLE_CONTENT')
-const isSearching = ref(false)
-const selectedCategoryId = ref<number | null>(null)
-const sort = ref('createdAt,desc')
-const searchInputElementId = 'board-search-input'
-
-const parsePageFromQuery = (value: unknown): number => {
-  const parsed = Number.parseInt(String(value ?? '1'), 10)
-  if (Number.isNaN(parsed) || parsed < 1) return 0
-  return parsed - 1
-}
-
-const parseCategoryIdFromQuery = (value: unknown): number | null => {
-  const parsed = Number.parseInt(String(value ?? ''), 10)
-  if (Number.isNaN(parsed) || parsed <= 0) return null
-  return parsed
-}
-
-const buildListQuery = (
-  targetPage: number,
-  searchState?: { q: string; searchType: string } | null,
-  categoryState?: number | null
-) => {
-  const nextQuery = { ...route.query }
-
-  if (targetPage <= 0) {
-    delete nextQuery.page
-  } else {
-    nextQuery.page = String(targetPage + 1)
-  }
-
-  const resolvedSearchState = searchState === undefined
-    ? (isSearching.value && searchQuery.value.trim()
-      ? { q: searchQuery.value.trim(), searchType: searchType.value }
-      : null)
-    : searchState
-  const resolvedCategoryState = categoryState === undefined ? selectedCategoryId.value : categoryState
-
-  if (resolvedSearchState?.q) {
-    nextQuery.q = resolvedSearchState.q
-    nextQuery.type = resolvedSearchState.searchType
-  } else {
-    delete nextQuery.q
-    delete nextQuery.type
-  }
-
-  if (resolvedCategoryState !== null) {
-    nextQuery.categoryId = String(resolvedCategoryState)
-  } else {
-    delete nextQuery.categoryId
-  }
-
-  return nextQuery
-}
-
-const syncListQuery = (
-  targetPage: number,
-  searchState?: { q: string; searchType: string } | null,
-  categoryState?: number | null
-) => {
-  router.replace({
-    path: route.path,
-    query: buildListQuery(targetPage, searchState, categoryState)
-  })
-}
-
-const buildPaginationRoute = (targetPage: number) => ({
-  path: route.path,
-  query: buildListQuery(targetPage)
-})
-
-const buildBoardListRoute = () => ({
-  path: `/board/${boardUrl.value}`,
-  query: route.query
-})
-
-const queryParams = computed(() => {
-  const params: {
-    page: number
-    size: number
-    sort: string
-    q?: string
-    type?: string
-    categoryId?: number
-  } = {
-    page: page.value,
-    size: size.value,
-    sort: sort.value
-  }
-
-  if (isSearching.value && searchQuery.value.trim()) {
-    params.q = searchQuery.value.trim()
-    params.type = searchType.value
-  } else if (selectedCategoryId.value !== null) {
-    params.categoryId = selectedCategoryId.value
-  }
-
-  return params
-})
-
-watch(() => route.query, (newQuery) => {
-  const nextPage = parsePageFromQuery(newQuery.page)
-  if (page.value !== nextPage) {
-    page.value = nextPage
-  }
-
-  const routeQuery = typeof newQuery.q === 'string' ? newQuery.q.trim() : ''
-  const routeSearchType = typeof newQuery.type === 'string' ? newQuery.type : 'TITLE_CONTENT'
-  const routeCategoryId = parseCategoryIdFromQuery(newQuery.categoryId)
-  const shouldSearch = routeQuery.length > 0
-
-  if (searchQuery.value !== routeQuery) {
-    searchQuery.value = routeQuery
-  }
-  if (searchType.value !== routeSearchType) {
-    searchType.value = routeSearchType
-  }
-  if (isSearching.value !== shouldSearch) {
-    isSearching.value = shouldSearch
-  }
-  if (selectedCategoryId.value !== routeCategoryId) {
-    selectedCategoryId.value = routeCategoryId
-  }
-}, { immediate: true })
-
-watch(page, (newPage) => {
-  if (newPage === parsePageFromQuery(route.query.page)) {
-    return
-  }
-  syncListQuery(newPage)
-})
-
 const boardContentEnabled = computed(() => !!board.value && !boardError.value)
-const { data: postsData, isLoading: isPostsLoading } = useBoardPosts(boardUrl, queryParams, isSearching, boardContentEnabled)
-const { data: noticesData } = useBoardNotices(boardUrl, boardContentEnabled)
-const { mutate: subscribeMutate } = useSubscribeBoard()
+const {
+  data: postsData,
+  isLoading: isPostsLoading,
+  isFetching: isPostsFetching,
+  error: postsError
+} = useBoardPosts(boardUrl, queryParams, isSearching, boardContentEnabled, {
+  meta: { errorMessage: false },
+  requestConfig: { skipGlobalErrorHandler: true }
+})
+const {
+  mutate: subscribeMutate,
+  isPending: isSubscribePending
+} = useSubscribeBoard({
+  meta: { errorMessage: false }
+})
 
 const categories = computed(() => {
-  return board.value?.categories?.filter((category) => !isGeneralCategory(category.name)) ?? []
+  return board.value?.categories?.filter((category) => !isGeneralCategoryName(category.name)) ?? []
 })
 
 const selectedCategory = computed(() => {
   return categories.value.find((category) => category.categoryId === selectedCategoryId.value) ?? null
 })
 
-const posts = computed(() => {
-  const noticePosts = !isSearching.value && page.value === 0
-    ? (noticesData.value ?? []).map((notice) => ({ ...notice, isNotice: true }))
-    : []
-
-  const data = postsData.value?.content ?? []
-  if (data.length === 0) {
-    return noticePosts
-  }
-
-  return [...noticePosts, ...data]
-})
-
+const posts = computed(() => postsData.value?.content ?? [])
 const totalCount = computed(() => postsData.value?.totalElements || 0)
 const totalPages = computed(() => postsData.value?.totalPages || 0)
-const isLoading = computed(() => isBoardLoading.value || isPostsLoading.value)
+const isInitialLoading = computed(() => isBoardLoading.value && !board.value)
+const isPostsBusy = computed(() => isPostsLoading.value || isPostsFetching.value)
+
 const error = computed(() => {
-  if (!boardError.value) return ''
-  if (isRestrictedResourceError(boardError.value)) {
-    return '접근 권한이 없는 게시판입니다.'
+  const sourceError = boardError.value ?? postsError.value
+  if (!sourceError) return ''
+  if (isRestrictedResourceError(sourceError)) {
+    return 'This board is restricted.'
   }
   return t('board.loadFailed')
 })
 
-const canWrite = computed(() => {
-  if (!authStore.isAuthenticated || !board.value) return false
+const canWrite = computed(() => (
+  canWriteBoardPost(board.value, authStore.isAuthenticated, authStore.user?.role)
+))
 
-  const generalCategory = board.value.categories?.find((category) => isGeneralCategory(category.name))
-  if (!generalCategory) return true
-
-  const minRole = generalCategory.minWriteRole || 'USER'
-  const userRole = authStore.user?.role || 'USER'
-  const isBoardAdmin = board.value.isAdmin
-
-  if (minRole === 'SUPER_ADMIN') return userRole === 'SUPER_ADMIN'
-  if (minRole === 'BOARD_ADMIN') return userRole === 'SUPER_ADMIN' || isBoardAdmin
-  return true
-})
-
-const searchSummary = computed(() => {
-  if (!isSearching.value || !searchQuery.value.trim()) {
-    return ''
+const boardStats = computed(() => ([
+  {
+    label: 'SUBS',
+    value: String(board.value?.subscriberCount ?? 0)
+  },
+  {
+    label: 'CATS',
+    value: String(categories.value.length)
+  },
+  {
+    label: 'POSTS',
+    value: String(totalCount.value)
   }
-  return `"${searchQuery.value.trim()}" 검색 결과`
-})
+]))
 
-function handleSearch() {
-  const trimmedQuery = searchQuery.value.trim()
-  if (!trimmedQuery) {
-    clearSearch()
-    return
-  }
+const sortOptions = computed(() => ([
+  { value: 'createdAt,desc', label: t('common.date') },
+  { value: 'likeCount,desc', label: t('common.likes') },
+  { value: 'viewCount,desc', label: t('common.views') }
+]))
 
-  isSearching.value = true
-  selectedCategoryId.value = null
-  page.value = 0
-  syncListQuery(0, {
-    q: trimmedQuery,
-    searchType: searchType.value
-  }, null)
+function onCategorySelect(category: Category | null) {
+  toggleCategory(category?.categoryId ?? null)
 }
 
-function clearSearch() {
-  searchQuery.value = ''
-  isSearching.value = false
-  page.value = 0
-  syncListQuery(0, null)
+function onPageChange(newPage: number) {
+  handlePageChange(newPage, totalPages.value)
 }
 
-function toggleCategory(category: Category | null) {
-  const nextCategoryId = category?.categoryId ?? null
-  if (selectedCategoryId.value === nextCategoryId) {
-    return
-  }
-
-  selectedCategoryId.value = nextCategoryId
-  searchQuery.value = ''
-  isSearching.value = false
-  page.value = 0
-  syncListQuery(0, null, nextCategoryId)
-}
-
-function handleSortChange(newSort: string) {
-  sort.value = newSort
-  page.value = 0
+function isSortOptionActive(optionValue: string): boolean {
+  const [optionField] = optionValue.split(',')
+  const [currentField] = sort.value.split(',')
+  return optionField === currentField
 }
 
 function handleSubscribe() {
-  if (!board.value) return
+  if (!board.value || isSubscribePending.value) return
   if (board.value.isSubscribed && !window.confirm(t('user.subscriptions.unsubscribeConfirm'))) return
 
   subscribeMutate({
@@ -312,16 +183,26 @@ function handleSubscribe() {
   })
 }
 
-function handlePageChange(newPage: number) {
-  const maxPage = Math.max(totalPages.value - 1, 0)
-  page.value = Math.min(Math.max(newPage, 0), maxPage)
+function hasInteractiveFocus(): boolean {
+  if (typeof document === 'undefined') {
+    return false
+  }
+
+  const activeElement = document.activeElement as HTMLElement | null
+  if (!activeElement || activeElement === document.body) {
+    return false
+  }
+
+  if (activeElement.isContentEditable) {
+    return true
+  }
+
+  const tagName = activeElement.tagName.toLowerCase()
+  return ['input', 'textarea', 'select', 'button', 'a'].includes(tagName)
 }
 
 watch(() => route.params.boardUrl, () => {
-  searchQuery.value = ''
-  isSearching.value = false
-  selectedCategoryId.value = null
-  page.value = 0
+  resetListState()
 })
 
 watch(board, (newBoard) => {
@@ -338,7 +219,7 @@ const handleKeyDown = (event: KeyboardEvent) => {
   const { key, shiftKey, ctrlKey, altKey, metaKey } = event
 
   if (ctrlKey || altKey || metaKey) return
-  if (isInputFocused()) return
+  if (isInputFocused() || hasInteractiveFocus()) return
 
   if (shiftKey) {
     if (key === '[' || key === '{') {
@@ -377,7 +258,7 @@ const handleKeyDown = (event: KeyboardEvent) => {
       break
     case 'f':
     case 'F':
-      if (authStore.isAuthenticated) {
+      if (authStore.isAuthenticated && !isSubscribePending.value) {
         event.preventDefault()
         handleSubscribe()
       }
@@ -401,32 +282,46 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="nv-board-shell space-y-3 sm:space-y-6">
-    <div v-if="isLoading && !board" class="space-y-4 sm:space-y-6">
+  <div class="nv-board-shell space-y-4 sm:space-y-6">
+    <div v-if="isInitialLoading" class="space-y-4 sm:space-y-6">
       <section class="nv-board-panel nv-board-header-panel p-4 sm:p-6">
-        <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div class="flex items-start gap-4">
-            <BaseSkeleton width="5rem" height="5rem" rounded="rounded-[24px]" className="flex-shrink-0" />
-            <div class="space-y-3">
-              <BaseSkeleton width="220px" height="34px" />
-              <div class="flex gap-3">
-                <BaseSkeleton width="90px" height="18px" />
-                <BaseSkeleton width="120px" height="18px" />
+        <div class="space-y-5">
+          <div class="space-y-3">
+            <BaseSkeleton width="96px" height="14px" />
+            <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div class="flex items-start gap-4">
+                <BaseSkeleton width="5rem" height="5rem" rounded="rounded-[24px]" className="flex-shrink-0" />
+                <div class="space-y-3">
+                  <BaseSkeleton width="220px" height="34px" />
+                  <div class="flex gap-3">
+                    <BaseSkeleton width="90px" height="18px" />
+                    <BaseSkeleton width="120px" height="18px" />
+                  </div>
+                  <BaseSkeleton width="320px" height="18px" />
+                </div>
               </div>
-              <BaseSkeleton width="320px" height="18px" />
+              <div class="space-y-2 lg:w-56">
+                <BaseSkeleton width="100%" height="96px" rounded="rounded-[28px]" />
+                <BaseSkeleton width="100%" height="42px" rounded="rounded-full" />
+              </div>
             </div>
           </div>
-          <div class="space-y-2 lg:w-52">
-            <BaseSkeleton width="100%" height="34px" rounded="rounded-full" />
-            <BaseSkeleton width="100%" height="42px" rounded="rounded-full" />
+
+          <div class="grid gap-3 sm:grid-cols-3">
+            <BaseSkeleton v-for="index in 3" :key="index" width="100%" height="72px" rounded="rounded-[24px]" />
           </div>
         </div>
       </section>
 
       <section class="nv-board-panel overflow-hidden">
         <div class="border-b border-[var(--nv-line)] px-4 py-4 sm:px-5">
-          <div class="flex flex-wrap gap-2">
-            <BaseSkeleton v-for="index in 4" :key="index" width="72px" height="36px" rounded="rounded-full" />
+          <div class="flex flex-col gap-4">
+            <div class="flex flex-wrap gap-2">
+              <BaseSkeleton v-for="index in 4" :key="index" width="72px" height="36px" rounded="rounded-full" />
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <BaseSkeleton v-for="index in 3" :key="`sort-${index}`" width="88px" height="34px" rounded="rounded-full" />
+            </div>
           </div>
         </div>
         <div class="space-y-3 px-4 py-5 sm:px-5">
@@ -435,65 +330,85 @@ onUnmounted(() => {
       </section>
     </div>
 
-    <section v-else-if="error" class="nv-board-panel px-4 py-12 text-center text-sm text-red-500 sm:px-6">
-      {{ error }}
+    <section v-else-if="error" class="nv-board-panel nv-board-state-panel px-4 py-12 text-center sm:px-6">
+      <p class="nv-board-state-kicker">BOARD</p>
+      <p class="mt-3 text-sm text-red-500">{{ error }}</p>
     </section>
 
     <template v-else-if="board">
       <section class="nv-board-panel nv-board-header-panel p-4 sm:p-6">
-        <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-          <div class="flex min-w-0 flex-1 items-start gap-4 sm:gap-5">
-            <router-link :to="buildBoardListRoute()" class="nv-board-icon-wrap flex-shrink-0">
-              <img
-                v-if="board.iconUrl"
-                :src="getOptimizedBoardIconUrl(board.iconUrl, 96)"
-                class="nv-board-icon"
-                alt=""
-                @error="handleImageError($event)"
-              />
-              <div v-else class="nv-board-icon-fallback">
-                <span>{{ board.boardName?.[0] || '#' }}</span>
-              </div>
-            </router-link>
+        <div class="nv-board-header-grid">
+          <div class="min-w-0 space-y-5">
+            <div class="flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-[0.22em] text-[var(--nv-muted)]">
+              <span class="nv-board-kicker">Board / {{ board.boardUrl }}</span>
+              <span v-if="board.isSubscribed" class="nv-board-status-pill">Following</span>
+            </div>
 
-            <div class="min-w-0 flex-1 space-y-3">
-              <router-link :to="buildBoardListRoute()" class="inline-flex max-w-full items-center gap-3">
-                <h1 class="truncate text-2xl font-semibold tracking-[-0.04em] text-[var(--nv-ink)] sm:text-3xl">
-                  {{ board.boardName }}
-                </h1>
+            <div class="flex min-w-0 items-start gap-4 sm:gap-5">
+              <router-link :to="buildBoardListRoute()" class="nv-board-icon-wrap flex-shrink-0">
+                <img
+                  v-if="board.iconUrl"
+                  :src="getOptimizedBoardIconUrl(board.iconUrl, 96)"
+                  class="nv-board-icon"
+                  alt=""
+                  @error="handleImageError($event)"
+                />
+                <div v-else class="nv-board-icon-fallback">
+                  <span>{{ board.boardName?.[0] || '#' }}</span>
+                </div>
               </router-link>
 
-              <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-[var(--nv-ink-soft)]">
-                <span class="inline-flex items-center gap-1.5">
-                  <User class="h-4 w-4" />
-                  구독자 {{ board.subscriberCount || 0 }}
-                </span>
-                <span class="inline-flex items-center gap-1.5">
-                  <span class="font-medium text-[var(--nv-ink)]">관리자</span>
-                  <UserMenu
-                    v-if="board.adminUserId"
-                    :user-id="board.adminUserId"
-                    :display-name="board.adminDisplayName || t('common.defaultAdminName')"
-                    size="inherit"
-                  />
-                  <span v-else>{{ board.adminDisplayName || '관리자' }}</span>
-                </span>
-              </div>
+              <div class="min-w-0 flex-1 space-y-3">
+                <router-link :to="buildBoardListRoute()" class="inline-flex max-w-full items-center gap-3">
+                  <h1 class="truncate text-3xl font-semibold tracking-[-0.05em] text-[var(--nv-ink)] sm:text-4xl">
+                    {{ board.boardName }}
+                  </h1>
+                </router-link>
 
-              <p class="max-w-3xl text-sm leading-6 text-[var(--nv-ink-soft)] sm:text-[15px]">
-                {{ board.description || '게시판 설명이 없습니다.' }}
-              </p>
+                <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-[var(--nv-ink-soft)]">
+                  <span class="inline-flex items-center gap-1.5">
+                    <User class="h-4 w-4" />
+                    <UserMenu
+                      v-if="board.adminUserId"
+                      :user-id="board.adminUserId"
+                      :display-name="board.adminDisplayName || t('board.detail.defaultAdminName')"
+                      size="inherit"
+                    />
+                    <span v-else>{{ board.adminDisplayName || t('board.detail.defaultAdminName') }}</span>
+                  </span>
+                  <span class="inline-flex items-center gap-1.5 text-[var(--nv-muted)]">
+                    <span class="nv-board-dot" aria-hidden="true"></span>
+                    <span>{{ board.subscriberCount || 0 }}</span>
+                  </span>
+                </div>
+
+                <p class="max-w-3xl text-sm leading-6 text-[var(--nv-ink-soft)] sm:text-[15px]">
+                  {{ board.description || t('board.list.noDesc') }}
+                </p>
+              </div>
             </div>
           </div>
 
-          <div class="flex w-full flex-col gap-2 lg:w-52 lg:flex-shrink-0">
-            <div class="flex gap-2 lg:justify-end">
+          <aside class="nv-board-action-card">
+            <div class="space-y-3">
+              <p class="nv-board-kicker">At A Glance</p>
+              <div class="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
+                <div v-for="stat in boardStats" :key="stat.label" class="nv-board-stat-card">
+                  <span class="nv-board-stat-label">{{ stat.label }}</span>
+                  <strong class="nv-board-stat-value">{{ stat.value }}</strong>
+                </div>
+              </div>
+            </div>
+
+            <div class="flex flex-col gap-2">
               <BaseButton
                 v-if="authStore.isAuthenticated"
                 @click="handleSubscribe"
                 size="sm"
                 :variant="board.isSubscribed ? 'secondary' : 'primary'"
-                class="flex-1 lg:flex-none"
+                :disabled="isSubscribePending"
+                :aria-busy="isSubscribePending ? 'true' : 'false'"
+                class="w-full"
               >
                 {{ board.isSubscribed ? $t('common.unsubscribe') : $t('common.subscribe') }}
               </BaseButton>
@@ -515,7 +430,13 @@ onUnmounted(() => {
             >
               {{ $t('common.write') }}
             </router-link>
-          </div>
+
+            <p class="text-xs text-[var(--nv-muted)]">
+              <span class="font-medium text-[var(--nv-ink-soft)]">/</span> search
+              <span class="mx-2 text-[var(--nv-line)]">|</span>
+              <span class="font-medium text-[var(--nv-ink-soft)]">n</span> write
+            </p>
+          </aside>
         </div>
       </section>
 
@@ -524,16 +445,41 @@ onUnmounted(() => {
       </div>
 
       <section id="board-post-list" class="nv-board-panel overflow-hidden">
-        <div class="nv-board-toolbar-sticky border-b border-[var(--nv-line)] px-4 py-4 sm:px-5">
-          <div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-            <div class="min-w-0 space-y-3">
+        <div class="nv-board-toolbar-sticky border-b border-[var(--nv-line)]">
+          <div class="nv-board-toolbar-shell px-4 py-4 sm:px-5">
+            <div class="flex flex-col gap-4">
+              <div class="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
+                <div class="min-w-0">
+                  <p class="nv-board-kicker mb-2">Post Index</p>
+                  <p class="text-sm font-medium text-[var(--nv-ink)] sm:text-base">
+                    <template v-if="isSearching">{{ searchSummary }}</template>
+                    <template v-else-if="selectedCategory">{{ selectedCategory.name }}</template>
+                    <template v-else>{{ $t('board.detail.filter.all') }}</template>
+                  </p>
+                </div>
+
+                <div class="flex flex-wrap gap-2">
+                  <button
+                    v-for="option in sortOptions"
+                    :key="option.value"
+                    type="button"
+                    class="nv-board-sort-pill"
+                    :class="{ 'is-active': isSortOptionActive(option.value) }"
+                    :aria-pressed="isSortOptionActive(option.value)"
+                    @click="handleSortChange(option.value)"
+                  >
+                    {{ option.label }}
+                  </button>
+                </div>
+              </div>
+
               <div class="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
                   class="nv-board-filter-chip"
                   :class="{ 'is-active': selectedCategoryId === null }"
                   :aria-pressed="selectedCategoryId === null"
-                  @click="toggleCategory(null)"
+                  @click="onCategorySelect(null)"
                 >
                   {{ $t('board.detail.filter.all') }}
                 </button>
@@ -544,59 +490,50 @@ onUnmounted(() => {
                   class="nv-board-filter-chip"
                   :class="{ 'is-active': selectedCategoryId === category.categoryId }"
                   :aria-pressed="selectedCategoryId === category.categoryId"
-                  @click="toggleCategory(category)"
+                  @click="onCategorySelect(category)"
                 >
                   {{ category.name }}
                 </button>
               </div>
 
-              <p
-                v-if="isSearching || selectedCategory"
-                class="text-xs font-medium text-[var(--nv-muted)] sm:text-sm"
-              >
-                <template v-if="isSearching">{{ searchSummary }}</template>
-                <template v-else-if="selectedCategory">{{ selectedCategory.name }} 카테고리</template>
-              </p>
-            </div>
-
-            <div class="w-full xl:max-w-xl list-search-mobile">
-              <div class="list-search-row">
-                <div class="list-search-group">
-                  <select v-model="searchType" class="list-search-select-inline" aria-label="검색 범위">
+              <div class="nv-board-search-row">
+                <div class="nv-board-search-group">
+                  <select v-model="searchType" class="nv-board-search-select" aria-label="Search scope">
                     <option value="TITLE_CONTENT">{{ $t('board.detail.searchType.titleContent') }}</option>
                     <option value="TITLE">{{ $t('board.detail.searchType.title') }}</option>
                     <option value="CONTENT">{{ $t('board.detail.searchType.content') }}</option>
                     <option value="AUTHOR">{{ $t('board.detail.searchType.author') }}</option>
-                    <option value="TAG">{{ $t('board.detail.searchType.tag') }}</option>
                   </select>
 
-                  <div class="list-search-input-inner">
+                  <div class="nv-board-search-input-wrap">
                     <BaseInput
                       :id="searchInputElementId"
                       v-model="searchQuery"
+                      :label="$t('board.detail.searchPlaceholder')"
+                      :aria-label="$t('board.detail.searchPlaceholder')"
                       :placeholder="$t('board.detail.searchPlaceholder')"
-                      inputClass="list-search-input"
+                      inputClass="nv-board-search-input"
                       hideLabel
                       @keyup.enter="handleSearch"
                     >
                       <template #prefix>
-                        <Search class="hidden h-5 w-5 text-gray-400 sm:block" />
+                        <Search class="h-4 w-4 text-[var(--nv-muted)]" />
                       </template>
                       <template #suffix>
                         <button
                           v-if="isSearching || searchQuery"
                           type="button"
                           :aria-label="t('layout.recentBoards.clear')"
-                          class="hidden cursor-pointer items-center text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 sm:flex"
+                          class="flex cursor-pointer items-center text-[var(--nv-muted)] hover:text-[var(--nv-ink)]"
                           @click="clearSearch"
                         >
-                          <X class="h-5 w-5" />
+                          <X class="h-4 w-4" />
                         </button>
                       </template>
                     </BaseInput>
                   </div>
 
-                  <BaseButton @click="handleSearch" variant="secondary" type="button" class="list-search-btn">
+                  <BaseButton @click="handleSearch" variant="secondary" type="button" class="nv-board-search-btn">
                     {{ $t('search.doSearch') }}
                   </BaseButton>
                 </div>
@@ -607,10 +544,8 @@ onUnmounted(() => {
 
         <PostList
           :posts="posts"
+          :loading="isPostsBusy"
           :boardUrl="board.boardUrl"
-          :totalCount="totalCount"
-          :page="page"
-          :size="size"
           :current-sort="sort"
           :currentPostId="currentPostId"
           :linkQuery="route.query"
@@ -625,7 +560,7 @@ onUnmounted(() => {
             :currentPage="page"
             :totalPages="totalPages"
             :linkBuilder="buildPaginationRoute"
-            @page-change="handlePageChange"
+            @page-change="onPageChange"
           />
         </div>
       </section>
@@ -639,14 +574,10 @@ onUnmounted(() => {
 }
 
 .nv-board-panel {
-  background: color-mix(in srgb, var(--nv-surface) 92%, transparent);
+  background: color-mix(in srgb, var(--nv-surface) 94%, transparent);
   border: 1px solid var(--nv-line);
   border-radius: 2rem;
   box-shadow: var(--nv-shadow-card);
-}
-
-.nv-board-header-panel {
-  position: relative;
 }
 
 .nv-board-icon-wrap {
@@ -676,10 +607,75 @@ onUnmounted(() => {
   justify-content: center;
 }
 
+.nv-board-kicker,
+.nv-board-stat-label,
+.nv-board-state-kicker {
+  color: var(--nv-muted);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.nv-board-header-grid {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.nv-board-status-pill {
+  align-items: center;
+  background: color-mix(in srgb, var(--nv-accent) 12%, var(--nv-surface));
+  border: 1px solid color-mix(in srgb, var(--nv-accent) 24%, var(--nv-line));
+  border-radius: 9999px;
+  color: var(--nv-accent);
+  display: inline-flex;
+  padding: 0.3rem 0.7rem;
+}
+
+.nv-board-dot {
+  background: var(--nv-accent);
+  border-radius: 9999px;
+  display: inline-flex;
+  height: 0.35rem;
+  width: 0.35rem;
+}
+
+.nv-board-action-card {
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--nv-accent-bg) 55%, transparent), transparent),
+    color-mix(in srgb, var(--nv-surface) 96%, transparent);
+  border: 1px solid color-mix(in srgb, var(--nv-accent) 12%, var(--nv-line));
+  border-radius: 1.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+  padding: 1.15rem;
+}
+
+.nv-board-stat-card {
+  background: color-mix(in srgb, var(--nv-surface) 86%, transparent);
+  border: 1px solid var(--nv-line);
+  border-radius: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-height: 4.5rem;
+  padding: 0.9rem 1rem;
+}
+
+.nv-board-stat-value {
+  color: var(--nv-ink);
+  font-size: 1.2rem;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+}
+
 .nv-board-manage-btn,
 .nv-board-write-btn {
   align-items: center;
-  border-radius: 9999px;
+  border-radius: 1rem;
   display: inline-flex;
   font-weight: 600;
   justify-content: center;
@@ -691,8 +687,8 @@ onUnmounted(() => {
   border: 1px solid var(--nv-line);
   color: var(--nv-ink);
   gap: 0.375rem;
-  min-height: 2.25rem;
-  padding: 0.5rem 0.9rem;
+  min-height: 2.75rem;
+  padding: 0.7rem 1rem;
 }
 
 .nv-board-manage-btn:hover {
@@ -713,23 +709,27 @@ onUnmounted(() => {
 
 .nv-board-filter-chip {
   align-items: center;
-  background: var(--nv-surface-2);
-  border: 1px solid transparent;
-  border-radius: 9999px;
+  background: color-mix(in srgb, var(--nv-surface-2) 72%, transparent);
+  border: 1px solid var(--nv-line);
+  border-radius: 0.95rem;
   color: var(--nv-ink-soft);
   cursor: pointer;
   display: inline-flex;
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   font-weight: 600;
   justify-content: center;
-  min-height: 2.25rem;
+  min-height: 2.35rem;
   padding: 0.55rem 0.95rem;
-  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+  transition: transform 0.12s ease, background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
 }
 
 .nv-board-filter-chip:hover {
   border-color: color-mix(in srgb, var(--nv-accent) 18%, var(--nv-line));
   color: var(--nv-ink);
+}
+
+.nv-board-filter-chip:active {
+  transform: scale(0.98);
 }
 
 .nv-board-filter-chip.is-active {
@@ -738,26 +738,111 @@ onUnmounted(() => {
   color: var(--nv-accent);
 }
 
+.nv-board-toolbar-shell {
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--nv-surface-2) 45%, transparent), transparent),
+    color-mix(in srgb, var(--nv-surface) 96%, transparent);
+}
+
+.nv-board-sort-pill {
+  align-items: center;
+  background: color-mix(in srgb, var(--nv-surface) 88%, transparent);
+  border: 1px solid var(--nv-line);
+  border-radius: 9999px;
+  color: var(--nv-ink-soft);
+  display: inline-flex;
+  font-size: 0.76rem;
+  font-weight: 600;
+  justify-content: center;
+  min-height: 2.1rem;
+  padding: 0.45rem 0.8rem;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.nv-board-sort-pill:hover,
+.nv-board-sort-pill.is-active {
+  border-color: color-mix(in srgb, var(--nv-accent) 22%, var(--nv-line));
+  color: var(--nv-accent);
+}
+
+.nv-board-sort-pill.is-active {
+  background: color-mix(in srgb, var(--nv-accent) 12%, var(--nv-surface));
+}
+
+.nv-board-search-row {
+  width: 100%;
+}
+
+.nv-board-search-group {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: minmax(8rem, 10rem) minmax(0, 1fr) auto;
+}
+
+.nv-board-search-select,
+:deep(.nv-board-search-input) {
+  background: color-mix(in srgb, var(--nv-surface) 96%, transparent);
+  border-color: var(--nv-line);
+  border-radius: 1rem;
+  color: var(--nv-ink);
+  min-height: 2.9rem;
+}
+
+.nv-board-search-select {
+  outline: none;
+  padding: 0.75rem 0.95rem;
+}
+
+.nv-board-search-select:focus,
+:deep(.nv-board-search-input:focus) {
+  border-color: color-mix(in srgb, var(--nv-accent) 30%, var(--nv-line));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--nv-accent) 14%, transparent);
+}
+
+.nv-board-search-input-wrap {
+  min-width: 0;
+}
+
+.nv-board-search-btn {
+  min-height: 2.9rem;
+  white-space: nowrap;
+}
+
+.nv-board-state-panel {
+  background:
+    linear-gradient(180deg, color-mix(in srgb, #ef4444 8%, transparent), transparent),
+    color-mix(in srgb, var(--nv-surface) 94%, transparent);
+}
+
 @media (min-width: 1024px) {
-  .nv-board-header-panel {
-    position: sticky;
-    top: 4.25rem;
-    z-index: 20;
-    backdrop-filter: blur(14px);
+  .nv-board-header-grid {
+    align-items: start;
+    grid-template-columns: minmax(0, 1fr) minmax(18rem, 20rem);
   }
 
   .nv-board-toolbar-sticky {
     position: sticky;
-    top: 13.5rem;
+    top: 4.75rem;
     z-index: 19;
-    background: color-mix(in srgb, var(--nv-surface) 92%, transparent);
+    background: color-mix(in srgb, var(--nv-surface) 94%, transparent);
     backdrop-filter: blur(14px);
+  }
+}
+
+@media (max-width: 1023px) {
+  .nv-board-search-group {
+    grid-template-columns: 1fr;
   }
 }
 
 @media (max-width: 639px) {
   .nv-board-panel {
     border-radius: 1.5rem;
+  }
+
+  .nv-board-action-card,
+  .nv-board-stat-card {
+    border-radius: 1.35rem;
   }
 
   .nv-board-icon,
@@ -771,6 +856,10 @@ onUnmounted(() => {
     font-size: 0.75rem;
     min-height: 2rem;
     padding: 0.45rem 0.8rem;
+  }
+
+  .nv-board-sort-pill {
+    min-height: 2rem;
   }
 }
 </style>

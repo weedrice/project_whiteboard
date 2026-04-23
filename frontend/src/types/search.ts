@@ -9,6 +9,7 @@ export interface SearchParams {
     page?: number
     size?: number
     type?: string
+    searchType?: string
     sort?: string
     boardUrl?: string
 }

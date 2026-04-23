@@ -50,7 +50,8 @@ export const boardApi = {
         api.post<ApiResponse<void>>('/boards/inquiry/ensure', null, { params: boardUrl ? { boardUrl } : undefined }),
 
     // Get posts in a board
-    getPosts: (boardUrl: string, params: PostsParams) => api.get<ApiResponse<PageResponse<PostSummary>>>(`/boards/${boardUrl}/posts`, { params }),
+    getPosts: (boardUrl: string, params: PostsParams, config?: AxiosRequestConfig) =>
+        api.get<ApiResponse<PageResponse<PostSummary>>>(`/boards/${boardUrl}/posts`, { ...config, params }),
 
     // Get board categories
     getCategories: (boardUrl: string) => api.get<ApiResponse<Category[]>>(`/boards/${boardUrl}/categories`),
@@ -78,10 +79,12 @@ export const boardApi = {
     getNotices: (boardUrl: string) => api.get<ApiResponse<PostSummary[]>>(`/boards/${boardUrl}/notices`),
 
     // Subscribe to board
-    subscribeBoard: (boardUrl: string) => api.post<ApiResponse<void>>(`/boards/${boardUrl}/subscribe`),
+    subscribeBoard: (boardUrl: string, config?: AxiosRequestConfig) =>
+        api.post<ApiResponse<void>>(`/boards/${boardUrl}/subscribe`, undefined, config),
 
     // Unsubscribe from board
-    unsubscribeBoard: (boardUrl: string) => api.delete<ApiResponse<void>>(`/boards/${boardUrl}/subscribe`),
+    unsubscribeBoard: (boardUrl: string, config?: AxiosRequestConfig) =>
+        api.delete<ApiResponse<void>>(`/boards/${boardUrl}/subscribe`, config),
 
     // Update subscription order
     updateSubscriptionOrder: (boardUrls: string[]) => api.put<ApiResponse<void>>('/boards/subscriptions/order', { boardUrls }),

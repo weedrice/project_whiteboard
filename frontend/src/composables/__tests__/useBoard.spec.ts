@@ -123,11 +123,7 @@ describe('useBoard', () => {
         vi.mocked(boardApi.getBoard).mockResolvedValueOnce({
             data: { data: { boardId: 2, boardUrl: 'free' } },
         } as never)
-        vi.mocked(boardApi.getNotices).mockResolvedValueOnce({
-            data: { data: [{ postId: 9 }] },
-        } as never)
-
-        const { useBoardDetail, useBoardNotices } = useBoard()
+        const { useBoardDetail } = useBoard()
         const boardUrl = ref('free')
 
         useBoardDetail(boardUrl)
@@ -137,12 +133,6 @@ describe('useBoard', () => {
         let result = await (options.queryFn as () => Promise<unknown>)()
         expect(result).toEqual({ boardId: 2, boardUrl: 'free' })
         expect(boardApi.getBoard).toHaveBeenCalledWith('free', undefined)
-
-        useBoardNotices(boardUrl)
-        options = mocks.queryOptions.at(-1)!
-        result = await (options.queryFn as () => Promise<unknown>)()
-        expect(result).toEqual([{ postId: 9 }])
-        expect(boardApi.getNotices).toHaveBeenCalledWith('free')
     })
 
     it('fetches board posts through boardApi when not searching', async () => {
@@ -184,10 +174,63 @@ describe('useBoard', () => {
             page: 1,
             size: 10,
             q: 'keyword',
-            type: 'TITLE',
+            searchType: 'TITLE',
             boardUrl: 'free',
         })
         expect(result).toEqual({ content: [{ postId: 2 }] })
+    })
+
+    it('forwards board post requestConfig and query options when provided', async () => {
+        vi.mocked(boardApi.getPosts).mockResolvedValueOnce({
+            data: { data: { content: [] } },
+        } as never)
+
+        const { useBoardPosts } = useBoard()
+        const boardUrl = ref('free')
+        const params = ref({ page: 0, size: 20, sort: 'createdAt,desc' })
+
+        useBoardPosts(boardUrl, params, ref(false), ref(true), {
+            meta: { errorMessage: false },
+            requestConfig: { skipGlobalErrorHandler: true }
+        })
+
+        const options = mocks.queryOptions.at(-1)!
+        await (options.queryFn as () => Promise<unknown>)()
+
+        expect(options.meta).toEqual({ errorMessage: false })
+        expect(boardApi.getPosts).toHaveBeenCalledWith(
+            'free',
+            { page: 0, size: 20, sort: 'createdAt,desc' },
+            { skipGlobalErrorHandler: true }
+        )
+    })
+
+    it('forwards search requestConfig when board posts are fetched through searchApi', async () => {
+        vi.mocked(searchApi.searchPosts).mockResolvedValueOnce({
+            data: { data: { content: [] } },
+        } as never)
+
+        const { useBoardPosts } = useBoard()
+        const boardUrl = ref('free')
+        const params = ref({ page: 1, size: 10, q: 'keyword', searchType: 'TITLE' })
+
+        useBoardPosts(boardUrl, params, ref(true), ref(true), {
+            requestConfig: { skipGlobalErrorHandler: true }
+        })
+
+        const options = mocks.queryOptions.at(-1)!
+        await (options.queryFn as () => Promise<unknown>)()
+
+        expect(searchApi.searchPosts).toHaveBeenCalledWith(
+            {
+                page: 1,
+                size: 10,
+                q: 'keyword',
+                searchType: 'TITLE',
+                boardUrl: 'free',
+            },
+            { skipGlobalErrorHandler: true }
+        )
     })
 
     it('fetches board categories', async () => {
@@ -205,16 +248,12 @@ describe('useBoard', () => {
         expect(result).toEqual([{ categoryId: 1, name: 'notice' }])
     })
 
-    it('disables notices/categories queries when boardUrl is empty', () => {
-        const { useBoardNotices, useBoardCategories } = useBoard()
+    it('disables category queries when boardUrl is empty', () => {
+        const { useBoardCategories } = useBoard()
         const emptyBoardUrl = ref('')
 
-        useBoardNotices(emptyBoardUrl)
-        let options = mocks.queryOptions.at(-1)!
-        expect((options.enabled as ReturnType<typeof computed>).value).toBe(false)
-
         useBoardCategories(emptyBoardUrl)
-        options = mocks.queryOptions.at(-1)!
+        const options = mocks.queryOptions.at(-1)!
         expect((options.enabled as ReturnType<typeof computed>).value).toBe(false)
     })
 
@@ -234,6 +273,22 @@ describe('useBoard', () => {
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['board', 'free'] })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['boards'] })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['boards', 'subscriptions'] })
+    })
+
+    it('forwards subscribe requestConfig when provided', async () => {
+        vi.mocked(boardApi.subscribeBoard).mockResolvedValueOnce({ data: { success: true } } as never)
+        vi.mocked(boardApi.unsubscribeBoard).mockResolvedValueOnce({ data: { success: true } } as never)
+
+        const { useSubscribeBoard } = useBoard()
+        const mutation = useSubscribeBoard({
+            requestConfig: { skipGlobalErrorHandler: true }
+        })
+
+        await mutation.mutateAsync({ boardUrl: 'free', isSubscribed: false })
+        expect(boardApi.subscribeBoard).toHaveBeenCalledWith('free', { skipGlobalErrorHandler: true })
+
+        await mutation.mutateAsync({ boardUrl: 'free', isSubscribed: true })
+        expect(boardApi.unsubscribeBoard).toHaveBeenCalledWith('free', { skipGlobalErrorHandler: true })
     })
 
     it('creates board and invalidates board lists', async () => {
