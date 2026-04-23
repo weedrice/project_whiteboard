@@ -8,6 +8,7 @@ export interface BoardListItem {
     iconUrl?: string
     sortOrder: number
     subscriberCount: number
+    postCount: number
     adminDisplayName?: string
     isSubscribed: boolean
     isActive: boolean
@@ -23,6 +24,7 @@ export interface SubscriptionBoardListItem {
     iconUrl?: string | null
     sortOrder: number
     subscriberCount: number
+    postCount: number
     adminDisplayName?: string | null
     isSubscribed: boolean
     isActive: boolean

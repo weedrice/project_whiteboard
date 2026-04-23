@@ -68,6 +68,9 @@ public class HomeLandingService {
                         todayStart,
                         tomorrowStart),
                 "home landing postsToday");
+        long totalPosts = safeCount(
+                postRepository::countVisiblePostsForAdminDashboard,
+                "home landing totalPosts");
         long postsYesterday = safeCount(
                 () -> postRepository.countByCreatedAtGreaterThanEqualAndCreatedAtLessThanAndIsDeletedFalse(
                         yesterdayStart,
@@ -92,7 +95,7 @@ public class HomeLandingService {
 
         return HomeLandingResponse.Stats.builder()
                 .boardCount(activeBoardCount)
-                .postCount(postsToday)
+                .postCount(totalPosts)
                 .liveCount(commentsToday)
                 .onlineCount(onlineCount)
                 .postsToday(postsToday)

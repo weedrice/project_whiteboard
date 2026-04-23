@@ -10,6 +10,7 @@ import com.weedrice.whiteboard.domain.board.repository.BoardAiInfoRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardCategoryRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
+import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -33,6 +34,7 @@ class BoardResponseReadService {
     private final AdminRepository adminRepository;
     private final BoardCategoryRepository boardCategoryRepository;
     private final BoardAiInfoRepository boardAiInfoRepository;
+    private final PostRepository postRepository;
     private final PostService postService;
 
     ListReadContext loadList(List<Board> boards, User currentUser) {
@@ -48,11 +50,16 @@ class BoardResponseReadService {
                 .collect(Collectors.toMap(
                         BoardSubscriptionRepository.BoardSubscriberCountProjection::getBoardId,
                         BoardSubscriptionRepository.BoardSubscriberCountProjection::getSubscriberCount));
+        Map<Long, Long> postCounts = postRepository.countActiveByBoardIds(boardIds).stream()
+                .collect(Collectors.toMap(
+                        PostRepository.BoardPostCountProjection::getBoardId,
+                        PostRepository.BoardPostCountProjection::getPostCount));
         Map<Long, Admin> boardAdmins = resolveBoardAdmins(boardIds);
         Set<Long> adminBoardIds = resolveAdminBoardIds(currentUser, boards, boardIds);
         Set<Long> subscribedBoardIds = resolveSubscribedBoardIds(currentUser, boards);
         return new ListReadContext(
                 subscriberCounts,
+                postCounts,
                 boardAdmins,
                 adminBoardIds,
                 subscribedBoardIds);
@@ -144,12 +151,14 @@ class BoardResponseReadService {
 
     record ListReadContext(
             Map<Long, Long> subscriberCounts,
+            Map<Long, Long> postCounts,
             Map<Long, Admin> boardAdmins,
             Set<Long> adminBoardIds,
             Set<Long> subscribedBoardIds) {
 
         private static ListReadContext empty() {
             return new ListReadContext(
+                    Collections.emptyMap(),
                     Collections.emptyMap(),
                     Collections.emptyMap(),
                     Collections.emptySet(),

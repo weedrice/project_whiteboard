@@ -160,10 +160,11 @@ describe('HomeFeed', () => {
             boardUrl: `board-${index + 1}`,
             boardName: `Board ${index + 1}`,
             subscriberCount: (index + 1) * 10,
+            postCount: (index + 1) * 100,
         }))
         state.stats.value = {
             boardCount: 11,
-            postCount: 312,
+            postCount: 8421,
             liveCount: 1824,
             onlineCount: 1247,
             postsToday: 312,
@@ -194,7 +195,12 @@ describe('HomeFeed', () => {
         expect(cards.find((card) => card.attributes('data-variant') === 'featured')?.attributes('data-post-id')).toBe('101')
         expect(cards.some((card) => card.attributes('data-variant') === 'compact')).toBe(false)
         expect(wrapper.text()).toContain('1,247')
+        expect(wrapper.text()).toContain('8,421')
+        expect(wrapper.text()).toContain('home.landing.totalPosts')
         expect(wrapper.text()).not.toContain('home.landing.storiesWorthReading')
+        expect(wrapper.text()).not.toContain('home.landing.discover')
+        expect(wrapper.text()).toContain('home.landing.trendingNow')
+        expect(wrapper.text()).toContain('home.landing.liveActivityTitle')
         expect(wrapper.text()).toContain('home.landing.siteStats')
         expect(wrapper.text()).toContain('312')
         expect(wrapper.text()).toContain('+18% vs yesterday')

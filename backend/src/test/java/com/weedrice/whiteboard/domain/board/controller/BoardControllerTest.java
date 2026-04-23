@@ -294,12 +294,13 @@ class BoardControllerTest {
     }
 
     private BoardListResponse boardListResponse(String adminDisplayName) {
-        return new BoardListResponse(board, 0L, adminDisplayName, false);
+        return new BoardListResponse(board, 0L, 0L, adminDisplayName, false);
     }
 
     private BoardDetailResponse boardDetailResponse(String adminDisplayName, Long adminUserId, boolean isAdmin) {
         return new BoardDetailResponse(
                 board,
+                0L,
                 0L,
                 adminDisplayName,
                 adminUserId,

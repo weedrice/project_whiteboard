@@ -250,7 +250,7 @@ class UserControllerTest {
                         ReflectionTestUtils.setField(board, "boardId", 1L);
 
                         BoardListResponse boardResponse = new BoardListResponse(
-                                        board, 100L, "Admin User", true);
+                                        board, 100L, 0L, "Admin User", true);
                         Page<BoardListResponse> boardPage = new PageImpl<>(List.of(boardResponse), pageable, 1);
 
                         given(boardService.getMySubscriptions(1L, pageable, false)).willReturn(boardPage);

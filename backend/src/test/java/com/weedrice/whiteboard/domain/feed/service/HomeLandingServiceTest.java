@@ -75,6 +75,7 @@ class HomeLandingServiceTest {
         when(boardService.getTopBoards(userDetails)).thenReturn(boards);
         when(postRepository.countByCreatedAtGreaterThanEqualAndCreatedAtLessThanAndIsDeletedFalse(any(), any()))
                 .thenReturn(12L, 10L);
+        when(postRepository.countVisiblePostsForAdminDashboard()).thenReturn(8421L);
         when(boardRepository.countByIsActiveTrueAndIsPublicTrue()).thenReturn(11L);
         when(userRepository.countByStatusAndDeletedAtIsNullAndCreatedAtAfter(eq(User.STATUS_ACTIVE), any()))
                 .thenReturn(47L);
@@ -90,7 +91,7 @@ class HomeLandingServiceTest {
         assertThat(response.getTrendingPosts()).extracting(PostSummary::getPostId).containsExactly(5L, 6L);
         assertThat(response.getLiveActivity()).extracting(PostSummary::getPostId).containsExactly(1L, 2L, 3L, 4L, 5L, 6L);
         assertThat(response.getStats().getBoardCount()).isEqualTo(11L);
-        assertThat(response.getStats().getPostCount()).isEqualTo(12L);
+        assertThat(response.getStats().getPostCount()).isEqualTo(8421L);
         assertThat(response.getStats().getLiveCount()).isEqualTo(1824L);
         assertThat(response.getStats().getOnlineCount()).isEqualTo(1247L);
         assertThat(response.getStats().getPostsToday()).isEqualTo(12L);
@@ -107,6 +108,7 @@ class HomeLandingServiceTest {
         when(boardService.getTopBoards(null)).thenReturn(List.of(board(1L, "free")));
         when(postRepository.countByCreatedAtGreaterThanEqualAndCreatedAtLessThanAndIsDeletedFalse(any(), any()))
                 .thenThrow(new IllegalStateException("stats failure"));
+        when(postRepository.countVisiblePostsForAdminDashboard()).thenReturn(0L);
         when(boardRepository.countByIsActiveTrueAndIsPublicTrue()).thenReturn(1L);
         when(userRepository.countByStatusAndDeletedAtIsNullAndCreatedAtAfter(eq(User.STATUS_ACTIVE), any()))
                 .thenReturn(0L);
@@ -155,6 +157,6 @@ class HomeLandingServiceTest {
         ReflectionTestUtils.setField(board, "isActive", true);
         ReflectionTestUtils.setField(board, "isPublic", true);
         ReflectionTestUtils.setField(board, "sortOrder", 1);
-        return new BoardListResponse(board, 10L, "admin", false);
+        return new BoardListResponse(board, 10L, 120L, "admin", false);
     }
 }

@@ -185,6 +185,7 @@ export interface HomeMessages {
     live: string
     posts: string
     boards: string
+    totalPosts: string
     featuredLoading: string
     editorsPicks: string
     editorsPicksEmpty: string

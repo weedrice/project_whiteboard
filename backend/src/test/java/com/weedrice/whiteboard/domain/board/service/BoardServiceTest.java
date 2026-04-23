@@ -112,6 +112,7 @@ class BoardServiceTest {
                 adminRepository,
                 boardCategoryRepository,
                 boardAiInfoRepository,
+                postRepository,
                 postService);
         boardResponseAssembler = new BoardResponseAssembler(boardResponseReadService);
         boardAccessPolicy = new BoardAccessPolicy(adminRepository);
@@ -150,6 +151,8 @@ class BoardServiceTest {
         lenient().when(boardCategoryRepository.findByBoard_BoardIdInAndIsActiveOrderByBoard_BoardIdAscSortOrderAsc(any(), any()))
                 .thenReturn(Collections.emptyList());
         lenient().when(boardSubscriptionRepository.countByBoardIds(any()))
+                .thenReturn(Collections.emptyList());
+        lenient().when(postRepository.countActiveByBoardIds(any()))
                 .thenReturn(Collections.emptyList());
         lenient().when(adminRepository.findByBoard_BoardIdInAndRoleAndIsActiveOrderByBoard_BoardIdAscAdminIdDesc(any(), any(), any()))
                 .thenReturn(Collections.emptyList());
@@ -577,12 +580,24 @@ class BoardServiceTest {
         // given
         when(boardRepository.findTopPublicBoardIdsByPostCount(any())).thenReturn(Collections.singletonList(1L));
         when(boardRepository.findByBoardIdIn(List.of(1L))).thenReturn(Collections.singletonList(board));
+        when(postRepository.countActiveByBoardIds(List.of(1L))).thenReturn(List.of(new PostRepository.BoardPostCountProjection() {
+            @Override
+            public Long getBoardId() {
+                return 1L;
+            }
+
+            @Override
+            public Long getPostCount() {
+                return 37L;
+            }
+        }));
 
         // when
         List<BoardListResponse> boards = boardService.getTopBoards(null);
 
         // then
         assertThat(boards).hasSize(1);
+        assertThat(boards.get(0).getPostCount()).isEqualTo(37L);
         verify(boardRepository).findTopPublicBoardIdsByPostCount(any());
         verify(boardRepository).findByBoardIdIn(List.of(1L));
     }

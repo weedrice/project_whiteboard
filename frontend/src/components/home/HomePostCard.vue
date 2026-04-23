@@ -2,9 +2,9 @@
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { Eye, Video } from 'lucide-vue-next'
+import { Eye, ThumbsUp, Video } from 'lucide-vue-next'
 import type { FeedPost } from '@/types'
-import { formatDateOnly } from '@/utils/date'
+import { formatTimeAgo } from '@/utils/date'
 import { getOptimizedBoardIconUrl, getOptimizedPostImageUrl, handleImageError } from '@/utils/image'
 import { buildPostDetailPath, getFeedBodyHtml, getFeedMediaPreview, isFeedSpoiler } from '@/utils/feedPreview'
 
@@ -25,6 +25,8 @@ const showFirstImageUrl = computed(() => mediaPreview.value.imageUrl)
 const isSpoiler = computed(() => isFeedSpoiler(props.post))
 const categoryName = computed(() => props.post.category?.name?.trim() || '')
 const hasMedia = computed(() => showFirstVideo.value || !!showFirstImageUrl.value)
+const isFeatured = computed(() => props.variant === 'featured')
+const timeAgo = computed(() => formatTimeAgo(props.post.createdAt, t))
 
 const cardClass = computed(() => {
   if (props.variant === 'featured') return 'nv-home-card nv-home-card-featured'
@@ -74,7 +76,6 @@ const handleKeydown = (event: KeyboardEvent) => {
         <div class="min-w-0">
           <p class="truncate text-sm font-semibold text-[var(--nv-ink)]">{{ post.boardName }}</p>
           <div class="flex items-center gap-2 text-xs text-[var(--nv-muted)]">
-            <span>{{ formatDateOnly(post.createdAt) }}</span>
             <span class="inline-flex items-center gap-1">
               <Eye class="h-3 w-3" />
               {{ post.viewCount }}
@@ -90,9 +91,16 @@ const handleKeydown = (event: KeyboardEvent) => {
     <div
       v-if="hasMedia"
       class="nv-home-media"
-      :class="{ 'pointer-events-none select-none opacity-40 blur-[10px]': isSpoiler }"
+      :class="[
+        isFeatured ? 'justify-start bg-transparent' : '',
+        { 'pointer-events-none select-none opacity-40 blur-[10px]': isSpoiler },
+      ]"
     >
-      <div v-if="showFirstVideo" class="relative overflow-hidden rounded-[inherit] bg-[var(--nv-surface-2)]">
+      <div
+        v-if="showFirstVideo"
+        class="relative overflow-hidden rounded-[inherit] bg-[var(--nv-surface-2)]"
+        :class="isFeatured ? 'w-fit max-w-full' : 'w-full'"
+      >
         <div class="absolute left-3 top-3 z-10 inline-flex items-center gap-1 rounded-full bg-black/60 px-2 py-1 text-[10px] font-medium text-white">
           <Video class="h-3 w-3" />
           {{ $t('home.card.video') }}
@@ -104,14 +112,16 @@ const handleKeydown = (event: KeyboardEvent) => {
           allowfullscreen
           loading="lazy"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          class="pointer-events-none aspect-video w-full"
+          class="pointer-events-none aspect-video rounded-[inherit]"
+          :class="isFeatured ? 'max-w-[38rem] w-full' : 'w-full'"
         />
       </div>
       <img
         v-else-if="showFirstImageUrl"
         :src="getOptimizedPostImageUrl(showFirstImageUrl)"
         alt=""
-        class="aspect-[16/9] w-full rounded-[inherit] object-cover"
+        class="rounded-[inherit]"
+        :class="isFeatured ? 'h-auto w-auto max-h-[26rem] max-w-full object-contain' : 'aspect-[16/9] w-full object-cover'"
         loading="lazy"
         @error="handleImageError($event)"
       />
@@ -132,9 +142,25 @@ const handleKeydown = (event: KeyboardEvent) => {
       >
         {{ post.summary }}
       </p>
-      <p class="text-sm text-[var(--nv-muted)]">
+      <p
+        v-if="!isFeatured"
+        class="text-sm text-[var(--nv-muted)]"
+      >
         {{ post.authorName }}
       </p>
+    </div>
+
+    <div
+      v-if="isFeatured"
+      class="flex items-center gap-2 text-sm text-[var(--nv-muted)]"
+    >
+      <span class="truncate">{{ post.authorName }}</span>
+      <span>&middot;</span>
+      <span>{{ timeAgo }}</span>
+      <span class="ml-auto inline-flex items-center gap-1 text-[var(--nv-ink-soft)]">
+        <ThumbsUp class="h-3.5 w-3.5" />
+        {{ post.likeCount.toLocaleString() }}
+      </span>
     </div>
   </article>
 </template>

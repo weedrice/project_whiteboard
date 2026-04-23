@@ -15,7 +15,7 @@ vi.mock('@tanstack/vue-query', () => ({
             liveActivity: [
                 { postId: 3, boardUrl: 'free', boardName: 'Free', authorName: 'C', title: 'Live', viewCount: 3, likeCount: 1, commentCount: 1, isNotice: false, isNsfw: false, isSpoiler: false, createdAt: '2025-01-01' },
             ],
-            boards: [{ boardId: 1, boardUrl: 'free', boardName: 'Free', subscriberCount: 10 }],
+            boards: [{ boardId: 1, boardUrl: 'free', boardName: 'Free', subscriberCount: 10, postCount: 24 }],
             stats: { boardCount: 1, postCount: 2, liveCount: 1, onlineCount: 4, postsToday: 2, postsTodayDeltaPercent: null, activeBoardCount: 1, newMembersLast24Hours: 0, commentsToday: 1 },
         }),
         isLoading: ref(false),

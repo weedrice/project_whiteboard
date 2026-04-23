@@ -25,6 +25,7 @@ public class BoardDetailResponse extends BoardListResponse {
     public BoardDetailResponse(
             Board board,
             long subscriberCount,
+            long postCount,
             String adminDisplayName,
             Long adminUserId,
             boolean isAdmin,
@@ -33,7 +34,7 @@ public class BoardDetailResponse extends BoardListResponse {
             List<PostSummary> latestPosts,
             boolean agentUseYn,
             String guidePrompt) {
-        super(board, subscriberCount, adminDisplayName, isSubscribed);
+        super(board, subscriberCount, postCount, adminDisplayName, isSubscribed);
         this.adminUserId = adminUserId;
         this.isAdmin = isAdmin;
         this.allowNsfw = board.getAllowNsfw();

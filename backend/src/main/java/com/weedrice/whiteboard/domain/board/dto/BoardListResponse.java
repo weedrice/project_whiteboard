@@ -13,6 +13,7 @@ public class BoardListResponse {
     private final String iconUrl;
     private final Integer sortOrder;
     private final long subscriberCount;
+    private final long postCount;
     private final String adminDisplayName;
 
     @JsonProperty("isSubscribed")
@@ -29,13 +30,15 @@ public class BoardListResponse {
 
     public BoardListResponse(Board board,
             long subscriberCount,
+            long postCount,
             String adminDisplayName,
             boolean isSubscribed) {
-        this(board, subscriberCount, adminDisplayName, isSubscribed, true);
+        this(board, subscriberCount, postCount, adminDisplayName, isSubscribed, true);
     }
 
     public BoardListResponse(Board board,
             long subscriberCount,
+            long postCount,
             String adminDisplayName,
             boolean isSubscribed,
             boolean subscriptionAccessible) {
@@ -47,6 +50,7 @@ public class BoardListResponse {
                 board.getIconUrl(),
                 board.getSortOrder(),
                 subscriberCount,
+                postCount,
                 adminDisplayName,
                 isSubscribed,
                 board.getIsActive(),
@@ -62,6 +66,7 @@ public class BoardListResponse {
             String iconUrl,
             Integer sortOrder,
             long subscriberCount,
+            long postCount,
             String adminDisplayName,
             boolean isSubscribed,
             boolean isActive,
@@ -74,6 +79,7 @@ public class BoardListResponse {
         this.iconUrl = iconUrl;
         this.sortOrder = sortOrder;
         this.subscriberCount = subscriberCount;
+        this.postCount = postCount;
         this.adminDisplayName = adminDisplayName;
         this.isSubscribed = isSubscribed;
         this.isActive = isActive;
@@ -89,6 +95,7 @@ public class BoardListResponse {
                 null,
                 null,
                 board.getSortOrder(),
+                0L,
                 0L,
                 null,
                 true,

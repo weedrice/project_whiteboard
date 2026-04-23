@@ -1,13 +1,17 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { ChevronRight, MessageSquare } from 'lucide-vue-next'
 import type { FeedPost } from '@/types'
+import { formatRelativeDate } from '@/utils/date'
 import { buildPostDetailPath } from '@/utils/feedPreview'
 
-defineProps<{
+const props = defineProps<{
   posts: FeedPost[]
 }>()
 
 const router = useRouter()
+const visiblePosts = computed(() => props.posts.slice(0, 4))
 
 const goToPost = (post: FeedPost) => {
   router.push(buildPostDetailPath(post.boardUrl, post.postId))
@@ -17,21 +21,32 @@ const goToPost = (post: FeedPost) => {
 <template>
   <div class="nv-home-activity-panel">
     <button
-      v-for="post in posts"
+      v-for="post in visiblePosts"
       :key="post.postId"
       type="button"
       class="nv-home-activity-row"
       @click="goToPost(post)"
     >
-      <div class="min-w-0">
-        <p class="truncate text-sm font-medium text-[var(--nv-ink)]">{{ post.title }}</p>
-        <p class="truncate text-xs text-[var(--nv-muted)]">
-          {{ post.boardName }} / {{ post.authorName }}
-        </p>
+      <div class="flex min-w-0 items-center gap-3">
+        <span class="w-[5.75rem] flex-shrink-0 whitespace-nowrap text-left text-[11px] font-medium uppercase tracking-[0.14em] text-[var(--nv-muted)]">
+          {{ formatRelativeDate(post.createdAt) }}
+        </span>
+        <div class="min-w-0">
+          <p class="truncate text-sm font-semibold text-[var(--nv-ink)]">{{ post.title }}</p>
+          <div class="mt-0.5 flex min-w-0 items-center gap-2 text-xs text-[var(--nv-muted)]">
+            <span class="truncate">{{ post.boardName }}</span>
+            <span>&middot;</span>
+            <span class="truncate">{{ post.authorName }}</span>
+          </div>
+        </div>
       </div>
-      <span class="flex-shrink-0 text-xs font-medium text-[var(--nv-ink-soft)]">
-        +{{ post.commentCount }}
-      </span>
+      <div class="ml-4 flex flex-shrink-0 items-center gap-3 text-[11px] text-[var(--nv-ink-soft)]">
+        <span class="inline-flex items-center gap-1">
+          <MessageSquare class="h-3.5 w-3.5" />
+          {{ post.commentCount.toLocaleString() }}
+        </span>
+        <ChevronRight class="h-4 w-4" />
+      </div>
     </button>
   </div>
 </template>

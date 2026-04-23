@@ -31,6 +31,7 @@ class BoardResponseAssembler {
         return new BoardDetailResponse(
                 board,
                 listReadContext.subscriberCounts().getOrDefault(boardId, 0L),
+                listReadContext.postCounts().getOrDefault(boardId, 0L),
                 adminUser.getDisplayName(),
                 adminUser.getUserId(),
                 isAdmin,
@@ -52,6 +53,7 @@ class BoardResponseAssembler {
                 .map(board -> buildResponse(
                         board,
                         readContext.subscriberCounts(),
+                        readContext.postCounts(),
                         readContext.boardAdmins(),
                         readContext.subscribedBoardIds(),
                         currentUser))
@@ -71,6 +73,7 @@ class BoardResponseAssembler {
 
     private BoardListResponse buildResponse(Board board,
             Map<Long, Long> subscriberCounts,
+            Map<Long, Long> postCounts,
             Map<Long, Admin> boardAdmins,
             Set<Long> subscribedBoardIds,
             User currentUser) {
@@ -81,6 +84,7 @@ class BoardResponseAssembler {
         return new BoardListResponse(
                 board,
                 subscriberCounts.getOrDefault(boardId, 0L),
+                postCounts.getOrDefault(boardId, 0L),
                 adminUser.getDisplayName(),
                 isSubscribed);
     }

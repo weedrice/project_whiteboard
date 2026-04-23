@@ -52,7 +52,8 @@ const heroPost = computed(() =>
 const heroPostId = computed(() => heroPost.value?.postId ?? null)
 const visibleTrending = computed(() => trending.value.filter((post) => post.postId !== heroPostId.value))
 const visibleLiveActivity = computed(() => liveActivity.value.filter((post) => post.postId !== heroPostId.value))
-const boardStrip = computed(() => spotlightBoards.value.slice(0, 6))
+const boardStrip = computed(() => spotlightBoards.value.slice(0, 7))
+const boardSlots = computed(() => Array.from({ length: 7 }, (_, index) => boardStrip.value[index] ?? null))
 const numberFormatter = computed(() => new Intl.NumberFormat(locale.value === 'ko' ? 'ko-KR' : 'en-US'))
 const formatNumber = (value: number) => numberFormatter.value.format(value)
 const formatSignedNumber = (value: number) => (value > 0 ? `+${formatNumber(value)}` : formatNumber(value))
@@ -137,33 +138,19 @@ useHead({
       <section class="nv-home-hero">
         <h1 class="sr-only">{{ $t('home.landing.curatedToday') }}</h1>
         <div class="flex items-center justify-between gap-4">
-          <div>
-            <p class="nv-home-section-kicker">{{ $t('home.landing.curatedToday') }}</p>
-            <div class="mt-3 inline-flex items-center gap-2 rounded-full border border-[var(--nv-line)] bg-[var(--nv-surface)] px-4 py-2 text-[11px] font-medium uppercase tracking-[0.18em] text-[var(--nv-ink-soft)] shadow-[var(--nv-shadow-soft)]">
-              <CircleDot class="h-3.5 w-3.5 text-[var(--nv-accent)]" />
-              <span>{{ $t('home.landing.liveNow') }}</span>
-              <span>&middot;</span>
-              <strong class="text-[var(--nv-ink)]">{{ formatNumber(stats.onlineCount) }}</strong>
-              <span>{{ $t('home.landing.online') }}</span>
-            </div>
+          <div class="nv-home-live-rollup">
+            <CircleDot class="nv-home-live-dot h-3.5 w-3.5 flex-shrink-0 text-[var(--nv-accent)]" />
+            <span class="nv-home-section-kicker">{{ $t('home.landing.curatedToday') }}</span>
+            <span class="text-[var(--nv-muted)]">-</span>
+            <strong class="text-[var(--nv-ink)]">{{ formatNumber(stats.onlineCount) }}</strong>
+            <span>{{ $t('home.landing.online') }}</span>
           </div>
-          <div class="hidden grid-cols-3 gap-3 text-right sm:grid">
-            <div class="nv-home-stat">
-              <span class="nv-home-stat-label">{{ $t('home.landing.live') }}</span>
-              <strong>{{ stats.liveCount }}</strong>
-            </div>
-            <div class="nv-home-stat">
-              <span class="nv-home-stat-label">{{ $t('home.landing.posts') }}</span>
-              <strong>{{ stats.postCount }}</strong>
-            </div>
-            <div class="nv-home-stat">
-              <span class="nv-home-stat-label">{{ $t('home.landing.boards') }}</span>
-              <strong>{{ isBoardsLoading || isBoardsError ? '...' : stats.boardCount }}</strong>
-            </div>
-          </div>
+          <p class="hidden text-right text-[11px] font-medium uppercase tracking-[0.18em] text-[var(--nv-ink-soft)] sm:block">
+            {{ formatNumber(stats.postCount) }} {{ $t('home.landing.totalPosts') }}
+          </p>
         </div>
 
-        <div class="grid gap-5 lg:grid-cols-[1.45fr_0.95fr]">
+        <div class="mt-5 grid gap-5 lg:grid-cols-[1.45fr_0.95fr]">
           <HomePostCard v-if="heroPost" :post="heroPost" variant="featured" />
           <div
             v-else
@@ -177,11 +164,12 @@ useHead({
               <TrendingUpIcon class="h-4 w-4 text-[var(--nv-accent)]" />
               <p class="nv-home-section-kicker">{{ $t('home.landing.siteStats') }}</p>
             </div>
-            <div class="grid grid-cols-2 gap-3">
+            <div class="overflow-hidden rounded-[16px] border border-[var(--nv-line)] bg-[var(--nv-line)] shadow-[var(--nv-shadow-soft)]">
+              <div class="grid grid-cols-2 gap-px">
               <article
                 v-for="card in siteStatsCards"
                 :key="card.label"
-                class="rounded-[24px] border border-[var(--nv-line)] bg-[var(--nv-surface)] px-4 py-4 shadow-[var(--nv-shadow-soft)]"
+                class="bg-[var(--nv-surface)] px-4 py-4"
               >
                 <p class="text-[11px] font-medium uppercase tracking-[0.18em] text-[var(--nv-muted)]">
                   {{ card.label }}
@@ -193,6 +181,7 @@ useHead({
                   {{ card.meta }}
                 </p>
               </article>
+              </div>
             </div>
           </div>
         </div>
@@ -201,7 +190,6 @@ useHead({
       <section class="space-y-4" :aria-busy="isFetching ? 'true' : 'false'">
         <div class="flex items-center justify-between gap-3">
           <div>
-            <p class="nv-home-section-kicker">{{ $t('home.landing.discover') }}</p>
             <h2 class="text-xl font-semibold tracking-[-0.04em] text-[var(--nv-ink)]">{{ $t('home.landing.topBoards') }}</h2>
           </div>
           <RouterLink to="/boards" class="text-sm font-medium text-[var(--nv-accent)] hover:underline">
@@ -209,35 +197,41 @@ useHead({
           </RouterLink>
         </div>
 
-        <div v-if="isBoardsLoading" class="grid grid-cols-2 gap-3 xl:grid-cols-6">
+        <div v-if="isBoardsLoading" class="overflow-hidden rounded-[16px] border border-[var(--nv-line)] bg-[var(--nv-line)]">
+          <div class="grid grid-cols-2 gap-px xl:grid-cols-7">
           <div
-            v-for="index in 6"
+            v-for="index in 7"
             :key="index"
-            class="rounded-[18px] border border-dashed border-[var(--nv-line)] px-4 py-4 text-sm text-[var(--nv-muted)]"
+            class="bg-[var(--nv-surface)] px-4 py-4 text-sm text-[var(--nv-muted)]"
           >
             {{ $t('home.landing.loadingBoards') }}
           </div>
+          </div>
         </div>
-        <div v-else-if="boardStrip.length" class="grid grid-cols-2 gap-3 xl:grid-cols-6">
-          <RouterLink
-            v-for="board in boardStrip"
-            :key="board.boardId"
-            :to="`/board/${board.boardUrl}`"
-            class="group flex min-h-[112px] flex-col justify-between rounded-[18px] border border-[var(--nv-line)] bg-[var(--nv-surface)] px-4 py-4 shadow-[var(--nv-shadow-soft)] transition-all duration-150 hover:-translate-y-0.5 hover:border-[var(--nv-accent)] hover:shadow-[var(--nv-shadow-card)]"
+        <div
+          v-else-if="boardStrip.length"
+          class="overflow-hidden rounded-[16px] border border-[var(--nv-line)] bg-[var(--nv-line)] shadow-[var(--nv-shadow-soft)]"
+        >
+          <div class="grid grid-cols-2 gap-px xl:grid-cols-7">
+          <component
+            v-for="(board, index) in boardSlots"
+            :is="board ? RouterLink : 'div'"
+            :key="board?.boardId ?? `empty-${index}`"
+            :to="board ? `/board/${board.boardUrl}` : undefined"
+            :class="board ? 'group flex min-h-[68px] flex-col bg-[var(--nv-surface)] px-3.5 pt-3 pb-2 transition-all duration-150 hover:bg-[var(--nv-surface-2)]' : 'pointer-events-none min-h-[68px] bg-[var(--nv-bg)] px-3.5 pt-3 pb-2'"
           >
+            <template v-if="board">
             <div class="min-w-0">
-              <p class="truncate text-sm font-semibold uppercase tracking-[0.14em] text-[var(--nv-muted)]">
-                / {{ board.boardUrl }}
-              </p>
-              <p class="mt-3 line-clamp-2 text-base font-semibold text-[var(--nv-ink)] group-hover:text-[var(--nv-accent)]">
+              <p class="line-clamp-2 text-[15px] font-semibold leading-5 text-[var(--nv-ink)] group-hover:text-[var(--nv-accent)]">
                 {{ board.boardName }}
               </p>
             </div>
-            <div class="mt-4 flex items-center justify-between gap-2 text-right">
-              <p class="nv-home-stat-label">{{ $t('home.landing.subscribers') }}</p>
-              <p class="text-sm font-semibold text-[var(--nv-ink)]">{{ board.subscriberCount }}</p>
+            <div class="mt-0.5 flex items-center gap-2 text-left">
+              <p class="text-[12px] font-medium tracking-[0.02em] text-[var(--nv-ink-soft)]">{{ formatNumber(board.postCount ?? 0) }}</p>
             </div>
-          </RouterLink>
+            </template>
+          </component>
+          </div>
         </div>
         <div
           v-else
@@ -250,7 +244,6 @@ useHead({
       <section class="space-y-4">
         <div class="flex items-center justify-between gap-3">
           <div>
-            <p class="nv-home-section-kicker">{{ $t('home.landing.trending') }}</p>
             <h2 class="text-xl font-semibold tracking-[-0.04em] text-[var(--nv-ink)]">{{ $t('home.landing.trendingNow') }}</h2>
           </div>
           <div class="flex items-center gap-1 rounded-full border border-[var(--nv-line)] bg-[var(--nv-surface)] p-1">
@@ -288,7 +281,6 @@ useHead({
       <section class="space-y-4">
         <div class="flex items-center justify-between gap-3">
           <div>
-            <p class="nv-home-section-kicker">{{ $t('home.landing.liveActivity') }}</p>
             <h2 class="text-xl font-semibold tracking-[-0.04em] text-[var(--nv-ink)]">{{ $t('home.landing.liveActivityTitle') }}</h2>
           </div>
         </div>

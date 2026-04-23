@@ -28,11 +28,11 @@ vi.mock('@/stores/auth', () => ({
 vi.mock('@/composables/useBoard', () => ({
     useBoard: () => ({
         useBoards: () => ({
-            data: ref([{ boardId: 1, boardUrl: 'free', boardName: 'Free', subscriberCount: 10 }]),
+            data: ref([{ boardId: 1, boardUrl: 'free', boardName: 'Free', subscriberCount: 10, postCount: 12 }]),
             isError: ref(false),
         }),
         useSubscribedBoards: () => ({
-            data: ref([{ boardId: 1, boardUrl: 'free', boardName: 'Free', subscriberCount: 10 }]),
+            data: ref([{ boardId: 1, boardUrl: 'free', boardName: 'Free', subscriberCount: 10, postCount: 12 }]),
             isLoading: ref(false),
             isError: ref(false),
         }),
