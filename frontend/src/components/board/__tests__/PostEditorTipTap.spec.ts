@@ -526,4 +526,11 @@ describe('PostEditorTipTap', () => {
         wrapper.unmount()
         expect(mocks.editor.destroy).toHaveBeenCalled()
     })
+
+    it('renders grouped desktop toolbar controls with insert block affordance', () => {
+        const wrapper = mountEditor()
+
+        expect(wrapper.findAll('.tiptap-toolbar-group').length).toBeGreaterThanOrEqual(4)
+        expect(wrapper.get(selectors.slashMenu).text()).toContain('board.writePost.toolbar.insertBlock')
+    })
 })

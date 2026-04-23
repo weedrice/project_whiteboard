@@ -186,7 +186,11 @@ public class PostService {
     }
 
     public List<PostSummary> getTrendingPosts(Pageable pageable, Long currentUserId) {
-        LocalDateTime since = LocalDateTime.now().minusHours(24);
+        return getTrendingPosts(pageable, currentUserId, "24h");
+    }
+
+    public List<PostSummary> getTrendingPosts(Pageable pageable, Long currentUserId, String period) {
+        LocalDateTime since = resolveTrendingSince(period);
 
         List<Long> blockedUserIds = null;
         if (currentUserId != null) {
@@ -195,6 +199,15 @@ public class PostService {
 
         List<Post> posts = postRepository.findTrendingPosts(since, blockedUserIds, pageable);
         return postSummaryAssembler.assembleTrendingPosts(posts, currentUserId);
+    }
+
+    private LocalDateTime resolveTrendingSince(String period) {
+        return switch ((period == null ? "" : period.trim().toLowerCase(Locale.ROOT))) {
+            case "7d" -> LocalDateTime.now().minusDays(7);
+            case "30d" -> LocalDateTime.now().minusDays(30);
+            case "24h", "" -> LocalDateTime.now().minusHours(24);
+            default -> LocalDateTime.now().minusHours(24);
+        };
     }
 
     @Transactional

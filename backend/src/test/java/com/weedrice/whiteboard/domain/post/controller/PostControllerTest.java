@@ -197,7 +197,7 @@ class PostControllerTest {
         @DisplayName("인기 게시글 목록 조회 성공")
         void getTrendingPosts_success() throws Exception {
             PostSummary summary = PostSummary.from(post);
-            when(postService.getTrendingPosts(any(Pageable.class), any())).thenReturn(List.of(summary));
+            when(postService.getTrendingPosts(any(Pageable.class), any(), any())).thenReturn(List.of(summary));
 
             mockMvc.perform(get("/api/v1/posts/trending")
                     .with(user(customUserDetails))
@@ -209,10 +209,26 @@ class PostControllerTest {
         @DisplayName("인기 게시글 목록 조회 성공 - 비인증 사용자")
         void getTrendingPosts_anonymous() throws Exception {
             PostSummary summary = PostSummary.from(post);
-            when(postService.getTrendingPosts(any(Pageable.class), isNull())).thenReturn(List.of(summary));
+            when(postService.getTrendingPosts(any(Pageable.class), isNull(), any())).thenReturn(List.of(summary));
 
             mockMvc.perform(get("/api/v1/posts/trending"))
                     .andExpect(status().isOk());
+        }
+
+        @Test
+        @DisplayName("단일 게시글 조회 성공")
+        void getTrendingPosts_forwardsPeriod() throws Exception {
+            PostSummary summary = PostSummary.from(post);
+            when(postService.getTrendingPosts(any(Pageable.class), eq(1L), eq("30d"))).thenReturn(List.of(summary));
+
+            mockMvc.perform(get("/api/v1/posts/trending")
+                    .param("period", "30d")
+                    .with(user(customUserDetails))
+                    .accept(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true));
+
+            verify(postService).getTrendingPosts(any(Pageable.class), eq(1L), eq("30d"));
         }
 
         @Test

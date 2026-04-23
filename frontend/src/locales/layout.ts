@@ -13,6 +13,12 @@ export const layout: LayoutMessages = {
     empty: '최근 방문한 게시판이 없습니다.',
     clear: '초기화',
   },
+  topNav: {
+    home: '홈',
+    subscribedBoards: '구독 게시판',
+    subscribedShort: '구독',
+    boards: '게시판',
+  },
   mobileNav: {
     ariaLabel: '모바일 기본 내비게이션',
     home: '홈',
@@ -83,6 +89,12 @@ export const layoutEn: LayoutMessages = {
     title: 'Recent boards',
     empty: 'No recently visited boards.',
     clear: 'Clear',
+  },
+  topNav: {
+    home: 'Home',
+    subscribedBoards: 'Subscribed boards',
+    subscribedShort: 'Subscribed',
+    boards: 'Boards',
   },
   mobileNav: {
     ariaLabel: 'Mobile primary navigation',

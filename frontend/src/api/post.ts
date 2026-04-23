@@ -3,6 +3,7 @@ import type { AxiosRequestConfig } from 'axios'
 import type {
     ApiResponse,
     DraftPost,
+    HomeLandingPeriod,
     HomeLandingResponse,
     PageResponse,
     Post,
@@ -83,10 +84,13 @@ export const postApi = {
     unscrapPost: (postId: string | number) => api.delete<ApiResponse<void>>(`/posts/${postId}/scrap`),
 
     // Get trending posts
-    getTrendingPosts: (page: number = 0, size: number = 10) => api.get<ApiResponse<PageResponse<PostSummary> | PostSummary[]>>('/posts/trending', { params: { page, size } }),
+    getTrendingPosts: (page: number = 0, size: number = 10, period: HomeLandingPeriod = '24h') => api.get<ApiResponse<PageResponse<PostSummary> | PostSummary[]>>('/posts/trending', { params: { page, size, period } }),
 
     // Get home landing data
-    getHomeLanding: () => api.get<ApiResponse<HomeLandingResponse>>('/home/landing', { skipAuthRefresh: true }),
+    getHomeLanding: (period: HomeLandingPeriod = '24h') => api.get<ApiResponse<HomeLandingResponse>>('/home/landing', {
+        params: { period },
+        skipAuthRefresh: true,
+    }),
 
     // Draft APIs
     getDraft: (draftId: string | number) => api.get<ApiResponse<DraftPost>>(`/drafts/${draftId}`),

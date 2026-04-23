@@ -1,9 +1,9 @@
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useQuery } from '@tanstack/vue-query'
 import { postApi } from '@/api/post'
 import { useAuthStore } from '@/stores/auth'
 import { QUERY_STALE_TIME } from '@/utils/constants'
-import type { FeedPost, HomeLandingResponse, PostSummary } from '@/types'
+import type { FeedPost, HomeLandingPeriod, HomeLandingResponse, PostSummary } from '@/types'
 
 const mapToFeedPost = (post: PostSummary): FeedPost | null => {
     if (
@@ -43,22 +43,36 @@ const emptyLanding = (): HomeLandingResponse => ({
         boardCount: 0,
         postCount: 0,
         liveCount: 0,
+        onlineCount: 0,
+        postsToday: 0,
+        postsTodayDeltaPercent: null,
+        activeBoardCount: 0,
+        newMembersLast24Hours: 0,
+        commentsToday: 0,
     },
 })
 
 export function useHomeLanding() {
     const authStore = useAuthStore()
+    const selectedPeriod = ref<HomeLandingPeriod>('24h')
+    const isReadyToFetch = computed(() => !authStore.isAuthenticated || authStore.user != null)
+    const authCacheKey = computed(() => authStore.isAuthenticated ? (authStore.user?.userId ?? 'member') : 'guest')
+
     const landingQuery = useQuery({
-        queryKey: computed(() => ['home', 'landing', authStore.isAuthenticated ? (authStore.user?.userId ?? 'auth') : 'guest']),
-        queryFn: async () => {
-            const { data } = await postApi.getHomeLanding()
+        queryKey: computed(() => ['home', 'landing', selectedPeriod.value, authCacheKey.value]),
+        enabled: isReadyToFetch,
+        queryFn: async ({ queryKey }) => {
+            const [, , period] = queryKey as ['home', 'landing', HomeLandingPeriod, string | number]
+            const { data } = await postApi.getHomeLanding(period)
             return data.data
         },
-        placeholderData: undefined,
+        placeholderData: previousData => previousData,
         staleTime: QUERY_STALE_TIME.SHORT,
     })
 
     const landing = computed(() => landingQuery.data.value ?? emptyLanding())
+    const isPendingAuthHydration = computed(() => authStore.isAuthenticated && authStore.user == null)
+    const isLoading = computed(() => landingQuery.isLoading.value || isPendingAuthHydration.value)
     const posts = computed(() => mapPosts([
         ...(landing.value.featuredPost ? [landing.value.featuredPost] : []),
         ...landing.value.editorPicks,
@@ -73,10 +87,15 @@ export function useHomeLanding() {
         spotlightBoards: computed(() => landing.value.boards),
         boards: computed(() => landing.value.boards),
         stats: computed(() => landing.value.stats),
+        selectedPeriod,
+        setPeriod: (period: HomeLandingPeriod) => {
+            selectedPeriod.value = period
+        },
         posts,
-        isLoading: computed(() => landingQuery.isLoading.value),
+        isLoading,
+        isFetching: computed(() => landingQuery.isFetching.value),
         isError: computed(() => landingQuery.isError.value),
-        isBoardsLoading: computed(() => landingQuery.isLoading.value),
+        isBoardsLoading: isLoading,
         isBoardsError: computed(() => landingQuery.isError.value),
         error: computed(() => landingQuery.error.value ?? null),
         refetch: async () => {

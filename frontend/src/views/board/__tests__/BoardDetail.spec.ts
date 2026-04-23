@@ -1,4 +1,4 @@
-import { ref } from 'vue'
+import { defineComponent, h, ref } from 'vue'
 import { mount, RouterLinkStub } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import BoardDetail from '../BoardDetail.vue'
@@ -133,6 +133,9 @@ describe('BoardDetail', () => {
     route.params.boardUrl = 'free'
     route.query = {}
     route.path = '/board/free'
+    postsPayload.content = []
+    postsPayload.totalElements = 0
+    postsPayload.totalPages = 0
     router.replace.mockReset()
     router.push.mockReset()
     addRecentBoard.mockReset()
@@ -159,6 +162,8 @@ describe('BoardDetail', () => {
     expect(wrapper.text()).toContain('질문')
     expect(wrapper.text()).not.toContain('일반')
     expect(wrapper.text()).not.toContain('board.detail.filter.concept')
+    expect(wrapper.html()).toContain('nv-board-header-panel')
+    expect(wrapper.html()).toContain('nv-board-toolbar-sticky')
   })
 
   it('syncs category selection into the board URL state', async () => {
@@ -223,5 +228,61 @@ describe('BoardDetail', () => {
         type: 'TITLE'
       }
     })
+  })
+
+  it('preserves the server-provided order for non-default sorts', () => {
+    route.query = { sort: 'likeCount,desc' }
+    postsPayload.content = [
+      {
+        postId: 10,
+        rowNum: 2,
+        title: 'First from server',
+        likeCount: 1,
+        viewCount: 1,
+        commentCount: 0,
+        createdAt: '2026-04-22T10:00:00',
+        author: { displayName: 'A' }
+      } as never,
+      {
+        postId: 11,
+        rowNum: 1,
+        title: 'Second from server',
+        likeCount: 99,
+        viewCount: 1,
+        commentCount: 0,
+        createdAt: '2026-04-22T09:00:00',
+        author: { displayName: 'B' }
+      } as never
+    ]
+    postsPayload.totalElements = 2
+    postsPayload.totalPages = 1
+
+    const PostListStub = defineComponent({
+      name: 'PostListStub',
+      props: {
+        posts: { type: Array, default: () => [] }
+      },
+      setup(props) {
+        return () => h('div', { 'data-testid': 'post-order' }, (props.posts as Array<{ postId: number }>).map((post) => post.postId).join(','))
+      }
+    })
+
+    const wrapper = mount(BoardDetail, {
+      global: {
+        mocks: {
+          $t: (key: string) => key
+        },
+        stubs: {
+          RouterLink: RouterLinkStub,
+          RouterView: true,
+          PostList: PostListStub,
+          Pagination: true,
+          UserMenu: true,
+          BaseSkeleton: true
+        }
+      }
+    })
+
+    expect(wrapper.get('[data-testid=\"post-order\"]').text()).toBe('10,11')
   })
 })

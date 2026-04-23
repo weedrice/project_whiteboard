@@ -1,4 +1,4 @@
-import { ref } from 'vue'
+﻿import { ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount, RouterLinkStub } from '@vue/test-utils'
 import PostDetail from '../PostDetail.vue'
@@ -167,7 +167,7 @@ describe('PostDetail', () => {
     authState.user = { userId: 7 }
 
     postValue.postId = 15
-    postValue.title = '테스트 글'
+    postValue.title = '?뚯뒪??湲'
     postValue.contents = '<h2>첫 섹션</h2><p>본문</p><h3>세부 항목</h3>'
     postValue.viewCount = 12
     postValue.likeCount = 4
@@ -218,7 +218,7 @@ describe('PostDetail', () => {
     await wrapper.vm.$nextTick()
     await wrapper.vm.$nextTick()
 
-    expect(wrapper.text()).toContain('북마크')
+    expect(wrapper.text()).toContain('board.postDetail.bookmark')
     expect(wrapper.text()).toContain('첫 섹션')
     expect(wrapper.text()).toContain('세부 항목')
   })
@@ -241,7 +241,7 @@ describe('PostDetail', () => {
 
     expect(wrapper.text()).not.toContain('common.delete')
 
-    const moreButton = wrapper.findAll('button').find((button) => button.attributes('aria-label') === '더보기')
+    const moreButton = wrapper.findAll('button').find((button) => button.attributes('aria-label') === 'board.postDetail.moreActions')
     await moreButton?.trigger('click')
 
     expect(wrapper.text()).toContain('common.edit')
@@ -289,7 +289,7 @@ describe('PostDetail', () => {
     MockIntersectionObserver.callback?.([{ isIntersecting: false }])
     await wrapper.vm.$nextTick()
 
-    const ctaButton = wrapper.findAll('button').find((button) => button.text().includes('댓글 작성창으로 이동'))
+    const ctaButton = wrapper.findAll('button').find((button) => button.text().includes('board.postDetail.focusComposer'))
     expect(ctaButton?.exists()).toBe(true)
 
     await ctaButton?.trigger('click')
@@ -300,5 +300,37 @@ describe('PostDetail', () => {
 
     wrapper.unmount()
     vi.useRealTimers()
+  })
+
+  it('reveals the desktop sticky reaction bar after scrolling', async () => {
+    Object.defineProperty(window, 'innerWidth', {
+      configurable: true,
+      value: 1280
+    })
+    Object.defineProperty(window, 'scrollY', {
+      configurable: true,
+      value: 360
+    })
+
+    const wrapper = mount(PostDetail, {
+      attachTo: document.body,
+      global: {
+        mocks: {
+          $t: (key: string) => key
+        },
+        stubs: {
+          RouterLink: RouterLinkStub,
+          CommentList: true,
+          PostTags: true,
+          UserMenu: true,
+          BaseModal: true
+        }
+      }
+    })
+
+    window.dispatchEvent(new Event('scroll'))
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('.nv-post-desktop-bar').exists()).toBe(true)
   })
 })

@@ -1,6 +1,7 @@
 import { defineComponent, h } from 'vue'
 import { mount, RouterLinkStub } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { HomeLandingPeriod } from '@/types'
 
 const state = vi.hoisted(() => ({
     featured: { __v_isRef: true, value: null as any },
@@ -10,8 +11,24 @@ const state = vi.hoisted(() => ({
     spotlightBoards: { __v_isRef: true, value: [] as any[] },
     posts: { __v_isRef: true, value: [] as any[] },
     boards: { __v_isRef: true, value: [] as any[] },
-    stats: { __v_isRef: true, value: { boardCount: 0, postCount: 0, liveCount: 0 } },
+    selectedPeriod: { __v_isRef: true, value: '24h' as HomeLandingPeriod },
+    setPeriod: vi.fn(),
+    stats: {
+        __v_isRef: true,
+        value: {
+            boardCount: 0,
+            postCount: 0,
+            liveCount: 0,
+            onlineCount: 0,
+            postsToday: 0,
+            postsTodayDeltaPercent: null as number | null,
+            activeBoardCount: 0,
+            newMembersLast24Hours: 0,
+            commentsToday: 0,
+        },
+    },
     isLoading: { __v_isRef: true, value: false },
+    isFetching: { __v_isRef: true, value: false },
     isError: { __v_isRef: true, value: false },
     isBoardsLoading: { __v_isRef: true, value: false },
     isBoardsError: { __v_isRef: true, value: false },
@@ -24,7 +41,16 @@ vi.mock('@unhead/vue', () => ({
 
 vi.mock('vue-i18n', () => ({
     useI18n: () => ({
-        t: (key: string) => key,
+        t: (key: string, params?: Record<string, string>) => {
+            if (key === 'home.landing.statsCards.postsTodayDeltaVsYesterday') {
+                return `${params?.value} vs yesterday`
+            }
+            if (key === 'home.landing.statsCards.noComparisonData') {
+                return 'No comparison data yet'
+            }
+            return key
+        },
+        locale: { __v_isRef: true, value: 'en' },
     }),
 }))
 
@@ -104,8 +130,21 @@ describe('HomeFeed', () => {
         state.spotlightBoards.value = []
         state.posts.value = []
         state.boards.value = []
-        state.stats.value = { boardCount: 0, postCount: 0, liveCount: 0 }
+        state.selectedPeriod.value = '24h'
+        state.setPeriod.mockReset()
+        state.stats.value = {
+            boardCount: 0,
+            postCount: 0,
+            liveCount: 0,
+            onlineCount: 0,
+            postsToday: 0,
+            postsTodayDeltaPercent: null,
+            activeBoardCount: 0,
+            newMembersLast24Hours: 0,
+            commentsToday: 0,
+        }
         state.isLoading.value = false
+        state.isFetching.value = false
         state.isError.value = false
         state.isBoardsLoading.value = false
         state.isBoardsError.value = false
@@ -116,6 +155,23 @@ describe('HomeFeed', () => {
         state.editorPicks.value = [makePost(101, 'Hero'), makePost(202, 'Second pick')]
         state.trending.value = [makePost(303, 'Trending')]
         state.liveActivity.value = [makePost(404, 'Live')]
+        state.spotlightBoards.value = Array.from({ length: 6 }, (_, index) => ({
+            boardId: index + 1,
+            boardUrl: `board-${index + 1}`,
+            boardName: `Board ${index + 1}`,
+            subscriberCount: (index + 1) * 10,
+        }))
+        state.stats.value = {
+            boardCount: 11,
+            postCount: 312,
+            liveCount: 1824,
+            onlineCount: 1247,
+            postsToday: 312,
+            postsTodayDeltaPercent: 18,
+            activeBoardCount: 11,
+            newMembersLast24Hours: 47,
+            commentsToday: 1824,
+        }
 
         const wrapper = mount(HomeFeed, {
             global: {
@@ -137,8 +193,12 @@ describe('HomeFeed', () => {
         expect(cards.filter((card) => card.attributes('data-post-id') === '101')).toHaveLength(1)
         expect(cards.find((card) => card.attributes('data-variant') === 'featured')?.attributes('data-post-id')).toBe('101')
         expect(cards.some((card) => card.attributes('data-variant') === 'compact')).toBe(false)
+        expect(wrapper.text()).toContain('1,247')
+        expect(wrapper.text()).not.toContain('home.landing.storiesWorthReading')
         expect(wrapper.text()).toContain('home.landing.siteStats')
         expect(wrapper.text()).toContain('312')
+        expect(wrapper.text()).toContain('+18% vs yesterday')
+        expect(wrapper.text()).toContain('+47')
         expect(wrapper.text()).toContain('1,824')
     })
 
@@ -160,5 +220,31 @@ describe('HomeFeed', () => {
         })
         expect(wrapper.find('[data-testid="empty-state"]').exists()).toBe(true)
         expect(wrapper.findAll('[data-testid="post-card"]')).toHaveLength(0)
+    })
+
+    it('changes the trending period through the filter bar', async () => {
+        state.editorPicks.value = [makePost(101, 'Hero')]
+
+        const wrapper = mount(HomeFeed, {
+            global: {
+                mocks: {
+                    $t: (key: string) => key,
+                },
+                stubs: {
+                    RouterLink: RouterLinkStub,
+                    HomePostCard: HomePostCardStub,
+                    HomeActivityList: HomeActivityListStub,
+                    EmptyState: EmptyStateStub,
+                    ErrorState: ErrorStateStub,
+                    PostListSkeleton: PostListSkeletonStub,
+                },
+            },
+        })
+
+        const target = wrapper.findAll('button').find((button) => button.text() === 'home.landing.trendingPeriods.last7Days')
+        expect(target).toBeTruthy()
+        expect(target?.attributes('aria-pressed')).toBe('false')
+        await target!.trigger('click')
+        expect(state.setPeriod).toHaveBeenCalledWith('7d')
     })
 })

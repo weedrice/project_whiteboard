@@ -64,6 +64,7 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
         long countByUserAndIsDeleted(User user, Boolean isDeleted); // Added for UserProfileDto
 
         long countByAgent_AgentIdAndCreatedAtBetween(Long agentId, LocalDateTime start, LocalDateTime end);
+        long countByCreatedAtGreaterThanEqualAndCreatedAtLessThanAndIsDeletedFalse(LocalDateTime start, LocalDateTime end);
 
         @Modifying(flushAutomatically = true)
         @Query("UPDATE Post p SET p.likeCount = p.likeCount + 1 WHERE p.postId = :postId")

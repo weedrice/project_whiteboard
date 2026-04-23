@@ -68,6 +68,10 @@ describe('PostList', () => {
         columns: {
           type: Array,
           required: true
+        },
+        rowClass: {
+          type: Function,
+          default: undefined
         }
       },
       template: '<div />'
@@ -100,6 +104,8 @@ describe('PostList', () => {
       'viewCount',
       'createdAt'
     ])
+    const rowClass = table.props('rowClass') as (item: { postId: number }) => string
+    expect(rowClass({ postId: 1 })).toContain('post-list-row')
   })
 
   it('keeps desktop column widths within 100 percent when board names are shown', () => {

@@ -20,7 +20,9 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.util.Collections;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
@@ -102,16 +104,20 @@ class HomeControllerTest {
                         .boardCount(1)
                         .postCount(2)
                         .liveCount(1)
+                        .onlineCount(10)
                         .build())
                 .build();
-        when(homeLandingService.getLanding(any())).thenReturn(response);
+        when(homeLandingService.getLanding(any(), any())).thenReturn(response);
 
         mockMvc.perform(get("/api/v1/home/landing")
                         .with(user(customUserDetails))
                         .with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.stats.boardCount").value(1));
+                .andExpect(jsonPath("$.data.stats.boardCount").value(1))
+                .andExpect(jsonPath("$.data.stats.onlineCount").value(10));
+
+        verify(homeLandingService).getLanding(any(), eq("24h"));
     }
     @Test
     @DisplayName("홈 랜딩 API는 비로그인 사용자도 성공 응답을 받는다")
@@ -121,13 +127,37 @@ class HomeControllerTest {
                         .boardCount(0)
                         .postCount(0)
                         .liveCount(0)
+                        .onlineCount(0)
                         .build())
                 .build();
-        when(homeLandingService.getLanding(any())).thenReturn(response);
+        when(homeLandingService.getLanding(any(), any())).thenReturn(response);
 
         mockMvc.perform(get("/api/v1/home/landing"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.stats.boardCount").value(0));
+
+        verify(homeLandingService).getLanding(any(), eq("24h"));
+    }
+
+    @Test
+    @DisplayName("홈 랜딩 API는 요청한 기간 파라미터를 서비스로 전달한다")
+    void getLanding_forwardsExplicitPeriod() throws Exception {
+        HomeLandingResponse response = HomeLandingResponse.builder()
+                .stats(HomeLandingResponse.Stats.builder()
+                        .boardCount(3)
+                        .postCount(9)
+                        .liveCount(2)
+                        .onlineCount(7)
+                        .build())
+                .build();
+        when(homeLandingService.getLanding(any(), eq("7d"))).thenReturn(response);
+
+        mockMvc.perform(get("/api/v1/home/landing").param("period", "7d"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.stats.onlineCount").value(7));
+
+        verify(homeLandingService).getLanding(any(), eq("7d"));
     }
 }

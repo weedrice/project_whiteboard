@@ -14,6 +14,8 @@ import java.util.Optional;
 
 public interface BoardRepository extends JpaRepository<Board, Long> {
 
+    long countByIsActiveTrueAndIsPublicTrue();
+
     @EntityGraph(attributePaths = "creator")
     List<Board> findByIsActiveOrderBySortOrderAsc(Boolean isActive);
 

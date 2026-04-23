@@ -879,6 +879,13 @@ describe('PostForm', () => {
         expect(lastToastArgs?.[1]).toBe('error')
     })
 
+    it('renders the desktop metadata cards for the compose shell', () => {
+        const wrapper = mountPostForm('create')
+
+        expect(wrapper.findAll('.nv-compose-side-card').length).toBeGreaterThanOrEqual(2)
+        expect(wrapper.find('aside').classes()).toContain('lg:sticky')
+    })
+
     it('omits categoryId when edit payload category is empty string', async () => {
         routeState.params.postId = '31'
         postRef.value = {

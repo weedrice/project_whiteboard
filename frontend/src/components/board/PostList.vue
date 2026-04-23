@@ -74,6 +74,10 @@ const emit = defineEmits<{
   (e: 'inquiry-click', post: Post): void
 }>()
 
+const getRowClass = (item: Post) => (
+  isCurrentPost(item) ? 'post-list-row post-list-row-current' : 'post-list-row'
+)
+
 const { t } = useI18n()
 
 function isCurrentPost(item: Post): boolean {
@@ -317,7 +321,7 @@ const columns = computed(() => {
         :columns="columns"
         :items="posts"
         :emptyText="$t('board.list.noPosts')"
-        :rowClass="(item) => isCurrentPost(item) ? 'post-list-row-current' : ''"
+        :rowClass="getRowClass"
         @sort="handleSort"
       >
         <template #cell-postId="{ item }">
@@ -472,6 +476,31 @@ const columns = computed(() => {
     </div>
   </div>
 </template>
+
+<style scoped>
+:deep(.post-list-row td) {
+  transition: background-color 0.15s ease, padding-left 0.15s ease, border-color 0.15s ease;
+}
+
+:deep(.post-list-row td:first-child) {
+  border-left: 3px solid transparent;
+  padding-left: calc(1.5rem - 3px);
+}
+
+:deep(.post-list-row:hover td:first-child) {
+  border-left-color: var(--nv-accent);
+  padding-left: 1.5rem;
+}
+
+:deep(.post-list-row-current td:first-child) {
+  border-left-color: var(--nv-accent);
+  padding-left: 1.5rem;
+}
+
+:deep(.post-list-row:hover td) {
+  background: color-mix(in srgb, var(--nv-surface-2) 40%, transparent);
+}
+</style>
 
 <style scoped>
 .nv-post-card {

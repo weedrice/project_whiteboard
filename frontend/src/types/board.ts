@@ -167,10 +167,18 @@ export interface FeedPost extends Omit<PostSummary, 'liked' | 'scrapped' | 'subs
     firstMediaUrl?: string
 }
 
+export type HomeLandingPeriod = '24h' | '7d' | '30d'
+
 export interface HomeLandingStats {
     boardCount: number
     postCount: number
     liveCount: number
+    onlineCount: number
+    postsToday: number
+    postsTodayDeltaPercent: number | null
+    activeBoardCount: number
+    newMembersLast24Hours: number
+    commentsToday: number
 }
 
 export interface HomeLandingResponse {

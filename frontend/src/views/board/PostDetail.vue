@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
@@ -178,6 +178,7 @@ const reportReason = ref('')
 const showOverflowMenu = ref(false)
 const showCopyHint = ref(false)
 const showComposerCta = ref(false)
+const showDesktopReactionBar = ref(false)
 
 const titleRef = ref<HTMLElement | null>(null)
 const contentRef = ref<HTMLElement | null>(null)
@@ -382,7 +383,7 @@ function handleCopyUrl(showToast = true) {
     ;(document.activeElement as HTMLElement | null)?.blur()
   }).catch((err) => {
     logger.error('Failed to copy URL:', err)
-    toastStore.addToast(translateOrFallback('common.messages.processFailed', '주소 복사에 실패했습니다.'), 'error')
+    toastStore.addToast(translateOrFallback('common.messages.processFailed', '二쇱냼 蹂듭궗???ㅽ뙣?덉뒿?덈떎.'), 'error')
   })
 }
 
@@ -399,7 +400,7 @@ function handleShare() {
     }).catch((err) => {
       if (err.name !== 'AbortError') {
         logger.error('Share failed:', err)
-        toastStore.addToast(translateOrFallback('common.messages.processFailed', '공유에 실패했습니다.'), 'error')
+        toastStore.addToast(translateOrFallback('common.messages.processFailed', '怨듭쑀???ㅽ뙣?덉뒿?덈떎.'), 'error')
       }
     })
     return
@@ -542,6 +543,13 @@ function handleDocumentClick(event: MouseEvent) {
 
 function handleResize() {
   setupComposerObserver()
+  if (typeof window === 'undefined') return
+  showDesktopReactionBar.value = window.innerWidth >= 1024 && window.scrollY > 300
+}
+
+function handleScroll() {
+  if (typeof window === 'undefined') return
+  showDesktopReactionBar.value = window.innerWidth >= 1024 && window.scrollY > 300
 }
 
 const handleKeyDown = (event: KeyboardEvent) => {
@@ -668,12 +676,15 @@ onMounted(() => {
   document.addEventListener('keydown', handleKeyDown)
   document.addEventListener('click', handleDocumentClick)
   window.addEventListener('resize', handleResize)
+  window.addEventListener('scroll', handleScroll, { passive: true })
+  handleScroll()
 })
 
 onUnmounted(() => {
   document.removeEventListener('keydown', handleKeyDown)
   document.removeEventListener('click', handleDocumentClick)
   window.removeEventListener('resize', handleResize)
+  window.removeEventListener('scroll', handleScroll)
 
   clearBlurTimer()
   if (composerObserver) {
@@ -767,7 +778,7 @@ onUnmounted(() => {
                       class="nv-post-icon-btn"
                       :aria-expanded="showOverflowMenu"
                       aria-haspopup="menu"
-                      aria-label="더보기"
+                      :aria-label="$t('board.postDetail.moreActions')"
                       @click="toggleOverflowMenu"
                     >
                       <MoreHorizontal class="h-4 w-4" />
@@ -812,9 +823,13 @@ onUnmounted(() => {
               </div>
 
               <div class="space-y-3">
-                <p class="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--nv-muted)]">
-                  {{ post.board.boardName }}
-                </p>
+                <div class="nv-post-meta-strip">
+                  <span>{{ post.board.boardName }}</span>
+                  <span>&middot;</span>
+                  <span>{{ $t('common.post') }}</span>
+                  <span>&middot;</span>
+                  <span>{{ formatDate(post.createdAt) }}</span>
+                </div>
                 <h1 ref="titleRef" class="text-2xl font-semibold tracking-[-0.04em] text-[var(--nv-ink)] sm:text-4xl">
                   {{ post.title }}
                 </h1>
@@ -913,11 +928,15 @@ onUnmounted(() => {
             </div>
 
             <div class="hidden rounded-[28px] border border-[var(--nv-line)] bg-[color:var(--nv-surface)] px-4 py-4 sm:block">
+              <p class="mb-3 text-[11px] font-medium uppercase tracking-[0.18em] text-[var(--nv-muted)]">
+                {{ $t('board.postDetail.reactions') }}
+              </p>
               <div class="grid grid-cols-3 gap-2">
                 <button
                   type="button"
                   class="nv-post-action-btn"
                   :class="{ 'is-active': post.liked }"
+                  :aria-pressed="post.liked"
                   :disabled="!authStore.isAuthenticated"
                   @click="handleLike"
                 >
@@ -928,11 +947,12 @@ onUnmounted(() => {
                   type="button"
                   class="nv-post-action-btn"
                   :class="{ 'is-active is-bookmark': post.scrapped }"
+                  :aria-pressed="post.scrapped"
                   :disabled="!authStore.isAuthenticated"
                   @click="handleBookmark"
                 >
                   <Bookmark class="h-5 w-5" :class="{ 'fill-current bounce-in': isBookmarkAnimating }" />
-                  <span>북마크</span>
+                  <span>{{ $t('board.postDetail.bookmark') }}</span>
                 </button>
                 <button type="button" class="nv-post-action-btn" @click="handleShare">
                   <Share2 class="h-5 w-5" />
@@ -949,26 +969,26 @@ onUnmounted(() => {
           <aside class="hidden lg:block">
             <div class="sticky top-24 space-y-4">
               <section class="nv-post-sidebar-card">
-                <h2 class="nv-post-sidebar-title">Quick Actions</h2>
+                <h2 class="nv-post-sidebar-title">{{ $t('board.postDetail.quickActions') }}</h2>
                 <div class="mt-3 grid gap-2">
                   <button type="button" class="nv-post-sidebar-btn" @click="scrollToComments">
                     <MessageSquare class="h-4 w-4" />
-                    댓글로 이동
+                    {{ $t('board.postDetail.comments') }}
                   </button>
                   <button type="button" class="nv-post-sidebar-btn" @click="goToList">
                     <List class="h-4 w-4" />
-                    목록으로
+                    {{ $t('board.postDetail.toList') }}
                   </button>
                   <button type="button" class="nv-post-sidebar-btn" @click="scrollToTop">
                     <ArrowLeft class="h-4 w-4 rotate-90" />
-                    상단으로
+                    {{ $t('board.postDetail.scrollTop') }}
                   </button>
                 </div>
               </section>
 
               <section v-if="hasToc" class="nv-post-sidebar-card">
-                <h2 class="nv-post-sidebar-title">Table of Contents</h2>
-                <nav class="mt-3 space-y-1.5" aria-label="Post table of contents">
+                <h2 class="nv-post-sidebar-title">{{ $t('board.postDetail.tableOfContents') }}</h2>
+                <nav class="mt-3 space-y-1.5" :aria-label="$t('board.postDetail.tableOfContents')">
                   <button
                     v-for="item in tocItems"
                     :key="item.id"
@@ -987,6 +1007,41 @@ onUnmounted(() => {
       </template>
     </BaseCard>
 
+    <Transition name="fade">
+      <div v-if="post && showDesktopReactionBar" class="nv-post-desktop-bar hidden lg:flex">
+        <button
+          type="button"
+          class="nv-post-mobile-action"
+          :class="{ 'is-active': post.liked }"
+          :aria-pressed="post.liked"
+          :disabled="!authStore.isAuthenticated"
+          @click="handleLike"
+        >
+          <ThumbsUp class="h-5 w-5" :class="{ 'fill-current bounce-in': isLikeAnimating }" />
+          <span>{{ post.likeCount }}</span>
+        </button>
+        <button
+          type="button"
+          class="nv-post-mobile-action"
+          :class="{ 'is-active is-bookmark': post.scrapped }"
+          :aria-pressed="post.scrapped"
+          :disabled="!authStore.isAuthenticated"
+          @click="handleBookmark"
+        >
+          <Bookmark class="h-5 w-5" :class="{ 'fill-current bounce-in': isBookmarkAnimating }" />
+          <span>{{ $t('board.postDetail.bookmark') }}</span>
+        </button>
+        <button type="button" class="nv-post-mobile-action" @click="scrollToComments">
+          <MessageSquare class="h-5 w-5" />
+          <span>{{ $t('common.comment') }}</span>
+        </button>
+        <button type="button" class="nv-post-mobile-action" @click="handleShare">
+          <Share2 class="h-5 w-5" />
+          <span>{{ $t('common.share') }}</span>
+        </button>
+      </div>
+    </Transition>
+
     <Transition name="slide-up">
       <button
         v-if="showComposerCta"
@@ -994,7 +1049,7 @@ onUnmounted(() => {
         class="nv-post-mobile-comment-cta sm:hidden"
         @click="scrollToCommentComposer"
       >
-        댓글 작성창으로 이동
+        {{ $t('board.postDetail.focusComposer') }}
       </button>
     </Transition>
 
@@ -1003,6 +1058,7 @@ onUnmounted(() => {
         type="button"
         class="nv-post-mobile-action"
         :class="{ 'is-active': post.liked }"
+        :aria-pressed="post.liked"
         :disabled="!authStore.isAuthenticated"
         @click="handleLike"
       >
@@ -1013,15 +1069,16 @@ onUnmounted(() => {
         type="button"
         class="nv-post-mobile-action"
         :class="{ 'is-active is-bookmark': post.scrapped }"
+        :aria-pressed="post.scrapped"
         :disabled="!authStore.isAuthenticated"
         @click="handleBookmark"
       >
         <Bookmark class="h-5 w-5" :class="{ 'fill-current bounce-in': isBookmarkAnimating }" />
-        <span>북마크</span>
+        <span>{{ $t('board.postDetail.bookmark') }}</span>
       </button>
       <button type="button" class="nv-post-mobile-action" @click="scrollToComments">
         <MessageSquare class="h-5 w-5" />
-        <span>댓글</span>
+        <span>{{ $t('common.comment') }}</span>
       </button>
       <button type="button" class="nv-post-mobile-action" @click="handleShare">
         <Share2 class="h-5 w-5" />
@@ -1071,6 +1128,18 @@ onUnmounted(() => {
 
 .nv-post-header {
   border-bottom: 1px solid var(--nv-line);
+}
+
+.nv-post-meta-strip {
+  align-items: center;
+  color: var(--nv-muted);
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
 }
 
 .nv-post-back-btn {
@@ -1273,6 +1342,28 @@ onUnmounted(() => {
   position: fixed;
   right: 0.75rem;
   z-index: 74;
+}
+
+.nv-post-desktop-bar {
+  align-items: center;
+  background: color-mix(in srgb, var(--nv-surface) 94%, transparent);
+  border: 1px solid var(--nv-line);
+  border-radius: 1.35rem;
+  bottom: 1rem;
+  box-shadow: var(--nv-shadow-popup);
+  gap: 0.5rem;
+  left: 50%;
+  padding: 0.55rem;
+  position: fixed;
+  transform: translateX(-50%);
+  width: min(34rem, calc(100vw - 2rem));
+  z-index: 74;
+}
+
+.nv-post-desktop-bar .nv-post-mobile-action {
+  flex: 1 1 0;
+  flex-direction: row;
+  min-height: 3.25rem;
 }
 
 .nv-post-mobile-action {

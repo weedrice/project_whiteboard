@@ -76,8 +76,6 @@ const selectedCategoryId = ref<number | null>(null)
 const sort = ref('createdAt,desc')
 const searchInputElementId = 'board-search-input'
 
-type SortField = 'author' | 'category' | 'viewCount' | 'likeCount' | 'commentCount' | 'createdAt' | 'title' | 'postId'
-
 const parsePageFromQuery = (value: unknown): number => {
   const parsed = Number.parseInt(String(value ?? '1'), 10)
   if (Number.isNaN(parsed) || parsed < 1) return 0
@@ -88,44 +86,6 @@ const parseCategoryIdFromQuery = (value: unknown): number | null => {
   const parsed = Number.parseInt(String(value ?? ''), 10)
   if (Number.isNaN(parsed) || parsed <= 0) return null
   return parsed
-}
-
-const resolveSortField = (field: string): SortField => {
-  switch (field) {
-    case 'author':
-    case 'category':
-    case 'viewCount':
-    case 'likeCount':
-    case 'commentCount':
-    case 'createdAt':
-    case 'title':
-    case 'postId':
-      return field
-    default:
-      return 'createdAt'
-  }
-}
-
-const getSortValue = (post: PostSummary, field: SortField): string | number => {
-  switch (field) {
-    case 'author':
-      return post.author?.displayName || ''
-    case 'category':
-      return post.category?.name || ''
-    case 'viewCount':
-      return post.viewCount || 0
-    case 'likeCount':
-      return post.likeCount || 0
-    case 'commentCount':
-      return post.commentCount || 0
-    case 'title':
-      return post.title || ''
-    case 'postId':
-      return post.rowNum ?? post.postId ?? 0
-    case 'createdAt':
-    default:
-      return post.createdAt || ''
-  }
 }
 
 const buildListQuery = (
@@ -265,25 +225,7 @@ const posts = computed(() => {
     return noticePosts
   }
 
-  if (sort.value === 'createdAt,desc') {
-    return [...noticePosts, ...data]
-  }
-
-  const sortedData = [...data]
-  const [rawField, direction] = sort.value.split(',')
-  const field = resolveSortField(rawField)
-  const isAsc = direction === 'asc'
-
-  sortedData.sort((a, b) => {
-    const valueA = getSortValue(a, field)
-    const valueB = getSortValue(b, field)
-
-    if (valueA < valueB) return isAsc ? -1 : 1
-    if (valueA > valueB) return isAsc ? 1 : -1
-    return 0
-  })
-
-  return [...noticePosts, ...sortedData]
+  return [...noticePosts, ...data]
 })
 
 const totalCount = computed(() => postsData.value?.totalElements || 0)
@@ -461,7 +403,7 @@ onUnmounted(() => {
 <template>
   <div class="nv-board-shell space-y-3 sm:space-y-6">
     <div v-if="isLoading && !board" class="space-y-4 sm:space-y-6">
-      <section class="nv-board-panel p-4 sm:p-6">
+      <section class="nv-board-panel nv-board-header-panel p-4 sm:p-6">
         <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div class="flex items-start gap-4">
             <BaseSkeleton width="5rem" height="5rem" rounded="rounded-[24px]" className="flex-shrink-0" />
@@ -498,7 +440,7 @@ onUnmounted(() => {
     </section>
 
     <template v-else-if="board">
-      <section class="nv-board-panel p-4 sm:p-6">
+      <section class="nv-board-panel nv-board-header-panel p-4 sm:p-6">
         <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
           <div class="flex min-w-0 flex-1 items-start gap-4 sm:gap-5">
             <router-link :to="buildBoardListRoute()" class="nv-board-icon-wrap flex-shrink-0">
@@ -582,7 +524,7 @@ onUnmounted(() => {
       </div>
 
       <section id="board-post-list" class="nv-board-panel overflow-hidden">
-        <div class="border-b border-[var(--nv-line)] px-4 py-4 sm:px-5">
+        <div class="nv-board-toolbar-sticky border-b border-[var(--nv-line)] px-4 py-4 sm:px-5">
           <div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
             <div class="min-w-0 space-y-3">
               <div class="flex flex-wrap items-center gap-2">
@@ -703,6 +645,10 @@ onUnmounted(() => {
   box-shadow: var(--nv-shadow-card);
 }
 
+.nv-board-header-panel {
+  position: relative;
+}
+
 .nv-board-icon-wrap {
   display: inline-flex;
   border-radius: 1.75rem;
@@ -790,6 +736,23 @@ onUnmounted(() => {
   background: var(--nv-accent-bg);
   border-color: color-mix(in srgb, var(--nv-accent) 26%, var(--nv-line));
   color: var(--nv-accent);
+}
+
+@media (min-width: 1024px) {
+  .nv-board-header-panel {
+    position: sticky;
+    top: 4.25rem;
+    z-index: 20;
+    backdrop-filter: blur(14px);
+  }
+
+  .nv-board-toolbar-sticky {
+    position: sticky;
+    top: 13.5rem;
+    z-index: 19;
+    background: color-mix(in srgb, var(--nv-surface) 92%, transparent);
+    backdrop-filter: blur(14px);
+  }
 }
 
 @media (max-width: 639px) {

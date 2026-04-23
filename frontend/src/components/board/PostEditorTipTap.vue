@@ -443,44 +443,51 @@ onBeforeUnmount(() => {
   <div class="tiptap-editor-wrap flex min-h-0 flex-1 flex-col">
     <input ref="imageInput" type="file" accept="image/*" class="hidden" @change="onImageChange">
 
-    <div v-if="editor" class="tiptap-toolbar flex flex-wrap items-center gap-1 border-b border-[var(--nv-line)] bg-[var(--nv-surface-alt)] p-2">
-      <button type="button" class="tiptap-btn" :class="{ active: editor.isActive('bold') }" :title="t('board.writePost.toolbar.bold')" @mousedown.prevent @click="editor.chain().focus().toggleBold().run()">
-        <span class="font-bold">B</span>
-      </button>
-      <button type="button" class="tiptap-btn" :class="{ active: editor.isActive('italic') }" :title="t('board.writePost.toolbar.italic')" @mousedown.prevent @click="editor.chain().focus().toggleItalic().run()">
-        <span class="italic">I</span>
-      </button>
-      <button type="button" class="tiptap-btn" :class="{ active: editor.isActive('underline') }" :title="t('board.writePost.toolbar.underline')" @mousedown.prevent @click="editor.chain().focus().toggleUnderline().run()">
-        <span class="underline">U</span>
-      </button>
-      <button type="button" class="tiptap-btn" :class="{ active: editor.isActive('strike') }" :title="t('board.writePost.toolbar.strikethrough')" @mousedown.prevent @click="editor.chain().focus().toggleStrike().run()">
-        <span class="line-through">S</span>
-      </button>
-      <span class="h-6 w-px bg-[var(--nv-line)] mx-0.5" />
-      <button type="button" class="tiptap-btn" :class="{ active: editor.isActive('link') }" :title="t('board.writePost.toolbar.link')" @mousedown.prevent @click="openLinkPopover">
-        {{ t('board.writePost.toolbar.link') }}
-      </button>
-      <button type="button" class="tiptap-btn" :title="t('board.writePost.toolbar.image')" :disabled="isUploadingImage" @mousedown.prevent @click="triggerImageUpload">
-        Img
-      </button>
-      <button type="button" class="tiptap-btn" :title="t('board.writePost.toolbar.video')" @mousedown.prevent @click="emit('open-video')">
-        Vid
-      </button>
-      <button type="button" class="tiptap-btn" :class="{ active: editor.isActive('bulletList') }" :title="t('board.writePost.toolbar.bulletList')" @mousedown.prevent="saveListSelection" @click="applyBulletList">
-        UL
-      </button>
-      <button type="button" class="tiptap-btn" :class="{ active: editor.isActive('orderedList') }" :title="t('board.writePost.toolbar.orderedList')" @mousedown.prevent="saveListSelection" @click="applyOrderedList">
-        1.
-      </button>
-      <button type="button" class="tiptap-btn" :title="t('board.writePost.toolbar.emoticon')" @mousedown.prevent @click="emit('open-emoticon')">
-        :)
-      </button>
-      <button type="button" class="tiptap-btn tiptap-btn-pill" :title="t('board.writePost.toolbar.slashMenu')" @mousedown.prevent @click="showSlashMenu = !showSlashMenu">
-        /
-      </button>
-      <button type="button" class="tiptap-btn tiptap-btn-pill" :title="t('board.writePost.toolbar.more')" @mousedown.prevent @click="showAdvancedMenu = !showAdvancedMenu">
-        {{ t('board.writePost.toolbar.more') }}
-      </button>
+    <div v-if="editor" class="tiptap-toolbar flex flex-wrap items-center gap-2 border-b border-[var(--nv-line)] bg-[var(--nv-surface-alt)] p-2">
+      <div class="tiptap-toolbar-group">
+        <button type="button" class="tiptap-btn" :class="{ active: editor.isActive('bold') }" :title="t('board.writePost.toolbar.bold')" :aria-pressed="editor.isActive('bold')" @mousedown.prevent @click="editor.chain().focus().toggleBold().run()">
+          <span class="font-bold">B</span>
+        </button>
+        <button type="button" class="tiptap-btn" :class="{ active: editor.isActive('italic') }" :title="t('board.writePost.toolbar.italic')" :aria-pressed="editor.isActive('italic')" @mousedown.prevent @click="editor.chain().focus().toggleItalic().run()">
+          <span class="italic">I</span>
+        </button>
+        <button type="button" class="tiptap-btn" :class="{ active: editor.isActive('underline') }" :title="t('board.writePost.toolbar.underline')" :aria-pressed="editor.isActive('underline')" @mousedown.prevent @click="editor.chain().focus().toggleUnderline().run()">
+          <span class="underline">U</span>
+        </button>
+        <button type="button" class="tiptap-btn" :class="{ active: editor.isActive('strike') }" :title="t('board.writePost.toolbar.strikethrough')" :aria-pressed="editor.isActive('strike')" @mousedown.prevent @click="editor.chain().focus().toggleStrike().run()">
+          <span class="line-through">S</span>
+        </button>
+      </div>
+      <div class="tiptap-toolbar-group">
+        <button type="button" class="tiptap-btn" :class="{ active: editor.isActive('link') }" :title="t('board.writePost.toolbar.link')" :aria-pressed="editor.isActive('link')" @mousedown.prevent @click="openLinkPopover">
+          {{ t('board.writePost.toolbar.link') }}
+        </button>
+        <button type="button" class="tiptap-btn" :title="t('board.writePost.toolbar.image')" :disabled="isUploadingImage" @mousedown.prevent @click="triggerImageUpload">
+          Img
+        </button>
+        <button type="button" class="tiptap-btn" :title="t('board.writePost.toolbar.video')" @mousedown.prevent @click="emit('open-video')">
+          Vid
+        </button>
+        <button type="button" class="tiptap-btn" :title="t('board.writePost.toolbar.emoticon')" @mousedown.prevent @click="emit('open-emoticon')">
+          :)
+        </button>
+      </div>
+      <div class="tiptap-toolbar-group">
+        <button type="button" class="tiptap-btn" :class="{ active: editor.isActive('bulletList') }" :title="t('board.writePost.toolbar.bulletList')" :aria-pressed="editor.isActive('bulletList')" @mousedown.prevent="saveListSelection" @click="applyBulletList">
+          UL
+        </button>
+        <button type="button" class="tiptap-btn" :class="{ active: editor.isActive('orderedList') }" :title="t('board.writePost.toolbar.orderedList')" :aria-pressed="editor.isActive('orderedList')" @mousedown.prevent="saveListSelection" @click="applyOrderedList">
+          1.
+        </button>
+      </div>
+      <div class="tiptap-toolbar-group">
+        <button type="button" class="tiptap-btn tiptap-btn-pill" :title="t('board.writePost.toolbar.slashMenu')" aria-haspopup="dialog" :aria-expanded="showSlashMenu" @mousedown.prevent @click="showSlashMenu = !showSlashMenu">
+          {{ t('board.writePost.toolbar.insertBlock') }}
+        </button>
+        <button type="button" class="tiptap-btn tiptap-btn-pill" :title="t('board.writePost.toolbar.more')" aria-haspopup="dialog" :aria-expanded="showAdvancedMenu" @mousedown.prevent @click="showAdvancedMenu = !showAdvancedMenu">
+          {{ t('board.writePost.toolbar.more') }}
+        </button>
+      </div>
     </div>
 
     <Teleport to="body">
@@ -672,6 +679,16 @@ onBeforeUnmount(() => {
 .tiptap-btn-pill {
   width: auto;
   padding: 0 0.8rem;
+}
+
+.tiptap-toolbar-group {
+  align-items: center;
+  background: color-mix(in srgb, var(--nv-surface) 88%, transparent);
+  border: 1px solid var(--nv-line);
+  border-radius: 1rem;
+  display: inline-flex;
+  gap: 0.15rem;
+  padding: 0.2rem;
 }
 
 

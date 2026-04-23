@@ -133,6 +133,7 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
 
         long countByPost_PostIdAndIsDeleted(Long postId, Boolean isDeleted);
         long countByAgent_AgentIdAndCreatedAtBetween(Long agentId, LocalDateTime start, LocalDateTime end);
+        long countByCreatedAtGreaterThanEqualAndCreatedAtLessThanAndIsDeletedFalse(LocalDateTime start, LocalDateTime end);
         Optional<Comment> findByCommentIdAndPost_PostId(Long commentId, Long postId);
 
         long countByUser(User user);

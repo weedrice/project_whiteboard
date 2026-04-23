@@ -450,6 +450,29 @@ class PostServiceTest {
         assertThat(result.get(0).getThumbnailUrl()).isEqualTo("/api/v1/files/10");
     }
 
+    @Test
+    @DisplayName("인기 게시글 조회는 선택한 기간 기준으로 집계 시점을 계산한다")
+    void getTrendingPosts_resolvesSelectedPeriod() {
+        when(userBlockService.getBlockedUserIds(1L)).thenReturn(Collections.emptyList());
+        when(postRepository.findTrendingPosts(any(LocalDateTime.class), anyList(), any(Pageable.class)))
+                .thenReturn(List.of(post));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(fileService.getFirstImageFileIdsForPosts(anyList())).thenReturn(Collections.emptyMap());
+        when(postLikeRepository.findByUserAndPostIn(user, List.of(post))).thenReturn(Collections.emptyList());
+        when(scrapRepository.findByUserAndPostIn(user, List.of(post))).thenReturn(Collections.emptyList());
+        when(boardSubscriptionRepository.findByUserAndBoardIn(eq(user), anyList())).thenReturn(Collections.emptyList());
+
+        LocalDateTime before = LocalDateTime.now();
+        postService.getTrendingPosts(PageRequest.of(0, 10), 1L, "7d");
+        LocalDateTime after = LocalDateTime.now();
+
+        ArgumentCaptor<LocalDateTime> sinceCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
+        verify(postRepository).findTrendingPosts(sinceCaptor.capture(), anyList(), any(Pageable.class));
+        assertThat(sinceCaptor.getValue())
+                .isAfterOrEqualTo(before.minusDays(7).minusSeconds(1))
+                .isBeforeOrEqualTo(after.minusDays(7).plusSeconds(1));
+    }
+
     // --- Update Post ---
 
     @Test

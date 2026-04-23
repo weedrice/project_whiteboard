@@ -20,8 +20,14 @@ public class HomeLandingResponse {
     @Getter
     @Builder
     public static class Stats {
-        private int boardCount;
-        private int postCount;
-        private int liveCount;
+        private long boardCount;
+        private long postCount;
+        private long liveCount;
+        private long onlineCount;
+        private long postsToday;
+        private Integer postsTodayDeltaPercent;
+        private long activeBoardCount;
+        private long newMembersLast24Hours;
+        private long commentsToday;
     }
 }

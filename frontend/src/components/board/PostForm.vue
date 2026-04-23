@@ -631,7 +631,17 @@ defineExpose({
         @submit.prevent="handleSubmit"
       >
         <section class="nv-compose-main">
-          <div class="rounded-[28px] border border-[var(--nv-line)] bg-[var(--nv-surface)] p-4 shadow-[var(--nv-shadow-soft)] sm:p-5">
+          <div class="nv-compose-main-card rounded-[28px] border border-[var(--nv-line)] bg-[var(--nv-surface)] p-4 shadow-[var(--nv-shadow-soft)] sm:p-5">
+            <div class="mb-4 hidden items-center justify-between gap-3 rounded-[20px] border border-[var(--nv-line)] bg-[var(--nv-elevated)] px-4 py-3 lg:flex">
+              <div>
+                <p class="nv-compose-kicker">{{ $t('board.writePost.sections.editor') }}</p>
+                <p class="mt-1 text-sm text-[var(--nv-ink-soft)]">{{ draftStatusLabel }}</p>
+              </div>
+              <div class="rounded-full border border-[var(--nv-line)] bg-[var(--nv-surface)] px-3 py-1 text-[11px] font-medium uppercase tracking-[0.16em] text-[var(--nv-muted)]">
+                {{ $t('board.writePost.toolbar.insertBlock') }}
+              </div>
+            </div>
+
             <div class="mb-4 flex flex-wrap items-center gap-2 lg:hidden">
               <div v-if="!props.hideCategory && filteredCategories.length > 0" class="min-w-[10rem] flex-1">
                 <BaseSelect id="category" v-model="form.categoryId" :label="$t('common.category')">
@@ -757,14 +767,14 @@ defineExpose({
           </div>
         </section>
 
-        <aside class="space-y-4">
-          <section class="rounded-[28px] border border-[var(--nv-line)] bg-[var(--nv-surface)] p-4 shadow-[var(--nv-shadow-soft)]">
+        <aside class="space-y-4 lg:sticky lg:top-24 lg:self-start">
+          <section class="nv-compose-side-card rounded-[28px] border border-[var(--nv-line)] bg-[var(--nv-surface)] p-4 shadow-[var(--nv-shadow-soft)]">
             <div class="mb-4">
               <p class="nv-compose-kicker">{{ $t('board.writePost.sections.metadata') }}</p>
               <h3 class="text-lg font-semibold text-[var(--nv-ink)]">{{ $t('board.writePost.sections.postSettings') }}</h3>
             </div>
 
-            <div v-if="!props.hideCategory && filteredCategories.length > 0" class="mb-4 hidden lg:block">
+            <div v-if="!props.hideCategory && filteredCategories.length > 0" class="nv-compose-side-section mb-4 hidden lg:block">
               <BaseSelect id="category" v-model="form.categoryId" :label="$t('common.category')">
                 <option value="" disabled>{{ $t('board.writePost.selectCategory') }}</option>
                 <option
@@ -778,14 +788,14 @@ defineExpose({
               </BaseSelect>
             </div>
 
-            <div v-if="!props.hideTags" class="mb-4 hidden lg:block">
+            <div v-if="!props.hideTags" class="nv-compose-side-section mb-4 hidden lg:block">
               <label for="tags" class="mb-2 block text-xs font-medium uppercase tracking-[0.18em] text-[var(--nv-muted)]">
                 {{ $t('common.tags') }}
               </label>
               <PostTags v-model="form.tags" />
             </div>
 
-            <div class="space-y-3">
+            <div class="nv-compose-side-section space-y-3">
               <BaseCheckbox v-if="showNotice" id="isNotice" v-model="form.isNotice" :label="$t('common.notice')" :description="$t('board.writePost.noticeDesc')" />
               <BaseCheckbox v-if="canShowNsfw" id="nsfw" v-model="form.isNsfw" :label="$t('board.writePost.nsfw')" :description="$t('board.writePost.nsfwDesc')" />
               <BaseCheckbox v-if="!props.hideSpoiler" id="spoiler" v-model="form.isSpoiler" :label="$t('board.writePost.spoiler')" :description="$t('board.writePost.spoilerDesc')" />
@@ -793,7 +803,7 @@ defineExpose({
             </div>
           </section>
 
-          <section class="rounded-[28px] border border-[var(--nv-line)] bg-[var(--nv-surface)] p-4 shadow-[var(--nv-shadow-soft)]">
+          <section class="nv-compose-side-card rounded-[28px] border border-[var(--nv-line)] bg-[var(--nv-surface)] p-4 shadow-[var(--nv-shadow-soft)]">
             <div class="mb-3">
               <p class="nv-compose-kicker">{{ $t('board.writePost.sections.status') }}</p>
               <h3 class="text-lg font-semibold text-[var(--nv-ink)]">{{ $t('board.writePost.sections.draftState') }}</h3>
@@ -877,6 +887,10 @@ defineExpose({
   min-width: 0;
 }
 
+.nv-compose-main-card {
+  position: relative;
+}
+
 .editor-area-container {
   background: var(--nv-surface);
 }
@@ -907,6 +921,15 @@ defineExpose({
   border-color: color-mix(in srgb, var(--nv-accent) 35%, transparent);
   background: color-mix(in srgb, var(--nv-accent) 14%, var(--nv-surface));
   color: var(--nv-accent);
+}
+
+.nv-compose-side-card {
+  background: color-mix(in srgb, var(--nv-surface) 94%, transparent);
+}
+
+.nv-compose-side-section + .nv-compose-side-section {
+  border-top: 1px solid var(--nv-line);
+  padding-top: 1rem;
 }
 
 .nv-compose-page .text-xs.text-\[var\(--nv-muted\)\] > span.mx-2 {

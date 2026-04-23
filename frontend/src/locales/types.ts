@@ -180,7 +180,8 @@ export interface HomeMessages {
   landing: {
     seoDescription: string
     curatedToday: string
-    storiesWorthReading: string
+    liveNow: string
+    online: string
     live: string
     posts: string
     boards: string
@@ -189,6 +190,7 @@ export interface HomeMessages {
     editorsPicksEmpty: string
     discover: string
     browseBoards: string
+    topBoards: string
     loadingBoards: string
     subscribers: string
     boardsUnavailable: string
@@ -196,12 +198,19 @@ export interface HomeMessages {
     trending: string
     trendingNow: string
     trendingEmpty: string
+    trendingPeriods: {
+      last24Hours: string
+      last7Days: string
+      last30Days: string
+    }
     liveActivity: string
     liveActivityTitle: string
     siteStats: string
     statsCards: {
       postsToday: string
       postsTodayDelta: string
+      postsTodayDeltaVsYesterday: string
+      noComparisonData: string
       activeBoards: string
       activeBoardsMeta: string
       newMembers: string
@@ -230,6 +239,12 @@ export interface LayoutMessages {
     title: string
     empty: string
     clear: string
+  }
+  topNav: {
+    home: string
+    subscribedBoards: string
+    subscribedShort: string
+    boards: string
   }
   mobileNav: {
     ariaLabel: string
@@ -446,6 +461,11 @@ export interface BoardMessages {
     back: string
     toList: string
     comments: string
+    focusComposer: string
+    quickActions: string
+    tableOfContents: string
+    scrollTop: string
+    moreActions: string
     spoilerWarning: string
     spoilerTimer: string
     revealSpoiler: string

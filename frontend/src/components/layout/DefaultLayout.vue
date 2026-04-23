@@ -253,21 +253,21 @@ const goToNotificationsPage = async () => {
 
           <div class="hidden items-center gap-2 md:flex">
             <router-link to="/" class="nv-shell-tab" :class="{ 'is-active': route.name === 'home' }">
-              HOME
+              {{ $t('layout.topNav.home') }}
             </router-link>
             <BoardDropdown
               v-if="authStore.isAuthenticated"
               type="subscription"
               :isOpen="activeDropdown === 'subscription'"
-              desktop-label="SUBSCRIBED BOARDS"
-              mobile-label="SUBSCRIBED"
+              :desktop-label="$t('layout.topNav.subscribedBoards')"
+              :mobile-label="$t('layout.topNav.subscribedShort')"
               @toggle="setActiveDropdown('subscription')"
             />
             <BoardDropdown
               type="all"
               :isOpen="activeDropdown === 'all'"
-              desktop-label="BOARDS"
-              mobile-label="BOARDS"
+              :desktop-label="$t('layout.topNav.boards')"
+              :mobile-label="$t('layout.topNav.boards')"
               @toggle="setActiveDropdown('all')"
             />
           </div>

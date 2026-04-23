@@ -61,9 +61,10 @@ public class PostController {
     public ApiResponse<List<PostSummary>> getTrendingPosts(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "24h") String period,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         Long userId = (userDetails != null) ? userDetails.getUserId() : null;
-        return ApiResponse.success(postService.getTrendingPosts(PageRequest.of(page, size), userId));
+        return ApiResponse.success(postService.getTrendingPosts(PageRequest.of(page, size), userId, period));
     }
 
     @GetMapping("/posts/{postId}")

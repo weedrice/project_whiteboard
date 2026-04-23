@@ -21,6 +21,7 @@ public interface UserRepository extends JpaRepository<User, Long>, UserRepositor
     boolean existsByEmailAndIsEmailVerifiedTrue(String email);
     Optional<User> findByEmail(String email);
     long countByLastLoginAtAfter(LocalDateTime lastLoginAt);
+    long countByStatusAndDeletedAtIsNullAndCreatedAtAfter(String status, LocalDateTime createdAt);
     Page<User> findByDisplayNameContainingIgnoreCaseAndStatus(String displayName, String status, Pageable pageable);
     Page<User> findByDisplayNameContainingIgnoreCase(String displayName, Pageable pageable);
 
