@@ -140,7 +140,7 @@ describe('BoardDetail', () => {
     subscribeMutate.mockReset()
   })
 
-  it('shows only actual category chips and removes concept filter', () => {
+  it('shows only concept and real category filters in the toolbar', () => {
     const wrapper = mount(BoardDetail, {
       global: {
         mocks: {
@@ -158,8 +158,10 @@ describe('BoardDetail', () => {
     })
 
     expect(wrapper.text()).toContain('QnA')
+    expect(wrapper.text()).toContain('board.detail.filter.concept')
+    expect(wrapper.text()).not.toContain('board.detail.filter.all')
+    expect(wrapper.text()).not.toContain('Post Index')
     expect(wrapper.text()).not.toContain('\uC77C\uBC18')
-    expect(wrapper.text()).not.toContain('board.detail.filter.concept')
     expect(wrapper.html()).toContain('nv-board-header-panel')
     expect(wrapper.html()).toContain('nv-board-toolbar-sticky')
   })
@@ -224,6 +226,35 @@ describe('BoardDetail', () => {
       query: {
         q: 'vue',
         type: 'TITLE'
+      }
+    })
+  })
+
+  it('toggles the concept filter through route-synced board state', async () => {
+    const wrapper = mount(BoardDetail, {
+      global: {
+        mocks: {
+          $t: (key: string) => key
+        },
+        stubs: {
+          RouterLink: RouterLinkStub,
+          RouterView: true,
+          PostList: true,
+          Pagination: true,
+          UserMenu: true,
+          BaseSkeleton: true
+        }
+      }
+    })
+
+    const conceptButton = wrapper.findAll('button').find((button) => button.text() === 'board.detail.filter.concept')
+    await conceptButton?.trigger('click')
+
+    expect(conceptButton?.attributes('aria-pressed')).toBe('true')
+    expect(router.replace).toHaveBeenLastCalledWith({
+      path: '/board/free',
+      query: {
+        concept: '1'
       }
     })
   })

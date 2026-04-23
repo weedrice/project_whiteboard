@@ -15,11 +15,15 @@ const props = withDefaults(defineProps<{
     items: T[]
     loading?: boolean
     emptyText?: string
+    currentSortKey?: string | null
+    currentSortDirection?: 'asc' | 'desc' | null
     rowClass?: (item: T) => string
     rowKey?: RowKeyResolver<T>
 }>(), {
     loading: false,
     emptyText: 'No data available',
+    currentSortKey: null,
+    currentSortDirection: null,
     rowClass: undefined,
     rowKey: undefined
 })
@@ -36,6 +40,34 @@ const alignClass = (align?: string) => {
         case 'right': return 'text-right'
         default: return 'text-left'
     }
+}
+
+const alignButtonClass = (align?: string) => {
+    switch (align) {
+        case 'center': return 'justify-center'
+        case 'right': return 'justify-end'
+        default: return 'justify-start'
+    }
+}
+
+const getAriaSort = (column: TableColumn): 'ascending' | 'descending' | 'none' | undefined => {
+    if (!column.sortable) {
+        return undefined
+    }
+
+    if (props.currentSortKey !== column.key) {
+        return 'none'
+    }
+
+    return props.currentSortDirection === 'asc' ? 'ascending' : 'descending'
+}
+
+const getSortIndicator = (column: TableColumn): string => {
+    if (props.currentSortKey !== column.key) {
+        return '-'
+    }
+
+    return props.currentSortDirection === 'asc' ? '^' : 'v'
 }
 
 const getRowKey = (item: T, index: number): string | number => {
@@ -77,10 +109,22 @@ const getCellValue = (item: T, key: string): unknown => {
                 <thead class="bg-gray-50 dark:bg-gray-700">
                     <tr>
                         <th v-for="col in columns" :key="col.key" scope="col"
+                            :aria-sort="getAriaSort(col)"
                             class="px-3 sm:px-6 py-2 sm:py-3 text-[10px] sm:text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap"
-                            :class="[alignClass(col.align), { 'cursor-pointer hover:text-gray-700 dark:hover:text-gray-100': col.sortable }]"
-                            :style="{ width: col.width }" @click="col.sortable && emit('sort', col.key)">
-                            {{ col.label }}
+                            :class="alignClass(col.align)"
+                            :style="{ width: col.width }">
+                            <button
+                                v-if="col.sortable"
+                                type="button"
+                                class="inline-flex w-full items-center gap-2 hover:text-gray-700 dark:hover:text-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                                :class="alignButtonClass(col.align)"
+                                @click="emit('sort', col.key)">
+                                <span>{{ col.label }}</span>
+                                <span aria-hidden="true" class="text-[9px] sm:text-[10px]">
+                                    {{ getSortIndicator(col) }}
+                                </span>
+                            </button>
+                            <span v-else>{{ col.label }}</span>
                         </th>
                     </tr>
                 </thead>

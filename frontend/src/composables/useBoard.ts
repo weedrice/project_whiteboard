@@ -12,6 +12,7 @@ interface BoardPostParams {
     page?: number
     size?: number
     categoryId?: number
+    minLikes?: number
     sort?: string
     q?: string
     searchType?: string

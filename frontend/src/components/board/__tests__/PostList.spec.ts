@@ -112,7 +112,7 @@ describe('PostList', () => {
     })
 
     const table = wrapper.findComponent(BaseTableStub)
-    const columns = table.props('columns') as Array<{ key: string }>
+    const columns = table.props('columns') as Array<{ key: string, sortable?: boolean }>
 
     expect(columns.map((column) => column.key)).toEqual([
       'postId',
@@ -122,8 +122,78 @@ describe('PostList', () => {
       'viewCount',
       'createdAt'
     ])
+    expect(columns.find((column) => column.key === 'postId')?.sortable).toBe(true)
+    expect(columns.find((column) => column.key === 'createdAt')?.sortable).toBe(false)
     const rowClass = table.props('rowClass') as (item: { postId: number }) => string
     expect(rowClass({ postId: 1 })).toContain('post-list-row')
+  })
+
+  it('maps the number header sort back to the default createdAt ordering', async () => {
+    const SortProxyTable = defineComponent({
+      name: 'BaseTable',
+      emits: ['sort'],
+      template: '<button type="button" data-testid="sort-trigger" @click="$emit(\'sort\', \'postId\')">sort</button>'
+    })
+
+    const wrapper = mount(PostList, {
+      props: {
+        posts: [],
+        currentSort: 'createdAt,desc'
+      },
+      global: {
+        mocks: {
+          $t: (key: string) => key
+        },
+        stubs: {
+          BaseTable: SortProxyTable,
+          RouterLink: RouterLinkStub,
+          UserMenu: true
+        }
+      }
+    })
+
+    await wrapper.get('[data-testid="sort-trigger"]').trigger('click')
+
+    expect(wrapper.emitted('update:sort')?.[0]).toEqual(['createdAt,asc'])
+  })
+
+  it('passes the active sort state to BaseTable using display column keys', () => {
+    const BaseTableStub = defineComponent({
+      name: 'BaseTable',
+      props: {
+        currentSortKey: {
+          type: String,
+          default: null
+        },
+        currentSortDirection: {
+          type: String,
+          default: null
+        }
+      },
+      template: '<div />'
+    })
+
+    const wrapper = mount(PostList, {
+      props: {
+        posts: [],
+        currentSort: 'createdAt,desc'
+      },
+      global: {
+        mocks: {
+          $t: (key: string) => key
+        },
+        stubs: {
+          BaseTable: BaseTableStub,
+          RouterLink: RouterLinkStub,
+          UserMenu: true
+        }
+      }
+    })
+
+    const table = wrapper.findComponent(BaseTableStub)
+
+    expect(table.props('currentSortKey')).toBe('postId')
+    expect(table.props('currentSortDirection')).toBe('desc')
   })
 
   it('keeps desktop column widths within 100 percent when board names are shown', () => {
@@ -248,6 +318,35 @@ describe('PostList', () => {
     })
 
     expect(wrapper.text()).toContain('Answered')
+  })
+
+  it('renders deleted users with a fallback label when the display name is missing', () => {
+    const wrapper = mount(PostList, {
+      props: {
+        posts: [
+          createPost({
+            author: {
+              userId: 99,
+              displayName: ''
+            }
+          })
+        ]
+      },
+      global: {
+        mocks: {
+          $t: (key: string) => key
+        },
+        stubs: {
+          RouterLink: RouterLinkStub,
+          UserMenu: true
+        },
+        components: {
+          BaseTable
+        }
+      }
+    })
+
+    expect(wrapper.find('.nv-post-author-fallback').text()).toContain('\uD0C8\uD1F4\uD55C \uC0AC\uC6A9\uC790')
   })
 
   it('renders desktop board and post links through BaseTable slots', () => {

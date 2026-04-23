@@ -35,6 +35,25 @@ describe('useBoardListState', () => {
     expect(state.selectedCategoryId.value).toBe(7)
   })
 
+  it('hydrates concept state from the route query and keeps it in pagination routes', async () => {
+    route.query = {
+      concept: '1'
+    }
+
+    const state = useBoardListState(route as never, router as never)
+    await nextTick()
+
+    expect(state.conceptOnly.value).toBe(true)
+    expect(state.selectedCategoryId.value).toBeNull()
+    expect(state.buildPaginationRoute(2)).toEqual({
+      path: '/board/free',
+      query: {
+        page: '3',
+        concept: '1'
+      }
+    })
+  })
+
   it('syncs a search once and resets the page without duplicate route updates', async () => {
     const state = useBoardListState(route as never, router as never)
     state.page.value = 4
@@ -53,6 +72,30 @@ describe('useBoardListState', () => {
       query: {
         q: 'keyword',
         type: 'AUTHOR'
+      }
+    })
+  })
+
+  it('does not suppress the next page sync when a filtered action keeps the page at zero', async () => {
+    const state = useBoardListState(route as never, router as never)
+    await nextTick()
+
+    state.searchQuery.value = 'keyword'
+    state.handleSearch()
+    await nextTick()
+
+    router.replace.mockReset()
+
+    state.handlePageChange(1, 5)
+    await nextTick()
+
+    expect(state.page.value).toBe(1)
+    expect(router.replace).toHaveBeenCalledWith({
+      path: '/board/free',
+      query: {
+        page: '2',
+        q: 'keyword',
+        type: 'TITLE_CONTENT'
       }
     })
   })
@@ -106,6 +149,64 @@ describe('useBoardListState', () => {
     })
   })
 
+  it('clears the current category when the same category is selected again', async () => {
+    route.query = {
+      categoryId: '3'
+    }
+
+    const state = useBoardListState(route as never, router as never)
+    await nextTick()
+    router.replace.mockReset()
+
+    state.toggleCategory(3)
+    await nextTick()
+
+    expect(state.selectedCategoryId.value).toBeNull()
+    expect(router.replace).toHaveBeenCalledWith({
+      path: '/board/free',
+      query: {}
+    })
+  })
+
+  it('switches to concept posts through the existing minLikes board filter', async () => {
+    const state = useBoardListState(route as never, router as never)
+    await nextTick()
+    router.replace.mockReset()
+
+    state.toggleConceptPosts()
+    await nextTick()
+
+    expect(state.conceptOnly.value).toBe(true)
+    expect(state.selectedCategoryId.value).toBeNull()
+    expect(state.queryParams.value.minLikes).toBe(5)
+    expect(router.replace).toHaveBeenCalledWith({
+      path: '/board/free',
+      query: {
+        concept: '1'
+      }
+    })
+  })
+
+  it('clears concept mode when the concept filter is pressed again', async () => {
+    route.query = {
+      concept: '1'
+    }
+
+    const state = useBoardListState(route as never, router as never)
+    await nextTick()
+    router.replace.mockReset()
+
+    state.toggleConceptPosts()
+    await nextTick()
+
+    expect(state.conceptOnly.value).toBe(false)
+    expect(state.queryParams.value.minLikes).toBeUndefined()
+    expect(router.replace).toHaveBeenCalledWith({
+      path: '/board/free',
+      query: {}
+    })
+  })
+
   it('clamps page changes to the available pagination range', () => {
     const state = useBoardListState(route as never, router as never)
 
@@ -119,10 +220,13 @@ describe('useBoardListState', () => {
   it('resets sort state when the list state is cleared for another board', () => {
     const state = useBoardListState(route as never, router as never)
 
+    state.toggleConceptPosts()
     state.handleSortChange('viewCount,desc')
+    expect(state.conceptOnly.value).toBe(true)
     expect(state.sort.value).toBe('viewCount,desc')
 
     state.resetListState()
+    expect(state.conceptOnly.value).toBe(false)
     expect(state.sort.value).toBe('createdAt,desc')
   })
 })

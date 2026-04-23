@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Search, ShieldCheck, User, X } from 'lucide-vue-next'
 import { useHead } from '@unhead/vue'
@@ -14,7 +14,6 @@ import { useBoard } from '@/composables/useBoard'
 import { useBoardListState } from '@/composables/useBoardListState'
 import { useRecentBoards } from '@/composables/useRecentBoards'
 import { useAuthStore } from '@/stores/auth'
-import type { Category } from '@/types'
 import { canWriteBoardPost, isGeneralCategoryName } from '@/utils/board'
 import { isRestrictedResourceError } from '@/utils/errorHandler'
 import { getOptimizedBoardIconUrl, handleImageError } from '@/utils/image'
@@ -30,13 +29,14 @@ const {
   searchQuery,
   searchType,
   isSearching,
+  conceptOnly,
   selectedCategoryId,
   sort,
   queryParams,
-  searchSummary,
   buildPaginationRoute,
   handleSearch,
   clearSearch,
+  toggleConceptPosts,
   toggleCategory,
   handleSortChange,
   handlePageChange,
@@ -104,6 +104,7 @@ const {
   meta: { errorMessage: false },
   requestConfig: { skipGlobalErrorHandler: true }
 })
+
 const {
   mutate: subscribeMutate,
   isPending: isSubscribePending
@@ -111,25 +112,35 @@ const {
   meta: { errorMessage: false }
 })
 
-const categories = computed(() => {
-  return board.value?.categories?.filter((category) => !isGeneralCategoryName(category.name)) ?? []
-})
-
-const selectedCategory = computed(() => {
-  return categories.value.find((category) => category.categoryId === selectedCategoryId.value) ?? null
-})
+const categories = computed(() => (
+  board.value?.categories?.filter((category) => !isGeneralCategoryName(category.name)) ?? []
+))
 
 const posts = computed(() => postsData.value?.content ?? [])
-const totalCount = computed(() => postsData.value?.totalElements || 0)
 const totalPages = computed(() => postsData.value?.totalPages || 0)
 const isInitialLoading = computed(() => isBoardLoading.value && !board.value)
-const isPostsBusy = computed(() => isPostsLoading.value || isPostsFetching.value)
+const currentListKey = computed(() => JSON.stringify({
+  boardUrl: boardUrl.value,
+  ...queryParams.value
+}))
+const lastResolvedListKey = ref(currentListKey.value)
+const showPostListLoading = computed(() => (
+  (isPostsLoading.value && posts.value.length === 0)
+  || (isPostsFetching.value && currentListKey.value !== lastResolvedListKey.value)
+))
 
-const error = computed(() => {
-  const sourceError = boardError.value ?? postsError.value
+const blockingError = computed(() => {
+  const sourceError = boardError.value ?? (posts.value.length === 0 ? postsError.value : null)
   if (!sourceError) return ''
   if (isRestrictedResourceError(sourceError)) {
     return 'This board is restricted.'
+  }
+  return t('board.loadFailed')
+})
+
+const transientListError = computed(() => {
+  if (!postsError.value || posts.value.length === 0) {
+    return ''
   }
   return t('board.loadFailed')
 })
@@ -138,39 +149,8 @@ const canWrite = computed(() => (
   canWriteBoardPost(board.value, authStore.isAuthenticated, authStore.user?.role)
 ))
 
-const boardStats = computed(() => ([
-  {
-    label: 'SUBS',
-    value: String(board.value?.subscriberCount ?? 0)
-  },
-  {
-    label: 'CATS',
-    value: String(categories.value.length)
-  },
-  {
-    label: 'POSTS',
-    value: String(totalCount.value)
-  }
-]))
-
-const sortOptions = computed(() => ([
-  { value: 'createdAt,desc', label: t('common.date') },
-  { value: 'likeCount,desc', label: t('common.likes') },
-  { value: 'viewCount,desc', label: t('common.views') }
-]))
-
-function onCategorySelect(category: Category | null) {
-  toggleCategory(category?.categoryId ?? null)
-}
-
 function onPageChange(newPage: number) {
   handlePageChange(newPage, totalPages.value)
-}
-
-function isSortOptionActive(optionValue: string): boolean {
-  const [optionField] = optionValue.split(',')
-  const [currentField] = sort.value.split(',')
-  return optionField === currentField
 }
 
 function handleSubscribe() {
@@ -213,6 +193,12 @@ watch(board, (newBoard) => {
     boardName: newBoard.boardName,
     iconUrl: newBoard.iconUrl
   })
+}, { immediate: true })
+
+watch([currentListKey, isPostsFetching], ([nextListKey, fetching]) => {
+  if (!fetching) {
+    lastResolvedListKey.value = nextListKey
+  }
 }, { immediate: true })
 
 const handleKeyDown = (event: KeyboardEvent) => {
@@ -282,137 +268,108 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="nv-board-shell space-y-4 sm:space-y-6">
-    <div v-if="isInitialLoading" class="space-y-4 sm:space-y-6">
+  <div class="nv-board-shell">
+    <div v-if="isInitialLoading" class="nv-board-stack">
       <section class="nv-board-panel nv-board-header-panel p-4 sm:p-6">
-        <div class="space-y-5">
-          <div class="space-y-3">
-            <BaseSkeleton width="96px" height="14px" />
-            <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-              <div class="flex items-start gap-4">
-                <BaseSkeleton width="5rem" height="5rem" rounded="rounded-[24px]" className="flex-shrink-0" />
-                <div class="space-y-3">
-                  <BaseSkeleton width="220px" height="34px" />
-                  <div class="flex gap-3">
-                    <BaseSkeleton width="90px" height="18px" />
-                    <BaseSkeleton width="120px" height="18px" />
-                  </div>
-                  <BaseSkeleton width="320px" height="18px" />
-                </div>
+        <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div class="flex items-start gap-3">
+            <BaseSkeleton width="5rem" height="5rem" rounded="rounded-[14px]" className="flex-shrink-0" />
+            <div class="space-y-2.5">
+              <BaseSkeleton width="220px" height="34px" />
+              <div class="flex gap-3">
+                <BaseSkeleton width="90px" height="18px" />
+                <BaseSkeleton width="120px" height="18px" />
               </div>
-              <div class="space-y-2 lg:w-56">
-                <BaseSkeleton width="100%" height="96px" rounded="rounded-[28px]" />
-                <BaseSkeleton width="100%" height="42px" rounded="rounded-full" />
-              </div>
+              <BaseSkeleton width="320px" height="18px" />
             </div>
           </div>
-
-          <div class="grid gap-3 sm:grid-cols-3">
-            <BaseSkeleton v-for="index in 3" :key="index" width="100%" height="72px" rounded="rounded-[24px]" />
+          <div class="space-y-2 lg:w-32">
+            <BaseSkeleton width="100%" height="34px" rounded="rounded-[10px]" />
+            <BaseSkeleton width="100%" height="34px" rounded="rounded-[10px]" />
           </div>
         </div>
       </section>
 
-      <section class="nv-board-panel overflow-hidden">
-        <div class="border-b border-[var(--nv-line)] px-4 py-4 sm:px-5">
-          <div class="flex flex-col gap-4">
-            <div class="flex flex-wrap gap-2">
-              <BaseSkeleton v-for="index in 4" :key="index" width="72px" height="36px" rounded="rounded-full" />
-            </div>
-            <div class="flex flex-wrap gap-2">
-              <BaseSkeleton v-for="index in 3" :key="`sort-${index}`" width="88px" height="34px" rounded="rounded-full" />
-            </div>
+      <section class="nv-board-panel nv-board-list-panel overflow-hidden">
+        <div class="border-b border-[var(--nv-line)] px-4 py-3 sm:px-5">
+          <div class="flex gap-2 overflow-hidden">
+            <BaseSkeleton v-for="index in 4" :key="index" width="72px" height="34px" rounded="rounded-[10px]" />
           </div>
         </div>
         <div class="space-y-3 px-4 py-5 sm:px-5">
-          <BaseSkeleton v-for="index in 5" :key="index" width="100%" height="54px" rounded="rounded-2xl" />
+          <BaseSkeleton v-for="index in 5" :key="index" width="100%" height="54px" rounded="rounded-[12px]" />
         </div>
       </section>
     </div>
 
-    <section v-else-if="error" class="nv-board-panel nv-board-state-panel px-4 py-12 text-center sm:px-6">
+    <section v-else-if="blockingError" class="nv-board-panel nv-board-state-panel px-4 py-12 text-center sm:px-6">
       <p class="nv-board-state-kicker">BOARD</p>
-      <p class="mt-3 text-sm text-red-500">{{ error }}</p>
+      <p class="mt-3 text-sm text-red-500">{{ blockingError }}</p>
     </section>
 
     <template v-else-if="board">
       <section class="nv-board-panel nv-board-header-panel p-4 sm:p-6">
-        <div class="nv-board-header-grid">
-          <div class="min-w-0 space-y-5">
-            <div class="flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-[0.22em] text-[var(--nv-muted)]">
-              <span class="nv-board-kicker">Board / {{ board.boardUrl }}</span>
-              <span v-if="board.isSubscribed" class="nv-board-status-pill">Following</span>
-            </div>
+        <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div class="flex min-w-0 flex-1 items-start gap-3 sm:gap-4">
+            <router-link :to="buildBoardListRoute()" class="nv-board-icon-wrap flex-shrink-0">
+              <img
+                v-if="board.iconUrl"
+                :src="getOptimizedBoardIconUrl(board.iconUrl, 96)"
+                class="nv-board-icon"
+                alt=""
+                @error="handleImageError($event)"
+              />
+              <div v-else class="nv-board-icon-fallback">
+                <span>{{ board.boardName?.[0] || '#' }}</span>
+              </div>
+            </router-link>
 
-            <div class="flex min-w-0 items-start gap-4 sm:gap-5">
-              <router-link :to="buildBoardListRoute()" class="nv-board-icon-wrap flex-shrink-0">
-                <img
-                  v-if="board.iconUrl"
-                  :src="getOptimizedBoardIconUrl(board.iconUrl, 96)"
-                  class="nv-board-icon"
-                  alt=""
-                  @error="handleImageError($event)"
-                />
-                <div v-else class="nv-board-icon-fallback">
-                  <span>{{ board.boardName?.[0] || '#' }}</span>
-                </div>
-              </router-link>
-
-              <div class="min-w-0 flex-1 space-y-3">
-                <router-link :to="buildBoardListRoute()" class="inline-flex max-w-full items-center gap-3">
-                  <h1 class="truncate text-3xl font-semibold tracking-[-0.05em] text-[var(--nv-ink)] sm:text-4xl">
+            <div class="min-w-0 flex-1 space-y-2.5">
+              <div class="flex flex-wrap items-center gap-2">
+                <router-link :to="buildBoardListRoute()" class="inline-flex min-w-0 max-w-full items-center gap-2">
+                  <h1 class="truncate text-2xl font-semibold tracking-[-0.04em] text-[var(--nv-ink)] sm:text-3xl">
                     {{ board.boardName }}
                   </h1>
                 </router-link>
 
-                <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-[var(--nv-ink-soft)]">
-                  <span class="inline-flex items-center gap-1.5">
-                    <User class="h-4 w-4" />
-                    <UserMenu
-                      v-if="board.adminUserId"
-                      :user-id="board.adminUserId"
-                      :display-name="board.adminDisplayName || t('board.detail.defaultAdminName')"
-                      size="inherit"
-                    />
-                    <span v-else>{{ board.adminDisplayName || t('board.detail.defaultAdminName') }}</span>
-                  </span>
-                  <span class="inline-flex items-center gap-1.5 text-[var(--nv-muted)]">
-                    <span class="nv-board-dot" aria-hidden="true"></span>
-                    <span>{{ board.subscriberCount || 0 }}</span>
-                  </span>
-                </div>
-
-                <p class="max-w-3xl text-sm leading-6 text-[var(--nv-ink-soft)] sm:text-[15px]">
-                  {{ board.description || t('board.list.noDesc') }}
-                </p>
+                <BaseButton
+                  v-if="authStore.isAuthenticated"
+                  @click="handleSubscribe"
+                  size="sm"
+                  :variant="board.isSubscribed ? 'secondary' : 'primary'"
+                  :disabled="isSubscribePending"
+                  :aria-busy="isSubscribePending ? 'true' : 'false'"
+                  class="nv-board-subscribe-btn"
+                >
+                  {{ board.isSubscribed ? $t('common.unsubscribe') : $t('common.subscribe') }}
+                </BaseButton>
               </div>
+
+              <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-[var(--nv-ink-soft)]">
+                <span class="inline-flex items-center gap-1.5">
+                  <User class="h-4 w-4" />
+                  {{ $t('common.subscribers') }} {{ board.subscriberCount || 0 }}
+                </span>
+                <span class="inline-flex items-center gap-1.5">
+                  <span class="font-medium text-[var(--nv-ink)]">{{ t('board.detail.defaultAdminName') }}</span>
+                  <UserMenu
+                    v-if="board.adminUserId"
+                    :user-id="board.adminUserId"
+                    :display-name="board.adminDisplayName || t('board.detail.defaultAdminName')"
+                    size="inherit"
+                  />
+                  <span v-else>{{ board.adminDisplayName || t('board.detail.defaultAdminName') }}</span>
+                </span>
+              </div>
+
+              <p class="max-w-3xl text-sm leading-6 text-[var(--nv-ink-soft)] sm:text-[15px]">
+                {{ board.description || t('board.list.noDesc') }}
+              </p>
             </div>
           </div>
 
-          <aside class="nv-board-action-card">
-            <div class="space-y-3">
-              <p class="nv-board-kicker">At A Glance</p>
-              <div class="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
-                <div v-for="stat in boardStats" :key="stat.label" class="nv-board-stat-card">
-                  <span class="nv-board-stat-label">{{ stat.label }}</span>
-                  <strong class="nv-board-stat-value">{{ stat.value }}</strong>
-                </div>
-              </div>
-            </div>
-
-            <div class="flex flex-col gap-2">
-              <BaseButton
-                v-if="authStore.isAuthenticated"
-                @click="handleSubscribe"
-                size="sm"
-                :variant="board.isSubscribed ? 'secondary' : 'primary'"
-                :disabled="isSubscribePending"
-                :aria-busy="isSubscribePending ? 'true' : 'false'"
-                class="w-full"
-              >
-                {{ board.isSubscribed ? $t('common.unsubscribe') : $t('common.subscribe') }}
-              </BaseButton>
-
+          <div class="flex w-full flex-col gap-2 lg:w-auto lg:min-w-[7rem] lg:items-end lg:self-stretch">
+            <div class="flex gap-2 lg:justify-end">
               <router-link
                 v-if="board.isAdmin"
                 :to="`/board/${board.boardUrl}/edit`"
@@ -426,131 +383,104 @@ onUnmounted(() => {
             <router-link
               v-if="canWrite"
               :to="`/board/${board.boardUrl}/write`"
-              class="nv-board-write-btn"
+              class="nv-board-write-btn lg:mt-auto"
             >
               {{ $t('common.write') }}
             </router-link>
-
-            <p class="text-xs text-[var(--nv-muted)]">
-              <span class="font-medium text-[var(--nv-ink-soft)]">/</span> search
-              <span class="mx-2 text-[var(--nv-line)]">|</span>
-              <span class="font-medium text-[var(--nv-ink-soft)]">n</span> write
-            </p>
-          </aside>
+          </div>
         </div>
       </section>
 
-      <div class="mb-3 sm:mb-6">
+      <div v-if="currentPostId" class="mb-3 sm:mb-6">
         <router-view />
       </div>
 
-      <section id="board-post-list" class="nv-board-panel overflow-hidden">
-        <div class="nv-board-toolbar-sticky border-b border-[var(--nv-line)]">
-          <div class="nv-board-toolbar-shell px-4 py-4 sm:px-5">
-            <div class="flex flex-col gap-4">
-              <div class="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
-                <div class="min-w-0">
-                  <p class="nv-board-kicker mb-2">Post Index</p>
-                  <p class="text-sm font-medium text-[var(--nv-ink)] sm:text-base">
-                    <template v-if="isSearching">{{ searchSummary }}</template>
-                    <template v-else-if="selectedCategory">{{ selectedCategory.name }}</template>
-                    <template v-else>{{ $t('board.detail.filter.all') }}</template>
-                  </p>
-                </div>
-
-                <div class="flex flex-wrap gap-2">
-                  <button
-                    v-for="option in sortOptions"
-                    :key="option.value"
-                    type="button"
-                    class="nv-board-sort-pill"
-                    :class="{ 'is-active': isSortOptionActive(option.value) }"
-                    :aria-pressed="isSortOptionActive(option.value)"
-                    @click="handleSortChange(option.value)"
-                  >
-                    {{ option.label }}
-                  </button>
-                </div>
-              </div>
-
-              <div class="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  class="nv-board-filter-chip"
-                  :class="{ 'is-active': selectedCategoryId === null }"
-                  :aria-pressed="selectedCategoryId === null"
-                  @click="onCategorySelect(null)"
-                >
-                  {{ $t('board.detail.filter.all') }}
-                </button>
-                <button
-                  v-for="category in categories"
-                  :key="category.categoryId"
-                  type="button"
-                  class="nv-board-filter-chip"
-                  :class="{ 'is-active': selectedCategoryId === category.categoryId }"
-                  :aria-pressed="selectedCategoryId === category.categoryId"
-                  @click="onCategorySelect(category)"
-                >
-                  {{ category.name }}
-                </button>
-              </div>
-
-              <div class="nv-board-search-row">
-                <div class="nv-board-search-group">
-                  <select v-model="searchType" class="nv-board-search-select" aria-label="Search scope">
-                    <option value="TITLE_CONTENT">{{ $t('board.detail.searchType.titleContent') }}</option>
-                    <option value="TITLE">{{ $t('board.detail.searchType.title') }}</option>
-                    <option value="CONTENT">{{ $t('board.detail.searchType.content') }}</option>
-                    <option value="AUTHOR">{{ $t('board.detail.searchType.author') }}</option>
-                  </select>
-
-                  <div class="nv-board-search-input-wrap">
-                    <BaseInput
-                      :id="searchInputElementId"
-                      v-model="searchQuery"
-                      :label="$t('board.detail.searchPlaceholder')"
-                      :aria-label="$t('board.detail.searchPlaceholder')"
-                      :placeholder="$t('board.detail.searchPlaceholder')"
-                      inputClass="nv-board-search-input"
-                      hideLabel
-                      @keyup.enter="handleSearch"
-                    >
-                      <template #prefix>
-                        <Search class="h-4 w-4 text-[var(--nv-muted)]" />
-                      </template>
-                      <template #suffix>
-                        <button
-                          v-if="isSearching || searchQuery"
-                          type="button"
-                          :aria-label="t('layout.recentBoards.clear')"
-                          class="flex cursor-pointer items-center text-[var(--nv-muted)] hover:text-[var(--nv-ink)]"
-                          @click="clearSearch"
-                        >
-                          <X class="h-4 w-4" />
-                        </button>
-                      </template>
-                    </BaseInput>
-                  </div>
-
-                  <BaseButton @click="handleSearch" variant="secondary" type="button" class="nv-board-search-btn">
-                    {{ $t('search.doSearch') }}
-                  </BaseButton>
-                </div>
-              </div>
+      <section id="board-post-list" class="nv-board-panel nv-board-list-panel overflow-hidden">
+        <div class="nv-board-toolbar-sticky border-b border-[var(--nv-line)] px-4 py-3 sm:px-5">
+          <div class="nv-board-filter-rail" aria-label="Category filters">
+            <div class="nv-board-filter-track">
+              <button
+                type="button"
+                class="nv-board-filter-chip"
+                :class="{ 'is-active': conceptOnly }"
+                :aria-pressed="conceptOnly"
+                @click="toggleConceptPosts"
+              >
+                {{ $t('board.detail.filter.concept') }}
+              </button>
+              <button
+                v-for="category in categories"
+                :key="category.categoryId"
+                type="button"
+                class="nv-board-filter-chip"
+                :class="{ 'is-active': selectedCategoryId === category.categoryId }"
+                :aria-pressed="selectedCategoryId === category.categoryId"
+                @click="toggleCategory(category.categoryId)"
+              >
+                {{ category.name }}
+              </button>
             </div>
           </div>
         </div>
 
         <PostList
           :posts="posts"
-          :loading="isPostsBusy"
+          :loading="showPostListLoading"
           :boardUrl="board.boardUrl"
           :current-sort="sort"
           :currentPostId="currentPostId"
           :linkQuery="route.query"
           @update:sort="handleSortChange"
         />
+
+        <div class="border-t border-[var(--nv-line)] px-4 py-4 sm:px-5">
+          <div class="nv-board-search-row">
+            <div class="nv-board-search-group">
+              <select v-model="searchType" class="nv-board-search-select" aria-label="Search scope">
+                <option value="TITLE_CONTENT">{{ $t('board.detail.searchType.titleContent') }}</option>
+                <option value="TITLE">{{ $t('board.detail.searchType.title') }}</option>
+                <option value="CONTENT">{{ $t('board.detail.searchType.content') }}</option>
+                <option value="AUTHOR">{{ $t('board.detail.searchType.author') }}</option>
+              </select>
+
+              <div class="nv-board-search-input-wrap">
+                <BaseInput
+                  :id="searchInputElementId"
+                  v-model="searchQuery"
+                  :label="$t('board.detail.searchPlaceholder')"
+                  :aria-label="$t('board.detail.searchPlaceholder')"
+                  :placeholder="$t('board.detail.searchPlaceholder')"
+                  inputClass="nv-board-search-input"
+                  hideLabel
+                  @keyup.enter="handleSearch"
+                >
+                  <template #prefix>
+                    <Search class="h-4 w-4 text-[var(--nv-muted)]" />
+                  </template>
+                  <template #suffix>
+                    <button
+                      v-if="isSearching || searchQuery"
+                      type="button"
+                      :aria-label="t('layout.recentBoards.clear')"
+                      class="flex cursor-pointer items-center text-[var(--nv-muted)] hover:text-[var(--nv-ink)]"
+                      @click="clearSearch"
+                    >
+                      <X class="h-4 w-4" />
+                    </button>
+                  </template>
+                </BaseInput>
+              </div>
+
+              <BaseButton @click="handleSearch" variant="secondary" type="button" class="nv-board-search-btn">
+                {{ $t('search.doSearch') }}
+              </BaseButton>
+            </div>
+          </div>
+
+          <p v-if="transientListError" class="mt-2 text-center text-xs text-red-500">
+            {{ transientListError }}
+          </p>
+        </div>
 
         <div
           v-if="totalPages > 1"
@@ -573,28 +503,47 @@ onUnmounted(() => {
   color: var(--nv-ink);
 }
 
+.nv-board-stack {
+  display: grid;
+  gap: 0;
+}
+
 .nv-board-panel {
   background: color-mix(in srgb, var(--nv-surface) 94%, transparent);
   border: 1px solid var(--nv-line);
-  border-radius: 2rem;
+  border-radius: 1rem;
   box-shadow: var(--nv-shadow-card);
 }
 
+.nv-board-header-panel {
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--nv-surface-2) 45%, transparent), transparent),
+    color-mix(in srgb, var(--nv-surface) 96%, transparent);
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.nv-board-list-panel {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  margin-top: -1px;
+}
+
 .nv-board-icon-wrap {
+  border-radius: 0.9rem;
   display: inline-flex;
-  border-radius: 1.75rem;
 }
 
 .nv-board-icon,
 .nv-board-icon-fallback {
-  width: 5.5rem;
+  border-radius: 0.9rem;
   height: 5.5rem;
-  border-radius: 1.75rem;
+  width: 5.5rem;
 }
 
 .nv-board-icon {
-  object-fit: cover;
   border: 1px solid var(--nv-line);
+  object-fit: cover;
 }
 
 .nv-board-icon-fallback {
@@ -607,8 +556,6 @@ onUnmounted(() => {
   justify-content: center;
 }
 
-.nv-board-kicker,
-.nv-board-stat-label,
 .nv-board-state-kicker {
   color: var(--nv-muted);
   font-family: 'JetBrains Mono', monospace;
@@ -618,68 +565,21 @@ onUnmounted(() => {
   text-transform: uppercase;
 }
 
-.nv-board-header-grid {
-  display: grid;
-  gap: 1.5rem;
-}
-
-.nv-board-status-pill {
-  align-items: center;
-  background: color-mix(in srgb, var(--nv-accent) 12%, var(--nv-surface));
-  border: 1px solid color-mix(in srgb, var(--nv-accent) 24%, var(--nv-line));
-  border-radius: 9999px;
-  color: var(--nv-accent);
-  display: inline-flex;
-  padding: 0.3rem 0.7rem;
-}
-
-.nv-board-dot {
-  background: var(--nv-accent);
-  border-radius: 9999px;
-  display: inline-flex;
-  height: 0.35rem;
-  width: 0.35rem;
-}
-
-.nv-board-action-card {
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--nv-accent-bg) 55%, transparent), transparent),
-    color-mix(in srgb, var(--nv-surface) 96%, transparent);
-  border: 1px solid color-mix(in srgb, var(--nv-accent) 12%, var(--nv-line));
-  border-radius: 1.75rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  min-width: 0;
-  padding: 1.15rem;
-}
-
-.nv-board-stat-card {
-  background: color-mix(in srgb, var(--nv-surface) 86%, transparent);
-  border: 1px solid var(--nv-line);
-  border-radius: 1.25rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  min-height: 4.5rem;
-  padding: 0.9rem 1rem;
-}
-
-.nv-board-stat-value {
-  color: var(--nv-ink);
-  font-size: 1.2rem;
-  font-weight: 700;
-  letter-spacing: -0.04em;
-}
-
 .nv-board-manage-btn,
+.nv-board-subscribe-btn,
 .nv-board-write-btn {
   align-items: center;
-  border-radius: 1rem;
+  border-radius: 0.55rem;
   display: inline-flex;
+  font-size: 0.82rem;
   font-weight: 600;
   justify-content: center;
   transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.nv-board-subscribe-btn {
+  min-height: 1.95rem;
+  padding: 0.35rem 0.65rem;
 }
 
 .nv-board-manage-btn {
@@ -687,8 +587,8 @@ onUnmounted(() => {
   border: 1px solid var(--nv-line);
   color: var(--nv-ink);
   gap: 0.375rem;
-  min-height: 2.75rem;
-  padding: 0.7rem 1rem;
+  min-height: 1.95rem;
+  padding: 0.35rem 0.65rem;
 }
 
 .nv-board-manage-btn:hover {
@@ -699,8 +599,10 @@ onUnmounted(() => {
   background: var(--nv-accent);
   border: 1px solid var(--nv-accent);
   color: #fff;
-  min-height: 2.75rem;
-  padding: 0.75rem 1rem;
+  justify-content: center;
+  min-height: 2.15rem;
+  min-width: 4.75rem;
+  padding: 0.45rem 0.8rem;
 }
 
 .nv-board-write-btn:hover {
@@ -711,15 +613,15 @@ onUnmounted(() => {
   align-items: center;
   background: color-mix(in srgb, var(--nv-surface-2) 72%, transparent);
   border: 1px solid var(--nv-line);
-  border-radius: 0.95rem;
+  border-radius: 0.6rem;
   color: var(--nv-ink-soft);
   cursor: pointer;
   display: inline-flex;
   font-size: 0.8rem;
   font-weight: 600;
   justify-content: center;
-  min-height: 2.35rem;
-  padding: 0.55rem 0.95rem;
+  min-height: 2.1rem;
+  padding: 0.45rem 0.8rem;
   transition: transform 0.12s ease, background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
 }
 
@@ -738,59 +640,59 @@ onUnmounted(() => {
   color: var(--nv-accent);
 }
 
-.nv-board-toolbar-shell {
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--nv-surface-2) 45%, transparent), transparent),
-    color-mix(in srgb, var(--nv-surface) 96%, transparent);
+.nv-board-filter-rail {
+  margin-inline: -0.15rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0 0.15rem;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
-.nv-board-sort-pill {
-  align-items: center;
-  background: color-mix(in srgb, var(--nv-surface) 88%, transparent);
-  border: 1px solid var(--nv-line);
-  border-radius: 9999px;
-  color: var(--nv-ink-soft);
+.nv-board-filter-rail::-webkit-scrollbar {
+  display: none;
+}
+
+.nv-board-filter-track {
   display: inline-flex;
-  font-size: 0.76rem;
-  font-weight: 600;
-  justify-content: center;
-  min-height: 2.1rem;
-  padding: 0.45rem 0.8rem;
-  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+  gap: 0.5rem;
+  min-width: 100%;
+  width: max-content;
 }
 
-.nv-board-sort-pill:hover,
-.nv-board-sort-pill.is-active {
-  border-color: color-mix(in srgb, var(--nv-accent) 22%, var(--nv-line));
-  color: var(--nv-accent);
+.nv-board-filter-track > .nv-board-filter-chip {
+  flex: 0 0 auto;
 }
 
-.nv-board-sort-pill.is-active {
-  background: color-mix(in srgb, var(--nv-accent) 12%, var(--nv-surface));
+.nv-board-toolbar-sticky {
+  position: relative;
 }
 
 .nv-board-search-row {
+  display: flex;
+  justify-content: center;
   width: 100%;
 }
 
 .nv-board-search-group {
   display: grid;
-  gap: 0.75rem;
-  grid-template-columns: minmax(8rem, 10rem) minmax(0, 1fr) auto;
+  gap: 0.5rem;
+  grid-template-columns: minmax(6.5rem, 8rem) minmax(0, 20rem) auto;
+  width: min(100%, 36rem);
 }
 
 .nv-board-search-select,
 :deep(.nv-board-search-input) {
   background: color-mix(in srgb, var(--nv-surface) 96%, transparent);
   border-color: var(--nv-line);
-  border-radius: 1rem;
+  border-radius: 0;
   color: var(--nv-ink);
-  min-height: 2.9rem;
+  min-height: 2.2rem;
 }
 
 .nv-board-search-select {
   outline: none;
-  padding: 0.75rem 0.95rem;
+  padding: 0.45rem 0.6rem;
 }
 
 .nv-board-search-select:focus,
@@ -804,7 +706,9 @@ onUnmounted(() => {
 }
 
 .nv-board-search-btn {
-  min-height: 2.9rem;
+  border-radius: 0;
+  min-height: 2.2rem;
+  padding-inline: 0.8rem;
   white-space: nowrap;
 }
 
@@ -814,52 +718,29 @@ onUnmounted(() => {
     color-mix(in srgb, var(--nv-surface) 94%, transparent);
 }
 
-@media (min-width: 1024px) {
-  .nv-board-header-grid {
-    align-items: start;
-    grid-template-columns: minmax(0, 1fr) minmax(18rem, 20rem);
-  }
-
-  .nv-board-toolbar-sticky {
-    position: sticky;
-    top: 4.75rem;
-    z-index: 19;
-    background: color-mix(in srgb, var(--nv-surface) 94%, transparent);
-    backdrop-filter: blur(14px);
-  }
-}
-
 @media (max-width: 1023px) {
   .nv-board-search-group {
     grid-template-columns: 1fr;
+    width: min(100%, 24rem);
   }
 }
 
 @media (max-width: 639px) {
   .nv-board-panel {
-    border-radius: 1.5rem;
-  }
-
-  .nv-board-action-card,
-  .nv-board-stat-card {
-    border-radius: 1.35rem;
+    border-radius: 0.85rem;
   }
 
   .nv-board-icon,
   .nv-board-icon-fallback {
-    border-radius: 1.25rem;
+    border-radius: 0.8rem;
     height: 4.5rem;
     width: 4.5rem;
   }
 
   .nv-board-filter-chip {
     font-size: 0.75rem;
-    min-height: 2rem;
-    padding: 0.45rem 0.8rem;
-  }
-
-  .nv-board-sort-pill {
-    min-height: 2rem;
+    min-height: 1.95rem;
+    padding: 0.4rem 0.7rem;
   }
 }
 </style>

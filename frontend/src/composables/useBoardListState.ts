@@ -13,6 +13,7 @@ interface BoardListQueryParams {
   q?: string
   searchType?: string
   categoryId?: number
+  minLikes?: number
 }
 
 export function useBoardListState(route: RouteLocationNormalizedLoaded, router: Router) {
@@ -21,14 +22,18 @@ export function useBoardListState(route: RouteLocationNormalizedLoaded, router: 
   const searchQuery = ref('')
   const searchType = ref('TITLE_CONTENT')
   const isSearching = ref(false)
+  const conceptOnly = ref(false)
   const selectedCategoryId = ref<number | null>(null)
   const sort = ref('createdAt,desc')
   let skipNextPageSync = false
 
   const setPage = (nextPage: number, options?: { skipRouteSync?: boolean }) => {
-    if (options?.skipRouteSync) {
+    if (options?.skipRouteSync && page.value !== nextPage) {
       skipNextPageSync = true
+    } else if (options?.skipRouteSync) {
+      skipNextPageSync = false
     }
+
     page.value = nextPage
   }
 
@@ -48,10 +53,16 @@ export function useBoardListState(route: RouteLocationNormalizedLoaded, router: 
     return parsed
   }
 
+  const parseConceptFromQuery = (value: unknown): boolean => {
+    const raw = String(value ?? '').trim().toLowerCase()
+    return raw === '1' || raw === 'true'
+  }
+
   const buildListQuery = (
     targetPage: number,
     nextSearchState?: SearchState | null,
-    nextCategoryId?: number | null
+    nextCategoryId?: number | null,
+    nextConceptOnly?: boolean
   ) => {
     const query = { ...route.query }
 
@@ -76,10 +87,22 @@ export function useBoardListState(route: RouteLocationNormalizedLoaded, router: 
     }
 
     const resolvedCategoryId = nextCategoryId === undefined ? selectedCategoryId.value : nextCategoryId
-    if (resolvedCategoryId !== null) {
-      query.categoryId = String(resolvedCategoryId)
-    } else {
+    const resolvedConceptOnly = nextConceptOnly === undefined ? conceptOnly.value : nextConceptOnly
+
+    if (resolvedSearchState?.q) {
       delete query.categoryId
+      delete query.concept
+    } else if (resolvedConceptOnly) {
+      query.concept = '1'
+      delete query.categoryId
+    } else {
+      delete query.concept
+
+      if (resolvedCategoryId !== null) {
+        query.categoryId = String(resolvedCategoryId)
+      } else {
+        delete query.categoryId
+      }
     }
 
     return query
@@ -88,11 +111,12 @@ export function useBoardListState(route: RouteLocationNormalizedLoaded, router: 
   const syncListQuery = (
     targetPage: number,
     nextSearchState?: SearchState | null,
-    nextCategoryId?: number | null
+    nextCategoryId?: number | null,
+    nextConceptOnly?: boolean
   ) => {
     router.replace({
       path: route.path,
-      query: buildListQuery(targetPage, nextSearchState, nextCategoryId)
+      query: buildListQuery(targetPage, nextSearchState, nextCategoryId, nextConceptOnly)
     })
   }
 
@@ -111,18 +135,13 @@ export function useBoardListState(route: RouteLocationNormalizedLoaded, router: 
     if (isSearching.value && searchQuery.value.trim()) {
       params.q = searchQuery.value.trim()
       params.searchType = searchType.value
+    } else if (conceptOnly.value) {
+      params.minLikes = 5
     } else if (selectedCategoryId.value !== null) {
       params.categoryId = selectedCategoryId.value
     }
 
     return params
-  })
-
-  const searchSummary = computed(() => {
-    if (!isSearching.value || !searchQuery.value.trim()) {
-      return ''
-    }
-    return `Results for "${searchQuery.value.trim()}"`
   })
 
   function handleSearch() {
@@ -133,31 +152,41 @@ export function useBoardListState(route: RouteLocationNormalizedLoaded, router: 
     }
 
     isSearching.value = true
+    conceptOnly.value = false
     selectedCategoryId.value = null
     setPage(0, { skipRouteSync: true })
     syncListQuery(0, {
       q: trimmedQuery,
       searchType: searchType.value
-    }, null)
+    }, null, false)
   }
 
   function clearSearch() {
     searchQuery.value = ''
     isSearching.value = false
+    conceptOnly.value = false
     setPage(0, { skipRouteSync: true })
-    syncListQuery(0, null)
+    syncListQuery(0, null, null, false)
   }
 
-  function toggleCategory(categoryId: number | null) {
-    if (selectedCategoryId.value === categoryId) {
-      return
-    }
-
-    selectedCategoryId.value = categoryId
+  function toggleConceptPosts() {
+    const nextConceptOnly = !conceptOnly.value
+    conceptOnly.value = nextConceptOnly
+    selectedCategoryId.value = null
     searchQuery.value = ''
     isSearching.value = false
     setPage(0, { skipRouteSync: true })
-    syncListQuery(0, null, categoryId)
+    syncListQuery(0, null, null, nextConceptOnly)
+  }
+
+  function toggleCategory(categoryId: number | null) {
+    const nextCategoryId = selectedCategoryId.value === categoryId ? null : categoryId
+    conceptOnly.value = false
+    selectedCategoryId.value = nextCategoryId
+    searchQuery.value = ''
+    isSearching.value = false
+    setPage(0, { skipRouteSync: true })
+    syncListQuery(0, null, nextCategoryId, false)
   }
 
   function handleSortChange(newSort: string) {
@@ -177,6 +206,7 @@ export function useBoardListState(route: RouteLocationNormalizedLoaded, router: 
   function resetListState() {
     searchQuery.value = ''
     isSearching.value = false
+    conceptOnly.value = false
     selectedCategoryId.value = null
     sort.value = 'createdAt,desc'
     setPage(0, { skipRouteSync: true })
@@ -192,6 +222,7 @@ export function useBoardListState(route: RouteLocationNormalizedLoaded, router: 
     const routeSearchType = typeof newQuery.type === 'string' ? newQuery.type : 'TITLE_CONTENT'
     const routeCategoryId = parseCategoryIdFromQuery(newQuery.categoryId)
     const shouldSearch = routeQuery.length > 0
+    const shouldShowConcept = !shouldSearch && routeCategoryId === null && parseConceptFromQuery(newQuery.concept)
 
     if (searchQuery.value !== routeQuery) {
       searchQuery.value = routeQuery
@@ -204,6 +235,9 @@ export function useBoardListState(route: RouteLocationNormalizedLoaded, router: 
     }
     if (selectedCategoryId.value !== routeCategoryId) {
       selectedCategoryId.value = routeCategoryId
+    }
+    if (conceptOnly.value !== shouldShowConcept) {
+      conceptOnly.value = shouldShowConcept
     }
   }, { immediate: true })
 
@@ -224,13 +258,14 @@ export function useBoardListState(route: RouteLocationNormalizedLoaded, router: 
     searchQuery,
     searchType,
     isSearching,
+    conceptOnly,
     selectedCategoryId,
     sort,
     queryParams,
-    searchSummary,
     buildPaginationRoute,
     handleSearch,
     clearSearch,
+    toggleConceptPosts,
     toggleCategory,
     handleSortChange,
     handlePageChange,

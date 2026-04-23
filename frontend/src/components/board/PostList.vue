@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { Clock, Eye, MessageSquare, ThumbsUp, User } from 'lucide-vue-next'
+import { Eye, MessageSquare, ThumbsUp, User } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import type { LocationQueryRaw, RouteLocationRaw } from 'vue-router'
 import type { PostSummary } from '@/types'
@@ -9,6 +9,7 @@ import BaseTable from '@/components/common/ui/BaseTable.vue'
 import PostListTitleContent from '@/components/board/PostListTitleContent.vue'
 import UserMenu from '@/components/common/widgets/UserMenu.vue'
 import { formatRelativeDate } from '@/utils/date'
+import { formatUserDisplayName } from '@/utils/userDisplay'
 
 const props = withDefaults(defineProps<{
   posts: PostSummary[]
@@ -34,11 +35,12 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
-
-const sortState = computed(() => {
-  const [field = 'createdAt', direction = 'desc'] = props.currentSort.split(',')
-  return { field, direction }
-})
+const MAX_AUTHOR_NAME_LENGTH = 10
+const SORT_FIELD_MAP: Record<string, string> = {
+  postId: 'createdAt',
+  likeCount: 'likeCount',
+  viewCount: 'viewCount'
+}
 
 const getRowClass = (item: PostSummary) => (
   isCurrentPost(item) ? 'post-list-row post-list-row-current' : 'post-list-row'
@@ -76,23 +78,44 @@ function isAgentAuthor(item: PostSummary): boolean {
   return item.author?.authorType === 'AGENT'
 }
 
-function getSortableLabel(field: string, label: string): string {
-  if (sortState.value.field !== field) {
-    return label
-  }
-  return `${label} (${sortState.value.direction})`
+function getAuthorName(item: PostSummary): string {
+  return formatUserDisplayName(item.author?.displayName)
+}
+
+function hasInteractiveAuthor(item: PostSummary): boolean {
+  return !!item.author?.displayName?.trim()
+}
+
+function getVisibleAuthorName(item: PostSummary): string {
+  return formatUserDisplayName(item.author?.displayName, MAX_AUTHOR_NAME_LENGTH)
 }
 
 function handleSort(field: string) {
+  const normalizedField = SORT_FIELD_MAP[field] ?? field
   const [currentField, currentDirection] = props.currentSort.split(',')
   let nextDirection = 'desc'
 
-  if (field === currentField) {
+  if (normalizedField === currentField) {
     nextDirection = currentDirection === 'desc' ? 'asc' : 'desc'
   }
 
-  emit('update:sort', `${field},${nextDirection}`)
+  emit('update:sort', `${normalizedField},${nextDirection}`)
 }
+
+const activeSortKey = computed(() => {
+  const [currentField] = props.currentSort.split(',')
+  const matchedEntry = Object.entries(SORT_FIELD_MAP).find(([, apiField]) => apiField === currentField)
+  return matchedEntry?.[0] ?? null
+})
+
+const activeSortDirection = computed<'asc' | 'desc' | null>(() => {
+  const [, currentDirection] = props.currentSort.split(',')
+  if (activeSortKey.value === null) {
+    return null
+  }
+
+  return currentDirection === 'asc' ? 'asc' : 'desc'
+})
 
 function onPostClick(event: Event, item: PostSummary) {
   if (shouldInterceptInquiry(item)) {
@@ -147,10 +170,10 @@ const columns = computed(() => {
   if (!props.hideNoColumn) {
     cols.push({
       key: 'postId',
-      label: getSortableLabel('postId', t('common.no')),
+      label: t('common.no'),
       width: '10%',
       align: 'center' as const,
-      sortable: false
+      sortable: true
     })
   }
 
@@ -166,39 +189,39 @@ const columns = computed(() => {
   cols.push({
     key: 'title',
     label: t('common.title'),
-    width: props.showBoardName ? '32%' : '46%',
+    width: props.showBoardName ? '34%' : '48%',
     align: 'left' as const
   })
 
   cols.push({
     key: 'author',
     label: t('common.author'),
-    width: '15%',
-    align: 'center' as const
+    width: '13%',
+    align: 'left' as const
   })
 
   cols.push({
     key: 'likeCount',
-    label: getSortableLabel('likeCount', t('common.likes')),
-    width: '9%',
+    label: t('common.likes'),
+    width: '8%',
     align: 'center' as const,
     sortable: true
   })
 
   cols.push({
     key: 'viewCount',
-    label: getSortableLabel('viewCount', t('common.views')),
-    width: '9%',
+    label: t('common.views'),
+    width: '8%',
     align: 'center' as const,
     sortable: true
   })
 
   cols.push({
     key: 'createdAt',
-    label: getSortableLabel('createdAt', t('common.date')),
-    width: '11%',
+    label: t('common.date'),
+    width: '13%',
     align: 'center' as const,
-    sortable: true
+    sortable: false
   })
 
   return cols
@@ -254,9 +277,9 @@ const columns = computed(() => {
         </div>
 
         <div class="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 text-[11px] text-[var(--nv-ink-soft)]">
-          <span class="inline-flex items-center gap-1">
+          <span class="inline-flex min-w-0 max-w-full items-center gap-1 overflow-hidden">
             <User class="h-3.5 w-3.5" />
-            <span>{{ item.author?.displayName || '-' }}</span>
+            <span class="block max-w-[10ch] truncate" :title="getAuthorName(item)">{{ getVisibleAuthorName(item) }}</span>
             <span
               v-if="isAgentAuthor(item)"
               class="nv-post-badge nv-post-badge-agent"
@@ -286,6 +309,8 @@ const columns = computed(() => {
         :items="posts"
         :loading="loading"
         :emptyText="$t('board.list.noPosts')"
+        :current-sort-key="activeSortKey"
+        :current-sort-direction="activeSortDirection"
         :rowClass="getRowClass"
         @sort="handleSort"
       >
@@ -331,13 +356,22 @@ const columns = computed(() => {
         </template>
 
         <template #cell-author="{ item }">
-          <span class="inline-flex min-w-0 max-w-full items-center gap-1 overflow-hidden">
+          <span class="nv-post-author-cell">
             <UserMenu
-              v-if="item.author"
+              v-if="hasInteractiveAuthor(item)"
+              class="nv-post-author-menu"
               :user-id="item.author.userId"
               :display-name="item.author.displayName"
+              :max-label-length="MAX_AUTHOR_NAME_LENGTH"
+              size="inherit"
             />
-            <span v-else>-</span>
+            <span
+              v-else
+              class="nv-post-author-fallback"
+              :title="getAuthorName(item)"
+            >
+              {{ getVisibleAuthorName(item) }}
+            </span>
             <span
               v-if="isAgentAuthor(item)"
               class="nv-post-badge nv-post-badge-agent"
@@ -361,12 +395,7 @@ const columns = computed(() => {
           </span>
         </template>
 
-        <template #cell-createdAt="{ item }">
-          <span class="inline-flex items-center justify-center gap-1">
-            <Clock class="h-3.5 w-3.5 text-[var(--nv-muted)]" />
-            {{ formatRelativeDate(item.createdAt) }}
-          </span>
-        </template>
+        <template #cell-createdAt="{ item }">{{ formatRelativeDate(item.createdAt) }}</template>
       </BaseTable>
     </div>
   </div>
@@ -452,6 +481,31 @@ const columns = computed(() => {
   gap: 0.375rem;
 }
 
+.nv-post-author-cell {
+  align-items: center;
+  display: inline-flex;
+  gap: 0.35rem;
+  justify-content: flex-start;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.nv-post-author-menu {
+  display: inline-flex;
+  max-width: 10ch;
+  min-width: 0;
+}
+
+.nv-post-author-fallback {
+  display: inline-block;
+  max-width: 10ch;
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 :deep(.table-container > div) {
   background: transparent;
   border: 0;
@@ -467,6 +521,7 @@ const columns = computed(() => {
   color: var(--nv-muted);
   font-family: 'JetBrains Mono', monospace;
   font-size: 0.72rem;
+  font-weight: 700;
   letter-spacing: 0.14em;
 }
 
