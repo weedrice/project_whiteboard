@@ -57,7 +57,7 @@ useHead({
   meta: [
     {
       name: 'description',
-      content: computed(() => `${t('common.appName')} - a curated landing page for trending posts and live board activity.`),
+      content: computed(() => t('home.landing.seoDescription', { appName: t('common.appName') })),
     },
     {
       property: 'og:title',
@@ -65,7 +65,7 @@ useHead({
     },
     {
       property: 'og:description',
-      content: computed(() => `${t('common.appName')} - a curated landing page for trending posts and live board activity.`),
+      content: computed(() => t('home.landing.seoDescription', { appName: t('common.appName') })),
     },
   ],
 })
@@ -94,22 +94,22 @@ useHead({
       <section class="nv-home-hero">
         <div class="flex items-center justify-between gap-4">
           <div>
-            <p class="nv-home-section-kicker">CURATED TODAY</p>
+            <p class="nv-home-section-kicker">{{ $t('home.landing.curatedToday') }}</p>
             <h1 class="text-3xl font-semibold tracking-[-0.05em] text-[var(--nv-ink)] sm:text-4xl">
-              Stories worth reading now
+              {{ $t('home.landing.storiesWorthReading') }}
             </h1>
           </div>
           <div class="hidden grid-cols-3 gap-3 text-right sm:grid">
             <div class="nv-home-stat">
-              <span class="nv-home-stat-label">LIVE</span>
+              <span class="nv-home-stat-label">{{ $t('home.landing.live') }}</span>
               <strong>{{ stats.liveCount }}</strong>
             </div>
             <div class="nv-home-stat">
-              <span class="nv-home-stat-label">POSTS</span>
+              <span class="nv-home-stat-label">{{ $t('home.landing.posts') }}</span>
               <strong>{{ stats.postCount }}</strong>
             </div>
             <div class="nv-home-stat">
-              <span class="nv-home-stat-label">BOARDS</span>
+              <span class="nv-home-stat-label">{{ $t('home.landing.boards') }}</span>
               <strong>{{ isBoardsLoading || isBoardsError ? '...' : stats.boardCount }}</strong>
             </div>
           </div>
@@ -121,13 +121,13 @@ useHead({
             v-else
             class="rounded-[28px] border border-dashed border-[var(--nv-line)] px-6 py-8 text-sm text-[var(--nv-muted)]"
           >
-            Featured stories are loading.
+            {{ $t('home.landing.featuredLoading') }}
           </div>
 
           <div class="space-y-3">
             <div class="flex items-center gap-2">
               <Sparkles class="h-4 w-4 text-[var(--nv-accent)]" />
-              <p class="nv-home-section-kicker">EDITOR&apos;S PICKS</p>
+              <p class="nv-home-section-kicker">{{ $t('home.landing.editorsPicks') }}</p>
             </div>
             <template v-if="visibleEditorPicks.length">
               <HomePostCard
@@ -141,7 +141,7 @@ useHead({
               v-else
               class="rounded-[24px] border border-dashed border-[var(--nv-line)] px-5 py-6 text-sm text-[var(--nv-muted)]"
             >
-              More curated picks will appear here soon.
+              {{ $t('home.landing.editorsPicksEmpty') }}
             </div>
           </div>
         </div>
@@ -150,11 +150,11 @@ useHead({
       <section class="space-y-4">
         <div class="flex items-center justify-between gap-3">
           <div>
-            <p class="nv-home-section-kicker">DISCOVER</p>
-            <h2 class="text-xl font-semibold tracking-[-0.04em] text-[var(--nv-ink)]">Browse boards</h2>
+            <p class="nv-home-section-kicker">{{ $t('home.landing.discover') }}</p>
+            <h2 class="text-xl font-semibold tracking-[-0.04em] text-[var(--nv-ink)]">{{ $t('home.landing.browseBoards') }}</h2>
           </div>
           <RouterLink to="/boards" class="text-sm font-medium text-[var(--nv-accent)] hover:underline">
-            View all
+            {{ $t('common.viewAll') }}
           </RouterLink>
         </div>
 
@@ -164,7 +164,7 @@ useHead({
             :key="index"
             class="rounded-[24px] border border-dashed border-[var(--nv-line)] px-5 py-6 text-sm text-[var(--nv-muted)]"
           >
-            Loading board spotlight...
+            {{ $t('home.landing.loadingBoards') }}
           </div>
         </div>
         <div v-else-if="spotlightBoards.length" class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -179,7 +179,7 @@ useHead({
               <p class="line-clamp-2 text-sm text-[var(--nv-ink-soft)]">{{ board.description }}</p>
             </div>
             <div class="text-right">
-              <p class="nv-home-stat-label">SUBSCRIBERS</p>
+              <p class="nv-home-stat-label">{{ $t('home.landing.subscribers') }}</p>
               <p class="text-sm font-semibold text-[var(--nv-ink)]">{{ board.subscriberCount }}</p>
             </div>
           </RouterLink>
@@ -188,15 +188,15 @@ useHead({
           v-else
           class="rounded-[24px] border border-dashed border-[var(--nv-line)] px-5 py-6 text-sm text-[var(--nv-muted)]"
         >
-          {{ isBoardsError ? 'Boards are temporarily unavailable.' : 'No boards to highlight yet.' }}
+          {{ isBoardsError ? $t('home.landing.boardsUnavailable') : $t('home.landing.emptyBoards') }}
         </div>
       </section>
 
       <section class="space-y-4">
         <div class="flex items-center justify-between gap-3">
           <div>
-            <p class="nv-home-section-kicker">TRENDING</p>
-            <h2 class="text-xl font-semibold tracking-[-0.04em] text-[var(--nv-ink)]">Trending now</h2>
+            <p class="nv-home-section-kicker">{{ $t('home.landing.trending') }}</p>
+            <h2 class="text-xl font-semibold tracking-[-0.04em] text-[var(--nv-ink)]">{{ $t('home.landing.trendingNow') }}</h2>
           </div>
         </div>
 
@@ -212,15 +212,15 @@ useHead({
           v-else
           class="rounded-[24px] border border-dashed border-[var(--nv-line)] px-5 py-6 text-sm text-[var(--nv-muted)]"
         >
-          Trending posts will appear here once more activity arrives.
+          {{ $t('home.landing.trendingEmpty') }}
         </div>
       </section>
 
       <section class="space-y-4">
         <div class="flex items-center justify-between gap-3">
           <div>
-            <p class="nv-home-section-kicker">LIVE ACTIVITY</p>
-            <h2 class="text-xl font-semibold tracking-[-0.04em] text-[var(--nv-ink)]">Live activity</h2>
+            <p class="nv-home-section-kicker">{{ $t('home.landing.liveActivity') }}</p>
+            <h2 class="text-xl font-semibold tracking-[-0.04em] text-[var(--nv-ink)]">{{ $t('home.landing.liveActivityTitle') }}</h2>
           </div>
         </div>
         <HomeActivityList :posts="visibleLiveActivity" />

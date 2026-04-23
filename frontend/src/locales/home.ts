@@ -1,0 +1,61 @@
+import type { HomeMessages } from './types'
+
+export const home: HomeMessages = {
+  landing: {
+    seoDescription: '{appName} - 트렌딩 게시글과 실시간 보드 활동을 모아보는 큐레이션 랜딩 페이지',
+    curatedToday: '오늘의 큐레이션',
+    storiesWorthReading: '지금 읽을 만한 글',
+    live: '실시간',
+    posts: '게시글',
+    boards: '게시판',
+    featuredLoading: '대표 글을 불러오는 중입니다.',
+    editorsPicks: '에디터 추천',
+    editorsPicksEmpty: '추천 글은 곧 더 채워질 예정입니다.',
+    discover: '탐색',
+    browseBoards: '게시판 둘러보기',
+    loadingBoards: '주목할 게시판을 불러오는 중입니다.',
+    subscribers: '구독자',
+    boardsUnavailable: '게시판 정보를 잠시 불러올 수 없습니다.',
+    emptyBoards: '아직 소개할 게시판이 없습니다.',
+    trending: '트렌딩',
+    trendingNow: '지금 뜨는 글',
+    trendingEmpty: '활동이 더 쌓이면 트렌딩 글이 여기에 표시됩니다.',
+    liveActivity: '실시간 활동',
+    liveActivityTitle: '방금 올라온 이야기',
+  },
+  card: {
+    ariaLabel: '{boardName} 게시판의 {title}',
+    video: '동영상',
+    videoPreview: '동영상 미리보기',
+  },
+}
+
+export const homeEn: HomeMessages = {
+  landing: {
+    seoDescription: '{appName} - a curated landing page for trending posts and live board activity',
+    curatedToday: 'Curated today',
+    storiesWorthReading: 'Stories worth reading now',
+    live: 'Live',
+    posts: 'Posts',
+    boards: 'Boards',
+    featuredLoading: 'Featured stories are loading.',
+    editorsPicks: "Editor's picks",
+    editorsPicksEmpty: 'More curated picks will appear here soon.',
+    discover: 'Discover',
+    browseBoards: 'Browse boards',
+    loadingBoards: 'Loading board spotlight...',
+    subscribers: 'Subscribers',
+    boardsUnavailable: 'Boards are temporarily unavailable.',
+    emptyBoards: 'No boards to highlight yet.',
+    trending: 'Trending',
+    trendingNow: 'Trending now',
+    trendingEmpty: 'Trending posts will appear here once more activity arrives.',
+    liveActivity: 'Live activity',
+    liveActivityTitle: 'Latest board activity',
+  },
+  card: {
+    ariaLabel: '{boardName} board post {title}',
+    video: 'Video',
+    videoPreview: 'Video preview',
+  },
+}

@@ -190,7 +190,7 @@ const showNotice = computed(() => !props.hideNotice && props.mode === 'create' &
 const canShowNsfw = computed(() => Boolean(board.value?.allowNsfw))
 const draftEnabled = computed(() => authStore.isAuthenticated && !!boardUrl.value)
 const draftStorageKey = computed(() => `noviis:draft:${authStore.user?.userId ?? 'guest'}:${props.mode}:${boardUrl.value || 'unknown'}:${postId.value || 'new'}`)
-const previewHtml = computed(() => sanitizeQuillHtml(form.value.content || '<p>No content yet.</p>'))
+const previewHtml = computed(() => sanitizeQuillHtml(form.value.content || `<p>${t('board.writePost.preview.emptyContent')}</p>`))
 
 function isFormDirty(): boolean {
   const init = initialFormSnapshot.value
@@ -212,9 +212,7 @@ function isFormDirty(): boolean {
 }
 
 const isDirty = computed(() => isFormDirty())
-const leaveConfirmMessage = computed(() =>
-  t('board.writePost.leaveConfirm') || 'Leave this page? Unsaved changes may be lost.',
-)
+const leaveConfirmMessage = computed(() => t('board.writePost.leaveConfirm'))
 
 function onBeforeUnload(event: BeforeUnloadEvent) {
   if (!isDirty.value) return
@@ -296,11 +294,13 @@ const {
 
 const draftStatusLabel = computed(() => {
   if (!draftEnabled.value) return ''
-  if (isSavingDraft.value) return 'Saving draft...'
+  if (isSavingDraft.value) return t('board.writePost.draftStatus.saving')
   if (lastSavedAt.value) {
-    return `Saved ${new Date(lastSavedAt.value).toLocaleTimeString()}`
+    return t('board.writePost.draftStatus.savedAt', {
+      time: new Date(lastSavedAt.value).toLocaleTimeString(),
+    })
   }
-  return 'Draft autosave is ready'
+  return t('board.writePost.draftStatus.ready')
 })
 
 watchEffect(() => {
@@ -334,7 +334,9 @@ watch(
     const restoredDraftSource = restoreSource.value
     if (restoredDraftSource !== 'idle') {
       toastStore.addToast(
-        restoredDraftSource === 'local' ? 'Restored local draft.' : 'Restored saved server draft.',
+        restoredDraftSource === 'local'
+          ? t('board.writePost.draftStatus.restoredLocal')
+          : t('board.writePost.draftStatus.restoredServer'),
         'info',
       )
     }
@@ -415,7 +417,7 @@ function closeVideoPopover() {
 function insertVideoFromPopover() {
   const embedUrl = toEmbedVideoUrl(videoUrl.value)
   if (!embedUrl) {
-    toastStore.addToast(t('board.writePost.videoUrlRequired') || 'Please enter a video URL.', 'error')
+    toastStore.addToast(t('board.writePost.videoUrlRequired'), 'error')
     return
   }
   tiptapEditorRef.value?.setVideo(embedUrl)
@@ -451,7 +453,7 @@ async function handleSaveDraft() {
     const savedDraft = await saveDraftNow()
     if (savedDraft) {
       markCurrentSnapshotSaved()
-      toastStore.addToast('Draft saved.', 'success')
+      toastStore.addToast(t('board.writePost.draftStatus.saved'), 'success')
     }
   } catch (error) {
     logger.error('Failed to save draft:', error)
@@ -461,7 +463,7 @@ async function handleSaveDraft() {
 function cleanupPublishedDraft() {
   void cleanupDraft().catch((error) => {
     logger.error('Failed to clean up published draft:', error)
-    toastStore.addToast('Draft cleanup failed. It may reappear until the server draft is removed.', 'error')
+    toastStore.addToast(t('board.writePost.draftStatus.cleanupFailed'), 'error')
   })
 }
 
@@ -594,7 +596,7 @@ defineExpose({
     >
       <div class="nv-compose-header">
         <div class="min-w-0">
-          <p class="nv-compose-kicker">{{ props.mode === 'create' ? 'COMPOSE' : 'REFINE' }}</p>
+          <p class="nv-compose-kicker">{{ props.mode === 'create' ? $t('board.writePost.composeMode.create') : $t('board.writePost.composeMode.edit') }}</p>
           <h2 class="truncate text-2xl font-semibold tracking-[-0.05em] text-[var(--nv-ink)] sm:text-3xl">
             {{ pageTitle }}
           </h2>
@@ -605,10 +607,10 @@ defineExpose({
 
         <div class="flex flex-wrap items-center justify-end gap-2">
           <BaseButton type="button" variant="ghost" size="sm" @click="showPreview = true">
-            Preview
+            {{ $t('board.writePost.actions.preview') }}
           </BaseButton>
           <BaseButton v-if="draftEnabled" type="button" variant="secondary" size="sm" @click="handleSaveDraft">
-            Save Draft
+            {{ $t('board.writePost.actions.saveDraft') }}
           </BaseButton>
           <BaseButton type="button" variant="secondary" size="sm" @click="handleCancel">
             {{ $t('common.cancel') }}
@@ -666,7 +668,7 @@ defineExpose({
             <div class="mt-4">
               <div class="flex items-center justify-between rounded-t-[20px] border border-[var(--nv-line)] border-b-0 bg-[var(--nv-elevated)] px-3 py-2">
                 <div class="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.18em] text-[var(--nv-muted)]">
-                  <span>Editor</span>
+                  <span>{{ $t('board.writePost.sections.editor') }}</span>
                   <span class="hidden sm:inline">{{ draftStatusLabel }}</span>
                 </div>
                 <div class="flex items-center gap-2">
@@ -684,7 +686,7 @@ defineExpose({
                     :class="{ active: editorViewMode === 'html' }"
                     @click="editorViewMode = 'html'"
                   >
-                    HTML
+                    {{ $t('board.writePost.viewHtmlSource') }}
                   </button>
                 </div>
               </div>
@@ -703,13 +705,13 @@ defineExpose({
                   />
                   <Teleport to="body">
                     <div v-if="showVideoPopover" class="video-url-popover-mask" @click.self="closeVideoPopover">
-                      <div class="video-url-popover" :style="{ top: videoPopoverStyle.top, left: videoPopoverStyle.left }" role="dialog" aria-label="Video URL">
-                        <span class="video-url-popover-label">Video URL</span>
+                      <div class="video-url-popover" :style="{ top: videoPopoverStyle.top, left: videoPopoverStyle.left }" role="dialog" :aria-label="$t('board.writePost.video.dialogLabel')">
+                        <span class="video-url-popover-label">{{ $t('board.writePost.video.inputLabel') }}</span>
                         <input
                           v-model="videoUrl"
                           type="url"
                           class="video-url-popover-input"
-                          placeholder="YouTube / Vimeo URL"
+                          :placeholder="$t('board.writePost.video.placeholder')"
                           @keydown.enter="insertVideoFromPopover"
                           @keydown.escape="closeVideoPopover"
                         >
@@ -718,7 +720,7 @@ defineExpose({
                             {{ $t('common.cancel') }}
                           </BaseButton>
                           <BaseButton type="button" variant="primary" size="sm" @click="insertVideoFromPopover">
-                            {{ $t('common.confirm') || 'Confirm' }}
+                            {{ $t('common.confirm') }}
                           </BaseButton>
                         </div>
                       </div>
@@ -742,7 +744,7 @@ defineExpose({
             <div class="mt-4 flex items-center justify-between gap-3 text-xs text-[var(--nv-muted)] sm:hidden">
               <span>{{ draftStatusLabel }}</span>
               <button v-if="draftEnabled" type="button" class="font-medium text-[var(--nv-accent)]" @click="handleSaveDraft">
-                Save now
+                {{ $t('board.writePost.actions.saveNow') }}
               </button>
             </div>
 
@@ -758,8 +760,8 @@ defineExpose({
         <aside class="space-y-4">
           <section class="rounded-[28px] border border-[var(--nv-line)] bg-[var(--nv-surface)] p-4 shadow-[var(--nv-shadow-soft)]">
             <div class="mb-4">
-              <p class="nv-compose-kicker">METADATA</p>
-              <h3 class="text-lg font-semibold text-[var(--nv-ink)]">Post settings</h3>
+              <p class="nv-compose-kicker">{{ $t('board.writePost.sections.metadata') }}</p>
+              <h3 class="text-lg font-semibold text-[var(--nv-ink)]">{{ $t('board.writePost.sections.postSettings') }}</h3>
             </div>
 
             <div v-if="!props.hideCategory && filteredCategories.length > 0" class="mb-4 hidden lg:block">
@@ -793,38 +795,38 @@ defineExpose({
 
           <section class="rounded-[28px] border border-[var(--nv-line)] bg-[var(--nv-surface)] p-4 shadow-[var(--nv-shadow-soft)]">
             <div class="mb-3">
-              <p class="nv-compose-kicker">STATUS</p>
-              <h3 class="text-lg font-semibold text-[var(--nv-ink)]">Draft state</h3>
+              <p class="nv-compose-kicker">{{ $t('board.writePost.sections.status') }}</p>
+              <h3 class="text-lg font-semibold text-[var(--nv-ink)]">{{ $t('board.writePost.sections.draftState') }}</h3>
             </div>
             <p class="text-sm text-[var(--nv-ink-soft)]">{{ draftStatusLabel }}</p>
             <div class="mt-4 flex flex-wrap gap-2">
               <BaseButton v-if="draftEnabled" type="button" variant="secondary" size="sm" @click="handleSaveDraft">
-                Save Draft
+                {{ $t('board.writePost.actions.saveDraft') }}
               </BaseButton>
               <BaseButton type="button" variant="ghost" size="sm" @click="showPreview = true">
-                Preview
+                {{ $t('board.writePost.actions.preview') }}
               </BaseButton>
               <BaseButton v-if="draftEnabled" type="button" variant="ghost" size="sm" @click="clearRecovery">
-                Clear local backup
+                {{ $t('board.writePost.draftStatus.clearLocalBackup') }}
               </BaseButton>
             </div>
             <p class="mt-4 text-xs text-[var(--nv-muted)]">
               <kbd class="rounded border border-[var(--nv-line)] px-2 py-1">Ctrl/Cmd + S</kbd>
-              Save draft
-              <span class="mx-2">쨌</span>
+              {{ $t('board.writePost.shortcuts.saveDraft') }}
+              <span class="mx-2">/</span>
               <kbd class="rounded border border-[var(--nv-line)] px-2 py-1">Ctrl/Cmd + Enter</kbd>
-              Publish
+              {{ $t('board.writePost.shortcuts.publish') }}
             </p>
           </section>
         </aside>
       </form>
     </div>
 
-    <BaseModal :is-open="showPreview" title="Preview" size="2xl" mobile-fit-content @close="showPreview = false">
+    <BaseModal :is-open="showPreview" :title="$t('board.writePost.preview.title')" size="2xl" mobile-fit-content @close="showPreview = false">
       <div class="space-y-4">
         <div>
           <p class="text-xs font-medium uppercase tracking-[0.18em] text-[var(--nv-muted)]">{{ board?.boardName || boardUrl }}</p>
-          <h3 class="mt-2 text-2xl font-semibold text-[var(--nv-ink)]">{{ form.title || 'Untitled post' }}</h3>
+          <h3 class="mt-2 text-2xl font-semibold text-[var(--nv-ink)]">{{ form.title || $t('board.writePost.preview.untitledPost') }}</h3>
         </div>
         <div v-if="!props.hideTags && form.tags.length" class="flex flex-wrap gap-2">
           <span
@@ -840,7 +842,7 @@ defineExpose({
       <template #footer>
         <div class="flex justify-end gap-2">
           <BaseButton type="button" variant="secondary" size="sm" @click="showPreview = false">
-            {{ $t('common.close') || 'Close' }}
+            {{ $t('common.close') }}
           </BaseButton>
         </div>
       </template>
@@ -912,7 +914,7 @@ defineExpose({
 }
 
 .nv-compose-page .text-xs.text-\[var\(--nv-muted\)\] > span.mx-2::before {
-  content: '쨌';
+  content: '夷?;
   font-size: 0.75rem;
 }
 </style>
@@ -986,3 +988,5 @@ defineExpose({
   box-sizing: border-box;
 }
 </style>
+
+

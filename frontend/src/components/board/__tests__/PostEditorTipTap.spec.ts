@@ -198,8 +198,21 @@ const mountEditor = (modelValue = '<p>initial</p>') => {
     })
 }
 
+const selectors = {
+    more: 'button[title="board.writePost.toolbar.more"]',
+    link: 'button[title="board.writePost.toolbar.link"]',
+    image: 'button[title="board.writePost.toolbar.image"]',
+    video: 'button[title="board.writePost.toolbar.video"]',
+    bulletList: 'button[title="board.writePost.toolbar.bulletList"]',
+    orderedList: 'button[title="board.writePost.toolbar.orderedList"]',
+    emoticon: 'button[title="board.writePost.toolbar.emoticon"]',
+    slashMenu: 'button[title="board.writePost.toolbar.slashMenu"]',
+    divider: 'button[title="board.writePost.toolbar.divider"]',
+    tableDialog: 'button[title="board.writePost.toolbar.tableDialog"]',
+} as const
+
 const openAdvancedTools = async (wrapper: ReturnType<typeof mountEditor>) => {
-    await wrapper.get('button[title="More"]').trigger('click')
+    await wrapper.get(selectors.more).trigger('click')
 }
 
 describe('PostEditorTipTap', () => {
@@ -300,9 +313,9 @@ describe('PostEditorTipTap', () => {
         await wrapper.get('button[title="board.writePost.alignCenter"]').trigger('click')
         await wrapper.get('button[title="board.writePost.alignRight"]').trigger('click')
         await wrapper.get('button[title="board.writePost.alignJustify"]').trigger('click')
-        await wrapper.get('button[title="Horizontal rule"]').trigger('click')
+        await wrapper.get(selectors.divider).trigger('click')
 
-        await wrapper.get('button[title="Table"]').trigger('click')
+        await wrapper.get(selectors.tableDialog).trigger('click')
         const numberInputs = wrapper.findAll('.table-popover .link-popover-input')
         await numberInputs[0].setValue('99')
         await numberInputs[1].setValue('0')
@@ -324,18 +337,13 @@ describe('PostEditorTipTap', () => {
         expect(mocks.chain.setHorizontalRule).toHaveBeenCalled()
     })
 
-    it('handles link creation, validation fallback, and removal states', async () => {
-        mocks.i18nT.mockImplementation((key: string) => {
-            if (key === 'board.writePost.linkUrlPrompt') return ''
-            return key
-        })
-
+    it('handles link creation, validation and removal states', async () => {
         const wrapper = mountEditor()
 
-        await wrapper.get('button[title="Link"]').trigger('click')
+        await wrapper.get(selectors.link).trigger('click')
         await wrapper.findAll('.link-popover-input')[0].setValue('')
         await wrapper.findAll('.link-popover-actions button').at(-1)!.trigger('click')
-        expect(mocks.toastAdd).toHaveBeenLastCalledWith('Please enter a link URL.', 'error')
+        expect(mocks.toastAdd).toHaveBeenLastCalledWith('board.writePost.linkUrlPrompt', 'error')
 
         await wrapper.findAll('.link-popover-input')[0].setValue('example.com')
         await wrapper.findAll('.link-popover-input')[1].setValue('Example')
@@ -344,26 +352,26 @@ describe('PostEditorTipTap', () => {
 
         mocks.chain.setLink.mockClear()
         mocks.editor.state.selection = { from: 2, to: 5 }
-        await wrapper.get('button[title="Link"]').trigger('click')
+        await wrapper.get(selectors.link).trigger('click')
         await wrapper.findAll('.link-popover-input')[0].setValue('https://selected.test')
         await wrapper.findAll('.link-popover-actions button').at(-1)!.trigger('click')
         expect(mocks.chain.setLink).toHaveBeenCalledWith({ href: 'https://selected.test' })
 
         mocks.editor.isActive.mockImplementation((name: unknown) => name === 'link')
-        await wrapper.get('button[title="Link"]').trigger('click')
+        await wrapper.get(selectors.link).trigger('click')
         await wrapper.find('.link-popover-remove').trigger('click')
         expect(mocks.chain.extendMarkRange).toHaveBeenCalledWith('link')
         expect(mocks.chain.unsetLink).toHaveBeenCalled()
 
         mocks.editor.isActive.mockImplementation((name: unknown) => name === 'bold')
         await openAdvancedTools(wrapper)
-        await wrapper.get('button[title="Link"]').trigger('click')
+        await wrapper.get(selectors.link).trigger('click')
         expect(wrapper.find('.link-popover-remove').exists()).toBe(false)
     })
 
     it('handles image upload validation success and failure flows', async () => {
         const wrapper = mountEditor()
-        const imageBtn = wrapper.get('button[title="Image"]')
+        const imageBtn = wrapper.get(selectors.image)
         const fileInput = wrapper.get('input[type="file"]')
         const clickSpy = vi.spyOn(fileInput.element as HTMLInputElement, 'click')
         await imageBtn.trigger('click')
@@ -421,37 +429,37 @@ describe('PostEditorTipTap', () => {
         const imageInputClickSpy = vi.spyOn(wrapper.get('input[type="file"]').element as HTMLInputElement, 'click')
 
         mocks.editor.state.selection = { from: 2, to: 6 }
-        const bulletBtn = wrapper.get('button[title="Bullet list"]')
+        const bulletBtn = wrapper.get(selectors.bulletList)
         await bulletBtn.trigger('mousedown')
         await bulletBtn.trigger('click')
         expect(mocks.chain.setTextSelection).toHaveBeenCalledWith({ from: 2, to: 6 })
         expect(mocks.chain.toggleBulletList).toHaveBeenCalled()
 
         mocks.editor.state.selection = { from: 4, to: 8 }
-        const orderedBtn = wrapper.get('button[title="Ordered list"]')
+        const orderedBtn = wrapper.get(selectors.orderedList)
         await orderedBtn.trigger('mousedown')
         await orderedBtn.trigger('click')
         expect(mocks.chain.setTextSelection).toHaveBeenCalledWith({ from: 4, to: 8 })
         expect(mocks.chain.toggleOrderedList).toHaveBeenCalled()
 
-        await wrapper.get('button[title="Slash menu"]').trigger('click')
+        await wrapper.get(selectors.slashMenu).trigger('click')
         expect(wrapper.find('.slash-popover').exists()).toBe(true)
         await wrapper.findAll('.slash-action-btn')[0].trigger('click')
         expect(imageInputClickSpy).toHaveBeenCalled()
 
-        await wrapper.get('button[title="Slash menu"]').trigger('click')
+        await wrapper.get(selectors.slashMenu).trigger('click')
         await wrapper.findAll('.slash-action-btn')[1].trigger('click')
         expect(mocks.chain.toggleBlockquote).toHaveBeenCalled()
 
-        await wrapper.get('button[title="Slash menu"]').trigger('click')
+        await wrapper.get(selectors.slashMenu).trigger('click')
         await wrapper.findAll('.slash-action-btn')[2].trigger('click')
         expect(mocks.chain.toggleBulletList).toHaveBeenCalled()
 
-        await wrapper.get('button[title="Slash menu"]').trigger('click')
+        await wrapper.get(selectors.slashMenu).trigger('click')
         await wrapper.findAll('.slash-action-btn')[3].trigger('click')
         expect(wrapper.find('.link-popover').exists()).toBe(true)
 
-        await wrapper.get('button[title="Slash menu"]').trigger('click')
+        await wrapper.get(selectors.slashMenu).trigger('click')
         await wrapper.findAll('.slash-action-btn')[4].trigger('click')
         expect(mocks.chain.setHorizontalRule).toHaveBeenCalled()
     })
@@ -510,8 +518,8 @@ describe('PostEditorTipTap', () => {
             title: ':emoticon:',
         })
 
-        await wrapper.get('button[title="Video"]').trigger('click')
-        await wrapper.get('button[title="Emoticon"]').trigger('click')
+        await wrapper.get(selectors.video).trigger('click')
+        await wrapper.get(selectors.emoticon).trigger('click')
         expect(wrapper.emitted('open-video')).toHaveLength(1)
         expect(wrapper.emitted('open-emoticon')).toHaveLength(1)
 

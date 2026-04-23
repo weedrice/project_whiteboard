@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Bell, Home, Layers3, PenSquare, UserRound } from 'lucide-vue-next'
+import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import { useNotification } from '@/composables/useNotification'
 import { useWriteBoardSheet } from '@/composables/useWriteBoardSheet'
@@ -12,6 +13,7 @@ defineProps<{
 
 const route = useRoute()
 const router = useRouter()
+const { t } = useI18n()
 const authStore = useAuthStore()
 const { useUnreadCount } = useNotification()
 const { data: unreadCount } = useUnreadCount()
@@ -51,16 +53,16 @@ const navigateOrLogin = async (path: string) => {
 
 <template>
   <div v-if="!hidden" class="sm:hidden">
-    <nav class="nv-mobile-nav" aria-label="Mobile primary navigation">
+    <nav class="nv-mobile-nav" :aria-label="t('layout.mobileNav.ariaLabel')">
       <button type="button" class="nv-mobile-nav-item" :class="{ 'is-active': isHome }" @click="navigateOrLogin('/')">
         <Home class="h-5 w-5" />
-        <span>HOME</span>
+        <span>{{ $t('layout.mobileNav.home') }}</span>
       </button>
       <button type="button" class="nv-mobile-nav-item" :class="{ 'is-active': isBoards }" @click="navigateOrLogin('/boards')">
         <Layers3 class="h-5 w-5" />
-        <span>BOARDS</span>
+        <span>{{ $t('layout.mobileNav.boards') }}</span>
       </button>
-      <button ref="fabButtonRef" type="button" class="nv-mobile-nav-fab" @click="openWriteSheet" aria-label="Create post">
+      <button ref="fabButtonRef" type="button" class="nv-mobile-nav-fab" @click="openWriteSheet" :aria-label="t('layout.mobileNav.createPost')">
         <PenSquare class="h-5 w-5" />
       </button>
       <button
@@ -70,12 +72,12 @@ const navigateOrLogin = async (path: string) => {
         @click="navigateOrLogin('/mypage/notifications')"
       >
         <Bell class="h-5 w-5" />
-        <span>ALERTS</span>
+        <span>{{ $t('layout.mobileNav.alerts') }}</span>
         <span v-if="authStore.isAuthenticated && unreadCount && unreadCount > 0" class="nv-mobile-nav-dot" />
       </button>
       <button type="button" class="nv-mobile-nav-item" :class="{ 'is-active': isProfile }" @click="navigateOrLogin('/mypage')">
         <UserRound class="h-5 w-5" />
-        <span>MY</span>
+        <span>{{ $t('layout.mobileNav.my') }}</span>
       </button>
     </nav>
 
@@ -94,11 +96,11 @@ const navigateOrLogin = async (path: string) => {
           <div class="mx-auto mb-4 h-1.5 w-14 rounded-full bg-[var(--nv-line)]" />
           <div class="mb-4 flex items-center justify-between">
             <div>
-              <p class="text-xs font-medium tracking-[0.18em] text-[var(--nv-muted)]">WRITE</p>
-              <h2 id="mobile-write-sheet-title" class="text-lg font-semibold text-[var(--nv-ink)]">Choose a board</h2>
+              <p class="text-xs font-medium tracking-[0.18em] text-[var(--nv-muted)]">{{ $t('layout.mobileNav.write') }}</p>
+              <h2 id="mobile-write-sheet-title" class="text-lg font-semibold text-[var(--nv-ink)]">{{ $t('layout.mobileNav.chooseBoard') }}</h2>
             </div>
             <button type="button" class="rounded-full border border-[var(--nv-line)] px-3 py-1.5 text-sm text-[var(--nv-ink-soft)]" @click="closeWriteSheet">
-              Close
+              {{ $t('layout.mobileNav.closeSheet') }}
             </button>
           </div>
           <div class="space-y-2">
@@ -106,13 +108,13 @@ const navigateOrLogin = async (path: string) => {
               v-if="isBoardsError || isSubscribedBoardsError"
               class="rounded-2xl border border-dashed border-[var(--nv-danger)]/30 px-4 py-5 text-sm text-[var(--nv-danger)]"
             >
-              Unable to load board options right now.
+              {{ $t('layout.mobileNav.boardOptionsError') }}
             </div>
             <div
               v-else-if="isSubscribedBoardsLoading"
               class="rounded-2xl border border-dashed border-[var(--nv-line)] px-4 py-5 text-sm text-[var(--nv-muted)]"
             >
-              Loading your boards...
+              {{ $t('layout.mobileNav.loadingBoards') }}
             </div>
             <button
               v-for="board in isSubscribedBoardsLoading || isBoardsError || isSubscribedBoardsError ? [] : preferredBoards"
@@ -130,7 +132,7 @@ const navigateOrLogin = async (path: string) => {
               class="nv-mobile-sheet-item"
               @click="navigateOrLogin('/boards')"
             >
-              <span>Browse all boards</span>
+              <span>{{ $t('layout.mobileNav.browseAllBoards') }}</span>
               <span class="text-xs text-[var(--nv-muted)]">/boards</span>
             </button>
           </div>

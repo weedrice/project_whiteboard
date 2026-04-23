@@ -159,3 +159,20 @@ export const common: CommonMessages = {
     en: 'English',
   },
 }
+
+export const commonEn: CommonMessages = {
+  ...common,
+  loading: 'Loading...',
+  noData: 'No data.',
+  cancel: 'Cancel',
+  close: 'Close',
+  confirm: 'Confirm',
+  boards: 'Boards',
+  tags: 'Tags',
+  notifications: 'Alerts',
+  myPage: 'My',
+  title: 'Title',
+  category: 'Category',
+  write: 'Write',
+  viewAll: 'View all',
+}

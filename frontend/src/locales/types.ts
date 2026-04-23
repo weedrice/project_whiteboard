@@ -176,6 +176,36 @@ export interface SearchMessages {
   placeholder: string
 }
 
+export interface HomeMessages {
+  landing: {
+    seoDescription: string
+    curatedToday: string
+    storiesWorthReading: string
+    live: string
+    posts: string
+    boards: string
+    featuredLoading: string
+    editorsPicks: string
+    editorsPicksEmpty: string
+    discover: string
+    browseBoards: string
+    loadingBoards: string
+    subscribers: string
+    boardsUnavailable: string
+    emptyBoards: string
+    trending: string
+    trendingNow: string
+    trendingEmpty: string
+    liveActivity: string
+    liveActivityTitle: string
+  }
+  card: {
+    ariaLabel: string
+    video: string
+    videoPreview: string
+  }
+}
+
 // 레이아웃 메시지 타입
 export interface LayoutMessages {
   menu: {
@@ -189,6 +219,20 @@ export interface LayoutMessages {
     title: string
     empty: string
     clear: string
+  }
+  mobileNav: {
+    ariaLabel: string
+    home: string
+    boards: string
+    alerts: string
+    my: string
+    createPost: string
+    write: string
+    chooseBoard: string
+    closeSheet: string
+    boardOptionsError: string
+    loadingBoards: string
+    browseAllBoards: string
   }
   shortcuts: {
     title: string
@@ -447,6 +491,72 @@ export interface BoardMessages {
     tableCols: string
     tableHeaderRow: string
     tableInsert: string
+    draftStatus: {
+      saving: string
+      savedAt: string
+      ready: string
+      restoredLocal: string
+      restoredServer: string
+      saved: string
+      cleanupFailed: string
+      clearLocalBackup: string
+    }
+    actions: {
+      preview: string
+      saveDraft: string
+      saveNow: string
+      publish: string
+    }
+    composeMode: {
+      create: string
+      edit: string
+    }
+    sections: {
+      editor: string
+      metadata: string
+      status: string
+      postSettings: string
+      draftState: string
+    }
+    preview: {
+      title: string
+      untitledPost: string
+      emptyContent: string
+    }
+    video: {
+      dialogLabel: string
+      inputLabel: string
+      placeholder: string
+    }
+    toolbar: {
+      bold: string
+      italic: string
+      underline: string
+      strikethrough: string
+      link: string
+      image: string
+      video: string
+      bulletList: string
+      orderedList: string
+      emoticon: string
+      slashMenu: string
+      more: string
+      insertBlock: string
+      quote: string
+      list: string
+      divider: string
+      advanced: string
+      formattingTools: string
+      textColor: string
+      defaultColor: string
+      customColor: string
+      linkDialog: string
+      tableDialog: string
+    }
+    shortcuts: {
+      saveDraft: string
+      publish: string
+    }
   }
   tags: {
     placeholder: string
@@ -948,6 +1058,7 @@ export interface AdminMessages {
 export interface Messages {
   common: CommonMessages
   search: SearchMessages
+  home: HomeMessages
   layout: LayoutMessages
   auth: AuthMessages
   board: BoardMessages

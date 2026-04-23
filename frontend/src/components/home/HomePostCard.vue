@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { Eye, Video } from 'lucide-vue-next'
 import type { FeedPost } from '@/types'
 import { formatDateOnly } from '@/utils/date'
@@ -15,6 +16,7 @@ const props = withDefaults(defineProps<{
 })
 
 const router = useRouter()
+const { t } = useI18n()
 
 const bodyHtml = computed(() => getFeedBodyHtml(props.post))
 const mediaPreview = computed(() => getFeedMediaPreview(props.post))
@@ -47,7 +49,7 @@ const handleKeydown = (event: KeyboardEvent) => {
     :class="cardClass"
     role="link"
     tabindex="0"
-    :aria-label="`${post.boardName} board post ${post.title}`"
+    :aria-label="t('home.card.ariaLabel', { boardName: post.boardName, title: post.title })"
     @click="navigateToPost"
     @keydown="handleKeydown"
   >
@@ -93,11 +95,11 @@ const handleKeydown = (event: KeyboardEvent) => {
       <div v-if="showFirstVideo" class="relative overflow-hidden rounded-[inherit] bg-[var(--nv-surface-2)]">
         <div class="absolute left-3 top-3 z-10 inline-flex items-center gap-1 rounded-full bg-black/60 px-2 py-1 text-[10px] font-medium text-white">
           <Video class="h-3 w-3" />
-          VIDEO
+          {{ $t('home.card.video') }}
         </div>
         <iframe
           :src="post.firstMediaUrl"
-          title="Video preview"
+          :title="t('home.card.videoPreview')"
           frameborder="0"
           allowfullscreen
           loading="lazy"
