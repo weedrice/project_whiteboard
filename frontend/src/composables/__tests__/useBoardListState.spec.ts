@@ -17,12 +17,11 @@ describe('useBoardListState', () => {
     router.replace.mockReset()
   })
 
-  it('hydrates page, search, and category state from the route query', async () => {
+  it('hydrates page and search state from the route query', async () => {
     route.query = {
       page: '3',
       q: 'vue',
-      type: 'TITLE',
-      categoryId: '7'
+      type: 'TITLE'
     }
 
     const state = useBoardListState(route as never, router as never)
@@ -32,7 +31,7 @@ describe('useBoardListState', () => {
     expect(state.searchQuery.value).toBe('vue')
     expect(state.searchType.value).toBe('TITLE')
     expect(state.isSearching.value).toBe(true)
-    expect(state.selectedCategoryId.value).toBe(7)
+    expect(state.selectedCategoryId.value).toBeNull()
   })
 
   it('hydrates concept state from the route query and keeps it in pagination routes', async () => {
@@ -124,7 +123,7 @@ describe('useBoardListState', () => {
     })
   })
 
-  it('resets category, concept, and search state when selecting all posts', async () => {
+  it('clears category and concept state when selecting all posts', async () => {
     route.query = {
       q: 'keyword',
       type: 'TITLE',
@@ -135,16 +134,40 @@ describe('useBoardListState', () => {
     await nextTick()
     router.replace.mockReset()
 
-    state.selectAllPosts()
+    state.activateAllPostsFilter()
     await nextTick()
 
-    expect(state.searchQuery.value).toBe('')
-    expect(state.isSearching.value).toBe(false)
+    expect(state.searchQuery.value).toBe('keyword')
+    expect(state.isSearching.value).toBe(true)
     expect(state.conceptOnly.value).toBe(false)
     expect(state.selectedCategoryId.value).toBeNull()
     expect(router.replace).toHaveBeenCalledWith({
       path: '/board/free',
-      query: {}
+      query: {
+        q: 'keyword',
+        type: 'TITLE'
+      }
+    })
+  })
+
+  it('normalizes mixed search and category queries to the effective search-only state', async () => {
+    route.query = {
+      q: 'keyword',
+      type: 'TITLE',
+      categoryId: '7'
+    }
+
+    const state = useBoardListState(route as never, router as never)
+    await nextTick()
+
+    expect(state.isSearching.value).toBe(true)
+    expect(state.selectedCategoryId.value).toBeNull()
+    expect(router.replace).toHaveBeenCalledWith({
+      path: '/board/free',
+      query: {
+        q: 'keyword',
+        type: 'TITLE'
+      }
     })
   })
 

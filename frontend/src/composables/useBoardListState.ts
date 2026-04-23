@@ -1,5 +1,5 @@
 import { computed, ref, watch } from 'vue'
-import type { Router, RouteLocationNormalizedLoaded } from 'vue-router'
+import type { LocationQuery, LocationQueryRaw, Router, RouteLocationNormalizedLoaded } from 'vue-router'
 
 interface SearchState {
   q: string
@@ -14,6 +14,46 @@ interface BoardListQueryParams {
   searchType?: string
   categoryId?: number
   minLikes?: number
+}
+
+function getResolvedSearchState(isSearching: boolean, searchQuery: string, searchType: string): SearchState | null {
+  const trimmedQuery = searchQuery.trim()
+  if (!isSearching || !trimmedQuery) {
+    return null
+  }
+
+  return {
+    q: trimmedQuery,
+    searchType
+  }
+}
+
+function areQueryValuesEqual(left: unknown, right: unknown): boolean {
+  if (Array.isArray(left) || Array.isArray(right)) {
+    const leftValues = Array.isArray(left) ? left.map(String) : [String(left ?? '')]
+    const rightValues = Array.isArray(right) ? right.map(String) : [String(right ?? '')]
+    return leftValues.length === rightValues.length
+      && leftValues.every((value, index) => value === rightValues[index])
+  }
+
+  return String(left ?? '') === String(right ?? '')
+}
+
+function areQueriesEqual(
+  left: Record<string, unknown>,
+  right: Record<string, unknown>
+): boolean {
+  const leftKeys = Object.keys(left).sort()
+  const rightKeys = Object.keys(right).sort()
+
+  if (leftKeys.length !== rightKeys.length) {
+    return false
+  }
+
+  return leftKeys.every((key, index) => (
+    key === rightKeys[index]
+    && areQueryValuesEqual(left[key], right[key])
+  ))
 }
 
 export function useBoardListState(route: RouteLocationNormalizedLoaded, router: Router) {
@@ -58,13 +98,14 @@ export function useBoardListState(route: RouteLocationNormalizedLoaded, router: 
     return raw === '1' || raw === 'true'
   }
 
-  const buildListQuery = (
+  const buildListQueryFromSource = (
+    sourceQuery: LocationQuery | LocationQueryRaw,
     targetPage: number,
     nextSearchState?: SearchState | null,
     nextCategoryId?: number | null,
     nextConceptOnly?: boolean
-  ) => {
-    const query = { ...route.query }
+  ): LocationQueryRaw => {
+    const query: LocationQueryRaw = { ...sourceQuery }
 
     if (targetPage <= 0) {
       delete query.page
@@ -73,9 +114,7 @@ export function useBoardListState(route: RouteLocationNormalizedLoaded, router: 
     }
 
     const resolvedSearchState = nextSearchState === undefined
-      ? (isSearching.value && searchQuery.value.trim()
-        ? { q: searchQuery.value.trim(), searchType: searchType.value }
-        : null)
+      ? getResolvedSearchState(isSearching.value, searchQuery.value, searchType.value)
       : nextSearchState
 
     if (resolvedSearchState?.q) {
@@ -107,6 +146,15 @@ export function useBoardListState(route: RouteLocationNormalizedLoaded, router: 
 
     return query
   }
+
+  const buildListQuery = (
+    targetPage: number,
+    nextSearchState?: SearchState | null,
+    nextCategoryId?: number | null,
+    nextConceptOnly?: boolean
+  ) => (
+    buildListQueryFromSource(route.query, targetPage, nextSearchState, nextCategoryId, nextConceptOnly)
+  )
 
   const syncListQuery = (
     targetPage: number,
@@ -174,9 +222,13 @@ export function useBoardListState(route: RouteLocationNormalizedLoaded, router: 
     syncListQuery(0, null, null, false)
   }
 
-  function selectAllPosts() {
-    resetToDefaultList()
-    syncListQuery(0, null, null, false)
+  function activateAllPostsFilter() {
+    const nextSearchState = getResolvedSearchState(isSearching.value, searchQuery.value, searchType.value)
+
+    conceptOnly.value = false
+    selectedCategoryId.value = null
+    setPage(0, { skipRouteSync: true })
+    syncListQuery(0, nextSearchState, null, false)
   }
 
   function toggleConceptPosts() {
@@ -232,7 +284,25 @@ export function useBoardListState(route: RouteLocationNormalizedLoaded, router: 
     const routeSearchType = typeof newQuery.type === 'string' ? newQuery.type : 'TITLE_CONTENT'
     const routeCategoryId = parseCategoryIdFromQuery(newQuery.categoryId)
     const shouldSearch = routeQuery.length > 0
-    const shouldShowConcept = !shouldSearch && routeCategoryId === null && parseConceptFromQuery(newQuery.concept)
+    const nextSearchState = shouldSearch
+      ? { q: routeQuery, searchType: routeSearchType }
+      : null
+    const nextSelectedCategoryId = shouldSearch ? null : routeCategoryId
+    const nextConceptOnly = !shouldSearch && routeCategoryId === null && parseConceptFromQuery(newQuery.concept)
+    const normalizedQuery = buildListQueryFromSource(
+      newQuery,
+      nextPage,
+      nextSearchState,
+      nextSelectedCategoryId,
+      nextConceptOnly
+    )
+
+    if (!areQueriesEqual(newQuery as Record<string, unknown>, normalizedQuery)) {
+      router.replace({
+        path: route.path,
+        query: normalizedQuery
+      })
+    }
 
     if (searchQuery.value !== routeQuery) {
       searchQuery.value = routeQuery
@@ -243,11 +313,11 @@ export function useBoardListState(route: RouteLocationNormalizedLoaded, router: 
     if (isSearching.value !== shouldSearch) {
       isSearching.value = shouldSearch
     }
-    if (selectedCategoryId.value !== routeCategoryId) {
-      selectedCategoryId.value = routeCategoryId
+    if (selectedCategoryId.value !== nextSelectedCategoryId) {
+      selectedCategoryId.value = nextSelectedCategoryId
     }
-    if (conceptOnly.value !== shouldShowConcept) {
-      conceptOnly.value = shouldShowConcept
+    if (conceptOnly.value !== nextConceptOnly) {
+      conceptOnly.value = nextConceptOnly
     }
   }, { immediate: true })
 
@@ -275,7 +345,7 @@ export function useBoardListState(route: RouteLocationNormalizedLoaded, router: 
     buildPaginationRoute,
     handleSearch,
     clearSearch,
-    selectAllPosts,
+    activateAllPostsFilter,
     toggleConceptPosts,
     toggleCategory,
     handleSortChange,

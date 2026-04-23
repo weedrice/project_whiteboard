@@ -36,7 +36,7 @@ const {
   buildPaginationRoute,
   handleSearch,
   clearSearch,
-  selectAllPosts,
+  activateAllPostsFilter,
   toggleConceptPosts,
   toggleCategory,
   handleSortChange,
@@ -150,8 +150,7 @@ const canWrite = computed(() => (
   canWriteBoardPost(board.value, authStore.isAuthenticated, authStore.user?.role)
 ))
 const isAllPostsActive = computed(() => (
-  !isSearching.value
-  && !conceptOnly.value
+  !conceptOnly.value
   && selectedCategoryId.value === null
 ))
 
@@ -410,7 +409,7 @@ onUnmounted(() => {
                 class="nv-board-filter-chip"
                 :class="{ 'is-active': isAllPostsActive }"
                 :aria-pressed="isAllPostsActive"
-                @click="selectAllPosts"
+                @click="activateAllPostsFilter"
               >
                 {{ $t('board.detail.filter.all') }}
               </button>

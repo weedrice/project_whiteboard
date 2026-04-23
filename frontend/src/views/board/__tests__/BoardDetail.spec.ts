@@ -233,7 +233,7 @@ describe('BoardDetail', () => {
     })
   })
 
-  it('does not mark the all filter as active while search results are shown', () => {
+  it('keeps the all filter active while search results are shown without category or concept filters', () => {
     route.query = {
       q: 'vue',
       type: 'TITLE'
@@ -257,7 +257,7 @@ describe('BoardDetail', () => {
 
     const allButton = wrapper.findAll('button').find((button) => button.text() === 'board.detail.filter.all')
 
-    expect(allButton?.attributes('aria-pressed')).toBe('false')
+    expect(allButton?.attributes('aria-pressed')).toBe('true')
   })
 
   it('toggles the concept filter through route-synced board state', async () => {
@@ -317,6 +317,77 @@ describe('BoardDetail', () => {
     expect(router.replace).toHaveBeenLastCalledWith({
       path: '/board/free',
       query: {}
+    })
+  })
+
+  it('keeps the active search query when the all chip is pressed', async () => {
+    route.query = {
+      q: 'vue',
+      type: 'TITLE'
+    }
+
+    const wrapper = mount(BoardDetail, {
+      global: {
+        mocks: {
+          $t: (key: string) => key
+        },
+        stubs: {
+          RouterLink: RouterLinkStub,
+          RouterView: true,
+          PostList: true,
+          Pagination: true,
+          UserMenu: true,
+          BaseSkeleton: true
+        }
+      }
+    })
+
+    const allButton = wrapper.findAll('button').find((button) => button.text() === 'board.detail.filter.all')
+    await allButton?.trigger('click')
+
+    expect(router.replace).toHaveBeenLastCalledWith({
+      path: '/board/free',
+      query: {
+        q: 'vue',
+        type: 'TITLE'
+      }
+    })
+  })
+
+  it('does not keep a category chip active when search and category query params are mixed', () => {
+    route.query = {
+      q: 'vue',
+      type: 'TITLE',
+      categoryId: '2'
+    }
+
+    const wrapper = mount(BoardDetail, {
+      global: {
+        mocks: {
+          $t: (key: string) => key
+        },
+        stubs: {
+          RouterLink: RouterLinkStub,
+          RouterView: true,
+          PostList: true,
+          Pagination: true,
+          UserMenu: true,
+          BaseSkeleton: true
+        }
+      }
+    })
+
+    const allButton = wrapper.findAll('button').find((button) => button.text() === 'board.detail.filter.all')
+    const categoryButton = wrapper.findAll('button').find((button) => button.text() === 'QnA')
+
+    expect(allButton?.attributes('aria-pressed')).toBe('true')
+    expect(categoryButton?.attributes('aria-pressed')).toBe('false')
+    expect(router.replace).toHaveBeenCalledWith({
+      path: '/board/free',
+      query: {
+        q: 'vue',
+        type: 'TITLE'
+      }
     })
   })
 
