@@ -13,6 +13,9 @@ public interface PostRepositoryCustom {
     Page<Post> findByBoardIdAndCategoryId(Long boardId, Long categoryId, String keyword, Integer minLikes, List<Long> blockedUserIds,
             Boolean includeSecret, Long viewerUserId, @NonNull Pageable pageable);
 
+    long countPostsBeforeInBoardDefaultOrder(Long boardId, LocalDateTime createdAt, Long postId,
+            List<Long> blockedUserIds, Boolean includeSecret, Long viewerUserId);
+
     Page<Post> searchPostsByKeyword(String keyword, List<Long> blockedUserIds, Long viewerUserId,
             @NonNull Pageable pageable);
 

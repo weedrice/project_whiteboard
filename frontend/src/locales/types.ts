@@ -466,6 +466,9 @@ export interface BoardMessages {
     quickActions: string
     tableOfContents: string
     scrollTop: string
+    tags: string
+    reactions: string
+    bookmark: string
     moreActions: string
     spoilerWarning: string
     spoilerTimer: string

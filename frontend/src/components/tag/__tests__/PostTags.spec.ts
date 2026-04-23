@@ -77,4 +77,19 @@ describe('PostTags', () => {
         expect(wrapper.findComponent(RouterLinkStub).exists()).toBe(false)
         expect(wrapper.text()).toContain('#plain')
     })
+
+    it('renders readonly compact tags without the default badge background', () => {
+        const wrapper = mountPostTags({
+            compact: true,
+            readOnly: true,
+            boardUrl: 'free',
+            modelValue: ['compact'],
+        })
+        const link = wrapper.findComponent(RouterLinkStub)
+
+        expect(link.classes()).toContain('text-[11px]')
+        expect(link.classes()).not.toContain('bg-blue-100')
+        expect(link.classes()).toContain('bg-slate-100')
+        expect(link.classes()).toContain('rounded-full')
+    })
 })

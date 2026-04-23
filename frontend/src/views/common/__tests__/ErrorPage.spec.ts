@@ -6,9 +6,6 @@ const mocks = vi.hoisted(() => {
     const route: { query: Record<string, unknown> } = {
         query: {},
     }
-    const router = {
-        push: vi.fn(),
-    }
 
     const messages: Record<string, string> = {
         'common.error.defaultMessage': 'Default error message',
@@ -21,14 +18,16 @@ const mocks = vi.hoisted(() => {
 
     return {
         route,
-        router,
         t: (key: string) => messages[key] ?? key,
     }
 })
 
 vi.mock('vue-router', () => ({
     useRoute: () => mocks.route,
-    useRouter: () => mocks.router,
+    RouterLink: {
+        props: ['to'],
+        template: '<a :href="to"><slot /></a>',
+    },
 }))
 
 vi.mock('vue-i18n', () => ({
@@ -40,11 +39,6 @@ vi.mock('vue-i18n', () => ({
 describe('ErrorPage', () => {
     const mountPage = () => mount(ErrorPage, {
         global: {
-            stubs: {
-                BaseButton: {
-                    template: '<button type="button" @click="$emit(\'click\')"><slot /></button>',
-                },
-            },
             mocks: {
                 $t: mocks.t,
             },
@@ -84,8 +78,9 @@ describe('ErrorPage', () => {
     it('navigates to home when go-home button is clicked', async () => {
         const wrapper = mountPage()
 
-        await wrapper.find('button').trigger('click')
+        const homeLink = wrapper.get('a')
 
-        expect(mocks.router.push).toHaveBeenCalledWith('/')
+        expect(homeLink.attributes('href')).toBe('/')
+        expect(homeLink.text()).toBe('Go Home')
     })
 })

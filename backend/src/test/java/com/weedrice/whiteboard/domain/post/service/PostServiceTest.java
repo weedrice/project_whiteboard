@@ -1155,11 +1155,15 @@ class PostServiceTest {
         lenient().when(scrapRepository.existsById(any(ScrapId.class))).thenReturn(false);
         lenient().when(fileService.getFilesByRelatedEntity(1L, "POST_CONTENT")).thenReturn(Collections.emptyList());
         lenient().when(adminRepository.findByUserAndBoardAndIsActive(user, board, true)).thenReturn(Optional.empty());
+        lenient().when(postRepository.countPostsBeforeInBoardDefaultOrder(
+                eq(1L), nullable(LocalDateTime.class), eq(1L), eq(Collections.emptyList()), anyBoolean(), eq(1L)))
+                .thenReturn(45L);
 
         PostResponse response = postService.getPostResponse(1L, 1L);
 
         assertThat(response).isNotNull();
         assertThat(response.getTitle()).isEqualTo("Test Post");
+        assertThat(response.getBoardListPage()).isEqualTo(2);
     }
 
     @Test

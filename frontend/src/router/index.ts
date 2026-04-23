@@ -4,6 +4,18 @@ import logger from '@/utils/logger'
 
 const CHUNK_RELOAD_KEY = 'chunk-reload-attempted'
 
+const isSamePostDetailRoute = (to: RouteLocationNormalized, from: RouteLocationNormalized) => (
+    to.name === 'post-detail'
+    && from.name === 'post-detail'
+    && to.params.boardUrl === from.params.boardUrl
+    && to.params.postId === from.params.postId
+)
+
+const isPostDetailListPageNavigation = (to: RouteLocationNormalized, from: RouteLocationNormalized) => (
+    isSamePostDetailRoute(to, from)
+    && String(to.query.page ?? '1') !== String(from.query.page ?? '1')
+)
+
 // Extend RouteMeta interface
 declare module 'vue-router' {
     interface RouteMeta {
@@ -16,12 +28,15 @@ declare module 'vue-router' {
 
 const router = createRouter({
     history: createWebHistory(import.meta.env.BASE_URL),
-    scrollBehavior(to, _from, savedPosition) {
+    scrollBehavior(to, from, savedPosition) {
         if (savedPosition) {
             return savedPosition
         }
         if (to.hash) {
             return { el: to.hash, behavior: 'smooth' }
+        }
+        if (isPostDetailListPageNavigation(to, from)) {
+            return false
         }
         return { top: 0 }
     },

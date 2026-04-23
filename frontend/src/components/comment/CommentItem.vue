@@ -5,7 +5,7 @@ import { useI18n } from 'vue-i18n'
 import type { Comment } from '@/api/comment'
 import { useComment } from '@/composables/useComment'
 import { useAuthStore } from '@/stores/auth'
-import { formatDate, formatDateShort } from '@/utils/date'
+import { formatDate } from '@/utils/date'
 import { isEmoticonOnlyContent, renderCommentContentHtml } from '@/utils/commentContent'
 import CommentForm from './CommentForm.vue'
 import UserMenu from '@/components/common/widgets/UserMenu.vue'
@@ -30,17 +30,18 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
-const authStore = useAuthStore()
+const authStore = useAuthStore() as ReturnType<typeof useAuthStore> | undefined
 const { useReplies } = useComment()
 
 const isReplying = ref(false)
 const isEditing = ref(false)
-const isRepliesOpen = ref(false)
+const isRepliesOpen = ref(!props.comment.isDeleted && Boolean(props.comment.hasReplies))
 const optimisticHasReplies = ref(false)
 const replyParams = ref({ page: 0, size: 50 })
 const loadedReplies = ref<Comment[]>([])
 const replyHasNext = ref(false)
 const commentId = computed(() => props.comment.commentId)
+const canLoadReplies = computed(() => !props.comment.isDeleted && Boolean(props.comment.hasReplies || optimisticHasReplies.value))
 const repliesEnabled = computed(() => isRepliesOpen.value && canLoadReplies.value)
 
 const { data: repliesData, isLoading: isRepliesLoading, error: repliesError } =
@@ -50,7 +51,11 @@ const replies = computed(() => loadedReplies.value)
 const renderedContent = computed(() => renderCommentContentHtml(props.comment.content))
 const isEmoticonOnly = computed(() => isEmoticonOnlyContent(props.comment.content))
 const isAgentAuthor = computed(() => props.comment.author?.authorType === 'AGENT')
-const canLoadReplies = computed(() => !props.comment.isDeleted && Boolean(props.comment.hasReplies || optimisticHasReplies.value))
+const isAuthenticated = computed(() => Boolean(authStore?.isAuthenticated))
+const currentUserId = computed(() => authStore?.user?.userId)
+const isCommentAuthor = computed(() => currentUserId.value === props.comment.author?.userId)
+const createdAtShort = computed(() => formatCommentDateShort(props.comment.createdAt))
+const createdAtFull = computed(() => formatDate(props.comment.createdAt))
 const replyToggleLabel = computed(() => {
   if (isRepliesOpen.value) {
     return t('comment.hideReplies')
@@ -91,6 +96,21 @@ function loadMoreReplies() {
   }
 }
 
+function formatCommentDateShort(dateString: string): string {
+  if (!dateString) {
+    return ''
+  }
+
+  const date = new Date(dateString)
+  const yy = String(date.getFullYear()).slice(-2)
+  const mm = String(date.getMonth() + 1).padStart(2, '0')
+  const dd = String(date.getDate()).padStart(2, '0')
+  const hh = String(date.getHours()).padStart(2, '0')
+  const mi = String(date.getMinutes()).padStart(2, '0')
+
+  return `${yy}.${mm}.${dd} ${hh}:${mi}`
+}
+
 watch(repliesData, (pageData) => {
   if (!pageData) {
     return
@@ -120,6 +140,11 @@ watch(() => props.comment.hasReplies, (hasReplies) => {
     loadedReplies.value = []
     replyHasNext.value = false
     isRepliesOpen.value = false
+    return
+  }
+
+  if (hasReplies && !props.comment.isDeleted) {
+    isRepliesOpen.value = true
   }
 })
 
@@ -185,8 +210,8 @@ watch(() => props.comment.isDeleted, (isDeleted) => {
             </span>
           </div>
           <p class="flex-shrink-0 text-[11px] text-gray-500 dark:text-gray-400 sm:text-sm">
-            <span class="sm:hidden">{{ formatDateShort(comment.createdAt) }}</span>
-            <span class="hidden sm:inline">{{ formatDate(comment.createdAt) }}</span>
+            <span class="sm:hidden">{{ createdAtShort }}</span>
+            <span class="hidden sm:inline">{{ createdAtFull }}</span>
           </p>
         </div>
 
@@ -217,7 +242,7 @@ watch(() => props.comment.isDeleted, (isDeleted) => {
           </button>
 
           <button
-            v-if="authStore.isAuthenticated && !comment.isDeleted"
+            v-if="isAuthenticated && !comment.isDeleted"
             type="button"
             class="rounded-md px-2 py-1.5 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200"
             @click="isReplying = !isReplying"
@@ -225,7 +250,7 @@ watch(() => props.comment.isDeleted, (isDeleted) => {
             {{ $t('comment.reply') }}
           </button>
 
-          <template v-if="!comment.isDeleted && authStore.user?.userId === comment.author?.userId">
+          <template v-if="!comment.isDeleted && isCommentAuthor">
             <button
               v-if="!isEmoticonOnly"
               type="button"

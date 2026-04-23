@@ -7,9 +7,9 @@
                 <BaseButton @click="handleRetry" variant="primary">
                     {{ t('common.error.retry') }}
                 </BaseButton>
-                <BaseButton @click="handleGoHome" variant="secondary">
+                <a :href="homeHref" class="btn-secondary flex items-center justify-center" @click="handleGoHome">
                     {{ t('common.error.goHome') }}
-                </BaseButton>
+                </a>
             </div>
             <details v-if="showDetails" class="error-boundary-details">
                 <summary>{{ t('common.error.showDetails') }}</summary>
@@ -21,7 +21,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onErrorCaptured, provide } from 'vue'
+import { computed, ref, onErrorCaptured, provide } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
@@ -42,6 +42,7 @@ const emit = defineEmits<{
 
 const router = useRouter()
 const { t } = useI18n()
+const homeHref = computed(() => import.meta.env.BASE_URL || '/')
 
 const hasError = ref(false)
 const error = ref<Error | null>(null)
@@ -114,7 +115,7 @@ const handleRetry = async () => {
 }
 
 const handleGoHome = () => {
-    router.push('/')
+    resetError()
 }
 
 provide('resetError', resetError)

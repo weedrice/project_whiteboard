@@ -17,7 +17,7 @@ const {
 } = vi.hoisted(() => ({
   route: {
     params: { postId: '15' },
-    query: { page: '2' },
+    query: { page: '2' } as Record<string, string>,
     name: 'post-detail',
     path: '/board/free/post/15',
     hash: '',
@@ -25,6 +25,7 @@ const {
   },
   router: {
     push: vi.fn(),
+    replace: vi.fn(),
     back: vi.fn()
   },
   authState: {
@@ -58,6 +59,7 @@ const {
     tags: ['vue'],
     liked: false,
     scrapped: false,
+    boardListPage: undefined as number | undefined,
     createdAt: '2026-04-22T10:00:00',
     modifiedAt: '2026-04-22T10:00:00'
   },
@@ -161,7 +163,10 @@ describe('PostDetail', () => {
   beforeEach(() => {
     route.hash = ''
     router.push.mockReset()
+    router.replace.mockReset()
     router.back.mockReset()
+    route.query = { page: '2' }
+    route.fullPath = '/board/free/post/15?page=2'
     authState.isAuthenticated = true
     authState.isAdmin = false
     authState.user = { userId: 7 }
@@ -187,6 +192,7 @@ describe('PostDetail', () => {
     postValue.tags = ['vue']
     postValue.liked = false
     postValue.scrapped = false
+    postValue.boardListPage = undefined
     postValue.createdAt = '2026-04-22T10:00:00'
     postValue.modifiedAt = '2026-04-22T10:00:00'
 
@@ -199,7 +205,12 @@ describe('PostDetail', () => {
     })
   })
 
-  it('renders the TOC and bookmark label from the redesigned layout', async () => {
+  it('renders the floating board actions and header URL chip', async () => {
+    Object.defineProperty(window, 'innerWidth', {
+      configurable: true,
+      value: 1440
+    })
+
     const wrapper = mount(PostDetail, {
       global: {
         mocks: {
@@ -218,9 +229,25 @@ describe('PostDetail', () => {
     await wrapper.vm.$nextTick()
     await wrapper.vm.$nextTick()
 
-    expect(wrapper.text()).toContain('board.postDetail.bookmark')
-    expect(wrapper.text()).toContain('첫 섹션')
-    expect(wrapper.text()).toContain('세부 항목')
+    const urlChip = wrapper.find('.nv-post-url-chip')
+    const boardActions = wrapper.find('.nv-post-board-actions')
+
+    expect(urlChip.exists()).toBe(true)
+    expect(boardActions.exists()).toBe(true)
+    expect(boardActions.attributes('aria-label')).toBe('board.postDetail.quickActions')
+    expect(urlChip.text()).toContain('/board/free/post/15')
+    await urlChip.trigger('click')
+
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith(expect.stringContaining('/board/free/post/15?page=2'))
+    expect(wrapper.text()).not.toContain('board.postDetail.reactions')
+    expect(boardActions.find('[aria-label="board.postDetail.comments"]').exists()).toBe(true)
+    expect(boardActions.find('[aria-label="board.postDetail.toList"]').exists()).toBe(true)
+    expect(boardActions.find('[aria-label="board.postDetail.scrollTop"]').exists()).toBe(true)
+    expect(wrapper.findAll('.nv-post-action-btn-circle')).toHaveLength(3)
+    expect(wrapper.find('.nv-post-action-btn-circle[aria-label="common.likes"]').exists()).toBe(true)
+    expect(wrapper.find('.nv-post-action-btn-circle[aria-label="board.postDetail.bookmark"]').exists()).toBe(true)
+    expect(wrapper.find('.nv-post-action-btn-circle[aria-label="common.share"]').exists()).toBe(true)
+    expect(wrapper.text()).not.toContain('board.postDetail.tableOfContents')
   })
 
   it('moves author actions into the overflow menu', async () => {
@@ -302,7 +329,7 @@ describe('PostDetail', () => {
     vi.useRealTimers()
   })
 
-  it('reveals the desktop sticky reaction bar after scrolling', async () => {
+  it('does not render the removed floating reaction bars', async () => {
     Object.defineProperty(window, 'innerWidth', {
       configurable: true,
       value: 1280
@@ -331,6 +358,36 @@ describe('PostDetail', () => {
     window.dispatchEvent(new Event('scroll'))
     await wrapper.vm.$nextTick()
 
-    expect(wrapper.find('.nv-post-desktop-bar').exists()).toBe(true)
+    expect(wrapper.find('.nv-post-desktop-bar').exists()).toBe(false)
+    expect(wrapper.find('.nv-post-mobile-bar').exists()).toBe(false)
+  })
+
+  it('syncs the board list page when opened from a direct post URL', async () => {
+    route.query = {}
+    route.fullPath = '/board/free/post/15'
+    postValue.boardListPage = 3
+
+    mount(PostDetail, {
+      global: {
+        mocks: {
+          $t: (key: string) => key
+        },
+        stubs: {
+          RouterLink: RouterLinkStub,
+          CommentList: true,
+          PostTags: true,
+          UserMenu: true,
+          BaseModal: true
+        }
+      }
+    })
+
+    await vi.waitFor(() => {
+      expect(router.replace).toHaveBeenCalledWith({
+        path: '/board/free/post/15',
+        hash: '',
+        query: { page: '4' }
+      })
+    })
   })
 })

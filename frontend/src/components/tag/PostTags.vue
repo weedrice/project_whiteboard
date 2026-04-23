@@ -1,5 +1,5 @@
 <template>
-  <div class="space-y-2">
+  <div :class="compact && readOnly ? 'space-y-1' : 'space-y-2'">
     <div v-if="!readOnly" class="flex flex-wrap gap-2 items-center">
       <div class="relative flex-1 min-w-0 flex items-center gap-2">
         <input v-model="newTag" @keydown.enter.prevent="addTag" type="text"
@@ -13,14 +13,24 @@
       <span class="hidden sm:inline text-xs text-gray-500 dark:text-gray-400">{{ $t('board.tags.help') }}</span>
     </div>
 
-    <div class="flex flex-wrap gap-2">
+    <div class="flex flex-wrap" :class="compact && readOnly ? 'gap-x-2 gap-y-1' : 'gap-2'">
       <template v-for="(tag, index) in modelValue" :key="index">
         <router-link v-if="readOnly && boardUrl" :to="{ path: `/board/${boardUrl}`, query: { q: tag, type: 'TAG' } }"
-          class="inline-flex items-center px-2 py-0.5 rounded-full text-xs sm:text-sm font-medium bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors cursor-pointer">
+          :class="[
+            'inline-flex items-center rounded-full font-medium transition-colors cursor-pointer',
+            compact
+              ? 'px-2.5 py-1 text-[11px] text-slate-700 bg-slate-100 border border-slate-200 hover:bg-slate-200 dark:text-slate-200 dark:bg-slate-800 dark:border-slate-700 dark:hover:bg-slate-700'
+              : 'px-2 py-0.5 text-xs sm:text-sm bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 hover:bg-blue-200 dark:hover:bg-blue-800'
+          ]">
           #{{ tag }}
         </router-link>
         <span v-else
-          class="inline-flex items-center px-2 py-0.5 sm:px-2.5 sm:py-0.5 rounded-full text-xs sm:text-sm font-medium bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200">
+          :class="[
+            'inline-flex items-center rounded-full font-medium',
+            compact && readOnly
+              ? 'px-2.5 py-1 text-[11px] text-slate-700 bg-slate-100 border border-slate-200 dark:text-slate-200 dark:bg-slate-800 dark:border-slate-700'
+              : 'px-2 py-0.5 sm:px-2.5 sm:py-0.5 text-xs sm:text-sm bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200'
+          ]">
           #{{ tag }}
           <button v-if="!readOnly" @click="removeTag(index)" type="button"
             class="ml-1 sm:ml-1.5 inline-flex items-center justify-center h-3 w-3 sm:h-4 sm:w-4 rounded-full text-blue-400 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-800 hover:text-blue-500 dark:hover:text-blue-100 focus:outline-none">
@@ -42,10 +52,12 @@ const props = withDefaults(defineProps<{
   modelValue: string[]
   readOnly?: boolean
   boardUrl?: string | number
+  compact?: boolean
 }>(), {
   modelValue: () => [],
   readOnly: false,
-  boardUrl: undefined
+  boardUrl: undefined,
+  compact: false
 })
 
 const emit = defineEmits<{

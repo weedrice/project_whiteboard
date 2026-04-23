@@ -35,12 +35,6 @@ import { isInputFocused } from '@/utils/keyboard'
 import logger from '@/utils/logger'
 import { sanitizeQuillHtml } from '@/utils/sanitize'
 
-interface TocItem {
-  id: string
-  text: string
-  level: 2 | 3
-}
-
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
@@ -168,7 +162,6 @@ const processedContents = computed(() => {
   return sanitized.replace(/<img(?![^>]*\bloading=)([^>]+)>/gi, '<img loading="lazy"$1>')
 })
 
-const tocItems = ref<TocItem[]>([])
 const isBlurred = ref(false)
 const timeLeft = ref(5)
 const isLikeAnimating = ref(false)
@@ -178,9 +171,7 @@ const reportReason = ref('')
 const showOverflowMenu = ref(false)
 const showCopyHint = ref(false)
 const showComposerCta = ref(false)
-const showDesktopReactionBar = ref(false)
 
-const titleRef = ref<HTMLElement | null>(null)
 const contentRef = ref<HTMLElement | null>(null)
 const commentsRef = ref<HTMLElement | null>(null)
 const overflowRef = ref<HTMLElement | null>(null)
@@ -202,40 +193,16 @@ const currentUrl = computed(() => {
   return `${window.location.origin}${route.fullPath}`
 })
 
-const hasToc = computed(() => tocItems.value.length > 0)
+const compactUrl = computed(() => {
+  if (!currentUrl.value) return ''
 
-function slugifyHeading(text: string, index: number) {
-  const slug = text
-    .toLowerCase()
-    .replace(/[^\w가-힣]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-
-  return `post-heading-${index}-${slug || 'section'}`
-}
-
-function syncToc() {
-  if (!contentRef.value) {
-    tocItems.value = []
-    return
+  try {
+    const url = new URL(currentUrl.value)
+    return `${url.host}${url.pathname}`
+  } catch {
+    return currentUrl.value
   }
-
-  const headings = Array.from(contentRef.value.querySelectorAll<HTMLElement>('h2, h3'))
-  tocItems.value = headings
-    .map((heading, index) => {
-      const text = heading.textContent?.trim() || ''
-      if (!text) return null
-
-      const id = heading.id || slugifyHeading(text, index)
-      heading.id = id
-
-      return {
-        id,
-        text,
-        level: heading.tagName === 'H2' ? 2 : 3
-      } satisfies TocItem
-    })
-    .filter((item): item is TocItem => item !== null)
-}
+})
 
 function clearBlurTimer() {
   if (blurTimer) {
@@ -264,6 +231,31 @@ function buildBoardListRoute(boardUrl: string) {
     path: `/board/${boardUrl}`,
     query: route.query
   }
+}
+
+function syncBoardListPageForDirectEntry() {
+  const listPage = post.value?.boardListPage
+  if (
+    route.name !== 'post-detail'
+    || typeof listPage !== 'number'
+    || listPage <= 0
+    || route.query.page
+    || route.query.q
+    || route.query.type
+    || route.query.categoryId
+    || route.query.concept
+  ) {
+    return
+  }
+
+  router.replace({
+    path: route.path,
+    hash: route.hash,
+    query: {
+      ...route.query,
+      page: String(listPage + 1)
+    }
+  })
 }
 
 function buildEditRoute() {
@@ -388,8 +380,12 @@ function handleCopyUrl(showToast = true) {
 }
 
 function onUrlBarClick() {
-  if (typeof window !== 'undefined' && window.innerWidth >= 640) return
-  handleCopyUrl(false)
+  if (typeof window !== 'undefined' && window.innerWidth < 640) {
+    handleCopyUrl(false)
+    return
+  }
+
+  handleCopyUrl(true)
 }
 
 function handleShare() {
@@ -411,11 +407,6 @@ function handleShare() {
 
 function scrollToTop() {
   window.scrollTo({ top: 0, behavior: 'smooth' })
-}
-
-function scrollToHeading(id: string) {
-  const target = document.getElementById(id)
-  target?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 
 function scrollToCommentComposer() {
@@ -543,13 +534,6 @@ function handleDocumentClick(event: MouseEvent) {
 
 function handleResize() {
   setupComposerObserver()
-  if (typeof window === 'undefined') return
-  showDesktopReactionBar.value = window.innerWidth >= 1024 && window.scrollY > 300
-}
-
-function handleScroll() {
-  if (typeof window === 'undefined') return
-  showDesktopReactionBar.value = window.innerWidth >= 1024 && window.scrollY > 300
 }
 
 const handleKeyDown = (event: KeyboardEvent) => {
@@ -628,6 +612,8 @@ watch(() => route.hash, (newHash) => {
 watch(post, (newPost, oldPost) => {
   if (!newPost) return
 
+  syncBoardListPageForDirectEntry()
+
   if (newPost.isSpoiler) {
     isBlurred.value = true
     timeLeft.value = 5
@@ -637,10 +623,7 @@ watch(post, (newPost, oldPost) => {
     clearBlurTimer()
   }
 
-  nextTick(() => {
-    syncToc()
-    setupComposerObserver()
-  })
+  nextTick(() => setupComposerObserver())
 
   if (!oldPost || newPost.postId !== oldPost.postId) {
     nextTick(() => {
@@ -659,32 +642,20 @@ watch(post, (newPost, oldPost) => {
       }
     })
   }
-})
-
-watch(processedContents, () => {
-  nextTick(() => {
-    syncToc()
-  })
-})
+}, { immediate: true })
 
 onMounted(() => {
-  nextTick(() => {
-    syncToc()
-    setupComposerObserver()
-  })
+  nextTick(() => setupComposerObserver())
 
   document.addEventListener('keydown', handleKeyDown)
   document.addEventListener('click', handleDocumentClick)
   window.addEventListener('resize', handleResize)
-  window.addEventListener('scroll', handleScroll, { passive: true })
-  handleScroll()
 })
 
 onUnmounted(() => {
   document.removeEventListener('keydown', handleKeyDown)
   document.removeEventListener('click', handleDocumentClick)
   window.removeEventListener('resize', handleResize)
-  window.removeEventListener('scroll', handleScroll)
 
   clearBlurTimer()
   if (composerObserver) {
@@ -725,15 +696,9 @@ onUnmounted(() => {
             <BaseSkeleton width="72px" height="18px" />
           </div>
         </div>
-        <div class="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
-          <div class="space-y-3">
-            <BaseSkeleton width="100%" height="40px" rounded="rounded-2xl" />
-            <BaseSkeleton width="100%" height="420px" rounded="rounded-[28px]" />
-          </div>
-          <div class="hidden gap-4 lg:grid">
-            <BaseSkeleton width="100%" height="160px" rounded="rounded-[28px]" />
-            <BaseSkeleton width="100%" height="220px" rounded="rounded-[28px]" />
-          </div>
+        <div class="mt-8 space-y-3">
+          <BaseSkeleton width="100%" height="40px" rounded="rounded-2xl" />
+          <BaseSkeleton width="100%" height="420px" rounded="rounded-[28px]" />
         </div>
       </div>
 
@@ -761,7 +726,7 @@ onUnmounted(() => {
                   <span class="hidden sm:inline">{{ $t('board.postDetail.toList') }}</span>
                 </BaseButton>
 
-                <div class="flex items-center gap-2">
+                <div class="relative flex min-w-0 items-center justify-end gap-2">
                   <button
                     type="button"
                     class="nv-post-icon-btn"
@@ -827,10 +792,8 @@ onUnmounted(() => {
                   <span>{{ post.board.boardName }}</span>
                   <span>&middot;</span>
                   <span>{{ $t('common.post') }}</span>
-                  <span>&middot;</span>
-                  <span>{{ formatDate(post.createdAt) }}</span>
                 </div>
-                <h1 ref="titleRef" class="text-2xl font-semibold tracking-[-0.04em] text-[var(--nv-ink)] sm:text-4xl">
+                <h1 class="text-2xl font-semibold tracking-[-0.04em] text-[var(--nv-ink)] sm:text-4xl">
                   {{ post.title }}
                 </h1>
                 <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-[var(--nv-ink-soft)]">
@@ -862,39 +825,30 @@ onUnmounted(() => {
           </div>
         </header>
 
-        <div class="grid gap-6 px-4 pb-4 pt-5 lg:grid-cols-[minmax(0,1fr)_18rem] lg:px-6 lg:pb-6">
+        <div class="px-4 pb-4 pt-5 lg:px-6 lg:pb-6">
           <article class="min-w-0 space-y-5">
-            <div class="relative">
+            <div class="nv-post-content-top">
               <Transition name="fade">
                 <span
                   v-if="showCopyHint"
-                  class="absolute right-0 top-[-2rem] z-10 rounded-full bg-green-50 px-3 py-1 text-[11px] font-medium text-green-600 shadow-sm dark:bg-green-900/30 dark:text-green-400 sm:hidden"
+                  class="nv-post-copy-hint"
                 >
                   {{ $t('common.messages.urlCopied') }}
                 </span>
               </Transition>
 
-              <div
-                class="nv-post-urlbar"
-                role="button"
-                tabindex="0"
+              <button
+                type="button"
+                class="nv-post-url-chip"
+                :title="currentUrl"
                 :aria-label="$t('common.copy')"
                 @click="onUrlBarClick"
                 @keydown.enter="onUrlBarClick"
                 @keydown.space.prevent="onUrlBarClick"
               >
-                <span class="truncate text-[11px] text-[var(--nv-muted)] sm:text-xs">{{ currentUrl }}</span>
-                <div class="hidden h-3 w-px bg-[var(--nv-line)] sm:block"></div>
-                <BaseButton
-                  @click.stop="handleCopyUrl(true)"
-                  variant="ghost"
-                  size="sm"
-                  class="hidden sm:!inline-flex sm:!px-2 sm:!py-1 sm:!text-xs"
-                >
-                  <Copy class="mr-1 h-3.5 w-3.5" />
-                  {{ $t('common.copy') }}
-                </BaseButton>
-              </div>
+                <Copy class="h-3.5 w-3.5 flex-shrink-0" />
+                <span>{{ compactUrl }}</span>
+              </button>
             </div>
 
             <div class="nv-post-article relative overflow-hidden">
@@ -913,50 +867,58 @@ onUnmounted(() => {
                   <p class="mt-2 text-sm text-[var(--nv-ink-soft)]">
                     {{ $t('board.postDetail.spoilerTimer', { time: timeLeft }) }}
                   </p>
-                  <BaseButton @click="revealSpoiler" size="sm" class="mt-4">
-                    {{ $t('board.postDetail.revealSpoiler') }}
-                  </BaseButton>
+                  <div class="nv-post-spoiler-actions">
+                    <BaseButton @click="revealSpoiler" size="sm">
+                      {{ $t('board.postDetail.revealSpoiler') }}
+                    </BaseButton>
+                  </div>
                 </div>
               </div>
             </div>
 
             <div
               v-if="post.tags && post.tags.length > 0"
-              class="rounded-[28px] border border-[var(--nv-line)] bg-[color:var(--nv-surface)] px-4 py-4"
+              class="nv-post-tags"
             >
-              <PostTags :modelValue="post.tags" :readOnly="true" :boardUrl="post.board.boardUrl" />
+              <p class="nv-post-section-label">{{ $t('board.postDetail.tags') }}</p>
+              <PostTags :modelValue="post.tags" :readOnly="true" :boardUrl="post.board.boardUrl" compact />
             </div>
 
-            <div class="hidden rounded-[28px] border border-[var(--nv-line)] bg-[color:var(--nv-surface)] px-4 py-4 sm:block">
-              <p class="mb-3 text-[11px] font-medium uppercase tracking-[0.18em] text-[var(--nv-muted)]">
-                {{ $t('board.postDetail.reactions') }}
-              </p>
-              <div class="grid grid-cols-3 gap-2">
+            <div class="hidden sm:block">
+              <div class="nv-post-reaction-row">
                 <button
                   type="button"
-                  class="nv-post-action-btn"
+                  class="nv-post-action-btn nv-post-action-btn-circle"
                   :class="{ 'is-active': post.liked }"
+                  :aria-label="$t('common.likes')"
                   :aria-pressed="post.liked"
+                  :title="$t('common.likes')"
                   :disabled="!authStore.isAuthenticated"
                   @click="handleLike"
                 >
                   <ThumbsUp class="h-5 w-5" :class="{ 'fill-current bounce-in': isLikeAnimating }" />
-                  <span>{{ post.likeCount }}</span>
+                  <span class="nv-post-action-count">{{ post.likeCount }}</span>
                 </button>
                 <button
                   type="button"
-                  class="nv-post-action-btn"
+                  class="nv-post-action-btn nv-post-action-btn-circle"
                   :class="{ 'is-active is-bookmark': post.scrapped }"
+                  :aria-label="$t('board.postDetail.bookmark')"
                   :aria-pressed="post.scrapped"
+                  :title="$t('board.postDetail.bookmark')"
                   :disabled="!authStore.isAuthenticated"
                   @click="handleBookmark"
                 >
                   <Bookmark class="h-5 w-5" :class="{ 'fill-current bounce-in': isBookmarkAnimating }" />
-                  <span>{{ $t('board.postDetail.bookmark') }}</span>
                 </button>
-                <button type="button" class="nv-post-action-btn" @click="handleShare">
+                <button
+                  type="button"
+                  class="nv-post-action-btn nv-post-action-btn-circle"
+                  :aria-label="$t('common.share')"
+                  :title="$t('common.share')"
+                  @click="handleShare"
+                >
                   <Share2 class="h-5 w-5" />
-                  <span>{{ $t('common.share') }}</span>
                 </button>
               </div>
             </div>
@@ -965,82 +927,39 @@ onUnmounted(() => {
               <CommentList :postId="post.postId" :boardUrl="post.board.boardUrl" />
             </section>
           </article>
-
-          <aside class="hidden lg:block">
-            <div class="sticky top-24 space-y-4">
-              <section class="nv-post-sidebar-card">
-                <h2 class="nv-post-sidebar-title">{{ $t('board.postDetail.quickActions') }}</h2>
-                <div class="mt-3 grid gap-2">
-                  <button type="button" class="nv-post-sidebar-btn" @click="scrollToComments">
-                    <MessageSquare class="h-4 w-4" />
-                    {{ $t('board.postDetail.comments') }}
-                  </button>
-                  <button type="button" class="nv-post-sidebar-btn" @click="goToList">
-                    <List class="h-4 w-4" />
-                    {{ $t('board.postDetail.toList') }}
-                  </button>
-                  <button type="button" class="nv-post-sidebar-btn" @click="scrollToTop">
-                    <ArrowLeft class="h-4 w-4 rotate-90" />
-                    {{ $t('board.postDetail.scrollTop') }}
-                  </button>
-                </div>
-              </section>
-
-              <section v-if="hasToc" class="nv-post-sidebar-card">
-                <h2 class="nv-post-sidebar-title">{{ $t('board.postDetail.tableOfContents') }}</h2>
-                <nav class="mt-3 space-y-1.5" :aria-label="$t('board.postDetail.tableOfContents')">
-                  <button
-                    v-for="item in tocItems"
-                    :key="item.id"
-                    type="button"
-                    class="nv-post-toc-item"
-                    :class="{ 'is-nested': item.level === 3 }"
-                    @click="scrollToHeading(item.id)"
-                  >
-                    {{ item.text }}
-                  </button>
-                </nav>
-              </section>
-            </div>
-          </aside>
         </div>
       </template>
     </BaseCard>
 
-    <Transition name="fade">
-      <div v-if="post && showDesktopReactionBar" class="nv-post-desktop-bar hidden lg:flex">
-        <button
-          type="button"
-          class="nv-post-mobile-action"
-          :class="{ 'is-active': post.liked }"
-          :aria-pressed="post.liked"
-          :disabled="!authStore.isAuthenticated"
-          @click="handleLike"
-        >
-          <ThumbsUp class="h-5 w-5" :class="{ 'fill-current bounce-in': isLikeAnimating }" />
-          <span>{{ post.likeCount }}</span>
-        </button>
-        <button
-          type="button"
-          class="nv-post-mobile-action"
-          :class="{ 'is-active is-bookmark': post.scrapped }"
-          :aria-pressed="post.scrapped"
-          :disabled="!authStore.isAuthenticated"
-          @click="handleBookmark"
-        >
-          <Bookmark class="h-5 w-5" :class="{ 'fill-current bounce-in': isBookmarkAnimating }" />
-          <span>{{ $t('board.postDetail.bookmark') }}</span>
-        </button>
-        <button type="button" class="nv-post-mobile-action" @click="scrollToComments">
-          <MessageSquare class="h-5 w-5" />
-          <span>{{ $t('common.comment') }}</span>
-        </button>
-        <button type="button" class="nv-post-mobile-action" @click="handleShare">
-          <Share2 class="h-5 w-5" />
-          <span>{{ $t('common.share') }}</span>
-        </button>
-      </div>
-    </Transition>
+    <div v-if="post" class="nv-post-board-actions hidden xl:flex" :aria-label="$t('board.postDetail.quickActions')">
+      <button
+        type="button"
+        class="nv-post-board-action"
+        :aria-label="$t('board.postDetail.comments')"
+        :title="$t('board.postDetail.comments')"
+        @click="scrollToComments"
+      >
+        <MessageSquare class="h-4 w-4" />
+      </button>
+      <button
+        type="button"
+        class="nv-post-board-action"
+        :aria-label="$t('board.postDetail.toList')"
+        :title="$t('board.postDetail.toList')"
+        @click="goToList"
+      >
+        <List class="h-4 w-4" />
+      </button>
+      <button
+        type="button"
+        class="nv-post-board-action"
+        :aria-label="$t('board.postDetail.scrollTop')"
+        :title="$t('board.postDetail.scrollTop')"
+        @click="scrollToTop"
+      >
+        <ArrowLeft class="h-4 w-4 rotate-90" />
+      </button>
+    </div>
 
     <Transition name="slide-up">
       <button
@@ -1052,39 +971,6 @@ onUnmounted(() => {
         {{ $t('board.postDetail.focusComposer') }}
       </button>
     </Transition>
-
-    <div v-if="post" class="nv-post-mobile-bar sm:hidden">
-      <button
-        type="button"
-        class="nv-post-mobile-action"
-        :class="{ 'is-active': post.liked }"
-        :aria-pressed="post.liked"
-        :disabled="!authStore.isAuthenticated"
-        @click="handleLike"
-      >
-        <ThumbsUp class="h-5 w-5" :class="{ 'fill-current bounce-in': isLikeAnimating }" />
-        <span>{{ post.likeCount }}</span>
-      </button>
-      <button
-        type="button"
-        class="nv-post-mobile-action"
-        :class="{ 'is-active is-bookmark': post.scrapped }"
-        :aria-pressed="post.scrapped"
-        :disabled="!authStore.isAuthenticated"
-        @click="handleBookmark"
-      >
-        <Bookmark class="h-5 w-5" :class="{ 'fill-current bounce-in': isBookmarkAnimating }" />
-        <span>{{ $t('board.postDetail.bookmark') }}</span>
-      </button>
-      <button type="button" class="nv-post-mobile-action" @click="scrollToComments">
-        <MessageSquare class="h-5 w-5" />
-        <span>{{ $t('common.comment') }}</span>
-      </button>
-      <button type="button" class="nv-post-mobile-action" @click="handleShare">
-        <Share2 class="h-5 w-5" />
-        <span>{{ $t('common.share') }}</span>
-      </button>
-    </div>
 
     <BaseModal :isOpen="showReportModal" :title="$t('common.report')" @close="showReportModal = false">
       <div class="space-y-4">
@@ -1193,22 +1079,58 @@ onUnmounted(() => {
   background: var(--nv-surface-2);
 }
 
-.nv-post-urlbar {
-  align-items: center;
-  background: color-mix(in srgb, var(--nv-surface-2) 72%, transparent);
-  border: 1px solid var(--nv-line);
-  border-radius: 1rem;
-  cursor: pointer;
-  display: flex;
-  gap: 0.75rem;
-  max-width: 100%;
-  min-width: 0;
-  padding: 0.75rem 0.9rem;
+.nv-post-copy-hint {
+  background: #ecfdf5;
+  border-radius: 9999px;
+  box-shadow: var(--nv-shadow-popup);
+  color: #059669;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.35rem 0.65rem;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.5rem);
+  white-space: nowrap;
+  z-index: 20;
 }
 
-.nv-post-article,
-.nv-post-comments,
-.nv-post-sidebar-card {
+.nv-post-content-top {
+  display: flex;
+  justify-content: flex-end;
+  position: relative;
+}
+
+.nv-post-url-chip {
+  align-items: center;
+  background: color-mix(in srgb, var(--nv-surface-2) 68%, transparent);
+  border: 1px solid var(--nv-line);
+  border-radius: 9999px;
+  cursor: pointer;
+  color: var(--nv-muted);
+  display: inline-flex;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.68rem;
+  gap: 0.35rem;
+  letter-spacing: -0.02em;
+  max-width: min(16rem, 42vw);
+  min-width: 0;
+  padding: 0.55rem 0.7rem;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.nv-post-url-chip:hover {
+  background: var(--nv-surface-2);
+  color: var(--nv-ink-soft);
+}
+
+.nv-post-url-chip span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nv-post-comments {
   background: color-mix(in srgb, var(--nv-surface) 94%, transparent);
   border: 1px solid var(--nv-line);
   border-radius: 1.75rem;
@@ -1216,20 +1138,41 @@ onUnmounted(() => {
 }
 
 .nv-post-article {
-  padding: 1.15rem 1rem;
+  padding: 0.25rem 0;
 }
 
 .nv-post-comments {
   padding: 1.15rem 1rem;
 }
 
+.nv-post-tags {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.nv-post-section-label {
+  color: var(--nv-muted);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.nv-post-reaction-row {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+}
+
 .nv-post-spoiler {
-  align-items: center;
+  align-items: flex-start;
   background: color-mix(in srgb, var(--nv-surface) 45%, transparent);
   display: flex;
   inset: 0;
   justify-content: center;
-  padding: 1.5rem;
+  overflow-y: auto;
+  padding: clamp(0.75rem, 4vh, 1.5rem);
   position: absolute;
 }
 
@@ -1238,15 +1181,23 @@ onUnmounted(() => {
   border: 1px solid var(--nv-line);
   border-radius: 1.5rem;
   box-shadow: var(--nv-shadow-card);
+  margin-block: auto;
+  max-height: 100%;
   max-width: 22rem;
-  padding: 1.5rem;
+  overflow-y: auto;
+  padding: clamp(1rem, 3vw, 1.5rem);
   text-align: center;
   width: 100%;
 }
 
+.nv-post-spoiler-actions {
+  display: flex;
+  justify-content: center;
+  margin-top: 1rem;
+}
+
 .nv-post-action-btn,
-.nv-post-mobile-action,
-.nv-post-sidebar-btn {
+.nv-post-board-action {
   align-items: center;
   background: var(--nv-surface);
   border: 1px solid var(--nv-line);
@@ -1256,68 +1207,82 @@ onUnmounted(() => {
   gap: 0.55rem;
   justify-content: center;
   min-height: 3rem;
+  min-width: 0;
   padding: 0.8rem 1rem;
   transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
 }
 
+.nv-post-action-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nv-post-action-count {
+  align-items: center;
+  background: color-mix(in srgb, var(--nv-surface-2) 92%, transparent);
+  border: 1px solid var(--nv-line);
+  border-radius: 9999px;
+  color: var(--nv-ink);
+  display: inline-flex;
+  font-size: 0.68rem;
+  font-weight: 700;
+  justify-content: center;
+  min-width: 1.45rem;
+  padding: 0.12rem 0.38rem;
+  position: absolute;
+  right: -0.35rem;
+  top: -0.2rem;
+}
+
 .nv-post-action-btn:hover,
-.nv-post-sidebar-btn:hover,
-.nv-post-mobile-action:hover {
+.nv-post-board-action:hover {
   background: var(--nv-surface-2);
   color: var(--nv-ink);
 }
 
-.nv-post-action-btn.is-active,
-.nv-post-mobile-action.is-active {
+.nv-post-action-btn.is-active {
   background: var(--nv-accent-bg);
   border-color: color-mix(in srgb, var(--nv-accent) 30%, var(--nv-line));
   color: var(--nv-accent);
 }
 
-.nv-post-action-btn.is-bookmark,
-.nv-post-mobile-action.is-bookmark {
+.nv-post-action-btn.is-bookmark {
   color: #bb7a00;
 }
 
-.nv-post-sidebar-card {
-  padding: 1.15rem;
+.nv-post-action-btn-circle {
+  border-radius: 9999px;
+  height: 3.1rem;
+  justify-content: center;
+  padding: 0;
+  position: relative;
+  width: 3.1rem;
 }
 
-.nv-post-sidebar-title {
-  color: var(--nv-muted);
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.72rem;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
+.nv-post-board-actions {
+  flex-direction: column;
+  gap: 0.75rem;
+  position: fixed;
+  right: clamp(0.5rem, calc((100vw - 1120px) / 2 - 4.5rem), 3.5rem);
+  top: 10rem;
+  z-index: 25;
 }
 
-.nv-post-sidebar-btn {
-  justify-content: flex-start;
-  width: 100%;
-}
-
-.nv-post-toc-item {
-  color: var(--nv-ink-soft);
-  display: block;
-  font-size: 0.9rem;
-  padding: 0.2rem 0;
-  text-align: left;
-  width: 100%;
-}
-
-.nv-post-toc-item:hover {
-  color: var(--nv-accent);
-}
-
-.nv-post-toc-item.is-nested {
-  padding-left: 1rem;
+.nv-post-board-action {
+  box-shadow: var(--nv-shadow-card);
+  height: 2.9rem;
+  justify-content: center;
+  padding: 0;
+  width: 2.9rem;
 }
 
 .nv-post-mobile-comment-cta {
   background: var(--nv-surface);
   border: 1px solid var(--nv-line);
   border-radius: 9999px;
-  bottom: calc(9.5rem + env(safe-area-inset-bottom));
+  bottom: calc(1rem + env(safe-area-inset-bottom));
   box-shadow: var(--nv-shadow-popup);
   color: var(--nv-ink);
   left: 50%;
@@ -1325,52 +1290,6 @@ onUnmounted(() => {
   position: fixed;
   transform: translateX(-50%);
   z-index: 75;
-}
-
-.nv-post-mobile-bar {
-  align-items: center;
-  background: color-mix(in srgb, var(--nv-surface) 92%, transparent);
-  border: 1px solid var(--nv-line);
-  border-radius: 1.35rem;
-  bottom: calc(5.75rem + env(safe-area-inset-bottom));
-  box-shadow: var(--nv-shadow-popup);
-  display: grid;
-  gap: 0.5rem;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  left: 0.75rem;
-  padding: 0.55rem;
-  position: fixed;
-  right: 0.75rem;
-  z-index: 74;
-}
-
-.nv-post-desktop-bar {
-  align-items: center;
-  background: color-mix(in srgb, var(--nv-surface) 94%, transparent);
-  border: 1px solid var(--nv-line);
-  border-radius: 1.35rem;
-  bottom: 1rem;
-  box-shadow: var(--nv-shadow-popup);
-  gap: 0.5rem;
-  left: 50%;
-  padding: 0.55rem;
-  position: fixed;
-  transform: translateX(-50%);
-  width: min(34rem, calc(100vw - 2rem));
-  z-index: 74;
-}
-
-.nv-post-desktop-bar .nv-post-mobile-action {
-  flex: 1 1 0;
-  flex-direction: row;
-  min-height: 3.25rem;
-}
-
-.nv-post-mobile-action {
-  flex-direction: column;
-  gap: 0.25rem;
-  min-height: 3.5rem;
-  padding: 0.55rem 0.35rem;
 }
 
 .fade-enter-active,
@@ -1409,15 +1328,14 @@ onUnmounted(() => {
 }
 
 @media (min-width: 640px) {
-  .nv-post-article,
   .nv-post-comments {
     padding: 1.5rem;
   }
 }
 
 @media (max-width: 639px) {
-  .nv-post-shell {
-    padding-bottom: calc(12rem + env(safe-area-inset-bottom));
+  .nv-post-url-chip {
+    max-width: min(11rem, 48vw);
   }
 }
 </style>

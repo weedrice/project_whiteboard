@@ -122,6 +122,7 @@ export interface Post {
     tags?: string[]
     liked?: boolean
     scrapped?: boolean
+    boardListPage?: number
     createdAt: string
     modifiedAt?: string
 }

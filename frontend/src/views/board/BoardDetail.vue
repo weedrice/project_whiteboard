@@ -489,6 +489,14 @@ onUnmounted(() => {
                 {{ $t('search.doSearch') }}
               </BaseButton>
             </div>
+
+            <router-link
+              v-if="canWrite"
+              :to="`/board/${board.boardUrl}/write`"
+              class="nv-board-search-write-btn"
+            >
+              {{ $t('common.write') }}
+            </router-link>
           </div>
 
           <p v-if="transientListError" class="mt-2 text-center text-xs text-red-500">
@@ -683,23 +691,28 @@ onUnmounted(() => {
 }
 
 .nv-board-search-row {
-  display: flex;
-  justify-content: center;
+  align-items: center;
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   width: 100%;
 }
 
 .nv-board-search-group {
   display: grid;
+  grid-column: 2;
   gap: 0.5rem;
   grid-template-columns: minmax(6.1rem, 7.25rem) minmax(0, 20rem) auto;
+  justify-self: center;
   width: min(100%, 34rem);
 }
 
 .nv-board-search-select,
 :deep(.nv-board-search-input) {
   background: color-mix(in srgb, var(--nv-surface) 96%, transparent);
+  border: 1px solid var(--nv-line);
   border-color: var(--nv-line);
-  border-radius: 0;
+  border-radius: 0.45rem;
   color: var(--nv-ink);
   min-height: 2.2rem;
 }
@@ -724,7 +737,7 @@ onUnmounted(() => {
 .nv-board-search-btn {
   background: var(--nv-accent);
   border-color: var(--nv-accent);
-  border-radius: 0;
+  border-radius: 0.45rem;
   color: #fff;
   min-height: 2.2rem;
   min-width: 3.9rem;
@@ -736,6 +749,28 @@ onUnmounted(() => {
   filter: brightness(1.04);
 }
 
+.nv-board-search-write-btn {
+  align-items: center;
+  background: color-mix(in srgb, var(--nv-surface-2) 82%, transparent);
+  border: 1px solid var(--nv-line);
+  border-radius: 0.45rem;
+  color: var(--nv-ink);
+  display: inline-flex;
+  font-size: 0.82rem;
+  font-weight: 600;
+  grid-column: 3;
+  justify-content: center;
+  justify-self: end;
+  min-height: 2.2rem;
+  min-width: 4.25rem;
+  padding-inline: 0.75rem;
+  white-space: nowrap;
+}
+
+.nv-board-search-write-btn:hover {
+  background: var(--nv-surface-2);
+}
+
 .nv-board-state-panel {
   background:
     linear-gradient(180deg, color-mix(in srgb, #ef4444 8%, transparent), transparent),
@@ -743,8 +778,20 @@ onUnmounted(() => {
 }
 
 @media (max-width: 1023px) {
-  .nv-board-search-group {
+  .nv-board-search-row {
     grid-template-columns: 1fr;
+  }
+
+  .nv-board-search-group {
+    grid-column: 1;
+    grid-template-columns: 1fr;
+    justify-self: center;
+    width: min(100%, 24rem);
+  }
+
+  .nv-board-search-write-btn {
+    grid-column: 1;
+    justify-self: center;
     width: min(100%, 24rem);
   }
 }

@@ -81,11 +81,15 @@ export const boardApi = {
 
     // Subscribe to board
     subscribeBoard: (boardUrl: string, config?: AxiosRequestConfig) =>
-        api.post<ApiResponse<void>>(`/boards/${boardUrl}/subscribe`, undefined, config),
+        config
+            ? api.post<ApiResponse<void>>(`/boards/${boardUrl}/subscribe`, undefined, config)
+            : api.post<ApiResponse<void>>(`/boards/${boardUrl}/subscribe`),
 
     // Unsubscribe from board
     unsubscribeBoard: (boardUrl: string, config?: AxiosRequestConfig) =>
-        api.delete<ApiResponse<void>>(`/boards/${boardUrl}/subscribe`, config),
+        config
+            ? api.delete<ApiResponse<void>>(`/boards/${boardUrl}/subscribe`, config)
+            : api.delete<ApiResponse<void>>(`/boards/${boardUrl}/subscribe`),
 
     // Update subscription order
     updateSubscriptionOrder: (boardUrls: string[]) => api.put<ApiResponse<void>>('/boards/subscriptions/order', { boardUrls }),

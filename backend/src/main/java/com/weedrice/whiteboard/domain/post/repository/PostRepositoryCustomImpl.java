@@ -67,6 +67,28 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
     }
 
     @Override
+    public long countPostsBeforeInBoardDefaultOrder(Long boardId, LocalDateTime createdAt, Long postId,
+            List<Long> blockedUserIds, Boolean includeSecret, Long viewerUserId) {
+        if (boardId == null || createdAt == null || postId == null) {
+            return 0L;
+        }
+
+        Long total = queryFactory
+                .select(post.count())
+                .from(post)
+                .where(
+                        post.board.boardId.eq(boardId),
+                        post.isDeleted.eq(false),
+                        secretCondition(includeSecret, viewerUserId),
+                        notBlockedCondition(blockedUserIds),
+                        post.createdAt.gt(createdAt)
+                                .or(post.createdAt.eq(createdAt).and(post.postId.gt(postId))))
+                .fetchOne();
+
+        return total != null ? total : 0L;
+    }
+
+    @Override
     public Page<Post> searchPostsByKeyword(String keyword, List<Long> blockedUserIds, Long viewerUserId,
             @NonNull Pageable pageable) {
         BooleanExpression keywordExpression = StringUtils.hasText(keyword)

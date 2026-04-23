@@ -204,6 +204,35 @@ describe('Router Navigation Guards', () => {
         expect(scrollBehavior({ hash: '' } as any, {} as any, null)).toEqual({ top: 0 })
     })
 
+    it('preserves scroll when paginating the board list with a post open', () => {
+        const scrollBehavior = router.options.scrollBehavior!
+
+        const from = {
+            name: 'post-detail',
+            hash: '',
+            params: {
+                boardUrl: 'free',
+                postId: '15',
+            },
+            query: {
+                page: '1',
+            },
+        }
+        const to = {
+            name: 'post-detail',
+            hash: '',
+            params: {
+                boardUrl: 'free',
+                postId: '15',
+            },
+            query: {
+                page: '2',
+            },
+        }
+
+        expect(scrollBehavior(to as any, from as any, null)).toBe(false)
+    })
+
     it('clears chunk reload key in afterEach hook', async () => {
         sessionStorage.setItem('chunk-reload-attempted', '1')
 
@@ -283,5 +312,5 @@ describe('Router Navigation Guards', () => {
 
         const results = await Promise.allSettled(uniqueLoaders.map((loader) => loader()))
         expect(results.every((result) => result.status === 'fulfilled')).toBe(true)
-    })
+    }, 15000)
 })

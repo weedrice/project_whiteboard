@@ -13,9 +13,9 @@
                 </p>
             </div>
             <div class="mt-5">
-                <BaseButton @click="goHome" full-width variant="primary">
+                <a :href="homeHref" class="btn-primary flex w-full items-center justify-center">
                     {{ $t('common.error.goHome') }}
-                </BaseButton>
+                </a>
             </div>
         </div>
     </div>
@@ -23,14 +23,13 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import BaseButton from '@/components/common/ui/BaseButton.vue'
 
 const route = useRoute()
-const router = useRouter()
 const { t } = useI18n()
 
+const homeHref = computed(() => import.meta.env.BASE_URL || '/')
 const status = computed(() => route.query.status || 'Error')
 const message = computed(() => route.query.message || t('common.error.defaultMessage'))
 
@@ -46,8 +45,4 @@ const title = computed(() => {
             return t('common.error.unknown')
     }
 })
-
-const goHome = () => {
-    router.push('/')
-}
 </script>

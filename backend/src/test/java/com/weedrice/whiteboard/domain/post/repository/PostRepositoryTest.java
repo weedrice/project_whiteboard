@@ -161,7 +161,55 @@ class PostRepositoryTest {
     }
 
     @Test
-    @DisplayName("키워드로 게시글 검색 성공")
+    @DisplayName("Count posts before target in default board order")
+    void countPostsBeforeInBoardDefaultOrder_success() {
+        // given
+        Post newestPost = Post.builder()
+                .title("Newest Post")
+                .contents("Contents")
+                .user(user)
+                .board(board)
+                .category(category)
+                .build();
+        Post secondNewestPost = Post.builder()
+                .title("Second Newest Post")
+                .contents("Contents")
+                .user(user)
+                .board(board)
+                .category(category)
+                .build();
+        Post olderPost = Post.builder()
+                .title("Older Post")
+                .contents("Contents")
+                .user(user)
+                .board(board)
+                .category(category)
+                .build();
+        entityManager.persist(newestPost);
+        entityManager.persist(secondNewestPost);
+        entityManager.persist(olderPost);
+        entityManager.flush();
+
+        LocalDateTime now = LocalDateTime.of(2026, 4, 23, 12, 0);
+        updateCreatedAt(newestPost, now.plusMinutes(2));
+        updateCreatedAt(secondNewestPost, now.plusMinutes(1));
+        updateCreatedAt(post, now);
+        updateCreatedAt(olderPost, now.minusMinutes(1));
+        entityManager.flush();
+        entityManager.clear();
+
+        Post target = postRepository.findById(post.getPostId()).orElseThrow();
+
+        // when
+        long count = postRepository.countPostsBeforeInBoardDefaultOrder(
+                board.getBoardId(), target.getCreatedAt(), target.getPostId(), null, false, null);
+
+        // then
+        assertThat(count).isEqualTo(2L);
+    }
+
+    @Test
+    @DisplayName("Search posts by keyword")
     void searchPostsByKeyword_success() {
         // given
         PageRequest pageRequest = PageRequest.of(0, 10);
@@ -319,5 +367,13 @@ class PostRepositoryTest {
         entityManager.flush();
 
         assertThat(postRepository.countVisiblePostsForAdminDashboard()).isEqualTo(2L);
+    }
+
+    private void updateCreatedAt(Post targetPost, LocalDateTime createdAt) {
+        entityManager.getEntityManager()
+                .createNativeQuery("UPDATE posts SET created_at = :createdAt WHERE post_id = :postId")
+                .setParameter("createdAt", createdAt)
+                .setParameter("postId", targetPost.getPostId())
+                .executeUpdate();
     }
 }

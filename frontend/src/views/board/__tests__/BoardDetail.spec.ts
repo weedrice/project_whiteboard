@@ -219,11 +219,16 @@ describe('BoardDetail', () => {
     const searchInput = wrapper.find('#board-search-input')
     const searchSelect = wrapper.find('select[aria-label="Search scope"]')
     const searchButton = wrapper.findAll('button').find((button) => button.text() === 'search.doSearch')
+    const searchWriteLink = wrapper.find('.nv-board-search-write-btn')
 
     await searchInput.setValue('vue')
     await searchSelect.setValue('TITLE')
     await searchButton?.trigger('click')
 
+    expect(searchSelect.classes()).toContain('nv-board-search-select')
+    expect(searchButton?.classes()).toContain('nv-board-search-btn')
+    expect(searchWriteLink.exists()).toBe(true)
+    expect(searchWriteLink.text()).toBe('common.write')
     expect(router.replace).toHaveBeenLastCalledWith({
       path: '/board/free',
       query: {

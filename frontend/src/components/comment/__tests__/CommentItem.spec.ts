@@ -5,6 +5,7 @@ import { comment as commentLocale } from '@/locales/comment'
 import CommentItem from '../CommentItem.vue'
 
 const useRepliesMock = vi.fn()
+const useAuthStoreMock = vi.fn()
 
 vi.mock('@/composables/useComment', () => ({
     useComment: () => ({
@@ -13,10 +14,7 @@ vi.mock('@/composables/useComment', () => ({
 }))
 
 vi.mock('@/stores/auth', () => ({
-    useAuthStore: () => ({
-        isAuthenticated: false,
-        user: null,
-    }),
+    useAuthStore: () => useAuthStoreMock(),
 }))
 
 vi.mock('vue-i18n', async (importOriginal) => {
@@ -75,39 +73,47 @@ vi.mock('@/utils/commentContent', () => ({
 describe('CommentItem', () => {
     beforeEach(() => {
         vi.clearAllMocks()
-        useRepliesMock.mockImplementation(() => ({
-            data: ref({
-                content: [
-                    {
-                        commentId: 2,
-                        content: 'child reply',
-                        author: {
-                            userId: 2,
-                            displayName: 'reply-user',
-                            authorType: 'USER',
+        useAuthStoreMock.mockReturnValue({
+            isAuthenticated: false,
+            user: null,
+        })
+        useRepliesMock.mockImplementation((_commentId, _replyParams, enabled) => {
+            void enabled.value
+
+            return {
+                data: ref({
+                    content: [
+                        {
+                            commentId: 2,
+                            content: 'child reply',
+                            author: {
+                                userId: 2,
+                                displayName: 'reply-user',
+                                authorType: 'USER',
+                            },
+                            likeCount: 0,
+                            isDeleted: false,
+                            createdAt: '2026-04-20T12:00:00',
+                            hasReplies: false,
+                            replyCount: 0,
+                            children: [],
                         },
-                        likeCount: 0,
-                        isDeleted: false,
-                        createdAt: '2026-04-20T12:00:00',
-                        hasReplies: false,
-                        replyCount: 0,
-                        children: [],
-                    },
-                ],
-                hasNext: false,
-                hasPrevious: false,
-                page: 0,
-                size: 50,
-                totalElements: 1,
-                totalPages: 1,
-            }),
-            isLoading: ref(false),
-            error: ref(null),
-            refetch: vi.fn(),
-        }))
+                    ],
+                    hasNext: false,
+                    hasPrevious: false,
+                    page: 0,
+                    size: 50,
+                    totalElements: 1,
+                    totalPages: 1,
+                }),
+                isLoading: ref(false),
+                error: ref(null),
+                refetch: vi.fn(),
+            }
+        })
     })
 
-    it('loads replies lazily when the toggle is opened', async () => {
+    it('loads and shows replies by default when the parent has replies', async () => {
         const wrapper = mount(CommentItem, {
             props: {
                 comment: {
@@ -154,17 +160,19 @@ describe('CommentItem', () => {
             },
         })
 
-        expect(wrapper.text()).not.toContain('child reply')
-        expect(useRepliesMock).toHaveBeenCalledTimes(1)
+        await flushPromises()
+
+        expect(wrapper.text()).toContain('child reply')
+        expect(useRepliesMock).toHaveBeenCalled()
 
         const enabled = useRepliesMock.mock.calls[0][2]
-        expect((enabled as ReturnType<typeof computed>).value).toBe(false)
+        expect((enabled as ReturnType<typeof computed>).value).toBe(true)
 
         await wrapper.get('button').trigger('click')
         await flushPromises()
 
-        expect((enabled as ReturnType<typeof computed>).value).toBe(true)
-        expect(wrapper.text()).toContain('child reply')
+        expect((enabled as ReturnType<typeof computed>).value).toBe(false)
+        expect(wrapper.text()).not.toContain('child reply')
     })
 
     it('hides the replies toggle for deleted comments', () => {
@@ -213,5 +221,52 @@ describe('CommentItem', () => {
 
         expect(wrapper.text()).not.toContain(commentLocale.viewReplies.replace('{count}', '3'))
         expect(wrapper.text()).toContain('comment.deleted')
+    })
+
+    it('renders replies safely when auth store is unavailable', async () => {
+        useAuthStoreMock.mockReturnValueOnce(undefined)
+
+        const wrapper = mount(CommentItem, {
+            props: {
+                comment: {
+                    commentId: 1,
+                    content: 'parent',
+                    author: {
+                        userId: 1,
+                        displayName: 'author',
+                        authorType: 'USER',
+                    },
+                    likeCount: 0,
+                    isDeleted: false,
+                    createdAt: '2026-04-20T12:00:00',
+                    hasReplies: true,
+                    replyCount: 1,
+                    children: [],
+                },
+                postId: 100,
+                boardUrl: 'free',
+            },
+            global: {
+                mocks: {
+                    $t: (key: string) => key,
+                },
+                stubs: {
+                    UserMenu: {
+                        props: ['displayName'],
+                        template: '<span>{{ displayName }}</span>',
+                    },
+                    CommentForm: {
+                        template: '<div />',
+                    },
+                    CornerDownRight: true,
+                    UserIcon: true,
+                },
+            },
+        })
+
+        await flushPromises()
+
+        expect(wrapper.text()).toContain('child reply')
+        expect(wrapper.findAll('button').some((button) => button.text() === commentLocale.reply)).toBe(false)
     })
 })
