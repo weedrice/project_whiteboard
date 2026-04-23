@@ -86,7 +86,7 @@ export const postApi = {
     getTrendingPosts: (page: number = 0, size: number = 10) => api.get<ApiResponse<PageResponse<PostSummary> | PostSummary[]>>('/posts/trending', { params: { page, size } }),
 
     // Get home landing data
-    getHomeLanding: () => api.get<ApiResponse<HomeLandingResponse>>('/home/landing'),
+    getHomeLanding: () => api.get<ApiResponse<HomeLandingResponse>>('/home/landing', { skipAuthRefresh: true }),
 
     // Draft APIs
     getDraft: (draftId: string | number) => api.get<ApiResponse<DraftPost>>(`/drafts/${draftId}`),

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
-import { FileText, TrendingUp } from 'lucide-vue-next'
+import { FileText, TrendingUp as TrendingUpIcon } from 'lucide-vue-next'
 import { useHead } from '@unhead/vue'
 import { useI18n } from 'vue-i18n'
 import EmptyState from '@/components/common/ui/EmptyState.vue'
@@ -147,7 +147,7 @@ useHead({
 
           <div class="space-y-3">
             <div class="flex items-center gap-2">
-              <TrendingUp class="h-4 w-4 text-[var(--nv-accent)]" />
+              <TrendingUpIcon class="h-4 w-4 text-[var(--nv-accent)]" />
               <p class="nv-home-section-kicker">{{ $t('home.landing.siteStats') }}</p>
             </div>
             <div class="grid grid-cols-2 gap-3">

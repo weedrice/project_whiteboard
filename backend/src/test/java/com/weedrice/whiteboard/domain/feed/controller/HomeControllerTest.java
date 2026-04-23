@@ -33,7 +33,22 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = com.weedrice.whiteboard.global.config.WebConfig.class),
         @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = com.weedrice.whiteboard.global.config.SecurityConfig.class)
     })
+@org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
+@org.springframework.context.annotation.Import(HomeControllerTest.TestSecurityConfig.class)
 class HomeControllerTest {
+
+    @org.springframework.boot.test.context.TestConfiguration
+    @org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
+    static class TestSecurityConfig {
+        @org.springframework.context.annotation.Bean
+        public org.springframework.security.web.SecurityFilterChain filterChain(
+                org.springframework.security.config.annotation.web.builders.HttpSecurity http) throws Exception {
+            http
+                    .csrf(csrf -> csrf.disable())
+                    .authorizeHttpRequests(auth -> auth.anyRequest().permitAll());
+            return http.build();
+        }
+    }
 
     @Autowired
     private MockMvc mockMvc;
@@ -97,5 +112,22 @@ class HomeControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.stats.boardCount").value(1));
+    }
+    @Test
+    @DisplayName("홈 랜딩 API는 비로그인 사용자도 성공 응답을 받는다")
+    void getLanding_allowsAnonymous() throws Exception {
+        HomeLandingResponse response = HomeLandingResponse.builder()
+                .stats(HomeLandingResponse.Stats.builder()
+                        .boardCount(0)
+                        .postCount(0)
+                        .liveCount(0)
+                        .build())
+                .build();
+        when(homeLandingService.getLanding(any())).thenReturn(response);
+
+        mockMvc.perform(get("/api/v1/home/landing"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.stats.boardCount").value(0));
     }
 }

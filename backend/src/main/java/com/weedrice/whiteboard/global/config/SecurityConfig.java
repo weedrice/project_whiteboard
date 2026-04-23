@@ -87,6 +87,7 @@ public class SecurityConfig {
                                                 .permitAll()
                                                 .requestMatchers(HttpMethod.GET,
                                                                 "/api/v1/files/**",
+                                                                "/api/v1/home/**",
                                                                 "/api/v1/boards/**", // /boards 로 시작하는 모든 GET 요청 허용
                                                                 "/api/v1/posts/**", // /posts 로 시작하는 모든 GET 요청 허용 (상세 조회
                                                                                     // 등)
