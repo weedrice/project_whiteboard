@@ -470,12 +470,12 @@ html {
   }
 
   .recent-boards-bar {
-    background: color-mix(in srgb, var(--nv-surface) 84%, transparent);
+    background: color-mix(in srgb, var(--nv-surface) 92%, transparent);
     border-color: var(--nv-line);
   }
 
   .recent-board-chip {
-    background: var(--nv-surface-2);
+    background: color-mix(in srgb, var(--nv-surface-2) 88%, transparent);
     color: var(--nv-ink-soft);
   }
 

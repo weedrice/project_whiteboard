@@ -174,7 +174,7 @@ onUnmounted(() => {
       isMobile && !isExpanded
         ? 'relative w-10 flex-shrink-0'
         : isMobile && isExpanded
-          ? 'fixed inset-x-0 top-0 z-[100] h-16 px-4 bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700'
+          ? 'nv-global-search-mobile fixed inset-x-0 top-0 z-[100] h-16 px-4 shadow-sm border-b'
           : 'relative w-full max-w-[5rem] sm:max-w-xs md:max-w-md'
     ">
     <!-- 모바일: 접혀 있을 때 돋보기만 -->
@@ -182,7 +182,7 @@ onUnmounted(() => {
       v-if="isMobile && !isExpanded"
       type="button"
       @click.stop="expandAndFocus"
-      class="flex items-center justify-center w-10 h-10 rounded-full text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800"
+      class="nv-global-search-toggle flex items-center justify-center w-10 h-10 rounded-full focus:outline-none"
       :aria-label="$t('search.placeholder')">
       <Search class="h-5 w-5" />
     </button>
@@ -195,10 +195,10 @@ onUnmounted(() => {
           @keydown="handleInputKeyDown"
           @focus="showDropdown = !!searchQuery.trim()"
           :placeholder="$t('search.placeholder')"
-          inputClass="w-full min-w-0 rounded-full pl-9 pr-4 py-2 border-gray-300 focus:ring-indigo-500 focus:border-transparent dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400 text-sm"
+          inputClass="nv-global-search-input w-full min-w-0 rounded-full pl-9 pr-4 py-2 text-sm"
           hideLabel>
           <template #prefix>
-            <Search class="h-4 w-4 text-gray-400 dark:text-gray-500" />
+            <Search class="nv-global-search-prefix h-4 w-4" />
           </template>
         </BaseInput>
       </div>
@@ -207,7 +207,7 @@ onUnmounted(() => {
         v-if="isMobile && isExpanded"
         type="button"
         @click="collapse"
-        class="flex-shrink-0 p-2 rounded-full text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 focus:outline-none"
+        class="nv-global-search-toggle flex-shrink-0 p-2 rounded-full focus:outline-none"
         :aria-label="$t('common.cancel')">
         <X class="h-5 w-5" />
       </button>
@@ -217,58 +217,135 @@ onUnmounted(() => {
     <Teleport to="body">
       <div
         v-if="showDropdown && isMobile && isExpanded"
-        class="fixed inset-x-0 top-16 z-[99] mx-0 rounded-t-none border-t-0 bg-white dark:bg-gray-800 shadow-lg border border-gray-200 dark:border-gray-700 border-t-0 max-h-96 overflow-y-auto">
+        class="nv-global-search-dropdown fixed inset-x-0 top-16 z-[99] mx-0 rounded-t-none border-t-0 shadow-lg border max-h-96 overflow-y-auto">
         <div v-if="filteredBoards.length > 0">
-          <div class="px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700">
+          <div class="nv-global-search-section nv-global-search-section-text px-3 py-2 text-xs font-semibold">
             {{ $t('search.boards') }}
           </div>
           <ul role="listbox" aria-label="Board search results">
             <li v-for="(board, index) in filteredBoards" :key="board.boardUrl" @click="selectBoard(board.boardUrl)"
               @mouseenter="setSelectedIndex(index)" :class="[
-                'px-4 py-2 cursor-pointer flex items-center space-x-3',
-                index === selectedIndex ? 'bg-indigo-50 dark:bg-indigo-900/20' : 'hover:bg-gray-100 dark:hover:bg-gray-700'
+                'nv-global-search-option px-4 py-2 cursor-pointer flex items-center space-x-3',
+                { 'nv-global-search-option-selected': index === selectedIndex }
               ]" :aria-selected="index === selectedIndex" role="option" tabindex="-1">
-              <div class="flex-shrink-0 h-8 w-8 rounded bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold overflow-hidden border border-gray-200">
-                <img v-if="board.iconUrl" :src="getOptimizedBoardIconUrl(board.iconUrl)" class="h-full w-full object-contain bg-white" alt="" @error="handleImageError($event)" />
-                <span v-else class="text-xs">{{ board.boardName.substring(0, 1) }}</span>
-              </div>
-              <span class="text-sm text-gray-900 dark:text-white font-medium">{{ board.boardName }}</span>
-            </li>
-          </ul>
-        </div>
-        <div @click="handleSearch" class="border-t border-gray-200 dark:border-gray-700 px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer flex items-center text-indigo-600 dark:text-indigo-400">
+            <div class="nv-global-search-badge flex-shrink-0 h-8 w-8 rounded flex items-center justify-center font-bold overflow-hidden border">
+              <img v-if="board.iconUrl" :src="getOptimizedBoardIconUrl(board.iconUrl)" class="nv-global-search-board-icon h-full w-full object-contain" alt="" @error="handleImageError($event)" />
+              <span v-else class="text-xs">{{ board.boardName.substring(0, 1) }}</span>
+            </div>
+            <span class="nv-global-search-board-name text-sm font-medium">{{ board.boardName }}</span>
+          </li>
+        </ul>
+      </div>
+        <button type="button" @click="handleSearch" class="nv-global-search-action border-t px-4 py-3 flex w-full items-center text-left">
           <Search class="h-4 w-4 mr-2" />
           <span class="text-sm font-medium">{{ $t('search.doSearch', { query: searchQuery }) }}</span>
-        </div>
+        </button>
       </div>
     </Teleport>
 
     <!-- 데스크톱/접힌 모바일: 컨테이너 안에서 absolute -->
     <div
       v-if="showDropdown && (!isMobile || !isExpanded)"
-      class="absolute top-full left-0 right-0 z-50 mt-1 w-full min-w-0 sm:min-w-[16rem] bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-700 max-h-96 overflow-y-auto">
+      class="nv-global-search-dropdown absolute top-full left-0 right-0 z-50 mt-1 w-full min-w-0 sm:min-w-[16rem] rounded-md shadow-lg border max-h-96 overflow-y-auto">
       <div v-if="filteredBoards.length > 0">
-        <div class="px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700">
+        <div class="nv-global-search-section nv-global-search-section-text px-3 py-2 text-xs font-semibold">
           {{ $t('search.boards') }}
         </div>
         <ul role="listbox" aria-label="Board search results">
           <li v-for="(board, index) in filteredBoards" :key="board.boardUrl" @click="selectBoard(board.boardUrl)"
             @mouseenter="setSelectedIndex(index)" :class="[
-              'px-4 py-2 cursor-pointer flex items-center space-x-3',
-              index === selectedIndex ? 'bg-indigo-50 dark:bg-indigo-900/20' : 'hover:bg-gray-100 dark:hover:bg-gray-700'
+              'nv-global-search-option px-4 py-2 cursor-pointer flex items-center space-x-3',
+              { 'nv-global-search-option-selected': index === selectedIndex }
             ]" :aria-selected="index === selectedIndex" role="option" tabindex="-1">
-            <div class="flex-shrink-0 h-8 w-8 rounded bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold overflow-hidden border border-gray-200">
-              <img v-if="board.iconUrl" :src="getOptimizedBoardIconUrl(board.iconUrl)" class="h-full w-full object-contain bg-white" alt="" @error="handleImageError($event)" />
+            <div class="nv-global-search-badge flex-shrink-0 h-8 w-8 rounded flex items-center justify-center font-bold overflow-hidden border">
+              <img v-if="board.iconUrl" :src="getOptimizedBoardIconUrl(board.iconUrl)" class="nv-global-search-board-icon h-full w-full object-contain" alt="" @error="handleImageError($event)" />
               <span v-else class="text-xs">{{ board.boardName.substring(0, 1) }}</span>
             </div>
-            <span class="text-sm text-gray-900 dark:text-white font-medium">{{ board.boardName }}</span>
+            <span class="nv-global-search-board-name text-sm font-medium">{{ board.boardName }}</span>
           </li>
         </ul>
       </div>
-      <div @click="handleSearch" class="border-t border-gray-200 dark:border-gray-700 px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer flex items-center text-indigo-600 dark:text-indigo-400">
+      <button type="button" @click="handleSearch" class="nv-global-search-action border-t px-4 py-3 flex w-full items-center text-left">
         <Search class="h-4 w-4 mr-2" />
         <span class="text-sm font-medium">{{ $t('search.doSearch', { query: searchQuery }) }}</span>
-      </div>
+      </button>
     </div>
   </div>
 </template>
+
+<style scoped>
+.nv-global-search-mobile,
+.nv-global-search-dropdown {
+  background: color-mix(in srgb, var(--nv-surface) 95%, transparent);
+  border-color: var(--nv-line);
+}
+
+.nv-global-search-toggle {
+  color: var(--nv-ink-soft);
+}
+
+.nv-global-search-toggle:hover {
+  color: var(--nv-ink);
+}
+
+.nv-global-search-toggle:focus-visible {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--nv-accent) 40%, transparent);
+}
+
+.nv-global-search-prefix,
+.nv-global-search-section-text {
+  color: var(--nv-muted);
+}
+
+.nv-global-search-input {
+  background: color-mix(in srgb, var(--nv-surface) 98%, transparent);
+  border-color: var(--nv-line);
+  color: var(--nv-ink);
+}
+
+.nv-global-search-input:focus {
+  border-color: color-mix(in srgb, var(--nv-accent) 30%, var(--nv-line));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--nv-accent) 14%, transparent);
+}
+
+.nv-global-search-input::placeholder {
+  color: var(--nv-muted);
+}
+
+.nv-global-search-section {
+  background: color-mix(in srgb, var(--nv-surface-2) 78%, transparent);
+}
+
+.nv-global-search-action {
+  border-color: var(--nv-line);
+  color: var(--nv-accent);
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.nv-global-search-action:hover {
+  background: color-mix(in srgb, var(--nv-surface-2) 82%, transparent);
+}
+
+.nv-global-search-board-icon {
+  background: color-mix(in srgb, var(--nv-surface) 98%, transparent);
+}
+
+.nv-global-search-badge {
+  background: color-mix(in srgb, var(--nv-accent-bg) 92%, transparent);
+  border-color: color-mix(in srgb, var(--nv-accent) 14%, var(--nv-line));
+  color: var(--nv-accent);
+}
+
+.nv-global-search-board-name {
+  color: var(--nv-ink);
+}
+
+.nv-global-search-option {
+  transition: background-color 0.2s ease;
+}
+
+.nv-global-search-option:hover,
+.nv-global-search-option-selected {
+  background: color-mix(in srgb, var(--nv-surface-2) 84%, transparent);
+}
+</style>
