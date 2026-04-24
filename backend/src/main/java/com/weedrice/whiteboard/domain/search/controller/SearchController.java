@@ -19,11 +19,14 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Locale;
 
 @RestController
 @RequestMapping("/api/v1/search")
 @RequiredArgsConstructor
 public class SearchController {
+
+    private static final int MAX_POPULAR_KEYWORD_LIMIT = 100;
 
     private final SearchService searchService;
     private final SearchRecordEventPublisher searchRecordEventPublisher;
@@ -60,7 +63,9 @@ public class SearchController {
     public ApiResponse<PopularKeywordResponse> getPopularKeywords(
             @RequestParam(defaultValue = "DAILY") String period,
             @RequestParam(defaultValue = "10") int limit) {
-        List<PopularKeywordDto> popularKeywords = searchService.getPopularKeywords(period, limit);
+        List<PopularKeywordDto> popularKeywords = searchService.getPopularKeywords(
+                normalizePopularKeywordPeriod(period),
+                normalizePopularKeywordLimit(limit));
         return ApiResponse.success(PopularKeywordResponse.from(popularKeywords));
     }
 
@@ -90,5 +95,23 @@ public class SearchController {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
         return canonicalKeyword;
+    }
+
+    private int normalizePopularKeywordLimit(int limit) {
+        if (limit < 1) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR);
+        }
+        return Math.min(limit, MAX_POPULAR_KEYWORD_LIMIT);
+    }
+
+    private String normalizePopularKeywordPeriod(String period) {
+        if (period == null || period.isBlank()) {
+            return "DAILY";
+        }
+        String normalizedPeriod = period.trim().toUpperCase(Locale.ROOT);
+        return switch (normalizedPeriod) {
+            case "DAILY", "WEEKLY", "MONTHLY" -> normalizedPeriod;
+            default -> throw new BusinessException(ErrorCode.VALIDATION_ERROR);
+        };
     }
 }

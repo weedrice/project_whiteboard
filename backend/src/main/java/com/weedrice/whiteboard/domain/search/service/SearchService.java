@@ -37,6 +37,7 @@ import java.time.LocalDate;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -46,6 +47,7 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class SearchService {
     private static final int SEARCH_PREVIEW_LIMIT = 5;
+    private static final int MAX_POPULAR_KEYWORD_LIMIT = 100;
 
     private final SearchStatisticRepository searchStatisticRepository;
     private final SearchStatisticCommandService searchStatisticCommandService;
@@ -157,24 +159,37 @@ public class SearchService {
 
     public List<PopularKeywordDto> getPopularKeywords(String period, int limit) {
         if (limit < 1) {
-            return Collections.emptyList();
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR);
         }
 
         LocalDate endDate = DateTimeUtils.nowKST().toLocalDate();
         LocalDate startDate = resolvePopularKeywordStartDate(period, endDate);
+        int normalizedLimit = Math.min(limit, MAX_POPULAR_KEYWORD_LIMIT);
 
-        return searchStatisticRepository.findPopularKeywords(startDate, endDate, PageRequest.of(0, limit))
+        return searchStatisticRepository.findPopularKeywords(startDate, endDate, PageRequest.of(0, normalizedLimit))
                 .stream()
                 .map(result -> new PopularKeywordDto(result.getKeyword(), result.getCount()))
                 .collect(Collectors.toList());
     }
 
     private LocalDate resolvePopularKeywordStartDate(String period, LocalDate endDate) {
-        return switch (period.toUpperCase()) {
+        String normalizedPeriod = normalizePopularKeywordPeriod(period);
+        return switch (normalizedPeriod) {
             case "DAILY" -> endDate;
             case "MONTHLY" -> endDate.minusMonths(1);
             case "WEEKLY" -> endDate.minusWeeks(1);
-            default -> endDate.minusWeeks(1);
+            default -> throw new BusinessException(ErrorCode.VALIDATION_ERROR);
+        };
+    }
+
+    private String normalizePopularKeywordPeriod(String period) {
+        if (period == null || period.isBlank()) {
+            return "DAILY";
+        }
+        String normalizedPeriod = period.trim().toUpperCase(Locale.ROOT);
+        return switch (normalizedPeriod) {
+            case "DAILY", "WEEKLY", "MONTHLY" -> normalizedPeriod;
+            default -> throw new BusinessException(ErrorCode.VALIDATION_ERROR);
         };
     }
 

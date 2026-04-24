@@ -22,6 +22,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -328,11 +329,65 @@ class SearchServiceTest {
     }
 
     @Test
-    @DisplayName("인기 검색어 제한이 0 이하면 빈 목록을 반환한다")
-    void getPopularKeywords_returnsEmptyWhenLimitIsZeroOrLess() {
-        List<PopularKeywordDto> popularKeywords = searchService.getPopularKeywords("WEEKLY", 0);
+    @DisplayName("인기 검색어 제한이 최대값을 넘으면 100개로 제한한다")
+    void getPopularKeywords_clampsLimit() {
+        when(searchStatisticRepository.findPopularKeywords(any(), any(), any())).thenReturn(List.of());
 
-        assertThat(popularKeywords).isEmpty();
+        searchService.getPopularKeywords("WEEKLY", 101);
+
+        verify(searchStatisticRepository).findPopularKeywords(any(), any(), eq(PageRequest.of(0, 100)));
+    }
+
+    @Test
+    @DisplayName("인기 검색어 기간은 대소문자와 공백을 정규화한다")
+    void getPopularKeywords_normalizesPeriod() {
+        when(searchStatisticRepository.findPopularKeywords(any(), any(), any())).thenReturn(List.of());
+
+        searchService.getPopularKeywords(" weekly ", 10);
+
+        ArgumentCaptor<LocalDate> startDateCaptor = ArgumentCaptor.forClass(LocalDate.class);
+        ArgumentCaptor<LocalDate> endDateCaptor = ArgumentCaptor.forClass(LocalDate.class);
+        verify(searchStatisticRepository).findPopularKeywords(
+                startDateCaptor.capture(),
+                endDateCaptor.capture(),
+                eq(PageRequest.of(0, 10)));
+        assertThat(startDateCaptor.getValue().plusWeeks(1)).isEqualTo(endDateCaptor.getValue());
+    }
+
+    @Test
+    @DisplayName("인기 검색어 기간이 없으면 DAILY를 기본값으로 사용한다")
+    void getPopularKeywords_defaultsBlankPeriodToDaily() {
+        when(searchStatisticRepository.findPopularKeywords(any(), any(), any())).thenReturn(List.of());
+
+        searchService.getPopularKeywords(null, 10);
+        searchService.getPopularKeywords("   ", 10);
+
+        ArgumentCaptor<LocalDate> startDateCaptor = ArgumentCaptor.forClass(LocalDate.class);
+        ArgumentCaptor<LocalDate> endDateCaptor = ArgumentCaptor.forClass(LocalDate.class);
+        verify(searchStatisticRepository, times(2)).findPopularKeywords(
+                startDateCaptor.capture(),
+                endDateCaptor.capture(),
+                eq(PageRequest.of(0, 10)));
+        assertThat(startDateCaptor.getAllValues()).containsExactlyElementsOf(endDateCaptor.getAllValues());
+    }
+
+    @Test
+    @DisplayName("인기 검색어 제한이 0 이하면 검증 오류를 반환한다")
+    void getPopularKeywords_rejectsLimitZeroOrLess() {
+        assertThatThrownBy(() -> searchService.getPopularKeywords("WEEKLY", 0))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VALIDATION_ERROR);
+
+        verify(searchStatisticRepository, never()).findPopularKeywords(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("인기 검색어 기간이 유효하지 않으면 검증 오류를 반환한다")
+    void getPopularKeywords_rejectsInvalidPeriod() {
+        assertThatThrownBy(() -> searchService.getPopularKeywords("YEARLY", 10))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VALIDATION_ERROR);
+
         verify(searchStatisticRepository, never()).findPopularKeywords(any(), any(), any());
     }
 

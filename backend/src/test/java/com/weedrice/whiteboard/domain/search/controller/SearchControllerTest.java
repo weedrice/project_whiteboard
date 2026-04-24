@@ -292,6 +292,68 @@ class SearchControllerTest {
     }
 
     @Test
+    @DisplayName("인기 검색어 조회는 기본 파라미터를 사용한다")
+    void getPopularKeywords_usesDefaultParams() throws Exception {
+        when(searchService.getPopularKeywords(eq("DAILY"), eq(10))).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/v1/search/popular")
+                .with(anonymous()))
+                .andExpect(status().isOk());
+
+        verify(searchService).getPopularKeywords("DAILY", 10);
+    }
+
+    @Test
+    @DisplayName("인기 검색어 기간은 대소문자와 공백을 정규화한다")
+    void getPopularKeywords_normalizesPeriod() throws Exception {
+        when(searchService.getPopularKeywords(eq("WEEKLY"), eq(10))).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/v1/search/popular")
+                .param("period", " weekly ")
+                .param("limit", "10")
+                .with(anonymous()))
+                .andExpect(status().isOk());
+
+        verify(searchService).getPopularKeywords("WEEKLY", 10);
+    }
+
+    @Test
+    @DisplayName("인기 검색어 제한은 최대 100으로 보정한다")
+    void getPopularKeywords_clampsLimit() throws Exception {
+        when(searchService.getPopularKeywords(eq("DAILY"), eq(100))).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/v1/search/popular")
+                .param("period", "DAILY")
+                .param("limit", "101")
+                .with(anonymous()))
+                .andExpect(status().isOk());
+
+        verify(searchService).getPopularKeywords("DAILY", 100);
+    }
+
+    @Test
+    @DisplayName("인기 검색어 제한이 0 이하면 400을 반환한다")
+    void getPopularKeywords_rejectsInvalidLimit() throws Exception {
+        mockMvc.perform(get("/api/v1/search/popular")
+                .param("limit", "0")
+                .with(anonymous()))
+                .andExpect(status().isBadRequest());
+
+        verify(searchService, never()).getPopularKeywords(anyString(), anyInt());
+    }
+
+    @Test
+    @DisplayName("인기 검색어 기간이 유효하지 않으면 400을 반환한다")
+    void getPopularKeywords_rejectsInvalidPeriod() throws Exception {
+        mockMvc.perform(get("/api/v1/search/popular")
+                .param("period", "YEARLY")
+                .with(anonymous()))
+                .andExpect(status().isBadRequest());
+
+        verify(searchService, never()).getPopularKeywords(anyString(), anyInt());
+    }
+
+    @Test
     @DisplayName("최근 검색어 조회 성공")
     void getRecentSearches_returnsSuccess() throws Exception {
         // given
