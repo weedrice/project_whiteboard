@@ -120,8 +120,10 @@ Important behavior:
 ### UI, i18n, and accessibility
 
 - Add user-facing text through locale files when the surrounding feature already uses i18n
+- When a request changes visible copy, update the relevant locale value instead of hardcoding display text in components, unless the user explicitly asks for a one-off/local-only label.
 - Prefer consistent toast, modal, and form handling through existing common components and stores
 - Keep dark-mode compatibility and responsive behavior intact when editing shared components
+- Keep button interactions consistent across the module. Prefer `BaseButton` for actions; when a custom `<button>` or link styled as a button is necessary, include a pointer cursor for enabled states, a visible hover state matching nearby buttons such as management buttons, an active/pressed state, and a focus-visible state. For colored buttons, hover should lower brightness rather than increase it. Disabled buttons must keep `cursor: not-allowed` and avoid hover/active motion.
 
 ## Testing
 
