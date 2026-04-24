@@ -25,22 +25,24 @@ import java.util.Set;
 @Transactional(readOnly = true)
 public class SanctionService {
     private static final String TYPE_BAN = "BAN";
-    private static final String TYPE_MUTE = "MUTE";
     private static final Set<String> ALLOWED_TYPES = Set.of("WARNING", "MUTE", "BAN");
 
     private final SanctionRepository sanctionRepository;
     private final UserRepository userRepository;
     private final ModerationActorResolver moderationActorResolver;
     private final UserLifecycleService userLifecycleService;
+    private final SanctionPolicyService sanctionPolicyService;
 
     public SanctionService(SanctionRepository sanctionRepository,
                            UserRepository userRepository,
                            ModerationActorResolver moderationActorResolver,
-                           UserLifecycleService userLifecycleService) {
+                           UserLifecycleService userLifecycleService,
+                           SanctionPolicyService sanctionPolicyService) {
         this.sanctionRepository = sanctionRepository;
         this.userRepository = userRepository;
         this.moderationActorResolver = moderationActorResolver;
         this.userLifecycleService = userLifecycleService;
+        this.sanctionPolicyService = sanctionPolicyService;
     }
 
     @Transactional
@@ -88,23 +90,19 @@ public class SanctionService {
     }
 
     public boolean isUserBanned(User user) {
-        return user != null && sanctionRepository.existsActiveBan(user, LocalDateTime.now());
+        return sanctionPolicyService.isUserBanned(user);
     }
 
     public boolean isUserMuted(User user) {
-        return user != null && sanctionRepository.existsActiveTypeIn(user, Set.of(TYPE_MUTE), LocalDateTime.now());
+        return sanctionPolicyService.isUserMuted(user);
     }
 
     public void validateNotBanned(User user) {
-        if (user == null || !"ACTIVE".equals(user.getStatus()) || isUserBanned(user)) {
-            throw new BusinessException(ErrorCode.USER_NOT_ACTIVE);
-        }
+        sanctionPolicyService.validateNotBanned(user);
     }
 
     public void validateNotMuted(User user) {
-        if (user == null || isUserMuted(user)) {
-            throw new BusinessException(ErrorCode.USER_NOT_ACTIVE);
-        }
+        sanctionPolicyService.validateNotMuted(user);
     }
 
     private boolean isPermanentBan(String type, LocalDateTime endDate) {

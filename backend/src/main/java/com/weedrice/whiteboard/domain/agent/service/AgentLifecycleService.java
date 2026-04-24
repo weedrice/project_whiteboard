@@ -7,7 +7,7 @@ import com.weedrice.whiteboard.domain.agent.dto.AgentRegisterResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentResponse;
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
 import com.weedrice.whiteboard.domain.agent.repository.AgentRepository;
-import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
+import com.weedrice.whiteboard.domain.sanction.service.SanctionPolicyService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -62,7 +62,7 @@ public class AgentLifecycleService {
     private final AgentRepository agentRepository;
     private final UserRepository userRepository;
     private final AgentAuditService agentAuditService;
-    private final SanctionService sanctionService;
+    private final SanctionPolicyService sanctionPolicyService;
 
     @Value("${app.agent.pending-claim-ttl-hours:24}")
     private long pendingClaimTtlHours = 24L;
@@ -226,7 +226,7 @@ public class AgentLifecycleService {
         if (!user.isActiveAccount()) {
             throw new BusinessException(ErrorCode.USER_NOT_ACTIVE);
         }
-        sanctionService.validateNotBanned(user);
+        sanctionPolicyService.validateNotBanned(user);
     }
 
     private Agent getOwnedAgent(User user, Long agentId) {

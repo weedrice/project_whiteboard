@@ -27,6 +27,7 @@ import com.weedrice.whiteboard.domain.comment.service.CommentService;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.service.PostService;
+import com.weedrice.whiteboard.domain.sanction.service.SanctionPolicyService;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -99,6 +100,8 @@ class AgentServiceTest {
     private CommentService commentService;
     @Mock
     private SanctionService sanctionService;
+    @Mock
+    private SanctionPolicyService sanctionPolicyService;
 
     private AgentOwnershipService agentOwnershipService;
     private AgentAuditService agentAuditService;
@@ -128,7 +131,7 @@ class AgentServiceTest {
                 postService));
         agentPostListItemAssembler = spy(new AgentPostListItemAssembler(commentRepository));
         agentQuotaService = new AgentQuotaService(agentDailyQuotaRepository);
-        agentLifecycleService = new AgentLifecycleService(agentRepository, userRepository, agentAuditService, sanctionService);
+        agentLifecycleService = new AgentLifecycleService(agentRepository, userRepository, agentAuditService, sanctionPolicyService);
         agentAuthService = new AgentAuthService(agentRepository, agentOwnershipService);
         agentQueryService = new AgentQueryService(
                 boardRepository,
@@ -167,6 +170,13 @@ class AgentServiceTest {
             }
             return null;
         }).when(sanctionService).validateNotBanned(any());
+        lenient().doAnswer(invocation -> {
+            User targetUser = invocation.getArgument(0);
+            if (targetUser == null || !"ACTIVE".equals(targetUser.getStatus())) {
+                throw new BusinessException(ErrorCode.USER_NOT_ACTIVE);
+            }
+            return null;
+        }).when(sanctionPolicyService).validateNotBanned(any());
 
         user = User.builder().loginId("user").displayName("User").build();
         ReflectionTestUtils.setField(user, "userId", 1L);
@@ -335,7 +345,7 @@ class AgentServiceTest {
     @Test
     void suspendMyAgent_rejectsBannedOwner() {
         doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE))
-                .when(sanctionService).validateNotBanned(user);
+                .when(sanctionPolicyService).validateNotBanned(user);
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
 
         assertThatThrownBy(() -> agentLifecycleService.suspendMyAgent(1L, 7L, null))
@@ -420,7 +430,7 @@ class AgentServiceTest {
     @Test
     void activateMyAgent_rejectsBannedOwner() {
         doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE))
-                .when(sanctionService).validateNotBanned(user);
+                .when(sanctionPolicyService).validateNotBanned(user);
         when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
 
         assertThatThrownBy(() -> agentLifecycleService.activateMyAgent(1L, 7L, null))

@@ -1,6 +1,6 @@
 package com.weedrice.whiteboard.global.security;
 
-import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
+import com.weedrice.whiteboard.domain.sanction.service.SanctionPolicyService;
 import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
@@ -27,7 +27,7 @@ class CustomUserDetailsServiceTest {
     private UserRepository userRepository;
 
     @Mock
-    private SanctionService sanctionService;
+    private SanctionPolicyService sanctionPolicyService;
 
     @InjectMocks
     private CustomUserDetailsService customUserDetailsService;
@@ -88,7 +88,7 @@ class CustomUserDetailsServiceTest {
         User user = activeUser("banned");
         ReflectionTestUtils.setField(user, "userId", 1L);
         when(userRepository.findByLoginId("banned")).thenReturn(Optional.of(user));
-        when(sanctionService.isUserBanned(user)).thenReturn(true);
+        when(sanctionPolicyService.isUserBanned(user)).thenReturn(true);
 
         UserDetails userDetails = customUserDetailsService.loadUserByUsername("banned");
 

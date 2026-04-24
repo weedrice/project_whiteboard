@@ -28,7 +28,6 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -49,6 +48,7 @@ class SanctionServiceTest {
     @Mock private UserRepository userRepository;
     @Mock private ModerationActorResolver moderationActorResolver;
     @Mock private UserLifecycleService userLifecycleService;
+    @Mock private SanctionPolicyService sanctionPolicyService;
 
     @InjectMocks
     private SanctionService sanctionService;
@@ -255,8 +255,7 @@ class SanctionServiceTest {
     @Test
     @DisplayName("isUserBanned returns true when an active ban exists")
     void isUserBanned_trueWhenActiveBanExists() {
-        when(sanctionRepository.existsActiveBan(eq(targetUser), any(LocalDateTime.class)))
-                .thenReturn(true);
+        when(sanctionPolicyService.isUserBanned(targetUser)).thenReturn(true);
 
         assertThat(sanctionService.isUserBanned(targetUser)).isTrue();
     }
@@ -264,8 +263,7 @@ class SanctionServiceTest {
     @Test
     @DisplayName("isUserMuted returns true when an active mute exists")
     void isUserMuted_trueWhenActiveMuteExists() {
-        when(sanctionRepository.existsActiveTypeIn(eq(targetUser), eq(Set.of("MUTE")), any(LocalDateTime.class)))
-                .thenReturn(true);
+        when(sanctionPolicyService.isUserMuted(targetUser)).thenReturn(true);
 
         assertThat(sanctionService.isUserMuted(targetUser)).isTrue();
     }
@@ -273,7 +271,8 @@ class SanctionServiceTest {
     @Test
     @DisplayName("inactive user is rejected by write validation")
     void validateNotBanned_rejectsInactiveUser() {
-        ReflectionTestUtils.setField(targetUser, "status", "SUSPENDED");
+        doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE))
+                .when(sanctionPolicyService).validateNotBanned(targetUser);
 
         assertThatThrownBy(() -> sanctionService.validateNotBanned(targetUser))
                 .isInstanceOf(BusinessException.class)
@@ -284,8 +283,8 @@ class SanctionServiceTest {
     @Test
     @DisplayName("muted user is rejected by write validation")
     void validateNotMuted_rejectsMutedUser() {
-        when(sanctionRepository.existsActiveTypeIn(eq(targetUser), eq(Set.of("MUTE")), any(LocalDateTime.class)))
-                .thenReturn(true);
+        doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE))
+                .when(sanctionPolicyService).validateNotMuted(targetUser);
 
         assertThatThrownBy(() -> sanctionService.validateNotMuted(targetUser))
                 .isInstanceOf(BusinessException.class)
