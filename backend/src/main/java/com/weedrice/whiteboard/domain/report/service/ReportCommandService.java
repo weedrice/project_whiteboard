@@ -1,7 +1,5 @@
 package com.weedrice.whiteboard.domain.report.service;
 
-import com.weedrice.whiteboard.domain.comment.service.CommentService;
-import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.domain.report.entity.Report;
 import com.weedrice.whiteboard.domain.report.entity.ReportReasonType;
 import com.weedrice.whiteboard.domain.report.entity.ReportTargetType;
@@ -23,8 +21,7 @@ class ReportCommandService {
 
     private final ReportRepository reportRepository;
     private final UserRepository userRepository;
-    private final PostService postService;
-    private final CommentService commentService;
+    private final ReportTargetValidator reportTargetValidator;
     private final SanctionService sanctionService;
 
     @Transactional
@@ -41,7 +38,7 @@ class ReportCommandService {
                     throw new BusinessException(ErrorCode.ALREADY_REPORTED);
                 });
 
-        validateTarget(normalizedTargetType, targetId, reporterId);
+        reportTargetValidator.validate(normalizedTargetType, targetId, reporter);
 
         Report report = Report.builder()
                 .reporter(reporter)
@@ -58,24 +55,6 @@ class ReportCommandService {
                 throw new BusinessException(ErrorCode.ALREADY_REPORTED);
             }
             throw ex;
-        }
-    }
-
-    private void validateTarget(String targetType, Long targetId, Long reporterId) {
-        switch (targetType) {
-            case "POST":
-                postService.getPostById(targetId, reporterId, false);
-                break;
-            case "COMMENT":
-                commentService.getComment(targetId, reporterId);
-                break;
-            case "USER":
-                userRepository.findById(targetId)
-                        .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-                break;
-            default:
-                throw new BusinessException(ErrorCode.INVALID_TARGET,
-                        "Invalid target type: " + targetType + ". Must be POST, COMMENT, or USER.");
         }
     }
 
