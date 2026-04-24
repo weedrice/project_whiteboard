@@ -5,6 +5,7 @@ import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -36,5 +37,15 @@ class PageRequestUtilsTest {
 
         assertThat(pageable.getPageNumber()).isEqualTo(2);
         assertThat(pageable.getPageSize()).isEqualTo(100);
+    }
+
+    @Test
+    @DisplayName("정렬 조건은 보존한다")
+    void of_preservesSort() {
+        Sort sort = Sort.by(Sort.Direction.DESC, "createdAt");
+
+        Pageable pageable = PageRequestUtils.of(1, 20, sort);
+
+        assertThat(pageable.getSort()).isEqualTo(sort);
     }
 }

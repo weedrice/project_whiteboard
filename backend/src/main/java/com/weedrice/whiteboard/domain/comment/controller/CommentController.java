@@ -8,10 +8,12 @@ import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.service.CommentService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
+import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -26,18 +28,24 @@ public class CommentController {
     @GetMapping("/posts/{postId}/comments")
     public ApiResponse<PageResponse<CommentResponse>> getComments(
             @PathVariable Long postId,
-            Pageable pageable,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            Sort sort,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         Long userId = (userDetails != null) ? userDetails.getUserId() : null;
+        Pageable pageable = PageRequestUtils.of(page, size, sort);
         return ApiResponse.success(new PageResponse<>(commentService.getComments(postId, userId, pageable)));
     }
 
     @GetMapping("/comments/{commentId}/replies")
     public ApiResponse<CommentListResponse> getReplies(
             @PathVariable Long commentId,
-            Pageable pageable,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            Sort sort,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         Long userId = (userDetails != null) ? userDetails.getUserId() : null;
+        Pageable pageable = PageRequestUtils.of(page, size, sort);
         return ApiResponse.success(commentService.getReplies(commentId, userId, pageable));
     }
 

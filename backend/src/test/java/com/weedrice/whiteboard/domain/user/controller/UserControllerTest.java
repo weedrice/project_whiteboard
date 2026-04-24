@@ -36,6 +36,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -223,7 +224,7 @@ class UserControllerTest {
 
                         // when
                         ResponseEntity<ApiResponse<PageResponse<BlockedUserResponse>>> response = userController
-                                        .getBlockedUsers(pageable, customUserDetails);
+                                        .getBlockedUsers(0, 10, Sort.unsorted(), customUserDetails);
 
                         // then
                         assertThat(response.getStatusCode().value()).isEqualTo(200);
@@ -257,7 +258,7 @@ class UserControllerTest {
 
                         // when
                         ApiResponse<PageResponse<BoardListResponse>> response = userController
-                                        .getMySubscriptions(customUserDetails, false, pageable);
+                                        .getMySubscriptions(customUserDetails, false, 0, 10, Sort.unsorted());
 
                         // then
                         assertThat(response.isSuccess()).isTrue();
@@ -298,7 +299,7 @@ class UserControllerTest {
 
                         // when
                         ApiResponse<PageResponse<PostSummary>> response = userController.getMyPosts(customUserDetails,
-                                        pageable);
+                                        0, 10, Sort.unsorted());
 
                         // then
                         assertThat(response.isSuccess()).isTrue();
@@ -341,7 +342,7 @@ class UserControllerTest {
 
                         // when
                         ApiResponse<PageResponse<com.weedrice.whiteboard.domain.comment.dto.MyCommentResponse>> response = userController
-                                        .getMyComments(customUserDetails, pageable);
+                                        .getMyComments(customUserDetails, 0, 10, Sort.unsorted());
 
                         // then
                         assertThat(response.isSuccess()).isTrue();
@@ -363,7 +364,7 @@ class UserControllerTest {
 
                         // when
                         ApiResponse<PageResponse<PostSummary>> response = userController
-                                        .getRecentlyViewedPosts(customUserDetails, pageable);
+                                        .getRecentlyViewedPosts(customUserDetails, 0, 10, Sort.unsorted());
 
                         // then
                         assertThat(response.isSuccess()).isTrue();

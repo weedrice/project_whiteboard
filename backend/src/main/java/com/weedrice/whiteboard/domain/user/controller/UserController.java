@@ -18,6 +18,7 @@ import com.weedrice.whiteboard.domain.user.service.UserSecurityService;
 import com.weedrice.whiteboard.domain.user.service.UserSettingsService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
+import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +26,7 @@ import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -154,8 +156,11 @@ public class UserController {
 
         @GetMapping("/me/blocks")
         public ResponseEntity<ApiResponse<PageResponse<BlockedUserResponse>>> getBlockedUsers(
-                        Pageable pageable,
+                        @RequestParam(defaultValue = "0") int page,
+                        @RequestParam(defaultValue = "20") int size,
+                        Sort sort,
                         @AuthenticationPrincipal CustomUserDetails userDetails) {
+                Pageable pageable = PageRequestUtils.of(page, size, sort);
                 Page<BlockedUserResponse> response = userBlockService.getBlockedUsers(userDetails.getUserId(),
                                 pageable);
                 return ResponseEntity.ok(ApiResponse.success(new PageResponse<>(response)));
@@ -165,7 +170,10 @@ public class UserController {
         public ApiResponse<PageResponse<BoardListResponse>> getMySubscriptions(
                         @AuthenticationPrincipal CustomUserDetails userDetails,
                         @RequestParam(defaultValue = "false") boolean includeUnavailable,
-                        Pageable pageable) {
+                        @RequestParam(defaultValue = "0") int page,
+                        @RequestParam(defaultValue = "20") int size,
+                        Sort sort) {
+                Pageable pageable = PageRequestUtils.of(page, size, sort);
                 Page<BoardListResponse> response = boardService.getMySubscriptions(
                                 userDetails.getUserId(),
                                 pageable,
@@ -214,15 +222,21 @@ public class UserController {
 
         @GetMapping("/me/posts")
         public ApiResponse<PageResponse<PostSummary>> getMyPosts(@AuthenticationPrincipal CustomUserDetails userDetails,
-                        Pageable pageable) {
-                Objects.requireNonNull(pageable, "Pageable must not be null");
+                        @RequestParam(defaultValue = "0") int page,
+                        @RequestParam(defaultValue = "20") int size,
+                        Sort sort) {
+                Pageable pageable = PageRequestUtils.of(page, size, sort);
                 Page<PostSummary> response = postService.getMyPosts(userDetails.getUserId(), pageable);
                 return ApiResponse.success(new PageResponse<>(response));
         }
 
         @GetMapping("/me/comments")
         public ApiResponse<PageResponse<MyCommentResponse>> getMyComments(
-                        @AuthenticationPrincipal CustomUserDetails userDetails, Pageable pageable) {
+                        @AuthenticationPrincipal CustomUserDetails userDetails,
+                        @RequestParam(defaultValue = "0") int page,
+                        @RequestParam(defaultValue = "20") int size,
+                        Sort sort) {
+                Pageable pageable = PageRequestUtils.of(page, size, sort);
                 Page<MyCommentResponse> response = commentService.getMyComments(userDetails.getUserId(), pageable);
                 return ApiResponse.success(new PageResponse<>(response));
         }
@@ -230,8 +244,10 @@ public class UserController {
         @GetMapping("/me/history/views")
         public ApiResponse<PageResponse<PostSummary>> getRecentlyViewedPosts(
                         @AuthenticationPrincipal CustomUserDetails userDetails,
-                        Pageable pageable) {
-                Objects.requireNonNull(pageable, "Pageable must not be null");
+                        @RequestParam(defaultValue = "0") int page,
+                        @RequestParam(defaultValue = "20") int size,
+                        Sort sort) {
+                Pageable pageable = PageRequestUtils.of(page, size, sort);
                 Long userId = Objects.requireNonNull(userDetails.getUserId(), "UserId must not be null");
                 Page<PostSummary> response = postService.getRecentlyViewedPosts(userId, pageable);
                 return ApiResponse.success(new PageResponse<>(response));

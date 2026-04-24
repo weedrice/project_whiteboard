@@ -4,10 +4,12 @@ import com.weedrice.whiteboard.domain.message.dto.MessageCreateRequest;
 import com.weedrice.whiteboard.domain.message.dto.MessageResponse;
 import com.weedrice.whiteboard.domain.message.service.MessageService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
+import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -32,14 +34,20 @@ public class MessageController {
         @GetMapping("/received")
         public ApiResponse<MessageResponse> getReceivedMessages(
                         @AuthenticationPrincipal CustomUserDetails userDetails,
-                        Pageable pageable) {
+                        @RequestParam(defaultValue = "0") int page,
+                        @RequestParam(defaultValue = "20") int size,
+                        Sort sort) {
+                Pageable pageable = PageRequestUtils.of(page, size, sort);
                 return ApiResponse.success(messageService.getReceivedMessages(userDetails.getUserId(), pageable));
         }
 
         @GetMapping("/sent")
         public ApiResponse<MessageResponse> getSentMessages(
                         @AuthenticationPrincipal CustomUserDetails userDetails,
-                        Pageable pageable) {
+                        @RequestParam(defaultValue = "0") int page,
+                        @RequestParam(defaultValue = "20") int size,
+                        Sort sort) {
+                Pageable pageable = PageRequestUtils.of(page, size, sort);
                 return ApiResponse.success(messageService.getSentMessages(userDetails.getUserId(), pageable));
         }
 
