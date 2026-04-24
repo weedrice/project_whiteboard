@@ -7,6 +7,7 @@ import com.weedrice.whiteboard.domain.agent.dto.AgentRegisterResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentResponse;
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
 import com.weedrice.whiteboard.domain.agent.repository.AgentRepository;
+import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -59,6 +60,7 @@ public class AgentLifecycleService {
     private final AgentRepository agentRepository;
     private final UserRepository userRepository;
     private final AgentAuditService agentAuditService;
+    private final SanctionService sanctionService;
 
     @Transactional
     public AgentRegisterResponse register(AgentRegisterRequest request, HttpServletRequest httpServletRequest) {
@@ -75,8 +77,7 @@ public class AgentLifecycleService {
 
     @Transactional
     public AgentResponse claim(Long userId, AgentClaimRequest request, HttpServletRequest httpServletRequest) {
-        User user = userRepository.findByIdForUpdate(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        User user = resolveActiveOwnerForUpdate(userId);
         if (!Boolean.TRUE.equals(user.getIsEmailVerified())) {
             throw new BusinessException(ErrorCode.EMAIL_NOT_VERIFIED);
         }
@@ -107,8 +108,7 @@ public class AgentLifecycleService {
     }
 
     public AgentListResponse getMyAgents(Long userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        User user = resolveActiveOwner(userId);
         List<AgentResponse> agents = agentRepository.findByUserAndIsDeletedFalseOrderByCreatedAtDesc(user).stream()
                 .map(AgentResponse::from)
                 .collect(Collectors.toList());
@@ -117,7 +117,8 @@ public class AgentLifecycleService {
 
     @Transactional
     public AgentResponse suspendMyAgent(Long userId, Long agentId, HttpServletRequest request) {
-        Agent agent = getOwnedAgent(userId, agentId);
+        User user = resolveActiveOwner(userId);
+        Agent agent = getOwnedAgent(user, agentId);
         agent.suspend();
         agentAuditService.saveLog(agent, agent.getUser(), "SUSPEND", "AGENT", agent.getAgentId(), request);
         return AgentResponse.from(agent);
@@ -125,7 +126,8 @@ public class AgentLifecycleService {
 
     @Transactional
     public void deleteMyAgent(Long userId, Long agentId, HttpServletRequest request) {
-        Agent agent = getOwnedAgent(userId, agentId);
+        User user = resolveActiveOwner(userId);
+        Agent agent = getOwnedAgent(user, agentId);
         agent.softDelete();
         agentAuditService.saveLog(agent, agent.getUser(), "DELETE", "AGENT", agent.getAgentId(), request);
     }
@@ -151,9 +153,28 @@ public class AgentLifecycleService {
                 });
     }
 
-    private Agent getOwnedAgent(Long userId, Long agentId) {
+    private User resolveActiveOwnerForUpdate(Long userId) {
+        User user = userRepository.findByIdForUpdate(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        validateActiveOwner(user);
+        return user;
+    }
+
+    private User resolveActiveOwner(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        validateActiveOwner(user);
+        return user;
+    }
+
+    private void validateActiveOwner(User user) {
+        if (!user.isActiveAccount()) {
+            throw new BusinessException(ErrorCode.USER_NOT_ACTIVE);
+        }
+        sanctionService.validateNotBanned(user);
+    }
+
+    private Agent getOwnedAgent(User user, Long agentId) {
         Agent agent = agentRepository.findByAgentIdAndIsDeletedFalse(agentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.AGENT_NOT_FOUND));
         if (agent.getUser() == null || !Objects.equals(agent.getUser().getUserId(), user.getUserId())) {

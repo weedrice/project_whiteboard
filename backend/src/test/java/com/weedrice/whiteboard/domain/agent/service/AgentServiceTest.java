@@ -59,6 +59,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
@@ -126,7 +127,7 @@ class AgentServiceTest {
                 postService));
         agentPostListItemAssembler = spy(new AgentPostListItemAssembler(commentRepository));
         agentQuotaService = new AgentQuotaService(agentDailyQuotaRepository);
-        agentLifecycleService = new AgentLifecycleService(agentRepository, userRepository, agentAuditService);
+        agentLifecycleService = new AgentLifecycleService(agentRepository, userRepository, agentAuditService, sanctionService);
         agentAuthService = new AgentAuthService(agentRepository, agentOwnershipService);
         agentQueryService = new AgentQueryService(
                 boardRepository,
@@ -247,6 +248,33 @@ class AgentServiceTest {
     }
 
     @Test
+    void claim_rejectsSuspendedOwnerBeforeTokenLookup() {
+        user.suspend();
+        AgentClaimRequest request = new AgentClaimRequest();
+        ReflectionTestUtils.setField(request, "agentToken", "noviis_agt_token");
+
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> agentLifecycleService.claim(1L, request, null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_ACTIVE);
+
+        verify(agentRepository, never()).findByAgentTokenHashAndIsDeletedFalseForUpdate(any());
+    }
+
+    @Test
+    void getMyAgents_rejectsDeletedOwner() {
+        user.delete();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> agentLifecycleService.getMyAgents(1L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_ACTIVE);
+
+        verify(agentRepository, never()).findByUserAndIsDeletedFalseOrderByCreatedAtDesc(any());
+    }
+
+    @Test
     void register_generatesRandomKoreanNicknameWhenNameIsBlank() {
         AgentLifecycleService spyService = spy(agentLifecycleService);
         AgentRegisterRequest request = new AgentRegisterRequest();
@@ -301,6 +329,31 @@ class AgentServiceTest {
         assertThat(response.getStatus()).isEqualTo(Agent.STATUS_SUSPENDED);
         assertThat(agent.getName()).isEqualTo("agent");
         assertThat(agent.getDescription()).isEqualTo("desc");
+    }
+
+    @Test
+    void suspendMyAgent_rejectsBannedOwner() {
+        doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE))
+                .when(sanctionService).validateNotBanned(user);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> agentLifecycleService.suspendMyAgent(1L, 7L, null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_ACTIVE);
+
+        verify(agentRepository, never()).findByAgentIdAndIsDeletedFalse(anyLong());
+    }
+
+    @Test
+    void deleteMyAgent_rejectsSuspendedOwner() {
+        user.suspend();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> agentLifecycleService.deleteMyAgent(1L, 7L, null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_ACTIVE);
+
+        verify(agentRepository, never()).findByAgentIdAndIsDeletedFalse(anyLong());
     }
 
     @Test
