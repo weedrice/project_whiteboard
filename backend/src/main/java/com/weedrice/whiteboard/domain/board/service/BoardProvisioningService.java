@@ -117,7 +117,7 @@ class BoardProvisioningService {
         try {
             savedBoard = boardRepository.saveAndFlush(board);
         } catch (DataIntegrityViolationException ex) {
-            throw resolveBoardCreateConflict(ex);
+            throw resolveBoardConflict(ex);
         }
         syncBoardIcon(creatorId, savedBoard, null);
         pointService.spendPoint(
@@ -140,7 +140,7 @@ class BoardProvisioningService {
         return savedBoard;
     }
 
-    private BusinessException resolveBoardCreateConflict(DataIntegrityViolationException ex) {
+    private BusinessException resolveBoardConflict(DataIntegrityViolationException ex) {
         if (containsBoardUrlConstraint(ex)) {
             return new BusinessException(ErrorCode.DUPLICATE_BOARD_URL);
         }
@@ -182,6 +182,11 @@ class BoardProvisioningService {
                 resolveAgentUseYn(
                         request.getIsPublic() != null ? request.getIsPublic() : board.getIsPublic(),
                         request.getAgentUseYn()));
+        try {
+            boardRepository.saveAndFlush(board);
+        } catch (DataIntegrityViolationException ex) {
+            throw resolveBoardConflict(ex);
+        }
         syncBoardIcon(currentUser.getUserId(), board, previousIconUrl);
         upsertBoardAiInfoIfEnabled(board, request.getGuidePrompt(), false);
         return board;

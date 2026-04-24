@@ -491,6 +491,88 @@ class BoardServiceTest {
     }
 
     @Test
+    @DisplayName("게시판 수정 실패 - 저장 시 board_name 충돌이면 DUPLICATE_BOARD_NAME")
+    void updateBoard_duplicateBoardNameDuringFlush() {
+        UserDetails userDetails = mock(UserDetails.class);
+        BoardUpdateRequest request = createBoardUpdateRequest("Updated Board", "test-board", "/api/v1/files/88");
+
+        when(userDetails.getUsername()).thenReturn(user.getLoginId());
+        when(boardRepository.findByBoardUrl("test-board")).thenReturn(Optional.of(board));
+        when(boardRepository.saveAndFlush(board))
+                .thenThrow(new DataIntegrityViolationException("duplicate key board_name"));
+
+        authenticateUser();
+        BusinessException exception;
+        try {
+            exception = assertThrows(BusinessException.class,
+                    () -> boardService.updateBoard("test-board", request, userDetails));
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
+
+        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.DUPLICATE_BOARD_NAME);
+        verify(fileService, never()).replaceBoardIcon(anyLong(), anyLong(), anyLong());
+        verify(fileService, never()).deleteFileWithStorageIfAssociated(anyLong(), anyLong(), anyString());
+        verify(boardAiInfoRepository, never()).save(any(BoardAiInfo.class));
+    }
+
+    @Test
+    @DisplayName("게시판 수정 실패 - 저장 시 board_url 충돌이면 DUPLICATE_BOARD_URL")
+    void updateBoard_duplicateBoardUrlDuringFlush() {
+        UserDetails userDetails = mock(UserDetails.class);
+        BoardUpdateRequest request = createBoardUpdateRequest("Test Board", "updated-board", "/api/v1/files/88");
+
+        when(userDetails.getUsername()).thenReturn(user.getLoginId());
+        when(boardRepository.findByBoardUrl("test-board")).thenReturn(Optional.of(board));
+        when(boardRepository.existsByBoardUrl("updated-board")).thenReturn(false);
+        when(boardRepository.saveAndFlush(board))
+                .thenThrow(new DataIntegrityViolationException(
+                        "duplicate key",
+                        new ConstraintViolationException("duplicate", new java.sql.SQLException("duplicate"),
+                                "uk_boards_board_url")));
+
+        authenticateUser();
+        BusinessException exception;
+        try {
+            exception = assertThrows(BusinessException.class,
+                    () -> boardService.updateBoard("test-board", request, userDetails));
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
+
+        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.DUPLICATE_BOARD_URL);
+        verify(fileService, never()).replaceBoardIcon(anyLong(), anyLong(), anyLong());
+        verify(fileService, never()).deleteFileWithStorageIfAssociated(anyLong(), anyLong(), anyString());
+        verify(boardAiInfoRepository, never()).save(any(BoardAiInfo.class));
+    }
+
+    @Test
+    @DisplayName("게시판 수정 실패 - 제약 메시지를 식별할 수 없으면 DUPLICATE_RESOURCE")
+    void updateBoard_duplicateFallbackDuringFlush() {
+        UserDetails userDetails = mock(UserDetails.class);
+        BoardUpdateRequest request = createBoardUpdateRequest("Updated Board", "test-board", "/api/v1/files/88");
+
+        when(userDetails.getUsername()).thenReturn(user.getLoginId());
+        when(boardRepository.findByBoardUrl("test-board")).thenReturn(Optional.of(board));
+        when(boardRepository.saveAndFlush(board))
+                .thenThrow(new DataIntegrityViolationException("duplicate key"));
+
+        authenticateUser();
+        BusinessException exception;
+        try {
+            exception = assertThrows(BusinessException.class,
+                    () -> boardService.updateBoard("test-board", request, userDetails));
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
+
+        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.DUPLICATE_RESOURCE);
+        verify(fileService, never()).replaceBoardIcon(anyLong(), anyLong(), anyLong());
+        verify(fileService, never()).deleteFileWithStorageIfAssociated(anyLong(), anyLong(), anyString());
+        verify(boardAiInfoRepository, never()).save(any(BoardAiInfo.class));
+    }
+
+    @Test
     @DisplayName("게시판 생성 포인트 부족 예외는 PointService 경로로 유지된다")
     void createBoard_insufficientPoints_propagatesFromPointService() {
         Long creatorId = 1L;
@@ -1319,5 +1401,24 @@ class BoardServiceTest {
         assertThat(result.getContent().get(0).getDescription()).isNull();
         assertThat(result.getContent().get(0).isSubscriptionAccessible()).isFalse();
         assertThat(result.getContent().get(0).getBoardUrl()).isEqualTo("hidden-board");
+    }
+
+    private void authenticateUser() {
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        CustomUserDetails principal = new CustomUserDetails(1L, user.getLoginId(), "password", Collections.emptyList());
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities()));
+    }
+
+    private BoardUpdateRequest createBoardUpdateRequest(String boardName, String boardUrl, String iconUrl) {
+        BoardUpdateRequest request = new BoardUpdateRequest();
+        ReflectionTestUtils.setField(request, "boardName", boardName);
+        ReflectionTestUtils.setField(request, "description", "Updated Description");
+        ReflectionTestUtils.setField(request, "boardUrl", boardUrl);
+        ReflectionTestUtils.setField(request, "iconUrl", iconUrl);
+        ReflectionTestUtils.setField(request, "sortOrder", 1);
+        ReflectionTestUtils.setField(request, "isActive", true);
+        ReflectionTestUtils.setField(request, "isPublic", true);
+        return request;
     }
 }
