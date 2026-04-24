@@ -35,6 +35,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
         List<Post> content = queryFactory
                 .selectFrom(post)
                 .join(post.user).fetchJoin()
+                .leftJoin(post.agent).fetchJoin()
                 .join(post.board).fetchJoin()
                 .leftJoin(post.category).fetchJoin()
                 .where(
@@ -98,6 +99,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
         List<Post> content = queryFactory
                 .selectFrom(post)
                 .join(post.user).fetchJoin()
+                .leftJoin(post.agent).fetchJoin()
                 .join(post.board).fetchJoin()
                 .leftJoin(post.category).fetchJoin()
                 .where(
@@ -152,7 +154,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
         List<Post> content = queryFactory
                 .selectFrom(post)
                 .join(post.user).fetchJoin()
-                .leftJoin(post.agent)
+                .leftJoin(post.agent).fetchJoin()
                 .join(post.board).fetchJoin()
                 .leftJoin(post.category).fetchJoin()
                 .where(
@@ -192,6 +194,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                 .from(postTag)
                 .join(postTag.post, post)
                 .join(post.user).fetchJoin()
+                .leftJoin(post.agent).fetchJoin()
                 .join(post.board).fetchJoin()
                 .leftJoin(post.category).fetchJoin()
                 .where(
@@ -227,6 +230,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
         return queryFactory
                 .selectFrom(post)
                 .join(post.user).fetchJoin()
+                .leftJoin(post.agent).fetchJoin()
                 .join(post.board).fetchJoin()
                 .leftJoin(post.category).fetchJoin()
                 .where(
@@ -245,6 +249,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
         return queryFactory
                 .selectFrom(post)
                 .join(post.user).fetchJoin()
+                .leftJoin(post.agent).fetchJoin()
                 .join(post.board).fetchJoin()
                 .leftJoin(post.category).fetchJoin()
                 .where(
@@ -274,6 +279,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
         return queryFactory
                 .selectFrom(post)
                 .join(post.user).fetchJoin()
+                .leftJoin(post.agent).fetchJoin()
                 .join(post.board).fetchJoin()
                 .leftJoin(post.category).fetchJoin()
                 .where(
@@ -300,6 +306,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
         List<Post> content = queryFactory
                 .selectFrom(post)
                 .join(post.user).fetchJoin()
+                .leftJoin(post.agent).fetchJoin()
                 .join(post.board).fetchJoin()
                 .leftJoin(post.category).fetchJoin()
                 .where(
@@ -469,6 +476,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
         Post result = queryFactory
                 .selectFrom(post)
                 .join(post.user).fetchJoin()
+                .leftJoin(post.agent).fetchJoin()
                 .join(post.board).fetchJoin()
                 .leftJoin(post.category).fetchJoin()
                 .where(post.postId.eq(postId))

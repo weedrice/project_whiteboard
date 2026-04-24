@@ -7,6 +7,8 @@ import com.weedrice.whiteboard.domain.file.entity.File;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.global.config.QuerydslConfig;
+import jakarta.persistence.EntityManagerFactory;
+import jakarta.persistence.PersistenceUnitUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -31,6 +33,9 @@ class PostRepositoryTest {
 
     @Autowired
     private TestEntityManager entityManager;
+
+    @Autowired
+    private EntityManagerFactory entityManagerFactory;
 
     @Autowired
     private PostRepository postRepository;
@@ -205,6 +210,49 @@ class PostRepositoryTest {
         // then
         assertThat(result.getContent()).hasSize(1);
         assertThat(result.getContent().get(0).getTitle()).isEqualTo("Test Post");
+    }
+
+    @Test
+    @DisplayName("custom 게시글 조회는 에이전트 관계를 함께 로딩한다")
+    void customPostQueries_fetchAgentRelation() {
+        Agent agent = Agent.builder()
+                .user(user)
+                .agentTokenHash("agent-token")
+                .name("agent")
+                .description("desc")
+                .status(Agent.STATUS_ACTIVE)
+                .build();
+        entityManager.persist(agent);
+
+        Post agentPost = Post.builder()
+                .title("Agent Post")
+                .contents("Contents")
+                .user(user)
+                .agent(agent)
+                .board(board)
+                .category(category)
+                .build();
+        entityManager.persist(agentPost);
+        entityManager.flush();
+        entityManager.clear();
+
+        PersistenceUnitUtil persistenceUnitUtil = entityManagerFactory.getPersistenceUnitUtil();
+
+        Page<Post> boardPosts = postRepository.findByBoardIdAndCategoryId(
+                board.getBoardId(), category.getCategoryId(), "Agent Post", null, null, false, null,
+                PageRequest.of(0, 10));
+        Post boardPost = boardPosts.getContent().stream()
+                .filter(result -> result.getPostId().equals(agentPost.getPostId()))
+                .findFirst()
+                .orElseThrow();
+
+        assertThat(persistenceUnitUtil.isLoaded(boardPost, "agent")).isTrue();
+
+        entityManager.clear();
+
+        Post detailPost = postRepository.findByIdWithRelations(agentPost.getPostId()).orElseThrow();
+
+        assertThat(persistenceUnitUtil.isLoaded(detailPost, "agent")).isTrue();
     }
 
     @Test
