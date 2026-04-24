@@ -469,12 +469,6 @@ function scrollToCommentsAfterImagesLoad() {
 }
 
 function goToList() {
-  const listElement = document.getElementById('board-post-list')
-  if (listElement) {
-    listElement.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    return
-  }
-
   if (post.value?.board) {
     router.push(buildBoardListRoute(post.value.board.boardUrl))
     return
@@ -825,8 +819,8 @@ onUnmounted(() => {
           </div>
         </header>
 
-        <div class="px-4 pb-4 pt-5 lg:px-6 lg:pb-6">
-          <article class="min-w-0 space-y-5">
+        <div class="px-4 pt-5 lg:px-6">
+          <article class="nv-post-content-stack min-w-0">
             <div class="nv-post-content-top">
               <Transition name="fade">
                 <span
@@ -1100,6 +1094,11 @@ onUnmounted(() => {
   position: relative;
 }
 
+.nv-post-content-stack {
+  display: grid;
+  gap: 1.25rem;
+}
+
 .nv-post-url-chip {
   align-items: center;
   background: color-mix(in srgb, var(--nv-surface-2) 68%, transparent);
@@ -1132,9 +1131,15 @@ onUnmounted(() => {
 
 .nv-post-comments {
   background: color-mix(in srgb, var(--nv-surface) 94%, transparent);
-  border: 1px solid var(--nv-line);
-  border-radius: 1.75rem;
-  box-shadow: var(--nv-shadow-card);
+  border: 0;
+  border-inline: 0;
+  box-shadow: none;
+  margin-inline: -1rem;
+  width: calc(100% + 2rem);
+}
+
+.nv-post-comments :deep(> div:first-child) {
+  margin-top: 0;
 }
 
 .nv-post-article {
@@ -1163,6 +1168,7 @@ onUnmounted(() => {
   display: flex;
   gap: 0.75rem;
   justify-content: center;
+  margin-top: 1rem;
 }
 
 .nv-post-spoiler {
@@ -1330,6 +1336,13 @@ onUnmounted(() => {
 @media (min-width: 640px) {
   .nv-post-comments {
     padding: 1.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .nv-post-comments {
+    margin-inline: -1.5rem;
+    width: calc(100% + 3rem);
   }
 }
 

@@ -250,6 +250,40 @@ describe('PostDetail', () => {
     expect(wrapper.text()).not.toContain('board.postDetail.tableOfContents')
   })
 
+  it('navigates back to the board route from the list action even when the list is already mounted', async () => {
+    const mountedList = document.createElement('section')
+    mountedList.id = 'board-post-list'
+    document.body.appendChild(mountedList)
+
+    const wrapper = mount(PostDetail, {
+      global: {
+        mocks: {
+          $t: (key: string) => key
+        },
+        stubs: {
+          RouterLink: RouterLinkStub,
+          CommentList: true,
+          PostTags: true,
+          UserMenu: true,
+          BaseModal: true
+        }
+      }
+    })
+
+    const listButton = wrapper.findAll('button').find((button) => button.attributes('aria-label') === 'board.postDetail.toList')
+    await listButton?.trigger('click')
+
+    expect(router.push).toHaveBeenCalledWith({
+      path: '/board/free',
+      query: {
+        page: '2'
+      }
+    })
+
+    wrapper.unmount()
+    mountedList.remove()
+  })
+
   it('moves author actions into the overflow menu', async () => {
     const wrapper = mount(PostDetail, {
       global: {
