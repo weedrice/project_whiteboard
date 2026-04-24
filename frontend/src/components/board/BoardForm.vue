@@ -73,10 +73,19 @@ const previewImage = ref<string | null>(null)
 // Watch for changes in initialData (e.g. when loading data in edit mode)
 watch(() => props.initialData, (newData) => {
   form.value = { ...newData }
+  if (!form.value.isPublic) {
+    form.value.agentUseYn = false
+  }
   if (newData.iconUrl) {
     previewImage.value = newData.iconUrl
   }
 }, { deep: true, immediate: true })
+
+watch(() => form.value.isPublic, (isPublic) => {
+  if (!isPublic) {
+    form.value.agentUseYn = false
+  }
+})
 
 const handleFileChange = (event: Event) => {
   const target = event.target as HTMLInputElement
@@ -117,7 +126,11 @@ async function handleSubmit() {
         }
       }
 
-      emit('submit', { ...form.value, iconUrl })
+      emit('submit', {
+        ...form.value,
+        iconUrl,
+        agentUseYn: form.value.isPublic ? form.value.agentUseYn : false
+      })
     } catch (err) {
       handleError(err, t('board.form.uploadFailed'))
       throw err // Re-throw to prevent form submission
@@ -208,6 +221,7 @@ onUnmounted(() => {
           v-model="form.agentUseYn"
           :label="$t('board.form.agentUseYn')"
           :description="$t('board.form.agentUseYnDesc')"
+          :disabled="!form.isPublic"
         />
       </div>
 

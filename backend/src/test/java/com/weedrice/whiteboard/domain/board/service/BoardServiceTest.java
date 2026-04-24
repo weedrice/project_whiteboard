@@ -391,7 +391,69 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("게시판 수정 시 아이콘 교체를 파일 서비스에 반영한다")
+    @DisplayName("Private board creation disables agent use")
+    void createBoard_privateBoardDisablesAgentUse() {
+        Long creatorId = 1L;
+        BoardCreateRequest request = new BoardCreateRequest("Private AI Board", "private-ai", null, null, false, true,
+                null);
+
+        when(userRepository.findById(creatorId)).thenReturn(Optional.of(user));
+        when(boardRepository.existsByBoardName(request.getBoardName())).thenReturn(false);
+        when(boardRepository.existsByBoardUrl(request.getBoardUrl())).thenReturn(false);
+        when(globalConfigService.getConfig(anyString())).thenReturn("500");
+        when(boardRepository.saveAndFlush(any(Board.class))).thenAnswer(invocation -> {
+            Board savedBoard = invocation.getArgument(0);
+            ReflectionTestUtils.setField(savedBoard, "boardId", 3L);
+            return savedBoard;
+        });
+        when(boardCategoryRepository.save(any(com.weedrice.whiteboard.domain.board.entity.BoardCategory.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(boardRepository.findMaxSortOrder()).thenReturn(0);
+
+        Board createdBoard = boardService.createBoard(creatorId, request);
+
+        assertThat(createdBoard.getIsPublic()).isFalse();
+        assertThat(createdBoard.isAgentEnabled()).isFalse();
+        verify(boardAiInfoRepository, never()).save(any(BoardAiInfo.class));
+    }
+
+    @Test
+    @DisplayName("Private board update disables agent use")
+    void updateBoard_privateBoardDisablesAgentUse() {
+        UserDetails userDetails = mock(UserDetails.class);
+        BoardUpdateRequest request = new BoardUpdateRequest();
+        ReflectionTestUtils.setField(request, "boardName", "Private Board");
+        ReflectionTestUtils.setField(request, "description", "Updated Description");
+        ReflectionTestUtils.setField(request, "boardUrl", "test-board");
+        ReflectionTestUtils.setField(request, "iconUrl", null);
+        ReflectionTestUtils.setField(request, "sortOrder", 1);
+        ReflectionTestUtils.setField(request, "isActive", true);
+        ReflectionTestUtils.setField(request, "isPublic", false);
+        ReflectionTestUtils.setField(request, "agentUseYn", true);
+        ReflectionTestUtils.setField(board, "agentUseYn", true);
+
+        when(userDetails.getUsername()).thenReturn(user.getLoginId());
+        when(userRepository.findByLoginId(user.getLoginId())).thenReturn(Optional.of(user));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(boardRepository.findByBoardUrl("test-board")).thenReturn(Optional.of(board));
+
+        CustomUserDetails principal = new CustomUserDetails(1L, user.getLoginId(), "password", Collections.emptyList());
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities()));
+        Board updatedBoard;
+        try {
+            updatedBoard = boardService.updateBoard("test-board", request, userDetails);
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
+
+        assertThat(updatedBoard.getIsPublic()).isFalse();
+        assertThat(updatedBoard.isAgentEnabled()).isFalse();
+        verify(boardAiInfoRepository, never()).save(any(BoardAiInfo.class));
+    }
+
+    @Test
+    @DisplayName("Board update applies uploaded icon replacement")
     void updateBoard_replacesBoardIcon() {
         UserDetails userDetails = mock(UserDetails.class);
         BoardUpdateRequest request = new BoardUpdateRequest();
@@ -941,6 +1003,7 @@ class BoardServiceTest {
         ReflectionTestUtils.setField(superAdmin, "userId", 2L);
         superAdmin.grantSuperAdminRole();
         ReflectionTestUtils.setField(board, "isPublic", true);
+        ReflectionTestUtils.setField(board, "agentUseYn", true);
 
         com.weedrice.whiteboard.domain.board.entity.BoardCategory defaultCategory = com.weedrice.whiteboard.domain.board.entity.BoardCategory.builder()
                 .board(board)
@@ -966,6 +1029,7 @@ class BoardServiceTest {
         boardService.ensureInquiryBoard(userDetails, "custom-inquiry-url");
 
         assertThat(board.getIsPublic()).isFalse();
+        assertThat(board.isAgentEnabled()).isFalse();
         assertThat(defaultCategory.getSortOrder()).isEqualTo(1);
         assertThat(duplicateCategory.getIsActive()).isFalse();
         verify(boardCategoryRepository, never()).saveAndFlush(any());

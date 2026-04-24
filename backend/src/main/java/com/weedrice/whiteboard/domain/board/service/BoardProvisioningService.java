@@ -110,7 +110,7 @@ class BoardProvisioningService {
                 .iconUrl(request.getIconUrl())
                 .sortOrder(maxSortOrder + 1)
                 .isPublic(request.getIsPublic())
-                .agentUseYn(request.getAgentUseYn())
+                .agentUseYn(resolveAgentUseYn(request.getIsPublic(), request.getAgentUseYn()))
                 .build();
 
         Board savedBoard;
@@ -179,10 +179,19 @@ class BoardProvisioningService {
                 request.getAllowNsfw() != null ? request.getAllowNsfw() : board.getAllowNsfw(),
                 request.getIsActive(),
                 request.getIsPublic(),
-                request.getAgentUseYn());
+                resolveAgentUseYn(
+                        request.getIsPublic() != null ? request.getIsPublic() : board.getIsPublic(),
+                        request.getAgentUseYn()));
         syncBoardIcon(currentUser.getUserId(), board, previousIconUrl);
         upsertBoardAiInfoIfEnabled(board, request.getGuidePrompt(), false);
         return board;
+    }
+
+    private Boolean resolveAgentUseYn(Boolean isPublic, Boolean requestedAgentUseYn) {
+        if (Boolean.FALSE.equals(isPublic)) {
+            return false;
+        }
+        return requestedAgentUseYn;
     }
 
     void transferBoardManager(String boardUrl, String loginId, UserDetails userDetails) {
@@ -270,7 +279,7 @@ class BoardProvisioningService {
                     board.getAllowNsfw(),
                     board.getIsActive(),
                     false,
-                    board.getAgentUseYn());
+                    false);
         }
     }
 

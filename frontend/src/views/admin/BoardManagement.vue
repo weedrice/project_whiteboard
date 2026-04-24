@@ -125,6 +125,7 @@
                 v-model="form.agentUseYn"
                 :label="$t('board.form.agentUseYn')"
                 :description="$t('board.form.agentUseYnDesc')"
+                :disabled="!selectedBoard?.isPublic"
               />
 
               <BaseTextarea
@@ -378,7 +379,7 @@ watch(selectedBoard, (board) => {
   form.iconUrl = board.iconUrl || ''
   form.sortOrder = String(board.sortOrder)
   form.isActive = board.isActive
-  form.agentUseYn = board.agentUseYn ?? false
+  form.agentUseYn = board.isPublic ? (board.agentUseYn ?? false) : false
   form.guidePrompt = board.guidePrompt || ''
 }, { immediate: true })
 
@@ -532,8 +533,9 @@ function applySelectedBoardForm() {
     markBoardModified(board.boardId)
   }
 
-  if ((board.agentUseYn ?? false) !== form.agentUseYn) {
-    board.agentUseYn = form.agentUseYn
+  const nextAgentUseYn = board.isPublic ? form.agentUseYn : false
+  if ((board.agentUseYn ?? false) !== nextAgentUseYn) {
+    board.agentUseYn = nextAgentUseYn
     markBoardModified(board.boardId)
   }
 
