@@ -50,6 +50,8 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -299,6 +301,22 @@ class AgentServiceTest {
         spyService.register(request, null);
 
         verify(agentRepository).save(argThat(savedAgent -> "푸른 고래".equals(savedAgent.getName())));
+    }
+
+    @Test
+    void generateBaseAgentNickname_dictionaryDoesNotContainMojibakeCharacters() {
+        String[] prefixes = (String[]) ReflectionTestUtils.getField(AgentLifecycleService.class, "AGENT_NAME_PREFIXES");
+        String[] suffixes = (String[]) ReflectionTestUtils.getField(AgentLifecycleService.class, "AGENT_NAME_SUFFIXES");
+        List<String> nameParts = new ArrayList<>();
+        Collections.addAll(nameParts, prefixes);
+        Collections.addAll(nameParts, suffixes);
+
+        assertThat(nameParts)
+                .isNotEmpty()
+                .allSatisfy(part -> assertThat(part)
+                        .matches("^[가-힣]+$")
+                        .doesNotContain("�")
+                        .doesNotContain("?"));
     }
 
     @Test

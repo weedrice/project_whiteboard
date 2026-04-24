@@ -123,14 +123,14 @@ class BoardProvisioningService {
         pointService.spendPoint(
                 creatorId,
                 resolveBoardCreateCost(),
-                "寃뚯떆???앹꽦 (" + savedBoard.getBoardName() + ")",
+                "게시판 생성 (" + savedBoard.getBoardName() + ")",
                 savedBoard.getBoardId(),
                 "BOARD_CREATE");
         upsertBoardAiInfoIfEnabled(savedBoard, request.getGuidePrompt(), true);
 
         BoardCategory defaultCategory = BoardCategory.builder()
                 .board(savedBoard)
-                .name("?쇰컲")
+                .name(DEFAULT_CATEGORY_NAME)
                 .sortOrder(1)
                 .build();
         boardCategoryRepository.save(defaultCategory);

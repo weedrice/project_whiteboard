@@ -9,6 +9,7 @@ import com.weedrice.whiteboard.domain.board.dto.BoardListResponse;
 import com.weedrice.whiteboard.domain.board.dto.BoardUpdateRequest;
 import com.weedrice.whiteboard.domain.board.entity.BoardAiInfo;
 import com.weedrice.whiteboard.domain.board.entity.Board;
+import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
 import com.weedrice.whiteboard.domain.board.entity.BoardSubscription;
 import com.weedrice.whiteboard.domain.board.entity.BoardSubscriptionId;
 import com.weedrice.whiteboard.domain.board.repository.BoardAiInfoRepository;
@@ -307,9 +308,16 @@ class BoardServiceTest {
         assertThat(createdBoard.getBoardName()).isEqualTo("Test Board");
         InOrder inOrder = inOrder(boardRepository, pointService, boardCategoryRepository, boardManagerAssignmentService);
         inOrder.verify(boardRepository).saveAndFlush(any(Board.class));
-        inOrder.verify(pointService).spendPoint(eq(creatorId), eq(500), anyString(), eq(1L), eq("BOARD_CREATE"));
-        inOrder.verify(boardCategoryRepository).save(any());
+        inOrder.verify(pointService).spendPoint(
+                eq(creatorId),
+                eq(500),
+                eq("게시판 생성 (Test Board)"),
+                eq(1L),
+                eq("BOARD_CREATE"));
+        ArgumentCaptor<BoardCategory> categoryCaptor = ArgumentCaptor.forClass(BoardCategory.class);
+        inOrder.verify(boardCategoryRepository).save(categoryCaptor.capture());
         inOrder.verify(boardManagerAssignmentService).assignBoardManager(board, user);
+        assertThat(categoryCaptor.getValue().getName()).isEqualTo("일반");
     }
 
     @Test
@@ -1095,8 +1103,15 @@ class BoardServiceTest {
         boardService.ensureInquiryBoard(userDetails, "custom-inquiry-url");
 
         ArgumentCaptor<Board> boardCaptor = ArgumentCaptor.forClass(Board.class);
+        ArgumentCaptor<BoardCategory> categoryCaptor = ArgumentCaptor.forClass(BoardCategory.class);
         verify(boardRepository).saveAndFlush(boardCaptor.capture());
+        verify(boardCategoryRepository, org.mockito.Mockito.atLeastOnce()).saveAndFlush(categoryCaptor.capture());
         assertThat(boardCaptor.getValue().getCreator()).isEqualTo(activeSuperAdmin);
+        assertThat(boardCaptor.getValue().getBoardName()).isEqualTo("문의");
+        assertThat(boardCaptor.getValue().getDescription()).isEqualTo("운영진에게 문의를 남기는 비공개 게시판입니다.");
+        assertThat(categoryCaptor.getAllValues())
+                .extracting(BoardCategory::getName)
+                .containsOnly("일반");
         verify(userRepository, org.mockito.Mockito.atLeastOnce()).findUsableSuperAdmins();
         verify(boardManagerAssignmentService, org.mockito.Mockito.atLeastOnce())
                 .assignBoardManager(boardCaptor.getValue(), activeSuperAdmin);
