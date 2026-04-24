@@ -338,6 +338,39 @@ class AuthServiceTest {
     }
 
     @Test
+    @DisplayName("refresh token DB expiresAt uses millisecond duration")
+    void login_persistsRefreshTokenExpiresAtUsingMillisecondDuration() {
+        LoginRequest request = new LoginRequest("testuser", "password123");
+        CustomUserDetails userDetails = new CustomUserDetails(1L, "testuser", "encodedPassword",
+                Collections.emptyList());
+        Authentication authentication = new UsernamePasswordAuthenticationToken(userDetails, null,
+                Collections.emptyList());
+        AuthenticationManager authenticationManager = mock(AuthenticationManager.class);
+        HttpServletRequest httpServletRequest = mock(HttpServletRequest.class);
+        String expectedRefreshTokenHash = new TokenHashService().hashSha256("refreshToken");
+
+        when(authenticationManagerBuilder.getObject()).thenReturn(authenticationManager);
+        when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
+                .thenReturn(authentication);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userPointRepository.findById(1L)).thenReturn(Optional.empty());
+        when(sanctionService.isUserBanned(user)).thenReturn(false);
+        when(jwtTokenProvider.createAccessToken(authentication)).thenReturn("accessToken");
+        when(jwtTokenProvider.createRefreshToken(authentication)).thenReturn("refreshToken");
+        when(jwtTokenProvider.getAccessTokenValidityInMilliseconds()).thenReturn(1800L);
+        when(jwtTokenProvider.getRefreshTokenValidityInMilliseconds()).thenReturn(7_200_000L);
+        LocalDateTime beforeLogin = LocalDateTime.now();
+
+        authService.login(request, httpServletRequest);
+
+        LocalDateTime afterLogin = LocalDateTime.now();
+        verify(refreshTokenRepository).save(argThat(token ->
+                expectedRefreshTokenHash.equals(token.getTokenHash())
+                        && !token.getExpiresAt().isBefore(beforeLogin.plusHours(2))
+                        && !token.getExpiresAt().isAfter(afterLogin.plusHours(2))));
+    }
+
+    @Test
     @DisplayName("BAN 사용자는 로그인할 수 없다")
     void login_fail_whenUserIsBanned() {
         LoginRequest request = new LoginRequest("testuser", "password123");

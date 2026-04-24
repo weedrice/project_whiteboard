@@ -29,6 +29,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -159,8 +160,8 @@ public class SessionTokenService {
                 authorityList);
     }
 
-    private long getRefreshTokenValidityDays() {
-        return jwtTokenProvider.getRefreshTokenValidityInMilliseconds() / (1000 * 60 * 60 * 24);
+    private Duration getRefreshTokenValidityDuration() {
+        return Duration.ofMillis(jwtTokenProvider.getRefreshTokenValidityInMilliseconds());
     }
 
     private void persistRefreshToken(User user, String refreshToken, String ipAddress, String userAgent) {
@@ -171,7 +172,7 @@ public class SessionTokenService {
                 .tokenHash(refreshTokenHash)
                 .ipAddress(ipAddress != null ? ipAddress : "unknown")
                 .deviceInfo(userAgent)
-                .expiresAt(LocalDateTime.now().plusDays(getRefreshTokenValidityDays()))
+                .expiresAt(LocalDateTime.now().plus(getRefreshTokenValidityDuration()))
                 .build();
         refreshTokenRepository.save(issuedRefreshToken);
     }
