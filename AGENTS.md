@@ -2,57 +2,35 @@
 
 ## Project Overview
 
-NoviIs (`noviis.kr`) is an open-source community platform inspired by Reddit and ArcaLive-style free boards. From an AI agent perspective, this repository is a monorepo for a production-facing web service that combines:
+NoviIs (`noviis.kr`) is a production-adjacent community platform. For agent work in this repository, prioritize small, local backend changes, preserve existing behavior, and avoid speculative refactors.
 
-- A Spring Boot API for authentication, boards, posts, comments, notifications, moderation, file handling, and agent-facing endpoints
-- A Vue 3 frontend for the public community UI and admin UI
-- AWS-oriented deployment assumptions: single EC2 instance, RDS PostgreSQL, S3, and Nginx
-- AI agent integration through backend `agent` APIs, with MCP server integration expected to exist as an external Python service using streamable HTTP transport
+This repository is a monorepo, but most report-driven maintenance work is expected to touch:
 
-Treat this repository as production-adjacent. Minimize change scope, preserve existing behavior, and avoid speculative refactors.
+- `backend/`: Spring Boot 3.x API server
+- `docs/`: reports, audits, and project documentation
+- `logs/`: runtime logs; do not commit generated files
+- `uploads/`: local upload storage; do not commit generated files
 
-## Repository Structure
-
-```text
-noviis/
-|-- backend/        Spring Boot 3.x API server
-|-- frontend/       Vue 3 + TypeScript client
-|-- docs/           Notes, audits, and project documentation
-|-- logs/           Runtime logs; do not commit generated files
-|-- uploads/        Local upload storage for development; do not commit generated files
-`-- AGENTS.md       This file
-```
-
-### Where AI agents usually work
+## Backend Work Areas
 
 - `backend/src/main/java/com/weedrice/whiteboard/domain/*`: business domains such as `auth`, `board`, `post`, `comment`, `notification`, `user`, and `agent`
-- `backend/src/main/java/com/weedrice/whiteboard/global/*`: shared config, security, validation, exceptions, logging, and common response wrappers
-- `backend/src/main/resources/`: Spring profiles and logging configuration
+- `backend/src/main/java/com/weedrice/whiteboard/global/*`: shared config, security, validation, exceptions, logging, and response wrappers
+- `backend/src/main/resources/`: Spring profile and logging configuration
 - `backend/src/test/java/`: JUnit and Spring tests
-- `frontend/src/views/`: route-level pages
-- `frontend/src/components/`: reusable UI components
-- `frontend/src/composables/`: Vue Query and Composition API logic
-- `frontend/src/api/`: HTTP API clients
-- `frontend/src/types/`: shared TypeScript types
-- `frontend/src/utils/`: constants, env helpers, formatting, sanitizing, and client-side utilities
 
-### Important architecture notes
+Important notes:
 
-- The backend package root is `com.weedrice.whiteboard`, even though the product name is NoviIs.
-- The backend follows a domain-oriented structure. Keep new code in the closest existing domain instead of creating broad utility dumping grounds.
-- The frontend separates server state and UI state. Server data usually belongs in Vue Query composables, while local UI state belongs in component state or Pinia stores.
-- There is no dedicated top-level `mcp-server/` directory in this repository at the moment. If MCP-related work is requested, first verify whether it belongs in backend agent APIs, external infrastructure, or a new module.
+- The backend package root is `com.weedrice.whiteboard`.
+- Keep new code in the closest existing domain package.
+- Preserve API URLs, response envelopes, and DTO shapes unless the task explicitly requires coordinated API changes.
+- Do not add libraries, framework changes, or DB migrations without explicit approval.
 
-## Development Environment Setup
+## Backend Environment
 
-### Prerequisites
+Prerequisites:
 
 - Java 21
-- Node.js `^20.19.0` or `>=22.12.0`
-- npm
 - PostgreSQL for local backend development
-
-### Backend setup
 
 Run from `backend/`:
 
@@ -76,139 +54,31 @@ Backend profile behavior:
 - `application-dev.yml` is used for local development
 - `application-prod.yml` is used for production
 
-Preferred backend environment variable setup:
+Prefer shell environment variables, IDE run configuration variables, or deployment-level secret injection over tracked YAML changes.
 
-- Use shell environment variables, IDE run configuration variables, or deployment-level secret injection
-- Do not add new real secrets to tracked YAML files
-- If local overrides are needed, prefer environment variables over creating new tracked profile files
+## Dirty Worktree And Secrets
 
-Backend environment variables used in production:
+- Treat pre-existing dirty and untracked files as user-owned.
+- Stage and commit only files required for the current task.
+- Never commit `.env`, `.env.*`, `*.local`, generated reports, logs, uploads, build artifacts, editor directories, or local config containing suspected secrets.
+- Do not commit `application-*.yml` unless the user explicitly asks for a safe config change.
+- If a tracked config or env file appears to contain secrets, report only the file path and secret type. Do not quote values.
+- Never hardcode new secrets, tokens, API keys, passwords, JWT secrets, OAuth secrets, or AWS credentials.
 
-- `SPRING_PROFILES_ACTIVE`
-- `FRONTEND_URL`
-- `DB_HOST`
-- `DB_NAME`
-- `DB_USER`
-- `DB_PASSWORD`
-- `DB_MAX_POOL_SIZE`
-- `DB_MIN_IDLE`
-- `JWT_SECRET`
-- `GITHUB_CLIENT_ID`
-- `GITHUB_CLIENT_SECRET`
-- `GOOGLE_CLIENT_ID`
-- `GOOGLE_CLIENT_SECRET`
-- `DISCORD_CLIENT_ID`
-- `DISCORD_CLIENT_SECRET`
-- `MAIL_USERNAME`
-- `MAIL_APP_PASSWORD`
-- `AWS_ACCESS_KEY`
-- `AWS_SECRET_KEY`
-- `AWS_S3_REGION`
-- `S3_BUCKET`
-- `RATE_LIMIT_TRUST_PROXY_HEADERS`
-- `RATE_LIMIT_BUCKET_CACHE_MAX_SIZE`
-- `RATE_LIMIT_BUCKET_CACHE_TTL_MINUTES`
+## Backend Conventions
 
-### Frontend setup
+- Keep controllers thin and delegate business logic to services.
+- Keep services transactional. The codebase commonly uses `@Transactional(readOnly = true)` at class level and overrides mutating methods with `@Transactional`.
+- Reuse the existing exception pattern with `BusinessException` and `ErrorCode`.
+- Preserve existing wrappers such as `ApiResponse` and `PageResponse`.
+- Use DTOs for request and response payloads. Do not expose JPA entities directly from controllers.
+- Prefer constructor injection via Lombok `@RequiredArgsConstructor`.
+- Match existing Lombok usage such as `@Getter`, `@Builder`, and protected no-args constructors.
+- Be careful with JPA fetch behavior. Reuse existing repository, Querydsl, `@EntityGraph`, and pagination patterns to avoid N+1 regressions.
+- Keep security-sensitive logic in existing security/config layers rather than duplicating auth checks inside controllers.
+- For refactors that move responsibility to a new service or module, remove private dead code and unused constants from the old location in the same focused change.
 
-Run from `frontend/`:
-
-```bash
-npm install
-npm run dev
-```
-
-Default local frontend URL:
-
-```text
-http://localhost:5173
-```
-
-Frontend environment variable setup:
-
-- Vite is used, so local variables should go in untracked files such as `frontend/.env.local` or `frontend/.env.development.local`
-- Only variables prefixed with `VITE_` are exposed to client code
-
-Frontend variables currently referenced by the codebase:
-
-- `VITE_API_BASE_URL`
-- `VITE_API_URL`
-- `VITE_INQUIRY_BOARD_URL`
-- `VITE_COMMIT_HASH`
-
-SEO and build scripts also read optional non-`VITE_` environment variables:
-
-- `SITEMAP_SITE_URL`
-- `SITEMAP_API_BASE_URL`
-- `SITEMAP_PAGE_SIZE`
-- `SITEMAP_MAX_PAGES_PER_BOARD`
-- `SITEMAP_REQUEST_TIMEOUT_MS`
-- `PRERENDER_SITE_URL`
-- `PRERENDER_API_BASE_URL`
-- `PRERENDER_MAX_URLS`
-- `PRERENDER_REQUEST_TIMEOUT_MS`
-- `SEO_SITE_URL`
-- `SEO_SITEMAP_URL`
-- `SEO_VERIFY_TIMEOUT_MS`
-- `SEO_VERIFY_MAX_URLS`
-- `SEO_GOOGLEBOT_UA`
-- `SEO_SUBMIT_TIMEOUT_MS`
-- `GOOGLE_SEARCH_CONSOLE_SITE_URL`
-- `GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN`
-- `GOOGLE_SEARCH_CONSOLE_CLIENT_ID`
-- `GOOGLE_SEARCH_CONSOLE_CLIENT_SECRET`
-- `GOOGLE_SEARCH_CONSOLE_REFRESH_TOKEN`
-- `CUSTOM_SITEMAP_SUBMIT_URL`
-- `CUSTOM_SITEMAP_METHOD`
-
-### Local full-stack workflow
-
-1. Start PostgreSQL
-2. Start backend on `:8080`
-3. Start frontend on `:5173`
-4. Let Vite proxy `/api` and `/oauth2` requests through `VITE_API_BASE_URL`
-
-## Coding Conventions
-
-### General rules
-
-- Follow the existing code style in the file you are editing
-- Keep changes small and local to the requested scope
-- Do not introduce new libraries or frameworks without explicit approval
-- Do not rename or move files unless the task requires it
-- Preserve existing API contracts unless the task explicitly includes coordinated backend and frontend changes
-- In a dirty worktree, treat pre-existing changes as user-owned. Stage and commit only the files required for the current task.
-- When a tracked config file or env file appears to contain secrets, do not repeat the values. Report only the file path and secret type, and leave the file unstaged unless the user explicitly asks for a safe cleanup.
-- For refactors that move responsibility to a new service or module, remove private dead code and unused constants from the old location in the same focused change. Keep public helpers only when current callers or tests still rely on them.
-
-### Backend conventions
-
-- Keep controllers thin and delegate business logic to services
-- Keep services transactional. The codebase commonly uses `@Transactional(readOnly = true)` at class level and overrides mutating methods with `@Transactional`
-- Preserve the domain-oriented package layout under `domain/*` and shared concerns under `global/*`
-- Use DTOs for request and response payloads. Do not expose JPA entities directly from controllers
-- Preserve the existing response wrappers such as `ApiResponse` and `PageResponse`
-- Reuse the existing exception pattern with `BusinessException` and `ErrorCode`
-- Prefer constructor injection via Lombok `@RequiredArgsConstructor`
-- Match existing Lombok usage for entities and DTOs such as `@Getter`, `@Builder`, and protected no-args constructors
-- Be careful with JPA fetch behavior. Reuse existing repository, Querydsl, `@EntityGraph`, and pagination patterns to avoid N+1 regressions
-- Keep security-sensitive logic in existing security/config layers rather than duplicating auth checks inside controllers
-
-### Frontend conventions
-
-- Use Vue 3 Composition API with `<script setup lang="ts">`
-- Put route pages in `views`, reusable UI in `components`, HTTP calls in `api`, types in `types`, and data-fetching logic in `composables`
-- Use Vue Query for server state and cache invalidation
-- Use Pinia only for app-level state such as auth, toasts, and shared UI state
-- Preserve the existing `@/` import alias
-- Prefer explicit TypeScript types over `any`, even though the current ESLint config is permissive
-- Reuse existing base UI components before creating new one-off controls
-- When changing mutation flows, update related query invalidation so the UI stays consistent
-- Match the surrounding file's indentation and formatting. Vue SFCs in this repository commonly use two-space indentation; backend Java uses four spaces
-
-## Testing
-
-### Backend tests
+## Backend Testing
 
 Run from `backend/`:
 
@@ -220,39 +90,55 @@ Run from `backend/`:
 Useful targeted command:
 
 ```bash
-./gradlew test --tests "*PostServiceTest"
+./gradlew test --tests "*PostServiceTest" --rerun-tasks
 ```
 
 Backend test notes:
 
-- Tests use JUnit 5, Mockito, Spring Boot Test, Spring Security Test, and H2 in PostgreSQL mode
-- Coverage reports are generated under `backend/build/reports/jacoco/html`
-- `test` is configured with `ignoreFailures = true`, so do not assume a green build purely because Gradle continues. Read the actual test summary and coverage output
-- For targeted verification after code changes, prefer rerunning tests with `--rerun-tasks` so Gradle does not report stale `UP-TO-DATE` results as a real check
-- Some test XML can be hard to parse because display names may contain broken encoding. If XML parsing fails, read the Gradle console summary such as `N tests completed, X failed`, or extract only the `<testsuite ... tests/failures/errors/skipped>` attributes with a text/regex approach.
+- Tests use JUnit 5, Mockito, Spring Boot Test, Spring Security Test, and H2 in PostgreSQL mode.
+- `test` is configured with `ignoreFailures = true`, so do not trust `BUILD SUCCESSFUL` by itself.
+- Always check the actual test count, failure count, error count, and skipped count.
+- For targeted verification after code changes, use `--rerun-tasks` so Gradle does not report stale `UP-TO-DATE` results as a real check.
+- Some test XML can be hard to parse because display names may contain broken encoding. If XML parsing fails, read the Gradle console summary or extract only `<testsuite ... tests/failures/errors/skipped>` attributes.
 
-### Frontend tests
+PowerShell helper for aggregate test XML results:
 
-Run from `frontend/`:
-
-```bash
-npm run lint
-npm run type-check
-npm run test:run
-npm run coverage
+```powershell
+$totalTests=0; $totalFailures=0; $totalErrors=0; $totalSkipped=0; $failed=@()
+Get-ChildItem -Path build/test-results/test -Filter TEST-*.xml | ForEach-Object {
+  $line = Select-String -Path $_.FullName -Pattern '<testsuite ' -List | Select-Object -ExpandProperty Line
+  if ($line -match 'name="([^"]+)".*tests="(\d+)" skipped="(\d+)" failures="(\d+)" errors="(\d+)"') {
+    $name=$matches[1]; $tests=[int]$matches[2]; $skipped=[int]$matches[3]; $failures=[int]$matches[4]; $errors=[int]$matches[5]
+    $totalTests += $tests; $totalFailures += $failures; $totalErrors += $errors; $totalSkipped += $skipped
+    if ($failures -gt 0 -or $errors -gt 0) { $failed += [pscustomobject]@{Name=$name; Tests=$tests; Failures=$failures; Errors=$errors; Skipped=$skipped; File=$_.Name} }
+  }
+}
+[pscustomobject]@{Tests=$totalTests; Failures=$totalFailures; Errors=$totalErrors; Skipped=$totalSkipped}
+$failed | Format-Table -AutoSize
 ```
 
-Useful targeted command:
+## Report Implementation Workflow
 
-```bash
-npm run test:run -- PostWrite.spec.ts
-```
+Before editing:
 
-Frontend test notes:
+- Read the target report and classify every item as: apply now, already applied, or needs follow-up design.
+- Inspect `git status --short` and treat pre-existing dirty files as user-owned.
+- Identify suspected secrets in tracked config files without quoting their values.
 
-- Tests use Vitest with `jsdom` and `@vue/test-utils`
-- Coverage output is written under `frontend/coverage/`
-- For API or composable changes, update or add tests near the affected module under `src/**/__tests__`
+Implementation flow:
+
+- Work in small, focused steps.
+- Before broad, security-sensitive, API-contract, frontend-visible, or cross-module changes, inspect likely impact and use a pre-change review agent when requested.
+- Edit only files needed for the current step.
+- Run the narrowest relevant targeted tests first.
+- Use post-change review for regression risk, exception flow, API/frontend impact, lint/style, or conventions when relevant.
+- Address review findings, rerun affected tests, then stage only files for that step and commit with a focused Korean message when commits are requested.
+- Close each sub-agent as soon as the step is finished.
+
+Final verification and report:
+
+- Run the broadest practical verification after all steps, including full backend tests when requested.
+- Summarize created commits, applied items, already-applied items, remaining follow-up items, tests run and results, whether any full-suite failures are related, and dirty/security risks.
 
 ## Commit Message Rules
 
@@ -262,7 +148,7 @@ Follow the repository's existing prefix style:
 Type: short summary
 ```
 
-Common prefixes seen in history:
+Common prefixes:
 
 - `Feat:`
 - `Fix:`
@@ -271,88 +157,14 @@ Common prefixes seen in history:
 - `Test:`
 - `Chore:`
 
-Examples:
+Keep commits focused. For this repository, write commit summaries in Korean when the user requests Korean commit messages.
 
-- `Feat: add board-level agent posting controls`
-- `Fix: preserve notification settings during bulk update`
-- `Refactor: simplify post query cache invalidation`
+## Common Cautions
 
-Keep commits focused. Do not combine unrelated backend, frontend, and infrastructure changes in one commit unless they are part of the same feature.
-
-## Security Notes
-
-### Secret handling
-
-- Never hardcode new secrets, tokens, API keys, passwords, JWT secrets, OAuth secrets, or AWS credentials in source code
-- Never copy credentials from existing files into new files, docs, tests, or comments
-- If you discover real credentials in tracked files, treat them as sensitive, do not repeat them, and recommend migration to environment variables
-- Prefer environment variables or deployment secret managers over tracked config
-
-### Files that must never be committed
-
-- `.env`
-- `.env.*`
-- `*.local`
-- runtime logs and generated reports
-- uploaded user files under `uploads/`
-- build artifacts such as `backend/build/`, `backend/.gradle/`, `frontend/dist/`, `frontend/coverage/`
-- local editor directories such as `.idea/` and `.vscode/`
-
-### Operational caution
-
-- This project assumes EC2, RDS PostgreSQL, S3, and Nginx. Treat changes to storage paths, proxy behavior, auth redirects, file upload logic, and host URLs as production-sensitive
-- Do not change OAuth callback URLs, JWT behavior, S3 bucket semantics, or Nginx-facing paths without checking the full backend, frontend, and deployment impact
-
-## Common AI Agent Mistakes In This Project
-
-### 1. Breaking the shared API envelope
-
-Backend responses are wrapped in `ApiResponse` and paginated responses use `PageResponse`. Do not return raw entities or ad hoc JSON shapes unless the whole stack is being updated together.
-
-### 2. Forgetting coordinated backend and frontend changes
-
-Many features cross both modules. If you rename a field, URL, enum, or validation rule on the backend, verify the matching frontend API client, types, composables, and views.
-
-### 3. Missing Vue Query invalidation after mutations
-
-The frontend relies heavily on cache invalidation. After create, update, delete, like, notification, or profile changes, verify that affected queries are refreshed.
-
-### 4. Ignoring agent-specific rules
-
-This repository has dedicated `domain/agent` behavior and agent ownership flows. Do not treat AI agent actions as normal user actions without checking authorization, board access, and ownership rules.
-
-### 5. Bypassing domain rules around boards, secret content, and moderation
-
-Posts, comments, notifications, reports, sanctions, and admin actions have business rules already encoded in services. Reuse existing service flows instead of reimplementing logic in controllers or UI code.
-
-### 6. Introducing security regressions in auth work
-
-Auth touches JWT, OAuth2 providers, email verification, password reset, and agent auth. Any auth change must be reviewed for redirect URLs, secret handling, token expiry, and filter/config consistency.
-
-### 7. Treating H2 tests as perfect PostgreSQL proof
-
-Backend tests run on H2 in PostgreSQL mode. That catches many issues, but not every PostgreSQL-specific behavior. Be cautious with native SQL, indexing assumptions, and dialect-specific queries.
-
-### 8. Adding new dependencies without approval
-
-This project explicitly prefers minimal change scope. Do not add npm or Gradle dependencies unless the user has approved them.
-
-### 9. Editing tracked config files as a shortcut for local secrets
-
-Do not solve local setup by putting credentials into tracked `application-*.yml`, docs, or frontend env examples. Use untracked local env files or shell variables instead.
-
-### 10. Skipping tests on non-trivial changes
-
-For anything beyond a trivial text change, run the narrowest relevant tests first, then the broader module-level checks if needed. If you cannot run tests, say so explicitly in your final report.
-
-## Suggested Initial Prompt Addendum
-
-For large audit/report implementation tasks, add this operational block to the first prompt so the agent applies the repo rules consistently:
-
-```text
-Before editing, classify each report item as: apply now, already applied, or needs follow-up design.
-Treat the existing dirty worktree as user-owned. Do not stage or commit `.env`, `application-*.yml`, generated output, or files that contain suspected secrets. If secrets are found, report only their file path and type.
-Implement in small steps. For each step: inspect impact, edit only the required files, run targeted tests with rerun enabled where applicable, review API/frontend impact when contracts may be affected, stage only that step's files, and commit with a focused message.
-For backend Gradle tests, do not rely on `BUILD SUCCESSFUL`; check the actual test count and failure/error summary.
-At the end, run the broadest practical verification, list commits, applied items, remaining follow-up items, test results, unrelated failures, and dirty/security risks.
-```
+- Do not break the shared API envelope.
+- If a backend change affects URL, response shape, validation, or error behavior, check for frontend impact before finalizing.
+- Auth changes require extra care around JWT, OAuth2, email verification, password reset, token expiry, redirect URLs, and filter/config consistency.
+- H2 PostgreSQL-mode tests do not prove every PostgreSQL-specific behavior. Be cautious with native SQL, indexing assumptions, and dialect-specific queries.
+- Do not add dependencies without approval.
+- Do not solve local setup by adding credentials to tracked config, docs, or examples.
+- For anything beyond a trivial text change, run the narrowest relevant tests first, then broader checks when requested.
