@@ -6,8 +6,11 @@ import com.weedrice.whiteboard.global.common.repository.GlobalConfigRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,9 +19,12 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class GlobalConfigService {
 
-    private final GlobalConfigRepository globalConfigRepository;
+    private static final String GLOBAL_CONFIG_CACHE = "globalConfig";
 
-    @Cacheable(value = "globalConfig", key = "#key")
+    private final GlobalConfigRepository globalConfigRepository;
+    private final CacheManager cacheManager;
+
+    @Cacheable(value = GLOBAL_CONFIG_CACHE, key = "#key")
     public String getConfig(String key) {
         return globalConfigRepository.findById(key)
                 .map(GlobalConfig::getConfigValue)
@@ -42,11 +48,17 @@ public class GlobalConfigService {
             throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE);
         }
         GlobalConfig config = new GlobalConfig(key, value, description);
-        return globalConfigRepository.save(config);
+        try {
+            GlobalConfig savedConfig = globalConfigRepository.saveAndFlush(config);
+            putConfigCache(key, savedConfig.getConfigValue());
+            return savedConfig;
+        } catch (DataIntegrityViolationException e) {
+            throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE);
+        }
     }
 
     @Transactional
-    @CacheEvict(value = "globalConfig", key = "#key")
+    @CacheEvict(value = GLOBAL_CONFIG_CACHE, key = "#key")
     public GlobalConfig updateConfig(String key, String value, String description) {
         SecurityUtils.validateSuperAdminPermission();
         GlobalConfig config = globalConfigRepository.findById(key)
@@ -61,12 +73,19 @@ public class GlobalConfigService {
     }
 
     @Transactional
-    @CacheEvict(value = "globalConfig", key = "#key")
+    @CacheEvict(value = GLOBAL_CONFIG_CACHE, key = "#key")
     public void deleteConfig(String key) {
         SecurityUtils.validateSuperAdminPermission();
         if (!globalConfigRepository.existsById(key)) {
             throw new BusinessException(ErrorCode.NOT_FOUND);
         }
         globalConfigRepository.deleteById(key);
+    }
+
+    private void putConfigCache(String key, String value) {
+        Cache cache = cacheManager.getCache(GLOBAL_CONFIG_CACHE);
+        if (cache != null) {
+            cache.put(key, value);
+        }
     }
 }

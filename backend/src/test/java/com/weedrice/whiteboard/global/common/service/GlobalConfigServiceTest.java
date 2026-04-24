@@ -13,6 +13,9 @@ import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
+import org.springframework.dao.DataIntegrityViolationException;
 
 import java.util.Optional;
 
@@ -20,7 +23,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class GlobalConfigServiceTest {
@@ -31,47 +36,48 @@ class GlobalConfigServiceTest {
     @Mock
     private GlobalConfigRepository globalConfigRepository;
 
+    @Mock
+    private CacheManager cacheManager;
+
+    @Mock
+    private Cache cache;
+
     @Test
-    @DisplayName("설정 조회 성공")
+    @DisplayName("getConfig returns config value")
     void getConfig_success() {
-        // given
         GlobalConfig config = new GlobalConfig("key", "value", "desc");
         when(globalConfigRepository.findById("key")).thenReturn(Optional.of(config));
 
-        // when
         String value = globalConfigService.getConfig("key");
 
-        // then
         assertThat(value).isEqualTo("value");
     }
 
     @Test
-    @DisplayName("설정 생성 성공 (관리자 권한)")
+    @DisplayName("createConfig saves and refreshes cache")
     void createConfig_success() {
         try (MockedStatic<SecurityUtils> utilities = Mockito.mockStatic(SecurityUtils.class)) {
-            // given
             utilities.when(SecurityUtils::validateSuperAdminPermission).thenAnswer(invocation -> null);
             when(globalConfigRepository.existsById(anyString())).thenReturn(false);
-            when(globalConfigRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+            when(globalConfigRepository.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+            when(cacheManager.getCache("globalConfig")).thenReturn(cache);
 
-            // when
             GlobalConfig created = globalConfigService.createConfig("key", "value", "desc");
 
-            // then
             assertThat(created.getConfigKey()).isEqualTo("key");
             assertThat(created.getConfigValue()).isEqualTo("value");
+            verify(globalConfigRepository).saveAndFlush(any(GlobalConfig.class));
+            verify(cache).put("key", "value");
         }
     }
 
     @Test
-    @DisplayName("설정 생성 실패 - 중복 (관리자 권한)")
+    @DisplayName("createConfig rejects duplicate found before save")
     void createConfig_duplicate() {
         try (MockedStatic<SecurityUtils> utilities = Mockito.mockStatic(SecurityUtils.class)) {
-            // given
             utilities.when(SecurityUtils::validateSuperAdminPermission).thenAnswer(invocation -> null);
             when(globalConfigRepository.existsById("key")).thenReturn(true);
 
-            // when & then
             assertThatThrownBy(() -> globalConfigService.createConfig("key", "value", "desc"))
                     .isInstanceOf(BusinessException.class)
                     .hasFieldOrPropertyWithValue("errorCode", ErrorCode.DUPLICATE_RESOURCE);
@@ -79,19 +85,33 @@ class GlobalConfigServiceTest {
     }
 
     @Test
-    @DisplayName("설정 수정 성공 (관리자 권한)")
+    @DisplayName("createConfig maps database duplicate constraint")
+    void createConfig_duplicateFromDatabaseConstraint() {
+        try (MockedStatic<SecurityUtils> utilities = Mockito.mockStatic(SecurityUtils.class)) {
+            utilities.when(SecurityUtils::validateSuperAdminPermission).thenAnswer(invocation -> null);
+            when(globalConfigRepository.existsById("key")).thenReturn(false);
+            when(globalConfigRepository.saveAndFlush(any(GlobalConfig.class)))
+                    .thenThrow(new DataIntegrityViolationException("duplicate key"));
+
+            assertThatThrownBy(() -> globalConfigService.createConfig("key", "value", "desc"))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.DUPLICATE_RESOURCE);
+            verify(cacheManager, never()).getCache("globalConfig");
+            verify(cache, never()).put(any(), any());
+        }
+    }
+
+    @Test
+    @DisplayName("updateConfig updates value")
     void updateConfig_success() {
         try (MockedStatic<SecurityUtils> utilities = Mockito.mockStatic(SecurityUtils.class)) {
-            // given
             GlobalConfig config = new GlobalConfig("key", "old", "old");
             utilities.when(SecurityUtils::validateSuperAdminPermission).thenAnswer(invocation -> null);
             when(globalConfigRepository.findById("key")).thenReturn(Optional.of(config));
             when(globalConfigRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-            // when
             GlobalConfig updated = globalConfigService.updateConfig("key", "new", "new");
 
-            // then
             assertThat(updated.getConfigValue()).isEqualTo("new");
         }
     }
