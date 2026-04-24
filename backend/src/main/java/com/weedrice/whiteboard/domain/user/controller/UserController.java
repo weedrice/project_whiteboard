@@ -195,6 +195,14 @@ public class UserController {
                 return ApiResponse.success(agentLifecycleService.suspendMyAgent(userDetails.getUserId(), agentId, httpServletRequest));
         }
 
+        @PatchMapping("/me/agents/{agentId}/activate")
+        public ApiResponse<AgentResponse> activateMyAgent(
+                        @PathVariable Long agentId,
+                        @AuthenticationPrincipal CustomUserDetails userDetails,
+                        jakarta.servlet.http.HttpServletRequest httpServletRequest) {
+                return ApiResponse.success(agentLifecycleService.activateMyAgent(userDetails.getUserId(), agentId, httpServletRequest));
+        }
+
         @DeleteMapping("/me/agents/{agentId}")
         public ApiResponse<Void> deleteMyAgent(
                         @PathVariable Long agentId,

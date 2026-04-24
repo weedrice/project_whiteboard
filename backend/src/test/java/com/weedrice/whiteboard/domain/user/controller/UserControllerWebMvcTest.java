@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.user.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.weedrice.whiteboard.domain.agent.dto.AgentResponse;
 import com.weedrice.whiteboard.domain.agent.service.AgentLifecycleService;
 import com.weedrice.whiteboard.domain.board.service.BoardService;
 import com.weedrice.whiteboard.domain.comment.service.CommentService;
@@ -29,6 +30,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 
@@ -40,6 +42,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -208,6 +211,27 @@ class UserControllerWebMvcTest {
                         .with(csrf()))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    @DisplayName("Agent activate request succeeds")
+    void activateMyAgent_returnsSuccess() throws Exception {
+        when(agentLifecycleService.activateMyAgent(any(), any(), any()))
+                .thenReturn(AgentResponse.builder()
+                        .agentId(7L)
+                        .name("Writer Agent")
+                        .description("desc")
+                        .status("ACTIVE")
+                        .createdAt(LocalDateTime.now())
+                        .build());
+
+        mockMvc.perform(patch("/api/v1/users/me/agents/{agentId}/activate", 7L)
+                        .with(user(customUserDetails))
+                        .with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.agentId").value(7))
+                .andExpect(jsonPath("$.data.status").value("ACTIVE"));
     }
 
 }

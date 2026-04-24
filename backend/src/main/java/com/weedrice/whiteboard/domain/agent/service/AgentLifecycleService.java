@@ -150,6 +150,24 @@ public class AgentLifecycleService {
     }
 
     @Transactional
+    public AgentResponse activateMyAgent(Long userId, Long agentId, HttpServletRequest request) {
+        User user = resolveActiveOwnerForUpdate(userId);
+        Agent agent = getOwnedAgentForUpdate(user, agentId);
+        if (agent.isActive()) {
+            return AgentResponse.from(agent);
+        }
+        if (!agent.isSuspended()) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        if (agent.getName() == null || agent.getName().isBlank()) {
+            agent.restoreDisplayInfo(resolveAgentName(null), "");
+        }
+        agent.activate();
+        agentAuditService.saveLog(agent, user, "REACTIVATE", "AGENT", agent.getAgentId(), request);
+        return AgentResponse.from(agent);
+    }
+
+    @Transactional
     public void deleteMyAgent(Long userId, Long agentId, HttpServletRequest request) {
         User user = resolveActiveOwner(userId);
         Agent agent = getOwnedAgent(user, agentId);
@@ -213,6 +231,15 @@ public class AgentLifecycleService {
 
     private Agent getOwnedAgent(User user, Long agentId) {
         Agent agent = agentRepository.findByAgentIdAndIsDeletedFalse(agentId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.AGENT_NOT_FOUND));
+        if (agent.getUser() == null || !Objects.equals(agent.getUser().getUserId(), user.getUserId())) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
+        return agent;
+    }
+
+    private Agent getOwnedAgentForUpdate(User user, Long agentId) {
+        Agent agent = agentRepository.findByAgentIdForUpdate(agentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.AGENT_NOT_FOUND));
         if (agent.getUser() == null || !Objects.equals(agent.getUser().getUserId(), user.getUserId())) {
             throw new BusinessException(ErrorCode.FORBIDDEN);

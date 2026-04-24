@@ -346,6 +346,91 @@ class AgentServiceTest {
     }
 
     @Test
+    void activateMyAgent_reactivatesSuspendedOwnedAgent() {
+        agent.suspend();
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+        when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
+
+        AgentResponse response = agentLifecycleService.activateMyAgent(1L, 7L, null);
+
+        assertThat(response.getStatus()).isEqualTo(Agent.STATUS_ACTIVE);
+        assertThat(agent.isActive()).isTrue();
+        verify(agentAuditService).saveLog(agent, user, "REACTIVATE", "AGENT", 7L, null);
+    }
+
+    @Test
+    void activateMyAgent_returnsActiveAgentWithoutAuditLog() {
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+        when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
+
+        AgentResponse response = agentLifecycleService.activateMyAgent(1L, 7L, null);
+
+        assertThat(response.getStatus()).isEqualTo(Agent.STATUS_ACTIVE);
+        verify(agentAuditService, never()).saveLog(any(), any(), anyString(), anyString(), anyLong(), any());
+    }
+
+    @Test
+    void activateMyAgent_rejectsPendingClaimStatus() {
+        Agent pendingAgent = Agent.builder()
+                .user(user)
+                .agentTokenHash("pending")
+                .name("pending")
+                .description("desc")
+                .status(Agent.STATUS_PENDING_CLAIM)
+                .build();
+        ReflectionTestUtils.setField(pendingAgent, "agentId", 9L);
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+        when(agentRepository.findByAgentIdForUpdate(9L)).thenReturn(Optional.of(pendingAgent));
+
+        assertThatThrownBy(() -> agentLifecycleService.activateMyAgent(1L, 9L, null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+    }
+
+    @Test
+    void activateMyAgent_rejectsMissingAgent() {
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+        when(agentRepository.findByAgentIdForUpdate(99L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> agentLifecycleService.activateMyAgent(1L, 99L, null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.AGENT_NOT_FOUND);
+    }
+
+    @Test
+    void activateMyAgent_rejectsForeignAgent() {
+        User otherUser = User.builder().loginId("other").displayName("Other").build();
+        ReflectionTestUtils.setField(otherUser, "userId", 2L);
+        Agent foreignAgent = Agent.builder()
+                .user(otherUser)
+                .agentTokenHash("foreign")
+                .name("foreign")
+                .description("desc")
+                .status(Agent.STATUS_SUSPENDED)
+                .build();
+        ReflectionTestUtils.setField(foreignAgent, "agentId", 8L);
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+        when(agentRepository.findByAgentIdForUpdate(8L)).thenReturn(Optional.of(foreignAgent));
+
+        assertThatThrownBy(() -> agentLifecycleService.activateMyAgent(1L, 8L, null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
+    }
+
+    @Test
+    void activateMyAgent_rejectsBannedOwner() {
+        doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE))
+                .when(sanctionService).validateNotBanned(user);
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> agentLifecycleService.activateMyAgent(1L, 7L, null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_ACTIVE);
+
+        verify(agentRepository, never()).findByAgentIdForUpdate(anyLong());
+    }
+
+    @Test
     void deleteMyAgent_rejectsSuspendedOwner() {
         user.suspend();
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));

@@ -451,6 +451,27 @@ class UserControllerTest {
                 }
 
                 @Test
+                @DisplayName("Agent 재활성화 API 성공")
+                void activateMyAgent_success() {
+                        AgentResponse agentResponse = AgentResponse.builder()
+                                        .agentId(10L)
+                                        .name("Writer Agent")
+                                        .description("desc")
+                                        .status("ACTIVE")
+                                        .createdAt(LocalDateTime.now())
+                                        .build();
+
+                        given(agentLifecycleService.activateMyAgent(eq(1L), eq(10L), isNull()))
+                                        .willReturn(agentResponse);
+
+                        ApiResponse<AgentResponse> response = userController.activateMyAgent(10L, customUserDetails, null);
+
+                        assertThat(response.isSuccess()).isTrue();
+                        assertThat(response.getData().getStatus()).isEqualTo("ACTIVE");
+                        verify(agentLifecycleService).activateMyAgent(1L, 10L, null);
+                }
+
+                @Test
                 @DisplayName("??Agent ??젣 API ?깃났")
                 void deleteMyAgent_success() {
                         doNothing().when(agentLifecycleService).deleteMyAgent(1L, 10L, null);
