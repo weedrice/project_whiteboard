@@ -4,6 +4,8 @@ import com.weedrice.whiteboard.domain.agent.entity.Agent;
 import com.weedrice.whiteboard.domain.agent.service.AgentOwnershipService;
 import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
 import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository;
+import com.weedrice.whiteboard.domain.point.entity.PointHistory;
+import com.weedrice.whiteboard.domain.point.repository.PointHistoryRepository;
 import com.weedrice.whiteboard.domain.point.service.PointService;
 import com.weedrice.whiteboard.domain.user.entity.Role; // Import Role
 import com.weedrice.whiteboard.domain.board.entity.Board;
@@ -71,6 +73,7 @@ public class PostService {
     private final ViewHistoryRepository viewHistoryRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final PointService pointService;
+    private final PointHistoryRepository pointHistoryRepository;
     private final CommentRepository commentRepository;
     private final FileService fileService;
     private final BoardSubscriptionRepository boardSubscriptionRepository;
@@ -495,9 +498,24 @@ public class PostService {
         savePostVersion(post, modifier, "DELETE", post.getTitle(), post.getContents());
 
         // ?ъ씤??李④컧 (寃뚯떆湲 ??젣)
-        String postCreateRewardStr = globalConfigService.getConfig("POINT_POST_CREATE_REWARD");
-        int postCreateReward = postCreateRewardStr != null ? Integer.parseInt(postCreateRewardStr) : 50;
-        pointService.forceSubtractPoint(userId, postCreateReward, "\uAC8C\uC2DC\uAE00 \uC0AD\uC81C", postId, "POST");
+        int rewardedAmount = getPostCreateRewardAmount(modifier, postId);
+        if (rewardedAmount > 0) {
+            pointService.forceSubtractPoint(userId, rewardedAmount, "\uAC8C\uC2DC\uAE00 \uC0AD\uC81C", postId, "POST");
+        }
+    }
+
+    private int getPostCreateRewardAmount(User user, Long postId) {
+        return pointHistoryRepository.findByUserAndTypeAndRelatedTypeAndRelatedIdOrderByCreatedAtAsc(
+                        user,
+                        "EARN",
+                        "POST",
+                        postId)
+                .stream()
+                .map(PointHistory::getAmount)
+                .filter(Objects::nonNull)
+                .filter(amount -> amount > 0)
+                .mapToInt(Integer::intValue)
+                .sum();
     }
 
     @Transactional

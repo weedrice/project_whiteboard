@@ -27,6 +27,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.doThrow;
@@ -129,6 +130,41 @@ class SignupServiceTest {
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.VALIDATION_ERROR);
 
+        verify(refreshTokenLifecycleService, never()).revokeActiveRefreshTokens(deletedUser);
+        verify(userPrivilegeCleanupService, never()).removeOperationalPrivileges(deletedUser);
+        verify(userRepository, never()).save(deletedUser);
+    }
+
+    @Test
+    @DisplayName("재가입 시 기존 아이디와 다른 loginId는 거절한다")
+    void signup_reregister_rejectsChangedLoginId() {
+        SignupRequest request = SignupRequest.builder()
+                .loginId("changeduser")
+                .password("password123")
+                .email("test@example.com")
+                .displayName("Rejoined User")
+                .verificationTicket("ticket-1")
+                .build();
+        User deletedUser = User.builder()
+                .loginId("testuser")
+                .password("old-password")
+                .email("test@example.com")
+                .displayName("Deleted User")
+                .build();
+        ReflectionTestUtils.setField(deletedUser, "status", "DELETED");
+        ReflectionTestUtils.setField(deletedUser, "deletedAt", LocalDateTime.now().minusDays(1));
+
+        when(userRepository.findByEmail(request.getEmail())).thenReturn(Optional.of(deletedUser));
+
+        assertThatThrownBy(() -> signupService.signup(request))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+
+        verify(verificationCodeService, never()).consumeVerificationTicket(
+                anyString(),
+                eq(VerificationPurpose.SIGNUP),
+                anyString());
         verify(refreshTokenLifecycleService, never()).revokeActiveRefreshTokens(deletedUser);
         verify(userPrivilegeCleanupService, never()).removeOperationalPrivileges(deletedUser);
         verify(userRepository, never()).save(deletedUser);

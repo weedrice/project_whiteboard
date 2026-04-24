@@ -22,6 +22,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Objects;
+
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -92,6 +94,10 @@ public class SignupService {
 
     @Transactional
     public SignupResponse reregister(User existingUser, SignupRequest request) {
+        if (!Objects.equals(existingUser.getLoginId(), request.getLoginId())) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+
         verificationCodeService.consumeVerificationTicket(
                 request.getEmail(),
                 VerificationPurpose.SIGNUP,

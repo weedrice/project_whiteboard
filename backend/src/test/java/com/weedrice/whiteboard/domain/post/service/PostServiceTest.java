@@ -17,6 +17,8 @@ import com.weedrice.whiteboard.domain.file.entity.File;
 import com.weedrice.whiteboard.domain.file.service.FileService;
 import com.weedrice.whiteboard.domain.feed.event.PostPublishedEvent;
 import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
+import com.weedrice.whiteboard.domain.point.entity.PointHistory;
+import com.weedrice.whiteboard.domain.point.repository.PointHistoryRepository;
 import com.weedrice.whiteboard.domain.point.service.PointService;
 import com.weedrice.whiteboard.domain.post.dto.*;
 import com.weedrice.whiteboard.domain.post.entity.*;
@@ -75,6 +77,8 @@ class PostServiceTest {
     @Mock
     private PointService pointService;
     @Mock
+    private PointHistoryRepository pointHistoryRepository;
+    @Mock
     private BoardCategoryRepository boardCategoryRepository;
     @Mock
     private ScrapRepository scrapRepository;
@@ -132,6 +136,7 @@ class PostServiceTest {
                 viewHistoryRepository,
                 eventPublisher,
                 pointService,
+                pointHistoryRepository,
                 commentRepository,
                 fileService,
                 boardSubscriptionRepository,
@@ -563,12 +568,36 @@ class PostServiceTest {
     void deletePost_success() {
         when(postRepository.findById(1L)).thenReturn(Optional.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(pointHistoryRepository.findByUserAndTypeAndRelatedTypeAndRelatedIdOrderByCreatedAtAsc(
+                user, "EARN", "POST", 1L))
+                .thenReturn(List.of(
+                        PointHistory.builder().user(user).type("EARN").amount(30).balanceAfter(530)
+                                .relatedType("POST").relatedId(1L).build(),
+                        PointHistory.builder().user(user).type("EARN").amount(20).balanceAfter(550)
+                                .relatedType("POST").relatedId(1L).build()));
 
         postService.deletePost(1L, 1L);
 
         assertThat(post.getIsDeleted()).isTrue();
         verify(tagAssignmentService).clearTags(post);
         verify(pointService).forceSubtractPoint(eq(1L), eq(50), anyString(), eq(1L), eq("POST"));
+        verify(globalConfigService, never()).getConfig("POINT_POST_CREATE_REWARD");
+    }
+
+    @Test
+    @DisplayName("게시글 삭제 시 적립 이력이 없으면 포인트를 차감하지 않는다")
+    void deletePost_withoutRewardHistory_skipsPointRollback() {
+        when(postRepository.findById(1L)).thenReturn(Optional.of(post));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(pointHistoryRepository.findByUserAndTypeAndRelatedTypeAndRelatedIdOrderByCreatedAtAsc(
+                user, "EARN", "POST", 1L))
+                .thenReturn(List.of());
+
+        postService.deletePost(1L, 1L);
+
+        assertThat(post.getIsDeleted()).isTrue();
+        verify(tagAssignmentService).clearTags(post);
+        verify(pointService, never()).forceSubtractPoint(anyLong(), anyInt(), anyString(), anyLong(), anyString());
     }
 
     @Test
