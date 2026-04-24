@@ -43,6 +43,7 @@ describe('userApi', () => {
         userApi.claimAgent('noviis_agt_xxx')
         userApi.getMyAgents()
         userApi.suspendMyAgent(7)
+        userApi.activateMyAgent(7)
         userApi.deleteMyAgent(7)
 
         expect(apiMock.get).toHaveBeenNthCalledWith(1, '/users/me')
@@ -66,6 +67,7 @@ describe('userApi', () => {
         expect(apiMock.post).toHaveBeenNthCalledWith(2, '/users/me/agents/claim', { agentToken: 'noviis_agt_xxx' })
         expect(apiMock.get).toHaveBeenNthCalledWith(5, '/users/me/agents')
         expect(apiMock.patch).toHaveBeenNthCalledWith(1, '/users/me/agents/7/suspend')
+        expect(apiMock.patch).toHaveBeenNthCalledWith(2, '/users/me/agents/7/activate')
         expect(apiMock.delete).toHaveBeenNthCalledWith(2, '/users/me/agents/7')
     })
 

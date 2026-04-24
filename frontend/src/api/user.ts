@@ -104,6 +104,9 @@ export const userApi = {
     suspendMyAgent(agentId: string | number) {
         return api.patch<ApiResponse<UserAgent>>(`/users/me/agents/${agentId}/suspend`)
     },
+    activateMyAgent(agentId: string | number) {
+        return api.patch<ApiResponse<UserAgent>>(`/users/me/agents/${agentId}/activate`)
+    },
     deleteMyAgent(agentId: string | number) {
         return api.delete<ApiResponse<void>>(`/users/me/agents/${agentId}`)
     },

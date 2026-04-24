@@ -54,19 +54,45 @@
       </div>
 
       <p
-        v-if="!isEmailVerified && !activeAgent"
+        v-if="!isEmailVerified && !activeAgent && !suspendedAgent"
         class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300"
       >
         {{ $t('user.profile.agentEmailVerificationRequired') }}
       </p>
 
-      <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
+      <div
+        v-if="!activeAgent && suspendedAgent"
+        class="flex flex-col gap-3 rounded-md border border-gray-200 bg-gray-50 px-3 py-3 dark:border-gray-700 dark:bg-gray-900/40 sm:flex-row sm:items-center sm:justify-between"
+      >
+        <div class="min-w-0">
+          <p class="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
+            {{ suspendedAgent.name }}
+          </p>
+          <span
+            class="mt-1 inline-flex rounded-full px-2 py-0.5 text-xs font-medium"
+            :class="getAgentStatusClass(suspendedAgent.status)"
+          >
+            {{ getAgentStatusLabel(suspendedAgent.status) }}
+          </span>
+        </div>
+        <BaseButton
+          type="button"
+          variant="secondary"
+          class="w-full sm:w-auto h-10 min-h-[40px]"
+          :loading="processingAgentId === suspendedAgent.agentId && processingAction === 'activate'"
+          @click="handleActivateAgent(suspendedAgent.agentId)"
+        >
+          활성화
+        </BaseButton>
+      </div>
+
+      <div v-if="activeAgent || !suspendedAgent" class="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div class="flex-1">
           <BaseInput
             v-model="agentToken"
             :placeholder="$t('user.profile.agentPlaceholder')"
             :error="agentError"
-            :disabled="isClaiming || !isEmailVerified || !!activeAgent"
+            :disabled="isClaiming || isAgentListPending || !isEmailVerified || !!activeAgent"
             hide-label
             input-class="h-11 min-h-[44px]"
           />
@@ -76,7 +102,7 @@
           type="button"
           class="w-full sm:w-auto h-11 min-h-[44px]"
           :loading="isClaiming"
-          :disabled="!isEmailVerified || !agentToken.trim()"
+          :disabled="isAgentListPending || !isEmailVerified || !agentToken.trim()"
           @click="handleClaimAgent"
         >
           {{ $t('user.profile.agentRegister') }}
@@ -182,12 +208,13 @@ const toastStore = useToastStore()
 const router = useRouter()
 const { t } = useI18n()
 const { confirm } = useConfirm()
-const { useDeleteAccount, useMyAgents, useClaimAgent, useSuspendMyAgent, useUpdateMyProfile } = useUser()
+const { useDeleteAccount, useMyAgents, useClaimAgent, useSuspendMyAgent, useActivateMyAgent, useUpdateMyProfile } = useUser()
 const { mutateAsync: updateProfileMutateAsync } = useUpdateMyProfile()
 const { mutateAsync: deleteAccount, isPending: isDeleting } = useDeleteAccount()
-const { data: agentsData } = useMyAgents()
+const { data: agentsData, isLoading: isAgentsLoading, isFetching: isAgentsFetching } = useMyAgents()
 const { mutateAsync: claimAgent, isPending: isClaiming } = useClaimAgent()
 const { mutateAsync: suspendMyAgent } = useSuspendMyAgent()
+const { mutateAsync: activateMyAgent } = useActivateMyAgent()
 
 const loading = ref(false)
 const errors = reactive<Record<string, string>>({})
@@ -198,10 +225,12 @@ const profileImageError = ref(false)
 const agentToken = ref('')
 const agentError = ref('')
 const processingAgentId = ref<number | null>(null)
-const processingAction = ref<'suspend' | null>(null)
+const processingAction = ref<'suspend' | 'activate' | null>(null)
 
 const agents = computed(() => agentsData.value?.agents ?? [])
 const activeAgent = computed(() => agents.value.find((agent) => agent.status === 'ACTIVE') ?? null)
+const suspendedAgent = computed(() => agents.value.find((agent) => agent.status === 'SUSPENDED') ?? null)
+const isAgentListPending = computed(() => isAgentsLoading.value || isAgentsFetching.value)
 const isEmailVerified = computed(() => {
   const value: unknown = authStore.user?.isEmailVerified
   return value === true || value === 'Y' || value === 'true' || value === 1
@@ -420,6 +449,32 @@ const handleSuspendAgent = async (agentId: number) => {
     emit('refreshed')
   } catch (error: unknown) {
     toastStore.addToast(extractErrorMessage(error as AxiosError) || '에이전트 비활성화에 실패했습니다.', 'error')
+  } finally {
+    processingAgentId.value = null
+    processingAction.value = null
+  }
+}
+
+const handleActivateAgent = async (agentId: number) => {
+  const isConfirmed = await confirm(
+    '에이전트 코드를 활성화하시겠습니까?',
+    '에이전트 코드 활성화',
+    '활성화',
+    t('common.cancel')
+  )
+
+  if (!isConfirmed) {
+    return
+  }
+
+  processingAgentId.value = agentId
+  processingAction.value = 'activate'
+  try {
+    await activateMyAgent(agentId)
+    toastStore.addToast('에이전트를 활성화했습니다.', 'success')
+    emit('refreshed')
+  } catch (error: unknown) {
+    toastStore.addToast(extractErrorMessage(error as AxiosError) || '에이전트 활성화에 실패했습니다.', 'error')
   } finally {
     processingAgentId.value = null
     processingAction.value = null

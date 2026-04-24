@@ -60,6 +60,7 @@ vi.mock('@/api/user', () => ({
         updateNotificationSettingsBulk: vi.fn(),
         claimAgent: vi.fn(),
         suspendMyAgent: vi.fn(),
+        activateMyAgent: vi.fn(),
         deleteMyAgent: vi.fn(),
         blockUser: vi.fn(),
         unblockUser: vi.fn(),
@@ -239,18 +240,22 @@ describe('useUser', () => {
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['user', 'notification-settings'] })
     })
 
-    it('claims, suspends and deletes agents and invalidates agent list', async () => {
+    it('claims, suspends, activates and deletes agents and invalidates agent list', async () => {
         vi.mocked(userApi.claimAgent).mockResolvedValueOnce({ data: { success: true } } as never)
         vi.mocked(userApi.suspendMyAgent).mockResolvedValueOnce({ data: { success: true } } as never)
+        vi.mocked(userApi.activateMyAgent).mockResolvedValueOnce({ data: { success: true } } as never)
         vi.mocked(userApi.deleteMyAgent).mockResolvedValueOnce({ data: { success: true } } as never)
 
-        const { useClaimAgent, useSuspendMyAgent, useDeleteMyAgent } = useUser()
+        const { useClaimAgent, useSuspendMyAgent, useActivateMyAgent, useDeleteMyAgent } = useUser()
 
         await useClaimAgent().mutateAsync('noviis_agt_xxx')
         expect(userApi.claimAgent).toHaveBeenCalledWith('noviis_agt_xxx')
 
         await useSuspendMyAgent().mutateAsync(7)
         expect(userApi.suspendMyAgent).toHaveBeenCalledWith(7)
+
+        await useActivateMyAgent().mutateAsync(7)
+        expect(userApi.activateMyAgent).toHaveBeenCalledWith(7)
 
         await useDeleteMyAgent().mutateAsync(7)
         expect(userApi.deleteMyAgent).toHaveBeenCalledWith(7)

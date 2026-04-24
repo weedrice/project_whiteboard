@@ -165,6 +165,18 @@ export function useUser() {
         })
     }
 
+    const useActivateMyAgent = () => {
+        return useMutation({
+            mutationFn: async (agentId: string | number) => {
+                const { data } = await userApi.activateMyAgent(agentId)
+                return data
+            },
+            onSuccess: () => {
+                queryClient.invalidateQueries({ queryKey: ['user', 'agents'] })
+            }
+        })
+    }
+
     const useDeleteMyAgent = () => {
         return useMutation({
             mutationFn: async (agentId: string | number) => {
@@ -226,6 +238,7 @@ export function useUser() {
         useUpdateNotificationSettings,
         useClaimAgent,
         useSuspendMyAgent,
+        useActivateMyAgent,
         useDeleteMyAgent,
         useBlockUser,
         useUnblockUser
