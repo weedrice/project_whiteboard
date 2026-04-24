@@ -177,6 +177,9 @@ SEO and build scripts also read optional non-`VITE_` environment variables:
 - Do not introduce new libraries or frameworks without explicit approval
 - Do not rename or move files unless the task requires it
 - Preserve existing API contracts unless the task explicitly includes coordinated backend and frontend changes
+- In a dirty worktree, treat pre-existing changes as user-owned. Stage and commit only the files required for the current task.
+- When a tracked config file or env file appears to contain secrets, do not repeat the values. Report only the file path and secret type, and leave the file unstaged unless the user explicitly asks for a safe cleanup.
+- For refactors that move responsibility to a new service or module, remove private dead code and unused constants from the old location in the same focused change. Keep public helpers only when current callers or tests still rely on them.
 
 ### Backend conventions
 
@@ -225,6 +228,8 @@ Backend test notes:
 - Tests use JUnit 5, Mockito, Spring Boot Test, Spring Security Test, and H2 in PostgreSQL mode
 - Coverage reports are generated under `backend/build/reports/jacoco/html`
 - `test` is configured with `ignoreFailures = true`, so do not assume a green build purely because Gradle continues. Read the actual test summary and coverage output
+- For targeted verification after code changes, prefer rerunning tests with `--rerun-tasks` so Gradle does not report stale `UP-TO-DATE` results as a real check
+- Some test XML can be hard to parse because display names may contain broken encoding. If XML parsing fails, read the Gradle console summary such as `N tests completed, X failed`, or extract only the `<testsuite ... tests/failures/errors/skipped>` attributes with a text/regex approach.
 
 ### Frontend tests
 
@@ -339,3 +344,15 @@ Do not solve local setup by putting credentials into tracked `application-*.yml`
 ### 10. Skipping tests on non-trivial changes
 
 For anything beyond a trivial text change, run the narrowest relevant tests first, then the broader module-level checks if needed. If you cannot run tests, say so explicitly in your final report.
+
+## Suggested Initial Prompt Addendum
+
+For large audit/report implementation tasks, add this operational block to the first prompt so the agent applies the repo rules consistently:
+
+```text
+Before editing, classify each report item as: apply now, already applied, or needs follow-up design.
+Treat the existing dirty worktree as user-owned. Do not stage or commit `.env`, `application-*.yml`, generated output, or files that contain suspected secrets. If secrets are found, report only their file path and type.
+Implement in small steps. For each step: inspect impact, edit only the required files, run targeted tests with rerun enabled where applicable, review API/frontend impact when contracts may be affected, stage only that step's files, and commit with a focused message.
+For backend Gradle tests, do not rely on `BUILD SUCCESSFUL`; check the actual test count and failure/error summary.
+At the end, run the broadest practical verification, list commits, applied items, remaining follow-up items, test results, unrelated failures, and dirty/security risks.
+```

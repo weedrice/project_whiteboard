@@ -44,6 +44,13 @@ backend/
 - Java 21
 - PostgreSQL
 
+On Windows, if multiple JDKs are installed, set Java 21 explicitly before running Gradle:
+
+```powershell
+$env:JAVA_HOME='C:\Program Files\Eclipse Adoptium\jdk-21.0.8.9-hotspot'
+$env:Path="$env:JAVA_HOME\bin;$env:Path"
+```
+
 ### Run
 
 From `backend/`:
@@ -176,6 +183,9 @@ Test notes:
 - Tests use JUnit 5, Mockito, Spring Boot Test, Spring Security Test, and H2
 - H2 runs in PostgreSQL mode, which helps but does not fully replace PostgreSQL behavior
 - `test` currently uses `ignoreFailures = true`; always inspect the actual test summary
+- Use `--rerun-tasks` for targeted verification after edits when you need proof that tests actually executed instead of being reported as `UP-TO-DATE`
+- Do not rely on `BUILD SUCCESSFUL`; confirm the Gradle summary and/or test result attributes for `failures` and `errors`
+- Some generated test XML can fail strict XML parsing when display names are garbled. If that happens, extract only the first `<testsuite ...>` line with text/regex and read `tests`, `failures`, `errors`, and `skipped`
 - Coverage output is written to `build/reports/jacoco/html`
 
 ## Commit Guidance
@@ -196,6 +206,7 @@ Examples for this module:
 
 - Never add new secrets to `application-dev.yml`, `application-prod.yml`, or test fixtures
 - Never log raw JWTs, OAuth secrets, agent tokens, passwords, or AWS credentials
+- If a tracked config diff appears to contain real OAuth, mail, JWT, AWS, database, or agent secrets, do not quote the values in chat, commits, docs, tests, or comments. Report only the file path and the suspected secret categories.
 - If you touch auth, OAuth, JWT, refresh tokens, or password reset flows, review both security behavior and frontend compatibility
 - If you touch file uploads or S3 behavior, review both metadata persistence and storage-side effects
 - If you change CORS, callback URLs, or hostnames, treat that as deployment-sensitive work
@@ -233,3 +244,7 @@ Backend changes often require matching updates in `frontend/src/api`, `frontend/
 ### 8. Editing tracked config to make local development easier
 
 Use environment variables or untracked local setup. Do not normalize insecure local shortcuts into committed code.
+
+### 9. Leaving duplicate private logic after service extraction
+
+When extracting a read or command service, keep existing public methods only if callers still use them, but remove private helpers and constants that become dead code. Otherwise the old and new implementations can drift.

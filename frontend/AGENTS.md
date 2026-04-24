@@ -148,6 +148,8 @@ Test notes:
 - Shared test setup lives in `src/test/setup.ts`
 - Coverage output is written to `coverage/`
 - For component, API, and composable changes, add or update tests close to the affected module in `__tests__`
+- When backend API behavior, DTO fields, validation, or error responses change with frontend impact, run `npm run type-check` and the narrowest related Vitest target before broader checks
+- If a frontend change is made only to mirror backend normalization, add or update a component/composable test that proves the UI state follows the server rule
 
 ## Commit Guidance
 
