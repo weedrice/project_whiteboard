@@ -43,6 +43,15 @@ import java.util.stream.Collectors;
 public class AgentQueryService {
 
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
+    private static final int FEED_PAGE_SIZE_LIMIT = 10;
+    private static final int DEFAULT_READ_PAGE_SIZE_LIMIT = 20;
+    private static final Sort DEFAULT_POST_SORT = Sort.by(Sort.Direction.DESC, "createdAt");
+    private static final Sort DEFAULT_COMMENT_SORT = Sort.by(Sort.Direction.ASC, "createdAt");
+    private static final Set<String> ALLOWED_POST_SORT_PROPERTIES = Set.of(
+            "createdAt",
+            "postId",
+            "likeCount",
+            "viewCount");
 
     private final BoardRepository boardRepository;
     private final BoardAiInfoRepository boardAiInfoRepository;
@@ -77,10 +86,11 @@ public class AgentQueryService {
 
     public Page<AgentPostListItem> getFeed(Long agentId, Long boardId, Pageable pageable) {
         Agent agent = agentOwnershipService.resolveActiveAgent(agentId);
-        Pageable effectivePageable = PageRequest.of(
-                pageable.getPageNumber(),
-                Math.min(Math.max(pageable.getPageSize(), 1), 10),
-                Sort.by(Sort.Direction.DESC, "createdAt"));
+        Pageable effectivePageable = boundedPageable(
+                pageable,
+                FEED_PAGE_SIZE_LIMIT,
+                DEFAULT_POST_SORT,
+                Set.of());
         List<Board> accessibleBoards = agentBoardAccessService.getAccessibleFeedBoards(agent, boardId);
         if (accessibleBoards.isEmpty()) {
             return Page.empty(effectivePageable);
@@ -140,12 +150,13 @@ public class AgentQueryService {
 
     public Page<AgentPostListItem> getMyPosts(Long agentId, Pageable pageable) {
         agentOwnershipService.resolveActiveAgent(agentId);
-        Pageable effectivePageable = PageRequest.of(
-                pageable.getPageNumber(),
-                Math.min(Math.max(pageable.getPageSize(), 1), 20),
-                pageable.getSort().isSorted() ? pageable.getSort() : Sort.by(Sort.Direction.DESC, "createdAt"));
+        Pageable effectivePageable = boundedPageable(
+                pageable,
+                DEFAULT_READ_PAGE_SIZE_LIMIT,
+                DEFAULT_POST_SORT,
+                ALLOWED_POST_SORT_PROPERTIES);
 
-        Page<Post> postPage = postRepository.findByAgent_AgentIdAndIsDeletedOrderByCreatedAtDesc(agentId, false,
+        Page<Post> postPage = postRepository.findByAgent_AgentIdAndIsDeleted(agentId, false,
                 effectivePageable);
         return agentPostListItemAssembler.fromPosts(postPage, agentId);
     }
@@ -164,7 +175,11 @@ public class AgentQueryService {
                 null,
                 agent.getUser().getUserId(),
                 includeSecret,
-                pageable);
+                boundedPageable(
+                        pageable,
+                        DEFAULT_READ_PAGE_SIZE_LIMIT,
+                        DEFAULT_POST_SORT,
+                        ALLOWED_POST_SORT_PROPERTIES));
         return agentPostListItemAssembler.fromPosts(postPage, agentId);
     }
 
@@ -174,9 +189,14 @@ public class AgentQueryService {
         agentBoardAccessService.validateAgentBoardWritable(agent, post.getBoard());
 
         List<Long> blockedUserIds = userBlockService.getBlockedUserIds(agent.getUser().getUserId());
-        Page<Comment> parentComments = commentRepository.findParentsWithChildrenOrNotDeleted(postId, pageable);
+        Pageable effectivePageable = boundedPageable(
+                pageable,
+                DEFAULT_READ_PAGE_SIZE_LIMIT,
+                DEFAULT_COMMENT_SORT,
+                Set.of());
+        Page<Comment> parentComments = commentRepository.findParentsWithChildrenOrNotDeleted(postId, effectivePageable);
         if (parentComments.isEmpty()) {
-            return Page.empty(pageable);
+            return Page.empty(effectivePageable);
         }
 
         Map<Long, Long> replyCounts = loadReplyCounts(parentComments.getContent());
@@ -184,7 +204,28 @@ public class AgentQueryService {
         List<AgentCommentItem> content = parentComments.getContent().stream()
                 .map(comment -> toAgentCommentItem(comment, blockedUserIdSet, replyCounts))
                 .toList();
-        return new PageImpl<>(content, pageable, parentComments.getTotalElements());
+        return new PageImpl<>(content, effectivePageable, parentComments.getTotalElements());
+    }
+
+    private Pageable boundedPageable(Pageable pageable, int maxPageSize, Sort defaultSort, Set<String> allowedSortProperties) {
+        int pageNumber = pageable != null && pageable.isPaged() ? Math.max(pageable.getPageNumber(), 0) : 0;
+        int requestedSize = pageable != null && pageable.isPaged() ? pageable.getPageSize() : maxPageSize;
+        int pageSize = Math.min(Math.max(requestedSize, 1), maxPageSize);
+        Sort sort = resolveSort(pageable, defaultSort, allowedSortProperties);
+        return PageRequest.of(pageNumber, pageSize, sort);
+    }
+
+    private Sort resolveSort(Pageable pageable, Sort defaultSort, Set<String> allowedSortProperties) {
+        if (pageable == null || !pageable.isPaged() || pageable.getSort().isUnsorted() || allowedSortProperties.isEmpty()) {
+            return defaultSort;
+        }
+        List<Sort.Order> allowedOrders = pageable.getSort().stream()
+                .filter(order -> allowedSortProperties.contains(order.getProperty()))
+                .toList();
+        if (allowedOrders.isEmpty()) {
+            return defaultSort;
+        }
+        return Sort.by(allowedOrders);
     }
 
     private String resolveGuidePrompt(Board board, String savedGuidePrompt) {

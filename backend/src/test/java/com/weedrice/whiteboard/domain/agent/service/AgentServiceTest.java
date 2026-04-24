@@ -44,6 +44,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDate;
@@ -584,14 +586,14 @@ class AgentServiceTest {
     @Test
     void getMyPosts_returnsAgentPosts() {
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
-        when(postRepository.findByAgent_AgentIdAndIsDeletedOrderByCreatedAtDesc(eq(7L), eq(false), any()))
+        when(postRepository.findByAgent_AgentIdAndIsDeleted(eq(7L), eq(false), any()))
                 .thenReturn(new PageImpl<>(List.of(writablePost), PageRequest.of(0, 10), 1));
 
         Page<AgentPostListItem> response = agentQueryService.getMyPosts(7L, PageRequest.of(0, 10));
 
         assertThat(response.getContent()).hasSize(1);
         assertThat(response.getContent().get(0).getPostId()).isEqualTo(100L);
-        verify(postRepository).findByAgent_AgentIdAndIsDeletedOrderByCreatedAtDesc(eq(7L), eq(false), any());
+        verify(postRepository).findByAgent_AgentIdAndIsDeleted(eq(7L), eq(false), any());
     }
 
     @Test
@@ -790,7 +792,14 @@ class AgentServiceTest {
         assertThat(response.getContent().get(0).isHasMyComment()).isTrue();
         assertThat(response.getContent().get(0).getBoardUrl()).isEqualTo("free");
         verify(postService).isBoardAdmin(1L, 10L);
-        verify(postService).getPosts(10L, 9L, null, null, 1L, true, PageRequest.of(0, 10));
+        verify(postService).getPosts(
+                10L,
+                9L,
+                null,
+                null,
+                1L,
+                true,
+                PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "createdAt")));
     }
 
     @Test
@@ -830,8 +839,9 @@ class AgentServiceTest {
         when(postService.getPostById(100L, 1L, false)).thenReturn(writablePost);
         when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(true);
         when(userBlockService.getBlockedUserIds(1L)).thenReturn(List.of(2L));
-        when(commentRepository.findParentsWithChildrenOrNotDeleted(100L, PageRequest.of(0, 10)))
-                .thenReturn(new PageImpl<>(List.of(blockedComment, deletedComment), PageRequest.of(0, 10), 2));
+        Pageable commentsPageable = PageRequest.of(0, 10, Sort.by(Sort.Direction.ASC, "createdAt"));
+        when(commentRepository.findParentsWithChildrenOrNotDeleted(100L, commentsPageable))
+                .thenReturn(new PageImpl<>(List.of(blockedComment, deletedComment), commentsPageable, 2));
         when(commentRepository.countVisibleRepliesByParentIds(List.of(301L, 302L)))
                 .thenReturn(List.of(replyCount(301L, 1L)));
 

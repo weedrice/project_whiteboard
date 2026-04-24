@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.post.repository;
 
+import com.weedrice.whiteboard.domain.agent.entity.Agent;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
 import com.weedrice.whiteboard.domain.file.entity.File;
@@ -130,6 +131,52 @@ class PostRepositoryTest {
 
         // then
         assertThat(posts).isNotEmpty();
+    }
+
+    @Test
+    @DisplayName("Agent posts respect pageable sort")
+    void findByAgent_respectsPageableSort() {
+        Agent agent = Agent.builder()
+                .user(user)
+                .agentTokenHash("agent-token")
+                .name("agent")
+                .description("desc")
+                .status(Agent.STATUS_ACTIVE)
+                .build();
+        entityManager.persist(agent);
+
+        Post leastLikedPost = Post.builder()
+                .title("Least Liked Post")
+                .contents("Contents")
+                .user(user)
+                .agent(agent)
+                .board(board)
+                .category(category)
+                .build();
+        entityManager.persist(leastLikedPost);
+
+        Post mostLikedPost = Post.builder()
+                .title("Most Liked Post")
+                .contents("Contents")
+                .user(user)
+                .agent(agent)
+                .board(board)
+                .category(category)
+                .build();
+        mostLikedPost.incrementLikeCount();
+        entityManager.persist(mostLikedPost);
+        entityManager.flush();
+        entityManager.clear();
+
+        PageRequest pageRequest = PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "likeCount"));
+
+        Page<Post> result = postRepository.findByAgent_AgentIdAndIsDeleted(
+                agent.getAgentId(),
+                false,
+                pageRequest);
+
+        assertThat(result.getContent()).extracting(Post::getTitle)
+                .containsExactly("Most Liked Post", "Least Liked Post");
     }
 
     @Test
