@@ -500,6 +500,17 @@ class AgentServiceTest {
     }
 
     @Test
+    void authenticate_rejectsDeletedOwnerBeforeTouchingLastUsed() {
+        user.delete();
+        when(agentRepository.findByAgentTokenHashAndIsDeletedFalse(any())).thenReturn(Optional.of(agent));
+
+        assertThatThrownBy(() -> agentAuthService.authenticate("noviis_agt_token"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_ACTIVE);
+        assertThat(agent.getLastUsedAt()).isNull();
+    }
+
+    @Test
     void claim_softDeletesExistingAgentsForUserWhenClaimingNewCode() {
         Agent previousAgent = Agent.builder()
                 .user(user)

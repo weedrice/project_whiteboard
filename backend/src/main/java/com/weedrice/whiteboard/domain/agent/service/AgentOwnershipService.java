@@ -69,6 +69,9 @@ public class AgentOwnershipService {
     }
 
     private void validateActiveOwner(User user) {
+        if (!user.isActiveAccount()) {
+            throw new BusinessException(ErrorCode.USER_NOT_ACTIVE);
+        }
         sanctionService.validateNotBanned(user);
     }
 }
