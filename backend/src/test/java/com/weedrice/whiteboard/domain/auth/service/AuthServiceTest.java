@@ -155,7 +155,13 @@ class AuthServiceTest {
         when(passwordResetTokenRepository.findByUserOrderByCreatedAtDesc(any(User.class))).thenAnswer(invocation ->
                 passwordResetTokens.values().stream()
                         .filter(passwordResetToken -> passwordResetToken.getUser().equals(invocation.getArgument(0)))
-                        .sorted((left, right) -> right.getCreatedAt().compareTo(left.getCreatedAt()))
+                        .sorted((left, right) -> {
+                            int createdAtComparison = right.getCreatedAt().compareTo(left.getCreatedAt());
+                            if (createdAtComparison != 0) {
+                                return createdAtComparison;
+                            }
+                            return Long.compare(right.getTokenId(), left.getTokenId());
+                        })
                         .toList());
         when(passwordResetTokenRepository.findByToken(anyString())).thenAnswer(invocation ->
                 passwordResetTokens.values().stream()

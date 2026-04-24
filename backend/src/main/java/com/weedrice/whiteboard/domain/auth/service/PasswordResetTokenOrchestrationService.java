@@ -35,7 +35,6 @@ public class PasswordResetTokenOrchestrationService {
 
         try {
             emailService.sendEmail(recipientEmail, subject, body);
-            promotePendingToken(tokenId, user);
         } catch (RuntimeException e) {
             try {
                 updateDeliveryStatus(tokenId, false);
@@ -43,6 +42,12 @@ public class PasswordResetTokenOrchestrationService {
                 e.addSuppressed(statusUpdateException);
             }
             throw e;
+        }
+
+        try {
+            promotePendingToken(tokenId, user);
+        } catch (RuntimeException e) {
+            markCurrentTokenSentAfterPromotionFailure(tokenId, user, e);
         }
     }
 
@@ -96,6 +101,17 @@ public class PasswordResetTokenOrchestrationService {
         log.warn("Retrying password reset token promotion for tokenId={} userId={}",
                 tokenId, user.getUserId(), originalException);
         markTokenSentAfterInvalidatingPrevious(user, tokenId);
+    }
+
+    private void markCurrentTokenSentAfterPromotionFailure(Long tokenId, User user, RuntimeException promotionException) {
+        log.error("Password reset token promotion failed after email delivery: tokenId={} userId={}",
+                tokenId, user.getUserId(), promotionException);
+        try {
+            updateDeliveryStatus(tokenId, true);
+        } catch (RuntimeException statusUpdateException) {
+            promotionException.addSuppressed(statusUpdateException);
+            throw promotionException;
+        }
     }
 
     private void markTokenSentAfterInvalidatingPrevious(User user, Long tokenId) {

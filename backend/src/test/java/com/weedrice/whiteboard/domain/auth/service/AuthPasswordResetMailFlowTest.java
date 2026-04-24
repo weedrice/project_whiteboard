@@ -30,6 +30,7 @@ import java.util.function.Consumer;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentCaptor.forClass;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.inOrder;
@@ -106,7 +107,13 @@ class AuthPasswordResetMailFlowTest {
         when(passwordResetTokenRepository.findByUserOrderByCreatedAtDesc(user)).thenAnswer(invocation ->
                 passwordResetTokens.values().stream()
                         .filter(passwordResetToken -> passwordResetToken.getUser().equals(user))
-                        .sorted((left, right) -> right.getCreatedAt().compareTo(left.getCreatedAt()))
+                        .sorted((left, right) -> {
+                            int createdAtComparison = right.getCreatedAt().compareTo(left.getCreatedAt());
+                            if (createdAtComparison != 0) {
+                                return createdAtComparison;
+                            }
+                            return Long.compare(right.getTokenId(), left.getTokenId());
+                        })
                         .toList());
         when(passwordResetTokenRepository.findByToken(anyString())).thenAnswer(invocation ->
                 passwordResetTokens.values().stream()
@@ -195,6 +202,55 @@ class AuthPasswordResetMailFlowTest {
 
         assertThat(passwordResetTokens.values())
                 .filteredOn(token -> PasswordResetToken.DELIVERY_STATUS_SENT.equals(token.getDeliveryStatus()))
+                .hasSize(1);
+    }
+
+    @Test
+    @DisplayName("sendPasswordResetLinkByEmail preserves delivered token when promotion retry also fails")
+    void sendPasswordResetLinkByEmail_promoteRetryFailure_marksDeliveredTokenSent() {
+        when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(user));
+
+        PasswordResetToken previousToken = PasswordResetToken.builder()
+                .token("previous")
+                .user(user)
+                .expiryDate(LocalDateTime.now().plusMinutes(10))
+                .build();
+        ReflectionTestUtils.setField(previousToken, "tokenId", 100L);
+        ReflectionTestUtils.setField(previousToken, "createdAt", LocalDateTime.now().minusMinutes(5));
+        previousToken.markSent();
+        passwordResetTokens.put(100L, previousToken);
+
+        AtomicLong executionCount = new AtomicLong();
+        doAnswer(invocation -> {
+            long current = executionCount.incrementAndGet();
+            Consumer<Object> consumer = invocation.getArgument(0);
+            if (current == 2L || current == 3L) {
+                throw new IllegalStateException("promotion failed");
+            }
+            consumer.accept(null);
+            return null;
+        }).when(transactionTemplate).executeWithoutResult(any());
+
+        passwordResetService.sendPasswordResetLinkByEmail("test@example.com", "ticket-4");
+
+        assertThat(previousToken.getIsUsed()).isFalse();
+        assertThat(passwordResetTokens.values())
+                .filteredOn(token -> PasswordResetToken.DELIVERY_STATUS_SENT.equals(token.getDeliveryStatus()))
+                .filteredOn(token -> !token.getIsUsed())
+                .hasSize(2);
+
+        var bodyCaptor = forClass(String.class);
+        verify(emailService).sendEmail(anyString(), anyString(), bodyCaptor.capture());
+        String deliveredRawToken = extractResetToken(bodyCaptor.getValue());
+        when(passwordHistoryRepository.findTop3ByUserOrderByCreatedAtDesc(user)).thenReturn(java.util.List.of());
+        when(passwordEncoder.matches("newPassword123!", "encodedPassword")).thenReturn(false);
+        when(passwordEncoder.encode("newPassword123!")).thenReturn("encodedNewPassword");
+
+        passwordResetService.resetPasswordWithToken(deliveredRawToken, "newPassword123!");
+
+        assertThat(previousToken.getIsUsed()).isFalse();
+        assertThat(passwordResetTokens.values())
+                .filteredOn(PasswordResetToken::getIsUsed)
                 .hasSize(1);
     }
 
@@ -304,5 +360,12 @@ class AuthPasswordResetMailFlowTest {
         inOrder.verify(passwordResetTokenRepository).save(latestSentToken);
         inOrder.verify(passwordHistoryRepository).save(any());
         inOrder.verify(refreshTokenLifecycleService).revokeActiveRefreshTokens(user);
+    }
+
+    private String extractResetToken(String emailBody) {
+        String marker = "token=";
+        int tokenStart = emailBody.indexOf(marker) + marker.length();
+        int tokenEnd = emailBody.indexOf("\"", tokenStart);
+        return emailBody.substring(tokenStart, tokenEnd);
     }
 }

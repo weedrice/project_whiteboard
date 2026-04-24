@@ -23,5 +23,11 @@ public interface PasswordResetTokenRepository extends JpaRepository<PasswordRese
             """)
     Optional<PasswordResetToken> findByTokenForUpdate(@Param("token") String token);
 
-    List<PasswordResetToken> findByUserOrderByCreatedAtDesc(User user);
+    @Query("""
+            SELECT token
+            FROM PasswordResetToken token
+            WHERE token.user = :user
+            ORDER BY token.createdAt DESC, token.tokenId DESC
+            """)
+    List<PasswordResetToken> findByUserOrderByCreatedAtDesc(@Param("user") User user);
 }
