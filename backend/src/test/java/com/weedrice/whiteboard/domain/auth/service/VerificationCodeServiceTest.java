@@ -126,6 +126,7 @@ class VerificationCodeServiceTest {
 
         assertThat(oldCode.getVerificationTicket()).isNull();
         assertThat(oldCode.getIsTicketConsumed()).isTrue();
+        verify(verificationCodeRepository).saveAll(any());
     }
 
     @Test

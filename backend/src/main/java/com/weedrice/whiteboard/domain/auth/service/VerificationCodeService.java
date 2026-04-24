@@ -43,11 +43,15 @@ public class VerificationCodeService {
 
         try {
             emailService.sendEmail(email, subject, body);
-            promotePendingVerificationCode(verificationId, email, purpose, code, expiryDate);
-            invalidateOutstandingTickets(email, purpose, null);
         } catch (RuntimeException e) {
             updateDeliveryStatus(verificationId, false);
             throw e;
+        }
+
+        try {
+            promotePendingVerificationCode(verificationId, email, purpose, code, expiryDate);
+        } catch (RuntimeException e) {
+            markCurrentVerificationCodeSentAfterPromotionFailure(verificationId, email, purpose, e);
         }
     }
 
@@ -174,6 +178,17 @@ public class VerificationCodeService {
                 }));
     }
 
+    private void markSentAfterInvalidatingOutstandingTickets(Long verificationId, String email, VerificationPurpose purpose) {
+        transactionTemplate.executeWithoutResult(status -> {
+            invalidateOutstandingTickets(email, purpose, verificationId);
+            verificationCodeRepository.findById(verificationId)
+                    .ifPresent(verificationCode -> {
+                        verificationCode.markSent();
+                        verificationCodeRepository.save(verificationCode);
+                    });
+        });
+    }
+
     private void promotePendingVerificationCode(
             Long verificationId,
             String email,
@@ -181,18 +196,19 @@ public class VerificationCodeService {
             String code,
             LocalDateTime expiryDate) {
         try {
-            updateDeliveryStatus(verificationId, true);
+            markSentAfterInvalidatingOutstandingTickets(verificationId, email, purpose);
         } catch (RuntimeException e) {
-            saveReplacementSentVerificationCode(email, purpose, code, expiryDate);
+            saveReplacementSentVerificationCodeAfterInvalidatingOutstandingTickets(email, purpose, code, expiryDate);
         }
     }
 
-    private void saveReplacementSentVerificationCode(
+    private void saveReplacementSentVerificationCodeAfterInvalidatingOutstandingTickets(
             String email,
             VerificationPurpose purpose,
             String code,
             LocalDateTime expiryDate) {
         transactionTemplate.executeWithoutResult(status -> {
+            invalidateOutstandingTickets(email, purpose, null);
             VerificationCode replacement = VerificationCode.builder()
                     .email(email)
                     .purpose(purpose)
@@ -204,11 +220,28 @@ public class VerificationCodeService {
         });
     }
 
+    private void markCurrentVerificationCodeSentAfterPromotionFailure(
+            Long verificationId,
+            String email,
+            VerificationPurpose purpose,
+            RuntimeException promotionException) {
+        try {
+            markSentAfterInvalidatingOutstandingTickets(verificationId, email, purpose);
+        } catch (RuntimeException statusUpdateException) {
+            promotionException.addSuppressed(statusUpdateException);
+            throw promotionException;
+        }
+    }
+
     private void invalidateOutstandingTickets(String email, VerificationPurpose purpose, Long excludeVerificationId) {
-        verificationCodeRepository.findAllByEmailAndPurpose(email, purpose).stream()
+        var invalidatedCodes = verificationCodeRepository.findAllByEmailAndPurpose(email, purpose).stream()
                 .filter(code -> excludeVerificationId == null || !code.getVerificationId().equals(excludeVerificationId))
                 .filter(VerificationCode::hasActiveVerificationTicket)
-                .forEach(VerificationCode::invalidateVerificationTicket);
+                .toList();
+        invalidatedCodes.forEach(VerificationCode::invalidateVerificationTicket);
+        if (!invalidatedCodes.isEmpty()) {
+            verificationCodeRepository.saveAll(invalidatedCodes);
+        }
     }
 
     private VerificationCode getLatestSentVerificationCodeForUpdate(String email, VerificationPurpose purpose) {
