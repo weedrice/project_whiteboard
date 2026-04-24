@@ -16,10 +16,10 @@ import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
 import com.weedrice.whiteboard.domain.point.entity.PointHistory;
 import com.weedrice.whiteboard.domain.point.repository.PointHistoryRepository;
 import com.weedrice.whiteboard.domain.point.service.PointService;
-import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.service.PostAccessPolicy;
+import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
@@ -96,21 +96,30 @@ class CommentServiceTest {
     void setUp() {
         boardAccessPolicy = new BoardAccessPolicy(adminRepository);
         postAccessPolicy = new PostAccessPolicy(boardAccessPolicy);
-        commentService = new CommentService(
+        CommentPostAccessService commentPostAccessService = new CommentPostAccessService(userBlockService, postAccessPolicy);
+        CommentQueryService commentQueryService = new CommentQueryService(
+                commentRepository,
+                postRepository,
+                userRepository,
+                commentPostAccessService);
+        CommentRewardService commentRewardService = new CommentRewardService(
+                pointService,
+                pointHistoryRepository,
+                globalConfigService);
+        CommentNotificationService commentNotificationService = new CommentNotificationService(eventPublisher);
+        CommentCommandService commentCommandService = new CommentCommandService(
                 commentRepository,
                 postRepository,
                 userRepository,
                 commentLikeRepository,
                 commentVersionRepository,
                 commentClosureRepository,
-                eventPublisher,
-                pointService,
-                pointHistoryRepository,
-                userBlockService,
-                globalConfigService,
                 agentOwnershipService,
                 sanctionService,
-                postAccessPolicy);
+                commentPostAccessService,
+                commentRewardService,
+                commentNotificationService);
+        commentService = new CommentService(commentQueryService, commentCommandService);
     }
 
     @Test
@@ -342,6 +351,7 @@ class CommentServiceTest {
         CommentResponse response = result.getContent().get(0);
         assertThat(response.getContent()).isNotEqualTo("Bad Content");
         assertThat(response.getAuthor().getDisplayName()).isNotEqualTo("Blocked");
+        verify(userBlockService).getBlockedUserIds(1L);
     }
 
     @Test
@@ -390,6 +400,7 @@ class CommentServiceTest {
         assertThat(result.getContent()).hasSize(1);
         assertThat(result.getContent().get(0).getContent()).isEqualTo("차단된 사용자의 댓글입니다.");
         assertThat(result.getContent().get(0).getAuthor().getDisplayName()).isEqualTo("차단된 사용자");
+        verify(userBlockService).getBlockedUserIds(1L);
     }
 
     @Test
