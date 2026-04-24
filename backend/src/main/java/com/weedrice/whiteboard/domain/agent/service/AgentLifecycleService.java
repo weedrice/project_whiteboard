@@ -14,12 +14,14 @@ import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.LocalDateTime;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Objects;
@@ -62,6 +64,9 @@ public class AgentLifecycleService {
     private final AgentAuditService agentAuditService;
     private final SanctionService sanctionService;
 
+    @Value("${app.agent.pending-claim-ttl-hours:24}")
+    private long pendingClaimTtlHours = 24L;
+
     @Transactional
     public AgentRegisterResponse register(AgentRegisterRequest request, HttpServletRequest httpServletRequest) {
         String rawToken = generateRawToken();
@@ -75,7 +80,7 @@ public class AgentLifecycleService {
         return new AgentRegisterResponse(rawToken);
     }
 
-    @Transactional
+    @Transactional(noRollbackFor = ExpiredPendingClaimNotFoundException.class)
     public AgentResponse claim(Long userId, AgentClaimRequest request, HttpServletRequest httpServletRequest) {
         User user = resolveActiveOwnerForUpdate(userId);
         if (!Boolean.TRUE.equals(user.getIsEmailVerified())) {
@@ -83,6 +88,11 @@ public class AgentLifecycleService {
         }
         Agent agent = agentRepository.findByAgentTokenHashAndIsDeletedFalseForUpdate(hashToken(request.getAgentToken()))
                 .orElseThrow(() -> new BusinessException(ErrorCode.AGENT_NOT_FOUND));
+
+        if (agent.isPendingClaim() && isPendingClaimExpired(agent)) {
+            agent.softDelete();
+            throw new ExpiredPendingClaimNotFoundException();
+        }
 
         if (!agent.isPendingClaim()) {
             if (agent.getUser() != null && !Objects.equals(agent.getUser().getUserId(), userId)) {
@@ -105,6 +115,21 @@ public class AgentLifecycleService {
         agent.claim(user);
         agentAuditService.saveLog(agent, user, "CLAIM", "AGENT", agent.getAgentId(), httpServletRequest);
         return AgentResponse.from(agent);
+    }
+
+    private static class ExpiredPendingClaimNotFoundException extends BusinessException {
+        private ExpiredPendingClaimNotFoundException() {
+            super(ErrorCode.AGENT_NOT_FOUND);
+        }
+    }
+
+    @Transactional
+    public int softDeleteExpiredPendingClaims() {
+        List<Agent> expiredAgents = agentRepository.findExpiredPendingClaimsForUpdate(
+                Agent.STATUS_PENDING_CLAIM,
+                resolvePendingClaimExpiresBefore());
+        expiredAgents.forEach(Agent::softDelete);
+        return expiredAgents.size();
     }
 
     public AgentListResponse getMyAgents(Long userId) {
@@ -151,6 +176,18 @@ public class AgentLifecycleService {
                     existingAgent.softDelete();
                     agentAuditService.saveLog(existingAgent, user, "DELETE", "AGENT", existingAgent.getAgentId(), request);
                 });
+    }
+
+    private boolean isPendingClaimExpired(Agent agent) {
+        LocalDateTime createdAt = agent.getCreatedAt();
+        return createdAt != null
+                && agent.getUser() == null
+                && agent.getClaimedAt() == null
+                && createdAt.isBefore(resolvePendingClaimExpiresBefore());
+    }
+
+    private LocalDateTime resolvePendingClaimExpiresBefore() {
+        return LocalDateTime.now().minusHours(Math.max(1L, pendingClaimTtlHours));
     }
 
     private User resolveActiveOwnerForUpdate(Long userId) {
@@ -220,4 +257,5 @@ public class AgentLifecycleService {
             throw new IllegalStateException("SHA-256 not supported", e);
         }
     }
+
 }

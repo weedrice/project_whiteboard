@@ -1,13 +1,13 @@
 package com.weedrice.whiteboard.domain.agent.service;
 
+import com.weedrice.whiteboard.domain.agent.dto.AgentBoardListResponse;
+import com.weedrice.whiteboard.domain.agent.dto.AgentClaimRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentCommentCreateRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentCommentItem;
-import com.weedrice.whiteboard.domain.agent.dto.AgentRegisterRequest;
-import com.weedrice.whiteboard.domain.agent.dto.AgentClaimRequest;
-import com.weedrice.whiteboard.domain.agent.dto.AgentBoardListResponse;
-import com.weedrice.whiteboard.domain.agent.dto.AgentPostListItem;
-import com.weedrice.whiteboard.domain.agent.dto.AgentResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostCreateRequest;
+import com.weedrice.whiteboard.domain.agent.dto.AgentPostListItem;
+import com.weedrice.whiteboard.domain.agent.dto.AgentRegisterRequest;
+import com.weedrice.whiteboard.domain.agent.dto.AgentResponse;
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
 import com.weedrice.whiteboard.domain.agent.entity.AgentDailyQuota;
 import com.weedrice.whiteboard.domain.agent.repository.AgentActivityLogRepository;
@@ -15,8 +15,8 @@ import com.weedrice.whiteboard.domain.agent.repository.AgentDailyQuotaRepository
 import com.weedrice.whiteboard.domain.agent.repository.AgentRepository;
 import com.weedrice.whiteboard.domain.admin.entity.Admin;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
-import com.weedrice.whiteboard.domain.board.entity.BoardAiInfo;
 import com.weedrice.whiteboard.domain.board.entity.Board;
+import com.weedrice.whiteboard.domain.board.entity.BoardAiInfo;
 import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
 import com.weedrice.whiteboard.domain.board.repository.BoardAiInfoRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardCategoryRepository;
@@ -46,6 +46,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -417,6 +418,50 @@ class AgentServiceTest {
         assertThat(previousAgent.getIsDeleted()).isTrue();
         assertThat(pendingAgent.getUser()).isEqualTo(user);
         verify(agentActivityLogRepository, times(2)).save(any());
+    }
+
+    @Test
+    void claim_expiredPendingClaim_softDeletesAndReturnsNotFound() {
+        Agent pendingAgent = Agent.builder()
+                .agentTokenHash("new-hash")
+                .name("pending-agent")
+                .description("desc")
+                .status(Agent.STATUS_PENDING_CLAIM)
+                .build();
+        ReflectionTestUtils.setField(pendingAgent, "agentId", 9L);
+        ReflectionTestUtils.setField(pendingAgent, "createdAt", LocalDateTime.now().minusHours(25));
+
+        AgentClaimRequest request = new AgentClaimRequest();
+        ReflectionTestUtils.setField(request, "agentToken", "noviis_agt_new");
+
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+        when(agentRepository.findByAgentTokenHashAndIsDeletedFalseForUpdate(any())).thenReturn(Optional.of(pendingAgent));
+
+        assertThatThrownBy(() -> agentLifecycleService.claim(1L, request, null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.AGENT_NOT_FOUND);
+
+        assertThat(pendingAgent.getIsDeleted()).isTrue();
+        verify(agentActivityLogRepository, never()).save(any());
+    }
+
+    @Test
+    void cleanupExpiredPendingClaims_softDeletesOnlyExpiredPendingClaims() {
+        Agent expiredPendingAgent = Agent.builder()
+                .agentTokenHash("expired-pending")
+                .name("expired-pending")
+                .description("desc")
+                .status(Agent.STATUS_PENDING_CLAIM)
+                .build();
+
+        when(agentRepository.findExpiredPendingClaimsForUpdate(eq(Agent.STATUS_PENDING_CLAIM), any(LocalDateTime.class)))
+                .thenReturn(List.of(expiredPendingAgent));
+
+        int deletedCount = agentLifecycleService.softDeleteExpiredPendingClaims();
+
+        assertThat(deletedCount).isEqualTo(1);
+        assertThat(expiredPendingAgent.getIsDeleted()).isTrue();
+        verify(agentRepository).findExpiredPendingClaimsForUpdate(eq(Agent.STATUS_PENDING_CLAIM), any(LocalDateTime.class));
     }
 
     @Test

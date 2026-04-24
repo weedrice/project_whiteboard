@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -35,4 +36,18 @@ public interface AgentRepository extends JpaRepository<Agent, Long> {
     List<Agent> findByUserAndIsDeletedFalseOrderByCreatedAtDesc(User user);
 
     boolean existsByAgentIdAndUserAndIsDeletedFalse(Long agentId, User user);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            SELECT a
+            FROM Agent a
+            WHERE a.status = :status
+              AND a.isDeleted = false
+              AND a.user IS NULL
+              AND a.claimedAt IS NULL
+              AND a.createdAt < :expiresBefore
+            """)
+    List<Agent> findExpiredPendingClaimsForUpdate(
+            @Param("status") String status,
+            @Param("expiresBefore") LocalDateTime expiresBefore);
 }
