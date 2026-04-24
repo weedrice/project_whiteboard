@@ -4,18 +4,18 @@ import com.weedrice.whiteboard.domain.admin.entity.Admin;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.global.config.QuerydslConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
+import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.PageRequest;
 
+import java.util.List;
 import java.util.Optional;
-
-import com.weedrice.whiteboard.global.config.QuerydslConfig;
-import org.springframework.context.annotation.Import;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -156,7 +156,7 @@ class BoardRepositoryTest {
 
     @Test
     @DisplayName("Readable active boards filter public creator admin super admin and inquiry")
-    void findReadableActiveBoardsOrderBySortOrderAsc_filtersReadableBoards() {
+    void findReadableActiveBoardsOrderBySortOrderAscBoardIdAsc_filtersReadableBoards() {
         User reader = persistUser("reader");
         Board creatorPrivateBoard = persistBoard("Creator Private", "creator-private", 10, true, false, reader);
         Board adminPrivateBoard = persistBoard("Admin Private", "admin-private", 20, true, false);
@@ -171,8 +171,8 @@ class BoardRepositoryTest {
         entityManager.flush();
         entityManager.clear();
 
-        var readableBoards = boardRepository.findReadableActiveBoardsOrderBySortOrderAsc(reader, false);
-        var superAdminBoards = boardRepository.findReadableActiveBoardsOrderBySortOrderAsc(reader, true);
+        var readableBoards = boardRepository.findReadableActiveBoardsOrderBySortOrderAscBoardIdAsc(reader, false);
+        var superAdminBoards = boardRepository.findReadableActiveBoardsOrderBySortOrderAscBoardIdAsc(reader, true);
 
         assertThat(readableBoards).extracting(Board::getBoardName)
                 .contains("Test Board", "Creator Private", "Admin Private")
@@ -188,18 +188,42 @@ class BoardRepositoryTest {
 
     @Test
     @DisplayName("Readable active boards for anonymous user include public only")
-    void findReadableActiveBoardsOrderBySortOrderAsc_anonymousIncludesPublicOnly() {
+    void findReadableActiveBoardsOrderBySortOrderAscBoardIdAsc_anonymousIncludesPublicOnly() {
         persistBoard("Private Board", "private-board", 10, true, false);
         persistBoard("Inquiry Board", "inquiry", 20, true, true);
         persistBoard("Inactive Public", "inactive-public", 30, false, true);
         entityManager.flush();
         entityManager.clear();
 
-        var boards = boardRepository.findReadableActiveBoardsOrderBySortOrderAsc(null, false);
+        var boards = boardRepository.findReadableActiveBoardsOrderBySortOrderAscBoardIdAsc(null, false);
 
         assertThat(boards).extracting(Board::getBoardName)
                 .contains("Test Board")
                 .doesNotContain("Private Board", "Inquiry Board", "Inactive Public");
+    }
+
+    @Test
+    @DisplayName("Board list queries use boardId as stable tie breaker")
+    void boardListQueries_orderByBoardIdWhenSortOrderTies() {
+        Board sameSortFirst = persistBoard("Same Sort First", "same-sort-first", 0, true, true);
+        Board sameSortSecond = persistBoard("Same Sort Second", "same-sort-second", 0, true, true);
+        entityManager.flush();
+        entityManager.clear();
+
+        List<Long> expectedOrder = List.of(
+                board.getBoardId(),
+                sameSortFirst.getBoardId(),
+                sameSortSecond.getBoardId());
+
+        var publicBoards = boardRepository.findByIsActiveAndIsPublicOrderBySortOrderAscBoardIdAsc(true, true);
+        var readableBoards = boardRepository.findReadableActiveBoardsOrderBySortOrderAscBoardIdAsc(null, false);
+        var activeBoards = boardRepository.findByIsActiveOrderBySortOrderAscBoardIdAsc(true);
+        var allBoards = boardRepository.findAllByOrderBySortOrderAscBoardIdAsc();
+
+        assertThat(publicBoards).extracting(Board::getBoardId).containsExactlyElementsOf(expectedOrder);
+        assertThat(readableBoards).extracting(Board::getBoardId).containsExactlyElementsOf(expectedOrder);
+        assertThat(activeBoards).extracting(Board::getBoardId).containsExactlyElementsOf(expectedOrder);
+        assertThat(allBoards).extracting(Board::getBoardId).containsExactlyElementsOf(expectedOrder);
     }
 
     @Test

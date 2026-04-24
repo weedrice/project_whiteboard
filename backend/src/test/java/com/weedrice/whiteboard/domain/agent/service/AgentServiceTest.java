@@ -225,7 +225,7 @@ class AgentServiceTest {
     @DisplayName("feed는 agent가 글을 쓸 수 없는 게시판의 글을 제외한다")
     void getFeed_filtersBoardsWithoutWritePermission() {
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
-        when(boardRepository.findByIsActiveAndIsPublicOrderBySortOrderAsc(true, true))
+        when(boardRepository.findByIsActiveAndIsPublicOrderBySortOrderAscBoardIdAsc(true, true))
                 .thenReturn(List.of(writableBoard, blockedBoard));
         when(postRepository.findAgentFeedByBoardIds(
                 eq(List.of(10L)),
@@ -623,7 +623,7 @@ class AgentServiceTest {
         ReflectionTestUtils.setField(boardAiInfo, "boardId", 10L);
 
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
-        when(boardRepository.findByIsActiveAndIsPublicOrderBySortOrderAsc(true, true))
+        when(boardRepository.findByIsActiveAndIsPublicOrderBySortOrderAscBoardIdAsc(true, true))
                 .thenReturn(List.of(writableBoard, blockedBoard));
         when(boardCategoryRepository.findByBoard_BoardIdInAndIsActiveOrderByBoard_BoardIdAscSortOrderAsc(
                 List.of(10L, 20L), true)).thenReturn(List.of(
@@ -654,7 +654,7 @@ class AgentServiceTest {
         ReflectionTestUtils.setField(managedBoard, "agentUseYn", true);
 
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
-        when(boardRepository.findByIsActiveAndIsPublicOrderBySortOrderAsc(true, true))
+        when(boardRepository.findByIsActiveAndIsPublicOrderBySortOrderAscBoardIdAsc(true, true))
                 .thenReturn(List.of(managedBoard));
         when(boardCategoryRepository.findByBoard_BoardIdInAndIsActiveOrderByBoard_BoardIdAscSortOrderAsc(
                 List.of(30L), true)).thenReturn(List.of(defaultCategory(managedBoard, Role.BOARD_ADMIN)));
@@ -682,7 +682,7 @@ class AgentServiceTest {
         ReflectionTestUtils.setField(superAdminOnlyBoard, "agentUseYn", true);
 
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
-        when(boardRepository.findByIsActiveAndIsPublicOrderBySortOrderAsc(true, true))
+        when(boardRepository.findByIsActiveAndIsPublicOrderBySortOrderAscBoardIdAsc(true, true))
                 .thenReturn(List.of(superAdminOnlyBoard));
         when(boardCategoryRepository.findByBoard_BoardIdInAndIsActiveOrderByBoard_BoardIdAscSortOrderAsc(
                 List.of(40L), true)).thenReturn(List.of(defaultCategory(superAdminOnlyBoard, Role.SUPER_ADMIN)));
@@ -704,7 +704,7 @@ class AgentServiceTest {
         ReflectionTestUtils.setField(secondWritablePost, "isDeleted", false);
 
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
-        when(boardRepository.findByIsActiveAndIsPublicOrderBySortOrderAsc(true, true))
+        when(boardRepository.findByIsActiveAndIsPublicOrderBySortOrderAscBoardIdAsc(true, true))
                 .thenReturn(List.of(writableBoard));
         when(postRepository.findAgentFeedByBoardIds(
                 eq(List.of(10L)),
@@ -762,7 +762,7 @@ class AgentServiceTest {
     @DisplayName("feed 조회는 가시성 조건이 반영된 전용 쿼리를 사용한다")
     void getFeed_usesVisibilityAwareFeedQuery() {
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
-        when(boardRepository.findByIsActiveAndIsPublicOrderBySortOrderAsc(true, true))
+        when(boardRepository.findByIsActiveAndIsPublicOrderBySortOrderAscBoardIdAsc(true, true))
                 .thenReturn(List.of(writableBoard));
         when(postRepository.findAgentFeedByBoardIds(
                 eq(List.of(10L)),

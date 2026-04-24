@@ -71,7 +71,8 @@ public class AgentBoardAccessService {
                     .orElse(Collections.emptyList());
         }
 
-        List<Board> candidateBoards = boardRepository.findByIsActiveAndIsPublicOrderBySortOrderAsc(true, true);
+        List<Board> candidateBoards = boardRepository
+                .findByIsActiveAndIsPublicOrderBySortOrderAscBoardIdAsc(true, true);
         if (candidateBoards.isEmpty()) {
             return Collections.emptyList();
         }

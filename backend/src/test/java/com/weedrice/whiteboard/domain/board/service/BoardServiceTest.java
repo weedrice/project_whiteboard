@@ -193,7 +193,7 @@ class BoardServiceTest {
     @DisplayName("활성화된 게시판 목록 조회 성공")
     void getActiveBoards_success() {
         // given
-        when(boardRepository.findReadableActiveBoardsOrderBySortOrderAsc(null, false))
+        when(boardRepository.findReadableActiveBoardsOrderBySortOrderAscBoardIdAsc(null, false))
                 .thenReturn(Collections.singletonList(board));
 
         // when

@@ -54,7 +54,7 @@ class BoardQueryService {
 
     List<BoardListResponse> getActiveBoards(UserDetails userDetails) {
         User currentUser = getCurrentUserOrNull(userDetails);
-        List<Board> boards = boardRepository.findReadableActiveBoardsOrderBySortOrderAsc(
+        List<Board> boards = boardRepository.findReadableActiveBoardsOrderBySortOrderAscBoardIdAsc(
                 currentUser,
                 currentUser != null && Boolean.TRUE.equals(currentUser.getIsSuperAdmin()));
         return boardResponseAssembler.assembleListAll(boards, currentUser);
@@ -78,7 +78,7 @@ class BoardQueryService {
 
     List<AdminBoardResponse> getAllBoards(UserDetails userDetails) {
         User currentUser = getCurrentUserOrNull(userDetails);
-        List<Board> boards = boardRepository.findAllByOrderBySortOrderAsc();
+        List<Board> boards = boardRepository.findAllByOrderBySortOrderAscBoardIdAsc();
         return boardResponseAssembler.assembleAdminAll(boards);
     }
 

@@ -18,7 +18,7 @@ public interface BoardRepository extends JpaRepository<Board, Long> {
     long countByIsActiveTrueAndIsPublicTrue();
 
     @EntityGraph(attributePaths = "creator")
-    List<Board> findByIsActiveOrderBySortOrderAsc(Boolean isActive);
+    List<Board> findByIsActiveOrderBySortOrderAscBoardIdAsc(Boolean isActive);
 
     @EntityGraph(attributePaths = "creator")
     @Query("""
@@ -38,14 +38,14 @@ public interface BoardRepository extends JpaRepository<Board, Long> {
                           AND a.isActive = true
                     )
               )
-            ORDER BY b.sortOrder ASC
+            ORDER BY b.sortOrder ASC, b.boardId ASC
             """)
-    List<Board> findReadableActiveBoardsOrderBySortOrderAsc(
+    List<Board> findReadableActiveBoardsOrderBySortOrderAscBoardIdAsc(
             @Param("user") User user,
             @Param("isSuperAdmin") boolean isSuperAdmin);
 
     @EntityGraph(attributePaths = "creator")
-    List<Board> findByIsActiveAndIsPublicOrderBySortOrderAsc(Boolean isActive, Boolean isPublic);
+    List<Board> findByIsActiveAndIsPublicOrderBySortOrderAscBoardIdAsc(Boolean isActive, Boolean isPublic);
 
     List<Board> findByBoardNameContainingIgnoreCaseAndIsActiveTrue(String keyword);
 
@@ -118,7 +118,7 @@ public interface BoardRepository extends JpaRepository<Board, Long> {
     List<Board> findByBoardIdIn(List<Long> boardIds);
 
     @EntityGraph(attributePaths = "creator")
-    List<Board> findAllByOrderBySortOrderAsc();
+    List<Board> findAllByOrderBySortOrderAscBoardIdAsc();
 
     @Query("SELECT COALESCE(MAX(b.sortOrder), 0) FROM Board b")
     Integer findMaxSortOrder();
