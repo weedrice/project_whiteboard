@@ -73,7 +73,10 @@ public class UserSecurityService {
             });
         }
 
-        verificationCodeService.consumeVerificationTicket(email, VerificationPurpose.CHANGE_EMAIL, verificationTicket);
+        verificationCodeService.validateVerificationTicket(
+                email,
+                VerificationPurpose.CHANGE_EMAIL,
+                verificationTicket);
 
         if (!user.getEmail().equals(email)) {
             user.updateEmail(email);
@@ -91,6 +94,10 @@ public class UserSecurityService {
             }
             throw ex;
         }
+        verificationCodeService.consumeValidatedVerificationTicket(
+                email,
+                VerificationPurpose.CHANGE_EMAIL,
+                verificationTicket);
     }
 
     private User getWritableUser(Long userId) {

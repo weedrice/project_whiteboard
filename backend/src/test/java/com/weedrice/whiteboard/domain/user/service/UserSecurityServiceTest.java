@@ -28,6 +28,9 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -82,6 +85,31 @@ class UserSecurityServiceTest {
     }
 
     @Test
+    @DisplayName("verifyAndChangeEmail consumes ticket after email save succeeds")
+    void verifyAndChangeEmail_consumesTicketAfterSaveSuccess() {
+        User user = User.builder().email("current@example.com").build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.findByEmail("next@example.com")).thenReturn(Optional.empty());
+        when(userRepository.saveAndFlush(user)).thenReturn(user);
+
+        userSecurityService.verifyAndChangeEmail(1L, "next@example.com", "123456");
+
+        assertThat(user.getEmail()).isEqualTo("next@example.com");
+        var inOrder = inOrder(verificationCodeService, userRepository);
+        inOrder.verify(verificationCodeService).validateVerificationTicket(
+                "next@example.com",
+                VerificationPurpose.CHANGE_EMAIL,
+                "123456");
+        inOrder.verify(userRepository).saveAndFlush(user);
+        inOrder.verify(verificationCodeService).consumeValidatedVerificationTicket(
+                "next@example.com",
+                VerificationPurpose.CHANGE_EMAIL,
+                "123456");
+    }
+
+    @Test
     @DisplayName("verifyAndChangeEmail maps flush conflicts to duplicate email")
     void verifyAndChangeEmail_duplicateEmailOnFlush() {
         User user = User.builder().email("current@example.com").build();
@@ -100,9 +128,13 @@ class UserSecurityServiceTest {
                 .isEqualTo(ErrorCode.DUPLICATE_EMAIL);
 
         verify(entityManager).clear();
-        verify(verificationCodeService).consumeVerificationTicket(
+        verify(verificationCodeService).validateVerificationTicket(
                 "next@example.com",
                 VerificationPurpose.CHANGE_EMAIL,
                 "123456");
+        verify(verificationCodeService, never()).consumeValidatedVerificationTicket(
+                anyString(),
+                any(),
+                anyString());
     }
 }
