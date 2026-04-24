@@ -137,7 +137,7 @@ export const adminApi = {
         return api.put<ApiResponse<void>>(`/admin/users/${userId}/status`, { status })
     },
     sanctionUser(data: SanctionData) {
-        return api.post<ApiResponse<void>>('/admin/sanctions', data)
+        return api.post<ApiResponse<number>>('/admin/sanctions', data)
     },
 
     // Report management

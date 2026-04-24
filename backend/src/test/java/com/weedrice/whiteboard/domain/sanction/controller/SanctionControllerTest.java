@@ -114,8 +114,11 @@ class SanctionControllerTest {
         org.springframework.test.util.ReflectionTestUtils.setField(request, "type", "WARNING");
         org.springframework.test.util.ReflectionTestUtils.setField(request, "remark", "Test sanction");
         org.springframework.test.util.ReflectionTestUtils.setField(request, "endDate", LocalDateTime.now().plusDays(7));
+        org.springframework.test.util.ReflectionTestUtils.setField(request, "contentId", 100L);
+        org.springframework.test.util.ReflectionTestUtils.setField(request, "contentType", "POST");
         
-        when(sanctionService.createSanction(any(), eq(2L), anyString(), anyString(), any())).thenReturn(1L);
+        when(sanctionService.createSanction(any(), eq(2L), anyString(), anyString(), any(), eq(100L), eq("POST")))
+                .thenReturn(1L);
 
         // when & then
         mockMvc.perform(post("/api/v1/admin/sanctions")

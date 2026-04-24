@@ -94,11 +94,13 @@ class SanctionServiceTest {
         ReflectionTestUtils.setField(savedSanction, "sanctionId", 1L);
         when(sanctionRepository.save(any(Sanction.class))).thenReturn(savedSanction);
 
-        Long sanctionId = sanctionService.createSanction(1L, 2L, "BAN", "Test", null);
+        Long sanctionId = sanctionService.createSanction(1L, 2L, "BAN", "Test", null, 100L, "post");
 
         assertThat(sanctionId).isEqualTo(1L);
         verify(userLifecycleService).suspendUser(targetUser);
-        verify(sanctionRepository).save(any(Sanction.class));
+        verify(sanctionRepository).save(argThat(sanction ->
+                Long.valueOf(100L).equals(sanction.getContentId())
+                        && "POST".equals(sanction.getContentType())));
     }
 
     @Test
@@ -119,7 +121,7 @@ class SanctionServiceTest {
         ReflectionTestUtils.setField(savedSanction, "sanctionId", 2L);
         when(sanctionRepository.save(any(Sanction.class))).thenReturn(savedSanction);
 
-        sanctionService.createSanction(1L, 2L, "BAN", "Temp ban", LocalDateTime.now().plusDays(1));
+        sanctionService.createSanction(1L, 2L, "BAN", "Temp ban", LocalDateTime.now().plusDays(1), null, null);
 
         assertThat(targetUser.getStatus()).isEqualTo("ACTIVE");
         verify(userLifecycleService, never()).suspendUser(targetUser);
@@ -134,7 +136,7 @@ class SanctionServiceTest {
         doThrow(new BusinessException(ErrorCode.INVALID_INPUT_VALUE))
                 .when(userLifecycleService).suspendUser(targetUser);
 
-        assertThatThrownBy(() -> sanctionService.createSanction(1L, 2L, "BAN", "Deleted user", null))
+        assertThatThrownBy(() -> sanctionService.createSanction(1L, 2L, "BAN", "Deleted user", null, null, null))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
@@ -157,7 +159,7 @@ class SanctionServiceTest {
         ReflectionTestUtils.setField(savedSanction, "sanctionId", 3L);
         when(sanctionRepository.save(any(Sanction.class))).thenReturn(savedSanction);
 
-        sanctionService.createSanction(1L, 2L, "ban", "Temp ban", LocalDateTime.now().plusDays(1));
+        sanctionService.createSanction(1L, 2L, "ban", "Temp ban", LocalDateTime.now().plusDays(1), null, null);
 
         verify(sanctionRepository).save(argThat(sanction -> "BAN".equals(sanction.getType())));
     }
@@ -167,7 +169,7 @@ class SanctionServiceTest {
     void createSanction_rejectsPastOrImmediateBanEndDate() {
         mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).then(invocation -> null);
 
-        assertThatThrownBy(() -> sanctionService.createSanction(1L, 2L, "BAN", "Expired", LocalDateTime.now()))
+        assertThatThrownBy(() -> sanctionService.createSanction(1L, 2L, "BAN", "Expired", LocalDateTime.now(), null, null))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
@@ -178,7 +180,34 @@ class SanctionServiceTest {
     void createSanction_rejectsUnsupportedType() {
         mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).then(invocation -> null);
 
-        assertThatThrownBy(() -> sanctionService.createSanction(1L, 2L, "BLOCK", "Invalid", null))
+        assertThatThrownBy(() -> sanctionService.createSanction(1L, 2L, "BLOCK", "Invalid", null, null, null))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+    }
+
+    @Test
+    @DisplayName("reject incomplete sanction content metadata")
+    void createSanction_rejectsIncompleteContentMetadata() {
+        mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).then(invocation -> null);
+
+        assertThatThrownBy(() -> sanctionService.createSanction(1L, 2L, "WARNING", "Invalid", null, 100L, null))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+
+        assertThatThrownBy(() -> sanctionService.createSanction(1L, 2L, "WARNING", "Invalid", null, null, "POST"))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+    }
+
+    @Test
+    @DisplayName("reject unsupported sanction content type")
+    void createSanction_rejectsUnsupportedContentType() {
+        mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).then(invocation -> null);
+
+        assertThatThrownBy(() -> sanctionService.createSanction(1L, 2L, "WARNING", "Invalid", null, 100L, "ARTICLE"))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
@@ -191,7 +220,7 @@ class SanctionServiceTest {
         when(moderationActorResolver.resolveActiveAdmin(1L))
                 .thenThrow(new BusinessException(ErrorCode.FORBIDDEN));
 
-        assertThatThrownBy(() -> sanctionService.createSanction(1L, 2L, "BAN", "Test", null))
+        assertThatThrownBy(() -> sanctionService.createSanction(1L, 2L, "BAN", "Test", null, null, null))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.FORBIDDEN);

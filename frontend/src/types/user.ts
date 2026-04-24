@@ -54,9 +54,12 @@ export interface PointHistory {
 
 // Sanction-related types
 export interface SanctionData {
-    userId: number
-    type: 'BAN' | 'MUTE'
-    reason: string
+    targetUserId: number
+    type: 'WARNING' | 'MUTE' | 'BAN'
+    remark?: string
+    endDate?: string
+    contentId?: number
+    contentType?: 'POST' | 'COMMENT' | 'USER'
 }
 
 export interface AdminUserRecentLogin {

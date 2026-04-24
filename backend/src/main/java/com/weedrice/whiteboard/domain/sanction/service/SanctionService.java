@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.sanction.service;
 
 import com.weedrice.whiteboard.domain.admin.entity.Admin;
 import com.weedrice.whiteboard.domain.admin.service.ModerationActorResolver;
+import com.weedrice.whiteboard.domain.report.entity.ReportTargetType;
 import com.weedrice.whiteboard.domain.sanction.dto.SanctionResponse;
 import com.weedrice.whiteboard.domain.sanction.entity.Sanction;
 import com.weedrice.whiteboard.domain.sanction.repository.SanctionRepository;
@@ -41,9 +42,11 @@ public class SanctionService {
     }
 
     @Transactional
-    public Long createSanction(Long adminUserId, Long targetUserId, String type, String remark, LocalDateTime endDate) {
+    public Long createSanction(Long adminUserId, Long targetUserId, String type, String remark, LocalDateTime endDate,
+                               Long contentId, String contentType) {
         SecurityUtils.validateSuperAdminPermission();
         String normalizedType = normalizeType(type);
+        String normalizedContentType = normalizeContentType(contentId, contentType);
         validateBanPeriod(normalizedType, endDate);
 
         Admin admin = moderationActorResolver.resolveActiveAdmin(adminUserId);
@@ -62,6 +65,8 @@ public class SanctionService {
                 .remark(remark)
                 .startDate(LocalDateTime.now())
                 .endDate(endDate)
+                .contentId(contentId)
+                .contentType(normalizedContentType)
                 .build();
         return sanctionRepository.save(sanction).getSanctionId();
     }
@@ -103,6 +108,26 @@ public class SanctionService {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
         return normalizedType;
+    }
+
+    private String normalizeContentType(Long contentId, String contentType) {
+        boolean hasContentId = contentId != null;
+        boolean hasContentType = contentType != null && !contentType.isBlank();
+        if (hasContentId != hasContentType) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        if (!hasContentId) {
+            return null;
+        }
+        if (contentId <= 0) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+
+        try {
+            return ReportTargetType.from(contentType).name();
+        } catch (IllegalArgumentException ex) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
     }
 
     private void validateBanPeriod(String type, LocalDateTime endDate) {

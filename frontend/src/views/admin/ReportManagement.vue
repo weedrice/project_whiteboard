@@ -27,7 +27,12 @@ const { mutateAsync: resolveReport } = useResolveReport()
 const reports = computed(() => reportsData.value?.content || [])
 
 const isModalOpen = ref(false)
-const selectedUser = ref<{ id: number; name: string } | null>(null)
+const selectedUser = ref<{
+  id: number
+  name: string
+  sanctionContentId?: number
+  sanctionContentType?: 'POST' | 'COMMENT' | 'USER'
+} | null>(null)
 
 const isDetailModalOpen = ref(false)
 const selectedReport = ref<Report | null>(null)
@@ -43,7 +48,12 @@ function openSanctionModal(report: Report) {
     return
   }
 
-  selectedUser.value = { id: userId, name: report.targetDisplayName ?? 'Unknown' }
+  selectedUser.value = {
+    id: userId,
+    name: report.targetDisplayName ?? 'Unknown',
+    sanctionContentId: report.targetId,
+    sanctionContentType: report.targetType
+  }
   isModalOpen.value = true
 }
 

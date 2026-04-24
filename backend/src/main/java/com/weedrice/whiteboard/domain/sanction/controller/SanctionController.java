@@ -32,7 +32,9 @@ public class SanctionController {
                 request.getTargetUserId(),
                 request.getType(),
                 request.getRemark(),
-                request.getEndDate()));
+                request.getEndDate(),
+                request.getContentId(),
+                request.getContentType()));
     }
 
     @GetMapping

@@ -261,9 +261,9 @@ describe('useAdmin', () => {
 
             vi.mocked(adminApi.sanctionUser).mockResolvedValue({ data: { success: true } } as any)
 
-            await mutation.mutateAsync({ userId: 1, type: 'BAN', reason: 'Violation' })
+            await mutation.mutateAsync({ targetUserId: 1, type: 'BAN', remark: 'Violation' })
 
-            expect(adminApi.sanctionUser).toHaveBeenCalledWith({ userId: 1, type: 'BAN', reason: 'Violation' })
+            expect(adminApi.sanctionUser).toHaveBeenCalledWith({ targetUserId: 1, type: 'BAN', remark: 'Violation' })
         })
 
         it('admin user detail queries forward user-specific params', async () => {

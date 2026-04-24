@@ -50,7 +50,16 @@ const { t } = useI18n()
 
 const props = defineProps<{
   isOpen: boolean
-  user: { userId?: number; id?: number; displayName?: string; nickname?: string; name?: string; email?: string } | null
+  user: {
+    userId?: number
+    id?: number
+    displayName?: string
+    nickname?: string
+    name?: string
+    email?: string
+    sanctionContentId?: number
+    sanctionContentType?: 'POST' | 'COMMENT' | 'USER'
+  } | null
 }>()
 
 const emit = defineEmits<{ (e: 'close'): void; (e: 'sanctioned'): void }>()
@@ -71,9 +80,12 @@ async function submitSanction() {
   try {
     const userId = props.user.userId ?? props.user.id ?? 0
     await sanctionUser({
-      userId,
+      targetUserId: userId,
       type: 'BAN',
-      reason: form.description || form.reason
+      remark: form.description || form.reason,
+      endDate: resolveEndDate(),
+      contentId: props.user.sanctionContentId,
+      contentType: props.user.sanctionContentType
     })
 
     const name = props.user.displayName || props.user.nickname || props.user.name || t('common.messages.unknown')
@@ -83,5 +95,22 @@ async function submitSanction() {
   } catch {
     // Error handled globally
   }
+}
+
+function resolveEndDate() {
+  const durationDays = Number(form.duration)
+  if (!Number.isFinite(durationDays) || durationDays <= 0) {
+    return undefined
+  }
+
+  const endDate = new Date()
+  endDate.setDate(endDate.getDate() + durationDays)
+  return formatLocalDateTime(endDate)
+}
+
+function formatLocalDateTime(date: Date) {
+  const pad = (value: number) => value.toString().padStart(2, '0')
+
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
 }
 </script>
