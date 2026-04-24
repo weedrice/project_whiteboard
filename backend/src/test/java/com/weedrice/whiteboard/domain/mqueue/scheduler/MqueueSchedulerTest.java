@@ -17,8 +17,10 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentCaptor.forClass;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
@@ -52,6 +54,34 @@ class MqueueSchedulerTest {
                 .recoverStaleProcessingMessages(any(), eq(MessageQueuePolicy.MAX_RETRY_COUNT));
         inOrder.verify(messageQueueRepository).findByStatusAndRetryCountLessThan(
                 eq("PENDING"), eq(MessageQueuePolicy.MAX_RETRY_COUNT), any(Pageable.class));
+    }
+
+    @Test
+    @DisplayName("scheduler reads pending messages in stable FIFO order")
+    void processMessageQueue_usesStableFifoPageRequest() {
+        when(messageQueueRepository.recoverStaleProcessingMessages(any(), eq(MessageQueuePolicy.MAX_RETRY_COUNT)))
+                .thenReturn(0);
+        when(messageQueueRepository.findByStatusAndRetryCountLessThan(
+                eq("PENDING"), eq(MessageQueuePolicy.MAX_RETRY_COUNT), any(Pageable.class)))
+                .thenReturn(List.of());
+
+        mqueueScheduler.processMessageQueue();
+
+        var pageableCaptor = forClass(Pageable.class);
+        verify(messageQueueRepository).findByStatusAndRetryCountLessThan(
+                eq("PENDING"), eq(MessageQueuePolicy.MAX_RETRY_COUNT), pageableCaptor.capture());
+
+        Pageable pageable = pageableCaptor.getValue();
+        assertThat(pageable.getPageNumber()).isZero();
+        assertThat(pageable.getPageSize()).isEqualTo(50);
+        assertThat(pageable.getSort().stream()
+                .map(order -> order.getProperty())
+                .toList())
+                .containsExactly("requestedAt", "queueId");
+        assertThat(pageable.getSort().getOrderFor("requestedAt")).isNotNull();
+        assertThat(pageable.getSort().getOrderFor("requestedAt").isAscending()).isTrue();
+        assertThat(pageable.getSort().getOrderFor("queueId")).isNotNull();
+        assertThat(pageable.getSort().getOrderFor("queueId").isAscending()).isTrue();
     }
 
     @Test

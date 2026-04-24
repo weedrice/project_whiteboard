@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.task.TaskRejectedException;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -30,8 +31,12 @@ public class MqueueScheduler {
         if (recovered > 0) {
             log.warn("Recovered {} stale processing message(s)", recovered);
         }
+        PageRequest pendingPageRequest = PageRequest.of(
+                0,
+                50,
+                Sort.by(Sort.Order.asc("requestedAt"), Sort.Order.asc("queueId")));
         List<MessageQueue> pendingMessages = messageQueueRepository.findByStatusAndRetryCountLessThan(
-                "PENDING", MessageQueuePolicy.MAX_RETRY_COUNT, PageRequest.of(0, 50));
+                "PENDING", MessageQueuePolicy.MAX_RETRY_COUNT, pendingPageRequest);
 
         for (MessageQueue message : pendingMessages) {
             if (!"EMAIL".equals(message.getDeliveryMethod())) {

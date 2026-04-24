@@ -9,9 +9,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -107,7 +110,47 @@ class MessageQueueRepositoryTest {
         assertThat(recovered.getProcessingStartedAt()).isNull();
     }
 
+    @Test
+    @DisplayName("pending queue lookup can be sorted by requestedAt and queueId")
+    void findByStatusAndRetryCountLessThan_sortsByRequestedAtThenQueueId() {
+        User user = persistUser();
+        MessageQueue third = persistMessageQueue(
+                user,
+                "third",
+                LocalDateTime.of(2026, 4, 22, 14, 0));
+        MessageQueue first = persistMessageQueue(
+                user,
+                "first",
+                LocalDateTime.of(2026, 4, 22, 13, 0));
+        MessageQueue second = persistMessageQueue(
+                user,
+                "second",
+                LocalDateTime.of(2026, 4, 22, 13, 0));
+
+        entityManager.flush();
+        entityManager.clear();
+
+        List<MessageQueue> messages = messageQueueRepository.findByStatusAndRetryCountLessThan(
+                "PENDING",
+                MessageQueuePolicy.MAX_RETRY_COUNT,
+                PageRequest.of(0, 10, Sort.by(Sort.Order.asc("requestedAt"), Sort.Order.asc("queueId"))));
+
+        assertThat(messages).extracting(MessageQueue::getQueueId)
+                .containsExactly(first.getQueueId(), second.getQueueId(), third.getQueueId());
+    }
+
     private MessageQueue persistMessageQueue() {
+        User user = persistUser();
+        MessageQueue message = MessageQueue.builder()
+                .targetUser(user)
+                .deliveryMethod("EMAIL")
+                .content("content")
+                .build();
+        entityManager.persistAndFlush(message);
+        return message;
+    }
+
+    private User persistUser() {
         User user = User.builder()
                 .loginId("queue-user")
                 .email("queue@test.com")
@@ -115,12 +158,16 @@ class MessageQueueRepositoryTest {
                 .displayName("Queue User")
                 .build();
         entityManager.persist(user);
+        return user;
+    }
 
+    private MessageQueue persistMessageQueue(User user, String content, LocalDateTime requestedAt) {
         MessageQueue message = MessageQueue.builder()
                 .targetUser(user)
                 .deliveryMethod("EMAIL")
-                .content("content")
+                .content(content)
                 .build();
+        ReflectionTestUtils.setField(message, "requestedAt", requestedAt);
         entityManager.persistAndFlush(message);
         return message;
     }
