@@ -4,7 +4,6 @@ import com.weedrice.whiteboard.domain.auth.entity.PasswordResetToken;
 import com.weedrice.whiteboard.domain.auth.repository.PasswordResetTokenRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
-import com.weedrice.whiteboard.global.email.EmailService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -23,7 +22,7 @@ public class PasswordResetTokenOrchestrationService {
 
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final UserRepository userRepository;
-    private final EmailService emailService;
+    private final AuthMailDeliveryOrchestrationService mailDeliveryOrchestrationService;
     private final TransactionTemplate transactionTemplate;
     private final TokenHashService tokenHashService;
 
@@ -31,24 +30,15 @@ public class PasswordResetTokenOrchestrationService {
     public void sendPasswordResetEmail(User user, String recipientEmail, String rawToken, String subject, String body) {
         String hashedToken = tokenHashService.hashSha256(rawToken);
         LocalDateTime expiryDate = LocalDateTime.now().plusHours(1);
-        Long tokenId = createPendingPasswordResetToken(user, hashedToken, expiryDate);
 
-        try {
-            emailService.sendEmail(recipientEmail, subject, body);
-        } catch (RuntimeException e) {
-            try {
-                updateDeliveryStatus(tokenId, false);
-            } catch (RuntimeException statusUpdateException) {
-                e.addSuppressed(statusUpdateException);
-            }
-            throw e;
-        }
-
-        try {
-            promotePendingToken(tokenId, user);
-        } catch (RuntimeException e) {
-            markCurrentTokenSentAfterPromotionFailure(tokenId, user, e);
-        }
+        mailDeliveryOrchestrationService.send(new AuthMailDeliveryOrchestrationService.MailDeliveryCommand(
+                recipientEmail,
+                subject,
+                body,
+                () -> createPendingPasswordResetToken(user, hashedToken, expiryDate),
+                tokenId -> updateDeliveryStatus(tokenId, false),
+                tokenId -> promotePendingToken(tokenId, user),
+                (tokenId, e) -> markCurrentTokenSentAfterPromotionFailure(tokenId, user, e)));
     }
 
     public Optional<PasswordResetToken> findLatestSentCompatibleToken(User user) {

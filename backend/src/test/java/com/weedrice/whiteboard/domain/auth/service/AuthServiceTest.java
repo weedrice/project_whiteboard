@@ -108,7 +108,7 @@ class AuthServiceTest {
                 new PasswordResetTokenOrchestrationService(
                         passwordResetTokenRepository,
                         userRepository,
-                        emailService,
+                        new AuthMailDeliveryOrchestrationService(emailService),
                         transactionTemplate,
                         tokenHashService);
         PasswordResetService passwordResetService = new PasswordResetService(

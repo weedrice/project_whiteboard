@@ -66,7 +66,7 @@ class AuthPasswordResetMailFlowTest {
                 new PasswordResetTokenOrchestrationService(
                         passwordResetTokenRepository,
                         userRepository,
-                        emailService,
+                        new AuthMailDeliveryOrchestrationService(emailService),
                         transactionTemplate,
                         tokenHashService);
         passwordResetService = new PasswordResetService(

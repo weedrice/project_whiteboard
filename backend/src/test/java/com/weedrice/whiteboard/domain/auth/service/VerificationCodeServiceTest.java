@@ -13,7 +13,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
@@ -50,7 +49,6 @@ class VerificationCodeServiceTest {
     @Mock
     private TransactionTemplate transactionTemplate;
 
-    @InjectMocks
     private VerificationCodeService verificationCodeService;
 
     private final AtomicLong idSequence = new AtomicLong(1L);
@@ -97,6 +95,11 @@ class VerificationCodeServiceTest {
                         .filter(code -> invocation.getArgument(0).equals(code.getEmail()))
                         .filter(code -> invocation.getArgument(1) == code.getPurpose())
                         .toList());
+        verificationCodeService = new VerificationCodeService(
+                verificationCodeRepository,
+                userRepository,
+                new AuthMailDeliveryOrchestrationService(emailService),
+                transactionTemplate);
     }
 
     @Test

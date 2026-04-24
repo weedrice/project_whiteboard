@@ -5,7 +5,6 @@ import com.weedrice.whiteboard.domain.auth.entity.VerificationCode;
 import com.weedrice.whiteboard.domain.auth.entity.VerificationPurpose;
 import com.weedrice.whiteboard.domain.auth.repository.VerificationCodeRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
-import com.weedrice.whiteboard.global.email.EmailService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -27,7 +26,7 @@ public class VerificationCodeService {
 
     private final VerificationCodeRepository verificationCodeRepository;
     private final UserRepository userRepository;
-    private final EmailService emailService;
+    private final AuthMailDeliveryOrchestrationService mailDeliveryOrchestrationService;
     private final TransactionTemplate transactionTemplate;
 
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
@@ -36,23 +35,21 @@ public class VerificationCodeService {
 
         String code = generateRandomCode();
         LocalDateTime expiryDate = LocalDateTime.now().plusMinutes(5);
-        Long verificationId = createPendingVerificationCode(email, purpose, code, expiryDate);
-
         String subject = "[noviIs] ?대찓???몄쬆 肄붾뱶";
         String body = "<h1>?대찓???몄쬆 肄붾뱶</h1><p>?꾨옒 肄붾뱶瑜??낅젰?섏뿬 ?몄쬆???꾨즺??二쇱꽭??</p><h3>" + code + "</h3>";
 
-        try {
-            emailService.sendEmail(email, subject, body);
-        } catch (RuntimeException e) {
-            updateDeliveryStatus(verificationId, false);
-            throw e;
-        }
-
-        try {
-            promotePendingVerificationCode(verificationId, email, purpose, code, expiryDate);
-        } catch (RuntimeException e) {
-            markCurrentVerificationCodeSentAfterPromotionFailure(verificationId, email, purpose, e);
-        }
+        mailDeliveryOrchestrationService.send(new AuthMailDeliveryOrchestrationService.MailDeliveryCommand(
+                email,
+                subject,
+                body,
+                () -> createPendingVerificationCode(email, purpose, code, expiryDate),
+                verificationId -> updateDeliveryStatus(verificationId, false),
+                verificationId -> promotePendingVerificationCode(verificationId, email, purpose, code, expiryDate),
+                (verificationId, e) -> markCurrentVerificationCodeSentAfterPromotionFailure(
+                        verificationId,
+                        email,
+                        purpose,
+                        e)));
     }
 
     @Transactional
