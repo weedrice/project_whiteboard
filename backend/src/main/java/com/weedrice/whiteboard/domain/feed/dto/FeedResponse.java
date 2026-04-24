@@ -13,6 +13,8 @@ import java.util.Map;
 @Getter
 @Builder
 public class FeedResponse {
+    private static final String CONTENT_TYPE_POST = "POST";
+
     private List<FeedSummary> content;
     private int page;
     private int size;
@@ -35,6 +37,7 @@ public class FeedResponse {
 
     public static FeedResponse from(Page<UserFeed> feedPage, Map<Long, PostSummary> postSummariesById) {
         List<FeedSummary> content = feedPage.getContent().stream()
+                .filter(feed -> isResolvable(feed, postSummariesById))
                 .map(feed -> FeedSummary.builder()
                         .feedId(feed.getFeedId())
                         .feedType(feed.getFeedType())
@@ -57,8 +60,12 @@ public class FeedResponse {
                 .build();
     }
 
+    private static boolean isResolvable(UserFeed feed, Map<Long, PostSummary> postSummariesById) {
+        return !CONTENT_TYPE_POST.equals(feed.getContentType()) || postSummariesById.containsKey(feed.getContentId());
+    }
+
     private static PostSummary resolvePostSummary(UserFeed feed, Map<Long, PostSummary> postSummariesById) {
-        if (!"POST".equals(feed.getContentType())) {
+        if (!CONTENT_TYPE_POST.equals(feed.getContentType())) {
             return null;
         }
         PostSummary postSummary = postSummariesById.get(feed.getContentId());

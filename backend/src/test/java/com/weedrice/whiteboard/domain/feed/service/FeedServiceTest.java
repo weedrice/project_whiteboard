@@ -9,8 +9,6 @@ import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
-import jakarta.persistence.EntityManager;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -31,8 +29,9 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -53,16 +52,8 @@ class FeedServiceTest {
     @Mock
     private FeedGenerationService feedGenerationService;
 
-    @Mock
-    private EntityManager entityManager;
-
-    @BeforeEach
-    void setUp() {
-        ReflectionTestUtils.setField(feedService, "entityManager", entityManager);
-    }
-
     @Test
-    @DisplayName("POST 피드는 게시글 요약을 hydrate 하면서 페이지 순서를 유지한다")
+    @DisplayName("POST feeds hydrate post summaries in page order")
     void getUserFeeds_hydratesPostsInPageOrder() {
         Long userId = 1L;
         User user = User.builder().build();
@@ -94,7 +85,7 @@ class FeedServiceTest {
     }
 
     @Test
-    @DisplayName("미지원 피드 타입은 post 를 null 로 유지한다")
+    @DisplayName("Unsupported feed content types keep null post")
     void getUserFeeds_keepsUnsupportedTypePostNull() {
         Long userId = 1L;
         User user = User.builder().build();
@@ -113,126 +104,66 @@ class FeedServiceTest {
     }
 
     @Test
-    @DisplayName("유효하지 않은 POST 피드는 응답에서 제외한다")
-    void getUserFeeds_filtersInvalidPostFeeds() {
+    @DisplayName("Unresolved POST feeds are excluded from response without deleting rows")
+    void getUserFeeds_filtersUnresolvedPostFeedsWithoutDeletingRows() {
         Long userId = 1L;
         User user = User.builder().build();
         Pageable pageable = PageRequest.of(0, 10);
 
-        UserFeed invalidFeed = createFeed(1L, user, "SUBSCRIPTION_POST", "POST", 999L, "BOARD_SUBSCRIPTION", 10L,
-                LocalDateTime.now());
-        UserFeed validFeed = createFeed(2L, user, "SUBSCRIPTION_POST", "POST", 101L, "BOARD_SUBSCRIPTION", 10L,
-                LocalDateTime.now().minusMinutes(1));
-        Page<UserFeed> initialFeedPage = new PageImpl<>(List.of(invalidFeed, validFeed), pageable, 2);
-        Page<UserFeed> sanitizedFeedPage = new PageImpl<>(List.of(validFeed), pageable, 1);
-
+        UserFeed unresolvedFeed = createFeed(1L, user, "SUBSCRIPTION_POST", "POST", 999L,
+                "BOARD_SUBSCRIPTION", 10L, LocalDateTime.now());
+        UserFeed validFeed = createFeed(2L, user, "SUBSCRIPTION_POST", "POST", 101L,
+                "BOARD_SUBSCRIPTION", 10L, LocalDateTime.now().minusMinutes(1));
+        Page<UserFeed> feedPage = new PageImpl<>(List.of(unresolvedFeed, validFeed), pageable, 2);
         PostSummary validPost = PostSummary.builder().postId(101L).title("first").build();
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        when(userFeedRepository.findByTargetUserOrderByCreatedAtDesc(user, pageable))
-                .thenReturn(initialFeedPage, sanitizedFeedPage);
+        when(userFeedRepository.findByTargetUserOrderByCreatedAtDesc(user, pageable)).thenReturn(feedPage);
         when(postService.getPostSummariesByIds(List.of(999L, 101L), userId)).thenReturn(Map.of(101L, validPost));
-        when(postService.getPostSummariesByIds(List.of(101L), userId)).thenReturn(Map.of(101L, validPost));
 
         FeedResponse response = feedService.getUserFeeds(userId, pageable);
 
         assertThat(response.getContent()).hasSize(1);
-        assertThat(response.getContent().get(0).getContentId()).isEqualTo(101L);
-        assertThat(response.getContent().get(0).getPost()).isEqualTo(validPost);
-        verify(userFeedRepository).deleteAllInBatch(List.of(invalidFeed));
-    }
-
-    @Test
-    @DisplayName("유효하지 않은 POST 피드를 정리한 뒤 다시 조회해 메타데이터를 보정한다")
-    void getUserFeeds_reloadsPageAfterDeletingInvalidFeeds() {
-        Long userId = 1L;
-        User user = User.builder().build();
-        Pageable pageable = PageRequest.of(0, 10);
-
-        UserFeed invalidFeed = createFeed(1L, user, "SUBSCRIPTION_POST", "POST", 999L, "BOARD_SUBSCRIPTION", 10L,
-                LocalDateTime.now());
-        UserFeed validFeed = createFeed(2L, user, "SUBSCRIPTION_POST", "POST", 101L, "BOARD_SUBSCRIPTION", 10L,
-                LocalDateTime.now().minusMinutes(1));
-        Page<UserFeed> initialFeedPage = new PageImpl<>(List.of(invalidFeed, validFeed), pageable, 2);
-        Page<UserFeed> sanitizedFeedPage = new PageImpl<>(List.of(validFeed), pageable, 1);
-
-        PostSummary validPost = PostSummary.builder().postId(101L).title("first").build();
-
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        when(userFeedRepository.findByTargetUserOrderByCreatedAtDesc(user, pageable))
-                .thenReturn(initialFeedPage, sanitizedFeedPage);
-        when(postService.getPostSummariesByIds(List.of(999L, 101L), userId)).thenReturn(Map.of(101L, validPost));
-        when(postService.getPostSummariesByIds(List.of(101L), userId)).thenReturn(Map.of(101L, validPost));
-
-        FeedResponse response = feedService.getUserFeeds(userId, pageable);
-
-        assertThat(response.getContent()).hasSize(1);
-        assertThat(response.getTotalElements()).isEqualTo(1);
+        assertThat(response.getContent().getFirst().getContentId()).isEqualTo(101L);
+        assertThat(response.getContent().getFirst().getPost()).isEqualTo(validPost);
+        assertThat(response.getPage()).isZero();
+        assertThat(response.getSize()).isEqualTo(10);
+        assertThat(response.getTotalElements()).isEqualTo(2);
         assertThat(response.getTotalPages()).isEqualTo(1);
-        verify(userFeedRepository).deleteAllInBatch(List.of(invalidFeed));
-        verify(userFeedRepository, times(2)).findByTargetUserOrderByCreatedAtDesc(user, pageable);
+        assertThat(response.isHasNext()).isFalse();
+        assertThat(response.isHasPrevious()).isFalse();
+        verify(userFeedRepository, never()).deleteAllInBatch(List.of(unresolvedFeed));
+        verify(userFeedRepository, times(1)).findByTargetUserOrderByCreatedAtDesc(user, pageable);
     }
 
     @Test
-    @DisplayName("여러 번 밀려 내려오는 유효하지 않은 피드도 정리될 때까지 재조회한다")
-    void getUserFeeds_retriesUntilCurrentPageIsSanitized() {
+    @DisplayName("All unresolved POST feeds can produce empty content with original page metadata")
+    void getUserFeeds_allUnresolvedPostFeedsKeepOriginalPageMetadata() {
         Long userId = 1L;
         User user = User.builder().build();
         Pageable pageable = PageRequest.of(0, 1);
-
-        UserFeed firstInvalidFeed = createFeed(1L, user, "SUBSCRIPTION_POST", "POST", 999L, "BOARD_SUBSCRIPTION", 10L,
-                LocalDateTime.now());
-        UserFeed secondInvalidFeed = createFeed(2L, user, "SUBSCRIPTION_POST", "POST", 998L, "BOARD_SUBSCRIPTION", 10L,
-                LocalDateTime.now().minusMinutes(1));
-        UserFeed validFeed = createFeed(3L, user, "SUBSCRIPTION_POST", "POST", 101L, "BOARD_SUBSCRIPTION", 10L,
-                LocalDateTime.now().minusMinutes(2));
+        UserFeed unresolvedFeed = createFeed(1L, user, "SUBSCRIPTION_POST", "POST", 999L,
+                "BOARD_SUBSCRIPTION", 10L, LocalDateTime.now());
+        Page<UserFeed> feedPage = new PageImpl<>(List.of(unresolvedFeed), pageable, 2);
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        when(userFeedRepository.findByTargetUserOrderByCreatedAtDesc(user, pageable))
-                .thenReturn(
-                        new PageImpl<>(List.of(firstInvalidFeed), pageable, 3),
-                        new PageImpl<>(List.of(secondInvalidFeed), pageable, 2),
-                        new PageImpl<>(List.of(validFeed), pageable, 1));
+        when(userFeedRepository.findByTargetUserOrderByCreatedAtDesc(user, pageable)).thenReturn(feedPage);
         when(postService.getPostSummariesByIds(List.of(999L), userId)).thenReturn(Map.of());
-        when(postService.getPostSummariesByIds(List.of(998L), userId)).thenReturn(Map.of());
-        when(postService.getPostSummariesByIds(List.of(101L), userId))
-                .thenReturn(Map.of(101L, PostSummary.builder().postId(101L).title("first").build()));
 
         FeedResponse response = feedService.getUserFeeds(userId, pageable);
 
-        assertThat(response.getContent()).hasSize(1);
-        assertThat(response.getTotalElements()).isEqualTo(1);
-        verify(userFeedRepository).deleteAllInBatch(List.of(firstInvalidFeed));
-        verify(userFeedRepository).deleteAllInBatch(List.of(secondInvalidFeed));
-        verify(userFeedRepository, times(3)).findByTargetUserOrderByCreatedAtDesc(user, pageable);
+        assertThat(response.getContent()).isEmpty();
+        assertThat(response.getPage()).isZero();
+        assertThat(response.getSize()).isEqualTo(1);
+        assertThat(response.getTotalElements()).isEqualTo(2);
+        assertThat(response.getTotalPages()).isEqualTo(2);
+        assertThat(response.isHasNext()).isTrue();
+        assertThat(response.isHasPrevious()).isFalse();
+        verify(userFeedRepository, never()).deleteAllInBatch(List.of(unresolvedFeed));
     }
 
     @Test
-    @DisplayName("같은 유효하지 않은 피드가 반복되면 무한 재시도 대신 예외로 중단한다")
-    void getUserFeeds_throwsWhenInvalidFeedCleanupMakesNoProgress() {
-        Long userId = 1L;
-        User user = User.builder().build();
-        Pageable pageable = PageRequest.of(0, 1);
-
-        UserFeed invalidFeed = createFeed(1L, user, "SUBSCRIPTION_POST", "POST", 999L, "BOARD_SUBSCRIPTION", 10L,
-                LocalDateTime.now());
-        Page<UserFeed> invalidFeedPage = new PageImpl<>(List.of(invalidFeed), pageable, 1);
-
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        when(userFeedRepository.findByTargetUserOrderByCreatedAtDesc(user, pageable))
-                .thenReturn(invalidFeedPage, invalidFeedPage);
-        when(postService.getPostSummariesByIds(List.of(999L), userId)).thenReturn(Map.of());
-
-        assertThatThrownBy(() -> feedService.getUserFeeds(userId, pageable))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessage("Failed to sanitize invalid feeds for user feed page");
-
-        verify(userFeedRepository).deleteAllInBatch(List.of(invalidFeed));
-        verify(userFeedRepository, times(2)).findByTargetUserOrderByCreatedAtDesc(user, pageable);
-    }
-
-    @Test
-    @DisplayName("피드 사용자가 없으면 USER_NOT_FOUND 를 반환한다")
+    @DisplayName("Feed user not found returns USER_NOT_FOUND")
     void getUserFeeds_userNotFound() {
         Long userId = 1L;
         Pageable pageable = PageRequest.of(0, 10);
@@ -245,7 +176,7 @@ class FeedServiceTest {
     }
 
     @Test
-    @DisplayName("generateFeeds 는 생성 전용 서비스로 위임한다")
+    @DisplayName("generateFeeds delegates to generation service")
     void generateFeeds_delegatesToGenerationService() {
         feedService.generateFeeds();
 
