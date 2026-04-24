@@ -3,10 +3,12 @@ package com.weedrice.whiteboard.domain.admin.repository;
 import com.weedrice.whiteboard.domain.admin.entity.Admin;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.user.entity.User;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 
 import java.util.Collection;
 import java.util.List;
@@ -25,6 +27,8 @@ public interface AdminRepository extends JpaRepository<Admin, Long> {
     Optional<Admin> findByUserAndBoardAndRole(User user, Board board, String role);
     Optional<Admin> findFirstByUserAndIsActiveOrderByAdminIdAsc(User user, Boolean isActive);
     List<Admin> findByUserUserIdInAndIsActiveOrderByAdminIdAsc(Collection<Long> userIds, Boolean isActive);
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    List<Admin> findAllByUserAndIsActiveOrderByAdminIdAsc(User user, Boolean isActive);
     @EntityGraph(attributePaths = {"user", "board"})
     List<Admin> findByBoard_BoardIdInAndRoleAndIsActiveOrderByBoard_BoardIdAscAdminIdDesc(
             Collection<Long> boardIds, String role, Boolean isActive);

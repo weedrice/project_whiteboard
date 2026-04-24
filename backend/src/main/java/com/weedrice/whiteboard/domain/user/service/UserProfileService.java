@@ -35,6 +35,7 @@ public class UserProfileService {
     private final AgentLifecycleService agentLifecycleService;
     private final PasswordEncoder passwordEncoder;
     private final RefreshTokenLifecycleService refreshTokenLifecycleService;
+    private final UserPrivilegeCleanupService userPrivilegeCleanupService;
 
     public Long findUserIdByLoginId(String loginId) {
         User user = userRepository.findByLoginId(loginId)
@@ -115,6 +116,7 @@ public class UserProfileService {
         }
 
         refreshTokenLifecycleService.revokeActiveRefreshTokens(user);
+        userPrivilegeCleanupService.removeOperationalPrivileges(user);
         agentLifecycleService.suspendAllForUser(user);
         user.delete();
     }

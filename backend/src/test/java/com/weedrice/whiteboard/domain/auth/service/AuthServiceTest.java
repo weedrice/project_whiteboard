@@ -20,6 +20,7 @@ import com.weedrice.whiteboard.domain.user.repository.PasswordHistoryRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserSettingsRepository;
 import com.weedrice.whiteboard.domain.user.service.SocialAccountLinkService;
+import com.weedrice.whiteboard.domain.user.service.UserPrivilegeCleanupService;
 import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
 import com.weedrice.whiteboard.global.email.EmailService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -90,6 +91,7 @@ class AuthServiceTest {
     @Mock private SanctionService sanctionService;
     @Mock private EntityManager entityManager;
     @Mock private RefreshTokenLifecycleService refreshTokenLifecycleService;
+    @Mock private UserPrivilegeCleanupService userPrivilegeCleanupService;
 
     private AuthService authService;
     private User user;
@@ -116,7 +118,7 @@ class AuthServiceTest {
         SignupService signupService = new SignupService(
                 userRepository, pointService, passwordEncoder, userSettingsRepository,
                 socialAccountLinkService, verificationCodeService, globalConfigService, entityManager,
-                refreshTokenLifecycleService);
+                refreshTokenLifecycleService, userPrivilegeCleanupService);
         authService = new AuthService(signupService, sessionTokenService, passwordResetService);
 
         user = User.builder()

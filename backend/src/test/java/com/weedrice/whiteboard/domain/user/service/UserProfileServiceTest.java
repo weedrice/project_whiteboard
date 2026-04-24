@@ -53,6 +53,7 @@ class UserProfileServiceTest {
     @Mock private AgentLifecycleService agentLifecycleService;
     @Mock private PasswordEncoder passwordEncoder;
     @Mock private RefreshTokenLifecycleService refreshTokenLifecycleService;
+    @Mock private UserPrivilegeCleanupService userPrivilegeCleanupService;
 
     @Test
     @DisplayName("로그인 ID로 사용자 ID 조회 성공")
@@ -140,8 +141,9 @@ class UserProfileServiceTest {
         userProfileService.deleteAccount(1L, "pass");
 
         assertThat(user.getStatus()).isEqualTo("DELETED");
-        var inOrder = inOrder(refreshTokenLifecycleService, agentLifecycleService);
+        var inOrder = inOrder(refreshTokenLifecycleService, userPrivilegeCleanupService, agentLifecycleService);
         inOrder.verify(refreshTokenLifecycleService).revokeActiveRefreshTokens(user);
+        inOrder.verify(userPrivilegeCleanupService).removeOperationalPrivileges(user);
         inOrder.verify(agentLifecycleService).suspendAllForUser(user);
     }
 
@@ -158,6 +160,7 @@ class UserProfileServiceTest {
                 .isEqualTo(ErrorCode.INVALID_PASSWORD);
 
         verify(refreshTokenLifecycleService, never()).revokeActiveRefreshTokens(any());
+        verify(userPrivilegeCleanupService, never()).removeOperationalPrivileges(any());
         verify(agentLifecycleService, never()).suspendAllForUser(any());
     }
 

@@ -8,6 +8,7 @@ import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserSettingsRepository;
 import com.weedrice.whiteboard.domain.user.service.SocialAccountLinkService;
+import com.weedrice.whiteboard.domain.user.service.UserPrivilegeCleanupService;
 import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -45,6 +46,7 @@ class SignupServiceTest {
     @Mock private GlobalConfigService globalConfigService;
     @Mock private EntityManager entityManager;
     @Mock private RefreshTokenLifecycleService refreshTokenLifecycleService;
+    @Mock private UserPrivilegeCleanupService userPrivilegeCleanupService;
 
     @InjectMocks
     private SignupService signupService;
@@ -80,12 +82,13 @@ class SignupServiceTest {
         assertThat(deletedUser.getDeletedAt()).isNull();
         assertThat(deletedUser.getDisplayName()).isEqualTo("Rejoined User");
         assertThat(deletedUser.getPassword()).isEqualTo("encoded-new-password");
-        var inOrder = inOrder(verificationCodeService, refreshTokenLifecycleService, userRepository);
+        var inOrder = inOrder(verificationCodeService, refreshTokenLifecycleService, userPrivilegeCleanupService, userRepository);
         inOrder.verify(verificationCodeService).consumeVerificationTicket(
                 request.getEmail(),
                 VerificationPurpose.SIGNUP,
                 request.getVerificationTicket());
         inOrder.verify(refreshTokenLifecycleService).revokeActiveRefreshTokens(deletedUser);
+        inOrder.verify(userPrivilegeCleanupService).removeOperationalPrivileges(deletedUser);
         inOrder.verify(userRepository).save(deletedUser);
         verify(pointService, never()).addPoint(org.mockito.ArgumentMatchers.anyLong(),
                 org.mockito.ArgumentMatchers.anyInt(),
@@ -127,6 +130,7 @@ class SignupServiceTest {
                 .isEqualTo(ErrorCode.VALIDATION_ERROR);
 
         verify(refreshTokenLifecycleService, never()).revokeActiveRefreshTokens(deletedUser);
+        verify(userPrivilegeCleanupService, never()).removeOperationalPrivileges(deletedUser);
         verify(userRepository, never()).save(deletedUser);
     }
 

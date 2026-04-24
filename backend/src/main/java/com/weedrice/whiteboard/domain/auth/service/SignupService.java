@@ -10,6 +10,7 @@ import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.entity.UserSettings;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserSettingsRepository;
+import com.weedrice.whiteboard.domain.user.service.UserPrivilegeCleanupService;
 import com.weedrice.whiteboard.domain.user.service.SocialAccountLinkService;
 import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -35,6 +36,7 @@ public class SignupService {
     private final GlobalConfigService globalConfigService;
     private final EntityManager entityManager;
     private final RefreshTokenLifecycleService refreshTokenLifecycleService;
+    private final UserPrivilegeCleanupService userPrivilegeCleanupService;
 
     @Transactional
     public SignupResponse signup(SignupRequest request) {
@@ -96,6 +98,7 @@ public class SignupService {
                 request.getVerificationTicket());
 
         refreshTokenLifecycleService.revokeActiveRefreshTokens(existingUser);
+        userPrivilegeCleanupService.removeOperationalPrivileges(existingUser);
         existingUser.activate();
         existingUser.updatePassword(passwordEncoder.encode(request.getPassword()));
         existingUser.updateDisplayName(request.getDisplayName());
