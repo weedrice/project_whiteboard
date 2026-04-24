@@ -56,7 +56,6 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 @SuppressWarnings({ "null" })
 public class PostService {
-    private static final int DEFAULT_BOARD_PAGE_SIZE = 20;
     private static final String DEFAULT_INQUIRY_BOARD_URL = "inquiry";
     private static final String DEFAULT_CATEGORY_NAME = "\uC77C\uBC18";
     private static final long MAX_VIEW_DURATION_MS = 86_400_000L;
@@ -82,6 +81,7 @@ public class PostService {
     private final AgentOwnershipService agentOwnershipService;
     private final SanctionService sanctionService;
     private final PostSummaryAssembler postSummaryAssembler;
+    private final PostDetailReadService postDetailReadService;
     private final PostAccessPolicy postAccessPolicy;
     private final BoardAccessPolicy boardAccessPolicy;
 
@@ -243,16 +243,7 @@ public class PostService {
 
     @Transactional
     public PostResponse getPostResponse(@NonNull Long postId, Long userId, boolean incrementView) {
-        Post post = getPostById(postId, userId, incrementView);
-        List<String> tags = getTagsForPost(postId);
-        boolean isLiked = isPostLikedByUser(postId, userId);
-        boolean isScrapped = isPostScrappedByUser(postId, userId);
-        ViewHistory viewHistory = getViewHistory(userId, postId);
-        List<String> imageUrls = getPostImageUrls(postId);
-        boolean isAdmin = isBoardAdmin(userId, post.getBoard().getBoardId());
-        int boardListPage = resolveDefaultBoardListPage(post, userId);
-
-        return PostResponse.from(post, tags, viewHistory, isLiked, isScrapped, imageUrls, isAdmin, boardListPage);
+        return postDetailReadService.getPostResponse(postId, userId, incrementView);
     }
 
     public PostResponse getInquiryPostResponseForAdmin(@NonNull Long postId) {
@@ -891,24 +882,6 @@ public class PostService {
             throw new BusinessException(ErrorCode.POST_NOT_FOUND);
         }
         return likeCount;
-    }
-
-    private int resolveDefaultBoardListPage(Post post, Long currentUserId) {
-        boolean includeSecret = canViewSecretPosts(post.getBoard(), currentUserId);
-        List<Long> blockedUserIds = null;
-        if (currentUserId != null) {
-            blockedUserIds = userBlockService.getBlockedUserIds(currentUserId);
-        }
-
-        long postsBefore = postRepository.countPostsBeforeInBoardDefaultOrder(
-                post.getBoard().getBoardId(),
-                post.getCreatedAt(),
-                post.getPostId(),
-                blockedUserIds,
-                includeSecret,
-                currentUserId);
-        long page = postsBefore / DEFAULT_BOARD_PAGE_SIZE;
-        return (int) Math.min(page, Integer.MAX_VALUE);
     }
 
     public List<PostSummary> getLatestPostsByBoard(Long boardId, int limit, Long currentUserId) {

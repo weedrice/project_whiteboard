@@ -103,6 +103,7 @@ class PostServiceTest {
     private BoardAccessPolicy boardAccessPolicy;
     private PostAccessPolicy postAccessPolicy;
     private PostSummaryAssembler postSummaryAssembler;
+    private PostDetailReadService postDetailReadService;
 
     private PostService postService;
 
@@ -123,6 +124,18 @@ class PostServiceTest {
                 commentRepository,
                 boardAccessPolicy);
         postAccessPolicy = new PostAccessPolicy(boardAccessPolicy);
+        postDetailReadService = new PostDetailReadService(
+                postRepository,
+                userRepository,
+                postLikeRepository,
+                scrapRepository,
+                viewHistoryRepository,
+                tagAssignmentService,
+                fileService,
+                boardRepository,
+                userBlockService,
+                postAccessPolicy,
+                boardAccessPolicy);
         postService = new PostService(
                 postRepository,
                 boardRepository,
@@ -145,6 +158,7 @@ class PostServiceTest {
                 agentOwnershipService,
                 sanctionService,
                 postSummaryAssembler,
+                postDetailReadService,
                 postAccessPolicy,
                 boardAccessPolicy);
 
@@ -1227,7 +1241,7 @@ class PostServiceTest {
 
         postService.getPostResponse(1L, 1L, false);
 
-        verify(viewHistoryRepository, never()).save(any(ViewHistory.class));
+        verify(viewHistoryRepository, never()).saveAndFlush(any(ViewHistory.class));
         assertThat(post.getViewCount()).isEqualTo(0);
     }
 
