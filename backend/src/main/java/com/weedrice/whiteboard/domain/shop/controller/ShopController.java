@@ -4,9 +4,9 @@ import com.weedrice.whiteboard.domain.shop.dto.PurchaseHistoryResponse;
 import com.weedrice.whiteboard.domain.shop.dto.ShopItemResponse;
 import com.weedrice.whiteboard.domain.shop.service.ShopService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
+import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
@@ -24,7 +24,7 @@ public class ShopController {
             @RequestParam(required = false) String itemType,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        Pageable pageable = PageRequest.of(page, size);
+        Pageable pageable = PageRequestUtils.of(page, size);
         return ApiResponse.success(shopService.getShopItems(itemType, pageable));
     }
 
@@ -41,7 +41,7 @@ public class ShopController {
             @RequestParam(defaultValue = "20") int size,
             Authentication authentication) {
         Long userId = ((CustomUserDetails) authentication.getPrincipal()).getUserId();
-        Pageable pageable = PageRequest.of(page, size);
+        Pageable pageable = PageRequestUtils.of(page, size);
         return ApiResponse.success(shopService.getPurchaseHistories(userId, pageable));
     }
 }

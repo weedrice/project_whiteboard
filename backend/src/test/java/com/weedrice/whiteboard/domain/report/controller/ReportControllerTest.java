@@ -22,6 +22,7 @@ import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MockMvc;
@@ -29,6 +30,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.util.Collections;
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -352,5 +354,38 @@ class ReportControllerTest {
                 .andExpect(jsonPath("$.data.content[0].processedRemark").doesNotExist())
                 .andExpect(jsonPath("$.data.totalPages").value(1))
                 .andExpect(jsonPath("$.data.page").value(0));
+    }
+
+    @Test
+    @DisplayName("getMyReports clamps page size to 100")
+    void getMyReports_clampsLargePageSize() throws Exception {
+        when(reportService.getMyReports(eq(1L), any()))
+                .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 100), 0));
+        org.mockito.Mockito.clearInvocations(reportService);
+
+        mockMvc.perform(get("/api/v1/reports/me")
+                        .param("page", "0")
+                        .param("size", "1000")
+                        .with(user(customUserDetails)))
+                .andExpect(status().isOk());
+
+        org.mockito.ArgumentCaptor<Pageable> captor = org.mockito.ArgumentCaptor.forClass(Pageable.class);
+        verify(reportService).getMyReports(eq(1L), captor.capture());
+        assertThat(captor.getValue().getPageSize()).isEqualTo(100);
+    }
+
+    @Test
+    @DisplayName("getMyReports rejects invalid page")
+    void getMyReports_invalidPage_returnsBadRequest() throws Exception {
+        org.mockito.Mockito.clearInvocations(reportService);
+
+        mockMvc.perform(get("/api/v1/reports/me")
+                        .param("page", "-1")
+                        .param("size", "20")
+                        .with(user(customUserDetails)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value(ErrorCode.VALIDATION_ERROR.getCode()));
+
+        verify(reportService, never()).getMyReports(anyLong(), any());
     }
 }

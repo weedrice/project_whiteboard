@@ -20,6 +20,7 @@ import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.util.Collections;
 import java.util.Locale;
@@ -177,6 +178,23 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getBody().isSuccess()).isFalse();
         assertThat(response.getBody().getError().getCode()).isEqualTo(ErrorCode.VALIDATION_ERROR.getCode());
         assertThat(response.getBody().getError().getMessage()).isEqualTo("Validation failed.");
+    }
+
+    @Test
+    @DisplayName("쿼리 파라미터 타입 변환 예외는 400으로 처리")
+    void handleMethodArgumentTypeMismatchException() {
+        MethodArgumentTypeMismatchException ex = new MethodArgumentTypeMismatchException(
+                "abc", Integer.class, "page", mock(MethodParameter.class), new NumberFormatException("abc"));
+        when(messageSource.getMessage(eq("error.common.validationFailedSummary"), isNull(), any(Locale.class)))
+                .thenReturn("Validation failed.");
+
+        ResponseEntity<ApiResponse<Void>> response =
+                globalExceptionHandler.handleMethodArgumentTypeMismatchException(ex, request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().isSuccess()).isFalse();
+        assertThat(response.getBody().getError().getCode()).isEqualTo(ErrorCode.VALIDATION_ERROR.getCode());
     }
 
     @Test

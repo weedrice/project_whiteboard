@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.notification.controller;
 
+import com.weedrice.whiteboard.domain.notification.dto.NotificationResponse;
 import com.weedrice.whiteboard.domain.notification.service.NotificationService;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import org.junit.jupiter.api.BeforeEach;
@@ -10,17 +11,23 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.Collections;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -97,26 +104,46 @@ class NotificationControllerTest {
         }).when(jwtAuthenticationFilter).doFilter(any(), any(), any());
     }
 
-            @Test
+    @Test
+    @DisplayName("알림 목록 조회는 페이지 크기를 최대 100으로 제한한다")
+    void getNotifications_clampsLargePageSize() throws Exception {
+        NotificationResponse response = NotificationResponse.builder().build();
+        when(notificationService.getNotifications(eq(1L), any())).thenReturn(response);
+        org.mockito.Mockito.clearInvocations(notificationService);
 
-            @DisplayName("SSE 구독 성공")
+        mockMvc.perform(get("/api/v1/notifications")
+                        .param("page", "0")
+                        .param("size", "1000")
+                        .with(user(customUserDetails)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
 
-            void subscribe_success() throws Exception {
+        org.mockito.ArgumentCaptor<Pageable> captor = org.mockito.ArgumentCaptor.forClass(Pageable.class);
+        verify(notificationService).getNotifications(eq(1L), captor.capture());
+        assertThat(captor.getValue().getPageSize()).isEqualTo(100);
+    }
 
-                when(notificationService.subscribe(anyLong())).thenReturn(new SseEmitter());
+    @Test
+    @DisplayName("알림 목록 조회는 잘못된 페이지 파라미터를 400으로 처리한다")
+    void getNotifications_invalidPage_returnsBadRequest() throws Exception {
+        org.mockito.Mockito.clearInvocations(notificationService);
 
-        
+        mockMvc.perform(get("/api/v1/notifications")
+                        .param("page", "-1")
+                        .param("size", "20")
+                        .with(user(customUserDetails)))
+                .andExpect(status().isBadRequest());
 
-                mockMvc.perform(get("/api/v1/notifications/stream")
+        verify(notificationService, never()).getNotifications(anyLong(), any());
+    }
 
-                                .with(user(customUserDetails)))
+    @Test
+    @DisplayName("SSE 구독 성공")
+    void subscribe_success() throws Exception {
+        when(notificationService.subscribe(anyLong())).thenReturn(new SseEmitter());
 
-                        .andExpect(status().isOk());
-
-            }
-
-        }
-
-        
-
-    
+        mockMvc.perform(get("/api/v1/notifications/stream")
+                        .with(user(customUserDetails)))
+                .andExpect(status().isOk());
+    }
+}

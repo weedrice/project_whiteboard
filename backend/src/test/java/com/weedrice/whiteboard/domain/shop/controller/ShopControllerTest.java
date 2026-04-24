@@ -16,13 +16,16 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Collections;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -372,6 +375,7 @@ class ShopControllerTest {
             // given
             ShopItemResponse response = ShopItemResponse.builder().build();
             when(shopService.getShopItems(eq("EMOTICON"), any())).thenReturn(response);
+            org.mockito.Mockito.clearInvocations(shopService);
 
             // when & then
             mockMvc.perform(get("/api/v1/shop/items")
@@ -382,6 +386,40 @@ class ShopControllerTest {
                             .with(csrf()))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.success").value(true));
+
+            org.mockito.ArgumentCaptor<Pageable> captor = org.mockito.ArgumentCaptor.forClass(Pageable.class);
+            verify(shopService).getShopItems(eq("EMOTICON"), captor.capture());
+            assertThat(captor.getValue().getPageSize()).isEqualTo(100);
+        }
+
+        @Test
+        @DisplayName("잘못된 페이지 파라미터는 400으로 처리")
+        void getShopItems_invalidPage_returnsBadRequest() throws Exception {
+            org.mockito.Mockito.clearInvocations(shopService);
+
+            mockMvc.perform(get("/api/v1/shop/items")
+                            .param("page", "-1")
+                            .param("size", "20")
+                            .with(user(customUserDetails))
+                            .with(csrf()))
+                    .andExpect(status().isBadRequest());
+
+            verify(shopService, never()).getShopItems(any(), any());
+        }
+
+        @Test
+        @DisplayName("구매 이력 조회의 잘못된 페이지 크기는 400으로 처리")
+        void getMyPurchaseHistories_invalidSize_returnsBadRequest() throws Exception {
+            org.mockito.Mockito.clearInvocations(shopService);
+
+            mockMvc.perform(get("/api/v1/shop/me/purchases")
+                            .param("page", "0")
+                            .param("size", "0")
+                            .with(user(customUserDetails))
+                            .with(csrf()))
+                    .andExpect(status().isBadRequest());
+
+            verify(shopService, never()).getPurchaseHistories(any(), any());
         }
     }
 }

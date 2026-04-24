@@ -4,9 +4,9 @@ import com.weedrice.whiteboard.domain.point.dto.PointHistoryResponse;
 import com.weedrice.whiteboard.domain.point.dto.UserPointResponse;
 import com.weedrice.whiteboard.domain.point.service.PointService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
+import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -31,7 +31,7 @@ public class PointController {
             @RequestParam(defaultValue = "20") int size,
             Authentication authentication) {
         Long userId = ((CustomUserDetails) authentication.getPrincipal()).getUserId();
-        Pageable pageable = PageRequest.of(page, size);
+        Pageable pageable = PageRequestUtils.of(page, size);
         return ApiResponse.success(pointService.getPointHistories(userId, type, pageable));
     }
 }

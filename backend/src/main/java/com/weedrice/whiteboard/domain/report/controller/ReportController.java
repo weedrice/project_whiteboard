@@ -9,10 +9,10 @@ import com.weedrice.whiteboard.domain.report.entity.ReportReasonType;
 import com.weedrice.whiteboard.domain.report.service.ReportService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
+import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
@@ -101,7 +101,7 @@ public class ReportController {
             @RequestParam(defaultValue = "20") int size,
             Authentication authentication) {
         Long userId = ((CustomUserDetails) authentication.getPrincipal()).getUserId();
-        Pageable pageable = PageRequest.of(page, size);
+        Pageable pageable = PageRequestUtils.of(page, size);
         return ApiResponse.success(new PageResponse<>(reportService.getMyReports(userId, pageable)));
     }
 

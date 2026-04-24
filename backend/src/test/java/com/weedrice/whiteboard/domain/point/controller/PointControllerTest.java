@@ -12,13 +12,17 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Collections;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -111,5 +115,39 @@ class PointControllerTest {
                         .with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
+    }
+
+    @Test
+    @DisplayName("내 포인트 히스토리 조회는 페이지 크기를 최대 100으로 제한한다")
+    void getMyPointHistories_clampsLargePageSize() throws Exception {
+        PointHistoryResponse response = PointHistoryResponse.builder().build();
+        when(pointService.getPointHistories(eq(1L), any(), any())).thenReturn(response);
+        org.mockito.Mockito.clearInvocations(pointService);
+
+        mockMvc.perform(get("/api/v1/points/me/history")
+                        .param("page", "0")
+                        .param("size", "1000")
+                        .with(user(customUserDetails))
+                        .with(csrf()))
+                .andExpect(status().isOk());
+
+        org.mockito.ArgumentCaptor<Pageable> captor = org.mockito.ArgumentCaptor.forClass(Pageable.class);
+        verify(pointService).getPointHistories(eq(1L), any(), captor.capture());
+        assertThat(captor.getValue().getPageSize()).isEqualTo(100);
+    }
+
+    @Test
+    @DisplayName("내 포인트 히스토리 조회는 잘못된 페이지 크기를 400으로 처리한다")
+    void getMyPointHistories_invalidSize_returnsBadRequest() throws Exception {
+        org.mockito.Mockito.clearInvocations(pointService);
+
+        mockMvc.perform(get("/api/v1/points/me/history")
+                        .param("page", "0")
+                        .param("size", "-1")
+                        .with(user(customUserDetails))
+                        .with(csrf()))
+                .andExpect(status().isBadRequest());
+
+        verify(pointService, never()).getPointHistories(anyLong(), any(), any());
     }
 }

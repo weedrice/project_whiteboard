@@ -32,6 +32,7 @@ import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
@@ -229,6 +230,38 @@ class PostControllerTest {
                     .andExpect(jsonPath("$.success").value(true));
 
             verify(postService).getTrendingPosts(any(Pageable.class), eq(1L), eq("30d"));
+        }
+
+        @Test
+        @DisplayName("인기 게시글 목록 조회 - 페이지 크기는 최대 100으로 제한")
+        void getTrendingPosts_clampsLargePageSize() throws Exception {
+            PostSummary summary = PostSummary.from(post);
+            when(postService.getTrendingPosts(any(Pageable.class), any(), any())).thenReturn(List.of(summary));
+
+            mockMvc.perform(get("/api/v1/posts/trending")
+                    .param("page", "0")
+                    .param("size", "1000")
+                    .with(user(customUserDetails))
+                    .accept(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isOk());
+
+            org.mockito.ArgumentCaptor<Pageable> captor = org.mockito.ArgumentCaptor.forClass(Pageable.class);
+            verify(postService).getTrendingPosts(captor.capture(), eq(1L), eq("24h"));
+            assertThat(captor.getValue().getPageSize()).isEqualTo(100);
+        }
+
+        @Test
+        @DisplayName("인기 게시글 목록 조회 - 잘못된 페이지 크기는 400")
+        void getTrendingPosts_invalidSize_returnsBadRequest() throws Exception {
+            clearInvocations(postService);
+
+            mockMvc.perform(get("/api/v1/posts/trending")
+                    .param("page", "0")
+                    .param("size", "0")
+                    .accept(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isBadRequest());
+
+            verify(postService, never()).getTrendingPosts(any(Pageable.class), any(), any());
         }
 
         @Test

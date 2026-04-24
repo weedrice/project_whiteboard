@@ -16,6 +16,7 @@ import org.springframework.context.annotation.FilterType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MockMvc;
@@ -24,7 +25,10 @@ import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
@@ -147,5 +151,35 @@ class SanctionControllerTest {
                 .andExpect(jsonPath("$.data.content").isArray())
                 .andExpect(jsonPath("$.data.page").value(0))
                 .andExpect(jsonPath("$.data.totalElements").value(1));
+    }
+
+    @Test
+    @DisplayName("제재 목록 조회는 페이지 크기를 최대 100으로 제한한다")
+    void getSanctions_clampsLargePageSize() throws Exception {
+        Page<SanctionResponse> page = new PageImpl<>(List.of(), PageRequest.of(0, 100), 0);
+        when(sanctionService.getSanctions(any(), any())).thenReturn(page);
+        org.mockito.Mockito.clearInvocations(sanctionService);
+
+        mockMvc.perform(get("/api/v1/admin/sanctions")
+                        .param("page", "0")
+                        .param("size", "1000"))
+                .andExpect(status().isOk());
+
+        org.mockito.ArgumentCaptor<Pageable> captor = org.mockito.ArgumentCaptor.forClass(Pageable.class);
+        verify(sanctionService).getSanctions(any(), captor.capture());
+        assertThat(captor.getValue().getPageSize()).isEqualTo(100);
+    }
+
+    @Test
+    @DisplayName("제재 목록 조회는 잘못된 페이지 파라미터를 400으로 처리한다")
+    void getSanctions_invalidPage_returnsBadRequest() throws Exception {
+        org.mockito.Mockito.clearInvocations(sanctionService);
+
+        mockMvc.perform(get("/api/v1/admin/sanctions")
+                        .param("page", "-1")
+                        .param("size", "20"))
+                .andExpect(status().isBadRequest());
+
+        verify(sanctionService, never()).getSanctions(any(), any());
     }
 }
