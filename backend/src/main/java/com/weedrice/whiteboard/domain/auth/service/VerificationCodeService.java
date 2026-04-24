@@ -83,17 +83,48 @@ public class VerificationCodeService {
 
     @Transactional
     public void consumeVerificationTicket(String email, VerificationPurpose purpose, String verificationTicket) {
+        VerificationCode verificationCode = getValidVerificationTicket(email, purpose, verificationTicket);
+        verificationCode.consumeVerificationTicket();
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void validateVerificationTicket(String email, VerificationPurpose purpose, String verificationTicket) {
+        getValidVerificationTicket(email, purpose, verificationTicket);
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void consumeValidatedVerificationTicket(String email, VerificationPurpose purpose, String verificationTicket) {
+        VerificationCode verificationCode = getConsumableVerificationTicket(email, purpose, verificationTicket);
+        verificationCode.consumeVerificationTicket();
+    }
+
+    private VerificationCode getValidVerificationTicket(
+            String email,
+            VerificationPurpose purpose,
+            String verificationTicket) {
+        VerificationCode verificationCode = getConsumableVerificationTicket(email, purpose, verificationTicket);
+
+        if (verificationCode.isVerificationTicketExpired()) {
+            throw new BusinessException(ErrorCode.EMAIL_NOT_VERIFIED);
+        }
+
+        return verificationCode;
+    }
+
+    private VerificationCode getConsumableVerificationTicket(
+            String email,
+            VerificationPurpose purpose,
+            String verificationTicket) {
         VerificationCode verificationCode = verificationCodeRepository
                 .findByEmailAndPurposeAndVerificationTicket(email, purpose, verificationTicket)
                 .orElseThrow(() -> new BusinessException(ErrorCode.EMAIL_NOT_VERIFIED));
 
         if (!Boolean.TRUE.equals(verificationCode.getIsVerified())
-                || Boolean.TRUE.equals(verificationCode.getIsTicketConsumed())
-                || verificationCode.isVerificationTicketExpired()) {
+                || Boolean.TRUE.equals(verificationCode.getIsTicketConsumed())) {
             throw new BusinessException(ErrorCode.EMAIL_NOT_VERIFIED);
         }
 
-        verificationCode.consumeVerificationTicket();
+        return verificationCode;
     }
 
     private VerifyCodeResponse buildVerifyCodeResponse(

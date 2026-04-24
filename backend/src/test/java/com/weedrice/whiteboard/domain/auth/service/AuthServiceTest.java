@@ -427,7 +427,11 @@ class AuthServiceTest {
 
         authService.sendPasswordResetLinkByEmail(email, verificationTicket);
 
-        verify(verificationCodeService).consumeVerificationTicket(
+        verify(verificationCodeService).validateVerificationTicket(
+                email,
+                VerificationPurpose.PASSWORD_RESET,
+                verificationTicket);
+        verify(verificationCodeService).consumeValidatedVerificationTicket(
                 email,
                 VerificationPurpose.PASSWORD_RESET,
                 verificationTicket);
@@ -446,6 +450,11 @@ class AuthServiceTest {
                 () -> authService.sendPasswordResetLinkByEmail(email, verificationTicket));
 
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.USER_NOT_FOUND_BY_EMAIL);
+        verify(verificationCodeService).validateVerificationTicket(
+                email,
+                VerificationPurpose.PASSWORD_RESET,
+                verificationTicket);
+        verify(verificationCodeService, never()).consumeValidatedVerificationTicket(anyString(), any(), anyString());
     }
 
     @Test
@@ -460,6 +469,11 @@ class AuthServiceTest {
                 () -> authService.sendPasswordResetLinkByEmail(email, verificationTicket));
 
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.USER_DELETED);
+        verify(verificationCodeService).validateVerificationTicket(
+                email,
+                VerificationPurpose.PASSWORD_RESET,
+                verificationTicket);
+        verify(verificationCodeService, never()).consumeValidatedVerificationTicket(anyString(), any(), anyString());
     }
 
     @Test
@@ -477,7 +491,11 @@ class AuthServiceTest {
 
         authService.resetPasswordByCode(email, verificationTicket, newPassword);
 
-        verify(verificationCodeService).consumeVerificationTicket(
+        verify(verificationCodeService).validateVerificationTicket(
+                email,
+                VerificationPurpose.PASSWORD_RESET,
+                verificationTicket);
+        verify(verificationCodeService).consumeValidatedVerificationTicket(
                 email,
                 VerificationPurpose.PASSWORD_RESET,
                 verificationTicket);
@@ -527,7 +545,7 @@ class AuthServiceTest {
         assertThat(passwordResetToken.getIsUsed()).isTrue();
         verify(refreshTokenLifecycleService).revokeActiveRefreshTokens(user);
         verify(passwordHistoryRepository).save(any(PasswordHistory.class));
-        verify(verificationCodeService, never()).consumeVerificationTicket(anyString(), any(), anyString());
+        verify(verificationCodeService, never()).consumeValidatedVerificationTicket(anyString(), any(), anyString());
     }
 
     @Test
@@ -551,6 +569,11 @@ class AuthServiceTest {
 
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.PASSWORD_RECENTLY_USED);
         verify(userRepository, never()).save(any());
+        verify(verificationCodeService).validateVerificationTicket(
+                email,
+                VerificationPurpose.PASSWORD_RESET,
+                verificationTicket);
+        verify(verificationCodeService, never()).consumeValidatedVerificationTicket(anyString(), any(), anyString());
     }
 
     @Test
@@ -561,7 +584,7 @@ class AuthServiceTest {
 
         doThrow(new BusinessException(ErrorCode.VALIDATION_ERROR))
                 .when(verificationCodeService)
-                .consumeVerificationTicket(email, VerificationPurpose.PASSWORD_RESET, verificationTicket);
+                .validateVerificationTicket(email, VerificationPurpose.PASSWORD_RESET, verificationTicket);
 
         BusinessException exception = assertThrows(BusinessException.class,
                 () -> authService.resetPasswordByCode(email, verificationTicket, "newPassword123!"));

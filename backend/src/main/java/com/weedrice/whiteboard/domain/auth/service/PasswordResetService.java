@@ -38,7 +38,7 @@ public class PasswordResetService {
 
     @Transactional
     public void sendPasswordResetLink(String email, String verificationTicket) {
-        verificationCodeService.consumeVerificationTicket(
+        verificationCodeService.validateVerificationTicket(
                 email,
                 VerificationPurpose.PASSWORD_RESET,
                 verificationTicket);
@@ -57,11 +57,15 @@ public class PasswordResetService {
                 rawToken,
                 subject,
                 body);
+        verificationCodeService.consumeValidatedVerificationTicket(
+                email,
+                VerificationPurpose.PASSWORD_RESET,
+                verificationTicket);
     }
 
     @Transactional
     public void sendPasswordResetLinkByEmail(String email, String verificationTicket) {
-        verificationCodeService.consumeVerificationTicket(
+        verificationCodeService.validateVerificationTicket(
                 email,
                 VerificationPurpose.PASSWORD_RESET,
                 verificationTicket);
@@ -81,6 +85,10 @@ public class PasswordResetService {
                 rawToken,
                 subject,
                 body);
+        verificationCodeService.consumeValidatedVerificationTicket(
+                email,
+                VerificationPurpose.PASSWORD_RESET,
+                verificationTicket);
     }
 
     @Transactional
@@ -118,7 +126,7 @@ public class PasswordResetService {
 
     @Transactional
     public void resetPasswordByCode(String email, String verificationTicket, String newPassword) {
-        verificationCodeService.consumeVerificationTicket(
+        verificationCodeService.validateVerificationTicket(
                 email,
                 VerificationPurpose.PASSWORD_RESET,
                 verificationTicket);
@@ -129,12 +137,20 @@ public class PasswordResetService {
             throw new BusinessException(ErrorCode.USER_DELETED);
         }
 
-        applyPasswordReset(user, newPassword);
+        validatePasswordNotRecentlyUsed(user, newPassword);
+        verificationCodeService.consumeValidatedVerificationTicket(
+                email,
+                VerificationPurpose.PASSWORD_RESET,
+                verificationTicket);
+        applyPasswordResetAfterValidation(user, newPassword);
     }
 
     private void applyPasswordReset(User user, String newPassword) {
         validatePasswordNotRecentlyUsed(user, newPassword);
+        applyPasswordResetAfterValidation(user, newPassword);
+    }
 
+    private void applyPasswordResetAfterValidation(User user, String newPassword) {
         String newPasswordHash = passwordEncoder.encode(newPassword);
         user.updatePassword(newPasswordHash);
         userRepository.save(user);

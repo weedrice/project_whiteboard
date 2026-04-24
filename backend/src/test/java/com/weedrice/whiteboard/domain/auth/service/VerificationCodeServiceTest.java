@@ -233,6 +233,38 @@ class VerificationCodeServiceTest {
     }
 
     @Test
+    @DisplayName("verification ticket 검증은 ticket을 소비하지 않는다")
+    void validateVerificationTicket_keepsTicketActive() {
+        VerificationCode sentCode = createSentCode(1L, "test@example.com", VerificationPurpose.PASSWORD_RESET, "123456");
+        sentCode.issueVerificationTicket("ticket-1", LocalDateTime.now().plusMinutes(5));
+        verificationCodes.put(1L, sentCode);
+
+        verificationCodeService.validateVerificationTicket(
+                "test@example.com",
+                VerificationPurpose.PASSWORD_RESET,
+                "ticket-1");
+
+        assertThat(sentCode.getIsTicketConsumed()).isFalse();
+        assertThat(sentCode.getVerificationTicket()).isEqualTo("ticket-1");
+    }
+
+    @Test
+    @DisplayName("사전 검증된 verification ticket은 만료 시각이 지나도 소비할 수 있다")
+    void consumeValidatedVerificationTicket_consumesTicketAfterExpiry() {
+        VerificationCode sentCode = createSentCode(1L, "test@example.com", VerificationPurpose.PASSWORD_RESET, "123456");
+        sentCode.issueVerificationTicket("ticket-1", LocalDateTime.now().minusMinutes(1));
+        verificationCodes.put(1L, sentCode);
+
+        verificationCodeService.consumeValidatedVerificationTicket(
+                "test@example.com",
+                VerificationPurpose.PASSWORD_RESET,
+                "ticket-1");
+
+        assertThat(sentCode.getIsTicketConsumed()).isTrue();
+        assertThat(sentCode.getVerificationTicket()).isNull();
+    }
+
+    @Test
     @DisplayName("다른 목적의 ticket은 소비할 수 없다")
     void consumeVerificationTicket_rejectsOtherPurpose() {
         VerificationCode sentCode = createSentCode(1L, "test@example.com", VerificationPurpose.SIGNUP, "123456");

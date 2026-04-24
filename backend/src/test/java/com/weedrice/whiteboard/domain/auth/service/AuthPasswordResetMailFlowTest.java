@@ -36,6 +36,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -147,8 +148,13 @@ class AuthPasswordResetMailFlowTest {
                 .filteredOn(token -> !token.getIsUsed())
                 .hasSize(1);
         assertThat(previousToken.getIsUsed()).isTrue();
-        verify(emailService).sendEmail(anyString(), anyString(), anyString());
-        verify(verificationCodeService).consumeVerificationTicket(
+        var inOrder = inOrder(verificationCodeService, emailService);
+        inOrder.verify(verificationCodeService).validateVerificationTicket(
+                "test@example.com",
+                VerificationPurpose.PASSWORD_RESET,
+                "ticket-1");
+        inOrder.verify(emailService).sendEmail(anyString(), anyString(), anyString());
+        inOrder.verify(verificationCodeService).consumeValidatedVerificationTicket(
                 "test@example.com",
                 VerificationPurpose.PASSWORD_RESET,
                 "ticket-1");
@@ -180,6 +186,10 @@ class AuthPasswordResetMailFlowTest {
                 .filteredOn(token -> PasswordResetToken.DELIVERY_STATUS_FAILED.equals(token.getDeliveryStatus()))
                 .hasSize(1);
         assertThat(previousToken.getIsUsed()).isFalse();
+        verify(verificationCodeService, never()).consumeValidatedVerificationTicket(
+                "test@example.com",
+                VerificationPurpose.PASSWORD_RESET,
+                "ticket-2");
     }
 
     @Test
