@@ -103,8 +103,8 @@ class CommentRepositoryTest {
     }
 
     @Test
-    @DisplayName("게시글별 최신 미삭제 댓글 작성자를 배치 조회한다")
-    void findLatestNonDeletedAuthorsByPostIds_success() {
+    @DisplayName("게시글별 비작성자 미삭제 댓글 존재 여부를 배치 조회한다")
+    void findPostIdsWithNonAuthorCommentsByPostIds_success() {
         User responder = User.builder()
                 .loginId("responder")
                 .email("responder@test.com")
@@ -129,42 +129,45 @@ class CommentRepositoryTest {
                 .build();
         entityManager.persist(olderComment);
 
-        Comment latestComment = Comment.builder()
-                .content("Latest Comment")
+        Comment responseComment = Comment.builder()
+                .content("Response Comment")
                 .user(responder)
                 .post(post)
                 .depth(0)
                 .build();
-        entityManager.persist(latestComment);
+        entityManager.persist(responseComment);
 
-        Comment deletedLatestComment = Comment.builder()
+        Comment authorFollowUp = Comment.builder()
+                .content("Author Follow-up")
+                .user(user)
+                .post(post)
+                .depth(0)
+                .build();
+        entityManager.persist(authorFollowUp);
+
+        Comment deletedResponseComment = Comment.builder()
                 .content("Deleted Comment")
                 .user(responder)
                 .post(secondPost)
                 .depth(0)
                 .build();
-        deletedLatestComment.deleteComment();
-        entityManager.persist(deletedLatestComment);
+        deletedResponseComment.deleteComment();
+        entityManager.persist(deletedResponseComment);
 
-        Comment survivingComment = Comment.builder()
-                .content("Surviving Comment")
+        Comment authorOnlyComment = Comment.builder()
+                .content("Author Only Comment")
                 .user(user)
                 .post(secondPost)
                 .depth(0)
                 .build();
-        entityManager.persist(survivingComment);
+        entityManager.persist(authorOnlyComment);
 
         entityManager.flush();
 
-        List<CommentRepository.LatestCommentAuthorProjection> authors = commentRepository
-                .findLatestNonDeletedAuthorsByPostIds(List.of(post.getPostId(), secondPost.getPostId()));
+        List<Long> answeredPostIds = commentRepository
+                .findPostIdsWithNonAuthorCommentsByPostIds(List.of(post.getPostId(), secondPost.getPostId()));
 
-        assertThat(authors)
-                .extracting(CommentRepository.LatestCommentAuthorProjection::getPostId,
-                        CommentRepository.LatestCommentAuthorProjection::getAuthorUserId)
-                .containsExactlyInAnyOrder(
-                        org.assertj.core.groups.Tuple.tuple(post.getPostId(), responder.getUserId()),
-                        org.assertj.core.groups.Tuple.tuple(secondPost.getPostId(), user.getUserId()));
+        assertThat(answeredPostIds).containsExactly(post.getPostId());
     }
 
     @Test

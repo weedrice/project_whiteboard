@@ -84,18 +84,8 @@ class PostSummaryAssemblerTest {
                 .build();
         ReflectionTestUtils.setField(inquiryPost, "postId", 100L);
 
-        when(commentRepository.findLatestNonDeletedAuthorsByPostIds(List.of(100L)))
-                .thenReturn(List.of(new CommentRepository.LatestCommentAuthorProjection() {
-                    @Override
-                    public Long getPostId() {
-                        return 100L;
-                    }
-
-                    @Override
-                    public Long getAuthorUserId() {
-                        return 2L;
-                    }
-                }));
+        when(commentRepository.findPostIdsWithNonAuthorCommentsByPostIds(List.of(100L)))
+                .thenReturn(List.of(100L));
 
         PageImpl<Post> page = new PageImpl<>(List.of(inquiryPost), PageRequest.of(0, 20), 1);
 
@@ -105,7 +95,7 @@ class PostSummaryAssemblerTest {
                 .get(0);
 
         assertThat(summary.getInquiryAnswered()).isTrue();
-        verify(commentRepository).findLatestNonDeletedAuthorsByPostIds(List.of(100L));
+        verify(commentRepository).findPostIdsWithNonAuthorCommentsByPostIds(List.of(100L));
     }
 
     @Test

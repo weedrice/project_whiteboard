@@ -22,7 +22,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -209,19 +208,14 @@ class PostSummaryAssembler {
             return Collections.emptyMap();
         }
 
-        Map<Long, Long> latestAuthorIdsByPostId = commentRepository.findLatestNonDeletedAuthorsByPostIds(
-                        inquiryPosts.stream().map(Post::getPostId).toList())
-                .stream()
-                .collect(Collectors.toMap(
-                        CommentRepository.LatestCommentAuthorProjection::getPostId,
-                        CommentRepository.LatestCommentAuthorProjection::getAuthorUserId));
+        Set<Long> answeredPostIds = new HashSet<>(commentRepository.findPostIdsWithNonAuthorCommentsByPostIds(
+                inquiryPosts.stream().map(Post::getPostId).toList()));
 
         Map<Long, Boolean> inquiryAnsweredStatuses = new HashMap<>();
         for (Post inquiryPost : inquiryPosts) {
-            Long latestAuthorId = latestAuthorIdsByPostId.get(inquiryPost.getPostId());
             inquiryAnsweredStatuses.put(
                     inquiryPost.getPostId(),
-                    latestAuthorId != null && !Objects.equals(latestAuthorId, inquiryPost.getUser().getUserId()));
+                    answeredPostIds.contains(inquiryPost.getPostId()));
         }
         return inquiryAnsweredStatuses;
     }

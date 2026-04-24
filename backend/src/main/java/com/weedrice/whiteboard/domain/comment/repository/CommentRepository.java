@@ -14,12 +14,6 @@ import java.util.List;
 import java.util.Optional;
 
 public interface CommentRepository extends JpaRepository<Comment, Long>, CommentRepositoryCustom {
-        interface LatestCommentAuthorProjection {
-                Long getPostId();
-
-                Long getAuthorUserId();
-        }
-
         interface ReplyCountProjection {
                 Long getParentId();
 
@@ -178,22 +172,13 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                         @org.springframework.data.repository.query.Param("parentIds") Collection<Long> parentIds);
 
         @Query("""
-                        SELECT c.post.postId AS postId, c.user.userId AS authorUserId
+                        SELECT DISTINCT c.post.postId
                         FROM Comment c
                         WHERE c.post.postId IN :postIds
                           AND c.isDeleted = false
-                          AND NOT EXISTS (
-                                SELECT 1
-                                FROM Comment newer
-                                WHERE newer.post = c.post
-                                  AND newer.isDeleted = false
-                                  AND (
-                                        newer.createdAt > c.createdAt
-                                        OR (newer.createdAt = c.createdAt AND newer.commentId > c.commentId)
-                                  )
-                          )
+                          AND c.user.userId <> c.post.user.userId
                         """)
-        List<LatestCommentAuthorProjection> findLatestNonDeletedAuthorsByPostIds(
+        List<Long> findPostIdsWithNonAuthorCommentsByPostIds(
                         @org.springframework.data.repository.query.Param("postIds") List<Long> postIds);
 
         @Modifying(flushAutomatically = true)

@@ -168,7 +168,7 @@ class PostServiceTest {
                 .thenReturn(Collections.emptyList());
         lenient().when(fileService.getFirstImageFileIdsForPosts(anyList()))
                 .thenReturn(Collections.emptyMap());
-        lenient().when(commentRepository.findLatestNonDeletedAuthorsByPostIds(anyList()))
+        lenient().when(commentRepository.findPostIdsWithNonAuthorCommentsByPostIds(anyList()))
                 .thenReturn(Collections.emptyList());
 
         user = User.builder().loginId("testuser").displayName("Test User").build();
