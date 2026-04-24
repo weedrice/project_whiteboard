@@ -4,6 +4,8 @@ import type { SearchParams, PopularKeyword } from '@/types'
 import { computed, type Ref } from 'vue'
 import { QUERY_STALE_TIME } from '@/utils/constants'
 
+const hasSearchText = (value?: string) => !!value?.trim()
+
 export function useSearch() {
 
     const useSearchPosts = (params: Ref<SearchParams>) => {
@@ -13,7 +15,7 @@ export function useSearch() {
                 const { data } = await searchApi.searchPosts(params.value)
                 return data.data
             },
-            enabled: computed(() => !!params.value.q || !!params.value.keyword),
+            enabled: computed(() => hasSearchText(params.value.q) || hasSearchText(params.value.keyword)),
             placeholderData: (previousData) => previousData // keepPreviousData renamed/changed in v5
         })
     }
@@ -25,7 +27,7 @@ export function useSearch() {
                 const { data } = await searchApi.search(params.value)
                 return data.data
             },
-            enabled: computed(() => !!params.value.q),
+            enabled: computed(() => hasSearchText(params.value.q)),
             placeholderData: (previousData) => previousData
         })
     }

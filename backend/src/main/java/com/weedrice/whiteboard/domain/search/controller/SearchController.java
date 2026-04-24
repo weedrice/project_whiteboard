@@ -9,6 +9,8 @@ import com.weedrice.whiteboard.domain.search.service.SearchRecordEventPublisher;
 import com.weedrice.whiteboard.domain.search.service.SearchService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
+import com.weedrice.whiteboard.global.exception.BusinessException;
+import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -31,9 +33,10 @@ public class SearchController {
             @RequestParam String q,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
 
+        String keyword = canonicalizeKeyword(q);
         Long userId = (userDetails != null) ? userDetails.getUserId() : null;
-        IntegratedSearchResponse response = searchService.integratedSearch(q, userId);
-        searchRecordEventPublisher.publish(userId, q);
+        IntegratedSearchResponse response = searchService.integratedSearch(keyword, userId);
+        searchRecordEventPublisher.publish(userId, keyword);
         return ApiResponse.success(response);
     }
 
@@ -45,10 +48,11 @@ public class SearchController {
             Pageable pageable,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
 
+        String keyword = canonicalizeKeyword(q);
         Long userId = (userDetails != null) ? userDetails.getUserId() : null;
-        Page<PostSummary> response = searchService.searchPosts(q, searchType, boardUrl, pageable, userId);
+        Page<PostSummary> response = searchService.searchPosts(keyword, searchType, boardUrl, pageable, userId);
 
-        searchRecordEventPublisher.publish(userId, q);
+        searchRecordEventPublisher.publish(userId, keyword);
         return ApiResponse.success(new PageResponse<>(response));
     }
 
@@ -78,5 +82,13 @@ public class SearchController {
     public ApiResponse<Void> deleteAllRecentSearches(@AuthenticationPrincipal CustomUserDetails userDetails) {
         searchService.deleteAllRecentSearches(userDetails.getUserId());
         return ApiResponse.success(null);
+    }
+
+    private String canonicalizeKeyword(String keyword) {
+        String canonicalKeyword = keyword.trim();
+        if (canonicalKeyword.isEmpty()) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        return canonicalKeyword;
     }
 }

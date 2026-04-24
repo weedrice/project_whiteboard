@@ -66,6 +66,11 @@ describe('useSearch', () => {
         useSearchPosts(disabledParams as never)
         const disabledOptions = mocks.queryOptions.at(-1)!
         expect((disabledOptions.enabled as ReturnType<typeof computed>).value).toBe(false)
+
+        const blankParams = ref({ q: '   ', keyword: '  ' })
+        useSearchPosts(blankParams as never)
+        const blankOptions = mocks.queryOptions.at(-1)!
+        expect((blankOptions.enabled as ReturnType<typeof computed>).value).toBe(false)
     })
 
     it('fetches integrated search and uses q-only enabled condition', async () => {
@@ -90,6 +95,11 @@ describe('useSearch', () => {
         useIntegratedSearch(disabledParams as never)
         const disabledOptions = mocks.queryOptions.at(-1)!
         expect((disabledOptions.enabled as ReturnType<typeof computed>).value).toBe(false)
+
+        const blankParams = ref({ q: '   ' })
+        useIntegratedSearch(blankParams as never)
+        const blankOptions = mocks.queryOptions.at(-1)!
+        expect((blankOptions.enabled as ReturnType<typeof computed>).value).toBe(false)
     })
 
     it('returns mocked popular keywords with medium staleTime', async () => {

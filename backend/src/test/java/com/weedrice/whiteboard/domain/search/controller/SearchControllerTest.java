@@ -140,6 +140,45 @@ class SearchControllerTest {
     }
 
     @Test
+    @DisplayName("통합 검색은 검색어를 정규화해 검색과 기록에 사용한다")
+    void integratedSearch_trimsKeywordBeforeSearchAndRecord() throws Exception {
+        String rawQuery = " test ";
+        String canonicalQuery = "test";
+        org.springframework.data.domain.Page<PostSummary> emptyPostPage = new PageImpl<>(List.of());
+        org.springframework.data.domain.Page<com.weedrice.whiteboard.domain.comment.dto.CommentResponse> emptyCommentPage = new PageImpl<>(
+                List.of());
+        org.springframework.data.domain.Page<com.weedrice.whiteboard.domain.user.dto.UserSummary> emptyUserPage = new PageImpl<>(
+                List.of());
+        IntegratedSearchResponse response = IntegratedSearchResponse.from(emptyPostPage, emptyCommentPage,
+                emptyUserPage, java.util.Collections.emptyList(), canonicalQuery);
+
+        when(searchService.integratedSearch(eq(canonicalQuery), isNull())).thenReturn(response);
+        doNothing().when(searchRecordEventPublisher).publish(isNull(), eq(canonicalQuery));
+
+        mockMvc.perform(get("/api/v1/search")
+                .param("q", rawQuery)
+                .with(anonymous()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+
+        org.mockito.InOrder inOrder = inOrder(searchService, searchRecordEventPublisher);
+        inOrder.verify(searchService).integratedSearch(eq(canonicalQuery), isNull());
+        inOrder.verify(searchRecordEventPublisher).publish(isNull(), eq(canonicalQuery));
+    }
+
+    @Test
+    @DisplayName("통합 검색은 빈 검색어를 거부한다")
+    void integratedSearch_rejectsBlankKeyword() throws Exception {
+        mockMvc.perform(get("/api/v1/search")
+                .param("q", "   ")
+                .with(anonymous()))
+                .andExpect(status().isBadRequest());
+
+        verify(searchService, never()).integratedSearch(anyString(), any());
+        verify(searchRecordEventPublisher, never()).publish(any(), anyString());
+    }
+
+    @Test
     @DisplayName("게시글 검색 성공 - 로그인 사용자")
     void searchPosts_authenticated() throws Exception {
         // given
@@ -164,6 +203,42 @@ class SearchControllerTest {
         org.mockito.InOrder inOrder = inOrder(searchService, searchRecordEventPublisher);
         inOrder.verify(searchService).searchPosts(eq(query), any(), any(), any(), eq(1L));
         inOrder.verify(searchRecordEventPublisher).publish(eq(1L), eq(query));
+    }
+
+    @Test
+    @DisplayName("게시글 검색은 검색어를 정규화해 검색과 기록에 사용한다")
+    void searchPosts_trimsKeywordBeforeSearchAndRecord() throws Exception {
+        String rawQuery = " test ";
+        String canonicalQuery = "test";
+        PageRequest pageRequest = PageRequest.of(0, 10);
+        Page<PostSummary> page = new PageImpl<>(List.of(PostSummary.builder().build()), pageRequest, 1);
+
+        when(searchService.searchPosts(eq(canonicalQuery), any(), any(), any(), any())).thenReturn(page);
+        doNothing().when(searchRecordEventPublisher).publish(any(), eq(canonicalQuery));
+
+        mockMvc.perform(get("/api/v1/search/posts")
+                .param("q", rawQuery)
+                .param("page", "0")
+                .param("size", "10")
+                .with(user(customUserDetails)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+
+        org.mockito.InOrder inOrder = inOrder(searchService, searchRecordEventPublisher);
+        inOrder.verify(searchService).searchPosts(eq(canonicalQuery), any(), any(), any(), eq(1L));
+        inOrder.verify(searchRecordEventPublisher).publish(eq(1L), eq(canonicalQuery));
+    }
+
+    @Test
+    @DisplayName("게시글 검색은 빈 검색어를 거부한다")
+    void searchPosts_rejectsBlankKeyword() throws Exception {
+        mockMvc.perform(get("/api/v1/search/posts")
+                .param("q", "   ")
+                .with(user(customUserDetails)))
+                .andExpect(status().isBadRequest());
+
+        verify(searchService, never()).searchPosts(anyString(), any(), any(), any(), any());
+        verify(searchRecordEventPublisher, never()).publish(any(), anyString());
     }
 
     @Test

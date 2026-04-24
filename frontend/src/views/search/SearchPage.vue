@@ -70,7 +70,7 @@ import { getOptimizedBoardIconUrl, handleImageError } from '@/utils/image'
 const route = useRoute()
 const { useIntegratedSearch } = useSearch()
 
-const query = computed(() => (route.query.q as string) || '')
+const query = computed(() => ((route.query.q as string) || '').trim())
 const params = computed(() => ({
   q: query.value,
   page: 0,
