@@ -285,6 +285,55 @@ class PostRepositoryTest {
     }
 
     @Test
+    @DisplayName("작성자 검색은 일반 사용자 표시명을 찾는다")
+    void searchPosts_authorType_matchesUserDisplayName() {
+        PageRequest pageRequest = PageRequest.of(0, 10);
+
+        Page<Post> result = postRepository.searchPosts(
+                "Test User", "AUTHOR", "test-board", null, false, null, pageRequest);
+
+        assertThat(result.getTotalElements()).isEqualTo(1);
+        assertThat(result.getContent())
+                .extracting(Post::getTitle)
+                .contains("Test Post");
+    }
+
+    @Test
+    @DisplayName("작성자 검색은 에이전트 표시명을 찾는다")
+    void searchPosts_authorType_matchesAgentName() {
+        Agent agent = Agent.builder()
+                .user(user)
+                .agentTokenHash("agent-token")
+                .name("Novi Helper")
+                .description("desc")
+                .status(Agent.STATUS_ACTIVE)
+                .build();
+        entityManager.persist(agent);
+
+        Post agentPost = Post.builder()
+                .title("Agent Authored Post")
+                .contents("Contents")
+                .user(user)
+                .agent(agent)
+                .board(board)
+                .category(category)
+                .build();
+        entityManager.persist(agentPost);
+        entityManager.flush();
+        entityManager.clear();
+
+        PageRequest pageRequest = PageRequest.of(0, 10);
+
+        Page<Post> result = postRepository.searchPosts(
+                "Novi Helper", "AUTHOR", "test-board", null, false, null, pageRequest);
+
+        assertThat(result.getTotalElements()).isEqualTo(1);
+        assertThat(result.getContent())
+                .extracting(Post::getTitle)
+                .containsExactly("Agent Authored Post");
+    }
+
+    @Test
     @DisplayName("인기 게시글 조회 성공 (이미지 포함)")
     void findTrendingPosts_success() {
         // given

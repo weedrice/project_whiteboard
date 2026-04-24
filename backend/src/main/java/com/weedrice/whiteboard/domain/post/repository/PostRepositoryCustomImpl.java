@@ -137,7 +137,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
             } else if ("CONTENT".equalsIgnoreCase(searchType)) {
                 searchCondition = post.contents.containsIgnoreCase(keyword);
             } else if ("AUTHOR".equalsIgnoreCase(searchType)) {
-                searchCondition = post.user.displayName.containsIgnoreCase(keyword);
+                searchCondition = displayAuthorContains(keyword);
             } else {
                 searchCondition = post.title.containsIgnoreCase(keyword)
                         .or(post.contents.containsIgnoreCase(keyword));
@@ -152,6 +152,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
         List<Post> content = queryFactory
                 .selectFrom(post)
                 .join(post.user).fetchJoin()
+                .leftJoin(post.agent)
                 .join(post.board).fetchJoin()
                 .leftJoin(post.category).fetchJoin()
                 .where(
@@ -170,6 +171,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
         Long total = queryFactory
                 .select(post.count())
                 .from(post)
+                .leftJoin(post.agent)
                 .where(
                         searchCondition,
                         boardCondition,
@@ -426,6 +428,11 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
         return StringUtils.hasText(keyword)
                 ? post.title.containsIgnoreCase(keyword).or(post.contents.containsIgnoreCase(keyword))
                 : null;
+    }
+
+    private BooleanExpression displayAuthorContains(String keyword) {
+        return post.user.displayName.containsIgnoreCase(keyword)
+                .or(post.agent.name.containsIgnoreCase(keyword));
     }
 
     private BooleanExpression minLikesGoe(Integer minLikes) {
