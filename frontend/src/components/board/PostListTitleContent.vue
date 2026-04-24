@@ -35,12 +35,12 @@ const isInquiryPost = (post: PostSummary, boardUrl?: string) => (
   </span>
   <span
     v-if="post.isSecret"
-    class="inline-flex flex-shrink-0 text-amber-500"
+    class="inline-flex flex-shrink-0 items-center text-amber-500"
     :title="t('board.writePost.secret')"
   >
     <Lock class="h-4 w-4" />
   </span>
-  <span v-if="hasPreviewImage(post)" class="inline-flex flex-shrink-0 text-[var(--nv-muted)]">
+  <span v-if="hasPreviewImage(post)" class="inline-flex flex-shrink-0 items-center text-[var(--nv-muted)]">
     <ImageIcon class="h-4 w-4" />
   </span>
   <span
@@ -50,10 +50,10 @@ const isInquiryPost = (post: PostSummary, boardUrl?: string) => (
   >
     {{ post.inquiryAnswered ? 'Answered' : 'Pending' }}
   </span>
-  <span :class="truncateTitle ? 'truncate' : 'min-w-0 flex-1 break-words'">
+  <span :class="['nv-post-title-text', truncateTitle ? 'truncate' : 'min-w-0 flex-1 break-words']">
     {{ post.title }}
   </span>
-  <span v-if="post.commentCount > 0" class="flex-shrink-0 text-[var(--nv-accent)]">
+  <span v-if="post.commentCount > 0" class="nv-post-comment-count flex-shrink-0 text-[var(--nv-accent)]">
     [{{ post.commentCount }}]
   </span>
 </template>
@@ -61,14 +61,18 @@ const isInquiryPost = (post: PostSummary, boardUrl?: string) => (
 <style scoped>
 .nv-post-badge {
   align-items: center;
+  align-self: center;
   border-radius: 9999px;
   display: inline-flex;
+  flex-shrink: 0;
   font-size: 0.62rem;
   font-weight: 700;
   justify-content: center;
   letter-spacing: 0.02em;
+  line-height: 1;
   min-height: 1.35rem;
   padding: 0.15rem 0.55rem;
+  vertical-align: middle;
 }
 
 .nv-post-badge-category {
@@ -93,5 +97,10 @@ const isInquiryPost = (post: PostSummary, boardUrl?: string) => (
   background: color-mix(in srgb, #f59e0b 12%, transparent);
   border: 1px solid color-mix(in srgb, #f59e0b 24%, var(--nv-line));
   color: #b45309;
+}
+
+.nv-post-title-text,
+.nv-post-comment-count {
+  line-height: 1.35;
 }
 </style>

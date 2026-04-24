@@ -112,7 +112,7 @@ describe('PostList', () => {
     })
 
     const table = wrapper.findComponent(BaseTableStub)
-    const columns = table.props('columns') as Array<{ key: string, sortable?: boolean }>
+    const columns = table.props('columns') as Array<{ key: string, label: string, align?: string, sortable?: boolean }>
 
     expect(columns.map((column) => column.key)).toEqual([
       'postId',
@@ -122,6 +122,9 @@ describe('PostList', () => {
       'viewCount',
       'createdAt'
     ])
+    expect(columns.find((column) => column.key === 'author')?.label).toBe('common.author')
+    expect(columns.find((column) => column.key === 'createdAt')?.label).toBe('common.date')
+    expect(columns.find((column) => column.key === 'viewCount')?.align).toBe('right')
     expect(columns.find((column) => column.key === 'postId')?.sortable).toBe(true)
     expect(columns.find((column) => column.key === 'createdAt')?.sortable).toBe(false)
     const rowClass = table.props('rowClass') as (item: { postId: number }) => string

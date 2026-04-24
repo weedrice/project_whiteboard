@@ -212,7 +212,7 @@ const columns = computed(() => {
     key: 'viewCount',
     label: t('common.views'),
     width: '8%',
-    align: 'center' as const,
+    align: 'right' as const,
     sortable: true
   })
 
@@ -230,7 +230,7 @@ const columns = computed(() => {
 
 <template>
   <div class="card border-0 bg-transparent shadow-none" :aria-busy="loading ? 'true' : 'false'">
-    <div class="sm:hidden divide-y divide-[var(--nv-line)]">
+    <div class="sm:hidden divide-y divide-[var(--nv-line-soft)]">
       <template v-if="loading">
         <div class="space-y-3 px-4 py-4">
           <div v-for="index in 4" :key="index" class="space-y-3 rounded-[24px] border border-[var(--nv-line)] px-4 py-4">
@@ -266,7 +266,7 @@ const columns = computed(() => {
       >
         <div class="flex items-start justify-between gap-3">
           <div class="min-w-0 flex-1">
-            <div class="mt-2 flex items-start gap-2 text-sm font-medium text-[var(--nv-ink)]">
+            <div class="mt-2 flex items-center gap-2 text-sm font-medium text-[var(--nv-ink)]">
               <PostListTitleContent :post="item" :board-url="getResolvedBoardUrl(item)" />
             </div>
           </div>
@@ -382,16 +382,15 @@ const columns = computed(() => {
         </template>
 
         <template #cell-likeCount="{ item }">
-          <span class="inline-flex items-center justify-center gap-1">
-            <ThumbsUp class="h-3.5 w-3.5 text-[var(--nv-muted)]" />
-            {{ item.likeCount }}
+          <span class="nv-post-count-cell justify-center">
+            <ThumbsUp class="h-3.5 w-3.5 flex-shrink-0 text-[var(--nv-muted)]" />
+            <span>{{ item.likeCount }}</span>
           </span>
         </template>
 
         <template #cell-viewCount="{ item }">
-          <span class="inline-flex items-center justify-center gap-1">
-            <Eye class="h-3.5 w-3.5 text-[var(--nv-muted)]" />
-            {{ item.viewCount }}
+          <span class="nv-post-count-cell justify-end">
+            <span>{{ item.viewCount }}</span>
           </span>
         </template>
 
@@ -460,6 +459,15 @@ const columns = computed(() => {
   font-weight: 700;
 }
 
+.nv-post-count-cell {
+  align-items: center;
+  display: inline-flex;
+  gap: 0.25rem;
+  line-height: 1;
+  min-height: 1.25rem;
+  width: 100%;
+}
+
 .nv-post-board-link,
 .nv-post-title-link {
   color: inherit;
@@ -526,7 +534,12 @@ const columns = computed(() => {
 }
 
 :deep(.post-list-row td) {
+  border-bottom: 1px solid var(--nv-line-soft);
   transition: background-color 0.15s ease, padding-left 0.15s ease, border-color 0.15s ease;
+}
+
+:deep(.post-list-row:last-child td) {
+  border-bottom: 0;
 }
 
 :deep(.post-list-row td:first-child) {

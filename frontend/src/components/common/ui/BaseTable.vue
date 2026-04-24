@@ -100,7 +100,7 @@ const getCellValue = (item: T, key: string): unknown => {
 
 <template>
     <div
-        class="nv-base-table shadow overflow-hidden sm:rounded-lg">
+        class="nv-base-table shadow overflow-hidden">
         <div class="overflow-x-auto">
             <table class="min-w-full table-fixed nv-base-table-table" style="table-layout: fixed;">
                 <colgroup>
@@ -119,10 +119,10 @@ const getCellValue = (item: T, key: string): unknown => {
                                 class="nv-base-table-header-button inline-flex w-full items-center gap-2 focus:outline-none focus-visible:ring-2"
                                 :class="alignButtonClass(col.align)"
                                 @click="emit('sort', col.key)">
-                                <span>{{ col.label }}</span>
                                 <span aria-hidden="true" class="text-[9px] sm:text-[10px]">
                                     {{ getSortIndicator(col) }}
                                 </span>
+                                <span>{{ col.label }}</span>
                             </button>
                             <span v-else>{{ col.label }}</span>
                         </th>
@@ -176,6 +176,7 @@ const getCellValue = (item: T, key: string): unknown => {
 
 .nv-base-table-head {
     background: color-mix(in srgb, var(--nv-surface-2) 72%, transparent);
+    border-radius: 0;
 }
 
 .nv-base-table-body {

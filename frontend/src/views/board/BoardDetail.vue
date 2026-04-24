@@ -401,7 +401,7 @@ onUnmounted(() => {
       </div>
 
       <section id="board-post-list" class="nv-board-panel nv-board-list-panel overflow-hidden">
-        <div class="nv-board-toolbar-sticky border-b border-[var(--nv-line)] px-4 py-3 sm:px-5">
+        <div class="nv-board-toolbar-sticky px-4 py-3 sm:px-5">
           <div class="nv-board-filter-rail" aria-label="Category filters">
             <div class="nv-board-filter-track">
               <button
@@ -493,7 +493,7 @@ onUnmounted(() => {
             <router-link
               v-if="canWrite"
               :to="`/board/${board.boardUrl}/write`"
-              class="nv-board-search-write-btn"
+              class="nv-board-write-btn nv-board-search-write-btn"
             >
               {{ $t('common.write') }}
             </router-link>
@@ -506,7 +506,7 @@ onUnmounted(() => {
 
         <div
           v-if="totalPages > 1"
-          class="flex justify-center border-t border-[var(--nv-line)] px-3 py-3 sm:px-4"
+          class="flex justify-center px-3 py-3 sm:px-4"
         >
           <Pagination
             :currentPage="page"
@@ -541,6 +541,7 @@ onUnmounted(() => {
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--nv-surface-2) 45%, transparent), transparent),
     color-mix(in srgb, var(--nv-surface) 96%, transparent);
+  border-bottom: 0;
   border-bottom-left-radius: 0;
   border-bottom-right-radius: 0;
 }
@@ -548,7 +549,6 @@ onUnmounted(() => {
 .nv-board-list-panel {
   border-top-left-radius: 0;
   border-top-right-radius: 0;
-  margin-top: -1px;
 }
 
 .nv-board-icon-wrap {
@@ -596,7 +596,7 @@ onUnmounted(() => {
   font-size: 0.82rem;
   font-weight: 600;
   justify-content: center;
-  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, filter 0.2s ease, box-shadow 0.2s ease;
 }
 
 .nv-board-subscribe-btn {
@@ -621,14 +621,48 @@ onUnmounted(() => {
   background: var(--nv-accent);
   border: 1px solid var(--nv-accent);
   color: #fff;
+  height: 2.2rem;
   justify-content: center;
-  min-height: 2.15rem;
+  line-height: 1;
+  min-height: 2.2rem;
   min-width: 4.75rem;
-  padding: 0.45rem 0.8rem;
+  padding: 0 0.8rem;
 }
 
 .nv-board-write-btn:hover {
-  filter: brightness(1.03);
+  filter: brightness(0.94);
+}
+
+.nv-board-subscribe-btn.btn-secondary:not(:disabled):hover {
+  background: var(--nv-surface-2);
+}
+
+.nv-board-subscribe-btn.btn-primary:not(:disabled):hover {
+  filter: brightness(0.94);
+}
+
+.nv-board-subscribe-btn:not(:disabled),
+.nv-board-write-btn,
+.nv-board-search-btn:not(:disabled) {
+  cursor: pointer;
+}
+
+.nv-board-subscribe-btn:not(:disabled):active,
+.nv-board-write-btn:active,
+.nv-board-search-btn:not(:disabled):active {
+  filter: brightness(0.9);
+}
+
+.nv-board-subscribe-btn:focus-visible,
+.nv-board-write-btn:focus-visible,
+.nv-board-search-btn:focus-visible {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--nv-accent) 18%, transparent);
+  outline: none;
+}
+
+.nv-board-subscribe-btn:disabled,
+.nv-board-search-btn:disabled {
+  cursor: not-allowed;
 }
 
 .nv-board-filter-chip {
@@ -714,6 +748,8 @@ onUnmounted(() => {
   border-color: var(--nv-line);
   border-radius: 0.45rem;
   color: var(--nv-ink);
+  height: 2.2rem;
+  line-height: 1;
   min-height: 2.2rem;
 }
 
@@ -721,7 +757,11 @@ onUnmounted(() => {
   font-size: 0.74rem;
   font-weight: 500;
   outline: none;
-  padding: 0.4rem 0.55rem;
+  padding: 0 0.55rem;
+}
+
+:deep(.nv-board-search-input) {
+  padding-block: 0;
 }
 
 .nv-board-search-select:focus,
@@ -739,36 +779,24 @@ onUnmounted(() => {
   border-color: var(--nv-accent);
   border-radius: 0.45rem;
   color: #fff;
+  height: 2.2rem;
+  line-height: 1;
   min-height: 2.2rem;
   min-width: 3.9rem;
   padding-inline: 0.6rem;
+  padding-block: 0;
+  transition: filter 0.2s ease, box-shadow 0.2s ease;
   white-space: nowrap;
 }
 
 .nv-board-search-btn:hover {
-  filter: brightness(1.04);
+  filter: brightness(0.94);
 }
 
 .nv-board-search-write-btn {
-  align-items: center;
-  background: color-mix(in srgb, var(--nv-surface-2) 82%, transparent);
-  border: 1px solid var(--nv-line);
-  border-radius: 0.45rem;
-  color: var(--nv-ink);
-  display: inline-flex;
-  font-size: 0.82rem;
-  font-weight: 600;
   grid-column: 3;
-  justify-content: center;
   justify-self: end;
-  min-height: 2.2rem;
-  min-width: 4.25rem;
-  padding-inline: 0.75rem;
   white-space: nowrap;
-}
-
-.nv-board-search-write-btn:hover {
-  background: var(--nv-surface-2);
 }
 
 .nv-board-state-panel {

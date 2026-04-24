@@ -228,6 +228,7 @@ describe('BoardDetail', () => {
     expect(searchSelect.classes()).toContain('nv-board-search-select')
     expect(searchButton?.classes()).toContain('nv-board-search-btn')
     expect(searchWriteLink.exists()).toBe(true)
+    expect(searchWriteLink.classes()).toContain('nv-board-write-btn')
     expect(searchWriteLink.text()).toBe('common.write')
     expect(router.replace).toHaveBeenLastCalledWith({
       path: '/board/free',
