@@ -63,6 +63,7 @@ import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -190,11 +191,16 @@ class AuthServiceTest {
         assertThat(response.getLoginId()).isEqualTo(request.getLoginId());
         assertThat(response.getEmail()).isEqualTo(request.getEmail());
         assertThat(response.getDisplayName()).isEqualTo(request.getDisplayName());
-        verify(verificationCodeService).consumeVerificationTicket(
+        var inOrder = inOrder(verificationCodeService, pointService);
+        inOrder.verify(verificationCodeService).validateVerificationTicket(
                 request.getEmail(),
                 VerificationPurpose.SIGNUP,
                 request.getVerificationTicket());
-        verify(pointService).addPoint(eq(1L), eq(500), anyString(), eq(1L), eq("USER"));
+        inOrder.verify(pointService).addPoint(eq(1L), eq(500), anyString(), eq(1L), eq("USER"));
+        inOrder.verify(verificationCodeService).consumeValidatedVerificationTicket(
+                request.getEmail(),
+                VerificationPurpose.SIGNUP,
+                request.getVerificationTicket());
     }
 
     @Test
@@ -208,7 +214,8 @@ class AuthServiceTest {
         BusinessException exception = assertThrows(BusinessException.class, () -> authService.signup(request));
 
         assertThat(exception.getErrorCode().getCode()).isEqualTo("U002");
-        verify(verificationCodeService, never()).consumeVerificationTicket(anyString(), any(), anyString());
+        verify(verificationCodeService, never()).validateVerificationTicket(anyString(), any(), anyString());
+        verify(verificationCodeService, never()).consumeValidatedVerificationTicket(anyString(), any(), anyString());
     }
 
     @Test
@@ -227,7 +234,8 @@ class AuthServiceTest {
         BusinessException exception = assertThrows(BusinessException.class, () -> authService.signup(request));
 
         assertThat(exception.getErrorCode().getCode()).isEqualTo("U003");
-        verify(verificationCodeService, never()).consumeVerificationTicket(anyString(), any(), anyString());
+        verify(verificationCodeService, never()).validateVerificationTicket(anyString(), any(), anyString());
+        verify(verificationCodeService, never()).consumeValidatedVerificationTicket(anyString(), any(), anyString());
     }
 
     @Test
@@ -245,10 +253,11 @@ class AuthServiceTest {
 
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.DUPLICATE_EMAIL);
         verify(entityManager).clear();
-        verify(verificationCodeService).consumeVerificationTicket(
+        verify(verificationCodeService).validateVerificationTicket(
                 request.getEmail(),
                 VerificationPurpose.SIGNUP,
                 request.getVerificationTicket());
+        verify(verificationCodeService, never()).consumeValidatedVerificationTicket(anyString(), any(), anyString());
     }
 
     @Test
@@ -266,6 +275,11 @@ class AuthServiceTest {
 
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.DUPLICATE_LOGIN_ID);
         verify(entityManager).clear();
+        verify(verificationCodeService).validateVerificationTicket(
+                request.getEmail(),
+                VerificationPurpose.SIGNUP,
+                request.getVerificationTicket());
+        verify(verificationCodeService, never()).consumeValidatedVerificationTicket(anyString(), any(), anyString());
     }
 
     @Test
@@ -284,7 +298,11 @@ class AuthServiceTest {
         assertThat(response.getUserId()).isEqualTo(1L);
         assertThat(user.getStatus()).isEqualTo("ACTIVE");
         assertThat(user.getDeletedAt()).isNull();
-        verify(verificationCodeService).consumeVerificationTicket(
+        verify(verificationCodeService).validateVerificationTicket(
+                request.getEmail(),
+                VerificationPurpose.SIGNUP,
+                request.getVerificationTicket());
+        verify(verificationCodeService).consumeValidatedVerificationTicket(
                 request.getEmail(),
                 VerificationPurpose.SIGNUP,
                 request.getVerificationTicket());
@@ -411,11 +429,16 @@ class AuthServiceTest {
         var response = authService.findLoginId(email, verificationTicket);
 
         assertThat(response.getLoginId()).isEqualTo("testuser");
-        verify(verificationCodeService).consumeVerificationTicket(
+        var inOrder = inOrder(verificationCodeService, userRepository);
+        inOrder.verify(verificationCodeService).validateVerificationTicket(
                 email,
                 VerificationPurpose.FIND_ID,
                 verificationTicket);
-        verify(userRepository).findByEmail(email);
+        inOrder.verify(userRepository).findByEmail(email);
+        inOrder.verify(verificationCodeService).consumeValidatedVerificationTicket(
+                email,
+                VerificationPurpose.FIND_ID,
+                verificationTicket);
     }
 
     @Test

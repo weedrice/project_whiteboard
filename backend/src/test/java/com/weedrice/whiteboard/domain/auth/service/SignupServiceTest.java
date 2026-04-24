@@ -84,13 +84,17 @@ class SignupServiceTest {
         assertThat(deletedUser.getDisplayName()).isEqualTo("Rejoined User");
         assertThat(deletedUser.getPassword()).isEqualTo("encoded-new-password");
         var inOrder = inOrder(verificationCodeService, refreshTokenLifecycleService, userPrivilegeCleanupService, userRepository);
-        inOrder.verify(verificationCodeService).consumeVerificationTicket(
+        inOrder.verify(verificationCodeService).validateVerificationTicket(
                 request.getEmail(),
                 VerificationPurpose.SIGNUP,
                 request.getVerificationTicket());
         inOrder.verify(refreshTokenLifecycleService).revokeActiveRefreshTokens(deletedUser);
         inOrder.verify(userPrivilegeCleanupService).removeOperationalPrivileges(deletedUser);
         inOrder.verify(userRepository).save(deletedUser);
+        inOrder.verify(verificationCodeService).consumeValidatedVerificationTicket(
+                request.getEmail(),
+                VerificationPurpose.SIGNUP,
+                request.getVerificationTicket());
         verify(pointService, never()).addPoint(org.mockito.ArgumentMatchers.anyLong(),
                 org.mockito.ArgumentMatchers.anyInt(),
                 org.mockito.ArgumentMatchers.anyString(),
@@ -120,7 +124,7 @@ class SignupServiceTest {
         when(userRepository.findByEmail(request.getEmail())).thenReturn(Optional.of(deletedUser));
         doThrow(new BusinessException(ErrorCode.VALIDATION_ERROR))
                 .when(verificationCodeService)
-                .consumeVerificationTicket(
+                .validateVerificationTicket(
                         request.getEmail(),
                         VerificationPurpose.SIGNUP,
                         request.getVerificationTicket());
@@ -133,6 +137,10 @@ class SignupServiceTest {
         verify(refreshTokenLifecycleService, never()).revokeActiveRefreshTokens(deletedUser);
         verify(userPrivilegeCleanupService, never()).removeOperationalPrivileges(deletedUser);
         verify(userRepository, never()).save(deletedUser);
+        verify(verificationCodeService, never()).consumeValidatedVerificationTicket(
+                anyString(),
+                eq(VerificationPurpose.SIGNUP),
+                anyString());
     }
 
     @Test
@@ -161,7 +169,11 @@ class SignupServiceTest {
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
 
-        verify(verificationCodeService, never()).consumeVerificationTicket(
+        verify(verificationCodeService, never()).validateVerificationTicket(
+                anyString(),
+                eq(VerificationPurpose.SIGNUP),
+                anyString());
+        verify(verificationCodeService, never()).consumeValidatedVerificationTicket(
                 anyString(),
                 eq(VerificationPurpose.SIGNUP),
                 anyString());
@@ -200,6 +212,11 @@ class SignupServiceTest {
         SignupResponse response = signupService.signup(request);
 
         assertThat(response.getUserId()).isEqualTo(10L);
-        verify(socialAccountLinkService).linkSocialAccount(eq(savedUser), eq("google"), eq("google-user-1"));
+        var inOrder = inOrder(socialAccountLinkService, verificationCodeService);
+        inOrder.verify(socialAccountLinkService).linkSocialAccount(eq(savedUser), eq("google"), eq("google-user-1"));
+        inOrder.verify(verificationCodeService).consumeValidatedVerificationTicket(
+                request.getEmail(),
+                VerificationPurpose.SIGNUP,
+                request.getVerificationTicket());
     }
 }

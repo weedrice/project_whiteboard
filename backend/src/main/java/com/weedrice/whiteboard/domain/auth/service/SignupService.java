@@ -59,7 +59,7 @@ public class SignupService {
             throw new BusinessException(ErrorCode.DUPLICATE_LOGIN_ID);
         }
 
-        verificationCodeService.consumeVerificationTicket(
+        verificationCodeService.validateVerificationTicket(
                 request.getEmail(),
                 VerificationPurpose.SIGNUP,
                 request.getVerificationTicket());
@@ -84,6 +84,11 @@ public class SignupService {
 
         saveSocialAccountIfPresent(savedUser, request);
 
+        verificationCodeService.consumeValidatedVerificationTicket(
+                request.getEmail(),
+                VerificationPurpose.SIGNUP,
+                request.getVerificationTicket());
+
         return SignupResponse.builder()
                 .userId(savedUser.getUserId())
                 .loginId(savedUser.getLoginId())
@@ -98,7 +103,7 @@ public class SignupService {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
 
-        verificationCodeService.consumeVerificationTicket(
+        verificationCodeService.validateVerificationTicket(
                 request.getEmail(),
                 VerificationPurpose.SIGNUP,
                 request.getVerificationTicket());
@@ -112,6 +117,11 @@ public class SignupService {
         userRepository.save(existingUser);
 
         saveSocialAccountIfPresent(existingUser, request);
+
+        verificationCodeService.consumeValidatedVerificationTicket(
+                request.getEmail(),
+                VerificationPurpose.SIGNUP,
+                request.getVerificationTicket());
 
         return SignupResponse.builder()
                 .userId(existingUser.getUserId())
@@ -131,14 +141,16 @@ public class SignupService {
                 .orElse(ReregisterCheckResponse.builder().canReregister(false).build());
     }
 
+    @Transactional
     public FindIdResponse findLoginId(String email, String verificationTicket) {
-        verificationCodeService.consumeVerificationTicket(email, VerificationPurpose.FIND_ID, verificationTicket);
+        verificationCodeService.validateVerificationTicket(email, VerificationPurpose.FIND_ID, verificationTicket);
 
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         if ("DELETED".equals(user.getStatus())) {
             throw new BusinessException(ErrorCode.USER_DELETED);
         }
+        verificationCodeService.consumeValidatedVerificationTicket(email, VerificationPurpose.FIND_ID, verificationTicket);
         return new FindIdResponse(user.getLoginId());
     }
 
