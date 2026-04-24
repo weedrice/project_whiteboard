@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.board.repository;
 
+import com.weedrice.whiteboard.domain.admin.entity.Admin;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -153,11 +154,92 @@ class BoardRepositoryTest {
                 .containsExactlyInAnyOrder("Visible Top", "Visible Tie First", "Visible Tie Second");
     }
 
+    @Test
+    @DisplayName("Readable active boards filter public creator admin super admin and inquiry")
+    void findReadableActiveBoardsOrderBySortOrderAsc_filtersReadableBoards() {
+        User reader = persistUser("reader");
+        Board creatorPrivateBoard = persistBoard("Creator Private", "creator-private", 10, true, false, reader);
+        Board adminPrivateBoard = persistBoard("Admin Private", "admin-private", 20, true, false);
+        Board otherPrivateBoard = persistBoard("Other Private", "other-private", 30, true, false);
+        Board inactivePublicBoard = persistBoard("Inactive Public", "inactive-public", 40, false, true);
+        Board inquiryBoard = persistBoard("Inquiry Board", "inquiry", 50, true, true);
+        entityManager.persist(Admin.builder()
+                .user(reader)
+                .board(adminPrivateBoard)
+                .role("BOARD_ADMIN")
+                .build());
+        entityManager.flush();
+        entityManager.clear();
+
+        var readableBoards = boardRepository.findReadableActiveBoardsOrderBySortOrderAsc(reader, false);
+        var superAdminBoards = boardRepository.findReadableActiveBoardsOrderBySortOrderAsc(reader, true);
+
+        assertThat(readableBoards).extracting(Board::getBoardName)
+                .contains("Test Board", "Creator Private", "Admin Private")
+                .doesNotContain("Other Private", "Inactive Public", "Inquiry Board");
+        assertThat(superAdminBoards).extracting(Board::getBoardName)
+                .contains("Test Board", "Creator Private", "Admin Private", "Other Private")
+                .doesNotContain("Inactive Public", "Inquiry Board");
+        assertThat(creatorPrivateBoard).isNotNull();
+        assertThat(otherPrivateBoard).isNotNull();
+        assertThat(inactivePublicBoard).isNotNull();
+        assertThat(inquiryBoard).isNotNull();
+    }
+
+    @Test
+    @DisplayName("Readable active boards for anonymous user include public only")
+    void findReadableActiveBoardsOrderBySortOrderAsc_anonymousIncludesPublicOnly() {
+        persistBoard("Private Board", "private-board", 10, true, false);
+        persistBoard("Inquiry Board", "inquiry", 20, true, true);
+        persistBoard("Inactive Public", "inactive-public", 30, false, true);
+        entityManager.flush();
+        entityManager.clear();
+
+        var boards = boardRepository.findReadableActiveBoardsOrderBySortOrderAsc(null, false);
+
+        assertThat(boards).extracting(Board::getBoardName)
+                .contains("Test Board")
+                .doesNotContain("Private Board", "Inquiry Board", "Inactive Public");
+    }
+
+    @Test
+    @DisplayName("Readable top boards filter visibility before limit and keep order")
+    void findTopReadableBoardIdsByPostCount_filtersVisibilityBeforeLimit() {
+        User reader = persistUser("top-reader");
+        Board publicBoard = persistBoard("Readable Public", "readable-public", 20, true, true);
+        Board adminPrivateBoard = persistBoard("Readable Admin Private", "readable-admin-private", 10, true, false);
+        Board otherPrivateBoard = persistBoard("Unreadable Private", "unreadable-private", 1, true, false);
+        Board inquiryBoard = persistBoard("Inquiry Top", "inquiry", 2, true, true);
+        Board deletedOnlyBoard = persistBoard("Deleted Only Top", "deleted-only-top", 3, true, true);
+        entityManager.persist(Admin.builder()
+                .user(reader)
+                .board(adminPrivateBoard)
+                .role("BOARD_ADMIN")
+                .build());
+
+        persistPosts(publicBoard, 2);
+        persistPosts(adminPrivateBoard, 5);
+        persistPosts(otherPrivateBoard, 9);
+        persistPosts(inquiryBoard, 8);
+        persistDeletedPosts(deletedOnlyBoard, 7);
+        entityManager.flush();
+        entityManager.clear();
+
+        var boardIds = boardRepository.findTopReadableBoardIdsByPostCount(reader, false, PageRequest.of(0, 10));
+
+        assertThat(boardIds).containsExactly(adminPrivateBoard.getBoardId(), publicBoard.getBoardId());
+    }
+
     private Board persistBoard(String boardName, String boardUrl, int sortOrder, boolean isActive, boolean isPublic) {
+        return persistBoard(boardName, boardUrl, sortOrder, isActive, isPublic, creator);
+    }
+
+    private Board persistBoard(String boardName, String boardUrl, int sortOrder, boolean isActive, boolean isPublic,
+            User boardCreator) {
         Board board = Board.builder()
                 .boardName(boardName)
                 .boardUrl(boardUrl)
-                .creator(creator)
+                .creator(boardCreator)
                 .sortOrder(sortOrder)
                 .isPublic(isPublic)
                 .build();
@@ -166,6 +248,17 @@ class BoardRepositoryTest {
         }
         entityManager.persist(board);
         return board;
+    }
+
+    private User persistUser(String loginId) {
+        User user = User.builder()
+                .loginId(loginId)
+                .email(loginId + "@test.com")
+                .password("password")
+                .displayName(loginId)
+                .build();
+        entityManager.persist(user);
+        return user;
     }
 
     private void persistPosts(Board board, int count) {

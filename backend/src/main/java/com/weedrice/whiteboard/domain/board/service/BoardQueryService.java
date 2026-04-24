@@ -30,7 +30,6 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 class BoardQueryService {
     private static final int TOP_BOARD_LIMIT = 15;
-    private static final int TOP_BOARD_OVERFETCH_LIMIT = 100;
 
     private final BoardRepository boardRepository;
     private final BoardCategoryRepository boardCategoryRepository;
@@ -55,12 +54,10 @@ class BoardQueryService {
 
     List<BoardListResponse> getActiveBoards(UserDetails userDetails) {
         User currentUser = getCurrentUserOrNull(userDetails);
-        List<Board> boards = boardRepository.findByIsActiveOrderBySortOrderAsc(true);
-        List<Board> visibleBoards = boards.stream()
-                .filter(board -> !boardAccessPolicy.isInquiryBoard(board))
-                .filter(board -> boardAccessPolicy.canReadBoard(board, currentUser))
-                .collect(Collectors.toList());
-        return boardResponseAssembler.assembleListAll(visibleBoards, currentUser);
+        List<Board> boards = boardRepository.findReadableActiveBoardsOrderBySortOrderAsc(
+                currentUser,
+                currentUser != null && Boolean.TRUE.equals(currentUser.getIsSuperAdmin()));
+        return boardResponseAssembler.assembleListAll(boards, currentUser);
     }
 
     List<BoardListResponse> getTopBoards(UserDetails userDetails) {
@@ -71,14 +68,12 @@ class BoardQueryService {
             return boardResponseAssembler.assembleListAll(boards, currentUser);
         }
 
-        List<Long> boardIds = boardRepository.findTopBoardIdsByPostCount(PageRequest.of(0, TOP_BOARD_OVERFETCH_LIMIT));
-        List<Board> visibleBoards = findBoardsByIdsInOrder(boardIds)
-                .stream()
-                .filter(board -> !boardAccessPolicy.isInquiryBoard(board))
-                .filter(board -> boardAccessPolicy.canReadBoard(board, currentUser))
-                .limit(TOP_BOARD_LIMIT)
-                .toList();
-        return boardResponseAssembler.assembleListAll(visibleBoards, currentUser);
+        List<Long> boardIds = boardRepository.findTopReadableBoardIdsByPostCount(
+                currentUser,
+                Boolean.TRUE.equals(currentUser.getIsSuperAdmin()),
+                PageRequest.of(0, TOP_BOARD_LIMIT));
+        List<Board> boards = findBoardsByIdsInOrder(boardIds);
+        return boardResponseAssembler.assembleListAll(boards, currentUser);
     }
 
     List<AdminBoardResponse> getAllBoards(UserDetails userDetails) {

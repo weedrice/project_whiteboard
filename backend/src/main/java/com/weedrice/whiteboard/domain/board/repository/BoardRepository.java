@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.board.repository;
 
 import com.weedrice.whiteboard.domain.board.entity.Board;
+import com.weedrice.whiteboard.domain.user.entity.User;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
@@ -18,6 +19,30 @@ public interface BoardRepository extends JpaRepository<Board, Long> {
 
     @EntityGraph(attributePaths = "creator")
     List<Board> findByIsActiveOrderBySortOrderAsc(Boolean isActive);
+
+    @EntityGraph(attributePaths = "creator")
+    @Query("""
+            SELECT b
+            FROM Board b
+            WHERE b.isActive = true
+              AND LOWER(b.boardUrl) <> 'inquiry'
+              AND (
+                    :isSuperAdmin = true
+                    OR b.isPublic = true
+                    OR b.creator = :user
+                    OR EXISTS (
+                        SELECT 1
+                        FROM Admin a
+                        WHERE a.board = b
+                          AND a.user = :user
+                          AND a.isActive = true
+                    )
+              )
+            ORDER BY b.sortOrder ASC
+            """)
+    List<Board> findReadableActiveBoardsOrderBySortOrderAsc(
+            @Param("user") User user,
+            @Param("isSuperAdmin") boolean isSuperAdmin);
 
     @EntityGraph(attributePaths = "creator")
     List<Board> findByIsActiveAndIsPublicOrderBySortOrderAsc(Boolean isActive, Boolean isPublic);
@@ -61,6 +86,33 @@ public interface BoardRepository extends JpaRepository<Board, Long> {
             ORDER BY COUNT(p) DESC, b.sortOrder ASC, b.boardId ASC
             """)
     List<Long> findTopPublicBoardIdsByPostCount(Pageable pageable);
+
+    @Query("""
+            SELECT b.boardId
+            FROM Post p
+            JOIN p.board b
+            WHERE p.isDeleted = false
+              AND b.isActive = true
+              AND LOWER(b.boardUrl) <> 'inquiry'
+              AND (
+                    :isSuperAdmin = true
+                    OR b.isPublic = true
+                    OR b.creator = :user
+                    OR EXISTS (
+                        SELECT 1
+                        FROM Admin a
+                        WHERE a.board = b
+                          AND a.user = :user
+                          AND a.isActive = true
+                    )
+              )
+            GROUP BY b.boardId, b.sortOrder
+            ORDER BY COUNT(p) DESC, b.sortOrder ASC, b.boardId ASC
+            """)
+    List<Long> findTopReadableBoardIdsByPostCount(
+            @Param("user") User user,
+            @Param("isSuperAdmin") boolean isSuperAdmin,
+            Pageable pageable);
 
     @EntityGraph(attributePaths = "creator")
     List<Board> findByBoardIdIn(List<Long> boardIds);

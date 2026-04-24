@@ -53,6 +53,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -191,7 +192,8 @@ class BoardServiceTest {
     @DisplayName("활성화된 게시판 목록 조회 성공")
     void getActiveBoards_success() {
         // given
-        when(boardRepository.findByIsActiveOrderBySortOrderAsc(true)).thenReturn(Collections.singletonList(board));
+        when(boardRepository.findReadableActiveBoardsOrderBySortOrderAsc(null, false))
+                .thenReturn(Collections.singletonList(board));
 
         // when
         List<BoardListResponse> activeBoards = boardService.getActiveBoards(null);
@@ -678,6 +680,7 @@ class BoardServiceTest {
         verify(boardRepository).findTopPublicBoardIdsByPostCount(any());
         verify(boardRepository).findByBoardIdIn(List.of(1L));
         verify(boardRepository, never()).findTopBoardIdsByPostCount(any());
+        verify(boardRepository, never()).findTopReadableBoardIdsByPostCount(any(), anyBoolean(), any());
     }
 
     @Test
@@ -695,13 +698,13 @@ class BoardServiceTest {
 
         UserDetails userDetails = mock(UserDetails.class);
         when(userDetails.getUsername()).thenReturn(user.getLoginId());
-        when(boardRepository.findTopBoardIdsByPostCount(any())).thenReturn(List.of(2L));
+        when(boardRepository.findTopReadableBoardIdsByPostCount(eq(user), eq(true), any())).thenReturn(List.of(2L));
         when(boardRepository.findByBoardIdIn(List.of(2L))).thenReturn(List.of(privateBoard));
 
         List<BoardListResponse> boards = boardService.getTopBoards(userDetails);
 
         assertThat(boards).extracting(BoardListResponse::getBoardUrl).containsExactly("private-board");
-        verify(boardRepository).findTopBoardIdsByPostCount(any());
+        verify(boardRepository).findTopReadableBoardIdsByPostCount(eq(user), eq(true), any());
         verify(boardRepository).findByBoardIdIn(List.of(2L));
     }
 
