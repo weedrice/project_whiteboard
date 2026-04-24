@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -15,5 +16,8 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long
     @Query("SELECT rt FROM RefreshToken rt WHERE rt.tokenHash = :tokenHash")
     Optional<RefreshToken> findByTokenHash(@Param("tokenHash") String tokenHash);
 
-    List<RefreshToken> findByUserAndIsRevoked(com.weedrice.whiteboard.domain.user.entity.User user, Boolean isRevoked);
+    List<RefreshToken> findByUserAndIsRevokedAndExpiresAtGreaterThanEqual(
+            com.weedrice.whiteboard.domain.user.entity.User user,
+            Boolean isRevoked,
+            LocalDateTime now);
 }
