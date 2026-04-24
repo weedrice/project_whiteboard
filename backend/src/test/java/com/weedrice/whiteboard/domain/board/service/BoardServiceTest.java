@@ -455,6 +455,33 @@ class BoardServiceTest {
     }
 
     @Test
+    @DisplayName("게시판 수정 시 sortOrder를 생략하면 기존 정렬값을 유지한다")
+    void updateBoard_omittedSortOrderKeepsExistingValue() {
+        UserDetails userDetails = mock(UserDetails.class);
+        BoardUpdateRequest request = new BoardUpdateRequest();
+        ReflectionTestUtils.setField(request, "boardName", "Updated Board");
+        ReflectionTestUtils.setField(request, "description", "Updated Description");
+        ReflectionTestUtils.setField(request, "boardUrl", "test-board");
+        ReflectionTestUtils.setField(request, "iconUrl", null);
+        ReflectionTestUtils.setField(request, "isActive", true);
+        ReflectionTestUtils.setField(request, "isPublic", true);
+        ReflectionTestUtils.setField(board, "sortOrder", 7);
+
+        when(userDetails.getUsername()).thenReturn(user.getLoginId());
+        when(boardRepository.findByBoardUrl("test-board")).thenReturn(Optional.of(board));
+
+        authenticateUser();
+        Board updatedBoard;
+        try {
+            updatedBoard = boardService.updateBoard("test-board", request, userDetails);
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
+
+        assertThat(updatedBoard.getSortOrder()).isEqualTo(7);
+    }
+
+    @Test
     @DisplayName("Board update applies uploaded icon replacement")
     void updateBoard_replacesBoardIcon() {
         UserDetails userDetails = mock(UserDetails.class);

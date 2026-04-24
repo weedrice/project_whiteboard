@@ -174,8 +174,9 @@ class BoardProvisioningService {
             board.updateBoardUrl(request.getBoardUrl());
         }
 
+        Integer sortOrder = request.getSortOrder() != null ? request.getSortOrder() : board.getSortOrder();
         board.update(request.getBoardName(), normalizeDescription(request.getDescription()), request.getIconUrl(),
-                request.getSortOrder(),
+                sortOrder,
                 request.getAllowNsfw() != null ? request.getAllowNsfw() : board.getAllowNsfw(),
                 request.getIsActive(),
                 request.getIsPublic(),

@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.board.dto;
 
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -22,7 +23,8 @@ public class BoardUpdateRequest {
 
     private String iconUrl;
     private Boolean allowNsfw;
-    private int sortOrder;
+    @Min(0)
+    private Integer sortOrder;
     private Boolean isActive;
     private Boolean isPublic;
     private Boolean agentUseYn;

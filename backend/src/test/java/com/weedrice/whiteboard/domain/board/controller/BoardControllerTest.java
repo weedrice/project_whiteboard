@@ -34,6 +34,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
@@ -195,6 +197,19 @@ class BoardControllerTest {
                         .with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
+    }
+
+    @Test
+    @DisplayName("게시판 수정은 음수 sortOrder를 거부한다")
+    void updateBoard_rejectsNegativeSortOrder() throws Exception {
+        mockMvc.perform(put("/api/v1/boards/{boardUrl}", "free")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"boardName\":\"Updated Board\",\"sortOrder\":-1}")
+                        .with(user(customUserDetails))
+                        .with(csrf()))
+                .andExpect(status().isBadRequest());
+
+        verify(boardService, never()).updateBoard(any(), any(), any());
     }
 
     @Test
