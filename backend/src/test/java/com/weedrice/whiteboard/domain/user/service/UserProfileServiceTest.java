@@ -12,8 +12,10 @@ import com.weedrice.whiteboard.domain.user.dto.MyInfoResponse;
 import com.weedrice.whiteboard.domain.user.dto.UpdateProfileResponse;
 import com.weedrice.whiteboard.domain.user.dto.UserProfileResponse;
 import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.domain.user.entity.UserSettings;
 import com.weedrice.whiteboard.domain.user.repository.DisplayNameHistoryRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.domain.user.repository.UserSettingsRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.junit.jupiter.api.DisplayName;
@@ -44,6 +46,7 @@ class UserProfileServiceTest {
     private UserProfileService userProfileService;
 
     @Mock private UserRepository userRepository;
+    @Mock private UserSettingsRepository userSettingsRepository;
     @Mock private CommentRepository commentRepository;
     @Mock private DisplayNameHistoryRepository displayNameHistoryRepository;
     @Mock private PostRepository postRepository;
@@ -73,14 +76,50 @@ class UserProfileServiceTest {
         ReflectionTestUtils.setField(user, "isSuperAdmin", false);
         UserPoint userPoint = UserPoint.builder().user(user).build();
         ReflectionTestUtils.setField(userPoint, "currentPoint", 100);
+        UserSettings userSettings = new UserSettings(user);
+        userSettings.updateSettings("dark", null, null, null);
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(userPointRepository.findById(1L)).thenReturn(Optional.of(userPoint));
+        when(userSettingsRepository.findById(1L)).thenReturn(Optional.of(userSettings));
 
         MyInfoResponse response = userProfileService.getMyInfo(1L);
 
         assertThat(response.getUserId()).isEqualTo(1L);
         assertThat(response.getPoints()).isEqualTo(100);
+        assertThat(response.getTheme()).isEqualTo("DARK");
+    }
+
+    @Test
+    @DisplayName("getMyInfo returns LIGHT when settings do not exist")
+    void getMyInfo_defaultsThemeToLight() {
+        User user = User.builder().loginId("test").build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userPointRepository.findById(1L)).thenReturn(Optional.empty());
+        when(userSettingsRepository.findById(1L)).thenReturn(Optional.empty());
+
+        MyInfoResponse response = userProfileService.getMyInfo(1L);
+
+        assertThat(response.getTheme()).isEqualTo("LIGHT");
+    }
+
+    @Test
+    @DisplayName("getMyInfo returns LIGHT when stored theme is unsupported")
+    void getMyInfo_defaultsUnsupportedThemeToLight() {
+        User user = User.builder().loginId("test").build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+        UserSettings userSettings = new UserSettings(user);
+        userSettings.updateSettings("SYSTEM", null, null, null);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userPointRepository.findById(1L)).thenReturn(Optional.empty());
+        when(userSettingsRepository.findById(1L)).thenReturn(Optional.of(userSettings));
+
+        MyInfoResponse response = userProfileService.getMyInfo(1L);
+
+        assertThat(response.getTheme()).isEqualTo("LIGHT");
     }
 
     @Test

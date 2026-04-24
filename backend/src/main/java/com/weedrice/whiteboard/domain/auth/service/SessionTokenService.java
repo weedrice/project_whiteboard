@@ -13,7 +13,9 @@ import com.weedrice.whiteboard.domain.point.repository.UserPointRepository;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.domain.user.entity.UserSettings;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.domain.user.repository.UserSettingsRepository;
 import com.weedrice.whiteboard.global.common.util.ClientUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -41,8 +43,11 @@ import java.util.Set;
 @Transactional(readOnly = true)
 public class SessionTokenService {
 
+    private static final String DEFAULT_THEME = "LIGHT";
+
     private final UserRepository userRepository;
     private final UserPointRepository userPointRepository;
+    private final UserSettingsRepository userSettingsRepository;
     private final JwtTokenProvider jwtTokenProvider;
     private final AuthenticationManagerBuilder authenticationManagerBuilder;
     private final RefreshTokenRepository refreshTokenRepository;
@@ -90,6 +95,7 @@ public class SessionTokenService {
                         .profileImageUrl(user.getProfileImageUrl())
                         .isEmailVerified(user.getIsEmailVerified())
                         .role(user.getIsSuperAdmin() ? Role.SUPER_ADMIN : Role.USER)
+                        .theme(resolveTheme(user.getUserId()))
                         .points(userPointRepository.findById(user.getUserId())
                                 .map(UserPoint::getCurrentPoint)
                                 .orElse(0))
@@ -188,5 +194,19 @@ public class SessionTokenService {
                 .refreshToken(refreshToken)
                 .expiresIn(jwtTokenProvider.getAccessTokenValidityInMilliseconds())
                 .build();
+    }
+
+    private String resolveTheme(Long userId) {
+        return userSettingsRepository.findById(userId)
+                .map(UserSettings::getTheme)
+                .map(this::normalizeTheme)
+                .orElse(DEFAULT_THEME);
+    }
+
+    private String normalizeTheme(String theme) {
+        if ("DARK".equalsIgnoreCase(theme)) {
+            return "DARK";
+        }
+        return DEFAULT_THEME;
     }
 }

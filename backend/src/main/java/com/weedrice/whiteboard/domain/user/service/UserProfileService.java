@@ -11,8 +11,10 @@ import com.weedrice.whiteboard.domain.user.dto.UpdateProfileResponse;
 import com.weedrice.whiteboard.domain.user.dto.UserProfileResponse;
 import com.weedrice.whiteboard.domain.user.entity.DisplayNameHistory;
 import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.domain.user.entity.UserSettings;
 import com.weedrice.whiteboard.domain.user.repository.DisplayNameHistoryRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.domain.user.repository.UserSettingsRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -25,7 +27,10 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class UserProfileService {
 
+    private static final String DEFAULT_THEME = "LIGHT";
+
     private final UserRepository userRepository;
+    private final UserSettingsRepository userSettingsRepository;
     private final CommentRepository commentRepository;
     private final DisplayNameHistoryRepository displayNameHistoryRepository;
     private final PostRepository postRepository;
@@ -62,11 +67,26 @@ public class UserProfileService {
                 .profileImageUrl(user.getProfileImageUrl())
                 .status(user.getStatus())
                 .role(role)
+                .theme(resolveTheme(user.getUserId()))
                 .isEmailVerified(user.getIsEmailVerified())
                 .createdAt(user.getCreatedAt())
                 .lastLoginAt(user.getLastLoginAt())
                 .points(points)
                 .build();
+    }
+
+    private String resolveTheme(Long userId) {
+        return userSettingsRepository.findById(userId)
+                .map(UserSettings::getTheme)
+                .map(this::normalizeTheme)
+                .orElse(DEFAULT_THEME);
+    }
+
+    private String normalizeTheme(String theme) {
+        if ("DARK".equalsIgnoreCase(theme)) {
+            return "DARK";
+        }
+        return DEFAULT_THEME;
     }
 
     public UserProfileResponse getUserProfile(Long userId) {

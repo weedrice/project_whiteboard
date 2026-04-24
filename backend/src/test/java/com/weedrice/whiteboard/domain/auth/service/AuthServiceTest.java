@@ -103,7 +103,7 @@ class AuthServiceTest {
     void setUp() {
         TokenHashService tokenHashService = new TokenHashService();
         SessionTokenService sessionTokenService = new SessionTokenService(
-                userRepository, userPointRepository, jwtTokenProvider, authenticationManagerBuilder,
+                userRepository, userPointRepository, userSettingsRepository, jwtTokenProvider, authenticationManagerBuilder,
                 refreshTokenRepository, loginHistoryRepository, sanctionService, tokenHashService);
         PasswordResetTokenOrchestrationService passwordResetTokenOrchestrationService =
                 new PasswordResetTokenOrchestrationService(
@@ -324,6 +324,9 @@ class AuthServiceTest {
                 .thenReturn(authentication);
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(userPointRepository.findById(1L)).thenReturn(Optional.empty());
+        UserSettings userSettings = new UserSettings(user);
+        userSettings.updateSettings("dark", null, null, null);
+        when(userSettingsRepository.findById(1L)).thenReturn(Optional.of(userSettings));
         when(sanctionService.isUserBanned(user)).thenReturn(false);
         when(jwtTokenProvider.createAccessToken(authentication)).thenReturn("accessToken");
         when(jwtTokenProvider.createRefreshToken(authentication)).thenReturn("refreshToken");
@@ -335,6 +338,7 @@ class AuthServiceTest {
         assertThat(response.getAccessToken()).isEqualTo("accessToken");
         assertThat(response.getRefreshToken()).isEqualTo("refreshToken");
         assertThat(response.getUser().getLoginId()).isEqualTo("testuser");
+        assertThat(response.getUser().getTheme()).isEqualTo("DARK");
     }
 
     @Test
@@ -361,9 +365,10 @@ class AuthServiceTest {
         when(jwtTokenProvider.getRefreshTokenValidityInMilliseconds()).thenReturn(7_200_000L);
         LocalDateTime beforeLogin = LocalDateTime.now();
 
-        authService.login(request, httpServletRequest);
+        LoginResult response = authService.login(request, httpServletRequest);
 
         LocalDateTime afterLogin = LocalDateTime.now();
+        assertThat(response.getUser().getTheme()).isEqualTo("LIGHT");
         verify(refreshTokenRepository).save(argThat(token ->
                 expectedRefreshTokenHash.equals(token.getTokenHash())
                         && !token.getExpiresAt().isBefore(beforeLogin.plusHours(2))
