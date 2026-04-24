@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.shop.service;
 
 import com.weedrice.whiteboard.domain.point.service.PointService;
+import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.shop.dto.ShopItemResponse;
 import com.weedrice.whiteboard.domain.shop.entity.PurchaseHistory;
 import com.weedrice.whiteboard.domain.shop.entity.ShopItem;
@@ -52,6 +53,8 @@ class ShopServiceTest {
     private PointService pointService;
     @Mock
     private ShopEntitlementCapabilityRegistry shopEntitlementCapabilityRegistry;
+    @Mock
+    private SanctionService sanctionService;
 
     @InjectMocks
     private ShopService shopService;
@@ -168,6 +171,7 @@ class ShopServiceTest {
             Long purchaseId = shopService.purchaseItem(1L, 2L);
 
             assertThat(purchaseId).isEqualTo(1L);
+            verify(sanctionService).validateNotBanned(user);
             verify(shopEntitlementCapabilityRegistry).validateConfiguration(emoticonItem);
             verify(pointService).spendPoint(
                     eq(1L),
@@ -275,6 +279,23 @@ class ShopServiceTest {
                     .isInstanceOf(BusinessException.class)
                     .extracting("errorCode")
                     .isEqualTo(ErrorCode.USER_NOT_FOUND);
+        }
+
+        @Test
+        @DisplayName("Blocks banned users")
+        void purchaseItem_bannedUser() {
+            when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+            org.mockito.Mockito.doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE))
+                    .when(sanctionService)
+                    .validateNotBanned(user);
+
+            assertThatThrownBy(() -> shopService.purchaseItem(1L, 2L))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.USER_NOT_ACTIVE);
+
+            verify(shopItemRepository, never()).findById(anyLong());
+            verify(pointService, never()).spendPoint(anyLong(), anyInt(), anyString(), anyLong(), anyString());
         }
     }
 

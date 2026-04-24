@@ -215,6 +215,23 @@ class PostServiceTest {
     }
 
     @Test
+    @DisplayName("활성 MUTE 사용자는 게시글을 작성할 수 없다")
+    void createPost_mutedUser_forbidden() {
+        PostCreateRequest request = new PostCreateRequest(null, "New Post", "New Contents", Collections.emptyList(),
+                false, false, false, false, null);
+
+        when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE)).when(sanctionService).validateNotMuted(user);
+
+        assertThatThrownBy(() -> postService.createPost(1L, "free", request))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_ACTIVE);
+
+        verify(postRepository, never()).save(any(Post.class));
+    }
+
+    @Test
     @DisplayName("게시글 생성 후 발행 이벤트를 발행한다")
     void createPost_publishesPostPublishedEvent() {
         PostCreateRequest request = new PostCreateRequest(null, "New Post", "New Contents", Collections.emptyList(),

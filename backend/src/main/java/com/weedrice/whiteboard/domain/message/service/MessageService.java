@@ -3,6 +3,7 @@ package com.weedrice.whiteboard.domain.message.service;
 import com.weedrice.whiteboard.domain.message.dto.MessageResponse;
 import com.weedrice.whiteboard.domain.message.entity.Message;
 import com.weedrice.whiteboard.domain.message.repository.MessageRepository;
+import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
@@ -24,11 +25,14 @@ public class MessageService {
     private final MessageRepository messageRepository;
     private final UserRepository userRepository;
     private final UserBlockService userBlockService;
+    private final SanctionService sanctionService;
 
     @Transactional
     public Message sendMessage(Long senderId, Long receiverId, String content) {
         User sender = userRepository.findById(senderId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        sanctionService.validateNotBanned(sender);
+        sanctionService.validateNotMuted(sender);
         User receiver = userRepository.findById(receiverId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 

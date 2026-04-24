@@ -4,8 +4,11 @@ import com.weedrice.whiteboard.domain.point.entity.PointHistory;
 import com.weedrice.whiteboard.domain.point.entity.UserPoint;
 import com.weedrice.whiteboard.domain.point.repository.PointHistoryRepository;
 import com.weedrice.whiteboard.domain.point.repository.UserPointRepository;
+import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.global.exception.BusinessException;
+import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -19,6 +22,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -31,6 +35,8 @@ class PointServiceTest {
     private PointHistoryRepository pointHistoryRepository;
     @Mock
     private UserRepository userRepository;
+    @Mock
+    private SanctionService sanctionService;
 
     @InjectMocks
     private PointService pointService;
@@ -95,6 +101,7 @@ class PointServiceTest {
 
         org.mockito.ArgumentCaptor<PointHistory> historyCaptor = org.mockito.ArgumentCaptor.forClass(PointHistory.class);
         verify(pointHistoryRepository).save(historyCaptor.capture());
+        verify(sanctionService).validateNotBanned(user);
         assertThat(userPoint.getCurrentPoint()).isEqualTo(180);
         assertThat(historyCaptor.getValue().getType()).isEqualTo("SPEND");
         assertThat(historyCaptor.getValue().getAmount()).isEqualTo(-120);
@@ -114,6 +121,22 @@ class PointServiceTest {
                 .isInstanceOf(com.weedrice.whiteboard.global.exception.BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(com.weedrice.whiteboard.global.exception.ErrorCode.INSUFFICIENT_POINTS);
+    }
+
+    @Test
+    @DisplayName("구매 포인트 차감은 BAN 사용자에게 예외를 던진다")
+    void spendPoint_bannedUser() {
+        Long userId = 1L;
+        userPoint.addPoint(300);
+        when(userRepository.findByIdForUpdate(userId)).thenReturn(Optional.of(user));
+        doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE))
+                .when(sanctionService)
+                .validateNotBanned(user);
+
+        assertThatThrownBy(() -> pointService.spendPoint(userId, 120, "Test Spend", 10L, "SHOP_ITEM"))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.USER_NOT_ACTIVE);
     }
 
     @Test

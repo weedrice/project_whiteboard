@@ -24,6 +24,8 @@ import java.util.Set;
 @Service
 @Transactional(readOnly = true)
 public class SanctionService {
+    private static final String TYPE_BAN = "BAN";
+    private static final String TYPE_MUTE = "MUTE";
     private static final Set<String> ALLOWED_TYPES = Set.of("WARNING", "MUTE", "BAN");
 
     private final SanctionRepository sanctionRepository;
@@ -89,14 +91,24 @@ public class SanctionService {
         return user != null && sanctionRepository.existsActiveBan(user, LocalDateTime.now());
     }
 
+    public boolean isUserMuted(User user) {
+        return user != null && sanctionRepository.existsActiveTypeIn(user, Set.of(TYPE_MUTE), LocalDateTime.now());
+    }
+
     public void validateNotBanned(User user) {
         if (user == null || !"ACTIVE".equals(user.getStatus()) || isUserBanned(user)) {
             throw new BusinessException(ErrorCode.USER_NOT_ACTIVE);
         }
     }
 
+    public void validateNotMuted(User user) {
+        if (user == null || isUserMuted(user)) {
+            throw new BusinessException(ErrorCode.USER_NOT_ACTIVE);
+        }
+    }
+
     private boolean isPermanentBan(String type, LocalDateTime endDate) {
-        return "BAN".equalsIgnoreCase(type) && endDate == null;
+        return TYPE_BAN.equalsIgnoreCase(type) && endDate == null;
     }
 
     private String normalizeType(String type) {
@@ -131,7 +143,7 @@ public class SanctionService {
     }
 
     private void validateBanPeriod(String type, LocalDateTime endDate) {
-        if ("BAN".equals(type) && endDate != null && !endDate.isAfter(LocalDateTime.now())) {
+        if (TYPE_BAN.equals(type) && endDate != null && !endDate.isAfter(LocalDateTime.now())) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
     }

@@ -3,6 +3,7 @@ package com.weedrice.whiteboard.domain.message.service;
 import com.weedrice.whiteboard.domain.message.dto.MessageResponse;
 import com.weedrice.whiteboard.domain.message.entity.Message;
 import com.weedrice.whiteboard.domain.message.repository.MessageRepository;
+import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
@@ -30,6 +31,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -42,6 +45,8 @@ class MessageServiceTest {
     private UserRepository userRepository;
     @Mock
     private UserBlockService userBlockService;
+    @Mock
+    private SanctionService sanctionService;
 
     @InjectMocks
     private MessageService messageService;
@@ -78,6 +83,8 @@ class MessageServiceTest {
         assertThat(result.getContent()).isEqualTo("Hello!");
         assertThat(result.getSender()).isEqualTo(sender);
         assertThat(result.getReceiver()).isEqualTo(receiver);
+        verify(sanctionService).validateNotBanned(sender);
+        verify(sanctionService).validateNotMuted(sender);
         verify(userBlockService).isEitherDirectionBlocked(1L, 2L);
     }
 
@@ -91,6 +98,20 @@ class MessageServiceTest {
         assertThatThrownBy(() -> messageService.sendMessage(1L, 2L, "Hello!"))
                 .isInstanceOf(BusinessException.class)
                 .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode()).isEqualTo(ErrorCode.BLOCKED_BY_USER));
+    }
+
+    @Test
+    @DisplayName("MUTE 사용자는 쪽지를 보낼 수 없다")
+    void sendMessage_mutedUser_forbidden() {
+        when(userRepository.findById(1L)).thenReturn(Optional.of(sender));
+        doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE)).when(sanctionService).validateNotMuted(sender);
+
+        assertThatThrownBy(() -> messageService.sendMessage(1L, 2L, "Hello!"))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.USER_NOT_ACTIVE);
+
+        verify(messageRepository, never()).save(any());
     }
 
     @Test

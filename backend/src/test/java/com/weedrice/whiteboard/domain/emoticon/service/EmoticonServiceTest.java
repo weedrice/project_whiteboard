@@ -10,6 +10,7 @@ import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonMasterReposito
 import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonPurchaseRepository;
 import com.weedrice.whiteboard.domain.file.service.FileService;
 import com.weedrice.whiteboard.domain.point.service.PointService;
+import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -50,6 +51,8 @@ class EmoticonServiceTest {
     private UserRepository userRepository;
     @Mock
     private PointService pointService;
+    @Mock
+    private SanctionService sanctionService;
     @Mock
     private FileService fileService;
 
@@ -93,6 +96,7 @@ class EmoticonServiceTest {
         EmoticonPurchaseService purchaseService = new EmoticonPurchaseService(
                 grantService,
                 pointService,
+                sanctionService,
                 100);
         emoticonService = new EmoticonService(catalogService, commandService, purchaseService);
     }
@@ -704,6 +708,7 @@ class EmoticonServiceTest {
             EmoticonMasterDto result = emoticonService.purchaseEmoticon(2L, 1L);
 
             assertThat(result).isNotNull();
+            verify(sanctionService).validateNotBanned(buyer);
             verify(pointService).spendPoint(eq(2L), eq(100), anyString(), eq(1L), eq("EMOTICON"));
             verify(emoticonPurchaseRepository).saveAndFlush(any());
             verify(emoticonMasterRepository).incrementPurchaseCount(1L);
@@ -760,6 +765,24 @@ class EmoticonServiceTest {
             assertThatThrownBy(() -> emoticonService.purchaseEmoticon(1L, 999L))
                     .isInstanceOf(BusinessException.class)
                     .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode()).isEqualTo(ErrorCode.EMOTICON_NOT_FOUND));
+        }
+
+        @Test
+        @DisplayName("이모티콘 구매 - BAN 사용자는 구매할 수 없다")
+        void purchaseEmoticon_bannedUser() {
+            User buyer = User.builder().loginId("buyer").displayName("구매자").email("b@ex.com").password("p").build();
+            ReflectionTestUtils.setField(buyer, "userId", 2L);
+            when(userRepository.findById(2L)).thenReturn(Optional.of(buyer));
+            when(emoticonMasterRepository.findByIdWithImages(1L)).thenReturn(Optional.of(emoticonMaster));
+            doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE)).when(sanctionService).validateNotBanned(buyer);
+
+            assertThatThrownBy(() -> emoticonService.purchaseEmoticon(2L, 1L))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.USER_NOT_ACTIVE);
+
+            verify(pointService, never()).spendPoint(any(), anyInt(), anyString(), any(), anyString());
+            verify(emoticonPurchaseRepository, never()).saveAndFlush(any());
         }
     }
 

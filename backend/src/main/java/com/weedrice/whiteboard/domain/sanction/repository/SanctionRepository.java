@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.Optional;
 
 public interface SanctionRepository extends JpaRepository<Sanction, Long> {
@@ -30,4 +31,16 @@ public interface SanctionRepository extends JpaRepository<Sanction, Long> {
               AND (s.endDate IS NULL OR s.endDate > :now)
             """)
     boolean existsActiveBan(@Param("targetUser") User targetUser, @Param("now") LocalDateTime now);
+
+    @Query("""
+            SELECT CASE WHEN COUNT(s) > 0 THEN true ELSE false END
+            FROM Sanction s
+            WHERE s.targetUser = :targetUser
+              AND UPPER(s.type) IN :types
+              AND s.startDate <= :now
+              AND (s.endDate IS NULL OR s.endDate > :now)
+            """)
+    boolean existsActiveTypeIn(@Param("targetUser") User targetUser,
+                               @Param("types") Collection<String> types,
+                               @Param("now") LocalDateTime now);
 }

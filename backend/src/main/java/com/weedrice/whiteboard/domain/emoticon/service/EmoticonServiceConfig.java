@@ -5,6 +5,7 @@ import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonMasterReposito
 import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonPurchaseRepository;
 import com.weedrice.whiteboard.domain.file.service.FileService;
 import com.weedrice.whiteboard.domain.point.service.PointService;
+import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -53,7 +54,12 @@ class EmoticonServiceConfig {
 
     @Bean
     EmoticonPurchaseService emoticonPurchaseService(EmoticonEntitlementGrantService emoticonEntitlementGrantService,
-                                                    PointService pointService) {
-        return new EmoticonPurchaseService(emoticonEntitlementGrantService, pointService, EMOTICON_PRICE);
+                                                    PointService pointService,
+                                                    SanctionService sanctionService) {
+        return new EmoticonPurchaseService(
+                emoticonEntitlementGrantService,
+                pointService,
+                sanctionService,
+                EMOTICON_PRICE);
     }
 }

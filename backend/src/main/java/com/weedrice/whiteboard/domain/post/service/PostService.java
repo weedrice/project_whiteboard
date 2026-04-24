@@ -385,6 +385,7 @@ public class PostService {
     @Transactional
     public Post createPost(@NonNull Long userId, Long agentId, @NonNull Long boardId, PostCreateRequest request) {
         User user = getWritableUser(userId);
+        sanctionService.validateNotMuted(user);
         Agent agent = agentOwnershipService.resolveOwnedActiveAgent(userId, agentId);
         Board board = boardRepository.findById(boardId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
@@ -443,6 +444,7 @@ public class PostService {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
         User modifier = getWritableUser(userId);
+        sanctionService.validateNotMuted(modifier);
 
         if (post.getIsDeleted()) {
             throw new BusinessException(ErrorCode.POST_NOT_FOUND);
@@ -604,6 +606,7 @@ public class PostService {
     @Transactional
     public DraftPost saveDraftPost(@NonNull Long userId, PostDraftRequest request) {
         User user = getWritableUser(userId);
+        sanctionService.validateNotMuted(user);
         Board board = boardRepository.findByBoardUrl(request.getBoardUrl()) // boardUrl ?ъ슜
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
         boardAccessPolicy.validateWritable(board, user);

@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.shop.service;
 
 import com.weedrice.whiteboard.domain.point.service.PointService;
+import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.shop.dto.PurchaseHistoryResponse;
 import com.weedrice.whiteboard.domain.shop.dto.ShopItemResponse;
 import com.weedrice.whiteboard.domain.shop.entity.PurchaseHistory;
@@ -31,6 +32,7 @@ public class ShopService {
     private final UserRepository userRepository;
     private final PointService pointService;
     private final ShopEntitlementCapabilityRegistry shopEntitlementCapabilityRegistry;
+    private final SanctionService sanctionService;
 
     public ShopItemResponse getShopItems(String itemType, Pageable pageable) {
         if (itemType != null && !itemType.isEmpty() && !shopEntitlementCapabilityRegistry.supports(itemType)) {
@@ -60,6 +62,7 @@ public class ShopService {
     public Long purchaseItem(Long userId, Long itemId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        sanctionService.validateNotBanned(user);
         ShopItem item = shopItemRepository.findById(itemId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.ITEM_NOT_AVAILABLE));
 

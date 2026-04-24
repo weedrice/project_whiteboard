@@ -159,6 +159,22 @@ class CommentServiceTest {
     }
 
     @Test
+    @DisplayName("활성 MUTE 사용자는 댓글을 작성할 수 없다")
+    void createComment_mutedUser_forbidden() {
+        User user = User.builder().build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE)).when(sanctionService).validateNotMuted(user);
+
+        assertThatThrownBy(() -> commentService.createComment(1L, 1L, null, "content"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_ACTIVE);
+
+        verify(commentRepository, never()).save(any(Comment.class));
+    }
+
+    @Test
     @DisplayName("create child comment")
     void createComment_child_success() {
         User user = User.builder().build();

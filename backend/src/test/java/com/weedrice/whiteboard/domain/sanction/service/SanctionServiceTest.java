@@ -28,6 +28,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -261,11 +262,32 @@ class SanctionServiceTest {
     }
 
     @Test
+    @DisplayName("isUserMuted returns true when an active mute exists")
+    void isUserMuted_trueWhenActiveMuteExists() {
+        when(sanctionRepository.existsActiveTypeIn(eq(targetUser), eq(Set.of("MUTE")), any(LocalDateTime.class)))
+                .thenReturn(true);
+
+        assertThat(sanctionService.isUserMuted(targetUser)).isTrue();
+    }
+
+    @Test
     @DisplayName("inactive user is rejected by write validation")
     void validateNotBanned_rejectsInactiveUser() {
         ReflectionTestUtils.setField(targetUser, "status", "SUSPENDED");
 
         assertThatThrownBy(() -> sanctionService.validateNotBanned(targetUser))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.USER_NOT_ACTIVE);
+    }
+
+    @Test
+    @DisplayName("muted user is rejected by write validation")
+    void validateNotMuted_rejectsMutedUser() {
+        when(sanctionRepository.existsActiveTypeIn(eq(targetUser), eq(Set.of("MUTE")), any(LocalDateTime.class)))
+                .thenReturn(true);
+
+        assertThatThrownBy(() -> sanctionService.validateNotMuted(targetUser))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.USER_NOT_ACTIVE);

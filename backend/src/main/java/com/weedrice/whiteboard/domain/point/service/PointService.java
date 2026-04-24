@@ -6,6 +6,7 @@ import com.weedrice.whiteboard.domain.point.entity.PointHistory;
 import com.weedrice.whiteboard.domain.point.entity.UserPoint;
 import com.weedrice.whiteboard.domain.point.repository.PointHistoryRepository;
 import com.weedrice.whiteboard.domain.point.repository.UserPointRepository;
+import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -30,6 +31,7 @@ public class PointService {
         private final UserPointRepository userPointRepository;
         private final PointHistoryRepository pointHistoryRepository;
         private final UserRepository userRepository;
+        private final SanctionService sanctionService;
 
         public UserPointResponse getUserPoint(@NonNull Long userId) {
                 ensureUserExists(userId);
@@ -80,6 +82,9 @@ public class PointService {
                         String relatedType, boolean createIfMissing, boolean validateSufficientBalance) {
                 User user = userRepository.findByIdForUpdate(userId)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+                if (HISTORY_TYPE_SPEND.equals(historyType)) {
+                        sanctionService.validateNotBanned(user);
+                }
                 UserPoint userPoint = getOrCreateUserPoint(user, createIfMissing);
 
                 if (validateSufficientBalance && userPoint.getCurrentPoint() < Math.abs(delta)) {

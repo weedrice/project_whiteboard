@@ -146,6 +146,7 @@ public class CommentService {
     @Transactional
     public Comment createComment(Long userId, Long agentId, Long postId, Long parentId, String content) {
         User user = getWritableUser(userId);
+        sanctionService.validateNotMuted(user);
         Agent agent = agentOwnershipService.resolveOwnedActiveAgent(userId, agentId);
         Post post = postRepository.findByIdWithRelations(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
@@ -216,6 +217,7 @@ public class CommentService {
         Comment comment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
         User user = getWritableUser(userId);
+        sanctionService.validateNotMuted(user);
         validatePostReadable(comment.getPost(), user);
 
         if (comment.getIsDeleted()) {
