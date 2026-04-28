@@ -38,21 +38,41 @@ public class FileDeletionWorker {
                 return;
             }
 
-            fileStorageService.deleteFileOrThrow(file.getFilePath());
-            transactionTemplate.executeWithoutResult(status -> fileRepository.findById(fileId).ifPresent(current -> {
-                if (current.isDeletionRequested()) {
-                    fileRepository.delete(current);
-                }
-            }));
+            if (!deleteFromStorage(fileId, file)) {
+                return;
+            }
+            finalizeDeletion(fileId);
         } catch (RuntimeException e) {
-            log.warn("Failed to delete file from storage. fileId={}", fileId, e);
-            transactionTemplate.executeWithoutResult(status -> fileRepository.findById(fileId).ifPresent(current -> {
-                if (current.isDeletionRequested()) {
-                    current.markDeletionFailed(e.getMessage());
-                }
-            }));
+            log.warn("Failed to finalize deleted file. fileId={}", fileId, e);
         } finally {
             releaseClaim(fileId);
         }
+    }
+
+    private boolean deleteFromStorage(Long fileId, File file) {
+        try {
+            fileStorageService.deleteFileOrThrow(file.getFilePath());
+            return true;
+        } catch (RuntimeException e) {
+            log.warn("Failed to delete file from storage. fileId={}", fileId, e);
+            markDeletionFailed(fileId, e);
+            return false;
+        }
+    }
+
+    private void markDeletionFailed(Long fileId, RuntimeException cause) {
+        transactionTemplate.executeWithoutResult(status -> fileRepository.findById(fileId).ifPresent(current -> {
+            if (current.isDeletionRequested()) {
+                current.markDeletionFailed(cause.getMessage());
+            }
+        }));
+    }
+
+    private void finalizeDeletion(Long fileId) {
+        transactionTemplate.executeWithoutResult(status -> fileRepository.findById(fileId).ifPresent(current -> {
+            if (current.isDeletionRequested()) {
+                fileRepository.delete(current);
+            }
+        }));
     }
 }

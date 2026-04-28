@@ -45,6 +45,8 @@ public class FileService {
     public static final String RELATED_TYPE_DRAFT_POST = "DRAFT_POST";
     public static final String RELATED_TYPE_USER_PROFILE = "USER_PROFILE";
     public static final String RELATED_TYPE_BOARD_ICON = "BOARD_ICON";
+    public static final String RELATED_TYPE_EMOTICON_THUMBNAIL = "EMOTICON_THUMBNAIL";
+    public static final String RELATED_TYPE_EMOTICON_IMAGE = "EMOTICON_IMAGE";
     private static final int MAX_DELETE_RETRY_COUNT = 5;
     private static final int TEMPORARY_FILE_CLEANUP_BATCH_SIZE = 500;
 
@@ -375,13 +377,38 @@ public class FileService {
     }
 
     private void validateReadable(File file, Long viewerUserId) {
-        if (!RELATED_TYPE_POST_CONTENT.equals(file.getRelatedType()) || file.getRelatedId() == null) {
+        String relatedType = file.getRelatedType();
+        if (relatedType == null && file.getRelatedId() == null) {
+            validateUploader(file, viewerUserId);
             return;
         }
+        if (relatedType == null || file.getRelatedId() == null) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
 
-        Post post = postRepository.findById(file.getRelatedId())
-                .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
-        postAccessPolicy.validateReadable(post, resolveViewer(viewerUserId));
+        switch (relatedType) {
+            case RELATED_TYPE_POST_CONTENT -> {
+                Post post = postRepository.findById(file.getRelatedId())
+                        .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
+                postAccessPolicy.validateReadable(post, resolveViewer(viewerUserId));
+            }
+            case RELATED_TYPE_USER_PROFILE,
+                    RELATED_TYPE_BOARD_ICON,
+                    RELATED_TYPE_EMOTICON_THUMBNAIL,
+                    RELATED_TYPE_EMOTICON_IMAGE -> {
+                return;
+            }
+            case RELATED_TYPE_DRAFT_POST -> validateUploader(file, viewerUserId);
+            default -> throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
+    }
+
+    private void validateUploader(File file, Long viewerUserId) {
+        if (viewerUserId == null
+                || file.getUploader() == null
+                || !viewerUserId.equals(file.getUploader().getUserId())) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
     }
 
     private User resolveViewer(Long viewerUserId) {

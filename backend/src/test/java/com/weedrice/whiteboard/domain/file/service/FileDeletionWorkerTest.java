@@ -91,4 +91,29 @@ class FileDeletionWorkerTest {
         assertThat(file.getDeleteRetryCount()).isEqualTo(1);
         verify(fileRepository, never()).delete(any());
     }
+
+    @Test
+    @DisplayName("스토리지 삭제 후 DB 정리 실패는 DELETE_FAILED로 전환하지 않는다")
+    void processDeletion_doesNotMarkFailedWhenFinalizeFailsAfterStorageDelete() {
+        File file = File.builder()
+                .filePath("stored.jpg")
+                .originalName("stored.jpg")
+                .fileSize(4L)
+                .mimeType("image/jpeg")
+                .uploader(com.weedrice.whiteboard.domain.user.entity.User.builder().build())
+                .storageStatus(FileStorageStatus.PENDING_DELETE)
+                .build();
+
+        when(fileRepository.findById(10L)).thenReturn(Optional.of(file));
+        doThrow(new IllegalStateException("db unavailable"))
+                .when(transactionTemplate)
+                .executeWithoutResult(any());
+
+        fileDeletionWorker.processDeletion(10L);
+
+        verify(fileStorageService).deleteFileOrThrow("stored.jpg");
+        assertThat(file.getStorageStatus()).isEqualTo(FileStorageStatus.PENDING_DELETE);
+        assertThat(file.getDeleteRetryCount()).isZero();
+        verify(fileRepository, never()).delete(any());
+    }
 }

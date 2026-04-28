@@ -156,6 +156,24 @@ class FileControllerTest {
     }
 
     @Test
+    @DisplayName("인증 다운로드는 조회자 ID를 서비스에 전달한다")
+    void downloadFile_authenticatedPassesViewerUserId() throws Exception {
+        Long fileId = 3L;
+        File file = File.builder().build();
+        ReflectionTestUtils.setField(file, "fileId", fileId);
+        ReflectionTestUtils.setField(file, "originalName", "test.txt");
+        ReflectionTestUtils.setField(file, "mimeType", "text/plain");
+        ReflectionTestUtils.setField(file, "filePath", "path/to/file.txt");
+
+        when(fileService.getFileForDownload(eq(fileId), eq(1L))).thenReturn(file);
+        when(fileStorageService.loadFile(anyString())).thenReturn(new ByteArrayInputStream("test content".getBytes()));
+
+        mockMvc.perform(get("/api/v1/files/{fileId}", fileId)
+                        .with(user(customUserDetails)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     @DisplayName("SVG 파일은 inline 미리보기 없이 attachment로 응답")
     void downloadFile_svgServedAsAttachment() throws Exception {
         Long fileId = 2L;
