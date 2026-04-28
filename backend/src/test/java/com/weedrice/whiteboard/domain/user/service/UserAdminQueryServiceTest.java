@@ -55,7 +55,6 @@ class UserAdminQueryServiceTest {
     @Mock private LoginHistoryRepository loginHistoryRepository;
     @Mock private SanctionRepository sanctionRepository;
     @Mock private ReportRepository reportRepository;
-    @Mock private UserLifecycleService userLifecycleService;
 
     @Test
     @DisplayName("searchUsersForAdmin resolves roles in batch")
@@ -81,14 +80,6 @@ class UserAdminQueryServiceTest {
         assertThat(response.getContent()).extracting(UserAdminResponse::getRole)
                 .containsExactly("SUPER_ADMIN", "MODERATOR");
         verify(adminRepository).findByUserUserIdInAndIsActiveOrderByAdminIdAsc(List.of(2L), true);
-    }
-
-    @Test
-    @DisplayName("updateUserStatus delegates to lifecycle service")
-    void updateUserStatus_delegatesToLifecycleService() {
-        userAdminQueryService.updateUserStatus(1L, "SUSPENDED");
-
-        verify(userLifecycleService).updateAdminManagedStatus(1L, "SUSPENDED");
     }
 
     @Test

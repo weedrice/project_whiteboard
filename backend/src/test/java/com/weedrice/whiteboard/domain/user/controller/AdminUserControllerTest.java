@@ -5,6 +5,8 @@ import com.weedrice.whiteboard.domain.user.dto.AdminUserCommentResponse;
 import com.weedrice.whiteboard.domain.user.dto.AdminUserPostResponse;
 import com.weedrice.whiteboard.domain.user.dto.AdminUserSubscriptionResponse;
 import com.weedrice.whiteboard.domain.user.dto.UserAdminResponse;
+import com.weedrice.whiteboard.domain.user.dto.UserStatusUpdateRequest;
+import com.weedrice.whiteboard.domain.user.service.UserAdminCommandService;
 import com.weedrice.whiteboard.domain.user.service.UserAdminQueryService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -25,6 +27,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Collections;
@@ -33,6 +36,7 @@ import java.util.List;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
@@ -58,6 +62,9 @@ class AdminUserControllerTest {
 
     @MockBean
     private UserAdminQueryService userAdminQueryService;
+
+    @MockBean
+    private UserAdminCommandService userAdminCommandService;
 
     @MockBean
     private com.weedrice.whiteboard.global.security.JwtAuthenticationFilter jwtAuthenticationFilter;
@@ -229,9 +236,8 @@ class AdminUserControllerTest {
     @Test
     @DisplayName("status update returns success")
     void updateUserStatus_returnsSuccess() throws Exception {
-        com.weedrice.whiteboard.domain.user.dto.UserStatusUpdateRequest request =
-                new com.weedrice.whiteboard.domain.user.dto.UserStatusUpdateRequest();
-        org.springframework.test.util.ReflectionTestUtils.setField(request, "status", "ACTIVE");
+        UserStatusUpdateRequest request = new UserStatusUpdateRequest();
+        ReflectionTestUtils.setField(request, "status", "ACTIVE");
 
         mockMvc.perform(put("/api/v1/admin/users/{userId}/status", 1L)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -240,16 +246,17 @@ class AdminUserControllerTest {
                         .with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
+
+        verify(userAdminCommandService).updateUserStatus(1L, "ACTIVE");
     }
 
     @Test
     @DisplayName("status update returns forbidden when activation is blocked")
     void updateUserStatus_returnsForbiddenWhenActivationBlocked() throws Exception {
-        com.weedrice.whiteboard.domain.user.dto.UserStatusUpdateRequest request =
-                new com.weedrice.whiteboard.domain.user.dto.UserStatusUpdateRequest();
-        org.springframework.test.util.ReflectionTestUtils.setField(request, "status", "ACTIVE");
+        UserStatusUpdateRequest request = new UserStatusUpdateRequest();
+        ReflectionTestUtils.setField(request, "status", "ACTIVE");
         doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE))
-                .when(userAdminQueryService).updateUserStatus(1L, "ACTIVE");
+                .when(userAdminCommandService).updateUserStatus(1L, "ACTIVE");
 
         mockMvc.perform(put("/api/v1/admin/users/{userId}/status", 1L)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -264,11 +271,10 @@ class AdminUserControllerTest {
     @Test
     @DisplayName("status update returns bad request for deleted users")
     void updateUserStatus_returnsBadRequestWhenDeletedUserIsUpdated() throws Exception {
-        com.weedrice.whiteboard.domain.user.dto.UserStatusUpdateRequest request =
-                new com.weedrice.whiteboard.domain.user.dto.UserStatusUpdateRequest();
-        org.springframework.test.util.ReflectionTestUtils.setField(request, "status", "SUSPENDED");
+        UserStatusUpdateRequest request = new UserStatusUpdateRequest();
+        ReflectionTestUtils.setField(request, "status", "SUSPENDED");
         doThrow(new BusinessException(ErrorCode.INVALID_INPUT_VALUE))
-                .when(userAdminQueryService).updateUserStatus(1L, "SUSPENDED");
+                .when(userAdminCommandService).updateUserStatus(1L, "SUSPENDED");
 
         mockMvc.perform(put("/api/v1/admin/users/{userId}/status", 1L)
                         .contentType(MediaType.APPLICATION_JSON)

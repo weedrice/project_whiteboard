@@ -24,6 +24,7 @@ import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -40,6 +41,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
+@RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class UserAdminQueryService {
 
@@ -53,31 +55,6 @@ public class UserAdminQueryService {
     private final SanctionRepository sanctionRepository;
     private final ReportRepository reportRepository;
     private final ModerationActorResolver moderationActorResolver;
-    private final UserLifecycleService userLifecycleService;
-
-    public UserAdminQueryService(UserRepository userRepository,
-                                 PostRepository postRepository,
-                                 CommentRepository commentRepository,
-                                 AdminRepository adminRepository,
-                                 ModerationActorResolver moderationActorResolver,
-                                 BoardAccessPolicy boardAccessPolicy,
-                                 BoardSubscriptionRepository boardSubscriptionRepository,
-                                 LoginHistoryRepository loginHistoryRepository,
-                                 SanctionRepository sanctionRepository,
-                                 ReportRepository reportRepository,
-                                 UserLifecycleService userLifecycleService) {
-        this.userRepository = userRepository;
-        this.postRepository = postRepository;
-        this.commentRepository = commentRepository;
-        this.adminRepository = adminRepository;
-        this.boardAccessPolicy = boardAccessPolicy;
-        this.boardSubscriptionRepository = boardSubscriptionRepository;
-        this.loginHistoryRepository = loginHistoryRepository;
-        this.sanctionRepository = sanctionRepository;
-        this.reportRepository = reportRepository;
-        this.moderationActorResolver = moderationActorResolver;
-        this.userLifecycleService = userLifecycleService;
-    }
 
     public Page<UserAdminResponse> searchUsersForAdmin(String keyword, Pageable pageable) {
         return searchUsersForAdmin(keyword, null, null, null, null, null,
@@ -166,11 +143,6 @@ public class UserAdminQueryService {
                 .map(subscription -> AdminUserSubscriptionResponse.from(
                         subscription,
                         boardAccessPolicy.canReadBoard(subscription.getBoard(), user)));
-    }
-
-    @Transactional
-    public void updateUserStatus(Long userId, String status) {
-        userLifecycleService.updateAdminManagedStatus(userId, status);
     }
 
     private String resolveRoleForAdmin(User user) {

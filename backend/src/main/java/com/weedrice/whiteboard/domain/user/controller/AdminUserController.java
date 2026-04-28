@@ -1,12 +1,13 @@
 package com.weedrice.whiteboard.domain.user.controller;
 
-import com.weedrice.whiteboard.domain.user.dto.AdminUserDetailResponse;
 import com.weedrice.whiteboard.domain.user.dto.AdminUserCommentResponse;
+import com.weedrice.whiteboard.domain.user.dto.AdminUserDetailResponse;
 import com.weedrice.whiteboard.domain.user.dto.AdminUserPostResponse;
 import com.weedrice.whiteboard.domain.user.dto.AdminUserSubscriptionResponse;
 import com.weedrice.whiteboard.domain.user.dto.UserAdminResponse;
 import com.weedrice.whiteboard.domain.user.dto.UserStatusUpdateRequest;
 import com.weedrice.whiteboard.domain.user.entity.Role;
+import com.weedrice.whiteboard.domain.user.service.UserAdminCommandService;
 import com.weedrice.whiteboard.domain.user.service.UserAdminQueryService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
@@ -26,6 +27,7 @@ import java.time.LocalDate;
 public class AdminUserController {
 
     private final UserAdminQueryService userAdminQueryService;
+    private final UserAdminCommandService userAdminCommandService;
 
     @GetMapping
     public ApiResponse<PageResponse<UserAdminResponse>> searchUsers(
@@ -89,7 +91,7 @@ public class AdminUserController {
     public ApiResponse<Void> updateUserStatus(
             @PathVariable Long userId,
             @RequestBody UserStatusUpdateRequest request) {
-        userAdminQueryService.updateUserStatus(userId, request.getStatus());
+        userAdminCommandService.updateUserStatus(userId, request.getStatus());
         return ApiResponse.success(null);
     }
 }
