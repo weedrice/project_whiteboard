@@ -1,0 +1,189 @@
+package com.weedrice.whiteboard.global.config;
+
+import com.weedrice.whiteboard.global.security.CustomUserDetails;
+import com.weedrice.whiteboard.global.security.JwtAuthenticationFilter;
+import com.weedrice.whiteboard.global.security.JwtAuthenticationEntryPoint;
+import com.weedrice.whiteboard.global.security.oauth.CustomOAuth2UserService;
+import com.weedrice.whiteboard.global.security.oauth.OAuth2SuccessHandler;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.FilterType;
+import org.springframework.context.annotation.Import;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+@WebMvcTest(controllers = SecurityConfigAuthorizationTest.TestController.class,
+        excludeFilters = {
+                @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = WebConfig.class)
+        })
+@Import({
+        SecurityConfig.class,
+        JwtAuthenticationEntryPoint.class,
+        SecurityConfigAuthorizationTest.TestController.class
+})
+class SecurityConfigAuthorizationTest {
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @MockitoBean
+    private JwtAuthenticationFilter jwtAuthenticationFilter;
+
+    @MockitoBean
+    private CustomOAuth2UserService customOAuth2UserService;
+
+    @MockitoBean
+    private OAuth2SuccessHandler oAuth2SuccessHandler;
+
+    @MockitoBean
+    private com.weedrice.whiteboard.domain.admin.interceptor.IpBlockInterceptor ipBlockInterceptor;
+
+    @MockitoBean
+    private com.weedrice.whiteboard.global.security.RefererCheckInterceptor refererCheckInterceptor;
+
+    @MockitoBean
+    private com.weedrice.whiteboard.global.ratelimit.RateLimitInterceptor rateLimitInterceptor;
+
+    @MockitoBean
+    private org.springframework.data.jpa.mapping.JpaMetamodelMappingContext jpaMetamodelMappingContext;
+
+    @MockitoBean
+    private org.springframework.security.oauth2.client.registration.ClientRegistrationRepository clientRegistrationRepository;
+
+    @MockitoBean
+    private org.springframework.security.oauth2.client.OAuth2AuthorizedClientService oAuth2AuthorizedClientService;
+
+    private CustomUserDetails userDetails;
+
+    @BeforeEach
+    void setUp() throws Exception {
+        userDetails = new CustomUserDetails(
+                1L,
+                "testuser",
+                "password",
+                List.of(new SimpleGrantedAuthority("ROLE_USER")));
+
+        doAnswer(invocation -> {
+            HttpServletRequest request = invocation.getArgument(0);
+            HttpServletResponse response = invocation.getArgument(1);
+            FilterChain chain = invocation.getArgument(2);
+            chain.doFilter(request, response);
+            return null;
+        }).when(jwtAuthenticationFilter).doFilter(any(), any(), any());
+        when(ipBlockInterceptor.preHandle(any(), any(), any())).thenReturn(true);
+        when(refererCheckInterceptor.preHandle(any(), any(), any())).thenReturn(true);
+        when(rateLimitInterceptor.preHandle(any(), any(), any())).thenReturn(true);
+    }
+
+    @Test
+    @DisplayName("self API requires authentication")
+    void selfApi_requiresAuthentication() throws Exception {
+        mockMvc.perform(get("/api/v1/users/me"))
+                .andExpect(status().isUnauthorized());
+
+        mockMvc.perform(get("/api/v1/users/me/settings"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("recent search API requires authentication")
+    void recentSearchApi_requiresAuthentication() throws Exception {
+        mockMvc.perform(get("/api/v1/search/recent"))
+                .andExpect(status().isUnauthorized());
+
+        mockMvc.perform(get("/api/v1/search/recent/1"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("public search and user profile GET endpoints remain public")
+    void publicGetEndpoints_remainPublic() throws Exception {
+        mockMvc.perform(get("/api/v1/search").param("q", "test"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/search/posts").param("q", "test"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/search/popular"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/users/1"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("authenticated self and recent search requests can reach controllers")
+    void protectedEndpoints_allowAuthenticatedUsers() throws Exception {
+        mockMvc.perform(get("/api/v1/users/me").with(user(userDetails)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/search/recent").with(user(userDetails)))
+                .andExpect(status().isOk());
+    }
+
+    @RestController
+    @RequestMapping("/api/v1")
+    static class TestController {
+
+        @GetMapping("/users/me")
+        String me() {
+            return "me";
+        }
+
+        @GetMapping("/users/me/settings")
+        String settings() {
+            return "settings";
+        }
+
+        @GetMapping("/users/{userId}")
+        String userProfile(@PathVariable Long userId) {
+            return "user-" + userId;
+        }
+
+        @GetMapping("/search")
+        String search() {
+            return "search";
+        }
+
+        @GetMapping("/search/posts")
+        String searchPosts() {
+            return "posts";
+        }
+
+        @GetMapping("/search/popular")
+        String popular() {
+            return "popular";
+        }
+
+        @GetMapping("/search/recent")
+        String recent() {
+            return "recent";
+        }
+
+        @GetMapping("/search/recent/{logId}")
+        String recentItem(@PathVariable Long logId) {
+            return "recent-" + logId;
+        }
+    }
+}

@@ -80,7 +80,9 @@ public class SecurityConfig {
                                 .sessionManagement(session -> session
                                                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                                 .authorizeHttpRequests(auth -> auth
-                                                .requestMatchers("/api/v1/users/me/**").authenticated()
+                                                .requestMatchers("/api/v1/users/me", "/api/v1/users/me/**",
+                                                                "/api/v1/search/recent", "/api/v1/search/recent/**")
+                                                .authenticated()
                                                 .requestMatchers("/api/v1/agents/register").permitAll()
                                                 .requestMatchers("/api/v1/auth/**", "/api/v1/codes/**",
                                                                 "/actuator/health")
@@ -94,10 +96,12 @@ public class SecurityConfig {
                                                                 "/api/v1/comments/**", // /comments 로 시작하는 모든 GET 요청 허용
                                                                                        // (답글 조회 등)
                                                                 "/api/v1/tags/**",
-                                                                "/api/v1/search/**",
+                                                                "/api/v1/search",
+                                                                "/api/v1/search/posts",
+                                                                "/api/v1/search/popular",
                                                                 "/api/v1/shop/items/**",
                                                                 "/api/v1/ads",
-                                                                "/api/v1/users/**",
+                                                                "/api/v1/users/*",
                                                                 "/api/v1/emoticons/**", // /emoticons 로 시작하는 모든 GET 요청 허용
                                                                 "/api/v1/configs/public") // Public Configs
                                                 .permitAll()
