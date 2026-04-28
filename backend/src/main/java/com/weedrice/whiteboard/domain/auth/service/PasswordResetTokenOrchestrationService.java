@@ -42,10 +42,7 @@ public class PasswordResetTokenOrchestrationService {
     }
 
     public Optional<PasswordResetToken> findLatestSentCompatibleToken(User user) {
-        return passwordResetTokenRepository.findByUserOrderByCreatedAtDesc(user)
-                .stream()
-                .filter(PasswordResetToken::isSent)
-                .findFirst();
+        return passwordResetTokenRepository.findLatestSentByUser(user);
     }
 
     @Transactional
@@ -118,12 +115,6 @@ public class PasswordResetTokenOrchestrationService {
     }
 
     private void invalidatePreviousSentTokens(User user, Long excludeTokenId) {
-        passwordResetTokenRepository.findByUserOrderByCreatedAtDesc(user)
-                .stream()
-                .filter(PasswordResetToken::isSent)
-                .filter(passwordResetToken -> !passwordResetToken.getIsUsed())
-                .filter(passwordResetToken -> excludeTokenId == null
-                        || !excludeTokenId.equals(passwordResetToken.getTokenId()))
-                .forEach(PasswordResetToken::invalidate);
+        passwordResetTokenRepository.invalidatePreviousSentUnusedTokens(user, excludeTokenId);
     }
 }

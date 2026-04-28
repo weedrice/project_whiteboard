@@ -61,6 +61,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
@@ -153,9 +154,10 @@ class AuthServiceTest {
         when(passwordResetTokenRepository.findById(any())).thenAnswer(invocation ->
                 Optional.ofNullable(passwordResetTokens.get(invocation.getArgument(0))));
         when(userRepository.findByIdForUpdate(user.getUserId())).thenReturn(Optional.of(user));
-        when(passwordResetTokenRepository.findByUserOrderByCreatedAtDesc(any(User.class))).thenAnswer(invocation ->
+        when(passwordResetTokenRepository.findLatestSentByUser(any(User.class))).thenAnswer(invocation ->
                 passwordResetTokens.values().stream()
                         .filter(passwordResetToken -> passwordResetToken.getUser().equals(invocation.getArgument(0)))
+                        .filter(PasswordResetToken::isSent)
                         .sorted((left, right) -> {
                             int createdAtComparison = right.getCreatedAt().compareTo(left.getCreatedAt());
                             if (createdAtComparison != 0) {
@@ -163,7 +165,23 @@ class AuthServiceTest {
                             }
                             return Long.compare(right.getTokenId(), left.getTokenId());
                         })
-                        .toList());
+                        .findFirst());
+        doAnswer(invocation -> {
+            User targetUser = invocation.getArgument(0);
+            Long excludeTokenId = invocation.getArgument(1);
+            int[] invalidatedCount = {0};
+            passwordResetTokens.values().stream()
+                    .filter(passwordResetToken -> passwordResetToken.getUser().equals(targetUser))
+                    .filter(PasswordResetToken::isSent)
+                    .filter(passwordResetToken -> !passwordResetToken.getIsUsed())
+                    .filter(passwordResetToken -> excludeTokenId == null
+                            || !excludeTokenId.equals(passwordResetToken.getTokenId()))
+                    .forEach(passwordResetToken -> {
+                        passwordResetToken.invalidate();
+                        invalidatedCount[0]++;
+                    });
+            return invalidatedCount[0];
+        }).when(passwordResetTokenRepository).invalidatePreviousSentUnusedTokens(any(User.class), nullable(Long.class));
         when(passwordResetTokenRepository.findByToken(anyString())).thenAnswer(invocation ->
                 passwordResetTokens.values().stream()
                         .filter(passwordResetToken -> invocation.getArgument(0).equals(passwordResetToken.getToken()))

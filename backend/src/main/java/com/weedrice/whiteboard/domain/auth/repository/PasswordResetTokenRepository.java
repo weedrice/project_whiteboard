@@ -3,8 +3,11 @@ package com.weedrice.whiteboard.domain.auth.repository;
 import com.weedrice.whiteboard.domain.auth.entity.PasswordResetToken;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import jakarta.persistence.LockModeType;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -23,11 +26,33 @@ public interface PasswordResetTokenRepository extends JpaRepository<PasswordRese
             """)
     Optional<PasswordResetToken> findByTokenForUpdate(@Param("token") String token);
 
+    default Optional<PasswordResetToken> findLatestSentByUser(User user) {
+        return findSentByUserOrderByCreatedAtDesc(user, PageRequest.of(0, 1))
+                .stream()
+                .findFirst();
+    }
+
     @Query("""
             SELECT token
             FROM PasswordResetToken token
             WHERE token.user = :user
+              AND (token.deliveryStatus IS NULL OR token.deliveryStatus = 'SENT')
             ORDER BY token.createdAt DESC, token.tokenId DESC
             """)
-    List<PasswordResetToken> findByUserOrderByCreatedAtDesc(@Param("user") User user);
+    List<PasswordResetToken> findSentByUserOrderByCreatedAtDesc(
+            @Param("user") User user,
+            Pageable pageable);
+
+    @Modifying
+    @Query("""
+            UPDATE PasswordResetToken token
+            SET token.isUsed = true
+            WHERE token.user = :user
+              AND token.isUsed = false
+              AND (token.deliveryStatus IS NULL OR token.deliveryStatus = 'SENT')
+              AND (:excludeTokenId IS NULL OR token.tokenId <> :excludeTokenId)
+            """)
+    int invalidatePreviousSentUnusedTokens(
+            @Param("user") User user,
+            @Param("excludeTokenId") Long excludeTokenId);
 }
