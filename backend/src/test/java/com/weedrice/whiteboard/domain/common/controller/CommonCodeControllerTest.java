@@ -8,6 +8,9 @@ import com.weedrice.whiteboard.domain.common.dto.CommonCodeResponse;
 import com.weedrice.whiteboard.domain.common.service.CommonCodeService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -17,21 +20,20 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
 import org.springframework.http.MediaType;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.lang.reflect.Method;
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-
-import jakarta.servlet.FilterChain;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-import static org.mockito.Mockito.doAnswer;
 
 @WebMvcTest(controllers = CommonCodeController.class,
     excludeFilters = {
@@ -167,5 +169,33 @@ class CommonCodeControllerTest {
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.error.code").value(ErrorCode.DUPLICATE_RESOURCE.getCode()));
+    }
+
+    @Test
+    @DisplayName("management endpoints require SUPER_ADMIN")
+    void managementEndpoints_requireSuperAdminPreAuthorize() throws Exception {
+        assertRequiresSuperAdmin("createCommonCode", CommonCodeRequest.class);
+        assertRequiresSuperAdmin("getAllCommonCodes");
+        assertRequiresSuperAdmin("getCommonCode", String.class);
+        assertRequiresSuperAdmin("updateCommonCode", String.class, CommonCodeRequest.class);
+        assertRequiresSuperAdmin("createCommonCodeDetail", String.class, CommonCodeDetailRequest.class);
+        assertRequiresSuperAdmin("updateCommonCodeDetail", Long.class, CommonCodeDetailRequest.class);
+        assertRequiresSuperAdmin("deleteCommonCodeDetail", Long.class);
+    }
+
+    @Test
+    @DisplayName("public detail endpoint has no PreAuthorize")
+    void publicDetailEndpoint_hasNoPreAuthorize() throws Exception {
+        Method method = CommonCodeController.class.getDeclaredMethod("getCommonCodeDetails", String.class);
+
+        assertThat(method.getAnnotation(PreAuthorize.class)).isNull();
+    }
+
+    private void assertRequiresSuperAdmin(String methodName, Class<?>... parameterTypes) throws Exception {
+        Method method = CommonCodeController.class.getDeclaredMethod(methodName, parameterTypes);
+        PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
+
+        assertThat(preAuthorize).isNotNull();
+        assertThat(preAuthorize.value()).isEqualTo("hasRole('SUPER_ADMIN')");
     }
 }

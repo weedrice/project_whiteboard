@@ -101,6 +101,7 @@ public class SecurityConfig {
                                                                 "/api/v1/search/popular",
                                                                 "/api/v1/shop/items/**",
                                                                 "/api/v1/ads",
+                                                                "/api/v1/common-codes/*/details",
                                                                 "/api/v1/users/*",
                                                                 "/api/v1/emoticons/**", // /emoticons 로 시작하는 모든 GET 요청 허용
                                                                 "/api/v1/configs/public") // Public Configs

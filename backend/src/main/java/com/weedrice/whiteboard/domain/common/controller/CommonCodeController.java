@@ -2,10 +2,12 @@ package com.weedrice.whiteboard.domain.common.controller;
 
 import com.weedrice.whiteboard.domain.common.dto.*;
 import com.weedrice.whiteboard.domain.common.service.CommonCodeService;
+import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -21,21 +23,25 @@ public class CommonCodeController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
     public ApiResponse<CommonCodeResponse> createCommonCode(@Valid @RequestBody CommonCodeRequest request) {
         return ApiResponse.success(commonCodeService.createCommonCode(request));
     }
 
     @GetMapping
+    @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
     public ApiResponse<List<CommonCodeResponse>> getAllCommonCodes() {
         return ApiResponse.success(commonCodeService.getAllCommonCodes());
     }
 
     @GetMapping("/{typeCode}")
+    @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
     public ApiResponse<CommonCodeResponse> getCommonCode(@PathVariable String typeCode) {
         return ApiResponse.success(commonCodeService.getCommonCode(typeCode));
     }
 
     @PutMapping("/{typeCode}")
+    @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
     public ApiResponse<CommonCodeResponse> updateCommonCode(
             @PathVariable String typeCode,
             @Valid @RequestBody CommonCodeRequest request) {
@@ -46,6 +52,7 @@ public class CommonCodeController {
 
     @PostMapping("/{typeCode}/details")
     @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
     public ApiResponse<CommonCodeDetailResponse> createCommonCodeDetail(
             @PathVariable String typeCode,
             @Valid @RequestBody CommonCodeDetailRequest request) {
@@ -58,6 +65,7 @@ public class CommonCodeController {
     }
 
     @PutMapping("/details/{detailId}")
+    @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
     public ApiResponse<CommonCodeDetailResponse> updateCommonCodeDetail(
             @PathVariable Long detailId,
             @Valid @RequestBody CommonCodeDetailRequest request) {
@@ -65,6 +73,7 @@ public class CommonCodeController {
     }
 
     @DeleteMapping("/details/{detailId}")
+    @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
     public ApiResponse<Void> deleteCommonCodeDetail(@PathVariable Long detailId) {
         commonCodeService.deleteCommonCodeDetail(detailId);
         return ApiResponse.success(null);

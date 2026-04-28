@@ -69,4 +69,8 @@ public class CommonCodeDetail {
         this.sortOrder = sortOrder;
         this.isActive = isActive;
     }
+
+    public void deactivate() {
+        this.isActive = false;
+    }
 }

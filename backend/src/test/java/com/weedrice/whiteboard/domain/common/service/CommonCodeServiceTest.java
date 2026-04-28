@@ -8,17 +8,14 @@ import com.weedrice.whiteboard.domain.common.entity.CommonCode;
 import com.weedrice.whiteboard.domain.common.entity.CommonCodeDetail;
 import com.weedrice.whiteboard.domain.common.repository.CommonCodeDetailRepository;
 import com.weedrice.whiteboard.domain.common.repository.CommonCodeRepository;
-import com.weedrice.whiteboard.global.common.util.SecurityUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -44,15 +41,11 @@ class CommonCodeServiceTest {
     @InjectMocks
     private CommonCodeService commonCodeService;
 
-    private MockedStatic<SecurityUtils> mockedSecurityUtils;
     private CommonCode commonCode;
     private CommonCodeDetail commonCodeDetail;
 
     @BeforeEach
     void setUp() {
-        mockedSecurityUtils = mockStatic(SecurityUtils.class);
-        mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).thenAnswer(invocation -> null);
-
         commonCode = CommonCode.builder()
                 .typeCode("TEST_TYPE")
                 .typeName("Test Type")
@@ -66,11 +59,6 @@ class CommonCodeServiceTest {
                 .sortOrder(1)
                 .isActive(true)
                 .build();
-    }
-
-    @AfterEach
-    void tearDown() {
-        mockedSecurityUtils.close();
     }
 
     @Test
@@ -143,7 +131,7 @@ class CommonCodeServiceTest {
 
         // then
         assertThat(responses).hasSize(2);
-        mockedSecurityUtils.verify(SecurityUtils::validateSuperAdminPermission);
+        verify(commonCodeRepository).findAll();
     }
 
     @Test
@@ -158,7 +146,7 @@ class CommonCodeServiceTest {
         // then
         assertThat(response).isNotNull();
         assertThat(response.getTypeCode()).isEqualTo("TEST_TYPE");
-        mockedSecurityUtils.verify(SecurityUtils::validateSuperAdminPermission);
+        verify(commonCodeRepository).findById("TEST_TYPE");
     }
 
     @Test
@@ -172,7 +160,7 @@ class CommonCodeServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.NOT_FOUND);
-        mockedSecurityUtils.verify(SecurityUtils::validateSuperAdminPermission);
+        verify(commonCodeRepository).findById("NON_EXISTENT");
     }
 
     @Test
@@ -241,6 +229,28 @@ class CommonCodeServiceTest {
     }
 
     @Test
+    @DisplayName("비활성 상세 코드가 있으면 기존 row를 복원한다")
+    void createCommonCodeDetail_reactivatesInactiveDetail() {
+        CommonCodeDetailRequest request = new CommonCodeDetailRequest();
+        ReflectionTestUtils.setField(request, "codeValue", "TEST_VALUE");
+        ReflectionTestUtils.setField(request, "codeName", "Restored Value");
+        ReflectionTestUtils.setField(request, "sortOrder", 2);
+        ReflectionTestUtils.setField(request, "isActive", true);
+        ReflectionTestUtils.setField(commonCodeDetail, "isActive", false);
+
+        when(commonCodeRepository.findById("TEST_TYPE")).thenReturn(Optional.of(commonCode));
+        when(commonCodeDetailRepository.findByCommonCode_TypeCodeAndCodeValue("TEST_TYPE", "TEST_VALUE"))
+                .thenReturn(Optional.of(commonCodeDetail));
+
+        CommonCodeDetailResponse response = commonCodeService.createCommonCodeDetail("TEST_TYPE", request);
+
+        assertThat(response.getCodeName()).isEqualTo("Restored Value");
+        assertThat(response.getSortOrder()).isEqualTo(2);
+        assertThat(response.getIsActive()).isTrue();
+        verify(commonCodeDetailRepository, never()).saveAndFlush(any(CommonCodeDetail.class));
+    }
+
+    @Test
     @DisplayName("공통 코드 상세 목록 조회 성공")
     void getCommonCodeDetails_success() {
         // given
@@ -274,8 +284,8 @@ class CommonCodeServiceTest {
     }
 
     @Test
-    @DisplayName("공통 코드 상세 삭제 성공")
-    void deleteCommonCodeDetail_success() {
+    @DisplayName("공통 코드 상세 삭제는 비활성화로 처리한다")
+    void deleteCommonCodeDetail_deactivatesDetail() {
         // given
         when(commonCodeDetailRepository.findById(1L)).thenReturn(Optional.of(commonCodeDetail));
 
@@ -283,6 +293,7 @@ class CommonCodeServiceTest {
         commonCodeService.deleteCommonCodeDetail(1L);
 
         // then
-        verify(commonCodeDetailRepository).delete(commonCodeDetail);
+        assertThat(commonCodeDetail.getIsActive()).isFalse();
+        verify(commonCodeDetailRepository, never()).delete(commonCodeDetail);
     }
 }

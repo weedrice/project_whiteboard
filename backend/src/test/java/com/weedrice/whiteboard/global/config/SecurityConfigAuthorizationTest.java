@@ -130,6 +130,9 @@ class SecurityConfigAuthorizationTest {
 
         mockMvc.perform(get("/api/v1/users/1"))
                 .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/common-codes/POST_STATUS/details"))
+                .andExpect(status().isOk());
     }
 
     @Test
@@ -184,6 +187,11 @@ class SecurityConfigAuthorizationTest {
         @GetMapping("/search/recent/{logId}")
         String recentItem(@PathVariable Long logId) {
             return "recent-" + logId;
+        }
+
+        @GetMapping("/common-codes/{typeCode}/details")
+        String commonCodeDetails(@PathVariable String typeCode) {
+            return "details-" + typeCode;
         }
     }
 }
