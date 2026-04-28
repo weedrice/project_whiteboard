@@ -12,7 +12,6 @@ import com.weedrice.whiteboard.domain.board.dto.CategoryResponse;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.service.BoardService;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
-import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -33,7 +32,6 @@ import java.util.List;
 public class BoardController {
 
     private final BoardService boardService;
-    private final PostService postService; // PostService 주입
 
     @GetMapping
     public ApiResponse<List<BoardListResponse>> getBoards(@AuthenticationPrincipal UserDetails userDetails) {
@@ -63,7 +61,7 @@ public class BoardController {
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         validateBlockedInquiryBoardPath(boardUrl);
         Long userId = (userDetails != null) ? userDetails.getUserId() : null;
-        return ApiResponse.success(postService.getNoticeSummaries(boardUrl, userId));
+        return ApiResponse.success(boardService.getNoticeSummaries(boardUrl, userId));
     }
 
     @PostMapping

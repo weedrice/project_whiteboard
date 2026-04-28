@@ -8,6 +8,7 @@ import com.weedrice.whiteboard.domain.board.dto.BoardUpdateRequest;
 import com.weedrice.whiteboard.domain.board.dto.CategoryRequest;
 import com.weedrice.whiteboard.domain.board.dto.CategoryResponse;
 import com.weedrice.whiteboard.domain.board.entity.Board;
+import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -53,6 +54,10 @@ public class BoardService {
 
     public List<CategoryResponse> getActiveCategories(String boardUrl, UserDetails userDetails) {
         return queryService.getActiveCategories(boardUrl, userDetails);
+    }
+
+    public List<PostSummary> getNoticeSummaries(String boardUrl, Long currentUserId) {
+        return queryService.getNoticeSummaries(boardUrl, currentUserId);
     }
 
     @Transactional

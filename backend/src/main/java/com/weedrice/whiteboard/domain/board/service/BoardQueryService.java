@@ -9,6 +9,8 @@ import com.weedrice.whiteboard.domain.board.entity.BoardSubscription;
 import com.weedrice.whiteboard.domain.board.repository.BoardCategoryRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository;
+import com.weedrice.whiteboard.domain.post.dto.PostSummary;
+import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -37,19 +39,22 @@ class BoardQueryService {
     private final UserRepository userRepository;
     private final BoardResponseAssembler boardResponseAssembler;
     private final BoardAccessPolicy boardAccessPolicy;
+    private final PostService postService;
 
     BoardQueryService(BoardRepository boardRepository,
                       BoardCategoryRepository boardCategoryRepository,
                       BoardSubscriptionRepository boardSubscriptionRepository,
                       UserRepository userRepository,
                       BoardResponseAssembler boardResponseAssembler,
-                      BoardAccessPolicy boardAccessPolicy) {
+                      BoardAccessPolicy boardAccessPolicy,
+                      PostService postService) {
         this.boardRepository = boardRepository;
         this.boardCategoryRepository = boardCategoryRepository;
         this.boardSubscriptionRepository = boardSubscriptionRepository;
         this.userRepository = userRepository;
         this.boardResponseAssembler = boardResponseAssembler;
         this.boardAccessPolicy = boardAccessPolicy;
+        this.postService = postService;
     }
 
     List<BoardListResponse> getActiveBoards(UserDetails userDetails) {
@@ -102,6 +107,22 @@ class BoardQueryService {
                 .collect(Collectors.toList());
     }
 
+    List<PostSummary> getNoticeSummaries(String boardUrl, Long currentUserId) {
+        Board board = boardRepository.findByBoardUrl(boardUrl)
+                .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
+        if (boardAccessPolicy.isInquiryBoard(board)) {
+            throw new BusinessException(ErrorCode.BOARD_NOT_FOUND);
+        }
+
+        User currentUser = getCurrentUserByIdOrNull(currentUserId);
+        boardAccessPolicy.validateReadable(board, currentUser);
+        boolean includeSecret = boardAccessPolicy.canViewSecretPosts(board, currentUser);
+        return postService.getNotices(board.getBoardId(), currentUserId, includeSecret)
+                .stream()
+                .map(PostSummary::from)
+                .toList();
+    }
+
     Page<BoardListResponse> getMySubscriptions(Long userId, Pageable pageable) {
         return getMySubscriptions(userId, pageable, false);
     }
@@ -152,6 +173,14 @@ class BoardQueryService {
             return null;
         }
         return userRepository.findByLoginId(userDetails.getUsername())
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+    }
+
+    private User getCurrentUserByIdOrNull(Long userId) {
+        if (userId == null) {
+            return null;
+        }
+        return userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
     }
 

@@ -17,6 +17,8 @@ import com.weedrice.whiteboard.domain.board.repository.BoardCategoryRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository;
 import com.weedrice.whiteboard.domain.file.service.FileService;
+import com.weedrice.whiteboard.domain.post.dto.PostSummary;
+import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.DraftPostRepository;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.service.PostService;
@@ -124,7 +126,8 @@ class BoardServiceTest {
                 boardSubscriptionRepository,
                 userRepository,
                 boardResponseAssembler,
-                boardAccessPolicy);
+                boardAccessPolicy,
+                postService);
         BoardProvisioningService provisioningService = new BoardProvisioningService(
                 boardRepository,
                 boardAiInfoRepository,
@@ -838,6 +841,91 @@ class BoardServiceTest {
         // then
         assertThat(response).isNotNull();
         assertThat(response.getBoardName()).isEqualTo("Test Board");
+    }
+
+    @Test
+    @DisplayName("게시판 공지 요약 조회 성공")
+    void getNoticeSummaries_success() {
+        Post notice = Post.builder()
+                .board(board)
+                .user(user)
+                .title("Notice")
+                .contents("Notice contents")
+                .isNotice(true)
+                .build();
+        ReflectionTestUtils.setField(notice, "postId", 10L);
+
+        when(boardRepository.findByBoardUrl("test-board")).thenReturn(Optional.of(board));
+        when(postService.getNotices(1L, null, false)).thenReturn(List.of(notice));
+
+        List<PostSummary> summaries = boardService.getNoticeSummaries("test-board", null);
+
+        assertThat(summaries).hasSize(1);
+        assertThat(summaries.get(0).getTitle()).isEqualTo("Notice");
+        verify(postService).getNotices(1L, null, false);
+    }
+
+    @Test
+    @DisplayName("비공개 게시판 공지 요약은 권한이 없으면 차단한다")
+    void getNoticeSummaries_privateBoardWithoutAccess_throwsBoardNotFound() {
+        Board privateBoard = Board.builder()
+                .boardName("Private Board")
+                .boardUrl("private-board")
+                .creator(user)
+                .isPublic(false)
+                .build();
+        ReflectionTestUtils.setField(privateBoard, "boardId", 2L);
+        ReflectionTestUtils.setField(privateBoard, "isActive", true);
+
+        when(boardRepository.findByBoardUrl("private-board")).thenReturn(Optional.of(privateBoard));
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> boardService.getNoticeSummaries("private-board", null));
+
+        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.BOARD_NOT_FOUND);
+        verify(postService, never()).getNotices(anyLong(), any(), anyBoolean());
+    }
+
+    @Test
+    @DisplayName("비활성 게시판 공지 요약은 권한이 없으면 차단한다")
+    void getNoticeSummaries_inactiveBoardWithoutAccess_throwsBoardNotFound() {
+        Board inactiveBoard = Board.builder()
+                .boardName("Inactive Board")
+                .boardUrl("inactive-board")
+                .creator(user)
+                .isPublic(true)
+                .build();
+        ReflectionTestUtils.setField(inactiveBoard, "boardId", 3L);
+        ReflectionTestUtils.setField(inactiveBoard, "isActive", false);
+
+        when(boardRepository.findByBoardUrl("inactive-board")).thenReturn(Optional.of(inactiveBoard));
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> boardService.getNoticeSummaries("inactive-board", null));
+
+        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.BOARD_NOT_FOUND);
+        verify(postService, never()).getNotices(anyLong(), any(), anyBoolean());
+    }
+
+    @Test
+    @DisplayName("문의 게시판 공지 요약 조회는 차단한다")
+    void getNoticeSummaries_inquiryBoard_throwsBoardNotFound() {
+        Board inquiryBoard = Board.builder()
+                .boardName("Inquiry")
+                .boardUrl("inquiry")
+                .creator(user)
+                .isPublic(false)
+                .build();
+        ReflectionTestUtils.setField(inquiryBoard, "boardId", 4L);
+        ReflectionTestUtils.setField(inquiryBoard, "isActive", true);
+
+        when(boardRepository.findByBoardUrl("inquiry")).thenReturn(Optional.of(inquiryBoard));
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> boardService.getNoticeSummaries("inquiry", null));
+
+        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.BOARD_NOT_FOUND);
+        verify(postService, never()).getNotices(anyLong(), any(), anyBoolean());
     }
 
     @Test

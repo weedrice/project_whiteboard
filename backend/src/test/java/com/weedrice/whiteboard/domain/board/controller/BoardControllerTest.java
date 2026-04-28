@@ -9,7 +9,6 @@ import com.weedrice.whiteboard.domain.board.dto.BoardUpdateRequest;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.service.BoardService;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
-import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.HttpServletRequest;
@@ -60,9 +59,6 @@ class BoardControllerTest {
 
     @MockBean
     private BoardService boardService;
-
-    @MockBean
-    private PostService postService;
 
     @MockBean
     private com.weedrice.whiteboard.global.security.JwtAuthenticationFilter jwtAuthenticationFilter;
@@ -151,7 +147,7 @@ class BoardControllerTest {
     void getNotices_returnsSuccess() throws Exception {
         String boardUrl = "free";
         PostSummary postSummary = PostSummary.builder().build();
-        when(postService.getNoticeSummaries(eq(boardUrl), eq(1L))).thenReturn(List.of(postSummary));
+        when(boardService.getNoticeSummaries(eq(boardUrl), eq(1L))).thenReturn(List.of(postSummary));
 
         mockMvc.perform(get("/api/v1/boards/{boardUrl}/notices", boardUrl)
                         .with(user(customUserDetails))
