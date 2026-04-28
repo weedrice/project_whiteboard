@@ -3,8 +3,6 @@ package com.weedrice.whiteboard.domain.notification.service;
 import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
 import com.weedrice.whiteboard.domain.notification.entity.Notification;
 import com.weedrice.whiteboard.domain.notification.repository.NotificationRepository;
-import com.weedrice.whiteboard.domain.user.entity.User;
-import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.springframework.stereotype.Service;
@@ -13,14 +11,11 @@ import org.springframework.stereotype.Service;
 class NotificationCommandService {
 
     private final NotificationRepository notificationRepository;
-    private final UserRepository userRepository;
     private final NotificationPreferenceService preferenceService;
 
     NotificationCommandService(NotificationRepository notificationRepository,
-                               UserRepository userRepository,
                                NotificationPreferenceService preferenceService) {
         this.notificationRepository = notificationRepository;
-        this.userRepository = userRepository;
         this.preferenceService = preferenceService;
     }
 
@@ -41,17 +36,20 @@ class NotificationCommandService {
     }
 
     void readNotification(Long userId, Long notificationId) {
-        Notification notification = notificationRepository.findById(notificationId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
-        if (!notification.getUser().getUserId().equals(userId)) {
+        int updatedRows = notificationRepository.markReadByNotificationIdAndUserId(notificationId, userId);
+        if (updatedRows > 0) {
+            return;
+        }
+        if (notificationRepository.existsByNotificationIdAndUser_UserId(notificationId, userId)) {
+            return;
+        }
+        if (notificationRepository.existsById(notificationId)) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
-        notification.read();
+        throw new BusinessException(ErrorCode.NOT_FOUND);
     }
 
     void readAllNotifications(Long userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        notificationRepository.readAllByUser(user);
+        notificationRepository.readAllByUserId(userId);
     }
 }

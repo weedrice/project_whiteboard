@@ -1,7 +1,6 @@
 package com.weedrice.whiteboard.domain.notification.repository;
 
 import com.weedrice.whiteboard.domain.notification.entity.Notification;
-import com.weedrice.whiteboard.domain.user.entity.User;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -15,18 +14,32 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
             FROM Notification n
             LEFT JOIN FETCH n.actor
             LEFT JOIN FETCH n.actorAgent
-            WHERE n.user = :user
+            WHERE n.user.userId = :userId
             ORDER BY n.createdAt DESC
             """, countQuery = """
             SELECT COUNT(n)
             FROM Notification n
-            WHERE n.user = :user
+            WHERE n.user.userId = :userId
             """)
-    Page<Notification> findByUserOrderByCreatedAtDesc(@Param("user") User user, Pageable pageable);
+    Page<Notification> findByUser_UserIdOrderByCreatedAtDesc(@Param("userId") Long userId, Pageable pageable);
 
-    long countByUserAndIsRead(User user, Boolean isRead);
+    long countByUser_UserIdAndIsRead(Long userId, Boolean isRead);
 
     @Modifying
-    @Query("UPDATE Notification n SET n.isRead = true WHERE n.user = :user AND n.isRead = false")
-    void readAllByUser(@Param("user") User user);
+    @Query("UPDATE Notification n SET n.isRead = true WHERE n.user.userId = :userId AND n.isRead = false")
+    int readAllByUserId(@Param("userId") Long userId);
+
+    @Modifying
+    @Query("""
+            UPDATE Notification n
+            SET n.isRead = true
+            WHERE n.notificationId = :notificationId
+              AND n.user.userId = :userId
+              AND n.isRead = false
+            """)
+    int markReadByNotificationIdAndUserId(
+            @Param("notificationId") Long notificationId,
+            @Param("userId") Long userId);
+
+    boolean existsByNotificationIdAndUser_UserId(Long notificationId, Long userId);
 }

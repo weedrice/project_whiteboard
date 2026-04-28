@@ -9,16 +9,18 @@ import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.entity.UserNotificationSettings;
 import com.weedrice.whiteboard.domain.user.repository.UserNotificationSettingsRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
+import com.weedrice.whiteboard.global.exception.BusinessException;
+import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Collections;
@@ -26,6 +28,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.lenient;
@@ -74,7 +77,6 @@ class NotificationServiceTest {
         NotificationStreamService streamService = new NotificationStreamService();
         NotificationCommandService commandService = new NotificationCommandService(
                 notificationRepository,
-                userRepository,
                 preferenceService);
         notificationService = new NotificationService(notificationRepository, userRepository, commandService, streamService);
     }
@@ -146,7 +148,6 @@ class NotificationServiceTest {
         NotificationStreamService streamService = new ThrowingNotificationStreamService();
         NotificationCommandService commandService = new NotificationCommandService(
                 notificationRepository,
-                userRepository,
                 preferenceService);
         NotificationService service = new NotificationService(notificationRepository, userRepository, commandService, streamService);
 
@@ -160,11 +161,25 @@ class NotificationServiceTest {
     void readNotification_success() {
         Long userId = 1L;
         Long notificationId = 1L;
-        when(notificationRepository.findById(notificationId)).thenReturn(Optional.of(notification));
+        when(notificationRepository.markReadByNotificationIdAndUserId(notificationId, userId)).thenReturn(1);
 
         notificationService.readNotification(userId, notificationId);
 
-        assertThat(notification.getIsRead()).isEqualTo(true);
+        verify(notificationRepository).markReadByNotificationIdAndUserId(notificationId, userId);
+    }
+
+    @Test
+    @DisplayName("Read notification keeps forbidden semantics for another user's notification")
+    void readNotification_forbidden() {
+        Long userId = 1L;
+        Long notificationId = 1L;
+        when(notificationRepository.markReadByNotificationIdAndUserId(notificationId, userId)).thenReturn(0);
+        when(notificationRepository.existsByNotificationIdAndUser_UserId(notificationId, userId)).thenReturn(false);
+        when(notificationRepository.existsById(notificationId)).thenReturn(true);
+
+        assertThatThrownBy(() -> notificationService.readNotification(userId, notificationId))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        exception -> assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.FORBIDDEN));
     }
 
     @Test
@@ -173,25 +188,36 @@ class NotificationServiceTest {
         Long userId = 1L;
         Pageable pageable = PageRequest.of(0, 10);
         Page<Notification> notificationPage = new PageImpl<>(Collections.singletonList(notification), pageable, 1);
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        when(notificationRepository.findByUserOrderByCreatedAtDesc(user, pageable)).thenReturn(notificationPage);
+        when(userRepository.existsById(userId)).thenReturn(true);
+        when(notificationRepository.findByUser_UserIdOrderByCreatedAtDesc(userId, pageable)).thenReturn(notificationPage);
 
         NotificationResponse response = notificationService.getNotifications(userId, pageable);
 
         assertThat(response).isNotNull();
-        verify(userRepository).findById(userId);
+        verify(userRepository).existsById(userId);
     }
 
     @Test
     @DisplayName("Unread notification count lookup succeeds")
     void getUnreadNotificationCount_success() {
         Long userId = 1L;
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        when(notificationRepository.countByUserAndIsRead(user, false)).thenReturn(5L);
+        when(userRepository.existsById(userId)).thenReturn(true);
+        when(notificationRepository.countByUser_UserIdAndIsRead(userId, false)).thenReturn(5L);
 
         long count = notificationService.getUnreadNotificationCount(userId);
 
         assertThat(count).isEqualTo(5L);
+    }
+
+    @Test
+    @DisplayName("Read all validates user existence before bulk update")
+    void readAllNotifications_validatesUserExists() {
+        Long userId = 1L;
+        when(userRepository.existsById(userId)).thenReturn(true);
+
+        notificationService.readAllNotifications(userId);
+
+        verify(notificationRepository).readAllByUserId(userId);
     }
 
     private static class ThrowingNotificationStreamService extends NotificationStreamService {

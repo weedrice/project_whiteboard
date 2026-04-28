@@ -79,7 +79,6 @@ class NotificationSettingsFlowTest {
         NotificationStreamService streamService = new NotificationStreamService();
         NotificationCommandService commandService = new NotificationCommandService(
                 notificationRepository,
-                userRepository,
                 preferenceService);
         notificationService = new NotificationService(notificationRepository, userRepository, commandService, streamService);
 

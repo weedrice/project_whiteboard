@@ -4,7 +4,6 @@ import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
 import com.weedrice.whiteboard.domain.notification.dto.NotificationResponse;
 import com.weedrice.whiteboard.domain.notification.entity.Notification;
 import com.weedrice.whiteboard.domain.notification.repository.NotificationRepository;
-import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -56,9 +55,9 @@ public class NotificationService {
     }
 
     public NotificationResponse getNotifications(Long userId, Pageable pageable) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        Page<Notification> notificationPage = notificationRepository.findByUserOrderByCreatedAtDesc(user, pageable);
+        validateUserExists(userId);
+        Page<Notification> notificationPage =
+                notificationRepository.findByUser_UserIdOrderByCreatedAtDesc(userId, pageable);
         return NotificationResponse.from(notificationPage);
     }
 
@@ -69,13 +68,19 @@ public class NotificationService {
 
     @Transactional
     public void readAllNotifications(Long userId) {
+        validateUserExists(userId);
         commandService.readAllNotifications(userId);
     }
 
     public long getUnreadNotificationCount(Long userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        return notificationRepository.countByUserAndIsRead(user, false);
+        validateUserExists(userId);
+        return notificationRepository.countByUser_UserIdAndIsRead(userId, false);
+    }
+
+    private void validateUserExists(Long userId) {
+        if (!userRepository.existsById(userId)) {
+            throw new BusinessException(ErrorCode.USER_NOT_FOUND);
+        }
     }
 
     private void deliverNotificationBestEffort(Long userId, Notification notification) {
