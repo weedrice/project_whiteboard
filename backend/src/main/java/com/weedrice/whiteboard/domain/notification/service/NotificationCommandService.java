@@ -15,24 +15,21 @@ class NotificationCommandService {
     private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
     private final NotificationPreferenceService preferenceService;
-    private final NotificationStreamService streamService;
 
     NotificationCommandService(NotificationRepository notificationRepository,
                                UserRepository userRepository,
-                               NotificationPreferenceService preferenceService,
-                               NotificationStreamService streamService) {
+                               NotificationPreferenceService preferenceService) {
         this.notificationRepository = notificationRepository;
         this.userRepository = userRepository;
         this.preferenceService = preferenceService;
-        this.streamService = streamService;
     }
 
-    void handleNotificationEvent(NotificationEvent event) {
+    Notification handleNotificationEvent(NotificationEvent event) {
         if (preferenceService.isSelfNotification(event) || !preferenceService.isNotificationEnabled(event)) {
-            return;
+            return null;
         }
 
-        Notification notification = notificationRepository.save(Notification.builder()
+        return notificationRepository.save(Notification.builder()
                 .user(event.getUserToNotify())
                 .actor(event.getActor())
                 .actorAgent(event.getActorAgent())
@@ -41,8 +38,6 @@ class NotificationCommandService {
                 .sourceId(event.getSourceId())
                 .content(event.getContent())
                 .build());
-
-        streamService.deliverNotification(event.getUserToNotify().getUserId(), notification);
     }
 
     void readNotification(Long userId, Long notificationId) {

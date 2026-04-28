@@ -39,7 +39,10 @@ public class NotificationService {
     @TransactionalEventListener
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void handleNotificationEvent(NotificationEvent event) {
-        commandService.handleNotificationEvent(event);
+        Notification notification = commandService.handleNotificationEvent(event);
+        if (notification != null) {
+            deliverNotificationBestEffort(event.getUserToNotify().getUserId(), notification);
+        }
     }
 
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
@@ -73,5 +76,13 @@ public class NotificationService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         return notificationRepository.countByUserAndIsRead(user, false);
+    }
+
+    private void deliverNotificationBestEffort(Long userId, Notification notification) {
+        try {
+            streamService.deliverNotification(userId, notification);
+        } catch (RuntimeException ignored) {
+            // SSE delivery is best-effort; notification persistence must not be rolled back by stream failures.
+        }
     }
 }

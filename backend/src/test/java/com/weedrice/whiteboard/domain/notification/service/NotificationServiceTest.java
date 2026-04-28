@@ -2,12 +2,17 @@ package com.weedrice.whiteboard.domain.notification.service;
 
 import com.weedrice.whiteboard.domain.notification.constant.NotificationType;
 import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
+import com.weedrice.whiteboard.domain.notification.dto.NotificationResponse;
 import com.weedrice.whiteboard.domain.notification.entity.Notification;
 import com.weedrice.whiteboard.domain.notification.repository.NotificationRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.entity.UserNotificationSettings;
 import com.weedrice.whiteboard.domain.user.repository.UserNotificationSettingsRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -16,9 +21,11 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.util.Collections;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.lenient;
@@ -68,8 +75,7 @@ class NotificationServiceTest {
         NotificationCommandService commandService = new NotificationCommandService(
                 notificationRepository,
                 userRepository,
-                preferenceService,
-                streamService);
+                preferenceService);
         notificationService = new NotificationService(notificationRepository, userRepository, commandService, streamService);
     }
 
@@ -131,6 +137,25 @@ class NotificationServiceTest {
     }
 
     @Test
+    @DisplayName("Notification save is not failed by SSE delivery exception")
+    void handleNotificationEvent_deliveryFailure_doesNotPropagate() {
+        NotificationEvent event = new NotificationEvent(user, actor, NotificationType.LIKE, "POST", 1L, "Test Notification");
+        when(notificationRepository.save(any(Notification.class))).thenReturn(notification);
+
+        NotificationPreferenceService preferenceService = new NotificationPreferenceService(userNotificationSettingsRepository);
+        NotificationStreamService streamService = new ThrowingNotificationStreamService();
+        NotificationCommandService commandService = new NotificationCommandService(
+                notificationRepository,
+                userRepository,
+                preferenceService);
+        NotificationService service = new NotificationService(notificationRepository, userRepository, commandService, streamService);
+
+        assertThatCode(() -> service.handleNotificationEvent(event)).doesNotThrowAnyException();
+
+        verify(notificationRepository).save(any(Notification.class));
+    }
+
+    @Test
     @DisplayName("Read notification marks it as read")
     void readNotification_success() {
         Long userId = 1L;
@@ -146,14 +171,12 @@ class NotificationServiceTest {
     @DisplayName("Notification list lookup succeeds")
     void getNotifications_success() {
         Long userId = 1L;
-        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(0, 10);
-        org.springframework.data.domain.Page<Notification> notificationPage = new org.springframework.data.domain.PageImpl<>(
-                java.util.Collections.singletonList(notification), pageable, 1);
+        Pageable pageable = PageRequest.of(0, 10);
+        Page<Notification> notificationPage = new PageImpl<>(Collections.singletonList(notification), pageable, 1);
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(notificationRepository.findByUserOrderByCreatedAtDesc(user, pageable)).thenReturn(notificationPage);
 
-        com.weedrice.whiteboard.domain.notification.dto.NotificationResponse response = notificationService
-                .getNotifications(userId, pageable);
+        NotificationResponse response = notificationService.getNotifications(userId, pageable);
 
         assertThat(response).isNotNull();
         verify(userRepository).findById(userId);
@@ -169,5 +192,13 @@ class NotificationServiceTest {
         long count = notificationService.getUnreadNotificationCount(userId);
 
         assertThat(count).isEqualTo(5L);
+    }
+
+    private static class ThrowingNotificationStreamService extends NotificationStreamService {
+
+        @Override
+        void deliverNotification(Long userId, Notification notification) {
+            throw new IllegalStateException("delivery failed");
+        }
     }
 }

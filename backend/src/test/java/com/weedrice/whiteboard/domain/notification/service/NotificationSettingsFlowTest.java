@@ -32,8 +32,8 @@ import java.util.Optional;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -80,8 +80,7 @@ class NotificationSettingsFlowTest {
         NotificationCommandService commandService = new NotificationCommandService(
                 notificationRepository,
                 userRepository,
-                preferenceService,
-                streamService);
+                preferenceService);
         notificationService = new NotificationService(notificationRepository, userRepository, commandService, streamService);
 
         receiver = User.builder().build();

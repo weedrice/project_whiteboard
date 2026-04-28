@@ -2,7 +2,7 @@ package com.weedrice.whiteboard.domain.notification.service;
 
 import com.weedrice.whiteboard.domain.notification.dto.NotificationResponse;
 import com.weedrice.whiteboard.domain.notification.entity.Notification;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
@@ -11,7 +11,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
-@Component
+@Service
 class NotificationStreamService {
 
     private final Map<Long, Map<String, SseEmitter>> emitters = new ConcurrentHashMap<>();
@@ -31,7 +31,7 @@ class NotificationStreamService {
             emitter.send(SseEmitter.event()
                     .name("connect")
                     .data("connected!"));
-        } catch (IOException e) {
+        } catch (IOException | RuntimeException e) {
             removeEmitter(userId, connectionId);
         }
 
@@ -53,7 +53,7 @@ class NotificationStreamService {
             for (Map.Entry<String, SseEmitter> entry : new ArrayList<>(userEmitters.entrySet())) {
                 try {
                     entry.getValue().send(SseEmitter.event().comment("heartbeat"));
-                } catch (IOException e) {
+                } catch (IOException | RuntimeException e) {
                     removeEmitter(userId, entry.getKey());
                 }
             }
@@ -72,7 +72,7 @@ class NotificationStreamService {
                 entry.getValue().send(SseEmitter.event()
                         .name("notification")
                         .data(summary));
-            } catch (IOException e) {
+            } catch (IOException | RuntimeException e) {
                 removeEmitter(userId, entry.getKey());
             }
         }
