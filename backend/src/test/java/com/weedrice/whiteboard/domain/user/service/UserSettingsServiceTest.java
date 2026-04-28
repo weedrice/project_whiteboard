@@ -14,10 +14,10 @@ import com.weedrice.whiteboard.domain.user.repository.UserSettingsRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import jakarta.persistence.EntityManager;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -39,7 +39,6 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class UserSettingsServiceTest {
 
-    @InjectMocks
     private UserSettingsService userSettingsService;
 
     @Mock
@@ -50,10 +49,23 @@ class UserSettingsServiceTest {
 
     @Mock
     private UserNotificationSettingsRepository userNotificationSettingsRepository;
+
     @Mock
     private SanctionService sanctionService;
+
     @Mock
     private EntityManager entityManager;
+
+    @BeforeEach
+    void setUp() {
+        UserWritableResolver userWritableResolver = new UserWritableResolver(userRepository, sanctionService);
+        userSettingsService = new UserSettingsService(
+                userRepository,
+                userSettingsRepository,
+                userNotificationSettingsRepository,
+                entityManager,
+                userWritableResolver);
+    }
 
     @Test
     @DisplayName("Settings lookup succeeds")

@@ -1,7 +1,6 @@
 package com.weedrice.whiteboard.domain.user.service;
 
 import com.weedrice.whiteboard.domain.notification.constant.NotificationType;
-import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.dto.NotificationSettingResponse;
 import com.weedrice.whiteboard.domain.user.dto.UpdateNotificationSettingItem;
 import com.weedrice.whiteboard.domain.user.dto.UserSettingsResponse;
@@ -40,8 +39,8 @@ public class UserSettingsService {
         private final UserRepository userRepository;
         private final UserSettingsRepository userSettingsRepository;
         private final UserNotificationSettingsRepository userNotificationSettingsRepository;
-        private final SanctionService sanctionService;
         private final EntityManager entityManager;
+        private final UserWritableResolver userWritableResolver;
 
         public UserSettingsResponse getSettings(Long userId) {
                 validateUserExists(userId);
@@ -124,9 +123,7 @@ public class UserSettingsService {
         }
 
         private void validateUserCanWrite(Long userId) {
-                User user = userRepository.findById(userId)
-                                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-                sanctionService.validateNotBanned(user);
+                userWritableResolver.resolve(userId);
         }
 
         private UserSettingsResponse toResponse(UserSettings settings) {

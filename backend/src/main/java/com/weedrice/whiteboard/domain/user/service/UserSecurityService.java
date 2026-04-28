@@ -3,7 +3,6 @@ package com.weedrice.whiteboard.domain.user.service;
 import com.weedrice.whiteboard.domain.auth.entity.VerificationPurpose;
 import com.weedrice.whiteboard.domain.auth.service.RefreshTokenLifecycleService;
 import com.weedrice.whiteboard.domain.auth.service.VerificationCodeService;
-import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.entity.PasswordHistory;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.PasswordHistoryRepository;
@@ -28,13 +27,13 @@ public class UserSecurityService {
     private final PasswordHistoryRepository passwordHistoryRepository;
     private final PasswordEncoder passwordEncoder;
     private final RefreshTokenLifecycleService refreshTokenLifecycleService;
-    private final SanctionService sanctionService;
     private final VerificationCodeService verificationCodeService;
     private final EntityManager entityManager;
+    private final UserWritableResolver userWritableResolver;
 
     @Transactional
     public void updatePassword(Long userId, String currentPassword, String newPassword) {
-        User user = getWritableUser(userId);
+        User user = userWritableResolver.resolve(userId);
 
         if (!passwordEncoder.matches(currentPassword, user.getPassword())) {
             throw new BusinessException(ErrorCode.INVALID_CURRENT_PASSWORD);
@@ -63,7 +62,7 @@ public class UserSecurityService {
 
     @Transactional
     public void verifyAndChangeEmail(Long userId, String email, String verificationTicket) {
-        User user = getWritableUser(userId);
+        User user = userWritableResolver.resolve(userId);
 
         if (!user.getEmail().equals(email)) {
             userRepository.findByEmail(email).ifPresent(other -> {
@@ -100,10 +99,4 @@ public class UserSecurityService {
                 verificationTicket);
     }
 
-    private User getWritableUser(Long userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        sanctionService.validateNotBanned(user);
-        return user;
-    }
 }

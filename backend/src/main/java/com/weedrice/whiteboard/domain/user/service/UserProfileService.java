@@ -5,7 +5,6 @@ import com.weedrice.whiteboard.domain.auth.service.RefreshTokenLifecycleService;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.file.service.FileService;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
-import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.dto.MyInfoResponse;
 import com.weedrice.whiteboard.domain.user.dto.UpdateProfileResponse;
 import com.weedrice.whiteboard.domain.user.dto.UserProfileResponse;
@@ -36,11 +35,11 @@ public class UserProfileService {
     private final PostRepository postRepository;
     private final FileService fileService;
     private final com.weedrice.whiteboard.domain.point.repository.UserPointRepository userPointRepository;
-    private final SanctionService sanctionService;
     private final AgentLifecycleService agentLifecycleService;
     private final PasswordEncoder passwordEncoder;
     private final RefreshTokenLifecycleService refreshTokenLifecycleService;
     private final UserPrivilegeCleanupService userPrivilegeCleanupService;
+    private final UserWritableResolver userWritableResolver;
 
     public Long findUserIdByLoginId(String loginId) {
         User user = userRepository.findByLoginId(loginId)
@@ -108,7 +107,7 @@ public class UserProfileService {
 
     @Transactional
     public UpdateProfileResponse updateMyProfile(Long userId, String displayName, Long profileImageId) {
-        User user = getWritableUser(userId);
+        User user = userWritableResolver.resolve(userId);
         String oldDisplayName = user.getDisplayName();
 
         if (displayName != null && !displayName.equals(oldDisplayName)) {
@@ -129,7 +128,7 @@ public class UserProfileService {
 
     @Transactional
     public void deleteAccount(Long userId, String password) {
-        User user = getWritableUser(userId);
+        User user = userWritableResolver.resolve(userId);
 
         if (!passwordEncoder.matches(password, user.getPassword())) {
             throw new BusinessException(ErrorCode.INVALID_PASSWORD);
@@ -141,10 +140,4 @@ public class UserProfileService {
         user.delete();
     }
 
-    private User getWritableUser(Long userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        sanctionService.validateNotBanned(user);
-        return user;
-    }
 }

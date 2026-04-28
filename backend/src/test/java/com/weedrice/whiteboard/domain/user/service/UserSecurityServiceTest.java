@@ -11,10 +11,10 @@ import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import jakarta.persistence.EntityManager;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -37,7 +37,6 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class UserSecurityServiceTest {
 
-    @InjectMocks
     private UserSecurityService userSecurityService;
 
     @Mock private UserRepository userRepository;
@@ -47,6 +46,19 @@ class UserSecurityServiceTest {
     @Mock private SanctionService sanctionService;
     @Mock private VerificationCodeService verificationCodeService;
     @Mock private EntityManager entityManager;
+
+    @BeforeEach
+    void setUp() {
+        UserWritableResolver userWritableResolver = new UserWritableResolver(userRepository, sanctionService);
+        userSecurityService = new UserSecurityService(
+                userRepository,
+                passwordHistoryRepository,
+                passwordEncoder,
+                refreshTokenLifecycleService,
+                verificationCodeService,
+                entityManager,
+                userWritableResolver);
+    }
 
     @Test
     @DisplayName("updatePassword stores history and revokes refresh tokens")

@@ -18,10 +18,10 @@ import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserSettingsRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -34,6 +34,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -42,7 +43,6 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class UserProfileServiceTest {
 
-    @InjectMocks
     private UserProfileService userProfileService;
 
     @Mock private UserRepository userRepository;
@@ -57,6 +57,24 @@ class UserProfileServiceTest {
     @Mock private PasswordEncoder passwordEncoder;
     @Mock private RefreshTokenLifecycleService refreshTokenLifecycleService;
     @Mock private UserPrivilegeCleanupService userPrivilegeCleanupService;
+
+    @BeforeEach
+    void setUp() {
+        UserWritableResolver userWritableResolver = new UserWritableResolver(userRepository, sanctionService);
+        userProfileService = new UserProfileService(
+                userRepository,
+                userSettingsRepository,
+                commentRepository,
+                displayNameHistoryRepository,
+                postRepository,
+                fileService,
+                userPointRepository,
+                agentLifecycleService,
+                passwordEncoder,
+                refreshTokenLifecycleService,
+                userPrivilegeCleanupService,
+                userWritableResolver);
+    }
 
     @Test
     @DisplayName("로그인 ID로 사용자 ID 조회 성공")
@@ -209,7 +227,7 @@ class UserProfileServiceTest {
         User user = User.builder().displayName("Old Name").build();
         ReflectionTestUtils.setField(user, "userId", 1L);
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        org.mockito.Mockito.doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE))
+        doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE))
                 .when(sanctionService)
                 .validateNotBanned(user);
 
