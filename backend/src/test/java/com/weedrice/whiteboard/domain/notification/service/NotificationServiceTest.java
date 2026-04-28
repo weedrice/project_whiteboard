@@ -22,6 +22,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.Collections;
 import java.util.Optional;
@@ -157,6 +158,35 @@ class NotificationServiceTest {
     }
 
     @Test
+    @DisplayName("Notification SSE delivery is deferred until transaction commit")
+    void handleNotificationEvent_defersDeliveryUntilAfterCommit() {
+        NotificationEvent event = new NotificationEvent(user, actor, NotificationType.LIKE, "POST", 1L, "Test Notification");
+        when(notificationRepository.save(any(Notification.class))).thenReturn(notification);
+
+        NotificationPreferenceService preferenceService = new NotificationPreferenceService(userNotificationSettingsRepository);
+        RecordingNotificationStreamService streamService = new RecordingNotificationStreamService();
+        NotificationCommandService commandService = new NotificationCommandService(
+                notificationRepository,
+                preferenceService);
+        NotificationService service = new NotificationService(notificationRepository, userRepository, commandService, streamService);
+
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            service.handleNotificationEvent(event);
+
+            assertThat(streamService.delivered).isFalse();
+
+            TransactionSynchronizationManager.getSynchronizations()
+                    .forEach(synchronization -> synchronization.afterCommit());
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
+
+        assertThat(streamService.delivered).isTrue();
+        verify(notificationRepository).save(any(Notification.class));
+    }
+
+    @Test
     @DisplayName("Read notification marks it as read")
     void readNotification_success() {
         Long userId = 1L;
@@ -225,6 +255,16 @@ class NotificationServiceTest {
         @Override
         void deliverNotification(Long userId, Notification notification) {
             throw new IllegalStateException("delivery failed");
+        }
+    }
+
+    private static class RecordingNotificationStreamService extends NotificationStreamService {
+
+        private boolean delivered;
+
+        @Override
+        void deliverNotification(Long userId, Notification notification) {
+            delivered = true;
         }
     }
 }

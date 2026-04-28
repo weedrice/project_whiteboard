@@ -13,7 +13,10 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 @Service
@@ -35,12 +38,12 @@ public class NotificationService {
         this.streamService = streamService;
     }
 
-    @TransactionalEventListener
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void handleNotificationEvent(NotificationEvent event) {
         Notification notification = commandService.handleNotificationEvent(event);
         if (notification != null) {
-            deliverNotificationBestEffort(event.getUserToNotify().getUserId(), notification);
+            deliverNotificationAfterCommit(event.getUserToNotify().getUserId(), notification);
         }
     }
 
@@ -89,5 +92,19 @@ public class NotificationService {
         } catch (RuntimeException ignored) {
             // SSE delivery is best-effort; notification persistence must not be rolled back by stream failures.
         }
+    }
+
+    private void deliverNotificationAfterCommit(Long userId, Notification notification) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            deliverNotificationBestEffort(userId, notification);
+            return;
+        }
+
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                deliverNotificationBestEffort(userId, notification);
+            }
+        });
     }
 }
