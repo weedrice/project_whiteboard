@@ -23,9 +23,13 @@ import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import com.weedrice.whiteboard.global.security.JwtTokenProvider;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.authentication.DisabledException;
+import org.springframework.security.authentication.LockedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.stereotype.Service;
@@ -40,10 +44,15 @@ import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 @Transactional(readOnly = true)
 public class SessionTokenService {
 
     private static final String DEFAULT_THEME = "LIGHT";
+    private static final String FAILURE_REASON_AUTHENTICATION_FAILED = "AUTHENTICATION_FAILED";
+    private static final String FAILURE_REASON_USER_NOT_FOUND = "USER_NOT_FOUND";
+    private static final String FAILURE_REASON_USER_NOT_ACTIVE = "USER_NOT_ACTIVE";
+    private static final String FAILURE_REASON_USER_BANNED = "USER_BANNED";
 
     private final UserRepository userRepository;
     private final UserPointRepository userPointRepository;
@@ -54,30 +63,47 @@ public class SessionTokenService {
     private final LoginHistoryRepository loginHistoryRepository;
     private final SanctionService sanctionService;
     private final TokenHashService tokenHashService;
+    private final LoginHistoryAuditService loginHistoryAuditService;
 
     @Transactional
     public LoginResult login(LoginRequest request, HttpServletRequest httpServletRequest) {
+        String ipAddress = resolveIpAddress(httpServletRequest);
+        String userAgent = resolveUserAgent(httpServletRequest);
         UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(
                 request.getLoginId(), request.getPassword());
 
-        Authentication authentication = authenticationManagerBuilder.getObject()
-                .authenticate(authenticationToken);
+        Authentication authentication;
+        try {
+            authentication = authenticationManagerBuilder.getObject()
+                    .authenticate(authenticationToken);
+        } catch (AuthenticationException exception) {
+            recordLoginFailure(request, ipAddress, userAgent, resolveAuthenticationFailureReason(exception));
+            throw exception;
+        }
         CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
 
         Long userId = userDetails.getUserId();
         if (userId == null) {
+            recordLoginFailure(request, ipAddress, userAgent, FAILURE_REASON_USER_NOT_FOUND);
             throw new BusinessException(ErrorCode.USER_NOT_FOUND);
         }
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+                .orElse(null);
+        if (user == null) {
+            recordLoginFailure(request, ipAddress, userAgent, FAILURE_REASON_USER_NOT_FOUND);
+            throw new BusinessException(ErrorCode.USER_NOT_FOUND);
+        }
 
-        if (!"ACTIVE".equals(user.getStatus()) || sanctionService.isUserBanned(user)) {
+        if (!"ACTIVE".equals(user.getStatus())) {
+            recordLoginFailure(request, ipAddress, userAgent, FAILURE_REASON_USER_NOT_ACTIVE);
+            throw new BusinessException(ErrorCode.LOGIN_FAILED);
+        }
+        if (sanctionService.isUserBanned(user)) {
+            recordLoginFailure(request, ipAddress, userAgent, FAILURE_REASON_USER_BANNED);
             throw new BusinessException(ErrorCode.LOGIN_FAILED);
         }
 
-        String ipAddress = ClientUtils.getIp(httpServletRequest);
-        String userAgent = httpServletRequest != null ? httpServletRequest.getHeader("User-Agent") : null;
-        TokenResponse issuedTokens = issueTokens(authentication, user, httpServletRequest);
+        TokenResponse issuedTokens = issueTokens(authentication, user, ipAddress, userAgent);
 
         LoginHistory loginHistory = LoginHistory.success(user, request.getLoginId(), ipAddress, userAgent);
         loginHistoryRepository.save(loginHistory);
@@ -208,5 +234,35 @@ public class SessionTokenService {
             return "DARK";
         }
         return DEFAULT_THEME;
+    }
+
+    private void recordLoginFailure(
+            LoginRequest request,
+            String ipAddress,
+            String userAgent,
+            String failureReason) {
+        try {
+            loginHistoryAuditService.recordFailure(request.getLoginId(), ipAddress, userAgent, failureReason);
+        } catch (RuntimeException exception) {
+            log.warn("Failed to record login failure history", exception);
+        }
+    }
+
+    private String resolveAuthenticationFailureReason(AuthenticationException exception) {
+        if (exception instanceof DisabledException) {
+            return FAILURE_REASON_USER_NOT_ACTIVE;
+        }
+        if (exception instanceof LockedException) {
+            return FAILURE_REASON_USER_BANNED;
+        }
+        return FAILURE_REASON_AUTHENTICATION_FAILED;
+    }
+
+    private String resolveIpAddress(HttpServletRequest httpServletRequest) {
+        return httpServletRequest != null ? ClientUtils.getIp(httpServletRequest) : null;
+    }
+
+    private String resolveUserAgent(HttpServletRequest httpServletRequest) {
+        return httpServletRequest != null ? httpServletRequest.getHeader("User-Agent") : null;
     }
 }

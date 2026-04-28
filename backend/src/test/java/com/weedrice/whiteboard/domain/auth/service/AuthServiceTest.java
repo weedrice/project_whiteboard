@@ -39,6 +39,9 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.DisabledException;
+import org.springframework.security.authentication.LockedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.core.Authentication;
@@ -83,6 +86,7 @@ class AuthServiceTest {
     @Mock private AuthenticationManagerBuilder authenticationManagerBuilder;
     @Mock private RefreshTokenRepository refreshTokenRepository;
     @Mock private LoginHistoryRepository loginHistoryRepository;
+    @Mock private LoginHistoryAuditService loginHistoryAuditService;
     @Mock private SocialAccountLinkService socialAccountLinkService;
     @Mock private PasswordHistoryRepository passwordHistoryRepository;
     @Mock private VerificationCodeService verificationCodeService;
@@ -105,7 +109,8 @@ class AuthServiceTest {
         TokenHashService tokenHashService = new TokenHashService();
         SessionTokenService sessionTokenService = new SessionTokenService(
                 userRepository, userPointRepository, userSettingsRepository, jwtTokenProvider, authenticationManagerBuilder,
-                refreshTokenRepository, loginHistoryRepository, sanctionService, tokenHashService);
+                refreshTokenRepository, loginHistoryRepository, sanctionService, tokenHashService,
+                loginHistoryAuditService);
         PasswordResetTokenOrchestrationService passwordResetTokenOrchestrationService =
                 new PasswordResetTokenOrchestrationService(
                         passwordResetTokenRepository,
@@ -414,6 +419,135 @@ class AuthServiceTest {
                 () -> authService.login(request, httpServletRequest));
 
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.LOGIN_FAILED);
+        verify(jwtTokenProvider, never()).createAccessToken(any());
+        verify(loginHistoryAuditService).recordFailure(eq("testuser"), nullable(String.class),
+                nullable(String.class), eq("USER_BANNED"));
+    }
+
+    @Test
+    @DisplayName("Authentication failure is recorded before rethrow")
+    void login_fail_whenAuthenticationFails_recordsFailure() {
+        LoginRequest request = new LoginRequest("testuser", "password123");
+        AuthenticationManager authenticationManager = mock(AuthenticationManager.class);
+        HttpServletRequest httpServletRequest = mock(HttpServletRequest.class);
+
+        when(authenticationManagerBuilder.getObject()).thenReturn(authenticationManager);
+        when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
+                .thenThrow(new BadCredentialsException("bad credentials"));
+
+        assertThrows(BadCredentialsException.class, () -> authService.login(request, httpServletRequest));
+
+        verify(loginHistoryAuditService).recordFailure(eq("testuser"), nullable(String.class),
+                nullable(String.class), eq("AUTHENTICATION_FAILED"));
+        verify(jwtTokenProvider, never()).createAccessToken(any());
+    }
+
+    @Test
+    @DisplayName("Disabled authentication failure is recorded as inactive user")
+    void login_fail_whenAuthenticationReportsDisabled_recordsInactiveFailure() {
+        LoginRequest request = new LoginRequest("testuser", "password123");
+        AuthenticationManager authenticationManager = mock(AuthenticationManager.class);
+        HttpServletRequest httpServletRequest = mock(HttpServletRequest.class);
+
+        when(authenticationManagerBuilder.getObject()).thenReturn(authenticationManager);
+        when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
+                .thenThrow(new DisabledException("disabled"));
+
+        assertThrows(DisabledException.class, () -> authService.login(request, httpServletRequest));
+
+        verify(loginHistoryAuditService).recordFailure(eq("testuser"), nullable(String.class),
+                nullable(String.class), eq("USER_NOT_ACTIVE"));
+        verify(jwtTokenProvider, never()).createAccessToken(any());
+    }
+
+    @Test
+    @DisplayName("Locked authentication failure is recorded as banned user")
+    void login_fail_whenAuthenticationReportsLocked_recordsBannedFailure() {
+        LoginRequest request = new LoginRequest("testuser", "password123");
+        AuthenticationManager authenticationManager = mock(AuthenticationManager.class);
+        HttpServletRequest httpServletRequest = mock(HttpServletRequest.class);
+
+        when(authenticationManagerBuilder.getObject()).thenReturn(authenticationManager);
+        when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
+                .thenThrow(new LockedException("locked"));
+
+        assertThrows(LockedException.class, () -> authService.login(request, httpServletRequest));
+
+        verify(loginHistoryAuditService).recordFailure(eq("testuser"), nullable(String.class),
+                nullable(String.class), eq("USER_BANNED"));
+        verify(jwtTokenProvider, never()).createAccessToken(any());
+    }
+
+    @Test
+    @DisplayName("Missing authenticated user is recorded before rethrow")
+    void login_fail_whenAuthenticatedUserMissing_recordsFailure() {
+        LoginRequest request = new LoginRequest("testuser", "password123");
+        CustomUserDetails userDetails = new CustomUserDetails(1L, "testuser", "encodedPassword",
+                Collections.emptyList());
+        Authentication authentication = new UsernamePasswordAuthenticationToken(userDetails, null,
+                Collections.emptyList());
+        AuthenticationManager authenticationManager = mock(AuthenticationManager.class);
+        HttpServletRequest httpServletRequest = mock(HttpServletRequest.class);
+
+        when(authenticationManagerBuilder.getObject()).thenReturn(authenticationManager);
+        when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
+                .thenReturn(authentication);
+        when(userRepository.findById(1L)).thenReturn(Optional.empty());
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> authService.login(request, httpServletRequest));
+
+        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.USER_NOT_FOUND);
+        verify(loginHistoryAuditService).recordFailure(eq("testuser"), nullable(String.class),
+                nullable(String.class), eq("USER_NOT_FOUND"));
+        verify(jwtTokenProvider, never()).createAccessToken(any());
+    }
+
+    @Test
+    @DisplayName("Inactive user login failure is recorded")
+    void login_fail_whenUserIsInactive_recordsFailure() {
+        LoginRequest request = new LoginRequest("testuser", "password123");
+        CustomUserDetails userDetails = new CustomUserDetails(1L, "testuser", "encodedPassword",
+                Collections.emptyList());
+        Authentication authentication = new UsernamePasswordAuthenticationToken(userDetails, null,
+                Collections.emptyList());
+        AuthenticationManager authenticationManager = mock(AuthenticationManager.class);
+        HttpServletRequest httpServletRequest = mock(HttpServletRequest.class);
+        user.suspend();
+
+        when(authenticationManagerBuilder.getObject()).thenReturn(authenticationManager);
+        when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
+                .thenReturn(authentication);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> authService.login(request, httpServletRequest));
+
+        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.LOGIN_FAILED);
+        verify(loginHistoryAuditService).recordFailure(eq("testuser"), nullable(String.class),
+                nullable(String.class), eq("USER_NOT_ACTIVE"));
+        verify(sanctionService, never()).isUserBanned(any());
+        verify(jwtTokenProvider, never()).createAccessToken(any());
+    }
+
+    @Test
+    @DisplayName("Login failure recording failure does not change login failure response")
+    void login_fail_whenFailureRecordingFails_preservesOriginalException() {
+        LoginRequest request = new LoginRequest("testuser", "password123");
+        AuthenticationManager authenticationManager = mock(AuthenticationManager.class);
+        HttpServletRequest httpServletRequest = mock(HttpServletRequest.class);
+
+        when(authenticationManagerBuilder.getObject()).thenReturn(authenticationManager);
+        when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
+                .thenThrow(new BadCredentialsException("bad credentials"));
+        doThrow(new RuntimeException("audit unavailable"))
+                .when(loginHistoryAuditService)
+                .recordFailure(anyString(), nullable(String.class), nullable(String.class), anyString());
+
+        assertThrows(BadCredentialsException.class, () -> authService.login(request, httpServletRequest));
+
+        verify(loginHistoryAuditService).recordFailure(eq("testuser"), nullable(String.class),
+                nullable(String.class), eq("AUTHENTICATION_FAILED"));
         verify(jwtTokenProvider, never()).createAccessToken(any());
     }
 
