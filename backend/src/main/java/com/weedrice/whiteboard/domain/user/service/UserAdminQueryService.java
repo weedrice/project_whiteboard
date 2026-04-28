@@ -5,9 +5,9 @@ import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.admin.service.ModerationActorResolver;
 import com.weedrice.whiteboard.domain.auth.entity.LoginHistory;
 import com.weedrice.whiteboard.domain.auth.repository.LoginHistoryRepository;
+import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardSubscription;
 import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository;
-import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.report.repository.ReportRepository;
@@ -37,7 +37,9 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -49,7 +51,6 @@ public class UserAdminQueryService {
     private final PostRepository postRepository;
     private final CommentRepository commentRepository;
     private final AdminRepository adminRepository;
-    private final BoardAccessPolicy boardAccessPolicy;
     private final BoardSubscriptionRepository boardSubscriptionRepository;
     private final LoginHistoryRepository loginHistoryRepository;
     private final SanctionRepository sanctionRepository;
@@ -139,10 +140,13 @@ public class UserAdminQueryService {
 
     public Page<AdminUserSubscriptionResponse> getUserSubscriptionsForAdmin(Long userId, Pageable pageable) {
         User user = getUserOrThrow(userId);
-        return boardSubscriptionRepository.findByUserOrderBySortOrderAsc(user, pageable)
+        Page<BoardSubscription> subscriptions = boardSubscriptionRepository.findByUserOrderBySortOrderAsc(user, pageable);
+        Set<Long> activeAdminBoardIds = resolveActiveAdminBoardIds(user);
+
+        return subscriptions
                 .map(subscription -> AdminUserSubscriptionResponse.from(
                         subscription,
-                        boardAccessPolicy.canReadBoard(subscription.getBoard(), user)));
+                        canReadSubscriptionBoard(subscription.getBoard(), user, activeAdminBoardIds)));
     }
 
     private String resolveRoleForAdmin(User user) {
@@ -175,6 +179,41 @@ public class UserAdminQueryService {
                         Admin::getRole,
                         (existingRole, ignoredRole) -> existingRole,
                         LinkedHashMap::new));
+    }
+
+    private Set<Long> resolveActiveAdminBoardIds(User user) {
+        if (Boolean.TRUE.equals(user.getIsSuperAdmin())) {
+            return Collections.emptySet();
+        }
+        return adminRepository.findActiveBoardIdsByUser(user).stream()
+                .collect(Collectors.toSet());
+    }
+
+    private boolean canReadSubscriptionBoard(Board board, User user, Set<Long> activeAdminBoardIds) {
+        if (board == null) {
+            return false;
+        }
+        boolean hasBoardAdminAccess = hasBoardAdminAccess(board, user, activeAdminBoardIds);
+        if (!Boolean.TRUE.equals(board.getIsActive()) && !hasBoardAdminAccess) {
+            return false;
+        }
+        if (!Boolean.TRUE.equals(board.getIsPublic()) && !hasBoardAdminAccess) {
+            return false;
+        }
+        return true;
+    }
+
+    private boolean hasBoardAdminAccess(Board board, User user, Set<Long> activeAdminBoardIds) {
+        if (board == null || user == null) {
+            return false;
+        }
+        if (Boolean.TRUE.equals(user.getIsSuperAdmin())) {
+            return true;
+        }
+        if (board.getCreator() != null && Objects.equals(board.getCreator().getUserId(), user.getUserId())) {
+            return true;
+        }
+        return activeAdminBoardIds.contains(board.getBoardId());
     }
 
     private LocalDateTime toStartOfDay(LocalDate date) {

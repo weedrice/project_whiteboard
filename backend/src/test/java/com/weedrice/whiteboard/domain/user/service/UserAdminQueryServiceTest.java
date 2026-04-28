@@ -7,7 +7,6 @@ import com.weedrice.whiteboard.domain.auth.repository.LoginHistoryRepository;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardSubscription;
 import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository;
-import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.post.entity.Post;
@@ -50,7 +49,6 @@ class UserAdminQueryServiceTest {
     @Mock private CommentRepository commentRepository;
     @Mock private AdminRepository adminRepository;
     @Mock private ModerationActorResolver moderationActorResolver;
-    @Mock private BoardAccessPolicy boardAccessPolicy;
     @Mock private BoardSubscriptionRepository boardSubscriptionRepository;
     @Mock private LoginHistoryRepository loginHistoryRepository;
     @Mock private SanctionRepository sanctionRepository;
@@ -185,11 +183,14 @@ class UserAdminQueryServiceTest {
         User user = User.builder().loginId("writer").email("writer@test.com").password("pw").displayName("writer").build();
         ReflectionTestUtils.setField(user, "userId", 1L);
 
+        User owner = User.builder().loginId("owner").email("owner@test.com").password("pw").displayName("owner").build();
+        ReflectionTestUtils.setField(owner, "userId", 2L);
+
         Board board = Board.builder()
                 .boardName("Hidden")
                 .boardUrl("hidden")
                 .description("desc")
-                .creator(user)
+                .creator(owner)
                 .sortOrder(3)
                 .isPublic(false)
                 .build();
@@ -203,19 +204,45 @@ class UserAdminQueryServiceTest {
                 .sortOrder(7)
                 .build();
 
+        Board adminBoard = Board.builder()
+                .boardName("Admin")
+                .boardUrl("admin")
+                .description("desc")
+                .creator(owner)
+                .sortOrder(4)
+                .isPublic(false)
+                .build();
+        ReflectionTestUtils.setField(adminBoard, "boardId", 14L);
+
+        BoardSubscription adminSubscription = BoardSubscription.builder()
+                .user(user)
+                .board(adminBoard)
+                .role("MEMBER")
+                .sortOrder(8)
+                .build();
+
         when(userRepository.findById(1L)).thenReturn(java.util.Optional.of(user));
         when(boardSubscriptionRepository.findByUserOrderBySortOrderAsc(user, PageRequest.of(0, 10)))
-                .thenReturn(new PageImpl<>(List.of(subscription), PageRequest.of(0, 10), 1));
-        when(boardAccessPolicy.canReadBoard(board, user)).thenReturn(false);
+                .thenReturn(new PageImpl<>(List.of(subscription, adminSubscription), PageRequest.of(0, 10), 2));
+        when(adminRepository.findActiveBoardIdsByUser(user)).thenReturn(List.of(14L));
 
         Page<AdminUserSubscriptionResponse> response = userAdminQueryService.getUserSubscriptionsForAdmin(1L, PageRequest.of(0, 10));
 
-        assertThat(response.getContent()).singleElement().satisfies(item -> {
+        assertThat(response.getContent()).hasSize(2);
+        assertThat(response.getContent().get(0)).satisfies(item -> {
             assertThat(item.getBoardId()).isEqualTo(13L);
             assertThat(item.isBoardActive()).isFalse();
             assertThat(item.isBoardPublic()).isFalse();
             assertThat(item.isSubscriptionAccessible()).isFalse();
             assertThat(item.getInaccessibleReason()).isEqualTo("INACTIVE");
         });
+        assertThat(response.getContent().get(1)).satisfies(item -> {
+            assertThat(item.getBoardId()).isEqualTo(14L);
+            assertThat(item.isBoardActive()).isTrue();
+            assertThat(item.isBoardPublic()).isFalse();
+            assertThat(item.isSubscriptionAccessible()).isTrue();
+            assertThat(item.getInaccessibleReason()).isNull();
+        });
+        verify(adminRepository).findActiveBoardIdsByUser(user);
     }
 }

@@ -9,6 +9,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.Collection;
 import java.util.List;
@@ -27,6 +29,13 @@ public interface AdminRepository extends JpaRepository<Admin, Long> {
     Optional<Admin> findByUserAndBoardAndRole(User user, Board board, String role);
     Optional<Admin> findFirstByUserAndIsActiveOrderByAdminIdAsc(User user, Boolean isActive);
     List<Admin> findByUserUserIdInAndIsActiveOrderByAdminIdAsc(Collection<Long> userIds, Boolean isActive);
+    @Query("""
+            SELECT DISTINCT admin.board.boardId
+            FROM Admin admin
+            WHERE admin.user = :user
+              AND admin.isActive = true
+            """)
+    List<Long> findActiveBoardIdsByUser(@Param("user") User user);
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     List<Admin> findAllByUserAndIsActiveOrderByAdminIdAsc(User user, Boolean isActive);
     @EntityGraph(attributePaths = {"user", "board"})
