@@ -12,9 +12,10 @@ import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.domain.user.entity.Role;
 
-import com.weedrice.whiteboard.global.common.dto.PageResponse;
-import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.common.ApiResponse;
+import com.weedrice.whiteboard.global.common.dto.PageResponse;
+import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
+import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -25,7 +26,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
-import org.springframework.lang.NonNull;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -196,9 +196,13 @@ public class AdminController {
     }
 
     @GetMapping("/inquiries")
-    public ApiResponse<PageResponse<PostSummary>> getInquiryPosts(@NonNull Pageable pageable) {
-        Page<PostSummary> page = postService.getInquiryPostsForAdmin(pageable);
-        return ApiResponse.success(new PageResponse<>(page));
+    public ApiResponse<PageResponse<PostSummary>> getInquiryPosts(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            Sort sort) {
+        Pageable pageable = PageRequestUtils.of(page, size, sort);
+        Page<PostSummary> inquiryPage = postService.getInquiryPostsForAdmin(pageable);
+        return ApiResponse.success(new PageResponse<>(inquiryPage));
     }
 
     @GetMapping("/inquiries/{postId}")

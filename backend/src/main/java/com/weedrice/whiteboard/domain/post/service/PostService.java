@@ -61,7 +61,10 @@ public class PostService {
     private static final String DEFAULT_INQUIRY_BOARD_URL = "inquiry";
     private static final String DEFAULT_CATEGORY_NAME = "\uC77C\uBC18";
     private static final long MAX_VIEW_DURATION_MS = 86_400_000L;
+    private static final Sort DEFAULT_INQUIRY_POST_SORT = Sort.by(Sort.Direction.DESC, "createdAt");
     private static final Set<String> TAG_POST_SORT_PROPERTIES = Set.of(
+            "createdAt", "postId", "viewCount", "likeCount");
+    private static final Set<String> INQUIRY_POST_SORT_PROPERTIES = Set.of(
             "createdAt", "postId", "viewCount", "likeCount");
 
     private final PostRepository postRepository;
@@ -201,14 +204,19 @@ public class PostService {
     }
 
     public Page<PostSummary> getInquiryPostsForAdmin(@NonNull Pageable pageable) {
+        Pageable safePageable = PageRequestUtils.of(
+                pageable,
+                20,
+                DEFAULT_INQUIRY_POST_SORT,
+                INQUIRY_POST_SORT_PROPERTIES);
         Board inquiryBoard = boardRepository.findByBoardUrl(DEFAULT_INQUIRY_BOARD_URL)
                 .orElse(null);
         if (inquiryBoard == null) {
-            return Page.empty(pageable);
+            return Page.empty(safePageable);
         }
 
-        Page<Post> posts = postRepository.findByBoard_BoardId(inquiryBoard.getBoardId(), pageable);
-        return postSummaryAssembler.assembleBoardPage(posts, pageable, false, true);
+        Page<Post> posts = postRepository.findByBoard_BoardId(inquiryBoard.getBoardId(), safePageable);
+        return postSummaryAssembler.assembleBoardPage(posts, safePageable, false, true);
     }
 
     public List<PostSummary> getTrendingPosts(Pageable pageable, Long currentUserId) {

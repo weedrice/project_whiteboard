@@ -1821,6 +1821,38 @@ class PostServiceTest {
     }
 
     @Test
+    @DisplayName("관리자 문의글 목록은 페이지 크기 상한을 서비스에서 한 번 더 적용한다")
+    void getInquiryPostsForAdmin_clampsPageSize() {
+        ReflectionTestUtils.setField(board, "boardUrl", "inquiry");
+        when(boardRepository.findByBoardUrl("inquiry")).thenReturn(Optional.of(board));
+        when(postRepository.findByBoard_BoardId(eq(1L), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 100), 0));
+
+        postService.getInquiryPostsForAdmin(PageRequest.of(0, 1000, Sort.by("createdAt").descending()));
+
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(postRepository).findByBoard_BoardId(eq(1L), pageableCaptor.capture());
+        assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(100);
+        assertThat(pageableCaptor.getValue().getSort().getOrderFor("createdAt")).isNotNull();
+    }
+
+    @Test
+    @DisplayName("관리자 문의글 목록은 허용되지 않은 정렬을 기본 정렬로 대체한다")
+    void getInquiryPostsForAdmin_replacesUnsupportedSort() {
+        ReflectionTestUtils.setField(board, "boardUrl", "inquiry");
+        when(boardRepository.findByBoardUrl("inquiry")).thenReturn(Optional.of(board));
+        when(postRepository.findByBoard_BoardId(eq(1L), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 20), 0));
+
+        postService.getInquiryPostsForAdmin(PageRequest.of(0, 20, Sort.by("title")));
+
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(postRepository).findByBoard_BoardId(eq(1L), pageableCaptor.capture());
+        assertThat(pageableCaptor.getValue().getSort().getOrderFor("title")).isNull();
+        assertThat(pageableCaptor.getValue().getSort().getOrderFor("createdAt")).isNotNull();
+    }
+
+    @Test
     @DisplayName("좋아요 여부 확인 - userId가 null")
     void isPostLikedByUser_nullUserId() {
         boolean result = postService.isPostLikedByUser(1L, null);
