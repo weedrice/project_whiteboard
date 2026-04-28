@@ -67,6 +67,7 @@ public enum ErrorCode {
     // Report
     ALREADY_REPORTED(HttpStatus.BAD_REQUEST, "R001", "error.report.alreadyReported"),
     INVALID_TARGET(HttpStatus.BAD_REQUEST, "R002", "error.report.invalidTarget"),
+    REPORT_ALREADY_PROCESSED(HttpStatus.CONFLICT, "R003", "error.report.alreadyProcessed"),
 
     // Ad
     AD_NOT_FOUND(HttpStatus.NOT_FOUND, "AD001", "error.ad.notFound"),

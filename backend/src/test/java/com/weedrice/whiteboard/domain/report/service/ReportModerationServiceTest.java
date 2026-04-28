@@ -145,7 +145,7 @@ class ReportModerationServiceTest {
                 .processedRemark("done")
                 .build();
 
-        when(reportRepository.findById(7L)).thenReturn(Optional.of(report));
+        when(reportRepository.findByIdForUpdate(7L)).thenReturn(Optional.of(report));
         when(userRepository.findById(2L)).thenReturn(Optional.of(adminUser));
         when(moderationActorResolver.findActiveAdmin(adminUser)).thenReturn(Optional.of(admin));
         when(reportReadAssembler.toAdminResponse(report)).thenReturn(response);
@@ -157,6 +157,7 @@ class ReportModerationServiceTest {
         assertThat(report.getAdmin()).isEqualTo(admin);
         assertThat(report.getProcessorUserId()).isEqualTo(2L);
         assertThat(report.getProcessedRemark()).isEqualTo("done");
+        verify(reportRepository).findByIdForUpdate(7L);
     }
 
     @Test
@@ -167,7 +168,7 @@ class ReportModerationServiceTest {
                 .status(Report.STATUS_RESOLVED)
                 .build();
 
-        when(reportRepository.findById(7L)).thenReturn(Optional.of(report));
+        when(reportRepository.findByIdForUpdate(7L)).thenReturn(Optional.of(report));
         when(userRepository.findById(2L)).thenReturn(Optional.of(adminUser));
         when(moderationActorResolver.findActiveAdmin(adminUser)).thenReturn(Optional.of(admin));
         when(reportReadAssembler.toAdminResponse(report)).thenReturn(response);
@@ -187,7 +188,7 @@ class ReportModerationServiceTest {
                 .processorUserId(2L)
                 .build();
 
-        when(reportRepository.findById(7L)).thenReturn(Optional.of(report));
+        when(reportRepository.findByIdForUpdate(7L)).thenReturn(Optional.of(report));
         when(userRepository.findById(2L)).thenReturn(Optional.of(adminUser));
         when(moderationActorResolver.findActiveAdmin(adminUser)).thenReturn(Optional.empty());
         when(reportReadAssembler.toAdminResponse(report)).thenReturn(response);
@@ -200,22 +201,22 @@ class ReportModerationServiceTest {
     }
 
     @Test
-    @DisplayName("processReport rejects already processed report")
-    void processReport_alreadyProcessed_throwsValidationError() {
+    @DisplayName("processReport rejects already processed report as conflict")
+    void processReport_alreadyProcessed_throwsConflict() {
         ReflectionTestUtils.setField(report, "status", Report.STATUS_RESOLVED);
-        when(reportRepository.findById(7L)).thenReturn(Optional.of(report));
+        when(reportRepository.findByIdForUpdate(7L)).thenReturn(Optional.of(report));
         when(userRepository.findById(2L)).thenReturn(Optional.of(adminUser));
         when(moderationActorResolver.findActiveAdmin(adminUser)).thenReturn(Optional.of(admin));
 
         assertThatThrownBy(() -> reportModerationService.processReport(2L, 7L, Report.STATUS_REJECTED, "retry"))
                 .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VALIDATION_ERROR);
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.REPORT_ALREADY_PROCESSED);
     }
 
     @Test
     @DisplayName("processReport accepts only terminal statuses")
     void processReport_invalidTerminalStatus_throwsValidationError() {
-        when(reportRepository.findById(7L)).thenReturn(Optional.of(report));
+        when(reportRepository.findByIdForUpdate(7L)).thenReturn(Optional.of(report));
         when(userRepository.findById(2L)).thenReturn(Optional.of(adminUser));
         when(moderationActorResolver.findActiveAdmin(adminUser)).thenReturn(Optional.of(admin));
 

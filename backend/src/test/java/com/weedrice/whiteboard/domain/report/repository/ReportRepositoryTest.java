@@ -77,6 +77,15 @@ class ReportRepositoryTest {
     }
 
     @Test
+    @DisplayName("신고 처리용 락 조회는 대상 신고를 반환한다")
+    void findByIdForUpdate_success() {
+        Optional<Report> found = reportRepository.findByIdForUpdate(report.getReportId());
+
+        assertThat(found).isPresent();
+        assertThat(found.get().getReportId()).isEqualTo(report.getReportId());
+    }
+
+    @Test
     @DisplayName("상태별 신고 목록 조회")
     void findByStatusOrderByCreatedAtDesc_success() {
         // given

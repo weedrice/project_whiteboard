@@ -258,22 +258,22 @@ class AdminReportControllerTest {
     }
 
     @Test
-    @DisplayName("이미 처리된 신고는 API 에서도 400을 유지한다")
-    void processReport_returnsBadRequestWhenAlreadyProcessed() throws Exception {
+    @DisplayName("이미 처리된 신고는 API에서 409를 반환한다")
+    void processReport_returnsConflictWhenAlreadyProcessed() throws Exception {
         ReportProcessRequest request = new ReportProcessRequest();
         org.springframework.test.util.ReflectionTestUtils.setField(request, "status", ReportStatus.RESOLVED);
         org.springframework.test.util.ReflectionTestUtils.setField(request, "remark", "Processed");
 
         when(reportService.processReport(eq(1L), eq(1L), anyString(), anyString()))
-                .thenThrow(new BusinessException(ErrorCode.VALIDATION_ERROR));
+                .thenThrow(new BusinessException(ErrorCode.REPORT_ALREADY_PROCESSED));
 
         mockMvc.perform(put("/api/v1/admin/reports/{reportId}", 1L)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request))
                         .with(user(customUserDetails))
                         .with(csrf()))
-                .andExpect(status().isBadRequest())
+                .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.error.code").value(ErrorCode.VALIDATION_ERROR.getCode()));
+                .andExpect(jsonPath("$.error.code").value(ErrorCode.REPORT_ALREADY_PROCESSED.getCode()));
     }
 }

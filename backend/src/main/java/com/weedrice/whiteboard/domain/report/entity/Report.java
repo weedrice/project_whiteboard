@@ -99,7 +99,7 @@ public class Report extends BaseTimeEntity {
 
     private void validateTransition(ReportStatus nextStatus) {
         if (!STATUS_PENDING.equals(this.status)) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR);
+            throw new BusinessException(ErrorCode.REPORT_ALREADY_PROCESSED);
         }
 
         if (!TERMINAL_STATUSES.contains(nextStatus.name())) {

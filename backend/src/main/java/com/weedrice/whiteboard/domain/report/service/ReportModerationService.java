@@ -42,7 +42,7 @@ class ReportModerationService {
 
     @Transactional
     public ReportResponse processReport(Long adminUserId, Long reportId, String status, String remark) {
-        Report report = reportRepository.findById(reportId)
+        Report report = reportRepository.findByIdForUpdate(reportId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
         User adminUser = userRepository.findById(adminUserId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
