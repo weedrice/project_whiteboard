@@ -23,6 +23,8 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class CommentController {
 
+    private static final Sort COMMENT_READ_SORT = Sort.by(Sort.Order.asc("createdAt"));
+
     private final CommentService commentService;
 
     @GetMapping("/posts/{postId}/comments")
@@ -30,10 +32,9 @@ public class CommentController {
             @PathVariable Long postId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
-            Sort sort,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         Long userId = (userDetails != null) ? userDetails.getUserId() : null;
-        Pageable pageable = PageRequestUtils.of(page, size, sort);
+        Pageable pageable = PageRequestUtils.of(page, size, COMMENT_READ_SORT);
         return ApiResponse.success(new PageResponse<>(commentService.getComments(postId, userId, pageable)));
     }
 
@@ -42,10 +43,9 @@ public class CommentController {
             @PathVariable Long commentId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
-            Sort sort,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         Long userId = (userDetails != null) ? userDetails.getUserId() : null;
-        Pageable pageable = PageRequestUtils.of(page, size, sort);
+        Pageable pageable = PageRequestUtils.of(page, size, COMMENT_READ_SORT);
         return ApiResponse.success(commentService.getReplies(commentId, userId, pageable));
     }
 

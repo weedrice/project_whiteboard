@@ -11,6 +11,7 @@ import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
@@ -18,8 +19,9 @@ import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MockMvc;
@@ -27,8 +29,10 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.util.Collections;
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -136,6 +140,29 @@ class CommentControllerTest {
                 .andExpect(jsonPath("$.data.content[0].replyCount").value(2))
                 .andExpect(jsonPath("$.data.content[0].hasReplies").value(true))
                 .andExpect(jsonPath("$.data.content[0].children").isArray());
+    }
+
+    @Test
+    @DisplayName("댓글 목록 조회는 페이지 크기와 정렬을 정규화한다")
+    void getComments_normalizesPageable() throws Exception {
+        Long postId = 1L;
+        Page<CommentResponse> page = new PageImpl<>(List.of(), PageRequest.of(2, 100), 0);
+        when(commentService.getComments(eq(postId), isNull(), any(Pageable.class))).thenReturn(page);
+
+        mockMvc.perform(get("/api/v1/posts/{postId}/comments", postId)
+                        .param("page", "2")
+                        .param("size", "1000")
+                        .param("sort", "likeCount,desc")
+                        .with(anonymous()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(commentService).getComments(eq(postId), isNull(), pageableCaptor.capture());
+        Pageable pageable = pageableCaptor.getValue();
+        assertThat(pageable.getPageNumber()).isEqualTo(2);
+        assertThat(pageable.getPageSize()).isEqualTo(100);
+        assertThat(pageable.getSort()).isEqualTo(Sort.by(Sort.Order.asc("createdAt")));
     }
 
     @Test

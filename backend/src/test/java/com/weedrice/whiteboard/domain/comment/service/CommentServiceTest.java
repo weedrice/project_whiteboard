@@ -37,6 +37,8 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
@@ -392,8 +394,9 @@ class CommentServiceTest {
         when(commentRepository.findNonDeletedByIdWithRelations(9L)).thenReturn(Optional.of(parent));
         when(userRepository.findById(1L)).thenReturn(Optional.of(viewer));
         when(userBlockService.getBlockedUserIds(1L)).thenReturn(List.of(2L));
-        when(commentRepository.findRepliesWithRelations(9L, false, PageRequest.of(0, 10)))
-                .thenReturn(new PageImpl<>(List.of(reply), PageRequest.of(0, 10), 1));
+        Pageable pageable = commentReadPageable(0, 10);
+        when(commentRepository.findRepliesWithRelations(9L, false, pageable))
+                .thenReturn(new PageImpl<>(List.of(reply), pageable, 1));
 
         var result = commentService.getReplies(9L, 1L, PageRequest.of(0, 10));
 
@@ -431,8 +434,9 @@ class CommentServiceTest {
         when(postRepository.findByIdWithRelations(100L)).thenReturn(Optional.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(viewer));
         when(userBlockService.getBlockedUserIds(1L)).thenReturn(List.of());
-        when(commentRepository.findParentsWithChildrenOrNotDeleted(100L, PageRequest.of(0, 10)))
-                .thenReturn(new PageImpl<>(List.of(parent), PageRequest.of(0, 10), 1));
+        Pageable pageable = commentReadPageable(0, 10);
+        when(commentRepository.findParentsWithChildrenOrNotDeleted(100L, pageable))
+                .thenReturn(new PageImpl<>(List.of(parent), pageable, 1));
         when(commentRepository.countVisibleRepliesByParentIds(List.of(10L)))
                 .thenReturn(List.of(replyCountProjection(10L, 3L)));
 
@@ -445,6 +449,36 @@ class CommentServiceTest {
         assertThat(response.isHasReplies()).isTrue();
         assertThat(response.getChildren()).isEmpty();
         verify(commentRepository, never()).findAllDescendants(anyList());
+    }
+
+    @Test
+    @DisplayName("댓글 목록 조회는 서비스 계층에서도 페이지 크기와 정렬을 정규화한다")
+    void getComments_normalizesPageableBeforeRepositoryCall() {
+        User author = User.builder().displayName("Author").build();
+        ReflectionTestUtils.setField(author, "userId", 2L);
+
+        User viewer = User.builder().displayName("Viewer").build();
+        ReflectionTestUtils.setField(viewer, "userId", 1L);
+
+        Board board = Board.builder().boardUrl("free").creator(author).build();
+        ReflectionTestUtils.setField(board, "isActive", true);
+        ReflectionTestUtils.setField(board, "isPublic", true);
+
+        Post post = Post.builder().board(board).title("Title").user(author).build();
+        ReflectionTestUtils.setField(post, "postId", 100L);
+
+        Pageable requested = PageRequest.of(2, 1000, Sort.by(Sort.Order.desc("likeCount")));
+        Pageable normalized = commentReadPageable(2, 100);
+
+        when(postRepository.findByIdWithRelations(100L)).thenReturn(Optional.of(post));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(viewer));
+        when(userBlockService.getBlockedUserIds(1L)).thenReturn(List.of());
+        when(commentRepository.findParentsWithChildrenOrNotDeleted(100L, normalized))
+                .thenReturn(Page.empty(normalized));
+
+        commentService.getComments(100L, 1L, requested);
+
+        verify(commentRepository).findParentsWithChildrenOrNotDeleted(100L, normalized);
     }
 
     @Test
@@ -485,8 +519,9 @@ class CommentServiceTest {
         when(commentRepository.findNonDeletedByIdWithRelations(9L)).thenReturn(Optional.of(parent));
         when(userRepository.findById(1L)).thenReturn(Optional.of(viewer));
         when(userBlockService.getBlockedUserIds(1L)).thenReturn(List.of());
-        when(commentRepository.findRepliesWithRelations(9L, false, PageRequest.of(0, 10)))
-                .thenReturn(new PageImpl<>(List.of(reply), PageRequest.of(0, 10), 1));
+        Pageable pageable = commentReadPageable(0, 10);
+        when(commentRepository.findRepliesWithRelations(9L, false, pageable))
+                .thenReturn(new PageImpl<>(List.of(reply), pageable, 1));
         when(commentRepository.countVisibleRepliesByParentIds(List.of(10L)))
                 .thenReturn(List.of(replyCountProjection(10L, 1L)));
 
@@ -873,5 +908,9 @@ class CommentServiceTest {
                 return replyCount;
             }
         };
+    }
+
+    private Pageable commentReadPageable(int page, int size) {
+        return PageRequest.of(page, size, Sort.by(Sort.Order.asc("createdAt")));
     }
 }

@@ -4,24 +4,29 @@ import com.weedrice.whiteboard.domain.comment.dto.CommentListResponse;
 import com.weedrice.whiteboard.domain.comment.dto.CommentResponse;
 import com.weedrice.whiteboard.domain.comment.dto.MyCommentResponse;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
+import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
 public class CommentService {
 
+    private static final int DEFAULT_COMMENT_PAGE_SIZE = 20;
+    private static final Sort COMMENT_READ_SORT = Sort.by(Sort.Order.asc("createdAt"));
+
     private final CommentQueryService commentQueryService;
     private final CommentCommandService commentCommandService;
 
     public Page<CommentResponse> getComments(Long postId, Long currentUserId, Pageable pageable) {
-        return commentQueryService.getComments(postId, currentUserId, pageable);
+        return commentQueryService.getComments(postId, currentUserId, normalizeReadPageable(pageable));
     }
 
     public CommentListResponse getReplies(Long parentId, Long currentUserId, Pageable pageable) {
-        return commentQueryService.getReplies(parentId, currentUserId, pageable);
+        return commentQueryService.getReplies(parentId, currentUserId, normalizeReadPageable(pageable));
     }
 
     public CommentResponse getComment(Long commentId, Long currentUserId) {
@@ -58,5 +63,12 @@ public class CommentService {
 
     public void unlikeComment(Long userId, Long commentId) {
         commentCommandService.unlikeComment(userId, commentId);
+    }
+
+    private Pageable normalizeReadPageable(Pageable pageable) {
+        if (pageable == null || pageable.isUnpaged()) {
+            return PageRequestUtils.of(0, DEFAULT_COMMENT_PAGE_SIZE, COMMENT_READ_SORT);
+        }
+        return PageRequestUtils.of(pageable.getPageNumber(), pageable.getPageSize(), COMMENT_READ_SORT);
     }
 }
