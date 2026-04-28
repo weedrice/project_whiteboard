@@ -7,6 +7,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 
+import java.util.Set;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -47,5 +49,28 @@ class PageRequestUtilsTest {
         Pageable pageable = PageRequestUtils.of(1, 20, sort);
 
         assertThat(pageable.getSort()).isEqualTo(sort);
+    }
+
+    @Test
+    @DisplayName("허용된 정렬 필드만 보존하고 페이지 크기는 상한으로 제한한다")
+    void of_filtersSortByAllowedProperties() {
+        Sort sort = Sort.by(Sort.Order.asc("createdAt"), Sort.Order.desc("title"));
+        Sort defaultSort = Sort.by(Sort.Order.desc("createdAt"));
+
+        Pageable pageable = PageRequestUtils.of(2, 1000, sort, defaultSort, Set.of("createdAt"));
+
+        assertThat(pageable.getPageNumber()).isEqualTo(2);
+        assertThat(pageable.getPageSize()).isEqualTo(100);
+        assertThat(pageable.getSort()).isEqualTo(Sort.by(Sort.Order.asc("createdAt")));
+    }
+
+    @Test
+    @DisplayName("허용된 정렬 필드가 없으면 기본 정렬을 사용한다")
+    void of_usesDefaultSortWhenNoAllowedSortRemains() {
+        Sort defaultSort = Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("postId"));
+
+        Pageable pageable = PageRequestUtils.of(0, 20, Sort.by("title"), defaultSort, Set.of("createdAt", "postId"));
+
+        assertThat(pageable.getSort()).isEqualTo(defaultSort);
     }
 }

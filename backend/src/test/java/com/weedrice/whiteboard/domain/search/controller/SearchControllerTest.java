@@ -12,6 +12,7 @@ import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
@@ -20,12 +21,15 @@ import org.springframework.context.annotation.FilterType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Collections;
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
@@ -203,6 +207,32 @@ class SearchControllerTest {
         org.mockito.InOrder inOrder = inOrder(searchService, searchRecordEventPublisher);
         inOrder.verify(searchService).searchPosts(eq(query), any(), any(), any(), eq(1L));
         inOrder.verify(searchRecordEventPublisher).publish(eq(1L), eq(query));
+    }
+
+    @Test
+    @DisplayName("게시글 검색은 페이지 크기와 정렬 필드를 정규화한다")
+    void searchPosts_normalizesPageable() throws Exception {
+        String query = "test";
+        Page<PostSummary> page = new PageImpl<>(List.of(), PageRequest.of(2, 100), 0);
+        when(searchService.searchPosts(eq(query), any(), any(), any(), any())).thenReturn(page);
+
+        mockMvc.perform(get("/api/v1/search/posts")
+                        .param("q", query)
+                        .param("page", "2")
+                        .param("size", "1000")
+                        .param("sort", "unknown,asc")
+                        .with(user(customUserDetails)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(searchService).searchPosts(eq(query), any(), any(), pageableCaptor.capture(), eq(1L));
+        Pageable pageable = pageableCaptor.getValue();
+        assertThat(pageable.getPageNumber()).isEqualTo(2);
+        assertThat(pageable.getPageSize()).isEqualTo(100);
+        assertThat(pageable.getSort()).isEqualTo(Sort.by(
+                Sort.Order.desc("createdAt"),
+                Sort.Order.desc("postId")));
     }
 
     @Test

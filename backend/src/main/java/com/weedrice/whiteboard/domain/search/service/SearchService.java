@@ -21,6 +21,7 @@ import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
 import com.weedrice.whiteboard.global.common.util.DateTimeUtils;
+import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -48,6 +49,12 @@ import java.util.stream.Collectors;
 public class SearchService {
     private static final int SEARCH_PREVIEW_LIMIT = 5;
     private static final int MAX_POPULAR_KEYWORD_LIMIT = 100;
+    private static final int DEFAULT_POST_SEARCH_PAGE_SIZE = 20;
+    private static final Sort DEFAULT_POST_SEARCH_SORT = Sort.by(
+            Sort.Order.desc("createdAt"),
+            Sort.Order.desc("postId"));
+    private static final Set<String> ALLOWED_POST_SEARCH_SORTS = Set.of(
+            "createdAt", "postId", "viewCount", "likeCount");
 
     private final SearchStatisticRepository searchStatisticRepository;
     private final SearchStatisticCommandService searchStatisticCommandService;
@@ -105,6 +112,7 @@ public class SearchService {
 
     public Page<PostSummary> searchPosts(String keyword, String searchType, String boardUrl, Pageable pageable,
             Long currentUserId) {
+        Pageable normalizedPageable = normalizePostSearchPageable(pageable);
         boolean includeSecret = false;
         if (boardUrl != null && !boardUrl.trim().isEmpty()) {
             Board board = boardRepository.findByBoardUrl(boardUrl)
@@ -125,7 +133,7 @@ public class SearchService {
             blockedUserIds = userBlockService.getBlockedUserIds(currentUserId);
         }
         Page<Post> postPage = postRepository.searchPosts(keyword, searchType,
-                boardUrl, blockedUserIds, includeSecret, currentUserId, pageable);
+                boardUrl, blockedUserIds, includeSecret, currentUserId, normalizedPageable);
 
         return mapPostSummaries(postPage);
     }
@@ -204,6 +212,14 @@ public class SearchService {
             return true;
         }
         return adminRepository.existsByUserAndBoardAndIsActive(user, board, true);
+    }
+
+    private Pageable normalizePostSearchPageable(Pageable pageable) {
+        return PageRequestUtils.of(
+                pageable,
+                DEFAULT_POST_SEARCH_PAGE_SIZE,
+                DEFAULT_POST_SEARCH_SORT,
+                ALLOWED_POST_SEARCH_SORTS);
     }
 
     private Page<PostSummary> mapPostSummaries(Page<Post> postPage) {

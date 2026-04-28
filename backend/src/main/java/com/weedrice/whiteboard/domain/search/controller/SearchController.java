@@ -9,17 +9,20 @@ import com.weedrice.whiteboard.domain.search.service.SearchRecordEventPublisher;
 import com.weedrice.whiteboard.domain.search.service.SearchService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
+import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/api/v1/search")
@@ -27,6 +30,11 @@ import java.util.Locale;
 public class SearchController {
 
     private static final int MAX_POPULAR_KEYWORD_LIMIT = 100;
+    private static final Sort DEFAULT_POST_SEARCH_SORT = Sort.by(
+            Sort.Order.desc("createdAt"),
+            Sort.Order.desc("postId"));
+    private static final Set<String> ALLOWED_POST_SEARCH_SORTS = Set.of(
+            "createdAt", "postId", "viewCount", "likeCount");
 
     private final SearchService searchService;
     private final SearchRecordEventPublisher searchRecordEventPublisher;
@@ -48,11 +56,19 @@ public class SearchController {
             @RequestParam String q,
             @RequestParam(required = false) String searchType,
             @RequestParam(required = false) String boardUrl,
-            Pageable pageable,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            Sort sort,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
 
         String keyword = canonicalizeKeyword(q);
         Long userId = (userDetails != null) ? userDetails.getUserId() : null;
+        Pageable pageable = PageRequestUtils.of(
+                page,
+                size,
+                sort,
+                DEFAULT_POST_SEARCH_SORT,
+                ALLOWED_POST_SEARCH_SORTS);
         Page<PostSummary> response = searchService.searchPosts(keyword, searchType, boardUrl, pageable, userId);
 
         searchRecordEventPublisher.publish(userId, keyword);

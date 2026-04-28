@@ -268,11 +268,12 @@ class SearchServiceTest {
     @DisplayName("게시글 검색은 createdAt 오름차순이 포함된 다중 정렬에서도 rowNum을 정순으로 부여한다")
     void searchPosts_assignsAscendingRowNumbersWhenCreatedAtAscendingAppearsInMultiSort() {
         Pageable pageable = PageRequest.of(0, 2, Sort.by(Sort.Order.desc("title"), Sort.Order.asc("createdAt")));
+        Pageable normalizedPageable = PageRequest.of(0, 2, Sort.by(Sort.Order.asc("createdAt")));
         var firstPost = post(10L, "zeta", LocalDateTime.of(2026, 4, 20, 9, 0));
         var secondPost = post(11L, "alpha", LocalDateTime.of(2026, 4, 20, 10, 0));
 
-        when(postRepository.searchPosts(anyString(), any(), any(), any(), anyBoolean(), any(), eq(pageable)))
-                .thenReturn(new PageImpl<>(List.of(firstPost, secondPost), pageable, 5));
+        when(postRepository.searchPosts(anyString(), any(), any(), any(), anyBoolean(), any(), eq(normalizedPageable)))
+                .thenReturn(new PageImpl<>(List.of(firstPost, secondPost), normalizedPageable, 5));
         when(fileService.getRelatedIdsWithImages(List.of(10L, 11L), "POST_CONTENT"))
                 .thenReturn(Collections.emptyList());
 
@@ -280,6 +281,29 @@ class SearchServiceTest {
                 "test", null, null, pageable, null);
 
         assertThat(result.getContent()).extracting("rowNum").containsExactly(1L, 2L);
+    }
+
+    @Test
+    @DisplayName("게시글 검색은 서비스 계층에서도 페이지 크기와 정렬 필드를 정규화한다")
+    void searchPosts_normalizesPageableBeforeRepositoryCall() {
+        Pageable pageable = PageRequest.of(3, 1000, Sort.by(Sort.Order.asc("unknown")));
+        Pageable normalizedPageable = PageRequest.of(3, 100, Sort.by(
+                Sort.Order.desc("createdAt"),
+                Sort.Order.desc("postId")));
+
+        when(postRepository.searchPosts(anyString(), any(), any(), any(), anyBoolean(), any(), eq(normalizedPageable)))
+                .thenReturn(Page.empty(normalizedPageable));
+
+        searchService.searchPosts("test", null, null, pageable, null);
+
+        verify(postRepository).searchPosts(
+                eq("test"),
+                isNull(),
+                isNull(),
+                isNull(),
+                eq(false),
+                isNull(),
+                eq(normalizedPageable));
     }
 
     @Test
