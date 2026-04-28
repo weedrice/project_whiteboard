@@ -21,6 +21,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -32,6 +33,7 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -219,12 +221,31 @@ class NotificationServiceTest {
         Pageable pageable = PageRequest.of(0, 10);
         Page<Notification> notificationPage = new PageImpl<>(Collections.singletonList(notification), pageable, 1);
         when(userRepository.existsById(userId)).thenReturn(true);
-        when(notificationRepository.findByUser_UserIdOrderByCreatedAtDesc(userId, pageable)).thenReturn(notificationPage);
+        when(notificationRepository.findByUser_UserIdOrderByCreatedAtDesc(anyLong(), any(Pageable.class))).thenReturn(notificationPage);
 
         NotificationResponse response = notificationService.getNotifications(userId, pageable);
 
         assertThat(response).isNotNull();
         verify(userRepository).existsById(userId);
+    }
+
+    @Test
+    @DisplayName("Notification list lookup clamps pageable in service layer")
+    void getNotifications_clampsPageableInService() {
+        Long userId = 1L;
+        Pageable requestedPageable = PageRequest.of(0, 1000, Sort.by("notificationId"));
+        Page<Notification> notificationPage = new PageImpl<>(Collections.singletonList(notification), requestedPageable, 1);
+        when(userRepository.existsById(userId)).thenReturn(true);
+        when(notificationRepository.findByUser_UserIdOrderByCreatedAtDesc(anyLong(), any(Pageable.class))).thenReturn(notificationPage);
+
+        notificationService.getNotifications(userId, requestedPageable);
+
+        org.mockito.ArgumentCaptor<Pageable> captor = org.mockito.ArgumentCaptor.forClass(Pageable.class);
+        verify(notificationRepository).findByUser_UserIdOrderByCreatedAtDesc(eq(userId), captor.capture());
+        assertThat(captor.getValue().getPageSize()).isEqualTo(100);
+        assertThat(captor.getValue().getSort().getOrderFor("createdAt")).isNotNull();
+        assertThat(captor.getValue().getSort().getOrderFor("createdAt").isDescending()).isTrue();
+        assertThat(captor.getValue().getSort().getOrderFor("notificationId")).isNull();
     }
 
     @Test

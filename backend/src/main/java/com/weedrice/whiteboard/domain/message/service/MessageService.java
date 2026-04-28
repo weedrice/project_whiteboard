@@ -7,11 +7,13 @@ import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
+import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,6 +22,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -29,6 +32,9 @@ import java.util.stream.Collectors;
 public class MessageService {
 
     private static final int MESSAGE_DELETE_FETCH_CHUNK_SIZE = 500;
+    private static final int DEFAULT_MESSAGE_PAGE_SIZE = 20;
+    private static final Sort MESSAGE_LIST_SORT = Sort.by(Sort.Order.desc("createdAt"));
+    private static final Set<String> ALLOWED_MESSAGE_SORTS = Set.of("createdAt");
 
     private final MessageRepository messageRepository;
     private final UserRepository userRepository;
@@ -59,18 +65,20 @@ public class MessageService {
     public MessageResponse getReceivedMessages(Long userId, Pageable pageable) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        Pageable safePageable = normalizeMessagePageable(pageable);
         List<Long> blockedUserIds = getBlockedConversationUserIds(userId);
         Page<Message> messages = messageRepository.findReceivedMessagesExcludingBlocked(user, false, blockedUserIds,
-                pageable);
+                safePageable);
         return MessageResponse.from(messages, userId);
     }
 
     public MessageResponse getSentMessages(Long userId, Pageable pageable) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        Pageable safePageable = normalizeMessagePageable(pageable);
         List<Long> blockedUserIds = getBlockedConversationUserIds(userId);
         Page<Message> messages = messageRepository.findSentMessagesExcludingBlocked(user, false, blockedUserIds,
-                pageable);
+                safePageable);
         return MessageResponse.from(messages, userId);
     }
 
@@ -200,5 +208,13 @@ public class MessageService {
 
     private List<Long> getBlockedConversationUserIds(Long userId) {
         return userBlockService.getBlockedUserIdsEitherDirection(userId);
+    }
+
+    private Pageable normalizeMessagePageable(Pageable pageable) {
+        return PageRequestUtils.of(
+                pageable,
+                DEFAULT_MESSAGE_PAGE_SIZE,
+                MESSAGE_LIST_SORT,
+                ALLOWED_MESSAGE_SORTS);
     }
 }

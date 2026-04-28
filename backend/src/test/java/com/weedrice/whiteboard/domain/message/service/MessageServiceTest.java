@@ -20,6 +20,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Arrays;
@@ -124,7 +125,7 @@ class MessageServiceTest {
 
         when(userRepository.findById(2L)).thenReturn(Optional.of(receiver));
         when(userBlockService.getBlockedUserIdsEitherDirection(2L)).thenReturn(Collections.emptyList());
-        when(messageRepository.findReceivedMessagesExcludingBlocked(eq(receiver), eq(false), anyList(), eq(pageable)))
+        when(messageRepository.findReceivedMessagesExcludingBlocked(eq(receiver), eq(false), anyList(), any(Pageable.class)))
                 .thenReturn(messagePage);
 
         MessageResponse response = messageService.getReceivedMessages(2L, pageable);
@@ -141,13 +142,63 @@ class MessageServiceTest {
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(sender));
         when(userBlockService.getBlockedUserIdsEitherDirection(1L)).thenReturn(Collections.emptyList());
-        when(messageRepository.findSentMessagesExcludingBlocked(eq(sender), eq(false), anyList(), eq(pageable)))
+        when(messageRepository.findSentMessagesExcludingBlocked(eq(sender), eq(false), anyList(), any(Pageable.class)))
                 .thenReturn(messagePage);
 
         MessageResponse response = messageService.getSentMessages(1L, pageable);
 
         assertThat(response).isNotNull();
         verify(userRepository).findById(1L);
+    }
+
+    @Test
+    @DisplayName("받은 쪽지 목록은 서비스 계층에서 페이지 요청을 제한한다")
+    void getReceivedMessages_clampsPageableInService() {
+        Pageable requestedPageable = PageRequest.of(0, 1000, Sort.by("messageId"));
+        Page<Message> messagePage = new PageImpl<>(List.of(message), requestedPageable, 1);
+
+        when(userRepository.findById(2L)).thenReturn(Optional.of(receiver));
+        when(userBlockService.getBlockedUserIdsEitherDirection(2L)).thenReturn(Collections.emptyList());
+        when(messageRepository.findReceivedMessagesExcludingBlocked(eq(receiver), eq(false), anyList(), any(Pageable.class)))
+                .thenReturn(messagePage);
+
+        messageService.getReceivedMessages(2L, requestedPageable);
+
+        org.mockito.ArgumentCaptor<Pageable> captor = org.mockito.ArgumentCaptor.forClass(Pageable.class);
+        verify(messageRepository).findReceivedMessagesExcludingBlocked(
+                eq(receiver),
+                eq(false),
+                anyList(),
+                captor.capture());
+        assertThat(captor.getValue().getPageSize()).isEqualTo(100);
+        assertThat(captor.getValue().getSort().getOrderFor("createdAt")).isNotNull();
+        assertThat(captor.getValue().getSort().getOrderFor("createdAt").isDescending()).isTrue();
+        assertThat(captor.getValue().getSort().getOrderFor("messageId")).isNull();
+    }
+
+    @Test
+    @DisplayName("보낸 쪽지 목록은 서비스 계층에서 페이지 요청을 제한한다")
+    void getSentMessages_clampsPageableInService() {
+        Pageable requestedPageable = PageRequest.of(0, 1000, Sort.by("messageId"));
+        Page<Message> messagePage = new PageImpl<>(List.of(message), requestedPageable, 1);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(sender));
+        when(userBlockService.getBlockedUserIdsEitherDirection(1L)).thenReturn(Collections.emptyList());
+        when(messageRepository.findSentMessagesExcludingBlocked(eq(sender), eq(false), anyList(), any(Pageable.class)))
+                .thenReturn(messagePage);
+
+        messageService.getSentMessages(1L, requestedPageable);
+
+        org.mockito.ArgumentCaptor<Pageable> captor = org.mockito.ArgumentCaptor.forClass(Pageable.class);
+        verify(messageRepository).findSentMessagesExcludingBlocked(
+                eq(sender),
+                eq(false),
+                anyList(),
+                captor.capture());
+        assertThat(captor.getValue().getPageSize()).isEqualTo(100);
+        assertThat(captor.getValue().getSort().getOrderFor("createdAt")).isNotNull();
+        assertThat(captor.getValue().getSort().getOrderFor("createdAt").isDescending()).isTrue();
+        assertThat(captor.getValue().getSort().getOrderFor("messageId")).isNull();
     }
 
     @Test
@@ -359,7 +410,7 @@ class MessageServiceTest {
 
         when(userRepository.findById(2L)).thenReturn(Optional.of(receiver));
         when(userBlockService.getBlockedUserIdsEitherDirection(2L)).thenReturn(List.of(1L));
-        when(messageRepository.findReceivedMessagesExcludingBlocked(eq(receiver), eq(false), eq(List.of(1L)), eq(pageable)))
+        when(messageRepository.findReceivedMessagesExcludingBlocked(eq(receiver), eq(false), eq(List.of(1L)), any(Pageable.class)))
                 .thenReturn(messagePage);
 
         MessageResponse response = messageService.getReceivedMessages(2L, pageable);
@@ -376,7 +427,7 @@ class MessageServiceTest {
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(sender));
         when(userBlockService.getBlockedUserIdsEitherDirection(1L)).thenReturn(List.of(2L));
-        when(messageRepository.findSentMessagesExcludingBlocked(eq(sender), eq(false), eq(List.of(2L)), eq(pageable)))
+        when(messageRepository.findSentMessagesExcludingBlocked(eq(sender), eq(false), eq(List.of(2L)), any(Pageable.class)))
                 .thenReturn(messagePage);
 
         MessageResponse response = messageService.getSentMessages(1L, pageable);
