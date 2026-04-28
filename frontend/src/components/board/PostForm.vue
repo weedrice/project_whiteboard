@@ -271,6 +271,12 @@ const buildPayload = () => {
   }
 }
 
+function trackUploadedFile(fileId: number) {
+  if (!draftFileIds.value.includes(fileId)) {
+    draftFileIds.value.push(fileId)
+  }
+}
+
 const {
   saveNow: saveDraftNow,
   scheduleAutosave,
@@ -712,6 +718,7 @@ defineExpose({
                     v-model="form.content"
                     @open-video="openVideoPopover"
                     @open-emoticon="showEmoticonPicker = true"
+                    @file-uploaded="trackUploadedFile"
                   />
                   <Teleport to="body">
                     <div v-if="showVideoPopover" class="video-url-popover-mask" @click.self="closeVideoPopover">
@@ -937,7 +944,7 @@ defineExpose({
 }
 
 .nv-compose-page .text-xs.text-\[var\(--nv-muted\)\] > span.mx-2::before {
-  content: '夷?;
+  content: '/';
   font-size: 0.75rem;
 }
 </style>

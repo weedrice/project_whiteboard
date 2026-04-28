@@ -30,6 +30,7 @@ const emit = defineEmits<{
   (e: 'update:modelValue', value: string): void
   (e: 'open-video'): void
   (e: 'open-emoticon'): void
+  (e: 'file-uploaded', fileId: number): void
 }>()
 
 const { t } = useI18n()
@@ -337,6 +338,7 @@ async function onImageChange(event: Event) {
     if (uploaded) {
       if (typeof uploaded.fileId === 'number') {
         fileIds.value.push(uploaded.fileId)
+        emit('file-uploaded', uploaded.fileId)
       }
       editor.value?.chain().focus().setImage({ src: uploaded.url }).run()
     }

@@ -174,7 +174,7 @@ const PostEditorTipTapStub = defineComponent({
     props: {
         modelValue: { type: String, default: '' },
     },
-    emits: ['update:modelValue', 'open-video', 'open-emoticon'],
+    emits: ['update:modelValue', 'open-video', 'open-emoticon', 'file-uploaded'],
     setup(props, { emit, expose }) {
         expose({
             setVideo: (url: string) => editorSetVideo(url),
@@ -741,6 +741,58 @@ describe('PostForm', () => {
         expect(cancelButton).toBeTruthy()
         await cancelButton?.trigger('click')
         expect(mockBack).toHaveBeenCalled()
+    })
+
+    it('keeps uploaded file ids after switching to html source mode', async () => {
+        const UploadingEditorStub = defineComponent({
+            name: 'PostEditorTipTap',
+            props: {
+                modelValue: { type: String, default: '' },
+            },
+            emits: ['update:modelValue', 'file-uploaded'],
+            setup(props, { emit, expose }) {
+                expose({
+                    setVideo: vi.fn(),
+                    setEmoticon: vi.fn(),
+                    fileIds: { value: [] },
+                })
+
+                return () =>
+                    h('div', [
+                        h('textarea', {
+                            'data-testid': 'editor-input',
+                            value: props.modelValue,
+                            onInput: (event: Event) => emit('update:modelValue', (event.target as HTMLTextAreaElement).value),
+                        }),
+                        h(
+                            'button',
+                            {
+                                type: 'button',
+                                'data-testid': 'upload-image',
+                                onClick: () => {
+                                    emit('file-uploaded', 42)
+                                    emit('update:modelValue', '<p><img src="/api/v1/files/42"></p>')
+                                },
+                            },
+                            'upload',
+                        ),
+                    ])
+            },
+        })
+
+        const wrapper = mountPostForm('create', { PostEditorTipTap: UploadingEditorStub })
+        await wrapper.get('#title').setValue('With image')
+        await wrapper.get('#category').setValue('1')
+        await wrapper.get('[data-testid="upload-image"]').trigger('click')
+
+        const modeButtons = wrapper.findAll('.editor-view-toggle-btn')
+        await modeButtons[1].trigger('click')
+        expect(wrapper.find('[data-testid="editor-input"]').exists()).toBe(false)
+
+        await wrapper.get('form').trigger('submit')
+
+        const [variables] = mockCreateMutate.mock.calls.at(-1) as [any]
+        expect(variables.data.fileIds).toEqual([42])
     })
 
     it('covers unsaved-change helper branches for empty snapshot, category and tag changes', async () => {
