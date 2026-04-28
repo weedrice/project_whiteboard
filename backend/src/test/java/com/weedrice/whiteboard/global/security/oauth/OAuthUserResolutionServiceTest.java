@@ -6,6 +6,8 @@ import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.SocialAccountRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.SocialAccountLinkService;
+import com.weedrice.whiteboard.global.exception.BusinessException;
+import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -19,6 +21,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -96,6 +99,43 @@ class OAuthUserResolutionServiceTest {
         assertThat(resolvedUser).contains(user);
         verify(sanctionService).validateNotBanned(user);
         verify(socialAccountLinkService).linkSocialAccount(user, "google", "provider-user-id");
+    }
+
+    @Test
+    @DisplayName("연결된 OAuth 계정의 사용자가 비활성 상태면 로그인을 차단한다")
+    void resolveUser_linkedSuspendedUser_throwsUserNotActive() {
+        user.suspend();
+        SocialAccount socialAccount = SocialAccount.builder()
+                .user(user)
+                .provider("google")
+                .providerId("provider-user-id")
+                .build();
+
+        when(socialAccountRepository.findByProviderAndProviderId("google", "provider-user-id"))
+                .thenReturn(Optional.of(socialAccount));
+
+        assertThatThrownBy(() -> oauthUserResolutionService.resolveUser("google", oauthAttributes))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_ACTIVE);
+
+        verify(sanctionService, never()).validateNotBanned(any());
+        verify(socialAccountLinkService, never()).linkSocialAccount(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("이메일로 매칭된 사용자가 비활성 상태면 소셜 계정을 연결하지 않는다")
+    void resolveUser_emailMatchedDeletedUser_throwsUserNotActiveBeforeLinking() {
+        user.delete();
+        when(socialAccountRepository.findByProviderAndProviderId("google", "provider-user-id"))
+                .thenReturn(Optional.empty());
+        when(userRepository.findByEmail("oauth@example.com")).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> oauthUserResolutionService.resolveUser("google", oauthAttributes))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_ACTIVE);
+
+        verify(sanctionService, never()).validateNotBanned(any());
+        verify(socialAccountLinkService, never()).linkSocialAccount(any(), any(), any());
     }
 
     @Test

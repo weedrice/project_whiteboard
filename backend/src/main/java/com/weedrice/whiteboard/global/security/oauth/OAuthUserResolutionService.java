@@ -6,6 +6,8 @@ import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.SocialAccountRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.SocialAccountLinkService;
+import com.weedrice.whiteboard.global.exception.BusinessException;
+import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,6 +31,7 @@ public class OAuthUserResolutionService {
                 .findByProviderAndProviderId(registrationId, providerId);
         if (linkedSocialAccount.isPresent()) {
             User linkedUser = linkedSocialAccount.get().getUser();
+            validateActiveAccount(linkedUser);
             sanctionService.validateNotBanned(linkedUser);
             return Optional.of(linkedUser);
         }
@@ -44,8 +47,15 @@ public class OAuthUserResolutionService {
         }
 
         User user = userOptional.get();
+        validateActiveAccount(user);
         sanctionService.validateNotBanned(user);
         socialAccountLinkService.linkSocialAccount(user, registrationId, providerId);
         return Optional.of(user);
+    }
+
+    private void validateActiveAccount(User user) {
+        if (user == null || !user.isActiveAccount()) {
+            throw new BusinessException(ErrorCode.USER_NOT_ACTIVE);
+        }
     }
 }
