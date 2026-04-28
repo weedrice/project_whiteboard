@@ -31,6 +31,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
@@ -90,11 +91,24 @@ class VerificationCodeServiceTest {
                         .filter(code -> invocation.getArgument(1) == code.getPurpose())
                         .filter(code -> invocation.getArgument(2).equals(code.getVerificationTicket()))
                         .findFirst());
-        when(verificationCodeRepository.findAllByEmailAndPurpose(anyString(), any()))
-                .thenAnswer(invocation -> verificationCodes.values().stream()
-                        .filter(code -> invocation.getArgument(0).equals(code.getEmail()))
-                        .filter(code -> invocation.getArgument(1) == code.getPurpose())
-                        .toList());
+        when(verificationCodeRepository.invalidateActiveTickets(anyString(), any(), any(), any()))
+                .thenAnswer(invocation -> {
+                    String email = invocation.getArgument(0);
+                    VerificationPurpose purpose = invocation.getArgument(1);
+                    Long excludeVerificationId = invocation.getArgument(2);
+                    int invalidatedCount = 0;
+                    for (VerificationCode code : verificationCodes.values()) {
+                        if (email.equals(code.getEmail())
+                                && purpose == code.getPurpose()
+                                && (excludeVerificationId == null
+                                        || !excludeVerificationId.equals(code.getVerificationId()))
+                                && code.hasActiveVerificationTicket()) {
+                            code.invalidateVerificationTicket();
+                            invalidatedCount++;
+                        }
+                    }
+                    return invalidatedCount;
+                });
         verificationCodeService = new VerificationCodeService(
                 verificationCodeRepository,
                 userRepository,
@@ -129,7 +143,11 @@ class VerificationCodeServiceTest {
 
         assertThat(oldCode.getVerificationTicket()).isNull();
         assertThat(oldCode.getIsTicketConsumed()).isTrue();
-        verify(verificationCodeRepository).saveAll(any());
+        verify(verificationCodeRepository).invalidateActiveTickets(
+                eq("test@example.com"),
+                eq(VerificationPurpose.SIGNUP),
+                any(Long.class),
+                any(LocalDateTime.class));
     }
 
     @Test

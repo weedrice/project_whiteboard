@@ -262,14 +262,11 @@ public class VerificationCodeService {
     }
 
     private void invalidateOutstandingTickets(String email, VerificationPurpose purpose, Long excludeVerificationId) {
-        var invalidatedCodes = verificationCodeRepository.findAllByEmailAndPurpose(email, purpose).stream()
-                .filter(code -> excludeVerificationId == null || !code.getVerificationId().equals(excludeVerificationId))
-                .filter(VerificationCode::hasActiveVerificationTicket)
-                .toList();
-        invalidatedCodes.forEach(VerificationCode::invalidateVerificationTicket);
-        if (!invalidatedCodes.isEmpty()) {
-            verificationCodeRepository.saveAll(invalidatedCodes);
-        }
+        verificationCodeRepository.invalidateActiveTickets(
+                email,
+                purpose,
+                excludeVerificationId,
+                LocalDateTime.now());
     }
 
     private VerificationCode getLatestSentVerificationCodeForUpdate(String email, VerificationPurpose purpose) {
