@@ -2,8 +2,10 @@ package com.weedrice.whiteboard.domain.file.repository;
 
 import com.weedrice.whiteboard.domain.file.entity.File;
 import com.weedrice.whiteboard.domain.file.entity.FileStorageStatus;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -72,6 +74,19 @@ public interface FileRepository extends JpaRepository<File, Long> {
     List<File> findByRelatedIdAndRelatedTypeAndStorageStatus(@Param("relatedId") Long relatedId,
             @Param("relatedType") String relatedType,
             @Param("storageStatus") FileStorageStatus storageStatus);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            SELECT f
+            FROM File f
+            WHERE f.relatedId = :relatedId
+              AND f.relatedType = :relatedType
+              AND (f.storageStatus = com.weedrice.whiteboard.domain.file.entity.FileStorageStatus.ACTIVE
+                   OR f.storageStatus IS NULL)
+            ORDER BY f.fileId ASC
+            """)
+    List<File> findActiveByRelatedIdAndRelatedTypeForUpdate(@Param("relatedId") Long relatedId,
+            @Param("relatedType") String relatedType);
 
     default List<File> findByRelatedIdAndRelatedType(Long relatedId, String relatedType) {
         return findByRelatedIdAndRelatedTypeAndStorageStatus(relatedId, relatedType, FileStorageStatus.ACTIVE);

@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.file.service;
 
+import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.file.dto.FileSimpleResponse;
 import com.weedrice.whiteboard.domain.file.dto.FileUploadResponse;
 import com.weedrice.whiteboard.domain.file.entity.File;
@@ -49,6 +50,7 @@ public class FileService {
 
     private final FileRepository fileRepository;
     private final UserRepository userRepository;
+    private final BoardRepository boardRepository;
     private final PostRepository postRepository;
     private final PostAccessPolicy postAccessPolicy;
     private final FileStorageService fileStorageService;
@@ -221,38 +223,41 @@ public class FileService {
 
     @Transactional
     public String replaceUserProfileImage(Long profileImageId, Long ownerUserId, Long userId) {
+        lockUserProfileTarget(userId);
         associateFileWithEntity(profileImageId, ownerUserId, userId, RELATED_TYPE_USER_PROFILE);
 
-        List<File> profileFiles = fileRepository.findByRelatedIdAndRelatedTypeAndStorageStatus(
-                userId,
-                RELATED_TYPE_USER_PROFILE,
-                FileStorageStatus.ACTIVE);
-
-        for (File profileFile : profileFiles) {
-            if (!profileImageId.equals(profileFile.getFileId())) {
-                profileFile.markDeletionPending();
-            }
-        }
+        keepOnlySelectedActiveFile(profileImageId, userId, RELATED_TYPE_USER_PROFILE);
 
         return FileUrlResolver.resolve(profileImageId);
     }
 
     @Transactional
     public String replaceBoardIcon(Long boardIconFileId, Long ownerUserId, Long boardId) {
+        lockBoardIconTarget(boardId);
         associateFileWithEntity(boardIconFileId, ownerUserId, boardId, RELATED_TYPE_BOARD_ICON);
 
-        List<File> boardIconFiles = fileRepository.findByRelatedIdAndRelatedTypeAndStorageStatus(
-                boardId,
-                RELATED_TYPE_BOARD_ICON,
-                FileStorageStatus.ACTIVE);
-
-        for (File boardIconFile : boardIconFiles) {
-            if (!boardIconFileId.equals(boardIconFile.getFileId())) {
-                boardIconFile.markDeletionPending();
-            }
-        }
+        keepOnlySelectedActiveFile(boardIconFileId, boardId, RELATED_TYPE_BOARD_ICON);
 
         return FileUrlResolver.resolve(boardIconFileId);
+    }
+
+    private void lockUserProfileTarget(Long userId) {
+        userRepository.findByIdForUpdate(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+    }
+
+    private void lockBoardIconTarget(Long boardId) {
+        boardRepository.findByIdForUpdate(boardId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
+    }
+
+    private void keepOnlySelectedActiveFile(Long selectedFileId, Long relatedId, String relatedType) {
+        List<File> activeFiles = fileRepository.findActiveByRelatedIdAndRelatedTypeForUpdate(relatedId, relatedType);
+        for (File activeFile : activeFiles) {
+            if (!selectedFileId.equals(activeFile.getFileId())) {
+                activeFile.markDeletionPending();
+            }
+        }
     }
 
     @Transactional

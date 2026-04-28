@@ -1,5 +1,7 @@
 package com.weedrice.whiteboard.domain.file.service;
 
+import com.weedrice.whiteboard.domain.board.entity.Board;
+import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.file.dto.FileUploadResponse;
 import com.weedrice.whiteboard.domain.file.entity.File;
 import com.weedrice.whiteboard.domain.file.entity.FileStorageStatus;
@@ -45,6 +47,8 @@ class FileServiceTest {
     private FileRepository fileRepository;
     @Mock
     private UserRepository userRepository;
+    @Mock
+    private BoardRepository boardRepository;
     @Mock
     private PostRepository postRepository;
     @Mock
@@ -198,12 +202,12 @@ class FileServiceTest {
                 .build();
         ReflectionTestUtils.setField(previousProfileFile, "fileId", 77L);
 
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(uploader));
         when(fileRepository.findByFileIdAndStorageStatus(100L, FileStorageStatus.ACTIVE)).thenReturn(Optional.of(newProfileFile));
         when(fileRepository.associateIfUnassociated(100L, 1L, 1L, FileService.RELATED_TYPE_USER_PROFILE)).thenReturn(1);
-        when(fileRepository.findByRelatedIdAndRelatedTypeAndStorageStatus(
+        when(fileRepository.findActiveByRelatedIdAndRelatedTypeForUpdate(
                 1L,
-                FileService.RELATED_TYPE_USER_PROFILE,
-                FileStorageStatus.ACTIVE)).thenReturn(List.of(newProfileFile, previousProfileFile));
+                FileService.RELATED_TYPE_USER_PROFILE)).thenReturn(List.of(newProfileFile, previousProfileFile));
 
         String profileImageUrl = fileService.replaceUserProfileImage(100L, 1L, 1L);
 
@@ -217,6 +221,8 @@ class FileServiceTest {
     void replaceBoardIcon_marksPreviousFilesPendingDelete() {
         User uploader = User.builder().build();
         ReflectionTestUtils.setField(uploader, "userId", 1L);
+        Board board = Board.builder().boardName("board").boardUrl("board").creator(uploader).build();
+        ReflectionTestUtils.setField(board, "boardId", 10L);
 
         File newBoardIcon = File.builder()
                 .filePath("new-board-icon.jpg")
@@ -240,12 +246,12 @@ class FileServiceTest {
 
         when(fileRepository.findByFileIdAndStorageStatus(200L, FileStorageStatus.ACTIVE))
                 .thenReturn(Optional.of(newBoardIcon));
+        when(boardRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(board));
         when(fileRepository.associateIfUnassociated(200L, 1L, 10L, FileService.RELATED_TYPE_BOARD_ICON))
                 .thenReturn(1);
-        when(fileRepository.findByRelatedIdAndRelatedTypeAndStorageStatus(
+        when(fileRepository.findActiveByRelatedIdAndRelatedTypeForUpdate(
                 10L,
-                FileService.RELATED_TYPE_BOARD_ICON,
-                FileStorageStatus.ACTIVE)).thenReturn(List.of(newBoardIcon, previousBoardIcon));
+                FileService.RELATED_TYPE_BOARD_ICON)).thenReturn(List.of(newBoardIcon, previousBoardIcon));
 
         String boardIconUrl = fileService.replaceBoardIcon(200L, 1L, 10L);
 
