@@ -49,6 +49,7 @@ class UserBlockRepositoryTest {
 
         entityManager.persist(UserBlock.builder().user(user1).target(user2).build());
         entityManager.persist(UserBlock.builder().user(user1).target(user3).build());
+        entityManager.persist(UserBlock.builder().user(user2).target(user1).build());
         entityManager.flush();
         entityManager.clear();
     }
@@ -64,7 +65,7 @@ class UserBlockRepositoryTest {
     @Test
     @DisplayName("차단 관계가 없으면 false를 반환한다")
     void existsByUserAndTarget_returnsFalse_whenBlockDoesNotExist() {
-        boolean exists = userBlockRepository.existsByUserAndTarget(user2, user1);
+        boolean exists = userBlockRepository.existsByUserAndTarget(user2, user3);
 
         assertThat(exists).isFalse();
     }
@@ -121,5 +122,21 @@ class UserBlockRepositoryTest {
         assertThat(result)
                 .extracting(block -> block.getTarget().getUserId())
                 .containsExactlyInAnyOrder(user2.getUserId(), user3.getUserId());
+    }
+
+    @Test
+    @DisplayName("차단 대상 사용자 ID만 projection으로 조회한다")
+    void findTargetUserIdsByUserId_returnsTargetIdsOnly() {
+        List<Long> result = userBlockRepository.findTargetUserIdsByUserId(user1.getUserId());
+
+        assertThat(result).containsExactlyInAnyOrder(user2.getUserId(), user3.getUserId());
+    }
+
+    @Test
+    @DisplayName("양방향 차단 사용자 ID를 projection으로 조회한다")
+    void findBlockedUserIdsEitherDirectionByUserId_returnsBothDirections() {
+        List<Long> result = userBlockRepository.findBlockedUserIdsEitherDirectionByUserId(user1.getUserId());
+
+        assertThat(result).containsExactlyInAnyOrder(user2.getUserId(), user2.getUserId(), user3.getUserId());
     }
 }

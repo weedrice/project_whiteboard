@@ -162,17 +162,24 @@ class UserBlockServiceTest {
     @Test
     @DisplayName("차단된 사용자 ID 목록 조회")
     void getBlockedUserIds() {
-        User blocker = User.builder().build();
-        User blocked = User.builder().build();
-        ReflectionTestUtils.setField(blocked, "userId", 2L);
-        UserBlock userBlock = UserBlock.builder().user(blocker).target(blocked).build();
-
-        when(userRepository.findById(1L)).thenReturn(Optional.of(blocker));
-        when(userBlockRepository.findByUserWithTarget(blocker)).thenReturn(List.of(userBlock));
+        when(userRepository.existsById(1L)).thenReturn(true);
+        when(userBlockRepository.findTargetUserIdsByUserId(1L)).thenReturn(List.of(2L));
 
         List<Long> ids = userBlockService.getBlockedUserIds(1L);
         assertThat(ids).containsExactly(2L);
-        verify(userBlockRepository).findByUserWithTarget(blocker);
+        verify(userBlockRepository).findTargetUserIdsByUserId(1L);
+    }
+
+    @Test
+    @DisplayName("양방향 차단 사용자 ID 목록을 projection으로 조회한다")
+    void getBlockedUserIdsEitherDirection() {
+        when(userRepository.existsById(1L)).thenReturn(true);
+        when(userBlockRepository.findBlockedUserIdsEitherDirectionByUserId(1L)).thenReturn(List.of(2L, 3L, 2L));
+
+        List<Long> ids = userBlockService.getBlockedUserIdsEitherDirection(1L);
+
+        assertThat(ids).containsExactly(2L, 3L);
+        verify(userBlockRepository).findBlockedUserIdsEitherDirectionByUserId(1L);
     }
 
     @Test
@@ -235,9 +242,20 @@ class UserBlockServiceTest {
     @Test
     @DisplayName("차단된 사용자 ID 목록 조회 실패 - 사용자 없음")
     void getBlockedUserIds_userNotFound() {
-        when(userRepository.findById(1L)).thenReturn(Optional.empty());
+        when(userRepository.existsById(1L)).thenReturn(false);
 
         assertThatThrownBy(() -> userBlockService.getBlockedUserIds(1L))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.USER_NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("양방향 차단 사용자 ID 목록 조회 실패 - 사용자 없음")
+    void getBlockedUserIdsEitherDirection_userNotFound() {
+        when(userRepository.existsById(1L)).thenReturn(false);
+
+        assertThatThrownBy(() -> userBlockService.getBlockedUserIdsEitherDirection(1L))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.USER_NOT_FOUND);

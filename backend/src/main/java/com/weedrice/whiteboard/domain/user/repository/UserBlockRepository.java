@@ -26,6 +26,24 @@ public interface UserBlockRepository extends JpaRepository<UserBlock, Long> {
             """)
     boolean existsEitherDirection(@Param("userAId") Long userAId, @Param("userBId") Long userBId);
 
+    @Query("""
+            SELECT ub.target.userId
+            FROM UserBlock ub
+            WHERE ub.user.userId = :userId
+            """)
+    List<Long> findTargetUserIdsByUserId(@Param("userId") Long userId);
+
+    @Query("""
+            SELECT CASE
+                     WHEN ub.user.userId = :userId THEN ub.target.userId
+                     ELSE ub.user.userId
+                   END
+            FROM UserBlock ub
+            WHERE ub.user.userId = :userId
+               OR ub.target.userId = :userId
+            """)
+    List<Long> findBlockedUserIdsEitherDirectionByUserId(@Param("userId") Long userId);
+
     Optional<UserBlock> findByUserAndTarget(User user, User target);
     @EntityGraph(attributePaths = "target")
     @Query(value = """

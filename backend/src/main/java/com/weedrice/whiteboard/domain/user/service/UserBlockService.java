@@ -17,7 +17,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -93,23 +92,14 @@ public class UserBlockService {
     }
 
     public List<Long> getBlockedUserIds(Long userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        return userBlockRepository.findByUserWithTarget(user).stream()
-                .map(block -> block.getTarget().getUserId())
-                .collect(Collectors.toList());
+        validateUserExists(userId);
+        return userBlockRepository.findTargetUserIdsByUserId(userId);
     }
 
     public List<Long> getBlockedUserIdsEitherDirection(Long userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        Set<Long> blockedUserIds = new LinkedHashSet<>();
-        userBlockRepository.findByUserWithTarget(user).stream()
-                .map(block -> block.getTarget().getUserId())
-                .forEach(blockedUserIds::add);
-        userBlockRepository.findByTargetWithUser(user).stream()
-                .map(block -> block.getUser().getUserId())
-                .forEach(blockedUserIds::add);
+        validateUserExists(userId);
+        Set<Long> blockedUserIds = new LinkedHashSet<>(
+                userBlockRepository.findBlockedUserIdsEitherDirectionByUserId(userId));
         return List.copyOf(blockedUserIds);
     }
 
