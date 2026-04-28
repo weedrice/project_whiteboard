@@ -12,7 +12,6 @@ import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,10 +19,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.function.Supplier;
 
 @Service
-@Slf4j
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class HomeLandingService {
@@ -63,35 +60,21 @@ public class HomeLandingService {
         LocalDateTime yesterdayStart = today.minusDays(1).atStartOfDay();
         LocalDateTime twentyFourHoursAgo = LocalDateTime.now().minusHours(24);
 
-        long postsToday = safeCount(
-                () -> postRepository.countByCreatedAtGreaterThanEqualAndCreatedAtLessThanAndIsDeletedFalse(
-                        todayStart,
-                        tomorrowStart),
-                "home landing postsToday");
-        long totalPosts = safeCount(
-                postRepository::countVisiblePostsForAdminDashboard,
-                "home landing totalPosts");
-        long postsYesterday = safeCount(
-                () -> postRepository.countByCreatedAtGreaterThanEqualAndCreatedAtLessThanAndIsDeletedFalse(
-                        yesterdayStart,
-                        todayStart),
-                "home landing postsYesterday");
-        long activeBoardCount = safeCount(
-                boardRepository::countByIsActiveTrueAndIsPublicTrue,
-                "home landing activeBoardCount");
-        long newMembersLast24Hours = safeCount(
-                () -> userRepository.countByStatusAndDeletedAtIsNullAndCreatedAtAfter(
-                        User.STATUS_ACTIVE,
-                        twentyFourHoursAgo),
-                "home landing newMembersLast24Hours");
-        long onlineCount = safeCount(
-                () -> userRepository.countRecentlyLoggedInActiveUsersForAdminDashboard(twentyFourHoursAgo),
-                "home landing onlineCount");
-        long commentsToday = safeCount(
-                () -> commentRepository.countByCreatedAtGreaterThanEqualAndCreatedAtLessThanAndIsDeletedFalse(
-                        todayStart,
-                        tomorrowStart),
-                "home landing commentsToday");
+        long postsToday = postRepository.countByCreatedAtGreaterThanEqualAndCreatedAtLessThanAndIsDeletedFalse(
+                todayStart,
+                tomorrowStart);
+        long totalPosts = postRepository.countVisiblePostsForAdminDashboard();
+        long postsYesterday = postRepository.countByCreatedAtGreaterThanEqualAndCreatedAtLessThanAndIsDeletedFalse(
+                yesterdayStart,
+                todayStart);
+        long activeBoardCount = boardRepository.countByIsActiveTrueAndIsPublicTrue();
+        long newMembersLast24Hours = userRepository.countByStatusAndDeletedAtIsNullAndCreatedAtAfter(
+                User.STATUS_ACTIVE,
+                twentyFourHoursAgo);
+        long onlineCount = userRepository.countRecentlyLoggedInActiveUsersForAdminDashboard(twentyFourHoursAgo);
+        long commentsToday = commentRepository.countByCreatedAtGreaterThanEqualAndCreatedAtLessThanAndIsDeletedFalse(
+                todayStart,
+                tomorrowStart);
 
         return HomeLandingResponse.Stats.builder()
                 .boardCount(activeBoardCount)
@@ -106,15 +89,6 @@ public class HomeLandingService {
                 .build();
     }
 
-    private long safeCount(Supplier<Long> supplier, String metricName) {
-        try {
-            return supplier.get();
-        } catch (RuntimeException exception) {
-            log.warn("Failed to load {}", metricName, exception);
-            return 0L;
-        }
-    }
-
     private Integer calculateDeltaPercent(long current, long previous) {
         if (previous <= 0L) {
             return null;
@@ -123,24 +97,13 @@ public class HomeLandingService {
     }
 
     private List<PostSummary> getCuratedPosts(Long userId, String period) {
-        try {
-            return postService.getTrendingPosts(PageRequest.of(0, 16), userId, period);
-        } catch (RuntimeException exception) {
-            log.warn("Failed to load home landing curated posts for userId={} period={}", userId, period, exception);
-            return List.of();
-        }
+        return postService.getTrendingPosts(PageRequest.of(0, 16), userId, period);
     }
 
     private List<BoardListResponse> getBoards(CustomUserDetails userDetails) {
-        try {
-            return boardService.getTopBoards(userDetails).stream()
-                    .limit(6)
-                    .toList();
-        } catch (RuntimeException exception) {
-            Long userId = userDetails != null ? userDetails.getUserId() : null;
-            log.warn("Failed to load home landing boards for userId={}", userId, exception);
-            return List.of();
-        }
+        return boardService.getTopBoards(userDetails).stream()
+                .limit(6)
+                .toList();
     }
 
     private List<PostSummary> slice(List<PostSummary> posts, int startInclusive, int endExclusive) {

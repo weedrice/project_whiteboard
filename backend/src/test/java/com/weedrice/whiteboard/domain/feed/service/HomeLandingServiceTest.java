@@ -24,8 +24,11 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -53,7 +56,7 @@ class HomeLandingServiceTest {
     private UserRepository userRepository;
 
     @Test
-    @DisplayName("홈 랜딩 응답을 featured, picks, trending, live 로 분배한다")
+    @DisplayName("Landing response is split into featured, picks, trending, and live sections")
     void getLanding_slicesCuratedSections() {
         CustomUserDetails userDetails = new CustomUserDetails(
                 1L,
@@ -89,7 +92,8 @@ class HomeLandingServiceTest {
         assertThat(response.getFeaturedPost().getPostId()).isEqualTo(1L);
         assertThat(response.getEditorPicks()).extracting(PostSummary::getPostId).containsExactly(2L, 3L, 4L);
         assertThat(response.getTrendingPosts()).extracting(PostSummary::getPostId).containsExactly(5L, 6L);
-        assertThat(response.getLiveActivity()).extracting(PostSummary::getPostId).containsExactly(1L, 2L, 3L, 4L, 5L, 6L);
+        assertThat(response.getLiveActivity()).extracting(PostSummary::getPostId)
+                .containsExactly(1L, 2L, 3L, 4L, 5L, 6L);
         assertThat(response.getStats().getBoardCount()).isEqualTo(11L);
         assertThat(response.getStats().getPostCount()).isEqualTo(8421L);
         assertThat(response.getStats().getLiveCount()).isEqualTo(1824L);
@@ -102,31 +106,43 @@ class HomeLandingServiceTest {
     }
 
     @Test
-    @DisplayName("일부 소스가 실패해도 홈 랜딩은 부분 응답을 반환한다")
-    void getLanding_toleratesPartialFailures() {
-        when(postService.getTrendingPosts(any(), eq(null), eq("24h"))).thenThrow(new IllegalStateException("post failure"));
+    @DisplayName("Landing lookup propagates curated post failures")
+    void getLanding_propagatesCuratedPostFailures() {
+        when(postService.getTrendingPosts(any(), eq(null), eq("24h")))
+                .thenThrow(new IllegalStateException("post failure"));
+
+        assertThatThrownBy(() -> homeLandingService.getLanding(null, "24h"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("post failure");
+
+        verify(boardService, never()).getTopBoards(any());
+        verify(postRepository, never()).countVisiblePostsForAdminDashboard();
+    }
+
+    @Test
+    @DisplayName("Landing lookup propagates stats failures")
+    void getLanding_propagatesStatsFailures() {
+        when(postService.getTrendingPosts(any(), eq(null), eq("24h"))).thenReturn(List.of());
         when(boardService.getTopBoards(null)).thenReturn(List.of(board(1L, "free")));
         when(postRepository.countByCreatedAtGreaterThanEqualAndCreatedAtLessThanAndIsDeletedFalse(any(), any()))
                 .thenThrow(new IllegalStateException("stats failure"));
-        when(postRepository.countVisiblePostsForAdminDashboard()).thenReturn(0L);
-        when(boardRepository.countByIsActiveTrueAndIsPublicTrue()).thenReturn(1L);
-        when(userRepository.countByStatusAndDeletedAtIsNullAndCreatedAtAfter(eq(User.STATUS_ACTIVE), any()))
-                .thenReturn(0L);
-        when(userRepository.countRecentlyLoggedInActiveUsersForAdminDashboard(any()))
-                .thenReturn(0L);
-        when(commentRepository.countByCreatedAtGreaterThanEqualAndCreatedAtLessThanAndIsDeletedFalse(any(), any()))
-                .thenReturn(0L);
 
-        HomeLandingResponse response = homeLandingService.getLanding(null, "24h");
+        assertThatThrownBy(() -> homeLandingService.getLanding(null, "24h"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("stats failure");
+    }
 
-        assertThat(response.getFeaturedPost()).isNull();
-        assertThat(response.getEditorPicks()).isEmpty();
-        assertThat(response.getTrendingPosts()).isEmpty();
-        assertThat(response.getLiveActivity()).isEmpty();
-        assertThat(response.getBoards()).hasSize(1);
-        assertThat(response.getStats().getBoardCount()).isEqualTo(1);
-        assertThat(response.getStats().getPostCount()).isZero();
-        assertThat(response.getStats().getPostsTodayDeltaPercent()).isNull();
+    @Test
+    @DisplayName("Landing lookup propagates board failures")
+    void getLanding_propagatesBoardFailures() {
+        when(postService.getTrendingPosts(any(), eq(null), eq("24h"))).thenReturn(List.of());
+        when(boardService.getTopBoards(null)).thenThrow(new IllegalStateException("board failure"));
+
+        assertThatThrownBy(() -> homeLandingService.getLanding(null, "24h"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("board failure");
+
+        verify(postRepository, never()).countVisiblePostsForAdminDashboard();
     }
 
     private PostSummary post(Long postId, String title) {
