@@ -15,12 +15,20 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service("messageDomainService")
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class MessageService {
+
+    private static final int MESSAGE_DELETE_FETCH_CHUNK_SIZE = 500;
 
     private final MessageRepository messageRepository;
     private final UserRepository userRepository;
@@ -100,6 +108,40 @@ public class MessageService {
         Message message = messageRepository.findById(messageId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
 
+        deleteLoadedMessage(userId, message);
+        deleteIfFullyDeleted(message);
+    }
+
+    @Transactional
+    public void deleteMessages(Long userId, List<Long> messageIds) {
+        List<Long> requestedMessageIds = messageIds.stream()
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        if (requestedMessageIds.isEmpty()) {
+            return;
+        }
+
+        Map<Long, Message> messagesById = findMessagesByIdsInChunks(requestedMessageIds);
+
+        List<Message> messagesToDelete = new ArrayList<>();
+        for (Long messageId : requestedMessageIds) {
+            Message message = messagesById.get(messageId);
+            if (message == null) {
+                throw new BusinessException(ErrorCode.NOT_FOUND);
+            }
+            deleteLoadedMessage(userId, message);
+            if (isFullyDeleted(message)) {
+                messagesToDelete.add(message);
+            }
+        }
+
+        if (!messagesToDelete.isEmpty()) {
+            messageRepository.deleteAll(messagesToDelete);
+        }
+    }
+
+    private void deleteLoadedMessage(Long userId, Message message) {
         boolean selfMessage = message.getSender().getUserId().equals(userId)
                 && message.getReceiver().getUserId().equals(userId);
 
@@ -113,17 +155,27 @@ public class MessageService {
         } else {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
+    }
 
-        if (message.getIsDeletedBySender() && message.getIsDeletedByReceiver()) {
+    private void deleteIfFullyDeleted(Message message) {
+        if (isFullyDeleted(message)) {
             messageRepository.delete(message);
         }
     }
 
-    @Transactional
-    public void deleteMessages(Long userId, java.util.List<Long> messageIds) {
-        for (Long messageId : messageIds) {
-            deleteMessage(userId, messageId);
+    private boolean isFullyDeleted(Message message) {
+        return message.getIsDeletedBySender() && message.getIsDeletedByReceiver();
+    }
+
+    private Map<Long, Message> findMessagesByIdsInChunks(List<Long> messageIds) {
+        Map<Long, Message> messagesById = new HashMap<>();
+        for (int start = 0; start < messageIds.size(); start += MESSAGE_DELETE_FETCH_CHUNK_SIZE) {
+            int end = Math.min(start + MESSAGE_DELETE_FETCH_CHUNK_SIZE, messageIds.size());
+            messageRepository.findByMessageIdIn(messageIds.subList(start, end)).stream()
+                    .collect(Collectors.toMap(Message::getMessageId, Function.identity()))
+                    .forEach(messagesById::put);
         }
+        return messagesById;
     }
 
     public long getUnreadMessageCount(Long userId) {

@@ -22,9 +22,11 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.LongStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -267,6 +269,89 @@ class MessageServiceTest {
     }
 
     @Test
+    @DisplayName("메시지 일괄 삭제는 유효 ID만 한 번에 조회하고 참여자 방향대로 처리한다")
+    void deleteMessages_loadsDistinctNonNullIdsAndDeletesByParticipantSide() {
+        Message receivedMessage = Message.builder()
+                .sender(receiver)
+                .receiver(sender)
+                .content("received")
+                .build();
+        ReflectionTestUtils.setField(receivedMessage, "messageId", 2L);
+        when(messageRepository.findByMessageIdIn(List.of(1L, 2L)))
+                .thenReturn(List.of(message, receivedMessage));
+
+        messageService.deleteMessages(1L, Arrays.asList(1L, null, 1L, 2L));
+
+        assertThat(message.getIsDeletedBySender()).isTrue();
+        assertThat(message.getIsDeletedByReceiver()).isFalse();
+        assertThat(receivedMessage.getIsDeletedBySender()).isFalse();
+        assertThat(receivedMessage.getIsDeletedByReceiver()).isTrue();
+        verify(messageRepository).findByMessageIdIn(List.of(1L, 2L));
+        verify(messageRepository, never()).findById(any());
+        verify(messageRepository, never()).deleteAll(anyList());
+    }
+
+    @Test
+    @DisplayName("메시지 일괄 삭제는 요청 ID가 로드되지 않으면 NOT_FOUND로 실패한다")
+    void deleteMessages_missingLoadedMessage_notFound() {
+        when(messageRepository.findByMessageIdIn(List.of(1L, 2L))).thenReturn(List.of(message));
+
+        assertThatThrownBy(() -> messageService.deleteMessages(1L, List.of(1L, 2L)))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode()).isEqualTo(ErrorCode.NOT_FOUND));
+
+        verify(messageRepository, never()).deleteAll(anyList());
+    }
+
+    @Test
+    @DisplayName("메시지 일괄 삭제는 참여자가 아닌 메시지를 FORBIDDEN으로 실패시킨다")
+    void deleteMessages_nonParticipant_forbidden() {
+        when(messageRepository.findByMessageIdIn(List.of(1L))).thenReturn(List.of(message));
+
+        assertThatThrownBy(() -> messageService.deleteMessages(3L, List.of(1L)))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode()).isEqualTo(ErrorCode.FORBIDDEN));
+
+        verify(messageRepository, never()).deleteAll(anyList());
+    }
+
+    @Test
+    @DisplayName("메시지 일괄 삭제는 양쪽이 삭제된 메시지를 완전 삭제한다")
+    void deleteMessages_fullyDeletedMessageDeletesEntity() {
+        message.deleteByReceiver();
+        when(messageRepository.findByMessageIdIn(List.of(1L))).thenReturn(List.of(message));
+
+        messageService.deleteMessages(1L, List.of(1L));
+
+        assertThat(message.getIsDeletedBySender()).isTrue();
+        assertThat(message.getIsDeletedByReceiver()).isTrue();
+        verify(messageRepository).deleteAll(List.of(message));
+    }
+
+    @Test
+    @DisplayName("메시지 일괄 삭제는 많은 ID를 나누어 조회한다")
+    void deleteMessages_fetchesLargeRequestsInChunks() {
+        List<Long> messageIds = LongStream.rangeClosed(1, 501)
+                .boxed()
+                .toList();
+        List<Long> firstChunkIds = messageIds.subList(0, 500);
+        List<Long> secondChunkIds = messageIds.subList(500, 501);
+        List<Message> firstChunkMessages = firstChunkIds.stream()
+                .map(this::messageWithId)
+                .toList();
+        List<Message> secondChunkMessages = secondChunkIds.stream()
+                .map(this::messageWithId)
+                .toList();
+        when(messageRepository.findByMessageIdIn(firstChunkIds)).thenReturn(firstChunkMessages);
+        when(messageRepository.findByMessageIdIn(secondChunkIds)).thenReturn(secondChunkMessages);
+
+        messageService.deleteMessages(1L, messageIds);
+
+        verify(messageRepository).findByMessageIdIn(firstChunkIds);
+        verify(messageRepository).findByMessageIdIn(secondChunkIds);
+    }
+
+    @Test
     @DisplayName("양방향 차단된 사용자의 받은 쪽지는 목록에서 제외된다")
     void getReceivedMessages_bidirectionalBlocked() {
         Pageable pageable = PageRequest.of(0, 10);
@@ -312,5 +397,15 @@ class MessageServiceTest {
 
         assertThat(count).isZero();
         verify(userBlockService).getBlockedUserIdsEitherDirection(2L);
+    }
+
+    private Message messageWithId(Long messageId) {
+        Message result = Message.builder()
+                .sender(sender)
+                .receiver(receiver)
+                .content("message " + messageId)
+                .build();
+        ReflectionTestUtils.setField(result, "messageId", messageId);
+        return result;
     }
 }
