@@ -36,6 +36,7 @@ import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService; // Import UserBlockService
 import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
+import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.util.InputSanitizer;
@@ -50,6 +51,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 @Service
 @RequiredArgsConstructor
@@ -59,6 +61,8 @@ public class PostService {
     private static final String DEFAULT_INQUIRY_BOARD_URL = "inquiry";
     private static final String DEFAULT_CATEGORY_NAME = "\uC77C\uBC18";
     private static final long MAX_VIEW_DURATION_MS = 86_400_000L;
+    private static final Set<String> TAG_POST_SORT_PROPERTIES = Set.of(
+            "createdAt", "postId", "viewCount", "likeCount");
 
     private final PostRepository postRepository;
     private final BoardRepository boardRepository;
@@ -152,11 +156,12 @@ public class PostService {
     }
 
     public Page<PostSummary> getPostsByTag(Long tagId, Long currentUserId, @NonNull Pageable pageable) {
+        Pageable safePageable = sanitizeTagPostPageable(pageable);
         List<Long> blockedUserIds = null;
         if (currentUserId != null) {
             blockedUserIds = userBlockService.getBlockedUserIds(currentUserId);
         }
-        Page<Post> postPage = postRepository.findByTagId(tagId, blockedUserIds, pageable);
+        Page<Post> postPage = postRepository.findByTagId(tagId, blockedUserIds, safePageable);
 
         List<Long> postIds = postPage.getContent().stream()
                 .map(Post::getPostId)
@@ -169,6 +174,23 @@ public class PostService {
             summary.setHasImage(postIdsWithImages.contains(post.getPostId()));
             return summary;
         });
+    }
+
+    private Pageable sanitizeTagPostPageable(Pageable pageable) {
+        Sort safeSort = sanitizeTagPostSort(pageable.getSort());
+        if (pageable.isUnpaged()) {
+            return PageRequest.of(0, PageRequestUtils.DEFAULT_MAX_PAGE_SIZE, safeSort);
+        }
+        return PageRequestUtils.of(pageable.getPageNumber(), pageable.getPageSize(), safeSort);
+    }
+
+    private Sort sanitizeTagPostSort(Sort sort) {
+        if (sort == null || sort.isUnsorted()) {
+            return Sort.unsorted();
+        }
+        boolean allAllowed = StreamSupport.stream(sort.spliterator(), false)
+                .allMatch(order -> TAG_POST_SORT_PROPERTIES.contains(order.getProperty()));
+        return allAllowed ? sort : Sort.by(Sort.Direction.DESC, "createdAt");
     }
 
     public Page<PostSummary> getMyPosts(Long userId, @NonNull Pageable pageable) {

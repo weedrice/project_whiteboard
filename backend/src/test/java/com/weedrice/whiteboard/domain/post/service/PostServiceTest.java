@@ -44,6 +44,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
@@ -1143,6 +1144,22 @@ class PostServiceTest {
         postService.getPostsByTag(1L, null, Pageable.unpaged());
 
         verify(postRepository).findByTagId(eq(1L), isNull(), any(Pageable.class));
+    }
+
+    @Test
+    @DisplayName("태그별 게시글 조회는 페이지 크기와 정렬 필드를 제한한다")
+    void getPostsByTag_clampsPageSizeAndSort() {
+        when(postRepository.findByTagId(eq(1L), isNull(), any(Pageable.class))).thenReturn(Page.empty());
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+
+        postService.getPostsByTag(1L, null, PageRequest.of(2, 250, Sort.by("unknown")));
+
+        verify(postRepository).findByTagId(eq(1L), isNull(), pageableCaptor.capture());
+        Pageable safePageable = pageableCaptor.getValue();
+        assertThat(safePageable.getPageNumber()).isEqualTo(2);
+        assertThat(safePageable.getPageSize()).isEqualTo(100);
+        assertThat(safePageable.getSort().getOrderFor("createdAt")).isNotNull();
+        assertThat(safePageable.getSort().getOrderFor("createdAt").getDirection()).isEqualTo(Sort.Direction.DESC);
     }
 
     @Test

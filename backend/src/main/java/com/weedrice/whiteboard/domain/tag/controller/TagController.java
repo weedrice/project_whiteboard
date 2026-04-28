@@ -9,6 +9,7 @@ import com.weedrice.whiteboard.global.common.dto.PageResponse;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -31,7 +32,7 @@ public class TagController {
     @GetMapping("/{tagId}/posts")
     public ApiResponse<PageResponse<PostSummary>> getPostsByTag(
             @PathVariable Long tagId,
-            Pageable pageable,
+            @PageableDefault(size = 20) Pageable pageable,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         Long userId = (userDetails != null) ? userDetails.getUserId() : null;
         return ApiResponse.success(new PageResponse<>(postService.getPostsByTag(tagId, userId, pageable)));
