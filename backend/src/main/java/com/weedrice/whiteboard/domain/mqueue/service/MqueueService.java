@@ -10,6 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDateTime;
 import java.util.Objects;
@@ -22,7 +23,7 @@ public class MqueueService {
 
     private final MessageQueueRepository messageQueueRepository;
     private final EmailService emailService;
-    private final org.springframework.transaction.support.TransactionTemplate transactionTemplate;
+    private final TransactionTemplate transactionTemplate;
 
     @Transactional
     public void queueEmail(User user, String content) {
@@ -84,13 +85,6 @@ public class MqueueService {
             return;
         }
 
-        if (sentSuccessfully && canFinalizeRecoveredMessage(current)) {
-            log.warn("Finalizing recovered message as sent after lease changed: queueId={}", queueId);
-            current.sent();
-            messageQueueRepository.save(current);
-            return;
-        }
-
         log.warn("Skipped persisting send result because processing lease changed: queueId={}", queueId);
     }
 
@@ -99,8 +93,4 @@ public class MqueueService {
                 && Objects.equals(current.getProcessingStartedAt(), leaseStartedAt);
     }
 
-    private boolean canFinalizeRecoveredMessage(MessageQueue current) {
-        return current.getProcessingStartedAt() == null
-                && ("PENDING".equals(current.getStatus()) || "FAILED".equals(current.getStatus()));
-    }
 }

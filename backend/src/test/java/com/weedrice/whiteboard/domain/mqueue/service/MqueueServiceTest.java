@@ -24,6 +24,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -87,8 +88,8 @@ class MqueueServiceTest {
     }
 
     @Test
-    @DisplayName("sendEmail finalizes recovered message as sent after late success")
-    void sendEmail_successAfterLeaseRecovery_finalizesRecoveredMessage() {
+    @DisplayName("sendEmail skips recovered pending message after late success")
+    void sendEmail_successAfterLeaseRecovery_skipsRecoveredPendingMessage() {
         LocalDateTime leaseStartedAt = LocalDateTime.now().minusMinutes(6);
         User user = User.builder().email("user@test.com").build();
         MessageQueue processingMessage = processingMessage(user, leaseStartedAt);
@@ -106,15 +107,43 @@ class MqueueServiceTest {
 
         mqueueService.sendEmail(1L);
 
-        verify(messageQueueRepository).save(recoveredMessage);
-        assertThat(recoveredMessage.getStatus()).isEqualTo("SENT");
+        verify(messageQueueRepository, never()).save(any(MessageQueue.class));
+        assertThat(recoveredMessage.getStatus()).isEqualTo("PENDING");
         assertThat(recoveredMessage.getRetryCount()).isEqualTo(1);
         assertThat(recoveredMessage.getProcessingStartedAt()).isNull();
     }
 
     @Test
-    @DisplayName("sendEmail finalizes recovered failed message as sent after late success")
-    void sendEmail_successAfterFailedRecovery_finalizesFailedMessage() {
+    @DisplayName("sendEmail skips recovered message after late failure")
+    void sendEmail_failureAfterLeaseRecovery_skipsRecoveredMessage() {
+        LocalDateTime leaseStartedAt = LocalDateTime.now().minusMinutes(6);
+        User user = User.builder().email("user@test.com").build();
+        MessageQueue processingMessage = processingMessage(user, leaseStartedAt);
+        MessageQueue recoveredMessage = MessageQueue.builder()
+                .targetUser(user)
+                .deliveryMethod("EMAIL")
+                .content("<p>Hello</p>")
+                .build();
+        ReflectionTestUtils.setField(recoveredMessage, "status", "PENDING");
+        ReflectionTestUtils.setField(recoveredMessage, "retryCount", 1);
+
+        when(messageQueueRepository.findByIdWithTargetUser(1L)).thenReturn(Optional.of(processingMessage));
+        when(messageQueueRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(recoveredMessage));
+        doThrow(new BusinessException(ErrorCode.EMAIL_SEND_FAILED))
+                .when(emailService).sendEmail(eq("user@test.com"), eq("[noviIs] Notification"), eq("<p>Hello</p>"));
+        mockTransactionCallback();
+
+        mqueueService.sendEmail(1L);
+
+        verify(messageQueueRepository, never()).save(any(MessageQueue.class));
+        assertThat(recoveredMessage.getStatus()).isEqualTo("PENDING");
+        assertThat(recoveredMessage.getRetryCount()).isEqualTo(1);
+        assertThat(recoveredMessage.getProcessingStartedAt()).isNull();
+    }
+
+    @Test
+    @DisplayName("sendEmail skips recovered failed message after late success")
+    void sendEmail_successAfterFailedRecovery_skipsRecoveredFailedMessage() {
         LocalDateTime leaseStartedAt = LocalDateTime.now().minusMinutes(6);
         User user = User.builder().email("user@test.com").build();
         MessageQueue processingMessage = processingMessage(user, leaseStartedAt);
@@ -132,8 +161,8 @@ class MqueueServiceTest {
 
         mqueueService.sendEmail(1L);
 
-        verify(messageQueueRepository).save(recoveredMessage);
-        assertThat(recoveredMessage.getStatus()).isEqualTo("SENT");
+        verify(messageQueueRepository, never()).save(any(MessageQueue.class));
+        assertThat(recoveredMessage.getStatus()).isEqualTo("FAILED");
         assertThat(recoveredMessage.getRetryCount()).isEqualTo(5);
         assertThat(recoveredMessage.getProcessingStartedAt()).isNull();
     }
