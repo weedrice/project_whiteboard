@@ -24,6 +24,7 @@ public interface AdminRepository extends JpaRepository<Admin, Long> {
     Optional<Admin> findFirstByUserAndBoardAndRoleAndIsActiveOrderByAdminIdDesc(
             User user, Board board, String role, Boolean isActive);
     boolean existsByUserAndRoleAndIsActive(User user, String role, Boolean isActive);
+    long countByBoardAndRoleAndIsActiveAndAdminIdNot(Board board, String role, Boolean isActive, Long adminId);
     Optional<Admin> findFirstByBoardAndRoleAndIsActiveOrderByAdminIdDesc(Board board, String role, Boolean isActive);
     List<Admin> findByBoardAndRoleAndIsActive(Board board, String role, Boolean isActive);
     Optional<Admin> findByUserAndBoardAndRole(User user, Board board, String role);

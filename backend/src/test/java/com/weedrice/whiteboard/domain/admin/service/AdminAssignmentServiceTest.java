@@ -243,10 +243,42 @@ class AdminAssignmentServiceTest {
     @Test
     @DisplayName("관리자 비활성화 성공")
     void deactivateAdmin_success() {
-        when(adminRepository.findById(1L)).thenReturn(Optional.of(admin));
+        Admin moderator = Admin.builder().user(user).board(board).role(AdminRole.MODERATOR.name()).build();
+        ReflectionTestUtils.setField(moderator, "adminId", 200L);
+        when(adminRepository.findById(200L)).thenReturn(Optional.of(moderator));
 
-        adminAssignmentService.deactivateAdmin(1L);
+        adminAssignmentService.deactivateAdmin(200L);
+
+        assertThat(moderator.getIsActive()).isFalse();
+        verify(boardRepository, never()).findByIdForUpdate(any());
+    }
+
+    @Test
+    @DisplayName("Last active board manager cannot be deactivated")
+    void deactivateAdmin_lastActiveBoardAdmin_throwsValidationError() {
+        when(adminRepository.findById(100L)).thenReturn(Optional.of(admin));
+        when(boardRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(board));
+        when(adminRepository.countByBoardAndRoleAndIsActiveAndAdminIdNot(board, Role.BOARD_ADMIN, true, 100L))
+                .thenReturn(0L);
+
+        assertThatThrownBy(() -> adminAssignmentService.deactivateAdmin(100L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VALIDATION_ERROR);
+
+        assertThat(admin.getIsActive()).isTrue();
+    }
+
+    @Test
+    @DisplayName("Board manager can be deactivated when another active manager remains")
+    void deactivateAdmin_boardAdminWithAnotherActiveManager_success() {
+        when(adminRepository.findById(100L)).thenReturn(Optional.of(admin));
+        when(boardRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(board));
+        when(adminRepository.countByBoardAndRoleAndIsActiveAndAdminIdNot(board, Role.BOARD_ADMIN, true, 100L))
+                .thenReturn(1L);
+
+        adminAssignmentService.deactivateAdmin(100L);
 
         assertThat(admin.getIsActive()).isFalse();
+        verify(boardRepository).findByIdForUpdate(10L);
     }
 }
