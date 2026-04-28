@@ -1,18 +1,18 @@
 package com.weedrice.whiteboard.domain.ad.repository;
 
 import com.weedrice.whiteboard.domain.ad.entity.Ad;
+import com.weedrice.whiteboard.global.config.QuerydslConfig;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
 import java.util.List;
-
-import com.weedrice.whiteboard.global.config.QuerydslConfig;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -35,10 +35,24 @@ class AdRepositoryTest {
         persistAd("TOP", now.plusMinutes(1), now.plusDays(1), true);
         persistAd("TOP", now.minusDays(1), now.plusDays(1), false);
 
-        List<Ad> activeAds = adRepository.findActiveByPlacement("TOP", now);
+        List<Ad> activeAds = adRepository.findActiveByPlacement("TOP", now, PageRequest.of(0, 10));
 
         assertThat(activeAds).extracting(Ad::getAdId).contains(openEndedAd.getAdId());
         assertThat(activeAds).hasSize(1);
+        assertThat(adRepository.countActiveByPlacement("TOP", now)).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("활성 광고 후보는 페이지 크기만큼 조회한다")
+    void findActiveByPlacement_withPageableReturnsRequestedCandidateWindow() {
+        LocalDateTime now = LocalDateTime.now();
+        Ad firstAd = persistAd("TOP", now.minusDays(1), null, true);
+        Ad secondAd = persistAd("TOP", now.minusDays(1), null, true);
+
+        List<Ad> activeAds = adRepository.findActiveByPlacement("TOP", now, PageRequest.of(1, 1));
+
+        assertThat(activeAds).extracting(Ad::getAdId).containsExactly(secondAd.getAdId());
+        assertThat(activeAds).extracting(Ad::getAdId).doesNotContain(firstAd.getAdId());
     }
 
     @Test

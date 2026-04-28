@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.ad.repository;
 
 import com.weedrice.whiteboard.domain.ad.entity.Ad;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -12,14 +13,27 @@ import java.util.Optional;
 
 public interface AdRepository extends JpaRepository<Ad, Long> {
     @Query("""
-            select a
+            select count(a)
             from Ad a
             where a.placement = :placement
               and a.isActive = true
               and a.startDate <= :now
               and (a.endDate is null or a.endDate > :now)
             """)
-    List<Ad> findActiveByPlacement(@Param("placement") String placement, @Param("now") LocalDateTime now);
+    long countActiveByPlacement(@Param("placement") String placement, @Param("now") LocalDateTime now);
+
+    @Query("""
+            select a
+            from Ad a
+            where a.placement = :placement
+              and a.isActive = true
+              and a.startDate <= :now
+              and (a.endDate is null or a.endDate > :now)
+            order by a.adId asc
+            """)
+    List<Ad> findActiveByPlacement(@Param("placement") String placement,
+                                   @Param("now") LocalDateTime now,
+                                   Pageable pageable);
 
     @Query("""
             select a

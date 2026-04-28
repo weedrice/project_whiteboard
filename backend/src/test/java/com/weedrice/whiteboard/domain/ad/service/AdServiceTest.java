@@ -9,9 +9,11 @@ import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDateTime;
 import java.util.Collections;
@@ -20,7 +22,9 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -42,13 +46,17 @@ class AdServiceTest {
     void getAd_success() {
         String placement = "HEADER";
         Ad ad = buildActiveAd(placement, LocalDateTime.now().plusDays(1));
-        when(adRepository.findActiveByPlacement(any(), any())).thenReturn(Collections.singletonList(ad));
+        when(adRepository.countActiveByPlacement(eq(placement), any())).thenReturn(1L);
+        when(adRepository.findActiveByPlacement(eq(placement), any(), any(Pageable.class)))
+                .thenReturn(Collections.singletonList(ad));
 
         Ad result = adService.getAd(placement);
 
         assertThat(result).isSameAs(ad);
         assertThat(ad.getImpressionCount()).isZero();
-        verify(adRepository).findActiveByPlacement(any(), any());
+        verify(adRepository).countActiveByPlacement(eq(placement), any());
+        Pageable pageable = captureAdCandidatePageable();
+        assertThat(pageable.getPageSize()).isEqualTo(1);
     }
 
     @Test
@@ -56,12 +64,48 @@ class AdServiceTest {
     void getAd_includesOpenEndedAd() {
         String placement = "HEADER";
         Ad ad = buildActiveAd(placement, null);
-        when(adRepository.findActiveByPlacement(any(), any())).thenReturn(Collections.singletonList(ad));
+        when(adRepository.countActiveByPlacement(eq(placement), any())).thenReturn(1L);
+        when(adRepository.findActiveByPlacement(eq(placement), any(), any(Pageable.class)))
+                .thenReturn(Collections.singletonList(ad));
 
         Ad result = adService.getAd(placement);
 
         assertThat(result).isSameAs(ad);
-        verify(adRepository).findActiveByPlacement(any(), any());
+        verify(adRepository).countActiveByPlacement(eq(placement), any());
+        Pageable pageable = captureAdCandidatePageable();
+        assertThat(pageable.getPageSize()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("활성 광고가 없으면 후보 조회 없이 null을 반환한다")
+    void getAd_noActiveAds_returnsNull() {
+        when(adRepository.countActiveByPlacement(any(), any())).thenReturn(0L);
+
+        Ad result = adService.getAd("HEADER");
+
+        assertThat(result).isNull();
+        verify(adRepository).countActiveByPlacement(any(), any());
+        verify(adRepository, never()).findActiveByPlacement(any(), any(), any(Pageable.class));
+    }
+
+    @Test
+    @DisplayName("랜덤 offset 후보가 사라지면 첫 후보를 다시 조회한다")
+    void getAd_fallsBackToFirstCandidateWhenRandomOffsetWindowIsEmpty() {
+        String placement = "HEADER";
+        Ad ad = buildActiveAd(placement, null);
+        when(adRepository.countActiveByPlacement(eq(placement), any())).thenReturn(2L);
+        when(adRepository.findActiveByPlacement(eq(placement), any(), any(Pageable.class)))
+                .thenReturn(Collections.emptyList())
+                .thenReturn(Collections.singletonList(ad));
+
+        Ad result = adService.getAd(placement);
+
+        assertThat(result).isSameAs(ad);
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(adRepository, times(2))
+                .findActiveByPlacement(eq(placement), any(), pageableCaptor.capture());
+        assertThat(pageableCaptor.getAllValues()).extracting(Pageable::getPageSize).containsOnly(1);
+        assertThat(pageableCaptor.getAllValues().get(1).getPageNumber()).isZero();
     }
 
     @Test
@@ -134,5 +178,11 @@ class AdServiceTest {
                 .startDate(LocalDateTime.now().minusDays(1))
                 .endDate(endDate)
                 .build();
+    }
+
+    private Pageable captureAdCandidatePageable() {
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(adRepository).findActiveByPlacement(any(), any(), pageableCaptor.capture());
+        return pageableCaptor.getValue();
     }
 }

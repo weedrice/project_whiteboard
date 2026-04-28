@@ -10,11 +10,13 @@ import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 
 @Service
 @RequiredArgsConstructor
@@ -35,11 +37,20 @@ public class AdService {
 
     public Ad getAd(String placement) {
         LocalDateTime now = LocalDateTime.now();
-        List<Ad> ads = adRepository.findActiveByPlacement(placement, now);
+        long activeCount = adRepository.countActiveByPlacement(placement, now);
+        if (activeCount == 0) {
+            return null;
+        }
+
+        int randomOffset = ThreadLocalRandom.current().nextInt((int) Math.min(activeCount, Integer.MAX_VALUE));
+        List<Ad> ads = adRepository.findActiveByPlacement(placement, now, PageRequest.of(randomOffset, 1));
+        if (ads.isEmpty()) {
+            ads = adRepository.findActiveByPlacement(placement, now, PageRequest.of(0, 1));
+        }
         if (ads.isEmpty()) {
             return null;
         }
-        return ads.get((int) (Math.random() * ads.size()));
+        return ads.get(0);
     }
 
     @Transactional
@@ -51,9 +62,10 @@ public class AdService {
 
     @Transactional
     public String recordAdClick(Long adId, Long userId, String ipAddress) {
-        Ad ad = adRepository.findActiveById(adId, LocalDateTime.now())
+        LocalDateTime now = LocalDateTime.now();
+        Ad ad = adRepository.findActiveById(adId, now)
                 .orElseThrow(() -> new BusinessException(ErrorCode.AD_NOT_FOUND));
-        if (adRepository.incrementClickCountForActive(adId, LocalDateTime.now()) == 0) {
+        if (adRepository.incrementClickCountForActive(adId, now) == 0) {
             throw new BusinessException(ErrorCode.AD_NOT_FOUND);
         }
 
