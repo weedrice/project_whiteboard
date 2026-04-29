@@ -269,11 +269,13 @@ class PostControllerTest {
         void getPost_success() throws Exception {
             Long postId = 1L;
             PostResponse postResponse = PostResponse.builder().postId(postId).title("Title").build();
-            when(postService.getPostResponse(eq(postId), any(), anyBoolean())).thenReturn(postResponse);
+            when(postService.getPostResponse(eq(postId), any(), anyBoolean(), eq(20))).thenReturn(postResponse);
 
             mockMvc.perform(get("/api/v1/posts/{postId}", postId)
                     .with(user(customUserDetails)))
                     .andExpect(status().isOk());
+
+            verify(postService).getPostResponse(postId, 1L, true, 20);
         }
 
         @Test
@@ -281,10 +283,55 @@ class PostControllerTest {
         void getPost_anonymous() throws Exception {
             Long postId = 1L;
             PostResponse postResponse = PostResponse.builder().build();
-            when(postService.getPostResponse(eq(postId), isNull(), anyBoolean())).thenReturn(postResponse);
+            when(postService.getPostResponse(eq(postId), isNull(), anyBoolean(), eq(20))).thenReturn(postResponse);
 
             mockMvc.perform(get("/api/v1/posts/{postId}", postId))
                     .andExpect(status().isOk());
+        }
+
+        @Test
+        @DisplayName("단일 게시글 조회 - boardListPageSize 전달")
+        void getPost_forwardsBoardListPageSize() throws Exception {
+            Long postId = 1L;
+            PostResponse postResponse = PostResponse.builder().postId(postId).title("Title").build();
+            when(postService.getPostResponse(eq(postId), eq(1L), eq(false), eq(10))).thenReturn(postResponse);
+
+            mockMvc.perform(get("/api/v1/posts/{postId}", postId)
+                    .param("incrementView", "false")
+                    .param("boardListPageSize", "10")
+                    .with(user(customUserDetails)))
+                    .andExpect(status().isOk());
+
+            verify(postService).getPostResponse(postId, 1L, false, 10);
+        }
+
+        @Test
+        @DisplayName("단일 게시글 조회 - boardListPageSize는 최대 100으로 제한")
+        void getPost_clampsLargeBoardListPageSize() throws Exception {
+            Long postId = 1L;
+            PostResponse postResponse = PostResponse.builder().postId(postId).title("Title").build();
+            when(postService.getPostResponse(eq(postId), eq(1L), eq(true), eq(100))).thenReturn(postResponse);
+
+            mockMvc.perform(get("/api/v1/posts/{postId}", postId)
+                    .param("boardListPageSize", "1000")
+                    .with(user(customUserDetails)))
+                    .andExpect(status().isOk());
+
+            verify(postService).getPostResponse(postId, 1L, true, 100);
+        }
+
+        @Test
+        @DisplayName("단일 게시글 조회 - 잘못된 boardListPageSize는 400")
+        void getPost_invalidBoardListPageSize_returnsBadRequest() throws Exception {
+            Long postId = 1L;
+            clearInvocations(postService);
+
+            mockMvc.perform(get("/api/v1/posts/{postId}", postId)
+                    .param("boardListPageSize", "0")
+                    .with(user(customUserDetails)))
+                    .andExpect(status().isBadRequest());
+
+            verify(postService, never()).getPostResponse(anyLong(), any(), anyBoolean(), anyInt());
         }
 
         @Test

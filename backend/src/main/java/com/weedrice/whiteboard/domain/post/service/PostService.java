@@ -231,6 +231,12 @@ public class PostService {
         return postDetailReadService.getPostResponse(postId, userId, incrementView);
     }
 
+    @Transactional
+    public PostResponse getPostResponse(@NonNull Long postId, Long userId, boolean incrementView,
+            int boardListPageSize) {
+        return postDetailReadService.getPostResponse(postId, userId, incrementView, boardListPageSize);
+    }
+
     public PostResponse getInquiryPostResponseForAdmin(@NonNull Long postId) {
         Post post = postRepository.findByIdWithRelations(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));

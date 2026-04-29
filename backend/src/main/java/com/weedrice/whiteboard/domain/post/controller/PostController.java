@@ -70,9 +70,12 @@ public class PostController {
     @GetMapping("/posts/{postId}")
     public ApiResponse<PostResponse> getPost(@PathVariable Long postId,
             @AuthenticationPrincipal CustomUserDetails userDetails,
-            @RequestParam(defaultValue = "true") boolean incrementView) {
+            @RequestParam(defaultValue = "true") boolean incrementView,
+            @RequestParam(defaultValue = "20") int boardListPageSize) {
         Long userId = (userDetails != null) ? userDetails.getUserId() : null;
-        return ApiResponse.success(postService.getPostResponse(postId, userId, incrementView));
+        int normalizedBoardListPageSize = PageRequestUtils.of(0, boardListPageSize).getPageSize();
+        return ApiResponse.success(
+                postService.getPostResponse(postId, userId, incrementView, normalizedBoardListPageSize));
     }
 
     @PostMapping("/posts/{postId}/view")

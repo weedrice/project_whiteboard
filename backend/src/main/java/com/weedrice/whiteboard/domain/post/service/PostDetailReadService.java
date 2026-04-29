@@ -15,6 +15,7 @@ import com.weedrice.whiteboard.domain.tag.service.TagAssignmentService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
+import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -46,6 +47,12 @@ public class PostDetailReadService {
 
     @Transactional
     public PostResponse getPostResponse(@NonNull Long postId, Long userId, boolean incrementView) {
+        return getPostResponse(postId, userId, incrementView, DEFAULT_BOARD_PAGE_SIZE);
+    }
+
+    @Transactional
+    public PostResponse getPostResponse(@NonNull Long postId, Long userId, boolean incrementView, int boardListPageSize) {
+        int normalizedBoardListPageSize = PageRequestUtils.of(0, boardListPageSize).getPageSize();
         PostDetailContext context = loadPostDetailContext(postId, userId, incrementView);
         Post post = context.post();
         List<String> tags = getTagsForPost(post);
@@ -53,7 +60,7 @@ public class PostDetailReadService {
         boolean isScrapped = isPostScrappedByUser(postId, userId);
         List<String> imageUrls = getPostImageUrls(postId);
         boolean isAdmin = isBoardAdmin(context);
-        int boardListPage = resolveDefaultBoardListPage(context);
+        int boardListPage = resolveDefaultBoardListPage(context, normalizedBoardListPageSize);
         Integer viewCount = incrementView ? postRepository.findViewCountByPostId(postId) : null;
 
         return PostResponse.from(
@@ -109,7 +116,7 @@ public class PostDetailReadService {
         return boardAccessPolicy.hasBoardAdminAccess(context.post().getBoard(), context.viewer());
     }
 
-    private int resolveDefaultBoardListPage(PostDetailContext context) {
+    private int resolveDefaultBoardListPage(PostDetailContext context, int boardListPageSize) {
         Post post = context.post();
         Long viewerUserId = context.viewer() != null ? context.viewer().getUserId() : null;
         boolean includeSecret = boardAccessPolicy.canViewSecretPosts(post.getBoard(), context.viewer());
@@ -121,7 +128,7 @@ public class PostDetailReadService {
                 context.blockedUserIds(),
                 includeSecret,
                 viewerUserId);
-        long page = postsBefore / DEFAULT_BOARD_PAGE_SIZE;
+        long page = postsBefore / boardListPageSize;
         return (int) Math.min(page, Integer.MAX_VALUE);
     }
 

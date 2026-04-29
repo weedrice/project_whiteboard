@@ -1300,6 +1300,56 @@ class PostServiceTest {
     }
 
     @Test
+    @DisplayName("게시글 응답 조회 - boardListPageSize를 지정하면 해당 크기로 목록 페이지를 계산")
+    void getPostResponse_usesBoardListPageSize() {
+        lenient().when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+        lenient().when(userBlockService.getBlockedUserIds(1L)).thenReturn(Collections.emptyList());
+        lenient().when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        lenient().when(viewHistoryRepository.findByUserAndPost(user, post)).thenReturn(Optional.empty());
+        lenient().when(tagAssignmentService.getTagNames(post)).thenReturn(Collections.emptyList());
+        lenient().when(postLikeRepository.existsById(any(PostLikeId.class))).thenReturn(false);
+        lenient().when(scrapRepository.existsById(any(ScrapId.class))).thenReturn(false);
+        lenient().when(fileService.getFilesByRelatedEntity(1L, "POST_CONTENT")).thenReturn(Collections.emptyList());
+        lenient().when(postRepository.countPostsBeforeInBoardDefaultOrder(
+                eq(1L), nullable(LocalDateTime.class), eq(1L), eq(Collections.emptyList()), anyBoolean(), eq(1L)))
+                .thenReturn(45L);
+
+        PostResponse response = postService.getPostResponse(1L, 1L, false, 10);
+
+        assertThat(response.getBoardListPage()).isEqualTo(4);
+    }
+
+    @Test
+    @DisplayName("게시글 응답 조회 - 과도한 boardListPageSize는 PageRequestUtils 상한으로 제한")
+    void getPostResponse_clampsLargeBoardListPageSize() {
+        lenient().when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+        lenient().when(userBlockService.getBlockedUserIds(1L)).thenReturn(Collections.emptyList());
+        lenient().when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        lenient().when(viewHistoryRepository.findByUserAndPost(user, post)).thenReturn(Optional.empty());
+        lenient().when(tagAssignmentService.getTagNames(post)).thenReturn(Collections.emptyList());
+        lenient().when(postLikeRepository.existsById(any(PostLikeId.class))).thenReturn(false);
+        lenient().when(scrapRepository.existsById(any(ScrapId.class))).thenReturn(false);
+        lenient().when(fileService.getFilesByRelatedEntity(1L, "POST_CONTENT")).thenReturn(Collections.emptyList());
+        lenient().when(postRepository.countPostsBeforeInBoardDefaultOrder(
+                eq(1L), nullable(LocalDateTime.class), eq(1L), eq(Collections.emptyList()), anyBoolean(), eq(1L)))
+                .thenReturn(450L);
+
+        PostResponse response = postService.getPostResponse(1L, 1L, false, 1000);
+
+        assertThat(response.getBoardListPage()).isEqualTo(4);
+    }
+
+    @Test
+    @DisplayName("게시글 응답 조회 - 잘못된 boardListPageSize는 검증 오류")
+    void getPostResponse_invalidBoardListPageSize_throwsValidationError() {
+        assertThatThrownBy(() -> postService.getPostResponse(1L, 1L, false, 0))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VALIDATION_ERROR);
+
+        verify(postRepository, never()).findByIdWithRelations(anyLong());
+    }
+
+    @Test
     @DisplayName("게시글 응답 조회 - 조회수 증가하지 않음")
     void getPostResponse_noIncrementView() {
         lenient().when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
