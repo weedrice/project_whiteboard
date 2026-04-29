@@ -211,6 +211,64 @@ class AuthPasswordResetMailFlowTest {
     }
 
     @Test
+    @DisplayName("sendPasswordResetLink rejects suspended users without sending email")
+    void sendPasswordResetLink_suspendedUser_rejectsBeforeEmail() {
+        ReflectionTestUtils.setField(user, "status", User.STATUS_SUSPENDED);
+        when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> passwordResetService.sendPasswordResetLink("test@example.com", "ticket-suspended"))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.USER_NOT_ACTIVE);
+
+        verify(emailService, never()).sendEmail(anyString(), anyString(), anyString());
+        verify(verificationCodeService, never()).consumeValidatedVerificationTicket(
+                "test@example.com",
+                VerificationPurpose.PASSWORD_RESET,
+                "ticket-suspended");
+    }
+
+    @Test
+    @DisplayName("sendPasswordResetLinkByEmail rejects suspended users without sending email")
+    void sendPasswordResetLinkByEmail_suspendedUser_rejectsBeforeEmail() {
+        ReflectionTestUtils.setField(user, "status", User.STATUS_SUSPENDED);
+        when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> passwordResetService.sendPasswordResetLinkByEmail("test@example.com", "ticket-suspended"))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.USER_NOT_ACTIVE);
+
+        verify(emailService, never()).sendEmail(anyString(), anyString(), anyString());
+        verify(verificationCodeService, never()).consumeValidatedVerificationTicket(
+                "test@example.com",
+                VerificationPurpose.PASSWORD_RESET,
+                "ticket-suspended");
+    }
+
+    @Test
+    @DisplayName("resetPasswordByCode rejects suspended users before consuming ticket")
+    void resetPasswordByCode_suspendedUser_rejectsBeforeTicketConsumption() {
+        ReflectionTestUtils.setField(user, "status", User.STATUS_SUSPENDED);
+        when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> passwordResetService.resetPasswordByCode(
+                "test@example.com",
+                "ticket-suspended",
+                "newPassword123!"))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.USER_NOT_ACTIVE);
+
+        verify(verificationCodeService, never()).consumeValidatedVerificationTicket(
+                "test@example.com",
+                VerificationPurpose.PASSWORD_RESET,
+                "ticket-suspended");
+        verify(passwordHistoryRepository, never()).save(any());
+        verify(refreshTokenLifecycleService, never()).revokeActiveRefreshTokens(user);
+    }
+
+    @Test
     @DisplayName("sendPasswordResetLinkByEmail recovers with a sent token after promotion failure")
     void sendPasswordResetLinkByEmail_promoteFailure_savesReplacementSentToken() {
         when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(user));
@@ -299,6 +357,62 @@ class AuthPasswordResetMailFlowTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.INVALID_PASSWORD_RESET_TOKEN);
+    }
+
+    @Test
+    @DisplayName("resetPasswordWithToken rejects suspended users before using token")
+    void resetPasswordWithToken_suspendedUser_rejectsBeforeUsingToken() {
+        ReflectionTestUtils.setField(user, "status", User.STATUS_SUSPENDED);
+        PasswordResetToken latestSentToken = PasswordResetToken.builder()
+                .token("latest-hashed")
+                .user(user)
+                .expiryDate(LocalDateTime.now().plusMinutes(10))
+                .build();
+        ReflectionTestUtils.setField(latestSentToken, "tokenId", 7L);
+        ReflectionTestUtils.setField(latestSentToken, "createdAt", LocalDateTime.now());
+        latestSentToken.markSent();
+
+        when(passwordResetTokenRepository.findByToken(anyString())).thenReturn(Optional.of(latestSentToken));
+        when(userRepository.findByIdForUpdate(user.getUserId())).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> passwordResetService.resetPasswordWithToken("ignored", "newPassword123!"))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.USER_NOT_ACTIVE);
+
+        assertThat(latestSentToken.getIsUsed()).isFalse();
+        verify(passwordResetTokenRepository, never()).findByTokenForUpdate(anyString());
+        verify(passwordResetTokenRepository, never()).save(latestSentToken);
+        verify(passwordHistoryRepository, never()).save(any());
+        verify(refreshTokenLifecycleService, never()).revokeActiveRefreshTokens(user);
+    }
+
+    @Test
+    @DisplayName("resetPasswordWithToken rejects deleted users before using token")
+    void resetPasswordWithToken_deletedUser_rejectsBeforeUsingToken() {
+        user.delete();
+        PasswordResetToken latestSentToken = PasswordResetToken.builder()
+                .token("latest-hashed")
+                .user(user)
+                .expiryDate(LocalDateTime.now().plusMinutes(10))
+                .build();
+        ReflectionTestUtils.setField(latestSentToken, "tokenId", 8L);
+        ReflectionTestUtils.setField(latestSentToken, "createdAt", LocalDateTime.now());
+        latestSentToken.markSent();
+
+        when(passwordResetTokenRepository.findByToken(anyString())).thenReturn(Optional.of(latestSentToken));
+        when(userRepository.findByIdForUpdate(user.getUserId())).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> passwordResetService.resetPasswordWithToken("ignored", "newPassword123!"))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.USER_DELETED);
+
+        assertThat(latestSentToken.getIsUsed()).isFalse();
+        verify(passwordResetTokenRepository, never()).findByTokenForUpdate(anyString());
+        verify(passwordResetTokenRepository, never()).save(latestSentToken);
+        verify(passwordHistoryRepository, never()).save(any());
+        verify(refreshTokenLifecycleService, never()).revokeActiveRefreshTokens(user);
     }
 
     @Test

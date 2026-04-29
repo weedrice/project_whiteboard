@@ -43,7 +43,7 @@ public class PasswordResetService {
                 VerificationPurpose.PASSWORD_RESET,
                 verificationTicket);
 
-        User user = getActivePasswordResetUser(email, ErrorCode.USER_NOT_FOUND);
+        User user = getUsablePasswordResetUser(email, ErrorCode.USER_NOT_FOUND);
         String rawToken = UUID.randomUUID().toString();
         String resetLink = passwordResetFrontendUrl + rawToken;
         String subject = "[noviIs] Password reset link";
@@ -70,7 +70,7 @@ public class PasswordResetService {
                 VerificationPurpose.PASSWORD_RESET,
                 verificationTicket);
 
-        User user = getActivePasswordResetUser(email, ErrorCode.USER_NOT_FOUND_BY_EMAIL);
+        User user = getUsablePasswordResetUser(email, ErrorCode.USER_NOT_FOUND_BY_EMAIL);
         String rawToken = UUID.randomUUID().toString();
         String resetLink = passwordResetFrontendUrl + rawToken;
         String subject = "[noviIs] Password reset link";
@@ -98,6 +98,7 @@ public class PasswordResetService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_PASSWORD_RESET_TOKEN));
         User user = userRepository.findByIdForUpdate(tokenSnapshot.getUser().getUserId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        validateUsablePasswordResetUser(user);
         PasswordResetToken passwordResetToken = passwordResetTokenRepository.findByTokenForUpdate(hashedToken)
                 .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_PASSWORD_RESET_TOKEN));
 
@@ -131,11 +132,7 @@ public class PasswordResetService {
                 VerificationPurpose.PASSWORD_RESET,
                 verificationTicket);
 
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        if ("DELETED".equals(user.getStatus())) {
-            throw new BusinessException(ErrorCode.USER_DELETED);
-        }
+        User user = getUsablePasswordResetUser(email, ErrorCode.USER_NOT_FOUND);
 
         validatePasswordNotRecentlyUsed(user, newPassword);
         verificationCodeService.consumeValidatedVerificationTicket(
@@ -176,12 +173,19 @@ public class PasswordResetService {
         }
     }
 
-    private User getActivePasswordResetUser(String email, ErrorCode notFoundErrorCode) {
+    private User getUsablePasswordResetUser(String email, ErrorCode notFoundErrorCode) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new BusinessException(notFoundErrorCode));
-        if ("DELETED".equals(user.getStatus())) {
+        validateUsablePasswordResetUser(user);
+        return user;
+    }
+
+    private void validateUsablePasswordResetUser(User user) {
+        if (User.STATUS_DELETED.equals(user.getStatus()) || user.getDeletedAt() != null) {
             throw new BusinessException(ErrorCode.USER_DELETED);
         }
-        return user;
+        if (!user.isActiveAccount()) {
+            throw new BusinessException(ErrorCode.USER_NOT_ACTIVE);
+        }
     }
 }
