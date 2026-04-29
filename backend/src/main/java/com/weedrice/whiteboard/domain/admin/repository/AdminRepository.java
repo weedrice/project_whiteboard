@@ -47,6 +47,7 @@ public interface AdminRepository extends JpaRepository<Admin, Long> {
     @EntityGraph(attributePaths = "board")
     List<Admin> findByUserAndBoard_BoardIdInAndIsActive(User user, Collection<Long> boardIds, Boolean isActive);
     Optional<Admin> findByUserAndIsActive(User user, Boolean isActive);
+    boolean existsByUserAndIsActive(User user, Boolean isActive);
     boolean existsByUser(User user);
     void deleteByBoard(Board board);
     boolean existsByUserAndBoardAndIsActive(User userId, Board boardId, Boolean isActive);

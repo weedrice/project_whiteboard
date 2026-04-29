@@ -794,16 +794,45 @@ class BoardServiceTest {
     void getTopBoards_authenticatedUsesPublicQueryWhenUserHasNoElevatedAccess() {
         UserDetails userDetails = mock(UserDetails.class);
         when(userDetails.getUsername()).thenReturn(user.getLoginId());
+        when(adminRepository.existsByUserAndIsActive(user, true)).thenReturn(false);
         when(boardRepository.findTopPublicBoardIdsByPostCount(any())).thenReturn(Collections.singletonList(1L));
         when(boardRepository.findByBoardIdIn(List.of(1L))).thenReturn(Collections.singletonList(board));
 
         List<BoardListResponse> boards = boardService.getTopBoards(userDetails);
 
         assertThat(boards).extracting(BoardListResponse::getBoardUrl).containsExactly("test-board");
+        verify(adminRepository).existsByUserAndIsActive(user, true);
         verify(boardRepository).findTopPublicBoardIdsByPostCount(any());
         verify(boardRepository).findByBoardIdIn(List.of(1L));
         verify(boardRepository, never()).findTopBoardIdsByPostCount(any());
         verify(boardRepository, never()).findTopReadableBoardIdsByPostCount(any(), anyBoolean(), any());
+    }
+
+    @Test
+    @DisplayName("게시판 관리자는 읽을 수 있는 인기 게시판 조회 쿼리를 사용한다")
+    void getTopBoards_boardAdminUsesReadableQuery() {
+        Board privateBoard = Board.builder()
+                .boardName("Private Board")
+                .boardUrl("private-board")
+                .creator(user)
+                .isPublic(false)
+                .build();
+        ReflectionTestUtils.setField(privateBoard, "boardId", 2L);
+        ReflectionTestUtils.setField(privateBoard, "isActive", true);
+
+        UserDetails userDetails = mock(UserDetails.class);
+        when(userDetails.getUsername()).thenReturn(user.getLoginId());
+        when(adminRepository.existsByUserAndIsActive(user, true)).thenReturn(true);
+        when(boardRepository.findTopReadableBoardIdsByPostCount(eq(user), eq(false), any())).thenReturn(List.of(2L));
+        when(boardRepository.findByBoardIdIn(List.of(2L))).thenReturn(List.of(privateBoard));
+
+        List<BoardListResponse> boards = boardService.getTopBoards(userDetails);
+
+        assertThat(boards).extracting(BoardListResponse::getBoardUrl).containsExactly("private-board");
+        verify(adminRepository).existsByUserAndIsActive(user, true);
+        verify(boardRepository).findTopReadableBoardIdsByPostCount(eq(user), eq(false), any());
+        verify(boardRepository, never()).findTopPublicBoardIdsByPostCount(any());
+        verify(boardRepository, never()).findTopBoardIdsByPostCount(any());
     }
 
     @Test

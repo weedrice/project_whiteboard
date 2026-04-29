@@ -97,4 +97,51 @@ class AdminRepositoryTest {
         assertThat(result.getContent().get(0).getUser().getDisplayName()).isEqualTo("관리자2");
         assertThat(result.getContent().get(0).getBoard().getBoardName()).isEqualTo("free");
     }
+
+    @Test
+    @DisplayName("여러 활성 관리자 권한이 있어도 사용자 활성 관리자 존재 여부를 조회한다")
+    void existsByUserAndIsActive_multipleActiveRows_returnsTrue() {
+        User multiAdminUser = User.builder()
+                .loginId("multi-admin")
+                .email("multi-admin@test.com")
+                .password("password")
+                .displayName("multi-admin")
+                .build();
+        User creator = User.builder()
+                .loginId("other-creator")
+                .email("other-creator@test.com")
+                .password("password")
+                .displayName("other-creator")
+                .build();
+        entityManager.persist(multiAdminUser);
+        entityManager.persist(creator);
+
+        Board firstBoard = Board.builder()
+                .boardName("first")
+                .boardUrl("first")
+                .creator(creator)
+                .build();
+        Board secondBoard = Board.builder()
+                .boardName("second")
+                .boardUrl("second")
+                .creator(creator)
+                .build();
+        entityManager.persist(firstBoard);
+        entityManager.persist(secondBoard);
+
+        entityManager.persist(Admin.builder()
+                .user(multiAdminUser)
+                .board(firstBoard)
+                .role(Role.BOARD_ADMIN)
+                .build());
+        entityManager.persist(Admin.builder()
+                .user(multiAdminUser)
+                .board(secondBoard)
+                .role(Role.BOARD_ADMIN)
+                .build());
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(adminRepository.existsByUserAndIsActive(multiAdminUser, true)).isTrue();
+    }
 }

@@ -44,7 +44,7 @@ public class BoardAccessPolicy {
         if (Boolean.TRUE.equals(user.getIsSuperAdmin())) {
             return true;
         }
-        return adminRepository.findByUserAndIsActive(user, true).isPresent();
+        return adminRepository.existsByUserAndIsActive(user, true);
     }
 
     public boolean canReadBoard(Board board, User user) {
