@@ -343,6 +343,18 @@ class MessageServiceTest {
     }
 
     @Test
+    @DisplayName("메시지 일괄 삭제는 null 요청 목록을 INVALID_INPUT_VALUE로 거부한다")
+    void deleteMessages_nullRequest_invalidInput() {
+        assertThatThrownBy(() -> messageService.deleteMessages(1L, null))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode())
+                        .isEqualTo(ErrorCode.INVALID_INPUT_VALUE));
+
+        verify(messageRepository, never()).findByMessageIdInForUpdate(anyList());
+        verify(messageRepository, never()).deleteAll(anyList());
+    }
+
+    @Test
     @DisplayName("메시지 일괄 삭제는 요청 ID가 로드되지 않으면 NOT_FOUND로 실패한다")
     void deleteMessages_missingLoadedMessage_notFound() {
         when(messageRepository.findByMessageIdInForUpdate(List.of(1L, 2L))).thenReturn(List.of(message));

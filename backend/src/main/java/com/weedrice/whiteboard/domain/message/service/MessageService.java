@@ -121,6 +121,9 @@ public class MessageService {
 
     @Transactional
     public void deleteMessages(Long userId, List<Long> messageIds) {
+        if (messageIds == null) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
         List<Long> requestedMessageIds = messageIds.stream()
                 .filter(Objects::nonNull)
                 .distinct()

@@ -30,6 +30,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
@@ -186,6 +187,21 @@ class MessageControllerTest {
                 .andExpect(jsonPath("$.success").value(true));
 
         verify(messageService).deleteMessages(1L, messageIds);
+    }
+
+    @Test
+    @DisplayName("메시지 일괄 삭제 null body는 요청 파싱 단계에서 400으로 응답한다")
+    void deleteMessages_nullBody_returnsBadRequest() throws Exception {
+        mockMvc.perform(delete("/api/v1/messages")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("null")
+                        .with(user(customUserDetails))
+                        .with(csrf()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.error.code").value("C008"));
+
+        verifyNoInteractions(messageService);
     }
 
     @Test
