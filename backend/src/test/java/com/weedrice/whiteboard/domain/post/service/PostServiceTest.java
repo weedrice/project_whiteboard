@@ -838,26 +838,26 @@ class PostServiceTest {
         when(userBlockService.getBlockedUserIds(1L)).thenReturn(Collections.emptyList());
         when(scrapRepository.saveAndFlush(any(Scrap.class)))
                 .thenThrow(new DataIntegrityViolationException("duplicate"));
-        when(scrapRepository.existsById(any(ScrapId.class))).thenReturn(true);
 
         assertThatThrownBy(() -> postService.scrapPost(1L, 1L, "My Scrap"))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.ALREADY_SCRAPED);
+        verify(scrapRepository, never()).existsById(any(ScrapId.class));
     }
 
     @Test
-    @DisplayName("non-duplicate scrap persistence error is rethrown")
-    void scrapPost_nonDuplicateDataIntegrityViolation_isRethrown() {
-        DataIntegrityViolationException exception = new DataIntegrityViolationException("other");
-
+    @DisplayName("scrap persistence conflict is normalized without requery")
+    void scrapPost_dataIntegrityViolation_throwsAlreadyScrapedWithoutRequery() {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
         when(userBlockService.getBlockedUserIds(1L)).thenReturn(Collections.emptyList());
-        when(scrapRepository.saveAndFlush(any(Scrap.class))).thenThrow(exception);
-        when(scrapRepository.existsById(any(ScrapId.class))).thenReturn(false);
+        when(scrapRepository.saveAndFlush(any(Scrap.class)))
+                .thenThrow(new DataIntegrityViolationException("other"));
 
         assertThatThrownBy(() -> postService.scrapPost(1L, 1L, "My Scrap"))
-                .isSameAs(exception);
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.ALREADY_SCRAPED);
+        verify(scrapRepository, never()).existsById(any(ScrapId.class));
     }
 
     @Test

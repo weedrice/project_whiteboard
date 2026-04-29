@@ -196,7 +196,6 @@ public class PostInteractionService {
     public void scrapPost(@NonNull Long userId, @NonNull Long postId, String remark) {
         User user = getWritableUser(userId);
         Post post = getPostById(postId, userId, false);
-        ScrapId scrapId = new ScrapId(userId, postId);
 
         Scrap scrap = Scrap.builder()
                 .user(user)
@@ -206,10 +205,7 @@ public class PostInteractionService {
         try {
             scrapRepository.saveAndFlush(scrap);
         } catch (DataIntegrityViolationException ex) {
-            if (scrapRepository.existsById(scrapId)) {
-                throw new BusinessException(ErrorCode.ALREADY_SCRAPED);
-            }
-            throw ex;
+            throw new BusinessException(ErrorCode.ALREADY_SCRAPED);
         }
     }
 
