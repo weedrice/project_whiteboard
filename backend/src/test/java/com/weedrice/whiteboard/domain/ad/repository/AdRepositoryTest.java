@@ -66,6 +66,19 @@ class AdRepositoryTest {
 
     @Test
     @DisplayName("활성 광고 impression 집계는 만료 광고를 제외한다")
+    void findActiveByPlacement_appliesStartInclusiveAndEndExclusiveBoundary() {
+        LocalDateTime now = LocalDateTime.of(2026, 4, 29, 10, 0);
+        Ad startsNow = persistAd("TOP", now, now.plusHours(1), true);
+        Ad endsNow = persistAd("TOP", now.minusHours(1), now, true);
+
+        List<Ad> activeAds = adRepository.findActiveByPlacement("TOP", now, PageRequest.of(0, 10));
+
+        assertThat(activeAds).extracting(Ad::getAdId).containsExactly(startsNow.getAdId());
+        assertThat(activeAds).extracting(Ad::getAdId).doesNotContain(endsNow.getAdId());
+    }
+
+    @Test
+    @DisplayName("활성 광고 impression 집계는 만료 광고를 제외한다")
     void incrementImpressionCountForActive_updatesOnlyActiveAds() {
         LocalDateTime now = LocalDateTime.now();
         Ad activeAd = persistAd("TOP", now.minusDays(1), now.plusDays(1), true);

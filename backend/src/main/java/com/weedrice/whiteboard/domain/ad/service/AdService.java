@@ -14,6 +14,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
@@ -26,6 +27,7 @@ public class AdService {
     private final AdRepository adRepository;
     private final AdClickLogRepository adClickLogRepository;
     private final UserRepository userRepository;
+    private final Clock clock;
 
     public AdResponse getAdResponse(String placement) {
         Ad ad = getAd(placement);
@@ -36,7 +38,7 @@ public class AdService {
     }
 
     public Ad getAd(String placement) {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(clock);
         long activeCount = adRepository.countActiveByPlacement(placement, now);
         if (activeCount == 0) {
             return null;
@@ -55,14 +57,15 @@ public class AdService {
 
     @Transactional
     public void recordAdImpression(Long adId, Long userId, String ipAddress) {
-        if (adRepository.incrementImpressionCountForActive(adId, LocalDateTime.now()) == 0) {
+        LocalDateTime now = LocalDateTime.now(clock);
+        if (adRepository.incrementImpressionCountForActive(adId, now) == 0) {
             throw new BusinessException(ErrorCode.AD_NOT_FOUND);
         }
     }
 
     @Transactional
     public String recordAdClick(Long adId, Long userId, String ipAddress) {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(clock);
         Ad ad = adRepository.findActiveById(adId, now)
                 .orElseThrow(() -> new BusinessException(ErrorCode.AD_NOT_FOUND));
         if (adRepository.incrementClickCountForActive(adId, now) == 0) {
