@@ -23,6 +23,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.StreamSupport;
@@ -342,6 +343,28 @@ class UserSettingsServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+    }
+
+    @Test
+    @DisplayName("Bulk notification settings update fails for null request list")
+    void updateNotificationSettings_nullRequests_throwsInvalidInput() {
+        assertThatThrownBy(() -> userSettingsService.updateNotificationSettings(1L, null))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+
+        verify(userNotificationSettingsRepository, never()).saveAll(any());
+    }
+
+    @Test
+    @DisplayName("Bulk notification settings update fails for null request item")
+    void updateNotificationSettings_nullRequestItem_throwsInvalidInput() {
+        assertThatThrownBy(() -> userSettingsService.updateNotificationSettings(1L, Collections.singletonList(null)))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+
+        verify(userNotificationSettingsRepository, never()).saveAll(any());
     }
 
     @Test

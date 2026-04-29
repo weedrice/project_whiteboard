@@ -14,6 +14,7 @@ import com.weedrice.whiteboard.domain.user.service.UserBlockService;
 import com.weedrice.whiteboard.domain.user.service.UserProfileService;
 import com.weedrice.whiteboard.domain.user.service.UserSecurityService;
 import com.weedrice.whiteboard.domain.user.service.UserSettingsService;
+import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.HttpServletRequest;
@@ -38,6 +39,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
@@ -211,6 +214,21 @@ class UserControllerWebMvcTest {
                         .with(csrf()))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    @DisplayName("Bulk notification settings update request fails for null item")
+    void updateNotificationSettingsBulk_nullItem_returnsBadRequest() throws Exception {
+        mockMvc.perform(put("/api/v1/users/me/notification-settings/bulk")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"settings\":[null]}")
+                        .with(user(customUserDetails))
+                        .with(csrf()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.error.code").value(ErrorCode.VALIDATION_ERROR.getCode()));
+
+        verify(userSettingsService, never()).updateNotificationSettings(any(), anyList());
     }
 
     @Test

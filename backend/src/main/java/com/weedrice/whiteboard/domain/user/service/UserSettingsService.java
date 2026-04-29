@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -83,6 +84,7 @@ public class UserSettingsService {
         @Transactional
         public List<NotificationSettingResponse> updateNotificationSettings(Long userId,
                         List<UpdateNotificationSettingItem> requests) {
+                validateNotificationSettingRequests(requests);
                 validateUserCanWrite(userId);
                 List<NormalizedNotificationSettingRequest> normalizedRequests = normalizeNotificationSettingRequests(requests);
                 validateNoDuplicateNotificationTypes(normalizedRequests);
@@ -142,6 +144,12 @@ public class UserSettingsService {
                                                 NotificationType.normalize(request.getNotificationType()),
                                                 Boolean.TRUE.equals(request.getIsEnabled())))
                                 .toList();
+        }
+
+        private void validateNotificationSettingRequests(List<UpdateNotificationSettingItem> requests) {
+                if (requests == null || requests.stream().anyMatch(Objects::isNull)) {
+                        throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+                }
         }
 
         private void validateNoDuplicateNotificationTypes(List<NormalizedNotificationSettingRequest> requests) {
