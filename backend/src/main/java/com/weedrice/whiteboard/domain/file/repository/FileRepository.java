@@ -65,6 +65,17 @@ public interface FileRepository extends JpaRepository<File, Long> {
     @Query("""
             SELECT f
             FROM File f
+            WHERE f.fileId IN :fileIds
+              AND (f.storageStatus = :storageStatus
+                   OR (:storageStatus = com.weedrice.whiteboard.domain.file.entity.FileStorageStatus.ACTIVE
+                       AND f.storageStatus IS NULL))
+            """)
+    List<File> findByFileIdInAndStorageStatus(@Param("fileIds") List<Long> fileIds,
+            @Param("storageStatus") FileStorageStatus storageStatus);
+
+    @Query("""
+            SELECT f
+            FROM File f
             WHERE f.relatedId = :relatedId
               AND f.relatedType = :relatedType
               AND (f.storageStatus = :storageStatus

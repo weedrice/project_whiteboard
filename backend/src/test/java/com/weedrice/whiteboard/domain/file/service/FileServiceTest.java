@@ -28,6 +28,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
@@ -258,6 +259,61 @@ class FileServiceTest {
         assertThat(boardIconUrl).isEqualTo("/api/v1/files/200");
         assertThat(previousBoardIcon.getStorageStatus()).isEqualTo(FileStorageStatus.PENDING_DELETE);
         assertThat(newBoardIcon.getStorageStatus()).isEqualTo(FileStorageStatus.ACTIVE);
+    }
+
+    @Test
+    @DisplayName("게시글 첨부 파일을 한 번에 조회하고 연결한다")
+    void attachFilesToPost_bulkAssociatesFiles() {
+        User uploader = User.builder().build();
+        ReflectionTestUtils.setField(uploader, "userId", 1L);
+        File imageFile = File.builder()
+                .filePath("image.jpg")
+                .originalName("image.jpg")
+                .fileSize(4L)
+                .mimeType("image/jpeg")
+                .uploader(uploader)
+                .build();
+        ReflectionTestUtils.setField(imageFile, "fileId", 10L);
+        File draftFile = File.builder()
+                .filePath("draft.jpg")
+                .originalName("draft.jpg")
+                .fileSize(4L)
+                .mimeType("image/jpeg")
+                .uploader(uploader)
+                .relatedId(99L)
+                .relatedType(FileService.RELATED_TYPE_DRAFT_POST)
+                .build();
+        ReflectionTestUtils.setField(draftFile, "fileId", 11L);
+        when(fileRepository.findByFileIdInAndStorageStatus(List.of(10L, 11L), FileStorageStatus.ACTIVE))
+                .thenReturn(List.of(draftFile, imageFile));
+
+        fileService.attachFilesToPost(Arrays.asList(10L, 11L, 10L, null), 1L, 100L);
+
+        assertThat(imageFile.isAssociatedWith(100L, FileService.RELATED_TYPE_POST_CONTENT)).isTrue();
+        assertThat(draftFile.isAssociatedWith(100L, FileService.RELATED_TYPE_POST_CONTENT)).isTrue();
+        verify(fileRepository).findByFileIdInAndStorageStatus(List.of(10L, 11L), FileStorageStatus.ACTIVE);
+        verify(fileRepository, never()).findByFileIdAndStorageStatus(any(), any());
+    }
+
+    @Test
+    @DisplayName("첨부 파일 bulk 검증은 누락 파일을 먼저 거부한다")
+    void attachFilesToPost_missingFileThrowsNotFoundBeforeOwnerValidation() {
+        User otherUploader = User.builder().build();
+        ReflectionTestUtils.setField(otherUploader, "userId", 2L);
+        File otherFile = File.builder()
+                .filePath("other.jpg")
+                .originalName("other.jpg")
+                .fileSize(4L)
+                .mimeType("image/jpeg")
+                .uploader(otherUploader)
+                .build();
+        ReflectionTestUtils.setField(otherFile, "fileId", 11L);
+        when(fileRepository.findByFileIdInAndStorageStatus(List.of(10L, 11L), FileStorageStatus.ACTIVE))
+                .thenReturn(List.of(otherFile));
+
+        assertThatThrownBy(() -> fileService.attachFilesToPost(List.of(10L, 11L), 1L, 100L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.NOT_FOUND);
     }
 
     @Test

@@ -29,8 +29,8 @@ import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -175,16 +175,12 @@ public class FileService {
             }
         }
 
-        for (Long fileId : requestedFileIds) {
-            associateOrMoveOwnedFile(fileId, ownerUserId, draftId, RELATED_TYPE_DRAFT_POST);
-        }
+        associateOrMoveOwnedFiles(requestedFileIds, ownerUserId, draftId, RELATED_TYPE_DRAFT_POST);
     }
 
     @Transactional
     public void attachFilesToPost(List<Long> fileIds, Long ownerUserId, Long postId) {
-        for (Long fileId : normalizeFileIds(fileIds)) {
-            associateOrMoveOwnedFile(fileId, ownerUserId, postId, RELATED_TYPE_POST_CONTENT);
-        }
+        associateOrMoveOwnedFiles(normalizeFileIds(fileIds), ownerUserId, postId, RELATED_TYPE_POST_CONTENT);
     }
 
     @Transactional
@@ -202,25 +198,59 @@ public class FileService {
         if (fileIds == null || fileIds.isEmpty()) {
             return Set.of();
         }
-        return new HashSet<>(fileIds.stream()
+        return new LinkedHashSet<>(fileIds.stream()
                 .filter(Objects::nonNull)
                 .toList());
     }
 
-    private void associateOrMoveOwnedFile(Long fileId, Long ownerUserId, Long relatedId, String relatedType) {
-        File file = fileRepository.findByFileIdAndStorageStatus(fileId, FileStorageStatus.ACTIVE)
-                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
-        if (file.getUploader() == null || !ownerUserId.equals(file.getUploader().getUserId())) {
-            throw new BusinessException(ErrorCode.FORBIDDEN);
-        }
-        if (file.isAssociatedWith(relatedId, relatedType)) {
+    private void associateOrMoveOwnedFiles(Set<Long> fileIds, Long ownerUserId, Long relatedId, String relatedType) {
+        if (fileIds.isEmpty()) {
             return;
         }
-        if (file.isUnassociated() || RELATED_TYPE_DRAFT_POST.equals(file.getRelatedType())) {
-            file.updateRelatedInfo(relatedId, relatedType);
-            return;
+
+        Map<Long, File> filesById = loadActiveFilesById(fileIds);
+        for (Long fileId : fileIds) {
+            if (!filesById.containsKey(fileId)) {
+                throw new BusinessException(ErrorCode.NOT_FOUND);
+            }
         }
-        throw new BusinessException(ErrorCode.FILE_ALREADY_ASSOCIATED);
+        for (File file : filesById.values()) {
+            if (file.getUploader() == null || !ownerUserId.equals(file.getUploader().getUserId())) {
+                throw new BusinessException(ErrorCode.FORBIDDEN);
+            }
+        }
+        for (File file : filesById.values()) {
+            if (file.isAssociatedWith(relatedId, relatedType)) {
+                continue;
+            }
+            if (file.isUnassociated() || RELATED_TYPE_DRAFT_POST.equals(file.getRelatedType())) {
+                continue;
+            }
+            throw new BusinessException(ErrorCode.FILE_ALREADY_ASSOCIATED);
+        }
+        for (File file : filesById.values()) {
+            if (!file.isAssociatedWith(relatedId, relatedType)) {
+                file.updateRelatedInfo(relatedId, relatedType);
+            }
+        }
+    }
+
+    private Map<Long, File> loadActiveFilesById(Set<Long> fileIds) {
+        List<File> files = fileRepository.findByFileIdInAndStorageStatus(
+                fileIds.stream().toList(),
+                FileStorageStatus.ACTIVE);
+        Map<Long, File> loadedFilesById = new LinkedHashMap<>();
+        for (File file : files) {
+            loadedFilesById.put(file.getFileId(), file);
+        }
+        Map<Long, File> filesById = new LinkedHashMap<>();
+        for (Long fileId : fileIds) {
+            File file = loadedFilesById.get(fileId);
+            if (file != null) {
+                filesById.put(fileId, file);
+            }
+        }
+        return filesById;
     }
 
     @Transactional

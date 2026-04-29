@@ -81,6 +81,27 @@ class FileRepositoryTest {
     }
 
     @Test
+    @DisplayName("파일 ID 목록으로 active 파일을 조회한다")
+    void findByFileIdInAndStorageStatus_success() {
+        File pendingFile = File.builder()
+                .originalName("pending.jpg")
+                .filePath("path/to/pending.jpg")
+                .fileSize(512L)
+                .mimeType("image/jpeg")
+                .uploader(uploader)
+                .storageStatus(FileStorageStatus.PENDING_DELETE)
+                .build();
+        entityManager.persist(pendingFile);
+        entityManager.flush();
+
+        List<File> files = fileRepository.findByFileIdInAndStorageStatus(
+                List.of(file.getFileId(), pendingFile.getFileId()),
+                FileStorageStatus.ACTIVE);
+
+        assertThat(files).extracting(File::getFileId).containsExactly(file.getFileId());
+    }
+
+    @Test
     @DisplayName("이미지 파일이 있는 관련 ID 조회")
     void findRelatedIdsWithImages_success() {
         // given
