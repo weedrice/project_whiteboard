@@ -72,6 +72,7 @@ class HomeLandingServiceTest {
                 boardRepository,
                 commentRepository,
                 userRepository,
+                new HomeLandingCurationPolicy(),
                 clock);
     }
 

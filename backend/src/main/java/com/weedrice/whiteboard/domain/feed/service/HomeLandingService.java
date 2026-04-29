@@ -32,6 +32,7 @@ public class HomeLandingService {
     private final BoardRepository boardRepository;
     private final CommentRepository commentRepository;
     private final UserRepository userRepository;
+    private final HomeLandingCurationPolicy curationPolicy;
     private final Clock clock;
 
     public HomeLandingResponse getLanding(CustomUserDetails userDetails, String period) {
@@ -39,17 +40,13 @@ public class HomeLandingService {
         List<PostSummary> curatedPosts = getCuratedPosts(userId, period);
         List<BoardListResponse> boards = getBoards(userDetails);
         HomeLandingResponse.Stats stats = getStats();
-
-        PostSummary featuredPost = curatedPosts.isEmpty() ? null : curatedPosts.getFirst();
-        List<PostSummary> editorPicks = slice(curatedPosts, 1, 4);
-        List<PostSummary> trendingPosts = slice(curatedPosts, 4, 10);
-        List<PostSummary> liveActivity = slice(curatedPosts, 0, 6);
+        HomeLandingCurationPolicy.HomeLandingSections sections = curationPolicy.curate(curatedPosts);
 
         return HomeLandingResponse.builder()
-                .featuredPost(featuredPost)
-                .editorPicks(editorPicks)
-                .trendingPosts(trendingPosts)
-                .liveActivity(liveActivity)
+                .featuredPost(sections.featuredPost())
+                .editorPicks(sections.editorPicks())
+                .trendingPosts(sections.trendingPosts())
+                .liveActivity(sections.liveActivity())
                 .boards(boards)
                 .stats(stats)
                 .build();
@@ -106,12 +103,5 @@ public class HomeLandingService {
         return boardService.getTopBoards(userDetails).stream()
                 .limit(6)
                 .toList();
-    }
-
-    private List<PostSummary> slice(List<PostSummary> posts, int startInclusive, int endExclusive) {
-        if (posts == null || posts.isEmpty() || startInclusive >= posts.size()) {
-            return List.of();
-        }
-        return posts.subList(startInclusive, Math.min(posts.size(), endExclusive));
     }
 }
