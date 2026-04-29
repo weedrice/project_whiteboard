@@ -70,7 +70,7 @@ public class PostController {
     @GetMapping("/posts/{postId}")
     public ApiResponse<PostResponse> getPost(@PathVariable Long postId,
             @AuthenticationPrincipal CustomUserDetails userDetails,
-            @RequestParam(defaultValue = "true") boolean incrementView,
+            @RequestParam(defaultValue = "false") boolean incrementView,
             @RequestParam(defaultValue = "20") int boardListPageSize) {
         Long userId = (userDetails != null) ? userDetails.getUserId() : null;
         int normalizedBoardListPageSize = PageRequestUtils.of(0, boardListPageSize).getPageSize();

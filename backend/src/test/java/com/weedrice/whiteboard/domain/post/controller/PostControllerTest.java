@@ -275,6 +275,21 @@ class PostControllerTest {
                     .with(user(customUserDetails)))
                     .andExpect(status().isOk());
 
+            verify(postService).getPostResponse(postId, 1L, false, 20);
+        }
+
+        @Test
+        @DisplayName("단일 게시글 조회 - 조회수 증가 명시")
+        void getPost_incrementViewTrue_success() throws Exception {
+            Long postId = 1L;
+            PostResponse postResponse = PostResponse.builder().postId(postId).title("Title").build();
+            when(postService.getPostResponse(eq(postId), eq(1L), eq(true), eq(20))).thenReturn(postResponse);
+
+            mockMvc.perform(get("/api/v1/posts/{postId}", postId)
+                    .param("incrementView", "true")
+                    .with(user(customUserDetails)))
+                    .andExpect(status().isOk());
+
             verify(postService).getPostResponse(postId, 1L, true, 20);
         }
 
@@ -310,14 +325,14 @@ class PostControllerTest {
         void getPost_clampsLargeBoardListPageSize() throws Exception {
             Long postId = 1L;
             PostResponse postResponse = PostResponse.builder().postId(postId).title("Title").build();
-            when(postService.getPostResponse(eq(postId), eq(1L), eq(true), eq(100))).thenReturn(postResponse);
+            when(postService.getPostResponse(eq(postId), eq(1L), eq(false), eq(100))).thenReturn(postResponse);
 
             mockMvc.perform(get("/api/v1/posts/{postId}", postId)
                     .param("boardListPageSize", "1000")
                     .with(user(customUserDetails)))
                     .andExpect(status().isOk());
 
-            verify(postService).getPostResponse(postId, 1L, true, 100);
+            verify(postService).getPostResponse(postId, 1L, false, 100);
         }
 
         @Test
