@@ -212,7 +212,8 @@ class PostServiceTest {
                 boardAccessPolicy,
                 postAuthorCommandPolicy,
                 postCommandService,
-                postLatestReadService);
+                postLatestReadService,
+                adminRepository);
 
         // GlobalConfigService 기본 mock 설정 - lenient()로 설정하여 일부 테스트에서 사용되지 않아도 허용
         lenient().when(globalConfigService.getConfig(anyString())).thenReturn("50");
@@ -2332,5 +2333,155 @@ class PostServiceTest {
         assertThatThrownBy(() -> postService.updateViewHistory(1L, 1L, request))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("Feed summary lookup uses one bulk admin query for restricted posts")
+    void getPostSummariesByIds_restrictedPosts_usesBulkAdminContext() {
+        User author = createUser(2L, "author");
+        Board adminBoard = createBoard(10L, "admin-board", author, false, false);
+        Board privateBoard = createBoard(20L, "private-board", author, false, false);
+        Post adminPost = createPost(100L, adminBoard, author, true);
+        Post privatePost = createPost(200L, privateBoard, author, true);
+        Admin admin = Admin.builder().user(user).board(adminBoard).role("MANAGER").build();
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userBlockService.getBlockedUserIds(1L)).thenReturn(Collections.emptyList());
+        when(postRepository.findByPostIdInAndIsDeletedFalse(List.of(100L, 200L)))
+                .thenReturn(List.of(adminPost, privatePost));
+        when(adminRepository.findByUserAndBoard_BoardIdInAndIsActive(user, List.of(10L, 20L), true))
+                .thenReturn(List.of(admin));
+        stubSummaryInteractions(user, List.of(adminPost));
+
+        Map<Long, PostSummary> summaries = postService.getPostSummariesByIds(List.of(100L, 200L), 1L);
+
+        assertThat(summaries.keySet()).containsExactly(100L);
+        verify(adminRepository).findByUserAndBoard_BoardIdInAndIsActive(user, List.of(10L, 20L), true);
+        verify(adminRepository, never()).existsByUserAndBoardAndIsActive(
+                any(User.class), any(Board.class), anyBoolean());
+    }
+
+    @Test
+    @DisplayName("Feed summary lookup allows board creator without admin lookup")
+    void getPostSummariesByIds_boardCreatorUsesInMemoryAccess() {
+        Board creatorBoard = createBoard(10L, "creator-board", user, false, false);
+        Post creatorPost = createPost(100L, creatorBoard, createUser(2L, "author"), true);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userBlockService.getBlockedUserIds(1L)).thenReturn(Collections.emptyList());
+        when(postRepository.findByPostIdInAndIsDeletedFalse(List.of(100L))).thenReturn(List.of(creatorPost));
+        stubSummaryInteractions(user, List.of(creatorPost));
+
+        Map<Long, PostSummary> summaries = postService.getPostSummariesByIds(List.of(100L), 1L);
+
+        assertThat(summaries.keySet()).containsExactly(100L);
+        verify(adminRepository, never()).findByUserAndBoard_BoardIdInAndIsActive(
+                any(User.class), anyCollection(), anyBoolean());
+        verify(adminRepository, never()).existsByUserAndBoardAndIsActive(
+                any(User.class), any(Board.class), anyBoolean());
+    }
+
+    @Test
+    @DisplayName("Feed summary lookup allows super admin without admin lookup")
+    void getPostSummariesByIds_superAdminUsesInMemoryAccess() {
+        User superAdmin = createUser(3L, "super-admin");
+        ReflectionTestUtils.setField(superAdmin, "isSuperAdmin", true);
+        Board privateBoard = createBoard(10L, "private-board", createUser(2L, "author"), false, false);
+        Post privatePost = createPost(100L, privateBoard, privateBoard.getCreator(), true);
+
+        when(userRepository.findById(3L)).thenReturn(Optional.of(superAdmin));
+        when(userBlockService.getBlockedUserIds(3L)).thenReturn(Collections.emptyList());
+        when(postRepository.findByPostIdInAndIsDeletedFalse(List.of(100L))).thenReturn(List.of(privatePost));
+        stubSummaryInteractions(superAdmin, List.of(privatePost));
+
+        Map<Long, PostSummary> summaries = postService.getPostSummariesByIds(List.of(100L), 3L);
+
+        assertThat(summaries.keySet()).containsExactly(100L);
+        verify(adminRepository, never()).findByUserAndBoard_BoardIdInAndIsActive(
+                any(User.class), anyCollection(), anyBoolean());
+        verify(adminRepository, never()).existsByUserAndBoardAndIsActive(
+                any(User.class), any(Board.class), anyBoolean());
+    }
+
+    @Test
+    @DisplayName("Feed summary lookup filters blocked authors")
+    void getPostSummariesByIds_blockedAuthorExcluded() {
+        User author = createUser(2L, "blocked-author");
+        Board publicBoard = createBoard(10L, "free", author, true, true);
+        Post blockedPost = createPost(100L, publicBoard, author, false);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userBlockService.getBlockedUserIds(1L)).thenReturn(List.of(2L));
+        when(postRepository.findByPostIdInAndIsDeletedFalse(List.of(100L))).thenReturn(List.of(blockedPost));
+
+        Map<Long, PostSummary> summaries = postService.getPostSummariesByIds(List.of(100L), 1L);
+
+        assertThat(summaries).isEmpty();
+        verify(postLikeRepository, never()).findByUserAndPostIn(any(), any());
+        verify(adminRepository, never()).findByUserAndBoard_BoardIdInAndIsActive(
+                any(User.class), anyCollection(), anyBoolean());
+        verify(adminRepository, never()).existsByUserAndBoardAndIsActive(
+                any(User.class), any(Board.class), anyBoolean());
+    }
+
+    @Test
+    @DisplayName("Feed summary lookup skips admin lookup for public non-secret posts")
+    void getPostSummariesByIds_publicPostsSkipAdminLookup() {
+        User author = createUser(2L, "author");
+        Board publicBoard = createBoard(10L, "free", author, true, true);
+        Post publicPost = createPost(100L, publicBoard, author, false);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userBlockService.getBlockedUserIds(1L)).thenReturn(Collections.emptyList());
+        when(postRepository.findByPostIdInAndIsDeletedFalse(List.of(100L))).thenReturn(List.of(publicPost));
+        stubSummaryInteractions(user, List.of(publicPost));
+
+        Map<Long, PostSummary> summaries = postService.getPostSummariesByIds(List.of(100L), 1L);
+
+        assertThat(summaries.keySet()).containsExactly(100L);
+        verify(adminRepository, never()).findByUserAndBoard_BoardIdInAndIsActive(
+                any(User.class), anyCollection(), anyBoolean());
+        verify(adminRepository, never()).existsByUserAndBoardAndIsActive(
+                any(User.class), any(Board.class), anyBoolean());
+    }
+
+    private User createUser(Long userId, String loginId) {
+        User createdUser = User.builder()
+                .loginId(loginId)
+                .displayName(loginId)
+                .build();
+        ReflectionTestUtils.setField(createdUser, "userId", userId);
+        return createdUser;
+    }
+
+    private Board createBoard(Long boardId, String boardUrl, User creator, boolean isActive, boolean isPublic) {
+        Board createdBoard = Board.builder()
+                .boardName(boardUrl)
+                .boardUrl(boardUrl)
+                .creator(creator)
+                .isPublic(isPublic)
+                .build();
+        ReflectionTestUtils.setField(createdBoard, "boardId", boardId);
+        ReflectionTestUtils.setField(createdBoard, "isActive", isActive);
+        return createdBoard;
+    }
+
+    private Post createPost(Long postId, Board board, User author, boolean isSecret) {
+        Post createdPost = Post.builder()
+                .title("Post " + postId)
+                .contents("Contents " + postId)
+                .user(author)
+                .board(board)
+                .isSecret(isSecret)
+                .build();
+        ReflectionTestUtils.setField(createdPost, "postId", postId);
+        return createdPost;
+    }
+
+    private void stubSummaryInteractions(User viewer, List<Post> posts) {
+        when(postLikeRepository.findByUserAndPostIn(viewer, posts)).thenReturn(Collections.emptyList());
+        when(scrapRepository.findByUserAndPostIn(viewer, posts)).thenReturn(Collections.emptyList());
+        when(boardSubscriptionRepository.findByUserAndBoardIn(eq(viewer), anyList()))
+                .thenReturn(Collections.emptyList());
     }
 }

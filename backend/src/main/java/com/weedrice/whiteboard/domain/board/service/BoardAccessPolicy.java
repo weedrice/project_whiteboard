@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.util.Objects;
+import java.util.Set;
 
 @Component
 @RequiredArgsConstructor
@@ -28,13 +29,28 @@ public class BoardAccessPolicy {
         if (board == null || user == null) {
             return false;
         }
-        if (Boolean.TRUE.equals(user.getIsSuperAdmin())) {
-            return true;
-        }
-        if (board.getCreator() != null && Objects.equals(board.getCreator().getUserId(), user.getUserId())) {
+        if (hasStaticBoardAdminAccess(board, user)) {
             return true;
         }
         return adminRepository.existsByUserAndBoardAndIsActive(user, board, true);
+    }
+
+    public boolean hasBoardAdminAccess(Board board, User user, Set<Long> activeAdminBoardIds) {
+        if (board == null || user == null) {
+            return false;
+        }
+        if (hasStaticBoardAdminAccess(board, user)) {
+            return true;
+        }
+        if (activeAdminBoardIds == null) {
+            return hasBoardAdminAccess(board, user);
+        }
+        return activeAdminBoardIds.contains(board.getBoardId());
+    }
+
+    private boolean hasStaticBoardAdminAccess(Board board, User user) {
+        return Boolean.TRUE.equals(user.getIsSuperAdmin())
+                || (board.getCreator() != null && Objects.equals(board.getCreator().getUserId(), user.getUserId()));
     }
 
     public boolean hasElevatedBoardVisibility(User user) {

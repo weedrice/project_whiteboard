@@ -1,8 +1,10 @@
 package com.weedrice.whiteboard.domain.post.service;
 
-import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
+import com.weedrice.whiteboard.domain.admin.entity.Admin;
+import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
+import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
 import com.weedrice.whiteboard.domain.file.service.FileService;
 import com.weedrice.whiteboard.domain.post.dto.DraftListResponse;
 import com.weedrice.whiteboard.domain.post.dto.DraftResponse;
@@ -62,6 +64,7 @@ public class PostService {
     private final PostAuthorCommandPolicy postAuthorCommandPolicy;
     private final PostCommandService postCommandService;
     private final PostLatestReadService postLatestReadService;
+    private final AdminRepository adminRepository;
 
     public Page<PostSummary> getPosts(String boardUrl, Long categoryId, String keyword, Integer minLikes, Long currentUserId,
             @NonNull Pageable pageable) {
@@ -463,9 +466,11 @@ public class PostService {
         User viewer = resolveViewer(currentUserId);
         Set<Long> blockedUserIds = resolveBlockedUserIds(currentUserId);
         List<Long> distinctPostIds = postIds.stream().distinct().toList();
+        List<Post> posts = postRepository.findByPostIdInAndIsDeletedFalse(distinctPostIds);
+        Set<Long> activeAdminBoardIds = resolveActiveAdminBoardIds(viewer, posts);
 
-        Map<Long, Post> postsById = postRepository.findByPostIdInAndIsDeletedFalse(distinctPostIds).stream()
-                .filter(post -> canReadPostSummary(post, viewer, blockedUserIds))
+        Map<Long, Post> postsById = posts.stream()
+                .filter(post -> canReadPostSummary(post, viewer, blockedUserIds, activeAdminBoardIds))
                 .collect(Collectors.toMap(Post::getPostId, post -> post));
 
         List<Post> orderedPosts = postIds.stream()
@@ -501,10 +506,45 @@ public class PostService {
         return new HashSet<>(blockedUserIds);
     }
 
-    private boolean canReadPostSummary(Post post, User viewer, Set<Long> blockedUserIds) {
+    private Set<Long> resolveActiveAdminBoardIds(User viewer, List<Post> posts) {
+        if (viewer == null || posts == null || posts.isEmpty() || Boolean.TRUE.equals(viewer.getIsSuperAdmin())) {
+            return Collections.emptySet();
+        }
+
+        List<Long> boardIds = posts.stream()
+                .filter(this::requiresAdminAccessForSummary)
+                .map(Post::getBoard)
+                .filter(Objects::nonNull)
+                .filter(board -> board.getCreator() == null
+                        || !Objects.equals(board.getCreator().getUserId(), viewer.getUserId()))
+                .map(Board::getBoardId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        if (boardIds.isEmpty()) {
+            return Collections.emptySet();
+        }
+
+        return adminRepository.findByUserAndBoard_BoardIdInAndIsActive(viewer, boardIds, true).stream()
+                .map(Admin::getBoard)
+                .filter(Objects::nonNull)
+                .map(Board::getBoardId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+    }
+
+    private boolean requiresAdminAccessForSummary(Post post) {
+        Board board = post.getBoard();
+        return board != null
+                && (!Boolean.TRUE.equals(board.getIsActive())
+                || !Boolean.TRUE.equals(board.getIsPublic())
+                || Boolean.TRUE.equals(post.getIsSecret()));
+    }
+
+    private boolean canReadPostSummary(Post post, User viewer, Set<Long> blockedUserIds, Set<Long> activeAdminBoardIds) {
         boolean authorBlocked = viewer != null && blockedUserIds.contains(post.getUser().getUserId());
         try {
-            postAccessPolicy.validateReadable(post, viewer, authorBlocked);
+            postAccessPolicy.validateReadable(post, viewer, authorBlocked, activeAdminBoardIds);
             return true;
         } catch (BusinessException ex) {
             if (ErrorCode.POST_NOT_FOUND.equals(ex.getErrorCode())) {

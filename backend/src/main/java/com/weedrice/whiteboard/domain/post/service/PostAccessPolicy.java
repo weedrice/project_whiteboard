@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.util.Objects;
+import java.util.Set;
 
 @Component
 @RequiredArgsConstructor
@@ -22,6 +23,10 @@ public class PostAccessPolicy {
     }
 
     public void validateReadable(Post post, User viewer, boolean authorBlocked) {
+        validateReadable(post, viewer, authorBlocked, null);
+    }
+
+    void validateReadable(Post post, User viewer, boolean authorBlocked, Set<Long> activeAdminBoardIds) {
         if (post == null || Boolean.TRUE.equals(post.getIsDeleted()) || authorBlocked) {
             throw new BusinessException(ErrorCode.POST_NOT_FOUND);
         }
@@ -30,18 +35,21 @@ public class PostAccessPolicy {
         boolean isAuthor = viewer != null && Objects.equals(post.getUser().getUserId(), viewer.getUserId());
 
         if (!Boolean.TRUE.equals(board.getIsActive())
-                && (viewer == null || (!boardAccessPolicy.hasBoardAdminAccess(board, viewer) && !isAuthor))) {
+                && (viewer == null
+                || (!boardAccessPolicy.hasBoardAdminAccess(board, viewer, activeAdminBoardIds) && !isAuthor))) {
             throw new BusinessException(ErrorCode.POST_NOT_FOUND);
         }
 
         if (!Boolean.TRUE.equals(board.getIsPublic())) {
             boolean canReadInquiryAsAuthor = boardAccessPolicy.isInquiryBoard(board) && isAuthor;
-            if (!boardAccessPolicy.hasBoardAdminAccess(board, viewer) && !canReadInquiryAsAuthor) {
+            if (!boardAccessPolicy.hasBoardAdminAccess(board, viewer, activeAdminBoardIds) && !canReadInquiryAsAuthor) {
                 throw new BusinessException(ErrorCode.POST_NOT_FOUND);
             }
         }
 
-        if (Boolean.TRUE.equals(post.getIsSecret()) && !boardAccessPolicy.hasBoardAdminAccess(board, viewer) && !isAuthor) {
+        if (Boolean.TRUE.equals(post.getIsSecret())
+                && !boardAccessPolicy.hasBoardAdminAccess(board, viewer, activeAdminBoardIds)
+                && !isAuthor) {
             throw new BusinessException(ErrorCode.POST_NOT_FOUND);
         }
     }
