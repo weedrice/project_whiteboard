@@ -116,13 +116,43 @@ class PostRepositoryTest {
 
     @Test
     @DisplayName("게시판별 공지사항 조회 성공")
-    void findByBoardAndIsNotice_success() {
+    void findByBoardAndIsNotice_fetchesSummaryRelations() {
+        Agent agent = Agent.builder()
+                .user(user)
+                .agentTokenHash("notice-agent-token")
+                .name("Notice Agent")
+                .description("Notice agent")
+                .status(Agent.STATUS_ACTIVE)
+                .build();
+        entityManager.persist(agent);
+        Post notice = Post.builder()
+                .title("Notice Post")
+                .contents("Notice Contents")
+                .user(user)
+                .agent(agent)
+                .board(board)
+                .category(category)
+                .isNotice(true)
+                .build();
+        entityManager.persist(notice);
+        entityManager.flush();
+        entityManager.clear();
+
         // when
         List<Post> notices = postRepository.findByBoard_BoardIdAndIsNoticeAndIsDeletedOrderByCreatedAtDesc(
                 board.getBoardId(), true, false);
 
         // then
-        assertThat(notices).isNotNull();
+        assertThat(notices).extracting(Post::getPostId).contains(notice.getPostId());
+        Post loadedNotice = notices.stream()
+                .filter(result -> result.getPostId().equals(notice.getPostId()))
+                .findFirst()
+                .orElseThrow();
+        PersistenceUnitUtil persistenceUnitUtil = entityManagerFactory.getPersistenceUnitUtil();
+        assertThat(persistenceUnitUtil.isLoaded(loadedNotice, "user")).isTrue();
+        assertThat(persistenceUnitUtil.isLoaded(loadedNotice, "agent")).isTrue();
+        assertThat(persistenceUnitUtil.isLoaded(loadedNotice, "board")).isTrue();
+        assertThat(persistenceUnitUtil.isLoaded(loadedNotice, "category")).isTrue();
     }
 
     @Test

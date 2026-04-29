@@ -51,6 +51,7 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
                 WHERE p.isDeleted = false
                 """)
         long countVisiblePostsForAdminDashboard();
+        @EntityGraph(attributePaths = {"user", "agent", "board", "category"})
         List<Post> findByBoard_BoardIdAndIsNoticeAndIsDeletedOrderByCreatedAtDesc(Long boardId, Boolean isNotice, Boolean isDeleted);
         @EntityGraph(attributePaths = {"user", "board", "category"})
         Page<Post> findByBoard_BoardId(Long boardId, Pageable pageable);
