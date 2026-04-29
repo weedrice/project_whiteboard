@@ -1,9 +1,9 @@
 package com.weedrice.whiteboard.domain.search.service;
 
-import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.board.dto.BoardSummary;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
+import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
 import com.weedrice.whiteboard.domain.comment.dto.CommentResponse;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.post.entity.Post;
@@ -61,9 +61,9 @@ public class SearchService {
     private final PostRepository postRepository;
     private final CommentRepository commentRepository;
     private final BoardRepository boardRepository;
-    private final AdminRepository adminRepository;
     private final UserBlockService userBlockService;
     private final PostSummaryAssembler postSummaryAssembler;
+    private final BoardAccessPolicy boardAccessPolicy;
 
     @Transactional
     public void recordSearch(Long userId, String keyword, LocalDate searchDate) {
@@ -119,10 +119,10 @@ public class SearchService {
                 currentUser = userRepository.findById(currentUserId)
                         .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
             }
-            if ((!board.getIsActive() || !board.getIsPublic()) && !hasBoardAdminAccess(board, currentUser)) {
+            if (!boardAccessPolicy.canReadBoard(board, currentUser)) {
                 throw new BusinessException(ErrorCode.BOARD_NOT_FOUND);
             }
-            includeSecret = hasBoardAdminAccess(board, currentUser);
+            includeSecret = boardAccessPolicy.canViewSecretPosts(board, currentUser);
         }
 
         List<Long> blockedUserIds = null;
@@ -196,19 +196,6 @@ public class SearchService {
             case "DAILY", "WEEKLY", "MONTHLY" -> normalizedPeriod;
             default -> throw new BusinessException(ErrorCode.VALIDATION_ERROR);
         };
-    }
-
-    private boolean hasBoardAdminAccess(Board board, User user) {
-        if (board == null || user == null) {
-            return false;
-        }
-        if (user.getIsSuperAdmin()) {
-            return true;
-        }
-        if (board.getCreator().getUserId().equals(user.getUserId())) {
-            return true;
-        }
-        return adminRepository.existsByUserAndBoardAndIsActive(user, board, true);
     }
 
     private Pageable normalizePostSearchPageable(Pageable pageable) {
