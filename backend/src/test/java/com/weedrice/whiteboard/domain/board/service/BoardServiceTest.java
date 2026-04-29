@@ -292,6 +292,81 @@ class BoardServiceTest {
     }
 
     @Test
+    @DisplayName("게시판 관리자 이관은 잠금 조회한 게시판으로 권한 검증 후 위임한다")
+    void transferBoardManager_usesLockedBoardLookup() {
+        User nextManager = User.builder()
+                .loginId("nextmanager")
+                .password("password")
+                .email("next@test.com")
+                .displayName("Next Manager")
+                .build();
+        ReflectionTestUtils.setField(nextManager, "userId", 2L);
+
+        when(boardRepository.findByBoardUrlForUpdate("test-board")).thenReturn(Optional.of(board));
+        when(adminRepository.findByUserAndBoardAndIsActive(user, board, true)).thenReturn(Optional.empty());
+        when(adminEligibleUserService.getActiveUserByLoginId("nextmanager")).thenReturn(nextManager);
+
+        authenticateUser();
+        try {
+            boardService.transferBoardManager("test-board", "nextmanager", null);
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
+
+        verify(boardRepository).findByBoardUrlForUpdate("test-board");
+        verify(boardRepository, never()).findByBoardUrl("test-board");
+        verify(boardManagerAssignmentService).assignBoardManager(board, nextManager);
+    }
+
+    @Test
+    @DisplayName("게시판 관리자 이관은 권한이 없으면 대상 사용자 조회와 배정을 하지 않는다")
+    void transferBoardManager_forbiddenSkipsManagerAssignment() {
+        User otherUser = User.builder()
+                .loginId("other")
+                .password("password")
+                .email("other@test.com")
+                .displayName("Other")
+                .build();
+        ReflectionTestUtils.setField(otherUser, "userId", 99L);
+
+        when(boardRepository.findByBoardUrlForUpdate("test-board")).thenReturn(Optional.of(board));
+        when(userRepository.findById(99L)).thenReturn(Optional.of(otherUser));
+        when(adminRepository.findByUserAndBoardAndIsActive(otherUser, board, true)).thenReturn(Optional.empty());
+        CustomUserDetails principal = new CustomUserDetails(99L, otherUser.getLoginId(), "password", Collections.emptyList());
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities()));
+
+        BusinessException exception;
+        try {
+            exception = assertThrows(BusinessException.class,
+                    () -> boardService.transferBoardManager("test-board", "nextmanager", null));
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
+
+        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.FORBIDDEN);
+        verify(boardRepository).findByBoardUrlForUpdate("test-board");
+        verify(boardRepository, never()).findByBoardUrl("test-board");
+        verify(adminEligibleUserService, never()).getActiveUserByLoginId(anyString());
+        verify(boardManagerAssignmentService, never()).assignBoardManager(any(), any());
+    }
+
+    @Test
+    @DisplayName("게시판 관리자 이관은 잠금 조회에서 게시판이 없으면 BOARD_NOT_FOUND를 던진다")
+    void transferBoardManager_lockedBoardNotFound() {
+        when(boardRepository.findByBoardUrlForUpdate("missing-board")).thenReturn(Optional.empty());
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> boardService.transferBoardManager("missing-board", "nextmanager", null));
+
+        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.BOARD_NOT_FOUND);
+        verify(boardRepository).findByBoardUrlForUpdate("missing-board");
+        verify(boardRepository, never()).findByBoardUrl("missing-board");
+        verify(adminEligibleUserService, never()).getActiveUserByLoginId(anyString());
+        verify(boardManagerAssignmentService, never()).assignBoardManager(any(), any());
+    }
+
+    @Test
     @DisplayName("게시판 생성 성공")
     void createBoard_success() {
         // given

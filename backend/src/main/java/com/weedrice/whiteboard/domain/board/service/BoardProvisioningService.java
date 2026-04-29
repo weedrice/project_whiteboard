@@ -201,7 +201,7 @@ class BoardProvisioningService {
     }
 
     void transferBoardManager(String boardUrl, String loginId, UserDetails userDetails) {
-        Board board = boardRepository.findByBoardUrl(boardUrl)
+        Board board = boardRepository.findByBoardUrlForUpdate(boardUrl)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
 
         SecurityUtils.validateBoardAdminPermission(board);
