@@ -57,8 +57,10 @@ public class PostDetailReadService {
         List<String> imageUrls = getPostImageUrls(postId);
         boolean isAdmin = isBoardAdmin(userId, post.getBoard().getBoardId());
         int boardListPage = resolveDefaultBoardListPage(post, userId);
+        Integer viewCount = incrementView ? postRepository.findViewCountByPostId(postId) : null;
 
-        return PostResponse.from(post, tags, viewHistory, isLiked, isScrapped, imageUrls, isAdmin, boardListPage);
+        return PostResponse.from(post, tags, viewHistory, isLiked, isScrapped, imageUrls, isAdmin, boardListPage,
+                viewCount);
     }
 
     private Post getPostById(@NonNull Long postId, Long userId, boolean incrementView) {
@@ -66,7 +68,7 @@ public class PostDetailReadService {
         Post post = getReadablePost(postId, viewer);
 
         if (incrementView) {
-            post.incrementViewCount();
+            postRepository.incrementViewCount(postId);
 
             if (viewer != null) {
                 ViewHistory viewHistory = getOrCreateViewHistory(viewer, post);

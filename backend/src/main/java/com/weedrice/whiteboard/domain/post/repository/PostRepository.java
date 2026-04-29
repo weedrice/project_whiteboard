@@ -84,6 +84,18 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
         Integer findLikeCountByPostId(Long postId);
 
         @Modifying(flushAutomatically = true)
+        @Query("""
+                UPDATE Post p
+                SET p.viewCount = p.viewCount + 1,
+                    p.modifiedAt = CURRENT_TIMESTAMP
+                WHERE p.postId = :postId
+                """)
+        int incrementViewCount(@Param("postId") Long postId);
+
+        @Query("SELECT p.viewCount FROM Post p WHERE p.postId = :postId")
+        Integer findViewCountByPostId(@Param("postId") Long postId);
+
+        @Modifying(flushAutomatically = true)
         @Query("UPDATE Post p SET p.commentCount = p.commentCount + 1 WHERE p.postId = :postId")
         int incrementCommentCount(Long postId);
 

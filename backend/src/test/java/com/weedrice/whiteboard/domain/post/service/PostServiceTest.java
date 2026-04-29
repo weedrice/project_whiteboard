@@ -31,6 +31,7 @@ import com.weedrice.whiteboard.domain.user.service.UserBlockService;
 import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -101,6 +102,8 @@ class PostServiceTest {
     private AgentOwnershipService agentOwnershipService;
     @Mock
     private SanctionService sanctionService;
+    @Mock
+    private EntityManager entityManager;
     private BoardAccessPolicy boardAccessPolicy;
     private PostAccessPolicy postAccessPolicy;
     private PostSummaryAssembler postSummaryAssembler;
@@ -161,7 +164,8 @@ class PostServiceTest {
                 postSummaryAssembler,
                 postDetailReadService,
                 postAccessPolicy,
-                boardAccessPolicy);
+                boardAccessPolicy,
+                entityManager);
 
         // GlobalConfigService 기본 mock 설정 - lenient()로 설정하여 일부 테스트에서 사용되지 않아도 허용
         lenient().when(globalConfigService.getConfig(anyString())).thenReturn("50");
@@ -376,7 +380,8 @@ class PostServiceTest {
         Post result = postService.getPostById(1L, 1L);
 
         assertThat(result).isEqualTo(post);
-        assertThat(result.getViewCount()).isEqualTo(1); // incremented
+        verify(postRepository).incrementViewCount(1L);
+        verify(entityManager).refresh(post);
         verify(viewHistoryRepository).saveAndFlush(any(ViewHistory.class));
     }
 
@@ -1235,11 +1240,13 @@ class PostServiceTest {
         lenient().when(postRepository.countPostsBeforeInBoardDefaultOrder(
                 eq(1L), nullable(LocalDateTime.class), eq(1L), eq(Collections.emptyList()), anyBoolean(), eq(1L)))
                 .thenReturn(45L);
+        lenient().when(postRepository.findViewCountByPostId(1L)).thenReturn(1);
 
         PostResponse response = postService.getPostResponse(1L, 1L);
 
         assertThat(response).isNotNull();
         assertThat(response.getTitle()).isEqualTo("Test Post");
+        assertThat(response.getViewCount()).isEqualTo(1);
         assertThat(response.getBoardListPage()).isEqualTo(2);
     }
 
@@ -1258,6 +1265,8 @@ class PostServiceTest {
 
         postService.getPostResponse(1L, 1L, false);
 
+        verify(postRepository, never()).incrementViewCount(anyLong());
+        verify(postRepository, never()).findViewCountByPostId(anyLong());
         verify(viewHistoryRepository, never()).saveAndFlush(any(ViewHistory.class));
         assertThat(post.getViewCount()).isEqualTo(0);
     }
@@ -1305,7 +1314,7 @@ class PostServiceTest {
 
         postService.incrementViewCount(1L);
 
-        assertThat(post.getViewCount()).isEqualTo(1);
+        verify(postRepository).incrementViewCount(1L);
     }
 
     // --- Draft Posts ---
@@ -1937,7 +1946,7 @@ class PostServiceTest {
 
         postService.incrementViewCount(1L, null);
 
-        assertThat(post.getViewCount()).isEqualTo(1);
+        verify(postRepository).incrementViewCount(1L);
     }
 
     @Test
@@ -1950,6 +1959,7 @@ class PostServiceTest {
         assertThatThrownBy(() -> postService.incrementViewCount(1L, 1L))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
+        verify(postRepository, never()).incrementViewCount(anyLong());
     }
 
     @Test

@@ -80,6 +80,12 @@ public class PostResponse {
 
     public static PostResponse from(Post post, List<String> tags, ViewHistory viewHistory, boolean isLiked,
             boolean isScrapped, List<String> imageUrls, boolean isAdmin, Integer boardListPage) {
+        return from(post, tags, viewHistory, isLiked, isScrapped, imageUrls, isAdmin, boardListPage, null);
+    }
+
+    public static PostResponse from(Post post, List<String> tags, ViewHistory viewHistory, boolean isLiked,
+            boolean isScrapped, List<String> imageUrls, boolean isAdmin, Integer boardListPage,
+            Integer viewCountOverride) {
         AuthorInfo authorInfo = AuthorInfo.builder()
                 .userId(post.getUser().getUserId())
                 .agentId(post.getAgent() != null ? post.getAgent().getAgentId() : null)
@@ -113,7 +119,7 @@ public class PostResponse {
                 .board(boardInfo)
                 .category(categoryInfo)
                 .tags(tags)
-                .viewCount(post.getViewCount())
+                .viewCount(viewCountOverride != null ? viewCountOverride : post.getViewCount())
                 .likeCount(post.getLikeCount())
                 .commentCount(post.getCommentCount())
                 .isNotice(post.getIsNotice())

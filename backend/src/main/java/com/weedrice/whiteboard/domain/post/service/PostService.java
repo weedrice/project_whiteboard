@@ -40,6 +40,7 @@ import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.util.InputSanitizer;
+import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.*;
@@ -91,6 +92,7 @@ public class PostService {
     private final PostDetailReadService postDetailReadService;
     private final PostAccessPolicy postAccessPolicy;
     private final BoardAccessPolicy boardAccessPolicy;
+    private final EntityManager entityManager;
 
     public Page<PostSummary> getPosts(String boardUrl, Long categoryId, String keyword, Integer minLikes, Long currentUserId,
             @NonNull Pageable pageable) {
@@ -255,7 +257,8 @@ public class PostService {
         Post post = getReadablePost(postId, viewer);
 
         if (incrementView) {
-            post.incrementViewCount();
+            postRepository.incrementViewCount(postId);
+            entityManager.refresh(post);
 
             if (viewer != null) {
                 ViewHistory viewHistory = getOrCreateViewHistory(viewer, post);
@@ -335,7 +338,7 @@ public class PostService {
     @Transactional
     public void incrementViewCount(@NonNull Long postId, Long userId) {
         Post post = getReadablePost(postId, getViewer(userId));
-        post.incrementViewCount();
+        postRepository.incrementViewCount(post.getPostId());
     }
 
     private ViewHistory getOrCreateViewHistory(User user, Post post) {

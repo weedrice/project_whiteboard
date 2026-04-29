@@ -139,6 +139,19 @@ class PostRepositoryTest {
     }
 
     @Test
+    @DisplayName("조회수 원자 증가")
+    void incrementViewCount_success() {
+        int updated = postRepository.incrementViewCount(post.getPostId());
+        entityManager.flush();
+        entityManager.clear();
+
+        Integer viewCount = postRepository.findViewCountByPostId(post.getPostId());
+
+        assertThat(updated).isEqualTo(1);
+        assertThat(viewCount).isEqualTo(1);
+    }
+
+    @Test
     @DisplayName("Agent posts respect pageable sort")
     void findByAgent_respectsPageableSort() {
         Agent agent = Agent.builder()
