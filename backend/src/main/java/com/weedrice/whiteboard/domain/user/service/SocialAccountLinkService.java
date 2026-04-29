@@ -6,7 +6,6 @@ import com.weedrice.whiteboard.domain.user.repository.SocialAccountRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,15 +38,13 @@ public class SocialAccountLinkService {
             throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE);
         }
 
-        try {
-            return socialAccountRepository.saveAndFlush(SocialAccount.builder()
-                    .user(user)
-                    .provider(provider)
-                    .providerId(providerId)
-                    .build());
-        } catch (DataIntegrityViolationException exception) {
+        int inserted = socialAccountRepository.insertSocialAccountIfAbsent(user.getUserId(), provider, providerId);
+        if (inserted == 0) {
             return resolveDuplicateLink(user, provider, providerId);
         }
+
+        return socialAccountRepository.findByProviderAndProviderId(provider, providerId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.DUPLICATE_RESOURCE));
     }
 
     private SocialAccount resolveDuplicateLink(User user, String provider, String providerId) {

@@ -12,14 +12,14 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -56,7 +56,7 @@ class SocialAccountLinkServiceTest {
     }
 
     @Test
-    @DisplayName("같은 사용자의 동일 외부 계정 링크는 기존 row를 재사용한다")
+    @DisplayName("Same user's existing provider link is reused")
     void linkSocialAccount_reusesExistingProviderLink() {
         SocialAccount existingLink = SocialAccount.builder()
                 .user(user)
@@ -70,11 +70,11 @@ class SocialAccountLinkServiceTest {
         SocialAccount linkedAccount = socialAccountLinkService.linkSocialAccount(user, "google", "google-user-1");
 
         assertThat(linkedAccount).isSameAs(existingLink);
-        verify(socialAccountRepository, never()).saveAndFlush(any());
+        verify(socialAccountRepository, never()).insertSocialAccountIfAbsent(anyLong(), anyString(), anyString());
     }
 
     @Test
-    @DisplayName("다른 사용자에게 이미 연결된 외부 계정은 충돌로 거부한다")
+    @DisplayName("Provider link owned by another user is rejected")
     void linkSocialAccount_rejectsProviderLinkOwnedByAnotherUser() {
         SocialAccount existingLink = SocialAccount.builder()
                 .user(anotherUser)
@@ -91,7 +91,7 @@ class SocialAccountLinkServiceTest {
     }
 
     @Test
-    @DisplayName("같은 사용자의 동일 provider 중 다른 providerId 연결은 충돌로 거부한다")
+    @DisplayName("Different provider id for same user/provider is rejected")
     void linkSocialAccount_rejectsDifferentProviderIdForSameUserAndProvider() {
         SocialAccount existingLink = SocialAccount.builder()
                 .user(user)
@@ -110,7 +110,29 @@ class SocialAccountLinkServiceTest {
     }
 
     @Test
-    @DisplayName("저장 중 유니크 충돌이 발생해도 같은 링크면 재조회해 재사용한다")
+    @DisplayName("New provider link is inserted and reloaded")
+    void linkSocialAccount_insertsNewLink() {
+        SocialAccount savedLink = SocialAccount.builder()
+                .user(user)
+                .provider("google")
+                .providerId("google-user-1")
+                .build();
+
+        when(socialAccountRepository.findByProviderAndProviderId("google", "google-user-1"))
+                .thenReturn(Optional.empty(), Optional.of(savedLink));
+        when(socialAccountRepository.findByUserAndProvider(user, "google"))
+                .thenReturn(Optional.empty());
+        when(socialAccountRepository.insertSocialAccountIfAbsent(1L, "google", "google-user-1"))
+                .thenReturn(1);
+
+        SocialAccount linkedAccount = socialAccountLinkService.linkSocialAccount(user, "google", "google-user-1");
+
+        assertThat(linkedAccount).isSameAs(savedLink);
+        verify(socialAccountRepository).insertSocialAccountIfAbsent(1L, "google", "google-user-1");
+    }
+
+    @Test
+    @DisplayName("Concurrent duplicate insert reuses same user's existing link")
     void linkSocialAccount_reusesExistingLinkAfterConcurrentDuplicate() {
         SocialAccount existingLink = SocialAccount.builder()
                 .user(user)
@@ -122,11 +144,12 @@ class SocialAccountLinkServiceTest {
                 .thenReturn(Optional.empty(), Optional.of(existingLink));
         when(socialAccountRepository.findByUserAndProvider(user, "google"))
                 .thenReturn(Optional.empty());
-        when(socialAccountRepository.saveAndFlush(any()))
-                .thenThrow(new DataIntegrityViolationException("duplicate social account"));
+        when(socialAccountRepository.insertSocialAccountIfAbsent(1L, "google", "google-user-1"))
+                .thenReturn(0);
 
         SocialAccount linkedAccount = socialAccountLinkService.linkSocialAccount(user, "google", "google-user-1");
 
         assertThat(linkedAccount).isSameAs(existingLink);
+        verify(socialAccountRepository).insertSocialAccountIfAbsent(1L, "google", "google-user-1");
     }
 }
