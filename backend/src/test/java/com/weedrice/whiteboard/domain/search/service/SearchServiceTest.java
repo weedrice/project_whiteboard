@@ -182,6 +182,38 @@ class SearchServiceTest {
     }
 
     @Test
+    @DisplayName("통합 검색은 서비스 진입점에서도 키워드를 trim 한다")
+    void integratedSearch_trimsKeywordBeforeRepositoryCall() {
+        String keyword = "test";
+        Pageable previewPageable = PageRequest.of(0, 5);
+
+        when(postRepository.searchPostsByKeyword(eq(keyword), isNull(), isNull(), any(Pageable.class)))
+                .thenReturn(Page.empty(previewPageable));
+        when(commentRepository.searchCommentsByKeyword(eq(keyword), isNull(), isNull(), any(Pageable.class)))
+                .thenReturn(Page.empty(previewPageable));
+        when(userRepository.searchUsersVisibleTo(eq(keyword), isNull(), any(Pageable.class)))
+                .thenReturn(Page.empty(previewPageable));
+        when(boardRepository.findByBoardNameContainingIgnoreCaseAndIsActiveTrueAndIsPublicTrueOrderBySortOrderAscBoardIdAsc(
+                eq(keyword), any(Pageable.class)))
+                .thenReturn(Collections.emptyList());
+
+        var result = searchService.integratedSearch("  test  ", null);
+
+        assertThat(result.getKeyword()).isEqualTo(keyword);
+        verify(postRepository).searchPostsByKeyword(eq(keyword), isNull(), isNull(), eq(previewPageable));
+    }
+
+    @Test
+    @DisplayName("통합 검색은 서비스 진입점에서도 blank 키워드를 거부한다")
+    void integratedSearch_rejectsBlankKeyword() {
+        assertThatThrownBy(() -> searchService.integratedSearch("   ", null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+
+        verify(postRepository, never()).searchPostsByKeyword(anyString(), any(), any(), any());
+    }
+
+    @Test
     @DisplayName("통합 검색 - 로그인 사용자는 본인 댓글만 조회")
     void integratedSearch_authenticated_usesBlockedUserFiltering() {
         String keyword = "test";

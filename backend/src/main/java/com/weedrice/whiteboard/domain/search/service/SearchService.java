@@ -21,7 +21,6 @@ import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
 import com.weedrice.whiteboard.global.common.util.DateTimeUtils;
-import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -29,14 +28,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Locale;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -45,13 +41,6 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class SearchService {
     private static final int SEARCH_PREVIEW_LIMIT = 5;
-    private static final int MAX_POPULAR_KEYWORD_LIMIT = 100;
-    private static final int DEFAULT_POST_SEARCH_PAGE_SIZE = 20;
-    private static final Sort DEFAULT_POST_SEARCH_SORT = Sort.by(
-            Sort.Order.desc("createdAt"),
-            Sort.Order.desc("postId"));
-    private static final Set<String> ALLOWED_POST_SEARCH_SORTS = Set.of(
-            "createdAt", "postId", "viewCount", "likeCount");
 
     private final SearchStatisticRepository searchStatisticRepository;
     private final SearchStatisticCommandService searchStatisticCommandService;
@@ -79,6 +68,7 @@ public class SearchService {
     }
 
     public IntegratedSearchResponse integratedSearch(String keyword, Long currentUserId) {
+        String canonicalKeyword = SearchRequestNormalizer.canonicalizeKeyword(keyword);
         Pageable previewPageable = PageRequest.of(0, SEARCH_PREVIEW_LIMIT);
 
         List<Long> blockedUserIds = null;
@@ -86,30 +76,32 @@ public class SearchService {
             blockedUserIds = userBlockService.getBlockedUserIdsEitherDirection(currentUserId);
         }
 
-        Page<Post> postPage = postRepository.searchPostsByKeyword(keyword,
+        Page<Post> postPage = postRepository.searchPostsByKeyword(canonicalKeyword,
                 blockedUserIds, currentUserId, previewPageable);
         Page<PostSummary> posts = postSummaryAssembler.assembleSearchPage(postPage);
 
         Page<CommentResponse> comments = commentRepository
-                .searchCommentsByKeyword(keyword, blockedUserIds, currentUserId, previewPageable)
+                .searchCommentsByKeyword(canonicalKeyword, blockedUserIds, currentUserId, previewPageable)
                 .map(CommentResponse::from);
 
-        Page<UserSummary> users = userRepository.searchUsersVisibleTo(keyword, blockedUserIds, previewPageable)
+        Page<UserSummary> users = userRepository.searchUsersVisibleTo(canonicalKeyword, blockedUserIds, previewPageable)
                 .map(UserSummary::from);
 
         List<BoardSummary> boards = boardRepository
-                .findByBoardNameContainingIgnoreCaseAndIsActiveTrueAndIsPublicTrueOrderBySortOrderAscBoardIdAsc(keyword,
+                .findByBoardNameContainingIgnoreCaseAndIsActiveTrueAndIsPublicTrueOrderBySortOrderAscBoardIdAsc(
+                        canonicalKeyword,
                         previewPageable)
                 .stream()
                 .map(BoardSummary::from)
                 .collect(Collectors.toList());
 
-        return IntegratedSearchResponse.from(posts, comments, users, boards, keyword);
+        return IntegratedSearchResponse.from(posts, comments, users, boards, canonicalKeyword);
     }
 
     public Page<PostSummary> searchPosts(String keyword, String searchType, String boardUrl, Pageable pageable,
             Long currentUserId) {
-        Pageable normalizedPageable = normalizePostSearchPageable(pageable);
+        String canonicalKeyword = SearchRequestNormalizer.canonicalizeKeyword(keyword);
+        Pageable normalizedPageable = SearchRequestNormalizer.normalizePostSearchPageable(pageable);
         boolean includeSecret = false;
         if (boardUrl != null && !boardUrl.trim().isEmpty()) {
             Board board = boardRepository.findByBoardUrl(boardUrl)
@@ -129,7 +121,7 @@ public class SearchService {
         if (currentUserId != null) {
             blockedUserIds = userBlockService.getBlockedUserIdsEitherDirection(currentUserId);
         }
-        Page<Post> postPage = postRepository.searchPosts(keyword, searchType,
+        Page<Post> postPage = postRepository.searchPosts(canonicalKeyword, searchType,
                 boardUrl, blockedUserIds, includeSecret, currentUserId, normalizedPageable);
 
         return postSummaryAssembler.assembleSearchPage(postPage);
@@ -163,13 +155,11 @@ public class SearchService {
     }
 
     public List<PopularKeywordDto> getPopularKeywords(String period, int limit) {
-        if (limit < 1) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR);
-        }
-
         LocalDate endDate = DateTimeUtils.nowKST().toLocalDate();
-        LocalDate startDate = resolvePopularKeywordStartDate(period, endDate);
-        int normalizedLimit = Math.min(limit, MAX_POPULAR_KEYWORD_LIMIT);
+        LocalDate startDate = resolvePopularKeywordStartDate(
+                SearchRequestNormalizer.normalizePopularKeywordPeriod(period),
+                endDate);
+        int normalizedLimit = SearchRequestNormalizer.normalizePopularKeywordLimit(limit);
 
         return searchStatisticRepository.findPopularKeywords(startDate, endDate, PageRequest.of(0, normalizedLimit))
                 .stream()
@@ -178,32 +168,12 @@ public class SearchService {
     }
 
     private LocalDate resolvePopularKeywordStartDate(String period, LocalDate endDate) {
-        String normalizedPeriod = normalizePopularKeywordPeriod(period);
-        return switch (normalizedPeriod) {
+        return switch (period) {
             case "DAILY" -> endDate;
             case "MONTHLY" -> endDate.minusMonths(1);
             case "WEEKLY" -> endDate.minusWeeks(1);
             default -> throw new BusinessException(ErrorCode.VALIDATION_ERROR);
         };
-    }
-
-    private String normalizePopularKeywordPeriod(String period) {
-        if (period == null || period.isBlank()) {
-            return "DAILY";
-        }
-        String normalizedPeriod = period.trim().toUpperCase(Locale.ROOT);
-        return switch (normalizedPeriod) {
-            case "DAILY", "WEEKLY", "MONTHLY" -> normalizedPeriod;
-            default -> throw new BusinessException(ErrorCode.VALIDATION_ERROR);
-        };
-    }
-
-    private Pageable normalizePostSearchPageable(Pageable pageable) {
-        return PageRequestUtils.of(
-                pageable,
-                DEFAULT_POST_SEARCH_PAGE_SIZE,
-                DEFAULT_POST_SEARCH_SORT,
-                ALLOWED_POST_SEARCH_SORTS);
     }
 
 }

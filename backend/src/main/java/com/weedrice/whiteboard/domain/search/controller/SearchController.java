@@ -6,12 +6,10 @@ import com.weedrice.whiteboard.domain.search.dto.PopularKeywordDto;
 import com.weedrice.whiteboard.domain.search.dto.PopularKeywordResponse;
 import com.weedrice.whiteboard.domain.search.dto.SearchPersonalizationResponse;
 import com.weedrice.whiteboard.domain.search.service.SearchRecordEventPublisher;
+import com.weedrice.whiteboard.domain.search.service.SearchRequestNormalizer;
 import com.weedrice.whiteboard.domain.search.service.SearchService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
-import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
-import com.weedrice.whiteboard.global.exception.BusinessException;
-import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -21,20 +19,11 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Locale;
-import java.util.Set;
 
 @RestController
 @RequestMapping("/api/v1/search")
 @RequiredArgsConstructor
 public class SearchController {
-
-    private static final int MAX_POPULAR_KEYWORD_LIMIT = 100;
-    private static final Sort DEFAULT_POST_SEARCH_SORT = Sort.by(
-            Sort.Order.desc("createdAt"),
-            Sort.Order.desc("postId"));
-    private static final Set<String> ALLOWED_POST_SEARCH_SORTS = Set.of(
-            "createdAt", "postId", "viewCount", "likeCount");
 
     private final SearchService searchService;
     private final SearchRecordEventPublisher searchRecordEventPublisher;
@@ -44,7 +33,7 @@ public class SearchController {
             @RequestParam String q,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
 
-        String keyword = canonicalizeKeyword(q);
+        String keyword = SearchRequestNormalizer.canonicalizeKeyword(q);
         Long userId = (userDetails != null) ? userDetails.getUserId() : null;
         IntegratedSearchResponse response = searchService.integratedSearch(keyword, userId);
         searchRecordEventPublisher.publish(userId, keyword);
@@ -61,14 +50,9 @@ public class SearchController {
             Sort sort,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
 
-        String keyword = canonicalizeKeyword(q);
+        String keyword = SearchRequestNormalizer.canonicalizeKeyword(q);
         Long userId = (userDetails != null) ? userDetails.getUserId() : null;
-        Pageable pageable = PageRequestUtils.of(
-                page,
-                size,
-                sort,
-                DEFAULT_POST_SEARCH_SORT,
-                ALLOWED_POST_SEARCH_SORTS);
+        Pageable pageable = SearchRequestNormalizer.normalizePostSearchPageable(page, size, sort);
         Page<PostSummary> response = searchService.searchPosts(keyword, searchType, boardUrl, pageable, userId);
 
         searchRecordEventPublisher.publish(userId, keyword);
@@ -80,8 +64,8 @@ public class SearchController {
             @RequestParam(defaultValue = "DAILY") String period,
             @RequestParam(defaultValue = "10") int limit) {
         List<PopularKeywordDto> popularKeywords = searchService.getPopularKeywords(
-                normalizePopularKeywordPeriod(period),
-                normalizePopularKeywordLimit(limit));
+                SearchRequestNormalizer.normalizePopularKeywordPeriod(period),
+                SearchRequestNormalizer.normalizePopularKeywordLimit(limit));
         return ApiResponse.success(PopularKeywordResponse.from(popularKeywords));
     }
 
@@ -103,31 +87,5 @@ public class SearchController {
     public ApiResponse<Void> deleteAllRecentSearches(@AuthenticationPrincipal CustomUserDetails userDetails) {
         searchService.deleteAllRecentSearches(userDetails.getUserId());
         return ApiResponse.success(null);
-    }
-
-    private String canonicalizeKeyword(String keyword) {
-        String canonicalKeyword = keyword.trim();
-        if (canonicalKeyword.isEmpty()) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
-        }
-        return canonicalKeyword;
-    }
-
-    private int normalizePopularKeywordLimit(int limit) {
-        if (limit < 1) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR);
-        }
-        return Math.min(limit, MAX_POPULAR_KEYWORD_LIMIT);
-    }
-
-    private String normalizePopularKeywordPeriod(String period) {
-        if (period == null || period.isBlank()) {
-            return "DAILY";
-        }
-        String normalizedPeriod = period.trim().toUpperCase(Locale.ROOT);
-        return switch (normalizedPeriod) {
-            case "DAILY", "WEEKLY", "MONTHLY" -> normalizedPeriod;
-            default -> throw new BusinessException(ErrorCode.VALIDATION_ERROR);
-        };
     }
 }
