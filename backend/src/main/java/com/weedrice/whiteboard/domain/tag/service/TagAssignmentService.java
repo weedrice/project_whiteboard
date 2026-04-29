@@ -25,6 +25,7 @@ public class TagAssignmentService {
 
     private final TagRepository tagRepository;
     private final PostTagRepository postTagRepository;
+    private final TagCreationService tagCreationService;
 
     @Transactional
     public void assignTags(Post post, List<String> requestedTagNames) {
@@ -90,10 +91,12 @@ public class TagAssignmentService {
 
     private Tag saveHandlingDuplicate(String tagName) {
         try {
-            return tagRepository.save(new Tag(tagName));
+            tagCreationService.create(tagName);
         } catch (DataIntegrityViolationException ex) {
             return tagRepository.findByTagName(tagName)
                     .orElseThrow(() -> ex);
         }
+        return tagRepository.findByTagName(tagName)
+                .orElseThrow(() -> new IllegalStateException("Created tag was not found: " + tagName));
     }
 }

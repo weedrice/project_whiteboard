@@ -22,6 +22,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -34,6 +35,8 @@ class TagAssignmentServiceTest {
     private TagRepository tagRepository;
     @Mock
     private PostTagRepository postTagRepository;
+    @Mock
+    private TagCreationService tagCreationService;
 
     @InjectMocks
     private TagAssignmentService tagAssignmentService;
@@ -54,10 +57,9 @@ class TagAssignmentServiceTest {
     @DisplayName("assignTags adds new tag")
     void assignTags_addNewTag() {
         when(postTagRepository.findByPost(post)).thenReturn(Collections.emptyList());
-        when(tagRepository.findByTagName("newTag")).thenReturn(Optional.empty());
         Tag savedTag = new Tag("newTag");
         ReflectionTestUtils.setField(savedTag, "tagId", 20L);
-        when(tagRepository.save(any(Tag.class))).thenReturn(savedTag);
+        when(tagRepository.findByTagName("newTag")).thenReturn(Optional.empty(), Optional.of(savedTag));
 
         tagAssignmentService.assignTags(post, Collections.singletonList("newTag"));
 
@@ -74,8 +76,8 @@ class TagAssignmentServiceTest {
         when(postTagRepository.findByPost(post)).thenReturn(Collections.emptyList());
         when(tagRepository.findByTagName("newTag"))
                 .thenReturn(Optional.empty(), Optional.of(recoveredTag));
-        when(tagRepository.save(any(Tag.class)))
-                .thenThrow(new DataIntegrityViolationException("duplicate"));
+        doThrow(new DataIntegrityViolationException("duplicate"))
+                .when(tagCreationService).create("newTag");
 
         tagAssignmentService.assignTags(post, Collections.singletonList("newTag"));
 
@@ -123,10 +125,9 @@ class TagAssignmentServiceTest {
         ReflectionTestUtils.setField(tagToRemove, "tagId", 11L);
         PostTag postTagToRemove = PostTag.builder().post(post).tag(tagToRemove).build();
         when(postTagRepository.findByPost(post)).thenReturn(Arrays.asList(existingPostTag, postTagToRemove));
-        when(tagRepository.findByTagName("newTag")).thenReturn(Optional.empty());
         Tag savedTag = new Tag("newTag");
         ReflectionTestUtils.setField(savedTag, "tagId", 12L);
-        when(tagRepository.save(any(Tag.class))).thenReturn(savedTag);
+        when(tagRepository.findByTagName("newTag")).thenReturn(Optional.empty(), Optional.of(savedTag));
 
         tagAssignmentService.assignTags(post, Arrays.asList("existingTag", "newTag"));
 
