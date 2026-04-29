@@ -66,4 +66,39 @@ public interface UserFeedRepository extends JpaRepository<UserFeed, Long>, UserF
             @Param("contentId") Long contentId,
             @Param("sourceCriteria") String sourceCriteria,
             @Param("criteriaId") Long criteriaId);
+
+    @Modifying
+    @Query(value = """
+            INSERT INTO user_feeds (
+                target_user_id,
+                feed_type,
+                content_type,
+                content_id,
+                source_criteria,
+                criteria_id,
+                is_read,
+                created_at,
+                modified_at
+            )
+            SELECT DISTINCT
+                bs.user_id,
+                :feedType,
+                :contentType,
+                :contentId,
+                :sourceCriteria,
+                :criteriaId,
+                'N',
+                CURRENT_TIMESTAMP,
+                CURRENT_TIMESTAMP
+            FROM board_subscriptions bs
+            WHERE bs.board_id = :boardId
+            ON CONFLICT ON CONSTRAINT uk_user_feeds_target_content_source DO NOTHING
+            """, nativeQuery = true)
+    int insertSubscriptionPostFeeds(
+            @Param("boardId") Long boardId,
+            @Param("feedType") String feedType,
+            @Param("contentType") String contentType,
+            @Param("contentId") Long contentId,
+            @Param("sourceCriteria") String sourceCriteria,
+            @Param("criteriaId") Long criteriaId);
 }
