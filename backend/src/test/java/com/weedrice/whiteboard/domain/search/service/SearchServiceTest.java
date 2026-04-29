@@ -189,7 +189,7 @@ class SearchServiceTest {
         Pageable previewPageable = PageRequest.of(0, 5);
         List<Long> blockedUserIds = List.of(2L, 3L);
 
-        when(userBlockService.getBlockedUserIds(currentUserId)).thenReturn(blockedUserIds);
+        when(userBlockService.getBlockedUserIdsEitherDirection(currentUserId)).thenReturn(blockedUserIds);
         when(postRepository.searchPostsByKeyword(eq(keyword), anyList(), eq(currentUserId), any(Pageable.class)))
                 .thenReturn(Page.empty(previewPageable));
         when(commentRepository.searchCommentsByKeyword(eq(keyword), eq(blockedUserIds), eq(currentUserId),
@@ -204,6 +204,7 @@ class SearchServiceTest {
 
         assertThat(result.getComments().getTotalElements()).isZero();
         assertThat(result.getBoards()).isEmpty();
+        verify(userBlockService).getBlockedUserIdsEitherDirection(currentUserId);
         verify(commentRepository).searchCommentsByKeyword(eq(keyword), eq(blockedUserIds), eq(currentUserId),
                 any(Pageable.class));
         verify(boardRepository).findByBoardNameContainingIgnoreCaseAndIsActiveTrueAndIsPublicTrueOrderBySortOrderAscBoardIdAsc(
@@ -338,6 +339,23 @@ class SearchServiceTest {
     }
 
     @Test
+    @DisplayName("게시글 검색은 양방향 차단 사용자 목록을 전달한다")
+    void searchPosts_authenticated_usesEitherDirectionBlockedUserFiltering() {
+        Pageable pageable = PageRequest.of(0, 20);
+        List<Long> blockedUserIds = List.of(2L, 3L);
+
+        when(userBlockService.getBlockedUserIdsEitherDirection(1L)).thenReturn(blockedUserIds);
+        when(postRepository.searchPosts(eq("test"), isNull(), isNull(), eq(blockedUserIds), eq(false), eq(1L),
+                any(Pageable.class))).thenReturn(Page.empty(pageable));
+
+        searchService.searchPosts("test", null, null, pageable, 1L);
+
+        verify(userBlockService).getBlockedUserIdsEitherDirection(1L);
+        verify(postRepository).searchPosts(eq("test"), isNull(), isNull(), eq(blockedUserIds), eq(false), eq(1L),
+                any(Pageable.class));
+    }
+
+    @Test
     @DisplayName("게시글 검색 - 비공개 게시판 접근 불가 시 BOARD_NOT_FOUND")
     void searchPosts_privateBoardDenied_throwsBoardNotFound() {
         Board privateBoard = board(2L, "Private", "private");
@@ -388,7 +406,7 @@ class SearchServiceTest {
         when(boardRepository.findByBoardUrl("private")).thenReturn(Optional.of(privateBoard));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(adminRepository.existsByUserAndBoardAndIsActive(user, privateBoard, true)).thenReturn(true);
-        when(userBlockService.getBlockedUserIds(1L)).thenReturn(Collections.emptyList());
+        when(userBlockService.getBlockedUserIdsEitherDirection(1L)).thenReturn(Collections.emptyList());
         when(postRepository.searchPosts(eq("test"), isNull(), eq("private"), eq(Collections.emptyList()),
                 eq(true), eq(1L), any(Pageable.class))).thenReturn(Page.empty(pageable));
 
@@ -407,7 +425,7 @@ class SearchServiceTest {
 
         when(boardRepository.findByBoardUrl("private")).thenReturn(Optional.of(privateBoard));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(userBlockService.getBlockedUserIds(1L)).thenReturn(Collections.emptyList());
+        when(userBlockService.getBlockedUserIdsEitherDirection(1L)).thenReturn(Collections.emptyList());
         when(postRepository.searchPosts(eq("test"), isNull(), eq("private"), eq(Collections.emptyList()),
                 eq(true), eq(1L), any(Pageable.class))).thenReturn(Page.empty(pageable));
 
@@ -431,7 +449,7 @@ class SearchServiceTest {
 
         when(boardRepository.findByBoardUrl("private")).thenReturn(Optional.of(privateBoard));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(userBlockService.getBlockedUserIds(1L)).thenReturn(Collections.emptyList());
+        when(userBlockService.getBlockedUserIdsEitherDirection(1L)).thenReturn(Collections.emptyList());
         when(postRepository.searchPosts(eq("test"), isNull(), eq("private"), eq(Collections.emptyList()),
                 eq(true), eq(1L), any(Pageable.class))).thenReturn(Page.empty(pageable));
 

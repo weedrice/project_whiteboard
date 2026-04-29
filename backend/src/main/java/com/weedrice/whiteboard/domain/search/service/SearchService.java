@@ -83,7 +83,7 @@ public class SearchService {
 
         List<Long> blockedUserIds = null;
         if (currentUserId != null) {
-            blockedUserIds = userBlockService.getBlockedUserIds(currentUserId);
+            blockedUserIds = userBlockService.getBlockedUserIdsEitherDirection(currentUserId);
         }
 
         Page<Post> postPage = postRepository.searchPostsByKeyword(keyword,
@@ -127,7 +127,7 @@ public class SearchService {
 
         List<Long> blockedUserIds = null;
         if (currentUserId != null) {
-            blockedUserIds = userBlockService.getBlockedUserIds(currentUserId);
+            blockedUserIds = userBlockService.getBlockedUserIdsEitherDirection(currentUserId);
         }
         Page<Post> postPage = postRepository.searchPosts(keyword, searchType,
                 boardUrl, blockedUserIds, includeSecret, currentUserId, normalizedPageable);
