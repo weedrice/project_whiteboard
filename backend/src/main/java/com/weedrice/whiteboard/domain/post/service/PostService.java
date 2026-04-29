@@ -1,18 +1,9 @@
 package com.weedrice.whiteboard.domain.post.service;
 
-import com.weedrice.whiteboard.domain.agent.entity.Agent;
-import com.weedrice.whiteboard.domain.agent.service.AgentOwnershipService;
 import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
-import com.weedrice.whiteboard.domain.point.entity.PointHistory;
-import com.weedrice.whiteboard.domain.point.repository.PointHistoryRepository;
-import com.weedrice.whiteboard.domain.point.service.PointService;
-import com.weedrice.whiteboard.domain.user.entity.Role; // Import Role
 import com.weedrice.whiteboard.domain.board.entity.Board;
-import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
-import com.weedrice.whiteboard.domain.board.repository.BoardCategoryRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.file.service.FileService;
-import com.weedrice.whiteboard.domain.feed.event.PostPublishedEvent;
 import com.weedrice.whiteboard.domain.post.dto.DraftListResponse;
 import com.weedrice.whiteboard.domain.post.dto.DraftResponse;
 import com.weedrice.whiteboard.domain.post.dto.PostCreateRequest;
@@ -25,18 +16,14 @@ import com.weedrice.whiteboard.domain.post.dto.ScrapListResponse;
 import com.weedrice.whiteboard.domain.post.dto.ViewHistoryRequest;
 import com.weedrice.whiteboard.domain.post.entity.*;
 import com.weedrice.whiteboard.domain.post.repository.*;
-import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.tag.service.TagAssignmentService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService; // Import UserBlockService
-import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
-import com.weedrice.whiteboard.global.util.InputSanitizer;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.*;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
@@ -53,7 +40,6 @@ import java.util.stream.StreamSupport;
 @SuppressWarnings({ "null" })
 public class PostService {
     private static final String DEFAULT_INQUIRY_BOARD_URL = "inquiry";
-    private static final String DEFAULT_CATEGORY_NAME = "\uC77C\uBC18";
     private static final Sort DEFAULT_INQUIRY_POST_SORT = Sort.by(Sort.Direction.DESC, "createdAt");
     private static final Set<String> TAG_POST_SORT_PROPERTIES = Set.of(
             "createdAt", "postId", "viewCount", "likeCount");
@@ -62,18 +48,11 @@ public class PostService {
 
     private final PostRepository postRepository;
     private final BoardRepository boardRepository;
-    private final BoardCategoryRepository boardCategoryRepository;
     private final UserRepository userRepository;
     private final PostVersionRepository postVersionRepository;
     private final TagAssignmentService tagAssignmentService;
-    private final ApplicationEventPublisher eventPublisher;
-    private final PointService pointService;
-    private final PointHistoryRepository pointHistoryRepository;
     private final FileService fileService;
     private final UserBlockService userBlockService;
-    private final GlobalConfigService globalConfigService;
-    private final AgentOwnershipService agentOwnershipService;
-    private final SanctionService sanctionService;
     private final PostSummaryAssembler postSummaryAssembler;
     private final PostDetailReadService postDetailReadService;
     private final PostDraftService postDraftService;
@@ -81,6 +60,7 @@ public class PostService {
     private final PostAccessPolicy postAccessPolicy;
     private final BoardAccessPolicy boardAccessPolicy;
     private final PostAuthorCommandPolicy postAuthorCommandPolicy;
+    private final PostCommandService postCommandService;
     private final PostLatestReadService postLatestReadService;
 
     public Page<PostSummary> getPosts(String boardUrl, Long categoryId, String keyword, Integer minLikes, Long currentUserId,
@@ -118,16 +98,12 @@ public class PostService {
 
     @Transactional
     public Post createPost(@NonNull Long userId, String boardUrl, PostCreateRequest request) {
-        Board board = boardRepository.findByBoardUrl(boardUrl)
-                .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
-        return this.createPost(userId, null, board.getBoardId(), request);
+        return postCommandService.createPost(userId, boardUrl, request);
     }
 
     @Transactional
     public Post createPostAsAgent(@NonNull Long userId, @NonNull Long agentId, String boardUrl, PostCreateRequest request) {
-        Board board = boardRepository.findByBoardUrl(boardUrl)
-                .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
-        return this.createPost(userId, agentId, board.getBoardId(), request);
+        return postCommandService.createPostAsAgent(userId, agentId, boardUrl, request);
     }
 
     // --- boardId 湲곕컲 public/private 硫붿꽌??---
@@ -296,129 +272,22 @@ public class PostService {
 
     @Transactional
     public Post createPost(@NonNull Long userId, @NonNull Long boardId, PostCreateRequest request) {
-        return createPost(userId, null, boardId, request);
+        return postCommandService.createPost(userId, boardId, request);
     }
 
     @Transactional
     public Post createPost(@NonNull Long userId, Long agentId, @NonNull Long boardId, PostCreateRequest request) {
-        User user = getWritableUser(userId);
-        sanctionService.validateNotMuted(user);
-        Agent agent = agentOwnershipService.resolveOwnedActiveAgent(userId, agentId);
-        Board board = boardRepository.findById(boardId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
-
-        boardAccessPolicy.validateWritable(board, user);
-        validateBoardWriteRole(board, user);
-
-        if (request.isNotice()) {
-            if (!boardAccessPolicy.hasBoardAdminAccess(board, user)) {
-                throw new BusinessException(ErrorCode.FORBIDDEN);
-            }
-        }
-
-        BoardCategory category = null;
-        if (request.getCategoryId() != null) {
-            category = findActiveCategory(board, request.getCategoryId());
-            validateWriteRole(board, user, category.getMinWriteRole());
-        }
-
-        // 蹂몃Ц?먯꽌??sanitize留??곸슜?섍퀬 HTML ?쒓렇??덉슜?쒕떎.
-        String sanitizedContents = InputSanitizer.sanitize(request.getContents());
-
-        boolean isSecret = !boardAccessPolicy.isInquiryBoard(board) && request.isSecret();
-
-        Post post = Post.builder()
-                .board(board)
-                .user(user)
-                .agent(agent)
-                .category(category)
-                .title(request.getTitle())
-                .contents(sanitizedContents)
-                .isNotice(request.isNotice())
-                .isNsfw(request.isNsfw())
-                .isSpoiler(request.isSpoiler())
-                .isSecret(isSecret)
-                .build();
-
-        Post savedPost = postRepository.save(post);
-        tagAssignmentService.assignTags(savedPost, request.getTags());
-        savePostVersion(savedPost, user, "CREATE", null, null);
-
-        if (request.getFileIds() != null && !request.getFileIds().isEmpty()) {
-            fileService.attachFilesToPost(request.getFileIds(), userId, savedPost.getPostId());
-        }
-
-        // ?ъ씤??吏湲?(寃뚯떆湲 ?묒꽦)
-        String postCreateRewardStr = globalConfigService.getConfig("POINT_POST_CREATE_REWARD");
-        int postCreateReward = postCreateRewardStr != null ? Integer.parseInt(postCreateRewardStr) : 50;
-        pointService.addPoint(userId, postCreateReward, "\uAC8C\uC2DC\uAE00 \uC791\uC131", savedPost.getPostId(), "POST");
-        eventPublisher.publishEvent(new PostPublishedEvent(savedPost.getPostId(), board.getBoardId()));
-        return savedPost;
+        return postCommandService.createPost(userId, agentId, boardId, request);
     }
 
     @Transactional
     public Post updatePost(@NonNull Long userId, @NonNull Long postId, PostUpdateRequest request) {
-        Post post = postRepository.findById(postId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
-        User modifier = getWritableUser(userId);
-        sanctionService.validateNotMuted(modifier);
-
-        postAuthorCommandPolicy.validateAuthorCommand(post, modifier);
-
-        BoardCategory category = resolveUpdatedCategory(post, modifier, request.getCategoryId());
-        postAuthorCommandPolicy.validateWritableCommand(post, modifier, category);
-
-        String originalTitle = post.getTitle();
-        String originalContents = post.getContents();
-
-        // 蹂몃Ц?먯꽌??sanitize留??곸슜?섍퀬 HTML ?쒓렇??덉슜?쒕떎.
-        String sanitizedContents = InputSanitizer.sanitize(request.getContents());
-
-        boolean isSecret = !boardAccessPolicy.isInquiryBoard(post.getBoard()) && request.isSecret();
-        post.updatePost(category, request.getTitle(), sanitizedContents, request.isNsfw(),
-                request.isSpoiler(), isSecret);
-        tagAssignmentService.assignTags(post, request.getTags());
-
-        if (request.getFileIds() != null && !request.getFileIds().isEmpty()) {
-            fileService.attachFilesToPost(request.getFileIds(), userId, post.getPostId());
-        }
-
-        savePostVersion(post, modifier, "MODIFY", originalTitle, originalContents);
-
-        return post;
+        return postCommandService.updatePost(userId, postId, request);
     }
 
     @Transactional
     public void deletePost(@NonNull Long userId, @NonNull Long postId) {
-        Post post = postRepository.findById(postId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
-        User modifier = getWritableUser(userId);
-
-        postAuthorCommandPolicy.validateDeletable(post, modifier);
-
-        post.deletePost();
-        tagAssignmentService.clearTags(post);
-        savePostVersion(post, modifier, "DELETE", post.getTitle(), post.getContents());
-
-        // ?ъ씤??李④컧 (寃뚯떆湲 ??젣)
-        int rewardedAmount = getPostCreateRewardAmount(modifier, postId);
-        if (rewardedAmount > 0) {
-            pointService.forceSubtractPoint(userId, rewardedAmount, "\uAC8C\uC2DC\uAE00 \uC0AD\uC81C", postId, "POST");
-        }
-    }
-
-    private int getPostCreateRewardAmount(User user, Long postId) {
-        return pointHistoryRepository.findByUserAndTypeAndRelatedTypeAndRelatedIdOrderByCreatedAtAsc(
-                        user,
-                        "EARN",
-                        "POST",
-                        postId)
-                .stream()
-                .map(PointHistory::getAmount)
-                .filter(Objects::nonNull)
-                .filter(amount -> amount > 0)
-                .mapToInt(Integer::intValue)
-                .sum();
+        postCommandService.deletePost(userId, postId);
     }
 
     @Transactional
@@ -468,18 +337,6 @@ public class PostService {
         postDraftService.deleteDraftPost(userId, draftId);
     }
 
-    private void savePostVersion(Post post, User modifier, String versionType, String originalTitle,
-            String originalContents) {
-        PostVersion postVersion = PostVersion.builder()
-                .post(post)
-                .modifier(modifier)
-                .versionType(versionType)
-                .originalTitle(originalTitle)
-                .originalContents(originalContents)
-                .build();
-        postVersionRepository.save(postVersion);
-    }
-
     public List<PostVersionResponse> getPostVersions(@NonNull Long postId, @NonNull Long userId) {
         User viewer = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
@@ -502,13 +359,6 @@ public class PostService {
 
     public Page<PostSummary> getRecentlyViewedPosts(@NonNull Long userId, @NonNull Pageable pageable) {
         return postInteractionService.getRecentlyViewedPosts(userId, pageable);
-    }
-
-    private User getWritableUser(Long userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        sanctionService.validateNotBanned(user);
-        return user;
     }
 
     public List<String> getPostImageUrls(@NonNull Long postId) {
@@ -549,7 +399,7 @@ public class PostService {
 
         try {
             boardAccessPolicy.validateWritable(board, user);
-            validateBoardWriteRole(board, user);
+            postAuthorCommandPolicy.validateAppliedCategoryWriteRole(board, user, null);
             return true;
         } catch (BusinessException exception) {
             if (ErrorCode.FORBIDDEN.equals(exception.getErrorCode())
@@ -575,56 +425,6 @@ public class PostService {
         }
         User user = userRepository.findById(userId).orElse(null);
         return boardAccessPolicy.canViewSecretPosts(board, user);
-    }
-
-    private BoardCategory findActiveCategory(Board board, Long categoryId) {
-        if (board == null || categoryId == null) {
-            throw new BusinessException(ErrorCode.NOT_FOUND);
-        }
-        return boardCategoryRepository.findByCategoryIdAndBoard_BoardIdAndIsActive(categoryId, board.getBoardId(), true)
-                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
-    }
-
-    private BoardCategory resolveUpdatedCategory(Post post, User modifier, Long categoryId) {
-        if (categoryId == null) {
-            return null;
-        }
-
-        BoardCategory currentCategory = post.getCategory();
-        if (currentCategory != null && Objects.equals(currentCategory.getCategoryId(), categoryId)) {
-            return currentCategory;
-        }
-
-        BoardCategory category = findActiveCategory(post.getBoard(), categoryId);
-        validateWriteRole(post.getBoard(), modifier, category.getMinWriteRole());
-        return category;
-    }
-
-    private void validateBoardWriteRole(Board board, User user) {
-        boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(board.getBoardId(), true).stream()
-                .filter(category -> DEFAULT_CATEGORY_NAME.equals(category.getName()))
-                .findFirst()
-                .ifPresent(category -> validateWriteRole(board, user, category.getMinWriteRole()));
-    }
-
-    private void validateWriteRole(Board board, User user, String minRole) {
-        String normalizedMinRole = BoardCategory.resolveMinWriteRole(minRole);
-        switch (normalizedMinRole) {
-            case Role.USER:
-                return;
-            case Role.BOARD_ADMIN:
-                if (!boardAccessPolicy.hasBoardAdminAccess(board, user)) {
-                    throw new BusinessException(ErrorCode.FORBIDDEN);
-                }
-                return;
-            case Role.SUPER_ADMIN:
-                if (!user.getIsSuperAdmin()) {
-                    throw new BusinessException(ErrorCode.FORBIDDEN);
-                }
-                return;
-            default:
-                throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
-        }
     }
 
     public List<PostSummary> getLatestPostsByBoard(Long boardId, int limit, Long currentUserId) {

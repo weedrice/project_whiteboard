@@ -113,6 +113,7 @@ class PostServiceTest {
     private PostInteractionService postInteractionService;
     private PostLatestReadService postLatestReadService;
     private PostAuthorCommandPolicy postAuthorCommandPolicy;
+    private PostCommandService postCommandService;
 
     private PostService postService;
 
@@ -175,7 +176,7 @@ class PostServiceTest {
                 postRepository,
                 userBlockService,
                 postSummaryAssembler);
-        postService = new PostService(
+        postCommandService = new PostCommandService(
                 postRepository,
                 boardRepository,
                 boardCategoryRepository,
@@ -186,10 +187,19 @@ class PostServiceTest {
                 pointService,
                 pointHistoryRepository,
                 fileService,
-                userBlockService,
                 globalConfigService,
                 agentOwnershipService,
                 sanctionService,
+                boardAccessPolicy,
+                postAuthorCommandPolicy);
+        postService = new PostService(
+                postRepository,
+                boardRepository,
+                userRepository,
+                postVersionRepository,
+                tagAssignmentService,
+                fileService,
+                userBlockService,
                 postSummaryAssembler,
                 postDetailReadService,
                 postDraftService,
@@ -197,6 +207,7 @@ class PostServiceTest {
                 postAccessPolicy,
                 boardAccessPolicy,
                 postAuthorCommandPolicy,
+                postCommandService,
                 postLatestReadService);
 
         // GlobalConfigService 기본 mock 설정 - lenient()로 설정하여 일부 테스트에서 사용되지 않아도 허용
