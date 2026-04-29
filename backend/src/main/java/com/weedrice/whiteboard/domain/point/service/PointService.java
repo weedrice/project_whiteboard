@@ -56,18 +56,21 @@ public class PointService {
 
         @Transactional
         public void addPoint(@NonNull Long userId, int amount, String description, Long relatedId, String relatedType) {
+                validatePositiveAmount(amount);
                 changePoint(userId, amount, HISTORY_TYPE_EARN, description, relatedId, relatedType, true, false);
         }
 
         @Transactional
         public void forceSubtractPoint(@NonNull Long userId, int amount, String description, Long relatedId,
                         String relatedType) {
+                validatePositiveAmount(amount);
                 changePoint(userId, -amount, HISTORY_TYPE_PENALTY, description, relatedId, relatedType, true, false);
         }
 
         @Transactional
         public void spendPoint(@NonNull Long userId, int amount, String description, Long relatedId,
                         String relatedType) {
+                validatePositiveAmount(amount);
                 changePoint(userId, -amount, HISTORY_TYPE_SPEND, description, relatedId, relatedType, false, true);
         }
 
@@ -90,6 +93,8 @@ public class PointService {
                 if (validateSufficientBalance && userPoint.getCurrentPoint() < Math.abs(delta)) {
                         throw new BusinessException(ErrorCode.INSUFFICIENT_POINTS);
                 }
+
+                validateBalanceRange(userPoint, delta);
 
                 if (delta >= 0) {
                         userPoint.addPoint(delta);
@@ -119,6 +124,19 @@ public class PointService {
                                                         .user(user)
                                                         .build();
                                 });
+        }
+
+        private void validatePositiveAmount(int amount) {
+                if (amount <= 0) {
+                        throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+                }
+        }
+
+        private void validateBalanceRange(UserPoint userPoint, int delta) {
+                long balanceAfter = (long) userPoint.getCurrentPoint() + delta;
+                if (balanceAfter > Integer.MAX_VALUE || balanceAfter < Integer.MIN_VALUE) {
+                        throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+                }
         }
 
         private void ensureUserExists(Long userId) {

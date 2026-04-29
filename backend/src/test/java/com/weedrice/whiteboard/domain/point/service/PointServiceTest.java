@@ -23,6 +23,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -70,6 +71,39 @@ class PointServiceTest {
     }
 
     @Test
+    @DisplayName("포인트 적립은 0 이하 금액을 거절한다")
+    void addPoint_rejectsNonPositiveAmount() {
+        for (int amount : invalidAmounts()) {
+            assertThatThrownBy(() -> pointService.addPoint(1L, amount, "Invalid Earn", null, null))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+        }
+
+        verify(userRepository, never()).findByIdForUpdate(any());
+        verify(userPointRepository, never()).save(any());
+        verify(pointHistoryRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("포인트 적립은 잔액 오버플로를 거절한다")
+    void addPoint_rejectsBalanceOverflow() {
+        Long userId = 1L;
+        userPoint.addPoint(Integer.MAX_VALUE);
+        when(userRepository.findByIdForUpdate(userId)).thenReturn(Optional.of(user));
+        when(userPointRepository.findByUserId(userId)).thenReturn(Optional.of(userPoint));
+
+        assertThatThrownBy(() -> pointService.addPoint(userId, 1, "Overflow Earn", null, null))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+
+        assertThat(userPoint.getCurrentPoint()).isEqualTo(Integer.MAX_VALUE);
+        verify(userPointRepository, never()).save(any());
+        verify(pointHistoryRepository, never()).save(any());
+    }
+
+    @Test
     @DisplayName("포인트 강제 차감 성공")
     void forceSubtractPoint_success() {
         // given
@@ -90,6 +124,39 @@ class PointServiceTest {
     }
 
     @Test
+    @DisplayName("포인트 강제 차감은 0 이하 금액을 거절한다")
+    void forceSubtractPoint_rejectsNonPositiveAmount() {
+        for (int amount : invalidAmounts()) {
+            assertThatThrownBy(() -> pointService.forceSubtractPoint(1L, amount, "Invalid Penalty", null, null))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+        }
+
+        verify(userRepository, never()).findByIdForUpdate(any());
+        verify(userPointRepository, never()).save(any());
+        verify(pointHistoryRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("포인트 강제 차감은 잔액 언더플로를 거절한다")
+    void forceSubtractPoint_rejectsBalanceUnderflow() {
+        Long userId = 1L;
+        org.springframework.test.util.ReflectionTestUtils.setField(userPoint, "currentPoint", Integer.MIN_VALUE);
+        when(userRepository.findByIdForUpdate(userId)).thenReturn(Optional.of(user));
+        when(userPointRepository.findByUserId(userId)).thenReturn(Optional.of(userPoint));
+
+        assertThatThrownBy(() -> pointService.forceSubtractPoint(userId, 1, "Overflow Penalty", null, null))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+
+        assertThat(userPoint.getCurrentPoint()).isEqualTo(Integer.MIN_VALUE);
+        verify(userPointRepository, never()).save(any());
+        verify(pointHistoryRepository, never()).save(any());
+    }
+
+    @Test
     @DisplayName("구매 포인트 차감은 SPEND 이력으로 기록된다")
     void spendPoint_success() {
         Long userId = 1L;
@@ -107,6 +174,21 @@ class PointServiceTest {
         assertThat(historyCaptor.getValue().getAmount()).isEqualTo(-120);
         assertThat(historyCaptor.getValue().getRelatedId()).isEqualTo(10L);
         assertThat(historyCaptor.getValue().getRelatedType()).isEqualTo("SHOP_ITEM");
+    }
+
+    @Test
+    @DisplayName("구매 포인트 차감은 0 이하 금액을 거절한다")
+    void spendPoint_rejectsNonPositiveAmount() {
+        for (int amount : invalidAmounts()) {
+            assertThatThrownBy(() -> pointService.spendPoint(1L, amount, "Invalid Spend", null, null))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+        }
+
+        verify(userRepository, never()).findByIdForUpdate(any());
+        verify(userPointRepository, never()).save(any());
+        verify(pointHistoryRepository, never()).save(any());
     }
 
     @Test
@@ -234,5 +316,9 @@ class PointServiceTest {
         // then
         assertThat(response).isNotNull();
         verify(pointHistoryRepository).findByUserAndTypeOrderByCreatedAtDesc(user, type, pageable);
+    }
+
+    private int[] invalidAmounts() {
+        return new int[] {0, -1, Integer.MIN_VALUE};
     }
 }
