@@ -12,7 +12,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDate;
@@ -23,8 +22,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.argThat;
-import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -54,18 +52,23 @@ class AgentQuotaServiceTest {
     @Test
     @DisplayName("reservePostCreation creates and increments a new quota row")
     void reservePostCreation_createsQuotaWhenAbsent() {
+        AgentDailyQuota quota = AgentDailyQuota.builder()
+                .agent(agent)
+                .quotaDate(LocalDate.now())
+                .actionType("POST")
+                .usedCount(0L)
+                .build();
+        when(agentDailyQuotaRepository.insertIfAbsent(anyLong(), any(LocalDate.class), anyString()))
+                .thenReturn(1);
         when(agentDailyQuotaRepository.findForUpdate(anyLong(), any(LocalDate.class), anyString()))
-                .thenReturn(Optional.empty());
-        when(agentDailyQuotaRepository.saveAndFlush(any(AgentDailyQuota.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+                .thenReturn(Optional.of(quota));
 
         agentQuotaService.reservePostCreation(agent);
 
-        verify(agentDailyQuotaRepository).saveAndFlush(argThat(quota ->
-                quota.getAgent().equals(agent)
-                        && "POST".equals(quota.getActionType())
-                        && quota.getUsedCount() == 1L
-        ));
+        assertThat(quota.getUsedCount()).isEqualTo(1L);
+        org.mockito.InOrder inOrder = inOrder(agentDailyQuotaRepository);
+        inOrder.verify(agentDailyQuotaRepository).insertIfAbsent(anyLong(), any(LocalDate.class), anyString());
+        inOrder.verify(agentDailyQuotaRepository).findForUpdate(anyLong(), any(LocalDate.class), anyString());
     }
 
     @Test
@@ -87,22 +90,24 @@ class AgentQuotaServiceTest {
     }
 
     @Test
-    @DisplayName("reservePostCreation refetches quota after duplicate row creation races")
-    void reservePostCreation_refetchesAfterDuplicateInsert() {
+    @DisplayName("reservePostCreation locks quota after insert-if-absent handles duplicate row races")
+    void reservePostCreation_locksQuotaAfterInsertIfAbsent() {
         AgentDailyQuota quota = AgentDailyQuota.builder()
                 .agent(agent)
                 .quotaDate(LocalDate.now())
                 .actionType("POST")
                 .usedCount(0L)
                 .build();
+        when(agentDailyQuotaRepository.insertIfAbsent(anyLong(), any(LocalDate.class), anyString()))
+                .thenReturn(0);
         when(agentDailyQuotaRepository.findForUpdate(anyLong(), any(LocalDate.class), anyString()))
-                .thenReturn(Optional.empty(), Optional.of(quota));
-        when(agentDailyQuotaRepository.saveAndFlush(any(AgentDailyQuota.class)))
-                .thenThrow(new DataIntegrityViolationException("duplicate"));
+                .thenReturn(Optional.of(quota));
 
         agentQuotaService.reservePostCreation(agent);
 
         assertThat(quota.getUsedCount()).isEqualTo(1L);
-        verify(agentDailyQuotaRepository).saveAndFlush(any(AgentDailyQuota.class));
+        org.mockito.InOrder inOrder = inOrder(agentDailyQuotaRepository);
+        inOrder.verify(agentDailyQuotaRepository).insertIfAbsent(anyLong(), any(LocalDate.class), anyString());
+        inOrder.verify(agentDailyQuotaRepository).findForUpdate(anyLong(), any(LocalDate.class), anyString());
     }
 }

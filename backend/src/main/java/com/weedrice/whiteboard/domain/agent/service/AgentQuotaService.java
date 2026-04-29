@@ -6,7 +6,6 @@ import com.weedrice.whiteboard.domain.agent.repository.AgentDailyQuotaRepository
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,8 +37,7 @@ public class AgentQuotaService {
 
     private void reserve(Agent agent, String actionType, long limit, String message) {
         LocalDate quotaDate = LocalDate.now(KST);
-        AgentDailyQuota quota = agentDailyQuotaRepository.findForUpdate(agent.getAgentId(), quotaDate, actionType)
-                .orElseGet(() -> createQuota(agent, quotaDate, actionType));
+        AgentDailyQuota quota = getOrCreateQuotaForUpdate(agent, quotaDate, actionType);
 
         if (quota.hasReachedLimit(limit)) {
             throw new BusinessException(ErrorCode.RATE_LIMIT_EXCEEDED, message);
@@ -47,17 +45,9 @@ public class AgentQuotaService {
         quota.reserve();
     }
 
-    private AgentDailyQuota createQuota(Agent agent, LocalDate quotaDate, String actionType) {
-        try {
-            return agentDailyQuotaRepository.saveAndFlush(AgentDailyQuota.builder()
-                    .agent(agent)
-                    .quotaDate(quotaDate)
-                    .actionType(actionType)
-                    .usedCount(0L)
-                    .build());
-        } catch (DataIntegrityViolationException ignored) {
-            return agentDailyQuotaRepository.findForUpdate(agent.getAgentId(), quotaDate, actionType)
-                    .orElseThrow(() -> new IllegalStateException("Agent daily quota row could not be locked"));
-        }
+    private AgentDailyQuota getOrCreateQuotaForUpdate(Agent agent, LocalDate quotaDate, String actionType) {
+        agentDailyQuotaRepository.insertIfAbsent(agent.getAgentId(), quotaDate, actionType);
+        return agentDailyQuotaRepository.findForUpdate(agent.getAgentId(), quotaDate, actionType)
+                .orElseThrow(() -> new IllegalStateException("Agent daily quota row could not be locked"));
     }
 }
