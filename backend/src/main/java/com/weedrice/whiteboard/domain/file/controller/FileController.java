@@ -1,26 +1,26 @@
 package com.weedrice.whiteboard.domain.file.controller;
 
+import com.weedrice.whiteboard.domain.file.dto.FileDownloadResponse;
 import com.weedrice.whiteboard.domain.file.dto.FileSimpleResponse;
 import com.weedrice.whiteboard.domain.file.dto.FileUploadResponse;
-import com.weedrice.whiteboard.domain.file.entity.File;
+import com.weedrice.whiteboard.domain.file.service.FileDownloadService;
 import com.weedrice.whiteboard.domain.file.service.FileService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
-import com.weedrice.whiteboard.global.common.util.FileStorageService;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
-import org.springframework.core.io.InputStreamResource;
 import org.springframework.core.io.Resource;
-import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
-
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 
 @RestController
 @RequestMapping("/api/v1/files")
@@ -28,7 +28,7 @@ import java.nio.charset.StandardCharsets;
 public class FileController {
 
     private final FileService fileService;
-    private final FileStorageService fileStorageService;
+    private final FileDownloadService fileDownloadService;
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
@@ -53,42 +53,12 @@ public class FileController {
             @PathVariable Long fileId,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         Long viewerUserId = userDetails != null ? userDetails.getUserId() : null;
-        File file = fileService.getFileForDownload(fileId, viewerUserId);
-
-        // S3로부터 InputStream을 받아옴
-        InputStream inputStream = fileStorageService.loadFile(file.getFilePath());
-        Resource resource = new InputStreamResource(inputStream);
-
-        String contentType = file.getMimeType();
-        if (contentType == null) {
-            contentType = "application/octet-stream";
-        }
-
-        // 이미지 파일은 inline으로 표시 (브라우저에서 직접 보기)
-        // 그 외 파일은 attachment로 다운로드
-        boolean inlinePreview = contentType.startsWith("image/")
-                && !"image/svg+xml".equalsIgnoreCase(contentType);
-        String disposition = inlinePreview ? "inline" : "attachment";
-        String safeFileName = sanitizeFileName(file.getOriginalName());
-        ContentDisposition contentDisposition = ContentDisposition.builder(disposition)
-                .filename(safeFileName, StandardCharsets.UTF_8)
-                .build();
+        FileDownloadResponse download = fileDownloadService.downloadFile(fileId, viewerUserId);
 
         return ResponseEntity.ok()
-                .contentType(MediaType.parseMediaType(contentType))
-                .header(HttpHeaders.CONTENT_DISPOSITION, contentDisposition.toString())
+                .contentType(download.contentType())
+                .header(HttpHeaders.CONTENT_DISPOSITION, download.contentDisposition().toString())
                 .header("X-Content-Type-Options", "nosniff")
-                .body(resource);
-    }
-
-    private String sanitizeFileName(String originalName) {
-        if (originalName == null || originalName.isBlank()) {
-            return "file";
-        }
-        return originalName
-                .replaceAll("[\\r\\n]+", "_")
-                .replaceAll("[\\\\/]+", "_")
-                .replace("\"", "_")
-                .trim();
+                .body(download.resource());
     }
 }
