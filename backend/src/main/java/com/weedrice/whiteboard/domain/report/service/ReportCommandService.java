@@ -19,6 +19,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 class ReportCommandService {
 
+    private static final String REPORT_DUPLICATE_CONSTRAINT = "uk_reports_user_target";
+
     private final ReportRepository reportRepository;
     private final UserRepository userRepository;
     private final ReportTargetValidator reportTargetValidator;
@@ -51,7 +53,7 @@ class ReportCommandService {
         try {
             return reportRepository.saveAndFlush(report).getReportId();
         } catch (DataIntegrityViolationException ex) {
-            if (reportRepository.findByReporterAndTargetTypeAndTargetId(reporter, normalizedTargetType, targetId).isPresent()) {
+            if (isDuplicateReportConflict(ex)) {
                 throw new BusinessException(ErrorCode.ALREADY_REPORTED);
             }
             throw ex;
@@ -67,10 +69,25 @@ class ReportCommandService {
     }
 
     private String normalizeReasonType(String reasonType) {
+        if (reasonType == null || reasonType.isBlank()) {
+            return ReportReasonType.ETC.name();
+        }
         try {
             return ReportReasonType.from(reasonType).name();
         } catch (IllegalArgumentException ex) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR);
         }
+    }
+
+    private boolean isDuplicateReportConflict(DataIntegrityViolationException exception) {
+        Throwable current = exception;
+        while (current != null) {
+            String message = current.getMessage();
+            if (message != null && message.contains(REPORT_DUPLICATE_CONSTRAINT)) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 }

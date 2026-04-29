@@ -150,7 +150,7 @@ class ReportControllerTest {
     }
 
     @Test
-    @DisplayName("reportPost normalizes the provided reasonType")
+    @DisplayName("reportPost forwards the provided reasonType")
     void reportPost_usesProvidedReasonType() throws Exception {
         when(reportService.createReport(any(), any(), any(), any(), any(), any())).thenReturn(3L);
 
@@ -166,12 +166,12 @@ class ReportControllerTest {
                                 """))
                 .andExpect(status().isCreated());
 
-        verify(reportService).createReport(1L, "POST", 10L, "SPAM", null, "spam post");
+        verify(reportService).createReport(1L, "POST", 10L, "spam", null, "spam post");
     }
 
     @Test
-    @DisplayName("reportPost defaults missing reasonType to ETC")
-    void reportPost_defaultsMissingReasonTypeToEtc() throws Exception {
+    @DisplayName("reportPost forwards missing reasonType")
+    void reportPost_forwardsMissingReasonType() throws Exception {
         when(reportService.createReport(any(), any(), any(), any(), any(), any())).thenReturn(4L);
 
         mockMvc.perform(post("/api/v1/reports/posts")
@@ -185,12 +185,12 @@ class ReportControllerTest {
                                 """))
                 .andExpect(status().isCreated());
 
-        verify(reportService).createReport(1L, "POST", 10L, "ETC", null, "spam post");
+        verify(reportService).createReport(1L, "POST", 10L, null, null, "spam post");
     }
 
     @Test
-    @DisplayName("reportUser defaults blank reasonType to ETC")
-    void reportUser_defaultsBlankReasonTypeToEtc() throws Exception {
+    @DisplayName("reportUser forwards blank reasonType")
+    void reportUser_forwardsBlankReasonType() throws Exception {
         when(reportService.createReport(any(), any(), any(), any(), any(), any())).thenReturn(5L);
 
         mockMvc.perform(post("/api/v1/reports/users")
@@ -205,12 +205,12 @@ class ReportControllerTest {
                                 """))
                 .andExpect(status().isCreated());
 
-        verify(reportService).createReport(1L, "USER", 11L, "ETC", null, "spam user");
+        verify(reportService).createReport(1L, "USER", 11L, " ", null, "spam user");
     }
 
     @Test
-    @DisplayName("reportComment defaults missing reasonType to ETC")
-    void reportComment_defaultsMissingReasonTypeToEtc() throws Exception {
+    @DisplayName("reportComment forwards missing reasonType")
+    void reportComment_forwardsMissingReasonType() throws Exception {
         when(reportService.createReport(any(), any(), any(), any(), any(), any())).thenReturn(6L);
 
         mockMvc.perform(post("/api/v1/reports/comments")
@@ -224,7 +224,7 @@ class ReportControllerTest {
                                 """))
                 .andExpect(status().isCreated());
 
-        verify(reportService).createReport(1L, "COMMENT", 12L, "ETC", null, "spam comment");
+        verify(reportService).createReport(1L, "COMMENT", 12L, null, null, "spam comment");
     }
 
     @Test

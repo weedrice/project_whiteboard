@@ -5,7 +5,6 @@ import com.weedrice.whiteboard.domain.report.dto.MyReportResponse;
 import com.weedrice.whiteboard.domain.report.dto.PostReportRequest;
 import com.weedrice.whiteboard.domain.report.dto.ReportCreateRequest;
 import com.weedrice.whiteboard.domain.report.dto.UserReportRequest;
-import com.weedrice.whiteboard.domain.report.entity.ReportReasonType;
 import com.weedrice.whiteboard.domain.report.service.ReportService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
@@ -41,7 +40,7 @@ public class ReportController {
                 reporterId,
                 "USER",
                 request.getTargetUserId(),
-                resolveLegacyReasonType(request.getReasonType()),
+                request.getReasonType(),
                 request.getLink(),
                 request.getReason());
         return ApiResponse.success(reportId);
@@ -57,7 +56,7 @@ public class ReportController {
                 reporterId,
                 "POST",
                 request.getTargetPostId(),
-                resolveLegacyReasonType(request.getReasonType()),
+                request.getReasonType(),
                 null,
                 request.getReason());
         return ApiResponse.success(reportId);
@@ -73,7 +72,7 @@ public class ReportController {
                 reporterId,
                 "COMMENT",
                 request.getTargetCommentId(),
-                resolveLegacyReasonType(request.getReasonType()),
+                request.getReasonType(),
                 null,
                 request.getReason());
         return ApiResponse.success(reportId);
@@ -103,17 +102,5 @@ public class ReportController {
         Long userId = ((CustomUserDetails) authentication.getPrincipal()).getUserId();
         Pageable pageable = PageRequestUtils.of(page, size);
         return ApiResponse.success(new PageResponse<>(reportService.getMyReports(userId, pageable)));
-    }
-
-    private String resolveLegacyReasonType(String reasonType) {
-        if (reasonType == null || reasonType.isBlank()) {
-            return ReportReasonType.ETC.name();
-        }
-        try {
-            return ReportReasonType.from(reasonType).name();
-        } catch (IllegalArgumentException ex) {
-            throw new com.weedrice.whiteboard.global.exception.BusinessException(
-                    com.weedrice.whiteboard.global.exception.ErrorCode.VALIDATION_ERROR);
-        }
     }
 }

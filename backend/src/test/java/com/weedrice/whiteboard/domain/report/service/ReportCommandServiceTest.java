@@ -118,6 +118,31 @@ class ReportCommandServiceTest {
     }
 
     @Test
+    @DisplayName("createReport defaults blank reasonType to ETC")
+    void createReport_blankReasonType_defaultsToEtc() {
+        User reporter = User.builder().build();
+        ReflectionTestUtils.setField(reporter, "userId", 1L);
+        Report savedReport = Report.builder()
+                .reporter(reporter)
+                .targetType("POST")
+                .targetId(2L)
+                .reasonType("ETC")
+                .build();
+        ReflectionTestUtils.setField(savedReport, "reportId", 13L);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(reporter));
+        when(reportRepository.findByReporterAndTargetTypeAndTargetId(reporter, "POST", 2L))
+                .thenReturn(Optional.empty());
+        when(reportRepository.saveAndFlush(any(Report.class))).thenReturn(savedReport);
+
+        Long reportId = reportCommandService.createReport(1L, "POST", 2L, " ", null, null);
+
+        ArgumentCaptor<Report> captor = ArgumentCaptor.forClass(Report.class);
+        verify(reportRepository).saveAndFlush(captor.capture());
+        assertThat(reportId).isEqualTo(13L);
+        assertThat(captor.getValue().getReasonType()).isEqualTo("ETC");
+    }
+
+    @Test
     @DisplayName("createReport rejects invalid reasonType")
     void createReport_invalidReasonType_throwsValidationError() {
         User reporter = User.builder().build();
@@ -134,21 +159,30 @@ class ReportCommandServiceTest {
     @DisplayName("createReport maps duplicate conflict to already reported")
     void createReport_duplicateConflict_throwsAlreadyReported() {
         User reporter = User.builder().build();
-        Report existingReport = Report.builder()
-                .reporter(reporter)
-                .targetType("POST")
-                .targetId(2L)
-                .reasonType("SPAM")
-                .build();
         when(userRepository.findById(1L)).thenReturn(Optional.of(reporter));
         when(reportRepository.findByReporterAndTargetTypeAndTargetId(reporter, "POST", 2L))
-                .thenReturn(Optional.empty(), Optional.of(existingReport));
+                .thenReturn(Optional.empty());
         when(reportRepository.saveAndFlush(any(Report.class)))
-                .thenThrow(new DataIntegrityViolationException("duplicate"));
+                .thenThrow(new DataIntegrityViolationException("constraint [uk_reports_user_target]"));
 
         assertThatThrownBy(() -> reportCommandService.createReport(1L, "POST", 2L, "SPAM", null, null))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.ALREADY_REPORTED);
+        verify(reportRepository).findByReporterAndTargetTypeAndTargetId(reporter, "POST", 2L);
+    }
+
+    @Test
+    @DisplayName("createReport does not map unrelated data integrity violations")
+    void createReport_unrelatedDataIntegrityViolation_rethrowsOriginalException() {
+        User reporter = User.builder().build();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(reporter));
+        when(reportRepository.findByReporterAndTargetTypeAndTargetId(reporter, "POST", 2L))
+                .thenReturn(Optional.empty());
+        when(reportRepository.saveAndFlush(any(Report.class)))
+                .thenThrow(new DataIntegrityViolationException("constraint [ck_reports_reason_type]"));
+
+        assertThatThrownBy(() -> reportCommandService.createReport(1L, "POST", 2L, "SPAM", null, null))
+                .isInstanceOf(DataIntegrityViolationException.class);
     }
 
     @Test
