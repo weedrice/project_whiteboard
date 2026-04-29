@@ -23,7 +23,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service("messageDomainService")
@@ -113,7 +112,7 @@ public class MessageService {
 
     @Transactional
     public void deleteMessage(Long userId, Long messageId) {
-        Message message = messageRepository.findById(messageId)
+        Message message = messageRepository.findByMessageIdForUpdate(messageId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
 
         deleteLoadedMessage(userId, message);
@@ -130,7 +129,9 @@ public class MessageService {
             return;
         }
 
-        Map<Long, Message> messagesById = findMessagesByIdsInChunks(requestedMessageIds);
+        Map<Long, Message> messagesById = findMessagesByIdsInChunks(requestedMessageIds.stream()
+                .sorted()
+                .toList());
 
         List<Message> messagesToDelete = new ArrayList<>();
         for (Long messageId : requestedMessageIds) {
@@ -179,8 +180,8 @@ public class MessageService {
         Map<Long, Message> messagesById = new HashMap<>();
         for (int start = 0; start < messageIds.size(); start += MESSAGE_DELETE_FETCH_CHUNK_SIZE) {
             int end = Math.min(start + MESSAGE_DELETE_FETCH_CHUNK_SIZE, messageIds.size());
-            messageRepository.findByMessageIdIn(messageIds.subList(start, end)).stream()
-                    .collect(Collectors.toMap(Message::getMessageId, Function.identity()))
+            messageRepository.findByMessageIdInForUpdate(messageIds.subList(start, end)).stream()
+                    .collect(Collectors.toMap(Message::getMessageId, message -> message))
                     .forEach(messagesById::put);
         }
         return messagesById;

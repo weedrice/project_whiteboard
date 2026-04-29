@@ -2,19 +2,19 @@ package com.weedrice.whiteboard.domain.message.repository;
 
 import com.weedrice.whiteboard.domain.message.entity.Message;
 import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.global.config.QuerydslConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
+import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 
+import java.util.List;
 import java.util.Optional;
-
-import com.weedrice.whiteboard.global.config.QuerydslConfig;
-import org.springframework.context.annotation.Import;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -106,6 +106,38 @@ class MessageRepositoryTest {
 
         // then
         assertThat(count).isGreaterThanOrEqualTo(0);
+    }
+
+    @Test
+    @DisplayName("삭제용 잠금 단건 조회는 송신자와 수신자를 함께 로드한다")
+    void findByMessageIdForUpdate_loadsParticipants() {
+        entityManager.clear();
+
+        Optional<Message> found = messageRepository.findByMessageIdForUpdate(message.getMessageId());
+
+        assertThat(found).isPresent();
+        assertThat(found.get().getSender().getUserId()).isEqualTo(sender.getUserId());
+        assertThat(found.get().getReceiver().getUserId()).isEqualTo(receiver.getUserId());
+    }
+
+    @Test
+    @DisplayName("삭제용 잠금 목록 조회는 ID 오름차순으로 메시지를 로드한다")
+    void findByMessageIdInForUpdate_ordersByMessageId() {
+        Message laterMessage = Message.builder()
+                .sender(receiver)
+                .receiver(sender)
+                .content("Later message")
+                .build();
+        entityManager.persist(laterMessage);
+        entityManager.flush();
+        entityManager.clear();
+
+        List<Message> found = messageRepository.findByMessageIdInForUpdate(
+                List.of(laterMessage.getMessageId(), message.getMessageId()));
+
+        assertThat(found)
+                .extracting(Message::getMessageId)
+                .containsExactly(message.getMessageId(), laterMessage.getMessageId());
     }
 
     @Test

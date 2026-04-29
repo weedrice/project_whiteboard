@@ -6,9 +6,14 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
+import jakarta.persistence.LockModeType;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 public interface MessageRepository extends JpaRepository<Message, Long>, MessageRepositoryCustom {
     Page<Message> findByReceiverAndIsDeletedByReceiver(User receiver, Boolean isDeleted, Pageable pageable);
@@ -17,4 +22,19 @@ public interface MessageRepository extends JpaRepository<Message, Long>, Message
 
     @EntityGraph(attributePaths = {"sender", "receiver"})
     List<Message> findByMessageIdIn(Collection<Long> messageIds);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @EntityGraph(attributePaths = {"sender", "receiver"})
+    @Query("select m from Message m where m.messageId = :messageId")
+    Optional<Message> findByMessageIdForUpdate(@Param("messageId") Long messageId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @EntityGraph(attributePaths = {"sender", "receiver"})
+    @Query("""
+            select m
+            from Message m
+            where m.messageId in :messageIds
+            order by m.messageId asc
+            """)
+    List<Message> findByMessageIdInForUpdate(@Param("messageIds") Collection<Long> messageIds);
 }

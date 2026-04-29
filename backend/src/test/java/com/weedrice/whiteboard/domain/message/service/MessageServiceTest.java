@@ -294,11 +294,11 @@ class MessageServiceTest {
     @Test
     @DisplayName("메시지 삭제 성공 - 발신자")
     void deleteMessage_success_sender() {
-        when(messageRepository.findById(1L)).thenReturn(Optional.of(message));
+        when(messageRepository.findByMessageIdForUpdate(1L)).thenReturn(Optional.of(message));
 
         messageService.deleteMessage(1L, 1L);
 
-        verify(messageRepository).findById(1L);
+        verify(messageRepository).findByMessageIdForUpdate(1L);
     }
 
     @Test
@@ -310,7 +310,7 @@ class MessageServiceTest {
                 .content("self")
                 .build();
         ReflectionTestUtils.setField(selfMessage, "messageId", 2L);
-        when(messageRepository.findById(2L)).thenReturn(Optional.of(selfMessage));
+        when(messageRepository.findByMessageIdForUpdate(2L)).thenReturn(Optional.of(selfMessage));
 
         messageService.deleteMessage(1L, 2L);
 
@@ -328,7 +328,7 @@ class MessageServiceTest {
                 .content("received")
                 .build();
         ReflectionTestUtils.setField(receivedMessage, "messageId", 2L);
-        when(messageRepository.findByMessageIdIn(List.of(1L, 2L)))
+        when(messageRepository.findByMessageIdInForUpdate(List.of(1L, 2L)))
                 .thenReturn(List.of(message, receivedMessage));
 
         messageService.deleteMessages(1L, Arrays.asList(1L, null, 1L, 2L));
@@ -337,7 +337,7 @@ class MessageServiceTest {
         assertThat(message.getIsDeletedByReceiver()).isFalse();
         assertThat(receivedMessage.getIsDeletedBySender()).isFalse();
         assertThat(receivedMessage.getIsDeletedByReceiver()).isTrue();
-        verify(messageRepository).findByMessageIdIn(List.of(1L, 2L));
+        verify(messageRepository).findByMessageIdInForUpdate(List.of(1L, 2L));
         verify(messageRepository, never()).findById(any());
         verify(messageRepository, never()).deleteAll(anyList());
     }
@@ -345,7 +345,7 @@ class MessageServiceTest {
     @Test
     @DisplayName("메시지 일괄 삭제는 요청 ID가 로드되지 않으면 NOT_FOUND로 실패한다")
     void deleteMessages_missingLoadedMessage_notFound() {
-        when(messageRepository.findByMessageIdIn(List.of(1L, 2L))).thenReturn(List.of(message));
+        when(messageRepository.findByMessageIdInForUpdate(List.of(1L, 2L))).thenReturn(List.of(message));
 
         assertThatThrownBy(() -> messageService.deleteMessages(1L, List.of(1L, 2L)))
                 .isInstanceOf(BusinessException.class)
@@ -357,7 +357,7 @@ class MessageServiceTest {
     @Test
     @DisplayName("메시지 일괄 삭제는 참여자가 아닌 메시지를 FORBIDDEN으로 실패시킨다")
     void deleteMessages_nonParticipant_forbidden() {
-        when(messageRepository.findByMessageIdIn(List.of(1L))).thenReturn(List.of(message));
+        when(messageRepository.findByMessageIdInForUpdate(List.of(1L))).thenReturn(List.of(message));
 
         assertThatThrownBy(() -> messageService.deleteMessages(3L, List.of(1L)))
                 .isInstanceOf(BusinessException.class)
@@ -370,7 +370,7 @@ class MessageServiceTest {
     @DisplayName("메시지 일괄 삭제는 양쪽이 삭제된 메시지를 완전 삭제한다")
     void deleteMessages_fullyDeletedMessageDeletesEntity() {
         message.deleteByReceiver();
-        when(messageRepository.findByMessageIdIn(List.of(1L))).thenReturn(List.of(message));
+        when(messageRepository.findByMessageIdInForUpdate(List.of(1L))).thenReturn(List.of(message));
 
         messageService.deleteMessages(1L, List.of(1L));
 
@@ -393,13 +393,13 @@ class MessageServiceTest {
         List<Message> secondChunkMessages = secondChunkIds.stream()
                 .map(this::messageWithId)
                 .toList();
-        when(messageRepository.findByMessageIdIn(firstChunkIds)).thenReturn(firstChunkMessages);
-        when(messageRepository.findByMessageIdIn(secondChunkIds)).thenReturn(secondChunkMessages);
+        when(messageRepository.findByMessageIdInForUpdate(firstChunkIds)).thenReturn(firstChunkMessages);
+        when(messageRepository.findByMessageIdInForUpdate(secondChunkIds)).thenReturn(secondChunkMessages);
 
         messageService.deleteMessages(1L, messageIds);
 
-        verify(messageRepository).findByMessageIdIn(firstChunkIds);
-        verify(messageRepository).findByMessageIdIn(secondChunkIds);
+        verify(messageRepository).findByMessageIdInForUpdate(firstChunkIds);
+        verify(messageRepository).findByMessageIdInForUpdate(secondChunkIds);
     }
 
     @Test
