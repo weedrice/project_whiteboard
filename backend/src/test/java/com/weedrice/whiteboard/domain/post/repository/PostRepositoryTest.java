@@ -141,14 +141,20 @@ class PostRepositoryTest {
     @Test
     @DisplayName("조회수 원자 증가")
     void incrementViewCount_success() {
-        int updated = postRepository.incrementViewCount(post.getPostId());
+        Long postId = post.getPostId();
+        entityManager.flush();
+        entityManager.clear();
+        LocalDateTime modifiedAt = postRepository.findById(postId).orElseThrow().getModifiedAt();
+
+        int updated = postRepository.incrementViewCount(postId);
         entityManager.flush();
         entityManager.clear();
 
-        Integer viewCount = postRepository.findViewCountByPostId(post.getPostId());
+        Post updatedPost = postRepository.findById(postId).orElseThrow();
 
         assertThat(updated).isEqualTo(1);
-        assertThat(viewCount).isEqualTo(1);
+        assertThat(updatedPost.getViewCount()).isEqualTo(1);
+        assertThat(updatedPost.getModifiedAt()).isEqualTo(modifiedAt);
     }
 
     @Test

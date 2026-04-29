@@ -86,8 +86,7 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
         @Modifying(flushAutomatically = true)
         @Query("""
                 UPDATE Post p
-                SET p.viewCount = p.viewCount + 1,
-                    p.modifiedAt = CURRENT_TIMESTAMP
+                SET p.viewCount = p.viewCount + 1
                 WHERE p.postId = :postId
                 """)
         int incrementViewCount(@Param("postId") Long postId);
