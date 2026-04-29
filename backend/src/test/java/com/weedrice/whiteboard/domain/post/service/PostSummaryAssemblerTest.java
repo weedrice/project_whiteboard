@@ -20,10 +20,12 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyList;
@@ -61,6 +63,48 @@ class PostSummaryAssemblerTest {
                 boardSubscriptionRepository,
                 commentRepository,
                 new BoardAccessPolicy(adminRepository));
+    }
+
+    @Test
+    @DisplayName("검색 페이지 요약에 이미지 여부와 row number를 조립한다")
+    void assembleSearchPage_assignsImageFlagAndRowNumbers() {
+        User author = User.builder().displayName("Author").build();
+        ReflectionTestUtils.setField(author, "userId", 1L);
+
+        Board board = Board.builder()
+                .boardName("Free")
+                .boardUrl("free")
+                .creator(author)
+                .build();
+        ReflectionTestUtils.setField(board, "boardId", 10L);
+
+        Post firstPost = Post.builder()
+                .title("First")
+                .contents("Contents")
+                .user(author)
+                .board(board)
+                .build();
+        ReflectionTestUtils.setField(firstPost, "postId", 100L);
+        Post secondPost = Post.builder()
+                .title("Second")
+                .contents("Contents")
+                .user(author)
+                .board(board)
+                .build();
+        ReflectionTestUtils.setField(secondPost, "postId", 99L);
+
+        when(fileService.getFirstImageFileIdsForPosts(List.of(100L, 99L)))
+                .thenReturn(Map.of(100L, 1000L));
+
+        PageImpl<Post> page = new PageImpl<>(
+                List.of(firstPost, secondPost),
+                PageRequest.of(1, 2, Sort.by(Sort.Order.desc("createdAt"))),
+                5);
+
+        List<PostSummary> summaries = postSummaryAssembler.assembleSearchPage(page).getContent();
+
+        assertThat(summaries).extracting(PostSummary::getRowNum).containsExactly(3L, 2L);
+        assertThat(summaries).extracting(PostSummary::isHasImage).containsExactly(true, false);
     }
 
     @Test

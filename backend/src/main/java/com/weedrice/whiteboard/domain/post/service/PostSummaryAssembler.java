@@ -26,7 +26,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 @Component
-class PostSummaryAssembler {
+public class PostSummaryAssembler {
 
     private static final int FEED_EXCERPT_MAX_LENGTH = 800;
 
@@ -36,13 +36,13 @@ class PostSummaryAssembler {
     private final PostInteractionContextResolver interactionContextResolver;
     private final PostContentSummaryExtractor contentSummaryExtractor;
 
-    PostSummaryAssembler(FileService fileService,
-                         UserRepository userRepository,
-                         PostLikeRepository postLikeRepository,
-                         ScrapRepository scrapRepository,
-                         BoardSubscriptionRepository boardSubscriptionRepository,
-                         CommentRepository commentRepository,
-                         BoardAccessPolicy boardAccessPolicy) {
+    public PostSummaryAssembler(FileService fileService,
+                                UserRepository userRepository,
+                                PostLikeRepository postLikeRepository,
+                                ScrapRepository scrapRepository,
+                                BoardSubscriptionRepository boardSubscriptionRepository,
+                                CommentRepository commentRepository,
+                                BoardAccessPolicy boardAccessPolicy) {
         this.fileService = fileService;
         this.commentRepository = commentRepository;
         this.boardAccessPolicy = boardAccessPolicy;
@@ -56,6 +56,15 @@ class PostSummaryAssembler {
 
     Page<PostSummary> assembleBoardPage(Page<Post> posts, Pageable pageable, boolean includeImages,
                                         boolean includeInquiryAnswered) {
+        return assemblePage(posts, pageable, includeImages, includeInquiryAnswered);
+    }
+
+    public Page<PostSummary> assembleSearchPage(Page<Post> posts) {
+        return assemblePage(posts, posts.getPageable(), true, false);
+    }
+
+    private Page<PostSummary> assemblePage(Page<Post> posts, Pageable pageable, boolean includeImages,
+                                           boolean includeInquiryAnswered) {
         List<Long> postIds = posts.getContent().stream()
                 .map(Post::getPostId)
                 .collect(Collectors.toList());

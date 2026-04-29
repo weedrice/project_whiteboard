@@ -3,11 +3,16 @@ package com.weedrice.whiteboard.domain.search.service;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
+import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository;
+import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.file.service.FileService;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.entity.Post;
+import com.weedrice.whiteboard.domain.post.repository.PostLikeRepository;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
+import com.weedrice.whiteboard.domain.post.repository.ScrapRepository;
+import com.weedrice.whiteboard.domain.post.service.PostSummaryAssembler;
 import com.weedrice.whiteboard.domain.search.dto.PopularKeywordDto;
 import com.weedrice.whiteboard.domain.search.dto.SearchPersonalizationResponse;
 import com.weedrice.whiteboard.domain.search.entity.SearchPersonalization;
@@ -23,7 +28,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
@@ -69,8 +73,15 @@ class SearchServiceTest {
     private UserBlockService userBlockService;
     @Mock
     private FileService fileService;
+    @Mock
+    private PostLikeRepository postLikeRepository;
+    @Mock
+    private ScrapRepository scrapRepository;
+    @Mock
+    private BoardSubscriptionRepository boardSubscriptionRepository;
+    @Mock
+    private BoardAccessPolicy boardAccessPolicy;
 
-    @InjectMocks
     private SearchService searchService;
 
     private User user;
@@ -79,6 +90,26 @@ class SearchServiceTest {
     void setUp() {
         user = User.builder().loginId("testuser").build();
         ReflectionTestUtils.setField(user, "userId", 1L);
+        PostSummaryAssembler postSummaryAssembler = new PostSummaryAssembler(
+                fileService,
+                userRepository,
+                postLikeRepository,
+                scrapRepository,
+                boardSubscriptionRepository,
+                commentRepository,
+                boardAccessPolicy);
+        searchService = new SearchService(
+                searchStatisticRepository,
+                searchStatisticCommandService,
+                recentSearchCommandService,
+                searchPersonalizationRepository,
+                userRepository,
+                postRepository,
+                commentRepository,
+                boardRepository,
+                adminRepository,
+                userBlockService,
+                postSummaryAssembler);
     }
 
     @Test
@@ -147,7 +178,7 @@ class SearchServiceTest {
         verify(commentRepository).searchCommentsByKeyword(eq(keyword), isNull(), isNull(), any(Pageable.class));
         verify(boardRepository).findByBoardNameContainingIgnoreCaseAndIsActiveTrueAndIsPublicTrueOrderBySortOrderAscBoardIdAsc(
                 eq(keyword), eq(previewPageable));
-        verify(fileService, never()).getRelatedIdsWithImages(anyList(), anyString());
+        verify(fileService, never()).getFirstImageFileIdsForPosts(anyList());
     }
 
     @Test
@@ -219,8 +250,8 @@ class SearchServiceTest {
 
         when(postRepository.searchPosts(anyString(), any(), any(), any(), anyBoolean(), any(), eq(pageable)))
                 .thenReturn(new PageImpl<>(List.of(firstPost, secondPost), pageable, 5));
-        when(fileService.getRelatedIdsWithImages(List.of(11L, 10L), "POST_CONTENT"))
-                .thenReturn(Collections.emptyList());
+        when(fileService.getFirstImageFileIdsForPosts(List.of(11L, 10L)))
+                .thenReturn(Collections.emptyMap());
 
         Page<PostSummary> result = searchService.searchPosts(
                 "test", null, null, pageable, null);
@@ -237,8 +268,8 @@ class SearchServiceTest {
 
         when(postRepository.searchPosts(anyString(), any(), any(), any(), anyBoolean(), any(), eq(pageable)))
                 .thenReturn(new PageImpl<>(List.of(firstPost, secondPost), pageable, 5));
-        when(fileService.getRelatedIdsWithImages(List.of(10L, 11L), "POST_CONTENT"))
-                .thenReturn(Collections.emptyList());
+        when(fileService.getFirstImageFileIdsForPosts(List.of(10L, 11L)))
+                .thenReturn(Collections.emptyMap());
 
         Page<PostSummary> result = searchService.searchPosts(
                 "test", null, null, pageable, null);
@@ -255,8 +286,8 @@ class SearchServiceTest {
 
         when(postRepository.searchPosts(anyString(), any(), any(), any(), anyBoolean(), any(), eq(pageable)))
                 .thenReturn(new PageImpl<>(List.of(firstPost, secondPost), pageable, 5));
-        when(fileService.getRelatedIdsWithImages(List.of(10L, 11L), "POST_CONTENT"))
-                .thenReturn(Collections.emptyList());
+        when(fileService.getFirstImageFileIdsForPosts(List.of(10L, 11L)))
+                .thenReturn(Collections.emptyMap());
 
         Page<PostSummary> result = searchService.searchPosts(
                 "test", null, null, pageable, null);
@@ -274,8 +305,8 @@ class SearchServiceTest {
 
         when(postRepository.searchPosts(anyString(), any(), any(), any(), anyBoolean(), any(), eq(normalizedPageable)))
                 .thenReturn(new PageImpl<>(List.of(firstPost, secondPost), normalizedPageable, 5));
-        when(fileService.getRelatedIdsWithImages(List.of(10L, 11L), "POST_CONTENT"))
-                .thenReturn(Collections.emptyList());
+        when(fileService.getFirstImageFileIdsForPosts(List.of(10L, 11L)))
+                .thenReturn(Collections.emptyMap());
 
         Page<PostSummary> result = searchService.searchPosts(
                 "test", null, null, pageable, null);

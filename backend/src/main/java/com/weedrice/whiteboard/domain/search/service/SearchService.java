@@ -6,10 +6,10 @@ import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.comment.dto.CommentResponse;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
-import com.weedrice.whiteboard.domain.file.service.FileService;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
+import com.weedrice.whiteboard.domain.post.service.PostSummaryAssembler;
 import com.weedrice.whiteboard.domain.search.dto.IntegratedSearchResponse;
 import com.weedrice.whiteboard.domain.search.dto.PopularKeywordDto;
 import com.weedrice.whiteboard.domain.search.dto.SearchPersonalizationResponse;
@@ -27,7 +27,6 @@ import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -35,8 +34,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
-import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -66,7 +63,7 @@ public class SearchService {
     private final BoardRepository boardRepository;
     private final AdminRepository adminRepository;
     private final UserBlockService userBlockService;
-    private final FileService fileService;
+    private final PostSummaryAssembler postSummaryAssembler;
 
     @Transactional
     public void recordSearch(Long userId, String keyword, LocalDate searchDate) {
@@ -91,7 +88,7 @@ public class SearchService {
 
         Page<Post> postPage = postRepository.searchPostsByKeyword(keyword,
                 blockedUserIds, currentUserId, previewPageable);
-        Page<PostSummary> posts = mapPostSummaries(postPage);
+        Page<PostSummary> posts = postSummaryAssembler.assembleSearchPage(postPage);
 
         Page<CommentResponse> comments = commentRepository
                 .searchCommentsByKeyword(keyword, blockedUserIds, currentUserId, previewPageable)
@@ -135,7 +132,7 @@ public class SearchService {
         Page<Post> postPage = postRepository.searchPosts(keyword, searchType,
                 boardUrl, blockedUserIds, includeSecret, currentUserId, normalizedPageable);
 
-        return mapPostSummaries(postPage);
+        return postSummaryAssembler.assembleSearchPage(postPage);
     }
 
     public SearchPersonalizationResponse getRecentSearches(Long userId, Pageable pageable) {
@@ -222,45 +219,4 @@ public class SearchService {
                 ALLOWED_POST_SEARCH_SORTS);
     }
 
-    private Page<PostSummary> mapPostSummaries(Page<Post> postPage) {
-        List<Long> postIds = postPage.getContent().stream()
-                .map(Post::getPostId)
-                .collect(Collectors.toList());
-        Set<Long> postIdsWithImages = postIds.isEmpty()
-                ? Collections.emptySet()
-                : new HashSet<>(fileService.getRelatedIdsWithImages(postIds, "POST_CONTENT"));
-        long totalElements = postPage.getTotalElements();
-        int pageNumber = postPage.getNumber();
-        int pageSize = postPage.getSize();
-        boolean isAscending = isAscendingPostOrder(postPage.getPageable());
-
-        List<PostSummary> content = postPage.getContent().stream()
-                .map(post -> {
-                    PostSummary summary = PostSummary.from(post);
-                    summary.setHasImage(postIdsWithImages.contains(post.getPostId()));
-                    return summary;
-                })
-                .collect(Collectors.toList());
-
-        for (int index = 0; index < content.size(); index++) {
-            PostSummary summary = content.get(index);
-            if (isAscending) {
-                summary.setRowNum(((long) pageNumber * pageSize) + index + 1);
-                continue;
-            }
-            summary.setRowNum(totalElements - ((long) pageNumber * pageSize) - index);
-        }
-
-        return new PageImpl<>(content, postPage.getPageable(), postPage.getTotalElements());
-    }
-
-    private boolean isAscendingPostOrder(Pageable pageable) {
-        for (Sort.Order order : pageable.getSort()) {
-            if (("createdAt".equals(order.getProperty()) || "postId".equals(order.getProperty()))
-                    && order.isAscending()) {
-                return true;
-            }
-        }
-        return false;
-    }
 }
