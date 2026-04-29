@@ -107,6 +107,7 @@ class PostServiceTest {
     private BoardAccessPolicy boardAccessPolicy;
     private PostAccessPolicy postAccessPolicy;
     private PostSummaryAssembler postSummaryAssembler;
+    private ViewHistoryCommandService viewHistoryCommandService;
     private PostDetailReadService postDetailReadService;
     private PostDraftService postDraftService;
     private PostInteractionService postInteractionService;
@@ -130,12 +131,14 @@ class PostServiceTest {
                 commentRepository,
                 boardAccessPolicy);
         postAccessPolicy = new PostAccessPolicy(boardAccessPolicy);
+        viewHistoryCommandService = new ViewHistoryCommandService(viewHistoryRepository);
         postDetailReadService = new PostDetailReadService(
                 postRepository,
                 userRepository,
                 postLikeRepository,
                 scrapRepository,
                 viewHistoryRepository,
+                viewHistoryCommandService,
                 tagAssignmentService,
                 fileService,
                 userBlockService,
@@ -156,6 +159,7 @@ class PostServiceTest {
                 postLikeRepository,
                 scrapRepository,
                 viewHistoryRepository,
+                viewHistoryCommandService,
                 commentRepository,
                 userBlockService,
                 agentOwnershipService,
@@ -393,15 +397,17 @@ class PostServiceTest {
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
         when(userBlockService.getBlockedUserIds(1L)).thenReturn(Collections.emptyList());
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(viewHistoryRepository.findByUserAndPost(user, post)).thenReturn(Optional.empty());
-        when(viewHistoryRepository.saveAndFlush(any(ViewHistory.class))).thenAnswer(i -> i.getArgument(0));
+        when(viewHistoryRepository.findByUserAndPost(user, post))
+                .thenReturn(Optional.empty())
+                .thenReturn(Optional.of(new ViewHistory(user, post)));
+        when(viewHistoryRepository.insertIgnore(1L, 1L)).thenReturn(1);
 
         Post result = postService.getPostById(1L, 1L);
 
         assertThat(result).isEqualTo(post);
         verify(postRepository).incrementViewCount(1L);
         verify(entityManager).refresh(post);
-        verify(viewHistoryRepository).saveAndFlush(any(ViewHistory.class));
+        verify(viewHistoryRepository).insertIgnore(1L, 1L);
     }
 
     @Test
@@ -415,13 +421,12 @@ class PostServiceTest {
         when(viewHistoryRepository.findByUserAndPost(user, post))
                 .thenReturn(Optional.empty())
                 .thenReturn(Optional.of(existing));
-        when(viewHistoryRepository.saveAndFlush(any(ViewHistory.class)))
-                .thenThrow(new DataIntegrityViolationException("duplicate"));
+        when(viewHistoryRepository.insertIgnore(1L, 1L)).thenReturn(0);
 
         Post result = postService.getPostById(1L, 1L);
 
         assertThat(result).isEqualTo(post);
-        verify(viewHistoryRepository).saveAndFlush(any(ViewHistory.class));
+        verify(viewHistoryRepository).insertIgnore(1L, 1L);
         verify(viewHistoryRepository, times(2)).findByUserAndPost(user, post);
     }
 
@@ -1057,14 +1062,17 @@ class PostServiceTest {
         ViewHistoryRequest request = new ViewHistoryRequest(100L, 5000L); // commentId, duration
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
-        when(viewHistoryRepository.findByUserAndPost(user, post)).thenReturn(Optional.empty());
-        when(viewHistoryRepository.saveAndFlush(any(ViewHistory.class))).thenAnswer(i -> i.getArgument(0));
+        when(viewHistoryRepository.findByUserAndPost(user, post))
+                .thenReturn(Optional.empty())
+                .thenReturn(Optional.empty())
+                .thenReturn(Optional.of(new ViewHistory(user, post)));
+        when(viewHistoryRepository.insertIgnore(1L, 1L)).thenReturn(1);
         when(commentRepository.findByCommentIdAndPost_PostId(100L, 1L))
                 .thenReturn(Optional.of(Comment.builder().post(post).build()));
 
         postService.updateViewHistory(1L, 1L, request);
 
-        verify(viewHistoryRepository).saveAndFlush(any(ViewHistory.class));
+        verify(viewHistoryRepository).insertIgnore(1L, 1L);
     }
 
     @Test
@@ -1077,16 +1085,16 @@ class PostServiceTest {
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
         when(viewHistoryRepository.findByUserAndPost(user, post))
                 .thenReturn(Optional.empty())
+                .thenReturn(Optional.empty())
                 .thenReturn(Optional.of(existing));
-        when(viewHistoryRepository.saveAndFlush(any(ViewHistory.class)))
-                .thenThrow(new DataIntegrityViolationException("duplicate"));
+        when(viewHistoryRepository.insertIgnore(1L, 1L)).thenReturn(0);
         when(commentRepository.findByCommentIdAndPost_PostId(100L, 1L))
                 .thenReturn(Optional.of(Comment.builder().post(post).build()));
 
         postService.updateViewHistory(1L, 1L, request);
 
-        verify(viewHistoryRepository).saveAndFlush(any(ViewHistory.class));
-        verify(viewHistoryRepository, times(2)).findByUserAndPost(user, post);
+        verify(viewHistoryRepository).insertIgnore(1L, 1L);
+        verify(viewHistoryRepository, times(3)).findByUserAndPost(user, post);
     }
 
     @Test
@@ -1249,8 +1257,10 @@ class PostServiceTest {
         lenient().when(userBlockService.getBlockedUserIds(1L)).thenReturn(Collections.emptyList());
         lenient().when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         lenient().when(postRepository.findById(1L)).thenReturn(Optional.of(post));
-        lenient().when(viewHistoryRepository.findByUserAndPost(user, post)).thenReturn(Optional.empty());
-        lenient().when(viewHistoryRepository.saveAndFlush(any(ViewHistory.class))).thenAnswer(i -> i.getArgument(0));
+        lenient().when(viewHistoryRepository.findByUserAndPost(user, post))
+                .thenReturn(Optional.empty())
+                .thenReturn(Optional.of(new ViewHistory(user, post)));
+        lenient().when(viewHistoryRepository.insertIgnore(1L, 1L)).thenReturn(1);
         lenient().when(tagAssignmentService.getTagNames(post)).thenReturn(Collections.emptyList());
         lenient().when(postLikeRepository.existsById(any(PostLikeId.class))).thenReturn(false);
         lenient().when(scrapRepository.existsById(any(ScrapId.class))).thenReturn(false);
@@ -1286,7 +1296,7 @@ class PostServiceTest {
 
         verify(postRepository, never()).incrementViewCount(anyLong());
         verify(postRepository, never()).findViewCountByPostId(anyLong());
-        verify(viewHistoryRepository, never()).saveAndFlush(any(ViewHistory.class));
+        verify(viewHistoryRepository, never()).insertIgnore(anyLong(), anyLong());
         assertThat(post.getViewCount()).isEqualTo(0);
     }
 
@@ -1790,8 +1800,10 @@ class PostServiceTest {
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
         when(userBlockService.getBlockedUserIds(1L)).thenReturn(Collections.emptyList());
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(viewHistoryRepository.findByUserAndPost(user, post)).thenReturn(Optional.empty());
-        when(viewHistoryRepository.saveAndFlush(any(ViewHistory.class))).thenAnswer(i -> i.getArgument(0));
+        when(viewHistoryRepository.findByUserAndPost(user, post))
+                .thenReturn(Optional.empty())
+                .thenReturn(Optional.of(new ViewHistory(user, post)));
+        when(viewHistoryRepository.insertIgnore(1L, 1L)).thenReturn(1);
 
         Post result = postService.getPostById(1L, 1L);
 
@@ -1811,8 +1823,10 @@ class PostServiceTest {
         when(userBlockService.getBlockedUserIds(2L)).thenReturn(Collections.emptyList());
         when(userRepository.findById(2L)).thenReturn(Optional.of(otherUser));
         when(adminRepository.existsByUserAndBoardAndIsActive(otherUser, board, true)).thenReturn(true);
-        when(viewHistoryRepository.findByUserAndPost(otherUser, post)).thenReturn(Optional.empty());
-        when(viewHistoryRepository.saveAndFlush(any(ViewHistory.class))).thenAnswer(i -> i.getArgument(0));
+        when(viewHistoryRepository.findByUserAndPost(otherUser, post))
+                .thenReturn(Optional.empty())
+                .thenReturn(Optional.of(new ViewHistory(otherUser, post)));
+        when(viewHistoryRepository.insertIgnore(2L, 1L)).thenReturn(1);
 
         Post result = postService.getPostById(1L, 2L);
 
@@ -1827,8 +1841,10 @@ class PostServiceTest {
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
         when(userBlockService.getBlockedUserIds(1L)).thenReturn(Collections.emptyList());
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(viewHistoryRepository.findByUserAndPost(user, post)).thenReturn(Optional.empty());
-        when(viewHistoryRepository.saveAndFlush(any(ViewHistory.class))).thenAnswer(i -> i.getArgument(0));
+        when(viewHistoryRepository.findByUserAndPost(user, post))
+                .thenReturn(Optional.empty())
+                .thenReturn(Optional.of(new ViewHistory(user, post)));
+        when(viewHistoryRepository.insertIgnore(1L, 1L)).thenReturn(1);
 
         Post result = postService.getPostById(1L, 1L);
 
@@ -1936,8 +1952,11 @@ class PostServiceTest {
         ViewHistoryRequest request = new ViewHistoryRequest(null, 1000L);
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
-        when(viewHistoryRepository.findByUserAndPost(user, post)).thenReturn(Optional.empty());
-        when(viewHistoryRepository.saveAndFlush(any(ViewHistory.class))).thenAnswer(i -> i.getArgument(0));
+        when(viewHistoryRepository.findByUserAndPost(user, post))
+                .thenReturn(Optional.empty())
+                .thenReturn(Optional.empty())
+                .thenReturn(Optional.of(new ViewHistory(user, post)));
+        when(viewHistoryRepository.insertIgnore(1L, 1L)).thenReturn(1);
 
         postService.updateViewHistory(1L, 1L, request);
 
@@ -1950,12 +1969,15 @@ class PostServiceTest {
         ViewHistoryRequest request = new ViewHistoryRequest(null, null);
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
-        when(viewHistoryRepository.findByUserAndPost(user, post)).thenReturn(Optional.empty());
-        when(viewHistoryRepository.saveAndFlush(any(ViewHistory.class))).thenAnswer(i -> i.getArgument(0));
+        when(viewHistoryRepository.findByUserAndPost(user, post))
+                .thenReturn(Optional.empty())
+                .thenReturn(Optional.empty())
+                .thenReturn(Optional.of(new ViewHistory(user, post)));
+        when(viewHistoryRepository.insertIgnore(1L, 1L)).thenReturn(1);
 
         postService.updateViewHistory(1L, 1L, request);
 
-        verify(viewHistoryRepository).saveAndFlush(any(ViewHistory.class));
+        verify(viewHistoryRepository).insertIgnore(1L, 1L);
     }
 
     @Test
@@ -2020,6 +2042,28 @@ class PostServiceTest {
 
     @Test
     @DisplayName("조회 이력 업데이트 - 비공개 또는 삭제 글은 실패")
+    void updateViewHistory_duplicateInsertExistingDurationOverflow_throwsInvalidInput() {
+        ViewHistoryRequest request = new ViewHistoryRequest(null, 1L);
+        ViewHistory existing = ViewHistory.builder().user(user).post(post).build();
+        existing.updateView(null, Long.MAX_VALUE);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+        when(viewHistoryRepository.findByUserAndPost(user, post))
+                .thenReturn(Optional.empty())
+                .thenReturn(Optional.empty())
+                .thenReturn(Optional.of(existing));
+        when(viewHistoryRepository.insertIgnore(1L, 1L)).thenReturn(0);
+
+        assertThatThrownBy(() -> postService.updateViewHistory(1L, 1L, request))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+        verify(viewHistoryRepository).insertIgnore(1L, 1L);
+        verify(viewHistoryRepository, times(3)).findByUserAndPost(user, post);
+    }
+
+    @Test
+    @DisplayName("View history update - unreadable post fails")
     void updateViewHistory_unreadablePost_throwsPostNotFound() {
         ViewHistoryRequest request = new ViewHistoryRequest(null, 1000L);
         ReflectionTestUtils.setField(post, "isDeleted", true);

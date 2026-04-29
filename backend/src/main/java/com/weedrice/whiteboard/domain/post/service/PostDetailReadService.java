@@ -18,7 +18,6 @@ import com.weedrice.whiteboard.domain.user.service.UserBlockService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,6 +37,7 @@ public class PostDetailReadService {
     private final PostLikeRepository postLikeRepository;
     private final ScrapRepository scrapRepository;
     private final ViewHistoryRepository viewHistoryRepository;
+    private final ViewHistoryCommandService viewHistoryCommandService;
     private final TagAssignmentService tagAssignmentService;
     private final FileService fileService;
     private final UserBlockService userBlockService;
@@ -70,7 +70,7 @@ public class PostDetailReadService {
             postRepository.incrementViewCount(postId);
 
             if (viewer != null) {
-                viewHistory = getOrCreateViewHistory(viewer, post);
+                viewHistory = viewHistoryCommandService.getOrCreate(viewer, post);
                 viewHistory.updateView(null, 0);
             }
         } else if (viewer != null) {
@@ -123,20 +123,6 @@ public class PostDetailReadService {
                 viewerUserId);
         long page = postsBefore / DEFAULT_BOARD_PAGE_SIZE;
         return (int) Math.min(page, Integer.MAX_VALUE);
-    }
-
-    private ViewHistory getOrCreateViewHistory(User user, Post post) {
-        return viewHistoryRepository.findByUserAndPost(user, post)
-                .orElseGet(() -> createViewHistory(user, post));
-    }
-
-    private ViewHistory createViewHistory(User user, Post post) {
-        try {
-            return viewHistoryRepository.saveAndFlush(new ViewHistory(user, post));
-        } catch (DataIntegrityViolationException ex) {
-            return viewHistoryRepository.findByUserAndPost(user, post)
-                    .orElseThrow(() -> ex);
-        }
     }
 
     private User getViewer(Long userId) {

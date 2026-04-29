@@ -6,6 +6,7 @@ import com.weedrice.whiteboard.domain.user.entity.User;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -14,6 +15,26 @@ import java.util.Optional;
 
 public interface ViewHistoryRepository extends JpaRepository<ViewHistory, Long> {
     Optional<ViewHistory> findByUserAndPost(User user, Post post);
+
+    @Modifying
+    @Query(value = """
+            INSERT INTO view_histories (
+                user_id,
+                post_id,
+                duration_ms,
+                created_at,
+                modified_at
+            )
+            VALUES (
+                :userId,
+                :postId,
+                0,
+                CURRENT_TIMESTAMP,
+                CURRENT_TIMESTAMP
+            )
+            ON CONFLICT (user_id, post_id) DO NOTHING
+            """, nativeQuery = true)
+    int insertIgnore(@Param("userId") Long userId, @Param("postId") Long postId);
 
     @Query(value = """
             SELECT vh.post_id

@@ -57,6 +57,7 @@ public class PostInteractionService {
     private final PostLikeRepository postLikeRepository;
     private final ScrapRepository scrapRepository;
     private final ViewHistoryRepository viewHistoryRepository;
+    private final ViewHistoryCommandService viewHistoryCommandService;
     private final CommentRepository commentRepository;
     private final UserBlockService userBlockService;
     private final AgentOwnershipService agentOwnershipService;
@@ -81,7 +82,7 @@ public class PostInteractionService {
             entityManager.refresh(post);
 
             if (viewer != null) {
-                ViewHistory viewHistory = getOrCreateViewHistory(viewer, post);
+                ViewHistory viewHistory = viewHistoryCommandService.getOrCreate(viewer, post);
                 viewHistory.updateView(null, 0);
             }
         }
@@ -121,10 +122,10 @@ public class PostInteractionService {
         long durationMs = resolveDurationMs(request);
         Comment lastReadComment = resolveLastReadComment(postId, request.getLastReadCommentId());
         ViewHistory viewHistory = viewHistoryRepository.findByUserAndPost(user, post).orElse(null);
-        validateDurationAccumulation(viewHistory != null ? viewHistory.getDurationMs() : 0L, durationMs);
         if (viewHistory == null) {
-            viewHistory = createViewHistory(user, post);
+            viewHistory = viewHistoryCommandService.getOrCreate(user, post);
         }
+        validateDurationAccumulation(viewHistory.getDurationMs(), durationMs);
         viewHistory.updateView(lastReadComment, durationMs);
     }
 
@@ -256,20 +257,6 @@ public class PostInteractionService {
         List<PostSummary> orderedSummaries = postSummaryAssembler.assembleLatestPosts(orderedPosts, userId);
 
         return new PageImpl<>(orderedSummaries, pageable, visiblePostIdsPage.getTotalElements());
-    }
-
-    private ViewHistory getOrCreateViewHistory(User user, Post post) {
-        return viewHistoryRepository.findByUserAndPost(user, post)
-                .orElseGet(() -> createViewHistory(user, post));
-    }
-
-    private ViewHistory createViewHistory(User user, Post post) {
-        try {
-            return viewHistoryRepository.saveAndFlush(new ViewHistory(user, post));
-        } catch (DataIntegrityViolationException ex) {
-            return viewHistoryRepository.findByUserAndPost(user, post)
-                    .orElseThrow(() -> ex);
-        }
     }
 
     private long resolveDurationMs(ViewHistoryRequest request) {
