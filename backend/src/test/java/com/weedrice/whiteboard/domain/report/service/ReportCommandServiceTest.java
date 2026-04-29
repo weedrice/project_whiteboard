@@ -214,6 +214,28 @@ class ReportCommandServiceTest {
     }
 
     @Test
+    @DisplayName("createReport keeps duplicate precedence before USER target policy validation")
+    void createReport_duplicateUserSelfReport_throwsAlreadyReported() {
+        User reporter = User.builder().build();
+        ReflectionTestUtils.setField(reporter, "userId", 1L);
+        Report existingReport = Report.builder()
+                .reporter(reporter)
+                .targetType("USER")
+                .targetId(1L)
+                .reasonType("ETC")
+                .build();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(reporter));
+        when(reportRepository.findByReporterAndTargetTypeAndTargetId(reporter, "USER", 1L))
+                .thenReturn(Optional.of(existingReport));
+
+        assertThatThrownBy(() -> reportCommandService.createReport(1L, "USER", 1L, "ETC", null, null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.ALREADY_REPORTED);
+
+        verify(reportTargetValidator, never()).validate("USER", 1L, reporter);
+    }
+
+    @Test
     @DisplayName("createReport rejects deleted or unreadable comment targets")
     void createReport_unreadableComment_throwsCommentNotFound() {
         User reporter = User.builder().build();

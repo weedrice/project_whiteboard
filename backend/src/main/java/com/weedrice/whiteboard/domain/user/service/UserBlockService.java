@@ -87,6 +87,10 @@ public class UserBlockService {
         return userBlockRepository.existsByUser_UserIdAndTarget_UserId(userId, targetUserId);
     }
 
+    public boolean hasBlockFromReporterToTarget(Long userId, Long targetUserId) {
+        return userBlockRepository.existsByUser_UserIdAndTarget_UserId(userId, targetUserId);
+    }
+
     public boolean isEitherDirectionBlocked(Long userAId, Long userBId) {
         return userBlockRepository.existsEitherDirection(userAId, userBId);
     }

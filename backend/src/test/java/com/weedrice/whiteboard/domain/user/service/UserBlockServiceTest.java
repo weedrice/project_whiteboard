@@ -152,6 +152,16 @@ class UserBlockServiceTest {
     }
 
     @Test
+    @DisplayName("Reporter-to-target block check uses only repository exists")
+    void hasBlockFromReporterToTarget() {
+        when(userBlockRepository.existsByUser_UserIdAndTarget_UserId(1L, 2L)).thenReturn(true);
+
+        assertThat(userBlockService.hasBlockFromReporterToTarget(1L, 2L)).isTrue();
+
+        verify(userBlockRepository).existsByUser_UserIdAndTarget_UserId(1L, 2L);
+    }
+
+    @Test
     @DisplayName("양방향 차단 여부 확인")
     void isEitherDirectionBlocked() {
         when(userBlockRepository.existsEitherDirection(1L, 2L)).thenReturn(true);
