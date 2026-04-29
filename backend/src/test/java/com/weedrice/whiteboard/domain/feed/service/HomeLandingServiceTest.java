@@ -11,16 +11,21 @@ import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.global.common.util.DateTimeUtils;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.Clock;
+import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -28,13 +33,13 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class HomeLandingServiceTest {
 
-    @InjectMocks
     private HomeLandingService homeLandingService;
 
     @Mock
@@ -54,6 +59,21 @@ class HomeLandingServiceTest {
 
     @Mock
     private UserRepository userRepository;
+
+    private Clock clock;
+
+    @BeforeEach
+    void setUp() {
+        clock = Clock.fixed(Instant.parse("2026-04-28T16:05:00Z"), DateTimeUtils.KST_ZONE_ID);
+        homeLandingService = new HomeLandingService(
+                postService,
+                boardService,
+                postRepository,
+                boardRepository,
+                commentRepository,
+                userRepository,
+                clock);
+    }
 
     @Test
     @DisplayName("Landing response is split into featured, picks, trending, and live sections")
@@ -145,6 +165,44 @@ class HomeLandingServiceTest {
         verify(postRepository, never()).countVisiblePostsForAdminDashboard();
     }
 
+    @Test
+    @DisplayName("Landing stats use KST day boundaries")
+    void getLanding_statsUseKstDayBoundaries() {
+        when(postService.getTrendingPosts(any(), eq(null), eq("24h"))).thenReturn(List.of());
+        when(boardService.getTopBoards(null)).thenReturn(List.of());
+        when(postRepository.countByCreatedAtGreaterThanEqualAndCreatedAtLessThanAndIsDeletedFalse(any(), any()))
+                .thenReturn(12L, 10L);
+        when(postRepository.countVisiblePostsForAdminDashboard()).thenReturn(8421L);
+        when(boardRepository.countByIsActiveTrueAndIsPublicTrue()).thenReturn(11L);
+        when(userRepository.countByStatusAndDeletedAtIsNullAndCreatedAtAfter(eq(User.STATUS_ACTIVE), any()))
+                .thenReturn(47L);
+        when(userRepository.countRecentlyLoggedInActiveUsersForAdminDashboard(any())).thenReturn(1247L);
+        when(commentRepository.countByCreatedAtGreaterThanEqualAndCreatedAtLessThanAndIsDeletedFalse(any(), any()))
+                .thenReturn(1824L);
+
+        homeLandingService.getLanding(null, "24h");
+
+        ArgumentCaptor<LocalDateTime> postStartCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
+        ArgumentCaptor<LocalDateTime> postEndCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
+        verify(postRepository, times(2)).countByCreatedAtGreaterThanEqualAndCreatedAtLessThanAndIsDeletedFalse(
+                postStartCaptor.capture(),
+                postEndCaptor.capture());
+        assertThat(postStartCaptor.getAllValues()).containsExactly(
+                LocalDateTime.of(2026, 4, 29, 0, 0),
+                LocalDateTime.of(2026, 4, 28, 0, 0));
+        assertThat(postEndCaptor.getAllValues()).containsExactly(
+                LocalDateTime.of(2026, 4, 30, 0, 0),
+                LocalDateTime.of(2026, 4, 29, 0, 0));
+        verify(userRepository).countByStatusAndDeletedAtIsNullAndCreatedAtAfter(
+                User.STATUS_ACTIVE,
+                LocalDateTime.of(2026, 4, 28, 1, 5));
+        verify(userRepository).countRecentlyLoggedInActiveUsersForAdminDashboard(
+                LocalDateTime.of(2026, 4, 28, 1, 5));
+        verify(commentRepository).countByCreatedAtGreaterThanEqualAndCreatedAtLessThanAndIsDeletedFalse(
+                LocalDateTime.of(2026, 4, 29, 0, 0),
+                LocalDateTime.of(2026, 4, 30, 0, 0));
+    }
+
     private PostSummary post(Long postId, String title) {
         return PostSummary.builder()
                 .postId(postId)
@@ -160,7 +218,7 @@ class HomeLandingServiceTest {
                 .isNotice(false)
                 .isNsfw(false)
                 .isSpoiler(false)
-                .createdAt(java.time.LocalDateTime.now())
+                .createdAt(LocalDateTime.now())
                 .build();
     }
 

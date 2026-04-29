@@ -16,6 +16,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -31,6 +32,7 @@ public class HomeLandingService {
     private final BoardRepository boardRepository;
     private final CommentRepository commentRepository;
     private final UserRepository userRepository;
+    private final Clock clock;
 
     public HomeLandingResponse getLanding(CustomUserDetails userDetails, String period) {
         Long userId = userDetails != null ? userDetails.getUserId() : null;
@@ -54,11 +56,11 @@ public class HomeLandingService {
     }
 
     private HomeLandingResponse.Stats getStats() {
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(clock);
         LocalDateTime todayStart = today.atStartOfDay();
         LocalDateTime tomorrowStart = today.plusDays(1).atStartOfDay();
         LocalDateTime yesterdayStart = today.minusDays(1).atStartOfDay();
-        LocalDateTime twentyFourHoursAgo = LocalDateTime.now().minusHours(24);
+        LocalDateTime twentyFourHoursAgo = LocalDateTime.now(clock).minusHours(24);
 
         long postsToday = postRepository.countByCreatedAtGreaterThanEqualAndCreatedAtLessThanAndIsDeletedFalse(
                 todayStart,
