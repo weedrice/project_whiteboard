@@ -1,0 +1,183 @@
+package com.weedrice.whiteboard.domain.post.service;
+
+import com.weedrice.whiteboard.domain.board.entity.Board;
+import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
+import com.weedrice.whiteboard.domain.board.repository.BoardCategoryRepository;
+import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
+import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
+import com.weedrice.whiteboard.domain.file.service.FileService;
+import com.weedrice.whiteboard.domain.post.dto.DraftListResponse;
+import com.weedrice.whiteboard.domain.post.dto.DraftResponse;
+import com.weedrice.whiteboard.domain.post.dto.PostDraftRequest;
+import com.weedrice.whiteboard.domain.post.entity.DraftPost;
+import com.weedrice.whiteboard.domain.post.entity.Post;
+import com.weedrice.whiteboard.domain.post.repository.DraftPostRepository;
+import com.weedrice.whiteboard.domain.post.repository.PostRepository;
+import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
+import com.weedrice.whiteboard.domain.user.entity.Role;
+import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.global.exception.BusinessException;
+import com.weedrice.whiteboard.global.exception.ErrorCode;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.lang.NonNull;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Objects;
+
+@Service
+@RequiredArgsConstructor
+@Transactional(readOnly = true)
+public class PostDraftService {
+
+    private static final String DEFAULT_CATEGORY_NAME = "\uC77C\uBC18";
+
+    private final UserRepository userRepository;
+    private final BoardRepository boardRepository;
+    private final BoardCategoryRepository boardCategoryRepository;
+    private final PostRepository postRepository;
+    private final DraftPostRepository draftPostRepository;
+    private final FileService fileService;
+    private final SanctionService sanctionService;
+    private final BoardAccessPolicy boardAccessPolicy;
+
+    public DraftListResponse getDraftPosts(@NonNull Long userId, @NonNull Pageable pageable) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        Page<DraftPost> draftPage = draftPostRepository.findPageByUserWithBoard(user, pageable);
+        return DraftListResponse.from(draftPage);
+    }
+
+    public DraftResponse getDraftPost(@NonNull Long userId, @NonNull Long draftId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        DraftPost draftPost = draftPostRepository.findByDraftIdAndUser(draftId, user)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+        return DraftResponse.from(draftPost);
+    }
+
+    @Transactional
+    public DraftPost saveDraftPost(@NonNull Long userId, PostDraftRequest request) {
+        User user = getWritableUser(userId);
+        sanctionService.validateNotMuted(user);
+        Board board = boardRepository.findByBoardUrl(request.getBoardUrl())
+                .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
+        boardAccessPolicy.validateWritable(board, user);
+        validateBoardWriteRole(board, user);
+
+        BoardCategory category = null;
+        if (request.getCategoryId() != null) {
+            category = findActiveCategory(board, request.getCategoryId());
+            validateWriteRole(board, user, category.getMinWriteRole());
+        }
+        if (request.isNotice() && !boardAccessPolicy.hasBoardAdminAccess(board, user)) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
+
+        Post originalPost = null;
+        if (request.getOriginalPostId() != null) {
+            originalPost = postRepository.findById(request.getOriginalPostId())
+                    .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
+        }
+
+        DraftPost draftPost = resolveDraftPost(user, request, board, category, originalPost);
+        DraftPost savedDraftPost = draftPostRepository.save(draftPost);
+        fileService.syncDraftFiles(request.getFileIds(), userId, savedDraftPost.getDraftId());
+        return savedDraftPost;
+    }
+
+    @Transactional
+    public void deleteDraftPost(@NonNull Long userId, @NonNull Long draftId) {
+        User user = getWritableUser(userId);
+        DraftPost draftPost = draftPostRepository.findByDraftIdAndUser(draftId, user)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+        fileService.markDraftFilesDeletionPending(draftId);
+        draftPostRepository.delete(draftPost);
+    }
+
+    private DraftPost resolveDraftPost(User user, PostDraftRequest request, Board board,
+                                       BoardCategory category, Post originalPost) {
+        if (request.getDraftId() == null) {
+            return DraftPost.builder()
+                    .user(user)
+                    .board(board)
+                    .category(category)
+                    .title(request.getTitle())
+                    .contents(request.getContents())
+                    .tags(request.getTags())
+                    .isNotice(request.isNotice())
+                    .isNsfw(request.isNsfw())
+                    .isSpoiler(request.isSpoiler())
+                    .isSecret(request.isSecret())
+                    .fileIds(request.getFileIds())
+                    .originalPost(originalPost)
+                    .build();
+        }
+
+        DraftPost draftPost = draftPostRepository.findByDraftIdAndUser(request.getDraftId(), user)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+        if (request.getUpdatedAt() != null
+                && draftPost.getModifiedAt() != null
+                && request.getUpdatedAt().isBefore(draftPost.getModifiedAt())) {
+            throw new BusinessException(ErrorCode.DRAFT_OUTDATED);
+        }
+        draftPost.updateDraft(
+                board,
+                category,
+                request.getTitle(),
+                request.getContents(),
+                request.getTags(),
+                request.isNotice(),
+                request.isNsfw(),
+                request.isSpoiler(),
+                request.isSecret(),
+                request.getFileIds(),
+                originalPost);
+        return draftPost;
+    }
+
+    private User getWritableUser(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        sanctionService.validateNotBanned(user);
+        return user;
+    }
+
+    private BoardCategory findActiveCategory(Board board, Long categoryId) {
+        if (board == null || categoryId == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND);
+        }
+        return boardCategoryRepository.findByCategoryIdAndBoard_BoardIdAndIsActive(categoryId, board.getBoardId(), true)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+    }
+
+    private void validateBoardWriteRole(Board board, User user) {
+        boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(board.getBoardId(), true).stream()
+                .filter(category -> DEFAULT_CATEGORY_NAME.equals(category.getName()))
+                .findFirst()
+                .ifPresent(category -> validateWriteRole(board, user, category.getMinWriteRole()));
+    }
+
+    private void validateWriteRole(Board board, User user, String minRole) {
+        String normalizedMinRole = BoardCategory.resolveMinWriteRole(minRole);
+        switch (normalizedMinRole) {
+            case Role.USER:
+                return;
+            case Role.BOARD_ADMIN:
+                if (!boardAccessPolicy.hasBoardAdminAccess(board, user)) {
+                    throw new BusinessException(ErrorCode.FORBIDDEN);
+                }
+                return;
+            case Role.SUPER_ADMIN:
+                if (!Objects.equals(user.getIsSuperAdmin(), true)) {
+                    throw new BusinessException(ErrorCode.FORBIDDEN);
+                }
+                return;
+            default:
+                throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+    }
+}

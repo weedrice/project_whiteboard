@@ -108,6 +108,8 @@ class PostServiceTest {
     private PostAccessPolicy postAccessPolicy;
     private PostSummaryAssembler postSummaryAssembler;
     private PostDetailReadService postDetailReadService;
+    private PostDraftService postDraftService;
+    private PostInteractionService postInteractionService;
 
     private PostService postService;
 
@@ -139,32 +141,50 @@ class PostServiceTest {
                 userBlockService,
                 postAccessPolicy,
                 boardAccessPolicy);
+        postDraftService = new PostDraftService(
+                userRepository,
+                boardRepository,
+                boardCategoryRepository,
+                postRepository,
+                draftPostRepository,
+                fileService,
+                sanctionService,
+                boardAccessPolicy);
+        postInteractionService = new PostInteractionService(
+                postRepository,
+                userRepository,
+                postLikeRepository,
+                scrapRepository,
+                viewHistoryRepository,
+                commentRepository,
+                userBlockService,
+                agentOwnershipService,
+                sanctionService,
+                eventPublisher,
+                postSummaryAssembler,
+                postAccessPolicy,
+                entityManager);
         postService = new PostService(
                 postRepository,
                 boardRepository,
                 boardCategoryRepository,
                 userRepository,
-                postLikeRepository,
-                scrapRepository,
-                draftPostRepository,
                 postVersionRepository,
                 tagAssignmentService,
-                viewHistoryRepository,
                 eventPublisher,
                 pointService,
                 pointHistoryRepository,
-                commentRepository,
                 fileService,
-                boardSubscriptionRepository,
                 userBlockService,
                 globalConfigService,
                 agentOwnershipService,
                 sanctionService,
                 postSummaryAssembler,
                 postDetailReadService,
+                postDraftService,
+                postInteractionService,
                 postAccessPolicy,
-                boardAccessPolicy,
-                entityManager);
+                boardAccessPolicy);
 
         // GlobalConfigService 기본 mock 설정 - lenient()로 설정하여 일부 테스트에서 사용되지 않아도 허용
         lenient().when(globalConfigService.getConfig(anyString())).thenReturn("50");
