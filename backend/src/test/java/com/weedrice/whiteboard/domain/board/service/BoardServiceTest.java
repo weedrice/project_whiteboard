@@ -21,6 +21,7 @@ import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.DraftPostRepository;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
+import com.weedrice.whiteboard.domain.post.service.PostLatestReadService;
 import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
@@ -85,6 +86,8 @@ class BoardServiceTest {
     @Mock
     private PostService postService;
     @Mock
+    private PostLatestReadService postLatestReadService;
+    @Mock
     private BoardCategoryRepository boardCategoryRepository;
     @Mock
     private PostRepository postRepository;
@@ -117,7 +120,7 @@ class BoardServiceTest {
                 boardCategoryRepository,
                 boardAiInfoRepository,
                 postRepository,
-                postService);
+                postLatestReadService);
         boardResponseAssembler = new BoardResponseAssembler(boardResponseReadService);
         boardAccessPolicy = new BoardAccessPolicy(adminRepository);
         BoardQueryService queryService = new BoardQueryService(
@@ -171,7 +174,7 @@ class BoardServiceTest {
                 .thenReturn(Collections.emptyList());
         lenient().when(boardSubscriptionRepository.findByUserAndBoardIn(any(), any()))
                 .thenReturn(Collections.emptyList());
-        lenient().when(postService.getLatestPostsByBoards(any(), anyInt(), any(), any()))
+        lenient().when(postLatestReadService.getLatestPostsByBoards(any(), anyInt(), any(), any()))
                 .thenReturn(Collections.emptyMap());
 
         user = User.builder()

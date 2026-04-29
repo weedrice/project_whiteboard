@@ -111,6 +111,7 @@ class PostServiceTest {
     private PostDetailReadService postDetailReadService;
     private PostDraftService postDraftService;
     private PostInteractionService postInteractionService;
+    private PostLatestReadService postLatestReadService;
 
     private PostService postService;
 
@@ -168,6 +169,10 @@ class PostServiceTest {
                 postSummaryAssembler,
                 postAccessPolicy,
                 entityManager);
+        postLatestReadService = new PostLatestReadService(
+                postRepository,
+                userBlockService,
+                postSummaryAssembler);
         postService = new PostService(
                 postRepository,
                 boardRepository,
@@ -188,7 +193,8 @@ class PostServiceTest {
                 postDraftService,
                 postInteractionService,
                 postAccessPolicy,
-                boardAccessPolicy);
+                boardAccessPolicy,
+                postLatestReadService);
 
         // GlobalConfigService 기본 mock 설정 - lenient()로 설정하여 일부 테스트에서 사용되지 않아도 허용
         lenient().when(globalConfigService.getConfig(anyString())).thenReturn("50");

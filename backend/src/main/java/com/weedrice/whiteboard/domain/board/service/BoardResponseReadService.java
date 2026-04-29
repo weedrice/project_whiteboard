@@ -11,7 +11,7 @@ import com.weedrice.whiteboard.domain.board.repository.BoardCategoryRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
-import com.weedrice.whiteboard.domain.post.service.PostService;
+import com.weedrice.whiteboard.domain.post.service.PostLatestReadService;
 import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import lombok.RequiredArgsConstructor;
@@ -35,7 +35,7 @@ class BoardResponseReadService {
     private final BoardCategoryRepository boardCategoryRepository;
     private final BoardAiInfoRepository boardAiInfoRepository;
     private final PostRepository postRepository;
-    private final PostService postService;
+    private final PostLatestReadService postLatestReadService;
 
     ListReadContext loadList(List<Board> boards, User currentUser) {
         if (boards == null || boards.isEmpty()) {
@@ -76,7 +76,7 @@ class BoardResponseReadService {
                 .map(CategoryResponse::new)
                 .toList();
         Set<Long> adminBoardIds = listReadContext.adminBoardIds();
-        List<PostSummary> latestPosts = postService.getLatestPostsByBoards(
+        List<PostSummary> latestPosts = postLatestReadService.getLatestPostsByBoards(
                 List.of(boardId),
                 15,
                 currentUserId,
