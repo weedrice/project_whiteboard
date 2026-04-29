@@ -112,6 +112,7 @@ class PostServiceTest {
     private PostDraftService postDraftService;
     private PostInteractionService postInteractionService;
     private PostLatestReadService postLatestReadService;
+    private PostAuthorCommandPolicy postAuthorCommandPolicy;
 
     private PostService postService;
 
@@ -132,6 +133,7 @@ class PostServiceTest {
                 commentRepository,
                 boardAccessPolicy);
         postAccessPolicy = new PostAccessPolicy(boardAccessPolicy);
+        postAuthorCommandPolicy = new PostAuthorCommandPolicy(boardAccessPolicy, boardCategoryRepository);
         viewHistoryCommandService = new ViewHistoryCommandService(viewHistoryRepository);
         postDetailReadService = new PostDetailReadService(
                 postRepository,
@@ -194,6 +196,7 @@ class PostServiceTest {
                 postInteractionService,
                 postAccessPolicy,
                 boardAccessPolicy,
+                postAuthorCommandPolicy,
                 postLatestReadService);
 
         // GlobalConfigService 기본 mock 설정 - lenient()로 설정하여 일부 테스트에서 사용되지 않아도 허용
@@ -1649,6 +1652,50 @@ class PostServiceTest {
     }
 
     @Test
+    @DisplayName("게시글 수정 - 기존 카테고리 최소 작성 권한이 올라가면 차단")
+    void updatePost_existingCategoryPermissionChanged_forbidden() {
+        BoardCategory restrictedCategory = BoardCategory.builder()
+                .name("Admin Only")
+                .board(board)
+                .minWriteRole("BOARD_ADMIN")
+                .build();
+        ReflectionTestUtils.setField(restrictedCategory, "categoryId", 1L);
+        ReflectionTestUtils.setField(post, "category", restrictedCategory);
+        User boardOwner = User.builder().loginId("owner").build();
+        ReflectionTestUtils.setField(boardOwner, "userId", 99L);
+        ReflectionTestUtils.setField(board, "creator", boardOwner);
+        PostUpdateRequest request = new PostUpdateRequest(1L, "Title", "Content", null, false, false, false, null);
+
+        when(postRepository.findById(1L)).thenReturn(Optional.of(post));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(adminRepository.existsByUserAndBoardAndIsActive(user, board, true)).thenReturn(false);
+
+        assertThatThrownBy(() -> postService.updatePost(1L, 1L, request))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
+        verify(postVersionRepository, never()).save(any(PostVersion.class));
+    }
+
+    @Test
+    @DisplayName("게시글 수정 - 비활성 게시판으로 전환되면 차단")
+    void updatePost_inactiveBoard_forbidden() {
+        User boardOwner = User.builder().loginId("owner").build();
+        ReflectionTestUtils.setField(boardOwner, "userId", 99L);
+        ReflectionTestUtils.setField(board, "creator", boardOwner);
+        ReflectionTestUtils.setField(board, "isActive", false);
+        PostUpdateRequest request = new PostUpdateRequest(null, "Title", "Content", null, false, false, false, null);
+
+        when(postRepository.findById(1L)).thenReturn(Optional.of(post));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(adminRepository.existsByUserAndBoardAndIsActive(user, board, true)).thenReturn(false);
+
+        assertThatThrownBy(() -> postService.updatePost(1L, 1L, request))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.BOARD_NOT_FOUND);
+        verify(postVersionRepository, never()).save(any(PostVersion.class));
+    }
+
+    @Test
     @DisplayName("게시글 수정 - 비활성 카테고리 이동은 차단")
     void updatePost_inactiveCategory_notFound() {
         PostUpdateRequest request = new PostUpdateRequest(2L, "Title", "Content", null, false, false, false, null);
@@ -1706,6 +1753,48 @@ class PostServiceTest {
         assertThatThrownBy(() -> postService.deletePost(1L, 1L))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("게시글 삭제 - 기존 카테고리 최소 작성 권한이 올라가면 차단")
+    void deletePost_existingCategoryPermissionChanged_forbidden() {
+        BoardCategory restrictedCategory = BoardCategory.builder()
+                .name("Admin Only")
+                .board(board)
+                .minWriteRole("BOARD_ADMIN")
+                .build();
+        ReflectionTestUtils.setField(restrictedCategory, "categoryId", 1L);
+        ReflectionTestUtils.setField(post, "category", restrictedCategory);
+        User boardOwner = User.builder().loginId("owner").build();
+        ReflectionTestUtils.setField(boardOwner, "userId", 99L);
+        ReflectionTestUtils.setField(board, "creator", boardOwner);
+
+        when(postRepository.findById(1L)).thenReturn(Optional.of(post));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(adminRepository.existsByUserAndBoardAndIsActive(user, board, true)).thenReturn(false);
+
+        assertThatThrownBy(() -> postService.deletePost(1L, 1L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
+        verify(tagAssignmentService, never()).clearTags(any(Post.class));
+    }
+
+    @Test
+    @DisplayName("게시글 삭제 - 비공개 게시판으로 전환되면 차단")
+    void deletePost_privateBoard_forbidden() {
+        User boardOwner = User.builder().loginId("owner").build();
+        ReflectionTestUtils.setField(boardOwner, "userId", 99L);
+        ReflectionTestUtils.setField(board, "creator", boardOwner);
+        ReflectionTestUtils.setField(board, "isPublic", false);
+
+        when(postRepository.findById(1L)).thenReturn(Optional.of(post));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(adminRepository.existsByUserAndBoardAndIsActive(user, board, true)).thenReturn(false);
+
+        assertThatThrownBy(() -> postService.deletePost(1L, 1L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.BOARD_NOT_FOUND);
+        verify(tagAssignmentService, never()).clearTags(any(Post.class));
     }
 
     @Test

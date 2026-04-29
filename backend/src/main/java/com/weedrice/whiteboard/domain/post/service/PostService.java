@@ -80,6 +80,7 @@ public class PostService {
     private final PostInteractionService postInteractionService;
     private final PostAccessPolicy postAccessPolicy;
     private final BoardAccessPolicy boardAccessPolicy;
+    private final PostAuthorCommandPolicy postAuthorCommandPolicy;
     private final PostLatestReadService postLatestReadService;
 
     public Page<PostSummary> getPosts(String boardUrl, Long categoryId, String keyword, Integer minLikes, Long currentUserId,
@@ -362,15 +363,10 @@ public class PostService {
         User modifier = getWritableUser(userId);
         sanctionService.validateNotMuted(modifier);
 
-        if (post.getIsDeleted()) {
-            throw new BusinessException(ErrorCode.POST_NOT_FOUND);
-        }
-
-        if (!post.getUser().getUserId().equals(userId)) {
-            throw new BusinessException(ErrorCode.FORBIDDEN);
-        }
+        postAuthorCommandPolicy.validateAuthorCommand(post, modifier);
 
         BoardCategory category = resolveUpdatedCategory(post, modifier, request.getCategoryId());
+        postAuthorCommandPolicy.validateWritableCommand(post, modifier, category);
 
         String originalTitle = post.getTitle();
         String originalContents = post.getContents();
@@ -398,13 +394,7 @@ public class PostService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
         User modifier = getWritableUser(userId);
 
-        if (post.getIsDeleted()) {
-            throw new BusinessException(ErrorCode.POST_NOT_FOUND);
-        }
-
-        if (!post.getUser().getUserId().equals(userId)) {
-            throw new BusinessException(ErrorCode.FORBIDDEN);
-        }
+        postAuthorCommandPolicy.validateDeletable(post, modifier);
 
         post.deletePost();
         tagAssignmentService.clearTags(post);
