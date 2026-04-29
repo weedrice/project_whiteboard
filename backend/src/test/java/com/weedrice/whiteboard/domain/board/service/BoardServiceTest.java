@@ -257,7 +257,6 @@ class BoardServiceTest {
         when(boardRepository.findByBoardUrl(boardUrl)).thenReturn(Optional.of(board));
         when(boardSubscriptionRepository.findById(any(BoardSubscriptionId.class))).thenReturn(Optional.empty());
         when(boardSubscriptionRepository.findMaxSortOrder(user)).thenReturn(0);
-        when(boardSubscriptionRepository.existsByUserAndBoard(user, board)).thenReturn(true);
         when(boardSubscriptionRepository.saveAndFlush(any(BoardSubscription.class)))
                 .thenThrow(new DataIntegrityViolationException("duplicate"));
 
@@ -265,6 +264,7 @@ class BoardServiceTest {
                 () -> boardService.subscribeBoard(userId, boardUrl));
 
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.ALREADY_SUBSCRIBED);
+        verify(boardSubscriptionRepository, never()).existsByUserAndBoard(any(), any());
     }
 
     @Test
@@ -276,7 +276,6 @@ class BoardServiceTest {
         when(boardRepository.findByBoardUrl(boardUrl)).thenReturn(Optional.of(board));
         when(boardSubscriptionRepository.findById(any(BoardSubscriptionId.class))).thenReturn(Optional.empty());
         when(boardSubscriptionRepository.findMaxSortOrder(user)).thenReturn(0);
-        when(boardSubscriptionRepository.existsByUserAndBoard(user, board)).thenReturn(false);
         when(boardSubscriptionRepository.saveAndFlush(any(BoardSubscription.class)))
                 .thenThrow(new DataIntegrityViolationException(
                         "duplicate",
@@ -289,6 +288,7 @@ class BoardServiceTest {
                 () -> boardService.subscribeBoard(userId, boardUrl));
 
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.DUPLICATE_RESOURCE);
+        verify(boardSubscriptionRepository, never()).existsByUserAndBoard(any(), any());
     }
 
     @Test
@@ -1258,6 +1258,45 @@ class BoardServiceTest {
         boardService.updateSubscriptionOrder(1L, List.of("second-board", "test-board"));
 
         assertThat(sortOrderSnapshots).containsExactly(List.of(6, 5), List.of(2, 1));
+    }
+
+    @Test
+    @DisplayName("구독 순서 변경 충돌은 중복 구독으로 오인하지 않는다")
+    void updateSubscriptionOrder_conflictMapsToDuplicateResource() {
+        Board secondBoard = Board.builder()
+                .boardName("Second Board")
+                .boardUrl("second-board")
+                .creator(user)
+                .build();
+        ReflectionTestUtils.setField(secondBoard, "boardId", 2L);
+
+        BoardSubscription firstSubscription = BoardSubscription.builder()
+                .user(user)
+                .board(board)
+                .role("MEMBER")
+                .sortOrder(1)
+                .build();
+        BoardSubscription secondSubscription = BoardSubscription.builder()
+                .user(user)
+                .board(secondBoard)
+                .role("MEMBER")
+                .sortOrder(2)
+                .build();
+
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+        when(boardSubscriptionRepository.findReorderableByUserAndBoardUrlIn(
+                user,
+                new LinkedHashSet<>(List.of("second-board", "test-board")),
+                false))
+                .thenReturn(List.of(firstSubscription, secondSubscription));
+        when(boardSubscriptionRepository.findMaxSortOrder(user)).thenReturn(2);
+        doThrow(new DataIntegrityViolationException("duplicate"))
+                .when(boardSubscriptionRepository).flush();
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> boardService.updateSubscriptionOrder(1L, List.of("second-board", "test-board")));
+
+        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.DUPLICATE_RESOURCE);
     }
 
     @Test

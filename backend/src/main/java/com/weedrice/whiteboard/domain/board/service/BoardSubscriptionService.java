@@ -64,7 +64,7 @@ class BoardSubscriptionService {
         try {
             boardSubscriptionRepository.saveAndFlush(subscription);
         } catch (DataIntegrityViolationException ex) {
-            throw resolveSubscriptionConflict(user, board, ex);
+            throw resolveSubscriptionConflict(board, ex);
         }
     }
 
@@ -124,16 +124,16 @@ class BoardSubscriptionService {
             }
             boardSubscriptionRepository.saveAll(subscriptions);
         } catch (DataIntegrityViolationException ex) {
-            throw resolveSubscriptionConflict(user, null, ex);
+            throw resolveSubscriptionConflict(null, ex);
         }
     }
 
-    private BusinessException resolveSubscriptionConflict(User user, Board board, DataIntegrityViolationException ex) {
-        if (board != null && boardSubscriptionRepository.existsByUserAndBoard(user, board)) {
-            return new BusinessException(ErrorCode.ALREADY_SUBSCRIBED);
-        }
+    private BusinessException resolveSubscriptionConflict(Board board, DataIntegrityViolationException ex) {
         if (containsConstraint(ex, USER_SORT_ORDER_CONSTRAINT)) {
             return new BusinessException(ErrorCode.DUPLICATE_RESOURCE, "Duplicate board subscription sort order");
+        }
+        if (board != null) {
+            return new BusinessException(ErrorCode.ALREADY_SUBSCRIBED);
         }
         return new BusinessException(ErrorCode.DUPLICATE_RESOURCE);
     }
