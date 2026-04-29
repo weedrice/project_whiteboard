@@ -54,6 +54,30 @@ class GlobalConfigServiceTest {
     }
 
     @Test
+    @DisplayName("parseIntConfigOrDefault returns parsed integer")
+    void parseIntConfigOrDefault_success() {
+        int value = GlobalConfigService.parseIntConfigOrDefault(" 12 ", 10, 0);
+
+        assertThat(value).isEqualTo(12);
+    }
+
+    @Test
+    @DisplayName("parseIntConfigOrDefault falls back for invalid integer")
+    void parseIntConfigOrDefault_invalidValue() {
+        int value = GlobalConfigService.parseIntConfigOrDefault("invalid", 10, 0);
+
+        assertThat(value).isEqualTo(10);
+    }
+
+    @Test
+    @DisplayName("parseIntConfigOrDefault falls back below minimum")
+    void parseIntConfigOrDefault_belowMinimum() {
+        int value = GlobalConfigService.parseIntConfigOrDefault("-1", 10, 0);
+
+        assertThat(value).isEqualTo(10);
+    }
+
+    @Test
     @DisplayName("createConfig saves and refreshes cache")
     void createConfig_success() {
         try (MockedStatic<SecurityUtils> utilities = Mockito.mockStatic(SecurityUtils.class)) {

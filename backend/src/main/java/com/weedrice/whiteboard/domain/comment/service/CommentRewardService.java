@@ -12,13 +12,19 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class CommentRewardService {
 
+    private static final String COMMENT_CREATE_REWARD_CONFIG_KEY = "POINT_COMMENT_CREATE_REWARD";
+    private static final int DEFAULT_COMMENT_CREATE_REWARD = 10;
+
     private final PointService pointService;
     private final PointHistoryRepository pointHistoryRepository;
     private final GlobalConfigService globalConfigService;
 
     public void rewardCreate(Long userId, Long commentId) {
-        String commentCreateRewardStr = globalConfigService.getConfig("POINT_COMMENT_CREATE_REWARD");
-        int commentCreateReward = commentCreateRewardStr != null ? Integer.parseInt(commentCreateRewardStr) : 10;
+        String commentCreateRewardConfig = globalConfigService.getConfig(COMMENT_CREATE_REWARD_CONFIG_KEY);
+        int commentCreateReward = GlobalConfigService.parseIntConfigOrDefault(
+                commentCreateRewardConfig,
+                DEFAULT_COMMENT_CREATE_REWARD,
+                0);
         pointService.addPoint(userId, commentCreateReward, "\uB313\uAE00 \uC791\uC131", commentId, "COMMENT");
     }
 

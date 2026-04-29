@@ -144,7 +144,7 @@ class CommentServiceTest {
             ReflectionTestUtils.setField(saved, "commentId", 10L);
             return saved;
         });
-        when(globalConfigService.getConfig(any())).thenReturn("10");
+        when(globalConfigService.getConfig(anyString())).thenReturn("10");
 
         Comment result = commentService.createComment(1L, 1L, null, "content");
 
@@ -209,7 +209,7 @@ class CommentServiceTest {
             ReflectionTestUtils.setField(saved, "commentId", 10L);
             return saved;
         });
-        when(globalConfigService.getConfig(any())).thenReturn("10");
+        when(globalConfigService.getConfig(anyString())).thenReturn("10");
 
         Comment result = commentService.createComment(1L, 1L, 5L, "content");
 
@@ -304,7 +304,7 @@ class CommentServiceTest {
             ReflectionTestUtils.setField(saved, "commentId", 10L);
             return saved;
         });
-        when(globalConfigService.getConfig(any())).thenReturn("10");
+        when(globalConfigService.getConfig(anyString())).thenReturn("10");
 
         commentService.createCommentAsAgent(2L, 99L, 1L, 5L, "content");
 

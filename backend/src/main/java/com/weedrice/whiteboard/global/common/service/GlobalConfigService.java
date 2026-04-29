@@ -1,8 +1,8 @@
 package com.weedrice.whiteboard.global.common.service;
 
-import com.weedrice.whiteboard.global.common.util.SecurityUtils;
 import com.weedrice.whiteboard.global.common.entity.GlobalConfig;
 import com.weedrice.whiteboard.global.common.repository.GlobalConfigRepository;
+import com.weedrice.whiteboard.global.common.util.SecurityUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +29,18 @@ public class GlobalConfigService {
         return globalConfigRepository.findById(key)
                 .map(GlobalConfig::getConfigValue)
                 .orElse(null);
+    }
+
+    public static int parseIntConfigOrDefault(String value, int defaultValue, int minValue) {
+        if (value == null) {
+            return defaultValue;
+        }
+        try {
+            int parsedValue = Integer.parseInt(value.trim());
+            return parsedValue >= minValue ? parsedValue : defaultValue;
+        } catch (NumberFormatException ex) {
+            return defaultValue;
+        }
     }
 
     public java.util.List<GlobalConfig> getAllConfigs() {
