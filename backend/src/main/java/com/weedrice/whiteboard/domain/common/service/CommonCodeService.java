@@ -112,7 +112,8 @@ public class CommonCodeService {
         CommonCodeDetail detail = commonCodeDetailRepository.findById(id)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
 
-        detail.update(request.getCodeName(), request.getSortOrder(), request.getIsActive());
+        Boolean isActive = request.getIsActive() != null ? request.getIsActive() : detail.getIsActive();
+        detail.update(request.getCodeName(), request.getSortOrder(), isActive);
         return CommonCodeDetailResponse.from(detail);
     }
     

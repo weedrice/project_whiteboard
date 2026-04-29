@@ -284,6 +284,22 @@ class CommonCodeServiceTest {
     }
 
     @Test
+    @DisplayName("공통 코드 상세 수정 시 isActive가 없으면 기존 상태를 유지한다")
+    void updateCommonCodeDetail_nullIsActive_keepsCurrentValue() {
+        CommonCodeDetailRequest request = new CommonCodeDetailRequest();
+        ReflectionTestUtils.setField(request, "codeName", "Updated Value");
+        ReflectionTestUtils.setField(request, "sortOrder", 2);
+
+        when(commonCodeDetailRepository.findById(1L)).thenReturn(Optional.of(commonCodeDetail));
+
+        CommonCodeDetailResponse response = commonCodeService.updateCommonCodeDetail(1L, request);
+
+        assertThat(response.getIsActive()).isTrue();
+        assertThat(commonCodeDetail.getIsActive()).isTrue();
+        verify(commonCodeDetailRepository).findById(1L);
+    }
+
+    @Test
     @DisplayName("공통 코드 상세 삭제는 비활성화로 처리한다")
     void deleteCommonCodeDetail_deactivatesDetail() {
         // given
