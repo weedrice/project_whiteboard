@@ -47,8 +47,8 @@ class ShopEntitlementCapabilityRegistryTest {
     }
 
     @Test
-    @DisplayName("Delegates validate and grant to the matching handler")
-    void validateAndGrant_delegateToMatchingHandler() {
+    @DisplayName("Delegates validate, preflight, and grant to the matching handler")
+    void validatePreflightAndGrant_delegateToMatchingHandler() {
         TrackingHandler handler = new TrackingHandler(Set.of("EMOTICON"));
         ShopEntitlementCapabilityRegistry registry = new ShopEntitlementCapabilityRegistry(List.of(handler));
         ShopItem item = ShopItem.builder()
@@ -59,9 +59,12 @@ class ShopEntitlementCapabilityRegistryTest {
                 .build();
 
         registry.validateConfiguration(item);
+        registry.preflightPurchase(1L, item);
         registry.grant(1L, item);
 
         assertThat(handler.validatedItem).isSameAs(item);
+        assertThat(handler.preflightUserId).isEqualTo(1L);
+        assertThat(handler.preflightItem).isSameAs(item);
         assertThat(handler.grantedUserId).isEqualTo(1L);
         assertThat(handler.grantedItem).isSameAs(item);
     }
@@ -77,6 +80,10 @@ class ShopEntitlementCapabilityRegistryTest {
         }
 
         @Override
+        public void preflightPurchase(Long userId, ShopItem item) {
+        }
+
+        @Override
         public void grant(Long userId, ShopItem item) {
         }
     }
@@ -84,6 +91,8 @@ class ShopEntitlementCapabilityRegistryTest {
     private static final class TrackingHandler implements ShopEntitlementHandler {
         private final Set<String> supportedItemTypes;
         private ShopItem validatedItem;
+        private Long preflightUserId;
+        private ShopItem preflightItem;
         private Long grantedUserId;
         private ShopItem grantedItem;
 
@@ -99,6 +108,12 @@ class ShopEntitlementCapabilityRegistryTest {
         @Override
         public void validateConfiguration(ShopItem item) {
             validatedItem = item;
+        }
+
+        @Override
+        public void preflightPurchase(Long userId, ShopItem item) {
+            preflightUserId = userId;
+            preflightItem = item;
         }
 
         @Override

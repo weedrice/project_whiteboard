@@ -17,6 +17,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
@@ -35,6 +36,8 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -171,16 +174,22 @@ class ShopServiceTest {
             Long purchaseId = shopService.purchaseItem(1L, 2L);
 
             assertThat(purchaseId).isEqualTo(1L);
-            verify(sanctionService).validateNotBanned(user);
-            verify(shopEntitlementCapabilityRegistry).validateConfiguration(emoticonItem);
-            verify(pointService).spendPoint(
+            InOrder inOrder = inOrder(
+                    sanctionService,
+                    shopEntitlementCapabilityRegistry,
+                    pointService,
+                    purchaseHistoryRepository);
+            inOrder.verify(sanctionService).validateNotBanned(user);
+            inOrder.verify(shopEntitlementCapabilityRegistry).validateConfiguration(emoticonItem);
+            inOrder.verify(shopEntitlementCapabilityRegistry).preflightPurchase(1L, emoticonItem);
+            inOrder.verify(pointService).spendPoint(
                     eq(1L),
                     eq(100),
                     eq("Shop item purchase: Premium emoticon"),
                     eq(2L),
                     eq("SHOP_ITEM"));
-            verify(shopEntitlementCapabilityRegistry).grant(1L, emoticonItem);
-            verify(purchaseHistoryRepository).save(any(PurchaseHistory.class));
+            inOrder.verify(shopEntitlementCapabilityRegistry).grant(1L, emoticonItem);
+            inOrder.verify(purchaseHistoryRepository).save(any(PurchaseHistory.class));
         }
 
         @Test
@@ -221,7 +230,7 @@ class ShopServiceTest {
             when(userRepository.findById(1L)).thenReturn(Optional.of(user));
             when(shopItemRepository.findById(2L)).thenReturn(Optional.of(emoticonItem));
             when(shopEntitlementCapabilityRegistry.supports(emoticonItem)).thenReturn(true);
-            org.mockito.Mockito.doThrow(new IllegalStateException("missing-target"))
+            doThrow(new IllegalStateException("missing-target"))
                     .when(shopEntitlementCapabilityRegistry)
                     .validateConfiguration(emoticonItem);
 
@@ -232,6 +241,26 @@ class ShopServiceTest {
 
             verify(pointService, never()).spendPoint(anyLong(), anyInt(), anyString(), anyLong(), anyString());
             verify(shopEntitlementCapabilityRegistry, never()).grant(anyLong(), any());
+        }
+
+        @Test
+        @DisplayName("Blocks preflight failures before spending points")
+        void purchaseItem_preflightFailure_doesNotSpendPoints() {
+            when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+            when(shopItemRepository.findById(2L)).thenReturn(Optional.of(emoticonItem));
+            when(shopEntitlementCapabilityRegistry.supports(emoticonItem)).thenReturn(true);
+            doThrow(new BusinessException(ErrorCode.EMOTICON_ALREADY_PURCHASED))
+                    .when(shopEntitlementCapabilityRegistry)
+                    .preflightPurchase(1L, emoticonItem);
+
+            assertThatThrownBy(() -> shopService.purchaseItem(1L, 2L))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.EMOTICON_ALREADY_PURCHASED);
+
+            verify(pointService, never()).spendPoint(anyLong(), anyInt(), anyString(), anyLong(), anyString());
+            verify(shopEntitlementCapabilityRegistry, never()).grant(anyLong(), any());
+            verify(purchaseHistoryRepository, never()).save(any());
         }
 
         @Test

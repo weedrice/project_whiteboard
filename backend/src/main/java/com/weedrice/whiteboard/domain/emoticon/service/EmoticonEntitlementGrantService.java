@@ -31,15 +31,21 @@ class EmoticonEntitlementGrantService {
         EmoticonMaster emoticon = emoticonMasterRepository.findByIdWithImages(emoticonId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.EMOTICON_NOT_FOUND));
 
-        if (emoticon.isOwner(userId)) {
-            throw new BusinessException(ErrorCode.EMOTICON_CANNOT_PURCHASE_OWN);
-        }
-
-        if (!"Y".equals(emoticon.getIsActive())) {
-            throw new BusinessException(ErrorCode.EMOTICON_HIDDEN);
-        }
+        validatePurchasable(userId, emoticon);
 
         return new EmoticonGrantContext(user, emoticon);
+    }
+
+    void preflightGrant(Long userId, Long emoticonId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        EmoticonMaster emoticon = emoticonMasterRepository.findByIdWithImages(emoticonId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.EMOTICON_NOT_FOUND));
+
+        validatePurchasable(user.getUserId(), emoticon);
+        if (emoticonPurchaseRepository.existsByUser_UserIdAndEmoticon_EmoticonId(user.getUserId(), emoticonId)) {
+            throw new BusinessException(ErrorCode.EMOTICON_ALREADY_PURCHASED);
+        }
     }
 
     void validateTargetConfiguration(Long emoticonId) {
@@ -75,6 +81,16 @@ class EmoticonEntitlementGrantService {
         }
         grantContext.emoticon().incrementPurchaseCount();
         return grantContext.emoticon();
+    }
+
+    private void validatePurchasable(Long userId, EmoticonMaster emoticon) {
+        if (emoticon.isOwner(userId)) {
+            throw new BusinessException(ErrorCode.EMOTICON_CANNOT_PURCHASE_OWN);
+        }
+
+        if (!"Y".equals(emoticon.getIsActive())) {
+            throw new BusinessException(ErrorCode.EMOTICON_HIDDEN);
+        }
     }
 
     record EmoticonGrantContext(User user, EmoticonMaster emoticon) {

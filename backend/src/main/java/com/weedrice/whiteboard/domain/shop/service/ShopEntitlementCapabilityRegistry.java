@@ -29,6 +29,10 @@ public class ShopEntitlementCapabilityRegistry {
         findRequiredHandler(item.getItemType()).validateConfiguration(item);
     }
 
+    public void preflightPurchase(Long userId, ShopItem item) {
+        findRequiredHandler(item.getItemType()).preflightPurchase(userId, item);
+    }
+
     public void grant(Long userId, ShopItem item) {
         findRequiredHandler(item.getItemType()).grant(userId, item);
     }

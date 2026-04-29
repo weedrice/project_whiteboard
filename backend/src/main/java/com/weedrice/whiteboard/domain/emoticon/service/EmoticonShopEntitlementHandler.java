@@ -28,6 +28,11 @@ class EmoticonShopEntitlementHandler implements ShopEntitlementHandler {
     }
 
     @Override
+    public void preflightPurchase(Long userId, ShopItem item) {
+        emoticonEntitlementGrantService.preflightGrant(userId, item.getTargetId());
+    }
+
+    @Override
     public void grant(Long userId, ShopItem item) {
         EmoticonEntitlementGrantService.EmoticonGrantContext grantContext =
                 emoticonEntitlementGrantService.prepareGrant(userId, item.getTargetId());

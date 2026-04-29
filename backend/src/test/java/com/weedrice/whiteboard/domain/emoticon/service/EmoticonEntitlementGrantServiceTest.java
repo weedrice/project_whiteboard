@@ -23,6 +23,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -105,6 +106,39 @@ class EmoticonEntitlementGrantServiceTest {
             assertThatThrownBy(() -> grantService.validateTargetConfiguration(10L))
                     .isInstanceOf(IllegalStateException.class)
                     .hasMessageContaining("inactive-target");
+        }
+    }
+
+    @Nested
+    @DisplayName("preflight grant")
+    class PreflightGrant {
+
+        @Test
+        @DisplayName("Passes for purchasable emoticons")
+        void preflightGrant_success() {
+            when(userRepository.findById(1L)).thenReturn(Optional.of(buyer));
+            when(emoticonMasterRepository.findByIdWithImages(10L)).thenReturn(Optional.of(emoticon));
+            when(emoticonPurchaseRepository.existsByUser_UserIdAndEmoticon_EmoticonId(1L, 10L)).thenReturn(false);
+
+            grantService.preflightGrant(1L, 10L);
+
+            verify(emoticonPurchaseRepository).existsByUser_UserIdAndEmoticon_EmoticonId(1L, 10L);
+            verify(emoticonPurchaseRepository, never()).saveAndFlush(any());
+        }
+
+        @Test
+        @DisplayName("Fails when already purchased")
+        void preflightGrant_duplicatePurchase() {
+            when(userRepository.findById(1L)).thenReturn(Optional.of(buyer));
+            when(emoticonMasterRepository.findByIdWithImages(10L)).thenReturn(Optional.of(emoticon));
+            when(emoticonPurchaseRepository.existsByUser_UserIdAndEmoticon_EmoticonId(1L, 10L)).thenReturn(true);
+
+            assertThatThrownBy(() -> grantService.preflightGrant(1L, 10L))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.EMOTICON_ALREADY_PURCHASED);
+
+            verify(emoticonPurchaseRepository, never()).saveAndFlush(any());
         }
     }
 

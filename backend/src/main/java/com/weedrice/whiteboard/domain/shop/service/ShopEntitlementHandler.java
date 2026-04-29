@@ -13,5 +13,7 @@ public interface ShopEntitlementHandler {
 
     void validateConfiguration(ShopItem item);
 
+    void preflightPurchase(Long userId, ShopItem item);
+
     void grant(Long userId, ShopItem item);
 }

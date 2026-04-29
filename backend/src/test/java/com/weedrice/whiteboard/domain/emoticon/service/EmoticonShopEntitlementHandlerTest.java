@@ -74,6 +74,14 @@ class EmoticonShopEntitlementHandlerTest {
     }
 
     @Test
+    @DisplayName("Delegates purchase preflight using targetId")
+    void preflightPurchase_delegatesWithTargetId() {
+        handler.preflightPurchase(1L, shopItem);
+
+        verify(emoticonEntitlementGrantService).preflightGrant(1L, 10L);
+    }
+
+    @Test
     @DisplayName("Delegates grant using targetId and shop price")
     void grant_delegatesContextAndPrice() {
         when(emoticonEntitlementGrantService.prepareGrant(1L, 10L)).thenReturn(grantContext);
