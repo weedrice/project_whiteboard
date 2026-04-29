@@ -12,7 +12,6 @@ import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
-import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -68,7 +67,7 @@ public class AgentLifecycleService {
     private long pendingClaimTtlHours = 24L;
 
     @Transactional
-    public AgentRegisterResponse register(AgentRegisterRequest request, HttpServletRequest httpServletRequest) {
+    public AgentRegisterResponse register(AgentRegisterRequest request) {
         String rawToken = generateRawToken();
         Agent agent = Agent.builder()
                 .agentTokenHash(hashToken(rawToken))
@@ -81,7 +80,7 @@ public class AgentLifecycleService {
     }
 
     @Transactional(noRollbackFor = ExpiredPendingClaimNotFoundException.class)
-    public AgentResponse claim(Long userId, AgentClaimRequest request, HttpServletRequest httpServletRequest) {
+    public AgentResponse claim(Long userId, AgentClaimRequest request, AgentRequestContext requestContext) {
         User user = resolveActiveOwnerForUpdate(userId);
         if (!Boolean.TRUE.equals(user.getIsEmailVerified())) {
             throw new BusinessException(ErrorCode.EMAIL_NOT_VERIFIED);
@@ -106,14 +105,14 @@ public class AgentLifecycleService {
                     agent.restoreDisplayInfo(resolveAgentName(null), "");
                 }
                 agent.activate();
-                agentAuditService.saveLog(agent, user, "REACTIVATE", "AGENT", agent.getAgentId(), httpServletRequest);
+                agentAuditService.saveLog(agent, user, "REACTIVATE", "AGENT", agent.getAgentId(), requestContext);
             }
             return AgentResponse.from(agent);
         }
 
-        softDeleteOtherAgentsForUser(user, agent.getAgentId(), httpServletRequest);
+        softDeleteOtherAgentsForUser(user, agent.getAgentId(), requestContext);
         agent.claim(user);
-        agentAuditService.saveLog(agent, user, "CLAIM", "AGENT", agent.getAgentId(), httpServletRequest);
+        agentAuditService.saveLog(agent, user, "CLAIM", "AGENT", agent.getAgentId(), requestContext);
         return AgentResponse.from(agent);
     }
 
@@ -141,16 +140,16 @@ public class AgentLifecycleService {
     }
 
     @Transactional
-    public AgentResponse suspendMyAgent(Long userId, Long agentId, HttpServletRequest request) {
+    public AgentResponse suspendMyAgent(Long userId, Long agentId, AgentRequestContext requestContext) {
         User user = resolveActiveOwner(userId);
         Agent agent = getOwnedAgent(user, agentId);
         agent.suspend();
-        agentAuditService.saveLog(agent, agent.getUser(), "SUSPEND", "AGENT", agent.getAgentId(), request);
+        agentAuditService.saveLog(agent, agent.getUser(), "SUSPEND", "AGENT", agent.getAgentId(), requestContext);
         return AgentResponse.from(agent);
     }
 
     @Transactional
-    public AgentResponse activateMyAgent(Long userId, Long agentId, HttpServletRequest request) {
+    public AgentResponse activateMyAgent(Long userId, Long agentId, AgentRequestContext requestContext) {
         User user = resolveActiveOwnerForUpdate(userId);
         Agent agent = getOwnedAgentForUpdate(user, agentId);
         if (agent.isActive()) {
@@ -163,16 +162,16 @@ public class AgentLifecycleService {
             agent.restoreDisplayInfo(resolveAgentName(null), "");
         }
         agent.activate();
-        agentAuditService.saveLog(agent, user, "REACTIVATE", "AGENT", agent.getAgentId(), request);
+        agentAuditService.saveLog(agent, user, "REACTIVATE", "AGENT", agent.getAgentId(), requestContext);
         return AgentResponse.from(agent);
     }
 
     @Transactional
-    public void deleteMyAgent(Long userId, Long agentId, HttpServletRequest request) {
+    public void deleteMyAgent(Long userId, Long agentId, AgentRequestContext requestContext) {
         User user = resolveActiveOwner(userId);
         Agent agent = getOwnedAgent(user, agentId);
         agent.softDelete();
-        agentAuditService.saveLog(agent, agent.getUser(), "DELETE", "AGENT", agent.getAgentId(), request);
+        agentAuditService.saveLog(agent, agent.getUser(), "DELETE", "AGENT", agent.getAgentId(), requestContext);
     }
 
     @Transactional
@@ -184,7 +183,7 @@ public class AgentLifecycleService {
                 .forEach(Agent::suspend);
     }
 
-    private void softDeleteOtherAgentsForUser(User user, Long currentAgentId, HttpServletRequest request) {
+    private void softDeleteOtherAgentsForUser(User user, Long currentAgentId, AgentRequestContext requestContext) {
         if (user == null) {
             return;
         }
@@ -192,7 +191,8 @@ public class AgentLifecycleService {
                 .filter(existingAgent -> !Objects.equals(existingAgent.getAgentId(), currentAgentId))
                 .forEach(existingAgent -> {
                     existingAgent.softDelete();
-                    agentAuditService.saveLog(existingAgent, user, "DELETE", "AGENT", existingAgent.getAgentId(), request);
+                    agentAuditService.saveLog(existingAgent, user, "DELETE", "AGENT", existingAgent.getAgentId(),
+                            requestContext);
                 });
     }
 

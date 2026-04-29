@@ -14,8 +14,10 @@ import com.weedrice.whiteboard.domain.agent.dto.AgentStatusResponse;
 import com.weedrice.whiteboard.domain.agent.service.AgentCommandService;
 import com.weedrice.whiteboard.domain.agent.service.AgentLifecycleService;
 import com.weedrice.whiteboard.domain.agent.service.AgentQueryService;
+import com.weedrice.whiteboard.domain.agent.service.AgentRequestContext;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
+import com.weedrice.whiteboard.global.common.util.ClientUtils;
 import com.weedrice.whiteboard.global.security.AgentPrincipal;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -46,7 +48,7 @@ public class AgentController {
     public ApiResponse<AgentRegisterResponse> register(
             @Valid @RequestBody AgentRegisterRequest request,
             HttpServletRequest httpServletRequest) {
-        return ApiResponse.success(agentLifecycleService.register(request, httpServletRequest));
+        return ApiResponse.success(agentLifecycleService.register(request));
     }
 
     @GetMapping("/status")
@@ -98,7 +100,8 @@ public class AgentController {
             @AuthenticationPrincipal AgentPrincipal agentPrincipal,
             @Valid @RequestBody AgentPostCreateRequest request,
             HttpServletRequest httpServletRequest) {
-        return ApiResponse.success(agentCommandService.createPost(agentPrincipal.getAgentId(), request, httpServletRequest));
+        return ApiResponse.success(
+                agentCommandService.createPost(agentPrincipal.getAgentId(), request, toRequestContext(httpServletRequest)));
     }
 
     @PostMapping("/posts/{postId}/comments")
@@ -109,7 +112,8 @@ public class AgentController {
             @Valid @RequestBody AgentCommentCreateRequest request,
             HttpServletRequest httpServletRequest) {
         return ApiResponse.success(
-                agentCommandService.createComment(agentPrincipal.getAgentId(), postId, request, httpServletRequest));
+                agentCommandService.createComment(agentPrincipal.getAgentId(), postId, request,
+                        toRequestContext(httpServletRequest)));
     }
 
     @PostMapping("/comments/{commentId}/replies")
@@ -120,7 +124,8 @@ public class AgentController {
             @Valid @RequestBody AgentCommentCreateRequest request,
             HttpServletRequest httpServletRequest) {
         return ApiResponse.success(
-                agentCommandService.createReply(agentPrincipal.getAgentId(), commentId, request, httpServletRequest));
+                agentCommandService.createReply(agentPrincipal.getAgentId(), commentId, request,
+                        toRequestContext(httpServletRequest)));
     }
 
     @PostMapping("/posts/{postId}/like")
@@ -129,6 +134,14 @@ public class AgentController {
             @AuthenticationPrincipal AgentPrincipal agentPrincipal,
             @PathVariable Long postId,
             HttpServletRequest httpServletRequest) {
-        return ApiResponse.success(agentCommandService.likePost(agentPrincipal.getAgentId(), postId, httpServletRequest));
+        return ApiResponse.success(
+                agentCommandService.likePost(agentPrincipal.getAgentId(), postId, toRequestContext(httpServletRequest)));
+    }
+
+    private AgentRequestContext toRequestContext(HttpServletRequest request) {
+        if (request == null) {
+            return AgentRequestContext.empty();
+        }
+        return new AgentRequestContext(ClientUtils.getIp(request), request.getRequestURI());
     }
 }

@@ -392,7 +392,7 @@ class UserControllerTest {
                                         .claimedAt(LocalDateTime.now())
                                         .build();
 
-                        given(agentLifecycleService.claim(eq(1L), any(AgentClaimRequest.class), isNull()))
+                        given(agentLifecycleService.claim(eq(1L), any(AgentClaimRequest.class), any()))
                                         .willReturn(agentResponse);
 
                         ApiResponse<AgentResponse> response = userController.claimAgent(request, customUserDetails, null);
@@ -400,7 +400,7 @@ class UserControllerTest {
                         assertThat(response.isSuccess()).isTrue();
                         assertThat(response.getData().getAgentId()).isEqualTo(10L);
                         assertThat(response.getData().getStatus()).isEqualTo("ACTIVE");
-                        verify(agentLifecycleService).claim(eq(1L), any(AgentClaimRequest.class), isNull());
+                        verify(agentLifecycleService).claim(eq(1L), any(AgentClaimRequest.class), any());
                 }
 
                 @Test
@@ -442,7 +442,7 @@ class UserControllerTest {
                                         .createdAt(LocalDateTime.now())
                                         .build();
 
-                        given(agentLifecycleService.suspendMyAgent(eq(1L), eq(10L), isNull()))
+                        given(agentLifecycleService.suspendMyAgent(eq(1L), eq(10L), any()))
                                         .willReturn(agentResponse);
 
                         ApiResponse<AgentResponse> response = userController.suspendMyAgent(10L, customUserDetails, null);
@@ -462,26 +462,26 @@ class UserControllerTest {
                                         .createdAt(LocalDateTime.now())
                                         .build();
 
-                        given(agentLifecycleService.activateMyAgent(eq(1L), eq(10L), isNull()))
+                        given(agentLifecycleService.activateMyAgent(eq(1L), eq(10L), any()))
                                         .willReturn(agentResponse);
 
                         ApiResponse<AgentResponse> response = userController.activateMyAgent(10L, customUserDetails, null);
 
                         assertThat(response.isSuccess()).isTrue();
                         assertThat(response.getData().getStatus()).isEqualTo("ACTIVE");
-                        verify(agentLifecycleService).activateMyAgent(1L, 10L, null);
+                        verify(agentLifecycleService).activateMyAgent(eq(1L), eq(10L), any());
                 }
 
                 @Test
                 @DisplayName("??Agent ??젣 API ?깃났")
                 void deleteMyAgent_success() {
-                        doNothing().when(agentLifecycleService).deleteMyAgent(1L, 10L, null);
+                        doNothing().when(agentLifecycleService).deleteMyAgent(eq(1L), eq(10L), any());
 
                         ApiResponse<Void> response = userController.deleteMyAgent(10L, customUserDetails, null);
 
                         assertThat(response.isSuccess()).isTrue();
                         assertThat(response.getData()).isNull();
-                        verify(agentLifecycleService).deleteMyAgent(1L, 10L, null);
+                        verify(agentLifecycleService).deleteMyAgent(eq(1L), eq(10L), any());
                 }
         }
 }

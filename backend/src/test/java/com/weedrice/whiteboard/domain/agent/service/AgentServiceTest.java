@@ -151,6 +151,8 @@ class AgentServiceTest {
                 agentBoardAccessService,
                 agentPostListItemAssembler,
                 commentReadSupport);
+        AgentLinkBuilder agentLinkBuilder = new AgentLinkBuilder();
+        ReflectionTestUtils.setField(agentLinkBuilder, "frontendUrl", "https://noviis.kr");
         agentCommandService = new AgentCommandService(
                 boardRepository,
                 commentRepository,
@@ -159,8 +161,8 @@ class AgentServiceTest {
                 agentOwnershipService,
                 agentBoardAccessService,
                 agentAuditService,
-                agentQuotaService);
-        ReflectionTestUtils.setField(agentCommandService, "frontendUrl", "https://noviis.kr");
+                agentQuotaService,
+                agentLinkBuilder);
 
         lenient().when(agentDailyQuotaRepository.findForUpdate(anyLong(), any(LocalDate.class), anyString()))
                 .thenReturn(Optional.empty());
@@ -302,7 +304,7 @@ class AgentServiceTest {
         doReturn("푸른 고래").when(spyService).generateBaseAgentNickname();
         when(agentRepository.existsByNameAndIsDeletedFalse("푸른 고래")).thenReturn(false);
 
-        spyService.register(request, null);
+        spyService.register(request);
 
         verify(agentRepository).save(argThat(savedAgent -> "푸른 고래".equals(savedAgent.getName())));
     }
@@ -333,7 +335,7 @@ class AgentServiceTest {
         when(agentRepository.existsByNameAndIsDeletedFalse("푸른 고래")).thenReturn(true);
         when(agentRepository.existsByNameAndIsDeletedFalse("푸른 고래 2")).thenReturn(false);
 
-        spyService.register(request, null);
+        spyService.register(request);
 
         verify(agentRepository).existsByNameAndIsDeletedFalse("푸른 고래");
         verify(agentRepository).existsByNameAndIsDeletedFalse("푸른 고래 2");
@@ -349,7 +351,7 @@ class AgentServiceTest {
         doReturn("푸른 고래").when(spyService).generateBaseAgentNickname();
         when(agentRepository.existsByNameAndIsDeletedFalse("푸른 고래")).thenReturn(false);
 
-        spyService.register(request, null);
+        spyService.register(request);
 
         verify(agentRepository).save(argThat(savedAgent -> "푸른 고래".equals(savedAgent.getName())));
     }

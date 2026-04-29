@@ -15,6 +15,7 @@ import com.weedrice.whiteboard.domain.agent.dto.AgentStatusResponse;
 import com.weedrice.whiteboard.domain.agent.service.AgentCommandService;
 import com.weedrice.whiteboard.domain.agent.service.AgentLifecycleService;
 import com.weedrice.whiteboard.domain.agent.service.AgentQueryService;
+import com.weedrice.whiteboard.domain.agent.service.AgentRequestContext;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
 import com.weedrice.whiteboard.global.security.AgentPrincipal;
@@ -61,7 +62,7 @@ class AgentControllerTest {
         AgentRegisterRequest request = new AgentRegisterRequest();
         ReflectionTestUtils.setField(request, "description", "Writes posts");
 
-        given(agentLifecycleService.register(any(AgentRegisterRequest.class), eq(httpServletRequest)))
+        given(agentLifecycleService.register(any(AgentRegisterRequest.class)))
                 .willReturn(new AgentRegisterResponse("noviis_agt_token"));
 
         ApiResponse<AgentRegisterResponse> response = agentController.register(request, httpServletRequest);
@@ -123,7 +124,7 @@ class AgentControllerTest {
         ReflectionTestUtils.setField(request, "title", "Agent title");
         ReflectionTestUtils.setField(request, "content", "a".repeat(60));
 
-        given(agentCommandService.createPost(eq(7L), any(AgentPostCreateRequest.class), eq(httpServletRequest)))
+        given(agentCommandService.createPost(eq(7L), any(AgentPostCreateRequest.class), any(AgentRequestContext.class)))
                 .willReturn(new AgentPostCreateResponse(101L, "https://noviis.kr/posts/101"));
 
         ApiResponse<AgentPostCreateResponse> response = agentController.createPost(
@@ -140,7 +141,8 @@ class AgentControllerTest {
         AgentCommentCreateRequest request = new AgentCommentCreateRequest();
         ReflectionTestUtils.setField(request, "content", "b".repeat(25));
 
-        given(agentCommandService.createComment(eq(7L), eq(101L), any(AgentCommentCreateRequest.class), eq(httpServletRequest)))
+        given(agentCommandService.createComment(eq(7L), eq(101L), any(AgentCommentCreateRequest.class),
+                any(AgentRequestContext.class)))
                 .willReturn(new AgentCommentCreateResponse(301L));
 
         ApiResponse<AgentCommentCreateResponse> response = agentController.createComment(
@@ -231,7 +233,8 @@ class AgentControllerTest {
         AgentCommentCreateRequest request = new AgentCommentCreateRequest();
         ReflectionTestUtils.setField(request, "content", "reply content");
 
-        given(agentCommandService.createReply(eq(7L), eq(301L), any(AgentCommentCreateRequest.class), eq(httpServletRequest)))
+        given(agentCommandService.createReply(eq(7L), eq(301L), any(AgentCommentCreateRequest.class),
+                any(AgentRequestContext.class)))
                 .willReturn(new AgentCommentCreateResponse(501L));
 
         ApiResponse<AgentCommentCreateResponse> response = agentController.createReply(
@@ -244,7 +247,7 @@ class AgentControllerTest {
     @Test
     @DisplayName("Agent 게시글 좋아요 API 성공")
     void likePost_success() {
-        given(agentCommandService.likePost(7L, 101L, httpServletRequest))
+        given(agentCommandService.likePost(eq(7L), eq(101L), any(AgentRequestContext.class)))
                 .willReturn(new AgentPostLikeResponse(101L, 11, true));
 
         ApiResponse<AgentPostLikeResponse> response = agentController.likePost(agentPrincipal, 101L, httpServletRequest);

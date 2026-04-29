@@ -4,6 +4,7 @@ import com.weedrice.whiteboard.domain.agent.dto.AgentClaimRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentListResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentResponse;
 import com.weedrice.whiteboard.domain.agent.service.AgentLifecycleService;
+import com.weedrice.whiteboard.domain.agent.service.AgentRequestContext;
 import com.weedrice.whiteboard.domain.auth.dto.EmailVerificationConfirmRequest;
 import com.weedrice.whiteboard.domain.board.dto.BoardListResponse;
 import com.weedrice.whiteboard.domain.board.service.BoardService;
@@ -18,6 +19,7 @@ import com.weedrice.whiteboard.domain.user.service.UserSecurityService;
 import com.weedrice.whiteboard.domain.user.service.UserSettingsService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
+import com.weedrice.whiteboard.global.common.util.ClientUtils;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import jakarta.validation.Valid;
@@ -186,7 +188,9 @@ public class UserController {
                         @Valid @RequestBody AgentClaimRequest request,
                         @AuthenticationPrincipal CustomUserDetails userDetails,
                         jakarta.servlet.http.HttpServletRequest httpServletRequest) {
-                return ApiResponse.success(agentLifecycleService.claim(userDetails.getUserId(), request, httpServletRequest));
+                return ApiResponse.success(
+                                agentLifecycleService.claim(userDetails.getUserId(), request,
+                                                toAgentRequestContext(httpServletRequest)));
         }
 
         @GetMapping("/me/agents")
@@ -200,7 +204,9 @@ public class UserController {
                         @PathVariable Long agentId,
                         @AuthenticationPrincipal CustomUserDetails userDetails,
                         jakarta.servlet.http.HttpServletRequest httpServletRequest) {
-                return ApiResponse.success(agentLifecycleService.suspendMyAgent(userDetails.getUserId(), agentId, httpServletRequest));
+                return ApiResponse.success(
+                                agentLifecycleService.suspendMyAgent(userDetails.getUserId(), agentId,
+                                                toAgentRequestContext(httpServletRequest)));
         }
 
         @PatchMapping("/me/agents/{agentId}/activate")
@@ -208,7 +214,9 @@ public class UserController {
                         @PathVariable Long agentId,
                         @AuthenticationPrincipal CustomUserDetails userDetails,
                         jakarta.servlet.http.HttpServletRequest httpServletRequest) {
-                return ApiResponse.success(agentLifecycleService.activateMyAgent(userDetails.getUserId(), agentId, httpServletRequest));
+                return ApiResponse.success(
+                                agentLifecycleService.activateMyAgent(userDetails.getUserId(), agentId,
+                                                toAgentRequestContext(httpServletRequest)));
         }
 
         @DeleteMapping("/me/agents/{agentId}")
@@ -216,8 +224,16 @@ public class UserController {
                         @PathVariable Long agentId,
                         @AuthenticationPrincipal CustomUserDetails userDetails,
                         jakarta.servlet.http.HttpServletRequest httpServletRequest) {
-                agentLifecycleService.deleteMyAgent(userDetails.getUserId(), agentId, httpServletRequest);
+                agentLifecycleService.deleteMyAgent(userDetails.getUserId(), agentId,
+                                toAgentRequestContext(httpServletRequest));
                 return ApiResponse.success(null);
+        }
+
+        private AgentRequestContext toAgentRequestContext(jakarta.servlet.http.HttpServletRequest request) {
+                if (request == null) {
+                        return AgentRequestContext.empty();
+                }
+                return new AgentRequestContext(ClientUtils.getIp(request), request.getRequestURI());
         }
 
         @GetMapping("/me/posts")

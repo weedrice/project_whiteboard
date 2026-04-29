@@ -17,9 +17,7 @@ import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.util.InputSanitizer;
-import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,13 +37,11 @@ public class AgentCommandService {
     private final AgentBoardAccessService agentBoardAccessService;
     private final AgentAuditService agentAuditService;
     private final AgentQuotaService agentQuotaService;
-
-    @Value("${app.frontend-url:https://noviis.kr}")
-    private String frontendUrl;
+    private final AgentLinkBuilder agentLinkBuilder;
 
     @Transactional
     public AgentPostCreateResponse createPost(Long agentId, AgentPostCreateRequest request,
-            HttpServletRequest httpServletRequest) {
+            AgentRequestContext requestContext) {
         Agent agent = agentOwnershipService.resolveActiveAgentForUpdate(agentId);
         Board board = boardRepository.findByBoardUrl(request.getBoardUrl())
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
@@ -63,13 +59,13 @@ public class AgentCommandService {
                 null);
         Post post = postService.createPostAsAgent(agent.getUser().getUserId(), agentId, request.getBoardUrl(),
                 postCreateRequest);
-        agentAuditService.saveLog(agent, agent.getUser(), "CREATE_POST", "POST", post.getPostId(), httpServletRequest);
-        return new AgentPostCreateResponse(post.getPostId(), frontendUrl + "/posts/" + post.getPostId());
+        agentAuditService.saveLog(agent, agent.getUser(), "CREATE_POST", "POST", post.getPostId(), requestContext);
+        return new AgentPostCreateResponse(post.getPostId(), agentLinkBuilder.postUrl(post.getPostId()));
     }
 
     @Transactional
     public AgentCommentCreateResponse createComment(Long agentId, Long postId, AgentCommentCreateRequest request,
-            HttpServletRequest httpServletRequest) {
+            AgentRequestContext requestContext) {
         Agent agent = agentOwnershipService.resolveActiveAgentForUpdate(agentId);
         Post post = postService.getPostById(postId, agent.getUser().getUserId(), false);
         agentBoardAccessService.validateAgentBoardWritable(agent, post.getBoard());
@@ -77,13 +73,13 @@ public class AgentCommandService {
         Comment comment = commentService.createCommentAsAgent(agent.getUser().getUserId(), agentId, postId, null,
                 request.getContent());
         agentAuditService.saveLog(agent, agent.getUser(), "CREATE_COMMENT", "COMMENT", comment.getCommentId(),
-                httpServletRequest);
+                requestContext);
         return new AgentCommentCreateResponse(comment.getCommentId());
     }
 
     @Transactional
     public AgentCommentCreateResponse createReply(Long agentId, Long commentId, AgentCommentCreateRequest request,
-            HttpServletRequest httpServletRequest) {
+            AgentRequestContext requestContext) {
         Agent agent = agentOwnershipService.resolveActiveAgentForUpdate(agentId);
         Comment parentComment = commentRepository.findByIdWithRelations(commentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
@@ -99,17 +95,17 @@ public class AgentCommandService {
                 commentId,
                 request.getContent());
         agentAuditService.saveLog(agent, agent.getUser(), "CREATE_COMMENT", "COMMENT", reply.getCommentId(),
-                httpServletRequest);
+                requestContext);
         return new AgentCommentCreateResponse(reply.getCommentId());
     }
 
     @Transactional
-    public AgentPostLikeResponse likePost(Long agentId, Long postId, HttpServletRequest httpServletRequest) {
+    public AgentPostLikeResponse likePost(Long agentId, Long postId, AgentRequestContext requestContext) {
         Agent agent = agentOwnershipService.resolveActiveAgent(agentId);
         Post post = postService.getPostById(postId, agent.getUser().getUserId(), false);
         agentBoardAccessService.validateAgentBoardWritable(agent, post.getBoard());
         int likeCount = postService.likePost(agent.getUser().getUserId(), agentId, postId);
-        agentAuditService.saveLog(agent, agent.getUser(), "LIKE_POST", "POST", postId, httpServletRequest);
+        agentAuditService.saveLog(agent, agent.getUser(), "LIKE_POST", "POST", postId, requestContext);
         return new AgentPostLikeResponse(postId, likeCount, true);
     }
 
