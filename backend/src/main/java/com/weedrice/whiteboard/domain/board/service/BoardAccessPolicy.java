@@ -51,10 +51,15 @@ public class BoardAccessPolicy {
         if (board == null) {
             return false;
         }
-        if (!Boolean.TRUE.equals(board.getIsActive()) && !hasBoardAdminAccess(board, user)) {
+        if (Boolean.TRUE.equals(board.getIsActive()) && Boolean.TRUE.equals(board.getIsPublic())) {
+            return true;
+        }
+
+        boolean hasAdminAccess = hasBoardAdminAccess(board, user);
+        if (!Boolean.TRUE.equals(board.getIsActive()) && !hasAdminAccess) {
             return false;
         }
-        if (!Boolean.TRUE.equals(board.getIsPublic()) && !hasBoardAdminAccess(board, user)) {
+        if (!Boolean.TRUE.equals(board.getIsPublic()) && !hasAdminAccess) {
             return false;
         }
         return true;
@@ -70,11 +75,17 @@ public class BoardAccessPolicy {
         if (board == null || user == null) {
             return false;
         }
-        if (!Boolean.TRUE.equals(board.getIsActive()) && !hasBoardAdminAccess(board, user)) {
+        if (Boolean.TRUE.equals(board.getIsActive())
+                && (Boolean.TRUE.equals(board.getIsPublic()) || isInquiryBoard(board))) {
+            return true;
+        }
+
+        boolean hasAdminAccess = hasBoardAdminAccess(board, user);
+        if (!Boolean.TRUE.equals(board.getIsActive()) && !hasAdminAccess) {
             return false;
         }
         if (!Boolean.TRUE.equals(board.getIsPublic())
-                && !hasBoardAdminAccess(board, user)
+                && !hasAdminAccess
                 && !isInquiryBoard(board)) {
             return false;
         }
