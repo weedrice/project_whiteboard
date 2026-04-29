@@ -158,7 +158,8 @@ class PostServiceTest {
                 draftPostRepository,
                 fileService,
                 sanctionService,
-                boardAccessPolicy);
+                boardAccessPolicy,
+                postAuthorCommandPolicy);
         postInteractionService = new PostInteractionService(
                 postRepository,
                 userRepository,
@@ -1091,6 +1092,63 @@ class PostServiceTest {
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.BOARD_NOT_FOUND);
 
         verify(draftPostRepository, never()).save(any(DraftPost.class));
+    }
+
+    @Test
+    @DisplayName("임시저장 실패 - 기본 카테고리 작성 권한을 만족하지 못하면 저장 불가")
+    void saveDraftPost_defaultCategoryWriteRole_forbidden() {
+        PostDraftRequest request = new PostDraftRequest(null, "free", "Draft Title", "Draft Content", null);
+        User otherCreator = User.builder().loginId("other").displayName("Other").build();
+        ReflectionTestUtils.setField(otherCreator, "userId", 2L);
+        ReflectionTestUtils.setField(board, "creator", otherCreator);
+        BoardCategory generalCategory = BoardCategory.builder()
+                .name("일반")
+                .board(board)
+                .minWriteRole("BOARD_ADMIN")
+                .build();
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
+        when(boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(1L, true))
+                .thenReturn(List.of(generalCategory));
+
+        assertThatThrownBy(() -> postService.saveDraftPost(1L, request))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
+
+        verify(draftPostRepository, never()).save(any(DraftPost.class));
+        verify(fileService, never()).syncDraftFiles(any(), anyLong(), anyLong());
+    }
+
+    @Test
+    @DisplayName("임시저장 실패 - 선택 카테고리 작성 권한을 만족하지 못하면 저장 불가")
+    void saveDraftPost_categoryWriteRole_forbidden() {
+        PostDraftRequest request = PostDraftRequest.builder()
+                .boardUrl("free")
+                .title("Draft Title")
+                .contents("Draft Content")
+                .categoryId(2L)
+                .build();
+        User otherCreator = User.builder().loginId("other").displayName("Other").build();
+        ReflectionTestUtils.setField(otherCreator, "userId", 2L);
+        ReflectionTestUtils.setField(board, "creator", otherCreator);
+        BoardCategory adminOnlyCategory = BoardCategory.builder()
+                .name("Admin Only")
+                .board(board)
+                .minWriteRole("BOARD_ADMIN")
+                .build();
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
+        when(boardCategoryRepository.findByCategoryIdAndBoard_BoardIdAndIsActive(2L, 1L, true))
+                .thenReturn(Optional.of(adminOnlyCategory));
+
+        assertThatThrownBy(() -> postService.saveDraftPost(1L, request))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
+
+        verify(draftPostRepository, never()).save(any(DraftPost.class));
+        verify(fileService, never()).syncDraftFiles(any(), anyLong(), anyLong());
     }
 
     @Test

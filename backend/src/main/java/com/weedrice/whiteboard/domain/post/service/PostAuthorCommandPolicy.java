@@ -65,7 +65,7 @@ public class PostAuthorCommandPolicy {
                 }
                 return;
             case Role.SUPER_ADMIN:
-                if (!user.getIsSuperAdmin()) {
+                if (!Boolean.TRUE.equals(user.getIsSuperAdmin())) {
                     throw new BusinessException(ErrorCode.FORBIDDEN);
                 }
                 return;

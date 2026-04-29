@@ -14,7 +14,6 @@ import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.DraftPostRepository;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
-import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -26,14 +25,10 @@ import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Objects;
-
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class PostDraftService {
-
-    private static final String DEFAULT_CATEGORY_NAME = "\uC77C\uBC18";
 
     private final UserRepository userRepository;
     private final BoardRepository boardRepository;
@@ -43,6 +38,7 @@ public class PostDraftService {
     private final FileService fileService;
     private final SanctionService sanctionService;
     private final BoardAccessPolicy boardAccessPolicy;
+    private final PostAuthorCommandPolicy postAuthorCommandPolicy;
 
     public DraftListResponse getDraftPosts(@NonNull Long userId, @NonNull Pageable pageable) {
         User user = userRepository.findById(userId)
@@ -65,13 +61,13 @@ public class PostDraftService {
         sanctionService.validateNotMuted(user);
         Board board = boardRepository.findByBoardUrl(request.getBoardUrl())
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
-        boardAccessPolicy.validateWritable(board, user);
-        validateBoardWriteRole(board, user);
+        postAuthorCommandPolicy.validateBoardWritable(board, user);
+        postAuthorCommandPolicy.validateAppliedCategoryWriteRole(board, user, null);
 
         BoardCategory category = null;
         if (request.getCategoryId() != null) {
             category = findActiveCategory(board, request.getCategoryId());
-            validateWriteRole(board, user, category.getMinWriteRole());
+            postAuthorCommandPolicy.validateWriteRole(board, user, category.getMinWriteRole());
         }
         if (request.isNotice() && !boardAccessPolicy.hasBoardAdminAccess(board, user)) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
@@ -152,32 +148,5 @@ public class PostDraftService {
         }
         return boardCategoryRepository.findByCategoryIdAndBoard_BoardIdAndIsActive(categoryId, board.getBoardId(), true)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
-    }
-
-    private void validateBoardWriteRole(Board board, User user) {
-        boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(board.getBoardId(), true).stream()
-                .filter(category -> DEFAULT_CATEGORY_NAME.equals(category.getName()))
-                .findFirst()
-                .ifPresent(category -> validateWriteRole(board, user, category.getMinWriteRole()));
-    }
-
-    private void validateWriteRole(Board board, User user, String minRole) {
-        String normalizedMinRole = BoardCategory.resolveMinWriteRole(minRole);
-        switch (normalizedMinRole) {
-            case Role.USER:
-                return;
-            case Role.BOARD_ADMIN:
-                if (!boardAccessPolicy.hasBoardAdminAccess(board, user)) {
-                    throw new BusinessException(ErrorCode.FORBIDDEN);
-                }
-                return;
-            case Role.SUPER_ADMIN:
-                if (!Objects.equals(user.getIsSuperAdmin(), true)) {
-                    throw new BusinessException(ErrorCode.FORBIDDEN);
-                }
-                return;
-            default:
-                throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
-        }
     }
 }
