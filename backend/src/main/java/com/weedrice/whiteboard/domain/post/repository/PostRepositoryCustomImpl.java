@@ -265,17 +265,6 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
 
     @Override
     public List<Post> findTrendingPosts(LocalDateTime since, List<Long> blockedUserIds, Pageable pageable) {
-        BooleanExpression hasAttachedImage = queryFactory.selectOne()
-                .from(file)
-                .where(
-                        file.relatedId.eq(post.postId),
-                        file.relatedType.eq("POST_CONTENT"),
-                        file.mimeType.like("image/%"))
-                .exists();
-
-        BooleanExpression hasImgTagInContent = post.contents.containsIgnoreCase("<img");
-        BooleanExpression hasVideoInContent = post.contents.containsIgnoreCase("<iframe");
-
         return queryFactory
                 .selectFrom(post)
                 .join(post.user).fetchJoin()
@@ -289,8 +278,8 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                         post.board.isActive.eq(true),
                         post.board.isPublic.eq(true),
                         notBlockedCondition(blockedUserIds),
-                        hasAttachedImage.or(hasImgTagInContent).or(hasVideoInContent))
-                .orderBy(post.viewCount.multiply(1).add(post.likeCount.multiply(10)).desc())
+                        TrendingPostRankingPolicy.mediaCondition(post, file))
+                .orderBy(TrendingPostRankingPolicy.score(post).desc())
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize())
                 .fetch();
