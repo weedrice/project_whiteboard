@@ -46,7 +46,7 @@ public class MqueueService {
         boolean sentSuccessfully = false;
 
         try {
-            log.info("Email sending attempt: {} - {}", message.getTargetUser().getEmail(), message.getContent());
+            log.info("Email sending attempt: queueId={}", queueId);
             emailService.sendEmail(message.getTargetUser().getEmail(), EMAIL_SUBJECT, message.getContent());
             sentSuccessfully = true;
             log.info("Email sent successfully: queueId={}", queueId);

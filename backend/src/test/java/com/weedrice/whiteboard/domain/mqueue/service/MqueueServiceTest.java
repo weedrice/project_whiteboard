@@ -1,5 +1,8 @@
 package com.weedrice.whiteboard.domain.mqueue.service;
 
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.weedrice.whiteboard.domain.mqueue.entity.MessageQueue;
 import com.weedrice.whiteboard.domain.mqueue.repository.MessageQueueRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -12,6 +15,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.slf4j.LoggerFactory;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -66,6 +70,33 @@ class MqueueServiceTest {
         verify(messageQueueRepository).save(message);
         assertThat(message.getStatus()).isEqualTo("SENT");
         assertThat(message.getProcessingStartedAt()).isNull();
+    }
+
+    @Test
+    @DisplayName("sendEmail logs queue id without recipient or content")
+    void sendEmail_logsQueueIdWithoutRecipientOrContent() {
+        Logger logger = (Logger) LoggerFactory.getLogger(MqueueService.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        try {
+            User user = User.builder().email("user@test.com").build();
+            MessageQueue message = processingMessage(user, LocalDateTime.now());
+            when(messageQueueRepository.findByIdWithTargetUser(1L)).thenReturn(Optional.of(message));
+            when(messageQueueRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(message));
+            mockTransactionCallback();
+
+            mqueueService.sendEmail(1L);
+
+            assertThat(appender.list)
+                    .extracting(ILoggingEvent::getFormattedMessage)
+                    .anyMatch(logMessage -> logMessage.contains("queueId=1"))
+                    .noneMatch(logMessage -> logMessage.contains("user@test.com"))
+                    .noneMatch(logMessage -> logMessage.contains("<p>Hello</p>"));
+        } finally {
+            logger.detachAppender(appender);
+            appender.stop();
+        }
     }
 
     @Test
