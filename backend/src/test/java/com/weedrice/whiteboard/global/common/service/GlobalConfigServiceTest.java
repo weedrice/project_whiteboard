@@ -96,6 +96,42 @@ class GlobalConfigServiceTest {
     }
 
     @Test
+    @DisplayName("createConfig accepts non-negative point config values")
+    void createConfig_pointConfig_acceptsNonNegativeInteger() {
+        try (MockedStatic<SecurityUtils> utilities = Mockito.mockStatic(SecurityUtils.class)) {
+            utilities.when(SecurityUtils::validateSuperAdminPermission).thenAnswer(invocation -> null);
+            when(globalConfigRepository.existsById("POINT_SIGNUP_BONUS")).thenReturn(false);
+            when(globalConfigRepository.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+            when(cacheManager.getCache("globalConfig")).thenReturn(cache);
+
+            GlobalConfig created = globalConfigService.createConfig("POINT_SIGNUP_BONUS", "0", "desc");
+
+            assertThat(created.getConfigValue()).isEqualTo("0");
+            verify(globalConfigRepository).saveAndFlush(any(GlobalConfig.class));
+            verify(cache).put("POINT_SIGNUP_BONUS", "0");
+        }
+    }
+
+    @Test
+    @DisplayName("createConfig rejects invalid point config values")
+    void createConfig_pointConfig_rejectsInvalidValue() {
+        try (MockedStatic<SecurityUtils> utilities = Mockito.mockStatic(SecurityUtils.class)) {
+            utilities.when(SecurityUtils::validateSuperAdminPermission).thenAnswer(invocation -> null);
+
+            assertThatThrownBy(() -> globalConfigService.createConfig("POINT_SIGNUP_BONUS", "invalid", "desc"))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+            assertThatThrownBy(() -> globalConfigService.createConfig("POINT_POST_CREATE_REWARD", "-1", "desc"))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+
+            verify(globalConfigRepository, never()).existsById(anyString());
+            verify(globalConfigRepository, never()).saveAndFlush(any());
+            verify(cacheManager, never()).getCache("globalConfig");
+        }
+    }
+
+    @Test
     @DisplayName("createConfig rejects duplicate found before save")
     void createConfig_duplicate() {
         try (MockedStatic<SecurityUtils> utilities = Mockito.mockStatic(SecurityUtils.class)) {
@@ -137,6 +173,24 @@ class GlobalConfigServiceTest {
             GlobalConfig updated = globalConfigService.updateConfig("key", "new", "new");
 
             assertThat(updated.getConfigValue()).isEqualTo("new");
+        }
+    }
+
+    @Test
+    @DisplayName("updateConfig rejects invalid point config values")
+    void updateConfig_pointConfig_rejectsInvalidValue() {
+        try (MockedStatic<SecurityUtils> utilities = Mockito.mockStatic(SecurityUtils.class)) {
+            utilities.when(SecurityUtils::validateSuperAdminPermission).thenAnswer(invocation -> null);
+
+            assertThatThrownBy(() -> globalConfigService.updateConfig("POINT_BOARD_CREATE_COST", "invalid", "desc"))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+            assertThatThrownBy(() -> globalConfigService.updateConfig("POINT_BOARD_CREATE_COST", "-1", "desc"))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+
+            verify(globalConfigRepository, never()).findById(anyString());
+            verify(globalConfigRepository, never()).save(any());
         }
     }
 }

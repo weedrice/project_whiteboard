@@ -40,6 +40,9 @@ import java.util.Objects;
 @Transactional(readOnly = true)
 public class PostCommandService {
 
+    private static final String POINT_POST_CREATE_REWARD_CONFIG_KEY = "POINT_POST_CREATE_REWARD";
+    private static final int DEFAULT_POST_CREATE_REWARD = 50;
+
     private final PostRepository postRepository;
     private final BoardRepository boardRepository;
     private final BoardCategoryRepository boardCategoryRepository;
@@ -123,9 +126,14 @@ public class PostCommandService {
             fileService.attachFilesToPost(request.getFileIds(), userId, savedPost.getPostId());
         }
 
-        String postCreateRewardStr = globalConfigService.getConfig("POINT_POST_CREATE_REWARD");
-        int postCreateReward = postCreateRewardStr != null ? Integer.parseInt(postCreateRewardStr) : 50;
-        pointService.addPoint(userId, postCreateReward, "\uAC8C\uC2DC\uAE00 \uC791\uC131", savedPost.getPostId(), "POST");
+        String postCreateRewardConfig = globalConfigService.getConfig(POINT_POST_CREATE_REWARD_CONFIG_KEY);
+        int postCreateReward = GlobalConfigService.parseIntConfigOrDefault(
+                postCreateRewardConfig,
+                DEFAULT_POST_CREATE_REWARD,
+                0);
+        if (postCreateReward > 0) {
+            pointService.addPoint(userId, postCreateReward, "\uAC8C\uC2DC\uAE00 \uC791\uC131", savedPost.getPostId(), "POST");
+        }
         eventPublisher.publishEvent(new PostPublishedEvent(savedPost.getPostId(), board.getBoardId()));
         return savedPost;
     }

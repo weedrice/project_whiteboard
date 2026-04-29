@@ -43,6 +43,8 @@ class BoardProvisioningService {
     private static final String BOARD_CATEGORY_ACTIVE_CONSTRAINT = "uq_board_categories_active_name";
     private static final String ORM_BOARD_CATEGORY_ACTIVE_CONSTRAINT = "uk_board_categories_board_name_active";
     private static final String LEGACY_BOARD_CATEGORY_ACTIVE_CONSTRAINT = "board_categories_board_id_name_is_active_key";
+    private static final String POINT_BOARD_CREATE_COST_CONFIG_KEY = "POINT_BOARD_CREATE_COST";
+    private static final int DEFAULT_BOARD_CREATE_COST = 500;
 
     private final BoardRepository boardRepository;
     private final BoardAiInfoRepository boardAiInfoRepository;
@@ -120,12 +122,15 @@ class BoardProvisioningService {
             throw resolveBoardConflict(ex);
         }
         syncBoardIcon(creatorId, savedBoard, null);
-        pointService.spendPoint(
-                creatorId,
-                resolveBoardCreateCost(),
-                "게시판 생성 (" + savedBoard.getBoardName() + ")",
-                savedBoard.getBoardId(),
-                "BOARD_CREATE");
+        int boardCreateCost = resolveBoardCreateCost();
+        if (boardCreateCost > 0) {
+            pointService.spendPoint(
+                    creatorId,
+                    boardCreateCost,
+                    "게시판 생성 (" + savedBoard.getBoardName() + ")",
+                    savedBoard.getBoardId(),
+                    "BOARD_CREATE");
+        }
         upsertBoardAiInfoIfEnabled(savedBoard, request.getGuidePrompt(), true);
 
         BoardCategory defaultCategory = BoardCategory.builder()
@@ -452,8 +457,11 @@ class BoardProvisioningService {
     }
 
     private int resolveBoardCreateCost() {
-        String boardCreateCostStr = globalConfigService.getConfig("POINT_BOARD_CREATE_COST");
-        return boardCreateCostStr != null ? Integer.parseInt(boardCreateCostStr) : 500;
+        String boardCreateCostConfig = globalConfigService.getConfig(POINT_BOARD_CREATE_COST_CONFIG_KEY);
+        return GlobalConfigService.parseIntConfigOrDefault(
+                boardCreateCostConfig,
+                DEFAULT_BOARD_CREATE_COST,
+                0);
     }
 
     private void syncBoardIcon(Long ownerUserId, Board board, String previousIconUrl) {

@@ -27,6 +27,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
@@ -218,5 +219,70 @@ class SignupServiceTest {
                 request.getEmail(),
                 VerificationPurpose.SIGNUP,
                 request.getVerificationTicket());
+    }
+
+    @Test
+    @DisplayName("회원가입 보너스 설정이 잘못되면 기본값으로 지급한다")
+    void signup_invalidBonusConfig_usesDefaultBonus() {
+        SignupRequest request = SignupRequest.builder()
+                .loginId("testuser")
+                .password("password123")
+                .email("test@example.com")
+                .displayName("Test User")
+                .verificationTicket("ticket-1")
+                .build();
+        User savedUser = User.builder()
+                .loginId("testuser")
+                .password("encoded-password")
+                .email("test@example.com")
+                .displayName("Test User")
+                .build();
+        ReflectionTestUtils.setField(savedUser, "userId", 10L);
+
+        when(userRepository.findByEmail(request.getEmail())).thenReturn(Optional.empty());
+        when(userRepository.existsByLoginId(request.getLoginId())).thenReturn(false);
+        when(passwordEncoder.encode(request.getPassword())).thenReturn("encoded-password");
+        when(userRepository.saveAndFlush(any(User.class))).thenReturn(savedUser);
+        when(userSettingsRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(globalConfigService.getConfig("POINT_SIGNUP_BONUS")).thenReturn("invalid");
+
+        signupService.signup(request);
+
+        verify(pointService).addPoint(eq(10L), eq(500), anyString(), eq(10L), eq("USER"));
+    }
+
+    @Test
+    @DisplayName("회원가입 보너스 설정이 0이면 포인트를 지급하지 않는다")
+    void signup_zeroBonusConfig_skipsPointGrant() {
+        SignupRequest request = SignupRequest.builder()
+                .loginId("testuser")
+                .password("password123")
+                .email("test@example.com")
+                .displayName("Test User")
+                .verificationTicket("ticket-1")
+                .build();
+        User savedUser = User.builder()
+                .loginId("testuser")
+                .password("encoded-password")
+                .email("test@example.com")
+                .displayName("Test User")
+                .build();
+        ReflectionTestUtils.setField(savedUser, "userId", 10L);
+
+        when(userRepository.findByEmail(request.getEmail())).thenReturn(Optional.empty());
+        when(userRepository.existsByLoginId(request.getLoginId())).thenReturn(false);
+        when(passwordEncoder.encode(request.getPassword())).thenReturn("encoded-password");
+        when(userRepository.saveAndFlush(any(User.class))).thenReturn(savedUser);
+        when(userSettingsRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(globalConfigService.getConfig("POINT_SIGNUP_BONUS")).thenReturn("0");
+
+        signupService.signup(request);
+
+        verify(pointService, never()).addPoint(
+                org.mockito.ArgumentMatchers.anyLong(),
+                org.mockito.ArgumentMatchers.anyInt(),
+                anyString(),
+                org.mockito.ArgumentMatchers.anyLong(),
+                anyString());
     }
 }

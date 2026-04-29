@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class GlobalConfigService {
 
     private static final String GLOBAL_CONFIG_CACHE = "globalConfig";
+    private static final String POINT_CONFIG_PREFIX = "POINT_";
 
     private final GlobalConfigRepository globalConfigRepository;
     private final CacheManager cacheManager;
@@ -56,6 +57,7 @@ public class GlobalConfigService {
     @Transactional
     public GlobalConfig createConfig(String key, String value, String description) {
         SecurityUtils.validateSuperAdminPermission();
+        validateConfigValue(key, value);
         if (globalConfigRepository.existsById(key)) {
             throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE);
         }
@@ -73,6 +75,7 @@ public class GlobalConfigService {
     @CacheEvict(value = GLOBAL_CONFIG_CACHE, key = "#key")
     public GlobalConfig updateConfig(String key, String value, String description) {
         SecurityUtils.validateSuperAdminPermission();
+        validateConfigValue(key, value);
         GlobalConfig config = globalConfigRepository.findById(key)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
 
@@ -98,6 +101,19 @@ public class GlobalConfigService {
         Cache cache = cacheManager.getCache(GLOBAL_CONFIG_CACHE);
         if (cache != null) {
             cache.put(key, value);
+        }
+    }
+
+    private void validateConfigValue(String key, String value) {
+        if (key == null || !key.startsWith(POINT_CONFIG_PREFIX)) {
+            return;
+        }
+        try {
+            if (Integer.parseInt(value.trim()) < 0) {
+                throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+            }
+        } catch (NullPointerException | NumberFormatException ex) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
     }
 }

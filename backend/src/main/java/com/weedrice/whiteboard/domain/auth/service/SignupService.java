@@ -29,6 +29,9 @@ import java.util.Objects;
 @Transactional(readOnly = true)
 public class SignupService {
 
+    private static final String POINT_SIGNUP_BONUS_CONFIG_KEY = "POINT_SIGNUP_BONUS";
+    private static final int DEFAULT_SIGNUP_BONUS = 500;
+
     private final UserRepository userRepository;
     private final PointService pointService;
     private final PasswordEncoder passwordEncoder;
@@ -78,9 +81,14 @@ public class SignupService {
                 .build();
         userSettingsRepository.save(userSettings);
 
-        String signupBonusStr = globalConfigService.getConfig("POINT_SIGNUP_BONUS");
-        int signupBonus = signupBonusStr != null ? Integer.parseInt(signupBonusStr) : 500;
-        pointService.addPoint(savedUser.getUserId(), signupBonus, "회원가입 축하 포인트", savedUser.getUserId(), "USER");
+        String signupBonusConfig = globalConfigService.getConfig(POINT_SIGNUP_BONUS_CONFIG_KEY);
+        int signupBonus = GlobalConfigService.parseIntConfigOrDefault(
+                signupBonusConfig,
+                DEFAULT_SIGNUP_BONUS,
+                0);
+        if (signupBonus > 0) {
+            pointService.addPoint(savedUser.getUserId(), signupBonus, "회원가입 축하 포인트", savedUser.getUserId(), "USER");
+        }
 
         saveSocialAccountIfPresent(savedUser, request);
 

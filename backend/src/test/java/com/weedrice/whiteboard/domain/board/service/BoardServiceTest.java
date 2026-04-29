@@ -402,6 +402,51 @@ class BoardServiceTest {
     }
 
     @Test
+    @DisplayName("게시판 생성 비용 설정이 잘못되면 기본값으로 차감한다")
+    void createBoard_invalidCostConfig_usesDefaultCost() {
+        Long creatorId = 1L;
+        BoardCreateRequest request = new BoardCreateRequest("New Board", "new-board", "New Description", null, null);
+
+        when(userRepository.findById(creatorId)).thenReturn(Optional.of(user));
+        when(boardRepository.existsByBoardName(request.getBoardName())).thenReturn(false);
+        when(boardRepository.existsByBoardUrl(request.getBoardUrl())).thenReturn(false);
+        when(globalConfigService.getConfig("POINT_BOARD_CREATE_COST")).thenReturn("invalid");
+        when(boardRepository.saveAndFlush(any(Board.class))).thenReturn(board);
+        when(boardCategoryRepository.save(any(BoardCategory.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(boardRepository.findMaxSortOrder()).thenReturn(0);
+
+        boardService.createBoard(creatorId, request);
+
+        verify(pointService).spendPoint(
+                eq(creatorId),
+                eq(500),
+                eq("게시판 생성 (Test Board)"),
+                eq(1L),
+                eq("BOARD_CREATE"));
+    }
+
+    @Test
+    @DisplayName("게시판 생성 비용 설정이 0이면 포인트를 차감하지 않는다")
+    void createBoard_zeroCostConfig_skipsPointSpend() {
+        Long creatorId = 1L;
+        BoardCreateRequest request = new BoardCreateRequest("New Board", "new-board", "New Description", null, null);
+
+        when(userRepository.findById(creatorId)).thenReturn(Optional.of(user));
+        when(boardRepository.existsByBoardName(request.getBoardName())).thenReturn(false);
+        when(boardRepository.existsByBoardUrl(request.getBoardUrl())).thenReturn(false);
+        when(globalConfigService.getConfig("POINT_BOARD_CREATE_COST")).thenReturn("0");
+        when(boardRepository.saveAndFlush(any(Board.class))).thenReturn(board);
+        when(boardCategoryRepository.save(any(BoardCategory.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(boardRepository.findMaxSortOrder()).thenReturn(0);
+
+        boardService.createBoard(creatorId, request);
+
+        verify(pointService, never()).spendPoint(anyLong(), anyInt(), anyString(), anyLong(), anyString());
+        verify(boardCategoryRepository).save(any(BoardCategory.class));
+        verify(boardManagerAssignmentService).assignBoardManager(board, user);
+    }
+
+    @Test
     @DisplayName("게시판 생성 시 파일 기반 아이콘이면 영구 연관한다")
     void createBoard_withUploadedIcon_associatesBoardIcon() {
         Long creatorId = 1L;

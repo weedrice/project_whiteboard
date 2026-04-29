@@ -10,6 +10,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -51,5 +52,20 @@ class CommentRewardServiceTest {
         commentRewardService.rewardCreate(1L, 10L);
 
         verify(pointService).addPoint(1L, 10, "\uB313\uAE00 \uC791\uC131", 10L, "COMMENT");
+    }
+
+    @Test
+    @DisplayName("rewardCreate skips reward for zero config")
+    void rewardCreate_zeroConfig_skipsReward() {
+        when(globalConfigService.getConfig("POINT_COMMENT_CREATE_REWARD")).thenReturn("0");
+
+        commentRewardService.rewardCreate(1L, 10L);
+
+        verify(pointService, never()).addPoint(
+                org.mockito.ArgumentMatchers.anyLong(),
+                org.mockito.ArgumentMatchers.anyInt(),
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyLong(),
+                org.mockito.ArgumentMatchers.anyString());
     }
 }

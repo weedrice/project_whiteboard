@@ -268,6 +268,48 @@ class PostServiceTest {
     }
 
     @Test
+    @DisplayName("게시글 작성 보상 설정이 잘못되면 기본값으로 지급한다")
+    void createPost_invalidRewardConfig_usesDefaultReward() {
+        PostCreateRequest request = new PostCreateRequest(null, "New Post", "New Contents", Collections.emptyList(),
+                false, false, false, false, null);
+
+        when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
+        when(globalConfigService.getConfig("POINT_POST_CREATE_REWARD")).thenReturn("invalid");
+        when(postRepository.save(any(Post.class))).thenAnswer(invocation -> {
+            Post p = invocation.getArgument(0);
+            ReflectionTestUtils.setField(p, "postId", 100L);
+            return p;
+        });
+
+        postService.createPost(1L, "free", request);
+
+        verify(pointService).addPoint(eq(1L), eq(50), anyString(), eq(100L), eq("POST"));
+    }
+
+    @Test
+    @DisplayName("게시글 작성 보상 설정이 0이면 포인트를 지급하지 않는다")
+    void createPost_zeroRewardConfig_skipsPointGrant() {
+        PostCreateRequest request = new PostCreateRequest(null, "New Post", "New Contents", Collections.emptyList(),
+                false, false, false, false, null);
+
+        when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
+        when(globalConfigService.getConfig("POINT_POST_CREATE_REWARD")).thenReturn("0");
+        when(postRepository.save(any(Post.class))).thenAnswer(invocation -> {
+            Post p = invocation.getArgument(0);
+            ReflectionTestUtils.setField(p, "postId", 100L);
+            return p;
+        });
+
+        postService.createPost(1L, "free", request);
+
+        verify(pointService, never()).addPoint(anyLong(), anyInt(), anyString(), anyLong(), anyString());
+    }
+
+    @Test
     @DisplayName("활성 BAN 사용자는 게시글을 작성할 수 없다")
     void createPost_bannedUser_forbidden() {
         PostCreateRequest request = new PostCreateRequest(null, "New Post", "New Contents", Collections.emptyList(),

@@ -25,7 +25,9 @@ public class CommentRewardService {
                 commentCreateRewardConfig,
                 DEFAULT_COMMENT_CREATE_REWARD,
                 0);
-        pointService.addPoint(userId, commentCreateReward, "\uB313\uAE00 \uC791\uC131", commentId, "COMMENT");
+        if (commentCreateReward > 0) {
+            pointService.addPoint(userId, commentCreateReward, "\uB313\uAE00 \uC791\uC131", commentId, "COMMENT");
+        }
     }
 
     public void rollbackCreateReward(Long userId, User user, Long commentId) {
