@@ -136,7 +136,6 @@ class PostServiceTest {
                 viewHistoryRepository,
                 tagAssignmentService,
                 fileService,
-                boardRepository,
                 userBlockService,
                 postAccessPolicy,
                 boardAccessPolicy);

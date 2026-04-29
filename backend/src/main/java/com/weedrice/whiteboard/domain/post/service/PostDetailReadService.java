@@ -1,7 +1,5 @@
 package com.weedrice.whiteboard.domain.post.service;
 
-import com.weedrice.whiteboard.domain.board.entity.Board;
-import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
 import com.weedrice.whiteboard.domain.file.service.FileService;
 import com.weedrice.whiteboard.domain.post.dto.PostResponse;
@@ -42,46 +40,47 @@ public class PostDetailReadService {
     private final ViewHistoryRepository viewHistoryRepository;
     private final TagAssignmentService tagAssignmentService;
     private final FileService fileService;
-    private final BoardRepository boardRepository;
     private final UserBlockService userBlockService;
     private final PostAccessPolicy postAccessPolicy;
     private final BoardAccessPolicy boardAccessPolicy;
 
     @Transactional
     public PostResponse getPostResponse(@NonNull Long postId, Long userId, boolean incrementView) {
-        Post post = getPostById(postId, userId, incrementView);
-        List<String> tags = getTagsForPost(postId);
+        PostDetailContext context = loadPostDetailContext(postId, userId, incrementView);
+        Post post = context.post();
+        List<String> tags = getTagsForPost(post);
         boolean isLiked = isPostLikedByUser(postId, userId);
         boolean isScrapped = isPostScrappedByUser(postId, userId);
-        ViewHistory viewHistory = getViewHistory(userId, postId);
         List<String> imageUrls = getPostImageUrls(postId);
-        boolean isAdmin = isBoardAdmin(userId, post.getBoard().getBoardId());
-        int boardListPage = resolveDefaultBoardListPage(post, userId);
+        boolean isAdmin = isBoardAdmin(context);
+        int boardListPage = resolveDefaultBoardListPage(context);
         Integer viewCount = incrementView ? postRepository.findViewCountByPostId(postId) : null;
 
-        return PostResponse.from(post, tags, viewHistory, isLiked, isScrapped, imageUrls, isAdmin, boardListPage,
-                viewCount);
+        return PostResponse.from(
+                post, tags, context.viewHistory(), isLiked, isScrapped, imageUrls, isAdmin, boardListPage, viewCount);
     }
 
-    private Post getPostById(@NonNull Long postId, Long userId, boolean incrementView) {
+    private PostDetailContext loadPostDetailContext(@NonNull Long postId, Long userId, boolean incrementView) {
         User viewer = getViewer(userId);
-        Post post = getReadablePost(postId, viewer);
+        List<Long> blockedUserIds = getBlockedUserIds(viewer);
+        Post post = getReadablePost(postId, viewer, blockedUserIds);
+        ViewHistory viewHistory = null;
 
         if (incrementView) {
             postRepository.incrementViewCount(postId);
 
             if (viewer != null) {
-                ViewHistory viewHistory = getOrCreateViewHistory(viewer, post);
+                viewHistory = getOrCreateViewHistory(viewer, post);
                 viewHistory.updateView(null, 0);
             }
+        } else if (viewer != null) {
+            viewHistory = viewHistoryRepository.findByUserAndPost(viewer, post).orElse(null);
         }
 
-        return post;
+        return new PostDetailContext(post, viewer, blockedUserIds, viewHistory);
     }
 
-    private List<String> getTagsForPost(@NonNull Long postId) {
-        Post post = postRepository.findById(postId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
+    private List<String> getTagsForPost(Post post) {
         return tagAssignmentService.getTagNames(post);
     }
 
@@ -99,17 +98,6 @@ public class PostDetailReadService {
         return scrapRepository.existsById(new ScrapId(userId, postId));
     }
 
-    private ViewHistory getViewHistory(Long userId, @NonNull Long postId) {
-        if (userId == null) {
-            return null;
-        }
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        Post post = postRepository.findById(postId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
-        return viewHistoryRepository.findByUserAndPost(user, post).orElse(null);
-    }
-
     private List<String> getPostImageUrls(@NonNull Long postId) {
         return fileService.getFilesByRelatedEntity(postId, "POST_CONTENT").stream()
                 .filter(file -> file.getMimeType().startsWith("image/"))
@@ -117,45 +105,24 @@ public class PostDetailReadService {
                 .collect(Collectors.toList());
     }
 
-    private boolean isBoardAdmin(Long userId, Long boardId) {
-        if (userId == null) {
-            return false;
-        }
-        User user = userRepository.findById(userId).orElse(null);
-        if (user == null) {
-            return false;
-        }
-        Board board = boardRepository.findById(boardId).orElse(null);
-        if (board == null) {
-            return false;
-        }
-        return boardAccessPolicy.hasBoardAdminAccess(board, user);
+    private boolean isBoardAdmin(PostDetailContext context) {
+        return boardAccessPolicy.hasBoardAdminAccess(context.post().getBoard(), context.viewer());
     }
 
-    private int resolveDefaultBoardListPage(Post post, Long currentUserId) {
-        boolean includeSecret = canViewSecretPosts(post.getBoard(), currentUserId);
-        List<Long> blockedUserIds = null;
-        if (currentUserId != null) {
-            blockedUserIds = userBlockService.getBlockedUserIds(currentUserId);
-        }
+    private int resolveDefaultBoardListPage(PostDetailContext context) {
+        Post post = context.post();
+        Long viewerUserId = context.viewer() != null ? context.viewer().getUserId() : null;
+        boolean includeSecret = boardAccessPolicy.canViewSecretPosts(post.getBoard(), context.viewer());
 
         long postsBefore = postRepository.countPostsBeforeInBoardDefaultOrder(
                 post.getBoard().getBoardId(),
                 post.getCreatedAt(),
                 post.getPostId(),
-                blockedUserIds,
+                context.blockedUserIds(),
                 includeSecret,
-                currentUserId);
+                viewerUserId);
         long page = postsBefore / DEFAULT_BOARD_PAGE_SIZE;
         return (int) Math.min(page, Integer.MAX_VALUE);
-    }
-
-    private boolean canViewSecretPosts(Board board, Long userId) {
-        if (userId == null) {
-            return false;
-        }
-        User user = userRepository.findById(userId).orElse(null);
-        return boardAccessPolicy.canViewSecretPosts(board, user);
     }
 
     private ViewHistory getOrCreateViewHistory(User user, Post post) {
@@ -180,19 +147,25 @@ public class PostDetailReadService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
     }
 
-    private Post getReadablePost(@NonNull Long postId, User viewer) {
+    private Post getReadablePost(@NonNull Long postId, User viewer, List<Long> blockedUserIds) {
         Post post = postRepository.findByIdWithRelations(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
-        validateReadable(post, viewer);
+        validateReadable(post, viewer, blockedUserIds);
         return post;
     }
 
-    private void validateReadable(Post post, User viewer) {
-        boolean authorBlocked = false;
-        if (viewer != null) {
-            List<Long> blockedUserIds = userBlockService.getBlockedUserIds(viewer.getUserId());
-            authorBlocked = blockedUserIds != null && blockedUserIds.contains(post.getUser().getUserId());
-        }
+    private void validateReadable(Post post, User viewer, List<Long> blockedUserIds) {
+        boolean authorBlocked = blockedUserIds != null && blockedUserIds.contains(post.getUser().getUserId());
         postAccessPolicy.validateReadable(post, viewer, authorBlocked);
+    }
+
+    private List<Long> getBlockedUserIds(User viewer) {
+        if (viewer == null) {
+            return null;
+        }
+        return userBlockService.getBlockedUserIds(viewer.getUserId());
+    }
+
+    private record PostDetailContext(Post post, User viewer, List<Long> blockedUserIds, ViewHistory viewHistory) {
     }
 }
