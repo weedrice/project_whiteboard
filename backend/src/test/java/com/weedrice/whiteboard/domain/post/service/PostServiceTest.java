@@ -7,10 +7,10 @@ import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
 import com.weedrice.whiteboard.domain.board.entity.BoardSubscription;
-import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
 import com.weedrice.whiteboard.domain.board.repository.BoardCategoryRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository;
+import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.file.entity.File;
@@ -196,24 +196,32 @@ class PostServiceTest {
                 sanctionService,
                 boardAccessPolicy,
                 postAuthorCommandPolicy);
-        postService = new PostService(
+        PostFacadeReadService postFacadeReadService = new PostFacadeReadService(
                 postRepository,
-                boardRepository,
                 userRepository,
                 postVersionRepository,
                 tagAssignmentService,
                 fileService,
                 userBlockService,
                 postSummaryAssembler,
+                postInteractionService,
+                postAccessPolicy,
+                boardAccessPolicy,
+                adminRepository);
+        postService = new PostService(
+                postRepository,
+                boardRepository,
+                userRepository,
+                userBlockService,
+                postSummaryAssembler,
                 postDetailReadService,
                 postDraftService,
                 postInteractionService,
-                postAccessPolicy,
                 boardAccessPolicy,
                 postAuthorCommandPolicy,
                 postCommandService,
                 postLatestReadService,
-                adminRepository);
+                postFacadeReadService);
 
         // GlobalConfigService 기본 mock 설정 - lenient()로 설정하여 일부 테스트에서 사용되지 않아도 허용
         lenient().when(globalConfigService.getConfig(anyString())).thenReturn("50");

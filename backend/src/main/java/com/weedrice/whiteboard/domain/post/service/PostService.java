@@ -1,11 +1,8 @@
 package com.weedrice.whiteboard.domain.post.service;
 
-import com.weedrice.whiteboard.domain.admin.entity.Admin;
-import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
-import com.weedrice.whiteboard.domain.file.service.FileService;
 import com.weedrice.whiteboard.domain.post.dto.DraftListResponse;
 import com.weedrice.whiteboard.domain.post.dto.DraftResponse;
 import com.weedrice.whiteboard.domain.post.dto.PostCreateRequest;
@@ -18,7 +15,6 @@ import com.weedrice.whiteboard.domain.post.dto.ScrapListResponse;
 import com.weedrice.whiteboard.domain.post.dto.ViewHistoryRequest;
 import com.weedrice.whiteboard.domain.post.entity.*;
 import com.weedrice.whiteboard.domain.post.repository.*;
-import com.weedrice.whiteboard.domain.tag.service.TagAssignmentService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService; // Import UserBlockService
@@ -51,20 +47,16 @@ public class PostService {
     private final PostRepository postRepository;
     private final BoardRepository boardRepository;
     private final UserRepository userRepository;
-    private final PostVersionRepository postVersionRepository;
-    private final TagAssignmentService tagAssignmentService;
-    private final FileService fileService;
     private final UserBlockService userBlockService;
     private final PostSummaryAssembler postSummaryAssembler;
     private final PostDetailReadService postDetailReadService;
     private final PostDraftService postDraftService;
     private final PostInteractionService postInteractionService;
-    private final PostAccessPolicy postAccessPolicy;
     private final BoardAccessPolicy boardAccessPolicy;
     private final PostAuthorCommandPolicy postAuthorCommandPolicy;
     private final PostCommandService postCommandService;
     private final PostLatestReadService postLatestReadService;
-    private final AdminRepository adminRepository;
+    private final PostFacadeReadService postFacadeReadService;
 
     public Page<PostSummary> getPosts(String boardUrl, Long categoryId, String keyword, Integer minLikes, Long currentUserId,
             @NonNull Pageable pageable) {
@@ -140,7 +132,7 @@ public class PostService {
                 .map(Post::getPostId)
                 .collect(Collectors.toList());
 
-        Set<Long> postIdsWithImages = getPostIdsWithImages(postIds);
+        Set<Long> postIdsWithImages = postFacadeReadService.getPostIdsWithImages(postIds);
 
         return postPage.map(post -> {
             PostSummary summary = PostSummary.from(post);
@@ -241,15 +233,7 @@ public class PostService {
     }
 
     public PostResponse getInquiryPostResponseForAdmin(@NonNull Long postId) {
-        Post post = postRepository.findByIdWithRelations(postId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
-        if (!boardAccessPolicy.isInquiryBoard(post.getBoard())) {
-            throw new BusinessException(ErrorCode.POST_NOT_FOUND);
-        }
-
-        List<String> tags = getTagsForPost(postId);
-        List<String> imageUrls = getPostImageUrls(postId);
-        return PostResponse.from(post, tags, null, false, false, imageUrls, true);
+        return postFacadeReadService.getInquiryPostResponseForAdmin(postId);
     }
 
     public boolean isPostLikedByUser(@NonNull Long postId, Long userId) {
@@ -347,23 +331,11 @@ public class PostService {
     }
 
     public List<PostVersionResponse> getPostVersions(@NonNull Long postId, @NonNull Long userId) {
-        User viewer = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        Post post = getPostById(postId, userId, false);
-
-        boolean isAuthor = post.getUser().getUserId().equals(userId);
-        if (!isAuthor && !boardAccessPolicy.hasBoardAdminAccess(post.getBoard(), viewer)) {
-            throw new BusinessException(ErrorCode.FORBIDDEN);
-        }
-
-        List<PostVersion> versions = postVersionRepository.findByPost_PostIdOrderByCreatedAtDesc(postId);
-        return PostVersionResponse.from(versions);
+        return postFacadeReadService.getPostVersions(postId, userId);
     }
 
     public List<String> getTagsForPost(@NonNull Long postId) {
-        Post post = postRepository.findById(postId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
-        return tagAssignmentService.getTagNames(post);
+        return postFacadeReadService.getTagsForPost(postId);
     }
 
     public Page<PostSummary> getRecentlyViewedPosts(@NonNull Long userId, @NonNull Pageable pageable) {
@@ -371,17 +343,11 @@ public class PostService {
     }
 
     public List<String> getPostImageUrls(@NonNull Long postId) {
-        return fileService.getFilesByRelatedEntity(postId, "POST_CONTENT").stream()
-                .filter(file -> file.getMimeType().startsWith("image/"))
-                .map(file -> "/api/v1/files/" + file.getFileId())
-                .collect(Collectors.toList());
+        return postFacadeReadService.getPostImageUrls(postId);
     }
 
     public Set<Long> getPostIdsWithImages(List<Long> postIds) {
-        if (postIds == null || postIds.isEmpty()) {
-            return Collections.emptySet();
-        }
-        return new HashSet<>(fileService.getRelatedIdsWithImages(postIds, "POST_CONTENT"));
+        return postFacadeReadService.getPostIdsWithImages(postIds);
     }
 
     public boolean isBoardAdmin(Long userId, Long boardId) {
@@ -459,99 +425,7 @@ public class PostService {
     }
 
     public Map<Long, PostSummary> getPostSummariesByIds(List<Long> postIds, Long currentUserId) {
-        if (postIds == null || postIds.isEmpty()) {
-            return Collections.emptyMap();
-        }
-
-        User viewer = resolveViewer(currentUserId);
-        Set<Long> blockedUserIds = resolveBlockedUserIds(currentUserId);
-        List<Long> distinctPostIds = postIds.stream().distinct().toList();
-        List<Post> posts = postRepository.findByPostIdInAndIsDeletedFalse(distinctPostIds);
-        Set<Long> activeAdminBoardIds = resolveActiveAdminBoardIds(viewer, posts);
-
-        Map<Long, Post> postsById = posts.stream()
-                .filter(post -> canReadPostSummary(post, viewer, blockedUserIds, activeAdminBoardIds))
-                .collect(Collectors.toMap(Post::getPostId, post -> post));
-
-        List<Post> orderedPosts = postIds.stream()
-                .map(postsById::get)
-                .filter(Objects::nonNull)
-                .toList();
-        if (orderedPosts.isEmpty()) {
-            return Collections.emptyMap();
-        }
-
-        return postSummaryAssembler.assembleLatestPosts(orderedPosts, currentUserId).stream()
-                .collect(Collectors.toMap(PostSummary::getPostId, summary -> summary, (left, right) -> left,
-                        LinkedHashMap::new));
-    }
-
-    private User resolveViewer(Long currentUserId) {
-        if (currentUserId == null) {
-            return null;
-        }
-        return userRepository.findById(currentUserId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-    }
-
-    private Set<Long> resolveBlockedUserIds(Long currentUserId) {
-        if (currentUserId == null) {
-            return Collections.emptySet();
-        }
-
-        List<Long> blockedUserIds = userBlockService.getBlockedUserIds(currentUserId);
-        if (blockedUserIds == null || blockedUserIds.isEmpty()) {
-            return Collections.emptySet();
-        }
-        return new HashSet<>(blockedUserIds);
-    }
-
-    private Set<Long> resolveActiveAdminBoardIds(User viewer, List<Post> posts) {
-        if (viewer == null || posts == null || posts.isEmpty() || Boolean.TRUE.equals(viewer.getIsSuperAdmin())) {
-            return Collections.emptySet();
-        }
-
-        List<Long> boardIds = posts.stream()
-                .filter(this::requiresAdminAccessForSummary)
-                .map(Post::getBoard)
-                .filter(Objects::nonNull)
-                .filter(board -> board.getCreator() == null
-                        || !Objects.equals(board.getCreator().getUserId(), viewer.getUserId()))
-                .map(Board::getBoardId)
-                .filter(Objects::nonNull)
-                .distinct()
-                .toList();
-        if (boardIds.isEmpty()) {
-            return Collections.emptySet();
-        }
-
-        return adminRepository.findByUserAndBoard_BoardIdInAndIsActive(viewer, boardIds, true).stream()
-                .map(Admin::getBoard)
-                .filter(Objects::nonNull)
-                .map(Board::getBoardId)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toSet());
-    }
-
-    private boolean requiresAdminAccessForSummary(Post post) {
-        Board board = post.getBoard();
-        return board != null
-                && (!Boolean.TRUE.equals(board.getIsActive())
-                || !Boolean.TRUE.equals(board.getIsPublic())
-                || Boolean.TRUE.equals(post.getIsSecret()));
-    }
-
-    private boolean canReadPostSummary(Post post, User viewer, Set<Long> blockedUserIds, Set<Long> activeAdminBoardIds) {
-        boolean authorBlocked = viewer != null && blockedUserIds.contains(post.getUser().getUserId());
-        try {
-            postAccessPolicy.validateReadable(post, viewer, authorBlocked, activeAdminBoardIds);
-            return true;
-        } catch (BusinessException ex) {
-            if (ErrorCode.POST_NOT_FOUND.equals(ex.getErrorCode())) {
-                return false;
-            }
-            throw ex;
-        }
+        return postFacadeReadService.getPostSummariesByIds(postIds, currentUserId);
     }
 
 }
