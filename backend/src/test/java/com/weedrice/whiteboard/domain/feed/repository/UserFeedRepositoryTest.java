@@ -1,0 +1,157 @@
+package com.weedrice.whiteboard.domain.feed.repository;
+
+import com.weedrice.whiteboard.domain.admin.entity.Admin;
+import com.weedrice.whiteboard.domain.board.entity.Board;
+import com.weedrice.whiteboard.domain.feed.entity.UserFeed;
+import com.weedrice.whiteboard.domain.post.entity.Post;
+import com.weedrice.whiteboard.domain.user.entity.Role;
+import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.global.config.QuerydslConfig;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
+import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+@DataJpaTest
+@Import(QuerydslConfig.class)
+class UserFeedRepositoryTest {
+
+    @Autowired
+    private TestEntityManager entityManager;
+
+    @Autowired
+    private UserFeedRepository userFeedRepository;
+
+    private User viewer;
+    private User author;
+    private Board publicBoard;
+
+    @BeforeEach
+    void setUp() {
+        viewer = persistUser("viewer");
+        author = persistUser("author");
+        publicBoard = persistBoard("public-board", author, true, true);
+    }
+
+    @Test
+    void findVisibleByTargetUserOrderByCreatedAtDesc_excludesInvisiblePostFeedsAndKeepsMetadata() {
+        Post visiblePost = persistPost(publicBoard, author, false);
+        Post deletedPost = persistPost(publicBoard, author, false);
+        deletedPost.deletePost();
+        Post blockedAuthorPost = persistPost(publicBoard, author, false);
+
+        persistFeed(viewer, "POST", visiblePost.getPostId());
+        persistFeed(viewer, "POST", deletedPost.getPostId());
+        persistFeed(viewer, "POST", blockedAuthorPost.getPostId());
+        persistFeed(viewer, "POST", 999_999L);
+        persistFeed(viewer, "NOTICE", 10L);
+        entityManager.flush();
+        entityManager.clear();
+
+        Page<UserFeed> result = userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(
+                viewer,
+                List.of(author.getUserId()),
+                PageRequest.of(0, 10));
+
+        assertThat(result.getTotalElements()).isEqualTo(1);
+        assertThat(result.getContent())
+                .extracting(UserFeed::getContentType)
+                .containsExactly("NOTICE");
+    }
+
+    @Test
+    void findVisibleByTargetUserOrderByCreatedAtDesc_allowsSecretPostForAuthorOnly() {
+        Post ownSecretPost = persistPost(publicBoard, viewer, true);
+        Post otherSecretPost = persistPost(publicBoard, author, true);
+        persistFeed(viewer, "POST", ownSecretPost.getPostId());
+        persistFeed(viewer, "POST", otherSecretPost.getPostId());
+        entityManager.flush();
+        entityManager.clear();
+
+        Page<UserFeed> result = userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(
+                viewer,
+                List.of(),
+                PageRequest.of(0, 10));
+
+        assertThat(result.getTotalElements()).isEqualTo(1);
+        assertThat(result.getContent().getFirst().getContentId()).isEqualTo(ownSecretPost.getPostId());
+    }
+
+    @Test
+    void findVisibleByTargetUserOrderByCreatedAtDesc_allowsPrivateBoardForActiveAdmin() {
+        Board privateBoard = persistBoard("private-board", author, true, false);
+        entityManager.persist(Admin.builder()
+                .user(viewer)
+                .board(privateBoard)
+                .role(Role.BOARD_ADMIN)
+                .build());
+        Post privatePost = persistPost(privateBoard, author, false);
+        persistFeed(viewer, "POST", privatePost.getPostId());
+        entityManager.flush();
+        entityManager.clear();
+
+        Page<UserFeed> result = userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(
+                viewer,
+                List.of(),
+                PageRequest.of(0, 10));
+
+        assertThat(result.getTotalElements()).isEqualTo(1);
+        assertThat(result.getContent().getFirst().getContentId()).isEqualTo(privatePost.getPostId());
+    }
+
+    private User persistUser(String loginId) {
+        User user = User.builder()
+                .loginId(loginId)
+                .email(loginId + "@test.com")
+                .password("password")
+                .displayName(loginId)
+                .build();
+        entityManager.persist(user);
+        return user;
+    }
+
+    private Board persistBoard(String boardUrl, User creator, boolean isActive, boolean isPublic) {
+        Board board = Board.builder()
+                .boardName(boardUrl)
+                .boardUrl(boardUrl)
+                .creator(creator)
+                .isPublic(isPublic)
+                .build();
+        if (!isActive) {
+            board.deactivate();
+        }
+        entityManager.persist(board);
+        return board;
+    }
+
+    private Post persistPost(Board board, User author, boolean isSecret) {
+        Post post = Post.builder()
+                .board(board)
+                .user(author)
+                .title("title")
+                .contents("contents")
+                .isSecret(isSecret)
+                .build();
+        entityManager.persist(post);
+        return post;
+    }
+
+    private void persistFeed(User targetUser, String contentType, Long contentId) {
+        entityManager.persist(UserFeed.builder()
+                .targetUser(targetUser)
+                .feedType("SUBSCRIPTION_POST")
+                .contentType(contentType)
+                .contentId(contentId)
+                .sourceCriteria("BOARD_SUBSCRIPTION")
+                .criteriaId(1L)
+                .build());
+    }
+}

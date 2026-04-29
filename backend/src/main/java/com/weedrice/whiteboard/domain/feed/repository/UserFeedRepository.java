@@ -12,7 +12,7 @@ import org.springframework.data.repository.query.Param;
 import java.util.Collection;
 import java.util.List;
 
-public interface UserFeedRepository extends JpaRepository<UserFeed, Long> {
+public interface UserFeedRepository extends JpaRepository<UserFeed, Long>, UserFeedRepositoryCustom {
     Page<UserFeed> findByTargetUserOrderByCreatedAtDesc(User targetUser, Pageable pageable);
 
     @Query("""

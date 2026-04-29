@@ -7,6 +7,7 @@ import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.domain.user.service.UserBlockService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -27,11 +28,13 @@ public class FeedService {
     private final UserRepository userRepository;
     private final PostService postService;
     private final FeedGenerationService feedGenerationService;
+    private final UserBlockService userBlockService;
 
     public FeedResponse getUserFeeds(Long userId, Pageable pageable) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        Page<UserFeed> feedPage = userFeedRepository.findByTargetUserOrderByCreatedAtDesc(user, pageable);
+        List<Long> blockedUserIds = userBlockService.getBlockedUserIds(userId);
+        Page<UserFeed> feedPage = userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(user, blockedUserIds, pageable);
         Map<Long, PostSummary> postSummariesById = resolvePostSummaries(feedPage, userId);
         return FeedResponse.from(feedPage, postSummariesById);
     }

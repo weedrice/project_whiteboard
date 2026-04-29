@@ -37,7 +37,6 @@ public class FeedResponse {
 
     public static FeedResponse from(Page<UserFeed> feedPage, Map<Long, PostSummary> postSummariesById) {
         List<FeedSummary> content = feedPage.getContent().stream()
-                .filter(feed -> isResolvable(feed, postSummariesById))
                 .map(feed -> FeedSummary.builder()
                         .feedId(feed.getFeedId())
                         .feedType(feed.getFeedType())
@@ -58,10 +57,6 @@ public class FeedResponse {
                 .hasNext(feedPage.hasNext())
                 .hasPrevious(feedPage.hasPrevious())
                 .build();
-    }
-
-    private static boolean isResolvable(UserFeed feed, Map<Long, PostSummary> postSummariesById) {
-        return !CONTENT_TYPE_POST.equals(feed.getContentType()) || postSummariesById.containsKey(feed.getContentId());
     }
 
     private static PostSummary resolvePostSummary(UserFeed feed, Map<Long, PostSummary> postSummariesById) {

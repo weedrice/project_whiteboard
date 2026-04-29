@@ -7,6 +7,7 @@ import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.domain.user.service.UserBlockService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.junit.jupiter.api.DisplayName;
@@ -30,7 +31,6 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -52,6 +52,9 @@ class FeedServiceTest {
     @Mock
     private FeedGenerationService feedGenerationService;
 
+    @Mock
+    private UserBlockService userBlockService;
+
     @Test
     @DisplayName("POST feeds hydrate post summaries in page order")
     void getUserFeeds_hydratesPostsInPageOrder() {
@@ -72,7 +75,8 @@ class FeedServiceTest {
         postSummaries.put(101L, firstPost);
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        when(userFeedRepository.findByTargetUserOrderByCreatedAtDesc(user, pageable)).thenReturn(feedPage);
+        when(userBlockService.getBlockedUserIds(userId)).thenReturn(List.of());
+        when(userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(user, List.of(), pageable)).thenReturn(feedPage);
         when(postService.getPostSummariesByIds(List.of(101L, 202L), userId)).thenReturn(postSummaries);
 
         FeedResponse response = feedService.getUserFeeds(userId, pageable);
@@ -95,7 +99,8 @@ class FeedServiceTest {
         Page<UserFeed> feedPage = new PageImpl<>(List.of(feed), pageable, 1);
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        when(userFeedRepository.findByTargetUserOrderByCreatedAtDesc(user, pageable)).thenReturn(feedPage);
+        when(userBlockService.getBlockedUserIds(userId)).thenReturn(List.of());
+        when(userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(user, List.of(), pageable)).thenReturn(feedPage);
 
         FeedResponse response = feedService.getUserFeeds(userId, pageable);
 
@@ -104,22 +109,21 @@ class FeedServiceTest {
     }
 
     @Test
-    @DisplayName("Unresolved POST feeds are excluded from response without deleting rows")
-    void getUserFeeds_filtersUnresolvedPostFeedsWithoutDeletingRows() {
+    @DisplayName("Invisible POST feeds are excluded before response metadata is calculated")
+    void getUserFeeds_usesVisibleFeedPageMetadata() {
         Long userId = 1L;
         User user = User.builder().build();
         Pageable pageable = PageRequest.of(0, 10);
 
-        UserFeed unresolvedFeed = createFeed(1L, user, "SUBSCRIPTION_POST", "POST", 999L,
-                "BOARD_SUBSCRIPTION", 10L, LocalDateTime.now());
         UserFeed validFeed = createFeed(2L, user, "SUBSCRIPTION_POST", "POST", 101L,
                 "BOARD_SUBSCRIPTION", 10L, LocalDateTime.now().minusMinutes(1));
-        Page<UserFeed> feedPage = new PageImpl<>(List.of(unresolvedFeed, validFeed), pageable, 2);
+        Page<UserFeed> feedPage = new PageImpl<>(List.of(validFeed), pageable, 1);
         PostSummary validPost = PostSummary.builder().postId(101L).title("first").build();
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        when(userFeedRepository.findByTargetUserOrderByCreatedAtDesc(user, pageable)).thenReturn(feedPage);
-        when(postService.getPostSummariesByIds(List.of(999L, 101L), userId)).thenReturn(Map.of(101L, validPost));
+        when(userBlockService.getBlockedUserIds(userId)).thenReturn(List.of(99L));
+        when(userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(user, List.of(99L), pageable)).thenReturn(feedPage);
+        when(postService.getPostSummariesByIds(List.of(101L), userId)).thenReturn(Map.of(101L, validPost));
 
         FeedResponse response = feedService.getUserFeeds(userId, pageable);
 
@@ -128,38 +132,37 @@ class FeedServiceTest {
         assertThat(response.getContent().getFirst().getPost()).isEqualTo(validPost);
         assertThat(response.getPage()).isZero();
         assertThat(response.getSize()).isEqualTo(10);
-        assertThat(response.getTotalElements()).isEqualTo(2);
+        assertThat(response.getTotalElements()).isEqualTo(1);
         assertThat(response.getTotalPages()).isEqualTo(1);
         assertThat(response.isHasNext()).isFalse();
         assertThat(response.isHasPrevious()).isFalse();
-        verify(userFeedRepository, never()).deleteAllInBatch(List.of(unresolvedFeed));
-        verify(userFeedRepository, times(1)).findByTargetUserOrderByCreatedAtDesc(user, pageable);
+        verify(userFeedRepository, never()).deleteAllInBatch(org.mockito.ArgumentMatchers.anyList());
+        verify(userFeedRepository).findVisibleByTargetUserOrderByCreatedAtDesc(user, List.of(99L), pageable);
     }
 
     @Test
-    @DisplayName("All unresolved POST feeds can produce empty content with original page metadata")
-    void getUserFeeds_allUnresolvedPostFeedsKeepOriginalPageMetadata() {
+    @DisplayName("When all POST feeds are invisible the visible page metadata is empty")
+    void getUserFeeds_allInvisiblePostFeedsReturnEmptyVisibleMetadata() {
         Long userId = 1L;
         User user = User.builder().build();
         Pageable pageable = PageRequest.of(0, 1);
-        UserFeed unresolvedFeed = createFeed(1L, user, "SUBSCRIPTION_POST", "POST", 999L,
-                "BOARD_SUBSCRIPTION", 10L, LocalDateTime.now());
-        Page<UserFeed> feedPage = new PageImpl<>(List.of(unresolvedFeed), pageable, 2);
+        Page<UserFeed> feedPage = new PageImpl<>(List.of(), pageable, 0);
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        when(userFeedRepository.findByTargetUserOrderByCreatedAtDesc(user, pageable)).thenReturn(feedPage);
-        when(postService.getPostSummariesByIds(List.of(999L), userId)).thenReturn(Map.of());
+        when(userBlockService.getBlockedUserIds(userId)).thenReturn(List.of());
+        when(userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(user, List.of(), pageable)).thenReturn(feedPage);
 
         FeedResponse response = feedService.getUserFeeds(userId, pageable);
 
         assertThat(response.getContent()).isEmpty();
         assertThat(response.getPage()).isZero();
         assertThat(response.getSize()).isEqualTo(1);
-        assertThat(response.getTotalElements()).isEqualTo(2);
-        assertThat(response.getTotalPages()).isEqualTo(2);
-        assertThat(response.isHasNext()).isTrue();
+        assertThat(response.getTotalElements()).isZero();
+        assertThat(response.getTotalPages()).isZero();
+        assertThat(response.isHasNext()).isFalse();
         assertThat(response.isHasPrevious()).isFalse();
-        verify(userFeedRepository, never()).deleteAllInBatch(List.of(unresolvedFeed));
+        verify(userFeedRepository, never()).deleteAllInBatch(org.mockito.ArgumentMatchers.anyList());
+        verify(postService, never()).getPostSummariesByIds(org.mockito.ArgumentMatchers.anyList(), org.mockito.ArgumentMatchers.anyLong());
     }
 
     @Test
