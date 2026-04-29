@@ -23,6 +23,7 @@ import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -132,7 +133,7 @@ class BoardControllerTest {
     @Test
     @DisplayName("인기 게시판 목록 조회 성공")
     void getTopBoards_returnsSuccess() throws Exception {
-        when(boardService.getTopBoards(any())).thenReturn(List.of(boardListResponse("Admin")));
+        when(boardService.getTopBoards(any(UserDetails.class))).thenReturn(List.of(boardListResponse("Admin")));
 
         mockMvc.perform(get("/api/v1/boards/top")
                         .with(user(customUserDetails))

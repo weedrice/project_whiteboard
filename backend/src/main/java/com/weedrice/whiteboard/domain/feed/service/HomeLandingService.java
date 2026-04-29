@@ -10,7 +10,6 @@ import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
-import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -35,10 +34,9 @@ public class HomeLandingService {
     private final HomeLandingCurationPolicy curationPolicy;
     private final Clock clock;
 
-    public HomeLandingResponse getLanding(CustomUserDetails userDetails, String period) {
-        Long userId = userDetails != null ? userDetails.getUserId() : null;
+    public HomeLandingResponse getLanding(Long userId, String period) {
         List<PostSummary> curatedPosts = getCuratedPosts(userId, period);
-        List<BoardListResponse> boards = getBoards(userDetails);
+        List<BoardListResponse> boards = getBoards(userId);
         HomeLandingResponse.Stats stats = getStats();
         HomeLandingCurationPolicy.HomeLandingSections sections = curationPolicy.curate(curatedPosts);
 
@@ -99,8 +97,8 @@ public class HomeLandingService {
         return postService.getTrendingPosts(PageRequest.of(0, 16), userId, period);
     }
 
-    private List<BoardListResponse> getBoards(CustomUserDetails userDetails) {
-        return boardService.getTopBoards(userDetails).stream()
+    private List<BoardListResponse> getBoards(Long userId) {
+        return boardService.getTopBoardsByUserId(userId).stream()
                 .limit(6)
                 .toList();
     }

@@ -67,6 +67,15 @@ class BoardQueryService {
 
     List<BoardListResponse> getTopBoards(UserDetails userDetails) {
         User currentUser = getCurrentUserOrNull(userDetails);
+        return getTopBoardsForUser(currentUser);
+    }
+
+    List<BoardListResponse> getTopBoardsByUserId(Long userId) {
+        User currentUser = getCurrentUserByIdOrNull(userId);
+        return getTopBoardsForUser(currentUser);
+    }
+
+    private List<BoardListResponse> getTopBoardsForUser(User currentUser) {
         if (currentUser == null || !boardAccessPolicy.hasElevatedBoardVisibility(currentUser)) {
             List<Long> boardIds = boardRepository.findTopPublicBoardIdsByPostCount(PageRequest.of(0, TOP_BOARD_LIMIT));
             List<Board> boards = findBoardsByIdsInOrder(boardIds);

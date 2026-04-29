@@ -22,6 +22,7 @@ public class HomeController {
     public ApiResponse<HomeLandingResponse> getLanding(
             @RequestParam(defaultValue = "24h") String period,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        return ApiResponse.success(homeLandingService.getLanding(userDetails, period));
+        Long userId = userDetails != null ? userDetails.getUserId() : null;
+        return ApiResponse.success(homeLandingService.getLanding(userId, period));
     }
 }

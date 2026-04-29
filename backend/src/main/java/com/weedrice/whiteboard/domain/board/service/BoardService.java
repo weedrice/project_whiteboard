@@ -44,6 +44,10 @@ public class BoardService {
         return queryService.getTopBoards(userDetails);
     }
 
+    public List<BoardListResponse> getTopBoardsByUserId(Long userId) {
+        return queryService.getTopBoardsByUserId(userId);
+    }
+
     public List<AdminBoardResponse> getAllBoards(UserDetails userDetails) {
         return queryService.getAllBoards(userDetails);
     }

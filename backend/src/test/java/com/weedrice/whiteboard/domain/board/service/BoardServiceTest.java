@@ -900,7 +900,7 @@ class BoardServiceTest {
         }));
 
         // when
-        List<BoardListResponse> boards = boardService.getTopBoards(null);
+        List<BoardListResponse> boards = boardService.getTopBoards((UserDetails) null);
 
         // then
         assertThat(boards).hasSize(1);
@@ -926,6 +926,60 @@ class BoardServiceTest {
         verify(boardRepository).findByBoardIdIn(List.of(1L));
         verify(boardRepository, never()).findTopBoardIdsByPostCount(any());
         verify(boardRepository, never()).findTopReadableBoardIdsByPostCount(any(), anyBoolean(), any());
+    }
+
+    @Test
+    @DisplayName("userId 기반 인기 게시판 조회는 principal 해석 없이 사용자 ID로 조회한다")
+    void getTopBoards_userIdUsesPublicQueryWhenUserHasNoElevatedAccess() {
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(adminRepository.existsByUserAndIsActive(user, true)).thenReturn(false);
+        when(boardRepository.findTopPublicBoardIdsByPostCount(any())).thenReturn(Collections.singletonList(1L));
+        when(boardRepository.findByBoardIdIn(List.of(1L))).thenReturn(Collections.singletonList(board));
+
+        List<BoardListResponse> boards = boardService.getTopBoardsByUserId(1L);
+
+        assertThat(boards).extracting(BoardListResponse::getBoardUrl).containsExactly("test-board");
+        verify(userRepository).findById(1L);
+        verify(boardRepository).findTopPublicBoardIdsByPostCount(any());
+        verify(boardRepository, never()).findTopReadableBoardIdsByPostCount(any(), anyBoolean(), any());
+    }
+
+    @Test
+    @DisplayName("userId 기반 인기 게시판 조회는 없는 사용자면 USER_NOT_FOUND를 반환한다")
+    void getTopBoards_userIdNotFound() {
+        when(userRepository.findById(99L)).thenReturn(Optional.empty());
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> boardService.getTopBoardsByUserId(99L));
+
+        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.USER_NOT_FOUND);
+        verify(boardRepository, never()).findTopPublicBoardIdsByPostCount(any());
+        verify(boardRepository, never()).findTopReadableBoardIdsByPostCount(any(), anyBoolean(), any());
+    }
+
+    @Test
+    @DisplayName("userId 기반 인기 게시판 조회는 권한 사용자의 readable 게시판 쿼리를 사용한다")
+    void getTopBoards_userIdBoardAdminUsesReadableQuery() {
+        Board privateBoard = Board.builder()
+                .boardName("Private Board")
+                .boardUrl("private-board")
+                .creator(user)
+                .isPublic(false)
+                .build();
+        ReflectionTestUtils.setField(privateBoard, "boardId", 2L);
+        ReflectionTestUtils.setField(privateBoard, "isActive", true);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(adminRepository.existsByUserAndIsActive(user, true)).thenReturn(true);
+        when(boardRepository.findTopReadableBoardIdsByPostCount(eq(user), eq(false), any())).thenReturn(List.of(2L));
+        when(boardRepository.findByBoardIdIn(List.of(2L))).thenReturn(List.of(privateBoard));
+
+        List<BoardListResponse> boards = boardService.getTopBoardsByUserId(1L);
+
+        assertThat(boards).extracting(BoardListResponse::getBoardUrl).containsExactly("private-board");
+        verify(userRepository).findById(1L);
+        verify(boardRepository).findTopReadableBoardIdsByPostCount(eq(user), eq(false), any());
+        verify(boardRepository, never()).findTopPublicBoardIdsByPostCount(any());
     }
 
     @Test

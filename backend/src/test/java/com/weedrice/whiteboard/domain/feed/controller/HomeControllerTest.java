@@ -21,6 +21,7 @@ import java.util.Collections;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -117,7 +118,7 @@ class HomeControllerTest {
                 .andExpect(jsonPath("$.data.stats.boardCount").value(1))
                 .andExpect(jsonPath("$.data.stats.onlineCount").value(10));
 
-        verify(homeLandingService).getLanding(any(), eq("24h"));
+        verify(homeLandingService).getLanding(eq(1L), eq("24h"));
     }
     @Test
     @DisplayName("홈 랜딩 API는 비로그인 사용자도 성공 응답을 받는다")
@@ -137,7 +138,7 @@ class HomeControllerTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.stats.boardCount").value(0));
 
-        verify(homeLandingService).getLanding(any(), eq("24h"));
+        verify(homeLandingService).getLanding(isNull(), eq("24h"));
     }
 
     @Test
@@ -158,6 +159,6 @@ class HomeControllerTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.stats.onlineCount").value(7));
 
-        verify(homeLandingService).getLanding(any(), eq("7d"));
+        verify(homeLandingService).getLanding(isNull(), eq("7d"));
     }
 }
