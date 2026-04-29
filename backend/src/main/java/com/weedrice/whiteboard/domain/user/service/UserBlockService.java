@@ -102,6 +102,10 @@ public class UserBlockService {
 
     public List<Long> getBlockedUserIdsEitherDirection(Long userId) {
         validateUserExists(userId);
+        return getBlockedUserIdsEitherDirectionForExistingUser(userId);
+    }
+
+    public List<Long> getBlockedUserIdsEitherDirectionForExistingUser(Long userId) {
         Set<Long> blockedUserIds = new LinkedHashSet<>(
                 userBlockRepository.findBlockedUserIdsEitherDirectionByUserId(userId));
         return List.copyOf(blockedUserIds);

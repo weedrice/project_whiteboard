@@ -27,6 +27,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -190,6 +191,18 @@ class UserBlockServiceTest {
 
         assertThat(ids).containsExactly(2L, 3L);
         verify(userBlockRepository).findBlockedUserIdsEitherDirectionByUserId(1L);
+    }
+
+    @Test
+    @DisplayName("Already validated user can load bidirectional block ids without exists check")
+    void getBlockedUserIdsEitherDirectionForExistingUser_skipsExistsCheck() {
+        when(userBlockRepository.findBlockedUserIdsEitherDirectionByUserId(1L)).thenReturn(List.of(2L, 3L, 2L));
+
+        List<Long> ids = userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L);
+
+        assertThat(ids).containsExactly(2L, 3L);
+        verify(userBlockRepository).findBlockedUserIdsEitherDirectionByUserId(1L);
+        verify(userRepository, never()).existsById(1L);
     }
 
     @Test

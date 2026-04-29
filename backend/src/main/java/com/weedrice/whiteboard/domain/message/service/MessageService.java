@@ -65,7 +65,7 @@ public class MessageService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         Pageable safePageable = normalizeMessagePageable(pageable);
-        List<Long> blockedUserIds = getBlockedConversationUserIds(userId);
+        List<Long> blockedUserIds = getBlockedConversationUserIdsForExistingUser(userId);
         Page<Message> messages = messageRepository.findReceivedMessagesExcludingBlocked(user, false, blockedUserIds,
                 safePageable);
         return MessageResponse.from(messages, userId);
@@ -75,7 +75,7 @@ public class MessageService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         Pageable safePageable = normalizeMessagePageable(pageable);
-        List<Long> blockedUserIds = getBlockedConversationUserIds(userId);
+        List<Long> blockedUserIds = getBlockedConversationUserIdsForExistingUser(userId);
         Page<Message> messages = messageRepository.findSentMessagesExcludingBlocked(user, false, blockedUserIds,
                 safePageable);
         return MessageResponse.from(messages, userId);
@@ -193,7 +193,7 @@ public class MessageService {
     public long getUnreadMessageCount(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        List<Long> blockedUserIds = getBlockedConversationUserIds(userId);
+        List<Long> blockedUserIds = getBlockedConversationUserIdsForExistingUser(userId);
         return messageRepository.countUnreadMessagesExcludingBlocked(user, false, false, blockedUserIds);
     }
 
@@ -210,8 +210,8 @@ public class MessageService {
         return message;
     }
 
-    private List<Long> getBlockedConversationUserIds(Long userId) {
-        return userBlockService.getBlockedUserIdsEitherDirection(userId);
+    private List<Long> getBlockedConversationUserIdsForExistingUser(Long userId) {
+        return userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(userId);
     }
 
     private Pageable normalizeMessagePageable(Pageable pageable) {
