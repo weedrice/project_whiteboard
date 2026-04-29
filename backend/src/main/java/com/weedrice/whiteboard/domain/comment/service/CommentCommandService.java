@@ -16,9 +16,9 @@ import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import com.weedrice.whiteboard.global.common.service.ReactionWriter;
 import com.weedrice.whiteboard.global.util.InputSanitizer;
 import lombok.RequiredArgsConstructor;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,6 +39,7 @@ public class CommentCommandService {
     private final CommentPostAccessService commentPostAccessService;
     private final CommentRewardService commentRewardService;
     private final CommentNotificationService commentNotificationService;
+    private final ReactionWriter reactionWriter;
 
     @Transactional
     public Comment createComment(Long userId, Long postId, Long parentId, String content) {
@@ -168,11 +169,9 @@ public class CommentCommandService {
                 .user(user)
                 .comment(comment)
                 .build();
-        try {
-            commentLikeRepository.saveAndFlush(commentLike);
-        } catch (DataIntegrityViolationException ex) {
-            throw new BusinessException(ErrorCode.ALREADY_LIKED);
-        }
+        reactionWriter.insertOrThrowDuplicate(
+                () -> commentLikeRepository.saveAndFlush(commentLike),
+                ErrorCode.ALREADY_LIKED);
         commentRepository.incrementLikeCount(commentId);
         commentNotificationService.publishLikeNotification(user, comment, commentId);
     }

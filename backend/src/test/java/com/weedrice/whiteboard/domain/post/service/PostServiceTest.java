@@ -29,6 +29,7 @@ import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
 import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
+import com.weedrice.whiteboard.global.common.service.ReactionWriter;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import jakarta.persistence.EntityManager;
@@ -134,6 +135,7 @@ class PostServiceTest {
                 commentRepository,
                 boardAccessPolicy);
         postAccessPolicy = new PostAccessPolicy(boardAccessPolicy);
+        ReactionWriter reactionWriter = new ReactionWriter();
         postAuthorCommandPolicy = new PostAuthorCommandPolicy(boardAccessPolicy, boardCategoryRepository);
         viewHistoryCommandService = new ViewHistoryCommandService(viewHistoryRepository);
         postDetailReadService = new PostDetailReadService(
@@ -171,6 +173,7 @@ class PostServiceTest {
                 eventPublisher,
                 postSummaryAssembler,
                 postAccessPolicy,
+                reactionWriter,
                 entityManager);
         postLatestReadService = new PostLatestReadService(
                 postRepository,

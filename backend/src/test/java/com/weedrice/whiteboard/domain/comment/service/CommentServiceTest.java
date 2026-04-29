@@ -24,6 +24,7 @@ import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
 import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
+import com.weedrice.whiteboard.global.common.service.ReactionWriter;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
@@ -34,6 +35,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -111,6 +113,7 @@ class CommentServiceTest {
                 pointHistoryRepository,
                 globalConfigService);
         CommentNotificationService commentNotificationService = new CommentNotificationService(eventPublisher);
+        ReactionWriter reactionWriter = new ReactionWriter();
         CommentCommandService commentCommandService = new CommentCommandService(
                 commentRepository,
                 postRepository,
@@ -122,7 +125,8 @@ class CommentServiceTest {
                 sanctionService,
                 commentPostAccessService,
                 commentRewardService,
-                commentNotificationService);
+                commentNotificationService,
+                reactionWriter);
         commentService = new CommentService(commentQueryService, commentCommandService);
     }
 
@@ -615,6 +619,30 @@ class CommentServiceTest {
 
         verify(commentLikeRepository).saveAndFlush(any());
         verify(commentRepository).incrementLikeCount(10L);
+    }
+
+    @Test
+    @DisplayName("duplicate comment like maps to already liked without counter or notification")
+    void likeComment_duplicate_doesNotIncrementOrNotify() {
+        User user = User.builder().displayName("User").build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+
+        Board board = Board.builder().boardUrl("free").build();
+        Post post = Post.builder().board(board).user(user).build();
+        Comment comment = Comment.builder().user(user).post(post).build();
+        ReflectionTestUtils.setField(comment, "commentId", 10L);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(commentRepository.findById(10L)).thenReturn(Optional.of(comment));
+        when(commentLikeRepository.saveAndFlush(any()))
+                .thenThrow(new DataIntegrityViolationException("duplicate"));
+
+        assertThatThrownBy(() -> commentService.likeComment(1L, 10L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.ALREADY_LIKED);
+
+        verify(commentRepository, never()).incrementLikeCount(anyLong());
+        verify(eventPublisher, never()).publishEvent(any(NotificationEvent.class));
     }
 
     @Test

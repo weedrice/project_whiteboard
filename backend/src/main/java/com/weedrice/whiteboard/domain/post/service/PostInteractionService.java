@@ -25,10 +25,10 @@ import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import com.weedrice.whiteboard.global.common.service.ReactionWriter;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -65,6 +65,7 @@ public class PostInteractionService {
     private final ApplicationEventPublisher eventPublisher;
     private final PostSummaryAssembler postSummaryAssembler;
     private final PostAccessPolicy postAccessPolicy;
+    private final ReactionWriter reactionWriter;
     private final EntityManager entityManager;
 
     @Transactional
@@ -157,11 +158,9 @@ public class PostInteractionService {
                 .user(user)
                 .post(post)
                 .build();
-        try {
-            postLikeRepository.saveAndFlush(postLike);
-        } catch (DataIntegrityViolationException ex) {
-            throw new BusinessException(ErrorCode.ALREADY_LIKED);
-        }
+        reactionWriter.insertOrThrowDuplicate(
+                () -> postLikeRepository.saveAndFlush(postLike),
+                ErrorCode.ALREADY_LIKED);
 
         postRepository.incrementLikeCount(postId);
         int likeCount = getPostLikeCount(postId);
@@ -202,11 +201,9 @@ public class PostInteractionService {
                 .post(post)
                 .remark(remark)
                 .build();
-        try {
-            scrapRepository.saveAndFlush(scrap);
-        } catch (DataIntegrityViolationException ex) {
-            throw new BusinessException(ErrorCode.ALREADY_SCRAPED);
-        }
+        reactionWriter.insertOrThrowDuplicate(
+                () -> scrapRepository.saveAndFlush(scrap),
+                ErrorCode.ALREADY_SCRAPED);
     }
 
     @Transactional
