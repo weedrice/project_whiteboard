@@ -22,7 +22,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -33,6 +32,7 @@ public class CommentQueryService {
     private final PostRepository postRepository;
     private final UserRepository userRepository;
     private final CommentPostAccessService commentPostAccessService;
+    private final CommentReadSupport commentReadSupport;
 
     // Contract: /posts/{postId}/comments pages only parent comments; replies are fetched lazily via /comments/{id}/replies.
     public Page<CommentResponse> getComments(Long postId, Long currentUserId, Pageable pageable) {
@@ -47,10 +47,10 @@ public class CommentQueryService {
             return new PageImpl<>(Collections.emptyList(), pageable, parentComments.getTotalElements());
         }
 
-        Map<Long, Long> replyCounts = loadVisibleReplyCounts(parentComments.getContent());
+        Map<Long, Long> replyCounts = commentReadSupport.loadVisibleReplyCounts(parentComments.getContent());
         List<CommentResponse> responseContent = parentComments.getContent().stream()
                 .map(comment -> toMaskedCommentResponse(comment, context.blockedUserIds(), replyCounts))
-                .collect(Collectors.toList());
+                .toList();
 
         return new PageImpl<>(responseContent, pageable, parentComments.getTotalElements());
     }
@@ -62,10 +62,10 @@ public class CommentQueryService {
         commentPostAccessService.validateReadable(parentComment.getPost(), context);
 
         Page<Comment> replies = commentRepository.findRepliesWithRelations(parentId, false, pageable);
-        Map<Long, Long> replyCounts = loadVisibleReplyCounts(replies.getContent());
+        Map<Long, Long> replyCounts = commentReadSupport.loadVisibleReplyCounts(replies.getContent());
         List<CommentResponse> maskedReplies = replies.getContent().stream()
                 .map(comment -> toMaskedCommentResponse(comment, context.blockedUserIds(), replyCounts))
-                .collect(Collectors.toList());
+                .toList();
 
         return CommentListResponse.builder()
                 .content(maskedReplies)
@@ -128,25 +128,5 @@ public class CommentQueryService {
                 .hasReplies(replyCount > 0)
                 .build();
         return maskCommentContent(response, blockedUserIds);
-    }
-
-    private Map<Long, Long> loadVisibleReplyCounts(List<Comment> comments) {
-        List<Long> commentIds = comments.stream()
-                .map(Comment::getCommentId)
-                .collect(Collectors.toList());
-        if (commentIds.isEmpty()) {
-            return Collections.emptyMap();
-        }
-
-        List<CommentRepository.ReplyCountProjection> replyCounts = commentRepository.countVisibleRepliesByParentIds(commentIds);
-        if (replyCounts == null || replyCounts.isEmpty()) {
-            return Collections.emptyMap();
-        }
-
-        return replyCounts.stream()
-                .collect(Collectors.toMap(
-                        CommentRepository.ReplyCountProjection::getParentId,
-                        CommentRepository.ReplyCountProjection::getReplyCount,
-                        (left, right) -> right));
     }
 }

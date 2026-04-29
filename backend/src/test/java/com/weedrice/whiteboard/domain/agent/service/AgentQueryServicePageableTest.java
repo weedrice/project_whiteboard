@@ -7,6 +7,7 @@ import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.repository.BoardAiInfoRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
+import com.weedrice.whiteboard.domain.comment.service.CommentReadSupport;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.service.PostService;
@@ -48,6 +49,7 @@ class AgentQueryServicePageableTest {
     @Mock private AgentOwnershipService agentOwnershipService;
     @Mock private AgentBoardAccessService agentBoardAccessService;
     @Mock private AgentPostListItemAssembler agentPostListItemAssembler;
+    private CommentReadSupport commentReadSupport;
 
     private AgentQueryService agentQueryService;
     private User user;
@@ -57,6 +59,7 @@ class AgentQueryServicePageableTest {
 
     @BeforeEach
     void setUp() {
+        commentReadSupport = new CommentReadSupport(commentRepository);
         agentQueryService = new AgentQueryService(
                 boardRepository,
                 boardAiInfoRepository,
@@ -66,7 +69,8 @@ class AgentQueryServicePageableTest {
                 userBlockService,
                 agentOwnershipService,
                 agentBoardAccessService,
-                agentPostListItemAssembler);
+                agentPostListItemAssembler,
+                commentReadSupport);
 
         user = User.builder().loginId("user").displayName("User").build();
         ReflectionTestUtils.setField(user, "userId", 1L);

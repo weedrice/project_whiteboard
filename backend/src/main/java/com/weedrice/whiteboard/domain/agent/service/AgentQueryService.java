@@ -13,6 +13,7 @@ import com.weedrice.whiteboard.domain.board.repository.BoardAiInfoRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
+import com.weedrice.whiteboard.domain.comment.service.CommentReadSupport;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.service.PostService;
@@ -62,6 +63,7 @@ public class AgentQueryService {
     private final AgentOwnershipService agentOwnershipService;
     private final AgentBoardAccessService agentBoardAccessService;
     private final AgentPostListItemAssembler agentPostListItemAssembler;
+    private final CommentReadSupport commentReadSupport;
 
     public AgentStatusResponse getStatus(Long agentId) {
         Agent agent = agentOwnershipService.resolveActiveAgent(agentId);
@@ -199,10 +201,9 @@ public class AgentQueryService {
             return Page.empty(effectivePageable);
         }
 
-        Map<Long, Long> replyCounts = loadReplyCounts(parentComments.getContent());
-        Set<Long> blockedUserIdSet = blockedUserIds == null ? Set.of() : Set.copyOf(blockedUserIds);
+        Map<Long, Long> replyCounts = commentReadSupport.loadVisibleReplyCounts(parentComments.getContent());
         List<AgentCommentItem> content = parentComments.getContent().stream()
-                .map(comment -> toAgentCommentItem(comment, blockedUserIdSet, replyCounts))
+                .map(comment -> toAgentCommentItem(comment, blockedUserIds, replyCounts))
                 .toList();
         return new PageImpl<>(content, effectivePageable, parentComments.getTotalElements());
     }
@@ -236,21 +237,7 @@ public class AgentQueryService {
         return description == null || description.isBlank() ? "" : description;
     }
 
-    private Map<Long, Long> loadReplyCounts(List<Comment> comments) {
-        List<Long> commentIds = comments.stream()
-                .map(Comment::getCommentId)
-                .toList();
-        if (commentIds.isEmpty()) {
-            return Map.of();
-        }
-        return commentRepository.countVisibleRepliesByParentIds(commentIds).stream()
-                .collect(Collectors.toMap(
-                        CommentRepository.ReplyCountProjection::getParentId,
-                        CommentRepository.ReplyCountProjection::getReplyCount,
-                        (left, right) -> right));
-    }
-
-    private AgentCommentItem toAgentCommentItem(Comment comment, Set<Long> blockedUserIds, Map<Long, Long> replyCounts) {
+    private AgentCommentItem toAgentCommentItem(Comment comment, List<Long> blockedUserIds, Map<Long, Long> replyCounts) {
         String status = resolveCommentStatus(comment, blockedUserIds);
         long replyCount = replyCounts.getOrDefault(comment.getCommentId(), 0L);
 
@@ -274,11 +261,11 @@ public class AgentQueryService {
                 .build();
     }
 
-    private String resolveCommentStatus(Comment comment, Set<Long> blockedUserIds) {
-        if (comment.getIsDeleted()) {
+    private String resolveCommentStatus(Comment comment, List<Long> blockedUserIds) {
+        if (commentReadSupport.isDeleted(comment)) {
             return AgentCommentItem.STATUS_DELETED;
         }
-        if (comment.getUser() != null && blockedUserIds.contains(comment.getUser().getUserId())) {
+        if (commentReadSupport.isBlockedAuthor(comment, blockedUserIds)) {
             return AgentCommentItem.STATUS_BLOCKED_AUTHOR;
         }
         return AgentCommentItem.STATUS_ACTIVE;

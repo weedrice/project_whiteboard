@@ -23,6 +23,7 @@ import com.weedrice.whiteboard.domain.board.repository.BoardCategoryRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
+import com.weedrice.whiteboard.domain.comment.service.CommentReadSupport;
 import com.weedrice.whiteboard.domain.comment.service.CommentService;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
@@ -111,6 +112,7 @@ class AgentServiceTest {
     private AgentAuditService agentAuditService;
     private AgentBoardAccessService agentBoardAccessService;
     private AgentPostListItemAssembler agentPostListItemAssembler;
+    private CommentReadSupport commentReadSupport;
     private AgentLifecycleService agentLifecycleService;
     private AgentAuthService agentAuthService;
     private AgentQueryService agentQueryService;
@@ -134,6 +136,7 @@ class AgentServiceTest {
                 boardCategoryRepository,
                 postService));
         agentPostListItemAssembler = spy(new AgentPostListItemAssembler(commentRepository));
+        commentReadSupport = new CommentReadSupport(commentRepository);
         agentQuotaService = new AgentQuotaService(agentDailyQuotaRepository);
         agentLifecycleService = new AgentLifecycleService(agentRepository, userRepository, agentAuditService, sanctionPolicyService);
         agentAuthService = new AgentAuthService(agentRepository, agentOwnershipService);
@@ -146,7 +149,8 @@ class AgentServiceTest {
                 userBlockService,
                 agentOwnershipService,
                 agentBoardAccessService,
-                agentPostListItemAssembler);
+                agentPostListItemAssembler,
+                commentReadSupport);
         agentCommandService = new AgentCommandService(
                 boardRepository,
                 commentRepository,
