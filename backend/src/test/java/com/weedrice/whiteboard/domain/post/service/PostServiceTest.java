@@ -396,6 +396,45 @@ class PostServiceTest {
     }
 
     @Test
+    @DisplayName("createPost validates write role with the requested category only")
+    void createPost_withCategory_skipsDefaultCategoryPermission() {
+        PostCreateRequest request = new PostCreateRequest(1L, "New Post", "New Contents", Collections.emptyList(),
+                false, false, false, false, null);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
+        when(boardCategoryRepository.findByCategoryIdAndBoard_BoardIdAndIsActive(1L, 1L, true))
+                .thenReturn(Optional.of(category));
+        when(postRepository.save(any(Post.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Post created = postService.createPost(1L, 1L, request);
+
+        assertThat(created.getCategory()).isEqualTo(category);
+        verify(boardCategoryRepository, never()).findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(1L, true);
+    }
+
+    @Test
+    @DisplayName("createPost keeps notice permission before category lookup")
+    void createPost_noticeForbidden_beforeCategoryLookup() {
+        PostCreateRequest request = new PostCreateRequest(99L, "Notice", "Contents", Collections.emptyList(), true,
+                false, false, false, null);
+        User boardOwner = User.builder().loginId("owner").build();
+        ReflectionTestUtils.setField(boardOwner, "userId", 99L);
+        ReflectionTestUtils.setField(board, "creator", boardOwner);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
+        when(adminRepository.existsByUserAndBoardAndIsActive(user, board, true)).thenReturn(false);
+
+        assertThatThrownBy(() -> postService.createPost(1L, 1L, request))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
+
+        verify(boardCategoryRepository, never()).findByCategoryIdAndBoard_BoardIdAndIsActive(anyLong(), anyLong(),
+                anyBoolean());
+    }
+
+    @Test
     @DisplayName("createPost fails when category belongs to another board")
     void createPost_categoryBoardMismatch_notFound() {
         PostCreateRequest request = new PostCreateRequest(2L, "New Post", "New Contents", Collections.emptyList(),

@@ -88,7 +88,6 @@ public class PostCommandService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
 
         postAuthorCommandPolicy.validateBoardWritable(board, user);
-        postAuthorCommandPolicy.validateAppliedCategoryWriteRole(board, user, null);
 
         if (request.isNotice()) {
             if (!boardAccessPolicy.hasBoardAdminAccess(board, user)) {
@@ -99,8 +98,8 @@ public class PostCommandService {
         BoardCategory category = null;
         if (request.getCategoryId() != null) {
             category = findActiveCategory(board, request.getCategoryId());
-            postAuthorCommandPolicy.validateWriteRole(board, user, category.getMinWriteRole());
         }
+        postAuthorCommandPolicy.validateAppliedCategoryWriteRole(board, user, category);
 
         String sanitizedContents = InputSanitizer.sanitize(request.getContents());
         boolean isSecret = !boardAccessPolicy.isInquiryBoard(board) && request.isSecret();
