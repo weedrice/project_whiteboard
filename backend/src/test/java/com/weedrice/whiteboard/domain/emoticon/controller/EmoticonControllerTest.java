@@ -5,10 +5,14 @@ import com.weedrice.whiteboard.domain.emoticon.service.EmoticonService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
@@ -17,14 +21,18 @@ import org.springframework.context.annotation.FilterType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Collections;
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -32,11 +40,6 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-
-import jakarta.servlet.FilterChain;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-import static org.mockito.Mockito.doAnswer;
 
 @WebMvcTest(controllers = EmoticonController.class,
     excludeFilters = {
@@ -102,6 +105,7 @@ class EmoticonControllerTest {
             chain.doFilter(request, response);
             return null;
         }).when(jwtAuthenticationFilter).doFilter(any(), any(), any());
+        clearInvocations(emoticonService);
     }
 
     @Nested
@@ -141,6 +145,43 @@ class EmoticonControllerTest {
                     .andExpect(jsonPath("$.data.content").isArray());
 
             verify(emoticonService).getActiveEmoticons(any(), eq("popular"));
+        }
+
+        @Test
+        @DisplayName("이모티콘 목록 page/size를 정규화하고 sort 파라미터를 무시한다")
+        void getEmoticons_normalizesPageableAndIgnoresClientSort() throws Exception {
+            Page<EmoticonMasterDto> page = new PageImpl<>(
+                    List.of(EmoticonMasterDto.builder().emoticonId(1L).build()),
+                    PageRequest.of(2, 100),
+                    1);
+            when(emoticonService.getActiveEmoticons(any(), eq("latest"))).thenReturn(page);
+
+            mockMvc.perform(get("/api/v1/emoticons")
+                            .param("sortBy", "createdAt")
+                            .param("page", "2")
+                            .param("size", "500")
+                            .param("sort", "purchaseCount,desc")
+                            .with(csrf()))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true));
+
+            ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+            verify(emoticonService).getActiveEmoticons(pageableCaptor.capture(), eq("latest"));
+            Pageable pageable = pageableCaptor.getValue();
+            assertThat(pageable.getPageNumber()).isEqualTo(2);
+            assertThat(pageable.getPageSize()).isEqualTo(100);
+            assertThat(pageable.getSort().isUnsorted()).isTrue();
+        }
+
+        @Test
+        @DisplayName("이모티콘 목록 page 요청이 유효하지 않으면 거절한다")
+        void getEmoticons_invalidPageRequest() throws Exception {
+            mockMvc.perform(get("/api/v1/emoticons")
+                            .param("page", "-1")
+                            .param("size", "20")
+                            .with(csrf()))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.success").value(false));
         }
 
         @Test
@@ -210,6 +251,34 @@ class EmoticonControllerTest {
                     .andExpect(jsonPath("$.data.content").isArray());
 
             verify(emoticonService).searchAll(eq("테스트"), eq("ALL"), any(), eq("latest"));
+        }
+
+        @Test
+        @DisplayName("통합 검색 page/size와 popular 정렬을 정규화한다")
+        void searchAll_normalizesPageableAndPopularSortBy() throws Exception {
+            Page<EmoticonMasterDto> page = new PageImpl<>(
+                    List.of(EmoticonMasterDto.builder().emoticonId(1L).build()),
+                    PageRequest.of(1, 50),
+                    1);
+            when(emoticonService.searchAll(anyString(), anyString(), any(), eq("popular"))).thenReturn(page);
+
+            mockMvc.perform(get("/api/v1/emoticons/search/all")
+                            .param("keyword", "test")
+                            .param("searchType", "NAME")
+                            .param("sortBy", "POPULAR")
+                            .param("page", "1")
+                            .param("size", "50")
+                            .param("sort", "name,asc")
+                            .with(csrf()))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true));
+
+            ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+            verify(emoticonService).searchAll(eq("test"), eq("NAME"), pageableCaptor.capture(), eq("popular"));
+            Pageable pageable = pageableCaptor.getValue();
+            assertThat(pageable.getPageNumber()).isEqualTo(1);
+            assertThat(pageable.getPageSize()).isEqualTo(50);
+            assertThat(pageable.getSort().isUnsorted()).isTrue();
         }
 
         @Test
