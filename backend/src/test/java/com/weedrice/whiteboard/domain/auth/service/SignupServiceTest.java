@@ -28,6 +28,8 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
@@ -91,7 +93,7 @@ class SignupServiceTest {
                 userPrivilegeCleanupService,
                 passwordHistoryPolicy,
                 userRepository);
-        inOrder.verify(verificationCodeService).validateVerificationTicket(
+        inOrder.verify(verificationCodeService).consumeVerificationTicket(
                 request.getEmail(),
                 VerificationPurpose.SIGNUP,
                 request.getVerificationTicket());
@@ -100,15 +102,11 @@ class SignupServiceTest {
         inOrder.verify(userPrivilegeCleanupService).removeOperationalPrivileges(deletedUser);
         inOrder.verify(userRepository).save(deletedUser);
         inOrder.verify(passwordHistoryPolicy).record(deletedUser, "encoded-new-password");
-        inOrder.verify(verificationCodeService).consumeValidatedVerificationTicket(
-                request.getEmail(),
-                VerificationPurpose.SIGNUP,
-                request.getVerificationTicket());
-        verify(pointService, never()).addPoint(org.mockito.ArgumentMatchers.anyLong(),
-                org.mockito.ArgumentMatchers.anyInt(),
-                org.mockito.ArgumentMatchers.anyString(),
-                org.mockito.ArgumentMatchers.anyLong(),
-                org.mockito.ArgumentMatchers.anyString());
+        verify(pointService, never()).addPoint(anyLong(),
+                anyInt(),
+                anyString(),
+                anyLong(),
+                anyString());
     }
 
     @Test
@@ -133,7 +131,7 @@ class SignupServiceTest {
         when(userRepository.findByEmail(request.getEmail())).thenReturn(Optional.of(deletedUser));
         doThrow(new BusinessException(ErrorCode.VALIDATION_ERROR))
                 .when(verificationCodeService)
-                .validateVerificationTicket(
+                .consumeVerificationTicket(
                         request.getEmail(),
                         VerificationPurpose.SIGNUP,
                         request.getVerificationTicket());
@@ -146,15 +144,15 @@ class SignupServiceTest {
         verify(refreshTokenLifecycleService, never()).revokeActiveRefreshTokens(deletedUser);
         verify(userPrivilegeCleanupService, never()).removeOperationalPrivileges(deletedUser);
         verify(userRepository, never()).save(deletedUser);
-        verify(verificationCodeService, never()).consumeValidatedVerificationTicket(
-                anyString(),
-                eq(VerificationPurpose.SIGNUP),
-                anyString());
+        verify(verificationCodeService).consumeVerificationTicket(
+                request.getEmail(),
+                VerificationPurpose.SIGNUP,
+                request.getVerificationTicket());
     }
 
     @Test
-    @DisplayName("재가입 비밀번호가 최근 이력이면 토큰 회수와 티켓 소비 전에 거절한다")
-    void signup_reregister_recentPasswordRejectsBeforeSideEffects() {
+    @DisplayName("재가입 비밀번호가 최근 이력이면 티켓 소비 후 계정 부수 효과 전에 거절한다")
+    void signup_reregister_recentPasswordRejectsAfterTicketConsumeBeforeSideEffects() {
         SignupRequest request = SignupRequest.builder()
                 .loginId("testuser")
                 .password("password123")
@@ -183,7 +181,10 @@ class SignupServiceTest {
         verify(refreshTokenLifecycleService, never()).revokeActiveRefreshTokens(deletedUser);
         verify(userPrivilegeCleanupService, never()).removeOperationalPrivileges(deletedUser);
         verify(userRepository, never()).save(deletedUser);
-        verify(verificationCodeService, never()).consumeValidatedVerificationTicket(anyString(), any(), anyString());
+        verify(verificationCodeService).consumeVerificationTicket(
+                request.getEmail(),
+                VerificationPurpose.SIGNUP,
+                request.getVerificationTicket());
     }
 
     @Test
@@ -212,11 +213,7 @@ class SignupServiceTest {
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
 
-        verify(verificationCodeService, never()).validateVerificationTicket(
-                anyString(),
-                eq(VerificationPurpose.SIGNUP),
-                anyString());
-        verify(verificationCodeService, never()).consumeValidatedVerificationTicket(
+        verify(verificationCodeService, never()).consumeVerificationTicket(
                 anyString(),
                 eq(VerificationPurpose.SIGNUP),
                 anyString());
@@ -255,12 +252,12 @@ class SignupServiceTest {
         SignupResponse response = signupService.signup(request);
 
         assertThat(response.getUserId()).isEqualTo(10L);
-        var inOrder = inOrder(socialAccountLinkService, verificationCodeService);
-        inOrder.verify(socialAccountLinkService).linkSocialAccount(eq(savedUser), eq("google"), eq("google-user-1"));
-        inOrder.verify(verificationCodeService).consumeValidatedVerificationTicket(
+        var inOrder = inOrder(verificationCodeService, socialAccountLinkService);
+        inOrder.verify(verificationCodeService).consumeVerificationTicket(
                 request.getEmail(),
                 VerificationPurpose.SIGNUP,
                 request.getVerificationTicket());
+        inOrder.verify(socialAccountLinkService).linkSocialAccount(eq(savedUser), eq("google"), eq("google-user-1"));
     }
 
     @Test
@@ -321,10 +318,10 @@ class SignupServiceTest {
         signupService.signup(request);
 
         verify(pointService, never()).addPoint(
-                org.mockito.ArgumentMatchers.anyLong(),
-                org.mockito.ArgumentMatchers.anyInt(),
+                anyLong(),
+                anyInt(),
                 anyString(),
-                org.mockito.ArgumentMatchers.anyLong(),
+                anyLong(),
                 anyString());
     }
 }

@@ -58,7 +58,7 @@ public class SignupService {
             throw new BusinessException(ErrorCode.DUPLICATE_LOGIN_ID);
         }
 
-        verificationCodeService.validateVerificationTicket(
+        verificationCodeService.consumeVerificationTicket(
                 request.getEmail(),
                 VerificationPurpose.SIGNUP,
                 request.getVerificationTicket());
@@ -90,11 +90,6 @@ public class SignupService {
 
         saveSocialAccountIfPresent(savedUser, request);
 
-        verificationCodeService.consumeValidatedVerificationTicket(
-                request.getEmail(),
-                VerificationPurpose.SIGNUP,
-                request.getVerificationTicket());
-
         return SignupResponse.builder()
                 .userId(savedUser.getUserId())
                 .loginId(savedUser.getLoginId())
@@ -109,7 +104,7 @@ public class SignupService {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
 
-        verificationCodeService.validateVerificationTicket(
+        verificationCodeService.consumeVerificationTicket(
                 request.getEmail(),
                 VerificationPurpose.SIGNUP,
                 request.getVerificationTicket());
@@ -126,11 +121,6 @@ public class SignupService {
         passwordHistoryPolicy.record(existingUser, passwordHash);
 
         saveSocialAccountIfPresent(existingUser, request);
-
-        verificationCodeService.consumeValidatedVerificationTicket(
-                request.getEmail(),
-                VerificationPurpose.SIGNUP,
-                request.getVerificationTicket());
 
         return SignupResponse.builder()
                 .userId(existingUser.getUserId())
