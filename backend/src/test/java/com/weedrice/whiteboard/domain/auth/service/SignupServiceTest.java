@@ -287,7 +287,7 @@ class SignupServiceTest {
 
         signupService.signup(request);
 
-        verify(pointService).addPoint(eq(10L), eq(500), anyString(), eq(10L), eq("USER"));
+        verify(pointService).addPoint(eq(10L), eq(500), eq("회원가입 축하 포인트"), eq(10L), eq("USER"));
     }
 
     @Test

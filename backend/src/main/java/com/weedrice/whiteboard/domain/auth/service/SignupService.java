@@ -30,6 +30,7 @@ import java.util.Objects;
 public class SignupService {
 
     private static final String POINT_SIGNUP_BONUS_CONFIG_KEY = "POINT_SIGNUP_BONUS";
+    private static final String POINT_SIGNUP_BONUS_DESCRIPTION = "회원가입 축하 포인트";
     private static final int DEFAULT_SIGNUP_BONUS = 500;
 
     private final UserRepository userRepository;
@@ -85,7 +86,12 @@ public class SignupService {
                 DEFAULT_SIGNUP_BONUS,
                 0);
         if (signupBonus > 0) {
-            pointService.addPoint(savedUser.getUserId(), signupBonus, "회원가입 축하 포인트", savedUser.getUserId(), "USER");
+            pointService.addPoint(
+                    savedUser.getUserId(),
+                    signupBonus,
+                    POINT_SIGNUP_BONUS_DESCRIPTION,
+                    savedUser.getUserId(),
+                    "USER");
         }
 
         saveSocialAccountIfPresent(savedUser, request);
