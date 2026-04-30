@@ -43,9 +43,6 @@ class NotificationCommandService {
         if (notificationRepository.existsByNotificationIdAndUser_UserId(notificationId, userId)) {
             return;
         }
-        if (notificationRepository.existsById(notificationId)) {
-            throw new BusinessException(ErrorCode.FORBIDDEN);
-        }
         throw new BusinessException(ErrorCode.NOT_FOUND);
     }
 
