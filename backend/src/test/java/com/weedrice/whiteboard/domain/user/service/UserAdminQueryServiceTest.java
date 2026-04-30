@@ -3,7 +3,6 @@ package com.weedrice.whiteboard.domain.user.service;
 import com.weedrice.whiteboard.domain.admin.entity.Admin;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.admin.service.ModerationActorResolver;
-import com.weedrice.whiteboard.domain.auth.repository.LoginHistoryRepository;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardSubscription;
 import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository;
@@ -11,13 +10,14 @@ import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
-import com.weedrice.whiteboard.domain.report.repository.ReportRepository;
-import com.weedrice.whiteboard.domain.sanction.repository.SanctionRepository;
 import com.weedrice.whiteboard.domain.user.dto.AdminUserCommentResponse;
+import com.weedrice.whiteboard.domain.user.dto.AdminUserDetailResponse;
 import com.weedrice.whiteboard.domain.user.dto.AdminUserPostResponse;
 import com.weedrice.whiteboard.domain.user.dto.AdminUserSubscriptionResponse;
 import com.weedrice.whiteboard.domain.user.dto.UserAdminResponse;
 import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.domain.user.repository.AdminUserDetailQueryRepository;
+import com.weedrice.whiteboard.domain.user.repository.AdminUserDetailQueryRepository.AdminUserDetailStats;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -31,6 +31,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -50,9 +51,7 @@ class UserAdminQueryServiceTest {
     @Mock private AdminRepository adminRepository;
     @Mock private ModerationActorResolver moderationActorResolver;
     @Mock private BoardSubscriptionRepository boardSubscriptionRepository;
-    @Mock private LoginHistoryRepository loginHistoryRepository;
-    @Mock private SanctionRepository sanctionRepository;
-    @Mock private ReportRepository reportRepository;
+    @Mock private AdminUserDetailQueryRepository adminUserDetailQueryRepository;
 
     @Test
     @DisplayName("searchUsersForAdmin resolves roles in batch")
@@ -78,6 +77,36 @@ class UserAdminQueryServiceTest {
         assertThat(response.getContent()).extracting(UserAdminResponse::getRole)
                 .containsExactly("SUPER_ADMIN", "MODERATOR");
         verify(adminRepository).findByUserUserIdInAndIsActiveOrderByAdminIdAsc(List.of(2L), true);
+    }
+
+    @Test
+    @DisplayName("getUserDetailForAdmin assembles detail response from stats repository")
+    void getUserDetailForAdmin_usesStatsRepository() {
+        User user = User.builder()
+                .loginId("target")
+                .email("target@test.com")
+                .password("pw")
+                .displayName("target")
+                .build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(moderationActorResolver.findActiveAdmin(user)).thenReturn(Optional.empty());
+        when(adminUserDetailQueryRepository.findStats(user))
+                .thenReturn(new AdminUserDetailStats(3L, 4L, 5L, null, 6L, null, 7L, 8L));
+
+        AdminUserDetailResponse response = userAdminQueryService.getUserDetailForAdmin(1L);
+
+        assertThat(response.getUserId()).isEqualTo(1L);
+        assertThat(response.getRole()).isEqualTo("USER");
+        assertThat(response.getPostCount()).isEqualTo(3L);
+        assertThat(response.getCommentCount()).isEqualTo(4L);
+        assertThat(response.getSubscriptionCount()).isEqualTo(5L);
+        assertThat(response.getRecentLogin()).isNull();
+        assertThat(response.getSanctionSummary().getCount()).isEqualTo(6L);
+        assertThat(response.getReportSummary().getTotalCount()).isEqualTo(7L);
+        assertThat(response.getReportSummary().getPendingCount()).isEqualTo(8L);
+        verify(adminUserDetailQueryRepository).findStats(user);
     }
 
     @Test
@@ -109,7 +138,7 @@ class UserAdminQueryServiceTest {
         ReflectionTestUtils.setField(post, "postId", 21L);
         ReflectionTestUtils.setField(post, "isDeleted", true);
 
-        when(userRepository.findById(1L)).thenReturn(java.util.Optional.of(user));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(postRepository.findByUserOrderByCreatedAtDesc(user, PageRequest.of(0, 10)))
                 .thenReturn(new PageImpl<>(List.of(post), PageRequest.of(0, 10), 1));
 
@@ -161,7 +190,7 @@ class UserAdminQueryServiceTest {
         ReflectionTestUtils.setField(comment, "commentId", 31L);
         ReflectionTestUtils.setField(comment, "isDeleted", true);
 
-        when(userRepository.findById(1L)).thenReturn(java.util.Optional.of(user));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(commentRepository.findByUserOrderByCreatedAtDesc(user, PageRequest.of(0, 10)))
                 .thenReturn(new PageImpl<>(List.of(comment), PageRequest.of(0, 10), 1));
 
@@ -221,7 +250,7 @@ class UserAdminQueryServiceTest {
                 .sortOrder(8)
                 .build();
 
-        when(userRepository.findById(1L)).thenReturn(java.util.Optional.of(user));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(boardSubscriptionRepository.findByUserOrderBySortOrderAsc(user, PageRequest.of(0, 10)))
                 .thenReturn(new PageImpl<>(List.of(subscription, adminSubscription), PageRequest.of(0, 10), 2));
         when(adminRepository.findActiveBoardIdsByUser(user)).thenReturn(List.of(14L));

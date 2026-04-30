@@ -3,16 +3,11 @@ package com.weedrice.whiteboard.domain.user.service;
 import com.weedrice.whiteboard.domain.admin.entity.Admin;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.admin.service.ModerationActorResolver;
-import com.weedrice.whiteboard.domain.auth.entity.LoginHistory;
-import com.weedrice.whiteboard.domain.auth.repository.LoginHistoryRepository;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardSubscription;
 import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
-import com.weedrice.whiteboard.domain.report.repository.ReportRepository;
-import com.weedrice.whiteboard.domain.sanction.entity.Sanction;
-import com.weedrice.whiteboard.domain.sanction.repository.SanctionRepository;
 import com.weedrice.whiteboard.domain.user.dto.AdminUserCommentResponse;
 import com.weedrice.whiteboard.domain.user.dto.AdminUserDetailResponse;
 import com.weedrice.whiteboard.domain.user.dto.AdminUserPostResponse;
@@ -21,6 +16,8 @@ import com.weedrice.whiteboard.domain.user.dto.UserAdminResponse;
 import com.weedrice.whiteboard.domain.user.dto.UserAdminSearchCondition;
 import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.domain.user.repository.AdminUserDetailQueryRepository;
+import com.weedrice.whiteboard.domain.user.repository.AdminUserDetailQueryRepository.AdminUserDetailStats;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -38,7 +35,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -52,9 +48,7 @@ public class UserAdminQueryService {
     private final CommentRepository commentRepository;
     private final AdminRepository adminRepository;
     private final BoardSubscriptionRepository boardSubscriptionRepository;
-    private final LoginHistoryRepository loginHistoryRepository;
-    private final SanctionRepository sanctionRepository;
-    private final ReportRepository reportRepository;
+    private final AdminUserDetailQueryRepository adminUserDetailQueryRepository;
     private final ModerationActorResolver moderationActorResolver;
 
     public Page<UserAdminResponse> searchUsersForAdmin(String keyword, Pageable pageable) {
@@ -104,26 +98,19 @@ public class UserAdminQueryService {
         User user = getUserOrThrow(userId);
 
         String role = resolveRoleForAdmin(user);
-        long postCount = postRepository.countByUserAndIsDeleted(user, false);
-        long commentCount = commentRepository.countByUserAndIsDeleted(user, false);
-        long subscriptionCount = boardSubscriptionRepository.countByUser(user);
-        Optional<LoginHistory> recentLogin = loginHistoryRepository.findTopByUserAndIsSuccessTrueOrderByCreatedAtDesc(user);
-        long sanctionCount = sanctionRepository.countByTargetUser(user);
-        Optional<Sanction> recentSanction = sanctionRepository.findTopByTargetUserOrderByCreatedAtDesc(user);
-        long reportTotalCount = reportRepository.countByTargetTypeAndTargetId("USER", userId);
-        long reportPendingCount = reportRepository.countByTargetTypeAndTargetIdAndStatus("USER", userId, "PENDING");
+        AdminUserDetailStats stats = adminUserDetailQueryRepository.findStats(user);
 
         return AdminUserDetailResponse.from(
                 user,
                 role,
-                postCount,
-                commentCount,
-                subscriptionCount,
-                recentLogin.orElse(null),
-                sanctionCount,
-                recentSanction.orElse(null),
-                reportTotalCount,
-                reportPendingCount);
+                stats.postCount(),
+                stats.commentCount(),
+                stats.subscriptionCount(),
+                stats.recentLogin(),
+                stats.sanctionCount(),
+                stats.recentSanction(),
+                stats.reportTotalCount(),
+                stats.reportPendingCount());
     }
 
     public Page<AdminUserPostResponse> getUserPostsForAdmin(Long userId, Pageable pageable) {
