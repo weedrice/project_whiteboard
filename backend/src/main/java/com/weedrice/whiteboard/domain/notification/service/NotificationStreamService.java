@@ -43,13 +43,19 @@ class NotificationStreamService {
         EmitterConnection connection = new EmitterConnection(emitter, connectionSequence.incrementAndGet());
         List<SseEmitter> evictedEmitters;
 
-        Object lock = lockFor(userId);
-        synchronized (lock) {
-            Map<String, EmitterConnection> userEmitters = emitters.computeIfAbsent(
-                    userId,
-                    ignored -> new ConcurrentHashMap<>());
-            userEmitters.put(connectionId, connection);
-            evictedEmitters = enforceConnectionLimit(userEmitters, connectionId);
+        while (true) {
+            Object lock = lockFor(userId);
+            synchronized (lock) {
+                if (userLocks.get(userId) != lock) {
+                    continue;
+                }
+                Map<String, EmitterConnection> userEmitters = emitters.computeIfAbsent(
+                        userId,
+                        ignored -> new ConcurrentHashMap<>());
+                userEmitters.put(connectionId, connection);
+                evictedEmitters = enforceConnectionLimit(userEmitters, connectionId);
+                break;
+            }
         }
 
         evictedEmitters.forEach(SseEmitter::complete);
@@ -135,16 +141,24 @@ class NotificationStreamService {
     }
 
     private void removeEmitter(Long userId, String connectionId) {
-        Object lock = lockFor(userId);
+        Object lock = userLocks.get(userId);
+        if (lock == null) {
+            return;
+        }
         synchronized (lock) {
+            if (userLocks.get(userId) != lock) {
+                return;
+            }
             Map<String, EmitterConnection> userEmitters = emitters.get(userId);
             if (userEmitters == null) {
+                userLocks.remove(userId, lock);
                 return;
             }
 
             userEmitters.remove(connectionId);
             if (userEmitters.isEmpty()) {
                 emitters.remove(userId, userEmitters);
+                userLocks.remove(userId, lock);
             }
         }
     }
@@ -154,13 +168,30 @@ class NotificationStreamService {
     }
 
     private void removeEmptyUser(Long userId, Map<String, EmitterConnection> expectedEmitters) {
-        Object lock = lockFor(userId);
+        Object lock = userLocks.get(userId);
+        if (lock == null) {
+            if (expectedEmitters != null && expectedEmitters.isEmpty()) {
+                emitters.computeIfPresent(userId, (currentUserId, currentEmitters) -> {
+                    if (currentEmitters == expectedEmitters
+                            && currentEmitters.isEmpty()
+                            && userLocks.get(currentUserId) == null) {
+                        return null;
+                    }
+                    return currentEmitters;
+                });
+            }
+            return;
+        }
         synchronized (lock) {
+            if (userLocks.get(userId) != lock) {
+                return;
+            }
             Map<String, EmitterConnection> userEmitters = emitters.get(userId);
             if (userEmitters == null) {
-                emitters.remove(userId);
+                userLocks.remove(userId, lock);
             } else if (userEmitters == expectedEmitters && userEmitters.isEmpty()) {
                 emitters.remove(userId, userEmitters);
+                userLocks.remove(userId, lock);
             }
         }
     }

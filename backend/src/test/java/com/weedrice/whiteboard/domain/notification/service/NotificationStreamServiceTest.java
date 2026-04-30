@@ -9,6 +9,8 @@ import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -52,6 +54,76 @@ class NotificationStreamServiceTest {
         assertThat(connectionCount(service, 1L)).isEqualTo(1);
     }
 
+    @Test
+    @DisplayName("removeEmitter removes user lock after the last connection")
+    void removeEmitter_removesUserLockAfterLastConnection() {
+        NotificationStreamService service = new NotificationStreamService(10_000L, 5);
+
+        service.subscribe(1L);
+        String connectionId = userEmitters(service, 1L).keySet().iterator().next().toString();
+
+        ReflectionTestUtils.invokeMethod(service, "removeEmitter", 1L, connectionId);
+
+        assertThat(userEmitters(service, 1L)).isNull();
+        assertThat(userLocks(service)).doesNotContainKey(1L);
+    }
+
+    @Test
+    @DisplayName("subscribe retries when the acquired user lock was removed")
+    void subscribe_retriesWhenAcquiredUserLockWasRemoved() throws InterruptedException {
+        NotificationStreamService service = new NotificationStreamService(10_000L, 5);
+        Object staleLock = new Object();
+        userLocks(service).put(1L, staleLock);
+        AtomicReference<Throwable> failure = new AtomicReference<>();
+        Thread subscriber = new Thread(() -> {
+            try {
+                service.subscribe(1L);
+            } catch (Throwable e) {
+                failure.set(e);
+            }
+        });
+        subscriber.setDaemon(true);
+
+        synchronized (staleLock) {
+            subscriber.start();
+            waitUntilBlocked(subscriber);
+            userLocks(service).remove(1L, staleLock);
+        }
+        subscriber.join(1_000L);
+
+        assertThat(subscriber.isAlive()).isFalse();
+        assertThat(failure.get()).isNull();
+        assertThat(connectionCount(service, 1L)).isEqualTo(1);
+        assertThat(userLocks(service)).containsKey(1L);
+        assertThat(userLocks(service).get(1L)).isNotSameAs(staleLock);
+    }
+
+    @Test
+    @DisplayName("heartbeat cleanup does not recreate a missing user lock")
+    void heartbeatCleanup_doesNotRecreateMissingUserLock() {
+        NotificationStreamService service = new NotificationStreamService(10_000L, 5);
+        emitters(service).put(1L, new ConcurrentHashMap<>());
+
+        service.sendHeartbeat();
+
+        assertThat(emitters(service)).doesNotContainKey(1L);
+        assertThat(userLocks(service)).doesNotContainKey(1L);
+    }
+
+    @Test
+    @DisplayName("missing lock cleanup with null expected emitters keeps current emitters")
+    void missingLockCleanupWithNullExpectedEmitters_keepsCurrentEmitters() {
+        NotificationStreamService service = new NotificationStreamService(10_000L, 5);
+        Map<String, Object> currentEmitters = new ConcurrentHashMap<>();
+        currentEmitters.put("active", new Object());
+        emitters(service).put(1L, currentEmitters);
+
+        ReflectionTestUtils.invokeMethod(service, "removeEmptyUser", 1L, null);
+
+        assertThat(emitters(service).get(1L)).isSameAs(currentEmitters);
+        assertThat(userLocks(service)).doesNotContainKey(1L);
+    }
+
     private Notification notification(Long userId) {
         User user = User.builder()
                 .loginId("receiver")
@@ -83,8 +155,30 @@ class NotificationStreamServiceTest {
 
     @SuppressWarnings("unchecked")
     private Map<?, ?> userEmitters(NotificationStreamService service, Long userId) {
-        Map<Long, ?> emitters = (Map<Long, ?>) ReflectionTestUtils.getField(service, "emitters");
+        return (Map<?, ?>) emitters(service).get(userId);
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<Long, Map<String, ?>> emitters(NotificationStreamService service) {
+        Map<Long, Map<String, ?>> emitters = (Map<Long, Map<String, ?>>) ReflectionTestUtils.getField(service, "emitters");
         assertThat(emitters).isNotNull();
-        return (Map<?, ?>) emitters.get(userId);
+        return emitters;
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<Long, Object> userLocks(NotificationStreamService service) {
+        Map<Long, Object> userLocks = (Map<Long, Object>) ReflectionTestUtils.getField(service, "userLocks");
+        assertThat(userLocks).isNotNull();
+        return userLocks;
+    }
+
+    private void waitUntilBlocked(Thread thread) throws InterruptedException {
+        for (int i = 0; i < 100; i++) {
+            if (thread.getState() == Thread.State.BLOCKED) {
+                return;
+            }
+            Thread.sleep(10L);
+        }
+        throw new AssertionError("subscriber did not wait for the stale user lock");
     }
 }
