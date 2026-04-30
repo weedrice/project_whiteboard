@@ -17,6 +17,8 @@ import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 
+import java.util.List;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 @DataJpaTest
@@ -96,6 +98,21 @@ class AdminRepositoryTest {
         assertThat(persistenceUnitUtil.isLoaded(result.getContent().get(0), "board")).isTrue();
         assertThat(result.getContent().get(0).getUser().getDisplayName()).isEqualTo("관리자2");
         assertThat(result.getContent().get(0).getBoard().getBoardName()).isEqualTo("free");
+    }
+
+    @Test
+    @DisplayName("user id 목록으로 활성 관리자 조회 시 user를 함께 로드한다")
+    void findByUserUserIdInAndIsActiveOrderByAdminIdAsc_fetchesUser() {
+        List<Admin> result = adminRepository.findByUserUserIdInAndIsActiveOrderByAdminIdAsc(
+                List.of(olderAdmin.getUser().getUserId(), newerAdmin.getUser().getUserId()),
+                true);
+        PersistenceUnitUtil persistenceUnitUtil = entityManagerFactory.getPersistenceUnitUtil();
+
+        assertThat(result).hasSize(2)
+                .extracting(Admin::getAdminId)
+                .isSorted();
+        assertThat(result).allSatisfy(admin ->
+                assertThat(persistenceUnitUtil.isLoaded(admin, "user")).isTrue());
     }
 
     @Test
