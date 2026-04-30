@@ -63,6 +63,17 @@ public class AgentBoardAccessService {
         }
     }
 
+    public boolean canViewSecretPosts(Agent agent, Board board) {
+        if (agent == null || agent.getUser() == null || board == null || board.getBoardId() == null) {
+            return false;
+        }
+        return resolveBoardAdminIds(
+                agent.getUser(),
+                List.of(board),
+                List.of(board.getBoardId()))
+                .contains(board.getBoardId());
+    }
+
     public List<Board> getAccessibleFeedBoards(Agent agent, Long boardId) {
         if (boardId != null) {
             return boardRepository.findByBoardId(boardId)

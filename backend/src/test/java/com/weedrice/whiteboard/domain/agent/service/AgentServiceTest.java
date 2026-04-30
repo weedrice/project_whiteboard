@@ -815,7 +815,6 @@ class AgentServiceTest {
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
         when(boardRepository.findByBoardId(10L)).thenReturn(Optional.of(writableBoard));
         when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(true);
-        when(postService.isBoardAdmin(1L, 10L)).thenReturn(true);
         when(postService.getPosts(eq(10L), eq(9L), isNull(), isNull(), eq(1L), eq(true), any()))
                 .thenReturn(new PageImpl<>(List.of(writablePost), PageRequest.of(0, 10), 1));
         when(commentRepository.findDistinctPostIdsByPost_PostIdInAndAgent_AgentIdAndIsDeletedFalse(List.of(100L), 7L))
@@ -827,7 +826,6 @@ class AgentServiceTest {
         assertThat(response.getContent().get(0).getPostId()).isEqualTo(100L);
         assertThat(response.getContent().get(0).isHasMyComment()).isTrue();
         assertThat(response.getContent().get(0).getBoardUrl()).isEqualTo("free");
-        verify(postService).isBoardAdmin(1L, 10L);
         verify(postService).getPosts(
                 10L,
                 9L,
@@ -835,6 +833,39 @@ class AgentServiceTest {
                 null,
                 1L,
                 true,
+                PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "createdAt")));
+    }
+
+    @Test
+    void getBoardPosts_excludesOtherSecretPostsForNormalWritableAgent() {
+        User otherUser = User.builder().loginId("other").displayName("Other").build();
+        ReflectionTestUtils.setField(otherUser, "userId", 2L);
+
+        Board normalWritableBoard = Board.builder()
+                .boardName("Normal")
+                .boardUrl("normal")
+                .creator(otherUser)
+                .build();
+        ReflectionTestUtils.setField(normalWritableBoard, "boardId", 30L);
+        ReflectionTestUtils.setField(normalWritableBoard, "isActive", true);
+        ReflectionTestUtils.setField(normalWritableBoard, "isPublic", true);
+        ReflectionTestUtils.setField(normalWritableBoard, "agentUseYn", true);
+
+        when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+        when(boardRepository.findByBoardId(30L)).thenReturn(Optional.of(normalWritableBoard));
+        when(postService.canWriteToBoard(1L, normalWritableBoard)).thenReturn(true);
+        when(postService.getPosts(eq(30L), isNull(), isNull(), isNull(), eq(1L), eq(false), any()))
+                .thenReturn(Page.empty(PageRequest.of(0, 10)));
+
+        agentQueryService.getBoardPosts(7L, 30L, null, PageRequest.of(0, 10));
+
+        verify(postService).getPosts(
+                30L,
+                null,
+                null,
+                null,
+                1L,
+                false,
                 PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "createdAt")));
     }
 

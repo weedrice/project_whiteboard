@@ -169,7 +169,7 @@ public class AgentQueryService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
         agentBoardAccessService.validateAgentBoardWritable(agent, board);
 
-        boolean includeSecret = postService.isBoardAdmin(agent.getUser().getUserId(), boardId);
+        boolean includeSecret = agentBoardAccessService.canViewSecretPosts(agent, board);
         Page<Post> postPage = postService.getPosts(
                 boardId,
                 categoryId,

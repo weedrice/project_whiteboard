@@ -137,7 +137,7 @@ class AgentQueryServicePageableTest {
     void getBoardPosts_limitsSizeAndKeepsAllowedSortOnly() {
         when(agentOwnershipService.resolveActiveAgent(7L)).thenReturn(agent);
         when(boardRepository.findByBoardId(10L)).thenReturn(Optional.of(board));
-        when(postService.isBoardAdmin(1L, 10L)).thenReturn(true);
+        when(agentBoardAccessService.canViewSecretPosts(agent, board)).thenReturn(true);
         when(postService.getPosts(eq(10L), eq(9L), isNull(), isNull(), eq(1L), anyBoolean(), any()))
                 .thenAnswer(invocation -> Page.empty(invocation.getArgument(6)));
         when(agentPostListItemAssembler.fromPosts(any(), eq(7L))).thenAnswer(invocation -> Page.empty(
