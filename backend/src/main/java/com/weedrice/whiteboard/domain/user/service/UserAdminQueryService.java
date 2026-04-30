@@ -27,12 +27,14 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -42,6 +44,19 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class UserAdminQueryService {
+
+    private static final String ADMIN_ROLE_ADMIN = "ADMIN";
+    private static final String ADMIN_ROLE_MODERATOR = "MODERATOR";
+    private static final Set<String> ALLOWED_ROLES = Set.of(
+            Role.SUPER_ADMIN,
+            Role.USER,
+            Role.BOARD_ADMIN,
+            ADMIN_ROLE_MODERATOR,
+            ADMIN_ROLE_ADMIN);
+    private static final Set<String> ALLOWED_STATUSES = Set.of(
+            User.STATUS_ACTIVE,
+            User.STATUS_SUSPENDED,
+            User.STATUS_DELETED);
 
     private final UserRepository userRepository;
     private final PostRepository postRepository;
@@ -70,8 +85,8 @@ public class UserAdminQueryService {
             Long minActivityCount,
             Pageable pageable) {
         UserAdminSearchCondition condition = UserAdminSearchCondition.builder()
-                .status(status)
-                .role(roleFilter)
+                .status(normalizeStatus(status))
+                .role(normalizeRole(roleFilter))
                 .isEmailVerified(isEmailVerified)
                 .isSuperAdmin(isSuperAdmin)
                 .isWithdrawn(isWithdrawn)
@@ -92,6 +107,28 @@ public class UserAdminQueryService {
                                 : rolesByUserId.getOrDefault(user.getUserId(), Role.USER)))
                 .toList();
         return new PageImpl<>(list, pageable, users.getTotalElements());
+    }
+
+    private String normalizeStatus(String status) {
+        if (!StringUtils.hasText(status)) {
+            return null;
+        }
+        String normalizedStatus = status.trim().toUpperCase(Locale.ROOT);
+        if (!ALLOWED_STATUSES.contains(normalizedStatus)) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        return normalizedStatus;
+    }
+
+    private String normalizeRole(String role) {
+        if (!StringUtils.hasText(role)) {
+            return null;
+        }
+        String normalizedRole = role.trim().toUpperCase(Locale.ROOT);
+        if (!ALLOWED_ROLES.contains(normalizedRole)) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        return normalizedRole;
     }
 
     public AdminUserDetailResponse getUserDetailForAdmin(Long userId) {

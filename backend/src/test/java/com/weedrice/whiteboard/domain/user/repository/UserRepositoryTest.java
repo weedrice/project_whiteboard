@@ -21,10 +21,10 @@ import org.springframework.data.domain.Sort;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
-import java.util.Comparator;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @DataJpaTest
 @Import(QuerydslConfig.class)
@@ -298,8 +298,8 @@ class UserRepositoryTest {
     }
 
     @Test
-    @DisplayName("관리자 사용자 검색은 활동량 집계 경로와 기본 경로의 정렬 fallback 의미를 맞춘다")
-    void searchUsersForAdmin_activityPathMatchesQuerydslForSortFallback() {
+    @DisplayName("관리자 사용자 검색은 지원하지 않는 role 필터를 방어적으로 거절한다")
+    void searchUsersForAdmin_rejectsUnsupportedRoleFilterDefensively() {
         UserAdminSearchCondition querydslCondition = UserAdminSearchCondition.builder()
                 .role("UNKNOWN")
                 .build();
@@ -309,12 +309,14 @@ class UserRepositoryTest {
                 .build();
         PageRequest pageable = PageRequest.of(0, 10, Sort.by(Sort.Direction.ASC, "unknown"));
 
-        Page<User> querydslResult = userRepository.searchUsersForAdmin(null, querydslCondition, pageable);
-        Page<User> nativeResult = userRepository.searchUsersForAdmin(null, nativeCondition, pageable);
-
-        assertSameOrderedUsers(nativeResult, querydslResult);
-        assertThat(nativeResult.getContent()).extracting(User::getUserId)
-                .isSortedAccordingTo(Comparator.reverseOrder());
+        assertThatThrownBy(() -> userRepository.searchUsersForAdmin(null, querydslCondition, pageable))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("Unsupported role filter")
+                .hasStackTraceContaining("IllegalArgumentException: Unsupported role filter");
+        assertThatThrownBy(() -> userRepository.searchUsersForAdmin(null, nativeCondition, pageable))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("Unsupported role filter")
+                .hasStackTraceContaining("IllegalArgumentException: Unsupported role filter");
     }
 
     @Test

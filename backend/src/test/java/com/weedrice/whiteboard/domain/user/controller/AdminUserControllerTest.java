@@ -148,6 +148,32 @@ class AdminUserControllerTest {
     }
 
     @Test
+    @DisplayName("search users returns bad request for invalid filters")
+    void searchUsers_invalidFiltersReturnsBadRequest() throws Exception {
+        doThrow(new BusinessException(ErrorCode.INVALID_INPUT_VALUE))
+                .when(userAdminQueryService).searchUsersForAdmin(
+                        any(),
+                        any(),
+                        any(),
+                        any(),
+                        any(),
+                        any(),
+                        any(),
+                        any(),
+                        any(),
+                        any(),
+                        any(),
+                        any());
+
+        mockMvc.perform(get("/api/v1/admin/users")
+                        .param("role", "BOARDADMIN")
+                        .with(user(customUserDetails))
+                        .with(csrf()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value(ErrorCode.INVALID_INPUT_VALUE.getCode()));
+    }
+
+    @Test
     @DisplayName("get user posts returns admin-specific post response")
     void getUserPosts_returnsAdminSpecificPostResponse() throws Exception {
         AdminUserPostResponse response = AdminUserPostResponse.builder()

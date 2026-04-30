@@ -282,7 +282,7 @@ public class UserRepositoryCustomImpl implements UserRepositoryCustom {
                 builder.and(hasActiveAdmin(user));
                 break;
             default:
-                break;
+                throw new IllegalArgumentException("Unsupported role filter: " + role);
         }
     }
 
@@ -307,7 +307,7 @@ public class UserRepositoryCustomImpl implements UserRepositoryCustom {
                 clauses.add("exists (select 1 from admins a where a.user_id = u.user_id and a.is_active = 'Y')");
                 break;
             default:
-                break;
+                throw new IllegalArgumentException("Unsupported role filter: " + role);
         }
     }
 

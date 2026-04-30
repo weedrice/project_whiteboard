@@ -15,13 +15,17 @@ import com.weedrice.whiteboard.domain.user.dto.AdminUserDetailResponse;
 import com.weedrice.whiteboard.domain.user.dto.AdminUserPostResponse;
 import com.weedrice.whiteboard.domain.user.dto.AdminUserSubscriptionResponse;
 import com.weedrice.whiteboard.domain.user.dto.UserAdminResponse;
+import com.weedrice.whiteboard.domain.user.dto.UserAdminSearchCondition;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.AdminUserDetailQueryRepository;
 import com.weedrice.whiteboard.domain.user.repository.AdminUserDetailQueryRepository.AdminUserDetailStats;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.global.exception.BusinessException;
+import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -34,8 +38,11 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -77,6 +84,47 @@ class UserAdminQueryServiceTest {
         assertThat(response.getContent()).extracting(UserAdminResponse::getRole)
                 .containsExactly("SUPER_ADMIN", "MODERATOR");
         verify(adminRepository).findByUserUserIdInAndIsActiveOrderByAdminIdAsc(List.of(2L), true);
+    }
+
+    @Test
+    @DisplayName("searchUsersForAdmin normalizes role and status filters")
+    void searchUsersForAdmin_normalizesRoleAndStatusFilters() {
+        when(userRepository.searchUsersForAdmin(isNull(), any(), any()))
+                .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 20), 0));
+
+        userAdminQueryService.searchUsersForAdmin(
+                null, " active ", " moderator ", null, null, null,
+                null, null, null, null, null, PageRequest.of(0, 20));
+
+        ArgumentCaptor<UserAdminSearchCondition> conditionCaptor =
+                ArgumentCaptor.forClass(UserAdminSearchCondition.class);
+        verify(userRepository).searchUsersForAdmin(isNull(), conditionCaptor.capture(), any());
+        assertThat(conditionCaptor.getValue().getStatus()).isEqualTo("ACTIVE");
+        assertThat(conditionCaptor.getValue().getRole()).isEqualTo("MODERATOR");
+    }
+
+    @Test
+    @DisplayName("searchUsersForAdmin rejects invalid role filter")
+    void searchUsersForAdmin_rejectsInvalidRoleFilter() {
+        assertThatThrownBy(() -> userAdminQueryService.searchUsersForAdmin(
+                null, null, "BOARDADMIN", null, null, null,
+                null, null, null, null, null, PageRequest.of(0, 20)))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+
+        verify(userRepository, never()).searchUsersForAdmin(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("searchUsersForAdmin rejects invalid status filter")
+    void searchUsersForAdmin_rejectsInvalidStatusFilter() {
+        assertThatThrownBy(() -> userAdminQueryService.searchUsersForAdmin(
+                null, "LOCKED", null, null, null, null,
+                null, null, null, null, null, PageRequest.of(0, 20)))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+
+        verify(userRepository, never()).searchUsersForAdmin(any(), any(), any());
     }
 
     @Test
