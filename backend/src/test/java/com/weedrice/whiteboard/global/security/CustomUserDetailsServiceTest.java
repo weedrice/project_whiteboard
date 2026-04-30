@@ -1,13 +1,14 @@
 package com.weedrice.whiteboard.global.security;
 
+import com.weedrice.whiteboard.domain.auth.service.LoginAccountEligibilityService;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionPolicyService;
 import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -29,8 +30,14 @@ class CustomUserDetailsServiceTest {
     @Mock
     private SanctionPolicyService sanctionPolicyService;
 
-    @InjectMocks
     private CustomUserDetailsService customUserDetailsService;
+
+    @BeforeEach
+    void setUp() {
+        customUserDetailsService = new CustomUserDetailsService(
+                userRepository,
+                new LoginAccountEligibilityService(sanctionPolicyService));
+    }
 
     @Test
     @DisplayName("loadUserByUsername loads regular user details")
@@ -76,7 +83,7 @@ class CustomUserDetailsServiceTest {
         UserDetails userDetails = customUserDetailsService.loadUserByUsername("suspended-admin");
 
         assertThat(userDetails.isEnabled()).isFalse();
-        assertThat(userDetails.isAccountNonLocked()).isFalse();
+        assertThat(userDetails.isAccountNonLocked()).isTrue();
         assertThat(userDetails.getAuthorities()).extracting("authority")
                 .contains(Role.ROLE_USER)
                 .doesNotContain(Role.ROLE_SUPER_ADMIN);
@@ -107,7 +114,7 @@ class CustomUserDetailsServiceTest {
         UserDetails userDetails = customUserDetailsService.loadUserByUsername("deleted");
 
         assertThat(userDetails.isEnabled()).isFalse();
-        assertThat(userDetails.isAccountNonLocked()).isFalse();
+        assertThat(userDetails.isAccountNonLocked()).isTrue();
     }
 
     @Test

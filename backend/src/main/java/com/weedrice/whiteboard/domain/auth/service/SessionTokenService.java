@@ -6,6 +6,7 @@ import com.weedrice.whiteboard.domain.auth.dto.LoginResult;
 import com.weedrice.whiteboard.domain.auth.dto.TokenResponse;
 import com.weedrice.whiteboard.domain.auth.entity.LoginHistory;
 import com.weedrice.whiteboard.domain.auth.entity.RefreshToken;
+import com.weedrice.whiteboard.domain.auth.service.LoginAccountEligibilityService.LoginAccountEligibility;
 import com.weedrice.whiteboard.domain.auth.repository.LoginHistoryRepository;
 import com.weedrice.whiteboard.domain.auth.repository.RefreshTokenRepository;
 import com.weedrice.whiteboard.domain.point.entity.UserPoint;
@@ -50,9 +51,6 @@ public class SessionTokenService {
 
     private static final String DEFAULT_THEME = "LIGHT";
     private static final String FAILURE_REASON_AUTHENTICATION_FAILED = "AUTHENTICATION_FAILED";
-    private static final String FAILURE_REASON_USER_NOT_FOUND = "USER_NOT_FOUND";
-    private static final String FAILURE_REASON_USER_NOT_ACTIVE = "USER_NOT_ACTIVE";
-    private static final String FAILURE_REASON_USER_BANNED = "USER_BANNED";
 
     private final UserRepository userRepository;
     private final UserPointRepository userPointRepository;
@@ -64,6 +62,7 @@ public class SessionTokenService {
     private final SanctionService sanctionService;
     private final TokenHashService tokenHashService;
     private final LoginHistoryAuditService loginHistoryAuditService;
+    private final LoginAccountEligibilityService loginAccountEligibilityService;
 
     @Transactional
     public LoginResult login(LoginRequest request, HttpServletRequest httpServletRequest) {
@@ -84,22 +83,21 @@ public class SessionTokenService {
 
         Long userId = userDetails.getUserId();
         if (userId == null) {
-            recordLoginFailure(request, ipAddress, userAgent, FAILURE_REASON_USER_NOT_FOUND);
+            recordLoginFailure(request, ipAddress, userAgent,
+                    LoginAccountEligibilityService.FAILURE_REASON_USER_NOT_FOUND);
             throw new BusinessException(ErrorCode.USER_NOT_FOUND);
         }
         User user = userRepository.findById(userId)
                 .orElse(null);
         if (user == null) {
-            recordLoginFailure(request, ipAddress, userAgent, FAILURE_REASON_USER_NOT_FOUND);
+            recordLoginFailure(request, ipAddress, userAgent,
+                    LoginAccountEligibilityService.FAILURE_REASON_USER_NOT_FOUND);
             throw new BusinessException(ErrorCode.USER_NOT_FOUND);
         }
 
-        if (!"ACTIVE".equals(user.getStatus())) {
-            recordLoginFailure(request, ipAddress, userAgent, FAILURE_REASON_USER_NOT_ACTIVE);
-            throw new BusinessException(ErrorCode.LOGIN_FAILED);
-        }
-        if (sanctionService.isUserBanned(user)) {
-            recordLoginFailure(request, ipAddress, userAgent, FAILURE_REASON_USER_BANNED);
+        LoginAccountEligibility eligibility = loginAccountEligibilityService.evaluate(user);
+        if (!eligibility.isLoginAllowed()) {
+            recordLoginFailure(request, ipAddress, userAgent, eligibility.failureReason());
             throw new BusinessException(ErrorCode.LOGIN_FAILED);
         }
 
@@ -250,10 +248,10 @@ public class SessionTokenService {
 
     private String resolveAuthenticationFailureReason(AuthenticationException exception) {
         if (exception instanceof DisabledException) {
-            return FAILURE_REASON_USER_NOT_ACTIVE;
+            return LoginAccountEligibilityService.FAILURE_REASON_USER_NOT_ACTIVE;
         }
         if (exception instanceof LockedException) {
-            return FAILURE_REASON_USER_BANNED;
+            return LoginAccountEligibilityService.FAILURE_REASON_USER_BANNED;
         }
         return FAILURE_REASON_AUTHENTICATION_FAILED;
     }

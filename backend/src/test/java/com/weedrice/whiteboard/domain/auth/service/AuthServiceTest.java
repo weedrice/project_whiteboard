@@ -12,6 +12,7 @@ import com.weedrice.whiteboard.domain.auth.repository.PasswordResetTokenReposito
 import com.weedrice.whiteboard.domain.auth.repository.RefreshTokenRepository;
 import com.weedrice.whiteboard.domain.point.repository.UserPointRepository;
 import com.weedrice.whiteboard.domain.point.service.PointService;
+import com.weedrice.whiteboard.domain.sanction.service.SanctionPolicyService;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.entity.PasswordHistory;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -95,6 +96,7 @@ class AuthServiceTest {
     @Mock private GlobalConfigService globalConfigService;
     @Mock private TransactionTemplate transactionTemplate;
     @Mock private SanctionService sanctionService;
+    @Mock private SanctionPolicyService sanctionPolicyService;
     @Mock private EntityManager entityManager;
     @Mock private RefreshTokenLifecycleService refreshTokenLifecycleService;
     @Mock private UserPrivilegeCleanupService userPrivilegeCleanupService;
@@ -108,10 +110,12 @@ class AuthServiceTest {
     @BeforeEach
     void setUp() {
         TokenHashService tokenHashService = new TokenHashService();
+        LoginAccountEligibilityService loginAccountEligibilityService =
+                new LoginAccountEligibilityService(sanctionPolicyService);
         SessionTokenService sessionTokenService = new SessionTokenService(
                 userRepository, userPointRepository, userSettingsRepository, jwtTokenProvider, authenticationManagerBuilder,
                 refreshTokenRepository, loginHistoryRepository, sanctionService, tokenHashService,
-                loginHistoryAuditService);
+                loginHistoryAuditService, loginAccountEligibilityService);
         PasswordResetTokenOrchestrationService passwordResetTokenOrchestrationService =
                 new PasswordResetTokenOrchestrationService(
                         passwordResetTokenRepository,
@@ -345,7 +349,7 @@ class AuthServiceTest {
         UserSettings userSettings = new UserSettings(user);
         userSettings.updateSettings("dark", null, null, null);
         when(userSettingsRepository.findById(1L)).thenReturn(Optional.of(userSettings));
-        when(sanctionService.isUserBanned(user)).thenReturn(false);
+        when(sanctionPolicyService.isUserBanned(user)).thenReturn(false);
         when(jwtTokenProvider.createAccessToken(authentication)).thenReturn("accessToken");
         when(jwtTokenProvider.createRefreshToken(authentication)).thenReturn("refreshToken");
         when(jwtTokenProvider.getAccessTokenValidityInMilliseconds()).thenReturn(1800L);
@@ -376,7 +380,7 @@ class AuthServiceTest {
                 .thenReturn(authentication);
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(userPointRepository.findById(1L)).thenReturn(Optional.empty());
-        when(sanctionService.isUserBanned(user)).thenReturn(false);
+        when(sanctionPolicyService.isUserBanned(user)).thenReturn(false);
         when(jwtTokenProvider.createAccessToken(authentication)).thenReturn("accessToken");
         when(jwtTokenProvider.createRefreshToken(authentication)).thenReturn("refreshToken");
         when(jwtTokenProvider.getAccessTokenValidityInMilliseconds()).thenReturn(1800L);
@@ -408,7 +412,7 @@ class AuthServiceTest {
         when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
                 .thenReturn(authentication);
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(sanctionService.isUserBanned(user)).thenReturn(true);
+        when(sanctionPolicyService.isUserBanned(user)).thenReturn(true);
 
         BusinessException exception = assertThrows(BusinessException.class,
                 () -> authService.login(request, httpServletRequest));
@@ -416,7 +420,7 @@ class AuthServiceTest {
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.LOGIN_FAILED);
         verify(jwtTokenProvider, never()).createAccessToken(any());
         verify(loginHistoryAuditService).recordFailure(eq("testuser"), nullable(String.class),
-                nullable(String.class), eq("USER_BANNED"));
+                nullable(String.class), eq(LoginAccountEligibilityService.FAILURE_REASON_USER_BANNED));
     }
 
     @Test
@@ -451,7 +455,7 @@ class AuthServiceTest {
         assertThrows(DisabledException.class, () -> authService.login(request, httpServletRequest));
 
         verify(loginHistoryAuditService).recordFailure(eq("testuser"), nullable(String.class),
-                nullable(String.class), eq("USER_NOT_ACTIVE"));
+                nullable(String.class), eq(LoginAccountEligibilityService.FAILURE_REASON_USER_NOT_ACTIVE));
         verify(jwtTokenProvider, never()).createAccessToken(any());
     }
 
@@ -469,7 +473,7 @@ class AuthServiceTest {
         assertThrows(LockedException.class, () -> authService.login(request, httpServletRequest));
 
         verify(loginHistoryAuditService).recordFailure(eq("testuser"), nullable(String.class),
-                nullable(String.class), eq("USER_BANNED"));
+                nullable(String.class), eq(LoginAccountEligibilityService.FAILURE_REASON_USER_BANNED));
         verify(jwtTokenProvider, never()).createAccessToken(any());
     }
 
@@ -494,7 +498,7 @@ class AuthServiceTest {
 
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.USER_NOT_FOUND);
         verify(loginHistoryAuditService).recordFailure(eq("testuser"), nullable(String.class),
-                nullable(String.class), eq("USER_NOT_FOUND"));
+                nullable(String.class), eq(LoginAccountEligibilityService.FAILURE_REASON_USER_NOT_FOUND));
         verify(jwtTokenProvider, never()).createAccessToken(any());
     }
 
@@ -520,8 +524,8 @@ class AuthServiceTest {
 
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.LOGIN_FAILED);
         verify(loginHistoryAuditService).recordFailure(eq("testuser"), nullable(String.class),
-                nullable(String.class), eq("USER_NOT_ACTIVE"));
-        verify(sanctionService, never()).isUserBanned(any());
+                nullable(String.class), eq(LoginAccountEligibilityService.FAILURE_REASON_USER_NOT_ACTIVE));
+        verify(sanctionPolicyService, never()).isUserBanned(any());
         verify(jwtTokenProvider, never()).createAccessToken(any());
     }
 
