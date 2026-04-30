@@ -17,6 +17,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -39,7 +41,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-@ExtendWith(MockitoExtension.class)
+@ExtendWith({MockitoExtension.class, OutputCaptureExtension.class})
 class NotificationServiceTest {
 
     @Mock
@@ -143,7 +145,7 @@ class NotificationServiceTest {
 
     @Test
     @DisplayName("Notification save is not failed by SSE delivery exception")
-    void handleNotificationEvent_deliveryFailure_doesNotPropagate() {
+    void handleNotificationEvent_deliveryFailure_doesNotPropagate(CapturedOutput output) {
         NotificationEvent event = new NotificationEvent(user, actor, NotificationType.LIKE, "POST", 1L, "Test Notification");
         when(notificationRepository.save(any(Notification.class))).thenReturn(notification);
 
@@ -157,6 +159,11 @@ class NotificationServiceTest {
         assertThatCode(() -> service.handleNotificationEvent(event)).doesNotThrowAnyException();
 
         verify(notificationRepository).save(any(Notification.class));
+        assertThat(output.getAll())
+                .contains("Failed to deliver notification SSE")
+                .contains("userId=1")
+                .contains("notificationId=1")
+                .contains("IllegalStateException");
     }
 
     @Test

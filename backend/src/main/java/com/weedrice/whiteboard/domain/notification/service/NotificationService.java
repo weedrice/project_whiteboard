@@ -8,6 +8,7 @@ import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -23,6 +24,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.Set;
 
+@Slf4j
 @Service
 @Transactional(readOnly = true)
 public class NotificationService {
@@ -102,7 +104,12 @@ public class NotificationService {
     private void deliverNotificationBestEffort(Long userId, Notification notification) {
         try {
             streamService.deliverNotification(userId, notification);
-        } catch (RuntimeException ignored) {
+        } catch (RuntimeException e) {
+            log.warn(
+                    "Failed to deliver notification SSE. userId={}, notificationId={}, exceptionType={}",
+                    userId,
+                    notification.getNotificationId(),
+                    e.getClass().getSimpleName());
             // SSE delivery is best-effort; notification persistence must not be rolled back by stream failures.
         }
     }
