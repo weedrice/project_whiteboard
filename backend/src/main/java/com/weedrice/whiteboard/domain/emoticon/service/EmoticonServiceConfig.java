@@ -30,12 +30,14 @@ class EmoticonServiceConfig {
 
     @Bean
     EmoticonCommandService emoticonCommandService(EmoticonMasterRepository emoticonMasterRepository,
-                                                  EmoticonImageRepository emoticonImageRepository,
-                                                  UserRepository userRepository,
-                                                  EmoticonAttachmentHelper attachmentHelper) {
+                                                   EmoticonImageRepository emoticonImageRepository,
+                                                   EmoticonPurchaseRepository emoticonPurchaseRepository,
+                                                   UserRepository userRepository,
+                                                   EmoticonAttachmentHelper attachmentHelper) {
         return new EmoticonCommandService(
                 emoticonMasterRepository,
                 emoticonImageRepository,
+                emoticonPurchaseRepository,
                 userRepository,
                 attachmentHelper,
                 EMOTICON_THUMBNAIL,

@@ -20,6 +20,8 @@ public interface EmoticonPurchaseRepository extends JpaRepository<EmoticonPurcha
     // 사용자가 해당 이모티콘을 구매했는지 여부
     boolean existsByUser_UserIdAndEmoticon_EmoticonId(Long userId, Long emoticonId);
 
+    boolean existsByEmoticon_EmoticonId(Long emoticonId);
+
     // 사용자가 구매한 이모티콘 목록
     @Query("SELECT ep FROM EmoticonPurchase ep JOIN FETCH ep.emoticon WHERE ep.user.userId = :userId ORDER BY ep.createdAt DESC")
     Page<EmoticonPurchase> findByUserId(@Param("userId") Long userId, Pageable pageable);

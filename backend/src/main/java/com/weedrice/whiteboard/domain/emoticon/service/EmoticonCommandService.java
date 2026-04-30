@@ -7,10 +7,12 @@ import com.weedrice.whiteboard.domain.emoticon.entity.EmoticonImage;
 import com.weedrice.whiteboard.domain.emoticon.entity.EmoticonMaster;
 import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonImageRepository;
 import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonMasterRepository;
+import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonPurchaseRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import org.springframework.dao.DataIntegrityViolationException;
 
 import java.util.Comparator;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -19,19 +21,22 @@ class EmoticonCommandService {
 
     private final EmoticonMasterRepository emoticonMasterRepository;
     private final EmoticonImageRepository emoticonImageRepository;
+    private final EmoticonPurchaseRepository emoticonPurchaseRepository;
     private final UserRepository userRepository;
     private final EmoticonAttachmentHelper attachmentHelper;
     private final String emoticonThumbnailType;
     private final String emoticonImageType;
 
     EmoticonCommandService(EmoticonMasterRepository emoticonMasterRepository,
-                           EmoticonImageRepository emoticonImageRepository,
-                           UserRepository userRepository,
-                           EmoticonAttachmentHelper attachmentHelper,
-                           String emoticonThumbnailType,
-                           String emoticonImageType) {
+                            EmoticonImageRepository emoticonImageRepository,
+                            EmoticonPurchaseRepository emoticonPurchaseRepository,
+                            UserRepository userRepository,
+                            EmoticonAttachmentHelper attachmentHelper,
+                            String emoticonThumbnailType,
+                            String emoticonImageType) {
         this.emoticonMasterRepository = emoticonMasterRepository;
         this.emoticonImageRepository = emoticonImageRepository;
+        this.emoticonPurchaseRepository = emoticonPurchaseRepository;
         this.userRepository = userRepository;
         this.attachmentHelper = attachmentHelper;
         this.emoticonThumbnailType = emoticonThumbnailType;
@@ -83,15 +88,23 @@ class EmoticonCommandService {
 
         validateOwner(master, userId, "?섏젙 沅뚰븳???놁뒿?덈떎.");
 
+        String thumbnailUrl = master.getThumbnailUrl();
+        if (request.getThumbnailFileId() != null) {
+            thumbnailUrl = attachmentHelper.attachFile(
+                    request.getThumbnailFileId(),
+                    userId,
+                    master.getEmoticonId(),
+                    emoticonThumbnailType);
+            attachmentHelper.deleteAssociatedFileIfDifferent(
+                    master.getThumbnailUrl(),
+                    request.getThumbnailFileId(),
+                    master.getEmoticonId(),
+                    emoticonThumbnailType);
+        }
+
         master.update(
                 request.getName() != null ? request.getName() : master.getName(),
-                request.getThumbnailFileId() != null
-                        ? attachmentHelper.attachFile(
-                                request.getThumbnailFileId(),
-                                userId,
-                                master.getEmoticonId(),
-                                emoticonThumbnailType)
-                        : master.getThumbnailUrl(),
+                thumbnailUrl,
                 request.getTags() != null ? request.getTags() : master.getTags());
 
         return EmoticonMasterDto.from(master);
@@ -118,6 +131,10 @@ class EmoticonCommandService {
 
         validateOwner(master, userId, "??젣 沅뚰븳???놁뒿?덈떎.");
 
+        if (emoticonPurchaseRepository.existsByEmoticon_EmoticonId(emoticonId)) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "구매 이력이 있는 이모티콘은 삭제할 수 없습니다.");
+        }
+
         attachmentHelper.deleteAssociatedFile(master.getThumbnailUrl(), master.getEmoticonId(), emoticonThumbnailType);
 
         if (master.getImages() != null) {
@@ -126,7 +143,12 @@ class EmoticonCommandService {
             }
         }
 
-        emoticonMasterRepository.delete(master);
+        try {
+            emoticonMasterRepository.delete(master);
+            emoticonMasterRepository.flush();
+        } catch (DataIntegrityViolationException e) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "구매 이력이 있는 이모티콘은 삭제할 수 없습니다.");
+        }
     }
 
     EmoticonMasterDto addImage(Long userId, Long emoticonId, Long fileId) {

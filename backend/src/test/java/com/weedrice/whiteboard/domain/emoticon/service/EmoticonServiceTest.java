@@ -85,6 +85,7 @@ class EmoticonServiceTest {
         EmoticonCommandService commandService = new EmoticonCommandService(
                 emoticonMasterRepository,
                 emoticonImageRepository,
+                emoticonPurchaseRepository,
                 userRepository,
                 attachmentHelper,
                 "EMOTICON_THUMBNAIL",
@@ -504,6 +505,41 @@ class EmoticonServiceTest {
         }
 
         @Test
+        @DisplayName("이모티콘 수정 - 썸네일 교체 시 기존 썸네일 파일을 삭제 예정으로 전환한다")
+        void updateEmoticon_replacingThumbnailDeletesPreviousFile() {
+            ReflectionTestUtils.setField(emoticonMaster, "thumbnailUrl", "/api/v1/files/10");
+            EmoticonUpdateRequest request = EmoticonUpdateRequest.builder()
+                    .thumbnailFileId(20L)
+                    .build();
+
+            when(emoticonMasterRepository.findById(1L)).thenReturn(Optional.of(emoticonMaster));
+
+            emoticonService.updateEmoticon(1L, 1L, request);
+
+            verify(fileService).deleteFileWithStorageIfAssociated(10L, 1L, "EMOTICON_THUMBNAIL");
+            assertThat(emoticonMaster.getThumbnailUrl()).isEqualTo("/api/v1/files/20");
+        }
+
+        @Test
+        @DisplayName("이모티콘 수정 - 같은 썸네일 파일이면 기존 파일을 삭제하지 않는다")
+        void updateEmoticon_sameThumbnailFileDoesNotDeletePreviousFile() {
+            ReflectionTestUtils.setField(emoticonMaster, "thumbnailUrl", "/api/v1/files/20");
+            EmoticonUpdateRequest request = EmoticonUpdateRequest.builder()
+                    .thumbnailFileId(20L)
+                    .build();
+
+            when(emoticonMasterRepository.findById(1L)).thenReturn(Optional.of(emoticonMaster));
+
+            emoticonService.updateEmoticon(1L, 1L, request);
+
+            verify(fileService, never()).deleteFileWithStorageIfAssociated(
+                    anyLong(),
+                    anyLong(),
+                    eq("EMOTICON_THUMBNAIL"));
+            assertThat(emoticonMaster.getThumbnailUrl()).isEqualTo("/api/v1/files/20");
+        }
+
+        @Test
         @DisplayName("이모티콘 수정 - 소유자가 아니면 FORBIDDEN")
         void updateEmoticon_forbidden() {
             when(emoticonMasterRepository.findById(1L)).thenReturn(Optional.of(emoticonMaster));
@@ -551,6 +587,37 @@ class EmoticonServiceTest {
             emoticonService.deleteEmoticon(1L, 1L);
 
             verify(emoticonMasterRepository).delete(emoticonMaster);
+        }
+
+        @Test
+        @DisplayName("이모티콘 삭제 - 구매 이력이 있으면 hard delete를 차단한다")
+        void deleteEmoticon_withPurchaseHistory_blocksHardDelete() {
+            ReflectionTestUtils.setField(emoticonMaster, "thumbnailUrl", "/api/v1/files/10");
+            when(emoticonMasterRepository.findByIdWithImages(1L)).thenReturn(Optional.of(emoticonMaster));
+            when(emoticonPurchaseRepository.existsByEmoticon_EmoticonId(1L)).thenReturn(true);
+
+            assertThatThrownBy(() -> emoticonService.deleteEmoticon(1L, 1L))
+                    .isInstanceOf(BusinessException.class)
+                    .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode())
+                            .isEqualTo(ErrorCode.VALIDATION_ERROR));
+
+            verify(fileService, never()).deleteFileWithStorageIfAssociated(anyLong(), anyLong(), anyString());
+            verify(emoticonMasterRepository, never()).delete(any(EmoticonMaster.class));
+        }
+
+        @Test
+        @DisplayName("이모티콘 삭제 - 삭제 중 구매 이력 FK 충돌이 발생하면 비즈니스 예외로 전환한다")
+        void deleteEmoticon_purchaseRaceConstraintViolation_throwsBusinessException() {
+            when(emoticonMasterRepository.findByIdWithImages(1L)).thenReturn(Optional.of(emoticonMaster));
+            doThrow(new DataIntegrityViolationException("fk")).when(emoticonMasterRepository).flush();
+
+            assertThatThrownBy(() -> emoticonService.deleteEmoticon(1L, 1L))
+                    .isInstanceOf(BusinessException.class)
+                    .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode())
+                            .isEqualTo(ErrorCode.VALIDATION_ERROR));
+
+            verify(emoticonMasterRepository).delete(emoticonMaster);
+            verify(emoticonMasterRepository).flush();
         }
 
         @Test
