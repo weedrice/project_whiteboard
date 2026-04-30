@@ -23,6 +23,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
@@ -33,7 +34,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mockStatic;
@@ -76,6 +76,11 @@ class SanctionServiceTest {
     @AfterEach
     void tearDown() {
         mockedSecurityUtils.close();
+    }
+
+    private PageRequest defaultSanctionPageable() {
+        return PageRequest.of(0, 20,
+                Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("sanctionId")));
     }
 
     @Test
@@ -242,14 +247,45 @@ class SanctionServiceTest {
         ReflectionTestUtils.setField(sanction, "sanctionId", 1L);
 
         PageRequest pageable = PageRequest.of(0, 20);
-        when(sanctionRepository.findAll(pageable))
-                .thenReturn(new PageImpl<>(List.of(sanction), pageable, 1));
+        PageRequest safePageable = defaultSanctionPageable();
+        when(sanctionRepository.findAll(safePageable))
+                .thenReturn(new PageImpl<>(List.of(sanction), safePageable, 1));
 
         Page<SanctionResponse> responses = sanctionService.getSanctions(null, pageable);
 
         assertThat(responses.getContent()).hasSize(1);
         assertThat(responses.getContent().get(0).getSanctionId()).isEqualTo(1L);
         assertThat(responses.getContent().get(0).getAdminId()).isEqualTo(admin.getAdminId());
+        verify(sanctionRepository).findAll(safePageable);
+    }
+
+    @Test
+    @DisplayName("get sanctions uses stable default sort when pageable is unsorted")
+    void getSanctions_appliesStableDefaultSort() {
+        mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).then(invocation -> null);
+        PageRequest requestedPageable = PageRequest.of(0, 20);
+        PageRequest safePageable = defaultSanctionPageable();
+        when(sanctionRepository.findAll(safePageable))
+                .thenReturn(new PageImpl<>(List.of(), safePageable, 0));
+
+        sanctionService.getSanctions(null, requestedPageable);
+
+        verify(sanctionRepository).findAll(safePageable);
+    }
+
+    @Test
+    @DisplayName("get sanctions by target user uses stable default sort when pageable is unsorted")
+    void getSanctionsByTargetUser_appliesStableDefaultSort() {
+        mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).then(invocation -> null);
+        PageRequest requestedPageable = PageRequest.of(0, 20);
+        PageRequest safePageable = defaultSanctionPageable();
+        when(userRepository.findById(2L)).thenReturn(Optional.of(targetUser));
+        when(sanctionRepository.findByTargetUser(targetUser, safePageable))
+                .thenReturn(new PageImpl<>(List.of(), safePageable, 0));
+
+        sanctionService.getSanctions(2L, requestedPageable);
+
+        verify(sanctionRepository).findByTargetUser(targetUser, safePageable);
     }
 
     @Test
