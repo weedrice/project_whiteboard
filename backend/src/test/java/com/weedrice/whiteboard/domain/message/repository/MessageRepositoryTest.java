@@ -109,11 +109,13 @@ class MessageRepositoryTest {
     }
 
     @Test
-    @DisplayName("삭제용 잠금 단건 조회는 송신자와 수신자를 함께 로드한다")
-    void findByMessageIdForUpdate_loadsParticipants() {
+    @DisplayName("삭제용 잠금 단건 조회는 접근 가능한 송신자와 수신자를 함께 로드한다")
+    void findDeletableByMessageIdForUpdate_loadsAccessibleParticipants() {
         entityManager.clear();
 
-        Optional<Message> found = messageRepository.findByMessageIdForUpdate(message.getMessageId());
+        Optional<Message> found = messageRepository.findDeletableByMessageIdForUpdate(
+                sender.getUserId(),
+                message.getMessageId());
 
         assertThat(found).isPresent();
         assertThat(found.get().getSender().getUserId()).isEqualTo(sender.getUserId());
@@ -121,8 +123,8 @@ class MessageRepositoryTest {
     }
 
     @Test
-    @DisplayName("삭제용 잠금 목록 조회는 ID 오름차순으로 메시지를 로드한다")
-    void findByMessageIdInForUpdate_ordersByMessageId() {
+    @DisplayName("삭제용 잠금 목록 조회는 접근 가능한 메시지를 ID 오름차순으로 로드한다")
+    void findDeletableByMessageIdInForUpdate_ordersAccessibleMessagesByMessageId() {
         Message laterMessage = Message.builder()
                 .sender(receiver)
                 .receiver(sender)
@@ -132,12 +134,79 @@ class MessageRepositoryTest {
         entityManager.flush();
         entityManager.clear();
 
-        List<Message> found = messageRepository.findByMessageIdInForUpdate(
+        List<Message> found = messageRepository.findDeletableByMessageIdInForUpdate(
+                sender.getUserId(),
                 List.of(laterMessage.getMessageId(), message.getMessageId()));
 
         assertThat(found)
                 .extracting(Message::getMessageId)
                 .containsExactly(message.getMessageId(), laterMessage.getMessageId());
+    }
+
+    @Test
+    @DisplayName("삭제용 잠금 목록 조회는 접근할 수 없는 메시지를 숨긴다")
+    void findDeletableByMessageIdInForUpdate_hidesInaccessibleMessages() {
+        User outsider = User.builder()
+                .loginId("outsider")
+                .email("outsider@test.com")
+                .password("password")
+                .displayName("Outsider")
+                .build();
+        entityManager.persist(outsider);
+        Message outsiderMessage = Message.builder()
+                .sender(outsider)
+                .receiver(receiver)
+                .content("Hidden message")
+                .build();
+        entityManager.persist(outsiderMessage);
+        entityManager.flush();
+        entityManager.clear();
+
+        List<Message> found = messageRepository.findDeletableByMessageIdInForUpdate(
+                sender.getUserId(),
+                List.of(message.getMessageId(), outsiderMessage.getMessageId()));
+
+        assertThat(found)
+                .extracting(Message::getMessageId)
+                .containsExactly(message.getMessageId());
+    }
+
+    @Test
+    @DisplayName("삭제용 잠금 단건 조회는 참여자가 아닌 메시지를 숨긴다")
+    void findDeletableByMessageIdForUpdate_nonParticipantHidden() {
+        User outsider = User.builder()
+                .loginId("outsider")
+                .email("outsider@test.com")
+                .password("password")
+                .displayName("Outsider")
+                .build();
+        entityManager.persist(outsider);
+        entityManager.flush();
+        entityManager.clear();
+
+        Optional<Message> result = messageRepository.findDeletableByMessageIdForUpdate(
+                outsider.getUserId(),
+                message.getMessageId());
+
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    @DisplayName("삭제용 잠금 단건 조회는 사용자가 이미 삭제한 메시지를 숨긴다")
+    void findDeletableByMessageIdForUpdate_deletedByUserHidden() {
+        message.deleteBySender();
+        entityManager.flush();
+        entityManager.clear();
+
+        Optional<Message> hiddenForSender = messageRepository.findDeletableByMessageIdForUpdate(
+                sender.getUserId(),
+                message.getMessageId());
+        Optional<Message> visibleForReceiver = messageRepository.findDeletableByMessageIdForUpdate(
+                receiver.getUserId(),
+                message.getMessageId());
+
+        assertThat(hiddenForSender).isEmpty();
+        assertThat(visibleForReceiver).isPresent();
     }
 
     @Test

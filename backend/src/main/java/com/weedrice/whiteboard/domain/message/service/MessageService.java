@@ -115,7 +115,7 @@ public class MessageService {
 
     @Transactional
     public void deleteMessage(Long userId, Long messageId) {
-        Message message = messageRepository.findByMessageIdForUpdate(messageId)
+        Message message = messageRepository.findDeletableByMessageIdForUpdate(userId, messageId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
 
         deleteLoadedMessage(userId, message);
@@ -135,7 +135,7 @@ public class MessageService {
             return;
         }
 
-        Map<Long, Message> messagesById = findMessagesByIdsInChunks(requestedMessageIds.stream()
+        Map<Long, Message> messagesById = findDeletableMessagesByIdsInChunks(userId, requestedMessageIds.stream()
                 .sorted()
                 .toList());
 
@@ -168,7 +168,7 @@ public class MessageService {
         } else if (message.getReceiver().getUserId().equals(userId)) {
             message.deleteByReceiver();
         } else {
-            throw new BusinessException(ErrorCode.FORBIDDEN);
+            throw new BusinessException(ErrorCode.NOT_FOUND);
         }
     }
 
@@ -182,11 +182,11 @@ public class MessageService {
         return message.getIsDeletedBySender() && message.getIsDeletedByReceiver();
     }
 
-    private Map<Long, Message> findMessagesByIdsInChunks(List<Long> messageIds) {
+    private Map<Long, Message> findDeletableMessagesByIdsInChunks(Long userId, List<Long> messageIds) {
         Map<Long, Message> messagesById = new HashMap<>();
         for (int start = 0; start < messageIds.size(); start += MESSAGE_DELETE_FETCH_CHUNK_SIZE) {
             int end = Math.min(start + MESSAGE_DELETE_FETCH_CHUNK_SIZE, messageIds.size());
-            messageRepository.findByMessageIdInForUpdate(messageIds.subList(start, end)).stream()
+            messageRepository.findDeletableByMessageIdInForUpdate(userId, messageIds.subList(start, end)).stream()
                     .collect(Collectors.toMap(Message::getMessageId, message -> message))
                     .forEach(messagesById::put);
         }

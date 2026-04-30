@@ -25,16 +25,60 @@ public interface MessageRepository extends JpaRepository<Message, Long>, Message
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @EntityGraph(attributePaths = {"sender", "receiver"})
-    @Query("select m from Message m where m.messageId = :messageId")
-    Optional<Message> findByMessageIdForUpdate(@Param("messageId") Long messageId);
+    @Query("""
+            SELECT m
+            FROM Message m
+            WHERE m.messageId = :messageId
+              and (
+                (
+                  m.sender.userId = :userId
+                  and m.receiver.userId = :userId
+                  and m.isDeletedBySender = false
+                  and m.isDeletedByReceiver = false
+                )
+                or (
+                  m.sender.userId = :userId
+                  and m.receiver.userId <> :userId
+                  and m.isDeletedBySender = false
+                )
+                or (
+                  m.receiver.userId = :userId
+                  and m.sender.userId <> :userId
+                  and m.isDeletedByReceiver = false
+                )
+              )
+            """)
+    Optional<Message> findDeletableByMessageIdForUpdate(
+            @Param("userId") Long userId,
+            @Param("messageId") Long messageId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @EntityGraph(attributePaths = {"sender", "receiver"})
     @Query("""
-            select m
-            from Message m
-            where m.messageId in :messageIds
-            order by m.messageId asc
+            SELECT m
+            FROM Message m
+            WHERE m.messageId in :messageIds
+              and (
+                (
+                  m.sender.userId = :userId
+                  and m.receiver.userId = :userId
+                  and m.isDeletedBySender = false
+                  and m.isDeletedByReceiver = false
+                )
+                or (
+                  m.sender.userId = :userId
+                  and m.receiver.userId <> :userId
+                  and m.isDeletedBySender = false
+                )
+                or (
+                  m.receiver.userId = :userId
+                  and m.sender.userId <> :userId
+                  and m.isDeletedByReceiver = false
+                )
+              )
+            ORDER BY m.messageId asc
             """)
-    List<Message> findByMessageIdInForUpdate(@Param("messageIds") Collection<Long> messageIds);
+    List<Message> findDeletableByMessageIdInForUpdate(
+            @Param("userId") Long userId,
+            @Param("messageIds") Collection<Long> messageIds);
 }
