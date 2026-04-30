@@ -8,6 +8,7 @@ import com.weedrice.whiteboard.domain.auth.dto.SignupResponse;
 import com.weedrice.whiteboard.domain.auth.dto.TokenResponse;
 import com.weedrice.whiteboard.domain.auth.service.AuthService;
 import com.weedrice.whiteboard.domain.auth.service.VerificationCodeService;
+import com.weedrice.whiteboard.global.security.RefreshTokenCookieWriter;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
@@ -20,6 +21,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
@@ -42,6 +44,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration.class
     })
 @TestPropertySource(properties = "jwt.refresh-token.expiration=1209600000")
+@Import(RefreshTokenCookieWriter.class)
 class AuthControllerTest {
 
     @Autowired

@@ -5,7 +5,7 @@ import com.weedrice.whiteboard.domain.auth.service.SessionTokenService;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
-import com.weedrice.whiteboard.global.security.JwtTokenProvider;
+import com.weedrice.whiteboard.global.security.RefreshTokenCookieWriter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -31,8 +31,6 @@ import static org.mockito.Mockito.when;
 class OAuth2SuccessHandlerTest {
 
     @Mock
-    private JwtTokenProvider jwtTokenProvider;
-    @Mock
     private SessionTokenService sessionTokenService;
     @Mock
     private UserRepository userRepository;
@@ -44,7 +42,11 @@ class OAuth2SuccessHandlerTest {
 
     @BeforeEach
     void setUp() {
-        handler = new OAuth2SuccessHandler(jwtTokenProvider, sessionTokenService, userRepository, sanctionService);
+        handler = new OAuth2SuccessHandler(
+                sessionTokenService,
+                userRepository,
+                sanctionService,
+                new RefreshTokenCookieWriter(1209600000L));
         ReflectionTestUtils.setField(handler, "frontendUrl", "http://localhost:5173");
 
         user = User.builder()
@@ -78,8 +80,6 @@ class OAuth2SuccessHandlerTest {
 
         assertThat(response.getRedirectedUrl()).isEqualTo("http://localhost:5173/auth/oauth/callback");
         verify(sessionTokenService, never()).issueTokens(authentication, user, request);
-        verify(jwtTokenProvider, never()).createAccessToken(authentication);
-        verify(jwtTokenProvider, never()).createRefreshToken(authentication);
     }
 
     @Test
@@ -104,14 +104,20 @@ class OAuth2SuccessHandlerTest {
                 .refreshToken("issued-refresh")
                 .expiresIn(1800L)
                 .build());
-        when(jwtTokenProvider.getRefreshTokenValidityInMilliseconds()).thenReturn(1209600000L);
 
         handler.onAuthenticationSuccess(request, response, authentication);
 
         assertThat(response.getRedirectedUrl())
                 .isEqualTo("http://localhost:5173/auth/oauth/callback#accessToken=issued-access");
+        assertThat(response.getHeaders("Set-Cookie"))
+                .anyMatch(header -> header.contains("refreshToken=issued-refresh")
+                        && header.contains("Path=/api/v1/auth")
+                        && header.contains("HttpOnly")
+                        && header.contains("SameSite=Lax"));
+        assertThat(response.getHeaders("Set-Cookie"))
+                .anyMatch(header -> header.contains("refreshToken=")
+                        && header.contains("Path=/api/v1/auth/refresh")
+                        && header.contains("Max-Age=0"));
         verify(sessionTokenService).issueTokens(authentication, user, request);
-        verify(jwtTokenProvider, never()).createAccessToken(authentication);
-        verify(jwtTokenProvider, never()).createRefreshToken(authentication);
     }
 }

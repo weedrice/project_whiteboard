@@ -23,6 +23,7 @@ import com.weedrice.whiteboard.global.common.annotation.ApiCommonResponses;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
+import com.weedrice.whiteboard.global.security.RefreshTokenCookieWriter;
 import io.swagger.v3.oas.annotations.Hidden;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -34,12 +35,9 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
@@ -48,15 +46,10 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 @Tag(name = "인증", description = "회원가입, 로그인, 토큰 갱신 등 인증 관련 API")
 public class AuthController {
-    private static final String REFRESH_TOKEN_COOKIE_NAME = "refreshToken";
-    private static final String REFRESH_TOKEN_COOKIE_PATH = "/api/v1/auth";
-    private static final String LEGACY_REFRESH_TOKEN_COOKIE_PATH = "/api/v1/auth/refresh";
 
     private final AuthService authService;
     private final VerificationCodeService verificationCodeService; // Inject VerificationCodeService
-
-    @Value("${jwt.refresh-token.expiration}")
-    private long refreshTokenValidityInMilliseconds;
+    private final RefreshTokenCookieWriter refreshTokenCookieWriter;
 
     @Operation(
             summary = "회원가입",
@@ -137,7 +130,7 @@ public class AuthController {
             HttpServletRequest httpServletRequest,
             HttpServletResponse httpServletResponse) {
         LoginResult result = authService.login(request, httpServletRequest);
-        setRefreshTokenCookie(httpServletResponse, result.getRefreshToken(), isSecureRequest(httpServletRequest));
+        refreshTokenCookieWriter.writeRefreshTokenCookie(httpServletResponse, result.getRefreshToken(), httpServletRequest);
 
         LoginResponse response = LoginResponse.builder()
                 .accessToken(result.getAccessToken())
@@ -154,7 +147,7 @@ public class AuthController {
         if (StringUtils.hasText(refreshToken)) {
             authService.logout(refreshToken);
         }
-        clearRefreshTokenCookie(httpServletResponse, isSecureRequest(httpServletRequest));
+        refreshTokenCookieWriter.clearRefreshTokenCookie(httpServletResponse, httpServletRequest);
         return ResponseEntity.ok(ApiResponse.success(null));
     }
 
@@ -168,7 +161,7 @@ public class AuthController {
         }
 
         TokenResponse tokens = authService.refresh(refreshToken);
-        setRefreshTokenCookie(httpServletResponse, tokens.getRefreshToken(), isSecureRequest(httpServletRequest));
+        refreshTokenCookieWriter.writeRefreshTokenCookie(httpServletResponse, tokens.getRefreshToken(), httpServletRequest);
 
         RefreshResponse response = RefreshResponse.builder()
                 .accessToken(tokens.getAccessToken())
@@ -248,59 +241,11 @@ public class AuthController {
             return null;
         }
         for (Cookie cookie : cookies) {
-            if (REFRESH_TOKEN_COOKIE_NAME.equals(cookie.getName()) && StringUtils.hasText(cookie.getValue())) {
+            if (RefreshTokenCookieWriter.REFRESH_TOKEN_COOKIE_NAME.equals(cookie.getName())
+                    && StringUtils.hasText(cookie.getValue())) {
                 return cookie.getValue();
             }
         }
         return null;
-    }
-
-    private void setRefreshTokenCookie(HttpServletResponse response, String refreshToken, boolean secure) {
-        if (!StringUtils.hasText(refreshToken)) {
-            return;
-        }
-        ResponseCookie cookie = ResponseCookie.from(REFRESH_TOKEN_COOKIE_NAME, refreshToken)
-                .httpOnly(true)
-                .secure(secure)
-                .sameSite("Lax")
-                .path(REFRESH_TOKEN_COOKIE_PATH)
-                .maxAge(java.time.Duration.ofMillis(refreshTokenValidityInMilliseconds))
-                .build();
-        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
-        clearLegacyRefreshTokenCookie(response, secure);
-    }
-
-    private void clearRefreshTokenCookie(HttpServletResponse response, boolean secure) {
-        ResponseCookie cookie = ResponseCookie.from(REFRESH_TOKEN_COOKIE_NAME, "")
-                .httpOnly(true)
-                .secure(secure)
-                .sameSite("Lax")
-                .path(REFRESH_TOKEN_COOKIE_PATH)
-                .maxAge(0)
-                .build();
-        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
-        clearLegacyRefreshTokenCookie(response, secure);
-    }
-
-    private void clearLegacyRefreshTokenCookie(HttpServletResponse response, boolean secure) {
-        ResponseCookie legacyCookie = ResponseCookie.from(REFRESH_TOKEN_COOKIE_NAME, "")
-                .httpOnly(true)
-                .secure(secure)
-                .sameSite("Lax")
-                .path(LEGACY_REFRESH_TOKEN_COOKIE_PATH)
-                .maxAge(0)
-                .build();
-        response.addHeader(HttpHeaders.SET_COOKIE, legacyCookie.toString());
-    }
-
-    private boolean isSecureRequest(HttpServletRequest request) {
-        if (request == null) {
-            return true;
-        }
-        String forwardedProto = request.getHeader("X-Forwarded-Proto");
-        if (StringUtils.hasText(forwardedProto)) {
-            return "https".equalsIgnoreCase(forwardedProto);
-        }
-        return request.isSecure();
     }
 }

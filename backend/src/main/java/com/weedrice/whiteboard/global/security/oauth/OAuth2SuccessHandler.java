@@ -6,15 +6,13 @@ import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
-import com.weedrice.whiteboard.global.security.JwtTokenProvider;
+import com.weedrice.whiteboard.global.security.RefreshTokenCookieWriter;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.ResponseCookie;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.web.authentication.SimpleUrlAuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
@@ -23,19 +21,16 @@ import org.springframework.web.util.UriUtils;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
-    private static final String REFRESH_TOKEN_COOKIE_PATH = "/api/v1/auth";
-    private static final String LEGACY_REFRESH_TOKEN_COOKIE_PATH = "/api/v1/auth/refresh";
 
-    private final JwtTokenProvider jwtTokenProvider;
     private final SessionTokenService sessionTokenService;
     private final UserRepository userRepository;
     private final SanctionService sanctionService;
+    private final RefreshTokenCookieWriter refreshTokenCookieWriter;
 
     @Value("${app.frontend-url}")
     private String frontendUrl;
@@ -70,15 +65,7 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
         TokenResponse issuedTokens = sessionTokenService.issueTokens(authentication, authenticatedUser, request);
 
         // Keep refresh token in HttpOnly cookie; only pass short-lived access token to frontend.
-        ResponseCookie refreshCookie = ResponseCookie.from("refreshToken", issuedTokens.getRefreshToken())
-                .httpOnly(true)
-                .secure(isSecureRequest(request))
-                .sameSite("Lax")
-                .path(REFRESH_TOKEN_COOKIE_PATH)
-                .maxAge(Duration.ofMillis(jwtTokenProvider.getRefreshTokenValidityInMilliseconds()))
-                .build();
-        response.addHeader(HttpHeaders.SET_COOKIE, refreshCookie.toString());
-        clearLegacyRefreshTokenCookie(response, isSecureRequest(request));
+        refreshTokenCookieWriter.writeRefreshTokenCookie(response, issuedTokens.getRefreshToken(), request);
 
         String fragment = "accessToken=" + UriUtils.encodeQueryParam(
                 issuedTokens.getAccessToken(),
@@ -89,28 +76,6 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
                 .toUriString();
 
         getRedirectStrategy().sendRedirect(request, response, targetUrl);
-    }
-
-    private boolean isSecureRequest(HttpServletRequest request) {
-        if (request == null) {
-            return true;
-        }
-        String forwardedProto = request.getHeader("X-Forwarded-Proto");
-        if (forwardedProto != null && !forwardedProto.isBlank()) {
-            return "https".equalsIgnoreCase(forwardedProto);
-        }
-        return request.isSecure();
-    }
-
-    private void clearLegacyRefreshTokenCookie(HttpServletResponse response, boolean secure) {
-        ResponseCookie legacyCookie = ResponseCookie.from("refreshToken", "")
-                .httpOnly(true)
-                .secure(secure)
-                .sameSite("Lax")
-                .path(LEGACY_REFRESH_TOKEN_COOKIE_PATH)
-                .maxAge(0)
-                .build();
-        response.addHeader(HttpHeaders.SET_COOKIE, legacyCookie.toString());
     }
 
     private User getAuthenticatedActiveUser(Authentication authentication) {
