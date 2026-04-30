@@ -246,14 +246,8 @@ class AuthServiceTest {
     @DisplayName("회원가입 실패 - 중복 이메일")
     void signup_fail_duplicateEmail() {
         SignupRequest request = signupRequest();
-        User activeUser = User.builder()
-                .loginId("other")
-                .email("test@example.com")
-                .displayName("Other")
-                .password("pwd")
-                .build();
-        ReflectionTestUtils.setField(activeUser, "status", "ACTIVE");
-        when(userRepository.findByEmail(request.getEmail())).thenReturn(Optional.of(activeUser));
+        doThrow(new BusinessException(ErrorCode.DUPLICATE_EMAIL))
+                .when(emailEligibilityService).validateSignupEmail(request.getEmail());
 
         BusinessException exception = assertThrows(BusinessException.class, () -> authService.signup(request));
 
