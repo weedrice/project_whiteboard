@@ -18,6 +18,8 @@ import com.weedrice.whiteboard.domain.agent.service.AgentRequestContext;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
 import com.weedrice.whiteboard.global.common.util.ClientUtils;
+import com.weedrice.whiteboard.global.exception.BusinessException;
+import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.security.AgentPrincipal;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -53,12 +55,12 @@ public class AgentController {
 
     @GetMapping("/status")
     public ApiResponse<AgentStatusResponse> status(@AuthenticationPrincipal AgentPrincipal agentPrincipal) {
-        return ApiResponse.success(agentQueryService.getStatus(agentPrincipal.getAgentId()));
+        return ApiResponse.success(agentQueryService.getStatus(resolveAgentId(agentPrincipal)));
     }
 
     @GetMapping("/boards")
     public ApiResponse<AgentBoardListResponse> boards(@AuthenticationPrincipal AgentPrincipal agentPrincipal) {
-        return ApiResponse.success(agentQueryService.getBoards(agentPrincipal.getAgentId()));
+        return ApiResponse.success(agentQueryService.getBoards(resolveAgentId(agentPrincipal)));
     }
 
     @GetMapping("/feed")
@@ -66,14 +68,14 @@ public class AgentController {
             @AuthenticationPrincipal AgentPrincipal agentPrincipal,
             @RequestParam(required = false) Long boardId,
             Pageable pageable) {
-        return ApiResponse.success(new PageResponse<>(agentQueryService.getFeed(agentPrincipal.getAgentId(), boardId, pageable)));
+        return ApiResponse.success(new PageResponse<>(agentQueryService.getFeed(resolveAgentId(agentPrincipal), boardId, pageable)));
     }
 
     @GetMapping("/posts/me")
     public ApiResponse<PageResponse<AgentPostListItem>> myPosts(
             @AuthenticationPrincipal AgentPrincipal agentPrincipal,
             Pageable pageable) {
-        return ApiResponse.success(new PageResponse<>(agentQueryService.getMyPosts(agentPrincipal.getAgentId(), pageable)));
+        return ApiResponse.success(new PageResponse<>(agentQueryService.getMyPosts(resolveAgentId(agentPrincipal), pageable)));
     }
 
     @GetMapping("/boards/{boardId}/posts")
@@ -83,7 +85,7 @@ public class AgentController {
             @RequestParam(required = false) Long categoryId,
             Pageable pageable) {
         return ApiResponse.success(
-                new PageResponse<>(agentQueryService.getBoardPosts(agentPrincipal.getAgentId(), boardId, categoryId, pageable)));
+                new PageResponse<>(agentQueryService.getBoardPosts(resolveAgentId(agentPrincipal), boardId, categoryId, pageable)));
     }
 
     @GetMapping("/posts/{postId}/comments")
@@ -91,7 +93,7 @@ public class AgentController {
             @AuthenticationPrincipal AgentPrincipal agentPrincipal,
             @PathVariable Long postId,
             Pageable pageable) {
-        return ApiResponse.success(new PageResponse<>(agentQueryService.getPostComments(agentPrincipal.getAgentId(), postId, pageable)));
+        return ApiResponse.success(new PageResponse<>(agentQueryService.getPostComments(resolveAgentId(agentPrincipal), postId, pageable)));
     }
 
     @PostMapping("/posts")
@@ -101,7 +103,7 @@ public class AgentController {
             @Valid @RequestBody AgentPostCreateRequest request,
             HttpServletRequest httpServletRequest) {
         return ApiResponse.success(
-                agentCommandService.createPost(agentPrincipal.getAgentId(), request, toRequestContext(httpServletRequest)));
+                agentCommandService.createPost(resolveAgentId(agentPrincipal), request, toRequestContext(httpServletRequest)));
     }
 
     @PostMapping("/posts/{postId}/comments")
@@ -112,7 +114,7 @@ public class AgentController {
             @Valid @RequestBody AgentCommentCreateRequest request,
             HttpServletRequest httpServletRequest) {
         return ApiResponse.success(
-                agentCommandService.createComment(agentPrincipal.getAgentId(), postId, request,
+                agentCommandService.createComment(resolveAgentId(agentPrincipal), postId, request,
                         toRequestContext(httpServletRequest)));
     }
 
@@ -124,7 +126,7 @@ public class AgentController {
             @Valid @RequestBody AgentCommentCreateRequest request,
             HttpServletRequest httpServletRequest) {
         return ApiResponse.success(
-                agentCommandService.createReply(agentPrincipal.getAgentId(), commentId, request,
+                agentCommandService.createReply(resolveAgentId(agentPrincipal), commentId, request,
                         toRequestContext(httpServletRequest)));
     }
 
@@ -135,7 +137,14 @@ public class AgentController {
             @PathVariable Long postId,
             HttpServletRequest httpServletRequest) {
         return ApiResponse.success(
-                agentCommandService.likePost(agentPrincipal.getAgentId(), postId, toRequestContext(httpServletRequest)));
+                agentCommandService.likePost(resolveAgentId(agentPrincipal), postId, toRequestContext(httpServletRequest)));
+    }
+
+    private Long resolveAgentId(AgentPrincipal agentPrincipal) {
+        if (agentPrincipal == null || agentPrincipal.getAgentId() == null) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED);
+        }
+        return agentPrincipal.getAgentId();
     }
 
     private AgentRequestContext toRequestContext(HttpServletRequest request) {

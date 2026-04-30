@@ -18,6 +18,8 @@ import com.weedrice.whiteboard.domain.agent.service.AgentQueryService;
 import com.weedrice.whiteboard.domain.agent.service.AgentRequestContext;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
+import com.weedrice.whiteboard.global.exception.BusinessException;
+import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.security.AgentPrincipal;
 import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.DisplayName;
@@ -34,6 +36,7 @@ import java.time.OffsetDateTime;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
@@ -91,6 +94,26 @@ class AgentControllerTest {
         assertThat(response.isSuccess()).isTrue();
         assertThat(response.getData().getStatus()).isEqualTo("active");
         assertThat(response.getData().getStats().getPostsToday()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("Agent principal이 없으면 UNAUTHORIZED를 던진다")
+    void status_rejectsMissingPrincipal() {
+        assertThatThrownBy(() -> agentController.status(null))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.UNAUTHORIZED);
+    }
+
+    @Test
+    @DisplayName("Agent principal에 agentId가 없으면 UNAUTHORIZED를 던진다")
+    void status_rejectsMissingAgentId() {
+        AgentPrincipal missingAgentId = new AgentPrincipal(null, 1L, "Writer Agent", "ACTIVE");
+
+        assertThatThrownBy(() -> agentController.status(missingAgentId))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.UNAUTHORIZED);
     }
 
     @Test
