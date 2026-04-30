@@ -4,7 +4,6 @@ import com.weedrice.whiteboard.domain.admin.entity.Admin;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
-import com.weedrice.whiteboard.domain.file.service.FileService;
 import com.weedrice.whiteboard.domain.post.dto.PostResponse;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.dto.PostVersionResponse;
@@ -37,14 +36,11 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class PostFacadeReadService {
 
-    private static final String POST_CONTENT_FILE_TYPE = "POST_CONTENT";
-    private static final String FILE_API_PREFIX = "/api/v1/files/";
-
     private final PostRepository postRepository;
     private final UserRepository userRepository;
     private final PostVersionRepository postVersionRepository;
     private final TagAssignmentService tagAssignmentService;
-    private final FileService fileService;
+    private final PostImageAttachmentReader postImageAttachmentReader;
     private final UserBlockService userBlockService;
     private final PostSummaryAssembler postSummaryAssembler;
     private final PostInteractionService postInteractionService;
@@ -85,17 +81,11 @@ public class PostFacadeReadService {
     }
 
     public List<String> getPostImageUrls(@NonNull Long postId) {
-        return fileService.getFilesByRelatedEntity(postId, POST_CONTENT_FILE_TYPE).stream()
-                .filter(file -> file.getMimeType().startsWith("image/"))
-                .map(file -> FILE_API_PREFIX + file.getFileId())
-                .collect(Collectors.toList());
+        return postImageAttachmentReader.getImageUrls(postId);
     }
 
     public Set<Long> getPostIdsWithImages(List<Long> postIds) {
-        if (postIds == null || postIds.isEmpty()) {
-            return Collections.emptySet();
-        }
-        return new HashSet<>(fileService.getRelatedIdsWithImages(postIds, POST_CONTENT_FILE_TYPE));
+        return postImageAttachmentReader.getPostIdsWithImages(postIds);
     }
 
     public Map<Long, PostSummary> getPostSummariesByIds(List<Long> postIds, Long currentUserId) {

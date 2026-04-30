@@ -56,7 +56,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
-import static org.mockito.Mockito.lenient;
 
 @ExtendWith(MockitoExtension.class)
 class PostServiceTest {
@@ -108,6 +107,7 @@ class PostServiceTest {
     private BoardAccessPolicy boardAccessPolicy;
     private PostAccessPolicy postAccessPolicy;
     private PostSummaryAssembler postSummaryAssembler;
+    private PostImageAttachmentReader postImageAttachmentReader;
     private ViewHistoryCommandService viewHistoryCommandService;
     private PostDetailReadService postDetailReadService;
     private PostDraftService postDraftService;
@@ -135,6 +135,7 @@ class PostServiceTest {
                 commentRepository,
                 boardAccessPolicy);
         postAccessPolicy = new PostAccessPolicy(boardAccessPolicy);
+        postImageAttachmentReader = new PostImageAttachmentReader(fileService);
         ReactionWriter reactionWriter = new ReactionWriter();
         postAuthorCommandPolicy = new PostAuthorCommandPolicy(boardAccessPolicy, boardCategoryRepository);
         viewHistoryCommandService = new ViewHistoryCommandService(viewHistoryRepository);
@@ -146,7 +147,7 @@ class PostServiceTest {
                 viewHistoryRepository,
                 viewHistoryCommandService,
                 tagAssignmentService,
-                fileService,
+                postImageAttachmentReader,
                 userBlockService,
                 postAccessPolicy,
                 boardAccessPolicy);
@@ -201,7 +202,7 @@ class PostServiceTest {
                 userRepository,
                 postVersionRepository,
                 tagAssignmentService,
-                fileService,
+                postImageAttachmentReader,
                 userBlockService,
                 postSummaryAssembler,
                 postInteractionService,
@@ -1452,14 +1453,17 @@ class PostServiceTest {
 
     @Test
     @DisplayName("게시글 이미지 URL 조회")
-    void getPostImageUrls() {
+    void getPostImageUrls_excludesFileWithoutMimeType() {
         File file = File.builder().mimeType("image/png").build();
         ReflectionTestUtils.setField(file, "fileId", 123L);
-        when(fileService.getFilesByRelatedEntity(1L, "POST_CONTENT")).thenReturn(List.of(file));
+        File fileWithoutMimeType = File.builder().build();
+        ReflectionTestUtils.setField(fileWithoutMimeType, "fileId", 456L);
+        when(fileService.getFilesByRelatedEntity(1L, FileService.RELATED_TYPE_POST_CONTENT))
+                .thenReturn(List.of(file, fileWithoutMimeType));
 
         List<String> urls = postService.getPostImageUrls(1L);
 
-        assertThat(urls).contains("/api/v1/files/123");
+        assertThat(urls).containsExactly("/api/v1/files/123");
     }
 
     @Test

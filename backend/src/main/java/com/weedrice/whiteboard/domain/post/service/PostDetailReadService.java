@@ -1,7 +1,6 @@
 package com.weedrice.whiteboard.domain.post.service;
 
 import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
-import com.weedrice.whiteboard.domain.file.service.FileService;
 import com.weedrice.whiteboard.domain.post.dto.PostResponse;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.entity.PostLikeId;
@@ -24,7 +23,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -40,7 +38,7 @@ public class PostDetailReadService {
     private final ViewHistoryRepository viewHistoryRepository;
     private final ViewHistoryCommandService viewHistoryCommandService;
     private final TagAssignmentService tagAssignmentService;
-    private final FileService fileService;
+    private final PostImageAttachmentReader postImageAttachmentReader;
     private final UserBlockService userBlockService;
     private final PostAccessPolicy postAccessPolicy;
     private final BoardAccessPolicy boardAccessPolicy;
@@ -106,10 +104,7 @@ public class PostDetailReadService {
     }
 
     private List<String> getPostImageUrls(@NonNull Long postId) {
-        return fileService.getFilesByRelatedEntity(postId, "POST_CONTENT").stream()
-                .filter(file -> file.getMimeType().startsWith("image/"))
-                .map(file -> "/api/v1/files/" + file.getFileId())
-                .collect(Collectors.toList());
+        return postImageAttachmentReader.getImageUrls(postId);
     }
 
     private boolean isBoardAdmin(PostDetailContext context) {
