@@ -13,6 +13,7 @@ import com.weedrice.whiteboard.domain.point.service.PointService;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
@@ -54,6 +55,8 @@ class EmoticonServiceTest {
     @Mock
     private SanctionService sanctionService;
     @Mock
+    private UserWritableResolver userWritableResolver;
+    @Mock
     private FileService fileService;
 
     private EmoticonService emoticonService;
@@ -86,7 +89,7 @@ class EmoticonServiceTest {
                 emoticonMasterRepository,
                 emoticonImageRepository,
                 emoticonPurchaseRepository,
-                userRepository,
+                userWritableResolver,
                 attachmentHelper,
                 "EMOTICON_THUMBNAIL",
                 "EMOTICON_IMAGE");
@@ -100,6 +103,10 @@ class EmoticonServiceTest {
                 sanctionService,
                 100);
         emoticonService = new EmoticonService(catalogService, commandService, purchaseService);
+    }
+
+    private void givenWritableUser() {
+        when(userWritableResolver.resolve(1L)).thenReturn(user);
     }
 
     @Nested
@@ -406,7 +413,7 @@ class EmoticonServiceTest {
                     .tags(List.of("태그1"))
                     .build();
 
-            when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+            givenWritableUser();
             when(emoticonMasterRepository.save(any(EmoticonMaster.class))).thenAnswer(inv -> {
                 EmoticonMaster m = inv.getArgument(0);
                 ReflectionTestUtils.setField(m, "emoticonId", 10L);
@@ -417,7 +424,7 @@ class EmoticonServiceTest {
 
             assertThat(result).isNotNull();
             assertThat(result.getName()).isEqualTo("새 이모티콘");
-            verify(userRepository).findById(1L);
+            verify(userWritableResolver).resolve(1L);
             verify(emoticonMasterRepository).save(any(EmoticonMaster.class));
         }
 
@@ -431,7 +438,7 @@ class EmoticonServiceTest {
                     .imageFileIds(List.of(11L, 12L))
                     .build();
 
-            when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+            givenWritableUser();
             when(emoticonMasterRepository.save(any(EmoticonMaster.class))).thenAnswer(inv -> {
                 EmoticonMaster m = inv.getArgument(0);
                 ReflectionTestUtils.setField(m, "emoticonId", 10L);
@@ -455,7 +462,7 @@ class EmoticonServiceTest {
                     .imageFileIds(List.of())
                     .build();
 
-            when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+            givenWritableUser();
             when(emoticonMasterRepository.save(any(EmoticonMaster.class))).thenAnswer(inv -> {
                 EmoticonMaster m = inv.getArgument(0);
                 ReflectionTestUtils.setField(m, "emoticonId", 10L);
@@ -473,11 +480,27 @@ class EmoticonServiceTest {
         @DisplayName("이모티콘 생성 - 사용자 없으면 USER_NOT_FOUND")
         void createEmoticon_userNotFound() {
             EmoticonCreateRequest request = EmoticonCreateRequest.builder().name("이모티콘").build();
-            when(userRepository.findById(999L)).thenReturn(Optional.empty());
+            when(userWritableResolver.resolve(999L))
+                    .thenThrow(new BusinessException(ErrorCode.USER_NOT_FOUND));
 
             assertThatThrownBy(() -> emoticonService.createEmoticon(999L, request))
                     .isInstanceOf(BusinessException.class)
                     .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode()).isEqualTo(ErrorCode.USER_NOT_FOUND));
+        }
+
+        @Test
+        @DisplayName("이모티콘 생성 - 제재 사용자는 USER_NOT_ACTIVE")
+        void createEmoticon_bannedUser() {
+            EmoticonCreateRequest request = EmoticonCreateRequest.builder().name("이모티콘").build();
+            when(userWritableResolver.resolve(1L))
+                    .thenThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE));
+
+            assertThatThrownBy(() -> emoticonService.createEmoticon(1L, request))
+                    .isInstanceOf(BusinessException.class)
+                    .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode())
+                            .isEqualTo(ErrorCode.USER_NOT_ACTIVE));
+
+            verify(emoticonMasterRepository, never()).save(any(EmoticonMaster.class));
         }
     }
 
@@ -494,6 +517,7 @@ class EmoticonServiceTest {
                     .tags(List.of("새태그"))
                     .build();
 
+            givenWritableUser();
             when(emoticonMasterRepository.findById(1L)).thenReturn(Optional.of(emoticonMaster));
 
             EmoticonMasterDto result = emoticonService.updateEmoticon(1L, 1L, request);
@@ -512,6 +536,7 @@ class EmoticonServiceTest {
                     .thumbnailFileId(20L)
                     .build();
 
+            givenWritableUser();
             when(emoticonMasterRepository.findById(1L)).thenReturn(Optional.of(emoticonMaster));
 
             emoticonService.updateEmoticon(1L, 1L, request);
@@ -528,6 +553,7 @@ class EmoticonServiceTest {
                     .thumbnailFileId(20L)
                     .build();
 
+            givenWritableUser();
             when(emoticonMasterRepository.findById(1L)).thenReturn(Optional.of(emoticonMaster));
 
             emoticonService.updateEmoticon(1L, 1L, request);
@@ -551,6 +577,22 @@ class EmoticonServiceTest {
         }
 
         @Test
+        @DisplayName("이모티콘 수정 - 제재 소유자는 USER_NOT_ACTIVE")
+        void updateEmoticon_bannedOwner() {
+            when(emoticonMasterRepository.findById(1L)).thenReturn(Optional.of(emoticonMaster));
+            when(userWritableResolver.resolve(1L))
+                    .thenThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE));
+            EmoticonUpdateRequest request = EmoticonUpdateRequest.builder().name("수정").build();
+
+            assertThatThrownBy(() -> emoticonService.updateEmoticon(1L, 1L, request))
+                    .isInstanceOf(BusinessException.class)
+                    .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode())
+                            .isEqualTo(ErrorCode.USER_NOT_ACTIVE));
+
+            assertThat(emoticonMaster.getName()).isEqualTo("테스트 이모티콘");
+        }
+
+        @Test
         @DisplayName("이모티콘 수정 - 일부 필드 null이면 기존 값 유지")
         void updateEmoticon_partialNullKeepsExisting() {
             when(emoticonMasterRepository.findById(1L)).thenReturn(Optional.of(emoticonMaster));
@@ -560,12 +602,28 @@ class EmoticonServiceTest {
                     .tags(null)
                     .build();
 
+            givenWritableUser();
             EmoticonMasterDto result = emoticonService.updateEmoticon(1L, 1L, request);
 
             assertThat(result).isNotNull();
             assertThat(emoticonMaster.getName()).isEqualTo("테스트 이모티콘");
             assertThat(emoticonMaster.getThumbnailUrl()).isEqualTo("https://example.com/thumb.png");
             assertThat(emoticonMaster.getTags()).containsExactly("웃음", "감사");
+        }
+
+        @Test
+        @DisplayName("이모티콘 공개 전환 - 제재 소유자는 USER_NOT_ACTIVE")
+        void toggleVisibility_bannedOwner() {
+            when(emoticonMasterRepository.findByIdWithImages(1L)).thenReturn(Optional.of(emoticonMaster));
+            when(userWritableResolver.resolve(1L))
+                    .thenThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE));
+
+            assertThatThrownBy(() -> emoticonService.toggleVisibility(1L, 1L))
+                    .isInstanceOf(BusinessException.class)
+                    .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode())
+                            .isEqualTo(ErrorCode.USER_NOT_ACTIVE));
+
+            assertThat(emoticonMaster.getIsActive()).isEqualTo("Y");
         }
 
         @Test
@@ -582,6 +640,7 @@ class EmoticonServiceTest {
         @Test
         @DisplayName("이모티콘 삭제 성공")
         void deleteEmoticon_success() {
+            givenWritableUser();
             when(emoticonMasterRepository.findByIdWithImages(1L)).thenReturn(Optional.of(emoticonMaster));
 
             emoticonService.deleteEmoticon(1L, 1L);
@@ -593,6 +652,7 @@ class EmoticonServiceTest {
         @DisplayName("이모티콘 삭제 - 구매 이력이 있으면 hard delete를 차단한다")
         void deleteEmoticon_withPurchaseHistory_blocksHardDelete() {
             ReflectionTestUtils.setField(emoticonMaster, "thumbnailUrl", "/api/v1/files/10");
+            givenWritableUser();
             when(emoticonMasterRepository.findByIdWithImages(1L)).thenReturn(Optional.of(emoticonMaster));
             when(emoticonPurchaseRepository.existsByEmoticon_EmoticonId(1L)).thenReturn(true);
 
@@ -608,6 +668,7 @@ class EmoticonServiceTest {
         @Test
         @DisplayName("이모티콘 삭제 - 삭제 중 구매 이력 FK 충돌이 발생하면 비즈니스 예외로 전환한다")
         void deleteEmoticon_purchaseRaceConstraintViolation_throwsBusinessException() {
+            givenWritableUser();
             when(emoticonMasterRepository.findByIdWithImages(1L)).thenReturn(Optional.of(emoticonMaster));
             doThrow(new DataIntegrityViolationException("fk")).when(emoticonMasterRepository).flush();
 
@@ -618,6 +679,22 @@ class EmoticonServiceTest {
 
             verify(emoticonMasterRepository).delete(emoticonMaster);
             verify(emoticonMasterRepository).flush();
+        }
+
+        @Test
+        @DisplayName("이모티콘 삭제 - 제재 소유자는 USER_NOT_ACTIVE")
+        void deleteEmoticon_bannedOwner() {
+            when(emoticonMasterRepository.findByIdWithImages(1L)).thenReturn(Optional.of(emoticonMaster));
+            when(userWritableResolver.resolve(1L))
+                    .thenThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE));
+
+            assertThatThrownBy(() -> emoticonService.deleteEmoticon(1L, 1L))
+                    .isInstanceOf(BusinessException.class)
+                    .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode())
+                            .isEqualTo(ErrorCode.USER_NOT_ACTIVE));
+
+            verify(emoticonMasterRepository, never()).delete(any(EmoticonMaster.class));
+            verify(fileService, never()).deleteFileWithStorageIfAssociated(anyLong(), anyLong(), anyString());
         }
 
         @Test
@@ -648,6 +725,7 @@ class EmoticonServiceTest {
         @Test
         @DisplayName("이미지 추가 성공")
         void addImage_success() {
+            givenWritableUser();
             when(emoticonMasterRepository.findByIdWithImages(1L)).thenReturn(Optional.of(emoticonMaster));
 
             EmoticonMasterDto result = emoticonService.addImage(1L, 1L, 30L);
@@ -674,6 +752,7 @@ class EmoticonServiceTest {
                     .build();
             ReflectionTestUtils.setField(lastImage, "imageId", 20L);
             ReflectionTestUtils.setField(emoticonMaster, "images", new java.util.ArrayList<>(List.of(firstImage, lastImage)));
+            givenWritableUser();
             when(emoticonMasterRepository.findByIdWithImages(1L)).thenReturn(Optional.of(emoticonMaster));
 
             EmoticonMasterDto result = emoticonService.addImage(1L, 1L, 30L);
@@ -702,6 +781,21 @@ class EmoticonServiceTest {
         }
 
         @Test
+        @DisplayName("이미지 추가 - 제재 소유자는 USER_NOT_ACTIVE")
+        void addImage_bannedOwner() {
+            when(emoticonMasterRepository.findByIdWithImages(1L)).thenReturn(Optional.of(emoticonMaster));
+            when(userWritableResolver.resolve(1L))
+                    .thenThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE));
+
+            assertThatThrownBy(() -> emoticonService.addImage(1L, 1L, 30L))
+                    .isInstanceOf(BusinessException.class)
+                    .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode())
+                            .isEqualTo(ErrorCode.USER_NOT_ACTIVE));
+
+            assertThat(emoticonMaster.getImages()).isEmpty();
+        }
+
+        @Test
         @DisplayName("이미지 삭제 성공")
         void deleteImage_success() {
             EmoticonImage image = EmoticonImage.builder()
@@ -711,6 +805,7 @@ class EmoticonServiceTest {
                     .build();
             ReflectionTestUtils.setField(image, "imageId", 10L);
 
+            givenWritableUser();
             when(emoticonImageRepository.findById(10L)).thenReturn(Optional.of(image));
 
             emoticonService.deleteImage(1L, 10L);
@@ -753,6 +848,29 @@ class EmoticonServiceTest {
                     .isInstanceOf(BusinessException.class)
                     .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode()).isEqualTo(ErrorCode.FORBIDDEN));
 
+            verify(emoticonImageRepository, never()).delete(any());
+        }
+
+        @Test
+        @DisplayName("이미지 삭제 - 제재 소유자는 USER_NOT_ACTIVE")
+        void deleteImage_bannedOwner() {
+            EmoticonImage image = EmoticonImage.builder()
+                    .emoticonMaster(emoticonMaster)
+                    .imageUrl("https://example.com/img.png")
+                    .sortOrder(0)
+                    .build();
+            ReflectionTestUtils.setField(image, "imageId", 10L);
+
+            when(emoticonImageRepository.findById(10L)).thenReturn(Optional.of(image));
+            when(userWritableResolver.resolve(1L))
+                    .thenThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE));
+
+            assertThatThrownBy(() -> emoticonService.deleteImage(1L, 10L))
+                    .isInstanceOf(BusinessException.class)
+                    .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode())
+                            .isEqualTo(ErrorCode.USER_NOT_ACTIVE));
+
+            verify(fileService, never()).deleteFileWithStorageIfAssociated(anyLong(), anyLong(), anyString());
             verify(emoticonImageRepository, never()).delete(any());
         }
     }

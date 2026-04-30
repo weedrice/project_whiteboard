@@ -7,6 +7,7 @@ import com.weedrice.whiteboard.domain.file.service.FileService;
 import com.weedrice.whiteboard.domain.point.service.PointService;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -32,13 +33,13 @@ class EmoticonServiceConfig {
     EmoticonCommandService emoticonCommandService(EmoticonMasterRepository emoticonMasterRepository,
                                                    EmoticonImageRepository emoticonImageRepository,
                                                    EmoticonPurchaseRepository emoticonPurchaseRepository,
-                                                   UserRepository userRepository,
+                                                   UserWritableResolver userWritableResolver,
                                                    EmoticonAttachmentHelper attachmentHelper) {
         return new EmoticonCommandService(
                 emoticonMasterRepository,
                 emoticonImageRepository,
                 emoticonPurchaseRepository,
-                userRepository,
+                userWritableResolver,
                 attachmentHelper,
                 EMOTICON_THUMBNAIL,
                 EMOTICON_IMAGE);

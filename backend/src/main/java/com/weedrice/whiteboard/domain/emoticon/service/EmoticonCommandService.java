@@ -9,7 +9,7 @@ import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonImageRepositor
 import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonMasterRepository;
 import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonPurchaseRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
-import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -22,7 +22,7 @@ class EmoticonCommandService {
     private final EmoticonMasterRepository emoticonMasterRepository;
     private final EmoticonImageRepository emoticonImageRepository;
     private final EmoticonPurchaseRepository emoticonPurchaseRepository;
-    private final UserRepository userRepository;
+    private final UserWritableResolver userWritableResolver;
     private final EmoticonAttachmentHelper attachmentHelper;
     private final String emoticonThumbnailType;
     private final String emoticonImageType;
@@ -30,22 +30,21 @@ class EmoticonCommandService {
     EmoticonCommandService(EmoticonMasterRepository emoticonMasterRepository,
                             EmoticonImageRepository emoticonImageRepository,
                             EmoticonPurchaseRepository emoticonPurchaseRepository,
-                            UserRepository userRepository,
+                            UserWritableResolver userWritableResolver,
                             EmoticonAttachmentHelper attachmentHelper,
                             String emoticonThumbnailType,
                             String emoticonImageType) {
         this.emoticonMasterRepository = emoticonMasterRepository;
         this.emoticonImageRepository = emoticonImageRepository;
         this.emoticonPurchaseRepository = emoticonPurchaseRepository;
-        this.userRepository = userRepository;
+        this.userWritableResolver = userWritableResolver;
         this.attachmentHelper = attachmentHelper;
         this.emoticonThumbnailType = emoticonThumbnailType;
         this.emoticonImageType = emoticonImageType;
     }
 
     EmoticonMasterDto createEmoticon(Long userId, EmoticonCreateRequest request) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        User user = userWritableResolver.resolve(userId);
 
         EmoticonMaster master = EmoticonMaster.builder()
                 .name(request.getName())
@@ -86,7 +85,7 @@ class EmoticonCommandService {
         EmoticonMaster master = emoticonMasterRepository.findById(emoticonId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.EMOTICON_NOT_FOUND));
 
-        validateOwner(master, userId, "?섏젙 沅뚰븳???놁뒿?덈떎.");
+        validateWritableOwner(master, userId, "?섏젙 沅뚰븳???놁뒿?덈떎.");
 
         String thumbnailUrl = master.getThumbnailUrl();
         if (request.getThumbnailFileId() != null) {
@@ -114,7 +113,7 @@ class EmoticonCommandService {
         EmoticonMaster master = emoticonMasterRepository.findByIdWithImages(emoticonId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.EMOTICON_NOT_FOUND));
 
-        validateOwner(master, userId, "怨듦컻 ?щ?瑜?蹂寃쏀븷 沅뚰븳???놁뒿?덈떎.");
+        validateWritableOwner(master, userId, "怨듦컻 ?щ?瑜?蹂寃쏀븷 沅뚰븳???놁뒿?덈떎.");
 
         if ("Y".equals(master.getIsActive())) {
             master.deactivate();
@@ -129,7 +128,7 @@ class EmoticonCommandService {
         EmoticonMaster master = emoticonMasterRepository.findByIdWithImages(emoticonId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.EMOTICON_NOT_FOUND));
 
-        validateOwner(master, userId, "??젣 沅뚰븳???놁뒿?덈떎.");
+        validateWritableOwner(master, userId, "??젣 沅뚰븳???놁뒿?덈떎.");
 
         if (emoticonPurchaseRepository.existsByEmoticon_EmoticonId(emoticonId)) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "구매 이력이 있는 이모티콘은 삭제할 수 없습니다.");
@@ -155,7 +154,7 @@ class EmoticonCommandService {
         EmoticonMaster master = emoticonMasterRepository.findByIdWithImages(emoticonId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.EMOTICON_NOT_FOUND));
 
-        validateOwner(master, userId, "?섏젙 沅뚰븳???놁뒿?덈떎.");
+        validateWritableOwner(master, userId, "?섏젙 沅뚰븳???놁뒿?덈떎.");
 
         int nextSortOrder = resolveNextSortOrder(master);
         EmoticonImage image = EmoticonImage.builder()
@@ -172,7 +171,7 @@ class EmoticonCommandService {
         EmoticonImage image = emoticonImageRepository.findById(imageId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.EMOTICON_IMAGE_NOT_FOUND));
 
-        validateOwner(image.getEmoticonMaster(), userId, "??젣 沅뚰븳???놁뒿?덈떎.");
+        validateWritableOwner(image.getEmoticonMaster(), userId, "??젣 沅뚰븳???놁뒿?덈떎.");
         attachmentHelper.deleteAssociatedFile(
                 image.getImageUrl(),
                 image.getEmoticonMaster().getEmoticonId(),
@@ -185,6 +184,11 @@ class EmoticonCommandService {
         if (!master.isOwner(userId)) {
             throw new BusinessException(ErrorCode.FORBIDDEN, message);
         }
+    }
+
+    private void validateWritableOwner(EmoticonMaster master, Long userId, String message) {
+        validateOwner(master, userId, message);
+        userWritableResolver.resolve(userId);
     }
 
     private int resolveNextSortOrder(EmoticonMaster master) {
