@@ -9,6 +9,7 @@ import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.entity.Scrap;
 import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.domain.search.service.SearchRecordEventPublisher;
+import com.weedrice.whiteboard.domain.tag.constant.TagConstraints;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import org.junit.jupiter.api.BeforeEach;
@@ -31,6 +32,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.IntStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
@@ -449,6 +451,37 @@ class PostControllerTest {
         }
 
         @Test
+        @DisplayName("게시글 생성 실패 - 공백 태그")
+        void createPost_fail_blankTag() throws Exception {
+            String boardUrl = "free";
+            PostCreateRequest request = new PostCreateRequest(null, "Title", "Content", List.of("   "),
+                    false, false, false, false, null);
+
+            mockMvc.perform(post("/api/v1/boards/{boardUrl}/posts", boardUrl)
+                    .with(user(customUserDetails))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isBadRequest());
+        }
+
+        @Test
+        @DisplayName("게시글 생성 실패 - 태그 개수 초과")
+        void createPost_fail_tooManyTags() throws Exception {
+            String boardUrl = "free";
+            PostCreateRequest request = new PostCreateRequest(null, "Title", "Content",
+                    IntStream.rangeClosed(1, TagConstraints.MAX_POST_TAG_COUNT + 1)
+                            .mapToObj(index -> "tag" + index)
+                            .toList(),
+                    false, false, false, false, null);
+
+            mockMvc.perform(post("/api/v1/boards/{boardUrl}/posts", boardUrl)
+                    .with(user(customUserDetails))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isBadRequest());
+        }
+
+        @Test
         @DisplayName("게시글 수정 성공")
         void updatePost_success() throws Exception {
             Long postId = 1L;
@@ -460,6 +493,20 @@ class PostControllerTest {
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(request)))
                     .andExpect(status().isOk());
+        }
+
+        @Test
+        @DisplayName("게시글 수정 실패 - 태그 길이 초과")
+        void updatePost_fail_tooLongTag() throws Exception {
+            Long postId = 1L;
+            PostUpdateRequest request = new PostUpdateRequest(null, "Title", "Content",
+                    List.of("a".repeat(TagConstraints.MAX_TAG_NAME_LENGTH + 1)), false, false, false, null);
+
+            mockMvc.perform(put("/api/v1/posts/{postId}", postId)
+                    .with(user(customUserDetails))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isBadRequest());
         }
 
         @Test

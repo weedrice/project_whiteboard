@@ -147,6 +147,7 @@ public class PostCommandService {
         postAuthorCommandPolicy.validateAuthorCommand(post, modifier);
         BoardCategory category = resolveUpdatedCategory(post, request.getCategoryId());
         postAuthorCommandPolicy.validateWritableCommand(post, modifier, category);
+        tagAssignmentService.validateTags(request.getTags());
 
         String originalTitle = post.getTitle();
         String originalContents = post.getContents();

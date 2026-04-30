@@ -1,10 +1,13 @@
 package com.weedrice.whiteboard.domain.tag.service;
 
 import com.weedrice.whiteboard.domain.post.entity.Post;
+import com.weedrice.whiteboard.domain.tag.constant.TagConstraints;
 import com.weedrice.whiteboard.domain.tag.entity.PostTag;
 import com.weedrice.whiteboard.domain.tag.entity.Tag;
 import com.weedrice.whiteboard.domain.tag.repository.PostTagRepository;
 import com.weedrice.whiteboard.domain.tag.repository.TagRepository;
+import com.weedrice.whiteboard.global.exception.BusinessException;
+import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -58,6 +61,10 @@ public class TagAssignmentService {
                 .toList();
     }
 
+    public void validateTags(List<String> requestedTagNames) {
+        normalizeTagNames(requestedTagNames);
+    }
+
     private void addPostTag(Post post, String tagName) {
         Tag tag = findOrCreateTag(tagName);
         postTagRepository.save(PostTag.builder()
@@ -77,11 +84,23 @@ public class TagAssignmentService {
             return Collections.emptySet();
         }
 
-        return tagNames.stream()
-                .filter(tagName -> tagName != null && !tagName.isBlank())
-                .map(String::trim)
-                .filter(tagName -> !tagName.isBlank())
-                .collect(Collectors.toCollection(LinkedHashSet::new));
+        Set<String> normalizedTagNames = new LinkedHashSet<>();
+        for (String tagName : tagNames) {
+            if (tagName == null) {
+                throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+            }
+            String normalizedTagName = tagName.trim();
+            if (normalizedTagName.isBlank()
+                    || normalizedTagName.length() > TagConstraints.MAX_TAG_NAME_LENGTH) {
+                throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+            }
+            normalizedTagNames.add(normalizedTagName);
+        }
+
+        if (normalizedTagNames.size() > TagConstraints.MAX_POST_TAG_COUNT) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        return normalizedTagNames;
     }
 
     private Tag findOrCreateTag(String tagName) {

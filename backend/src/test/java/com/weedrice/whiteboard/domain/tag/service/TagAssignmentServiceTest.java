@@ -5,6 +5,8 @@ import com.weedrice.whiteboard.domain.tag.entity.PostTag;
 import com.weedrice.whiteboard.domain.tag.entity.Tag;
 import com.weedrice.whiteboard.domain.tag.repository.PostTagRepository;
 import com.weedrice.whiteboard.domain.tag.repository.TagRepository;
+import com.weedrice.whiteboard.global.exception.BusinessException;
+import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -19,8 +21,10 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.IntStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
@@ -138,7 +142,7 @@ class TagAssignmentServiceTest {
     }
 
     @Test
-    @DisplayName("assignTags normalizes whitespace blanks and duplicates")
+    @DisplayName("assignTags normalizes whitespace and duplicates")
     void assignTags_normalizesInput() {
         Tag javaTag = new Tag("Java");
         ReflectionTestUtils.setField(javaTag, "tagId", 31L);
@@ -149,11 +153,53 @@ class TagAssignmentServiceTest {
         ReflectionTestUtils.setField(springTag, "tagId", 22L);
         when(tagRepository.findByTagName("Spring")).thenReturn(Optional.of(springTag));
 
-        tagAssignmentService.assignTags(post, List.of("  Java  ", "", "Spring", "Java", "   "));
+        tagAssignmentService.assignTags(post, List.of("  Java  ", "Spring", "Java"));
 
         verify(postTagRepository, times(2)).save(any(PostTag.class));
         verify(tagRepository).incrementPostCount(31L);
         verify(tagRepository).incrementPostCount(22L);
+    }
+
+    @Test
+    @DisplayName("assignTags rejects blank tag names before changes")
+    void assignTags_rejectsBlankTagNames() {
+        assertThatThrownBy(() -> tagAssignmentService.assignTags(post, List.of("Java", "   ")))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+
+        verify(postTagRepository, never()).findByPost(any());
+        verify(postTagRepository, never()).save(any());
+        verify(postTagRepository, never()).delete(any());
+    }
+
+    @Test
+    @DisplayName("assignTags rejects too long tag names before changes")
+    void assignTags_rejectsTooLongTagNames() {
+        String tooLongTagName = "a".repeat(101);
+
+        assertThatThrownBy(() -> tagAssignmentService.assignTags(post, List.of(tooLongTagName)))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+
+        verify(postTagRepository, never()).findByPost(any());
+        verify(postTagRepository, never()).save(any());
+        verify(postTagRepository, never()).delete(any());
+    }
+
+    @Test
+    @DisplayName("assignTags rejects more than ten normalized tag names before changes")
+    void assignTags_rejectsTooManyTagNames() {
+        List<String> tagNames = IntStream.rangeClosed(1, 11)
+                .mapToObj(index -> "tag" + index)
+                .toList();
+
+        assertThatThrownBy(() -> tagAssignmentService.assignTags(post, tagNames))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+
+        verify(postTagRepository, never()).findByPost(any());
+        verify(postTagRepository, never()).save(any());
+        verify(postTagRepository, never()).delete(any());
     }
 
     @Test
