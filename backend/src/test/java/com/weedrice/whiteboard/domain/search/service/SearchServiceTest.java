@@ -607,16 +607,19 @@ class SearchServiceTest {
         // given
         Long userId = 1L;
         Pageable pageable = PageRequest.of(0, 10);
+        Pageable normalizedPageable = PageRequest.of(0, 10, Sort.by(
+                Sort.Order.desc("searchedAt"),
+                Sort.Order.desc("logId")));
         SearchPersonalization personalization = SearchPersonalization.builder()
                 .user(user)
                 .keyword("test")
                 .normalizedKeyword("test")
                 .searchedAt(LocalDateTime.of(2026, 4, 22, 9, 0))
                 .build();
-        Page<SearchPersonalization> page = new PageImpl<>(List.of(personalization), pageable, 1);
+        Page<SearchPersonalization> page = new PageImpl<>(List.of(personalization), normalizedPageable, 1);
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        when(searchPersonalizationRepository.findByUserOrderBySearchedAtDesc(eq(user), eq(pageable)))
+        when(searchPersonalizationRepository.findByUserOrderBySearchedAtDesc(eq(user), eq(normalizedPageable)))
                 .thenReturn(page);
 
         // when
@@ -625,6 +628,24 @@ class SearchServiceTest {
         // then
         assertThat(response).isNotNull();
         verify(userRepository).findById(userId);
+    }
+
+    @Test
+    @DisplayName("최근 검색어 조회 - pageable 정규화")
+    void getRecentSearches_normalizesPageable() {
+        Long userId = 1L;
+        Pageable requestedPageable = PageRequest.of(3, 1000, Sort.by("unknown"));
+        Pageable normalizedPageable = PageRequest.of(3, 100, Sort.by(
+                Sort.Order.desc("searchedAt"),
+                Sort.Order.desc("logId")));
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(searchPersonalizationRepository.findByUserOrderBySearchedAtDesc(eq(user), eq(normalizedPageable)))
+                .thenReturn(Page.empty(normalizedPageable));
+
+        searchService.getRecentSearches(userId, requestedPageable);
+
+        verify(searchPersonalizationRepository).findByUserOrderBySearchedAtDesc(user, normalizedPageable);
     }
 
     @Test

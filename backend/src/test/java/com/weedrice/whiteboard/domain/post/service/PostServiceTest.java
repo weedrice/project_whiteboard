@@ -584,12 +584,37 @@ class PostServiceTest {
         // Page.empty()인 경우 getPostIdsWithImages가 빈 리스트를 받아 fileService가 호출되지 않음
         when(postRepository.findByBoardIdAndCategoryId(eq(1L), any(), any(), any(), any(), any(Boolean.class), any(),
                 any(Pageable.class)))
-                .thenReturn(Page.empty());
+                .thenAnswer(invocation -> Page.empty(invocation.getArgument(7)));
 
         postService.getPosts("free", null, null, null, null, Pageable.unpaged());
 
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
         verify(postRepository).findByBoardIdAndCategoryId(eq(1L), any(), any(), any(), any(), any(Boolean.class), any(),
-                any(Pageable.class));
+                pageableCaptor.capture());
+        Pageable pageable = pageableCaptor.getValue();
+        assertThat(pageable.getPageNumber()).isZero();
+        assertThat(pageable.getPageSize()).isEqualTo(20);
+        assertThat(pageable.getSort()).isEqualTo(Sort.by(
+                Sort.Order.desc("createdAt"),
+                Sort.Order.desc("postId")));
+    }
+
+    @Test
+    @DisplayName("게시글 목록 조회 - 허용 sort에 안정 정렬을 보강")
+    void getPosts_appendsStableSortToAllowedSort() {
+        when(postRepository.findByBoardIdAndCategoryId(eq(1L), any(), any(), any(), any(), any(Boolean.class), any(),
+                any(Pageable.class)))
+                .thenAnswer(invocation -> Page.empty(invocation.getArgument(7)));
+
+        postService.getPosts(1L, null, null, null, null, false,
+                PageRequest.of(0, 10, Sort.by(Sort.Order.desc("likeCount"))));
+
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(postRepository).findByBoardIdAndCategoryId(eq(1L), any(), any(), any(), any(), any(Boolean.class), any(),
+                pageableCaptor.capture());
+        assertThat(pageableCaptor.getValue().getSort()).isEqualTo(Sort.by(
+                Sort.Order.desc("likeCount"),
+                Sort.Order.desc("postId")));
     }
 
     @Test
@@ -1013,6 +1038,23 @@ class PostServiceTest {
         assertThat(response.getContent().getFirst().getPost().getTitle()).isEqualTo("Test Post");
         assertThat(response.getContent().getFirst().getPost().getBoardName()).isEqualTo("Test Board");
         verify(scrapRepository).findPageByUserWithPostDetails(eq(user), any(Pageable.class));
+    }
+
+    @Test
+    @DisplayName("스크랩 목록 조회 - pageable 정규화")
+    void getMyScraps_normalizesPageable() {
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(scrapRepository.findPageByUserWithPostDetails(eq(user), any(Pageable.class)))
+                .thenAnswer(invocation -> Page.empty(invocation.getArgument(1)));
+
+        postService.getMyScraps(1L, PageRequest.of(2, 1000, Sort.by("unknown")));
+
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(scrapRepository).findPageByUserWithPostDetails(eq(user), pageableCaptor.capture());
+        Pageable pageable = pageableCaptor.getValue();
+        assertThat(pageable.getPageNumber()).isEqualTo(2);
+        assertThat(pageable.getPageSize()).isEqualTo(100);
+        assertThat(pageable.getSort()).isEqualTo(Sort.by(Sort.Order.desc("createdAt")));
     }
 
     // --- Drafts ---
@@ -1618,6 +1660,25 @@ class PostServiceTest {
         assertThat(response.getContent().getFirst().getDraftId()).isEqualTo(11L);
         assertThat(response.getContent().getFirst().getBoardName()).isEqualTo("Test Board");
         verify(draftPostRepository).findPageByUserWithBoard(eq(user), any(Pageable.class));
+    }
+
+    @Test
+    @DisplayName("초안 목록 조회 - pageable 정규화")
+    void getDraftPosts_normalizesPageable() {
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(draftPostRepository.findPageByUserWithBoard(eq(user), any(Pageable.class)))
+                .thenAnswer(invocation -> Page.empty(invocation.getArgument(1)));
+
+        postService.getDraftPosts(1L, PageRequest.of(1, 1000, Sort.by("unknown")));
+
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(draftPostRepository).findPageByUserWithBoard(eq(user), pageableCaptor.capture());
+        Pageable pageable = pageableCaptor.getValue();
+        assertThat(pageable.getPageNumber()).isEqualTo(1);
+        assertThat(pageable.getPageSize()).isEqualTo(100);
+        assertThat(pageable.getSort()).isEqualTo(Sort.by(
+                Sort.Order.desc("modifiedAt"),
+                Sort.Order.desc("draftId")));
     }
 
     @Test

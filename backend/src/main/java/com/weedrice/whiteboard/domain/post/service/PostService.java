@@ -38,7 +38,13 @@ import java.util.stream.StreamSupport;
 @SuppressWarnings({ "null" })
 public class PostService {
     private static final String DEFAULT_INQUIRY_BOARD_URL = "inquiry";
+    private static final int DEFAULT_BOARD_POST_PAGE_SIZE = 20;
+    private static final Sort DEFAULT_BOARD_POST_SORT = Sort.by(
+            Sort.Order.desc("createdAt"),
+            Sort.Order.desc("postId"));
     private static final Sort DEFAULT_INQUIRY_POST_SORT = Sort.by(Sort.Direction.DESC, "createdAt");
+    private static final Set<String> BOARD_POST_SORT_PROPERTIES = Set.of(
+            "createdAt", "postId", "viewCount", "likeCount");
     private static final Set<String> TAG_POST_SORT_PROPERTIES = Set.of(
             "createdAt", "postId", "viewCount", "likeCount");
     private static final Set<String> INQUIRY_POST_SORT_PROPERTIES = Set.of(
@@ -71,7 +77,7 @@ public class PostService {
 
         Page<Post> posts = this.getPosts(board.getBoardId(), categoryId, keyword, minLikes, currentUserId, includeSecret,
                 pageable);
-        return postSummaryAssembler.assembleBoardPage(posts, pageable, true, true);
+        return postSummaryAssembler.assembleBoardPage(posts, posts.getPageable(), true, true);
     }
 
     public List<PostSummary> getNoticeSummaries(String boardUrl, Long currentUserId) {
@@ -104,12 +110,26 @@ public class PostService {
     // --- boardId 湲곕컲 public/private 硫붿꽌??---
     public Page<Post> getPosts(Long boardId, Long categoryId, String keyword, Integer minLikes, Long currentUserId,
             Boolean includeSecret, @NonNull Pageable pageable) {
+        Pageable safePageable = normalizeBoardPostPageable(pageable);
         List<Long> blockedUserIds = null;
         if (currentUserId != null) {
             blockedUserIds = userBlockService.getBlockedUserIds(currentUserId);
         }
         return postRepository.findByBoardIdAndCategoryId(boardId, categoryId, keyword, minLikes, blockedUserIds, includeSecret,
-                currentUserId, pageable);
+                currentUserId, safePageable);
+    }
+
+    private Pageable normalizeBoardPostPageable(Pageable pageable) {
+        Pageable normalizedPageable = PageRequestUtils.of(
+                pageable,
+                DEFAULT_BOARD_POST_PAGE_SIZE,
+                DEFAULT_BOARD_POST_SORT,
+                BOARD_POST_SORT_PROPERTIES);
+        if (normalizedPageable.getSort().getOrderFor("postId") != null) {
+            return normalizedPageable;
+        }
+        Sort stableSort = normalizedPageable.getSort().and(Sort.by(Sort.Order.desc("postId")));
+        return PageRequestUtils.of(normalizedPageable.getPageNumber(), normalizedPageable.getPageSize(), stableSort);
     }
 
     public List<Post> getNotices(Long boardId, Long currentUserId, Boolean includeSecret) {

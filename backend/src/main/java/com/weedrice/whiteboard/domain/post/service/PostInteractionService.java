@@ -23,15 +23,17 @@ import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
+import com.weedrice.whiteboard.global.common.service.ReactionWriter;
+import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
-import com.weedrice.whiteboard.global.common.service.ReactionWriter;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -51,6 +53,9 @@ import java.util.stream.Collectors;
 public class PostInteractionService {
 
     private static final long MAX_VIEW_DURATION_MS = 86_400_000L;
+    private static final int DEFAULT_SCRAP_PAGE_SIZE = 20;
+    private static final Sort DEFAULT_SCRAP_SORT = Sort.by(Sort.Order.desc("createdAt"));
+    private static final Set<String> ALLOWED_SCRAP_SORTS = Set.of("createdAt");
 
     private final PostRepository postRepository;
     private final UserRepository userRepository;
@@ -218,7 +223,12 @@ public class PostInteractionService {
     public ScrapListResponse getMyScraps(@NonNull Long userId, @NonNull Pageable pageable) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        Page<Scrap> scrapPage = scrapRepository.findPageByUserWithPostDetails(user, pageable);
+        Pageable safePageable = PageRequestUtils.of(
+                pageable,
+                DEFAULT_SCRAP_PAGE_SIZE,
+                DEFAULT_SCRAP_SORT,
+                ALLOWED_SCRAP_SORTS);
+        Page<Scrap> scrapPage = scrapRepository.findPageByUserWithPostDetails(user, safePageable);
         return ScrapListResponse.from(scrapPage);
     }
 

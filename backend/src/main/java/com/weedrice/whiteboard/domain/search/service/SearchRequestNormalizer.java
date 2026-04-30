@@ -16,8 +16,13 @@ public final class SearchRequestNormalizer {
     private static final Sort DEFAULT_POST_SEARCH_SORT = Sort.by(
             Sort.Order.desc("createdAt"),
             Sort.Order.desc("postId"));
+    private static final int DEFAULT_RECENT_SEARCH_PAGE_SIZE = 20;
+    private static final Sort DEFAULT_RECENT_SEARCH_SORT = Sort.by(
+            Sort.Order.desc("searchedAt"),
+            Sort.Order.desc("logId"));
     private static final Set<String> ALLOWED_POST_SEARCH_SORTS = Set.of(
             "createdAt", "postId", "viewCount", "likeCount");
+    private static final Set<String> ALLOWED_RECENT_SEARCH_SORTS = Set.of("searchedAt", "logId");
 
     private SearchRequestNormalizer() {
     }
@@ -66,5 +71,13 @@ public final class SearchRequestNormalizer {
                 DEFAULT_POST_SEARCH_PAGE_SIZE,
                 DEFAULT_POST_SEARCH_SORT,
                 ALLOWED_POST_SEARCH_SORTS);
+    }
+
+    public static Pageable normalizeRecentSearchPageable(Pageable pageable) {
+        return PageRequestUtils.of(
+                pageable,
+                DEFAULT_RECENT_SEARCH_PAGE_SIZE,
+                DEFAULT_RECENT_SEARCH_SORT,
+                ALLOWED_RECENT_SEARCH_SORTS);
     }
 }

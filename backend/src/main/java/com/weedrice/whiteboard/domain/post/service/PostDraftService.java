@@ -16,19 +16,28 @@ import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class PostDraftService {
+    private static final int DEFAULT_DRAFT_PAGE_SIZE = 20;
+    private static final Sort DEFAULT_DRAFT_SORT = Sort.by(
+            Sort.Order.desc("modifiedAt"),
+            Sort.Order.desc("draftId"));
+    private static final Set<String> ALLOWED_DRAFT_SORTS = Set.of("modifiedAt", "createdAt", "draftId");
 
     private final UserRepository userRepository;
     private final BoardRepository boardRepository;
@@ -43,7 +52,12 @@ public class PostDraftService {
     public DraftListResponse getDraftPosts(@NonNull Long userId, @NonNull Pageable pageable) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        Page<DraftPost> draftPage = draftPostRepository.findPageByUserWithBoard(user, pageable);
+        Pageable safePageable = PageRequestUtils.of(
+                pageable,
+                DEFAULT_DRAFT_PAGE_SIZE,
+                DEFAULT_DRAFT_SORT,
+                ALLOWED_DRAFT_SORTS);
+        Page<DraftPost> draftPage = draftPostRepository.findPageByUserWithBoard(user, safePageable);
         return DraftListResponse.from(draftPage);
     }
 

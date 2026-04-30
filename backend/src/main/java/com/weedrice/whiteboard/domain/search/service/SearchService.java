@@ -130,8 +130,9 @@ public class SearchService {
     public SearchPersonalizationResponse getRecentSearches(Long userId, Pageable pageable) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        Pageable normalizedPageable = SearchRequestNormalizer.normalizeRecentSearchPageable(pageable);
         return SearchPersonalizationResponse
-                .from(searchPersonalizationRepository.findByUserOrderBySearchedAtDesc(user, pageable));
+                .from(searchPersonalizationRepository.findByUserOrderBySearchedAtDesc(user, normalizedPageable));
     }
 
     @Transactional
