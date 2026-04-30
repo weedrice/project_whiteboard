@@ -10,6 +10,7 @@ import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.entity.UserSettings;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserSettingsRepository;
+import com.weedrice.whiteboard.domain.user.service.PasswordHistoryPolicy;
 import com.weedrice.whiteboard.domain.user.service.UserPrivilegeCleanupService;
 import com.weedrice.whiteboard.domain.user.service.SocialAccountLinkService;
 import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
@@ -18,7 +19,6 @@ import com.weedrice.whiteboard.global.exception.ErrorCode;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,7 +34,6 @@ public class SignupService {
 
     private final UserRepository userRepository;
     private final PointService pointService;
-    private final PasswordEncoder passwordEncoder;
     private final UserSettingsRepository userSettingsRepository;
     private final SocialAccountLinkService socialAccountLinkService;
     private final VerificationCodeService verificationCodeService;
@@ -43,6 +42,7 @@ public class SignupService {
     private final EntityManager entityManager;
     private final RefreshTokenLifecycleService refreshTokenLifecycleService;
     private final UserPrivilegeCleanupService userPrivilegeCleanupService;
+    private final PasswordHistoryPolicy passwordHistoryPolicy;
 
     @Transactional
     public SignupResponse signup(SignupRequest request) {
@@ -63,14 +63,16 @@ public class SignupService {
                 VerificationPurpose.SIGNUP,
                 request.getVerificationTicket());
 
+        String passwordHash = passwordHistoryPolicy.encode(request.getPassword());
         User user = User.builder()
                 .loginId(request.getLoginId())
-                .password(passwordEncoder.encode(request.getPassword()))
+                .password(passwordHash)
                 .email(request.getEmail())
                 .displayName(request.getDisplayName())
                 .build();
         user.verifyEmail();
         User savedUser = saveSignupUser(user, request);
+        passwordHistoryPolicy.record(savedUser, passwordHash);
 
         UserSettings userSettings = UserSettings.builder()
                 .user(savedUser)
@@ -112,13 +114,16 @@ public class SignupService {
                 VerificationPurpose.SIGNUP,
                 request.getVerificationTicket());
 
+        passwordHistoryPolicy.validateNotRecentlyUsed(existingUser, request.getPassword());
+        String passwordHash = passwordHistoryPolicy.encode(request.getPassword());
         refreshTokenLifecycleService.revokeActiveRefreshTokens(existingUser);
         userPrivilegeCleanupService.removeOperationalPrivileges(existingUser);
         existingUser.activate();
-        existingUser.updatePassword(passwordEncoder.encode(request.getPassword()));
+        existingUser.updatePassword(passwordHash);
         existingUser.updateDisplayName(request.getDisplayName());
         existingUser.verifyEmail();
         userRepository.save(existingUser);
+        passwordHistoryPolicy.record(existingUser, passwordHash);
 
         saveSocialAccountIfPresent(existingUser, request);
 

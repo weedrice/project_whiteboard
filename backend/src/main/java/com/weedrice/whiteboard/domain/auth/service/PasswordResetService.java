@@ -3,20 +3,16 @@ package com.weedrice.whiteboard.domain.auth.service;
 import com.weedrice.whiteboard.domain.auth.entity.PasswordResetToken;
 import com.weedrice.whiteboard.domain.auth.entity.VerificationPurpose;
 import com.weedrice.whiteboard.domain.auth.repository.PasswordResetTokenRepository;
-import com.weedrice.whiteboard.domain.user.entity.PasswordHistory;
 import com.weedrice.whiteboard.domain.user.entity.User;
-import com.weedrice.whiteboard.domain.user.repository.PasswordHistoryRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.domain.user.service.PasswordHistoryPolicy;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Collections;
-import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -25,10 +21,9 @@ import java.util.UUID;
 public class PasswordResetService {
 
     private final UserRepository userRepository;
-    private final PasswordEncoder passwordEncoder;
     private final VerificationCodeService verificationCodeService;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
-    private final PasswordHistoryRepository passwordHistoryRepository;
+    private final PasswordHistoryPolicy passwordHistoryPolicy;
     private final RefreshTokenLifecycleService refreshTokenLifecycleService;
     private final TokenHashService tokenHashService;
     private final PasswordResetTokenOrchestrationService passwordResetTokenOrchestrationService;
@@ -134,7 +129,7 @@ public class PasswordResetService {
 
         User user = getUsablePasswordResetUser(email, ErrorCode.USER_NOT_FOUND);
 
-        validatePasswordNotRecentlyUsed(user, newPassword);
+        passwordHistoryPolicy.validateNotRecentlyUsed(user, newPassword);
         verificationCodeService.consumeValidatedVerificationTicket(
                 email,
                 VerificationPurpose.PASSWORD_RESET,
@@ -143,34 +138,18 @@ public class PasswordResetService {
     }
 
     private void applyPasswordReset(User user, String newPassword) {
-        validatePasswordNotRecentlyUsed(user, newPassword);
+        passwordHistoryPolicy.validateNotRecentlyUsed(user, newPassword);
         applyPasswordResetAfterValidation(user, newPassword);
     }
 
     private void applyPasswordResetAfterValidation(User user, String newPassword) {
-        String newPasswordHash = passwordEncoder.encode(newPassword);
+        String newPasswordHash = passwordHistoryPolicy.encode(newPassword);
         user.updatePassword(newPasswordHash);
         userRepository.save(user);
 
-        passwordHistoryRepository.save(PasswordHistory.builder()
-                .user(user)
-                .passwordHash(newPasswordHash)
-                .build());
+        passwordHistoryPolicy.record(user, newPasswordHash);
 
         refreshTokenLifecycleService.revokeActiveRefreshTokens(user);
-    }
-
-    private void validatePasswordNotRecentlyUsed(User user, String newPassword) {
-        if (passwordEncoder.matches(newPassword, user.getPassword())) {
-            throw new BusinessException(ErrorCode.PASSWORD_RECENTLY_USED);
-        }
-
-        List<PasswordHistory> recentHistories = passwordHistoryRepository.findTop3ByUserOrderByCreatedAtDesc(user);
-        for (PasswordHistory history : recentHistories != null ? recentHistories : Collections.<PasswordHistory>emptyList()) {
-            if (passwordEncoder.matches(newPassword, history.getPasswordHash())) {
-                throw new BusinessException(ErrorCode.PASSWORD_RECENTLY_USED);
-            }
-        }
     }
 
     private User getUsablePasswordResetUser(String email, ErrorCode notFoundErrorCode) {

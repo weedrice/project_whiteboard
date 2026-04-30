@@ -20,6 +20,7 @@ import com.weedrice.whiteboard.domain.user.entity.UserSettings;
 import com.weedrice.whiteboard.domain.user.repository.PasswordHistoryRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserSettingsRepository;
+import com.weedrice.whiteboard.domain.user.service.PasswordHistoryPolicy;
 import com.weedrice.whiteboard.domain.user.service.SocialAccountLinkService;
 import com.weedrice.whiteboard.domain.user.service.UserPrivilegeCleanupService;
 import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
@@ -123,14 +124,16 @@ class AuthServiceTest {
                         new AuthMailDeliveryOrchestrationService(emailService),
                         transactionTemplate,
                         tokenHashService);
+        PasswordHistoryPolicy passwordHistoryPolicy =
+                new PasswordHistoryPolicy(passwordHistoryRepository, passwordEncoder);
         PasswordResetService passwordResetService = new PasswordResetService(
-                userRepository, passwordEncoder, verificationCodeService, passwordResetTokenRepository,
-                passwordHistoryRepository, refreshTokenLifecycleService, tokenHashService,
+                userRepository, verificationCodeService, passwordResetTokenRepository,
+                passwordHistoryPolicy, refreshTokenLifecycleService, tokenHashService,
                 passwordResetTokenOrchestrationService);
         SignupService signupService = new SignupService(
-                userRepository, pointService, passwordEncoder, userSettingsRepository,
+                userRepository, pointService, userSettingsRepository,
                 socialAccountLinkService, verificationCodeService, emailEligibilityService, globalConfigService,
-                entityManager, refreshTokenLifecycleService, userPrivilegeCleanupService);
+                entityManager, refreshTokenLifecycleService, userPrivilegeCleanupService, passwordHistoryPolicy);
         authService = new AuthService(signupService, sessionTokenService, passwordResetService);
 
         user = User.builder()
@@ -229,6 +232,7 @@ class AuthServiceTest {
                 request.getEmail(),
                 VerificationPurpose.SIGNUP,
                 request.getVerificationTicket());
+        verify(passwordHistoryRepository).save(any(PasswordHistory.class));
     }
 
     @Test
@@ -696,7 +700,7 @@ class AuthServiceTest {
         String newPassword = "newPassword123!";
 
         when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
-        when(passwordHistoryRepository.findTop3ByUserOrderByCreatedAtDesc(user)).thenReturn(Collections.emptyList());
+        when(passwordHistoryRepository.findTop4ByUserOrderByCreatedAtDescHistoryIdDesc(user)).thenReturn(Collections.emptyList());
         when(passwordEncoder.matches(newPassword, "encodedPassword")).thenReturn(false);
         when(passwordEncoder.encode(newPassword)).thenReturn("encodedNewPassword");
 
@@ -722,7 +726,7 @@ class AuthServiceTest {
         String newPassword = "newPassword123!";
 
         when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
-        when(passwordHistoryRepository.findTop3ByUserOrderByCreatedAtDesc(user)).thenReturn(Collections.emptyList());
+        when(passwordHistoryRepository.findTop4ByUserOrderByCreatedAtDescHistoryIdDesc(user)).thenReturn(Collections.emptyList());
         when(passwordEncoder.matches(newPassword, "encodedPassword")).thenReturn(false);
         when(passwordEncoder.encode(newPassword)).thenReturn("encodedNewPassword");
 
@@ -747,7 +751,7 @@ class AuthServiceTest {
         passwordResetToken.markSent();
         passwordResetTokens.put(1L, passwordResetToken);
 
-        when(passwordHistoryRepository.findTop3ByUserOrderByCreatedAtDesc(user)).thenReturn(Collections.emptyList());
+        when(passwordHistoryRepository.findTop4ByUserOrderByCreatedAtDescHistoryIdDesc(user)).thenReturn(Collections.emptyList());
         when(passwordEncoder.matches(newPassword, "encodedPassword")).thenReturn(false);
         when(passwordEncoder.encode(newPassword)).thenReturn("encodedNewPassword");
 
@@ -771,7 +775,7 @@ class AuthServiceTest {
                 .build();
 
         when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
-        when(passwordHistoryRepository.findTop3ByUserOrderByCreatedAtDesc(user)).thenReturn(List.of(recentHistory));
+        when(passwordHistoryRepository.findTop4ByUserOrderByCreatedAtDescHistoryIdDesc(user)).thenReturn(List.of(recentHistory));
         when(passwordEncoder.matches(newPassword, "encodedPassword")).thenReturn(false);
         when(passwordEncoder.matches(newPassword, "recentHash")).thenReturn(true);
 
@@ -814,4 +818,3 @@ class AuthServiceTest {
                 .build();
     }
 }
-

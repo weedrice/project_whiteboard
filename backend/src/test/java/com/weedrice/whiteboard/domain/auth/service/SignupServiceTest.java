@@ -7,6 +7,7 @@ import com.weedrice.whiteboard.domain.point.service.PointService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserSettingsRepository;
+import com.weedrice.whiteboard.domain.user.service.PasswordHistoryPolicy;
 import com.weedrice.whiteboard.domain.user.service.SocialAccountLinkService;
 import com.weedrice.whiteboard.domain.user.service.UserPrivilegeCleanupService;
 import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
@@ -19,7 +20,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
@@ -30,8 +30,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -41,7 +41,6 @@ class SignupServiceTest {
 
     @Mock private UserRepository userRepository;
     @Mock private PointService pointService;
-    @Mock private PasswordEncoder passwordEncoder;
     @Mock private UserSettingsRepository userSettingsRepository;
     @Mock private SocialAccountLinkService socialAccountLinkService;
     @Mock private VerificationCodeService verificationCodeService;
@@ -50,6 +49,7 @@ class SignupServiceTest {
     @Mock private EntityManager entityManager;
     @Mock private RefreshTokenLifecycleService refreshTokenLifecycleService;
     @Mock private UserPrivilegeCleanupService userPrivilegeCleanupService;
+    @Mock private PasswordHistoryPolicy passwordHistoryPolicy;
 
     @InjectMocks
     private SignupService signupService;
@@ -75,7 +75,7 @@ class SignupServiceTest {
         ReflectionTestUtils.setField(deletedUser, "deletedAt", LocalDateTime.now().minusDays(1));
 
         when(userRepository.findByEmail(request.getEmail())).thenReturn(Optional.of(deletedUser));
-        when(passwordEncoder.encode(request.getPassword())).thenReturn("encoded-new-password");
+        when(passwordHistoryPolicy.encode(request.getPassword())).thenReturn("encoded-new-password");
         when(userRepository.save(deletedUser)).thenReturn(deletedUser);
 
         SignupResponse response = signupService.signup(request);
@@ -85,14 +85,21 @@ class SignupServiceTest {
         assertThat(deletedUser.getDeletedAt()).isNull();
         assertThat(deletedUser.getDisplayName()).isEqualTo("Rejoined User");
         assertThat(deletedUser.getPassword()).isEqualTo("encoded-new-password");
-        var inOrder = inOrder(verificationCodeService, refreshTokenLifecycleService, userPrivilegeCleanupService, userRepository);
+        var inOrder = inOrder(
+                verificationCodeService,
+                refreshTokenLifecycleService,
+                userPrivilegeCleanupService,
+                passwordHistoryPolicy,
+                userRepository);
         inOrder.verify(verificationCodeService).validateVerificationTicket(
                 request.getEmail(),
                 VerificationPurpose.SIGNUP,
                 request.getVerificationTicket());
+        inOrder.verify(passwordHistoryPolicy).validateNotRecentlyUsed(deletedUser, request.getPassword());
         inOrder.verify(refreshTokenLifecycleService).revokeActiveRefreshTokens(deletedUser);
         inOrder.verify(userPrivilegeCleanupService).removeOperationalPrivileges(deletedUser);
         inOrder.verify(userRepository).save(deletedUser);
+        inOrder.verify(passwordHistoryPolicy).record(deletedUser, "encoded-new-password");
         inOrder.verify(verificationCodeService).consumeValidatedVerificationTicket(
                 request.getEmail(),
                 VerificationPurpose.SIGNUP,
@@ -143,6 +150,40 @@ class SignupServiceTest {
                 anyString(),
                 eq(VerificationPurpose.SIGNUP),
                 anyString());
+    }
+
+    @Test
+    @DisplayName("재가입 비밀번호가 최근 이력이면 토큰 회수와 티켓 소비 전에 거절한다")
+    void signup_reregister_recentPasswordRejectsBeforeSideEffects() {
+        SignupRequest request = SignupRequest.builder()
+                .loginId("testuser")
+                .password("password123")
+                .email("test@example.com")
+                .displayName("Rejoined User")
+                .verificationTicket("ticket-1")
+                .build();
+        User deletedUser = User.builder()
+                .loginId("testuser")
+                .password("old-password")
+                .email("test@example.com")
+                .displayName("Deleted User")
+                .build();
+        ReflectionTestUtils.setField(deletedUser, "status", "DELETED");
+        ReflectionTestUtils.setField(deletedUser, "deletedAt", LocalDateTime.now().minusDays(1));
+
+        when(userRepository.findByEmail(request.getEmail())).thenReturn(Optional.of(deletedUser));
+        doThrow(new BusinessException(ErrorCode.PASSWORD_RECENTLY_USED))
+                .when(passwordHistoryPolicy).validateNotRecentlyUsed(deletedUser, request.getPassword());
+
+        assertThatThrownBy(() -> signupService.signup(request))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.PASSWORD_RECENTLY_USED);
+
+        verify(refreshTokenLifecycleService, never()).revokeActiveRefreshTokens(deletedUser);
+        verify(userPrivilegeCleanupService, never()).removeOperationalPrivileges(deletedUser);
+        verify(userRepository, never()).save(deletedUser);
+        verify(verificationCodeService, never()).consumeValidatedVerificationTicket(anyString(), any(), anyString());
     }
 
     @Test
@@ -206,7 +247,7 @@ class SignupServiceTest {
 
         when(userRepository.findByEmail(request.getEmail())).thenReturn(Optional.empty());
         when(userRepository.existsByLoginId(request.getLoginId())).thenReturn(false);
-        when(passwordEncoder.encode(request.getPassword())).thenReturn("encoded-password");
+        when(passwordHistoryPolicy.encode(request.getPassword())).thenReturn("encoded-password");
         when(userRepository.saveAndFlush(org.mockito.ArgumentMatchers.any(User.class))).thenReturn(savedUser);
         when(userSettingsRepository.save(org.mockito.ArgumentMatchers.any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(globalConfigService.getConfig("POINT_SIGNUP_BONUS")).thenReturn("500");
@@ -242,7 +283,7 @@ class SignupServiceTest {
 
         when(userRepository.findByEmail(request.getEmail())).thenReturn(Optional.empty());
         when(userRepository.existsByLoginId(request.getLoginId())).thenReturn(false);
-        when(passwordEncoder.encode(request.getPassword())).thenReturn("encoded-password");
+        when(passwordHistoryPolicy.encode(request.getPassword())).thenReturn("encoded-password");
         when(userRepository.saveAndFlush(any(User.class))).thenReturn(savedUser);
         when(userSettingsRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(globalConfigService.getConfig("POINT_SIGNUP_BONUS")).thenReturn("invalid");
@@ -272,7 +313,7 @@ class SignupServiceTest {
 
         when(userRepository.findByEmail(request.getEmail())).thenReturn(Optional.empty());
         when(userRepository.existsByLoginId(request.getLoginId())).thenReturn(false);
-        when(passwordEncoder.encode(request.getPassword())).thenReturn("encoded-password");
+        when(passwordHistoryPolicy.encode(request.getPassword())).thenReturn("encoded-password");
         when(userRepository.saveAndFlush(any(User.class))).thenReturn(savedUser);
         when(userSettingsRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(globalConfigService.getConfig("POINT_SIGNUP_BONUS")).thenReturn("0");

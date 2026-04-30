@@ -6,6 +6,7 @@ import com.weedrice.whiteboard.domain.auth.repository.PasswordResetTokenReposito
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.PasswordHistoryRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.domain.user.service.PasswordHistoryPolicy;
 import com.weedrice.whiteboard.global.email.EmailService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -23,6 +24,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
@@ -70,9 +72,11 @@ class AuthPasswordResetMailFlowTest {
                         new AuthMailDeliveryOrchestrationService(emailService),
                         transactionTemplate,
                         tokenHashService);
+        PasswordHistoryPolicy passwordHistoryPolicy =
+                new PasswordHistoryPolicy(passwordHistoryRepository, passwordEncoder);
         passwordResetService = new PasswordResetService(
-                userRepository, passwordEncoder, verificationCodeService, passwordResetTokenRepository,
-                passwordHistoryRepository, refreshTokenLifecycleService, tokenHashService,
+                userRepository, verificationCodeService, passwordResetTokenRepository,
+                passwordHistoryPolicy, refreshTokenLifecycleService, tokenHashService,
                 passwordResetTokenOrchestrationService);
 
         user = User.builder()
@@ -328,7 +332,7 @@ class AuthPasswordResetMailFlowTest {
         var bodyCaptor = forClass(String.class);
         verify(emailService).sendEmail(anyString(), anyString(), bodyCaptor.capture());
         String deliveredRawToken = extractResetToken(bodyCaptor.getValue());
-        when(passwordHistoryRepository.findTop3ByUserOrderByCreatedAtDesc(user)).thenReturn(java.util.List.of());
+        when(passwordHistoryRepository.findTop4ByUserOrderByCreatedAtDescHistoryIdDesc(user)).thenReturn(List.of());
         when(passwordEncoder.matches("newPassword123!", "encodedPassword")).thenReturn(false);
         when(passwordEncoder.encode("newPassword123!")).thenReturn("encodedNewPassword");
 
@@ -482,7 +486,7 @@ class AuthPasswordResetMailFlowTest {
         when(passwordResetTokenRepository.findByTokenForUpdate(anyString())).thenReturn(Optional.of(latestSentToken));
         when(userRepository.findByIdForUpdate(user.getUserId())).thenReturn(Optional.of(user));
         when(passwordResetTokenRepository.findLatestSentByUser(user)).thenReturn(Optional.of(latestSentToken));
-        when(passwordHistoryRepository.findTop3ByUserOrderByCreatedAtDesc(user)).thenReturn(java.util.List.of());
+        when(passwordHistoryRepository.findTop4ByUserOrderByCreatedAtDescHistoryIdDesc(user)).thenReturn(List.of());
         when(passwordEncoder.matches("newPassword123!", "encodedPassword")).thenReturn(false);
         when(passwordEncoder.encode("newPassword123!")).thenReturn("encodedNewPassword");
 

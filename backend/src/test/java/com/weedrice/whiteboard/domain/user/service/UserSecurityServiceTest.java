@@ -52,10 +52,12 @@ class UserSecurityServiceTest {
     @BeforeEach
     void setUp() {
         UserWritableResolver userWritableResolver = new UserWritableResolver(userRepository, sanctionService);
+        PasswordHistoryPolicy passwordHistoryPolicy =
+                new PasswordHistoryPolicy(passwordHistoryRepository, passwordEncoder);
         userSecurityService = new UserSecurityService(
                 userRepository,
-                passwordHistoryRepository,
                 passwordEncoder,
+                passwordHistoryPolicy,
                 refreshTokenLifecycleService,
                 verificationCodeService,
                 emailEligibilityService,
@@ -71,7 +73,7 @@ class UserSecurityServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("old", "encodedOld")).thenReturn(true);
         when(passwordEncoder.matches("new", "encodedOld")).thenReturn(false);
-        when(passwordHistoryRepository.findTop3ByUserOrderByCreatedAtDesc(user)).thenReturn(Collections.emptyList());
+        when(passwordHistoryRepository.findTop4ByUserOrderByCreatedAtDescHistoryIdDesc(user)).thenReturn(Collections.emptyList());
         when(passwordEncoder.encode("new")).thenReturn("encodedNew");
 
         userSecurityService.updatePassword(1L, "old", "new");
@@ -90,7 +92,7 @@ class UserSecurityServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("old", "encodedOld")).thenReturn(true);
         when(passwordEncoder.matches("new", "encodedOld")).thenReturn(false);
-        when(passwordHistoryRepository.findTop3ByUserOrderByCreatedAtDesc(user)).thenReturn(List.of(history));
+        when(passwordHistoryRepository.findTop4ByUserOrderByCreatedAtDescHistoryIdDesc(user)).thenReturn(List.of(history));
         when(passwordEncoder.matches("new", "encodedRecent")).thenReturn(true);
 
         assertThatThrownBy(() -> userSecurityService.updatePassword(1L, "old", "new"))
