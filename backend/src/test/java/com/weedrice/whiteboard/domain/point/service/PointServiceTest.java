@@ -318,6 +318,59 @@ class PointServiceTest {
         verify(pointHistoryRepository).findByUserAndTypeOrderByCreatedAtDesc(user, type, pageable);
     }
 
+    @Test
+    @DisplayName("포인트 내역 조회는 타입을 정규화한다")
+    void getPointHistories_normalizesType() {
+        Long userId = 1L;
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(0, 10);
+        org.springframework.data.domain.Page<PointHistory> historyPage = new org.springframework.data.domain.PageImpl<>(
+                java.util.Collections.emptyList(), pageable, 0);
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(pointHistoryRepository.findByUserAndTypeOrderByCreatedAtDesc(user, "SPEND", pageable))
+                .thenReturn(historyPage);
+
+        com.weedrice.whiteboard.domain.point.dto.PointHistoryResponse response =
+                pointService.getPointHistories(userId, " spend ", pageable);
+
+        assertThat(response).isNotNull();
+        verify(pointHistoryRepository).findByUserAndTypeOrderByCreatedAtDesc(user, "SPEND", pageable);
+    }
+
+    @Test
+    @DisplayName("포인트 내역 조회는 빈 타입을 전체 조회로 처리한다")
+    void getPointHistories_blankType_returnsAll() {
+        Long userId = 1L;
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(0, 10);
+        org.springframework.data.domain.Page<PointHistory> historyPage = new org.springframework.data.domain.PageImpl<>(
+                java.util.Collections.emptyList(), pageable, 0);
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(pointHistoryRepository.findByUserOrderByCreatedAtDesc(user, pageable)).thenReturn(historyPage);
+
+        com.weedrice.whiteboard.domain.point.dto.PointHistoryResponse response =
+                pointService.getPointHistories(userId, "   ", pageable);
+
+        assertThat(response).isNotNull();
+        verify(pointHistoryRepository).findByUserOrderByCreatedAtDesc(user, pageable);
+        verify(pointHistoryRepository, never()).findByUserAndTypeOrderByCreatedAtDesc(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("포인트 내역 조회는 지원하지 않는 타입을 거절한다")
+    void getPointHistories_invalidType_throwsInvalidInput() {
+        Long userId = 1L;
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(0, 10);
+
+        assertThatThrownBy(() -> pointService.getPointHistories(userId, "bonus", pageable))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+
+        verify(pointHistoryRepository, never()).findByUserAndTypeOrderByCreatedAtDesc(any(), any(), any());
+        verify(pointHistoryRepository, never()).findByUserOrderByCreatedAtDesc(any(), any());
+    }
+
     private int[] invalidAmounts() {
         return new int[] {0, -1, Integer.MIN_VALUE};
     }

@@ -3,6 +3,8 @@ package com.weedrice.whiteboard.domain.point.controller;
 import com.weedrice.whiteboard.domain.point.dto.PointHistoryResponse;
 import com.weedrice.whiteboard.domain.point.dto.UserPointResponse;
 import com.weedrice.whiteboard.domain.point.service.PointService;
+import com.weedrice.whiteboard.global.exception.BusinessException;
+import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -149,5 +151,20 @@ class PointControllerTest {
                 .andExpect(status().isBadRequest());
 
         verify(pointService, never()).getPointHistories(anyLong(), any(), any());
+    }
+
+    @Test
+    @DisplayName("내 포인트 히스토리 조회는 지원하지 않는 타입을 400으로 처리한다")
+    void getMyPointHistories_invalidType_returnsBadRequest() throws Exception {
+        when(pointService.getPointHistories(eq(1L), eq("bonus"), any()))
+                .thenThrow(new BusinessException(ErrorCode.INVALID_INPUT_VALUE));
+
+        mockMvc.perform(get("/api/v1/points/me/history")
+                        .param("type", "bonus")
+                        .with(user(customUserDetails))
+                        .with(csrf()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.error.code").value(ErrorCode.INVALID_INPUT_VALUE.getCode()));
     }
 }

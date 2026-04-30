@@ -18,6 +18,9 @@ import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Locale;
+import java.util.Set;
+
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -27,6 +30,10 @@ public class PointService {
         private static final String HISTORY_TYPE_EARN = "EARN";
         private static final String HISTORY_TYPE_PENALTY = "PENALTY";
         private static final String HISTORY_TYPE_SPEND = "SPEND";
+        private static final Set<String> HISTORY_TYPES = Set.of(
+                        HISTORY_TYPE_EARN,
+                        HISTORY_TYPE_PENALTY,
+                        HISTORY_TYPE_SPEND);
 
         private final UserPointRepository userPointRepository;
         private final PointHistoryRepository pointHistoryRepository;
@@ -43,11 +50,12 @@ public class PointService {
         }
 
         public PointHistoryResponse getPointHistories(@NonNull Long userId, String type, @NonNull Pageable pageable) {
+                String normalizedType = normalizeHistoryType(type);
                 User user = userRepository.findById(userId)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
                 Page<PointHistory> historyPage;
-                if (type != null && !type.isEmpty()) {
-                        historyPage = pointHistoryRepository.findByUserAndTypeOrderByCreatedAtDesc(user, type, pageable);
+                if (normalizedType != null) {
+                        historyPage = pointHistoryRepository.findByUserAndTypeOrderByCreatedAtDesc(user, normalizedType, pageable);
                 } else {
                         historyPage = pointHistoryRepository.findByUserOrderByCreatedAtDesc(user, pageable);
                 }
@@ -137,6 +145,18 @@ public class PointService {
                 if (balanceAfter > Integer.MAX_VALUE || balanceAfter < Integer.MIN_VALUE) {
                         throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
                 }
+        }
+
+        private String normalizeHistoryType(String type) {
+                if (type == null || type.isBlank()) {
+                        return null;
+                }
+
+                String normalizedType = type.trim().toUpperCase(Locale.ROOT);
+                if (!HISTORY_TYPES.contains(normalizedType)) {
+                        throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+                }
+                return normalizedType;
         }
 
         private void ensureUserExists(Long userId) {
