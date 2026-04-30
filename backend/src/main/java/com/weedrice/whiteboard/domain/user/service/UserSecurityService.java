@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.user.service;
 
 import com.weedrice.whiteboard.domain.auth.entity.VerificationPurpose;
+import com.weedrice.whiteboard.domain.auth.service.EmailEligibilityService;
 import com.weedrice.whiteboard.domain.auth.service.RefreshTokenLifecycleService;
 import com.weedrice.whiteboard.domain.auth.service.VerificationCodeService;
 import com.weedrice.whiteboard.domain.user.entity.PasswordHistory;
@@ -28,6 +29,7 @@ public class UserSecurityService {
     private final PasswordEncoder passwordEncoder;
     private final RefreshTokenLifecycleService refreshTokenLifecycleService;
     private final VerificationCodeService verificationCodeService;
+    private final EmailEligibilityService emailEligibilityService;
     private final EntityManager entityManager;
     private final UserWritableResolver userWritableResolver;
 
@@ -65,11 +67,7 @@ public class UserSecurityService {
         User user = userWritableResolver.resolve(userId);
 
         if (!user.getEmail().equals(email)) {
-            userRepository.findByEmail(email).ifPresent(other -> {
-                if (!other.getUserId().equals(user.getUserId())) {
-                    throw new BusinessException(ErrorCode.DUPLICATE_EMAIL);
-                }
-            });
+            emailEligibilityService.validateChangeEmail(email, user);
         }
 
         verificationCodeService.validateVerificationTicket(

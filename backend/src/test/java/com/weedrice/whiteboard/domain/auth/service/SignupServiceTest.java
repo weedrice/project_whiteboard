@@ -45,6 +45,7 @@ class SignupServiceTest {
     @Mock private UserSettingsRepository userSettingsRepository;
     @Mock private SocialAccountLinkService socialAccountLinkService;
     @Mock private VerificationCodeService verificationCodeService;
+    @Mock private EmailEligibilityService emailEligibilityService;
     @Mock private GlobalConfigService globalConfigService;
     @Mock private EntityManager entityManager;
     @Mock private RefreshTokenLifecycleService refreshTokenLifecycleService;

@@ -38,6 +38,7 @@ public class SignupService {
     private final UserSettingsRepository userSettingsRepository;
     private final SocialAccountLinkService socialAccountLinkService;
     private final VerificationCodeService verificationCodeService;
+    private final EmailEligibilityService emailEligibilityService;
     private final GlobalConfigService globalConfigService;
     private final EntityManager entityManager;
     private final RefreshTokenLifecycleService refreshTokenLifecycleService;
@@ -45,17 +46,12 @@ public class SignupService {
 
     @Transactional
     public SignupResponse signup(SignupRequest request) {
-        var existingUserOpt = userRepository.findByEmail(request.getEmail());
+        emailEligibilityService.validateSignupEmail(request.getEmail());
 
-        if (existingUserOpt.isPresent()) {
-            User existingUser = existingUserOpt.get();
-            if ("ACTIVE".equals(existingUser.getStatus())) {
-                throw new BusinessException(ErrorCode.DUPLICATE_EMAIL);
-            }
-            if ("DELETED".equals(existingUser.getStatus())) {
-                return reregister(existingUser, request);
-            }
-            throw new BusinessException(ErrorCode.DUPLICATE_EMAIL);
+        var reregisterableUser = userRepository.findByEmail(request.getEmail())
+                .filter(existingUser -> "DELETED".equals(existingUser.getStatus()));
+        if (reregisterableUser.isPresent()) {
+            return reregister(reregisterableUser.get(), request);
         }
 
         if (userRepository.existsByLoginId(request.getLoginId())) {

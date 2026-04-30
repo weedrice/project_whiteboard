@@ -26,6 +26,7 @@ public class VerificationCodeService {
 
     private final VerificationCodeRepository verificationCodeRepository;
     private final UserRepository userRepository;
+    private final EmailEligibilityService emailEligibilityService;
     private final AuthMailDeliveryOrchestrationService mailDeliveryOrchestrationService;
     private final TransactionTemplate transactionTemplate;
 
@@ -146,34 +147,12 @@ public class VerificationCodeService {
 
     private void validateEmailForPurpose(String email, VerificationPurpose purpose, Long currentUserId) {
         if (purpose == VerificationPurpose.SIGNUP) {
-            validateSignupEmail(email);
+            emailEligibilityService.validateSignupEmail(email);
             return;
         }
         if (purpose == VerificationPurpose.CHANGE_EMAIL) {
-            validateChangeEmail(email, currentUserId);
+            emailEligibilityService.validateChangeEmail(email, currentUserId);
         }
-    }
-
-    private void validateSignupEmail(String email) {
-        userRepository.findByEmail(email).ifPresent(other -> {
-            if ("ACTIVE".equals(other.getStatus()) && Boolean.TRUE.equals(other.getIsEmailVerified())) {
-                throw new BusinessException(ErrorCode.DUPLICATE_EMAIL);
-            }
-        });
-    }
-
-    private void validateChangeEmail(String email, Long currentUserId) {
-        if (currentUserId == null) {
-            throw new BusinessException(ErrorCode.UNAUTHORIZED);
-        }
-
-        userRepository.findByEmail(email).ifPresent(other -> {
-            if (!other.getUserId().equals(currentUserId)
-                    && "ACTIVE".equals(other.getStatus())
-                    && Boolean.TRUE.equals(other.getIsEmailVerified())) {
-                throw new BusinessException(ErrorCode.DUPLICATE_EMAIL);
-            }
-        });
     }
 
     private Long createPendingVerificationCode(

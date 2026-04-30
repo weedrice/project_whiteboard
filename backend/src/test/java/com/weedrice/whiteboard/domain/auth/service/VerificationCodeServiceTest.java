@@ -112,6 +112,7 @@ class VerificationCodeServiceTest {
         verificationCodeService = new VerificationCodeService(
                 verificationCodeRepository,
                 userRepository,
+                new EmailEligibilityService(userRepository),
                 new AuthMailDeliveryOrchestrationService(emailService),
                 transactionTemplate);
     }
@@ -168,6 +169,41 @@ class VerificationCodeServiceTest {
         assertThat(verificationCodes.values()).hasSize(1);
         VerificationCode verificationCode = verificationCodes.values().iterator().next();
         assertThat(verificationCode.getDeliveryStatus()).isEqualTo(VerificationCode.DELIVERY_STATUS_FAILED);
+    }
+
+    @Test
+    @DisplayName("SIGNUP verification rejects active unverified email like final signup")
+    void sendVerificationCode_rejectsActiveUnverifiedSignupEmail() {
+        User user = User.builder().email("test@example.com").build();
+        ReflectionTestUtils.setField(user, "status", "ACTIVE");
+        ReflectionTestUtils.setField(user, "isEmailVerified", false);
+        when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> verificationCodeService.sendVerificationCode(
+                "test@example.com",
+                VerificationPurpose.SIGNUP,
+                null))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.DUPLICATE_EMAIL);
+    }
+
+    @Test
+    @DisplayName("CHANGE_EMAIL verification rejects any other account email")
+    void sendVerificationCode_rejectsOtherUserEmailForChangeEmail() {
+        User other = User.builder().email("next@example.com").build();
+        ReflectionTestUtils.setField(other, "userId", 2L);
+        ReflectionTestUtils.setField(other, "status", "DELETED");
+        ReflectionTestUtils.setField(other, "isEmailVerified", false);
+        when(userRepository.findByEmail("next@example.com")).thenReturn(Optional.of(other));
+
+        assertThatThrownBy(() -> verificationCodeService.sendVerificationCode(
+                "next@example.com",
+                VerificationPurpose.CHANGE_EMAIL,
+                1L))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.DUPLICATE_EMAIL);
     }
 
     @Test

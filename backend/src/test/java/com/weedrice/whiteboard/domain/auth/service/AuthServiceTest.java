@@ -98,6 +98,7 @@ class AuthServiceTest {
     @Mock private EntityManager entityManager;
     @Mock private RefreshTokenLifecycleService refreshTokenLifecycleService;
     @Mock private UserPrivilegeCleanupService userPrivilegeCleanupService;
+    @Mock private EmailEligibilityService emailEligibilityService;
 
     private AuthService authService;
     private User user;
@@ -124,8 +125,8 @@ class AuthServiceTest {
                 passwordResetTokenOrchestrationService);
         SignupService signupService = new SignupService(
                 userRepository, pointService, passwordEncoder, userSettingsRepository,
-                socialAccountLinkService, verificationCodeService, globalConfigService, entityManager,
-                refreshTokenLifecycleService, userPrivilegeCleanupService);
+                socialAccountLinkService, verificationCodeService, emailEligibilityService, globalConfigService,
+                entityManager, refreshTokenLifecycleService, userPrivilegeCleanupService);
         authService = new AuthService(signupService, sessionTokenService, passwordResetService);
 
         user = User.builder()
