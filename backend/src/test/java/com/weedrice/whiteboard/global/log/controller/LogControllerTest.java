@@ -1,6 +1,6 @@
 package com.weedrice.whiteboard.global.log.controller;
 
-import com.weedrice.whiteboard.global.log.dto.LogResponse;
+import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.log.entity.Log;
 import com.weedrice.whiteboard.global.log.service.LogService;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
@@ -17,11 +17,14 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MockMvc;
+import org.mockito.ArgumentCaptor;
 
 import java.util.Collections;
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -92,5 +95,32 @@ class LogControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.content[0].actionType").value("TEST"));
+    }
+
+    @Test
+    @DisplayName("로그 목록 조회는 공통 페이지 최대 크기를 적용한다")
+    void getLogs_clampsPageSize() throws Exception {
+        when(logService.getLogs(any(Pageable.class))).thenReturn(new PageImpl<>(List.of()));
+
+        mockMvc.perform(get("/api/v1/admin/logs")
+                        .param("size", "1000")
+                        .with(user(adminUser))
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk());
+
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(logService).getLogs(pageableCaptor.capture());
+        assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(100);
+    }
+
+    @Test
+    @DisplayName("로그 목록 조회는 잘못된 페이지 요청을 검증 오류로 응답한다")
+    void getLogs_rejectsInvalidPageRequest() throws Exception {
+        mockMvc.perform(get("/api/v1/admin/logs")
+                        .param("page", "-1")
+                        .with(user(adminUser))
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value(ErrorCode.VALIDATION_ERROR.getCode()));
     }
 }

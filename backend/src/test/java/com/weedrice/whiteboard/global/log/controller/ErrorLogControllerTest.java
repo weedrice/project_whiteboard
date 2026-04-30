@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.global.log.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.log.dto.ErrorLogResolveRequest;
 import com.weedrice.whiteboard.global.log.dto.ErrorLogResponse;
 import com.weedrice.whiteboard.global.log.dto.ErrorLogSearchRequest;
@@ -14,6 +15,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
@@ -32,6 +34,7 @@ import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -125,6 +128,34 @@ class ErrorLogControllerTest {
                 .andExpect(jsonPath("$.data.content[0].httpStatus").value(500))
                 .andExpect(jsonPath("$.data.totalElements").value(1))
                 .andExpect(jsonPath("$.data.totalPages").value(1));
+    }
+
+    @Test
+    @DisplayName("에러 로그 목록 조회는 공통 페이지 최대 크기를 적용한다")
+    void getErrorLogs_clampsPageSize() throws Exception {
+        Page<ErrorLog> emptyPage = new PageImpl<>(Collections.emptyList());
+        when(errorLogService.getErrorLogs(any(ErrorLogSearchRequest.class), any(Pageable.class))).thenReturn(emptyPage);
+
+        mockMvc.perform(get("/api/v1/admin/error-logs")
+                .param("size", "1000")
+                .with(user(customUserDetails))
+                .with(csrf()))
+                .andExpect(status().isOk());
+
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(errorLogService).getErrorLogs(any(ErrorLogSearchRequest.class), pageableCaptor.capture());
+        assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(100);
+    }
+
+    @Test
+    @DisplayName("에러 로그 목록 조회는 잘못된 페이지 요청을 검증 오류로 응답한다")
+    void getErrorLogs_rejectsInvalidPageRequest() throws Exception {
+        mockMvc.perform(get("/api/v1/admin/error-logs")
+                .param("size", "0")
+                .with(user(customUserDetails))
+                .with(csrf()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value(ErrorCode.VALIDATION_ERROR.getCode()));
     }
 
     @Test
