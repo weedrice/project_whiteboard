@@ -14,6 +14,7 @@ import com.weedrice.whiteboard.domain.comment.entity.QComment;
 import com.weedrice.whiteboard.domain.post.entity.QPost;
 import com.weedrice.whiteboard.domain.user.dto.UserAdminSearchCondition;
 import com.weedrice.whiteboard.domain.user.entity.QUser;
+import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -22,8 +23,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.util.StringUtils;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -34,6 +37,9 @@ import java.util.stream.Collectors;
 
 @RequiredArgsConstructor
 public class UserRepositoryCustomImpl implements UserRepositoryCustom {
+
+    private static final String ADMIN_ROLE_ADMIN = "ADMIN";
+    private static final String ADMIN_ROLE_MODERATOR = "MODERATOR";
 
     private final JPAQueryFactory queryFactory;
 
@@ -133,6 +139,7 @@ public class UserRepositoryCustomImpl implements UserRepositoryCustom {
 
     private BooleanBuilder buildPredicate(QUser user, String keyword, UserAdminSearchCondition condition) {
         BooleanBuilder builder = new BooleanBuilder();
+        AdminSearchFilters filters = AdminSearchFilters.from(condition);
 
         if (StringUtils.hasText(keyword)) {
             builder.and(user.displayName.containsIgnoreCase(keyword)
@@ -140,71 +147,51 @@ public class UserRepositoryCustomImpl implements UserRepositoryCustom {
                     .or(user.email.containsIgnoreCase(keyword)));
         }
 
-        if (condition == null) {
+        if (filters.empty()) {
             return builder;
         }
 
-        if (StringUtils.hasText(condition.getStatus())) {
-            builder.and(user.status.eq(condition.getStatus()));
+        if (StringUtils.hasText(filters.status())) {
+            builder.and(user.status.eq(filters.status()));
         }
 
-        if (condition.getIsEmailVerified() != null) {
-            builder.and(user.isEmailVerified.eq(condition.getIsEmailVerified()));
+        if (filters.isEmailVerified() != null) {
+            builder.and(user.isEmailVerified.eq(filters.isEmailVerified()));
         }
 
-        if (condition.getIsSuperAdmin() != null) {
-            builder.and(user.isSuperAdmin.eq(condition.getIsSuperAdmin()));
+        if (filters.isSuperAdmin() != null) {
+            builder.and(user.isSuperAdmin.eq(filters.isSuperAdmin()));
         }
 
-        if (condition.getIsWithdrawn() != null) {
-            if (Boolean.TRUE.equals(condition.getIsWithdrawn())) {
-                builder.and(user.status.eq("DELETED").or(user.deletedAt.isNotNull()));
+        if (filters.isWithdrawn() != null) {
+            if (Boolean.TRUE.equals(filters.isWithdrawn())) {
+                builder.and(user.status.eq(User.STATUS_DELETED).or(user.deletedAt.isNotNull()));
             } else {
-                builder.and(user.status.ne("DELETED").and(user.deletedAt.isNull()));
+                builder.and(user.status.ne(User.STATUS_DELETED).and(user.deletedAt.isNull()));
             }
         }
 
-        if (condition.getCreatedFrom() != null) {
-            builder.and(user.createdAt.goe(condition.getCreatedFrom()));
+        if (filters.createdFrom() != null) {
+            builder.and(user.createdAt.goe(filters.createdFrom()));
         }
 
-        if (condition.getCreatedTo() != null) {
-            builder.and(user.createdAt.lt(condition.getCreatedTo()));
+        if (filters.createdTo() != null) {
+            builder.and(user.createdAt.lt(filters.createdTo()));
         }
 
-        if (condition.getLastLoginFrom() != null) {
-            builder.and(user.lastLoginAt.goe(condition.getLastLoginFrom()));
+        if (filters.lastLoginFrom() != null) {
+            builder.and(user.lastLoginAt.goe(filters.lastLoginFrom()));
         }
 
-        if (condition.getLastLoginTo() != null) {
-            builder.and(user.lastLoginAt.lt(condition.getLastLoginTo()));
+        if (filters.lastLoginTo() != null) {
+            builder.and(user.lastLoginAt.lt(filters.lastLoginTo()));
         }
 
-        if (condition.getMinActivityCount() != null) {
-            builder.and(totalActivityCountExpression(user).goe(condition.getMinActivityCount()));
+        if (filters.minActivityCount() != null) {
+            builder.and(totalActivityCountExpression(user).goe(filters.minActivityCount()));
         }
 
-        if (StringUtils.hasText(condition.getRole())) {
-            String role = condition.getRole().trim().toUpperCase(Locale.ROOT);
-            switch (role) {
-                case "SUPER_ADMIN":
-                    builder.and(user.isSuperAdmin.isTrue());
-                    break;
-                case "USER":
-                    builder.and(user.isSuperAdmin.isFalse())
-                            .and(hasActiveAdmin(user).not());
-                    break;
-                case "BOARD_ADMIN":
-                case "MODERATOR":
-                    builder.and(hasActiveAdminRole(user, role));
-                    break;
-                case "ADMIN":
-                    builder.and(hasActiveAdmin(user));
-                    break;
-                default:
-                    break;
-            }
-        }
+        applyRoleFilter(builder, user, filters.role());
 
         return builder;
     }
@@ -212,87 +199,116 @@ public class UserRepositoryCustomImpl implements UserRepositoryCustom {
     private NativeAdminQueryParts buildNativeAdminQueryParts(String keyword, UserAdminSearchCondition condition) {
         List<String> clauses = new ArrayList<>();
         Map<String, Object> params = new LinkedHashMap<>();
+        AdminSearchFilters filters = AdminSearchFilters.from(condition);
 
         if (StringUtils.hasText(keyword)) {
             clauses.add("(lower(u.display_name) like :keyword or lower(u.login_id) like :keyword or lower(u.email) like :keyword)");
             params.put("keyword", "%" + keyword.toLowerCase(Locale.ROOT) + "%");
         }
 
-        if (condition != null) {
-            if (StringUtils.hasText(condition.getStatus())) {
+        if (!filters.empty()) {
+            if (StringUtils.hasText(filters.status())) {
                 clauses.add("u.status = :status");
-                params.put("status", condition.getStatus());
+                params.put("status", filters.status());
             }
 
-            if (condition.getIsEmailVerified() != null) {
+            if (filters.isEmailVerified() != null) {
                 clauses.add("u.is_email_verified = :isEmailVerified");
-                params.put("isEmailVerified", Boolean.TRUE.equals(condition.getIsEmailVerified()) ? "Y" : "N");
+                params.put("isEmailVerified", Boolean.TRUE.equals(filters.isEmailVerified()) ? "Y" : "N");
             }
 
-            if (condition.getIsSuperAdmin() != null) {
+            if (filters.isSuperAdmin() != null) {
                 clauses.add("u.is_super_admin = :isSuperAdmin");
-                params.put("isSuperAdmin", Boolean.TRUE.equals(condition.getIsSuperAdmin()) ? "Y" : "N");
+                params.put("isSuperAdmin", Boolean.TRUE.equals(filters.isSuperAdmin()) ? "Y" : "N");
             }
 
-            if (condition.getIsWithdrawn() != null) {
-                if (Boolean.TRUE.equals(condition.getIsWithdrawn())) {
+            if (filters.isWithdrawn() != null) {
+                if (Boolean.TRUE.equals(filters.isWithdrawn())) {
                     clauses.add("(u.status = 'DELETED' or u.deleted_at is not null)");
                 } else {
                     clauses.add("(u.status <> 'DELETED' and u.deleted_at is null)");
                 }
             }
 
-            if (condition.getCreatedFrom() != null) {
+            if (filters.createdFrom() != null) {
                 clauses.add("u.created_at >= :createdFrom");
-                params.put("createdFrom", condition.getCreatedFrom());
+                params.put("createdFrom", filters.createdFrom());
             }
 
-            if (condition.getCreatedTo() != null) {
+            if (filters.createdTo() != null) {
                 clauses.add("u.created_at < :createdTo");
-                params.put("createdTo", condition.getCreatedTo());
+                params.put("createdTo", filters.createdTo());
             }
 
-            if (condition.getLastLoginFrom() != null) {
+            if (filters.lastLoginFrom() != null) {
                 clauses.add("u.last_login_at >= :lastLoginFrom");
-                params.put("lastLoginFrom", condition.getLastLoginFrom());
+                params.put("lastLoginFrom", filters.lastLoginFrom());
             }
 
-            if (condition.getLastLoginTo() != null) {
+            if (filters.lastLoginTo() != null) {
                 clauses.add("u.last_login_at < :lastLoginTo");
-                params.put("lastLoginTo", condition.getLastLoginTo());
+                params.put("lastLoginTo", filters.lastLoginTo());
             }
 
-            if (condition.getMinActivityCount() != null) {
+            if (filters.minActivityCount() != null) {
                 clauses.add("coalesce(ac.activity_count, 0) >= :minActivityCount");
-                params.put("minActivityCount", condition.getMinActivityCount());
+                params.put("minActivityCount", filters.minActivityCount());
             }
 
-            if (StringUtils.hasText(condition.getRole())) {
-                String role = condition.getRole().trim().toUpperCase(Locale.ROOT);
-                switch (role) {
-                    case "SUPER_ADMIN":
-                        clauses.add("u.is_super_admin = 'Y'");
-                        break;
-                    case "USER":
-                        clauses.add("u.is_super_admin = 'N'");
-                        clauses.add("not exists (select 1 from admins a where a.user_id = u.user_id and a.is_active = 'Y')");
-                        break;
-                    case "BOARD_ADMIN":
-                    case "MODERATOR":
-                        clauses.add("exists (select 1 from admins a where a.user_id = u.user_id and a.is_active = 'Y' and a.role = :role)");
-                        params.put("role", role);
-                        break;
-                    case "ADMIN":
-                        clauses.add("exists (select 1 from admins a where a.user_id = u.user_id and a.is_active = 'Y')");
-                        break;
-                    default:
-                        break;
-                }
-            }
+            applyNativeRoleFilter(clauses, params, filters.role());
         }
 
         String whereClause = clauses.isEmpty() ? "" : " where " + String.join(" and ", clauses);
         return new NativeAdminQueryParts(whereClause, params);
+    }
+
+    private void applyRoleFilter(BooleanBuilder builder, QUser user, String role) {
+        if (!StringUtils.hasText(role)) {
+            return;
+        }
+        switch (role) {
+            case Role.SUPER_ADMIN:
+                builder.and(user.isSuperAdmin.isTrue());
+                break;
+            case Role.USER:
+                builder.and(user.isSuperAdmin.isFalse())
+                        .and(hasActiveAdmin(user).not());
+                break;
+            case Role.BOARD_ADMIN:
+            case ADMIN_ROLE_MODERATOR:
+                builder.and(hasActiveAdminRole(user, role));
+                break;
+            case ADMIN_ROLE_ADMIN:
+                builder.and(hasActiveAdmin(user));
+                break;
+            default:
+                break;
+        }
+    }
+
+    private void applyNativeRoleFilter(List<String> clauses, Map<String, Object> params, String role) {
+        if (!StringUtils.hasText(role)) {
+            return;
+        }
+        switch (role) {
+            case Role.SUPER_ADMIN:
+                clauses.add("u.is_super_admin = 'Y'");
+                break;
+            case Role.USER:
+                clauses.add("u.is_super_admin = 'N'");
+                clauses.add("not exists (select 1 from admins a where a.user_id = u.user_id and a.is_active = 'Y')");
+                break;
+            case Role.BOARD_ADMIN:
+            case ADMIN_ROLE_MODERATOR:
+                clauses.add("exists (select 1 from admins a where a.user_id = u.user_id and a.is_active = 'Y' and a.role = :role)");
+                params.put("role", role);
+                break;
+            case ADMIN_ROLE_ADMIN:
+                clauses.add("exists (select 1 from admins a where a.user_id = u.user_id and a.is_active = 'Y')");
+                break;
+            default:
+                break;
+        }
     }
 
     private NumberExpression<Long> totalActivityCountExpression(QUser user) {
@@ -377,26 +393,16 @@ public class UserRepositoryCustomImpl implements UserRepositoryCustom {
         List<String> orderBy = new ArrayList<>();
         boolean hasUserIdOrder = false;
 
-        for (org.springframework.data.domain.Sort.Order sort : pageable.getSort()) {
+        for (Sort.Order sort : pageable.getSort()) {
             String direction = sort.isAscending() ? "asc" : "desc";
-            String column = switch (sort.getProperty()) {
-                case "userId" -> "u.user_id";
-                case "createdAt" -> "u.created_at";
-                case "lastLoginAt" -> "u.last_login_at";
-                case "loginId" -> "u.login_id";
-                case "displayName" -> "u.display_name";
-                case "status" -> "u.status";
-                case "isEmailVerified" -> "u.is_email_verified";
-                case "isSuperAdmin" -> "u.is_super_admin";
-                default -> null;
-            };
-            if (column == null) {
+            AdminUserSort sortMapping = AdminUserSort.fromProperty(sort.getProperty());
+            if (sortMapping == null) {
                 continue;
             }
-            if ("userId".equals(sort.getProperty())) {
+            if (sortMapping == AdminUserSort.USER_ID) {
                 hasUserIdOrder = true;
             }
-            orderBy.add(column + " " + direction);
+            orderBy.add(sortMapping.nativeColumn() + " " + direction);
         }
 
         if (orderBy.isEmpty()) {
@@ -439,32 +445,36 @@ public class UserRepositoryCustomImpl implements UserRepositoryCustom {
         List<OrderSpecifier<?>> orderSpecifiers = new ArrayList<>();
         boolean hasUserIdOrder = false;
 
-        for (org.springframework.data.domain.Sort.Order sort : pageable.getSort()) {
+        for (Sort.Order sort : pageable.getSort()) {
             Order direction = sort.getDirection().isAscending() ? Order.ASC : Order.DESC;
-            switch (sort.getProperty()) {
-                case "userId":
+            AdminUserSort sortMapping = AdminUserSort.fromProperty(sort.getProperty());
+            if (sortMapping == null) {
+                continue;
+            }
+            switch (sortMapping) {
+                case USER_ID:
                     hasUserIdOrder = true;
                     orderSpecifiers.add(new OrderSpecifier<>(direction, user.userId));
                     break;
-                case "createdAt":
+                case CREATED_AT:
                     orderSpecifiers.add(new OrderSpecifier<>(direction, user.createdAt));
                     break;
-                case "lastLoginAt":
+                case LAST_LOGIN_AT:
                     orderSpecifiers.add(new OrderSpecifier<>(direction, user.lastLoginAt));
                     break;
-                case "loginId":
+                case LOGIN_ID:
                     orderSpecifiers.add(new OrderSpecifier<>(direction, user.loginId));
                     break;
-                case "displayName":
+                case DISPLAY_NAME:
                     orderSpecifiers.add(new OrderSpecifier<>(direction, user.displayName));
                     break;
-                case "status":
+                case STATUS:
                     orderSpecifiers.add(new OrderSpecifier<>(direction, user.status));
                     break;
-                case "isEmailVerified":
+                case IS_EMAIL_VERIFIED:
                     orderSpecifiers.add(new OrderSpecifier<>(direction, user.isEmailVerified));
                     break;
-                case "isSuperAdmin":
+                case IS_SUPER_ADMIN:
                     orderSpecifiers.add(new OrderSpecifier<>(direction, user.isSuperAdmin));
                     break;
                 default:
@@ -479,6 +489,85 @@ public class UserRepositoryCustomImpl implements UserRepositoryCustom {
         }
 
         return orderSpecifiers.toArray(new OrderSpecifier[0]);
+    }
+
+    private record AdminSearchFilters(
+            String status,
+            String role,
+            Boolean isEmailVerified,
+            Boolean isSuperAdmin,
+            Boolean isWithdrawn,
+            LocalDateTime createdFrom,
+            LocalDateTime createdTo,
+            LocalDateTime lastLoginFrom,
+            LocalDateTime lastLoginTo,
+            Long minActivityCount) {
+
+        private static AdminSearchFilters from(UserAdminSearchCondition condition) {
+            if (condition == null) {
+                return new AdminSearchFilters(null, null, null, null, null, null, null, null, null, null);
+            }
+            return new AdminSearchFilters(
+                    condition.getStatus(),
+                    normalizeRole(condition.getRole()),
+                    condition.getIsEmailVerified(),
+                    condition.getIsSuperAdmin(),
+                    condition.getIsWithdrawn(),
+                    condition.getCreatedFrom(),
+                    condition.getCreatedTo(),
+                    condition.getLastLoginFrom(),
+                    condition.getLastLoginTo(),
+                    condition.getMinActivityCount());
+        }
+
+        private boolean empty() {
+            return !StringUtils.hasText(status)
+                    && !StringUtils.hasText(role)
+                    && isEmailVerified == null
+                    && isSuperAdmin == null
+                    && isWithdrawn == null
+                    && createdFrom == null
+                    && createdTo == null
+                    && lastLoginFrom == null
+                    && lastLoginTo == null
+                    && minActivityCount == null;
+        }
+
+        private static String normalizeRole(String role) {
+            return StringUtils.hasText(role) ? role.trim().toUpperCase(Locale.ROOT) : null;
+        }
+    }
+
+    private enum AdminUserSort {
+        USER_ID("userId", "u.user_id"),
+        CREATED_AT("createdAt", "u.created_at"),
+        LAST_LOGIN_AT("lastLoginAt", "u.last_login_at"),
+        LOGIN_ID("loginId", "u.login_id"),
+        DISPLAY_NAME("displayName", "u.display_name"),
+        STATUS("status", "u.status"),
+        IS_EMAIL_VERIFIED("isEmailVerified", "u.is_email_verified"),
+        IS_SUPER_ADMIN("isSuperAdmin", "u.is_super_admin");
+
+        private final String property;
+        private final String nativeColumn;
+
+        AdminUserSort(String property, String nativeColumn) {
+            this.property = property;
+            this.nativeColumn = nativeColumn;
+        }
+
+        private String nativeColumn() {
+            return nativeColumn;
+        }
+
+        private static AdminUserSort fromProperty(String property) {
+            for (AdminUserSort sort : values()) {
+                if (sort.property.equals(property)) {
+                    return sort;
+                }
+            }
+            return null;
+        }
     }
 
     private record NativeAdminQueryParts(String whereClause, Map<String, Object> params) {

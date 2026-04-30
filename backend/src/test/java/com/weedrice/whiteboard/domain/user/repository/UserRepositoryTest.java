@@ -21,6 +21,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -201,6 +202,122 @@ class UserRepositoryTest {
     }
 
     @Test
+    @DisplayName("관리자 사용자 검색은 활동량 집계 경로와 기본 경로의 상태/탈퇴/날짜 필터 의미를 맞춘다")
+    void searchUsersForAdmin_activityPathMatchesQuerydslForStatusWithdrawnAndDateFilters() {
+        LocalDateTime base = LocalDateTime.of(2026, 4, 29, 0, 0);
+        ReflectionTestUtils.setField(user1, "lastLoginAt", base.plusHours(1));
+        ReflectionTestUtils.setField(user3, "lastLoginAt", base.plusHours(2));
+
+        User suspended = User.builder()
+                .loginId("suspended-filter")
+                .displayName("Suspended Filter")
+                .email("suspended-filter@test.com")
+                .password("pass")
+                .build();
+        suspended.suspend();
+        ReflectionTestUtils.setField(suspended, "lastLoginAt", base.plusHours(3));
+
+        User deleted = User.builder()
+                .loginId("deleted-filter")
+                .displayName("Deleted Filter")
+                .email("deleted-filter@test.com")
+                .password("pass")
+                .build();
+        ReflectionTestUtils.setField(deleted, "lastLoginAt", base.plusHours(4));
+        deleted.delete();
+
+        entityManager.persist(suspended);
+        entityManager.persist(deleted);
+        entityManager.flush();
+        entityManager.clear();
+
+        UserAdminSearchCondition querydslCondition = UserAdminSearchCondition.builder()
+                .status(User.STATUS_ACTIVE)
+                .isWithdrawn(false)
+                .lastLoginFrom(base)
+                .lastLoginTo(base.plusDays(1))
+                .build();
+        UserAdminSearchCondition nativeCondition = UserAdminSearchCondition.builder()
+                .status(User.STATUS_ACTIVE)
+                .isWithdrawn(false)
+                .lastLoginFrom(base)
+                .lastLoginTo(base.plusDays(1))
+                .minActivityCount(0L)
+                .build();
+
+        Page<User> querydslResult = userRepository.searchUsersForAdmin(
+                null,
+                querydslCondition,
+                PageRequest.of(0, 10, Sort.by(Sort.Direction.ASC, "displayName")));
+        Page<User> nativeResult = userRepository.searchUsersForAdmin(
+                null,
+                nativeCondition,
+                PageRequest.of(0, 10, Sort.by(Sort.Direction.ASC, "displayName")));
+
+        assertSameOrderedUsers(nativeResult, querydslResult);
+        assertThat(nativeResult.getContent()).extracting(User::getLoginId)
+                .containsExactly("another", "testuser1");
+    }
+
+    @Test
+    @DisplayName("관리자 사용자 검색은 활동량 집계 경로와 기본 경로의 역할 필터 의미를 맞춘다")
+    void searchUsersForAdmin_activityPathMatchesQuerydslForRoleFilters() {
+        User superAdmin = User.builder()
+                .loginId("super-filter")
+                .displayName("Super Filter")
+                .email("super-filter@test.com")
+                .password("pass")
+                .build();
+        superAdmin.grantSuperAdminRole();
+
+        entityManager.persist(superAdmin);
+        entityManager.persist(Admin.builder().user(user3).board(board).role("MODERATOR").build());
+        entityManager.flush();
+        entityManager.clear();
+
+        UserAdminSearchCondition querydslCondition = UserAdminSearchCondition.builder()
+                .role(" moderator ")
+                .build();
+        UserAdminSearchCondition nativeCondition = UserAdminSearchCondition.builder()
+                .role(" moderator ")
+                .minActivityCount(0L)
+                .build();
+
+        Page<User> querydslResult = userRepository.searchUsersForAdmin(
+                null,
+                querydslCondition,
+                PageRequest.of(0, 10, Sort.by(Sort.Direction.ASC, "displayName")));
+        Page<User> nativeResult = userRepository.searchUsersForAdmin(
+                null,
+                nativeCondition,
+                PageRequest.of(0, 10, Sort.by(Sort.Direction.ASC, "displayName")));
+
+        assertSameOrderedUsers(nativeResult, querydslResult);
+        assertThat(nativeResult.getContent()).extracting(User::getLoginId)
+                .containsExactly("another");
+    }
+
+    @Test
+    @DisplayName("관리자 사용자 검색은 활동량 집계 경로와 기본 경로의 정렬 fallback 의미를 맞춘다")
+    void searchUsersForAdmin_activityPathMatchesQuerydslForSortFallback() {
+        UserAdminSearchCondition querydslCondition = UserAdminSearchCondition.builder()
+                .role("UNKNOWN")
+                .build();
+        UserAdminSearchCondition nativeCondition = UserAdminSearchCondition.builder()
+                .role("UNKNOWN")
+                .minActivityCount(0L)
+                .build();
+        PageRequest pageable = PageRequest.of(0, 10, Sort.by(Sort.Direction.ASC, "unknown"));
+
+        Page<User> querydslResult = userRepository.searchUsersForAdmin(null, querydslCondition, pageable);
+        Page<User> nativeResult = userRepository.searchUsersForAdmin(null, nativeCondition, pageable);
+
+        assertSameOrderedUsers(nativeResult, querydslResult);
+        assertThat(nativeResult.getContent()).extracting(User::getUserId)
+                .isSortedAccordingTo(Comparator.reverseOrder());
+    }
+
+    @Test
     @DisplayName("관리자 대시보드 사용자 집계는 ACTIVE 이고 삭제되지 않은 사용자만 포함한다")
     void countActiveUsersForAdminDashboard_filtersSuspendedAndDeletedUsers() {
         LocalDateTime since = LocalDateTime.now().minusDays(1);
@@ -316,5 +433,11 @@ class UserRepositoryTest {
         List<User> result = userRepository.findUsableSuperAdminsForUpdate();
 
         assertThat(result).extracting(User::getLoginId).containsExactly("usable-super-lock");
+    }
+
+    private void assertSameOrderedUsers(Page<User> actual, Page<User> expected) {
+        assertThat(actual.getTotalElements()).isEqualTo(expected.getTotalElements());
+        assertThat(actual.getContent()).extracting(User::getUserId)
+                .containsExactlyElementsOf(expected.getContent().stream().map(User::getUserId).toList());
     }
 }
