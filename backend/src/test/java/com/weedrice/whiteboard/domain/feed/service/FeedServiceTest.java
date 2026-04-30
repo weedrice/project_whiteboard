@@ -75,7 +75,7 @@ class FeedServiceTest {
         postSummaries.put(101L, firstPost);
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        when(userBlockService.getBlockedUserIds(userId)).thenReturn(List.of());
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(userId)).thenReturn(List.of());
         when(userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(user, List.of(), pageable)).thenReturn(feedPage);
         when(postService.getPostSummariesByIds(List.of(101L, 202L), userId)).thenReturn(postSummaries);
 
@@ -103,7 +103,7 @@ class FeedServiceTest {
         PostSummary validPost = PostSummary.builder().postId(202L).title("valid").build();
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        when(userBlockService.getBlockedUserIds(userId)).thenReturn(List.of());
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(userId)).thenReturn(List.of());
         when(userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(user, List.of(), pageable)).thenReturn(feedPage);
         when(postService.getPostSummariesByIds(List.of(101L, 202L), userId)).thenReturn(Map.of(202L, validPost));
 
@@ -126,7 +126,7 @@ class FeedServiceTest {
         Page<UserFeed> feedPage = new PageImpl<>(List.of(feed), pageable, 1);
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        when(userBlockService.getBlockedUserIds(userId)).thenReturn(List.of());
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(userId)).thenReturn(List.of());
         when(userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(user, List.of(), pageable)).thenReturn(feedPage);
 
         FeedResponse response = feedService.getUserFeeds(userId, pageable);
@@ -136,8 +136,8 @@ class FeedServiceTest {
     }
 
     @Test
-    @DisplayName("Invisible POST feeds are excluded before response metadata is calculated")
-    void getUserFeeds_usesVisibleFeedPageMetadata() {
+    @DisplayName("Either-direction blocked POST feeds are excluded before response metadata is calculated")
+    void getUserFeeds_usesEitherDirectionBlockedUserIdsForVisibleFeedPage() {
         Long userId = 1L;
         User user = User.builder().build();
         Pageable pageable = PageRequest.of(0, 10);
@@ -148,7 +148,7 @@ class FeedServiceTest {
         PostSummary validPost = PostSummary.builder().postId(101L).title("first").build();
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        when(userBlockService.getBlockedUserIds(userId)).thenReturn(List.of(99L));
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(userId)).thenReturn(List.of(99L));
         when(userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(user, List.of(99L), pageable)).thenReturn(feedPage);
         when(postService.getPostSummariesByIds(List.of(101L), userId)).thenReturn(Map.of(101L, validPost));
 
@@ -176,7 +176,7 @@ class FeedServiceTest {
         Page<UserFeed> feedPage = new PageImpl<>(List.of(), pageable, 0);
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        when(userBlockService.getBlockedUserIds(userId)).thenReturn(List.of());
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(userId)).thenReturn(List.of());
         when(userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(user, List.of(), pageable)).thenReturn(feedPage);
 
         FeedResponse response = feedService.getUserFeeds(userId, pageable);

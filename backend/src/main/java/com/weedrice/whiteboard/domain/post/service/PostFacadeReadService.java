@@ -129,7 +129,7 @@ public class PostFacadeReadService {
             return Collections.emptySet();
         }
 
-        List<Long> blockedUserIds = userBlockService.getBlockedUserIds(currentUserId);
+        List<Long> blockedUserIds = userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(currentUserId);
         if (blockedUserIds == null || blockedUserIds.isEmpty()) {
             return Collections.emptySet();
         }

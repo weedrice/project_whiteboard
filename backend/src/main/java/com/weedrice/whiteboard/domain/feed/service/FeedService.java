@@ -35,7 +35,7 @@ public class FeedService {
     public FeedResponse getUserFeeds(Long userId, Pageable pageable) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        List<Long> blockedUserIds = userBlockService.getBlockedUserIds(userId);
+        List<Long> blockedUserIds = userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(userId);
         Page<UserFeed> feedPage = userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(user, blockedUserIds, pageable);
         Map<Long, PostSummary> postSummariesById = resolvePostSummaries(feedPage, userId);
         List<UserFeed> resolvableFeeds = filterResolvableFeeds(feedPage, postSummariesById, userId);

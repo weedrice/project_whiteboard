@@ -2487,7 +2487,7 @@ class PostServiceTest {
         Admin admin = Admin.builder().user(user).board(adminBoard).role("MANAGER").build();
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(userBlockService.getBlockedUserIds(1L)).thenReturn(Collections.emptyList());
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
         when(postRepository.findByPostIdInAndIsDeletedFalse(List.of(100L, 200L)))
                 .thenReturn(List.of(adminPost, privatePost));
         when(adminRepository.findByUserAndBoard_BoardIdInAndIsActive(user, List.of(10L, 20L), true))
@@ -2509,7 +2509,7 @@ class PostServiceTest {
         Post creatorPost = createPost(100L, creatorBoard, createUser(2L, "author"), true);
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(userBlockService.getBlockedUserIds(1L)).thenReturn(Collections.emptyList());
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
         when(postRepository.findByPostIdInAndIsDeletedFalse(List.of(100L))).thenReturn(List.of(creatorPost));
         stubSummaryInteractions(user, List.of(creatorPost));
 
@@ -2531,7 +2531,7 @@ class PostServiceTest {
         Post privatePost = createPost(100L, privateBoard, privateBoard.getCreator(), true);
 
         when(userRepository.findById(3L)).thenReturn(Optional.of(superAdmin));
-        when(userBlockService.getBlockedUserIds(3L)).thenReturn(Collections.emptyList());
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(3L)).thenReturn(Collections.emptyList());
         when(postRepository.findByPostIdInAndIsDeletedFalse(List.of(100L))).thenReturn(List.of(privatePost));
         stubSummaryInteractions(superAdmin, List.of(privatePost));
 
@@ -2545,14 +2545,14 @@ class PostServiceTest {
     }
 
     @Test
-    @DisplayName("Feed summary lookup filters blocked authors")
-    void getPostSummariesByIds_blockedAuthorExcluded() {
+    @DisplayName("Feed summary lookup filters either-direction blocked authors")
+    void getPostSummariesByIds_eitherDirectionBlockedAuthorExcluded() {
         User author = createUser(2L, "blocked-author");
         Board publicBoard = createBoard(10L, "free", author, true, true);
         Post blockedPost = createPost(100L, publicBoard, author, false);
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(userBlockService.getBlockedUserIds(1L)).thenReturn(List.of(2L));
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(List.of(2L));
         when(postRepository.findByPostIdInAndIsDeletedFalse(List.of(100L))).thenReturn(List.of(blockedPost));
 
         Map<Long, PostSummary> summaries = postService.getPostSummariesByIds(List.of(100L), 1L);
@@ -2573,7 +2573,7 @@ class PostServiceTest {
         Post publicPost = createPost(100L, publicBoard, author, false);
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(userBlockService.getBlockedUserIds(1L)).thenReturn(Collections.emptyList());
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
         when(postRepository.findByPostIdInAndIsDeletedFalse(List.of(100L))).thenReturn(List.of(publicPost));
         stubSummaryInteractions(user, List.of(publicPost));
 
