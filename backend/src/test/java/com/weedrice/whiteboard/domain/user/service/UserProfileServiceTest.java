@@ -61,14 +61,15 @@ class UserProfileServiceTest {
     @BeforeEach
     void setUp() {
         UserWritableResolver userWritableResolver = new UserWritableResolver(userRepository, sanctionService);
+        CurrentUserSummaryAssembler currentUserSummaryAssembler =
+                new CurrentUserSummaryAssembler(userPointRepository, userSettingsRepository);
         userProfileService = new UserProfileService(
                 userRepository,
-                userSettingsRepository,
+                currentUserSummaryAssembler,
                 commentRepository,
                 displayNameHistoryRepository,
                 postRepository,
                 fileService,
-                userPointRepository,
                 agentLifecycleService,
                 passwordEncoder,
                 refreshTokenLifecycleService,

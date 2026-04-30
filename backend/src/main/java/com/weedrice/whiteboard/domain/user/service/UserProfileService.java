@@ -10,10 +10,8 @@ import com.weedrice.whiteboard.domain.user.dto.UpdateProfileResponse;
 import com.weedrice.whiteboard.domain.user.dto.UserProfileResponse;
 import com.weedrice.whiteboard.domain.user.entity.DisplayNameHistory;
 import com.weedrice.whiteboard.domain.user.entity.User;
-import com.weedrice.whiteboard.domain.user.entity.UserSettings;
 import com.weedrice.whiteboard.domain.user.repository.DisplayNameHistoryRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
-import com.weedrice.whiteboard.domain.user.repository.UserSettingsRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -26,15 +24,12 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class UserProfileService {
 
-    private static final String DEFAULT_THEME = "LIGHT";
-
     private final UserRepository userRepository;
-    private final UserSettingsRepository userSettingsRepository;
+    private final CurrentUserSummaryAssembler currentUserSummaryAssembler;
     private final CommentRepository commentRepository;
     private final DisplayNameHistoryRepository displayNameHistoryRepository;
     private final PostRepository postRepository;
     private final FileService fileService;
-    private final com.weedrice.whiteboard.domain.point.repository.UserPointRepository userPointRepository;
     private final AgentLifecycleService agentLifecycleService;
     private final PasswordEncoder passwordEncoder;
     private final RefreshTokenLifecycleService refreshTokenLifecycleService;
@@ -50,42 +45,22 @@ public class UserProfileService {
     public MyInfoResponse getMyInfo(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-
-        String role = Boolean.TRUE.equals(user.getIsSuperAdmin())
-                ? com.weedrice.whiteboard.domain.user.entity.Role.SUPER_ADMIN
-                : com.weedrice.whiteboard.domain.user.entity.Role.USER;
-        Integer points = userPointRepository.findById(user.getUserId())
-                .map(com.weedrice.whiteboard.domain.point.entity.UserPoint::getCurrentPoint)
-                .orElse(0);
+        CurrentUserSummaryAssembler.CurrentUserSummary userSummary = currentUserSummaryAssembler.assemble(user);
 
         return MyInfoResponse.builder()
-                .userId(user.getUserId())
-                .loginId(user.getLoginId())
-                .email(user.getEmail())
-                .displayName(user.getDisplayName())
-                .profileImageUrl(user.getProfileImageUrl())
-                .status(user.getStatus())
-                .role(role)
-                .theme(resolveTheme(user.getUserId()))
-                .isEmailVerified(user.getIsEmailVerified())
-                .createdAt(user.getCreatedAt())
-                .lastLoginAt(user.getLastLoginAt())
-                .points(points)
+                .userId(userSummary.userId())
+                .loginId(userSummary.loginId())
+                .email(userSummary.email())
+                .displayName(userSummary.displayName())
+                .profileImageUrl(userSummary.profileImageUrl())
+                .status(userSummary.status())
+                .role(userSummary.role())
+                .theme(userSummary.theme())
+                .isEmailVerified(userSummary.isEmailVerified())
+                .createdAt(userSummary.createdAt())
+                .lastLoginAt(userSummary.lastLoginAt())
+                .points(userSummary.points())
                 .build();
-    }
-
-    private String resolveTheme(Long userId) {
-        return userSettingsRepository.findById(userId)
-                .map(UserSettings::getTheme)
-                .map(this::normalizeTheme)
-                .orElse(DEFAULT_THEME);
-    }
-
-    private String normalizeTheme(String theme) {
-        if ("DARK".equalsIgnoreCase(theme)) {
-            return "DARK";
-        }
-        return DEFAULT_THEME;
     }
 
     public UserProfileResponse getUserProfile(Long userId) {

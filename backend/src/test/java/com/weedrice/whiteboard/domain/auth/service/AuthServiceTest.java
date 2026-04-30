@@ -20,6 +20,7 @@ import com.weedrice.whiteboard.domain.user.entity.UserSettings;
 import com.weedrice.whiteboard.domain.user.repository.PasswordHistoryRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserSettingsRepository;
+import com.weedrice.whiteboard.domain.user.service.CurrentUserSummaryAssembler;
 import com.weedrice.whiteboard.domain.user.service.PasswordHistoryPolicy;
 import com.weedrice.whiteboard.domain.user.service.SocialAccountLinkService;
 import com.weedrice.whiteboard.domain.user.service.UserPrivilegeCleanupService;
@@ -113,8 +114,10 @@ class AuthServiceTest {
         TokenHashService tokenHashService = new TokenHashService();
         LoginAccountEligibilityService loginAccountEligibilityService =
                 new LoginAccountEligibilityService(sanctionPolicyService);
+        CurrentUserSummaryAssembler currentUserSummaryAssembler =
+                new CurrentUserSummaryAssembler(userPointRepository, userSettingsRepository);
         SessionTokenService sessionTokenService = new SessionTokenService(
-                userRepository, userPointRepository, userSettingsRepository, jwtTokenProvider, authenticationManagerBuilder,
+                userRepository, currentUserSummaryAssembler, jwtTokenProvider, authenticationManagerBuilder,
                 refreshTokenRepository, loginHistoryRepository, sanctionService, tokenHashService,
                 loginHistoryAuditService, loginAccountEligibilityService);
         PasswordResetTokenOrchestrationService passwordResetTokenOrchestrationService =

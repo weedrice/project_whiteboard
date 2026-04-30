@@ -9,14 +9,11 @@ import com.weedrice.whiteboard.domain.auth.entity.RefreshToken;
 import com.weedrice.whiteboard.domain.auth.service.LoginAccountEligibilityService.LoginAccountEligibility;
 import com.weedrice.whiteboard.domain.auth.repository.LoginHistoryRepository;
 import com.weedrice.whiteboard.domain.auth.repository.RefreshTokenRepository;
-import com.weedrice.whiteboard.domain.point.entity.UserPoint;
-import com.weedrice.whiteboard.domain.point.repository.UserPointRepository;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.User;
-import com.weedrice.whiteboard.domain.user.entity.UserSettings;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
-import com.weedrice.whiteboard.domain.user.repository.UserSettingsRepository;
+import com.weedrice.whiteboard.domain.user.service.CurrentUserSummaryAssembler;
 import com.weedrice.whiteboard.global.common.util.ClientUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -49,12 +46,10 @@ import java.util.Set;
 @Transactional(readOnly = true)
 public class SessionTokenService {
 
-    private static final String DEFAULT_THEME = "LIGHT";
     private static final String FAILURE_REASON_AUTHENTICATION_FAILED = "AUTHENTICATION_FAILED";
 
     private final UserRepository userRepository;
-    private final UserPointRepository userPointRepository;
-    private final UserSettingsRepository userSettingsRepository;
+    private final CurrentUserSummaryAssembler currentUserSummaryAssembler;
     private final JwtTokenProvider jwtTokenProvider;
     private final AuthenticationManagerBuilder authenticationManagerBuilder;
     private final RefreshTokenRepository refreshTokenRepository;
@@ -107,22 +102,21 @@ public class SessionTokenService {
         loginHistoryRepository.save(loginHistory);
 
         user.updateLastLogin();
+        CurrentUserSummaryAssembler.CurrentUserSummary userSummary = currentUserSummaryAssembler.assemble(user);
 
         return LoginResult.builder()
                 .accessToken(issuedTokens.getAccessToken())
                 .refreshToken(issuedTokens.getRefreshToken())
                 .expiresIn(issuedTokens.getExpiresIn())
                 .user(LoginResponse.UserInfo.builder()
-                        .userId(user.getUserId())
-                        .loginId(user.getLoginId())
-                        .displayName(user.getDisplayName())
-                        .profileImageUrl(user.getProfileImageUrl())
-                        .isEmailVerified(user.getIsEmailVerified())
-                        .role(user.getIsSuperAdmin() ? Role.SUPER_ADMIN : Role.USER)
-                        .theme(resolveTheme(user.getUserId()))
-                        .points(userPointRepository.findById(user.getUserId())
-                                .map(UserPoint::getCurrentPoint)
-                                .orElse(0))
+                        .userId(userSummary.userId())
+                        .loginId(userSummary.loginId())
+                        .displayName(userSummary.displayName())
+                        .profileImageUrl(userSummary.profileImageUrl())
+                        .isEmailVerified(Boolean.TRUE.equals(userSummary.isEmailVerified()))
+                        .role(userSummary.role())
+                        .theme(userSummary.theme())
+                        .points(userSummary.points())
                         .build())
                 .build();
     }
@@ -218,20 +212,6 @@ public class SessionTokenService {
                 .refreshToken(refreshToken)
                 .expiresIn(jwtTokenProvider.getAccessTokenValidityInMilliseconds())
                 .build();
-    }
-
-    private String resolveTheme(Long userId) {
-        return userSettingsRepository.findById(userId)
-                .map(UserSettings::getTheme)
-                .map(this::normalizeTheme)
-                .orElse(DEFAULT_THEME);
-    }
-
-    private String normalizeTheme(String theme) {
-        if ("DARK".equalsIgnoreCase(theme)) {
-            return "DARK";
-        }
-        return DEFAULT_THEME;
     }
 
     private void recordLoginFailure(
