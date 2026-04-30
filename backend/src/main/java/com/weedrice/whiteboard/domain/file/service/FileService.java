@@ -12,6 +12,7 @@ import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.service.PostAccessPolicy;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.domain.user.service.UserBlockService;
 import com.weedrice.whiteboard.global.common.util.FileStorageService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -55,6 +56,7 @@ public class FileService {
     private final BoardRepository boardRepository;
     private final PostRepository postRepository;
     private final PostAccessPolicy postAccessPolicy;
+    private final UserBlockService userBlockService;
     private final FileStorageService fileStorageService;
     private final TransactionTemplate transactionTemplate;
     @PersistenceContext
@@ -446,7 +448,9 @@ public class FileService {
             case RELATED_TYPE_POST_CONTENT -> {
                 Post post = postRepository.findById(file.getRelatedId())
                         .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
-                postAccessPolicy.validateReadable(post, resolveViewer(viewerUserId));
+                User viewer = resolveViewer(viewerUserId);
+                boolean authorBlocked = isAuthorBlocked(post, viewer);
+                postAccessPolicy.validateReadable(post, viewer, authorBlocked);
             }
             case RELATED_TYPE_USER_PROFILE,
                     RELATED_TYPE_BOARD_ICON,
@@ -473,6 +477,19 @@ public class FileService {
         }
         return userRepository.findById(viewerUserId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+    }
+
+    private boolean isAuthorBlocked(Post post, User viewer) {
+        if (post == null || post.getUser() == null || viewer == null) {
+            return false;
+        }
+        Long authorUserId = post.getUser().getUserId();
+        Long viewerUserId = viewer.getUserId();
+        if (authorUserId == null || viewerUserId == null) {
+            return false;
+        }
+        List<Long> blockedUserIds = userBlockService.getBlockedUserIds(viewerUserId);
+        return blockedUserIds != null && blockedUserIds.contains(authorUserId);
     }
 
     private String detectImageMimeType(MultipartFile multipartFile) {

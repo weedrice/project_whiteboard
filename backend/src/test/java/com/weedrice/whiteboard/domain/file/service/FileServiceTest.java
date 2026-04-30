@@ -11,6 +11,7 @@ import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.service.PostAccessPolicy;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.domain.user.service.UserBlockService;
 import com.weedrice.whiteboard.global.common.util.FileStorageService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -54,6 +55,8 @@ class FileServiceTest {
     private PostRepository postRepository;
     @Mock
     private PostAccessPolicy postAccessPolicy;
+    @Mock
+    private UserBlockService userBlockService;
     @Mock
     private FileStorageService fileStorageService;
     @Mock
@@ -499,7 +502,12 @@ class FileServiceTest {
     void getFileForDownload_validatesPostAccessForPostContent() {
         User uploader = User.builder().build();
         User viewer = User.builder().build();
-        Post post = Post.builder().build();
+        ReflectionTestUtils.setField(viewer, "userId", 1L);
+        User author = User.builder().build();
+        ReflectionTestUtils.setField(author, "userId", 2L);
+        Post post = Post.builder()
+                .user(author)
+                .build();
         File file = File.builder()
                 .filePath("storedFileName.jpg")
                 .originalName("test.jpg")
@@ -513,11 +521,44 @@ class FileServiceTest {
         when(fileRepository.findByFileIdAndStorageStatus(10L, FileStorageStatus.ACTIVE)).thenReturn(Optional.of(file));
         when(postRepository.findById(100L)).thenReturn(Optional.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(viewer));
+        when(userBlockService.getBlockedUserIds(1L)).thenReturn(List.of());
 
         File result = fileService.getFileForDownload(10L, 1L);
 
         assertThat(result).isSameAs(file);
-        verify(postAccessPolicy).validateReadable(post, viewer);
+        verify(postAccessPolicy).validateReadable(post, viewer, false);
+    }
+
+    @Test
+    @DisplayName("게시글 첨부 다운로드는 차단한 작성자 여부를 게시글 읽기 정책에 전달한다")
+    void getFileForDownload_passesAuthorBlockedForPostContent() {
+        User uploader = User.builder().build();
+        User viewer = User.builder().build();
+        ReflectionTestUtils.setField(viewer, "userId", 1L);
+        User author = User.builder().build();
+        ReflectionTestUtils.setField(author, "userId", 2L);
+        Post post = Post.builder()
+                .user(author)
+                .build();
+        File file = File.builder()
+                .filePath("storedFileName.jpg")
+                .originalName("test.jpg")
+                .fileSize(4L)
+                .mimeType("image/jpeg")
+                .uploader(uploader)
+                .relatedId(100L)
+                .relatedType(FileService.RELATED_TYPE_POST_CONTENT)
+                .build();
+
+        when(fileRepository.findByFileIdAndStorageStatus(10L, FileStorageStatus.ACTIVE)).thenReturn(Optional.of(file));
+        when(postRepository.findById(100L)).thenReturn(Optional.of(post));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(viewer));
+        when(userBlockService.getBlockedUserIds(1L)).thenReturn(List.of(2L));
+
+        File result = fileService.getFileForDownload(10L, 1L);
+
+        assertThat(result).isSameAs(file);
+        verify(postAccessPolicy).validateReadable(post, viewer, true);
     }
 
     @Test
