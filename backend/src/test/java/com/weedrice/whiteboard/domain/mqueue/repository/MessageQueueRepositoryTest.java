@@ -139,6 +139,34 @@ class MessageQueueRepositoryTest {
                 .containsExactly(first.getQueueId(), second.getQueueId(), third.getQueueId());
     }
 
+    @Test
+    @DisplayName("pending email queue lookup excludes unsupported delivery methods")
+    void findByStatusAndRetryCountLessThanAndDeliveryMethod_filtersEmailMessages() {
+        User user = persistUser();
+        persistMessageQueue(
+                user,
+                "push",
+                "PUSH",
+                LocalDateTime.of(2026, 4, 22, 12, 0));
+        MessageQueue email = persistMessageQueue(
+                user,
+                "email",
+                "EMAIL",
+                LocalDateTime.of(2026, 4, 22, 13, 0));
+
+        entityManager.flush();
+        entityManager.clear();
+
+        List<MessageQueue> messages = messageQueueRepository.findByStatusAndRetryCountLessThanAndDeliveryMethod(
+                "PENDING",
+                MessageQueuePolicy.MAX_RETRY_COUNT,
+                "EMAIL",
+                PageRequest.of(0, 10, Sort.by(Sort.Order.asc("requestedAt"), Sort.Order.asc("queueId"))));
+
+        assertThat(messages).extracting(MessageQueue::getQueueId)
+                .containsExactly(email.getQueueId());
+    }
+
     private MessageQueue persistMessageQueue() {
         User user = persistUser();
         MessageQueue message = MessageQueue.builder()
@@ -162,9 +190,13 @@ class MessageQueueRepositoryTest {
     }
 
     private MessageQueue persistMessageQueue(User user, String content, LocalDateTime requestedAt) {
+        return persistMessageQueue(user, content, "EMAIL", requestedAt);
+    }
+
+    private MessageQueue persistMessageQueue(User user, String content, String deliveryMethod, LocalDateTime requestedAt) {
         MessageQueue message = MessageQueue.builder()
                 .targetUser(user)
-                .deliveryMethod("EMAIL")
+                .deliveryMethod(deliveryMethod)
                 .content(content)
                 .build();
         ReflectionTestUtils.setField(message, "requestedAt", requestedAt);

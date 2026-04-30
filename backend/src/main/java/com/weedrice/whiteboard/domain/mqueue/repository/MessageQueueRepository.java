@@ -18,6 +18,11 @@ import java.util.Optional;
 public interface MessageQueueRepository extends JpaRepository<MessageQueue, Long> {
     List<MessageQueue> findByStatusAndRetryCountLessThan(String status, int retryCount);
     List<MessageQueue> findByStatusAndRetryCountLessThan(String status, int retryCount, Pageable pageable);
+    List<MessageQueue> findByStatusAndRetryCountLessThanAndDeliveryMethod(
+            String status,
+            int retryCount,
+            String deliveryMethod,
+            Pageable pageable);
 
     @EntityGraph(attributePaths = "targetUser")
     @Query("select m from MessageQueue m where m.queueId = :queueId")

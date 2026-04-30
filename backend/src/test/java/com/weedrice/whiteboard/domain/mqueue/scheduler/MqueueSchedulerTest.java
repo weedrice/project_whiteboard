@@ -43,8 +43,8 @@ class MqueueSchedulerTest {
     void processMessageQueue_recoversStaleMessagesFirst() {
         when(messageQueueRepository.recoverStaleProcessingMessages(any(), eq(MessageQueuePolicy.MAX_RETRY_COUNT)))
                 .thenReturn(2);
-        when(messageQueueRepository.findByStatusAndRetryCountLessThan(
-                eq("PENDING"), eq(MessageQueuePolicy.MAX_RETRY_COUNT), any(Pageable.class)))
+        when(messageQueueRepository.findByStatusAndRetryCountLessThanAndDeliveryMethod(
+                eq("PENDING"), eq(MessageQueuePolicy.MAX_RETRY_COUNT), eq("EMAIL"), any(Pageable.class)))
                 .thenReturn(List.of());
 
         mqueueScheduler.processMessageQueue();
@@ -52,8 +52,8 @@ class MqueueSchedulerTest {
         var inOrder = inOrder(messageQueueRepository);
         inOrder.verify(messageQueueRepository)
                 .recoverStaleProcessingMessages(any(), eq(MessageQueuePolicy.MAX_RETRY_COUNT));
-        inOrder.verify(messageQueueRepository).findByStatusAndRetryCountLessThan(
-                eq("PENDING"), eq(MessageQueuePolicy.MAX_RETRY_COUNT), any(Pageable.class));
+        inOrder.verify(messageQueueRepository).findByStatusAndRetryCountLessThanAndDeliveryMethod(
+                eq("PENDING"), eq(MessageQueuePolicy.MAX_RETRY_COUNT), eq("EMAIL"), any(Pageable.class));
     }
 
     @Test
@@ -61,15 +61,15 @@ class MqueueSchedulerTest {
     void processMessageQueue_usesStableFifoPageRequest() {
         when(messageQueueRepository.recoverStaleProcessingMessages(any(), eq(MessageQueuePolicy.MAX_RETRY_COUNT)))
                 .thenReturn(0);
-        when(messageQueueRepository.findByStatusAndRetryCountLessThan(
-                eq("PENDING"), eq(MessageQueuePolicy.MAX_RETRY_COUNT), any(Pageable.class)))
+        when(messageQueueRepository.findByStatusAndRetryCountLessThanAndDeliveryMethod(
+                eq("PENDING"), eq(MessageQueuePolicy.MAX_RETRY_COUNT), eq("EMAIL"), any(Pageable.class)))
                 .thenReturn(List.of());
 
         mqueueScheduler.processMessageQueue();
 
         var pageableCaptor = forClass(Pageable.class);
-        verify(messageQueueRepository).findByStatusAndRetryCountLessThan(
-                eq("PENDING"), eq(MessageQueuePolicy.MAX_RETRY_COUNT), pageableCaptor.capture());
+        verify(messageQueueRepository).findByStatusAndRetryCountLessThanAndDeliveryMethod(
+                eq("PENDING"), eq(MessageQueuePolicy.MAX_RETRY_COUNT), eq("EMAIL"), pageableCaptor.capture());
 
         Pageable pageable = pageableCaptor.getValue();
         assertThat(pageable.getPageNumber()).isZero();
@@ -85,17 +85,18 @@ class MqueueSchedulerTest {
     }
 
     @Test
-    @DisplayName("scheduler skips non-email messages")
-    void processMessageQueue_skipsNonEmailMessages() {
-        MessageQueue message = buildMessageQueue(1L, "PUSH");
+    @DisplayName("scheduler queries only email messages")
+    void processMessageQueue_queriesOnlyEmailMessages() {
         when(messageQueueRepository.recoverStaleProcessingMessages(any(), eq(MessageQueuePolicy.MAX_RETRY_COUNT)))
                 .thenReturn(0);
-        when(messageQueueRepository.findByStatusAndRetryCountLessThan(
-                eq("PENDING"), eq(MessageQueuePolicy.MAX_RETRY_COUNT), any(Pageable.class)))
-                .thenReturn(List.of(message));
+        when(messageQueueRepository.findByStatusAndRetryCountLessThanAndDeliveryMethod(
+                eq("PENDING"), eq(MessageQueuePolicy.MAX_RETRY_COUNT), eq("EMAIL"), any(Pageable.class)))
+                .thenReturn(List.of());
 
         mqueueScheduler.processMessageQueue();
 
+        verify(messageQueueRepository).findByStatusAndRetryCountLessThanAndDeliveryMethod(
+                eq("PENDING"), eq(MessageQueuePolicy.MAX_RETRY_COUNT), eq("EMAIL"), any(Pageable.class));
         verify(messageQueueRepository, never()).claimForProcessing(any(), any(Integer.class), any());
         verify(mqueueService, never()).sendEmail(any());
     }
@@ -106,8 +107,8 @@ class MqueueSchedulerTest {
         MessageQueue message = buildMessageQueue(1L, "EMAIL");
         when(messageQueueRepository.recoverStaleProcessingMessages(any(), eq(MessageQueuePolicy.MAX_RETRY_COUNT)))
                 .thenReturn(0);
-        when(messageQueueRepository.findByStatusAndRetryCountLessThan(
-                eq("PENDING"), eq(MessageQueuePolicy.MAX_RETRY_COUNT), any(Pageable.class)))
+        when(messageQueueRepository.findByStatusAndRetryCountLessThanAndDeliveryMethod(
+                eq("PENDING"), eq(MessageQueuePolicy.MAX_RETRY_COUNT), eq("EMAIL"), any(Pageable.class)))
                 .thenReturn(List.of(message));
         when(messageQueueRepository.claimForProcessing(eq(1L), eq(MessageQueuePolicy.MAX_RETRY_COUNT), any()))
                 .thenReturn(1);

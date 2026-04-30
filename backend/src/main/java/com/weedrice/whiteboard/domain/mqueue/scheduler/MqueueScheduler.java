@@ -35,14 +35,10 @@ public class MqueueScheduler {
                 0,
                 50,
                 Sort.by(Sort.Order.asc("requestedAt"), Sort.Order.asc("queueId")));
-        List<MessageQueue> pendingMessages = messageQueueRepository.findByStatusAndRetryCountLessThan(
-                "PENDING", MessageQueuePolicy.MAX_RETRY_COUNT, pendingPageRequest);
+        List<MessageQueue> pendingMessages = messageQueueRepository.findByStatusAndRetryCountLessThanAndDeliveryMethod(
+                "PENDING", MessageQueuePolicy.MAX_RETRY_COUNT, "EMAIL", pendingPageRequest);
 
         for (MessageQueue message : pendingMessages) {
-            if (!"EMAIL".equals(message.getDeliveryMethod())) {
-                continue;
-            }
-
             int claimed = messageQueueRepository.claimForProcessing(
                     message.getQueueId(),
                     MessageQueuePolicy.MAX_RETRY_COUNT,
