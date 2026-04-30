@@ -12,6 +12,7 @@ import com.weedrice.whiteboard.domain.post.service.PostAccessPolicy;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
+import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
 import com.weedrice.whiteboard.global.common.util.FileStorageService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -50,6 +51,8 @@ class FileServiceTest {
     @Mock
     private UserRepository userRepository;
     @Mock
+    private UserWritableResolver userWritableResolver;
+    @Mock
     private BoardRepository boardRepository;
     @Mock
     private PostRepository postRepository;
@@ -80,7 +83,7 @@ class FileServiceTest {
                 .uploader(uploader)
                 .build();
 
-        when(userRepository.findById(uploaderId)).thenReturn(Optional.of(uploader));
+        when(userWritableResolver.resolve(uploaderId)).thenReturn(uploader);
         when(fileStorageService.storeFile(multipartFile)).thenReturn("storedFileName.jpg");
         when(transactionTemplate.execute(any())).thenAnswer(invocation -> {
             org.springframework.transaction.support.TransactionCallback<File> callback = invocation.getArgument(0);
@@ -96,6 +99,25 @@ class FileServiceTest {
     }
 
     @Test
+    @DisplayName("업로드 권한이 없는 사용자는 스토리지 저장 전에 거절한다")
+    void uploadFile_rejectsUnwritableUploaderBeforeStorage() {
+        Long uploaderId = 1L;
+        byte[] jpegHeader = new byte[] {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, (byte) 0xD9};
+        MultipartFile multipartFile = new MockMultipartFile("file", "test.jpg", "image/jpeg", jpegHeader);
+
+        when(userWritableResolver.resolve(uploaderId))
+                .thenThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE));
+
+        assertThatThrownBy(() -> fileService.uploadFile(uploaderId, multipartFile))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_ACTIVE);
+
+        verify(fileStorageService, never()).storeFile(any());
+        verify(transactionTemplate, never()).execute(any());
+        verify(fileRepository, never()).save(any());
+    }
+
+    @Test
     @DisplayName("SVG 파일 업로드 차단")
     void uploadFile_rejectSvg() {
         Long uploaderId = 1L;
@@ -105,6 +127,8 @@ class FileServiceTest {
         assertThatThrownBy(() -> fileService.uploadFile(uploaderId, multipartFile))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_FILE_TYPE);
+        verify(userWritableResolver, never()).resolve(any());
+        verify(fileStorageService, never()).storeFile(any());
     }
 
     @Test

@@ -13,6 +13,7 @@ import com.weedrice.whiteboard.domain.post.service.PostAccessPolicy;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
+import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
 import com.weedrice.whiteboard.global.common.util.FileStorageService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -53,6 +54,7 @@ public class FileService {
 
     private final FileRepository fileRepository;
     private final UserRepository userRepository;
+    private final UserWritableResolver userWritableResolver;
     private final BoardRepository boardRepository;
     private final PostRepository postRepository;
     private final PostAccessPolicy postAccessPolicy;
@@ -99,13 +101,11 @@ public class FileService {
             throw new BusinessException(ErrorCode.INVALID_FILE_TYPE);
         }
 
+        User uploader = userWritableResolver.resolve(uploaderId);
         String storedFileName = fileStorageService.storeFile(multipartFile);
 
         try {
             return transactionTemplate.execute(status -> {
-                User uploader = userRepository.findById(uploaderId)
-                        .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-
                 File file = File.builder()
                         .filePath(storedFileName)
                         .originalName(multipartFile.getOriginalFilename())
