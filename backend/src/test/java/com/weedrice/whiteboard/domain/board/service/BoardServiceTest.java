@@ -23,8 +23,10 @@ import com.weedrice.whiteboard.domain.post.repository.DraftPostRepository;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.service.PostLatestReadService;
 import com.weedrice.whiteboard.domain.post.service.PostService;
+import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
 import com.weedrice.whiteboard.domain.point.service.PointService;
 import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
 import com.weedrice.whiteboard.global.common.util.SecurityUtils;
@@ -103,6 +105,8 @@ class BoardServiceTest {
     private AdminEligibleUserService adminEligibleUserService;
     @Mock
     private BoardManagerAssignmentService boardManagerAssignmentService;
+    @Mock
+    private SanctionService sanctionService;
     private BoardResponseReadService boardResponseReadService;
     private BoardResponseAssembler boardResponseAssembler;
 
@@ -144,7 +148,7 @@ class BoardServiceTest {
         BoardSubscriptionService subscriptionService = new BoardSubscriptionService(
                 boardRepository,
                 boardSubscriptionRepository,
-                userRepository,
+                new UserWritableResolver(userRepository, sanctionService),
                 boardAccessPolicy);
         BoardCategoryService categoryService = new BoardCategoryService(boardRepository, boardCategoryRepository);
         boardService = new BoardService(
@@ -229,6 +233,24 @@ class BoardServiceTest {
         // then
         verify(userRepository).findByIdForUpdate(userId);
         verify(boardSubscriptionRepository).saveAndFlush(any(BoardSubscription.class));
+    }
+
+    @Test
+    @DisplayName("쓰기 불가 사용자는 게시판을 구독할 수 없다")
+    void subscribeBoard_rejectsNotWritableUser() {
+        // given
+        Long userId = 1L;
+        when(userRepository.findByIdForUpdate(userId)).thenReturn(Optional.of(user));
+        doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE))
+                .when(sanctionService).validateNotBanned(user);
+
+        // when & then
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> boardService.subscribeBoard(userId, "test-board"));
+
+        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.USER_NOT_ACTIVE);
+        verify(boardRepository, never()).findByBoardUrl(anyString());
+        verify(boardSubscriptionRepository, never()).saveAndFlush(any(BoardSubscription.class));
     }
 
     @Test

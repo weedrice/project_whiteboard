@@ -21,4 +21,11 @@ public class UserWritableResolver {
         sanctionService.validateNotBanned(user);
         return user;
     }
+
+    public User resolveForUpdate(Long userId) {
+        User user = userRepository.findByIdForUpdate(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        sanctionService.validateNotBanned(user);
+        return user;
+    }
 }
