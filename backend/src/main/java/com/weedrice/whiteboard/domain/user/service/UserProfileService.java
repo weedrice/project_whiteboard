@@ -92,8 +92,8 @@ public class UserProfileService {
         User user = userRepository.findByUserIdAndStatusAndDeletedAtIsNull(userId, "ACTIVE")
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
-        long postCount = postRepository.countByUserAndIsDeleted(user, false);
-        long commentCount = commentRepository.countByUserAndIsDeleted(user, false);
+        long postCount = postRepository.countPublicProfilePostsByUser(user);
+        long commentCount = commentRepository.countPublicProfileCommentsByUser(user);
 
         return UserProfileResponse.builder()
                 .userId(user.getUserId())

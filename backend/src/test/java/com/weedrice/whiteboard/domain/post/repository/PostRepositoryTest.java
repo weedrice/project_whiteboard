@@ -115,6 +115,62 @@ class PostRepositoryTest {
     }
 
     @Test
+    @DisplayName("공개 프로필 게시글 수는 공개 활성 게시판의 비밀글이 아닌 미삭제 게시글만 집계한다")
+    void countPublicProfilePostsByUser_countsOnlyPublicVisiblePosts() {
+        Board privateBoard = Board.builder()
+                .boardName("Private Board")
+                .boardUrl("private-board")
+                .creator(user)
+                .isPublic(false)
+                .build();
+        entityManager.persist(privateBoard);
+
+        Board inactiveBoard = Board.builder()
+                .boardName("Inactive Board")
+                .boardUrl("inactive-board")
+                .creator(user)
+                .build();
+        inactiveBoard.deactivate();
+        entityManager.persist(inactiveBoard);
+
+        Post secretPost = Post.builder()
+                .title("Secret Post")
+                .contents("Secret Contents")
+                .user(user)
+                .board(board)
+                .isSecret(true)
+                .build();
+        entityManager.persist(secretPost);
+
+        Post deletedPost = Post.builder()
+                .title("Deleted Post")
+                .contents("Deleted Contents")
+                .user(user)
+                .board(board)
+                .build();
+        deletedPost.deletePost();
+        entityManager.persist(deletedPost);
+
+        entityManager.persist(Post.builder()
+                .title("Private Board Post")
+                .contents("Private Contents")
+                .user(user)
+                .board(privateBoard)
+                .build());
+        entityManager.persist(Post.builder()
+                .title("Inactive Board Post")
+                .contents("Inactive Contents")
+                .user(user)
+                .board(inactiveBoard)
+                .build());
+        entityManager.flush();
+
+        long count = postRepository.countPublicProfilePostsByUser(user);
+
+        assertThat(count).isEqualTo(1L);
+    }
+
+    @Test
     @DisplayName("게시판별 공지사항 조회 성공")
     void findByBoardAndIsNotice_fetchesSummaryRelations() {
         Agent agent = Agent.builder()

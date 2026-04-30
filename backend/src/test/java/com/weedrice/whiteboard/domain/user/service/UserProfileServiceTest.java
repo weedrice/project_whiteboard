@@ -141,14 +141,14 @@ class UserProfileServiceTest {
     }
 
     @Test
-    @DisplayName("공개 프로필은 활성 사용자와 공개 댓글만 집계한다")
+    @DisplayName("공개 프로필은 활성 사용자와 공개 범위 활동만 집계한다")
     void getUserProfile_success() {
         User user = User.builder().loginId("test").displayName("tester").build();
         ReflectionTestUtils.setField(user, "userId", 1L);
 
         when(userRepository.findByUserIdAndStatusAndDeletedAtIsNull(1L, "ACTIVE")).thenReturn(Optional.of(user));
-        when(postRepository.countByUserAndIsDeleted(user, false)).thenReturn(5L);
-        when(commentRepository.countByUserAndIsDeleted(user, false)).thenReturn(7L);
+        when(postRepository.countPublicProfilePostsByUser(user)).thenReturn(5L);
+        when(commentRepository.countPublicProfileCommentsByUser(user)).thenReturn(7L);
 
         UserProfileResponse response = userProfileService.getUserProfile(1L);
 
@@ -156,7 +156,10 @@ class UserProfileServiceTest {
         assertThat(response.getDisplayName()).isEqualTo("tester");
         assertThat(response.getPostCount()).isEqualTo(5L);
         assertThat(response.getCommentCount()).isEqualTo(7L);
-        verify(commentRepository).countByUserAndIsDeleted(user, false);
+        verify(postRepository).countPublicProfilePostsByUser(user);
+        verify(commentRepository).countPublicProfileCommentsByUser(user);
+        verify(postRepository, never()).countByUserAndIsDeleted(user, false);
+        verify(commentRepository, never()).countByUserAndIsDeleted(user, false);
     }
 
     @Test

@@ -64,7 +64,19 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
         @Query("SELECT p FROM Post p WHERE p.postId = :postId")
         java.util.Optional<Post> findByIdForUpdate(@Param("postId") Long postId);
     
-        long countByUserAndIsDeleted(User user, Boolean isDeleted); // Added for UserProfileDto
+        long countByUserAndIsDeleted(User user, Boolean isDeleted);
+
+        @Query("""
+                SELECT COUNT(p)
+                FROM Post p
+                JOIN p.board b
+                WHERE p.user = :user
+                  AND p.isDeleted = false
+                  AND p.isSecret = false
+                  AND b.isActive = true
+                  AND b.isPublic = true
+                """)
+        long countPublicProfilePostsByUser(@Param("user") User user);
 
         long countByAgent_AgentIdAndCreatedAtBetween(Long agentId, LocalDateTime start, LocalDateTime end);
         long countByCreatedAtGreaterThanEqualAndCreatedAtLessThanAndIsDeletedFalse(LocalDateTime start, LocalDateTime end);

@@ -103,6 +103,78 @@ class CommentRepositoryTest {
     }
 
     @Test
+    @DisplayName("공개 프로필 댓글 수는 공개 활성 게시글의 미삭제 댓글만 집계한다")
+    void countPublicProfileCommentsByUser_countsOnlyPublicVisibleComments() {
+        Board privateBoard = Board.builder()
+                .boardName("Private Board")
+                .boardUrl("private-board")
+                .creator(user)
+                .isPublic(false)
+                .build();
+        entityManager.persist(privateBoard);
+
+        Board inactiveBoard = Board.builder()
+                .boardName("Inactive Board")
+                .boardUrl("inactive-board")
+                .creator(user)
+                .build();
+        inactiveBoard.deactivate();
+        entityManager.persist(inactiveBoard);
+
+        Post secretPost = Post.builder()
+                .title("Secret Post")
+                .contents("Secret Contents")
+                .user(user)
+                .board(board)
+                .isSecret(true)
+                .build();
+        entityManager.persist(secretPost);
+
+        Post deletedPost = Post.builder()
+                .title("Deleted Post")
+                .contents("Deleted Contents")
+                .user(user)
+                .board(board)
+                .build();
+        deletedPost.deletePost();
+        entityManager.persist(deletedPost);
+
+        Post privateBoardPost = Post.builder()
+                .title("Private Board Post")
+                .contents("Private Contents")
+                .user(user)
+                .board(privateBoard)
+                .build();
+        entityManager.persist(privateBoardPost);
+
+        Post inactiveBoardPost = Post.builder()
+                .title("Inactive Board Post")
+                .contents("Inactive Contents")
+                .user(user)
+                .board(inactiveBoard)
+                .build();
+        entityManager.persist(inactiveBoardPost);
+
+        Comment deletedComment = Comment.builder()
+                .content("Deleted Comment")
+                .user(user)
+                .post(post)
+                .depth(0)
+                .build();
+        deletedComment.deleteComment();
+        entityManager.persist(deletedComment);
+        entityManager.persist(commentFor(secretPost, "Secret Post Comment"));
+        entityManager.persist(commentFor(deletedPost, "Deleted Post Comment"));
+        entityManager.persist(commentFor(privateBoardPost, "Private Board Comment"));
+        entityManager.persist(commentFor(inactiveBoardPost, "Inactive Board Comment"));
+        entityManager.flush();
+
+        long count = commentRepository.countPublicProfileCommentsByUser(user);
+
+        assertThat(count).isEqualTo(1L);
+    }
+
+    @Test
     @DisplayName("게시글별 비작성자 미삭제 댓글 존재 여부를 배치 조회한다")
     void findPostIdsWithNonAuthorCommentsByPostIds_success() {
         User responder = User.builder()
@@ -168,6 +240,15 @@ class CommentRepositoryTest {
                 .findPostIdsWithNonAuthorCommentsByPostIds(List.of(post.getPostId(), secondPost.getPostId()));
 
         assertThat(answeredPostIds).containsExactly(post.getPostId());
+    }
+
+    private Comment commentFor(Post post, String content) {
+        return Comment.builder()
+                .content(content)
+                .user(user)
+                .post(post)
+                .depth(0)
+                .build();
     }
 
     @Test

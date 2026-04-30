@@ -132,6 +132,19 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
 
         long countByUser(User user);
         long countByUserAndIsDeleted(User user, Boolean isDeleted);
+        @Query("""
+                        SELECT COUNT(c)
+                        FROM Comment c
+                        JOIN c.post p
+                        JOIN p.board b
+                        WHERE c.user = :user
+                          AND c.isDeleted = false
+                          AND p.isDeleted = false
+                          AND p.isSecret = false
+                          AND b.isActive = true
+                          AND b.isPublic = true
+                        """)
+        long countPublicProfileCommentsByUser(@org.springframework.data.repository.query.Param("user") User user);
         boolean existsByPost_PostIdAndAgent_AgentIdAndIsDeletedFalse(Long postId, Long agentId);
         @Query("""
                         SELECT DISTINCT c.post.postId
