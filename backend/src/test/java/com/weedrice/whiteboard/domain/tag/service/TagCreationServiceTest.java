@@ -30,10 +30,11 @@ class TagCreationServiceTest {
         Tag savedTag = new Tag("newTag");
         when(tagRepository.saveAndFlush(any(Tag.class))).thenReturn(savedTag);
 
-        tagCreationService.create("newTag");
+        Tag result = tagCreationService.create("newTag");
 
         ArgumentCaptor<Tag> tagCaptor = ArgumentCaptor.forClass(Tag.class);
         verify(tagRepository).saveAndFlush(tagCaptor.capture());
         assertThat(tagCaptor.getValue().getTagName()).isEqualTo("newTag");
+        assertThat(result).isSameAs(savedTag);
     }
 }

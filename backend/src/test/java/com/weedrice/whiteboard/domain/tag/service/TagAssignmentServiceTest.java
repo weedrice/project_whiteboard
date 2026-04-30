@@ -63,7 +63,8 @@ class TagAssignmentServiceTest {
         when(postTagRepository.findByPost(post)).thenReturn(Collections.emptyList());
         Tag savedTag = new Tag("newTag");
         ReflectionTestUtils.setField(savedTag, "tagId", 20L);
-        when(tagRepository.findByTagName("newTag")).thenReturn(Optional.empty(), Optional.of(savedTag));
+        when(tagRepository.findByTagName("newTag")).thenReturn(Optional.empty());
+        when(tagCreationService.create("newTag")).thenReturn(savedTag);
 
         tagAssignmentService.assignTags(post, Collections.singletonList("newTag"));
 
@@ -72,21 +73,19 @@ class TagAssignmentServiceTest {
     }
 
     @Test
-    @DisplayName("assignTags recovers from duplicate tag creation")
-    void assignTags_recoversFromDuplicateTagCreation() {
-        Tag recoveredTag = new Tag("newTag");
-        ReflectionTestUtils.setField(recoveredTag, "tagId", 30L);
-
+    @DisplayName("assignTags rejects duplicate tag creation race")
+    void assignTags_rejectsDuplicateTagCreationRace() {
         when(postTagRepository.findByPost(post)).thenReturn(Collections.emptyList());
-        when(tagRepository.findByTagName("newTag"))
-                .thenReturn(Optional.empty(), Optional.of(recoveredTag));
+        when(tagRepository.findByTagName("newTag")).thenReturn(Optional.empty());
         doThrow(new DataIntegrityViolationException("duplicate"))
                 .when(tagCreationService).create("newTag");
 
-        tagAssignmentService.assignTags(post, Collections.singletonList("newTag"));
+        assertThatThrownBy(() -> tagAssignmentService.assignTags(post, Collections.singletonList("newTag")))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.DUPLICATE_RESOURCE);
 
-        verify(postTagRepository).save(any(PostTag.class));
-        verify(tagRepository).incrementPostCount(30L);
+        verify(postTagRepository, never()).save(any(PostTag.class));
+        verify(tagRepository, never()).incrementPostCount(any());
     }
 
     @Test
@@ -131,7 +130,8 @@ class TagAssignmentServiceTest {
         when(postTagRepository.findByPost(post)).thenReturn(Arrays.asList(existingPostTag, postTagToRemove));
         Tag savedTag = new Tag("newTag");
         ReflectionTestUtils.setField(savedTag, "tagId", 12L);
-        when(tagRepository.findByTagName("newTag")).thenReturn(Optional.empty(), Optional.of(savedTag));
+        when(tagRepository.findByTagName("newTag")).thenReturn(Optional.empty());
+        when(tagCreationService.create("newTag")).thenReturn(savedTag);
 
         tagAssignmentService.assignTags(post, Arrays.asList("existingTag", "newTag"));
 

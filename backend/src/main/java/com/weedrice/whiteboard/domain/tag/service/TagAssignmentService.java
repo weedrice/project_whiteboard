@@ -105,17 +105,14 @@ public class TagAssignmentService {
 
     private Tag findOrCreateTag(String tagName) {
         return tagRepository.findByTagName(tagName)
-                .orElseGet(() -> saveHandlingDuplicate(tagName));
+                .orElseGet(() -> createTag(tagName));
     }
 
-    private Tag saveHandlingDuplicate(String tagName) {
+    private Tag createTag(String tagName) {
         try {
-            tagCreationService.create(tagName);
+            return tagCreationService.create(tagName);
         } catch (DataIntegrityViolationException ex) {
-            return tagRepository.findByTagName(tagName)
-                    .orElseThrow(() -> ex);
+            throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE);
         }
-        return tagRepository.findByTagName(tagName)
-                .orElseThrow(() -> new IllegalStateException("Created tag was not found: " + tagName));
     }
 }
