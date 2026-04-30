@@ -77,7 +77,7 @@ class NotificationServiceTest {
                 .thenReturn(Optional.empty());
 
         NotificationPreferenceService preferenceService = new NotificationPreferenceService(userNotificationSettingsRepository);
-        NotificationStreamService streamService = new NotificationStreamService();
+        NotificationStreamService streamService = new NotificationStreamService(1_800_000L, 5);
         NotificationCommandService commandService = new NotificationCommandService(
                 notificationRepository,
                 preferenceService);
@@ -273,6 +273,10 @@ class NotificationServiceTest {
 
     private static class ThrowingNotificationStreamService extends NotificationStreamService {
 
+        private ThrowingNotificationStreamService() {
+            super(1_800_000L, 5);
+        }
+
         @Override
         void deliverNotification(Long userId, Notification notification) {
             throw new IllegalStateException("delivery failed");
@@ -282,6 +286,10 @@ class NotificationServiceTest {
     private static class RecordingNotificationStreamService extends NotificationStreamService {
 
         private boolean delivered;
+
+        private RecordingNotificationStreamService() {
+            super(1_800_000L, 5);
+        }
 
         @Override
         void deliverNotification(Long userId, Notification notification) {

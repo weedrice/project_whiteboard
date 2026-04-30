@@ -76,7 +76,7 @@ class NotificationSettingsFlowTest {
                 entityManager,
                 new UserWritableResolver(userRepository, sanctionService));
         NotificationPreferenceService preferenceService = new NotificationPreferenceService(userNotificationSettingsRepository);
-        NotificationStreamService streamService = new NotificationStreamService();
+        NotificationStreamService streamService = new NotificationStreamService(1_800_000L, 5);
         NotificationCommandService commandService = new NotificationCommandService(
                 notificationRepository,
                 preferenceService);
