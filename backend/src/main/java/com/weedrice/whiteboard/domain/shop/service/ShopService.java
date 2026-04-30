@@ -10,12 +10,14 @@ import com.weedrice.whiteboard.domain.shop.repository.PurchaseHistoryRepository;
 import com.weedrice.whiteboard.domain.shop.repository.ShopItemRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,6 +29,10 @@ import java.util.Set;
 @Transactional(readOnly = true)
 public class ShopService {
 
+    private static final int DEFAULT_SHOP_ITEM_PAGE_SIZE = 20;
+    private static final Sort DEFAULT_SHOP_ITEM_SORT = Sort.by(Sort.Order.asc("itemId"));
+    private static final Set<String> ALLOWED_SHOP_ITEM_SORT_PROPERTIES = Set.of("itemId");
+
     private final ShopItemRepository shopItemRepository;
     private final PurchaseHistoryRepository purchaseHistoryRepository;
     private final UserRepository userRepository;
@@ -35,20 +41,21 @@ public class ShopService {
     private final SanctionService sanctionService;
 
     public ShopItemResponse getShopItems(String itemType, Pageable pageable) {
+        Pageable effectivePageable = normalizeShopItemPageable(pageable);
         if (itemType != null && !itemType.isEmpty() && !shopEntitlementCapabilityRegistry.supports(itemType)) {
-            return emptyShopItems(pageable);
+            return emptyShopItems(effectivePageable);
         }
 
         Set<String> supportedItemTypes = shopEntitlementCapabilityRegistry.getSupportedItemTypes();
         if (supportedItemTypes.isEmpty()) {
-            return emptyShopItems(pageable);
+            return emptyShopItems(effectivePageable);
         }
 
         Page<ShopItem> items;
         if (itemType != null && !itemType.isEmpty()) {
-            items = shopItemRepository.findByIsActiveAndItemType(true, itemType, pageable);
+            items = shopItemRepository.findByIsActiveAndItemType(true, itemType, effectivePageable);
         } else {
-            items = shopItemRepository.findByIsActiveAndItemTypeIn(true, supportedItemTypes, pageable);
+            items = shopItemRepository.findByIsActiveAndItemTypeIn(true, supportedItemTypes, effectivePageable);
         }
         return ShopItemResponse.from(items);
     }
@@ -96,5 +103,13 @@ public class ShopService {
 
     private ShopItemResponse emptyShopItems(Pageable pageable) {
         return ShopItemResponse.from(new PageImpl<>(List.of(), pageable, 0));
+    }
+
+    private Pageable normalizeShopItemPageable(Pageable pageable) {
+        return PageRequestUtils.of(
+                pageable,
+                DEFAULT_SHOP_ITEM_PAGE_SIZE,
+                DEFAULT_SHOP_ITEM_SORT,
+                ALLOWED_SHOP_ITEM_SORT_PROPERTIES);
     }
 }

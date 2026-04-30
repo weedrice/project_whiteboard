@@ -23,6 +23,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
@@ -100,15 +101,16 @@ class ShopServiceTest {
         @DisplayName("Returns a supported item type")
         void getShopItems_supportedType() {
             Pageable pageable = PageRequest.of(0, 20);
+            Pageable expectedPageable = PageRequest.of(0, 20, Sort.by(Sort.Order.asc("itemId")));
             when(shopEntitlementCapabilityRegistry.supports("EMOTICON")).thenReturn(true);
             when(shopEntitlementCapabilityRegistry.getSupportedItemTypes()).thenReturn(Set.of("EMOTICON"));
-            when(shopItemRepository.findByIsActiveAndItemType(true, "EMOTICON", pageable))
-                    .thenReturn(new PageImpl<>(List.of(emoticonItem), pageable, 1));
+            when(shopItemRepository.findByIsActiveAndItemType(true, "EMOTICON", expectedPageable))
+                    .thenReturn(new PageImpl<>(List.of(emoticonItem), expectedPageable, 1));
 
             ShopItemResponse response = shopService.getShopItems("EMOTICON", pageable);
 
             assertThat(response.getContent()).hasSize(1);
-            verify(shopItemRepository).findByIsActiveAndItemType(true, "EMOTICON", pageable);
+            verify(shopItemRepository).findByIsActiveAndItemType(true, "EMOTICON", expectedPageable);
         }
 
         @Test
@@ -128,15 +130,16 @@ class ShopServiceTest {
         @DisplayName("Returns all supported item types")
         void getShopItems_allTypes_usesSupportedTypes() {
             Pageable pageable = PageRequest.of(0, 20);
+            Pageable expectedPageable = PageRequest.of(0, 20, Sort.by(Sort.Order.asc("itemId")));
             Set<String> supportedTypes = Set.of("EMOTICON", "DECORATION");
             when(shopEntitlementCapabilityRegistry.getSupportedItemTypes()).thenReturn(supportedTypes);
-            when(shopItemRepository.findByIsActiveAndItemTypeIn(true, supportedTypes, pageable))
-                    .thenReturn(new PageImpl<>(List.of(emoticonItem, decorationItem), pageable, 2));
+            when(shopItemRepository.findByIsActiveAndItemTypeIn(true, supportedTypes, expectedPageable))
+                    .thenReturn(new PageImpl<>(List.of(emoticonItem, decorationItem), expectedPageable, 2));
 
             ShopItemResponse response = shopService.getShopItems(null, pageable);
 
             assertThat(response.getContent()).hasSize(2);
-            verify(shopItemRepository).findByIsActiveAndItemTypeIn(true, supportedTypes, pageable);
+            verify(shopItemRepository).findByIsActiveAndItemTypeIn(true, supportedTypes, expectedPageable);
         }
 
         @Test
