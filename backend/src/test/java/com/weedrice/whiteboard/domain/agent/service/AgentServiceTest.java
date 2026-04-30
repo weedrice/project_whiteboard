@@ -10,7 +10,6 @@ import com.weedrice.whiteboard.domain.agent.dto.AgentRegisterRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentResponse;
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
 import com.weedrice.whiteboard.domain.agent.entity.AgentDailyQuota;
-import com.weedrice.whiteboard.domain.agent.repository.AgentActivityLogRepository;
 import com.weedrice.whiteboard.domain.agent.repository.AgentDailyQuotaRepository;
 import com.weedrice.whiteboard.domain.agent.repository.AgentRepository;
 import com.weedrice.whiteboard.domain.admin.entity.Admin;
@@ -72,6 +71,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -80,7 +80,7 @@ class AgentServiceTest {
     @Mock
     private AgentRepository agentRepository;
     @Mock
-    private AgentActivityLogRepository agentActivityLogRepository;
+    private AgentAuditLogWriter agentAuditLogWriter;
     @Mock
     private AgentDailyQuotaRepository agentDailyQuotaRepository;
     @Mock
@@ -129,7 +129,7 @@ class AgentServiceTest {
     @BeforeEach
     void setUp() {
         agentOwnershipService = spy(new AgentOwnershipService(agentRepository, sanctionService));
-        agentAuditService = spy(new AgentAuditService(agentActivityLogRepository));
+        agentAuditService = spy(new AgentAuditService(agentAuditLogWriter));
         agentBoardAccessService = spy(new AgentBoardAccessService(
                 adminRepository,
                 boardRepository,
@@ -402,7 +402,7 @@ class AgentServiceTest {
         AgentResponse response = agentLifecycleService.activateMyAgent(1L, 7L, null);
 
         assertThat(response.getStatus()).isEqualTo(Agent.STATUS_ACTIVE);
-        verify(agentAuditService, never()).saveLog(any(), any(), anyString(), anyString(), anyLong(), any());
+        verify(agentAuditService, never()).saveLog(any(), any(), anyString(), anyString(), any(), any());
     }
 
     @Test
@@ -549,7 +549,8 @@ class AgentServiceTest {
         assertThat(response.getStatus()).isEqualTo(Agent.STATUS_ACTIVE);
         assertThat(previousAgent.getIsDeleted()).isTrue();
         assertThat(pendingAgent.getUser()).isEqualTo(user);
-        verify(agentActivityLogRepository, times(2)).save(any());
+        verify(agentAuditLogWriter).saveLog(3L, 1L, "DELETE", "AGENT", 3L, null, null);
+        verify(agentAuditLogWriter).saveLog(9L, 1L, "CLAIM", "AGENT", 9L, null, null);
     }
 
     @Test
@@ -574,7 +575,7 @@ class AgentServiceTest {
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.AGENT_NOT_FOUND);
 
         assertThat(pendingAgent.getIsDeleted()).isTrue();
-        verify(agentActivityLogRepository, never()).save(any());
+        verifyNoInteractions(agentAuditLogWriter);
     }
 
     @Test
@@ -934,7 +935,7 @@ class AgentServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.RATE_LIMIT_EXCEEDED);
 
-        verify(commentService, never()).createCommentAsAgent(anyLong(), anyLong(), eq(100L), eq(null), any());
+        verify(commentService, never()).createCommentAsAgent(anyLong(), anyLong(), eq(100L), isNull(), any());
     }
 
     @Test
@@ -1040,7 +1041,8 @@ class AgentServiceTest {
         assertThat(response.getPostId()).isEqualTo(100L);
         assertThat(response.getLikeCount()).isEqualTo(3);
         assertThat(response.isLiked()).isTrue();
-        verify(agentActivityLogRepository).save(any());
+        verify(agentAuditLogWriter).saveLog(eq(7L), eq(1L), eq("LIKE_POST"), eq("POST"), eq(100L),
+                isNull(), isNull());
     }
 
     private BoardCategory defaultCategory(Board board, String minWriteRole) {
