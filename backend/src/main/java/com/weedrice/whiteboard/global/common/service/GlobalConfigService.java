@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.global.common.service;
 
+import com.weedrice.whiteboard.global.common.dto.GlobalConfigResponse;
 import com.weedrice.whiteboard.global.common.entity.GlobalConfig;
 import com.weedrice.whiteboard.global.common.repository.GlobalConfigRepository;
 import com.weedrice.whiteboard.global.common.util.SecurityUtils;
@@ -13,6 +14,8 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -44,18 +47,22 @@ public class GlobalConfigService {
         }
     }
 
-    public java.util.List<GlobalConfig> getAllConfigs() {
+    public List<GlobalConfigResponse> getAllConfigs() {
         SecurityUtils.validateSuperAdminPermission();
-        return globalConfigRepository.findAll();
+        return globalConfigRepository.findAll().stream()
+                .map(GlobalConfigResponse::from)
+                .toList();
     }
 
-    public java.util.List<GlobalConfig> getPublicConfigs() {
+    public List<GlobalConfigResponse> getPublicConfigs() {
         // POINT_ 로 시작하는 설정값만 반환
-        return globalConfigRepository.findByConfigKeyStartingWith("POINT_");
+        return globalConfigRepository.findByConfigKeyStartingWith("POINT_").stream()
+                .map(GlobalConfigResponse::from)
+                .toList();
     }
 
     @Transactional
-    public GlobalConfig createConfig(String key, String value, String description) {
+    public GlobalConfigResponse createConfig(String key, String value, String description) {
         SecurityUtils.validateSuperAdminPermission();
         validateConfigValue(key, value);
         if (globalConfigRepository.existsById(key)) {
@@ -65,7 +72,7 @@ public class GlobalConfigService {
         try {
             GlobalConfig savedConfig = globalConfigRepository.saveAndFlush(config);
             putConfigCache(key, savedConfig.getConfigValue());
-            return savedConfig;
+            return GlobalConfigResponse.from(savedConfig);
         } catch (DataIntegrityViolationException e) {
             throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE);
         }
@@ -73,7 +80,7 @@ public class GlobalConfigService {
 
     @Transactional
     @CacheEvict(value = GLOBAL_CONFIG_CACHE, key = "#key")
-    public GlobalConfig updateConfig(String key, String value, String description) {
+    public GlobalConfigResponse updateConfig(String key, String value, String description) {
         SecurityUtils.validateSuperAdminPermission();
         validateConfigValue(key, value);
         GlobalConfig config = globalConfigRepository.findById(key)
@@ -84,7 +91,7 @@ public class GlobalConfigService {
             config.setDescription(description);
         }
 
-        return globalConfigRepository.save(config);
+        return GlobalConfigResponse.from(globalConfigRepository.save(config));
     }
 
     @Transactional

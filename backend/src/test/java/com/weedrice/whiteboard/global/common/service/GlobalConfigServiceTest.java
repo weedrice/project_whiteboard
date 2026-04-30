@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.global.common.service;
 
+import com.weedrice.whiteboard.global.common.dto.GlobalConfigResponse;
 import com.weedrice.whiteboard.global.common.entity.GlobalConfig;
 import com.weedrice.whiteboard.global.common.repository.GlobalConfigRepository;
 import com.weedrice.whiteboard.global.common.util.SecurityUtils;
@@ -17,6 +18,7 @@ import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.dao.DataIntegrityViolationException;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -78,6 +80,35 @@ class GlobalConfigServiceTest {
     }
 
     @Test
+    @DisplayName("getAllConfigs returns DTO list")
+    void getAllConfigs_returnsResponses() {
+        try (MockedStatic<SecurityUtils> utilities = Mockito.mockStatic(SecurityUtils.class)) {
+            utilities.when(SecurityUtils::validateSuperAdminPermission).thenAnswer(invocation -> null);
+            when(globalConfigRepository.findAll()).thenReturn(List.of(new GlobalConfig("key", "value", "desc")));
+
+            var responses = globalConfigService.getAllConfigs();
+
+            assertThat(responses).hasSize(1);
+            assertThat(responses.getFirst().getKey()).isEqualTo("key");
+            assertThat(responses.getFirst().getValue()).isEqualTo("value");
+            assertThat(responses.getFirst().getDescription()).isEqualTo("desc");
+        }
+    }
+
+    @Test
+    @DisplayName("getPublicConfigs returns DTO list")
+    void getPublicConfigs_returnsResponses() {
+        when(globalConfigRepository.findByConfigKeyStartingWith("POINT_"))
+                .thenReturn(List.of(new GlobalConfig("POINT_SIGNUP_BONUS", "10", "desc")));
+
+        var responses = globalConfigService.getPublicConfigs();
+
+        assertThat(responses).hasSize(1);
+        assertThat(responses.getFirst().getKey()).isEqualTo("POINT_SIGNUP_BONUS");
+        assertThat(responses.getFirst().getValue()).isEqualTo("10");
+    }
+
+    @Test
     @DisplayName("createConfig saves and refreshes cache")
     void createConfig_success() {
         try (MockedStatic<SecurityUtils> utilities = Mockito.mockStatic(SecurityUtils.class)) {
@@ -86,10 +117,10 @@ class GlobalConfigServiceTest {
             when(globalConfigRepository.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
             when(cacheManager.getCache("globalConfig")).thenReturn(cache);
 
-            GlobalConfig created = globalConfigService.createConfig("key", "value", "desc");
+            GlobalConfigResponse created = globalConfigService.createConfig("key", "value", "desc");
 
-            assertThat(created.getConfigKey()).isEqualTo("key");
-            assertThat(created.getConfigValue()).isEqualTo("value");
+            assertThat(created.getKey()).isEqualTo("key");
+            assertThat(created.getValue()).isEqualTo("value");
             verify(globalConfigRepository).saveAndFlush(any(GlobalConfig.class));
             verify(cache).put("key", "value");
         }
@@ -104,9 +135,9 @@ class GlobalConfigServiceTest {
             when(globalConfigRepository.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
             when(cacheManager.getCache("globalConfig")).thenReturn(cache);
 
-            GlobalConfig created = globalConfigService.createConfig("POINT_SIGNUP_BONUS", "0", "desc");
+            GlobalConfigResponse created = globalConfigService.createConfig("POINT_SIGNUP_BONUS", "0", "desc");
 
-            assertThat(created.getConfigValue()).isEqualTo("0");
+            assertThat(created.getValue()).isEqualTo("0");
             verify(globalConfigRepository).saveAndFlush(any(GlobalConfig.class));
             verify(cache).put("POINT_SIGNUP_BONUS", "0");
         }
@@ -170,9 +201,9 @@ class GlobalConfigServiceTest {
             when(globalConfigRepository.findById("key")).thenReturn(Optional.of(config));
             when(globalConfigRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-            GlobalConfig updated = globalConfigService.updateConfig("key", "new", "new");
+            GlobalConfigResponse updated = globalConfigService.updateConfig("key", "new", "new");
 
-            assertThat(updated.getConfigValue()).isEqualTo("new");
+            assertThat(updated.getValue()).isEqualTo("new");
         }
     }
 

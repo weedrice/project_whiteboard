@@ -1,9 +1,12 @@
 package com.weedrice.whiteboard.global.common.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.weedrice.whiteboard.global.common.entity.GlobalConfig;
+import com.weedrice.whiteboard.global.common.dto.GlobalConfigResponse;
 import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -23,7 +26,9 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -33,12 +38,6 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-
-import jakarta.servlet.FilterChain;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doAnswer;
 
 @WebMvcTest(controllers = GlobalConfigController.class, 
     excludeFilters = {
@@ -137,7 +136,7 @@ class GlobalConfigControllerTest {
     @Test
     @DisplayName("공개 설정 조회는 DTO 목록을 반환한다")
     void getPublicConfigs_success() throws Exception {
-        when(globalConfigService.getPublicConfigs()).thenReturn(List.of(new GlobalConfig("site.name", "Noviis", "desc")));
+        when(globalConfigService.getPublicConfigs()).thenReturn(List.of(configResponse("site.name", "Noviis", "desc")));
 
         mockMvc.perform(get("/api/v1/configs/public")
                 .with(user(adminUser))
@@ -151,8 +150,7 @@ class GlobalConfigControllerTest {
     @Test
     @DisplayName("전체 설정 조회")
     void getAllConfigs_success() throws Exception {
-        GlobalConfig config = new GlobalConfig("key", "val", "desc");
-        when(globalConfigService.getAllConfigs()).thenReturn(List.of(config));
+        when(globalConfigService.getAllConfigs()).thenReturn(List.of(configResponse("key", "val", "desc")));
 
         mockMvc.perform(get("/api/v1/admin/configs")
                 .with(user(adminUser))
@@ -166,9 +164,8 @@ class GlobalConfigControllerTest {
     @DisplayName("설정 생성")
     void createConfig_success() throws Exception {
         Map<String, String> request = Map.of("key", "newKey", "value", "val", "description", "desc");
-        GlobalConfig created = new GlobalConfig("newKey", "val", "desc");
-
-        when(globalConfigService.createConfig("newKey", "val", "desc")).thenReturn(created);
+        when(globalConfigService.createConfig("newKey", "val", "desc"))
+                .thenReturn(configResponse("newKey", "val", "desc"));
 
         mockMvc.perform(post("/api/v1/admin/configs")
                 .with(user(adminUser))
@@ -202,7 +199,7 @@ class GlobalConfigControllerTest {
         Map<String, String> request = Map.of("key", "key", "value", "newVal");
 
         when(globalConfigService.updateConfig("key", "newVal", null))
-                .thenReturn(new GlobalConfig("key", "newVal", "desc"));
+                .thenReturn(configResponse("key", "newVal", "desc"));
 
         mockMvc.perform(put("/api/v1/admin/configs")
                 .with(user(adminUser))
@@ -219,7 +216,7 @@ class GlobalConfigControllerTest {
         Map<String, String> request = Map.of("value", "newVal");
 
         when(globalConfigService.updateConfig("key", "newVal", null))
-                .thenReturn(new GlobalConfig("key", "newVal", "desc"));
+                .thenReturn(configResponse("key", "newVal", "desc"));
 
         mockMvc.perform(put("/api/v1/admin/configs/{key}", "key")
                 .with(user(adminUser))
@@ -240,5 +237,13 @@ class GlobalConfigControllerTest {
                 .with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
+    }
+
+    private GlobalConfigResponse configResponse(String key, String value, String description) {
+        return GlobalConfigResponse.builder()
+                .key(key)
+                .value(value)
+                .description(description)
+                .build();
     }
 }
