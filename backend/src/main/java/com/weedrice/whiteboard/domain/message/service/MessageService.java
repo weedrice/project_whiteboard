@@ -52,6 +52,9 @@ public class MessageService {
         if (userBlockService.isEitherDirectionBlocked(senderId, receiverId)) {
             throw new BusinessException(ErrorCode.BLOCKED_BY_USER);
         }
+        if (!receiver.isActiveAccount()) {
+            throw new BusinessException(ErrorCode.USER_NOT_ACTIVE);
+        }
 
         Message message = Message.builder()
                 .sender(sender)

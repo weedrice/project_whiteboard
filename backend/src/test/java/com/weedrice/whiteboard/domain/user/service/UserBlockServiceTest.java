@@ -43,6 +43,9 @@ class UserBlockServiceTest {
     @Mock
     private UserBlockRepository userBlockRepository;
 
+    @Mock
+    private UserWritableResolver userWritableResolver;
+
     @Test
     @DisplayName("사용자 차단 성공")
     void blockUser_success() {
@@ -51,7 +54,7 @@ class UserBlockServiceTest {
         User blocked = User.builder().build();
         ReflectionTestUtils.setField(blocked, "userId", 2L);
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(blocker));
+        when(userWritableResolver.resolve(1L)).thenReturn(blocker);
         when(userRepository.findById(2L)).thenReturn(Optional.of(blocked));
         when(userBlockRepository.existsByUserAndTarget(blocker, blocked)).thenReturn(false);
         when(userBlockRepository.saveAndFlush(any(UserBlock.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -71,14 +74,28 @@ class UserBlockServiceTest {
     }
 
     @Test
-    @DisplayName("사용자 차단 실패 - 이미 차단됨")
+    @DisplayName("쓰기 불가 사용자는 사용자를 차단할 수 없다")
+    void blockUser_notWritableUser() {
+        when(userWritableResolver.resolve(1L)).thenThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE));
+
+        assertThatThrownBy(() -> userBlockService.blockUser(1L, 2L))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.USER_NOT_ACTIVE);
+
+        verify(userRepository, never()).findById(2L);
+        verify(userBlockRepository, never()).saveAndFlush(any(UserBlock.class));
+    }
+
+    @Test
+    @DisplayName("이미 차단한 사용자는 다시 차단할 수 없다")
     void blockUser_alreadyBlocked() {
         User blocker = User.builder().build();
         ReflectionTestUtils.setField(blocker, "userId", 1L);
         User blocked = User.builder().build();
         ReflectionTestUtils.setField(blocked, "userId", 2L);
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(blocker));
+        when(userWritableResolver.resolve(1L)).thenReturn(blocker);
         when(userRepository.findById(2L)).thenReturn(Optional.of(blocked));
         when(userBlockRepository.existsByUserAndTarget(blocker, blocked)).thenReturn(true);
 
@@ -96,7 +113,7 @@ class UserBlockServiceTest {
         User blocked = User.builder().build();
         ReflectionTestUtils.setField(blocked, "userId", 2L);
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(blocker));
+        when(userWritableResolver.resolve(1L)).thenReturn(blocker);
         when(userRepository.findById(2L)).thenReturn(Optional.of(blocked));
         when(userBlockRepository.existsByUserAndTarget(blocker, blocked)).thenReturn(false);
         when(userBlockRepository.saveAndFlush(any(UserBlock.class)))
@@ -115,13 +132,27 @@ class UserBlockServiceTest {
         User blocked = User.builder().build();
         UserBlock userBlock = UserBlock.builder().user(blocker).target(blocked).build();
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(blocker));
+        when(userWritableResolver.resolve(1L)).thenReturn(blocker);
         when(userRepository.findById(2L)).thenReturn(Optional.of(blocked));
         when(userBlockRepository.findByUserAndTarget(blocker, blocked)).thenReturn(Optional.of(userBlock));
 
         userBlockService.unblockUser(1L, 2L);
 
         verify(userBlockRepository).delete(userBlock);
+    }
+
+    @Test
+    @DisplayName("쓰기 불가 사용자는 차단을 해제할 수 없다")
+    void unblockUser_notWritableUser() {
+        when(userWritableResolver.resolve(1L)).thenThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE));
+
+        assertThatThrownBy(() -> userBlockService.unblockUser(1L, 2L))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.USER_NOT_ACTIVE);
+
+        verify(userRepository, never()).findById(2L);
+        verify(userBlockRepository, never()).delete(any(UserBlock.class));
     }
 
     @Test
@@ -208,7 +239,7 @@ class UserBlockServiceTest {
     @Test
     @DisplayName("사용자 차단 실패 - 차단자 없음")
     void blockUser_blockerNotFound() {
-        when(userRepository.findById(1L)).thenReturn(Optional.empty());
+        when(userWritableResolver.resolve(1L)).thenThrow(new BusinessException(ErrorCode.USER_NOT_FOUND));
 
         assertThatThrownBy(() -> userBlockService.blockUser(1L, 2L))
                 .isInstanceOf(BusinessException.class)
@@ -220,7 +251,7 @@ class UserBlockServiceTest {
     @DisplayName("사용자 차단 실패 - 대상자 없음")
     void blockUser_blockedNotFound() {
         // Blocker exists, Blocked does not
-        when(userRepository.findById(1L)).thenReturn(Optional.of(com.weedrice.whiteboard.domain.user.entity.User.builder().build()));
+        when(userWritableResolver.resolve(1L)).thenReturn(User.builder().build());
         when(userRepository.findById(2L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> userBlockService.blockUser(1L, 2L))
@@ -232,7 +263,7 @@ class UserBlockServiceTest {
     @Test
     @DisplayName("차단 해제 실패 - 사용자 없음")
     void unblockUser_userNotFound() {
-        when(userRepository.findById(1L)).thenReturn(Optional.empty());
+        when(userWritableResolver.resolve(1L)).thenThrow(new BusinessException(ErrorCode.USER_NOT_FOUND));
 
         assertThatThrownBy(() -> userBlockService.unblockUser(1L, 2L))
                 .isInstanceOf(BusinessException.class)

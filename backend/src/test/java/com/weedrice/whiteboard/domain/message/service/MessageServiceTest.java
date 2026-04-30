@@ -104,6 +104,23 @@ class MessageServiceTest {
     }
 
     @Test
+    @DisplayName("비활성 수신자에게 쪽지를 보낼 수 없다")
+    void sendMessage_inactiveReceiver_forbidden() {
+        receiver.suspend();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(sender));
+        when(userRepository.findById(2L)).thenReturn(Optional.of(receiver));
+        when(userBlockService.isEitherDirectionBlocked(1L, 2L)).thenReturn(false);
+
+        assertThatThrownBy(() -> messageService.sendMessage(1L, 2L, "Hello!"))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.USER_NOT_ACTIVE);
+
+        verify(userBlockService).isEitherDirectionBlocked(1L, 2L);
+        verify(messageRepository, never()).save(any());
+    }
+
+    @Test
     @DisplayName("MUTE 사용자는 쪽지를 보낼 수 없다")
     void sendMessage_mutedUser_forbidden() {
         when(userRepository.findById(1L)).thenReturn(Optional.of(sender));

@@ -25,6 +25,7 @@ public class UserBlockService {
 
     private final UserRepository userRepository;
     private final UserBlockRepository userBlockRepository;
+    private final UserWritableResolver userWritableResolver;
 
     @Transactional
     public void blockUser(Long userId, Long targetUserId) {
@@ -32,8 +33,7 @@ public class UserBlockService {
             throw new BusinessException(ErrorCode.CANNOT_BLOCK_SELF);
         }
 
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        User user = userWritableResolver.resolve(userId);
 
         User target = userRepository.findById(targetUserId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
@@ -56,8 +56,7 @@ public class UserBlockService {
 
     @Transactional
     public void unblockUser(Long userId, Long targetUserId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        User user = userWritableResolver.resolve(userId);
 
         User target = userRepository.findById(targetUserId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
