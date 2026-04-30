@@ -157,8 +157,8 @@ public class PostCommandService {
                 request.isSpoiler(), isSecret);
         tagAssignmentService.assignTags(post, request.getTags());
 
-        if (request.getFileIds() != null && !request.getFileIds().isEmpty()) {
-            fileService.attachFilesToPost(request.getFileIds(), userId, post.getPostId());
+        if (request.getFileIds() != null) {
+            fileService.syncPostFiles(request.getFileIds(), userId, post.getPostId());
         }
 
         savePostVersion(post, modifier, "MODIFY", originalTitle, originalContents);
@@ -177,6 +177,7 @@ public class PostCommandService {
         post.deletePost();
         tagAssignmentService.clearTags(post);
         savePostVersion(post, modifier, "DELETE", post.getTitle(), post.getContents());
+        fileService.markPostContentFilesDeletionPending(post.getPostId());
 
         int rewardedAmount = getPostCreateRewardAmount(modifier, postId);
         if (rewardedAmount > 0) {

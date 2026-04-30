@@ -668,8 +668,36 @@ class PostServiceTest {
 
         assertThat(updated.getTitle()).isEqualTo("Updated Title");
         verify(tagAssignmentService).assignTags(post, request.getTags());
-        verify(fileService).attachFilesToPost(List.of(5L), 1L, 1L);
+        verify(fileService).syncPostFiles(List.of(5L), 1L, 1L);
         verify(postVersionRepository).save(any(PostVersion.class));
+    }
+
+    @Test
+    @DisplayName("게시글 수정에서 fileIds가 null이면 파일 연결을 변경하지 않는다")
+    void updatePost_fileIdsNull_doesNotSyncFiles() {
+        PostUpdateRequest request = new PostUpdateRequest(null, "Updated Title", "Updated Contents",
+                Collections.emptyList(), false, false, false, null);
+
+        when(postRepository.findById(1L)).thenReturn(Optional.of(post));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        postService.updatePost(1L, 1L, request);
+
+        verify(fileService, never()).syncPostFiles(any(), anyLong(), anyLong());
+    }
+
+    @Test
+    @DisplayName("게시글 수정에서 빈 fileIds는 모든 게시글 파일 제거 의도로 전달한다")
+    void updatePost_emptyFileIds_syncsEmptyTargetState() {
+        PostUpdateRequest request = new PostUpdateRequest(null, "Updated Title", "Updated Contents",
+                Collections.emptyList(), false, false, false, List.of());
+
+        when(postRepository.findById(1L)).thenReturn(Optional.of(post));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        postService.updatePost(1L, 1L, request);
+
+        verify(fileService).syncPostFiles(List.of(), 1L, 1L);
     }
 
     @Test
@@ -738,6 +766,7 @@ class PostServiceTest {
 
         assertThat(post.getIsDeleted()).isTrue();
         verify(tagAssignmentService).clearTags(post);
+        verify(fileService).markPostContentFilesDeletionPending(1L);
         verify(pointService).forceSubtractPoint(eq(1L), eq(50), anyString(), eq(1L), eq("POST"));
         verify(globalConfigService, never()).getConfig("POINT_POST_CREATE_REWARD");
     }

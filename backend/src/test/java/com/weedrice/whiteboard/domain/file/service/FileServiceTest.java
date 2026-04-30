@@ -317,6 +317,104 @@ class FileServiceTest {
     }
 
     @Test
+    @DisplayName("게시글 파일 동기화는 요청 목록에 없는 기존 파일을 삭제 예정으로 전환한다")
+    void syncPostFiles_marksOmittedFilesPendingDelete() {
+        User uploader = User.builder().build();
+        ReflectionTestUtils.setField(uploader, "userId", 1L);
+
+        File keptFile = File.builder()
+                .filePath("kept.jpg")
+                .originalName("kept.jpg")
+                .fileSize(4L)
+                .mimeType("image/jpeg")
+                .uploader(uploader)
+                .relatedId(100L)
+                .relatedType(FileService.RELATED_TYPE_POST_CONTENT)
+                .build();
+        ReflectionTestUtils.setField(keptFile, "fileId", 10L);
+
+        File omittedFile = File.builder()
+                .filePath("omitted.jpg")
+                .originalName("omitted.jpg")
+                .fileSize(4L)
+                .mimeType("image/jpeg")
+                .uploader(uploader)
+                .relatedId(100L)
+                .relatedType(FileService.RELATED_TYPE_POST_CONTENT)
+                .build();
+        ReflectionTestUtils.setField(omittedFile, "fileId", 11L);
+
+        when(fileRepository.findActiveByRelatedIdAndRelatedTypeForUpdate(
+                100L,
+                FileService.RELATED_TYPE_POST_CONTENT)).thenReturn(List.of(keptFile, omittedFile));
+        when(fileRepository.findByFileIdInAndStorageStatus(List.of(10L), FileStorageStatus.ACTIVE))
+                .thenReturn(List.of(keptFile));
+
+        fileService.syncPostFiles(List.of(10L), 1L, 100L);
+
+        assertThat(keptFile.getStorageStatus()).isEqualTo(FileStorageStatus.ACTIVE);
+        assertThat(omittedFile.getStorageStatus()).isEqualTo(FileStorageStatus.PENDING_DELETE);
+    }
+
+    @Test
+    @DisplayName("게시글 파일 동기화는 빈 목록을 모든 기존 파일 삭제로 처리한다")
+    void syncPostFiles_emptyListMarksAllFilesPendingDelete() {
+        File firstFile = File.builder()
+                .filePath("first.jpg")
+                .originalName("first.jpg")
+                .fileSize(4L)
+                .mimeType("image/jpeg")
+                .uploader(User.builder().build())
+                .relatedId(100L)
+                .relatedType(FileService.RELATED_TYPE_POST_CONTENT)
+                .build();
+        ReflectionTestUtils.setField(firstFile, "fileId", 10L);
+        File secondFile = File.builder()
+                .filePath("second.jpg")
+                .originalName("second.jpg")
+                .fileSize(4L)
+                .mimeType("image/jpeg")
+                .uploader(User.builder().build())
+                .relatedId(100L)
+                .relatedType(FileService.RELATED_TYPE_POST_CONTENT)
+                .build();
+        ReflectionTestUtils.setField(secondFile, "fileId", 11L);
+
+        when(fileRepository.findActiveByRelatedIdAndRelatedTypeForUpdate(
+                100L,
+                FileService.RELATED_TYPE_POST_CONTENT)).thenReturn(List.of(firstFile, secondFile));
+
+        fileService.syncPostFiles(List.of(), 1L, 100L);
+
+        assertThat(firstFile.getStorageStatus()).isEqualTo(FileStorageStatus.PENDING_DELETE);
+        assertThat(secondFile.getStorageStatus()).isEqualTo(FileStorageStatus.PENDING_DELETE);
+        verify(fileRepository, never()).findByFileIdInAndStorageStatus(any(), any());
+    }
+
+    @Test
+    @DisplayName("게시글 삭제 파일 정리는 관련 게시글 파일을 삭제 예정으로 전환한다")
+    void markPostContentFilesDeletionPending_marksFilesPendingDelete() {
+        File file = File.builder()
+                .filePath("post.jpg")
+                .originalName("post.jpg")
+                .fileSize(4L)
+                .mimeType("image/jpeg")
+                .uploader(User.builder().build())
+                .relatedId(100L)
+                .relatedType(FileService.RELATED_TYPE_POST_CONTENT)
+                .build();
+        ReflectionTestUtils.setField(file, "fileId", 10L);
+
+        when(fileRepository.findActiveByRelatedIdAndRelatedTypeForUpdate(
+                100L,
+                FileService.RELATED_TYPE_POST_CONTENT)).thenReturn(List.of(file));
+
+        fileService.markPostContentFilesDeletionPending(100L);
+
+        assertThat(file.getStorageStatus()).isEqualTo(FileStorageStatus.PENDING_DELETE);
+    }
+
+    @Test
     @DisplayName("임시 파일 정리는 바로 삭제하지 않고 pending 상태로 전환한다")
     void cleanUpTemporaryFiles_marksFilesPendingDeleteInBatches() {
         when(fileRepository.findTemporaryFileIdsForCleanup(any(LocalDateTime.class), eq(PageRequest.of(0, 500))))

@@ -132,6 +132,47 @@ function markCurrentSnapshotSaved() {
   initialFormSnapshot.value = copyFormSnapshot(form.value)
 }
 
+function extractFileIdFromImageSrc(src: string): number | null {
+  const baseOrigin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost'
+  let url: URL
+  try {
+    url = new URL(src, baseOrigin)
+  } catch {
+    return null
+  }
+  const isLocalFileUrl = src.startsWith('/') || url.origin === baseOrigin
+  if (!isLocalFileUrl) {
+    return null
+  }
+  const match = url.pathname.match(/^\/(?:api\/v1\/)?files\/(\d+)$/)
+  if (!match) {
+    return null
+  }
+  const fileId = Number(match[1])
+  return Number.isSafeInteger(fileId) ? fileId : null
+}
+
+function extractFileIdsFromContent(content: string): number[] {
+  const fileIds = new Set<number>()
+  const parser = new DOMParser()
+  const doc = parser.parseFromString(content, 'text/html')
+  doc.querySelectorAll('img[src]').forEach((image) => {
+    const fileId = extractFileIdFromImageSrc(image.getAttribute('src') ?? '')
+    if (fileId != null) {
+      fileIds.add(fileId)
+    }
+  })
+  return [...fileIds]
+}
+
+function resolvePayloadFileIds(scope: 'content' | 'draft'): number[] {
+  const contentFileIds = extractFileIdsFromContent(form.value.content)
+  if (scope === 'content') {
+    return contentFileIds
+  }
+  return contentFileIds.filter((fileId) => draftFileIds.value.includes(fileId))
+}
+
 function canWriteCategory(minWriteRole?: string) {
   const userRole = authStore.user?.role || 'USER'
   const isBoardAdmin = board.value?.isAdmin || false
@@ -245,12 +286,8 @@ function applyDraftSnapshot(draft: {
   draftFileIds.value = [...(draft.fileIds ?? [])]
 }
 
-const buildPayload = () => {
-  const editorFileIds = (tiptapEditorRef.value as { fileIds?: { value?: number[] } | number[] } | null)?.fileIds
-  const sessionFileIds = Array.isArray(editorFileIds)
-    ? editorFileIds
-    : editorFileIds?.value ?? []
-  const fileIds = Array.from(new Set([...draftFileIds.value, ...sessionFileIds]))
+const buildPayload = (fileIdScope: 'content' | 'draft' = 'content') => {
+  const fileIds = resolvePayloadFileIds(fileIdScope)
   const parsedCategoryId = typeof form.value.categoryId === 'string'
     ? parseInt(form.value.categoryId, 10)
     : form.value.categoryId
@@ -291,7 +328,7 @@ const {
   enabled: draftEnabled,
   storageKey: draftStorageKey,
   buildPayload: () => ({
-    ...buildPayload(),
+    ...buildPayload('draft'),
     boardUrl: boardUrl.value,
     originalPostId: props.mode === 'edit' ? Number(postId.value) : undefined,
   }),

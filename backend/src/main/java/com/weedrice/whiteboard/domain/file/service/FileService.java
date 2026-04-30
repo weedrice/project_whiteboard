@@ -184,6 +184,22 @@ public class FileService {
     }
 
     @Transactional
+    public void syncPostFiles(List<Long> fileIds, Long ownerUserId, Long postId) {
+        Set<Long> requestedFileIds = normalizeFileIds(fileIds);
+        List<File> existingPostFiles = fileRepository.findActiveByRelatedIdAndRelatedTypeForUpdate(
+                postId,
+                RELATED_TYPE_POST_CONTENT);
+
+        for (File existingPostFile : existingPostFiles) {
+            if (!requestedFileIds.contains(existingPostFile.getFileId())) {
+                existingPostFile.markDeletionPending();
+            }
+        }
+
+        associateOrMoveOwnedFiles(requestedFileIds, ownerUserId, postId, RELATED_TYPE_POST_CONTENT);
+    }
+
+    @Transactional
     public void markDraftFilesDeletionPending(Long draftId) {
         List<File> draftFiles = fileRepository.findByRelatedIdAndRelatedTypeAndStorageStatus(
                 draftId,
@@ -191,6 +207,16 @@ public class FileService {
                 FileStorageStatus.ACTIVE);
         for (File draftFile : draftFiles) {
             draftFile.markDeletionPending();
+        }
+    }
+
+    @Transactional
+    public void markPostContentFilesDeletionPending(Long postId) {
+        List<File> postFiles = fileRepository.findActiveByRelatedIdAndRelatedTypeForUpdate(
+                postId,
+                RELATED_TYPE_POST_CONTENT);
+        for (File postFile : postFiles) {
+            postFile.markDeletionPending();
         }
     }
 

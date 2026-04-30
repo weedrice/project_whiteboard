@@ -461,12 +461,13 @@ describe('PostForm', () => {
     it('submits create payload and navigates on success', async () => {
         boardRef.value = { allowNsfw: true, isAdmin: true }
         categoriesRef.value = [{ categoryId: 12, name: 'General', minWriteRole: 'USER' }]
-        editorFileIds.value = [7, 8]
         const wrapper = mountPostForm('create')
 
         await wrapper.get('#title').setValue('Created title')
         await wrapper.get('#category').setValue('12')
-        await wrapper.get('[data-testid=\"editor-input\"]').setValue('Created body')
+        await wrapper.get('[data-testid=\"editor-input\"]').setValue(
+            'Created body <img src="/api/v1/files/7"><img src="/files/8?download=true">',
+        )
         await wrapper.get('[data-testid=\"set-tags\"]').trigger('click')
         await wrapper.get('#nsfw').setValue(true)
         await wrapper.get('#spoiler').setValue(true)
@@ -482,7 +483,7 @@ describe('PostForm', () => {
                 title: 'Created title',
                 categoryId: 12,
                 tags: ['alpha', 'beta'],
-                contents: 'Created body',
+                contents: 'Created body <img src="/api/v1/files/7"><img src="/files/8?download=true">',
                 isNsfw: true,
                 isSpoiler: true,
                 isSecret: false,
@@ -594,6 +595,27 @@ describe('PostForm', () => {
 
         options.onSuccess()
         expect(mockPush).toHaveBeenCalledWith('/board/free/post/77')
+    })
+
+    it('preserves existing edit image file ids from post content', async () => {
+        routeState.params.postId = '78'
+        postRef.value = {
+            postId: 78,
+            title: 'Before title',
+            contents: '<p>Before <img src="/api/v1/files/31"><img src="/files/32?size=sm"><a href="/api/v1/files/99">file</a></p>',
+            category: { categoryId: 5 },
+            tags: [],
+            isNsfw: false,
+            isSpoiler: false,
+        }
+        const wrapper = mountPostForm('edit')
+        await nextTick()
+
+        await wrapper.get('#title').setValue('After title')
+        await wrapper.get('form').trigger('submit')
+
+        const [variables] = mockUpdateMutate.mock.calls.at(-1) as [any]
+        expect(variables.data.fileIds).toEqual([31, 32])
     })
 
     it('keeps current edit category when it is no longer selectable', async () => {
