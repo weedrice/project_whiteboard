@@ -89,6 +89,33 @@ class FeedServiceTest {
     }
 
     @Test
+    @DisplayName("POST feed without resolved post summary is excluded")
+    void getUserFeeds_excludesStalePostFeedWhenSummaryMissing() {
+        Long userId = 1L;
+        User user = User.builder().build();
+        Pageable pageable = PageRequest.of(0, 10);
+
+        UserFeed staleFeed = createFeed(1L, user, "SUBSCRIPTION_POST", "POST", 101L, "BOARD_SUBSCRIPTION", 10L,
+                LocalDateTime.now());
+        UserFeed validFeed = createFeed(2L, user, "SUBSCRIPTION_POST", "POST", 202L, "BOARD_SUBSCRIPTION", 10L,
+                LocalDateTime.now().minusMinutes(1));
+        Page<UserFeed> feedPage = new PageImpl<>(List.of(staleFeed, validFeed), pageable, 2);
+        PostSummary validPost = PostSummary.builder().postId(202L).title("valid").build();
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(userBlockService.getBlockedUserIds(userId)).thenReturn(List.of());
+        when(userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(user, List.of(), pageable)).thenReturn(feedPage);
+        when(postService.getPostSummariesByIds(List.of(101L, 202L), userId)).thenReturn(Map.of(202L, validPost));
+
+        FeedResponse response = feedService.getUserFeeds(userId, pageable);
+
+        assertThat(response.getContent()).hasSize(1);
+        assertThat(response.getContent().getFirst().getContentId()).isEqualTo(202L);
+        assertThat(response.getContent().getFirst().getPost()).isEqualTo(validPost);
+        assertThat(response.getTotalElements()).isEqualTo(2);
+    }
+
+    @Test
     @DisplayName("Unsupported feed content types keep null post")
     void getUserFeeds_keepsUnsupportedTypePostNull() {
         Long userId = 1L;

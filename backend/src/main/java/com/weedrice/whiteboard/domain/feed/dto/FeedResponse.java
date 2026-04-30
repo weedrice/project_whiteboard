@@ -35,8 +35,9 @@ public class FeedResponse {
         private PostSummary post;
     }
 
-    public static FeedResponse from(Page<UserFeed> feedPage, Map<Long, PostSummary> postSummariesById) {
-        List<FeedSummary> content = feedPage.getContent().stream()
+    public static FeedResponse from(Page<UserFeed> feedPage, List<UserFeed> feeds,
+                                    Map<Long, PostSummary> postSummariesById) {
+        List<FeedSummary> content = feeds.stream()
                 .map(feed -> FeedSummary.builder()
                         .feedId(feed.getFeedId())
                         .feedType(feed.getFeedType())
@@ -63,10 +64,6 @@ public class FeedResponse {
         if (!CONTENT_TYPE_POST.equals(feed.getContentType())) {
             return null;
         }
-        PostSummary postSummary = postSummariesById.get(feed.getContentId());
-        if (postSummary == null) {
-            throw new IllegalStateException("POST feed must include a resolved post summary");
-        }
-        return postSummary;
+        return postSummariesById.get(feed.getContentId());
     }
 }

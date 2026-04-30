@@ -11,6 +11,7 @@ import com.weedrice.whiteboard.domain.user.service.UserBlockService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -21,6 +22,7 @@ import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 @Transactional(readOnly = true)
 public class FeedService {
 
@@ -36,7 +38,8 @@ public class FeedService {
         List<Long> blockedUserIds = userBlockService.getBlockedUserIds(userId);
         Page<UserFeed> feedPage = userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(user, blockedUserIds, pageable);
         Map<Long, PostSummary> postSummariesById = resolvePostSummaries(feedPage, userId);
-        return FeedResponse.from(feedPage, postSummariesById);
+        List<UserFeed> resolvableFeeds = filterResolvableFeeds(feedPage, postSummariesById, userId);
+        return FeedResponse.from(feedPage, resolvableFeeds, postSummariesById);
     }
 
     @Transactional
@@ -55,4 +58,16 @@ public class FeedService {
         return postService.getPostSummariesByIds(postIds, userId);
     }
 
+    private List<UserFeed> filterResolvableFeeds(Page<UserFeed> feedPage, Map<Long, PostSummary> postSummariesById,
+                                                 Long userId) {
+        List<UserFeed> resolvableFeeds = feedPage.getContent().stream()
+                .filter(feed -> !FeedGenerationService.CONTENT_TYPE_POST.equals(feed.getContentType())
+                        || postSummariesById.containsKey(feed.getContentId()))
+                .toList();
+        int stalePostFeedCount = feedPage.getContent().size() - resolvableFeeds.size();
+        if (stalePostFeedCount > 0) {
+            log.warn("Excluded stale POST feeds from feed response. userId={}, count={}", userId, stalePostFeedCount);
+        }
+        return resolvableFeeds;
+    }
 }
