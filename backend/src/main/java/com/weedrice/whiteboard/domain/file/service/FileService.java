@@ -449,7 +449,7 @@ public class FileService {
                 Post post = postRepository.findById(file.getRelatedId())
                         .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
                 User viewer = resolveViewer(viewerUserId);
-                boolean authorBlocked = isAuthorBlocked(post, viewer);
+                boolean authorBlocked = isBlockedBetweenAuthorAndViewer(post, viewer);
                 postAccessPolicy.validateReadable(post, viewer, authorBlocked);
             }
             case RELATED_TYPE_USER_PROFILE,
@@ -479,7 +479,7 @@ public class FileService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
     }
 
-    private boolean isAuthorBlocked(Post post, User viewer) {
+    private boolean isBlockedBetweenAuthorAndViewer(Post post, User viewer) {
         if (post == null || post.getUser() == null || viewer == null) {
             return false;
         }
@@ -488,8 +488,7 @@ public class FileService {
         if (authorUserId == null || viewerUserId == null) {
             return false;
         }
-        List<Long> blockedUserIds = userBlockService.getBlockedUserIds(viewerUserId);
-        return blockedUserIds != null && blockedUserIds.contains(authorUserId);
+        return userBlockService.isEitherDirectionBlocked(viewerUserId, authorUserId);
     }
 
     private String detectImageMimeType(MultipartFile multipartFile) {

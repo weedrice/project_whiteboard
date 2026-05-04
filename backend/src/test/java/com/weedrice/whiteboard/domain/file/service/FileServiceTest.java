@@ -38,6 +38,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -545,17 +546,18 @@ class FileServiceTest {
         when(fileRepository.findByFileIdAndStorageStatus(10L, FileStorageStatus.ACTIVE)).thenReturn(Optional.of(file));
         when(postRepository.findById(100L)).thenReturn(Optional.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(viewer));
-        when(userBlockService.getBlockedUserIds(1L)).thenReturn(List.of());
+        when(userBlockService.isEitherDirectionBlocked(1L, 2L)).thenReturn(false);
 
         File result = fileService.getFileForDownload(10L, 1L);
 
         assertThat(result).isSameAs(file);
         verify(postAccessPolicy).validateReadable(post, viewer, false);
+        verify(userBlockService).isEitherDirectionBlocked(1L, 2L);
     }
 
     @Test
-    @DisplayName("게시글 첨부 다운로드는 차단한 작성자 여부를 게시글 읽기 정책에 전달한다")
-    void getFileForDownload_passesAuthorBlockedForPostContent() {
+    @DisplayName("게시글 첨부 다운로드는 양방향 차단 여부를 게시글 읽기 정책에 전달한다")
+    void getFileForDownload_passesEitherDirectionBlockedForPostContent() {
         User uploader = User.builder().build();
         User viewer = User.builder().build();
         ReflectionTestUtils.setField(viewer, "userId", 1L);
@@ -577,12 +579,48 @@ class FileServiceTest {
         when(fileRepository.findByFileIdAndStorageStatus(10L, FileStorageStatus.ACTIVE)).thenReturn(Optional.of(file));
         when(postRepository.findById(100L)).thenReturn(Optional.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(viewer));
-        when(userBlockService.getBlockedUserIds(1L)).thenReturn(List.of(2L));
+        when(userBlockService.isEitherDirectionBlocked(1L, 2L)).thenReturn(true);
 
         File result = fileService.getFileForDownload(10L, 1L);
 
         assertThat(result).isSameAs(file);
         verify(postAccessPolicy).validateReadable(post, viewer, true);
+        verify(userBlockService).isEitherDirectionBlocked(1L, 2L);
+    }
+
+    @Test
+    @DisplayName("게시글 작성자가 조회자를 차단한 경우 첨부 다운로드도 숨김 처리한다")
+    void getFileForDownload_treatsAuthorBlockedViewerAsUnreadable() {
+        User uploader = User.builder().build();
+        User viewer = User.builder().build();
+        ReflectionTestUtils.setField(viewer, "userId", 1L);
+        User author = User.builder().build();
+        ReflectionTestUtils.setField(author, "userId", 2L);
+        Post post = Post.builder()
+                .user(author)
+                .build();
+        File file = File.builder()
+                .filePath("storedFileName.jpg")
+                .originalName("test.jpg")
+                .fileSize(4L)
+                .mimeType("image/jpeg")
+                .uploader(uploader)
+                .relatedId(100L)
+                .relatedType(FileService.RELATED_TYPE_POST_CONTENT)
+                .build();
+
+        when(fileRepository.findByFileIdAndStorageStatus(10L, FileStorageStatus.ACTIVE)).thenReturn(Optional.of(file));
+        when(postRepository.findById(100L)).thenReturn(Optional.of(post));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(viewer));
+        when(userBlockService.isEitherDirectionBlocked(1L, 2L)).thenReturn(true);
+        doThrow(new BusinessException(ErrorCode.POST_NOT_FOUND))
+                .when(postAccessPolicy).validateReadable(post, viewer, true);
+
+        assertThatThrownBy(() -> fileService.getFileForDownload(10L, 1L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
+        verify(postAccessPolicy).validateReadable(post, viewer, true);
+        verify(userBlockService).isEitherDirectionBlocked(1L, 2L);
     }
 
     @Test
