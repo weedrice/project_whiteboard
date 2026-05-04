@@ -112,7 +112,8 @@ public class TagAssignmentService {
         try {
             return tagCreationService.create(tagName);
         } catch (DataIntegrityViolationException ex) {
-            throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE);
+            return tagRepository.findByTagName(tagName)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.DUPLICATE_RESOURCE));
         }
     }
 }

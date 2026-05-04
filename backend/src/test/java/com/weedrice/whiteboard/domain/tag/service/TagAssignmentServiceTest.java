@@ -73,10 +73,30 @@ class TagAssignmentServiceTest {
     }
 
     @Test
-    @DisplayName("assignTags rejects duplicate tag creation race")
-    void assignTags_rejectsDuplicateTagCreationRace() {
+    @DisplayName("assignTags reuses existing tag after duplicate tag creation race")
+    void assignTags_reusesExistingTagAfterDuplicateTagCreationRace() {
         when(postTagRepository.findByPost(post)).thenReturn(Collections.emptyList());
-        when(tagRepository.findByTagName("newTag")).thenReturn(Optional.empty());
+        Tag concurrentlyCreatedTag = new Tag("newTag");
+        ReflectionTestUtils.setField(concurrentlyCreatedTag, "tagId", 20L);
+        when(tagRepository.findByTagName("newTag"))
+                .thenReturn(Optional.empty())
+                .thenReturn(Optional.of(concurrentlyCreatedTag));
+        doThrow(new DataIntegrityViolationException("duplicate"))
+                .when(tagCreationService).create("newTag");
+
+        tagAssignmentService.assignTags(post, Collections.singletonList("newTag"));
+
+        verify(postTagRepository).save(any(PostTag.class));
+        verify(tagRepository).incrementPostCount(20L);
+    }
+
+    @Test
+    @DisplayName("assignTags preserves duplicate error when duplicate tag cannot be recovered")
+    void assignTags_preservesDuplicateErrorWhenDuplicateTagCannotBeRecovered() {
+        when(postTagRepository.findByPost(post)).thenReturn(Collections.emptyList());
+        when(tagRepository.findByTagName("newTag"))
+                .thenReturn(Optional.empty())
+                .thenReturn(Optional.empty());
         doThrow(new DataIntegrityViolationException("duplicate"))
                 .when(tagCreationService).create("newTag");
 
