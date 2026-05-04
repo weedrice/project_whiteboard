@@ -51,6 +51,34 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
                 WHERE p.isDeleted = false
                 """)
         long countVisiblePostsForAdminDashboard();
+
+        @Query("""
+                SELECT COUNT(p)
+                FROM Post p
+                JOIN p.board b
+                WHERE p.isDeleted = false
+                  AND p.isSecret = false
+                  AND b.isActive = true
+                  AND b.isPublic = true
+                  AND LOWER(b.boardUrl) <> 'inquiry'
+                """)
+        long countPublicLandingVisiblePosts();
+
+        @Query("""
+                SELECT COUNT(p)
+                FROM Post p
+                JOIN p.board b
+                WHERE p.createdAt >= :start
+                  AND p.createdAt < :end
+                  AND p.isDeleted = false
+                  AND p.isSecret = false
+                  AND b.isActive = true
+                  AND b.isPublic = true
+                  AND LOWER(b.boardUrl) <> 'inquiry'
+                """)
+        long countPublicLandingVisiblePostsCreatedAtGreaterThanEqualAndCreatedAtLessThan(
+                @Param("start") LocalDateTime start,
+                @Param("end") LocalDateTime end);
         @EntityGraph(attributePaths = {"user", "agent", "board", "category"})
         List<Post> findByBoard_BoardIdAndIsNoticeAndIsDeletedOrderByCreatedAtDesc(Long boardId, Boolean isNotice, Boolean isDeleted);
         @EntityGraph(attributePaths = {"user", "board", "category"})

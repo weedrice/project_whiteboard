@@ -16,6 +16,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -175,6 +176,59 @@ class CommentRepositoryTest {
     }
 
     @Test
+    @DisplayName("홈 랜딩 댓글 수는 공개 랜딩 노출 게시글의 기간 내 미삭제 댓글만 집계한다")
+    void countPublicLandingVisibleCommentsCreatedBetween_countsOnlyVisibleCommentsInRange() {
+        LocalDateTime todayStart = LocalDateTime.of(2026, 5, 4, 0, 0);
+        LocalDateTime tomorrowStart = todayStart.plusDays(1);
+        Board privateBoard = persistBoard("Landing Comment Private Board", "landing-comment-private-board", false);
+        Board inactiveBoard = persistBoard("Landing Comment Inactive Board", "landing-comment-inactive-board", true);
+        inactiveBoard.deactivate();
+        Board inquiryBoard = persistBoard("Landing Comment Inquiry Board", "inquiry", true);
+        Post secretPost = persistPost("Landing Secret Post", board, true, false);
+        Post deletedPost = persistPost("Landing Deleted Post", board, false, true);
+        Post privatePost = persistPost("Landing Private Post", privateBoard, false, false);
+        Post inactivePost = persistPost("Landing Inactive Post", inactiveBoard, false, false);
+        Post inquiryPost = persistPost("Landing Inquiry Post", inquiryBoard, false, false);
+
+        Comment visibleComment = commentFor(post, "Visible Comment");
+        Comment yesterdayComment = commentFor(post, "Yesterday Comment");
+        Comment deletedComment = commentFor(post, "Deleted Comment");
+        deletedComment.deleteComment();
+        Comment secretPostComment = commentFor(secretPost, "Secret Post Comment");
+        Comment deletedPostComment = commentFor(deletedPost, "Deleted Post Comment");
+        Comment privatePostComment = commentFor(privatePost, "Private Post Comment");
+        Comment inactivePostComment = commentFor(inactivePost, "Inactive Post Comment");
+        Comment inquiryPostComment = commentFor(inquiryPost, "Inquiry Post Comment");
+        entityManager.persist(visibleComment);
+        entityManager.persist(yesterdayComment);
+        entityManager.persist(deletedComment);
+        entityManager.persist(secretPostComment);
+        entityManager.persist(deletedPostComment);
+        entityManager.persist(privatePostComment);
+        entityManager.persist(inactivePostComment);
+        entityManager.persist(inquiryPostComment);
+        entityManager.flush();
+
+        updateCreatedAt(comment, todayStart.minusDays(1));
+        updateCreatedAt(visibleComment, todayStart.plusHours(1));
+        updateCreatedAt(yesterdayComment, todayStart.minusHours(1));
+        updateCreatedAt(deletedComment, todayStart.plusHours(2));
+        updateCreatedAt(secretPostComment, todayStart.plusHours(3));
+        updateCreatedAt(deletedPostComment, todayStart.plusHours(4));
+        updateCreatedAt(privatePostComment, todayStart.plusHours(5));
+        updateCreatedAt(inactivePostComment, todayStart.plusHours(6));
+        updateCreatedAt(inquiryPostComment, todayStart.plusHours(7));
+        entityManager.flush();
+        entityManager.clear();
+
+        long count = commentRepository.countPublicLandingVisibleCommentsCreatedAtGreaterThanEqualAndCreatedAtLessThan(
+                todayStart,
+                tomorrowStart);
+
+        assertThat(count).isEqualTo(1L);
+    }
+
+    @Test
     @DisplayName("게시글별 비작성자 미삭제 댓글 존재 여부를 배치 조회한다")
     void findPostIdsWithNonAuthorCommentsByPostIds_success() {
         User responder = User.builder()
@@ -249,6 +303,40 @@ class CommentRepositoryTest {
                 .post(post)
                 .depth(0)
                 .build();
+    }
+
+    private Board persistBoard(String boardName, String boardUrl, boolean isPublic) {
+        Board targetBoard = Board.builder()
+                .boardName(boardName)
+                .boardUrl(boardUrl)
+                .creator(user)
+                .isPublic(isPublic)
+                .build();
+        entityManager.persist(targetBoard);
+        return targetBoard;
+    }
+
+    private Post persistPost(String title, Board targetBoard, boolean isSecret, boolean isDeleted) {
+        Post targetPost = Post.builder()
+                .title(title)
+                .contents("Contents")
+                .user(user)
+                .board(targetBoard)
+                .isSecret(isSecret)
+                .build();
+        if (isDeleted) {
+            targetPost.deletePost();
+        }
+        entityManager.persist(targetPost);
+        return targetPost;
+    }
+
+    private void updateCreatedAt(Comment targetComment, LocalDateTime createdAt) {
+        entityManager.getEntityManager()
+                .createNativeQuery("UPDATE comments SET created_at = :createdAt WHERE comment_id = :commentId")
+                .setParameter("createdAt", createdAt)
+                .setParameter("commentId", targetComment.getCommentId())
+                .executeUpdate();
     }
 
     @Test

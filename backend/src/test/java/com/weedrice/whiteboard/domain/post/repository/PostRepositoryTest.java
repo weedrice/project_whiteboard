@@ -171,6 +171,71 @@ class PostRepositoryTest {
     }
 
     @Test
+    @DisplayName("홈 랜딩 게시글 수는 공개 활성 게시판의 비밀글이 아닌 미삭제 게시글만 집계한다")
+    void countPublicLandingVisiblePosts_countsOnlyPublicLandingVisiblePosts() {
+        Board privateBoard = persistBoard("Landing Private Board", "landing-private-board", false);
+        Board inactiveBoard = persistBoard("Landing Inactive Board", "landing-inactive-board", true);
+        inactiveBoard.deactivate();
+        Board inquiryBoard = persistBoard("Landing Inquiry Board", "inquiry", true);
+
+        entityManager.persist(landingPost("Landing Visible Post", board, false, false));
+        entityManager.persist(landingPost("Landing Secret Post", board, true, false));
+        entityManager.persist(landingPost("Landing Deleted Post", board, false, true));
+        entityManager.persist(landingPost("Landing Private Board Post", privateBoard, false, false));
+        entityManager.persist(landingPost("Landing Inactive Board Post", inactiveBoard, false, false));
+        entityManager.persist(landingPost("Landing Inquiry Post", inquiryBoard, false, false));
+        entityManager.flush();
+
+        long count = postRepository.countPublicLandingVisiblePosts();
+
+        assertThat(count).isEqualTo(2L);
+    }
+
+    @Test
+    @DisplayName("홈 랜딩 날짜별 게시글 수는 공개 랜딩 노출 범위와 기간 조건을 함께 적용한다")
+    void countPublicLandingVisiblePostsCreatedBetween_countsOnlyVisiblePostsInRange() {
+        LocalDateTime todayStart = LocalDateTime.of(2026, 5, 4, 0, 0);
+        LocalDateTime tomorrowStart = todayStart.plusDays(1);
+        Board privateBoard = persistBoard("Landing Date Private Board", "landing-date-private-board", false);
+        Board inactiveBoard = persistBoard("Landing Date Inactive Board", "landing-date-inactive-board", true);
+        inactiveBoard.deactivate();
+        Board inquiryBoard = persistBoard("Landing Date Inquiry Board", "inquiry", true);
+
+        Post visibleToday = landingPost("Landing Date Visible", board, false, false);
+        Post visibleYesterday = landingPost("Landing Date Yesterday", board, false, false);
+        Post visibleAtEnd = landingPost("Landing Date End", board, false, false);
+        Post secretToday = landingPost("Landing Date Secret", board, true, false);
+        Post privateToday = landingPost("Landing Date Private", privateBoard, false, false);
+        Post inactiveToday = landingPost("Landing Date Inactive", inactiveBoard, false, false);
+        Post inquiryToday = landingPost("Landing Date Inquiry", inquiryBoard, false, false);
+        entityManager.persist(visibleToday);
+        entityManager.persist(visibleYesterday);
+        entityManager.persist(visibleAtEnd);
+        entityManager.persist(secretToday);
+        entityManager.persist(privateToday);
+        entityManager.persist(inactiveToday);
+        entityManager.persist(inquiryToday);
+        entityManager.flush();
+
+        updateCreatedAt(post, todayStart.minusDays(1));
+        updateCreatedAt(visibleToday, todayStart.plusHours(1));
+        updateCreatedAt(visibleYesterday, todayStart.minusHours(1));
+        updateCreatedAt(visibleAtEnd, tomorrowStart);
+        updateCreatedAt(secretToday, todayStart.plusHours(2));
+        updateCreatedAt(privateToday, todayStart.plusHours(3));
+        updateCreatedAt(inactiveToday, todayStart.plusHours(4));
+        updateCreatedAt(inquiryToday, todayStart.plusHours(5));
+        entityManager.flush();
+        entityManager.clear();
+
+        long count = postRepository.countPublicLandingVisiblePostsCreatedAtGreaterThanEqualAndCreatedAtLessThan(
+                todayStart,
+                tomorrowStart);
+
+        assertThat(count).isEqualTo(1L);
+    }
+
+    @Test
     @DisplayName("게시판별 공지사항 조회 성공")
     void findByBoardAndIsNotice_fetchesSummaryRelations() {
         Agent agent = Agent.builder()
@@ -723,6 +788,32 @@ class PostRepositoryTest {
                 .setParameter("createdAt", createdAt)
                 .setParameter("postId", targetPost.getPostId())
                 .executeUpdate();
+    }
+
+    private Board persistBoard(String boardName, String boardUrl, boolean isPublic) {
+        Board targetBoard = Board.builder()
+                .boardName(boardName)
+                .boardUrl(boardUrl)
+                .creator(user)
+                .isPublic(isPublic)
+                .build();
+        entityManager.persist(targetBoard);
+        return targetBoard;
+    }
+
+    private Post landingPost(String title, Board targetBoard, boolean isSecret, boolean isDeleted) {
+        Post targetPost = Post.builder()
+                .title(title)
+                .contents("Contents")
+                .user(user)
+                .board(targetBoard)
+                .category(category)
+                .isSecret(isSecret)
+                .build();
+        if (isDeleted) {
+            targetPost.deletePost();
+        }
+        return targetPost;
     }
 
     private void persistPostContentImage(Post targetPost) {

@@ -128,6 +128,23 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
         long countByPost_PostIdAndIsDeleted(Long postId, Boolean isDeleted);
         long countByAgent_AgentIdAndCreatedAtBetween(Long agentId, LocalDateTime start, LocalDateTime end);
         long countByCreatedAtGreaterThanEqualAndCreatedAtLessThanAndIsDeletedFalse(LocalDateTime start, LocalDateTime end);
+        @Query("""
+                        SELECT COUNT(c)
+                        FROM Comment c
+                        JOIN c.post p
+                        JOIN p.board b
+                        WHERE c.createdAt >= :start
+                          AND c.createdAt < :end
+                          AND c.isDeleted = false
+                          AND p.isDeleted = false
+                          AND p.isSecret = false
+                          AND b.isActive = true
+                          AND b.isPublic = true
+                          AND LOWER(b.boardUrl) <> 'inquiry'
+                        """)
+        long countPublicLandingVisibleCommentsCreatedAtGreaterThanEqualAndCreatedAtLessThan(
+                        @org.springframework.data.repository.query.Param("start") LocalDateTime start,
+                        @org.springframework.data.repository.query.Param("end") LocalDateTime end);
         Optional<Comment> findByCommentIdAndPost_PostId(Long commentId, Long postId);
 
         long countByUser(User user);

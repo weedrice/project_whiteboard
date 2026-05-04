@@ -17,6 +17,15 @@ public interface BoardRepository extends JpaRepository<Board, Long> {
 
     long countByIsActiveTrueAndIsPublicTrue();
 
+    @Query("""
+            SELECT COUNT(b)
+            FROM Board b
+            WHERE b.isActive = true
+              AND b.isPublic = true
+              AND LOWER(b.boardUrl) <> 'inquiry'
+            """)
+    long countPublicLandingVisibleBoards();
+
     @EntityGraph(attributePaths = "creator")
     List<Board> findByIsActiveOrderBySortOrderAscBoardIdAsc(Boolean isActive);
 

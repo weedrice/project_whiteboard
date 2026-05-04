@@ -82,6 +82,20 @@ class BoardRepositoryTest {
     }
 
     @Test
+    @DisplayName("홈 랜딩 게시판 수는 문의 게시판을 제외한 공개 활성 게시판만 집계한다")
+    void countPublicLandingVisibleBoards_countsOnlyPublicActiveNonInquiryBoards() {
+        persistBoard("Landing Public Board", "landing-public-board", 10, true, true);
+        persistBoard("Landing Private Board", "landing-private-board", 20, true, false);
+        persistBoard("Landing Inactive Board", "landing-inactive-board", 30, false, true);
+        persistBoard("Landing Inquiry Board", "Inquiry", 40, true, true);
+        entityManager.flush();
+
+        long count = boardRepository.countPublicLandingVisibleBoards();
+
+        assertThat(count).isEqualTo(2L);
+    }
+
+    @Test
     @DisplayName("보드 이름 검색 미리보기는 공개 활성 게시판만 정렬된 5개로 제한")
     void findBoardPreviewByKeyword_returnsOnlyPublicActiveBoardsWithinLimit() {
         persistBoard("Search 1", "search-1", 30, true, true);
