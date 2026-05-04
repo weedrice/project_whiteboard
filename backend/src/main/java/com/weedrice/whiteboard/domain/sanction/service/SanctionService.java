@@ -59,7 +59,7 @@ public class SanctionService {
         SecurityUtils.validateSuperAdminPermission();
         String normalizedType = normalizeType(type);
         String normalizedContentType = normalizeContentType(contentId, contentType);
-        validateBanPeriod(normalizedType, endDate);
+        validateEndDate(endDate);
 
         Admin admin = moderationActorResolver.resolveActiveAdmin(adminUserId);
 
@@ -153,8 +153,8 @@ public class SanctionService {
         }
     }
 
-    private void validateBanPeriod(String type, LocalDateTime endDate) {
-        if (TYPE_BAN.equals(type) && endDate != null && !endDate.isAfter(LocalDateTime.now())) {
+    private void validateEndDate(LocalDateTime endDate) {
+        if (endDate != null && !endDate.isAfter(LocalDateTime.now())) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
     }

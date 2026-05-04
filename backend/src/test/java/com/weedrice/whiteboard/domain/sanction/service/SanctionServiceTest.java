@@ -171,11 +171,23 @@ class SanctionServiceTest {
     }
 
     @Test
-    @DisplayName("reject BAN endDate when it is not in the future")
-    void createSanction_rejectsPastOrImmediateBanEndDate() {
+    @DisplayName("reject endDate when it is not in the future")
+    void createSanction_rejectsPastOrImmediateEndDate() {
         mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).then(invocation -> null);
 
         assertThatThrownBy(() -> sanctionService.createSanction(1L, 2L, "BAN", "Expired", LocalDateTime.now(), null, null))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+
+        assertThatThrownBy(() -> sanctionService.createSanction(
+                1L, 2L, "MUTE", "Expired", LocalDateTime.now().minusMinutes(1), null, null))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+
+        assertThatThrownBy(() -> sanctionService.createSanction(
+                1L, 2L, "WARNING", "Expired", LocalDateTime.now().minusMinutes(1), null, null))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
