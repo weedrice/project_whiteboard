@@ -12,6 +12,14 @@ public interface BoardCategoryRepository extends JpaRepository<BoardCategory, Lo
 
     List<BoardCategory> findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(Long boardId, Boolean isActive);
 
+    boolean existsByBoard_BoardIdAndNameAndIsActive(Long boardId, String name, Boolean isActive);
+
+    boolean existsByBoard_BoardIdAndNameAndIsActiveAndCategoryIdNot(
+            Long boardId,
+            String name,
+            Boolean isActive,
+            Long categoryId);
+
     @EntityGraph(attributePaths = "board")
     Optional<BoardCategory> findByCategoryIdAndBoard_BoardIdAndIsActive(Long categoryId, Long boardId, Boolean isActive);
 

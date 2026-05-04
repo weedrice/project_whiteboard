@@ -33,10 +33,12 @@ class BoardCategoryService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
 
         SecurityUtils.validateBoardAdminPermission(board);
+        String normalizedName = normalizeCategoryName(request.getName());
+        validateDuplicateActiveName(board.getBoardId(), normalizedName);
 
         BoardCategory category = BoardCategory.builder()
                 .board(board)
-                .name(request.getName())
+                .name(normalizedName)
                 .sortOrder(request.getSortOrder())
                 .minWriteRole(request.getMinWriteRole())
                 .build();
@@ -55,8 +57,12 @@ class BoardCategoryService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
 
         SecurityUtils.validateBoardAdminPermission(category.getBoard());
+        String normalizedName = normalizeCategoryName(request.getName());
+        if (Boolean.TRUE.equals(category.getIsActive())) {
+            validateDuplicateActiveName(category.getBoard().getBoardId(), normalizedName, categoryId);
+        }
 
-        category.update(request.getName(), request.getSortOrder(), request.getMinWriteRole());
+        category.update(normalizedName, request.getSortOrder(), request.getMinWriteRole());
         try {
             return new CategoryResponse(boardCategoryRepository.saveAndFlush(category));
         } catch (DataIntegrityViolationException ex) {
@@ -71,6 +77,29 @@ class BoardCategoryService {
         SecurityUtils.validateBoardAdminPermission(category.getBoard());
 
         category.deactivate();
+    }
+
+    private String normalizeCategoryName(String name) {
+        if (name == null || name.isBlank()) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "Category name cannot be blank");
+        }
+        return name.trim();
+    }
+
+    private void validateDuplicateActiveName(Long boardId, String name) {
+        if (boardCategoryRepository.existsByBoard_BoardIdAndNameAndIsActive(boardId, name, true)) {
+            throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE, "Duplicate active board category");
+        }
+    }
+
+    private void validateDuplicateActiveName(Long boardId, String name, Long categoryId) {
+        if (boardCategoryRepository.existsByBoard_BoardIdAndNameAndIsActiveAndCategoryIdNot(
+                boardId,
+                name,
+                true,
+                categoryId)) {
+            throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE, "Duplicate active board category");
+        }
     }
 
     private BusinessException resolveCategoryConflict(DataIntegrityViolationException ex) {

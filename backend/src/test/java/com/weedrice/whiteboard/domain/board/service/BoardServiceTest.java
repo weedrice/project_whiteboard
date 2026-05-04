@@ -7,6 +7,7 @@ import com.weedrice.whiteboard.domain.board.dto.BoardCreateRequest;
 import com.weedrice.whiteboard.domain.board.dto.BoardDetailResponse;
 import com.weedrice.whiteboard.domain.board.dto.BoardListResponse;
 import com.weedrice.whiteboard.domain.board.dto.BoardUpdateRequest;
+import com.weedrice.whiteboard.domain.board.dto.CategoryRequest;
 import com.weedrice.whiteboard.domain.board.entity.BoardAiInfo;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
@@ -34,11 +35,11 @@ import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import org.hibernate.exception.ConstraintViolationException;
-import org.mockito.ArgumentCaptor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -173,6 +174,8 @@ class BoardServiceTest {
         lenient().when(adminRepository.findByBoardAndRoleAndIsActive(any(), anyString(), any()))
                 .thenReturn(Collections.emptyList());
         lenient().when(adminRepository.findByUserAndBoardAndRole(any(), any(), anyString()))
+                .thenReturn(Optional.empty());
+        lenient().when(adminRepository.findByUserAndBoardAndIsActive(any(), any(), anyBoolean()))
                 .thenReturn(Optional.empty());
         lenient().when(boardAiInfoRepository.findByBoard_BoardIdIn(any()))
                 .thenReturn(Collections.emptyList());
@@ -753,6 +756,111 @@ class BoardServiceTest {
         verify(fileService, never()).replaceBoardIcon(anyLong(), anyLong(), anyLong());
         verify(fileService, never()).deleteFileWithStorageIfAssociated(anyLong(), anyLong(), anyString());
         verify(boardAiInfoRepository, never()).save(any(BoardAiInfo.class));
+    }
+
+    @Test
+    @DisplayName("카테고리 생성은 이름을 trim하고 활성 이름 중복을 사전 검증한다")
+    void createCategory_trimsNameAndChecksDuplicateActiveName() {
+        CategoryRequest request = categoryRequest("  General  ", 1, "USER");
+        when(boardRepository.findByBoardUrl("test-board")).thenReturn(Optional.of(board));
+        when(boardCategoryRepository.existsByBoard_BoardIdAndNameAndIsActive(1L, "General", true))
+                .thenReturn(false);
+        when(boardCategoryRepository.saveAndFlush(any(BoardCategory.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        authenticateUser();
+        try {
+            boardService.createCategory("test-board", request);
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
+
+        ArgumentCaptor<BoardCategory> categoryCaptor = ArgumentCaptor.forClass(BoardCategory.class);
+        verify(boardCategoryRepository).saveAndFlush(categoryCaptor.capture());
+        assertThat(categoryCaptor.getValue().getName()).isEqualTo("General");
+    }
+
+    @Test
+    @DisplayName("카테고리 생성은 같은 게시판의 활성 이름 중복을 거부한다")
+    void createCategory_duplicateActiveName_throwsDuplicateResource() {
+        CategoryRequest request = categoryRequest("General", 1, "USER");
+        when(boardRepository.findByBoardUrl("test-board")).thenReturn(Optional.of(board));
+        when(boardCategoryRepository.existsByBoard_BoardIdAndNameAndIsActive(1L, "General", true))
+                .thenReturn(true);
+
+        authenticateUser();
+        BusinessException exception;
+        try {
+            exception = assertThrows(BusinessException.class,
+                    () -> boardService.createCategory("test-board", request));
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
+
+        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.DUPLICATE_RESOURCE);
+        verify(boardCategoryRepository, never()).saveAndFlush(any(BoardCategory.class));
+    }
+
+    @Test
+    @DisplayName("카테고리 수정은 자기 자신을 제외하고 활성 이름 중복을 거부한다")
+    void updateCategory_duplicateActiveName_throwsDuplicateResource() {
+        CategoryRequest request = categoryRequest("General", 1, "USER");
+        BoardCategory category = BoardCategory.builder()
+                .board(board)
+                .name("News")
+                .sortOrder(1)
+                .minWriteRole("USER")
+                .build();
+        ReflectionTestUtils.setField(category, "categoryId", 10L);
+        when(boardCategoryRepository.findById(10L)).thenReturn(Optional.of(category));
+        when(boardCategoryRepository.existsByBoard_BoardIdAndNameAndIsActiveAndCategoryIdNot(
+                1L,
+                "General",
+                true,
+                10L))
+                .thenReturn(true);
+
+        authenticateUser();
+        BusinessException exception;
+        try {
+            exception = assertThrows(BusinessException.class,
+                    () -> boardService.updateCategory(10L, request));
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
+
+        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.DUPLICATE_RESOURCE);
+        verify(boardCategoryRepository, never()).saveAndFlush(any(BoardCategory.class));
+    }
+
+    @Test
+    @DisplayName("비활성 카테고리 수정은 활성 이름 중복 검증을 건너뛴다")
+    void updateCategory_inactiveCategory_skipsActiveNameDuplicateCheck() {
+        CategoryRequest request = categoryRequest("General", 1, "USER");
+        BoardCategory category = BoardCategory.builder()
+                .board(board)
+                .name("Archived")
+                .sortOrder(1)
+                .minWriteRole("USER")
+                .build();
+        ReflectionTestUtils.setField(category, "categoryId", 10L);
+        category.deactivate();
+        when(boardCategoryRepository.findById(10L)).thenReturn(Optional.of(category));
+        when(boardCategoryRepository.saveAndFlush(category)).thenReturn(category);
+
+        authenticateUser();
+        try {
+            boardService.updateCategory(10L, request);
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
+
+        verify(boardCategoryRepository, never()).existsByBoard_BoardIdAndNameAndIsActiveAndCategoryIdNot(
+                anyLong(),
+                anyString(),
+                anyBoolean(),
+                anyLong());
+        verify(boardCategoryRepository).saveAndFlush(category);
     }
 
     @Test
@@ -1805,6 +1913,14 @@ class BoardServiceTest {
         CustomUserDetails principal = new CustomUserDetails(1L, user.getLoginId(), "password", Collections.emptyList());
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities()));
+    }
+
+    private CategoryRequest categoryRequest(String name, Integer sortOrder, String minWriteRole) {
+        CategoryRequest request = new CategoryRequest();
+        ReflectionTestUtils.setField(request, "name", name);
+        ReflectionTestUtils.setField(request, "sortOrder", sortOrder);
+        ReflectionTestUtils.setField(request, "minWriteRole", minWriteRole);
+        return request;
     }
 
     private BoardUpdateRequest createBoardUpdateRequest(String boardName, String boardUrl, String iconUrl) {
