@@ -132,7 +132,7 @@ class AuthServiceTest {
         PasswordResetService passwordResetService = new PasswordResetService(
                 userRepository, verificationCodeService, passwordResetTokenRepository,
                 passwordHistoryPolicy, refreshTokenLifecycleService, tokenHashService,
-                passwordResetTokenOrchestrationService);
+                passwordResetTokenOrchestrationService, transactionTemplate);
         SignupService signupService = new SignupService(
                 userRepository, pointService, userSettingsRepository,
                 socialAccountLinkService, verificationCodeService, emailEligibilityService, globalConfigService,
@@ -154,6 +154,11 @@ class AuthServiceTest {
             consumer.accept(null);
             return null;
         }).when(transactionTemplate).executeWithoutResult(any());
+
+        doAnswer(invocation -> {
+            org.springframework.transaction.support.TransactionCallback<?> callback = invocation.getArgument(0);
+            return callback.doInTransaction(null);
+        }).when(transactionTemplate).execute(any());
 
         doAnswer(invocation -> {
             PasswordResetToken passwordResetToken = invocation.getArgument(0);
@@ -685,6 +690,24 @@ class AuthServiceTest {
                 VerificationPurpose.PASSWORD_RESET,
                 verificationTicket);
         verify(verificationCodeService, never()).consumeValidatedVerificationTicket(anyString(), any(), anyString());
+    }
+
+    @Test
+    @DisplayName("비밀번호 재설정 링크 메일 발송 실패 - 검증 티켓이 유효하지 않음")
+    void sendPasswordResetLinkByEmail_invalidTicket() {
+        String email = "test@example.com";
+        String verificationTicket = "ticket-1";
+        doThrow(new BusinessException(ErrorCode.EMAIL_NOT_VERIFIED))
+                .when(verificationCodeService)
+                .validateVerificationTicket(email, VerificationPurpose.PASSWORD_RESET, verificationTicket);
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> authService.sendPasswordResetLinkByEmail(email, verificationTicket));
+
+        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.EMAIL_NOT_VERIFIED);
+        verify(userRepository, never()).findByEmail(anyString());
+        verify(verificationCodeService, never()).consumeValidatedVerificationTicket(anyString(), any(), anyString());
+        verify(emailService, never()).sendEmail(anyString(), anyString(), anyString());
     }
 
     @Test

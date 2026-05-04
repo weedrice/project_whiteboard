@@ -11,8 +11,11 @@ import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
+import java.util.Objects;
 import java.util.UUID;
 
 @Service
@@ -27,63 +30,79 @@ public class PasswordResetService {
     private final RefreshTokenLifecycleService refreshTokenLifecycleService;
     private final TokenHashService tokenHashService;
     private final PasswordResetTokenOrchestrationService passwordResetTokenOrchestrationService;
+    private final TransactionTemplate transactionTemplate;
 
     @Value("${cloud.aws.password-reset.frontend-url}")
     private String passwordResetFrontendUrl;
 
-    @Transactional
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void sendPasswordResetLink(String email, String verificationTicket) {
-        verificationCodeService.validateVerificationTicket(
-                email,
-                VerificationPurpose.PASSWORD_RESET,
-                verificationTicket);
-
-        User user = getUsablePasswordResetUser(email, ErrorCode.USER_NOT_FOUND);
         String rawToken = UUID.randomUUID().toString();
-        String resetLink = passwordResetFrontendUrl + rawToken;
-        String subject = "[noviIs] Password reset link";
-        String body = "<h1>Password reset</h1>"
-                + "<p>Use the link below to reset your password.</p>"
-                + "<p><a href=\"" + resetLink + "\">" + resetLink + "</a></p>";
-
-        passwordResetTokenOrchestrationService.sendPasswordResetEmail(
-                user,
-                user.getEmail(),
-                rawToken,
-                subject,
-                body);
-        verificationCodeService.consumeValidatedVerificationTicket(
+        PasswordResetMailCommand command = preparePasswordResetMail(
                 email,
-                VerificationPurpose.PASSWORD_RESET,
-                verificationTicket);
+                verificationTicket,
+                rawToken,
+                ErrorCode.USER_NOT_FOUND,
+                false);
+        passwordResetTokenOrchestrationService.sendPreparedPasswordResetEmail(
+                command.user(),
+                command.recipientEmail(),
+                command.tokenId(),
+                command.subject(),
+                command.body());
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void sendPasswordResetLinkByEmail(String email, String verificationTicket) {
-        verificationCodeService.validateVerificationTicket(
-                email,
-                VerificationPurpose.PASSWORD_RESET,
-                verificationTicket);
-
-        User user = getUsablePasswordResetUser(email, ErrorCode.USER_NOT_FOUND_BY_EMAIL);
         String rawToken = UUID.randomUUID().toString();
-        String resetLink = passwordResetFrontendUrl + rawToken;
-        String subject = "[noviIs] Password reset link";
-        String body = "<h1>Password reset</h1>"
-                + "<p>Registered ID for this email: <strong>" + user.getLoginId() + "</strong></p>"
-                + "<p>Use the link below to reset your password.</p>"
-                + "<p><a href=\"" + resetLink + "\">Reset password</a></p>";
-
-        passwordResetTokenOrchestrationService.sendPasswordResetEmail(
-                user,
-                user.getEmail(),
-                rawToken,
-                subject,
-                body);
-        verificationCodeService.consumeValidatedVerificationTicket(
+        PasswordResetMailCommand command = preparePasswordResetMail(
                 email,
-                VerificationPurpose.PASSWORD_RESET,
-                verificationTicket);
+                verificationTicket,
+                rawToken,
+                ErrorCode.USER_NOT_FOUND_BY_EMAIL,
+                true);
+        passwordResetTokenOrchestrationService.sendPreparedPasswordResetEmail(
+                command.user(),
+                command.recipientEmail(),
+                command.tokenId(),
+                command.subject(),
+                command.body());
+    }
+
+    private PasswordResetMailCommand preparePasswordResetMail(
+            String email,
+            String verificationTicket,
+            String rawToken,
+            ErrorCode notFoundErrorCode,
+            boolean includeLoginId) {
+        return Objects.requireNonNull(transactionTemplate.execute(status -> {
+            verificationCodeService.validateVerificationTicket(
+                    email,
+                    VerificationPurpose.PASSWORD_RESET,
+                    verificationTicket);
+            User user = getUsablePasswordResetUser(email, notFoundErrorCode);
+            verificationCodeService.consumeValidatedVerificationTicket(
+                    email,
+                    VerificationPurpose.PASSWORD_RESET,
+                    verificationTicket);
+            Long tokenId = passwordResetTokenOrchestrationService
+                    .createPendingPasswordResetTokenForCurrentTransaction(user, rawToken);
+            String subject = "[noviIs] Password reset link";
+            String body = buildPasswordResetBody(user, rawToken, includeLoginId);
+            return new PasswordResetMailCommand(user, user.getEmail(), tokenId, subject, body);
+        }));
+    }
+
+    private String buildPasswordResetBody(User user, String rawToken, boolean includeLoginId) {
+        String resetLink = passwordResetFrontendUrl + rawToken;
+        String loginIdLine = includeLoginId
+                ? "<p>Registered ID for this email: <strong>" + user.getLoginId() + "</strong></p>"
+                : "";
+        String linkText = includeLoginId ? "Reset password" : resetLink;
+        return "<h1>Password reset</h1>"
+                + loginIdLine
+                + "<p>Use the link below to reset your password.</p>"
+                + "<p><a href=\"" + resetLink + "\">" + linkText + "</a></p>";
     }
 
     @Transactional
@@ -166,5 +185,13 @@ public class PasswordResetService {
         if (!user.isActiveAccount()) {
             throw new BusinessException(ErrorCode.USER_NOT_ACTIVE);
         }
+    }
+
+    private record PasswordResetMailCommand(
+            User user,
+            String recipientEmail,
+            Long tokenId,
+            String subject,
+            String body) {
     }
 }

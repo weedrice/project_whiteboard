@@ -16,7 +16,16 @@ public class AuthMailDeliveryOrchestrationService {
 
     void send(MailDeliveryCommand command) {
         Long artifactId = command.createPendingArtifact().get();
+        sendPrepared(new PreparedMailDeliveryCommand(
+                command.recipientEmail(),
+                command.subject(),
+                command.body(),
+                command.markDeliveryFailed(),
+                command.promoteAfterDelivery(),
+                command.recoverAfterPromotionFailure()), artifactId);
+    }
 
+    void sendPrepared(PreparedMailDeliveryCommand command, Long artifactId) {
         try {
             emailService.sendEmail(command.recipientEmail(), command.subject(), command.body());
         } catch (RuntimeException e) {
@@ -40,6 +49,15 @@ public class AuthMailDeliveryOrchestrationService {
             String subject,
             String body,
             Supplier<Long> createPendingArtifact,
+            Consumer<Long> markDeliveryFailed,
+            Consumer<Long> promoteAfterDelivery,
+            BiConsumer<Long, RuntimeException> recoverAfterPromotionFailure) {
+    }
+
+    record PreparedMailDeliveryCommand(
+            String recipientEmail,
+            String subject,
+            String body,
             Consumer<Long> markDeliveryFailed,
             Consumer<Long> promoteAfterDelivery,
             BiConsumer<Long, RuntimeException> recoverAfterPromotionFailure) {

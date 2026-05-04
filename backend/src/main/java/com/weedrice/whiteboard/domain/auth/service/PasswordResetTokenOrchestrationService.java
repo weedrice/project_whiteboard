@@ -41,6 +41,34 @@ public class PasswordResetTokenOrchestrationService {
                 (tokenId, e) -> markCurrentTokenSentAfterPromotionFailure(tokenId, user, e)));
     }
 
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public void sendPreparedPasswordResetEmail(
+            User user,
+            String recipientEmail,
+            Long tokenId,
+            String subject,
+            String body) {
+        mailDeliveryOrchestrationService.sendPrepared(new AuthMailDeliveryOrchestrationService.PreparedMailDeliveryCommand(
+                recipientEmail,
+                subject,
+                body,
+                id -> updateDeliveryStatus(id, false),
+                id -> promotePendingToken(id, user),
+                (id, e) -> markCurrentTokenSentAfterPromotionFailure(id, user, e)), tokenId);
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public Long createPendingPasswordResetTokenForCurrentTransaction(User user, String rawToken) {
+        String hashedToken = tokenHashService.hashSha256(rawToken);
+        LocalDateTime expiryDate = LocalDateTime.now().plusHours(1);
+        PasswordResetToken passwordResetToken = PasswordResetToken.builder()
+                .token(hashedToken)
+                .user(user)
+                .expiryDate(expiryDate)
+                .build();
+        return passwordResetTokenRepository.save(passwordResetToken).getTokenId();
+    }
+
     public Optional<PasswordResetToken> findLatestSentCompatibleToken(User user) {
         return passwordResetTokenRepository.findLatestSentByUser(user);
     }

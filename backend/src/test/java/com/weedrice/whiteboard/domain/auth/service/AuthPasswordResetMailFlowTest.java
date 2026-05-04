@@ -77,7 +77,7 @@ class AuthPasswordResetMailFlowTest {
         passwordResetService = new PasswordResetService(
                 userRepository, verificationCodeService, passwordResetTokenRepository,
                 passwordHistoryPolicy, refreshTokenLifecycleService, tokenHashService,
-                passwordResetTokenOrchestrationService);
+                passwordResetTokenOrchestrationService, transactionTemplate);
 
         user = User.builder()
                 .loginId("testuser")
@@ -94,6 +94,11 @@ class AuthPasswordResetMailFlowTest {
             consumer.accept(null);
             return null;
         }).when(transactionTemplate).executeWithoutResult(any());
+
+        doAnswer(invocation -> {
+            org.springframework.transaction.support.TransactionCallback<?> callback = invocation.getArgument(0);
+            return callback.doInTransaction(null);
+        }).when(transactionTemplate).execute(any());
 
         doAnswer(invocation -> {
             PasswordResetToken passwordResetToken = invocation.getArgument(0);
@@ -175,11 +180,11 @@ class AuthPasswordResetMailFlowTest {
                 "test@example.com",
                 VerificationPurpose.PASSWORD_RESET,
                 "ticket-1");
-        inOrder.verify(emailService).sendEmail(anyString(), anyString(), anyString());
         inOrder.verify(verificationCodeService).consumeValidatedVerificationTicket(
                 "test@example.com",
                 VerificationPurpose.PASSWORD_RESET,
                 "ticket-1");
+        inOrder.verify(emailService).sendEmail(anyString(), anyString(), anyString());
     }
 
     @Test
@@ -208,7 +213,7 @@ class AuthPasswordResetMailFlowTest {
                 .filteredOn(token -> PasswordResetToken.DELIVERY_STATUS_FAILED.equals(token.getDeliveryStatus()))
                 .hasSize(1);
         assertThat(previousToken.getIsUsed()).isFalse();
-        verify(verificationCodeService, never()).consumeValidatedVerificationTicket(
+        verify(verificationCodeService).consumeValidatedVerificationTicket(
                 "test@example.com",
                 VerificationPurpose.PASSWORD_RESET,
                 "ticket-2");
@@ -281,7 +286,7 @@ class AuthPasswordResetMailFlowTest {
         doAnswer(invocation -> {
             long current = executionCount.incrementAndGet();
             Consumer<Object> consumer = invocation.getArgument(0);
-            if (current == 2L) {
+            if (current == 1L) {
                 throw new IllegalStateException("status update failed");
             }
             consumer.accept(null);
@@ -314,7 +319,7 @@ class AuthPasswordResetMailFlowTest {
         doAnswer(invocation -> {
             long current = executionCount.incrementAndGet();
             Consumer<Object> consumer = invocation.getArgument(0);
-            if (current == 2L || current == 3L) {
+            if (current == 1L || current == 2L) {
                 throw new IllegalStateException("promotion failed");
             }
             consumer.accept(null);
