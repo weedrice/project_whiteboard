@@ -91,7 +91,11 @@ public interface UserFeedRepository extends JpaRepository<UserFeed, Long>, UserF
                 CURRENT_TIMESTAMP,
                 CURRENT_TIMESTAMP
             FROM board_subscriptions bs
+            JOIN users u ON u.user_id = bs.user_id
             WHERE bs.board_id = :boardId
+              AND bs.role <> 'BANNED'
+              AND u.status = 'ACTIVE'
+              AND u.deleted_at IS NULL
             ON CONFLICT ON CONSTRAINT uk_user_feeds_target_content_source DO NOTHING
             """, nativeQuery = true)
     int insertSubscriptionPostFeeds(

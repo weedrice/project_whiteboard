@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.feed.repository;
 
 import com.weedrice.whiteboard.domain.admin.entity.Admin;
 import com.weedrice.whiteboard.domain.board.entity.Board;
+import com.weedrice.whiteboard.domain.board.entity.BoardSubscription;
 import com.weedrice.whiteboard.domain.feed.entity.UserFeed;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.user.entity.Role;
@@ -15,7 +16,9 @@ import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.jpa.repository.Query;
 
+import java.lang.reflect.Method;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -107,6 +110,66 @@ class UserFeedRepositoryTest {
         assertThat(result.getContent().getFirst().getContentId()).isEqualTo(privatePost.getPostId());
     }
 
+    @Test
+    void subscriptionPostFeedTargetFilter_excludesBannedInactiveAndDeletedSubscribers() throws NoSuchMethodException {
+        User activeSubscriber = persistUser("active-subscriber");
+        User moderatorSubscriber = persistUser("moderator-subscriber");
+        User bannedSubscriber = persistUser("banned-subscriber");
+        User suspendedSubscriber = persistUser("suspended-subscriber");
+        User deletedSubscriber = persistUser("deleted-subscriber");
+        suspendedSubscriber.suspend();
+        deletedSubscriber.delete();
+        persistSubscription(activeSubscriber, publicBoard, "MEMBER");
+        persistSubscription(moderatorSubscriber, publicBoard, "MODERATOR");
+        persistSubscription(bannedSubscriber, publicBoard, "BANNED");
+        persistSubscription(suspendedSubscriber, publicBoard, "MEMBER");
+        persistSubscription(deletedSubscriber, publicBoard, "MEMBER");
+        entityManager.flush();
+        entityManager.clear();
+
+        String targetSelectQuery = extractSubscriptionPostFeedTargetSelectQuery();
+        List<Long> targetUserIds = entityManager.getEntityManager()
+                .createNativeQuery(targetSelectQuery)
+                .setParameter("boardId", publicBoard.getBoardId())
+                .getResultStream()
+                .map(result -> ((Number) result).longValue())
+                .toList();
+
+        assertThat(targetUserIds)
+                .containsExactlyInAnyOrder(activeSubscriber.getUserId(), moderatorSubscriber.getUserId());
+    }
+
+    @Test
+    void insertSubscriptionPostFeeds_queryKeepsEligibilityFiltersAndConflictIgnore() throws NoSuchMethodException {
+        String query = getInsertSubscriptionPostFeedsQuery();
+
+        assertThat(query)
+                .contains("JOIN users u ON u.user_id = bs.user_id")
+                .contains("bs.role <> 'BANNED'")
+                .contains("u.status = 'ACTIVE'")
+                .contains("u.deleted_at IS NULL")
+                .contains("ON CONFLICT ON CONSTRAINT uk_user_feeds_target_content_source DO NOTHING");
+    }
+
+    private String extractSubscriptionPostFeedTargetSelectQuery() throws NoSuchMethodException {
+        String query = getInsertSubscriptionPostFeedsQuery();
+        int fromStart = query.indexOf("FROM board_subscriptions");
+        int conflictStart = query.indexOf("ON CONFLICT");
+        return "SELECT DISTINCT bs.user_id " + query.substring(fromStart, conflictStart);
+    }
+
+    private String getInsertSubscriptionPostFeedsQuery() throws NoSuchMethodException {
+        Method method = UserFeedRepository.class.getMethod(
+                "insertSubscriptionPostFeeds",
+                Long.class,
+                String.class,
+                String.class,
+                Long.class,
+                String.class,
+                Long.class);
+        return method.getAnnotation(Query.class).value();
+    }
+
     private User persistUser(String loginId) {
         User user = User.builder()
                 .loginId(loginId)
@@ -142,6 +205,15 @@ class UserFeedRepositoryTest {
                 .build();
         entityManager.persist(post);
         return post;
+    }
+
+    private void persistSubscription(User user, Board board, String role) {
+        entityManager.persist(BoardSubscription.builder()
+                .user(user)
+                .board(board)
+                .role(role)
+                .sortOrder(1)
+                .build());
     }
 
     private void persistFeed(User targetUser, String contentType, Long contentId) {
