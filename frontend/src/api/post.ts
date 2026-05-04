@@ -55,6 +55,13 @@ export interface ReportData {
     reason: string
 }
 
+export type BackendPageResponse<T> = Partial<PageResponse<T>> & {
+    content: T[]
+    page?: number
+    hasNext?: boolean
+    hasPrevious?: boolean
+}
+
 export const postApi = {
     // Create a new post
     createPost: (boardUrl: string, data: PostCreateData) => api.post<ApiResponse<number>>(`/boards/${boardUrl}/posts`, data),
@@ -84,7 +91,7 @@ export const postApi = {
     unscrapPost: (postId: string | number) => api.delete<ApiResponse<void>>(`/posts/${postId}/scrap`),
 
     // Get trending posts
-    getTrendingPosts: (page: number = 0, size: number = 10, period: HomeLandingPeriod = '24h') => api.get<ApiResponse<PageResponse<PostSummary> | PostSummary[]>>('/posts/trending', { params: { page, size, period } }),
+    getTrendingPosts: (page: number = 0, size: number = 10, period: HomeLandingPeriod = '24h') => api.get<ApiResponse<BackendPageResponse<PostSummary>>>('/posts/trending', { params: { page, size, period } }),
 
     // Get home landing data
     getHomeLanding: (period: HomeLandingPeriod = '24h') => api.get<ApiResponse<HomeLandingResponse>>('/home/landing', {

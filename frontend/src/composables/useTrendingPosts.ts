@@ -1,8 +1,32 @@
 import { useInfiniteQuery } from '@tanstack/vue-query'
 import { computed } from 'vue'
-import { postApi } from '@/api/post'
+import { postApi, type BackendPageResponse } from '@/api/post'
 import type { PostSummary, PageResponse } from '@/types'
 import { QUERY_STALE_TIME } from '@/utils/constants'
+
+function normalizeTrendingPage(raw: BackendPageResponse<PostSummary>, fallbackPage: number): PageResponse<PostSummary> {
+    const content = raw.content ?? []
+    const number = typeof raw.number === 'number'
+        ? raw.number
+        : (typeof raw.page === 'number' ? raw.page : fallbackPage)
+    const totalElements = typeof raw.totalElements === 'number' ? raw.totalElements : content.length
+    const totalPages = typeof raw.totalPages === 'number' ? raw.totalPages : 1
+    const first = typeof raw.first === 'boolean' ? raw.first : number <= 0
+    const last = typeof raw.last === 'boolean'
+        ? raw.last
+        : (typeof raw.hasNext === 'boolean' ? !raw.hasNext : totalPages <= 1 || number >= totalPages - 1)
+
+    return {
+        content,
+        totalElements,
+        totalPages,
+        size: typeof raw.size === 'number' ? raw.size : content.length,
+        number,
+        first,
+        last,
+        empty: typeof raw.empty === 'boolean' ? raw.empty : content.length === 0,
+    }
+}
 
 /**
  * Trending Posts를 Infinite Scroll로 가져오는 Composable
@@ -13,23 +37,7 @@ export function useTrendingPosts(size: number = 10) {
         queryFn: async ({ pageParam = 0 }) => {
             const { data } = await postApi.getTrendingPosts(pageParam as number, size)
             if (data.success) {
-                // API가 List를 직접 반환하는 경우 PageResponse 형태로 변환
-                const responseData = data.data
-                if (Array.isArray(responseData)) {
-                    // List 응답을 PageResponse로 래핑
-                    return {
-                        content: responseData,
-                        totalElements: responseData.length,
-                        totalPages: 1,
-                        size: responseData.length,
-                        number: pageParam as number,
-                        first: true,
-                        last: true, // List 응답이면 더 이상 페이지 없음
-                        empty: responseData.length === 0
-                    } as PageResponse<PostSummary>
-                }
-                // PageResponse 형태인 경우 그대로 반환
-                return responseData as PageResponse<PostSummary>
+                return normalizeTrendingPage(data.data as BackendPageResponse<PostSummary>, pageParam as number)
             }
             return {
                 content: [],

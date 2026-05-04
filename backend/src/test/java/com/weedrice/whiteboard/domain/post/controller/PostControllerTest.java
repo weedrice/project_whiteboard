@@ -200,19 +200,24 @@ class PostControllerTest {
         @DisplayName("인기 게시글 목록 조회 성공")
         void getTrendingPosts_success() throws Exception {
             PostSummary summary = PostSummary.from(post);
-            when(postService.getTrendingPosts(any(Pageable.class), any(), any())).thenReturn(List.of(summary));
+            when(postService.getTrendingPostsPage(any(Pageable.class), any(), any()))
+                    .thenReturn(new PageImpl<>(List.of(summary)));
 
             mockMvc.perform(get("/api/v1/posts/trending")
                     .with(user(customUserDetails))
                     .accept(MediaType.APPLICATION_JSON))
-                    .andExpect(status().isOk());
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.content[0].postId").value(post.getPostId()))
+                    .andExpect(jsonPath("$.data.page").value(0))
+                    .andExpect(jsonPath("$.data.hasNext").value(false));
         }
 
         @Test
         @DisplayName("인기 게시글 목록 조회 성공 - 비인증 사용자")
         void getTrendingPosts_anonymous() throws Exception {
             PostSummary summary = PostSummary.from(post);
-            when(postService.getTrendingPosts(any(Pageable.class), isNull(), any())).thenReturn(List.of(summary));
+            when(postService.getTrendingPostsPage(any(Pageable.class), isNull(), any()))
+                    .thenReturn(new PageImpl<>(List.of(summary)));
 
             mockMvc.perform(get("/api/v1/posts/trending"))
                     .andExpect(status().isOk());
@@ -222,7 +227,8 @@ class PostControllerTest {
         @DisplayName("단일 게시글 조회 성공")
         void getTrendingPosts_forwardsPeriod() throws Exception {
             PostSummary summary = PostSummary.from(post);
-            when(postService.getTrendingPosts(any(Pageable.class), eq(1L), eq("30d"))).thenReturn(List.of(summary));
+            when(postService.getTrendingPostsPage(any(Pageable.class), eq(1L), eq("30d")))
+                    .thenReturn(new PageImpl<>(List.of(summary)));
 
             mockMvc.perform(get("/api/v1/posts/trending")
                     .param("period", "30d")
@@ -231,14 +237,15 @@ class PostControllerTest {
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.success").value(true));
 
-            verify(postService).getTrendingPosts(any(Pageable.class), eq(1L), eq("30d"));
+            verify(postService).getTrendingPostsPage(any(Pageable.class), eq(1L), eq("30d"));
         }
 
         @Test
         @DisplayName("인기 게시글 목록 조회 - 페이지 크기는 최대 100으로 제한")
         void getTrendingPosts_clampsLargePageSize() throws Exception {
             PostSummary summary = PostSummary.from(post);
-            when(postService.getTrendingPosts(any(Pageable.class), any(), any())).thenReturn(List.of(summary));
+            when(postService.getTrendingPostsPage(any(Pageable.class), any(), any()))
+                    .thenReturn(new PageImpl<>(List.of(summary)));
 
             mockMvc.perform(get("/api/v1/posts/trending")
                     .param("page", "0")
@@ -248,7 +255,7 @@ class PostControllerTest {
                     .andExpect(status().isOk());
 
             org.mockito.ArgumentCaptor<Pageable> captor = org.mockito.ArgumentCaptor.forClass(Pageable.class);
-            verify(postService).getTrendingPosts(captor.capture(), eq(1L), eq("24h"));
+            verify(postService).getTrendingPostsPage(captor.capture(), eq(1L), eq("24h"));
             assertThat(captor.getValue().getPageSize()).isEqualTo(100);
         }
 
@@ -263,7 +270,7 @@ class PostControllerTest {
                     .accept(MediaType.APPLICATION_JSON))
                     .andExpect(status().isBadRequest());
 
-            verify(postService, never()).getTrendingPosts(any(Pageable.class), any(), any());
+            verify(postService, never()).getTrendingPostsPage(any(Pageable.class), any(), any());
         }
 
         @Test

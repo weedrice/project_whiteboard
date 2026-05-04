@@ -571,6 +571,52 @@ class PostRepositoryTest {
     }
 
     @Test
+    @DisplayName("인기 게시글 조회는 점수 동점일 때 생성일과 게시글 ID로 안정 정렬한다")
+    void findTrendingPosts_ordersTiesByCreatedAtAndPostId() {
+        Post sameCreatedOlderId = post;
+        Post sameCreatedNewerId = Post.builder()
+                .title("Same Created Newer")
+                .contents("Test Contents")
+                .user(user)
+                .board(board)
+                .category(category)
+                .build();
+        Post latestCreated = Post.builder()
+                .title("Latest Created")
+                .contents("Test Contents")
+                .user(user)
+                .board(board)
+                .category(category)
+                .build();
+        entityManager.persist(sameCreatedNewerId);
+        entityManager.persist(latestCreated);
+        entityManager.flush();
+
+        persistPostContentImage(sameCreatedOlderId);
+        persistPostContentImage(sameCreatedNewerId);
+        persistPostContentImage(latestCreated);
+
+        LocalDateTime baseCreatedAt = LocalDateTime.now().minusHours(2);
+        updateCreatedAt(sameCreatedOlderId, baseCreatedAt);
+        updateCreatedAt(sameCreatedNewerId, baseCreatedAt);
+        updateCreatedAt(latestCreated, baseCreatedAt.plusMinutes(1));
+        entityManager.flush();
+        entityManager.clear();
+
+        List<Post> trendingPosts = postRepository.findTrendingPosts(
+                baseCreatedAt.minusHours(1),
+                Collections.emptyList(),
+                PageRequest.of(0, 10));
+
+        assertThat(trendingPosts)
+                .extracting(Post::getPostId)
+                .containsSubsequence(
+                        latestCreated.getPostId(),
+                        sameCreatedNewerId.getPostId(),
+                        sameCreatedOlderId.getPostId());
+    }
+
+    @Test
     @DisplayName("비활성 게시판의 게시글은 키워드 검색에서 제외됨")
     void searchPostsByKeyword_inactiveBoard_excluded() {
         // given
@@ -677,5 +723,18 @@ class PostRepositoryTest {
                 .setParameter("createdAt", createdAt)
                 .setParameter("postId", targetPost.getPostId())
                 .executeUpdate();
+    }
+
+    private void persistPostContentImage(Post targetPost) {
+        File file = File.builder()
+                .originalName("test-" + targetPost.getPostId() + ".jpg")
+                .mimeType("image/jpeg")
+                .fileSize(1024L)
+                .filePath("/uploads/test-" + targetPost.getPostId() + ".jpg")
+                .uploader(user)
+                .relatedType("POST_CONTENT")
+                .relatedId(targetPost.getPostId())
+                .build();
+        entityManager.persist(file);
     }
 }

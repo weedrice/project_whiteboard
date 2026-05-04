@@ -265,6 +265,11 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
 
     @Override
     public List<Post> findTrendingPosts(LocalDateTime since, List<Long> blockedUserIds, Pageable pageable) {
+        return findTrendingPosts(since, blockedUserIds, pageable.getOffset(), pageable.getPageSize());
+    }
+
+    @Override
+    public List<Post> findTrendingPosts(LocalDateTime since, List<Long> blockedUserIds, long offset, int limit) {
         return queryFactory
                 .selectFrom(post)
                 .join(post.user).fetchJoin()
@@ -279,9 +284,12 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                         post.board.isPublic.eq(true),
                         notBlockedCondition(blockedUserIds),
                         TrendingPostRankingPolicy.mediaCondition(post, file))
-                .orderBy(TrendingPostRankingPolicy.score(post).desc())
-                .offset(pageable.getOffset())
-                .limit(pageable.getPageSize())
+                .orderBy(
+                        TrendingPostRankingPolicy.score(post).desc(),
+                        post.createdAt.desc(),
+                        post.postId.desc())
+                .offset(offset)
+                .limit(limit)
                 .fetch();
     }
 

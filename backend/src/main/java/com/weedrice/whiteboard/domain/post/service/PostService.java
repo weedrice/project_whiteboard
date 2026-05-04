@@ -217,6 +217,26 @@ public class PostService {
         return postSummaryAssembler.assembleTrendingPosts(posts, currentUserId);
     }
 
+    public Page<PostSummary> getTrendingPostsPage(Pageable pageable, Long currentUserId, String period) {
+        LocalDateTime since = resolveTrendingSince(period);
+
+        List<Long> blockedUserIds = null;
+        if (currentUserId != null) {
+            blockedUserIds = userBlockService.getBlockedUserIds(currentUserId);
+        }
+
+        List<Post> fetchedPosts = postRepository.findTrendingPosts(
+                since,
+                blockedUserIds,
+                pageable.getOffset(),
+                pageable.getPageSize() + 1);
+        boolean hasNext = fetchedPosts.size() > pageable.getPageSize();
+        List<Post> pagePosts = hasNext ? fetchedPosts.subList(0, pageable.getPageSize()) : fetchedPosts;
+        List<PostSummary> summaries = postSummaryAssembler.assembleTrendingPosts(pagePosts, currentUserId);
+        long estimatedTotal = pageable.getOffset() + summaries.size() + (hasNext ? 1 : 0);
+        return new PageImpl<>(summaries, pageable, estimatedTotal);
+    }
+
     private LocalDateTime resolveTrendingSince(String period) {
         return switch ((period == null ? "" : period.trim().toLowerCase(Locale.ROOT))) {
             case "7d" -> LocalDateTime.now().minusDays(7);
