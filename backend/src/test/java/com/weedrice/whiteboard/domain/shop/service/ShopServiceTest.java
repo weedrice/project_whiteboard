@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.shop.service;
 
 import com.weedrice.whiteboard.domain.point.service.PointService;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
+import com.weedrice.whiteboard.domain.shop.dto.PurchaseHistoryResponse;
 import com.weedrice.whiteboard.domain.shop.dto.ShopItemResponse;
 import com.weedrice.whiteboard.domain.shop.entity.PurchaseHistory;
 import com.weedrice.whiteboard.domain.shop.entity.ShopItem;
@@ -329,6 +330,27 @@ class ShopServiceTest {
             verify(shopItemRepository, never()).findById(anyLong());
             verify(pointService, never()).spendPoint(anyLong(), anyInt(), anyString(), anyLong(), anyString());
         }
+    }
+
+    @Test
+    @DisplayName("Purchase histories include the purchased item image URL")
+    void getPurchaseHistories_mapsItemImageUrl() {
+        PurchaseHistory purchaseHistory = PurchaseHistory.builder()
+                .user(user)
+                .item(emoticonItem)
+                .purchasedPrice(emoticonItem.getPrice())
+                .build();
+        ReflectionTestUtils.setField(purchaseHistory, "purchaseId", 10L);
+        Pageable pageable = PageRequest.of(0, 20);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(purchaseHistoryRepository.findByUserOrderByCreatedAtDesc(user, pageable))
+                .thenReturn(new PageImpl<>(List.of(purchaseHistory), pageable, 1));
+
+        PurchaseHistoryResponse response = shopService.getPurchaseHistories(1L, pageable);
+
+        assertThat(response.getContent()).hasSize(1);
+        assertThat(response.getContent().get(0).getItem().getImageUrl())
+                .isEqualTo("https://example.com/emoticon.png");
     }
 
     @Test

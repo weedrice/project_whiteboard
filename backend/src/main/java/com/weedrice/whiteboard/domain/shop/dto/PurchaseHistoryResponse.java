@@ -34,7 +34,7 @@ public class PurchaseHistoryResponse {
     public static class ItemInfo {
         private Long itemId;
         private String itemName;
-        private String imageUrl; // ShopItem 엔티티에 imageUrl이 없지만, API 명세서에 있으므로 추가
+        private String imageUrl;
     }
 
     public static PurchaseHistoryResponse from(Page<PurchaseHistory> historyPage) {
@@ -44,7 +44,7 @@ public class PurchaseHistoryResponse {
                         .item(ItemInfo.builder()
                                 .itemId(history.getItem().getItemId())
                                 .itemName(history.getItem().getItemName())
-                                .imageUrl(null) // TODO: ShopItem 엔티티에 imageUrl 추가 후 수정
+                                .imageUrl(history.getItem().getImageUrl())
                                 .build())
                         .price(history.getPurchasedPrice())
                         .purchasedAt(history.getCreatedAt())

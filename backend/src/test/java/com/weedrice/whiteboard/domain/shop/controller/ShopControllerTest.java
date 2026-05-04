@@ -7,6 +7,9 @@ import com.weedrice.whiteboard.domain.shop.service.ShopService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -21,10 +24,12 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Collections;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -33,11 +38,6 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-
-import jakarta.servlet.FilterChain;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-import static org.mockito.Mockito.doAnswer;
 
 @WebMvcTest(controllers = ShopController.class,
     excludeFilters = {
@@ -307,7 +307,19 @@ class ShopControllerTest {
         @DisplayName("EMOTICON 포함 구매 이력 조회 성공")
         void getMyPurchaseHistories_withEmoticons() throws Exception {
             // given
-            PurchaseHistoryResponse response = PurchaseHistoryResponse.builder().build();
+            PurchaseHistoryResponse response = PurchaseHistoryResponse.builder()
+                    .content(List.of(PurchaseHistoryResponse.PurchaseSummary.builder()
+                            .purchaseId(1L)
+                            .item(PurchaseHistoryResponse.ItemInfo.builder()
+                                    .itemId(5L)
+                                    .itemName("Premium emoticon")
+                                    .imageUrl("https://example.com/emoticon.png")
+                                    .build())
+                            .price(100)
+                            .build()))
+                    .page(0)
+                    .size(10)
+                    .build();
             when(shopService.getPurchaseHistories(eq(1L), any())).thenReturn(response);
 
             // when & then
@@ -317,7 +329,9 @@ class ShopControllerTest {
                             .with(user(customUserDetails))
                             .with(csrf()))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.success").value(true));
+                    .andExpect(jsonPath("$.success").value(true))
+                    .andExpect(jsonPath("$.data.content[0].item.imageUrl")
+                            .value("https://example.com/emoticon.png"));
 
             verify(shopService, atLeastOnce()).getPurchaseHistories(eq(1L), any());
         }
