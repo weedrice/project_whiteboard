@@ -696,20 +696,12 @@ class PostServiceTest {
     }
 
     @Test
-    @DisplayName("인기 게시글 페이지 조회는 다음 페이지 판단을 위해 한 건 더 조회한다")
-    void getTrendingPostsPage_fetchesOneExtraAndTrimsContent() {
-        Post nextPost = Post.builder()
-                .title("Next Post")
-                .contents("Next Contents")
-                .user(user)
-                .board(board)
-                .category(category)
-                .build();
-        ReflectionTestUtils.setField(nextPost, "postId", 2L);
-
+    @DisplayName("인기 게시글 페이지 조회는 repository count로 정확한 total을 반환한다")
+    void getTrendingPostsPage_usesExactRepositoryTotal() {
         when(userBlockService.getBlockedUserIdsEitherDirection(1L)).thenReturn(Collections.emptyList());
         when(postRepository.findTrendingPosts(any(LocalDateTime.class), anyList(), anyLong(), anyInt()))
-                .thenReturn(List.of(post, nextPost));
+                .thenReturn(List.of(post));
+        when(postRepository.countTrendingPosts(any(LocalDateTime.class), anyList())).thenReturn(20L);
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(postLikeRepository.findByUserAndPostIn(user, List.of(post))).thenReturn(Collections.emptyList());
         when(scrapRepository.findByUserAndPostIn(user, List.of(post))).thenReturn(Collections.emptyList());
@@ -717,21 +709,24 @@ class PostServiceTest {
 
         Page<PostSummary> result = postService.getTrendingPostsPage(PageRequest.of(0, 1), 1L, "24h");
 
-        verify(postRepository).findTrendingPosts(any(LocalDateTime.class), anyList(), eq(0L), eq(2));
+        verify(postRepository).findTrendingPosts(any(LocalDateTime.class), anyList(), eq(0L), eq(1));
+        verify(postRepository).countTrendingPosts(any(LocalDateTime.class), anyList());
         assertThat(result.getContent()).extracting(PostSummary::getPostId).containsExactly(1L);
         assertThat(result.hasNext()).isTrue();
-        assertThat(result.getTotalElements()).isEqualTo(2);
+        assertThat(result.getTotalElements()).isEqualTo(20);
     }
 
     @Test
-    @DisplayName("인기 게시글 페이지 조회는 다음 페이지에서도 원래 offset을 유지한다")
-    void getTrendingPostsPage_keepsOriginalOffsetWhenProbingNextPage() {
+    @DisplayName("인기 게시글 페이지 조회는 원래 offset을 유지한다")
+    void getTrendingPostsPage_keepsOriginalOffset() {
         when(postRepository.findTrendingPosts(any(LocalDateTime.class), isNull(), anyLong(), anyInt()))
                 .thenReturn(Collections.emptyList());
+        when(postRepository.countTrendingPosts(any(LocalDateTime.class), isNull())).thenReturn(0L);
 
         postService.getTrendingPostsPage(PageRequest.of(1, 10), null, "24h");
 
-        verify(postRepository).findTrendingPosts(any(LocalDateTime.class), isNull(), eq(10L), eq(11));
+        verify(postRepository).findTrendingPosts(any(LocalDateTime.class), isNull(), eq(10L), eq(10));
+        verify(postRepository).countTrendingPosts(any(LocalDateTime.class), isNull());
     }
 
     @Test

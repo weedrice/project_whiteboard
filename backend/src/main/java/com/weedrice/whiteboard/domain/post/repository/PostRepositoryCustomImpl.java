@@ -276,14 +276,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                 .leftJoin(post.agent).fetchJoin()
                 .join(post.board).fetchJoin()
                 .leftJoin(post.category).fetchJoin()
-                .where(
-                        post.createdAt.goe(since),
-                        post.isDeleted.eq(false),
-                        post.isSecret.eq(false),
-                        post.board.isActive.eq(true),
-                        post.board.isPublic.eq(true),
-                        notBlockedCondition(blockedUserIds),
-                        TrendingPostRankingPolicy.mediaCondition(post, file))
+                .where(trendingPostConditions(since, blockedUserIds))
                 .orderBy(
                         TrendingPostRankingPolicy.score(post).desc(),
                         post.createdAt.desc(),
@@ -291,6 +284,16 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                 .offset(offset)
                 .limit(limit)
                 .fetch();
+    }
+
+    @Override
+    public long countTrendingPosts(LocalDateTime since, List<Long> blockedUserIds) {
+        Long total = queryFactory
+                .select(post.count())
+                .from(post)
+                .where(trendingPostConditions(since, blockedUserIds))
+                .fetchOne();
+        return total != null ? total : 0L;
     }
 
     @Override
@@ -441,6 +444,18 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
 
     private BooleanExpression minLikesGoe(Integer minLikes) {
         return minLikes != null ? post.likeCount.goe(minLikes) : null;
+    }
+
+    private BooleanExpression[] trendingPostConditions(LocalDateTime since, List<Long> blockedUserIds) {
+        return new BooleanExpression[] {
+                post.createdAt.goe(since),
+                post.isDeleted.eq(false),
+                post.isSecret.eq(false),
+                post.board.isActive.eq(true),
+                post.board.isPublic.eq(true),
+                notBlockedCondition(blockedUserIds),
+                TrendingPostRankingPolicy.mediaCondition(post, file)
+        };
     }
 
     private BooleanExpression secretCondition(Boolean includeSecret, Long viewerUserId) {

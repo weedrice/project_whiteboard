@@ -682,6 +682,62 @@ class PostRepositoryTest {
     }
 
     @Test
+    @DisplayName("countTrendingPosts는 인기 게시글 목록과 동일한 가시성 및 미디어 조건을 사용한다")
+    void countTrendingPosts_matchesTrendingListConditions() {
+        User blockedUser = User.builder()
+                .loginId("blocked")
+                .email("blocked@test.com")
+                .password("password")
+                .displayName("Blocked User")
+                .build();
+        entityManager.persist(blockedUser);
+
+        Board privateBoard = persistBoard("Private Board", "private-board", false);
+        Board inactiveBoard = persistBoard("Inactive Board", "inactive-board", true);
+        inactiveBoard.deactivate();
+
+        LocalDateTime baseCreatedAt = LocalDateTime.now().minusHours(2);
+        Post attachedImagePost = trendingPost("Attached Image", "plain content", user, board, false);
+        Post imgTagPost = trendingPost("Image Tag", "<img src=\"/image.jpg\">", user, board, false);
+        Post iframePost = trendingPost("Iframe", "<iframe src=\"/video\"></iframe>", user, board, false);
+        Post oldPost = trendingPost("Old", "<img src=\"/old.jpg\">", user, board, false);
+        Post secretPost = trendingPost("Secret", "<img src=\"/secret.jpg\">", user, board, true);
+        Post privateBoardPost = trendingPost("Private", "<img src=\"/private.jpg\">", user, privateBoard, false);
+        Post inactiveBoardPost = trendingPost("Inactive", "<img src=\"/inactive.jpg\">", user, inactiveBoard, false);
+        Post blockedPost = trendingPost("Blocked", "<img src=\"/blocked.jpg\">", blockedUser, board, false);
+        entityManager.persist(attachedImagePost);
+        entityManager.persist(imgTagPost);
+        entityManager.persist(iframePost);
+        entityManager.persist(oldPost);
+        entityManager.persist(secretPost);
+        entityManager.persist(privateBoardPost);
+        entityManager.persist(inactiveBoardPost);
+        entityManager.persist(blockedPost);
+        entityManager.flush();
+
+        persistPostContentImage(attachedImagePost);
+        updateCreatedAt(attachedImagePost, baseCreatedAt);
+        updateCreatedAt(imgTagPost, baseCreatedAt.plusMinutes(1));
+        updateCreatedAt(iframePost, baseCreatedAt.plusMinutes(2));
+        updateCreatedAt(oldPost, baseCreatedAt.minusDays(10));
+        updateCreatedAt(secretPost, baseCreatedAt.plusMinutes(3));
+        updateCreatedAt(privateBoardPost, baseCreatedAt.plusMinutes(4));
+        updateCreatedAt(inactiveBoardPost, baseCreatedAt.plusMinutes(5));
+        updateCreatedAt(blockedPost, baseCreatedAt.plusMinutes(6));
+        entityManager.flush();
+        entityManager.clear();
+
+        LocalDateTime since = baseCreatedAt.minusHours(1);
+        List<Long> blockedUserIds = List.of(blockedUser.getUserId());
+        List<Post> trendingPosts = postRepository.findTrendingPosts(since, blockedUserIds, PageRequest.of(0, 20));
+
+        assertThat(postRepository.countTrendingPosts(since, blockedUserIds)).isEqualTo(trendingPosts.size());
+        assertThat(trendingPosts)
+                .extracting(Post::getTitle)
+                .containsExactly("Iframe", "Image Tag", "Attached Image");
+    }
+
+    @Test
     @DisplayName("비활성 게시판의 게시글은 키워드 검색에서 제외됨")
     void searchPostsByKeyword_inactiveBoard_excluded() {
         // given
@@ -814,6 +870,17 @@ class PostRepositoryTest {
             targetPost.deletePost();
         }
         return targetPost;
+    }
+
+    private Post trendingPost(String title, String contents, User author, Board targetBoard, boolean isSecret) {
+        return Post.builder()
+                .title(title)
+                .contents(contents)
+                .user(author)
+                .board(targetBoard)
+                .category(category)
+                .isSecret(isSecret)
+                .build();
     }
 
     private void persistPostContentImage(Post targetPost) {

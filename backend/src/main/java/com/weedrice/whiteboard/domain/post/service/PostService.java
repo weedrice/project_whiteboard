@@ -214,12 +214,10 @@ public class PostService {
                 since,
                 blockedUserIds,
                 pageable.getOffset(),
-                pageable.getPageSize() + 1);
-        boolean hasNext = fetchedPosts.size() > pageable.getPageSize();
-        List<Post> pagePosts = hasNext ? fetchedPosts.subList(0, pageable.getPageSize()) : fetchedPosts;
-        List<PostSummary> summaries = postSummaryAssembler.assembleTrendingPosts(pagePosts, currentUserId);
-        long estimatedTotal = pageable.getOffset() + summaries.size() + (hasNext ? 1 : 0);
-        return new PageImpl<>(summaries, pageable, estimatedTotal);
+                pageable.getPageSize());
+        List<PostSummary> summaries = postSummaryAssembler.assembleTrendingPosts(fetchedPosts, currentUserId);
+        long total = postRepository.countTrendingPosts(since, blockedUserIds);
+        return new PageImpl<>(summaries, pageable, total);
     }
 
     private LocalDateTime resolveTrendingSince(String period) {
