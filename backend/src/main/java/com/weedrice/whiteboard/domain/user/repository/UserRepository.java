@@ -46,6 +46,15 @@ public interface UserRepository extends JpaRepository<User, Long>, UserRepositor
             """)
     long countRecentlyLoggedInActiveUsersForAdminDashboard(@Param("since") LocalDateTime since);
 
+    @Query("""
+            SELECT COUNT(u)
+            FROM User u
+            WHERE u.status = 'ACTIVE'
+              AND u.deletedAt IS NULL
+              AND u.lastLoginAt > :since
+            """)
+    long countRecentlyLoggedInActiveUsersForPublicLanding(@Param("since") LocalDateTime since);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
             SELECT u

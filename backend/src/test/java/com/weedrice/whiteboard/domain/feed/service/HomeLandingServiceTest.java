@@ -91,15 +91,15 @@ class HomeLandingServiceTest {
 
         when(postService.getTrendingPosts(any(), eq(1L), eq("24h"))).thenReturn(curatedPosts);
         when(boardService.getTopBoardsByUserId(1L)).thenReturn(boards);
-        when(postRepository.countByCreatedAtGreaterThanEqualAndCreatedAtLessThanAndIsDeletedFalse(any(), any()))
+        when(postRepository.countPublicLandingVisiblePostsCreatedAtGreaterThanEqualAndCreatedAtLessThan(any(), any()))
                 .thenReturn(12L, 10L);
-        when(postRepository.countVisiblePostsForAdminDashboard()).thenReturn(8421L);
-        when(boardRepository.countByIsActiveTrueAndIsPublicTrue()).thenReturn(11L);
+        when(postRepository.countPublicLandingVisiblePosts()).thenReturn(8421L);
+        when(boardRepository.countPublicLandingVisibleBoards()).thenReturn(11L);
         when(userRepository.countByStatusAndDeletedAtIsNullAndCreatedAtAfter(eq(User.STATUS_ACTIVE), any()))
                 .thenReturn(47L);
-        when(userRepository.countRecentlyLoggedInActiveUsersForAdminDashboard(any()))
+        when(userRepository.countRecentlyLoggedInActiveUsersForPublicLanding(any()))
                 .thenReturn(1247L);
-        when(commentRepository.countByCreatedAtGreaterThanEqualAndCreatedAtLessThanAndIsDeletedFalse(any(), any()))
+        when(commentRepository.countPublicLandingVisibleCommentsCreatedAtGreaterThanEqualAndCreatedAtLessThan(any(), any()))
                 .thenReturn(1824L);
 
         HomeLandingResponse response = homeLandingService.getLanding(1L, "24h");
@@ -123,7 +123,7 @@ class HomeLandingServiceTest {
     @Test
     @DisplayName("Landing lookup propagates curated post failures")
     void getLanding_propagatesCuratedPostFailures() {
-        when(postService.getTrendingPosts(any(), eq(null), eq("24h")))
+        when(postService.getTrendingPosts(any(), isNull(), eq("24h")))
                 .thenThrow(new IllegalStateException("post failure"));
 
         assertThatThrownBy(() -> homeLandingService.getLanding(null, "24h"))
@@ -131,15 +131,15 @@ class HomeLandingServiceTest {
                 .hasMessage("post failure");
 
         verify(boardService, never()).getTopBoardsByUserId(any());
-        verify(postRepository, never()).countVisiblePostsForAdminDashboard();
+        verify(postRepository, never()).countPublicLandingVisiblePosts();
     }
 
     @Test
     @DisplayName("Landing lookup propagates stats failures")
     void getLanding_propagatesStatsFailures() {
-        when(postService.getTrendingPosts(any(), eq(null), eq("24h"))).thenReturn(List.of());
+        when(postService.getTrendingPosts(any(), isNull(), eq("24h"))).thenReturn(List.of());
         when(boardService.getTopBoardsByUserId(isNull())).thenReturn(List.of(board(1L, "free")));
-        when(postRepository.countByCreatedAtGreaterThanEqualAndCreatedAtLessThanAndIsDeletedFalse(any(), any()))
+        when(postRepository.countPublicLandingVisiblePostsCreatedAtGreaterThanEqualAndCreatedAtLessThan(any(), any()))
                 .thenThrow(new IllegalStateException("stats failure"));
 
         assertThatThrownBy(() -> homeLandingService.getLanding(null, "24h"))
@@ -150,36 +150,36 @@ class HomeLandingServiceTest {
     @Test
     @DisplayName("Landing lookup propagates board failures")
     void getLanding_propagatesBoardFailures() {
-        when(postService.getTrendingPosts(any(), eq(null), eq("24h"))).thenReturn(List.of());
+        when(postService.getTrendingPosts(any(), isNull(), eq("24h"))).thenReturn(List.of());
         when(boardService.getTopBoardsByUserId(isNull())).thenThrow(new IllegalStateException("board failure"));
 
         assertThatThrownBy(() -> homeLandingService.getLanding(null, "24h"))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("board failure");
 
-        verify(postRepository, never()).countVisiblePostsForAdminDashboard();
+        verify(postRepository, never()).countPublicLandingVisiblePosts();
     }
 
     @Test
     @DisplayName("Landing stats use KST day boundaries")
     void getLanding_statsUseKstDayBoundaries() {
-        when(postService.getTrendingPosts(any(), eq(null), eq("24h"))).thenReturn(List.of());
+        when(postService.getTrendingPosts(any(), isNull(), eq("24h"))).thenReturn(List.of());
         when(boardService.getTopBoardsByUserId(isNull())).thenReturn(List.of());
-        when(postRepository.countByCreatedAtGreaterThanEqualAndCreatedAtLessThanAndIsDeletedFalse(any(), any()))
+        when(postRepository.countPublicLandingVisiblePostsCreatedAtGreaterThanEqualAndCreatedAtLessThan(any(), any()))
                 .thenReturn(12L, 10L);
-        when(postRepository.countVisiblePostsForAdminDashboard()).thenReturn(8421L);
-        when(boardRepository.countByIsActiveTrueAndIsPublicTrue()).thenReturn(11L);
+        when(postRepository.countPublicLandingVisiblePosts()).thenReturn(8421L);
+        when(boardRepository.countPublicLandingVisibleBoards()).thenReturn(11L);
         when(userRepository.countByStatusAndDeletedAtIsNullAndCreatedAtAfter(eq(User.STATUS_ACTIVE), any()))
                 .thenReturn(47L);
-        when(userRepository.countRecentlyLoggedInActiveUsersForAdminDashboard(any())).thenReturn(1247L);
-        when(commentRepository.countByCreatedAtGreaterThanEqualAndCreatedAtLessThanAndIsDeletedFalse(any(), any()))
+        when(userRepository.countRecentlyLoggedInActiveUsersForPublicLanding(any())).thenReturn(1247L);
+        when(commentRepository.countPublicLandingVisibleCommentsCreatedAtGreaterThanEqualAndCreatedAtLessThan(any(), any()))
                 .thenReturn(1824L);
 
         homeLandingService.getLanding(null, "24h");
 
         ArgumentCaptor<LocalDateTime> postStartCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
         ArgumentCaptor<LocalDateTime> postEndCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
-        verify(postRepository, times(2)).countByCreatedAtGreaterThanEqualAndCreatedAtLessThanAndIsDeletedFalse(
+        verify(postRepository, times(2)).countPublicLandingVisiblePostsCreatedAtGreaterThanEqualAndCreatedAtLessThan(
                 postStartCaptor.capture(),
                 postEndCaptor.capture());
         assertThat(postStartCaptor.getAllValues()).containsExactly(
@@ -191,9 +191,9 @@ class HomeLandingServiceTest {
         verify(userRepository).countByStatusAndDeletedAtIsNullAndCreatedAtAfter(
                 User.STATUS_ACTIVE,
                 LocalDateTime.of(2026, 4, 28, 1, 5));
-        verify(userRepository).countRecentlyLoggedInActiveUsersForAdminDashboard(
+        verify(userRepository).countRecentlyLoggedInActiveUsersForPublicLanding(
                 LocalDateTime.of(2026, 4, 28, 1, 5));
-        verify(commentRepository).countByCreatedAtGreaterThanEqualAndCreatedAtLessThanAndIsDeletedFalse(
+        verify(commentRepository).countPublicLandingVisibleCommentsCreatedAtGreaterThanEqualAndCreatedAtLessThan(
                 LocalDateTime.of(2026, 4, 29, 0, 0),
                 LocalDateTime.of(2026, 4, 30, 0, 0));
     }

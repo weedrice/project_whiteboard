@@ -57,19 +57,19 @@ public class HomeLandingService {
         LocalDateTime yesterdayStart = today.minusDays(1).atStartOfDay();
         LocalDateTime twentyFourHoursAgo = LocalDateTime.now(clock).minusHours(24);
 
-        long postsToday = postRepository.countByCreatedAtGreaterThanEqualAndCreatedAtLessThanAndIsDeletedFalse(
+        long postsToday = postRepository.countPublicLandingVisiblePostsCreatedAtGreaterThanEqualAndCreatedAtLessThan(
                 todayStart,
                 tomorrowStart);
-        long totalPosts = postRepository.countVisiblePostsForAdminDashboard();
-        long postsYesterday = postRepository.countByCreatedAtGreaterThanEqualAndCreatedAtLessThanAndIsDeletedFalse(
+        long totalPosts = postRepository.countPublicLandingVisiblePosts();
+        long postsYesterday = postRepository.countPublicLandingVisiblePostsCreatedAtGreaterThanEqualAndCreatedAtLessThan(
                 yesterdayStart,
                 todayStart);
-        long activeBoardCount = boardRepository.countByIsActiveTrueAndIsPublicTrue();
+        long activeBoardCount = boardRepository.countPublicLandingVisibleBoards();
         long newMembersLast24Hours = userRepository.countByStatusAndDeletedAtIsNullAndCreatedAtAfter(
                 User.STATUS_ACTIVE,
                 twentyFourHoursAgo);
-        long onlineCount = userRepository.countRecentlyLoggedInActiveUsersForAdminDashboard(twentyFourHoursAgo);
-        long commentsToday = commentRepository.countByCreatedAtGreaterThanEqualAndCreatedAtLessThanAndIsDeletedFalse(
+        long onlineCount = userRepository.countRecentlyLoggedInActiveUsersForPublicLanding(twentyFourHoursAgo);
+        long commentsToday = commentRepository.countPublicLandingVisibleCommentsCreatedAtGreaterThanEqualAndCreatedAtLessThan(
                 todayStart,
                 tomorrowStart);
 

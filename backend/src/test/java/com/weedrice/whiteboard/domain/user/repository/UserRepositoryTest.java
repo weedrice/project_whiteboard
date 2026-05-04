@@ -366,6 +366,7 @@ class UserRepositoryTest {
 
         assertThat(userRepository.countActiveUsersForAdminDashboard()).isEqualTo(5L);
         assertThat(userRepository.countRecentlyLoggedInActiveUsersForAdminDashboard(since)).isEqualTo(1L);
+        assertThat(userRepository.countRecentlyLoggedInActiveUsersForPublicLanding(since)).isEqualTo(1L);
     }
     @Test
     @DisplayName("usable super admin query returns only active non-deleted super admins")
