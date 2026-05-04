@@ -734,6 +734,19 @@ class PostServiceTest {
         verify(postRepository).findTrendingPosts(any(LocalDateTime.class), isNull(), eq(10L), eq(11));
     }
 
+    @Test
+    @DisplayName("Trending post page with missing user returns USER_NOT_FOUND")
+    void getTrendingPostsPage_missingUser_throwsUserNotFound() {
+        when(userBlockService.getBlockedUserIdsEitherDirection(99L)).thenReturn(Collections.emptyList());
+        when(postRepository.findTrendingPosts(any(LocalDateTime.class), anyList(), anyLong(), anyInt()))
+                .thenReturn(List.of(post));
+        when(userRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> postService.getTrendingPostsPage(PageRequest.of(0, 10), 99L, "24h"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_FOUND);
+    }
+
     // --- Update Post ---
 
     @Test
@@ -1918,6 +1931,21 @@ class PostServiceTest {
         List<PostSummary> result = postService.getLatestPostsByBoard(1L, 5, null);
 
         assertThat(result).isEmpty();
+    }
+
+    @Test
+    @DisplayName("Latest posts by board with missing user returns USER_NOT_FOUND")
+    void getLatestPostsByBoard_missingUser_throwsUserNotFound() {
+        when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
+        when(userBlockService.getBlockedUserIdsEitherDirection(99L)).thenReturn(Collections.emptyList());
+        when(userRepository.findById(99L)).thenReturn(Optional.empty());
+        when(postRepository.findByBoardIdAndCategoryId(eq(1L), isNull(), isNull(), isNull(), anyList(), eq(false), eq(99L),
+                any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(post)));
+
+        assertThatThrownBy(() -> postService.getLatestPostsByBoard(1L, 5, 99L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_FOUND);
     }
 
     @Test

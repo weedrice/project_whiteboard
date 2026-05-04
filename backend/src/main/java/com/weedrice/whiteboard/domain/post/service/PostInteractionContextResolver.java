@@ -7,6 +7,8 @@ import com.weedrice.whiteboard.domain.post.repository.PostLikeRepository;
 import com.weedrice.whiteboard.domain.post.repository.ScrapRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.global.exception.BusinessException;
+import com.weedrice.whiteboard.global.exception.ErrorCode;
 
 import java.util.List;
 import java.util.Set;
@@ -30,12 +32,14 @@ class PostInteractionContextResolver {
     }
 
     PostUserInteractionContext resolve(List<Post> posts, Long currentUserId) {
-        if (currentUserId == null || posts.isEmpty()) {
+        if (currentUserId == null) {
             return PostUserInteractionContext.empty();
         }
 
-        User user = userRepository.findById(currentUserId).orElse(null);
-        if (user == null) {
+        User user = userRepository.findById(currentUserId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+        if (posts.isEmpty()) {
             return PostUserInteractionContext.empty();
         }
 

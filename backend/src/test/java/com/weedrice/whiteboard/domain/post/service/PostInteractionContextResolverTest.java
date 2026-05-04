@@ -10,6 +10,8 @@ import com.weedrice.whiteboard.domain.post.repository.PostLikeRepository;
 import com.weedrice.whiteboard.domain.post.repository.ScrapRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.global.exception.BusinessException;
+import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -22,6 +24,8 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -84,5 +88,34 @@ class PostInteractionContextResolverTest {
         assertThat(context.likedPostIds()).containsExactly(100L);
         assertThat(context.scrappedPostIds()).containsExactly(100L);
         assertThat(context.subscribedBoardUrls()).containsExactly("free");
+    }
+
+    @Test
+    @DisplayName("익명 사용자는 빈 상호작용 컨텍스트를 반환한다")
+    void resolve_anonymous_returnsEmptyContext() {
+        PostUserInteractionContext context = resolver.resolve(List.of(post), null);
+
+        assertThat(context).isEqualTo(PostUserInteractionContext.empty());
+        verifyNoInteractions(userRepository);
+    }
+
+    @Test
+    @DisplayName("사용자 ID가 있지만 존재하지 않으면 USER_NOT_FOUND를 던진다")
+    void resolve_missingUser_throwsUserNotFound() {
+        when(userRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> resolver.resolve(List.of(post), 99L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("게시글이 없어도 사용자 ID가 존재하지 않으면 USER_NOT_FOUND를 던진다")
+    void resolve_emptyPostsAndMissingUser_throwsUserNotFound() {
+        when(userRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> resolver.resolve(List.of(), 99L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_FOUND);
     }
 }
