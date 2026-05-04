@@ -160,6 +160,27 @@ class CommentServiceTest {
     }
 
     @Test
+    @DisplayName("작성자가 댓글 작성자를 차단하면 댓글을 작성할 수 없다")
+    void createComment_authorBlocksViewer_throwsPostNotFound() {
+        User viewer = User.builder().displayName("Viewer").build();
+        ReflectionTestUtils.setField(viewer, "userId", 2L);
+        User author = User.builder().displayName("Author").build();
+        ReflectionTestUtils.setField(author, "userId", 1L);
+        Board board = Board.builder().boardUrl("free").creator(author).build();
+        Post post = Post.builder().user(author).board(board).build();
+        ReflectionTestUtils.setField(post, "postId", 100L);
+
+        when(userRepository.findById(2L)).thenReturn(Optional.of(viewer));
+        when(postRepository.findByIdWithRelations(100L)).thenReturn(Optional.of(post));
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(2L)).thenReturn(List.of(1L));
+
+        assertThatThrownBy(() -> commentService.createComment(2L, 100L, null, "content"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
+        verify(commentRepository, never()).save(any(Comment.class));
+    }
+
+    @Test
     @DisplayName("활성 BAN 사용자는 댓글을 작성할 수 없다")
     void createComment_bannedUser_forbidden() {
         User user = User.builder().build();
@@ -349,7 +370,7 @@ class CommentServiceTest {
 
         when(postRepository.findByIdWithRelations(100L)).thenReturn(Optional.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(viewer));
-        when(userBlockService.getBlockedUserIds(1L)).thenReturn(List.of(2L));
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(List.of(2L));
         when(commentRepository.findParentsWithChildrenOrNotDeleted(anyLong(), any()))
                 .thenReturn(new PageImpl<>(List.of(comment)));
 
@@ -359,7 +380,7 @@ class CommentServiceTest {
         CommentResponse response = result.getContent().get(0);
         assertThat(response.getContent()).isNotEqualTo("Bad Content");
         assertThat(response.getAuthor().getDisplayName()).isNotEqualTo("Blocked");
-        verify(userBlockService).getBlockedUserIds(1L);
+        verify(userBlockService).getBlockedUserIdsEitherDirectionForExistingUser(1L);
     }
 
     @Test
@@ -399,7 +420,7 @@ class CommentServiceTest {
 
         when(commentRepository.findNonDeletedByIdWithRelations(9L)).thenReturn(Optional.of(parent));
         when(userRepository.findById(1L)).thenReturn(Optional.of(viewer));
-        when(userBlockService.getBlockedUserIds(1L)).thenReturn(List.of(2L));
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(List.of(2L));
         Pageable pageable = commentReadPageable(0, 10);
         when(commentRepository.findRepliesWithRelations(9L, false, pageable))
                 .thenReturn(new PageImpl<>(List.of(reply), pageable, 1));
@@ -409,7 +430,7 @@ class CommentServiceTest {
         assertThat(result.getContent()).hasSize(1);
         assertThat(result.getContent().get(0).getContent()).isEqualTo("차단된 사용자의 댓글입니다.");
         assertThat(result.getContent().get(0).getAuthor().getDisplayName()).isEqualTo("차단된 사용자");
-        verify(userBlockService).getBlockedUserIds(1L);
+        verify(userBlockService).getBlockedUserIdsEitherDirectionForExistingUser(1L);
     }
 
     @Test
@@ -439,7 +460,7 @@ class CommentServiceTest {
 
         when(postRepository.findByIdWithRelations(100L)).thenReturn(Optional.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(viewer));
-        when(userBlockService.getBlockedUserIds(1L)).thenReturn(List.of());
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(List.of());
         Pageable pageable = commentReadPageable(0, 10);
         when(commentRepository.findParentsWithChildrenOrNotDeleted(100L, pageable))
                 .thenReturn(new PageImpl<>(List.of(parent), pageable, 1));
@@ -478,7 +499,7 @@ class CommentServiceTest {
 
         when(postRepository.findByIdWithRelations(100L)).thenReturn(Optional.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(viewer));
-        when(userBlockService.getBlockedUserIds(1L)).thenReturn(List.of());
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(List.of());
         when(commentRepository.findParentsWithChildrenOrNotDeleted(100L, normalized))
                 .thenReturn(Page.empty(normalized));
 
@@ -524,7 +545,7 @@ class CommentServiceTest {
 
         when(commentRepository.findNonDeletedByIdWithRelations(9L)).thenReturn(Optional.of(parent));
         when(userRepository.findById(1L)).thenReturn(Optional.of(viewer));
-        when(userBlockService.getBlockedUserIds(1L)).thenReturn(List.of());
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(List.of());
         Pageable pageable = commentReadPageable(0, 10);
         when(commentRepository.findRepliesWithRelations(9L, false, pageable))
                 .thenReturn(new PageImpl<>(List.of(reply), pageable, 1));
@@ -581,7 +602,7 @@ class CommentServiceTest {
 
         when(commentRepository.findNonDeletedByIdWithRelations(10L)).thenReturn(Optional.of(comment));
         when(userRepository.findById(1L)).thenReturn(Optional.of(viewer));
-        when(userBlockService.getBlockedUserIds(1L)).thenReturn(List.of(2L));
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(List.of(2L));
 
         CommentResponse result = commentService.getComment(10L, 1L);
 
@@ -612,13 +633,37 @@ class CommentServiceTest {
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(commentRepository.findById(10L)).thenReturn(Optional.of(comment));
-        when(commentLikeRepository.saveAndFlush(any())).thenReturn(CommentLike.builder().user(user).comment(comment).build());
+        when(commentLikeRepository.saveAndFlush(any()))
+                .thenReturn(CommentLike.builder().user(user).comment(comment).build());
         when(commentRepository.incrementLikeCount(10L)).thenReturn(1);
 
         commentService.likeComment(1L, 10L);
 
         verify(commentLikeRepository).saveAndFlush(any());
         verify(commentRepository).incrementLikeCount(10L);
+    }
+
+    @Test
+    @DisplayName("작성자가 댓글 좋아요 사용자를 차단하면 좋아요할 수 없다")
+    void likeComment_authorBlocksViewer_throwsPostNotFound() {
+        User viewer = User.builder().displayName("Viewer").build();
+        ReflectionTestUtils.setField(viewer, "userId", 2L);
+        User author = User.builder().displayName("Author").build();
+        ReflectionTestUtils.setField(author, "userId", 1L);
+        Board board = Board.builder().boardUrl("free").creator(author).build();
+        Post post = Post.builder().board(board).user(author).build();
+        Comment comment = Comment.builder().user(author).post(post).build();
+        ReflectionTestUtils.setField(comment, "commentId", 10L);
+
+        when(userRepository.findById(2L)).thenReturn(Optional.of(viewer));
+        when(commentRepository.findById(10L)).thenReturn(Optional.of(comment));
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(2L)).thenReturn(List.of(1L));
+
+        assertThatThrownBy(() -> commentService.likeComment(2L, 10L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
+        verify(commentLikeRepository, never()).saveAndFlush(any());
+        verify(commentRepository, never()).incrementLikeCount(anyLong());
     }
 
     @Test
@@ -700,7 +745,7 @@ class CommentServiceTest {
 
         when(postRepository.findByIdWithRelations(10L)).thenReturn(Optional.of(post));
         when(userRepository.findById(2L)).thenReturn(Optional.of(viewer));
-        when(userBlockService.getBlockedUserIds(2L)).thenReturn(List.of());
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(2L)).thenReturn(List.of());
 
         assertThatThrownBy(() -> commentService.getComments(10L, 2L, PageRequest.of(0, 10)))
                 .isInstanceOf(BusinessException.class)
@@ -728,9 +773,29 @@ class CommentServiceTest {
 
         when(userRepository.findById(2L)).thenReturn(Optional.of(viewer));
         when(commentRepository.findById(10L)).thenReturn(Optional.of(comment));
-        when(userBlockService.getBlockedUserIds(2L)).thenReturn(List.of());
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(2L)).thenReturn(List.of());
 
         assertThatThrownBy(() -> commentService.likeComment(2L, 10L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("게시글 작성자가 댓글 작성자를 차단하면 댓글을 수정할 수 없다")
+    void updateComment_authorBlocksViewer_throwsPostNotFound() {
+        User viewer = User.builder().displayName("Viewer").build();
+        ReflectionTestUtils.setField(viewer, "userId", 2L);
+        User author = User.builder().displayName("Author").build();
+        ReflectionTestUtils.setField(author, "userId", 1L);
+        Board board = Board.builder().boardUrl("free").creator(author).build();
+        Post post = Post.builder().board(board).user(author).build();
+        Comment comment = Comment.builder().user(viewer).post(post).content("Old").build();
+
+        when(commentRepository.findById(10L)).thenReturn(Optional.of(comment));
+        when(userRepository.findById(2L)).thenReturn(Optional.of(viewer));
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(2L)).thenReturn(List.of(1L));
+
+        assertThatThrownBy(() -> commentService.updateComment(2L, 10L, "New"))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
     }

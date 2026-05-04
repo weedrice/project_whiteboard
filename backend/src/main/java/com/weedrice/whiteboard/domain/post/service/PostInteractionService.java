@@ -305,7 +305,8 @@ public class PostInteractionService {
     private void validateReadable(Post post, User viewer) {
         boolean authorBlocked = false;
         if (viewer != null) {
-            List<Long> blockedUserIds = userBlockService.getBlockedUserIds(viewer.getUserId());
+            List<Long> blockedUserIds = userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(
+                    viewer.getUserId());
             authorBlocked = blockedUserIds != null && blockedUserIds.contains(post.getUser().getUserId());
         }
         postAccessPolicy.validateReadable(post, viewer, authorBlocked);
@@ -338,7 +339,8 @@ public class PostInteractionService {
             return Collections.emptySet();
         }
 
-        List<Long> blockedUserIds = userBlockService.getBlockedUserIds(currentUserId);
+        List<Long> blockedUserIds = userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(
+                currentUserId);
         if (blockedUserIds == null || blockedUserIds.isEmpty()) {
             return Collections.emptySet();
         }

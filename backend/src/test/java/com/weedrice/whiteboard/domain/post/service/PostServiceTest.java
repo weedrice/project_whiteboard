@@ -510,7 +510,7 @@ class PostServiceTest {
     @DisplayName("게시글 조회 성공 - ID로 조회")
     void getPostById_success() {
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
-        when(userBlockService.getBlockedUserIds(1L)).thenReturn(Collections.emptyList());
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(viewHistoryRepository.findByUserAndPost(user, post))
                 .thenReturn(Optional.empty())
@@ -531,7 +531,7 @@ class PostServiceTest {
         ViewHistory existing = ViewHistory.builder().user(user).post(post).build();
 
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
-        when(userBlockService.getBlockedUserIds(1L)).thenReturn(Collections.emptyList());
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(viewHistoryRepository.findByUserAndPost(user, post))
                 .thenReturn(Optional.empty())
@@ -567,7 +567,7 @@ class PostServiceTest {
         ReflectionTestUtils.setField(otherUser, "isSuperAdmin", false);
 
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
-        when(userBlockService.getBlockedUserIds(2L)).thenReturn(Collections.emptyList());
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(2L)).thenReturn(Collections.emptyList());
         when(userRepository.findById(2L)).thenReturn(Optional.of(otherUser));
         when(adminRepository.existsByUserAndBoardAndIsActive(otherUser, board, true)).thenReturn(false);
 
@@ -873,8 +873,9 @@ class PostServiceTest {
     void likePost_success() {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
-        when(userBlockService.getBlockedUserIds(1L)).thenReturn(Collections.emptyList());
-        when(postLikeRepository.saveAndFlush(any(PostLike.class))).thenReturn(PostLike.builder().user(user).post(post).build());
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
+        when(postLikeRepository.saveAndFlush(any(PostLike.class)))
+                .thenReturn(PostLike.builder().user(user).post(post).build());
         when(postRepository.incrementLikeCount(1L)).thenReturn(1);
         when(postRepository.findLikeCountByPostId(1L)).thenReturn(1);
 
@@ -903,7 +904,7 @@ class PostServiceTest {
     void likePost_alreadyLiked() {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
-        when(userBlockService.getBlockedUserIds(1L)).thenReturn(Collections.emptyList());
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
         when(postLikeRepository.saveAndFlush(any(PostLike.class)))
                 .thenThrow(new org.springframework.dao.DataIntegrityViolationException("duplicate"));
 
@@ -941,7 +942,7 @@ class PostServiceTest {
     void unlikePost_success() {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
-        when(userBlockService.getBlockedUserIds(1L)).thenReturn(Collections.emptyList());
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
         when(postLikeRepository.deleteByUserIdAndPostId(1L, 1L)).thenReturn(1);
         when(postRepository.decrementLikeCount(1L)).thenReturn(1);
         when(postRepository.findLikeCountByPostId(1L)).thenReturn(0);
@@ -973,7 +974,7 @@ class PostServiceTest {
     void scrapPost_success() {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
-        when(userBlockService.getBlockedUserIds(1L)).thenReturn(Collections.emptyList());
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
         when(scrapRepository.saveAndFlush(any(Scrap.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         postService.scrapPost(1L, 1L, "My Scrap");
@@ -1023,7 +1024,7 @@ class PostServiceTest {
     void scrapPost_duplicate_throwsAlreadyScraped() {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
-        when(userBlockService.getBlockedUserIds(1L)).thenReturn(Collections.emptyList());
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
         when(scrapRepository.saveAndFlush(any(Scrap.class)))
                 .thenThrow(new DataIntegrityViolationException("duplicate"));
 
@@ -1038,7 +1039,7 @@ class PostServiceTest {
     void scrapPost_dataIntegrityViolation_throwsAlreadyScrapedWithoutRequery() {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
-        when(userBlockService.getBlockedUserIds(1L)).thenReturn(Collections.emptyList());
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
         when(scrapRepository.saveAndFlush(any(Scrap.class)))
                 .thenThrow(new DataIntegrityViolationException("other"));
 
@@ -1401,7 +1402,7 @@ class PostServiceTest {
     @DisplayName("최근 본 게시글 조회는 차단 사용자를 제외한 가시 항목만 조회한다")
     void getRecentlyViewedPosts_excludesBlockedAuthors() {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(userBlockService.getBlockedUserIds(1L)).thenReturn(List.of(99L));
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(List.of(99L));
         when(viewHistoryRepository.findVisiblePostIdsByUserIdOrderByModifiedAtDesc(
                 eq(1L), eq(false), eq(false), eq(List.of(99L)), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(1L), Pageable.unpaged(), 1));
@@ -1509,7 +1510,7 @@ class PostServiceTest {
     @DisplayName("게시글 버전 조회")
     void getPostVersions() {
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
-        when(userBlockService.getBlockedUserIds(1L)).thenReturn(Collections.emptyList());
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(postVersionRepository.findByPost_PostIdOrderByCreatedAtDesc(1L)).thenReturn(Collections.emptyList());
         postService.getPostVersions(1L, 1L);
@@ -1524,7 +1525,7 @@ class PostServiceTest {
         ReflectionTestUtils.setField(otherUser, "isSuperAdmin", false);
 
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
-        when(userBlockService.getBlockedUserIds(2L)).thenReturn(Collections.emptyList());
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(2L)).thenReturn(Collections.emptyList());
         when(userRepository.findById(2L)).thenReturn(Optional.of(otherUser));
         when(adminRepository.existsByUserAndBoardAndIsActive(otherUser, board, true)).thenReturn(false);
 
@@ -1539,7 +1540,8 @@ class PostServiceTest {
     @DisplayName("게시글 응답 조회 성공")
     void getPostResponse_success() {
         lenient().when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
-        lenient().when(userBlockService.getBlockedUserIds(1L)).thenReturn(Collections.emptyList());
+        lenient().when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L))
+                .thenReturn(Collections.emptyList());
         lenient().when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         lenient().when(postRepository.findById(1L)).thenReturn(Optional.of(post));
         lenient().when(viewHistoryRepository.findByUserAndPost(user, post))
@@ -1565,10 +1567,26 @@ class PostServiceTest {
     }
 
     @Test
+    @DisplayName("게시글 응답 조회 - 작성자가 조회자를 차단하면 숨김 처리")
+    void getPostResponse_authorBlocksViewer_throwsPostNotFound() {
+        User viewer = User.builder().loginId("viewer").build();
+        ReflectionTestUtils.setField(viewer, "userId", 2L);
+
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+        when(userRepository.findById(2L)).thenReturn(Optional.of(viewer));
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(2L)).thenReturn(List.of(1L));
+
+        assertThatThrownBy(() -> postService.getPostResponse(1L, 2L, false))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
+    }
+
+    @Test
     @DisplayName("게시글 응답 조회 - boardListPageSize를 지정하면 해당 크기로 목록 페이지를 계산")
     void getPostResponse_usesBoardListPageSize() {
         lenient().when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
-        lenient().when(userBlockService.getBlockedUserIds(1L)).thenReturn(Collections.emptyList());
+        lenient().when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L))
+                .thenReturn(Collections.emptyList());
         lenient().when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         lenient().when(viewHistoryRepository.findByUserAndPost(user, post)).thenReturn(Optional.empty());
         lenient().when(tagAssignmentService.getTagNames(post)).thenReturn(Collections.emptyList());
@@ -1588,7 +1606,8 @@ class PostServiceTest {
     @DisplayName("게시글 응답 조회 - 과도한 boardListPageSize는 PageRequestUtils 상한으로 제한")
     void getPostResponse_clampsLargeBoardListPageSize() {
         lenient().when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
-        lenient().when(userBlockService.getBlockedUserIds(1L)).thenReturn(Collections.emptyList());
+        lenient().when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L))
+                .thenReturn(Collections.emptyList());
         lenient().when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         lenient().when(viewHistoryRepository.findByUserAndPost(user, post)).thenReturn(Optional.empty());
         lenient().when(tagAssignmentService.getTagNames(post)).thenReturn(Collections.emptyList());
@@ -1618,7 +1637,8 @@ class PostServiceTest {
     @DisplayName("게시글 응답 조회 - 조회수 증가하지 않음")
     void getPostResponse_noIncrementView() {
         lenient().when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
-        lenient().when(userBlockService.getBlockedUserIds(1L)).thenReturn(Collections.emptyList());
+        lenient().when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L))
+                .thenReturn(Collections.emptyList());
         lenient().when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         lenient().when(postRepository.findById(1L)).thenReturn(Optional.of(post));
         lenient().when(tagAssignmentService.getTagNames(post)).thenReturn(Collections.emptyList());
@@ -2177,8 +2197,9 @@ class PostServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(actorUser));
         when(agentOwnershipService.resolveOwnedActiveAgent(1L, 10L)).thenReturn(actorAgent);
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
-        when(userBlockService.getBlockedUserIds(1L)).thenReturn(Collections.emptyList());
-        when(postLikeRepository.saveAndFlush(any(PostLike.class))).thenReturn(PostLike.builder().user(actorUser).post(post).build());
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
+        when(postLikeRepository.saveAndFlush(any(PostLike.class)))
+                .thenReturn(PostLike.builder().user(actorUser).post(post).build());
         when(postRepository.incrementLikeCount(1L)).thenReturn(1);
         when(postRepository.findLikeCountByPostId(1L)).thenReturn(1);
 
@@ -2223,7 +2244,7 @@ class PostServiceTest {
         User otherUser = User.builder().loginId("other").build();
         ReflectionTestUtils.setField(otherUser, "userId", 2L);
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
-        when(userBlockService.getBlockedUserIds(2L)).thenReturn(List.of(1L));
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(2L)).thenReturn(List.of(1L));
         when(userRepository.findById(2L)).thenReturn(Optional.of(otherUser));
 
         assertThatThrownBy(() -> postService.getPostById(1L, 2L))
@@ -2238,7 +2259,7 @@ class PostServiceTest {
         ReflectionTestUtils.setField(user, "isSuperAdmin", true);
 
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
-        when(userBlockService.getBlockedUserIds(1L)).thenReturn(Collections.emptyList());
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(viewHistoryRepository.findByUserAndPost(user, post))
                 .thenReturn(Optional.empty())
@@ -2260,7 +2281,7 @@ class PostServiceTest {
         Admin admin = Admin.builder().user(otherUser).board(board).build();
 
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
-        when(userBlockService.getBlockedUserIds(2L)).thenReturn(Collections.emptyList());
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(2L)).thenReturn(Collections.emptyList());
         when(userRepository.findById(2L)).thenReturn(Optional.of(otherUser));
         when(adminRepository.existsByUserAndBoardAndIsActive(otherUser, board, true)).thenReturn(true);
         when(viewHistoryRepository.findByUserAndPost(otherUser, post))
@@ -2279,7 +2300,7 @@ class PostServiceTest {
         ReflectionTestUtils.setField(board, "isActive", false);
 
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
-        when(userBlockService.getBlockedUserIds(1L)).thenReturn(Collections.emptyList());
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(viewHistoryRepository.findByUserAndPost(user, post))
                 .thenReturn(Optional.empty())
@@ -2435,7 +2456,8 @@ class PostServiceTest {
     void incrementViewCount_blockedAuthor_throwsPostNotFound() {
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(userBlockService.getBlockedUserIds(1L)).thenReturn(List.of(user.getUserId()));
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L))
+                .thenReturn(List.of(user.getUserId()));
 
         assertThatThrownBy(() -> postService.incrementViewCount(1L, 1L))
                 .isInstanceOf(BusinessException.class)

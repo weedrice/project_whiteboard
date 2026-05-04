@@ -151,7 +151,8 @@ public class PostDetailReadService {
         if (viewer == null) {
             return null;
         }
-        return userBlockService.getBlockedUserIds(viewer.getUserId());
+        return userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(
+                viewer.getUserId());
     }
 
     private record PostDetailContext(Post post, User viewer, List<Long> blockedUserIds, ViewHistory viewHistory) {

@@ -21,7 +21,8 @@ class CommentPostAccessService {
         if (viewer == null) {
             return new CommentReadContext(null, Set.of());
         }
-        List<Long> blockedUserIds = userBlockService.getBlockedUserIds(viewer.getUserId());
+        List<Long> blockedUserIds = userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(
+                viewer.getUserId());
         Set<Long> blockedUserIdSet = blockedUserIds == null || blockedUserIds.isEmpty()
                 ? Set.of()
                 : Set.copyOf(blockedUserIds);
