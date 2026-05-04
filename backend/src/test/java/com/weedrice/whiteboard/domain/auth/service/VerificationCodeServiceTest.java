@@ -13,6 +13,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
@@ -128,7 +129,14 @@ class VerificationCodeServiceTest {
         VerificationCode verificationCode = verificationCodes.values().iterator().next();
         assertThat(verificationCode.getDeliveryStatus()).isEqualTo(VerificationCode.DELIVERY_STATUS_SENT);
         assertThat(verificationCode.getPurpose()).isEqualTo(VerificationPurpose.SIGNUP);
-        verify(emailService).sendEmail(anyString(), anyString(), anyString());
+        ArgumentCaptor<String> subjectCaptor = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<String> bodyCaptor = ArgumentCaptor.forClass(String.class);
+        verify(emailService).sendEmail(eq("test@example.com"), subjectCaptor.capture(), bodyCaptor.capture());
+        assertThat(subjectCaptor.getValue()).isEqualTo("[NoviIs] 이메일 인증 코드");
+        assertThat(bodyCaptor.getValue())
+                .contains("<h1>이메일 인증 코드</h1>")
+                .contains("아래 인증 코드를 입력하여 이메일 인증을 완료해 주세요.")
+                .contains("<h3>" + verificationCode.getCode() + "</h3>");
     }
 
     @Test
@@ -252,6 +260,43 @@ class VerificationCodeServiceTest {
     }
 
     @Test
+    @DisplayName("만료된 인증 코드는 정상 메시지로 거부한다")
+    void verifyCode_rejectsExpiredCodeWithReadableMessage() {
+        VerificationCode sentCode = createSentCode(1L, "test@example.com", VerificationPurpose.SIGNUP, "123456");
+        ReflectionTestUtils.setField(sentCode, "expiryDate", LocalDateTime.now().minusMinutes(1));
+        verificationCodes.put(1L, sentCode);
+
+        assertThatThrownBy(() -> verificationCodeService.verifyCode(
+                "test@example.com",
+                "123456",
+                VerificationPurpose.SIGNUP))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(ex -> {
+                    BusinessException businessException = (BusinessException) ex;
+                    assertThat(businessException.getErrorCode()).isEqualTo(ErrorCode.VALIDATION_ERROR);
+                    assertThat(businessException.getMessage()).isEqualTo("만료된 인증 코드입니다.");
+                });
+    }
+
+    @Test
+    @DisplayName("잘못된 인증 코드는 정상 메시지로 거부한다")
+    void verifyCode_rejectsInvalidCodeWithReadableMessage() {
+        VerificationCode sentCode = createSentCode(1L, "test@example.com", VerificationPurpose.SIGNUP, "123456");
+        verificationCodes.put(1L, sentCode);
+
+        assertThatThrownBy(() -> verificationCodeService.verifyCode(
+                "test@example.com",
+                "000000",
+                VerificationPurpose.SIGNUP))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(ex -> {
+                    BusinessException businessException = (BusinessException) ex;
+                    assertThat(businessException.getErrorCode()).isEqualTo(ErrorCode.VALIDATION_ERROR);
+                    assertThat(businessException.getMessage()).isEqualTo("잘못된 인증 코드입니다.");
+                });
+    }
+
+    @Test
     @DisplayName("이미 소비된 코드로는 새 ticket을 발급할 수 없다")
     void verifyCode_rejectsConsumedTicketCodeReuse() {
         VerificationCode sentCode = createSentCode(1L, "test@example.com", VerificationPurpose.PASSWORD_RESET, "123456");
@@ -264,8 +309,27 @@ class VerificationCodeServiceTest {
                 "123456",
                 VerificationPurpose.PASSWORD_RESET))
                 .isInstanceOf(BusinessException.class)
-                .extracting("errorCode")
-                .isEqualTo(ErrorCode.VALIDATION_ERROR);
+                .satisfies(ex -> {
+                    BusinessException businessException = (BusinessException) ex;
+                    assertThat(businessException.getErrorCode()).isEqualTo(ErrorCode.VALIDATION_ERROR);
+                    assertThat(businessException.getMessage()).isEqualTo("이미 사용된 인증 코드입니다.");
+                });
+    }
+
+    @Test
+    @DisplayName("발송된 인증 코드가 없으면 정상 메시지로 거부한다")
+    void verifyCode_missingSentCodeWithReadableMessage() {
+        assertThatThrownBy(() -> verificationCodeService.verifyCode(
+                "test@example.com",
+                "123456",
+                VerificationPurpose.SIGNUP))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(ex -> {
+                    BusinessException businessException = (BusinessException) ex;
+                    assertThat(businessException.getErrorCode()).isEqualTo(ErrorCode.NOT_FOUND);
+                    assertThat(businessException.getMessage())
+                            .isEqualTo("인증 코드를 찾을 수 없습니다. 이메일을 변경했다면 다시 인증 코드를 발송해 주세요.");
+                });
     }
 
     @Test

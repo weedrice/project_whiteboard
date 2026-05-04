@@ -23,6 +23,14 @@ import java.util.UUID;
 @Transactional(readOnly = true)
 public class VerificationCodeService {
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+    private static final String VERIFICATION_EMAIL_SUBJECT = "[NoviIs] 이메일 인증 코드";
+    private static final String VERIFICATION_EMAIL_BODY_TEMPLATE =
+            "<h1>이메일 인증 코드</h1><p>아래 인증 코드를 입력하여 이메일 인증을 완료해 주세요.</p><h3>%s</h3>";
+    private static final String EXPIRED_CODE_MESSAGE = "만료된 인증 코드입니다.";
+    private static final String INVALID_CODE_MESSAGE = "잘못된 인증 코드입니다.";
+    private static final String USED_CODE_MESSAGE = "이미 사용된 인증 코드입니다.";
+    private static final String VERIFICATION_CODE_NOT_FOUND_MESSAGE =
+            "인증 코드를 찾을 수 없습니다. 이메일을 변경했다면 다시 인증 코드를 발송해 주세요.";
 
     private final VerificationCodeRepository verificationCodeRepository;
     private final UserRepository userRepository;
@@ -36,12 +44,11 @@ public class VerificationCodeService {
 
         String code = generateRandomCode();
         LocalDateTime expiryDate = LocalDateTime.now().plusMinutes(5);
-        String subject = "[noviIs] ?대찓???몄쬆 肄붾뱶";
-        String body = "<h1>?대찓???몄쬆 肄붾뱶</h1><p>?꾨옒 肄붾뱶瑜??낅젰?섏뿬 ?몄쬆???꾨즺??二쇱꽭??</p><h3>" + code + "</h3>";
+        String body = VERIFICATION_EMAIL_BODY_TEMPLATE.formatted(code);
 
         mailDeliveryOrchestrationService.send(new AuthMailDeliveryOrchestrationService.MailDeliveryCommand(
                 email,
-                subject,
+                VERIFICATION_EMAIL_SUBJECT,
                 body,
                 () -> createPendingVerificationCode(email, purpose, code, expiryDate),
                 verificationId -> updateDeliveryStatus(verificationId, false),
@@ -58,18 +65,18 @@ public class VerificationCodeService {
         VerificationCode verificationCode = getLatestSentVerificationCodeForUpdate(email, purpose);
 
         if (verificationCode.isExpired()) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "留뚮즺???몄쬆 肄붾뱶?낅땲??");
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, EXPIRED_CODE_MESSAGE);
         }
 
         if (!verificationCode.getCode().equals(code)) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "?섎せ???몄쬆 肄붾뱶?낅땲??");
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, INVALID_CODE_MESSAGE);
         }
 
         if (Boolean.TRUE.equals(verificationCode.getIsVerified())) {
             if (verificationCode.hasActiveVerificationTicket()) {
                 return buildVerifyCodeResponse(email, purpose, verificationCode.getVerificationTicket());
             }
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "?대? ?ъ슜???몄쬆 肄붾뱶?낅땲??");
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, USED_CODE_MESSAGE);
         }
 
         String verificationTicket = UUID.randomUUID().toString();
@@ -252,7 +259,7 @@ public class VerificationCodeService {
         return findLatestSentVerificationCodeForUpdate(email, purpose)
                 .orElseThrow(() -> new BusinessException(
                         ErrorCode.NOT_FOUND,
-                        "?몄쬆 肄붾뱶瑜?李얠쓣 ???놁뒿?덈떎. ?대찓?쇱쓣 蹂寃쏀뻽?ㅻ㈃ ?ㅼ떆 ?몄쬆 肄붾뱶瑜?諛쒖넚??二쇱꽭??"));
+                        VERIFICATION_CODE_NOT_FOUND_MESSAGE));
     }
 
     private Optional<VerificationCode> findLatestSentVerificationCodeForUpdate(
