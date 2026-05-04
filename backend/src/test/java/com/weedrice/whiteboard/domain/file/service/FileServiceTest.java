@@ -604,13 +604,14 @@ class FileServiceTest {
                 .build();
 
         when(fileRepository.findByFileIdAndStorageStatus(10L, FileStorageStatus.ACTIVE)).thenReturn(Optional.of(file));
-        when(postRepository.findById(100L)).thenReturn(Optional.of(post));
+        when(postRepository.findByIdWithRelations(100L)).thenReturn(Optional.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(viewer));
         when(userBlockService.isEitherDirectionBlocked(1L, 2L)).thenReturn(false);
 
         File result = fileService.getFileForDownload(10L, 1L);
 
         assertThat(result).isSameAs(file);
+        verify(postRepository).findByIdWithRelations(100L);
         verify(postAccessPolicy).validateReadable(post, viewer, false);
         verify(userBlockService).isEitherDirectionBlocked(1L, 2L);
     }
@@ -637,13 +638,14 @@ class FileServiceTest {
                 .build();
 
         when(fileRepository.findByFileIdAndStorageStatus(10L, FileStorageStatus.ACTIVE)).thenReturn(Optional.of(file));
-        when(postRepository.findById(100L)).thenReturn(Optional.of(post));
+        when(postRepository.findByIdWithRelations(100L)).thenReturn(Optional.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(viewer));
         when(userBlockService.isEitherDirectionBlocked(1L, 2L)).thenReturn(true);
 
         File result = fileService.getFileForDownload(10L, 1L);
 
         assertThat(result).isSameAs(file);
+        verify(postRepository).findByIdWithRelations(100L);
         verify(postAccessPolicy).validateReadable(post, viewer, true);
         verify(userBlockService).isEitherDirectionBlocked(1L, 2L);
     }
@@ -670,7 +672,7 @@ class FileServiceTest {
                 .build();
 
         when(fileRepository.findByFileIdAndStorageStatus(10L, FileStorageStatus.ACTIVE)).thenReturn(Optional.of(file));
-        when(postRepository.findById(100L)).thenReturn(Optional.of(post));
+        when(postRepository.findByIdWithRelations(100L)).thenReturn(Optional.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(viewer));
         when(userBlockService.isEitherDirectionBlocked(1L, 2L)).thenReturn(true);
         doThrow(new BusinessException(ErrorCode.POST_NOT_FOUND))
@@ -679,6 +681,7 @@ class FileServiceTest {
         assertThatThrownBy(() -> fileService.getFileForDownload(10L, 1L))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
+        verify(postRepository).findByIdWithRelations(100L);
         verify(postAccessPolicy).validateReadable(post, viewer, true);
         verify(userBlockService).isEitherDirectionBlocked(1L, 2L);
     }
@@ -712,7 +715,7 @@ class FileServiceTest {
         File result = fileService.getFileForDownload(10L, null);
 
         assertThat(result).isSameAs(file);
-        verify(postRepository, never()).findById(any());
+        verify(postRepository, never()).findByIdWithRelations(any());
         verify(postAccessPolicy, never()).validateReadable(any(), any());
     }
 
@@ -747,7 +750,7 @@ class FileServiceTest {
 
         assertThat(imageResult).isSameAs(imageFile);
         assertThat(thumbnailResult).isSameAs(thumbnailFile);
-        verify(postRepository, never()).findById(any());
+        verify(postRepository, never()).findByIdWithRelations(any());
         verify(postAccessPolicy, never()).validateReadable(any(), any());
     }
 
@@ -771,7 +774,7 @@ class FileServiceTest {
         File result = fileService.getFileForDownload(10L, 1L);
 
         assertThat(result).isSameAs(file);
-        verify(postRepository, never()).findById(any());
+        verify(postRepository, never()).findByIdWithRelations(any());
         verify(postAccessPolicy, never()).validateReadable(any(), any());
     }
 

@@ -476,7 +476,7 @@ public class FileService {
 
         switch (relatedType) {
             case RELATED_TYPE_POST_CONTENT -> {
-                Post post = postRepository.findById(file.getRelatedId())
+                Post post = postRepository.findByIdWithRelations(file.getRelatedId())
                         .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
                 User viewer = resolveViewer(viewerUserId);
                 boolean authorBlocked = isBlockedBetweenAuthorAndViewer(post, viewer);
