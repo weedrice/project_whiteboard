@@ -46,6 +46,20 @@ class ReportTargetPolicyTest {
     }
 
     @Test
+    @DisplayName("POST report rejects self-report as INVALID_TARGET")
+    void validatePostReportable_rejectsSelfReport() {
+        User reporter = user(1L);
+        Post post = post(reporter);
+
+        assertThatThrownBy(() -> reportTargetPolicy.validatePostReportable(post, reporter))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_TARGET);
+
+        verify(postAccessPolicy, never()).validateReadable(post, reporter, false);
+        verify(userBlockService, never()).hasBlockFromReporterToTarget(1L, 1L);
+    }
+
+    @Test
     @DisplayName("COMMENT report policy checks post author and comment author block state")
     void validateCommentReportable_checksCommentAuthorAndPostAuthor() {
         User reporter = user(1L);
@@ -76,6 +90,22 @@ class ReportTargetPolicyTest {
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.COMMENT_NOT_FOUND);
 
         verify(postAccessPolicy).validateReadable(comment.getPost(), reporter, false);
+    }
+
+    @Test
+    @DisplayName("COMMENT report rejects self-report as INVALID_TARGET")
+    void validateCommentReportable_rejectsSelfReport() {
+        User reporter = user(1L);
+        User postAuthor = user(2L);
+        Comment comment = comment(post(postAuthor), reporter);
+        when(userBlockService.hasBlockFromReporterToTarget(1L, 2L)).thenReturn(false);
+
+        assertThatThrownBy(() -> reportTargetPolicy.validateCommentReportable(comment, reporter))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_TARGET);
+
+        verify(postAccessPolicy).validateReadable(comment.getPost(), reporter, false);
+        verify(userBlockService, never()).hasBlockFromReporterToTarget(1L, 1L);
     }
 
     @Test

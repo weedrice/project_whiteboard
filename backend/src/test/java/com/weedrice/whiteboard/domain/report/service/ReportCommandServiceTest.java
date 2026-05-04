@@ -214,6 +214,42 @@ class ReportCommandServiceTest {
     }
 
     @Test
+    @DisplayName("createReport rejects POST self-report as invalid target")
+    void createReport_postSelfReport_throwsInvalidTarget() {
+        User reporter = User.builder().build();
+        ReflectionTestUtils.setField(reporter, "userId", 1L);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(reporter));
+        when(reportRepository.findByReporterAndTargetTypeAndTargetId(reporter, "POST", 10L))
+                .thenReturn(Optional.empty());
+        doThrow(new BusinessException(ErrorCode.INVALID_TARGET))
+                .when(reportTargetValidator).validate("POST", 10L, reporter);
+
+        assertThatThrownBy(() -> reportCommandService.createReport(1L, "POST", 10L, "SPAM", null, null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_TARGET);
+
+        verify(reportRepository, never()).saveAndFlush(any(Report.class));
+    }
+
+    @Test
+    @DisplayName("createReport rejects COMMENT self-report as invalid target")
+    void createReport_commentSelfReport_throwsInvalidTarget() {
+        User reporter = User.builder().build();
+        ReflectionTestUtils.setField(reporter, "userId", 1L);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(reporter));
+        when(reportRepository.findByReporterAndTargetTypeAndTargetId(reporter, "COMMENT", 10L))
+                .thenReturn(Optional.empty());
+        doThrow(new BusinessException(ErrorCode.INVALID_TARGET))
+                .when(reportTargetValidator).validate("COMMENT", 10L, reporter);
+
+        assertThatThrownBy(() -> reportCommandService.createReport(1L, "COMMENT", 10L, "SPAM", null, null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_TARGET);
+
+        verify(reportRepository, never()).saveAndFlush(any(Report.class));
+    }
+
+    @Test
     @DisplayName("createReport keeps duplicate precedence before USER target policy validation")
     void createReport_duplicateUserSelfReport_throwsAlreadyReported() {
         User reporter = User.builder().build();
@@ -233,6 +269,50 @@ class ReportCommandServiceTest {
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.ALREADY_REPORTED);
 
         verify(reportTargetValidator, never()).validate("USER", 1L, reporter);
+    }
+
+    @Test
+    @DisplayName("createReport keeps duplicate precedence before POST target policy validation")
+    void createReport_duplicatePostReport_throwsAlreadyReported() {
+        User reporter = User.builder().build();
+        ReflectionTestUtils.setField(reporter, "userId", 1L);
+        Report existingReport = Report.builder()
+                .reporter(reporter)
+                .targetType("POST")
+                .targetId(10L)
+                .reasonType("ETC")
+                .build();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(reporter));
+        when(reportRepository.findByReporterAndTargetTypeAndTargetId(reporter, "POST", 10L))
+                .thenReturn(Optional.of(existingReport));
+
+        assertThatThrownBy(() -> reportCommandService.createReport(1L, "POST", 10L, "ETC", null, null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.ALREADY_REPORTED);
+
+        verify(reportTargetValidator, never()).validate("POST", 10L, reporter);
+    }
+
+    @Test
+    @DisplayName("createReport keeps duplicate precedence before COMMENT target policy validation")
+    void createReport_duplicateCommentReport_throwsAlreadyReported() {
+        User reporter = User.builder().build();
+        ReflectionTestUtils.setField(reporter, "userId", 1L);
+        Report existingReport = Report.builder()
+                .reporter(reporter)
+                .targetType("COMMENT")
+                .targetId(10L)
+                .reasonType("ETC")
+                .build();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(reporter));
+        when(reportRepository.findByReporterAndTargetTypeAndTargetId(reporter, "COMMENT", 10L))
+                .thenReturn(Optional.of(existingReport));
+
+        assertThatThrownBy(() -> reportCommandService.createReport(1L, "COMMENT", 10L, "ETC", null, null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.ALREADY_REPORTED);
+
+        verify(reportTargetValidator, never()).validate("COMMENT", 10L, reporter);
     }
 
     @Test

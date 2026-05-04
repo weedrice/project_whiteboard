@@ -20,6 +20,7 @@ class ReportTargetPolicy {
     private final PostAccessPolicy postAccessPolicy;
 
     void validatePostReportable(Post post, User reporter) {
+        validateNotSelfReport(post.getUser(), reporter);
         postAccessPolicy.validateReadable(post, reporter, isBlockedByReporter(reporter, post.getUser()));
     }
 
@@ -28,6 +29,7 @@ class ReportTargetPolicy {
                 comment.getPost(),
                 reporter,
                 isBlockedByReporter(reporter, comment.getPost().getUser()));
+        validateNotSelfReport(comment.getUser(), reporter);
         if (isBlockedByReporter(reporter, comment.getUser())) {
             throw new BusinessException(ErrorCode.COMMENT_NOT_FOUND);
         }
@@ -37,7 +39,11 @@ class ReportTargetPolicy {
         if (target == null) {
             throw new BusinessException(ErrorCode.USER_NOT_FOUND);
         }
-        if (reporter != null && Objects.equals(reporter.getUserId(), target.getUserId())) {
+        validateNotSelfReport(target, reporter);
+    }
+
+    private void validateNotSelfReport(User target, User reporter) {
+        if (target != null && reporter != null && Objects.equals(reporter.getUserId(), target.getUserId())) {
             throw new BusinessException(ErrorCode.INVALID_TARGET);
         }
     }
