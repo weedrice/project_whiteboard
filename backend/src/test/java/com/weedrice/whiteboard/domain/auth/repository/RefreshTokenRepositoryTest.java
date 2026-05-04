@@ -11,6 +11,7 @@ import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.context.annotation.Import;
 
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -39,7 +40,7 @@ class RefreshTokenRepositoryTest {
 
     @Test
     void findByUserAndIsRevokedAndExpiresAtGreaterThanEqual_returnsOnlyUnrevokedUnexpiredTokens() {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
         persistRefreshToken("active", now.plusHours(1), false);
         persistRefreshToken("boundary", now, false);
         persistRefreshToken("expired", now.minusMinutes(1), false);
@@ -51,6 +52,37 @@ class RefreshTokenRepositoryTest {
 
         assertThat(tokens).extracting(RefreshToken::getTokenHash)
                 .containsExactlyInAnyOrder("active", "boundary");
+    }
+
+    @Test
+    void findUserIdByTokenHash_returnsTokenOwnerId() {
+        persistRefreshToken("active", LocalDateTime.now().plusHours(1), false);
+        entityManager.flush();
+        entityManager.clear();
+
+        var userId = refreshTokenRepository.findUserIdByTokenHash("active");
+
+        assertThat(userId).contains(user.getUserId());
+    }
+
+    @Test
+    void revokeActiveTokensByUserId_revokesOnlyActiveUnexpiredTokens() {
+        LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
+        persistRefreshToken("active", now.plusHours(1), false);
+        persistRefreshToken("boundary", now, false);
+        persistRefreshToken("expired", now.minusMinutes(1), false);
+        persistRefreshToken("revoked", now.plusHours(1), true);
+        entityManager.flush();
+        entityManager.clear();
+
+        int updated = refreshTokenRepository.revokeActiveTokensByUserId(user.getUserId(), now);
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(updated).isEqualTo(2);
+        assertThat(refreshTokenRepository.findByUserAndIsRevokedAndExpiresAtGreaterThanEqual(user, false, now))
+                .extracting(RefreshToken::getTokenHash)
+                .isEmpty();
     }
 
     private void persistRefreshToken(String tokenHash, LocalDateTime expiresAt, boolean revoked) {

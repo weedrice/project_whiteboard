@@ -558,6 +558,8 @@ class AuthServiceTest {
         String expectedRefreshTokenHash = new TokenHashService().hashSha256("new-refresh-token");
 
         when(jwtTokenProvider.validateToken("old-refresh-token")).thenReturn(true);
+        when(refreshTokenRepository.findUserIdByTokenHash(anyString())).thenReturn(Optional.of(1L));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         when(refreshTokenRepository.findByTokenHash(anyString())).thenReturn(Optional.of(storedRefreshToken));
         when(sanctionService.isUserBanned(user)).thenReturn(false);
         when(jwtTokenProvider.createAccessToken(any(Authentication.class))).thenReturn("new-access-token");
@@ -592,6 +594,8 @@ class AuthServiceTest {
                 .build();
 
         when(jwtTokenProvider.validateToken("old-refresh-token")).thenReturn(true);
+        when(refreshTokenRepository.findUserIdByTokenHash(anyString())).thenReturn(Optional.of(1L));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         when(refreshTokenRepository.findByTokenHash(anyString())).thenReturn(Optional.of(refreshToken));
         when(sanctionService.isUserBanned(user)).thenReturn(true);
 

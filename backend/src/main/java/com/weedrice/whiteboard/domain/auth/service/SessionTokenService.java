@@ -149,6 +149,11 @@ public class SessionTokenService {
         }
 
         String oldRefreshTokenHash = tokenHashService.hashSha256(oldRefreshToken);
+        Long userId = refreshTokenRepository.findUserIdByTokenHash(oldRefreshTokenHash)
+                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_REFRESH_TOKEN));
+        userRepository.findByIdForUpdate(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
         RefreshToken refreshToken = refreshTokenRepository.findByTokenHash(oldRefreshTokenHash)
                 .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_REFRESH_TOKEN));
 

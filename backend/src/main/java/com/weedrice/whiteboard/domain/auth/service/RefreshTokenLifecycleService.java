@@ -1,15 +1,15 @@
 package com.weedrice.whiteboard.domain.auth.service;
 
-import com.weedrice.whiteboard.domain.auth.entity.RefreshToken;
 import com.weedrice.whiteboard.domain.auth.repository.RefreshTokenRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.global.exception.BusinessException;
+import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.Collections;
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -17,19 +17,16 @@ import java.util.List;
 public class RefreshTokenLifecycleService {
 
     private final RefreshTokenRepository refreshTokenRepository;
+    private final UserRepository userRepository;
 
     @Transactional
     public void revokeActiveRefreshTokens(User user) {
-        List<RefreshToken> activeTokens = refreshTokenRepository.findByUserAndIsRevokedAndExpiresAtGreaterThanEqual(
-                user,
-                false,
-                LocalDateTime.now());
-        List<RefreshToken> tokensToRevoke = activeTokens != null ? activeTokens : Collections.emptyList();
-        for (RefreshToken token : tokensToRevoke) {
-            token.revoke();
+        if (user == null || user.getUserId() == null) {
+            throw new BusinessException(ErrorCode.USER_NOT_FOUND);
         }
-        if (!tokensToRevoke.isEmpty()) {
-            refreshTokenRepository.saveAll(tokensToRevoke);
-        }
+        Long userId = user.getUserId();
+        userRepository.findByIdForUpdate(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        refreshTokenRepository.revokeActiveTokensByUserId(userId, LocalDateTime.now());
     }
 }
