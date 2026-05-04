@@ -7,6 +7,7 @@ import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -23,6 +24,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -37,6 +39,8 @@ class EmoticonEntitlementGrantServiceTest {
     private EmoticonPurchaseRepository emoticonPurchaseRepository;
     @Mock
     private UserRepository userRepository;
+    @Mock
+    private EntityManager entityManager;
 
     private EmoticonEntitlementGrantService grantService;
     private User buyer;
@@ -48,7 +52,8 @@ class EmoticonEntitlementGrantServiceTest {
         grantService = new EmoticonEntitlementGrantService(
                 emoticonMasterRepository,
                 emoticonPurchaseRepository,
-                userRepository);
+                userRepository,
+                entityManager);
 
         buyer = User.builder()
                 .loginId("buyer")
@@ -153,6 +158,11 @@ class EmoticonEntitlementGrantServiceTest {
             when(emoticonMasterRepository.findByIdWithImages(10L)).thenReturn(Optional.of(emoticon));
             when(emoticonPurchaseRepository.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
             when(emoticonMasterRepository.incrementPurchaseCount(10L)).thenReturn(1);
+            doAnswer(invocation -> {
+                EmoticonMaster refreshed = invocation.getArgument(0);
+                ReflectionTestUtils.setField(refreshed, "purchaseCount", 1);
+                return null;
+            }).when(entityManager).refresh(emoticon);
 
             EmoticonEntitlementGrantService.EmoticonGrantContext context = grantService.prepareGrant(1L, 10L);
             EmoticonMaster granted = grantService.grant(context, 100);
@@ -161,6 +171,7 @@ class EmoticonEntitlementGrantServiceTest {
             assertThat(emoticon.getPurchaseCount()).isEqualTo(1);
             verify(emoticonPurchaseRepository).saveAndFlush(any());
             verify(emoticonMasterRepository).incrementPurchaseCount(10L);
+            verify(entityManager).refresh(emoticon);
         }
 
         @Test
@@ -177,7 +188,8 @@ class EmoticonEntitlementGrantServiceTest {
                     .isInstanceOf(BusinessException.class)
                     .extracting("errorCode")
                     .isEqualTo(ErrorCode.EMOTICON_ALREADY_PURCHASED);
-            verify(emoticonMasterRepository, org.mockito.Mockito.never()).incrementPurchaseCount(any());
+            verify(emoticonMasterRepository, never()).incrementPurchaseCount(any());
+            verify(entityManager, never()).refresh(any());
         }
 
         @Test
@@ -194,6 +206,7 @@ class EmoticonEntitlementGrantServiceTest {
                     .isInstanceOf(BusinessException.class)
                     .extracting("errorCode")
                     .isEqualTo(ErrorCode.EMOTICON_NOT_FOUND);
+            verify(entityManager, never()).refresh(any());
         }
 
         @Test

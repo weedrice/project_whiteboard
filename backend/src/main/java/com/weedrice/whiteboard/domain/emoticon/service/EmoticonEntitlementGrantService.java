@@ -8,6 +8,7 @@ import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import jakarta.persistence.EntityManager;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,13 +17,16 @@ class EmoticonEntitlementGrantService {
     private final EmoticonMasterRepository emoticonMasterRepository;
     private final EmoticonPurchaseRepository emoticonPurchaseRepository;
     private final UserRepository userRepository;
+    private final EntityManager entityManager;
 
     EmoticonEntitlementGrantService(EmoticonMasterRepository emoticonMasterRepository,
                                     EmoticonPurchaseRepository emoticonPurchaseRepository,
-                                    UserRepository userRepository) {
+                                    UserRepository userRepository,
+                                    EntityManager entityManager) {
         this.emoticonMasterRepository = emoticonMasterRepository;
         this.emoticonPurchaseRepository = emoticonPurchaseRepository;
         this.userRepository = userRepository;
+        this.entityManager = entityManager;
     }
 
     EmoticonGrantContext prepareGrant(Long userId, Long emoticonId) {
@@ -79,7 +83,7 @@ class EmoticonEntitlementGrantService {
         if (updatedCount == 0) {
             throw new BusinessException(ErrorCode.EMOTICON_NOT_FOUND);
         }
-        grantContext.emoticon().incrementPurchaseCount();
+        entityManager.refresh(grantContext.emoticon());
         return grantContext.emoticon();
     }
 

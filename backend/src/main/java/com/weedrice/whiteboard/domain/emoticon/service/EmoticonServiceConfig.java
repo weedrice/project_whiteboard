@@ -8,6 +8,7 @@ import com.weedrice.whiteboard.domain.shop.repository.ShopItemRepository;
 import com.weedrice.whiteboard.domain.shop.service.ShopService;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
+import jakarta.persistence.EntityManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -47,11 +48,13 @@ class EmoticonServiceConfig {
     @Bean
     EmoticonEntitlementGrantService emoticonEntitlementGrantService(EmoticonMasterRepository emoticonMasterRepository,
                                                                     EmoticonPurchaseRepository emoticonPurchaseRepository,
-                                                                    UserRepository userRepository) {
+                                                                    UserRepository userRepository,
+                                                                    EntityManager entityManager) {
         return new EmoticonEntitlementGrantService(
                 emoticonMasterRepository,
                 emoticonPurchaseRepository,
-                userRepository);
+                userRepository,
+                entityManager);
     }
 
     @Bean
