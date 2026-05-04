@@ -1,5 +1,7 @@
 package com.weedrice.whiteboard.domain.board.service;
 
+import com.weedrice.whiteboard.domain.admin.entity.Admin;
+import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.board.dto.AdminBoardResponse;
 import com.weedrice.whiteboard.domain.board.dto.BoardDetailResponse;
 import com.weedrice.whiteboard.domain.board.dto.BoardListResponse;
@@ -25,6 +27,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -36,6 +40,7 @@ class BoardQueryService {
     private final BoardRepository boardRepository;
     private final BoardCategoryRepository boardCategoryRepository;
     private final BoardSubscriptionRepository boardSubscriptionRepository;
+    private final AdminRepository adminRepository;
     private final UserRepository userRepository;
     private final BoardResponseAssembler boardResponseAssembler;
     private final BoardAccessPolicy boardAccessPolicy;
@@ -44,6 +49,7 @@ class BoardQueryService {
     BoardQueryService(BoardRepository boardRepository,
                       BoardCategoryRepository boardCategoryRepository,
                       BoardSubscriptionRepository boardSubscriptionRepository,
+                      AdminRepository adminRepository,
                       UserRepository userRepository,
                       BoardResponseAssembler boardResponseAssembler,
                       BoardAccessPolicy boardAccessPolicy,
@@ -51,6 +57,7 @@ class BoardQueryService {
         this.boardRepository = boardRepository;
         this.boardCategoryRepository = boardCategoryRepository;
         this.boardSubscriptionRepository = boardSubscriptionRepository;
+        this.adminRepository = adminRepository;
         this.userRepository = userRepository;
         this.boardResponseAssembler = boardResponseAssembler;
         this.boardAccessPolicy = boardAccessPolicy;
@@ -144,9 +151,10 @@ class BoardQueryService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         if (includeUnavailable) {
             Page<BoardSubscription> subscriptions = boardSubscriptionRepository.findByUserOrderBySortOrderAsc(user, pageable);
+            Set<Long> activeAdminBoardIds = resolveActiveAdminBoardIds(user, subscriptions.getContent());
             List<Board> readableBoards = subscriptions.getContent().stream()
                     .map(BoardSubscription::getBoard)
-                    .filter(board -> boardAccessPolicy.canReadBoard(board, user))
+                    .filter(board -> boardAccessPolicy.canReadBoard(board, user, activeAdminBoardIds))
                     .toList();
             Map<Long, BoardListResponse> readableResponsesByBoardId = boardResponseAssembler.assembleListAll(readableBoards, user)
                     .stream()
@@ -165,6 +173,29 @@ class BoardQueryService {
                 .toList();
         List<BoardListResponse> responses = boardResponseAssembler.assembleListAll(visibleBoards, user);
         return new PageImpl<>(responses, pageable, visibleSubscriptions.getTotalElements());
+    }
+
+    private Set<Long> resolveActiveAdminBoardIds(User user, List<BoardSubscription> subscriptions) {
+        List<Long> boardIds = subscriptions.stream()
+                .map(BoardSubscription::getBoard)
+                .filter(board -> !isPublicActive(board))
+                .filter(board -> !Boolean.TRUE.equals(user.getIsSuperAdmin()))
+                .filter(board -> board.getCreator() == null
+                        || !Objects.equals(board.getCreator().getUserId(), user.getUserId()))
+                .map(Board::getBoardId)
+                .toList();
+        if (boardIds.isEmpty()) {
+            return Set.of();
+        }
+        return adminRepository.findByUserAndBoard_BoardIdInAndIsActive(user, boardIds, true)
+                .stream()
+                .map(Admin::getBoard)
+                .map(Board::getBoardId)
+                .collect(Collectors.toSet());
+    }
+
+    private boolean isPublicActive(Board board) {
+        return Boolean.TRUE.equals(board.getIsActive()) && Boolean.TRUE.equals(board.getIsPublic());
     }
 
     private BoardListResponse toSubscriptionResponse(BoardSubscription subscription,

@@ -64,6 +64,10 @@ public class BoardAccessPolicy {
     }
 
     public boolean canReadBoard(Board board, User user) {
+        return canReadBoard(board, user, null);
+    }
+
+    public boolean canReadBoard(Board board, User user, Set<Long> activeAdminBoardIds) {
         if (board == null) {
             return false;
         }
@@ -71,7 +75,7 @@ public class BoardAccessPolicy {
             return true;
         }
 
-        boolean hasAdminAccess = hasBoardAdminAccess(board, user);
+        boolean hasAdminAccess = hasBoardAdminAccess(board, user, activeAdminBoardIds);
         if (!Boolean.TRUE.equals(board.getIsActive()) && !hasAdminAccess) {
             return false;
         }

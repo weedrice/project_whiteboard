@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.board.service;
 
+import com.weedrice.whiteboard.domain.admin.entity.Admin;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.admin.service.AdminEligibleUserService;
 import com.weedrice.whiteboard.domain.admin.service.BoardManagerAssignmentService;
@@ -64,6 +65,7 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
@@ -132,6 +134,7 @@ class BoardServiceTest {
                 boardRepository,
                 boardCategoryRepository,
                 boardSubscriptionRepository,
+                adminRepository,
                 userRepository,
                 boardResponseAssembler,
                 boardAccessPolicy,
@@ -1906,6 +1909,86 @@ class BoardServiceTest {
         assertThat(result.getContent().get(0).getDescription()).isNull();
         assertThat(result.getContent().get(0).isSubscriptionAccessible()).isFalse();
         assertThat(result.getContent().get(0).getBoardUrl()).isEqualTo("hidden-board");
+    }
+
+    @Test
+    @DisplayName("내 구독 목록은 includeUnavailable 요청 시 필터링용 관리자 권한을 페이지 단위로 일괄 조회한다")
+    void getMySubscriptions_includeUnavailableUsesBulkAdminAccessLookupForFiltering() {
+        User hiddenBoardCreator = User.builder()
+                .loginId("hidden-owner")
+                .password("password")
+                .email("hidden@test.com")
+                .displayName("Hidden Owner")
+                .build();
+        ReflectionTestUtils.setField(hiddenBoardCreator, "userId", 99L);
+
+        Board adminReadableBoard = Board.builder()
+                .boardName("Admin Hidden")
+                .boardUrl("admin-hidden")
+                .creator(hiddenBoardCreator)
+                .isPublic(false)
+                .build();
+        ReflectionTestUtils.setField(adminReadableBoard, "boardId", 3L);
+        Board adminInactiveBoard = Board.builder()
+                .boardName("Admin Inactive")
+                .boardUrl("admin-inactive")
+                .creator(hiddenBoardCreator)
+                .isPublic(true)
+                .build();
+        ReflectionTestUtils.setField(adminInactiveBoard, "boardId", 4L);
+        adminInactiveBoard.deactivate();
+        Board unreadableBoard = Board.builder()
+                .boardName("Unreadable")
+                .boardUrl("unreadable")
+                .creator(hiddenBoardCreator)
+                .isPublic(false)
+                .build();
+        ReflectionTestUtils.setField(unreadableBoard, "boardId", 5L);
+
+        BoardSubscription adminReadableSubscription = BoardSubscription.builder()
+                .user(user)
+                .board(adminReadableBoard)
+                .role("MEMBER")
+                .sortOrder(1)
+                .build();
+        BoardSubscription adminInactiveSubscription = BoardSubscription.builder()
+                .user(user)
+                .board(adminInactiveBoard)
+                .role("MEMBER")
+                .sortOrder(2)
+                .build();
+        BoardSubscription unreadableSubscription = BoardSubscription.builder()
+                .user(user)
+                .board(unreadableBoard)
+                .role("MEMBER")
+                .sortOrder(3)
+                .build();
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(boardSubscriptionRepository.findByUserOrderBySortOrderAsc(user, PageRequest.of(0, 10)))
+                .thenReturn(new PageImpl<>(
+                        List.of(adminReadableSubscription, adminInactiveSubscription, unreadableSubscription),
+                        PageRequest.of(0, 10),
+                        3));
+        when(adminRepository.findByUserAndBoard_BoardIdInAndIsActive(eq(user), any(), eq(true)))
+                .thenReturn(List.of(
+                        Admin.builder().user(user).board(adminReadableBoard).role("BOARD_ADMIN").build(),
+                        Admin.builder().user(user).board(adminInactiveBoard).role("BOARD_ADMIN").build()));
+
+        var result = boardService.getMySubscriptions(1L, PageRequest.of(0, 10), true);
+
+        assertThat(result.getContent()).hasSize(3);
+        assertThat(result.getContent().get(0).getBoardName()).isEqualTo("Admin Hidden");
+        assertThat(result.getContent().get(0).isSubscriptionAccessible()).isTrue();
+        assertThat(result.getContent().get(1).getBoardName()).isEqualTo("Admin Inactive");
+        assertThat(result.getContent().get(1).isSubscriptionAccessible()).isTrue();
+        assertThat(result.getContent().get(2).getBoardName()).isNull();
+        assertThat(result.getContent().get(2).isSubscriptionAccessible()).isFalse();
+        verify(adminRepository).findByUserAndBoard_BoardIdInAndIsActive(
+                eq(user),
+                argThat(boardIds -> boardIds.containsAll(List.of(3L, 4L, 5L)) && boardIds.size() == 3),
+                eq(true));
+        verify(adminRepository, never()).existsByUserAndBoardAndIsActive(eq(user), any(Board.class), eq(true));
     }
 
     private void authenticateUser() {

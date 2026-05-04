@@ -11,6 +11,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.util.Set;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -54,6 +56,28 @@ class BoardAccessPolicyTest {
 
         assertThat(readable).isTrue();
         verify(adminRepository).existsByUserAndBoardAndIsActive(manager, board, true);
+    }
+
+    @Test
+    @DisplayName("Private inactive board read uses supplied admin board ids")
+    void canReadBoard_privateInactiveBoardUsesSuppliedAdminBoardIds() {
+        Board board = board("hidden", false, false);
+
+        boolean readable = boardAccessPolicy.canReadBoard(board, manager, Set.of(10L));
+
+        assertThat(readable).isTrue();
+        verifyNoInteractions(adminRepository);
+    }
+
+    @Test
+    @DisplayName("Private inactive board read denies when supplied admin board ids do not contain board")
+    void canReadBoard_privateInactiveBoardDeniedBySuppliedAdminBoardIds() {
+        Board board = board("hidden", false, false);
+
+        boolean readable = boardAccessPolicy.canReadBoard(board, manager, Set.of());
+
+        assertThat(readable).isFalse();
+        verifyNoInteractions(adminRepository);
     }
 
     @Test
