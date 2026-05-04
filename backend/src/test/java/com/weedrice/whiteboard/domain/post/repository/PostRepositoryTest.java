@@ -212,6 +212,59 @@ class PostRepositoryTest {
     }
 
     @Test
+    @DisplayName("요약용 게시글 ID 조회는 게시판 작성자까지 함께 로드한다")
+    void findByPostIdInAndIsDeletedFalse_fetchesSummaryRelationsAndBoardCreator() {
+        User boardCreator = User.builder()
+                .loginId("summaryCreator")
+                .email("summary-creator@test.com")
+                .password("password")
+                .displayName("Summary Creator")
+                .build();
+        entityManager.persist(boardCreator);
+        Board summaryBoard = Board.builder()
+                .boardName("Summary Board")
+                .boardUrl("summary-board")
+                .creator(boardCreator)
+                .build();
+        entityManager.persist(summaryBoard);
+        BoardCategory summaryCategory = BoardCategory.builder()
+                .name("Summary")
+                .board(summaryBoard)
+                .build();
+        entityManager.persist(summaryCategory);
+        Agent agent = Agent.builder()
+                .user(user)
+                .agentTokenHash("summary-agent-token")
+                .name("Summary Agent")
+                .description("Summary agent")
+                .status(Agent.STATUS_ACTIVE)
+                .build();
+        entityManager.persist(agent);
+        Post summaryPost = Post.builder()
+                .title("Summary Post")
+                .contents("Summary Contents")
+                .user(user)
+                .agent(agent)
+                .board(summaryBoard)
+                .category(summaryCategory)
+                .build();
+        entityManager.persist(summaryPost);
+        entityManager.flush();
+        entityManager.clear();
+
+        List<Post> posts = postRepository.findByPostIdInAndIsDeletedFalse(List.of(summaryPost.getPostId()));
+
+        assertThat(posts).hasSize(1);
+        Post loadedPost = posts.get(0);
+        PersistenceUnitUtil persistenceUnitUtil = entityManagerFactory.getPersistenceUnitUtil();
+        assertThat(persistenceUnitUtil.isLoaded(loadedPost, "user")).isTrue();
+        assertThat(persistenceUnitUtil.isLoaded(loadedPost, "agent")).isTrue();
+        assertThat(persistenceUnitUtil.isLoaded(loadedPost, "board")).isTrue();
+        assertThat(persistenceUnitUtil.isLoaded(loadedPost.getBoard(), "creator")).isTrue();
+        assertThat(persistenceUnitUtil.isLoaded(loadedPost, "category")).isTrue();
+    }
+
+    @Test
     @DisplayName("특정 날짜 이후 게시글 조회 성공")
     void findByCreatedAtAfter_success() {
         // given
