@@ -5,7 +5,6 @@ import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
-import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -42,10 +41,10 @@ public class CommentReadSupport {
         return Boolean.TRUE.equals(comment.getIsDeleted());
     }
 
-    public boolean isBlockedAuthor(Comment comment, Collection<Long> blockedUserIds) {
+    public boolean isBlockedAuthor(Comment comment, Set<Long> blockedUserIds) {
         if (comment.getUser() == null || blockedUserIds == null || blockedUserIds.isEmpty()) {
             return false;
         }
-        return Set.copyOf(blockedUserIds).contains(comment.getUser().getUserId());
+        return blockedUserIds.contains(comment.getUser().getUserId());
     }
 }

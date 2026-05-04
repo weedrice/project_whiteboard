@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -18,16 +19,19 @@ class CommentPostAccessService {
 
     CommentReadContext resolveReadContext(User viewer) {
         if (viewer == null) {
-            return new CommentReadContext(null, null);
+            return new CommentReadContext(null, Set.of());
         }
-        return new CommentReadContext(viewer, userBlockService.getBlockedUserIds(viewer.getUserId()));
+        List<Long> blockedUserIds = userBlockService.getBlockedUserIds(viewer.getUserId());
+        Set<Long> blockedUserIdSet = blockedUserIds == null || blockedUserIds.isEmpty()
+                ? Set.of()
+                : Set.copyOf(blockedUserIds);
+        return new CommentReadContext(viewer, blockedUserIdSet);
     }
 
     void validateReadable(Post post, CommentReadContext context) {
         User viewer = context.viewer();
-        List<Long> blockedUserIds = context.blockedUserIds();
+        Set<Long> blockedUserIds = context.blockedUserIds();
         boolean authorBlocked = viewer != null
-                && blockedUserIds != null
                 && blockedUserIds.contains(post.getUser().getUserId());
         postAccessPolicy.validateReadable(post, viewer, authorBlocked);
     }

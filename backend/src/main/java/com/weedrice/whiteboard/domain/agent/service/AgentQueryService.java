@@ -190,7 +190,10 @@ public class AgentQueryService {
         Post post = postService.getPostById(postId, agent.getUser().getUserId(), false);
         agentBoardAccessService.validateAgentBoardWritable(agent, post.getBoard());
 
-        List<Long> blockedUserIds = userBlockService.getBlockedUserIds(agent.getUser().getUserId());
+        List<Long> blockedUserIdList = userBlockService.getBlockedUserIds(agent.getUser().getUserId());
+        Set<Long> blockedUserIds = blockedUserIdList == null || blockedUserIdList.isEmpty()
+                ? Set.of()
+                : Set.copyOf(blockedUserIdList);
         Pageable effectivePageable = boundedPageable(
                 pageable,
                 DEFAULT_READ_PAGE_SIZE_LIMIT,
@@ -237,7 +240,7 @@ public class AgentQueryService {
         return description == null || description.isBlank() ? "" : description;
     }
 
-    private AgentCommentItem toAgentCommentItem(Comment comment, List<Long> blockedUserIds, Map<Long, Long> replyCounts) {
+    private AgentCommentItem toAgentCommentItem(Comment comment, Set<Long> blockedUserIds, Map<Long, Long> replyCounts) {
         String status = resolveCommentStatus(comment, blockedUserIds);
         long replyCount = replyCounts.getOrDefault(comment.getCommentId(), 0L);
 
@@ -261,7 +264,7 @@ public class AgentQueryService {
                 .build();
     }
 
-    private String resolveCommentStatus(Comment comment, List<Long> blockedUserIds) {
+    private String resolveCommentStatus(Comment comment, Set<Long> blockedUserIds) {
         if (commentReadSupport.isDeleted(comment)) {
             return AgentCommentItem.STATUS_DELETED;
         }

@@ -22,6 +22,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -95,15 +96,15 @@ public class CommentQueryService {
 
     private CommentReadContext resolveReadContext(Long currentUserId) {
         if (currentUserId == null) {
-            return new CommentReadContext(null, null);
+            return new CommentReadContext(null, Set.of());
         }
         User viewer = userRepository.findById(currentUserId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         return commentPostAccessService.resolveReadContext(viewer);
     }
 
-    private CommentResponse maskCommentContent(CommentResponse response, List<Long> blockedUserIds) {
-        if (blockedUserIds != null && response.getAuthor() != null
+    private CommentResponse maskCommentContent(CommentResponse response, Set<Long> blockedUserIds) {
+        if (response.getAuthor() != null
                 && blockedUserIds.contains(response.getAuthor().getUserId())) {
             return response.toBuilder()
                     .content("\uCC28\uB2E8\uB41C \uC0AC\uC6A9\uC790\uC758 \uB313\uAE00\uC785\uB2C8\uB2E4.")
@@ -117,11 +118,11 @@ public class CommentQueryService {
         return response;
     }
 
-    private CommentResponse toMaskedCommentResponse(Comment comment, List<Long> blockedUserIds) {
+    private CommentResponse toMaskedCommentResponse(Comment comment, Set<Long> blockedUserIds) {
         return toMaskedCommentResponse(comment, blockedUserIds, Collections.emptyMap());
     }
 
-    private CommentResponse toMaskedCommentResponse(Comment comment, List<Long> blockedUserIds, Map<Long, Long> replyCounts) {
+    private CommentResponse toMaskedCommentResponse(Comment comment, Set<Long> blockedUserIds, Map<Long, Long> replyCounts) {
         long replyCount = replyCounts.getOrDefault(comment.getCommentId(), 0L);
         CommentResponse response = CommentResponse.from(comment).toBuilder()
                 .replyCount(replyCount)
