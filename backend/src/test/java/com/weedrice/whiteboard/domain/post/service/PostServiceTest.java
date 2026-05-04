@@ -1396,8 +1396,7 @@ class PostServiceTest {
         ViewHistoryRequest request = new ViewHistoryRequest(100L, 5000L); // commentId, duration
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
-        when(viewHistoryRepository.findByUserAndPost(user, post))
-                .thenReturn(Optional.empty())
+        when(viewHistoryRepository.findByUserAndPostForUpdate(1L, 1L))
                 .thenReturn(Optional.empty())
                 .thenReturn(Optional.of(new ViewHistory(user, post)));
         when(viewHistoryRepository.insertIgnore(1L, 1L)).thenReturn(1);
@@ -1417,8 +1416,7 @@ class PostServiceTest {
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
-        when(viewHistoryRepository.findByUserAndPost(user, post))
-                .thenReturn(Optional.empty())
+        when(viewHistoryRepository.findByUserAndPostForUpdate(1L, 1L))
                 .thenReturn(Optional.empty())
                 .thenReturn(Optional.of(existing));
         when(viewHistoryRepository.insertIgnore(1L, 1L)).thenReturn(0);
@@ -1428,7 +1426,7 @@ class PostServiceTest {
         postService.updateViewHistory(1L, 1L, request);
 
         verify(viewHistoryRepository).insertIgnore(1L, 1L);
-        verify(viewHistoryRepository, times(3)).findByUserAndPost(user, post);
+        verify(viewHistoryRepository, times(2)).findByUserAndPostForUpdate(1L, 1L);
     }
 
     @Test
@@ -2479,8 +2477,7 @@ class PostServiceTest {
         ViewHistoryRequest request = new ViewHistoryRequest(null, 1000L);
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
-        when(viewHistoryRepository.findByUserAndPost(user, post))
-                .thenReturn(Optional.empty())
+        when(viewHistoryRepository.findByUserAndPostForUpdate(1L, 1L))
                 .thenReturn(Optional.empty())
                 .thenReturn(Optional.of(new ViewHistory(user, post)));
         when(viewHistoryRepository.insertIgnore(1L, 1L)).thenReturn(1);
@@ -2496,8 +2493,7 @@ class PostServiceTest {
         ViewHistoryRequest request = new ViewHistoryRequest(null, null);
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
-        when(viewHistoryRepository.findByUserAndPost(user, post))
-                .thenReturn(Optional.empty())
+        when(viewHistoryRepository.findByUserAndPostForUpdate(1L, 1L))
                 .thenReturn(Optional.empty())
                 .thenReturn(Optional.of(new ViewHistory(user, post)));
         when(viewHistoryRepository.insertIgnore(1L, 1L)).thenReturn(1);
@@ -2577,8 +2573,7 @@ class PostServiceTest {
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
-        when(viewHistoryRepository.findByUserAndPost(user, post))
-                .thenReturn(Optional.empty())
+        when(viewHistoryRepository.findByUserAndPostForUpdate(1L, 1L))
                 .thenReturn(Optional.empty())
                 .thenReturn(Optional.of(existing));
         when(viewHistoryRepository.insertIgnore(1L, 1L)).thenReturn(0);
@@ -2587,7 +2582,7 @@ class PostServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
         verify(viewHistoryRepository).insertIgnore(1L, 1L);
-        verify(viewHistoryRepository, times(3)).findByUserAndPost(user, post);
+        verify(viewHistoryRepository, times(2)).findByUserAndPostForUpdate(1L, 1L);
     }
 
     @Test

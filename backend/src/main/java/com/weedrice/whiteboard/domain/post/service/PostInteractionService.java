@@ -127,10 +127,7 @@ public class PostInteractionService {
         Post post = getReadablePost(postId, user);
         long durationMs = resolveDurationMs(request);
         Comment lastReadComment = resolveLastReadComment(postId, request.getLastReadCommentId());
-        ViewHistory viewHistory = viewHistoryRepository.findByUserAndPost(user, post).orElse(null);
-        if (viewHistory == null) {
-            viewHistory = viewHistoryCommandService.getOrCreate(user, post);
-        }
+        ViewHistory viewHistory = viewHistoryCommandService.getOrCreateForUpdate(user, post);
         validateDurationAccumulation(viewHistory.getDurationMs(), durationMs);
         viewHistory.updateView(lastReadComment, durationMs);
     }
