@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.message.repository;
 
+import com.querydsl.core.types.OrderSpecifier;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import com.weedrice.whiteboard.domain.message.entity.Message;
@@ -8,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -35,7 +37,7 @@ public class MessageRepositoryCustomImpl implements MessageRepositoryCustom {
                 )
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize())
-                .orderBy(message.createdAt.desc())
+                .orderBy(messageListOrder(pageable))
                 .fetch();
 
         Long total = queryFactory
@@ -64,7 +66,7 @@ public class MessageRepositoryCustomImpl implements MessageRepositoryCustom {
                 )
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize())
-                .orderBy(message.createdAt.desc())
+                .orderBy(messageListOrder(pageable))
                 .fetch();
 
         Long total = queryFactory
@@ -111,6 +113,14 @@ public class MessageRepositoryCustomImpl implements MessageRepositoryCustom {
 
     private BooleanExpression notBlockedSenderCondition(List<Long> blockedUserIds) {
         return (blockedUserIds != null && !blockedUserIds.isEmpty()) ? message.sender.userId.notIn(blockedUserIds) : null;
+    }
+
+    private OrderSpecifier<?>[] messageListOrder(Pageable pageable) {
+        Sort.Order createdAtOrder = pageable.getSort().getOrderFor("createdAt");
+        if (createdAtOrder != null && createdAtOrder.isAscending()) {
+            return new OrderSpecifier<?>[] { message.createdAt.asc(), message.messageId.asc() };
+        }
+        return new OrderSpecifier<?>[] { message.createdAt.desc(), message.messageId.desc() };
     }
 
     private BooleanExpression notBlockedReceiverCondition(List<Long> blockedUserIds) {

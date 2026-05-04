@@ -13,6 +13,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -181,7 +182,7 @@ class MessageServiceTest {
 
         messageService.getReceivedMessages(2L, requestedPageable);
 
-        org.mockito.ArgumentCaptor<Pageable> captor = org.mockito.ArgumentCaptor.forClass(Pageable.class);
+        ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
         verify(messageRepository).findReceivedMessagesExcludingBlocked(
                 eq(receiver),
                 eq(false),
@@ -191,6 +192,29 @@ class MessageServiceTest {
         assertThat(captor.getValue().getSort().getOrderFor("createdAt")).isNotNull();
         assertThat(captor.getValue().getSort().getOrderFor("createdAt").isDescending()).isTrue();
         assertThat(captor.getValue().getSort().getOrderFor("messageId")).isNull();
+    }
+
+    @Test
+    @DisplayName("받은 쪽지 목록은 createdAt 오름차순 정렬 요청을 유지한다")
+    void getReceivedMessages_preservesCreatedAtAscendingSort() {
+        Pageable requestedPageable = PageRequest.of(0, 10, Sort.by(Sort.Order.asc("createdAt")));
+        Page<Message> messagePage = new PageImpl<>(List.of(message), requestedPageable, 1);
+
+        when(userRepository.findById(2L)).thenReturn(Optional.of(receiver));
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(2L)).thenReturn(Collections.emptyList());
+        when(messageRepository.findReceivedMessagesExcludingBlocked(eq(receiver), eq(false), anyList(), any(Pageable.class)))
+                .thenReturn(messagePage);
+
+        messageService.getReceivedMessages(2L, requestedPageable);
+
+        ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
+        verify(messageRepository).findReceivedMessagesExcludingBlocked(
+                eq(receiver),
+                eq(false),
+                anyList(),
+                captor.capture());
+        assertThat(captor.getValue().getSort().getOrderFor("createdAt")).isNotNull();
+        assertThat(captor.getValue().getSort().getOrderFor("createdAt").isAscending()).isTrue();
     }
 
     @Test
@@ -206,7 +230,7 @@ class MessageServiceTest {
 
         messageService.getSentMessages(1L, requestedPageable);
 
-        org.mockito.ArgumentCaptor<Pageable> captor = org.mockito.ArgumentCaptor.forClass(Pageable.class);
+        ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
         verify(messageRepository).findSentMessagesExcludingBlocked(
                 eq(sender),
                 eq(false),

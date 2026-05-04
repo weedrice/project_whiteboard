@@ -12,7 +12,9 @@ import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -96,6 +98,72 @@ class MessageRepositoryTest {
         // then
         assertThat(messages.getContent()).isNotEmpty();
         assertThat(messages.getContent().get(0).getSender()).isEqualTo(sender);
+    }
+
+    @Test
+    @DisplayName("받은 쪽지 목록은 createdAt 오름차순 정렬을 반영한다")
+    void findReceivedMessagesExcludingBlocked_createdAtAsc() {
+        Message olderMessage = message;
+        Message newerMessage = persistMessage(sender, receiver, "Newer message");
+        LocalDateTime baseCreatedAt = LocalDateTime.now().minusHours(1);
+        updateCreatedAt(olderMessage, baseCreatedAt);
+        updateCreatedAt(newerMessage, baseCreatedAt.plusMinutes(1));
+        entityManager.flush();
+        entityManager.clear();
+
+        Page<Message> messages = messageRepository.findReceivedMessagesExcludingBlocked(
+                receiver,
+                false,
+                List.of(),
+                PageRequest.of(0, 10, Sort.by(Sort.Order.asc("createdAt"))));
+
+        assertThat(messages.getContent())
+                .extracting(Message::getContent)
+                .containsExactly("Test message", "Newer message");
+    }
+
+    @Test
+    @DisplayName("보낸 쪽지 목록은 createdAt 오름차순 정렬을 반영한다")
+    void findSentMessagesExcludingBlocked_createdAtAsc() {
+        Message olderMessage = message;
+        Message newerMessage = persistMessage(sender, receiver, "Newer message");
+        LocalDateTime baseCreatedAt = LocalDateTime.now().minusHours(1);
+        updateCreatedAt(olderMessage, baseCreatedAt);
+        updateCreatedAt(newerMessage, baseCreatedAt.plusMinutes(1));
+        entityManager.flush();
+        entityManager.clear();
+
+        Page<Message> messages = messageRepository.findSentMessagesExcludingBlocked(
+                sender,
+                false,
+                List.of(),
+                PageRequest.of(0, 10, Sort.by(Sort.Order.asc("createdAt"))));
+
+        assertThat(messages.getContent())
+                .extracting(Message::getContent)
+                .containsExactly("Test message", "Newer message");
+    }
+
+    @Test
+    @DisplayName("받은 쪽지 목록은 정렬이 없으면 최신순으로 조회한다")
+    void findReceivedMessagesExcludingBlocked_defaultCreatedAtDesc() {
+        Message olderMessage = message;
+        Message newerMessage = persistMessage(sender, receiver, "Newer message");
+        LocalDateTime baseCreatedAt = LocalDateTime.now().minusHours(1);
+        updateCreatedAt(olderMessage, baseCreatedAt);
+        updateCreatedAt(newerMessage, baseCreatedAt.plusMinutes(1));
+        entityManager.flush();
+        entityManager.clear();
+
+        Page<Message> messages = messageRepository.findReceivedMessagesExcludingBlocked(
+                receiver,
+                false,
+                List.of(),
+                PageRequest.of(0, 10));
+
+        assertThat(messages.getContent())
+                .extracting(Message::getContent)
+                .containsExactly("Newer message", "Test message");
     }
 
     @Test
@@ -273,5 +341,23 @@ class MessageRepositoryTest {
         Optional<Message> result = messageRepository.findAccessibleMessage(sender.getUserId(), selfMessage.getMessageId());
 
         assertThat(result).isEmpty();
+    }
+
+    private Message persistMessage(User messageSender, User messageReceiver, String content) {
+        Message newMessage = Message.builder()
+                .sender(messageSender)
+                .receiver(messageReceiver)
+                .content(content)
+                .build();
+        entityManager.persist(newMessage);
+        return newMessage;
+    }
+
+    private void updateCreatedAt(Message targetMessage, LocalDateTime createdAt) {
+        entityManager.getEntityManager()
+                .createNativeQuery("UPDATE messages SET created_at = :createdAt WHERE message_id = :messageId")
+                .setParameter("createdAt", createdAt)
+                .setParameter("messageId", targetMessage.getMessageId())
+                .executeUpdate();
     }
 }
