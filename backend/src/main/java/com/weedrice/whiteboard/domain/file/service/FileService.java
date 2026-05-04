@@ -18,6 +18,7 @@ import com.weedrice.whiteboard.global.common.util.FileStorageService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.EntityNotFoundException;
 import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
@@ -258,9 +259,38 @@ public class FileService {
         }
         for (File file : filesById.values()) {
             if (!file.isAssociatedWith(relatedId, relatedType)) {
+                int updated = fileRepository.associateIfUnassociatedOrDraft(
+                        file.getFileId(),
+                        ownerUserId,
+                        relatedId,
+                        relatedType,
+                        RELATED_TYPE_DRAFT_POST,
+                        LocalDateTime.now());
+                if (updated != 1) {
+                    handleFailedBatchAssociation(file, ownerUserId, relatedId, relatedType);
+                    continue;
+                }
                 file.updateRelatedInfo(relatedId, relatedType);
             }
         }
+    }
+
+    private void handleFailedBatchAssociation(File file, Long ownerUserId, Long relatedId, String relatedType) {
+        try {
+            entityManager.refresh(file);
+        } catch (EntityNotFoundException ex) {
+            throw new BusinessException(ErrorCode.NOT_FOUND);
+        }
+        if (file.getStorageStatus() != null && file.getStorageStatus() != FileStorageStatus.ACTIVE) {
+            throw new BusinessException(ErrorCode.NOT_FOUND);
+        }
+        if (file.getUploader() == null || !ownerUserId.equals(file.getUploader().getUserId())) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
+        if (file.isAssociatedWith(relatedId, relatedType)) {
+            return;
+        }
+        throw new BusinessException(ErrorCode.FILE_ALREADY_ASSOCIATED);
     }
 
     private Map<Long, File> loadActiveFilesById(Set<Long> fileIds) {

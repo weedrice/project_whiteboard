@@ -102,6 +102,50 @@ class FileRepositoryTest {
     }
 
     @Test
+    @DisplayName("임시 파일이나 draft 파일만 조건부로 연결한다")
+    void associateIfUnassociatedOrDraft_updatesOnlyAllowedFiles() {
+        File temporaryFile = File.builder()
+                .originalName("temporary.jpg")
+                .filePath("path/to/temporary.jpg")
+                .fileSize(512L)
+                .mimeType("image/jpeg")
+                .uploader(uploader)
+                .build();
+        entityManager.persist(temporaryFile);
+        File draftFile = File.builder()
+                .originalName("draft.jpg")
+                .filePath("path/to/draft.jpg")
+                .fileSize(512L)
+                .mimeType("image/jpeg")
+                .uploader(uploader)
+                .relatedId(99L)
+                .relatedType("DRAFT_POST")
+                .build();
+        entityManager.persist(draftFile);
+        entityManager.flush();
+        entityManager.clear();
+
+        int temporaryUpdated = fileRepository.associateIfUnassociatedOrDraft(
+                temporaryFile.getFileId(), uploader.getUserId(), 100L, "POST_CONTENT", "DRAFT_POST",
+                LocalDateTime.now());
+        int draftUpdated = fileRepository.associateIfUnassociatedOrDraft(
+                draftFile.getFileId(), uploader.getUserId(), 100L, "POST_CONTENT", "DRAFT_POST",
+                LocalDateTime.now());
+        int alreadyAssociatedUpdated = fileRepository.associateIfUnassociatedOrDraft(
+                file.getFileId(), uploader.getUserId(), 100L, "POST_CONTENT", "DRAFT_POST",
+                LocalDateTime.now());
+
+        assertThat(temporaryUpdated).isEqualTo(1);
+        assertThat(draftUpdated).isEqualTo(1);
+        assertThat(alreadyAssociatedUpdated).isZero();
+        entityManager.clear();
+        File updatedTemporaryFile = entityManager.find(File.class, temporaryFile.getFileId());
+        File updatedDraftFile = entityManager.find(File.class, draftFile.getFileId());
+        assertThat(updatedTemporaryFile.isAssociatedWith(100L, "POST_CONTENT")).isTrue();
+        assertThat(updatedDraftFile.isAssociatedWith(100L, "POST_CONTENT")).isTrue();
+    }
+
+    @Test
     @DisplayName("이미지 파일이 있는 관련 ID 조회")
     void findRelatedIdsWithImages_success() {
         // given

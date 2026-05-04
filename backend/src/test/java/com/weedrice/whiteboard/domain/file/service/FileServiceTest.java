@@ -16,6 +16,8 @@ import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
 import com.weedrice.whiteboard.global.common.util.FileStorageService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import jakarta.persistence.EntityManager;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -65,9 +67,17 @@ class FileServiceTest {
     private FileStorageService fileStorageService;
     @Mock
     private TransactionTemplate transactionTemplate;
+    @Mock
+    private EntityManager entityManager;
 
     @InjectMocks
     private FileService fileService;
+
+    @BeforeEach
+    void setUpEntityManager() {
+        // @PersistenceContext fields are not reliably populated by @InjectMocks.
+        ReflectionTestUtils.setField(fileService, "entityManager", entityManager);
+    }
 
     @Test
     @DisplayName("파일 업로드 성공")
@@ -314,6 +324,22 @@ class FileServiceTest {
         ReflectionTestUtils.setField(draftFile, "fileId", 11L);
         when(fileRepository.findByFileIdInAndStorageStatus(List.of(10L, 11L), FileStorageStatus.ACTIVE))
                 .thenReturn(List.of(draftFile, imageFile));
+        when(fileRepository.associateIfUnassociatedOrDraft(
+                eq(10L),
+                eq(1L),
+                eq(100L),
+                eq(FileService.RELATED_TYPE_POST_CONTENT),
+                eq(FileService.RELATED_TYPE_DRAFT_POST),
+                any(LocalDateTime.class)))
+                .thenReturn(1);
+        when(fileRepository.associateIfUnassociatedOrDraft(
+                eq(11L),
+                eq(1L),
+                eq(100L),
+                eq(FileService.RELATED_TYPE_POST_CONTENT),
+                eq(FileService.RELATED_TYPE_DRAFT_POST),
+                any(LocalDateTime.class)))
+                .thenReturn(1);
 
         fileService.attachFilesToPost(Arrays.asList(10L, 11L, 10L, null), 1L, 100L);
 
@@ -321,6 +347,40 @@ class FileServiceTest {
         assertThat(draftFile.isAssociatedWith(100L, FileService.RELATED_TYPE_POST_CONTENT)).isTrue();
         verify(fileRepository).findByFileIdInAndStorageStatus(List.of(10L, 11L), FileStorageStatus.ACTIVE);
         verify(fileRepository, never()).findByFileIdAndStorageStatus(any(), any());
+    }
+
+    @Test
+    @DisplayName("게시글 첨부 파일 경합 시 이미 다른 대상에 연결된 파일을 거부한다")
+    void attachFilesToPost_rejectsConcurrentAssociationToOtherTarget() {
+        User uploader = User.builder().build();
+        ReflectionTestUtils.setField(uploader, "userId", 1L);
+        File file = File.builder()
+                .filePath("image.jpg")
+                .originalName("image.jpg")
+                .fileSize(4L)
+                .mimeType("image/jpeg")
+                .uploader(uploader)
+                .build();
+        ReflectionTestUtils.setField(file, "fileId", 10L);
+        when(fileRepository.findByFileIdInAndStorageStatus(List.of(10L), FileStorageStatus.ACTIVE))
+                .thenReturn(List.of(file));
+        when(fileRepository.associateIfUnassociatedOrDraft(
+                eq(10L),
+                eq(1L),
+                eq(100L),
+                eq(FileService.RELATED_TYPE_POST_CONTENT),
+                eq(FileService.RELATED_TYPE_DRAFT_POST),
+                any(LocalDateTime.class)))
+                .thenAnswer(invocation -> {
+                    file.updateRelatedInfo(200L, FileService.RELATED_TYPE_POST_CONTENT);
+                    return 0;
+                });
+
+        assertThatThrownBy(() -> fileService.attachFilesToPost(List.of(10L), 1L, 100L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FILE_ALREADY_ASSOCIATED);
+
+        verify(entityManager).refresh(file);
     }
 
     @Test

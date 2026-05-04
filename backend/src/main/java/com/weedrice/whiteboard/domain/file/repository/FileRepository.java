@@ -222,6 +222,28 @@ public interface FileRepository extends JpaRepository<File, Long> {
     @Modifying(flushAutomatically = true)
     @Query("""
             UPDATE File f
+            SET f.relatedId = :relatedId,
+                f.relatedType = :relatedType,
+                f.modifiedAt = :modifiedAt
+            WHERE f.fileId = :fileId
+              AND f.uploader.userId = :ownerUserId
+              AND (f.storageStatus = com.weedrice.whiteboard.domain.file.entity.FileStorageStatus.ACTIVE
+                   OR f.storageStatus IS NULL)
+              AND (
+                    (f.relatedId IS NULL AND f.relatedType IS NULL)
+                    OR f.relatedType = :draftRelatedType
+              )
+            """)
+    int associateIfUnassociatedOrDraft(@Param("fileId") Long fileId,
+            @Param("ownerUserId") Long ownerUserId,
+            @Param("relatedId") Long relatedId,
+            @Param("relatedType") String relatedType,
+            @Param("draftRelatedType") String draftRelatedType,
+            @Param("modifiedAt") LocalDateTime modifiedAt);
+
+    @Modifying(flushAutomatically = true)
+    @Query("""
+            UPDATE File f
             SET f.storageStatus = com.weedrice.whiteboard.domain.file.entity.FileStorageStatus.PENDING_DELETE,
                 f.deleteRequestedAt = :deleteRequestedAt,
                 f.deleteLastError = NULL
