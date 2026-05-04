@@ -473,7 +473,7 @@ class EmoticonControllerTest {
         @DisplayName("구매 여부 확인 - 인증 시 purchased true")
         void hasPurchased_authenticatedTrue() throws Exception {
             when(emoticonService.hasPurchased(1L, 1L)).thenReturn(true);
-            when(emoticonService.getEmoticonPrice()).thenReturn(100);
+            when(emoticonService.getEmoticonPrice(1L)).thenReturn(100);
 
             mockMvc.perform(get("/api/v1/emoticons/{emoticonId}/purchased", 1L)
                             .with(user(customUserDetails))
@@ -484,14 +484,14 @@ class EmoticonControllerTest {
                     .andExpect(jsonPath("$.data.price").value(100));
 
             verify(emoticonService, atLeastOnce()).hasPurchased(1L, 1L);
-            verify(emoticonService, atLeastOnce()).getEmoticonPrice();
+            verify(emoticonService, atLeastOnce()).getEmoticonPrice(1L);
         }
 
         @Test
         @DisplayName("구매 여부 확인 - 인증 시 hasPurchased false이면 purchased false")
         void hasPurchased_authenticatedFalse() throws Exception {
             when(emoticonService.hasPurchased(1L, 1L)).thenReturn(false);
-            when(emoticonService.getEmoticonPrice()).thenReturn(100);
+            when(emoticonService.getEmoticonPrice(1L)).thenReturn(100);
 
             mockMvc.perform(get("/api/v1/emoticons/{emoticonId}/purchased", 1L)
                             .with(user(customUserDetails))
@@ -502,13 +502,13 @@ class EmoticonControllerTest {
                     .andExpect(jsonPath("$.data.price").value(100));
 
             verify(emoticonService, atLeastOnce()).hasPurchased(1L, 1L);
-            verify(emoticonService, atLeastOnce()).getEmoticonPrice();
+            verify(emoticonService, atLeastOnce()).getEmoticonPrice(1L);
         }
 
         @Test
         @DisplayName("구매 여부 확인 - 비인증 시 purchased false, price 반환")
         void hasPurchased_anonymous() throws Exception {
-            when(emoticonService.getEmoticonPrice()).thenReturn(100);
+            when(emoticonService.getEmoticonPrice(1L)).thenReturn(100);
 
             mockMvc.perform(get("/api/v1/emoticons/{emoticonId}/purchased", 1L)
                             .with(csrf()))
@@ -517,7 +517,7 @@ class EmoticonControllerTest {
                     .andExpect(jsonPath("$.data.purchased").value(false))
                     .andExpect(jsonPath("$.data.price").value(100));
 
-            verify(emoticonService, atLeastOnce()).getEmoticonPrice();
+            verify(emoticonService, atLeastOnce()).getEmoticonPrice(1L);
         }
     }
 }

@@ -4,8 +4,8 @@ import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonImageRepositor
 import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonMasterRepository;
 import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonPurchaseRepository;
 import com.weedrice.whiteboard.domain.file.service.FileService;
-import com.weedrice.whiteboard.domain.point.service.PointService;
-import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
+import com.weedrice.whiteboard.domain.shop.repository.ShopItemRepository;
+import com.weedrice.whiteboard.domain.shop.service.ShopService;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
 import org.springframework.context.annotation.Bean;
@@ -14,7 +14,6 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 class EmoticonServiceConfig {
 
-    private static final int EMOTICON_PRICE = 100;
     private static final String EMOTICON_THUMBNAIL = "EMOTICON_THUMBNAIL";
     private static final String EMOTICON_IMAGE = "EMOTICON_IMAGE";
 
@@ -26,7 +25,7 @@ class EmoticonServiceConfig {
     @Bean
     EmoticonCatalogService emoticonCatalogService(EmoticonMasterRepository emoticonMasterRepository,
                                                   UserRepository userRepository) {
-        return new EmoticonCatalogService(emoticonMasterRepository, userRepository, EMOTICON_PRICE);
+        return new EmoticonCatalogService(emoticonMasterRepository, userRepository);
     }
 
     @Bean
@@ -56,13 +55,12 @@ class EmoticonServiceConfig {
     }
 
     @Bean
-    EmoticonPurchaseService emoticonPurchaseService(EmoticonEntitlementGrantService emoticonEntitlementGrantService,
-                                                    PointService pointService,
-                                                    SanctionService sanctionService) {
+    EmoticonPurchaseService emoticonPurchaseService(ShopItemRepository shopItemRepository,
+                                                    ShopService shopService,
+                                                    EmoticonCatalogService catalogService) {
         return new EmoticonPurchaseService(
-                emoticonEntitlementGrantService,
-                pointService,
-                sanctionService,
-                EMOTICON_PRICE);
+                shopItemRepository,
+                shopService,
+                catalogService);
     }
 }

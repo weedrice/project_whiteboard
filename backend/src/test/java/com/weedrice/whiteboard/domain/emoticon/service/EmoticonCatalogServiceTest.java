@@ -41,7 +41,7 @@ class EmoticonCatalogServiceTest {
 
     @BeforeEach
     void setUp() {
-        catalogService = new EmoticonCatalogService(emoticonMasterRepository, userRepository, 100);
+        catalogService = new EmoticonCatalogService(emoticonMasterRepository, userRepository);
     }
 
     @Test

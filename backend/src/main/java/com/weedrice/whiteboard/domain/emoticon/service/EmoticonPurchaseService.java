@@ -1,34 +1,50 @@
 package com.weedrice.whiteboard.domain.emoticon.service;
 
 import com.weedrice.whiteboard.domain.emoticon.dto.EmoticonMasterDto;
-import com.weedrice.whiteboard.domain.point.service.PointService;
-import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
+import com.weedrice.whiteboard.domain.shop.entity.ShopItem;
+import com.weedrice.whiteboard.domain.shop.repository.ShopItemRepository;
+import com.weedrice.whiteboard.domain.shop.service.ShopService;
+import com.weedrice.whiteboard.global.exception.BusinessException;
+import com.weedrice.whiteboard.global.exception.ErrorCode;
+
+import java.util.List;
 
 class EmoticonPurchaseService {
 
-    private final EmoticonEntitlementGrantService emoticonEntitlementGrantService;
-    private final PointService pointService;
-    private final SanctionService sanctionService;
-    private final int emoticonPrice;
+    private static final String EMOTICON_ITEM_TYPE = "EMOTICON";
 
-    EmoticonPurchaseService(EmoticonEntitlementGrantService emoticonEntitlementGrantService,
-                            PointService pointService,
-                            SanctionService sanctionService,
-                            int emoticonPrice) {
-        this.emoticonEntitlementGrantService = emoticonEntitlementGrantService;
-        this.pointService = pointService;
-        this.sanctionService = sanctionService;
-        this.emoticonPrice = emoticonPrice;
+    private final ShopItemRepository shopItemRepository;
+    private final ShopService shopService;
+    private final EmoticonCatalogService catalogService;
+
+    EmoticonPurchaseService(ShopItemRepository shopItemRepository,
+                            ShopService shopService,
+                            EmoticonCatalogService catalogService) {
+        this.shopItemRepository = shopItemRepository;
+        this.shopService = shopService;
+        this.catalogService = catalogService;
     }
 
     EmoticonMasterDto purchaseEmoticon(Long userId, Long emoticonId) {
-        EmoticonEntitlementGrantService.EmoticonGrantContext grantContext =
-                emoticonEntitlementGrantService.prepareGrant(userId, emoticonId);
-        sanctionService.validateNotBanned(grantContext.user());
+        ShopItem item = getActiveEmoticonShopItem(emoticonId);
 
-        pointService.spendPoint(userId, emoticonPrice,
-                "Emoticon purchase: " + grantContext.emoticon().getName(), emoticonId, "EMOTICON");
+        shopService.purchaseItem(userId, item.getItemId());
 
-        return EmoticonMasterDto.from(emoticonEntitlementGrantService.grant(grantContext, emoticonPrice));
+        return catalogService.getEmoticonDetail(emoticonId, userId);
+    }
+
+    int getEmoticonPrice(Long emoticonId) {
+        return getActiveEmoticonShopItem(emoticonId).getPrice();
+    }
+
+    private ShopItem getActiveEmoticonShopItem(Long emoticonId) {
+        List<ShopItem> items = shopItemRepository.findByIsActiveAndItemTypeAndTargetId(
+                true,
+                EMOTICON_ITEM_TYPE,
+                emoticonId);
+        if (items.size() != 1) {
+            throw new BusinessException(ErrorCode.ITEM_NOT_AVAILABLE);
+        }
+        return items.get(0);
     }
 }

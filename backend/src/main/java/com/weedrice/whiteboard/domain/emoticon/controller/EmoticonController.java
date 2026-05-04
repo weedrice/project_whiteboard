@@ -210,7 +210,7 @@ public class EmoticonController {
                 emoticonService.hasPurchased(userDetails.getUserId(), emoticonId);
         return ApiResponse.success(EmoticonPurchaseStatusResponse.builder()
                 .purchased(purchased)
-                .price(emoticonService.getEmoticonPrice())
+                .price(emoticonService.getEmoticonPrice(emoticonId))
                 .build());
     }
 

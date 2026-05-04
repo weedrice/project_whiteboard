@@ -101,7 +101,7 @@ public class EmoticonService {
         return catalogService.hasPurchased(userId, emoticonId);
     }
 
-    public int getEmoticonPrice() {
-        return catalogService.getEmoticonPrice();
+    public int getEmoticonPrice(Long emoticonId) {
+        return purchaseService.getEmoticonPrice(emoticonId);
     }
 }

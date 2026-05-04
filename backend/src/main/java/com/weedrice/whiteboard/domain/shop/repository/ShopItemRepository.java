@@ -13,4 +13,5 @@ public interface ShopItemRepository extends JpaRepository<ShopItem, Long> {
     Page<ShopItem> findByIsActiveAndItemTypeIn(Boolean isActive, Collection<String> itemTypes, Pageable pageable);
     Page<ShopItem> findByIsActive(Boolean isActive, Pageable pageable);
     List<ShopItem> findByIsActive(Boolean isActive);
+    List<ShopItem> findByIsActiveAndItemTypeAndTargetId(Boolean isActive, String itemType, Long targetId);
 }

@@ -23,14 +23,11 @@ class EmoticonCatalogService {
 
     private final EmoticonMasterRepository emoticonMasterRepository;
     private final UserRepository userRepository;
-    private final int emoticonPrice;
 
     EmoticonCatalogService(EmoticonMasterRepository emoticonMasterRepository,
-                           UserRepository userRepository,
-                           int emoticonPrice) {
+                           UserRepository userRepository) {
         this.emoticonMasterRepository = emoticonMasterRepository;
         this.userRepository = userRepository;
-        this.emoticonPrice = emoticonPrice;
     }
 
     Page<EmoticonMasterDto> getActiveEmoticons(Pageable pageable) {
@@ -135,10 +132,6 @@ class EmoticonCatalogService {
 
     boolean hasPurchased(Long userId, Long emoticonId) {
         return emoticonMasterRepository.canUseEmoticon(userId, emoticonId);
-    }
-
-    int getEmoticonPrice() {
-        return emoticonPrice;
     }
 
     private Page<EmoticonMasterDto> toSummaryPage(Page<EmoticonMaster> page) {

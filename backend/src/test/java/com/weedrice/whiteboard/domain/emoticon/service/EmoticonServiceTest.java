@@ -9,8 +9,9 @@ import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonImageRepositor
 import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonMasterRepository;
 import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonPurchaseRepository;
 import com.weedrice.whiteboard.domain.file.service.FileService;
-import com.weedrice.whiteboard.domain.point.service.PointService;
-import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
+import com.weedrice.whiteboard.domain.shop.entity.ShopItem;
+import com.weedrice.whiteboard.domain.shop.repository.ShopItemRepository;
+import com.weedrice.whiteboard.domain.shop.service.ShopService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
@@ -51,9 +52,9 @@ class EmoticonServiceTest {
     @Mock
     private UserRepository userRepository;
     @Mock
-    private PointService pointService;
+    private ShopItemRepository shopItemRepository;
     @Mock
-    private SanctionService sanctionService;
+    private ShopService shopService;
     @Mock
     private UserWritableResolver userWritableResolver;
     @Mock
@@ -63,6 +64,7 @@ class EmoticonServiceTest {
 
     private User user;
     private EmoticonMaster emoticonMaster;
+    private ShopItem emoticonShopItem;
 
     @BeforeEach
     void setUp() {
@@ -81,10 +83,17 @@ class EmoticonServiceTest {
                 .creator(user)
                 .build();
         ReflectionTestUtils.setField(emoticonMaster, "emoticonId", 1L);
+        emoticonShopItem = ShopItem.builder()
+                .itemName("테스트 이모티콘 상품")
+                .price(250)
+                .itemType("EMOTICON")
+                .targetId(1L)
+                .build();
+        ReflectionTestUtils.setField(emoticonShopItem, "itemId", 10L);
         lenient().when(userRepository.findAllById(any())).thenReturn(List.of(user));
 
         EmoticonAttachmentHelper attachmentHelper = new EmoticonAttachmentHelper(fileService);
-        EmoticonCatalogService catalogService = new EmoticonCatalogService(emoticonMasterRepository, userRepository, 100);
+        EmoticonCatalogService catalogService = new EmoticonCatalogService(emoticonMasterRepository, userRepository);
         EmoticonCommandService commandService = new EmoticonCommandService(
                 emoticonMasterRepository,
                 emoticonImageRepository,
@@ -93,15 +102,10 @@ class EmoticonServiceTest {
                 attachmentHelper,
                 "EMOTICON_THUMBNAIL",
                 "EMOTICON_IMAGE");
-        EmoticonEntitlementGrantService grantService = new EmoticonEntitlementGrantService(
-                emoticonMasterRepository,
-                emoticonPurchaseRepository,
-                userRepository);
         EmoticonPurchaseService purchaseService = new EmoticonPurchaseService(
-                grantService,
-                pointService,
-                sanctionService,
-                100);
+                shopItemRepository,
+                shopService,
+                catalogService);
         emoticonService = new EmoticonService(catalogService, commandService, purchaseService);
     }
 
@@ -903,94 +907,78 @@ class EmoticonServiceTest {
     class Purchase {
 
         @Test
-        @DisplayName("이모티콘 구매 성공")
+        @DisplayName("이모티콘 구매는 상점 구매 command로 위임하고 상세를 반환한다")
         void purchaseEmoticon_success() {
-            User buyer = User.builder().loginId("buyer").displayName("구매자").email("b@ex.com").password("p").build();
-            ReflectionTestUtils.setField(buyer, "userId", 2L);
-            when(userRepository.findById(2L)).thenReturn(Optional.of(buyer));
+            when(shopItemRepository.findByIsActiveAndItemTypeAndTargetId(true, "EMOTICON", 1L))
+                    .thenReturn(List.of(emoticonShopItem));
             when(emoticonMasterRepository.findByIdWithImages(1L)).thenReturn(Optional.of(emoticonMaster));
-            when(emoticonMasterRepository.incrementPurchaseCount(1L)).thenReturn(1);
-            doNothing().when(pointService).spendPoint(eq(2L), eq(100), anyString(), eq(1L), eq("EMOTICON"));
-            when(emoticonPurchaseRepository.saveAndFlush(any())).thenAnswer(inv -> inv.getArgument(0));
 
             EmoticonMasterDto result = emoticonService.purchaseEmoticon(2L, 1L);
 
             assertThat(result).isNotNull();
-            verify(sanctionService).validateNotBanned(buyer);
-            verify(pointService).spendPoint(eq(2L), eq(100), anyString(), eq(1L), eq("EMOTICON"));
-            verify(emoticonPurchaseRepository).saveAndFlush(any());
-            verify(emoticonMasterRepository).incrementPurchaseCount(1L);
+            assertThat(result.getEmoticonId()).isEqualTo(1L);
+            verify(shopService).purchaseItem(2L, 10L);
+            verify(emoticonPurchaseRepository, never()).saveAndFlush(any());
         }
 
         @Test
-        @DisplayName("이모티콘 구매 - 이미 구매한 경우 EMOTICON_ALREADY_PURCHASED")
+        @DisplayName("이모티콘 구매 - 상점 구매 실패를 전파한다")
         void purchaseEmoticon_alreadyPurchased() {
-            User buyer = User.builder().loginId("buyer").displayName("구매자").email("b@ex.com").password("p").build();
-            ReflectionTestUtils.setField(buyer, "userId", 2L);
-            when(userRepository.findById(2L)).thenReturn(Optional.of(buyer));
-            when(emoticonMasterRepository.findByIdWithImages(1L)).thenReturn(Optional.of(emoticonMaster));
-            when(emoticonPurchaseRepository.saveAndFlush(any()))
-                    .thenThrow(new DataIntegrityViolationException("duplicate purchase"));
+            when(shopItemRepository.findByIsActiveAndItemTypeAndTargetId(true, "EMOTICON", 1L))
+                    .thenReturn(List.of(emoticonShopItem));
+            doThrow(new BusinessException(ErrorCode.EMOTICON_ALREADY_PURCHASED))
+                    .when(shopService)
+                    .purchaseItem(2L, 10L);
 
             assertThatThrownBy(() -> emoticonService.purchaseEmoticon(2L, 1L))
                     .isInstanceOf(BusinessException.class)
                     .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode()).isEqualTo(ErrorCode.EMOTICON_ALREADY_PURCHASED));
 
-            verify(pointService).spendPoint(eq(2L), eq(100), anyString(), eq(1L), eq("EMOTICON"));
             verify(emoticonMasterRepository, never()).incrementPurchaseCount(any());
         }
 
         @Test
-        @DisplayName("이모티콘 구매 - 본인 등록 이모티콘은 EMOTICON_CANNOT_PURCHASE_OWN")
-        void purchaseEmoticon_cannotPurchaseOwn() {
-            when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-            when(emoticonMasterRepository.findByIdWithImages(1L)).thenReturn(Optional.of(emoticonMaster));
-            // emoticonMaster.creator == user (userId 1L) -> isOwner(1L) true
-
-            assertThatThrownBy(() -> emoticonService.purchaseEmoticon(1L, 1L))
-                    .isInstanceOf(BusinessException.class)
-                    .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode()).isEqualTo(ErrorCode.EMOTICON_CANNOT_PURCHASE_OWN));
-
-            verify(pointService, never()).spendPoint(any(), anyInt(), anyString(), any(), anyString());
-        }
-
-        @Test
-        @DisplayName("이모티콘 구매 - 사용자 없으면 USER_NOT_FOUND")
-        void purchaseEmoticon_userNotFound() {
-            when(userRepository.findById(999L)).thenReturn(Optional.empty());
-
-            assertThatThrownBy(() -> emoticonService.purchaseEmoticon(999L, 1L))
-                    .isInstanceOf(BusinessException.class)
-                    .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode()).isEqualTo(ErrorCode.USER_NOT_FOUND));
-        }
-
-        @Test
-        @DisplayName("이모티콘 구매 - 이모티콘 없으면 EMOTICON_NOT_FOUND")
-        void purchaseEmoticon_emoticonNotFound() {
-            when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-            when(emoticonMasterRepository.findByIdWithImages(999L)).thenReturn(Optional.empty());
-
-            assertThatThrownBy(() -> emoticonService.purchaseEmoticon(1L, 999L))
-                    .isInstanceOf(BusinessException.class)
-                    .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode()).isEqualTo(ErrorCode.EMOTICON_NOT_FOUND));
-        }
-
-        @Test
-        @DisplayName("이모티콘 구매 - BAN 사용자는 구매할 수 없다")
-        void purchaseEmoticon_bannedUser() {
-            User buyer = User.builder().loginId("buyer").displayName("구매자").email("b@ex.com").password("p").build();
-            ReflectionTestUtils.setField(buyer, "userId", 2L);
-            when(userRepository.findById(2L)).thenReturn(Optional.of(buyer));
-            when(emoticonMasterRepository.findByIdWithImages(1L)).thenReturn(Optional.of(emoticonMaster));
-            doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE)).when(sanctionService).validateNotBanned(buyer);
+        @DisplayName("이모티콘 구매 - active 상점 상품이 없으면 ITEM_NOT_AVAILABLE")
+        void purchaseEmoticon_missingShopItem() {
+            when(shopItemRepository.findByIsActiveAndItemTypeAndTargetId(true, "EMOTICON", 1L))
+                    .thenReturn(List.of());
 
             assertThatThrownBy(() -> emoticonService.purchaseEmoticon(2L, 1L))
                     .isInstanceOf(BusinessException.class)
-                    .extracting("errorCode")
-                    .isEqualTo(ErrorCode.USER_NOT_ACTIVE);
+                    .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode()).isEqualTo(ErrorCode.ITEM_NOT_AVAILABLE));
 
-            verify(pointService, never()).spendPoint(any(), anyInt(), anyString(), any(), anyString());
-            verify(emoticonPurchaseRepository, never()).saveAndFlush(any());
+            verify(shopService, never()).purchaseItem(anyLong(), anyLong());
+        }
+
+        @Test
+        @DisplayName("이모티콘 구매 - active 상점 상품이 중복이면 ITEM_NOT_AVAILABLE")
+        void purchaseEmoticon_duplicateShopItems() {
+            ShopItem duplicate = ShopItem.builder()
+                    .itemName("중복 상품")
+                    .price(300)
+                    .itemType("EMOTICON")
+                    .targetId(1L)
+                    .build();
+            ReflectionTestUtils.setField(duplicate, "itemId", 11L);
+            when(shopItemRepository.findByIsActiveAndItemTypeAndTargetId(true, "EMOTICON", 1L))
+                    .thenReturn(List.of(emoticonShopItem, duplicate));
+
+            assertThatThrownBy(() -> emoticonService.purchaseEmoticon(2L, 1L))
+                    .isInstanceOf(BusinessException.class)
+                    .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode()).isEqualTo(ErrorCode.ITEM_NOT_AVAILABLE));
+
+            verify(shopService, never()).purchaseItem(anyLong(), anyLong());
+        }
+
+        @Test
+        @DisplayName("이모티콘 가격 조회는 active 상점 상품 가격을 반환한다")
+        void getEmoticonPrice_fromShopItem() {
+            when(shopItemRepository.findByIsActiveAndItemTypeAndTargetId(true, "EMOTICON", 1L))
+                    .thenReturn(List.of(emoticonShopItem));
+
+            int price = emoticonService.getEmoticonPrice(1L);
+
+            assertThat(price).isEqualTo(250);
         }
     }
 
@@ -1031,13 +1019,6 @@ class EmoticonServiceTest {
             assertThat(result).isFalse();
         }
 
-        @Test
-        @DisplayName("이모티콘 가격 조회")
-        void getEmoticonPrice() {
-            int price = emoticonService.getEmoticonPrice();
-
-            assertThat(price).isEqualTo(100);
-        }
     }
 
     private static void assertDefaultForbiddenException(Throwable ex) {
