@@ -85,7 +85,7 @@ class EmoticonCommandService {
         EmoticonMaster master = emoticonMasterRepository.findById(emoticonId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.EMOTICON_NOT_FOUND));
 
-        validateWritableOwner(master, userId, "?섏젙 沅뚰븳???놁뒿?덈떎.");
+        validateWritableOwner(master, userId);
 
         String thumbnailUrl = master.getThumbnailUrl();
         if (request.getThumbnailFileId() != null) {
@@ -113,7 +113,7 @@ class EmoticonCommandService {
         EmoticonMaster master = emoticonMasterRepository.findByIdWithImages(emoticonId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.EMOTICON_NOT_FOUND));
 
-        validateWritableOwner(master, userId, "怨듦컻 ?щ?瑜?蹂寃쏀븷 沅뚰븳???놁뒿?덈떎.");
+        validateWritableOwner(master, userId);
 
         if ("Y".equals(master.getIsActive())) {
             master.deactivate();
@@ -128,7 +128,7 @@ class EmoticonCommandService {
         EmoticonMaster master = emoticonMasterRepository.findByIdWithImages(emoticonId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.EMOTICON_NOT_FOUND));
 
-        validateWritableOwner(master, userId, "??젣 沅뚰븳???놁뒿?덈떎.");
+        validateWritableOwner(master, userId);
 
         if (emoticonPurchaseRepository.existsByEmoticon_EmoticonId(emoticonId)) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "구매 이력이 있는 이모티콘은 삭제할 수 없습니다.");
@@ -154,7 +154,7 @@ class EmoticonCommandService {
         EmoticonMaster master = emoticonMasterRepository.findByIdWithImages(emoticonId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.EMOTICON_NOT_FOUND));
 
-        validateWritableOwner(master, userId, "?섏젙 沅뚰븳???놁뒿?덈떎.");
+        validateWritableOwner(master, userId);
 
         int nextSortOrder = resolveNextSortOrder(master);
         EmoticonImage image = EmoticonImage.builder()
@@ -171,7 +171,7 @@ class EmoticonCommandService {
         EmoticonImage image = emoticonImageRepository.findById(imageId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.EMOTICON_IMAGE_NOT_FOUND));
 
-        validateWritableOwner(image.getEmoticonMaster(), userId, "??젣 沅뚰븳???놁뒿?덈떎.");
+        validateWritableOwner(image.getEmoticonMaster(), userId);
         attachmentHelper.deleteAssociatedFile(
                 image.getImageUrl(),
                 image.getEmoticonMaster().getEmoticonId(),
@@ -180,14 +180,14 @@ class EmoticonCommandService {
         emoticonImageRepository.delete(image);
     }
 
-    private void validateOwner(EmoticonMaster master, Long userId, String message) {
+    private void validateOwner(EmoticonMaster master, Long userId) {
         if (!master.isOwner(userId)) {
-            throw new BusinessException(ErrorCode.FORBIDDEN, message);
+            throw new BusinessException(ErrorCode.FORBIDDEN);
         }
     }
 
-    private void validateWritableOwner(EmoticonMaster master, Long userId, String message) {
-        validateOwner(master, userId, message);
+    private void validateWritableOwner(EmoticonMaster master, Long userId) {
+        validateOwner(master, userId);
         userWritableResolver.resolve(userId);
     }
 

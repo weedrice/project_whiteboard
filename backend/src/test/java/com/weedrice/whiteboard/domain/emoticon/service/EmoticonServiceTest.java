@@ -573,7 +573,10 @@ class EmoticonServiceTest {
 
             assertThatThrownBy(() -> emoticonService.updateEmoticon(2L, 1L, request))
                     .isInstanceOf(BusinessException.class)
-                    .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode()).isEqualTo(ErrorCode.FORBIDDEN));
+                    .satisfies(EmoticonServiceTest::assertDefaultForbiddenException);
+
+            assertThat(emoticonMaster.getName()).isEqualTo("테스트 이모티콘");
+            verify(userWritableResolver, never()).resolve(anyLong());
         }
 
         @Test
@@ -624,6 +627,19 @@ class EmoticonServiceTest {
                             .isEqualTo(ErrorCode.USER_NOT_ACTIVE));
 
             assertThat(emoticonMaster.getIsActive()).isEqualTo("Y");
+        }
+
+        @Test
+        @DisplayName("이모티콘 공개 전환 - 소유자가 아니면 FORBIDDEN")
+        void toggleVisibility_forbidden() {
+            when(emoticonMasterRepository.findByIdWithImages(1L)).thenReturn(Optional.of(emoticonMaster));
+
+            assertThatThrownBy(() -> emoticonService.toggleVisibility(2L, 1L))
+                    .isInstanceOf(BusinessException.class)
+                    .satisfies(EmoticonServiceTest::assertDefaultForbiddenException);
+
+            assertThat(emoticonMaster.getIsActive()).isEqualTo("Y");
+            verify(userWritableResolver, never()).resolve(anyLong());
         }
 
         @Test
@@ -704,7 +720,10 @@ class EmoticonServiceTest {
 
             assertThatThrownBy(() -> emoticonService.deleteEmoticon(2L, 1L))
                     .isInstanceOf(BusinessException.class)
-                    .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode()).isEqualTo(ErrorCode.FORBIDDEN));
+                    .satisfies(EmoticonServiceTest::assertDefaultForbiddenException);
+
+            verify(userWritableResolver, never()).resolve(anyLong());
+            verify(emoticonMasterRepository, never()).delete(any(EmoticonMaster.class));
         }
 
         @Test
@@ -777,7 +796,10 @@ class EmoticonServiceTest {
 
             assertThatThrownBy(() -> emoticonService.addImage(2L, 1L, 30L))
                     .isInstanceOf(BusinessException.class)
-                    .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode()).isEqualTo(ErrorCode.FORBIDDEN));
+                    .satisfies(EmoticonServiceTest::assertDefaultForbiddenException);
+
+            assertThat(emoticonMaster.getImages()).isEmpty();
+            verify(userWritableResolver, never()).resolve(anyLong());
         }
 
         @Test
@@ -846,8 +868,9 @@ class EmoticonServiceTest {
 
             assertThatThrownBy(() -> emoticonService.deleteImage(1L, 10L))
                     .isInstanceOf(BusinessException.class)
-                    .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode()).isEqualTo(ErrorCode.FORBIDDEN));
+                    .satisfies(EmoticonServiceTest::assertDefaultForbiddenException);
 
+            verify(userWritableResolver, never()).resolve(anyLong());
             verify(emoticonImageRepository, never()).delete(any());
         }
 
@@ -1015,5 +1038,11 @@ class EmoticonServiceTest {
 
             assertThat(price).isEqualTo(100);
         }
+    }
+
+    private static void assertDefaultForbiddenException(Throwable ex) {
+        BusinessException businessException = (BusinessException) ex;
+        assertThat(businessException.getErrorCode()).isEqualTo(ErrorCode.FORBIDDEN);
+        assertThat(businessException.getMessage()).isEqualTo(ErrorCode.FORBIDDEN.getMessage());
     }
 }
