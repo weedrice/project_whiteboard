@@ -21,6 +21,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -31,6 +32,7 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(controllers = SecurityConfigAuthorizationTest.TestController.class,
@@ -136,6 +138,16 @@ class SecurityConfigAuthorizationTest {
     }
 
     @Test
+    @DisplayName("ad metric POST endpoints do not require authentication")
+    void adMetricPostEndpoints_doNotRequireAuthentication() throws Exception {
+        mockMvc.perform(post("/api/v1/ads/1/impression"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/v1/ads/1/click"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     @DisplayName("authenticated self and recent search requests can reach controllers")
     void protectedEndpoints_allowAuthenticatedUsers() throws Exception {
         mockMvc.perform(get("/api/v1/users/me").with(user(userDetails)))
@@ -192,6 +204,16 @@ class SecurityConfigAuthorizationTest {
         @GetMapping("/common-codes/{typeCode}/details")
         String commonCodeDetails(@PathVariable String typeCode) {
             return "details-" + typeCode;
+        }
+
+        @PostMapping("/ads/{adId}/impression")
+        String adImpression(@PathVariable Long adId) {
+            return "ad-impression-" + adId;
+        }
+
+        @PostMapping("/ads/{adId}/click")
+        String adClick(@PathVariable Long adId) {
+            return "ad-click-" + adId;
         }
     }
 }

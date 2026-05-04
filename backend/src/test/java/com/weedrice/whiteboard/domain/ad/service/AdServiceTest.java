@@ -123,7 +123,7 @@ class AdServiceTest {
     void recordAdImpression_success() {
         when(adRepository.incrementImpressionCountForActive(1L, FIXED_NOW)).thenReturn(1);
 
-        adService.recordAdImpression(1L, 10L, "127.0.0.1");
+        adService.recordAdImpression(1L);
 
         verify(adRepository).incrementImpressionCountForActive(1L, FIXED_NOW);
     }
@@ -133,7 +133,7 @@ class AdServiceTest {
     void recordAdImpression_inactiveAd_throwsAdNotFound() {
         when(adRepository.incrementImpressionCountForActive(1L, FIXED_NOW)).thenReturn(0);
 
-        assertThatThrownBy(() -> adService.recordAdImpression(1L, 10L, "127.0.0.1"))
+        assertThatThrownBy(() -> adService.recordAdImpression(1L))
                 .isInstanceOf(BusinessException.class)
                 .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode()).isEqualTo(ErrorCode.AD_NOT_FOUND));
     }

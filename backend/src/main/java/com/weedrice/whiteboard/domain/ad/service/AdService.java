@@ -56,7 +56,7 @@ public class AdService {
     }
 
     @Transactional
-    public void recordAdImpression(Long adId, Long userId, String ipAddress) {
+    public void recordAdImpression(Long adId) {
         LocalDateTime now = LocalDateTime.now(clock);
         if (adRepository.incrementImpressionCountForActive(adId, now) == 0) {
             throw new BusinessException(ErrorCode.AD_NOT_FOUND);

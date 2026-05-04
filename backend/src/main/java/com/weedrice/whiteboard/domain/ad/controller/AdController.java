@@ -23,10 +23,8 @@ public class AdController {
 
     @PostMapping("/{adId}/impression")
     public ApiResponse<Void> recordAdImpression(
-            @PathVariable Long adId,
-            Authentication authentication,
-            HttpServletRequest request) {
-        adService.recordAdImpression(adId, extractUserId(authentication), request.getRemoteAddr());
+            @PathVariable Long adId) {
+        adService.recordAdImpression(adId);
         return ApiResponse.success(null);
     }
 

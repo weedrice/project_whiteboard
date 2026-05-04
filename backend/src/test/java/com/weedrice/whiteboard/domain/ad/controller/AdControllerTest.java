@@ -114,10 +114,9 @@ class AdControllerTest {
     @Test
     @DisplayName("광고 impression 기록 성공")
     void recordAdImpression_returnsSuccess() throws Exception {
-        doNothing().when(adService).recordAdImpression(eq(1L), nullable(Long.class), nullable(String.class));
+        doNothing().when(adService).recordAdImpression(eq(1L));
 
-        mockMvc.perform(post("/api/v1/ads/{adId}/impression", 1L)
-                        .with(user(customUserDetails)))
+        mockMvc.perform(post("/api/v1/ads/{adId}/impression", 1L))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
     }
@@ -127,10 +126,9 @@ class AdControllerTest {
     void recordAdImpression_returnsNotFoundWhenAdInactive() throws Exception {
         doThrow(new BusinessException(ErrorCode.AD_NOT_FOUND))
                 .when(adService)
-                .recordAdImpression(eq(1L), nullable(Long.class), nullable(String.class));
+                .recordAdImpression(eq(1L));
 
-        mockMvc.perform(post("/api/v1/ads/{adId}/impression", 1L)
-                        .with(user(customUserDetails)))
+        mockMvc.perform(post("/api/v1/ads/{adId}/impression", 1L))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.error.code").value(ErrorCode.AD_NOT_FOUND.getCode()));

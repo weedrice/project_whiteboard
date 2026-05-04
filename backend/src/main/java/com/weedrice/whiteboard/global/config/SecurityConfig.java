@@ -107,9 +107,11 @@ public class SecurityConfig {
                                                                 "/api/v1/configs/public") // Public Configs
                                                 .permitAll()
                                                 .requestMatchers(HttpMethod.POST,
+                                                                "/api/v1/ads/{adId}/impression", // 광고 노출 기록 허용
                                                                 "/api/v1/ads/{adId}/click", // 광고 클릭 기록 허용
                                                                 "/api/v1/posts/*/view" // 게시글 조회수 증가 허용
-                                                ).permitAll()
+                                                )
+                                                .permitAll()
                                                 .anyRequest().authenticated())
                                 .oauth2Login(oauth2 -> oauth2
                                                 .userInfoEndpoint(userInfo -> userInfo
