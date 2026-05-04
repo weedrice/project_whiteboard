@@ -57,5 +57,13 @@ public interface SearchPersonalizationRepository extends JpaRepository<SearchPer
             @Param("normalizedKeyword") String normalizedKeyword,
             @Param("searchedAt") LocalDateTime searchedAt);
 
+    @Modifying
+    @Query("""
+            DELETE FROM SearchPersonalization sp
+            WHERE sp.logId = :logId
+              AND sp.user.userId = :userId
+            """)
+    int deleteByLogIdAndUserId(@Param("logId") Long logId, @Param("userId") Long userId);
+
     void deleteByUser(User user);
 }

@@ -13,7 +13,6 @@ import com.weedrice.whiteboard.domain.post.service.PostSummaryAssembler;
 import com.weedrice.whiteboard.domain.search.dto.IntegratedSearchResponse;
 import com.weedrice.whiteboard.domain.search.dto.PopularKeywordDto;
 import com.weedrice.whiteboard.domain.search.dto.SearchPersonalizationResponse;
-import com.weedrice.whiteboard.domain.search.entity.SearchPersonalization;
 import com.weedrice.whiteboard.domain.search.repository.SearchPersonalizationRepository;
 import com.weedrice.whiteboard.domain.search.repository.SearchStatisticRepository;
 import com.weedrice.whiteboard.domain.user.dto.UserSummary;
@@ -137,15 +136,12 @@ public class SearchService {
 
     @Transactional
     public void deleteRecentSearch(Long userId, Long logId) {
-        User user = userRepository.findById(userId)
+        userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        SearchPersonalization personalization = searchPersonalizationRepository.findById(logId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
-
-        if (!personalization.getUser().getUserId().equals(userId)) {
-            throw new BusinessException(ErrorCode.FORBIDDEN);
+        int deletedCount = searchPersonalizationRepository.deleteByLogIdAndUserId(logId, userId);
+        if (deletedCount == 0) {
+            throw new BusinessException(ErrorCode.NOT_FOUND);
         }
-        searchPersonalizationRepository.delete(personalization);
     }
 
     @Transactional

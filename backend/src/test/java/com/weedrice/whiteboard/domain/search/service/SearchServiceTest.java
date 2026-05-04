@@ -654,22 +654,33 @@ class SearchServiceTest {
         // given
         Long userId = 1L;
         Long logId = 1L;
-        SearchPersonalization personalization = SearchPersonalization.builder()
-                .user(user)
-                .keyword("test")
-                .normalizedKeyword("test")
-                .searchedAt(LocalDateTime.of(2026, 4, 22, 9, 0))
-                .build();
-        ReflectionTestUtils.setField(personalization, "logId", logId);
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        when(searchPersonalizationRepository.findById(logId)).thenReturn(Optional.of(personalization));
+        when(searchPersonalizationRepository.deleteByLogIdAndUserId(logId, userId)).thenReturn(1);
 
         // when
         searchService.deleteRecentSearch(userId, logId);
 
         // then
-        verify(searchPersonalizationRepository).delete(personalization);
+        verify(searchPersonalizationRepository).deleteByLogIdAndUserId(logId, userId);
+        verify(searchPersonalizationRepository, never()).findById(anyLong());
+    }
+
+    @Test
+    @DisplayName("최근 검색어 삭제 - 없거나 소유하지 않은 logId는 NOT_FOUND")
+    void deleteRecentSearch_missingOrNotOwned_throwsNotFound() {
+        Long userId = 1L;
+        Long logId = 99L;
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(searchPersonalizationRepository.deleteByLogIdAndUserId(logId, userId)).thenReturn(0);
+
+        assertThatThrownBy(() -> searchService.deleteRecentSearch(userId, logId))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.NOT_FOUND);
+
+        verify(searchPersonalizationRepository).deleteByLogIdAndUserId(logId, userId);
+        verify(searchPersonalizationRepository, never()).findById(anyLong());
     }
 
     @Test

@@ -33,6 +33,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -413,6 +414,19 @@ class SearchControllerTest {
                 .with(user(customUserDetails)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
+    }
+
+    @Test
+    @DisplayName("최근 검색어 삭제 - 없거나 소유하지 않은 logId는 NOT_FOUND")
+    void deleteRecentSearch_missingOrNotOwned_returnsNotFound() throws Exception {
+        Long logId = 99L;
+        doThrow(new BusinessException(ErrorCode.NOT_FOUND))
+                .when(searchService).deleteRecentSearch(any(), eq(logId));
+
+        mockMvc.perform(delete("/api/v1/search/recent/{logId}", logId)
+                .with(user(customUserDetails)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false));
     }
 
     @Test
