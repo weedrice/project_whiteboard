@@ -228,7 +228,16 @@ public class PostInteractionService {
                 DEFAULT_SCRAP_PAGE_SIZE,
                 DEFAULT_SCRAP_SORT,
                 ALLOWED_SCRAP_SORTS);
-        Page<Scrap> scrapPage = scrapRepository.findPageByUserWithPostDetails(user, safePageable);
+        Set<Long> blockedUserIds = resolveBlockedUserIds(userId);
+        List<Long> blockedUserIdParams = blockedUserIds.isEmpty()
+                ? List.of(-1L)
+                : new ArrayList<>(blockedUserIds);
+        Page<Scrap> scrapPage = scrapRepository.findPageByUserWithPostDetails(
+                user,
+                Boolean.TRUE.equals(user.getIsSuperAdmin()),
+                blockedUserIds.isEmpty(),
+                blockedUserIdParams,
+                safePageable);
         return ScrapListResponse.from(scrapPage);
     }
 

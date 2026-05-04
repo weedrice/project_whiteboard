@@ -60,6 +60,8 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class PostServiceTest {
 
+    private static final List<Long> NO_BLOCKED_USER_IDS = List.of(-1L);
+
     @Mock
     private PostRepository postRepository;
     @Mock
@@ -1069,7 +1071,9 @@ class PostServiceTest {
                 .post(post)
                 .remark("bookmark")
                 .build();
-        when(scrapRepository.findPageByUserWithPostDetails(eq(user), any(Pageable.class)))
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
+        when(scrapRepository.findPageByUserWithPostDetails(
+                eq(user), eq(false), eq(true), eq(NO_BLOCKED_USER_IDS), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(scrap), PageRequest.of(0, 10), 1));
 
         ScrapListResponse response = postService.getMyScraps(1L, PageRequest.of(0, 10));
@@ -1078,20 +1082,40 @@ class PostServiceTest {
         assertThat(response.getContent().getFirst().getRemark()).isEqualTo("bookmark");
         assertThat(response.getContent().getFirst().getPost().getTitle()).isEqualTo("Test Post");
         assertThat(response.getContent().getFirst().getPost().getBoardName()).isEqualTo("Test Board");
-        verify(scrapRepository).findPageByUserWithPostDetails(eq(user), any(Pageable.class));
+        verify(scrapRepository).findPageByUserWithPostDetails(
+                eq(user), eq(false), eq(true), eq(NO_BLOCKED_USER_IDS), any(Pageable.class));
+    }
+
+    @Test
+    @DisplayName("내 스크랩 조회는 양방향 차단 작성자를 repository 필터로 전달한다")
+    void getMyScraps_passesEitherDirectionBlockedAuthors() {
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(List.of(99L));
+        when(scrapRepository.findPageByUserWithPostDetails(
+                eq(user), eq(false), eq(false), eq(List.of(99L)), any(Pageable.class)))
+                .thenAnswer(invocation -> Page.empty(invocation.getArgument(4)));
+
+        ScrapListResponse response = postService.getMyScraps(1L, PageRequest.of(0, 10));
+
+        assertThat(response.getContent()).isEmpty();
+        verify(scrapRepository).findPageByUserWithPostDetails(
+                eq(user), eq(false), eq(false), eq(List.of(99L)), any(Pageable.class));
     }
 
     @Test
     @DisplayName("스크랩 목록 조회 - pageable 정규화")
     void getMyScraps_normalizesPageable() {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(scrapRepository.findPageByUserWithPostDetails(eq(user), any(Pageable.class)))
-                .thenAnswer(invocation -> Page.empty(invocation.getArgument(1)));
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
+        when(scrapRepository.findPageByUserWithPostDetails(
+                eq(user), eq(false), eq(true), eq(NO_BLOCKED_USER_IDS), any(Pageable.class)))
+                .thenAnswer(invocation -> Page.empty(invocation.getArgument(4)));
 
         postService.getMyScraps(1L, PageRequest.of(2, 1000, Sort.by("unknown")));
 
         ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
-        verify(scrapRepository).findPageByUserWithPostDetails(eq(user), pageableCaptor.capture());
+        verify(scrapRepository).findPageByUserWithPostDetails(
+                eq(user), eq(false), eq(true), eq(NO_BLOCKED_USER_IDS), pageableCaptor.capture());
         Pageable pageable = pageableCaptor.getValue();
         assertThat(pageable.getPageNumber()).isEqualTo(2);
         assertThat(pageable.getPageSize()).isEqualTo(100);
