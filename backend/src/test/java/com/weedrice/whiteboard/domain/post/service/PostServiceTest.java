@@ -621,6 +621,20 @@ class PostServiceTest {
     }
 
     @Test
+    @DisplayName("게시글 목록 조회는 양방향 차단 사용자 목록을 전달한다")
+    void getPosts_passesEitherDirectionBlockedUserIds() {
+        when(userBlockService.getBlockedUserIdsEitherDirection(1L)).thenReturn(List.of(99L));
+        when(postRepository.findByBoardIdAndCategoryId(eq(1L), isNull(), isNull(), isNull(), eq(List.of(99L)),
+                eq(false), eq(1L), any(Pageable.class)))
+                .thenAnswer(invocation -> Page.empty(invocation.getArgument(7)));
+
+        postService.getPosts(1L, null, null, null, 1L, false, Pageable.unpaged());
+
+        verify(postRepository).findByBoardIdAndCategoryId(eq(1L), isNull(), isNull(), isNull(), eq(List.of(99L)),
+                eq(false), eq(1L), any(Pageable.class));
+    }
+
+    @Test
     @DisplayName("게시글 목록 조회 실패 - 비활성 게시판, 권한 없음")
     void getPosts_inactiveBoard_forbidden() {
         ReflectionTestUtils.setField(board, "isActive", false);
@@ -641,7 +655,7 @@ class PostServiceTest {
     @Test
     @DisplayName("인기 게시글 조회 - 로그인 사용자")
     void getTrendingPosts_loggedIn() {
-        when(userBlockService.getBlockedUserIds(1L)).thenReturn(Collections.emptyList());
+        when(userBlockService.getBlockedUserIdsEitherDirection(1L)).thenReturn(Collections.emptyList());
         when(postRepository.findTrendingPosts(any(LocalDateTime.class), anyList(), any(Pageable.class)))
                 .thenReturn(List.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
@@ -661,7 +675,7 @@ class PostServiceTest {
     @Test
     @DisplayName("인기 게시글 조회는 선택한 기간 기준으로 집계 시점을 계산한다")
     void getTrendingPosts_resolvesSelectedPeriod() {
-        when(userBlockService.getBlockedUserIds(1L)).thenReturn(Collections.emptyList());
+        when(userBlockService.getBlockedUserIdsEitherDirection(1L)).thenReturn(Collections.emptyList());
         when(postRepository.findTrendingPosts(any(LocalDateTime.class), anyList(), any(Pageable.class)))
                 .thenReturn(List.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
@@ -693,7 +707,7 @@ class PostServiceTest {
                 .build();
         ReflectionTestUtils.setField(nextPost, "postId", 2L);
 
-        when(userBlockService.getBlockedUserIds(1L)).thenReturn(Collections.emptyList());
+        when(userBlockService.getBlockedUserIdsEitherDirection(1L)).thenReturn(Collections.emptyList());
         when(postRepository.findTrendingPosts(any(LocalDateTime.class), anyList(), anyLong(), anyInt()))
                 .thenReturn(List.of(post, nextPost));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
@@ -1863,7 +1877,7 @@ class PostServiceTest {
     @DisplayName("게시판 최신 게시글 조회 - 로그인 사용자")
     void getLatestPostsByBoard_loggedIn() {
         when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
-        when(userBlockService.getBlockedUserIds(1L)).thenReturn(Collections.emptyList());
+        when(userBlockService.getBlockedUserIdsEitherDirection(1L)).thenReturn(Collections.emptyList());
         when(postRepository.findByBoardIdAndCategoryId(eq(1L), isNull(), isNull(), isNull(), anyList(), any(Boolean.class), any(),
                 any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(post)));
@@ -1909,7 +1923,7 @@ class PostServiceTest {
     @Test
     @DisplayName("寃뚯떆??理쒖떊 寃뚯떆湲 諛곗튂 議고쉶 - 蹂대뱶蹂??묒쐞濡?洹몃９?묒뾽")
     void getLatestPostsByBoards_groupsSummariesByBoard() {
-        when(userBlockService.getBlockedUserIds(1L)).thenReturn(Collections.emptyList());
+        when(userBlockService.getBlockedUserIdsEitherDirection(1L)).thenReturn(Collections.emptyList());
         when(postRepository.findLatestPostIdsByBoardIds(List.of(1L), 5, Collections.emptyList(), Set.of(1L), 1L))
                 .thenReturn(List.of(1L));
         when(postRepository.findByPostIdIn(List.of(1L))).thenReturn(List.of(post));

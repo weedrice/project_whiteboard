@@ -111,10 +111,7 @@ public class PostService {
     public Page<Post> getPosts(Long boardId, Long categoryId, String keyword, Integer minLikes, Long currentUserId,
             Boolean includeSecret, @NonNull Pageable pageable) {
         Pageable safePageable = normalizeBoardPostPageable(pageable);
-        List<Long> blockedUserIds = null;
-        if (currentUserId != null) {
-            blockedUserIds = userBlockService.getBlockedUserIds(currentUserId);
-        }
+        List<Long> blockedUserIds = resolveBlockedUserIds(currentUserId);
         return postRepository.findByBoardIdAndCategoryId(boardId, categoryId, keyword, minLikes, blockedUserIds, includeSecret,
                 currentUserId, safePageable);
     }
@@ -133,19 +130,13 @@ public class PostService {
     }
 
     public List<Post> getNotices(Long boardId, Long currentUserId, Boolean includeSecret) {
-        List<Long> blockedUserIds = null;
-        if (currentUserId != null) {
-            blockedUserIds = userBlockService.getBlockedUserIds(currentUserId);
-        }
+        List<Long> blockedUserIds = resolveBlockedUserIds(currentUserId);
         return postRepository.findNoticesByBoardId(boardId, true, false, blockedUserIds, includeSecret, currentUserId);
     }
 
     public Page<PostSummary> getPostsByTag(Long tagId, Long currentUserId, @NonNull Pageable pageable) {
         Pageable safePageable = sanitizeTagPostPageable(pageable);
-        List<Long> blockedUserIds = null;
-        if (currentUserId != null) {
-            blockedUserIds = userBlockService.getBlockedUserIds(currentUserId);
-        }
+        List<Long> blockedUserIds = resolveBlockedUserIds(currentUserId);
         Page<Post> postPage = postRepository.findByTagId(tagId, blockedUserIds, safePageable);
 
         List<Long> postIds = postPage.getContent().stream()
@@ -208,10 +199,7 @@ public class PostService {
     public List<PostSummary> getTrendingPosts(Pageable pageable, Long currentUserId, String period) {
         LocalDateTime since = resolveTrendingSince(period);
 
-        List<Long> blockedUserIds = null;
-        if (currentUserId != null) {
-            blockedUserIds = userBlockService.getBlockedUserIds(currentUserId);
-        }
+        List<Long> blockedUserIds = resolveBlockedUserIds(currentUserId);
 
         List<Post> posts = postRepository.findTrendingPosts(since, blockedUserIds, pageable);
         return postSummaryAssembler.assembleTrendingPosts(posts, currentUserId);
@@ -220,10 +208,7 @@ public class PostService {
     public Page<PostSummary> getTrendingPostsPage(Pageable pageable, Long currentUserId, String period) {
         LocalDateTime since = resolveTrendingSince(period);
 
-        List<Long> blockedUserIds = null;
-        if (currentUserId != null) {
-            blockedUserIds = userBlockService.getBlockedUserIds(currentUserId);
-        }
+        List<Long> blockedUserIds = resolveBlockedUserIds(currentUserId);
 
         List<Post> fetchedPosts = postRepository.findTrendingPosts(
                 since,
@@ -448,10 +433,7 @@ public class PostService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
         boolean includeSecret = canViewSecretPosts(board, currentUserId);
 
-        List<Long> blockedUserIds = null;
-        if (currentUserId != null) {
-            blockedUserIds = userBlockService.getBlockedUserIds(currentUserId);
-        }
+        List<Long> blockedUserIds = resolveBlockedUserIds(currentUserId);
 
         Page<Post> postPage = postRepository.findByBoardIdAndCategoryId(boardId, null, null, null, blockedUserIds,
                 includeSecret,
@@ -466,6 +448,13 @@ public class PostService {
 
     public Map<Long, PostSummary> getPostSummariesByIds(List<Long> postIds, Long currentUserId) {
         return postFacadeReadService.getPostSummariesByIds(postIds, currentUserId);
+    }
+
+    private List<Long> resolveBlockedUserIds(Long currentUserId) {
+        if (currentUserId == null) {
+            return null;
+        }
+        return userBlockService.getBlockedUserIdsEitherDirection(currentUserId);
     }
 
 }

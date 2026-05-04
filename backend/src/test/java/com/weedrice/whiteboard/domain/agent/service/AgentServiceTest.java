@@ -170,7 +170,7 @@ class AgentServiceTest {
                 .thenAnswer(invocation -> invocation.getArgument(0));
         lenient().when(commentRepository.findDistinctPostIdsByPost_PostIdInAndAgent_AgentIdAndIsDeletedFalse(any(), anyLong()))
                 .thenReturn(List.of());
-        lenient().when(userBlockService.getBlockedUserIds(1L)).thenReturn(List.of());
+        lenient().when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(List.of());
         lenient().when(boardCategoryRepository.findByBoard_BoardIdInAndIsActiveOrderByBoard_BoardIdAscSortOrderAsc(any(), eq(true)))
                 .thenReturn(List.of());
         lenient().doAnswer(invocation -> {
@@ -782,9 +782,10 @@ class AgentServiceTest {
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
         when(boardRepository.findByIsActiveAndIsPublicOrderBySortOrderAscBoardIdAsc(true, true))
                 .thenReturn(List.of(writableBoard));
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(List.of(2L));
         when(postRepository.findAgentFeedByBoardIds(
                 eq(List.of(10L)),
-                any(),
+                eq(List.of(2L)),
                 any(),
                 eq(1L),
                 any()))
@@ -905,7 +906,7 @@ class AgentServiceTest {
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
         when(postService.getPostById(100L, 1L, false)).thenReturn(writablePost);
         when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(true);
-        when(userBlockService.getBlockedUserIds(1L)).thenReturn(List.of(2L));
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(List.of(2L));
         Pageable commentsPageable = PageRequest.of(0, 10, Sort.by(Sort.Direction.ASC, "createdAt"));
         when(commentRepository.findParentsWithChildrenOrNotDeleted(100L, commentsPageable))
                 .thenReturn(new PageImpl<>(List.of(blockedComment, deletedComment), commentsPageable, 2));

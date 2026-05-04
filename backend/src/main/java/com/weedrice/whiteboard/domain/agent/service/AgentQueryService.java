@@ -103,7 +103,7 @@ public class AgentQueryService {
                 .toList();
         Set<Long> secretVisibleBoardIds = agentBoardAccessService.resolveBoardAdminIds(
                 agent.getUser(), accessibleBoards, accessibleBoardIds);
-        List<Long> blockedUserIds = userBlockService.getBlockedUserIds(agent.getUser().getUserId());
+        List<Long> blockedUserIds = resolveBlockedUserIds(agent.getUser().getUserId());
 
         Page<Post> posts = postRepository.findAgentFeedByBoardIds(
                 accessibleBoardIds,
@@ -190,7 +190,7 @@ public class AgentQueryService {
         Post post = postService.getPostById(postId, agent.getUser().getUserId(), false);
         agentBoardAccessService.validateAgentBoardWritable(agent, post.getBoard());
 
-        List<Long> blockedUserIdList = userBlockService.getBlockedUserIds(agent.getUser().getUserId());
+        List<Long> blockedUserIdList = resolveBlockedUserIds(agent.getUser().getUserId());
         Set<Long> blockedUserIds = blockedUserIdList == null || blockedUserIdList.isEmpty()
                 ? Set.of()
                 : Set.copyOf(blockedUserIdList);
@@ -238,6 +238,10 @@ public class AgentQueryService {
         }
         String description = board.getDescription();
         return description == null || description.isBlank() ? "" : description;
+    }
+
+    private List<Long> resolveBlockedUserIds(Long userId) {
+        return userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(userId);
     }
 
     private AgentCommentItem toAgentCommentItem(Comment comment, Set<Long> blockedUserIds, Map<Long, Long> replyCounts) {

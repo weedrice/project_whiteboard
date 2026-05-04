@@ -35,10 +35,7 @@ public class PostLatestReadService {
             return Collections.emptyMap();
         }
 
-        List<Long> blockedUserIds = null;
-        if (currentUserId != null) {
-            blockedUserIds = userBlockService.getBlockedUserIds(currentUserId);
-        }
+        List<Long> blockedUserIds = resolveBlockedUserIds(currentUserId);
 
         List<Long> latestPostIds = postRepository.findLatestPostIdsByBoardIds(
                 boardIds,
@@ -65,5 +62,12 @@ public class PostLatestReadService {
                     .add(summary);
         }
         return latestPostsByBoardId;
+    }
+
+    private List<Long> resolveBlockedUserIds(Long currentUserId) {
+        if (currentUserId == null) {
+            return null;
+        }
+        return userBlockService.getBlockedUserIdsEitherDirection(currentUserId);
     }
 }

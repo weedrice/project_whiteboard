@@ -96,7 +96,7 @@ class AgentQueryServicePageableTest {
         when(agentBoardAccessService.getAccessibleFeedBoards(agent, null)).thenReturn(List.of(board));
         when(agentBoardAccessService.resolveBoardAdminIds(eq(user), eq(List.of(board)), eq(List.of(10L))))
                 .thenReturn(java.util.Set.of());
-        when(userBlockService.getBlockedUserIds(1L)).thenReturn(List.of());
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(List.of());
         when(postRepository.findAgentFeedByBoardIds(any(), any(), any(), eq(1L), any()))
                 .thenAnswer(invocation -> Page.empty(invocation.getArgument(4)));
         when(agentPostListItemAssembler.fromPosts(any(), eq(7L))).thenAnswer(invocation -> Page.empty(
@@ -165,7 +165,7 @@ class AgentQueryServicePageableTest {
     void getPostComments_limitsSizeAndForcesCreatedAtAsc() {
         when(agentOwnershipService.resolveActiveAgent(7L)).thenReturn(agent);
         when(postService.getPostById(100L, 1L, false)).thenReturn(post);
-        when(userBlockService.getBlockedUserIds(1L)).thenReturn(List.of());
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(List.of());
         when(commentRepository.findParentsWithChildrenOrNotDeleted(eq(100L), any()))
                 .thenAnswer(invocation -> Page.empty(invocation.getArgument(1)));
 
