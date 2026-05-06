@@ -107,12 +107,10 @@ public class CommentQueryService {
         if (response.getAuthor() != null
                 && blockedUserIds.contains(response.getAuthor().getUserId())) {
             return response.toBuilder()
-                    .content("\uCC28\uB2E8\uB41C \uC0AC\uC6A9\uC790\uC758 \uB313\uAE00\uC785\uB2C8\uB2E4.")
-                    .author(CommentResponse.AuthorInfo.builder()
-                            .userId(response.getAuthor().getUserId())
-                            .displayName("\uCC28\uB2E8\uB41C \uC0AC\uC6A9\uC790")
-                            .profileImageUrl(null)
-                            .build())
+                    .content(null)
+                    .author(null)
+                    .isBlockedAuthor(true)
+                    .maskedAuthorId(response.getAuthor().getUserId())
                     .build();
         }
         return response;

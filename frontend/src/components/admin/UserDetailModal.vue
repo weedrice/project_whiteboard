@@ -104,11 +104,11 @@ function nextSubscriptionsPage() {
   if (userSubscriptions.value.number + 1 < userSubscriptions.value.totalPages) subscriptionsPage.value += 1
 }
 
-function renderCommentContent(content: string | undefined): string {
+function renderCommentContent(content: string | null | undefined): string {
   return renderCommentContentHtml(content, 'comment-emoticon comment-emoticon-list')
 }
 
-function isCommentEmoticonOnly(content: string | undefined): boolean {
+function isCommentEmoticonOnly(content: string | null | undefined): boolean {
   return isEmoticonOnlyContent(content)
 }
 

@@ -59,6 +59,8 @@ class CommentDtoTest {
         assertThat(response.getParentId()).isNull();
         assertThat(response.getReplyCount()).isZero();
         assertThat(response.isHasReplies()).isFalse();
+        assertThat(response.isBlockedAuthor()).isFalse();
+        assertThat(response.getMaskedAuthorId()).isNull();
     }
 
     @Test
@@ -84,6 +86,8 @@ class CommentDtoTest {
         assertThat(response.isDeleted()).isTrue();
         assertThat(response.getContent()).isEqualTo("삭제된 댓글입니다.");
         assertThat(response.getAuthor()).isNull();
+        assertThat(response.isBlockedAuthor()).isFalse();
+        assertThat(response.getMaskedAuthorId()).isNull();
     }
 
     @Test

@@ -31,7 +31,7 @@ const authStore = useAuthStore()
 const toastStore = useToastStore()
 
 // Comment list uses a dedicated emoticon rendering class.
-function renderCommentContent(content: string | undefined): string {
+function renderCommentContent(content: string | null | undefined): string {
   return renderCommentContentHtml(content, 'comment-emoticon comment-emoticon-list')
 }
 

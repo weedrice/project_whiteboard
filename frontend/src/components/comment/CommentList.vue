@@ -92,7 +92,7 @@ async function handleDelete(comment: Comment) {
       <CommentItem
         v-for="comment in comments"
         :key="comment.commentId"
-        v-memo="[postId, boardUrl, comment.commentId, comment.content, comment.likeCount, comment.createdAt, comment.isDeleted, comment.replyCount, comment.hasReplies]"
+        v-memo="[postId, boardUrl, comment.commentId, comment.content, comment.likeCount, comment.createdAt, comment.isDeleted, comment.isBlockedAuthor, comment.maskedAuthorId, comment.replyCount, comment.hasReplies]"
         :comment="comment"
         :postId="postId"
         :boardUrl="boardUrl"

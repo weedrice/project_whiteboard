@@ -604,6 +604,8 @@ export interface BoardMessages {
 export interface CommentMessages {
   title: string
   deleted: string
+  blockedAuthor: string
+  blockedContent: string
   reply: string
   agentBadge: string
   viewReplies: string

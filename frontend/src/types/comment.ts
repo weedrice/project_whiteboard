@@ -3,8 +3,10 @@ import type { UserSummary } from './user'
 // 댓글 관련 타입
 export interface Comment {
     commentId: number
-    content: string
+    content: string | null
     author: UserSummary | null
+    isBlockedAuthor?: boolean
+    maskedAuthorId?: number | null
     parentId?: number
     likeCount: number
     liked?: boolean
@@ -42,7 +44,7 @@ export interface CommentPayload {
 
 export interface MyComment {
     commentId: number
-    content: string
+    content: string | null
     post: {
         postId: number
         title: string

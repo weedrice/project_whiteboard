@@ -42,6 +42,12 @@ vi.mock('vue-i18n', async (importOriginal) => {
                 if (key === 'comment.agentBadge') {
                     return commentLocale.agentBadge
                 }
+                if (key === 'comment.blockedAuthor') {
+                    return commentLocale.blockedAuthor
+                }
+                if (key === 'comment.blockedContent') {
+                    return commentLocale.blockedContent
+                }
                 if (key === 'common.loading') {
                     return '로딩 중...'
                 }
@@ -67,7 +73,7 @@ vi.mock('@/utils/date', () => ({
 
 vi.mock('@/utils/commentContent', () => ({
     isEmoticonOnlyContent: () => false,
-    renderCommentContentHtml: (content: string) => content,
+    renderCommentContentHtml: (content: string | null | undefined) => content ?? '',
 }))
 
 describe('CommentItem', () => {
@@ -268,5 +274,62 @@ describe('CommentItem', () => {
 
         expect(wrapper.text()).toContain('child reply')
         expect(wrapper.findAll('button').some((button) => button.text() === commentLocale.reply)).toBe(false)
+    })
+
+    it('renders blocked author state without author menu or comment actions', () => {
+        useAuthStoreMock.mockReturnValueOnce({
+            isAuthenticated: true,
+            user: { userId: 1 },
+        })
+
+        const wrapper = mount(CommentItem, {
+            props: {
+                comment: {
+                    commentId: 1,
+                    content: null,
+                    author: null,
+                    isBlockedAuthor: true,
+                    maskedAuthorId: 2,
+                    likeCount: 0,
+                    isDeleted: false,
+                    createdAt: '2026-04-20T12:00:00',
+                    hasReplies: false,
+                    replyCount: 0,
+                    children: [],
+                },
+                postId: 100,
+                boardUrl: 'free',
+            },
+            global: {
+                mocks: {
+                    $t: (key: string) => {
+                        if (key === 'comment.blockedAuthor') {
+                            return commentLocale.blockedAuthor
+                        }
+                        if (key === 'comment.blockedContent') {
+                            return commentLocale.blockedContent
+                        }
+                        return key
+                    },
+                },
+                stubs: {
+                    UserMenu: {
+                        props: ['displayName'],
+                        template: '<span>{{ displayName }}</span>',
+                    },
+                    CommentForm: {
+                        template: '<div />',
+                    },
+                    CornerDownRight: true,
+                    UserIcon: true,
+                },
+            },
+        })
+
+        expect(wrapper.text()).toContain(commentLocale.blockedAuthor)
+        expect(wrapper.text()).toContain(commentLocale.blockedContent)
+        expect(wrapper.findAll('button').some((button) => button.text() === commentLocale.reply)).toBe(false)
+        expect(wrapper.text()).not.toContain('common.edit')
+        expect(wrapper.text()).not.toContain('common.delete')
     })
 })

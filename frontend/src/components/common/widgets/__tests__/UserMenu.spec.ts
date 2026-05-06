@@ -6,6 +6,7 @@ import UserMenu from '../UserMenu.vue'
 const authState = {
   user: { userId: 1 } as { userId: number } | null
 }
+const invalidateQueriesMock = vi.fn()
 
 vi.mock('vue-i18n', async (importOriginal) => {
   const actual = await importOriginal<typeof import('vue-i18n')>()
@@ -19,6 +20,12 @@ vi.mock('vue-i18n', async (importOriginal) => {
 
 vi.mock('@/stores/auth', () => ({
   useAuthStore: () => authState
+}))
+
+vi.mock('@tanstack/vue-query', () => ({
+  useQueryClient: () => ({
+    invalidateQueries: invalidateQueriesMock
+  })
 }))
 
 vi.mock('@/stores/toast', () => ({
@@ -63,6 +70,7 @@ vi.mock('@/utils/logger', () => ({
 
 describe('UserMenu', () => {
   beforeEach(() => {
+    vi.clearAllMocks()
     authState.user = { userId: 1 }
   })
 

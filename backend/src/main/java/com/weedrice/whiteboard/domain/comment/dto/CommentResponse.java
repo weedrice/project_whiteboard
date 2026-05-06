@@ -21,6 +21,9 @@ public class CommentResponse {
     private int likeCount;
     @JsonProperty("isDeleted")
     private boolean isDeleted;
+    @JsonProperty("isBlockedAuthor")
+    private boolean isBlockedAuthor;
+    private Long maskedAuthorId;
     private LocalDateTime createdAt;
     private Long postId;
     private String boardUrl;
@@ -63,6 +66,8 @@ public class CommentResponse {
                 .depth(comment.getDepth())
                 .likeCount(comment.getLikeCount())
                 .isDeleted(comment.getIsDeleted())
+                .isBlockedAuthor(false)
+                .maskedAuthorId(null)
                 .createdAt(comment.getCreatedAt())
                 .postId(comment.getPost().getPostId())
                 .boardUrl(comment.getPost().getBoard().getBoardUrl())

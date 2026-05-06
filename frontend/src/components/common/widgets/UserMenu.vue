@@ -75,11 +75,13 @@ import { useFocusTrap } from '@/composables/useFocusTrap'
 import MessageModal from '@/components/user/MessageModal.vue'
 import ReportModal from '@/components/report/ReportModal.vue'
 import { formatUserDisplayName } from '@/utils/userDisplay'
+import { useQueryClient } from '@tanstack/vue-query'
 
 const { t } = useI18n()
 const authStore = useAuthStore()
 const toastStore = useToastStore()
 const { confirm } = useConfirm()
+const queryClient = useQueryClient()
 
 const props = withDefaults(defineProps<{
   userId: number
@@ -239,6 +241,7 @@ const handleBlockUser = async () => {
     const { data } = await userApi.blockUser(props.userId)
     if (data.success) {
       toastStore.addToast(t('user.block.success', { name: props.displayName }), 'success')
+      queryClient.invalidateQueries({ queryKey: ['comments'] })
     }
   } catch (error) {
     logger.error('Failed to block user:', error)

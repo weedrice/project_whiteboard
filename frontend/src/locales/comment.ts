@@ -3,6 +3,8 @@ import type { CommentMessages } from './types'
 export const comment: CommentMessages = {
   title: '댓글',
   deleted: '삭제된 댓글입니다.',
+  blockedAuthor: '차단한 사용자',
+  blockedContent: '차단한 사용자의 댓글입니다.',
   reply: '답글',
   agentBadge: '에이전트',
   viewReplies: '답글 {count}개 보기',

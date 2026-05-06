@@ -482,8 +482,10 @@ class CommentServiceTest {
 
         assertThat(result.getContent()).hasSize(1);
         CommentResponse response = result.getContent().get(0);
-        assertThat(response.getContent()).isNotEqualTo("Bad Content");
-        assertThat(response.getAuthor().getDisplayName()).isNotEqualTo("Blocked");
+        assertThat(response.getContent()).isNull();
+        assertThat(response.getAuthor()).isNull();
+        assertThat(response.isBlockedAuthor()).isTrue();
+        assertThat(response.getMaskedAuthorId()).isEqualTo(2L);
         verify(userBlockService).getBlockedUserIdsEitherDirectionForExistingUser(1L);
     }
 
@@ -532,8 +534,11 @@ class CommentServiceTest {
         var result = commentService.getReplies(9L, 1L, PageRequest.of(0, 10));
 
         assertThat(result.getContent()).hasSize(1);
-        assertThat(result.getContent().get(0).getContent()).isEqualTo("차단된 사용자의 댓글입니다.");
-        assertThat(result.getContent().get(0).getAuthor().getDisplayName()).isEqualTo("차단된 사용자");
+        CommentResponse response = result.getContent().get(0);
+        assertThat(response.getContent()).isNull();
+        assertThat(response.getAuthor()).isNull();
+        assertThat(response.isBlockedAuthor()).isTrue();
+        assertThat(response.getMaskedAuthorId()).isEqualTo(2L);
         verify(userBlockService).getBlockedUserIdsEitherDirectionForExistingUser(1L);
     }
 
@@ -710,8 +715,10 @@ class CommentServiceTest {
 
         CommentResponse result = commentService.getComment(10L, 1L);
 
-        assertThat(result.getContent()).isNotEqualTo("Blocked comment");
-        assertThat(result.getAuthor().getDisplayName()).isNotEqualTo("Blocked");
+        assertThat(result.getContent()).isNull();
+        assertThat(result.getAuthor()).isNull();
+        assertThat(result.isBlockedAuthor()).isTrue();
+        assertThat(result.getMaskedAuthorId()).isEqualTo(2L);
     }
 
     @Test

@@ -48,12 +48,14 @@ const { data: repliesData, isLoading: isRepliesLoading, error: repliesError } =
   useReplies(commentId, replyParams, repliesEnabled)
 
 const replies = computed(() => loadedReplies.value)
-const renderedContent = computed(() => renderCommentContentHtml(props.comment.content))
-const isEmoticonOnly = computed(() => isEmoticonOnlyContent(props.comment.content))
-const isAgentAuthor = computed(() => props.comment.author?.authorType === 'AGENT')
+const isBlockedAuthor = computed(() => Boolean(props.comment.isBlockedAuthor))
+const canUseCommentActions = computed(() => !props.comment.isDeleted && !isBlockedAuthor.value)
+const renderedContent = computed(() => renderCommentContentHtml(props.comment.content ?? ''))
+const isEmoticonOnly = computed(() => isEmoticonOnlyContent(props.comment.content ?? ''))
+const isAgentAuthor = computed(() => !isBlockedAuthor.value && props.comment.author?.authorType === 'AGENT')
 const isAuthenticated = computed(() => Boolean(authStore?.isAuthenticated))
 const currentUserId = computed(() => authStore?.user?.userId)
-const isCommentAuthor = computed(() => currentUserId.value === props.comment.author?.userId)
+const isCommentAuthor = computed(() => !isBlockedAuthor.value && currentUserId.value === props.comment.author?.userId)
 const createdAtShort = computed(() => formatCommentDateShort(props.comment.createdAt))
 const createdAtFull = computed(() => formatDate(props.comment.createdAt))
 const replyToggleLabel = computed(() => {
@@ -158,6 +160,15 @@ watch(() => props.comment.isDeleted, (isDeleted) => {
   replyHasNext.value = false
   isRepliesOpen.value = false
 })
+
+watch(isBlockedAuthor, (blocked) => {
+  if (!blocked) {
+    return
+  }
+
+  isEditing.value = false
+  isReplying.value = false
+})
 </script>
 
 <template>
@@ -170,7 +181,7 @@ watch(() => props.comment.isDeleted, (isDeleted) => {
         />
 
         <div
-          v-if="!comment.isDeleted && comment.author?.profileImageUrl"
+          v-if="canUseCommentActions && comment.author?.profileImageUrl"
           class="h-8 w-8 overflow-hidden rounded-full sm:h-10 sm:w-10"
         >
           <img
@@ -191,7 +202,7 @@ watch(() => props.comment.isDeleted, (isDeleted) => {
         <div class="flex items-center justify-between gap-2 text-xs sm:text-sm">
           <div class="flex min-w-0 items-center gap-1">
             <UserMenu
-              v-if="!comment.isDeleted && comment.author"
+              v-if="canUseCommentActions && comment.author"
               :user-id="comment.author.userId"
               :display-name="comment.author.displayName"
               size="inherit"
@@ -208,6 +219,12 @@ watch(() => props.comment.isDeleted, (isDeleted) => {
             >
               {{ $t('common.messages.unknown') }}
             </span>
+            <span
+              v-else-if="isBlockedAuthor"
+              class="text-xs font-medium text-gray-500 dark:text-gray-400 sm:text-sm"
+            >
+              {{ $t('comment.blockedAuthor') }}
+            </span>
           </div>
           <p class="flex-shrink-0 text-[11px] text-gray-500 dark:text-gray-400 sm:text-sm">
             <span class="sm:hidden">{{ createdAtShort }}</span>
@@ -219,7 +236,7 @@ watch(() => props.comment.isDeleted, (isDeleted) => {
           <CommentForm
             :postId="postId"
             :commentId="comment.commentId"
-            :initialContent="comment.content"
+            :initialContent="comment.content ?? ''"
             @success="handleEditSuccess"
             @cancel="isEditing = false"
           />
@@ -227,6 +244,9 @@ watch(() => props.comment.isDeleted, (isDeleted) => {
 
         <p v-else-if="comment.isDeleted" class="text-xs italic text-gray-400 sm:text-sm">
           {{ $t('comment.deleted') }}
+        </p>
+        <p v-else-if="isBlockedAuthor" class="text-xs italic text-gray-400 sm:text-sm">
+          {{ $t('comment.blockedContent') }}
         </p>
         <p v-else-if="isEmoticonOnly" class="text-xs sm:text-sm" v-html="renderedContent"></p>
         <p v-else class="text-xs text-gray-700 dark:text-gray-300 sm:text-sm" v-html="renderedContent"></p>
@@ -242,7 +262,7 @@ watch(() => props.comment.isDeleted, (isDeleted) => {
           </button>
 
           <button
-            v-if="isAuthenticated && !comment.isDeleted"
+            v-if="isAuthenticated && canUseCommentActions"
             type="button"
             class="rounded-md px-2 py-1.5 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200"
             @click="isReplying = !isReplying"
@@ -250,7 +270,7 @@ watch(() => props.comment.isDeleted, (isDeleted) => {
             {{ $t('comment.reply') }}
           </button>
 
-          <template v-if="!comment.isDeleted && isCommentAuthor">
+          <template v-if="canUseCommentActions && isCommentAuthor">
             <button
               v-if="!isEmoticonOnly"
               type="button"

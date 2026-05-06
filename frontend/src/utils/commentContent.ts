@@ -19,7 +19,7 @@ function normalizeEmoticonUrl(rawUrl: string): string | null {
     return null
 }
 
-export function renderCommentContentHtml(content: string | undefined, className = 'comment-emoticon'): string {
+export function renderCommentContentHtml(content: string | null | undefined, className = 'comment-emoticon'): string {
     if (!content) return ''
 
     const replaced = content.replace(EMOTICON_PATTERN, (_match, rawUrl: string) => {
@@ -33,7 +33,7 @@ export function renderCommentContentHtml(content: string | undefined, className 
     return sanitizeHtml(withLineBreaks)
 }
 
-export function isEmoticonOnlyContent(content: string | undefined): boolean {
+export function isEmoticonOnlyContent(content: string | null | undefined): boolean {
     if (!content) return false
     return EMOTICON_ONLY_PATTERN.test(content.trim())
 }
