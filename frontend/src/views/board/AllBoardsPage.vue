@@ -35,7 +35,7 @@ const allBoards = computed(() => {
 <template>
   <div class="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
 
-    <BoardListSkeleton v-if="isLoading" :count="6" />
+    <BoardListSkeleton v-if="isLoading" :count="6" :show-subscribed="authStore.isAuthenticated" />
 
     <div v-else-if="error" class="text-center py-20 text-red-500 dark:text-red-400">
       {{ error }}
