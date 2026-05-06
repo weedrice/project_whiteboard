@@ -15,6 +15,8 @@ public interface EmoticonImageRepository extends JpaRepository<EmoticonImage, Lo
     @Query("SELECT i FROM EmoticonImage i WHERE i.emoticonMaster.emoticonId = :emoticonId ORDER BY i.sortOrder ASC")
     List<EmoticonImage> findByEmoticonId(@Param("emoticonId") Long emoticonId);
 
+    boolean existsByImageUrlIn(List<String> imageUrls);
+
     // 특정 이모티콘의 이미지 삭제
     void deleteByEmoticonMaster_EmoticonId(Long emoticonId);
 }

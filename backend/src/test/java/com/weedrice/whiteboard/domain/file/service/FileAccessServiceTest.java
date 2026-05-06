@@ -1,5 +1,7 @@
 package com.weedrice.whiteboard.domain.file.service;
 
+import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonImageRepository;
+import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonMasterRepository;
 import com.weedrice.whiteboard.domain.file.entity.File;
 import com.weedrice.whiteboard.domain.file.entity.FileStorageStatus;
 import com.weedrice.whiteboard.domain.file.repository.FileRepository;
@@ -42,6 +44,10 @@ class FileAccessServiceTest {
     private PostAccessPolicy postAccessPolicy;
     @Mock
     private UserBlockService userBlockService;
+    @Mock
+    private EmoticonImageRepository emoticonImageRepository;
+    @Mock
+    private EmoticonMasterRepository emoticonMasterRepository;
 
     private FileAccessService fileAccessService;
 
@@ -52,7 +58,9 @@ class FileAccessServiceTest {
                 postRepository,
                 userRepository,
                 postAccessPolicy,
-                userBlockService);
+                userBlockService,
+                emoticonImageRepository,
+                emoticonMasterRepository);
     }
 
     @Test
@@ -172,6 +180,35 @@ class FileAccessServiceTest {
         File result = fileAccessService.getFileForDownload(10L, 1L);
 
         assertThat(result).isSameAs(file);
+    }
+
+    @Test
+    @DisplayName("이모티콘 이미지 URL로 참조된 레거시 파일은 공개 다운로드를 허용한다")
+    void getFileForDownload_unassociatedEmoticonImage_allowsAnonymous() {
+        File file = file(null, null, User.builder().build());
+        ReflectionTestUtils.setField(file, "fileId", 10L);
+        when(fileRepository.findByFileIdAndStorageStatus(10L, FileStorageStatus.ACTIVE)).thenReturn(Optional.of(file));
+        when(emoticonImageRepository.existsByImageUrlIn(List.of("/api/v1/files/10", "/files/10"))).thenReturn(true);
+
+        File result = fileAccessService.getFileForDownload(10L, null);
+
+        assertThat(result).isSameAs(file);
+        verifyNoInteractions(postRepository, userRepository, postAccessPolicy, userBlockService);
+    }
+
+    @Test
+    @DisplayName("이모티콘 썸네일 URL로 참조된 레거시 파일은 공개 다운로드를 허용한다")
+    void getFileForDownload_unassociatedEmoticonThumbnail_allowsAnonymous() {
+        File file = file(null, null, User.builder().build());
+        ReflectionTestUtils.setField(file, "fileId", 10L);
+        when(fileRepository.findByFileIdAndStorageStatus(10L, FileStorageStatus.ACTIVE)).thenReturn(Optional.of(file));
+        when(emoticonImageRepository.existsByImageUrlIn(List.of("/api/v1/files/10", "/files/10"))).thenReturn(false);
+        when(emoticonMasterRepository.existsByThumbnailUrlIn(List.of("/api/v1/files/10", "/files/10"))).thenReturn(true);
+
+        File result = fileAccessService.getFileForDownload(10L, null);
+
+        assertThat(result).isSameAs(file);
+        verifyNoInteractions(postRepository, userRepository, postAccessPolicy, userBlockService);
     }
 
     @Test

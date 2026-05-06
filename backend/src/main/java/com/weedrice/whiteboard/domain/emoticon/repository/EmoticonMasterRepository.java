@@ -52,6 +52,8 @@ public interface EmoticonMasterRepository extends JpaRepository<EmoticonMaster, 
     @Query("SELECT e FROM EmoticonMaster e LEFT JOIN FETCH e.images LEFT JOIN FETCH e.creator WHERE e.emoticonId = :emoticonId")
     Optional<EmoticonMaster> findByIdWithImages(@Param("emoticonId") Long emoticonId);
 
+    boolean existsByThumbnailUrlIn(List<String> thumbnailUrls);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT e FROM EmoticonMaster e WHERE e.emoticonId = :emoticonId")
     Optional<EmoticonMaster> findByIdForUpdate(@Param("emoticonId") Long emoticonId);

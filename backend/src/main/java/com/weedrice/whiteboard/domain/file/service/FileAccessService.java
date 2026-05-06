@@ -1,8 +1,11 @@
 package com.weedrice.whiteboard.domain.file.service;
 
+import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonImageRepository;
+import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonMasterRepository;
 import com.weedrice.whiteboard.domain.file.entity.File;
 import com.weedrice.whiteboard.domain.file.entity.FileStorageStatus;
 import com.weedrice.whiteboard.domain.file.repository.FileRepository;
+import com.weedrice.whiteboard.domain.file.support.FileUrlResolver;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.service.PostAccessPolicy;
@@ -25,6 +28,8 @@ class FileAccessService {
     private final UserRepository userRepository;
     private final PostAccessPolicy postAccessPolicy;
     private final UserBlockService userBlockService;
+    private final EmoticonImageRepository emoticonImageRepository;
+    private final EmoticonMasterRepository emoticonMasterRepository;
 
     public File getFileForDownload(Long fileId, Long viewerUserId) {
         File file = fileRepository.findByFileIdAndStorageStatus(fileId, FileStorageStatus.ACTIVE)
@@ -36,10 +41,16 @@ class FileAccessService {
     private void validateReadable(File file, Long viewerUserId) {
         String relatedType = file.getRelatedType();
         if (relatedType == null && file.getRelatedId() == null) {
+            if (isReferencedByEmoticon(file)) {
+                return;
+            }
             validateUploader(file, viewerUserId);
             return;
         }
         if (relatedType == null || file.getRelatedId() == null) {
+            if (isReferencedByEmoticon(file)) {
+                return;
+            }
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
 
@@ -57,9 +68,30 @@ class FileAccessService {
                     FileRelatedType.EMOTICON_IMAGE -> {
                 return;
             }
-            case FileRelatedType.DRAFT_POST -> validateUploader(file, viewerUserId);
-            default -> throw new BusinessException(ErrorCode.FORBIDDEN);
+            case FileRelatedType.DRAFT_POST -> {
+                if (isReferencedByEmoticon(file)) {
+                    return;
+                }
+                validateUploader(file, viewerUserId);
+            }
+            default -> {
+                if (isReferencedByEmoticon(file)) {
+                    return;
+                }
+                throw new BusinessException(ErrorCode.FORBIDDEN);
+            }
         }
+    }
+
+    private boolean isReferencedByEmoticon(File file) {
+        if (file.getFileId() == null) {
+            return false;
+        }
+        java.util.List<String> candidateUrls = java.util.List.of(
+                FileUrlResolver.resolve(file.getFileId()),
+                "/files/" + file.getFileId());
+        return emoticonImageRepository.existsByImageUrlIn(candidateUrls)
+                || emoticonMasterRepository.existsByThumbnailUrlIn(candidateUrls);
     }
 
     private void validateUploader(File file, Long viewerUserId) {
