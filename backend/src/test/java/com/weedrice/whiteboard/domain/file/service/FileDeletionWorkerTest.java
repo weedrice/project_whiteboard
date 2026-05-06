@@ -1,5 +1,7 @@
 package com.weedrice.whiteboard.domain.file.service;
 
+import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonImageRepository;
+import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonMasterRepository;
 import com.weedrice.whiteboard.domain.file.entity.File;
 import com.weedrice.whiteboard.domain.file.entity.FileStorageStatus;
 import com.weedrice.whiteboard.domain.file.repository.FileRepository;
@@ -35,6 +37,10 @@ class FileDeletionWorkerTest {
     private FileStorageService fileStorageService;
     @Mock
     private TransactionTemplate transactionTemplate;
+    @Mock
+    private EmoticonImageRepository emoticonImageRepository;
+    @Mock
+    private EmoticonMasterRepository emoticonMasterRepository;
 
     @InjectMocks
     private FileDeletionWorker fileDeletionWorker;
@@ -62,6 +68,38 @@ class FileDeletionWorkerTest {
 
         verify(fileStorageService).deleteFileOrThrow("stored.jpg");
         verify(fileRepository).delete(file);
+    }
+
+    @Test
+    @DisplayName("이모티콘에서 참조 중인 pending 파일은 삭제하지 않고 active로 복구한다")
+    void processDeletion_restoresEmoticonReferencedFile() {
+        File file = File.builder()
+                .filePath("stored.jpg")
+                .originalName("stored.jpg")
+                .fileSize(4L)
+                .mimeType("image/jpeg")
+                .uploader(com.weedrice.whiteboard.domain.user.entity.User.builder().build())
+                .storageStatus(FileStorageStatus.PENDING_DELETE)
+                .deleteRetryCount(2)
+                .build();
+        org.springframework.test.util.ReflectionTestUtils.setField(file, "fileId", 10L);
+
+        when(fileRepository.findById(10L)).thenReturn(Optional.of(file));
+        when(emoticonImageRepository.existsByImageUrlIn(java.util.List.of("/api/v1/files/10", "/files/10")))
+                .thenReturn(true);
+        doAnswer(invocation -> {
+            Consumer<Object> callback = invocation.getArgument(0);
+            callback.accept(null);
+            return null;
+        }).when(transactionTemplate).executeWithoutResult(any());
+
+        fileDeletionWorker.processDeletion(10L);
+
+        assertThat(file.getStorageStatus()).isEqualTo(FileStorageStatus.ACTIVE);
+        assertThat(file.getDeleteRequestedAt()).isNull();
+        assertThat(file.getDeleteRetryCount()).isZero();
+        verify(fileStorageService, never()).deleteFileOrThrow(any());
+        verify(fileRepository, never()).delete(any());
     }
 
     @Test

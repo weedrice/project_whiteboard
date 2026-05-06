@@ -87,9 +87,7 @@ class FileAccessService {
         if (file.getFileId() == null) {
             return false;
         }
-        java.util.List<String> candidateUrls = java.util.List.of(
-                FileUrlResolver.resolve(file.getFileId()),
-                "/files/" + file.getFileId());
+        java.util.List<String> candidateUrls = FileUrlResolver.referenceCandidates(file.getFileId());
         return emoticonImageRepository.existsByImageUrlIn(candidateUrls)
                 || emoticonMasterRepository.existsByThumbnailUrlIn(candidateUrls);
     }

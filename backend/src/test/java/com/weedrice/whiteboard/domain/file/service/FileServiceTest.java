@@ -2,6 +2,8 @@ package com.weedrice.whiteboard.domain.file.service;
 
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
+import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonImageRepository;
+import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonMasterRepository;
 import com.weedrice.whiteboard.domain.file.dto.FileUploadResponse;
 import com.weedrice.whiteboard.domain.file.entity.File;
 import com.weedrice.whiteboard.domain.file.entity.FileStorageStatus;
@@ -57,6 +59,10 @@ class FileServiceTest {
     private FileStorageService fileStorageService;
     @Mock
     private TransactionTemplate transactionTemplate;
+    @Mock
+    private EmoticonImageRepository emoticonImageRepository;
+    @Mock
+    private EmoticonMasterRepository emoticonMasterRepository;
     @Mock
     private EntityManager entityManager;
 
@@ -631,6 +637,23 @@ class FileServiceTest {
                 eq(PageRequest.of(0, 500)));
         verify(fileStorageService, never()).deleteFile(any());
         verify(fileRepository, never()).delete(any());
+    }
+
+    @Test
+    @DisplayName("이모티콘 URL에서 참조 중인 옛 임시 파일은 정리 대상에서 제외한다")
+    void cleanUpTemporaryFiles_excludesFilesReferencedByEmoticonUrls() {
+        when(fileRepository.findTemporaryFileIdsForCleanup(any(LocalDateTime.class), eq(PageRequest.of(0, 500))))
+                .thenReturn(List.of(10L, 11L, 12L), List.of());
+        when(emoticonImageRepository.findReferencedImageUrls(any()))
+                .thenReturn(List.of("/api/v1/files/10"));
+        when(emoticonMasterRepository.findReferencedThumbnailUrls(any()))
+                .thenReturn(List.of("/files/11"));
+
+        fileService.cleanUpTemporaryFiles();
+
+        verify(fileRepository).requestDeletionForTemporaryFiles(eq(List.of(12L)), any(LocalDateTime.class));
+        verify(fileRepository, never()).requestDeletionForTemporaryFiles(eq(List.of(10L, 11L)),
+                any(LocalDateTime.class));
     }
 
     @Test
