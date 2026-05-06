@@ -21,16 +21,16 @@ class ReportTargetPolicy {
 
     void validatePostReportable(Post post, User reporter) {
         validateNotSelfReport(post.getUser(), reporter);
-        postAccessPolicy.validateReadable(post, reporter, isBlockedByReporter(reporter, post.getUser()));
+        postAccessPolicy.validateReadable(post, reporter, isEitherDirectionBlocked(reporter, post.getUser()));
     }
 
     void validateCommentReportable(Comment comment, User reporter) {
         postAccessPolicy.validateReadable(
                 comment.getPost(),
                 reporter,
-                isBlockedByReporter(reporter, comment.getPost().getUser()));
+                isEitherDirectionBlocked(reporter, comment.getPost().getUser()));
         validateNotSelfReport(comment.getUser(), reporter);
-        if (isBlockedByReporter(reporter, comment.getUser())) {
+        if (isEitherDirectionBlocked(reporter, comment.getUser())) {
             throw new BusinessException(ErrorCode.COMMENT_NOT_FOUND);
         }
     }
@@ -48,10 +48,10 @@ class ReportTargetPolicy {
         }
     }
 
-    private boolean isBlockedByReporter(User reporter, User target) {
+    private boolean isEitherDirectionBlocked(User reporter, User target) {
         if (reporter == null || target == null) {
             return false;
         }
-        return userBlockService.hasBlockFromReporterToTarget(reporter.getUserId(), target.getUserId());
+        return userBlockService.isEitherDirectionBlocked(reporter.getUserId(), target.getUserId());
     }
 }

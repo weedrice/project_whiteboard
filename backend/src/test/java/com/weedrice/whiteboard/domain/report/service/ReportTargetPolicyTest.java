@@ -17,6 +17,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -33,16 +34,31 @@ class ReportTargetPolicyTest {
     private ReportTargetPolicy reportTargetPolicy;
 
     @Test
-    @DisplayName("POST report policy uses a single exists query for author block state")
-    void validatePostReportable_usesSingleBlockExistsCheck() {
+    @DisplayName("POST report policy uses either-direction block state")
+    void validatePostReportable_usesEitherDirectionBlockCheck() {
         User reporter = user(1L);
         User author = user(2L);
         Post post = post(author);
-        when(userBlockService.hasBlockFromReporterToTarget(1L, 2L)).thenReturn(true);
+        when(userBlockService.isEitherDirectionBlocked(1L, 2L)).thenReturn(true);
 
         reportTargetPolicy.validatePostReportable(post, reporter);
 
         verify(postAccessPolicy).validateReadable(post, reporter, true);
+    }
+
+    @Test
+    @DisplayName("POST report preserves visibility failure when either direction is blocked")
+    void validatePostReportable_preservesVisibilityFailureWhenBlockedEitherDirection() {
+        User reporter = user(1L);
+        User author = user(2L);
+        Post post = post(author);
+        when(userBlockService.isEitherDirectionBlocked(1L, 2L)).thenReturn(true);
+        doThrow(new BusinessException(ErrorCode.POST_NOT_FOUND))
+                .when(postAccessPolicy).validateReadable(post, reporter, true);
+
+        assertThatThrownBy(() -> reportTargetPolicy.validatePostReportable(post, reporter))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
     }
 
     @Test
@@ -56,7 +72,7 @@ class ReportTargetPolicyTest {
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_TARGET);
 
         verify(postAccessPolicy, never()).validateReadable(post, reporter, false);
-        verify(userBlockService, never()).hasBlockFromReporterToTarget(1L, 1L);
+        verify(userBlockService, never()).isEitherDirectionBlocked(1L, 1L);
     }
 
     @Test
@@ -67,8 +83,8 @@ class ReportTargetPolicyTest {
         User commentAuthor = user(3L);
         Post post = post(postAuthor);
         Comment comment = comment(post, commentAuthor);
-        when(userBlockService.hasBlockFromReporterToTarget(1L, 2L)).thenReturn(false);
-        when(userBlockService.hasBlockFromReporterToTarget(1L, 3L)).thenReturn(false);
+        when(userBlockService.isEitherDirectionBlocked(1L, 2L)).thenReturn(false);
+        when(userBlockService.isEitherDirectionBlocked(1L, 3L)).thenReturn(false);
 
         reportTargetPolicy.validateCommentReportable(comment, reporter);
 
@@ -82,8 +98,8 @@ class ReportTargetPolicyTest {
         User postAuthor = user(2L);
         User commentAuthor = user(3L);
         Comment comment = comment(post(postAuthor), commentAuthor);
-        when(userBlockService.hasBlockFromReporterToTarget(1L, 2L)).thenReturn(false);
-        when(userBlockService.hasBlockFromReporterToTarget(1L, 3L)).thenReturn(true);
+        when(userBlockService.isEitherDirectionBlocked(1L, 2L)).thenReturn(false);
+        when(userBlockService.isEitherDirectionBlocked(1L, 3L)).thenReturn(true);
 
         assertThatThrownBy(() -> reportTargetPolicy.validateCommentReportable(comment, reporter))
                 .isInstanceOf(BusinessException.class)
@@ -98,14 +114,14 @@ class ReportTargetPolicyTest {
         User reporter = user(1L);
         User postAuthor = user(2L);
         Comment comment = comment(post(postAuthor), reporter);
-        when(userBlockService.hasBlockFromReporterToTarget(1L, 2L)).thenReturn(false);
+        when(userBlockService.isEitherDirectionBlocked(1L, 2L)).thenReturn(false);
 
         assertThatThrownBy(() -> reportTargetPolicy.validateCommentReportable(comment, reporter))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_TARGET);
 
         verify(postAccessPolicy).validateReadable(comment.getPost(), reporter, false);
-        verify(userBlockService, never()).hasBlockFromReporterToTarget(1L, 1L);
+        verify(userBlockService, never()).isEitherDirectionBlocked(1L, 1L);
     }
 
     @Test
@@ -115,15 +131,15 @@ class ReportTargetPolicyTest {
         User postAuthor = user(2L);
         User commentAuthor = user(3L);
         Comment comment = comment(post(postAuthor), commentAuthor);
-        when(userBlockService.hasBlockFromReporterToTarget(1L, 2L)).thenReturn(false);
-        org.mockito.Mockito.doThrow(new BusinessException(ErrorCode.POST_NOT_FOUND))
+        when(userBlockService.isEitherDirectionBlocked(1L, 2L)).thenReturn(false);
+        doThrow(new BusinessException(ErrorCode.POST_NOT_FOUND))
                 .when(postAccessPolicy).validateReadable(comment.getPost(), reporter, false);
 
         assertThatThrownBy(() -> reportTargetPolicy.validateCommentReportable(comment, reporter))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
 
-        verify(userBlockService, never()).hasBlockFromReporterToTarget(1L, 3L);
+        verify(userBlockService, never()).isEitherDirectionBlocked(1L, 3L);
     }
 
     @Test
