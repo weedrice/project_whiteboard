@@ -22,6 +22,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -48,6 +49,7 @@ public class FileService {
     public static final String RELATED_TYPE_EMOTICON_IMAGE = FileRelatedType.EMOTICON_IMAGE;
     private static final int MAX_DELETE_RETRY_COUNT = 5;
     private static final int TEMPORARY_FILE_CLEANUP_BATCH_SIZE = 500;
+    private static final int MAX_ORIGINAL_FILENAME_LENGTH = 255;
 
     private final FileRepository fileRepository;
     private final UserRepository userRepository;
@@ -79,7 +81,7 @@ public class FileService {
         }
 
         String declaredMimeType = multipartFile.getContentType();
-        String originalFilename = multipartFile.getOriginalFilename();
+        String originalFilename = normalizeOriginalFilename(multipartFile.getOriginalFilename());
 
         String detectedMimeType = detectImageMimeType(multipartFile);
         if (detectedMimeType == null) {
@@ -102,7 +104,7 @@ public class FileService {
             return transactionTemplate.execute(status -> {
                 File file = File.builder()
                         .filePath(storedFileName)
-                        .originalName(multipartFile.getOriginalFilename())
+                        .originalName(originalFilename)
                         .fileSize(multipartFile.getSize())
                         .mimeType(detectedMimeType)
                         .uploader(uploader)
@@ -114,6 +116,21 @@ public class FileService {
             fileStorageService.deleteFile(storedFileName);
             throw e;
         }
+    }
+
+    private String normalizeOriginalFilename(String originalFilename) {
+        if (!StringUtils.hasText(originalFilename)) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "파일 이름이 올바르지 않습니다.");
+        }
+
+        String normalizedFilename = StringUtils.getFilename(StringUtils.cleanPath(originalFilename));
+        if (!StringUtils.hasText(normalizedFilename)) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "파일 이름이 올바르지 않습니다.");
+        }
+        if (normalizedFilename.length() > MAX_ORIGINAL_FILENAME_LENGTH) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "파일 이름은 255자를 초과할 수 없습니다.");
+        }
+        return normalizedFilename;
     }
 
     private String getFileExtension(String filename) {

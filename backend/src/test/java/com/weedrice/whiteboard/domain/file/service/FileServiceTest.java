@@ -17,6 +17,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -142,6 +143,85 @@ class FileServiceTest {
 
         verify(userWritableResolver, never()).resolve(any());
         verify(fileStorageService, never()).storeFile(any(), any());
+    }
+
+    @Test
+    @DisplayName("원본 파일명이 255자를 초과하면 스토리지 저장 전에 거절한다")
+    void uploadFile_longOriginalFilename_rejectedBeforeStorage() {
+        Long uploaderId = 1L;
+        byte[] jpegHeader = new byte[] {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, (byte) 0xD9};
+        String longFilename = "a".repeat(252) + ".jpg";
+        MultipartFile multipartFile = new MockMultipartFile("file", longFilename, "image/jpeg", jpegHeader);
+
+        assertThatThrownBy(() -> fileService.uploadFile(uploaderId, multipartFile))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VALIDATION_ERROR);
+
+        verify(userWritableResolver, never()).resolve(any());
+        verify(fileStorageService, never()).storeFile(any(), any());
+        verify(transactionTemplate, never()).execute(any());
+    }
+
+    @Test
+    @DisplayName("빈 원본 파일명은 스토리지 저장 전에 거절한다")
+    void uploadFile_blankOriginalFilename_rejectedBeforeStorage() {
+        Long uploaderId = 1L;
+        byte[] jpegHeader = new byte[] {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, (byte) 0xD9};
+        MultipartFile multipartFile = new MockMultipartFile("file", "   ", "image/jpeg", jpegHeader);
+
+        assertThatThrownBy(() -> fileService.uploadFile(uploaderId, multipartFile))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VALIDATION_ERROR);
+
+        verify(userWritableResolver, never()).resolve(any());
+        verify(fileStorageService, never()).storeFile(any(), any());
+        verify(transactionTemplate, never()).execute(any());
+    }
+
+    @Test
+    @DisplayName("원본 파일명은 255자까지 허용한다")
+    void uploadFile_maxLengthOriginalFilename_success() {
+        Long uploaderId = 1L;
+        User uploader = User.builder().build();
+        byte[] jpegHeader = new byte[] {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, (byte) 0xD9};
+        String maxLengthFilename = "a".repeat(251) + ".jpg";
+        MultipartFile multipartFile = new MockMultipartFile("file", maxLengthFilename, "image/jpeg", jpegHeader);
+
+        when(userWritableResolver.resolve(uploaderId)).thenReturn(uploader);
+        when(fileStorageService.storeFile(multipartFile, "image/jpeg")).thenReturn("storedFileName.jpg");
+        when(transactionTemplate.execute(any())).thenAnswer(invocation -> {
+            org.springframework.transaction.support.TransactionCallback<File> callback = invocation.getArgument(0);
+            return callback.doInTransaction(null);
+        });
+        when(fileRepository.save(any(File.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        FileUploadResponse uploadedFile = fileService.uploadFile(uploaderId, multipartFile);
+
+        assertThat(uploadedFile.getOriginalName()).isEqualTo(maxLengthFilename);
+        verify(fileStorageService).storeFile(multipartFile, "image/jpeg");
+    }
+
+    @Test
+    @DisplayName("원본 파일명 경로 성분은 마지막 파일명으로 정규화해 저장한다")
+    void uploadFile_pathOriginalFilename_savesOnlyFilename() {
+        Long uploaderId = 1L;
+        User uploader = User.builder().build();
+        byte[] jpegHeader = new byte[] {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, (byte) 0xD9};
+        MultipartFile multipartFile = new MockMultipartFile("file", "../avatar.jpg", "image/jpeg", jpegHeader);
+
+        when(userWritableResolver.resolve(uploaderId)).thenReturn(uploader);
+        when(fileStorageService.storeFile(multipartFile, "image/jpeg")).thenReturn("storedFileName.jpg");
+        when(transactionTemplate.execute(any())).thenAnswer(invocation -> {
+            org.springframework.transaction.support.TransactionCallback<File> callback = invocation.getArgument(0);
+            return callback.doInTransaction(null);
+        });
+        when(fileRepository.save(any(File.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        fileService.uploadFile(uploaderId, multipartFile);
+
+        ArgumentCaptor<File> fileCaptor = ArgumentCaptor.forClass(File.class);
+        verify(fileRepository).save(fileCaptor.capture());
+        assertThat(fileCaptor.getValue().getOriginalName()).isEqualTo("avatar.jpg");
     }
 
     @Test
