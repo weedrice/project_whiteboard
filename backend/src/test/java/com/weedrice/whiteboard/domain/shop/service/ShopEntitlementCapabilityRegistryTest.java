@@ -47,8 +47,8 @@ class ShopEntitlementCapabilityRegistryTest {
     }
 
     @Test
-    @DisplayName("Delegates validate, preflight, and grant to the matching handler")
-    void validatePreflightAndGrant_delegateToMatchingHandler() {
+    @DisplayName("Delegates validate, prepare, and grant to the matching handler")
+    void validatePrepareAndGrant_delegateToMatchingHandler() {
         TrackingHandler handler = new TrackingHandler(Set.of("EMOTICON"));
         ShopEntitlementCapabilityRegistry registry = new ShopEntitlementCapabilityRegistry(List.of(handler));
         ShopItem item = ShopItem.builder()
@@ -59,14 +59,18 @@ class ShopEntitlementCapabilityRegistryTest {
                 .build();
 
         registry.validateConfiguration(item);
-        registry.preflightPurchase(1L, item);
-        registry.grant(1L, item);
+        ShopEntitlementCapabilityRegistry.PreparedPurchase preparedPurchase =
+                registry.preparePurchase(1L, item);
+        registry.grant(preparedPurchase);
 
         assertThat(handler.validatedItem).isSameAs(item);
-        assertThat(handler.preflightUserId).isEqualTo(1L);
-        assertThat(handler.preflightItem).isSameAs(item);
-        assertThat(handler.grantedUserId).isEqualTo(1L);
-        assertThat(handler.grantedItem).isSameAs(item);
+        assertThat(handler.prepareUserId).isEqualTo(1L);
+        assertThat(handler.prepareItem).isSameAs(item);
+        assertThat(handler.grantedPreparation).isSameAs(handler.preparation);
+    }
+
+    private enum TestPreparation implements ShopEntitlementHandler.PurchasePreparation {
+        INSTANCE
     }
 
     private record TestHandler(Set<String> supportedItemTypes) implements ShopEntitlementHandler {
@@ -80,21 +84,22 @@ class ShopEntitlementCapabilityRegistryTest {
         }
 
         @Override
-        public void preflightPurchase(Long userId, ShopItem item) {
+        public PurchasePreparation preparePurchase(Long userId, ShopItem item) {
+            return TestPreparation.INSTANCE;
         }
 
         @Override
-        public void grant(Long userId, ShopItem item) {
+        public void grant(PurchasePreparation preparation) {
         }
     }
 
     private static final class TrackingHandler implements ShopEntitlementHandler {
         private final Set<String> supportedItemTypes;
+        private final PurchasePreparation preparation = TestPreparation.INSTANCE;
         private ShopItem validatedItem;
-        private Long preflightUserId;
-        private ShopItem preflightItem;
-        private Long grantedUserId;
-        private ShopItem grantedItem;
+        private Long prepareUserId;
+        private ShopItem prepareItem;
+        private PurchasePreparation grantedPreparation;
 
         private TrackingHandler(Set<String> supportedItemTypes) {
             this.supportedItemTypes = supportedItemTypes;
@@ -111,15 +116,15 @@ class ShopEntitlementCapabilityRegistryTest {
         }
 
         @Override
-        public void preflightPurchase(Long userId, ShopItem item) {
-            preflightUserId = userId;
-            preflightItem = item;
+        public PurchasePreparation preparePurchase(Long userId, ShopItem item) {
+            prepareUserId = userId;
+            prepareItem = item;
+            return preparation;
         }
 
         @Override
-        public void grant(Long userId, ShopItem item) {
-            grantedUserId = userId;
-            grantedItem = item;
+        public void grant(PurchasePreparation preparation) {
+            grantedPreparation = preparation;
         }
     }
 }

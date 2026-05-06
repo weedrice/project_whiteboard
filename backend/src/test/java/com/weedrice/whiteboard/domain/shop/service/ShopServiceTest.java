@@ -57,6 +57,8 @@ class ShopServiceTest {
     @Mock
     private PointService pointService;
     @Mock
+    private ShopEntitlementHandler shopEntitlementHandler;
+    @Mock
     private ShopEntitlementCapabilityRegistry shopEntitlementCapabilityRegistry;
     @Mock
     private SanctionService sanctionService;
@@ -67,6 +69,7 @@ class ShopServiceTest {
     private User user;
     private ShopItem emoticonItem;
     private ShopItem decorationItem;
+    private ShopEntitlementCapabilityRegistry.PreparedPurchase preparedPurchase;
 
     @BeforeEach
     void setUp() {
@@ -92,6 +95,10 @@ class ShopServiceTest {
                 .build();
         ReflectionTestUtils.setField(decorationItem, "itemId", 3L);
         ReflectionTestUtils.setField(decorationItem, "isActive", true);
+
+        preparedPurchase = new ShopEntitlementCapabilityRegistry.PreparedPurchase(
+                shopEntitlementHandler,
+                TestPurchasePreparation.INSTANCE);
     }
 
     @Nested
@@ -166,6 +173,7 @@ class ShopServiceTest {
             when(userRepository.findById(1L)).thenReturn(Optional.of(user));
             when(shopItemRepository.findById(2L)).thenReturn(Optional.of(emoticonItem));
             when(shopEntitlementCapabilityRegistry.supports(emoticonItem)).thenReturn(true);
+            when(shopEntitlementCapabilityRegistry.preparePurchase(1L, emoticonItem)).thenReturn(preparedPurchase);
 
             PurchaseHistory savedPurchaseHistory = PurchaseHistory.builder()
                     .user(user)
@@ -185,14 +193,14 @@ class ShopServiceTest {
                     purchaseHistoryRepository);
             inOrder.verify(sanctionService).validateNotBanned(user);
             inOrder.verify(shopEntitlementCapabilityRegistry).validateConfiguration(emoticonItem);
-            inOrder.verify(shopEntitlementCapabilityRegistry).preflightPurchase(1L, emoticonItem);
+            inOrder.verify(shopEntitlementCapabilityRegistry).preparePurchase(1L, emoticonItem);
             inOrder.verify(pointService).spendPoint(
                     eq(1L),
                     eq(100),
                     eq("Shop item purchase: Premium emoticon"),
                     eq(2L),
                     eq("SHOP_ITEM"));
-            inOrder.verify(shopEntitlementCapabilityRegistry).grant(1L, emoticonItem);
+            inOrder.verify(shopEntitlementCapabilityRegistry).grant(preparedPurchase);
             inOrder.verify(purchaseHistoryRepository).save(any(PurchaseHistory.class));
         }
 
@@ -244,7 +252,7 @@ class ShopServiceTest {
                     .isEqualTo(ErrorCode.ITEM_NOT_AVAILABLE);
 
             verify(pointService, never()).spendPoint(anyLong(), anyInt(), anyString(), anyLong(), anyString());
-            verify(shopEntitlementCapabilityRegistry, never()).grant(anyLong(), any());
+            verify(shopEntitlementCapabilityRegistry, never()).grant(any());
         }
 
         @Test
@@ -255,7 +263,7 @@ class ShopServiceTest {
             when(shopEntitlementCapabilityRegistry.supports(emoticonItem)).thenReturn(true);
             doThrow(new BusinessException(ErrorCode.EMOTICON_ALREADY_PURCHASED))
                     .when(shopEntitlementCapabilityRegistry)
-                    .preflightPurchase(1L, emoticonItem);
+                    .preparePurchase(1L, emoticonItem);
 
             assertThatThrownBy(() -> shopService.purchaseItem(1L, 2L))
                     .isInstanceOf(BusinessException.class)
@@ -263,7 +271,7 @@ class ShopServiceTest {
                     .isEqualTo(ErrorCode.EMOTICON_ALREADY_PURCHASED);
 
             verify(pointService, never()).spendPoint(anyLong(), anyInt(), anyString(), anyLong(), anyString());
-            verify(shopEntitlementCapabilityRegistry, never()).grant(anyLong(), any());
+            verify(shopEntitlementCapabilityRegistry, never()).grant(any());
             verify(purchaseHistoryRepository, never()).save(any());
         }
 
@@ -273,9 +281,10 @@ class ShopServiceTest {
             when(userRepository.findById(1L)).thenReturn(Optional.of(user));
             when(shopItemRepository.findById(2L)).thenReturn(Optional.of(emoticonItem));
             when(shopEntitlementCapabilityRegistry.supports(emoticonItem)).thenReturn(true);
-            org.mockito.Mockito.doThrow(new BusinessException(ErrorCode.EMOTICON_ALREADY_PURCHASED))
+            when(shopEntitlementCapabilityRegistry.preparePurchase(1L, emoticonItem)).thenReturn(preparedPurchase);
+            doThrow(new BusinessException(ErrorCode.EMOTICON_ALREADY_PURCHASED))
                     .when(shopEntitlementCapabilityRegistry)
-                    .grant(1L, emoticonItem);
+                    .grant(preparedPurchase);
 
             assertThatThrownBy(() -> shopService.purchaseItem(1L, 2L))
                     .isInstanceOf(BusinessException.class)
@@ -318,7 +327,7 @@ class ShopServiceTest {
         @DisplayName("Blocks banned users")
         void purchaseItem_bannedUser() {
             when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-            org.mockito.Mockito.doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE))
+            doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE))
                     .when(sanctionService)
                     .validateNotBanned(user);
 
@@ -374,4 +383,9 @@ class ShopServiceTest {
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.ITEM_NOT_AVAILABLE);
     }
+
+    private enum TestPurchasePreparation implements ShopEntitlementHandler.PurchasePreparation {
+        INSTANCE
+    }
+
 }

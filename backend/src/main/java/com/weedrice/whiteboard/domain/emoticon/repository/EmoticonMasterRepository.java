@@ -55,6 +55,7 @@ public interface EmoticonMasterRepository extends JpaRepository<EmoticonMaster, 
             UPDATE EmoticonMaster e
             SET e.purchaseCount = e.purchaseCount + 1
             WHERE e.emoticonId = :emoticonId
+            AND e.isActive = 'Y'
             """)
     int incrementPurchaseCount(@Param("emoticonId") Long emoticonId);
 

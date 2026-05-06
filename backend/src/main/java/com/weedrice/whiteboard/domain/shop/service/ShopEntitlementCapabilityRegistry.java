@@ -29,12 +29,13 @@ public class ShopEntitlementCapabilityRegistry {
         findRequiredHandler(item.getItemType()).validateConfiguration(item);
     }
 
-    public void preflightPurchase(Long userId, ShopItem item) {
-        findRequiredHandler(item.getItemType()).preflightPurchase(userId, item);
+    public PreparedPurchase preparePurchase(Long userId, ShopItem item) {
+        ShopEntitlementHandler handler = findRequiredHandler(item.getItemType());
+        return new PreparedPurchase(handler, handler.preparePurchase(userId, item));
     }
 
-    public void grant(Long userId, ShopItem item) {
-        findRequiredHandler(item.getItemType()).grant(userId, item);
+    public void grant(PreparedPurchase preparedPurchase) {
+        preparedPurchase.handler().grant(preparedPurchase.preparation());
     }
 
     public Set<String> getSupportedItemTypes() {
@@ -52,5 +53,10 @@ public class ShopEntitlementCapabilityRegistry {
     private ShopEntitlementHandler findRequiredHandler(String itemType) {
         return findHandler(itemType)
                 .orElseThrow(() -> new IllegalStateException("No shop entitlement handler registered for itemType=" + itemType));
+    }
+
+    public record PreparedPurchase(
+            ShopEntitlementHandler handler,
+            ShopEntitlementHandler.PurchasePreparation preparation) {
     }
 }

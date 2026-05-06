@@ -115,30 +115,32 @@ class EmoticonEntitlementGrantServiceTest {
     }
 
     @Nested
-    @DisplayName("preflight grant")
-    class PreflightGrant {
+    @DisplayName("prepare grant")
+    class PrepareGrant {
 
         @Test
         @DisplayName("Passes for purchasable emoticons")
-        void preflightGrant_success() {
+        void prepareGrant_success() {
             when(userRepository.findById(1L)).thenReturn(Optional.of(buyer));
             when(emoticonMasterRepository.findByIdWithImages(10L)).thenReturn(Optional.of(emoticon));
             when(emoticonPurchaseRepository.existsByUser_UserIdAndEmoticon_EmoticonId(1L, 10L)).thenReturn(false);
 
-            grantService.preflightGrant(1L, 10L);
+            EmoticonEntitlementGrantService.EmoticonGrantContext context = grantService.prepareGrant(1L, 10L);
 
+            assertThat(context.user()).isSameAs(buyer);
+            assertThat(context.emoticon()).isSameAs(emoticon);
             verify(emoticonPurchaseRepository).existsByUser_UserIdAndEmoticon_EmoticonId(1L, 10L);
             verify(emoticonPurchaseRepository, never()).saveAndFlush(any());
         }
 
         @Test
         @DisplayName("Fails when already purchased")
-        void preflightGrant_duplicatePurchase() {
+        void prepareGrant_duplicatePurchase() {
             when(userRepository.findById(1L)).thenReturn(Optional.of(buyer));
             when(emoticonMasterRepository.findByIdWithImages(10L)).thenReturn(Optional.of(emoticon));
             when(emoticonPurchaseRepository.existsByUser_UserIdAndEmoticon_EmoticonId(1L, 10L)).thenReturn(true);
 
-            assertThatThrownBy(() -> grantService.preflightGrant(1L, 10L))
+            assertThatThrownBy(() -> grantService.prepareGrant(1L, 10L))
                     .isInstanceOf(BusinessException.class)
                     .extracting("errorCode")
                     .isEqualTo(ErrorCode.EMOTICON_ALREADY_PURCHASED);
@@ -179,6 +181,7 @@ class EmoticonEntitlementGrantServiceTest {
         void grant_duplicatePurchase() {
             when(userRepository.findById(1L)).thenReturn(Optional.of(buyer));
             when(emoticonMasterRepository.findByIdWithImages(10L)).thenReturn(Optional.of(emoticon));
+            when(emoticonMasterRepository.incrementPurchaseCount(10L)).thenReturn(1);
             when(emoticonPurchaseRepository.saveAndFlush(any()))
                     .thenThrow(new DataIntegrityViolationException("duplicate"));
 
@@ -188,7 +191,7 @@ class EmoticonEntitlementGrantServiceTest {
                     .isInstanceOf(BusinessException.class)
                     .extracting("errorCode")
                     .isEqualTo(ErrorCode.EMOTICON_ALREADY_PURCHASED);
-            verify(emoticonMasterRepository, never()).incrementPurchaseCount(any());
+            verify(emoticonMasterRepository).incrementPurchaseCount(10L);
             verify(entityManager, never()).refresh(any());
         }
 
@@ -197,7 +200,6 @@ class EmoticonEntitlementGrantServiceTest {
         void grant_purchaseCountUpdateMiss_throwsNotFound() {
             when(userRepository.findById(1L)).thenReturn(Optional.of(buyer));
             when(emoticonMasterRepository.findByIdWithImages(10L)).thenReturn(Optional.of(emoticon));
-            when(emoticonPurchaseRepository.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
             when(emoticonMasterRepository.incrementPurchaseCount(10L)).thenReturn(0);
 
             EmoticonEntitlementGrantService.EmoticonGrantContext context = grantService.prepareGrant(1L, 10L);
@@ -206,6 +208,7 @@ class EmoticonEntitlementGrantServiceTest {
                     .isInstanceOf(BusinessException.class)
                     .extracting("errorCode")
                     .isEqualTo(ErrorCode.EMOTICON_NOT_FOUND);
+            verify(emoticonPurchaseRepository, never()).saveAndFlush(any());
             verify(entityManager, never()).refresh(any());
         }
 

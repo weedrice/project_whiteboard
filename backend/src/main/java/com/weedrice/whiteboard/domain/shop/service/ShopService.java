@@ -83,9 +83,10 @@ public class ShopService {
             throw new BusinessException(ErrorCode.ITEM_NOT_AVAILABLE);
         }
 
-        shopEntitlementCapabilityRegistry.preflightPurchase(userId, item);
+        ShopEntitlementCapabilityRegistry.PreparedPurchase preparedPurchase =
+                shopEntitlementCapabilityRegistry.preparePurchase(userId, item);
         pointService.spendPoint(userId, item.getPrice(), "Shop item purchase: " + item.getItemName(), item.getItemId(), "SHOP_ITEM");
-        shopEntitlementCapabilityRegistry.grant(userId, item);
+        shopEntitlementCapabilityRegistry.grant(preparedPurchase);
 
         PurchaseHistory purchaseHistory = PurchaseHistory.builder()
                 .user(user)

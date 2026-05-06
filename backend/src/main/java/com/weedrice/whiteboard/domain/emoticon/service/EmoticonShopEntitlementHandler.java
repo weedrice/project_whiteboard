@@ -28,14 +28,22 @@ class EmoticonShopEntitlementHandler implements ShopEntitlementHandler {
     }
 
     @Override
-    public void preflightPurchase(Long userId, ShopItem item) {
-        emoticonEntitlementGrantService.preflightGrant(userId, item.getTargetId());
+    public PurchasePreparation preparePurchase(Long userId, ShopItem item) {
+        return new EmoticonPurchasePreparation(
+                emoticonEntitlementGrantService.prepareGrant(userId, item.getTargetId()),
+                item.getPrice());
     }
 
     @Override
-    public void grant(Long userId, ShopItem item) {
-        EmoticonEntitlementGrantService.EmoticonGrantContext grantContext =
-                emoticonEntitlementGrantService.prepareGrant(userId, item.getTargetId());
-        emoticonEntitlementGrantService.grant(grantContext, item.getPrice());
+    public void grant(PurchasePreparation preparation) {
+        EmoticonPurchasePreparation emoticonPreparation = (EmoticonPurchasePreparation) preparation;
+        emoticonEntitlementGrantService.grant(
+                emoticonPreparation.grantContext(),
+                emoticonPreparation.purchasedPrice());
+    }
+
+    private record EmoticonPurchasePreparation(
+            EmoticonEntitlementGrantService.EmoticonGrantContext grantContext,
+            int purchasedPrice) implements PurchasePreparation {
     }
 }

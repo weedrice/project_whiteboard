@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.emoticon.service;
 
 import com.weedrice.whiteboard.domain.emoticon.entity.EmoticonMaster;
 import com.weedrice.whiteboard.domain.shop.entity.ShopItem;
+import com.weedrice.whiteboard.domain.shop.service.ShopEntitlementHandler;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -74,19 +75,24 @@ class EmoticonShopEntitlementHandlerTest {
     }
 
     @Test
-    @DisplayName("Delegates purchase preflight using targetId")
-    void preflightPurchase_delegatesWithTargetId() {
-        handler.preflightPurchase(1L, shopItem);
+    @DisplayName("Prepares purchase using targetId and shop price")
+    void preparePurchase_delegatesWithTargetId() {
+        when(emoticonEntitlementGrantService.prepareGrant(1L, 10L)).thenReturn(grantContext);
 
-        verify(emoticonEntitlementGrantService).preflightGrant(1L, 10L);
+        ShopEntitlementHandler.PurchasePreparation preparation = handler.preparePurchase(1L, shopItem);
+
+        verify(emoticonEntitlementGrantService).prepareGrant(1L, 10L);
+        handler.grant(preparation);
+        verify(emoticonEntitlementGrantService).grant(grantContext, 100);
     }
 
     @Test
-    @DisplayName("Delegates grant using targetId and shop price")
+    @DisplayName("Delegates grant using prepared context and shop price")
     void grant_delegatesContextAndPrice() {
         when(emoticonEntitlementGrantService.prepareGrant(1L, 10L)).thenReturn(grantContext);
 
-        handler.grant(1L, shopItem);
+        ShopEntitlementHandler.PurchasePreparation preparation = handler.preparePurchase(1L, shopItem);
+        handler.grant(preparation);
 
         verify(emoticonEntitlementGrantService).prepareGrant(1L, 10L);
         verify(emoticonEntitlementGrantService).grant(grantContext, 100);

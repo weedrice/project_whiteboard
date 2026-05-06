@@ -5,6 +5,9 @@ import com.weedrice.whiteboard.domain.shop.entity.ShopItem;
 import java.util.Set;
 
 public interface ShopEntitlementHandler {
+    interface PurchasePreparation {
+    }
+
     Set<String> getSupportedItemTypes();
 
     default boolean supports(String itemType) {
@@ -13,7 +16,7 @@ public interface ShopEntitlementHandler {
 
     void validateConfiguration(ShopItem item);
 
-    void preflightPurchase(Long userId, ShopItem item);
+    PurchasePreparation preparePurchase(Long userId, ShopItem item);
 
-    void grant(Long userId, ShopItem item);
+    void grant(PurchasePreparation preparation);
 }

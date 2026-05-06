@@ -36,20 +36,11 @@ class EmoticonEntitlementGrantService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.EMOTICON_NOT_FOUND));
 
         validatePurchasable(userId, emoticon);
-
-        return new EmoticonGrantContext(user, emoticon);
-    }
-
-    void preflightGrant(Long userId, Long emoticonId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        EmoticonMaster emoticon = emoticonMasterRepository.findByIdWithImages(emoticonId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.EMOTICON_NOT_FOUND));
-
-        validatePurchasable(user.getUserId(), emoticon);
         if (emoticonPurchaseRepository.existsByUser_UserIdAndEmoticon_EmoticonId(user.getUserId(), emoticonId)) {
             throw new BusinessException(ErrorCode.EMOTICON_ALREADY_PURCHASED);
         }
+
+        return new EmoticonGrantContext(user, emoticon);
     }
 
     void validateTargetConfiguration(Long emoticonId) {
@@ -67,6 +58,11 @@ class EmoticonEntitlementGrantService {
 
     @Transactional
     EmoticonMaster grant(EmoticonGrantContext grantContext, int purchasedPrice) {
+        int updatedCount = emoticonMasterRepository.incrementPurchaseCount(grantContext.emoticon().getEmoticonId());
+        if (updatedCount == 0) {
+            throw new BusinessException(ErrorCode.EMOTICON_NOT_FOUND);
+        }
+
         EmoticonPurchase purchase = EmoticonPurchase.builder()
                 .user(grantContext.user())
                 .emoticon(grantContext.emoticon())
@@ -79,10 +75,6 @@ class EmoticonEntitlementGrantService {
             throw new BusinessException(ErrorCode.EMOTICON_ALREADY_PURCHASED);
         }
 
-        int updatedCount = emoticonMasterRepository.incrementPurchaseCount(grantContext.emoticon().getEmoticonId());
-        if (updatedCount == 0) {
-            throw new BusinessException(ErrorCode.EMOTICON_NOT_FOUND);
-        }
         entityManager.refresh(grantContext.emoticon());
         return grantContext.emoticon();
     }
