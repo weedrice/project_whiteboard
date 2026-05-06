@@ -137,20 +137,23 @@ class PostServiceTest {
                 commentRepository,
                 boardAccessPolicy);
         postAccessPolicy = new PostAccessPolicy(boardAccessPolicy);
+        PostReadContextResolver postReadContextResolver = new PostReadContextResolver(
+                userRepository,
+                userBlockService,
+                adminRepository);
         postImageAttachmentReader = new PostImageAttachmentReader(fileService);
         ReactionWriter reactionWriter = new ReactionWriter();
         postAuthorCommandPolicy = new PostAuthorCommandPolicy(boardAccessPolicy, boardCategoryRepository);
         viewHistoryCommandService = new ViewHistoryCommandService(viewHistoryRepository);
         postDetailReadService = new PostDetailReadService(
                 postRepository,
-                userRepository,
                 postLikeRepository,
                 scrapRepository,
                 viewHistoryRepository,
                 viewHistoryCommandService,
                 tagAssignmentService,
                 postImageAttachmentReader,
-                userBlockService,
+                postReadContextResolver,
                 postAccessPolicy,
                 boardAccessPolicy);
         postDraftService = new PostDraftService(
@@ -171,7 +174,7 @@ class PostServiceTest {
                 viewHistoryRepository,
                 viewHistoryCommandService,
                 commentRepository,
-                userBlockService,
+                postReadContextResolver,
                 agentOwnershipService,
                 sanctionService,
                 eventPublisher,
@@ -205,17 +208,16 @@ class PostServiceTest {
                 postVersionRepository,
                 tagAssignmentService,
                 postImageAttachmentReader,
-                userBlockService,
+                postReadContextResolver,
                 postSummaryAssembler,
                 postInteractionService,
                 postAccessPolicy,
-                boardAccessPolicy,
-                adminRepository);
+                boardAccessPolicy);
         postService = new PostService(
                 postRepository,
                 boardRepository,
                 userRepository,
-                userBlockService,
+                postReadContextResolver,
                 postSummaryAssembler,
                 postDetailReadService,
                 postDraftService,
@@ -571,7 +573,8 @@ class PostServiceTest {
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(2L)).thenReturn(Collections.emptyList());
         when(userRepository.findById(2L)).thenReturn(Optional.of(otherUser));
-        when(adminRepository.existsByUserAndBoardAndIsActive(otherUser, board, true)).thenReturn(false);
+        when(adminRepository.findByUserAndBoard_BoardIdInAndIsActive(otherUser, List.of(1L), true))
+                .thenReturn(Collections.emptyList());
 
         assertThatThrownBy(() -> postService.getPostById(1L, 2L))
                 .isInstanceOf(BusinessException.class)
@@ -732,9 +735,6 @@ class PostServiceTest {
     @Test
     @DisplayName("Trending post page with missing user returns USER_NOT_FOUND")
     void getTrendingPostsPage_missingUser_throwsUserNotFound() {
-        when(userBlockService.getBlockedUserIdsEitherDirection(99L)).thenReturn(Collections.emptyList());
-        when(postRepository.findTrendingPosts(any(LocalDateTime.class), anyList(), anyLong(), anyInt()))
-                .thenReturn(List.of(post));
         when(userRepository.findById(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> postService.getTrendingPostsPage(PageRequest.of(0, 10), 99L, "24h"))
@@ -1930,11 +1930,7 @@ class PostServiceTest {
     @DisplayName("Latest posts by board with missing user returns USER_NOT_FOUND")
     void getLatestPostsByBoard_missingUser_throwsUserNotFound() {
         when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
-        when(userBlockService.getBlockedUserIdsEitherDirection(99L)).thenReturn(Collections.emptyList());
         when(userRepository.findById(99L)).thenReturn(Optional.empty());
-        when(postRepository.findByBoardIdAndCategoryId(eq(1L), isNull(), isNull(), isNull(), anyList(), eq(false), eq(99L),
-                any(Pageable.class)))
-                .thenReturn(new PageImpl<>(List.of(post)));
 
         assertThatThrownBy(() -> postService.getLatestPostsByBoard(1L, 5, 99L))
                 .isInstanceOf(BusinessException.class)
@@ -2342,7 +2338,8 @@ class PostServiceTest {
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(2L)).thenReturn(Collections.emptyList());
         when(userRepository.findById(2L)).thenReturn(Optional.of(otherUser));
-        when(adminRepository.existsByUserAndBoardAndIsActive(otherUser, board, true)).thenReturn(true);
+        when(adminRepository.findByUserAndBoard_BoardIdInAndIsActive(otherUser, List.of(1L), true))
+                .thenReturn(List.of(admin));
         when(viewHistoryRepository.findByUserAndPost(otherUser, post))
                 .thenReturn(Optional.empty())
                 .thenReturn(Optional.of(new ViewHistory(otherUser, post)));

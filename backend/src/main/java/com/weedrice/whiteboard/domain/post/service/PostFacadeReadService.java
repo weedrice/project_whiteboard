@@ -1,8 +1,5 @@
 package com.weedrice.whiteboard.domain.post.service;
 
-import com.weedrice.whiteboard.domain.admin.entity.Admin;
-import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
-import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
 import com.weedrice.whiteboard.domain.post.dto.PostResponse;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
@@ -14,7 +11,6 @@ import com.weedrice.whiteboard.domain.post.repository.PostVersionRepository;
 import com.weedrice.whiteboard.domain.tag.service.TagAssignmentService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
-import com.weedrice.whiteboard.domain.user.service.UserBlockService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -23,7 +19,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -41,12 +36,11 @@ public class PostFacadeReadService {
     private final PostVersionRepository postVersionRepository;
     private final TagAssignmentService tagAssignmentService;
     private final PostImageAttachmentReader postImageAttachmentReader;
-    private final UserBlockService userBlockService;
+    private final PostReadContextResolver postReadContextResolver;
     private final PostSummaryAssembler postSummaryAssembler;
     private final PostInteractionService postInteractionService;
     private final PostAccessPolicy postAccessPolicy;
     private final BoardAccessPolicy boardAccessPolicy;
-    private final AdminRepository adminRepository;
 
     public PostResponse getInquiryPostResponseForAdmin(@NonNull Long postId) {
         Post post = postRepository.findByIdWithRelations(postId)
@@ -93,14 +87,12 @@ public class PostFacadeReadService {
             return Collections.emptyMap();
         }
 
-        User viewer = resolveViewer(currentUserId);
-        Set<Long> blockedUserIds = resolveBlockedUserIds(currentUserId);
         List<Long> distinctPostIds = postIds.stream().distinct().toList();
         List<Post> posts = postRepository.findByPostIdInAndIsDeletedFalse(distinctPostIds);
-        Set<Long> activeAdminBoardIds = resolveActiveAdminBoardIds(viewer, posts);
+        PostReadContext context = postReadContextResolver.resolveForExistingUserPosts(currentUserId, posts);
 
         Map<Long, Post> postsById = posts.stream()
-                .filter(post -> canReadPostSummary(post, viewer, blockedUserIds, activeAdminBoardIds))
+                .filter(post -> canReadPostSummary(post, context))
                 .collect(Collectors.toMap(Post::getPostId, post -> post));
 
         List<Post> orderedPosts = postIds.stream()
@@ -116,65 +108,13 @@ public class PostFacadeReadService {
                         LinkedHashMap::new));
     }
 
-    private User resolveViewer(Long currentUserId) {
-        if (currentUserId == null) {
-            return null;
-        }
-        return userRepository.findById(currentUserId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-    }
-
-    private Set<Long> resolveBlockedUserIds(Long currentUserId) {
-        if (currentUserId == null) {
-            return Collections.emptySet();
-        }
-
-        List<Long> blockedUserIds = userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(currentUserId);
-        if (blockedUserIds == null || blockedUserIds.isEmpty()) {
-            return Collections.emptySet();
-        }
-        return new HashSet<>(blockedUserIds);
-    }
-
-    private Set<Long> resolveActiveAdminBoardIds(User viewer, List<Post> posts) {
-        if (viewer == null || posts == null || posts.isEmpty() || Boolean.TRUE.equals(viewer.getIsSuperAdmin())) {
-            return Collections.emptySet();
-        }
-
-        List<Long> boardIds = posts.stream()
-                .filter(this::requiresAdminAccessForSummary)
-                .map(Post::getBoard)
-                .filter(Objects::nonNull)
-                .filter(board -> board.getCreator() == null
-                        || !Objects.equals(board.getCreator().getUserId(), viewer.getUserId()))
-                .map(Board::getBoardId)
-                .filter(Objects::nonNull)
-                .distinct()
-                .toList();
-        if (boardIds.isEmpty()) {
-            return Collections.emptySet();
-        }
-
-        return adminRepository.findByUserAndBoard_BoardIdInAndIsActive(viewer, boardIds, true).stream()
-                .map(Admin::getBoard)
-                .filter(Objects::nonNull)
-                .map(Board::getBoardId)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toSet());
-    }
-
-    private boolean requiresAdminAccessForSummary(Post post) {
-        Board board = post.getBoard();
-        return board != null
-                && (!Boolean.TRUE.equals(board.getIsActive())
-                || !Boolean.TRUE.equals(board.getIsPublic())
-                || Boolean.TRUE.equals(post.getIsSecret()));
-    }
-
-    private boolean canReadPostSummary(Post post, User viewer, Set<Long> blockedUserIds, Set<Long> activeAdminBoardIds) {
-        boolean authorBlocked = viewer != null && blockedUserIds.contains(post.getUser().getUserId());
+    private boolean canReadPostSummary(Post post, PostReadContext context) {
         try {
-            postAccessPolicy.validateReadable(post, viewer, authorBlocked, activeAdminBoardIds);
+            postAccessPolicy.validateReadable(
+                    post,
+                    context.viewer(),
+                    context.isAuthorBlocked(post),
+                    context.activeAdminBoardIds());
             return true;
         } catch (BusinessException ex) {
             if (ErrorCode.POST_NOT_FOUND.equals(ex.getErrorCode())) {

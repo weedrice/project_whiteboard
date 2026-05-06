@@ -17,7 +17,6 @@ import com.weedrice.whiteboard.domain.post.entity.*;
 import com.weedrice.whiteboard.domain.post.repository.*;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
-import com.weedrice.whiteboard.domain.user.service.UserBlockService; // Import UserBlockService
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -53,7 +52,7 @@ public class PostService {
     private final PostRepository postRepository;
     private final BoardRepository boardRepository;
     private final UserRepository userRepository;
-    private final UserBlockService userBlockService;
+    private final PostReadContextResolver postReadContextResolver;
     private final PostSummaryAssembler postSummaryAssembler;
     private final PostDetailReadService postDetailReadService;
     private final PostDraftService postDraftService;
@@ -72,10 +71,17 @@ public class PostService {
             throw new BusinessException(ErrorCode.BOARD_NOT_FOUND);
         }
 
-        validateBoardReadable(board, currentUserId);
-        boolean includeSecret = canViewSecretPosts(board, currentUserId);
+        PostReadContext context = postReadContextResolver.resolveForBoards(currentUserId, List.of(board));
+        validateBoardReadable(board, context);
+        boolean includeSecret = context.canViewSecretPosts(board, boardAccessPolicy);
 
-        Page<Post> posts = this.getPosts(board.getBoardId(), categoryId, keyword, minLikes, currentUserId, includeSecret,
+        Page<Post> posts = this.getPosts(
+                board.getBoardId(),
+                categoryId,
+                keyword,
+                minLikes,
+                context,
+                includeSecret,
                 pageable);
         return postSummaryAssembler.assembleBoardPage(posts, posts.getPageable(), true, true);
     }
@@ -92,9 +98,10 @@ public class PostService {
             throw new BusinessException(ErrorCode.BOARD_NOT_FOUND);
         }
 
-        validateBoardReadable(board, currentUserId);
-        boolean includeSecret = canViewSecretPosts(board, currentUserId);
-        return this.getNotices(board.getBoardId(), currentUserId, includeSecret);
+        PostReadContext context = postReadContextResolver.resolveForBoards(currentUserId, List.of(board));
+        validateBoardReadable(board, context);
+        boolean includeSecret = context.canViewSecretPosts(board, boardAccessPolicy);
+        return this.getNotices(board.getBoardId(), context, includeSecret);
     }
 
     @Transactional
@@ -110,10 +117,22 @@ public class PostService {
     // --- boardId 湲곕컲 public/private 硫붿꽌??---
     public Page<Post> getPosts(Long boardId, Long categoryId, String keyword, Integer minLikes, Long currentUserId,
             Boolean includeSecret, @NonNull Pageable pageable) {
+        return getPosts(boardId, categoryId, keyword, minLikes, postReadContextResolver.resolveQueryParameters(currentUserId),
+                includeSecret, pageable);
+    }
+
+    private Page<Post> getPosts(Long boardId, Long categoryId, String keyword, Integer minLikes,
+            PostReadContext context, Boolean includeSecret, @NonNull Pageable pageable) {
         Pageable safePageable = normalizeBoardPostPageable(pageable);
-        List<Long> blockedUserIds = resolveBlockedUserIds(currentUserId);
-        return postRepository.findByBoardIdAndCategoryId(boardId, categoryId, keyword, minLikes, blockedUserIds, includeSecret,
-                currentUserId, safePageable);
+        return postRepository.findByBoardIdAndCategoryId(
+                boardId,
+                categoryId,
+                keyword,
+                minLikes,
+                context.blockedUserIds(),
+                includeSecret,
+                context.viewerUserId(),
+                safePageable);
     }
 
     private Pageable normalizeBoardPostPageable(Pageable pageable) {
@@ -130,14 +149,23 @@ public class PostService {
     }
 
     public List<Post> getNotices(Long boardId, Long currentUserId, Boolean includeSecret) {
-        List<Long> blockedUserIds = resolveBlockedUserIds(currentUserId);
-        return postRepository.findNoticesByBoardId(boardId, true, false, blockedUserIds, includeSecret, currentUserId);
+        return getNotices(boardId, postReadContextResolver.resolveQueryParameters(currentUserId), includeSecret);
+    }
+
+    private List<Post> getNotices(Long boardId, PostReadContext context, Boolean includeSecret) {
+        return postRepository.findNoticesByBoardId(
+                boardId,
+                true,
+                false,
+                context.blockedUserIds(),
+                includeSecret,
+                context.viewerUserId());
     }
 
     public Page<PostSummary> getPostsByTag(Long tagId, Long currentUserId, @NonNull Pageable pageable) {
         Pageable safePageable = sanitizeTagPostPageable(pageable);
-        List<Long> blockedUserIds = resolveBlockedUserIds(currentUserId);
-        Page<Post> postPage = postRepository.findByTagId(tagId, blockedUserIds, safePageable);
+        PostReadContext context = postReadContextResolver.resolve(currentUserId);
+        Page<Post> postPage = postRepository.findByTagId(tagId, context.blockedUserIds(), safePageable);
 
         List<Long> postIds = postPage.getContent().stream()
                 .map(Post::getPostId)
@@ -199,24 +227,24 @@ public class PostService {
     public List<PostSummary> getTrendingPosts(Pageable pageable, Long currentUserId, String period) {
         LocalDateTime since = resolveTrendingSince(period);
 
-        List<Long> blockedUserIds = resolveBlockedUserIds(currentUserId);
+        PostReadContext context = postReadContextResolver.resolve(currentUserId);
 
-        List<Post> posts = postRepository.findTrendingPosts(since, blockedUserIds, pageable);
+        List<Post> posts = postRepository.findTrendingPosts(since, context.blockedUserIds(), pageable);
         return postSummaryAssembler.assembleTrendingPosts(posts, currentUserId);
     }
 
     public Page<PostSummary> getTrendingPostsPage(Pageable pageable, Long currentUserId, String period) {
         LocalDateTime since = resolveTrendingSince(period);
 
-        List<Long> blockedUserIds = resolveBlockedUserIds(currentUserId);
+        PostReadContext context = postReadContextResolver.resolve(currentUserId);
 
         List<Post> fetchedPosts = postRepository.findTrendingPosts(
                 since,
-                blockedUserIds,
+                context.blockedUserIds(),
                 pageable.getOffset(),
                 pageable.getPageSize());
         List<PostSummary> summaries = postSummaryAssembler.assembleTrendingPosts(fetchedPosts, currentUserId);
-        long total = postRepository.countTrendingPosts(since, blockedUserIds);
+        long total = postRepository.countTrendingPosts(since, context.blockedUserIds());
         return new PageImpl<>(summaries, pageable, total);
     }
 
@@ -408,34 +436,22 @@ public class PostService {
         }
     }
 
-    private void validateBoardReadable(Board board, Long userId) {
-        User user = null;
-        if (userId != null) {
-            user = userRepository.findById(userId)
-                    .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+    private void validateBoardReadable(Board board, PostReadContext context) {
+        if (!boardAccessPolicy.canReadBoard(board, context.viewer(), context.activeAdminBoardIds())) {
+            throw new BusinessException(ErrorCode.BOARD_NOT_FOUND);
         }
-        boardAccessPolicy.validateReadable(board, user);
-    }
-
-    private boolean canViewSecretPosts(Board board, Long userId) {
-        if (userId == null) {
-            return false;
-        }
-        User user = userRepository.findById(userId).orElse(null);
-        return boardAccessPolicy.canViewSecretPosts(board, user);
     }
 
     public List<PostSummary> getLatestPostsByBoard(Long boardId, int limit, Long currentUserId) {
         Pageable pageable = PageRequest.of(0, limit, Sort.by(Sort.Direction.DESC, "createdAt"));
         Board board = boardRepository.findById(boardId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
-        boolean includeSecret = canViewSecretPosts(board, currentUserId);
+        PostReadContext context = postReadContextResolver.resolveForBoards(currentUserId, List.of(board));
+        boolean includeSecret = context.canViewSecretPosts(board, boardAccessPolicy);
 
-        List<Long> blockedUserIds = resolveBlockedUserIds(currentUserId);
-
-        Page<Post> postPage = postRepository.findByBoardIdAndCategoryId(boardId, null, null, null, blockedUserIds,
+        Page<Post> postPage = postRepository.findByBoardIdAndCategoryId(boardId, null, null, null, context.blockedUserIds(),
                 includeSecret,
-                currentUserId, pageable);
+                context.viewerUserId(), pageable);
         return postSummaryAssembler.assembleLatestPosts(postPage.getContent(), currentUserId);
     }
 
@@ -446,13 +462,6 @@ public class PostService {
 
     public Map<Long, PostSummary> getPostSummariesByIds(List<Long> postIds, Long currentUserId) {
         return postFacadeReadService.getPostSummariesByIds(postIds, currentUserId);
-    }
-
-    private List<Long> resolveBlockedUserIds(Long currentUserId) {
-        if (currentUserId == null) {
-            return null;
-        }
-        return userBlockService.getBlockedUserIdsEitherDirection(currentUserId);
     }
 
 }

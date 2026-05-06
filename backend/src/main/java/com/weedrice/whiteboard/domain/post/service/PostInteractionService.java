@@ -22,7 +22,6 @@ import com.weedrice.whiteboard.domain.post.repository.ViewHistoryRepository;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
-import com.weedrice.whiteboard.domain.user.service.UserBlockService;
 import com.weedrice.whiteboard.global.common.service.ReactionWriter;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -39,8 +38,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -64,7 +61,7 @@ public class PostInteractionService {
     private final ViewHistoryRepository viewHistoryRepository;
     private final ViewHistoryCommandService viewHistoryCommandService;
     private final CommentRepository commentRepository;
-    private final UserBlockService userBlockService;
+    private final PostReadContextResolver postReadContextResolver;
     private final AgentOwnershipService agentOwnershipService;
     private final SanctionService sanctionService;
     private final ApplicationEventPublisher eventPublisher;
@@ -80,8 +77,9 @@ public class PostInteractionService {
 
     @Transactional
     public Post getPostById(@NonNull Long postId, Long userId, boolean incrementView) {
-        User viewer = getViewer(userId);
-        Post post = getReadablePost(postId, viewer);
+        PostReadContext context = postReadContextResolver.resolveForExistingUser(userId);
+        User viewer = context.viewer();
+        Post post = getReadablePost(postId, context);
 
         if (incrementView) {
             postRepository.incrementViewCount(postId);
@@ -114,8 +112,7 @@ public class PostInteractionService {
         if (userId == null) {
             return null;
         }
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        User user = postReadContextResolver.resolveForExistingUser(userId).viewer();
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
         return viewHistoryRepository.findByUserAndPost(user, post).orElse(null);
@@ -123,8 +120,9 @@ public class PostInteractionService {
 
     @Transactional
     public void updateViewHistory(@NonNull Long userId, @NonNull Long postId, ViewHistoryRequest request) {
-        User user = getViewer(userId);
-        Post post = getReadablePost(postId, user);
+        PostReadContext context = postReadContextResolver.resolveForExistingUser(userId);
+        User user = context.viewer();
+        Post post = getReadablePost(postId, context);
         long durationMs = resolveDurationMs(request);
         Comment lastReadComment = resolveLastReadComment(postId, request.getLastReadCommentId());
         ViewHistory viewHistory = viewHistoryCommandService.getOrCreateForUpdate(user, post);
@@ -139,7 +137,7 @@ public class PostInteractionService {
 
     @Transactional
     public void incrementViewCount(@NonNull Long postId, Long userId) {
-        Post post = getReadablePost(postId, getViewer(userId));
+        Post post = getReadablePost(postId, postReadContextResolver.resolveForExistingUser(userId));
         postRepository.incrementViewCount(post.getPostId());
     }
 
@@ -225,7 +223,7 @@ public class PostInteractionService {
                 DEFAULT_SCRAP_PAGE_SIZE,
                 DEFAULT_SCRAP_SORT,
                 ALLOWED_SCRAP_SORTS);
-        Set<Long> blockedUserIds = resolveBlockedUserIds(userId);
+        Set<Long> blockedUserIds = postReadContextResolver.resolveForExistingUser(userId).blockedUserIdSet();
         List<Long> blockedUserIdParams = blockedUserIds.isEmpty()
                 ? List.of(-1L)
                 : new ArrayList<>(blockedUserIds);
@@ -241,7 +239,7 @@ public class PostInteractionService {
     public Page<PostSummary> getRecentlyViewedPosts(@NonNull Long userId, @NonNull Pageable pageable) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        Set<Long> blockedUserIds = resolveBlockedUserIds(userId);
+        Set<Long> blockedUserIds = postReadContextResolver.resolveForExistingUser(userId).blockedUserIdSet();
         List<Long> blockedUserIdParams = blockedUserIds.isEmpty()
                 ? List.of(-1L)
                 : new ArrayList<>(blockedUserIds);
@@ -293,29 +291,20 @@ public class PostInteractionService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_INPUT_VALUE));
     }
 
-    private User getViewer(Long userId) {
-        if (userId == null) {
-            return null;
-        }
-        return userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-    }
-
-    private Post getReadablePost(@NonNull Long postId, User viewer) {
+    private Post getReadablePost(@NonNull Long postId, PostReadContext context) {
         Post post = postRepository.findByIdWithRelations(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
-        validateReadable(post, viewer);
+        PostReadContext enrichedContext = postReadContextResolver.withAdminBoardIds(context, List.of(post.getBoard()));
+        validateReadable(post, enrichedContext);
         return post;
     }
 
-    private void validateReadable(Post post, User viewer) {
-        boolean authorBlocked = false;
-        if (viewer != null) {
-            List<Long> blockedUserIds = userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(
-                    viewer.getUserId());
-            authorBlocked = blockedUserIds != null && blockedUserIds.contains(post.getUser().getUserId());
-        }
-        postAccessPolicy.validateReadable(post, viewer, authorBlocked);
+    private void validateReadable(Post post, PostReadContext context) {
+        postAccessPolicy.validateReadable(
+                post,
+                context.viewer(),
+                context.isAuthorBlocked(post),
+                context.activeAdminBoardIds());
     }
 
     private User getWritableUser(Long userId) {
@@ -340,16 +329,4 @@ public class PostInteractionService {
         return user.getDisplayName();
     }
 
-    private Set<Long> resolveBlockedUserIds(Long currentUserId) {
-        if (currentUserId == null) {
-            return Collections.emptySet();
-        }
-
-        List<Long> blockedUserIds = userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(
-                currentUserId);
-        if (blockedUserIds == null || blockedUserIds.isEmpty()) {
-            return Collections.emptySet();
-        }
-        return new HashSet<>(blockedUserIds);
-    }
 }
