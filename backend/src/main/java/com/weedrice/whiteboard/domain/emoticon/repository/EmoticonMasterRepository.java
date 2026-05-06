@@ -1,10 +1,12 @@
 package com.weedrice.whiteboard.domain.emoticon.repository;
 
 import com.weedrice.whiteboard.domain.emoticon.entity.EmoticonMaster;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -49,6 +51,10 @@ public interface EmoticonMasterRepository extends JpaRepository<EmoticonMaster, 
     // 이모티콘 상세 조회 (이미지 포함)
     @Query("SELECT e FROM EmoticonMaster e LEFT JOIN FETCH e.images LEFT JOIN FETCH e.creator WHERE e.emoticonId = :emoticonId")
     Optional<EmoticonMaster> findByIdWithImages(@Param("emoticonId") Long emoticonId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT e FROM EmoticonMaster e WHERE e.emoticonId = :emoticonId")
+    Optional<EmoticonMaster> findByIdForUpdate(@Param("emoticonId") Long emoticonId);
 
     @Modifying(flushAutomatically = true)
     @Query("""

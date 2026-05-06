@@ -151,7 +151,7 @@ class EmoticonCommandService {
     }
 
     EmoticonMasterDto addImage(Long userId, Long emoticonId, Long fileId) {
-        EmoticonMaster master = emoticonMasterRepository.findByIdWithImages(emoticonId)
+        EmoticonMaster master = emoticonMasterRepository.findByIdForUpdate(emoticonId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.EMOTICON_NOT_FOUND));
 
         validateWritableOwner(master, userId);

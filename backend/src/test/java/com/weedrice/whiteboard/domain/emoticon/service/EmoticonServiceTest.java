@@ -749,14 +749,14 @@ class EmoticonServiceTest {
         @DisplayName("이미지 추가 성공")
         void addImage_success() {
             givenWritableUser();
-            when(emoticonMasterRepository.findByIdWithImages(1L)).thenReturn(Optional.of(emoticonMaster));
+            when(emoticonMasterRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(emoticonMaster));
 
             EmoticonMasterDto result = emoticonService.addImage(1L, 1L, 30L);
 
             assertThat(result).isNotNull();
             assertThat(result.getImages()).hasSize(1);
             assertThat(result.getImages().get(0).getSortOrder()).isEqualTo(0);
-            verify(emoticonMasterRepository).findByIdWithImages(1L);
+            verify(emoticonMasterRepository).findByIdForUpdate(1L);
         }
 
         @Test
@@ -776,7 +776,7 @@ class EmoticonServiceTest {
             ReflectionTestUtils.setField(lastImage, "imageId", 20L);
             ReflectionTestUtils.setField(emoticonMaster, "images", new java.util.ArrayList<>(List.of(firstImage, lastImage)));
             givenWritableUser();
-            when(emoticonMasterRepository.findByIdWithImages(1L)).thenReturn(Optional.of(emoticonMaster));
+            when(emoticonMasterRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(emoticonMaster));
 
             EmoticonMasterDto result = emoticonService.addImage(1L, 1L, 30L);
 
@@ -786,7 +786,7 @@ class EmoticonServiceTest {
         @Test
         @DisplayName("이미지 추가 - 이모티콘 없으면 EMOTICON_NOT_FOUND")
         void addImage_emoticonNotFound() {
-            when(emoticonMasterRepository.findByIdWithImages(999L)).thenReturn(Optional.empty());
+            when(emoticonMasterRepository.findByIdForUpdate(999L)).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> emoticonService.addImage(1L, 999L, 30L))
                     .isInstanceOf(BusinessException.class)
@@ -796,7 +796,7 @@ class EmoticonServiceTest {
         @Test
         @DisplayName("이미지 추가 - 소유자가 아니면 FORBIDDEN")
         void addImage_forbidden() {
-            when(emoticonMasterRepository.findByIdWithImages(1L)).thenReturn(Optional.of(emoticonMaster));
+            when(emoticonMasterRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(emoticonMaster));
 
             assertThatThrownBy(() -> emoticonService.addImage(2L, 1L, 30L))
                     .isInstanceOf(BusinessException.class)
@@ -809,7 +809,7 @@ class EmoticonServiceTest {
         @Test
         @DisplayName("이미지 추가 - 제재 소유자는 USER_NOT_ACTIVE")
         void addImage_bannedOwner() {
-            when(emoticonMasterRepository.findByIdWithImages(1L)).thenReturn(Optional.of(emoticonMaster));
+            when(emoticonMasterRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(emoticonMaster));
             when(userWritableResolver.resolve(1L))
                     .thenThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE));
 
