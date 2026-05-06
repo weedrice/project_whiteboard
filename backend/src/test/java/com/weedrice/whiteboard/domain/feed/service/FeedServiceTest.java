@@ -89,8 +89,8 @@ class FeedServiceTest {
     }
 
     @Test
-    @DisplayName("POST feed without resolved post summary is excluded")
-    void getUserFeeds_excludesStalePostFeedWhenSummaryMissing() {
+    @DisplayName("POST feed without resolved post summary keeps page metadata and null post")
+    void getUserFeeds_keepsPageMetadataWhenSummaryMissing() {
         Long userId = 1L;
         User user = User.builder().build();
         Pageable pageable = PageRequest.of(0, 10);
@@ -109,10 +109,14 @@ class FeedServiceTest {
 
         FeedResponse response = feedService.getUserFeeds(userId, pageable);
 
-        assertThat(response.getContent()).hasSize(1);
-        assertThat(response.getContent().getFirst().getContentId()).isEqualTo(202L);
-        assertThat(response.getContent().getFirst().getPost()).isEqualTo(validPost);
+        assertThat(response.getContent()).hasSize(2);
+        assertThat(response.getContent().get(0).getContentId()).isEqualTo(101L);
+        assertThat(response.getContent().get(0).getPost()).isNull();
+        assertThat(response.getContent().get(1).getContentId()).isEqualTo(202L);
+        assertThat(response.getContent().get(1).getPost()).isEqualTo(validPost);
         assertThat(response.getTotalElements()).isEqualTo(2);
+        assertThat(response.getTotalPages()).isEqualTo(1);
+        assertThat(response.isHasNext()).isFalse();
     }
 
     @Test

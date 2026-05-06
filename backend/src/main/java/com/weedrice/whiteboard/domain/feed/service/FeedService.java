@@ -38,8 +38,8 @@ public class FeedService {
         List<Long> blockedUserIds = userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(userId);
         Page<UserFeed> feedPage = userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(user, blockedUserIds, pageable);
         Map<Long, PostSummary> postSummariesById = resolvePostSummaries(feedPage, userId);
-        List<UserFeed> resolvableFeeds = filterResolvableFeeds(feedPage, postSummariesById, userId);
-        return FeedResponse.from(feedPage, resolvableFeeds, postSummariesById);
+        logUnresolvedPostFeeds(feedPage, postSummariesById, userId);
+        return FeedResponse.from(feedPage, feedPage.getContent(), postSummariesById);
     }
 
     @Transactional
@@ -58,16 +58,15 @@ public class FeedService {
         return postService.getPostSummariesByIds(postIds, userId);
     }
 
-    private List<UserFeed> filterResolvableFeeds(Page<UserFeed> feedPage, Map<Long, PostSummary> postSummariesById,
-                                                 Long userId) {
-        List<UserFeed> resolvableFeeds = feedPage.getContent().stream()
-                .filter(feed -> !FeedGenerationService.CONTENT_TYPE_POST.equals(feed.getContentType())
-                        || postSummariesById.containsKey(feed.getContentId()))
-                .toList();
-        int stalePostFeedCount = feedPage.getContent().size() - resolvableFeeds.size();
-        if (stalePostFeedCount > 0) {
-            log.warn("Excluded stale POST feeds from feed response. userId={}, count={}", userId, stalePostFeedCount);
+    private void logUnresolvedPostFeeds(Page<UserFeed> feedPage, Map<Long, PostSummary> postSummariesById,
+                                        Long userId) {
+        long unresolvedPostFeedCount = feedPage.getContent().stream()
+                .filter(feed -> FeedGenerationService.CONTENT_TYPE_POST.equals(feed.getContentType()))
+                .filter(feed -> !postSummariesById.containsKey(feed.getContentId()))
+                .count();
+        if (unresolvedPostFeedCount > 0) {
+            log.warn("Returned POST feeds without resolved summaries. userId={}, count={}", userId,
+                    unresolvedPostFeedCount);
         }
-        return resolvableFeeds;
     }
 }
