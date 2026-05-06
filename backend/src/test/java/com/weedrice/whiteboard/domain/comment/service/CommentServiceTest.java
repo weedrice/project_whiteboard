@@ -341,6 +341,109 @@ class CommentServiceTest {
     }
 
     @Test
+    @DisplayName("agent context comment still rejects muted owner")
+    void createCommentAsAgent_withContext_mutedUser_forbidden() {
+        User actorUser = User.builder().displayName("user-owner").build();
+        ReflectionTestUtils.setField(actorUser, "userId", 2L);
+
+        Agent agent = Agent.builder()
+                .user(actorUser)
+                .agentTokenHash("hash")
+                .name("agent-writer")
+                .description("desc")
+                .status(Agent.STATUS_ACTIVE)
+                .build();
+        ReflectionTestUtils.setField(agent, "agentId", 99L);
+
+        Board board = Board.builder().boardUrl("free").build();
+        Post post = Post.builder().board(board).user(actorUser).build();
+        ReflectionTestUtils.setField(post, "postId", 1L);
+
+        when(userRepository.findById(2L)).thenReturn(Optional.of(actorUser));
+        doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE)).when(sanctionService).validateNotMuted(actorUser);
+
+        assertThatThrownBy(() -> commentService.createCommentAsAgent(
+                2L,
+                99L,
+                1L,
+                null,
+                "content",
+                CommentCreateContext.agentRoot(agent, post)))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_ACTIVE);
+
+        verify(commentRepository, never()).save(any(Comment.class));
+    }
+
+    @Test
+    @DisplayName("agent context comment rejects mismatched agent")
+    void createCommentAsAgent_withContext_mismatchedAgent_forbidden() {
+        User actorUser = User.builder().displayName("user-owner").build();
+        ReflectionTestUtils.setField(actorUser, "userId", 2L);
+
+        Agent agent = Agent.builder()
+                .user(actorUser)
+                .agentTokenHash("hash")
+                .name("agent-writer")
+                .description("desc")
+                .status(Agent.STATUS_ACTIVE)
+                .build();
+        ReflectionTestUtils.setField(agent, "agentId", 99L);
+
+        Board board = Board.builder().boardUrl("free").build();
+        Post post = Post.builder().board(board).user(actorUser).build();
+        ReflectionTestUtils.setField(post, "postId", 1L);
+
+        when(userRepository.findById(2L)).thenReturn(Optional.of(actorUser));
+
+        assertThatThrownBy(() -> commentService.createCommentAsAgent(
+                2L,
+                100L,
+                1L,
+                null,
+                "content",
+                CommentCreateContext.agentRoot(agent, post)))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
+
+        verify(commentRepository, never()).save(any(Comment.class));
+    }
+
+    @Test
+    @DisplayName("agent context comment rejects mismatched post")
+    void createCommentAsAgent_withContext_mismatchedPost_notFound() {
+        User actorUser = User.builder().displayName("user-owner").build();
+        ReflectionTestUtils.setField(actorUser, "userId", 2L);
+
+        Agent agent = Agent.builder()
+                .user(actorUser)
+                .agentTokenHash("hash")
+                .name("agent-writer")
+                .description("desc")
+                .status(Agent.STATUS_ACTIVE)
+                .build();
+        ReflectionTestUtils.setField(agent, "agentId", 99L);
+
+        Board board = Board.builder().boardUrl("free").build();
+        Post post = Post.builder().board(board).user(actorUser).build();
+        ReflectionTestUtils.setField(post, "postId", 1L);
+
+        when(userRepository.findById(2L)).thenReturn(Optional.of(actorUser));
+
+        assertThatThrownBy(() -> commentService.createCommentAsAgent(
+                2L,
+                99L,
+                2L,
+                null,
+                "content",
+                CommentCreateContext.agentRoot(agent, post)))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
+
+        verify(commentRepository, never()).save(any(Comment.class));
+    }
+
+    @Test
     @DisplayName("mask blocked user comments")
     void getComments_masked() {
         User blockedUser = User.builder().displayName("Blocked").build();

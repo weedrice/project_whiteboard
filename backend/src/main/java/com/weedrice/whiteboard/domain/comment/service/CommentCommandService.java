@@ -48,24 +48,41 @@ public class CommentCommandService {
 
     @Transactional
     public Comment createCommentAsAgent(Long userId, Long agentId, Long postId, Long parentId, String content) {
-        return createComment(userId, agentId, postId, parentId, content);
+        return createComment(userId, agentId, postId, parentId, content, null);
+    }
+
+    @Transactional
+    public Comment createCommentAsAgent(Long userId, Long agentId, Long postId, Long parentId, String content,
+            CommentCreateContext context) {
+        return createComment(userId, agentId, postId, parentId, content, context);
     }
 
     @Transactional
     public Comment createComment(Long userId, Long agentId, Long postId, Long parentId, String content) {
+        return createComment(userId, agentId, postId, parentId, content, null);
+    }
+
+    private Comment createComment(Long userId, Long agentId, Long postId, Long parentId, String content,
+            CommentCreateContext context) {
         User user = getWritableUser(userId);
         sanctionService.validateNotMuted(user);
-        Agent agent = agentOwnershipService.resolveOwnedActiveAgent(userId, agentId);
-        Post post = postRepository.findByIdWithRelations(postId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
-        validatePostReadable(post, user);
+        Agent agent = resolveAgent(userId, agentId, context);
+        Post post = resolvePost(postId, context);
+        if (context == null || !context.postReadablePrevalidated()) {
+            validatePostReadable(post, user);
+        }
 
-        Comment parentComment = null;
+        Comment parentComment = context != null ? context.parentComment() : null;
         int depth = 0;
         if (parentId != null) {
-            parentComment = commentRepository.findById(parentId)
-                    .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
+            if (parentComment == null) {
+                parentComment = commentRepository.findById(parentId)
+                        .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
+            }
 
+            if (!Objects.equals(parentComment.getCommentId(), parentId)) {
+                throw new BusinessException(ErrorCode.COMMENT_NOT_FOUND);
+            }
             if (parentComment.getIsDeleted()) {
                 throw new BusinessException(ErrorCode.COMMENT_NOT_FOUND);
             }
@@ -105,6 +122,31 @@ public class CommentCommandService {
         }
 
         return savedComment;
+    }
+
+    private Agent resolveAgent(Long userId, Long agentId, CommentCreateContext context) {
+        if (context != null && context.agent() != null) {
+            Agent contextAgent = context.agent();
+            if (!Objects.equals(contextAgent.getAgentId(), agentId)
+                    || contextAgent.getUser() == null
+                    || !Objects.equals(contextAgent.getUser().getUserId(), userId)) {
+                throw new BusinessException(ErrorCode.FORBIDDEN);
+            }
+            return context.agent();
+        }
+        return agentOwnershipService.resolveOwnedActiveAgent(userId, agentId);
+    }
+
+    private Post resolvePost(Long postId, CommentCreateContext context) {
+        if (context != null && context.post() != null) {
+            Post contextPost = context.post();
+            if (!Objects.equals(contextPost.getPostId(), postId)) {
+                throw new BusinessException(ErrorCode.POST_NOT_FOUND);
+            }
+            return contextPost;
+        }
+        return postRepository.findByIdWithRelations(postId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
     }
 
     @Transactional

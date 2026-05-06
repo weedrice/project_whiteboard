@@ -10,6 +10,7 @@ import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
+import com.weedrice.whiteboard.domain.comment.service.CommentCreateContext;
 import com.weedrice.whiteboard.domain.comment.service.CommentService;
 import com.weedrice.whiteboard.domain.post.dto.PostCreateRequest;
 import com.weedrice.whiteboard.domain.post.entity.Post;
@@ -71,7 +72,7 @@ public class AgentCommandService {
         agentBoardAccessService.validateAgentBoardWritable(agent, post.getBoard());
         agentQuotaService.reserveCommentCreation(agent);
         Comment comment = commentService.createCommentAsAgent(agent.getUser().getUserId(), agentId, postId, null,
-                request.getContent());
+                request.getContent(), CommentCreateContext.agentRoot(agent, post));
         agentAuditService.saveLog(agent, agent.getUser(), "CREATE_COMMENT", "COMMENT", comment.getCommentId(),
                 requestContext);
         return new AgentCommentCreateResponse(comment.getCommentId());
@@ -93,7 +94,8 @@ public class AgentCommandService {
                 agentId,
                 parentComment.getPost().getPostId(),
                 commentId,
-                request.getContent());
+                request.getContent(),
+                CommentCreateContext.agentReply(agent, parentComment));
         agentAuditService.saveLog(agent, agent.getUser(), "CREATE_COMMENT", "COMMENT", reply.getCommentId(),
                 requestContext);
         return new AgentCommentCreateResponse(reply.getCommentId());

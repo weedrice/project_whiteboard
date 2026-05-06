@@ -22,6 +22,7 @@ import com.weedrice.whiteboard.domain.board.repository.BoardCategoryRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
+import com.weedrice.whiteboard.domain.comment.service.CommentCreateContext;
 import com.weedrice.whiteboard.domain.comment.service.CommentReadSupport;
 import com.weedrice.whiteboard.domain.comment.service.CommentService;
 import com.weedrice.whiteboard.domain.post.entity.Post;
@@ -39,6 +40,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
@@ -66,6 +68,7 @@ import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
@@ -967,7 +970,7 @@ class AgentServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.RATE_LIMIT_EXCEEDED);
 
-        verify(commentService, never()).createCommentAsAgent(anyLong(), anyLong(), eq(100L), isNull(), any());
+        verify(commentService, never()).createCommentAsAgent(anyLong(), anyLong(), eq(100L), isNull(), any(), any());
     }
 
     @Test
@@ -1026,13 +1029,23 @@ class AgentServiceTest {
         when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(true);
         when(agentDailyQuotaRepository.findForUpdate(eq(7L), any(LocalDate.class), eq("COMMENT")))
                 .thenReturn(Optional.of(quota("COMMENT", 99L)));
-        when(commentService.createCommentAsAgent(1L, 7L, 100L, null, "b".repeat(25))).thenReturn(comment);
+        when(commentService.createCommentAsAgent(eq(1L), eq(7L), eq(100L), isNull(), eq("b".repeat(25)),
+                any(CommentCreateContext.class))).thenReturn(comment);
 
         var response = agentCommandService.createComment(7L, 100L, request, null);
 
         assertThat(response.getCommentId()).isEqualTo(300L);
         verify(agentRepository).findByAgentIdForUpdate(7L);
-        verify(commentService).createCommentAsAgent(1L, 7L, 100L, null, "b".repeat(25));
+        verify(commentService).createCommentAsAgent(eq(1L), eq(7L), eq(100L), isNull(), eq("b".repeat(25)),
+                argThat(context -> context.agent() == agent
+                        && context.post() == writablePost
+                        && context.parentComment() == null
+                        && context.postReadablePrevalidated()));
+        InOrder inOrder = inOrder(agentDailyQuotaRepository, commentService, agentAuditService);
+        inOrder.verify(agentDailyQuotaRepository).findForUpdate(eq(7L), any(LocalDate.class), eq("COMMENT"));
+        inOrder.verify(commentService).createCommentAsAgent(eq(1L), eq(7L), eq(100L), isNull(), eq("b".repeat(25)),
+                any(CommentCreateContext.class));
+        inOrder.verify(agentAuditService).saveLog(agent, user, "CREATE_COMMENT", "COMMENT", 300L, null);
     }
 
     @Test
@@ -1052,13 +1065,23 @@ class AgentServiceTest {
         when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(true);
         when(agentDailyQuotaRepository.findForUpdate(eq(7L), any(LocalDate.class), eq("COMMENT")))
                 .thenReturn(Optional.of(quota("COMMENT", 99L)));
-        when(commentService.createCommentAsAgent(1L, 7L, 100L, 500L, "reply")).thenReturn(reply);
+        when(commentService.createCommentAsAgent(eq(1L), eq(7L), eq(100L), eq(500L), eq("reply"),
+                any(CommentCreateContext.class))).thenReturn(reply);
 
         var response = agentCommandService.createReply(7L, 500L, request, null);
 
         assertThat(response.getCommentId()).isEqualTo(501L);
         verify(agentRepository).findByAgentIdForUpdate(7L);
-        verify(commentService).createCommentAsAgent(1L, 7L, 100L, 500L, "reply");
+        verify(commentService).createCommentAsAgent(eq(1L), eq(7L), eq(100L), eq(500L), eq("reply"),
+                argThat(context -> context.agent() == agent
+                        && context.post() == writablePost
+                        && context.parentComment() == parentComment
+                        && !context.postReadablePrevalidated()));
+        InOrder inOrder = inOrder(agentDailyQuotaRepository, commentService, agentAuditService);
+        inOrder.verify(agentDailyQuotaRepository).findForUpdate(eq(7L), any(LocalDate.class), eq("COMMENT"));
+        inOrder.verify(commentService).createCommentAsAgent(eq(1L), eq(7L), eq(100L), eq(500L), eq("reply"),
+                any(CommentCreateContext.class));
+        inOrder.verify(agentAuditService).saveLog(agent, user, "CREATE_COMMENT", "COMMENT", 501L, null);
     }
 
     @Test

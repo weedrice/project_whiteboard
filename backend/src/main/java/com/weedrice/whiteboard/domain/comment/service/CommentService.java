@@ -45,6 +45,11 @@ public class CommentService {
         return commentCommandService.createCommentAsAgent(userId, agentId, postId, parentId, content);
     }
 
+    public Comment createCommentAsAgent(Long userId, Long agentId, Long postId, Long parentId, String content,
+            CommentCreateContext context) {
+        return commentCommandService.createCommentAsAgent(userId, agentId, postId, parentId, content, context);
+    }
+
     public Comment createComment(Long userId, Long agentId, Long postId, Long parentId, String content) {
         return commentCommandService.createComment(userId, agentId, postId, parentId, content);
     }
