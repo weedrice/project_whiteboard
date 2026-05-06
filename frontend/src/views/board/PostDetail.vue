@@ -35,6 +35,7 @@ import { isInputFocused } from '@/utils/keyboard'
 import logger from '@/utils/logger'
 import { sanitizeQuillHtml } from '@/utils/sanitize'
 import { normalizeLegacyFileUrls } from '@/utils/fileUrl'
+import { applyImageFallback } from '@/utils/imageFallback'
 
 const route = useRoute()
 const router = useRouter()
@@ -853,6 +854,7 @@ onUnmounted(() => {
                 class="ql-editor prose prose-sm max-w-none text-sm text-[var(--nv-ink)] sm:prose-base dark:prose-invert sm:text-base"
                 :class="{ 'blur-md select-none': isBlurred }"
                 v-html="processedContents"
+                @error.capture="applyImageFallback"
               ></div>
 
               <div v-if="isBlurred" class="nv-post-spoiler">

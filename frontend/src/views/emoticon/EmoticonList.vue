@@ -8,6 +8,7 @@ import { useHead } from '@unhead/vue'
 import { Search, X, PlusCircle, TrendingUp } from 'lucide-vue-next'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
+import { DEFAULT_EMOTICON_IMAGE_URL, applyImageFallback } from '@/utils/imageFallback'
 import type { EmoticonSearchParams } from '@/types/emoticon'
 
 const router = useRouter()
@@ -166,14 +167,11 @@ const periodLabels = {
           <!-- 썸네일 -->
           <div class="aspect-square bg-gray-100 dark:bg-gray-700">
             <img
-              v-if="emoticon.thumbnailUrl"
-              :src="emoticon.thumbnailUrl"
+              :src="emoticon.thumbnailUrl || DEFAULT_EMOTICON_IMAGE_URL"
               :alt="emoticon.name"
               class="w-full h-full object-contain"
+              @error="applyImageFallback"
             />
-            <div v-else class="w-full h-full flex items-center justify-center text-gray-400">
-              No Image
-            </div>
           </div>
           <!-- 정보 -->
           <div class="p-3">
@@ -247,14 +245,11 @@ const periodLabels = {
           <!-- 썸네일 -->
           <div class="aspect-square bg-gray-100 dark:bg-gray-700">
             <img
-              v-if="emoticon.thumbnailUrl"
-              :src="emoticon.thumbnailUrl"
+              :src="emoticon.thumbnailUrl || DEFAULT_EMOTICON_IMAGE_URL"
               :alt="emoticon.name"
               class="w-full h-full object-contain"
+              @error="applyImageFallback"
             />
-            <div v-else class="w-full h-full flex items-center justify-center text-gray-400">
-              No Image
-            </div>
           </div>
           <!-- 정보 -->
           <div class="p-3">

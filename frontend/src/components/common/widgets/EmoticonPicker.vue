@@ -5,6 +5,7 @@ import { emoticonApi } from '@/api/emoticon'
 import type { EmoticonMaster, EmoticonImage } from '@/types/emoticon'
 import { X, ArrowLeft, Search, Smile } from 'lucide-vue-next'
 import logger from '@/utils/logger'
+import { DEFAULT_EMOTICON_IMAGE_URL, applyImageFallback } from '@/utils/imageFallback'
 
 const props = defineProps<{
   show: boolean
@@ -117,7 +118,7 @@ watch(() => props.show, (newVal) => {
         <div v-else-if="selectedEmoticon" class="images-grid">
           <button v-for="image in selectedImages" :key="image.imageId" @click="handleImageClick(image)"
             class="image-btn">
-            <img :src="image.imageUrl" :alt="selectedEmoticon.name" />
+            <img :src="image.imageUrl || DEFAULT_EMOTICON_IMAGE_URL" :alt="selectedEmoticon.name" @error="applyImageFallback" />
           </button>
         </div>
       </template>
@@ -148,7 +149,11 @@ watch(() => props.show, (newVal) => {
         <div v-else class="emoticons-grid">
           <button v-for="emoticon in filteredEmoticons" :key="emoticon.emoticonId"
             @click="handleEmoticonClick(emoticon)" class="emoticon-btn">
-            <img :src="emoticon.thumbnailUrl || emoticon.images?.[0]?.imageUrl" :alt="emoticon.name" />
+            <img
+              :src="emoticon.thumbnailUrl || emoticon.images?.[0]?.imageUrl || DEFAULT_EMOTICON_IMAGE_URL"
+              :alt="emoticon.name"
+              @error="applyImageFallback"
+            />
             <span class="emoticon-name">{{ emoticon.name }}</span>
           </button>
         </div>

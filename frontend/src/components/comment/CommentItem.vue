@@ -7,6 +7,7 @@ import { useComment } from '@/composables/useComment'
 import { useAuthStore } from '@/stores/auth'
 import { formatDate } from '@/utils/date'
 import { isEmoticonOnlyContent, renderCommentContentHtml } from '@/utils/commentContent'
+import { applyImageFallback } from '@/utils/imageFallback'
 import CommentForm from './CommentForm.vue'
 import UserMenu from '@/components/common/widgets/UserMenu.vue'
 
@@ -248,8 +249,8 @@ watch(isBlockedAuthor, (blocked) => {
         <p v-else-if="isBlockedAuthor" class="text-xs italic text-gray-400 sm:text-sm">
           {{ $t('comment.blockedContent') }}
         </p>
-        <p v-else-if="isEmoticonOnly" class="text-xs sm:text-sm" v-html="renderedContent"></p>
-        <p v-else class="text-xs text-gray-700 dark:text-gray-300 sm:text-sm" v-html="renderedContent"></p>
+        <p v-else-if="isEmoticonOnly" class="text-xs sm:text-sm" v-html="renderedContent" @error.capture="applyImageFallback"></p>
+        <p v-else class="text-xs text-gray-700 dark:text-gray-300 sm:text-sm" v-html="renderedContent" @error.capture="applyImageFallback"></p>
 
         <div class="mt-2 flex flex-wrap items-center gap-1 sm:gap-2">
           <button

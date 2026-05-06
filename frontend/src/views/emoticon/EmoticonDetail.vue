@@ -10,6 +10,7 @@ import { useToastStore } from '@/stores/toast'
 import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import { extractErrorMessage } from '@/utils/errorHandler'
+import { DEFAULT_EMOTICON_IMAGE_URL, applyImageFallback } from '@/utils/imageFallback'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -210,11 +211,8 @@ useHead({
           <!-- 썸네일 -->
           <div class="flex-shrink-0">
             <div class="w-40 h-40 bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden">
-              <img v-if="emoticon.thumbnailUrl" :src="emoticon.thumbnailUrl" :alt="emoticon.name"
-                class="w-full h-full object-contain" />
-              <div v-else class="w-full h-full flex items-center justify-center text-gray-400">
-                No Image
-              </div>
+              <img :src="emoticon.thumbnailUrl || DEFAULT_EMOTICON_IMAGE_URL" :alt="emoticon.name"
+                class="w-full h-full object-contain" @error="applyImageFallback" />
             </div>
           </div>
 
@@ -274,8 +272,8 @@ useHead({
           <div v-for="image in emoticon.images" :key="image.imageId"
             class="aspect-square bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden"
             style="width: 100px; height: 100px;">
-            <img :src="image.imageUrl" :alt="`${emoticon.name} - ${image.sortOrder + 1}`"
-              class="w-full h-full object-contain" />
+            <img :src="image.imageUrl || DEFAULT_EMOTICON_IMAGE_URL" :alt="`${emoticon.name} - ${image.sortOrder + 1}`"
+              class="w-full h-full object-contain" @error="applyImageFallback" />
           </div>
         </div>
         <div v-else class="text-center py-8 text-gray-500 dark:text-gray-400">
