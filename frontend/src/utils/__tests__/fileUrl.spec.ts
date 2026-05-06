@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { normalizeFileUrl, normalizeLegacyFileUrls } from '../fileUrl'
+import { normalizeEditorFileImageUrls, normalizeFileUrl, normalizeLegacyFileUrls } from '../fileUrl'
 
 describe('fileUrl', () => {
     it('normalizes legacy direct file URLs', () => {
@@ -18,5 +18,16 @@ describe('fileUrl', () => {
         expect(normalizeLegacyFileUrls(content)).toContain('![emoticon](/api/v1/files/10)')
         expect(normalizeLegacyFileUrls(content)).toContain('src="/api/v1/files/11?download=true"')
         expect(normalizeLegacyFileUrls(content)).toContain('href="/api/v1/files/12"')
+    })
+
+    it('replaces editor local preview image URLs with persisted file URLs', () => {
+        const content = '<p><img src="blob:https://noviis.kr/local" data-file-id="157" data-server-src="/api/v1/files/157"></p>'
+
+        const normalized = normalizeEditorFileImageUrls(content)
+
+        expect(normalized).toContain('src="/api/v1/files/157"')
+        expect(normalized).not.toContain('blob:https://noviis.kr/local')
+        expect(normalized).not.toContain('data-file-id')
+        expect(normalized).not.toContain('data-server-src')
     })
 })

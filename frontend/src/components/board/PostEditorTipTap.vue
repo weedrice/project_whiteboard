@@ -49,8 +49,31 @@ const tableCols = ref(3)
 const tableHeaderRow = ref(true)
 const savedListSelection = ref<{ from: number; to: number } | null>(null)
 const imageInput = ref<HTMLInputElement | null>(null)
+const localPreviewUrls: string[] = []
 
 const { isUploadingImage, validateImageFile, uploadImage, isAbortUploadError } = useEditorImageUpload()
+
+const EditorImage = Image.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      fileId: {
+        default: null,
+        parseHTML: (element: HTMLElement) => element.getAttribute('data-file-id'),
+        renderHTML: (attributes: { fileId?: string | number | null }) => (
+          attributes.fileId ? { 'data-file-id': String(attributes.fileId) } : {}
+        ),
+      },
+      serverSrc: {
+        default: null,
+        parseHTML: (element: HTMLElement) => element.getAttribute('data-server-src'),
+        renderHTML: (attributes: { serverSrc?: string | null }) => (
+          attributes.serverSrc ? { 'data-server-src': attributes.serverSrc } : {}
+        ),
+      },
+    }
+  },
+})
 
 const colorPresets = [
   '#000000', '#374151', '#6b7280', '#9ca3af',
@@ -117,7 +140,7 @@ const editor = useEditor({
         class: 'tiptap-link',
       },
     }),
-    Image.configure({
+    EditorImage.configure({
       inline: true,
       allowBase64: false,
       HTMLAttributes: { class: 'tiptap-image-inline max-w-full h-auto align-baseline' },
@@ -212,6 +235,15 @@ function escapeHtmlText(value: string) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
+}
+
+function createLocalPreviewUrl(file: File): string | null {
+  if (typeof URL === 'undefined' || typeof URL.createObjectURL !== 'function') {
+    return null
+  }
+  const previewUrl = URL.createObjectURL(file)
+  localPreviewUrls.push(previewUrl)
+  return previewUrl
 }
 
 function applyLink() {
@@ -340,7 +372,13 @@ async function onImageChange(event: Event) {
         fileIds.value.push(uploaded.fileId)
         emit('file-uploaded', uploaded.fileId)
       }
-      editor.value?.chain().focus().setImage({ src: uploaded.url }).run()
+      const previewUrl = typeof uploaded.fileId === 'number'
+        ? createLocalPreviewUrl(file) ?? uploaded.url
+        : uploaded.url
+      const serverAttributes = typeof uploaded.fileId === 'number'
+        ? ` data-file-id="${uploaded.fileId}" data-server-src="${escapeHtmlAttr(uploaded.url)}"`
+        : ''
+      editor.value?.chain().focus().insertContent(`<img src="${escapeHtmlAttr(previewUrl)}"${serverAttributes}>`).run()
     }
   } catch (error: unknown) {
     if (isAbortUploadError(error)) {
@@ -437,6 +475,9 @@ defineExpose({
 })
 
 onBeforeUnmount(() => {
+  if (typeof URL !== 'undefined' && typeof URL.revokeObjectURL === 'function') {
+    localPreviewUrls.forEach((previewUrl) => URL.revokeObjectURL(previewUrl))
+  }
   editor.value?.destroy()
 })
 </script>
