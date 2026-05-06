@@ -99,10 +99,10 @@ const ErrorStateStub = defineComponent({
     },
 })
 
-const PostListSkeletonStub = defineComponent({
-    name: 'PostListSkeletonStub',
+const HomeLandingSkeletonStub = defineComponent({
+    name: 'HomeLandingSkeletonStub',
     setup() {
-        return () => h('div', { 'data-testid': 'post-skeleton' }, 'loading')
+        return () => h('div', { 'data-testid': 'home-skeleton' }, 'loading')
     },
 })
 
@@ -185,7 +185,7 @@ describe('HomeFeed', () => {
                     HomeActivityList: HomeActivityListStub,
                     EmptyState: EmptyStateStub,
                     ErrorState: ErrorStateStub,
-                    PostListSkeleton: PostListSkeletonStub,
+                    HomeLandingSkeleton: HomeLandingSkeletonStub,
                 },
             },
         })
@@ -220,12 +220,35 @@ describe('HomeFeed', () => {
                     HomeActivityList: HomeActivityListStub,
                     EmptyState: EmptyStateStub,
                     ErrorState: ErrorStateStub,
-                    PostListSkeleton: PostListSkeletonStub,
+                    HomeLandingSkeleton: HomeLandingSkeletonStub,
                 },
             },
         })
         expect(wrapper.find('[data-testid="empty-state"]').exists()).toBe(true)
         expect(wrapper.findAll('[data-testid="post-card"]')).toHaveLength(0)
+    })
+
+    it('uses the home landing skeleton while the landing data is loading', () => {
+        state.isLoading.value = true
+
+        const wrapper = mount(HomeFeed, {
+            global: {
+                mocks: {
+                    $t: (key: string) => key,
+                },
+                stubs: {
+                    RouterLink: RouterLinkStub,
+                    HomePostCard: HomePostCardStub,
+                    HomeActivityList: HomeActivityListStub,
+                    EmptyState: EmptyStateStub,
+                    ErrorState: ErrorStateStub,
+                    HomeLandingSkeleton: HomeLandingSkeletonStub,
+                },
+            },
+        })
+
+        expect(wrapper.find('[data-testid="home-skeleton"]').exists()).toBe(true)
+        expect(wrapper.find('[data-testid="empty-state"]').exists()).toBe(false)
     })
 
     it('changes the trending period through the filter bar', async () => {
@@ -242,7 +265,7 @@ describe('HomeFeed', () => {
                     HomeActivityList: HomeActivityListStub,
                     EmptyState: EmptyStateStub,
                     ErrorState: ErrorStateStub,
-                    PostListSkeleton: PostListSkeletonStub,
+                    HomeLandingSkeleton: HomeLandingSkeletonStub,
                 },
             },
         })

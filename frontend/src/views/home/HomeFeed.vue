@@ -6,7 +6,7 @@ import { useHead } from '@unhead/vue'
 import { useI18n } from 'vue-i18n'
 import EmptyState from '@/components/common/ui/EmptyState.vue'
 import ErrorState from '@/components/common/ui/ErrorState.vue'
-import PostListSkeleton from '@/components/common/ui/PostListSkeleton.vue'
+import HomeLandingSkeleton from '@/components/home/HomeLandingSkeleton.vue'
 import HomePostCard from '@/components/home/HomePostCard.vue'
 import HomeActivityList from '@/components/home/HomeActivityList.vue'
 import { useHomeLanding } from '@/composables/useHomeLanding'
@@ -117,7 +117,7 @@ useHead({
 
 <template>
   <div class="space-y-8 pb-8">
-    <PostListSkeleton v-if="isLoading" :count="4" />
+    <HomeLandingSkeleton v-if="isLoading" />
 
     <ErrorState
       v-else-if="isError"
