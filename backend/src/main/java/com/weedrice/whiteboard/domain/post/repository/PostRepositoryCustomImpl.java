@@ -498,6 +498,14 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
 
     private OrderSpecifier<?>[] getOrderSpecifiers(Pageable pageable) {
         if (!pageable.getSort().isEmpty()) {
+            boolean allAllowed = pageable.getSort().stream()
+                    .allMatch(order -> switch (order.getProperty()) {
+                        case "viewCount", "likeCount", "createdAt", "postId" -> true;
+                        default -> false;
+                    });
+            if (!allAllowed) {
+                return defaultOrderSpecifiers();
+            }
             return pageable.getSort().stream().map(order -> {
                 Order direction = order.getDirection().isAscending() ? Order.ASC : Order.DESC;
                 switch (order.getProperty()) {
@@ -510,10 +518,17 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                     case "postId":
                         return new OrderSpecifier<>(direction, post.postId);
                     default:
-                        return new OrderSpecifier<>(Order.DESC, post.createdAt);
+                        throw new IllegalStateException("Unsupported post sort property: " + order.getProperty());
                 }
             }).toArray(OrderSpecifier[]::new);
         }
-        return new OrderSpecifier[] { new OrderSpecifier<>(Order.DESC, post.createdAt) };
+        return defaultOrderSpecifiers();
+    }
+
+    private OrderSpecifier<?>[] defaultOrderSpecifiers() {
+        return new OrderSpecifier[] {
+                new OrderSpecifier<>(Order.DESC, post.createdAt),
+                new OrderSpecifier<>(Order.DESC, post.postId)
+        };
     }
 }

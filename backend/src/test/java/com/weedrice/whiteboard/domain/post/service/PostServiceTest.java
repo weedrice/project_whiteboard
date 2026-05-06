@@ -1512,6 +1512,20 @@ class PostServiceTest {
     }
 
     @Test
+    @DisplayName("태그별 게시글 조회는 기본 안정 정렬을 적용한다")
+    void getPostsByTag_appliesDefaultStableSort() {
+        when(postRepository.findByTagId(eq(1L), isNull(), any(Pageable.class))).thenReturn(Page.empty());
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+
+        postService.getPostsByTag(1L, null, Pageable.unpaged());
+
+        verify(postRepository).findByTagId(eq(1L), isNull(), pageableCaptor.capture());
+        assertThat(pageableCaptor.getValue().getSort()).isEqualTo(Sort.by(
+                Sort.Order.desc("createdAt"),
+                Sort.Order.desc("postId")));
+    }
+
+    @Test
     @DisplayName("태그별 게시글 조회는 페이지 크기와 정렬 필드를 제한한다")
     void getPostsByTag_clampsPageSizeAndSort() {
         when(postRepository.findByTagId(eq(1L), isNull(), any(Pageable.class))).thenReturn(Page.empty());
@@ -1523,8 +1537,23 @@ class PostServiceTest {
         Pageable safePageable = pageableCaptor.getValue();
         assertThat(safePageable.getPageNumber()).isEqualTo(2);
         assertThat(safePageable.getPageSize()).isEqualTo(100);
-        assertThat(safePageable.getSort().getOrderFor("createdAt")).isNotNull();
-        assertThat(safePageable.getSort().getOrderFor("createdAt").getDirection()).isEqualTo(Sort.Direction.DESC);
+        assertThat(safePageable.getSort()).isEqualTo(Sort.by(
+                Sort.Order.desc("createdAt"),
+                Sort.Order.desc("postId")));
+    }
+
+    @Test
+    @DisplayName("태그별 게시글 조회는 허용 정렬에 안정 정렬을 보강한다")
+    void getPostsByTag_appendsStableSortToAllowedSort() {
+        when(postRepository.findByTagId(eq(1L), isNull(), any(Pageable.class))).thenReturn(Page.empty());
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+
+        postService.getPostsByTag(1L, null, PageRequest.of(0, 10, Sort.by(Sort.Order.desc("likeCount"))));
+
+        verify(postRepository).findByTagId(eq(1L), isNull(), pageableCaptor.capture());
+        assertThat(pageableCaptor.getValue().getSort()).isEqualTo(Sort.by(
+                Sort.Order.desc("likeCount"),
+                Sort.Order.desc("postId")));
     }
 
     @Test

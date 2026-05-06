@@ -41,6 +41,9 @@ public class PostService {
     private static final Sort DEFAULT_BOARD_POST_SORT = Sort.by(
             Sort.Order.desc("createdAt"),
             Sort.Order.desc("postId"));
+    private static final Sort DEFAULT_TAG_POST_SORT = Sort.by(
+            Sort.Order.desc("createdAt"),
+            Sort.Order.desc("postId"));
     private static final Sort DEFAULT_INQUIRY_POST_SORT = Sort.by(Sort.Direction.DESC, "createdAt");
     private static final Set<String> BOARD_POST_SORT_PROPERTIES = Set.of(
             "createdAt", "postId", "viewCount", "likeCount");
@@ -190,11 +193,15 @@ public class PostService {
 
     private Sort sanitizeTagPostSort(Sort sort) {
         if (sort == null || sort.isUnsorted()) {
-            return Sort.unsorted();
+            return DEFAULT_TAG_POST_SORT;
         }
         boolean allAllowed = StreamSupport.stream(sort.spliterator(), false)
                 .allMatch(order -> TAG_POST_SORT_PROPERTIES.contains(order.getProperty()));
-        return allAllowed ? sort : Sort.by(Sort.Direction.DESC, "createdAt");
+        Sort safeSort = allAllowed ? sort : DEFAULT_TAG_POST_SORT;
+        if (safeSort.getOrderFor("postId") != null) {
+            return safeSort;
+        }
+        return safeSort.and(Sort.by(Sort.Order.desc("postId")));
     }
 
     public Page<PostSummary> getMyPosts(Long userId, @NonNull Pageable pageable) {

@@ -5,6 +5,8 @@ import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
 import com.weedrice.whiteboard.domain.file.entity.File;
 import com.weedrice.whiteboard.domain.post.entity.Post;
+import com.weedrice.whiteboard.domain.tag.entity.PostTag;
+import com.weedrice.whiteboard.domain.tag.entity.Tag;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.global.config.QuerydslConfig;
 import jakarta.persistence.EntityManagerFactory;
@@ -112,6 +114,33 @@ class PostRepositoryTest {
 
         // then
         assertThat(count).isGreaterThan(0);
+    }
+
+    @Test
+    @DisplayName("태그 게시글 조회 기본 정렬은 생성일과 게시글 ID 내림차순이다")
+    void findByTagId_defaultSortUsesCreatedAtAndPostIdDesc() {
+        Tag tag = Tag.builder().tagName("stable").build();
+        entityManager.persist(tag);
+        Post olderPost = persistPost("Older tagged post");
+        Post firstPost = persistPost("First same time post");
+        Post secondPost = persistPost("Second same time post");
+        entityManager.persist(PostTag.builder().post(olderPost).tag(tag).build());
+        entityManager.persist(PostTag.builder().post(firstPost).tag(tag).build());
+        entityManager.persist(PostTag.builder().post(secondPost).tag(tag).build());
+        entityManager.flush();
+
+        LocalDateTime sameCreatedAt = LocalDateTime.of(2026, 5, 6, 10, 0);
+        updateCreatedAt(firstPost, sameCreatedAt);
+        updateCreatedAt(secondPost, sameCreatedAt);
+        updateCreatedAt(olderPost, sameCreatedAt.minusMinutes(1));
+        entityManager.flush();
+        entityManager.clear();
+
+        Page<Post> result = postRepository.findByTagId(tag.getTagId(), Collections.emptyList(), PageRequest.of(0, 10));
+
+        assertThat(result.getContent())
+                .extracting(Post::getPostId)
+                .containsExactly(secondPost.getPostId(), firstPost.getPostId(), olderPost.getPostId());
     }
 
     @Test
@@ -844,6 +873,18 @@ class PostRepositoryTest {
                 .setParameter("createdAt", createdAt)
                 .setParameter("postId", targetPost.getPostId())
                 .executeUpdate();
+    }
+
+    private Post persistPost(String title) {
+        Post targetPost = Post.builder()
+                .title(title)
+                .contents("contents")
+                .user(user)
+                .board(board)
+                .category(category)
+                .build();
+        entityManager.persist(targetPost);
+        return targetPost;
     }
 
     private Board persistBoard(String boardName, String boardUrl, boolean isPublic) {
