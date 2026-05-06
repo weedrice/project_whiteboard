@@ -1161,9 +1161,10 @@ class AgentServiceTest {
     private BoardCategory defaultCategory(Board board, String minWriteRole) {
         BoardCategory category = BoardCategory.builder()
                 .board(board)
-                .name("일반")
+                .name("Default")
                 .sortOrder(1)
                 .minWriteRole(minWriteRole)
+                .isDefault(true)
                 .build();
         ReflectionTestUtils.setField(category, "categoryId", board.getBoardId() + 1000);
         return category;

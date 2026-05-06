@@ -61,12 +61,14 @@ class BoardEntityTest {
                 .build();
 
         assertThat(category.getIsActive()).isTrue();
+        assertThat(category.isDefaultCategory()).isFalse();
 
-        category.update("New Cat", 5, "BOARD_ADMIN");
+        category.update("New Cat", 5, "BOARD_ADMIN", true);
         
         assertThat(category.getName()).isEqualTo("New Cat");
         assertThat(category.getSortOrder()).isEqualTo(5);
         assertThat(category.getMinWriteRole()).isEqualTo("BOARD_ADMIN");
+        assertThat(category.isDefaultCategory()).isTrue();
     }
 
     @Test

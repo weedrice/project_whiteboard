@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.board.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
@@ -20,4 +21,7 @@ public class CategoryRequest {
     @Size(max = 20)
     @Pattern(regexp = "USER|BOARD_ADMIN|SUPER_ADMIN", message = "{validation.category.minWriteRole.pattern}")
     private String minWriteRole;
+
+    @JsonProperty("isDefault")
+    private Boolean isDefault;
 }

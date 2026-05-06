@@ -2,7 +2,7 @@
 import { Image as ImageIcon, Lock } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import type { PostSummary } from '@/types'
-import { isGeneralCategoryName } from '@/utils/board'
+import { isDefaultCategory } from '@/utils/board'
 
 const props = withDefaults(defineProps<{
   post: PostSummary
@@ -25,7 +25,7 @@ const isInquiryPost = (post: PostSummary, boardUrl?: string) => (
 
 <template>
   <span
-    v-if="post.category && !isGeneralCategoryName(post.category.name)"
+    v-if="post.category && !isDefaultCategory(post.category)"
     class="nv-post-badge nv-post-badge-category"
   >
     {{ post.category.name }}

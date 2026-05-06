@@ -23,6 +23,7 @@ interface CategoryCreateData {
     name: string
     sortOrder?: number
     minWriteRole?: string
+    isDefault?: boolean
 }
 
 interface CategoryUpdateData {
@@ -30,6 +31,7 @@ interface CategoryUpdateData {
     sortOrder?: number
     isActive?: boolean
     minWriteRole?: string
+    isDefault?: boolean
 }
 
 interface BoardManagerTransferData {

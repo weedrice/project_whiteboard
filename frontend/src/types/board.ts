@@ -97,6 +97,7 @@ export interface Category {
     sortOrder: number
     isActive: boolean
     minWriteRole: string
+    isDefault?: boolean
 }
 
 export interface Post {

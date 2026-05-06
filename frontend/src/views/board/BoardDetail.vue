@@ -14,7 +14,7 @@ import { useBoard } from '@/composables/useBoard'
 import { useBoardListState } from '@/composables/useBoardListState'
 import { useRecentBoards } from '@/composables/useRecentBoards'
 import { useAuthStore } from '@/stores/auth'
-import { canWriteBoardPost, isGeneralCategoryName } from '@/utils/board'
+import { canWriteBoardPost, resolveDefaultCategory } from '@/utils/board'
 import { isRestrictedResourceError } from '@/utils/errorHandler'
 import { getOptimizedBoardIconUrl, handleImageError } from '@/utils/image'
 import { isInputFocused } from '@/utils/keyboard'
@@ -113,8 +113,9 @@ const {
   meta: { errorMessage: false }
 })
 
+const defaultCategory = computed(() => resolveDefaultCategory(board.value?.categories))
 const categories = computed(() => (
-  board.value?.categories?.filter((category) => !isGeneralCategoryName(category.name)) ?? []
+  board.value?.categories?.filter((category) => category.categoryId !== defaultCategory.value?.categoryId) ?? []
 ))
 
 const posts = computed(() => postsData.value?.content ?? [])

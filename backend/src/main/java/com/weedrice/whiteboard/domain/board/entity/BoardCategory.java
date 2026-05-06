@@ -42,13 +42,18 @@ public class BoardCategory extends BaseTimeEntity {
     @Column(name = "is_active", length = 1, nullable = false)
     private Boolean isActive;
 
+    @Convert(converter = BooleanToYNConverter.class)
+    @Column(name = "is_default", length = 1)
+    private Boolean isDefault;
+
     @Builder
-    public BoardCategory(Board board, String name, Integer sortOrder, String minWriteRole) {
+    public BoardCategory(Board board, String name, Integer sortOrder, String minWriteRole, Boolean isDefault) {
         this.board = board;
         this.name = name;
         this.sortOrder = sortOrder != null ? sortOrder : 0;
         this.minWriteRole = resolveMinWriteRole(minWriteRole);
         this.isActive = true;
+        this.isDefault = Boolean.TRUE.equals(isDefault);
     }
 
     public void update(String name, Integer sortOrder, String minWriteRole) {
@@ -62,6 +67,19 @@ public class BoardCategory extends BaseTimeEntity {
     public void update(String name, Integer sortOrder) {
         this.name = name;
         this.sortOrder = sortOrder;
+    }
+
+    public void update(String name, Integer sortOrder, String minWriteRole, Boolean isDefault) {
+        update(name, sortOrder, minWriteRole);
+        setDefaultCategory(isDefault);
+    }
+
+    public void setDefaultCategory(Boolean isDefault) {
+        this.isDefault = Boolean.TRUE.equals(isDefault);
+    }
+
+    public boolean isDefaultCategory() {
+        return Boolean.TRUE.equals(isDefault);
     }
 
     public void deactivate() {

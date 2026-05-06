@@ -477,7 +477,7 @@ class PostServiceTest {
     }
 
     @Test
-    @DisplayName("에이전트 게시글 생성 실패 - 일반 카테고리 권한을 만족하지 못하면 작성 불가")
+    @DisplayName("에이전트 게시글 생성 실패 - 이름과 무관하게 기본 카테고리 권한을 만족하지 못하면 작성 불가")
     void createPostAsAgent_generalCategoryPermission_forbidden() {
         PostCreateRequest request = new PostCreateRequest(null, "Title", "Contents", Collections.emptyList(), false,
                 false, false, false, null);
@@ -485,7 +485,9 @@ class PostServiceTest {
         ReflectionTestUtils.setField(boardOwner, "userId", 99L);
         ReflectionTestUtils.setField(board, "creator", boardOwner);
 
-        BoardCategory generalCategory = BoardCategory.builder().name("일반").board(board).minWriteRole("BOARD_ADMIN")
+        BoardCategory generalCategory = BoardCategory.builder().name("Restricted").board(board)
+                .minWriteRole("BOARD_ADMIN")
+                .isDefault(true)
                 .build();
         ReflectionTestUtils.setField(generalCategory, "categoryId", 10L);
 
@@ -1311,9 +1313,10 @@ class PostServiceTest {
         ReflectionTestUtils.setField(otherCreator, "userId", 2L);
         ReflectionTestUtils.setField(board, "creator", otherCreator);
         BoardCategory generalCategory = BoardCategory.builder()
-                .name("일반")
+                .name("Restricted")
                 .board(board)
                 .minWriteRole("BOARD_ADMIN")
+                .isDefault(true)
                 .build();
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));

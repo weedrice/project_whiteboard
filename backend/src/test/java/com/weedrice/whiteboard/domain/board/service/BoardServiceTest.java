@@ -10,6 +10,7 @@ import com.weedrice.whiteboard.domain.board.dto.BoardDetailResponse;
 import com.weedrice.whiteboard.domain.board.dto.BoardListResponse;
 import com.weedrice.whiteboard.domain.board.dto.BoardUpdateRequest;
 import com.weedrice.whiteboard.domain.board.dto.CategoryRequest;
+import com.weedrice.whiteboard.domain.board.dto.CategoryResponse;
 import com.weedrice.whiteboard.domain.board.entity.BoardAiInfo;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
@@ -495,6 +496,7 @@ class BoardServiceTest {
         inOrder.verify(boardCategoryRepository).save(categoryCaptor.capture());
         inOrder.verify(boardManagerAssignmentService).assignBoardManager(board, user);
         assertThat(categoryCaptor.getValue().getName()).isEqualTo("일반");
+        assertThat(categoryCaptor.getValue().isDefaultCategory()).isTrue();
     }
 
     @Test
@@ -852,6 +854,41 @@ class BoardServiceTest {
     }
 
     @Test
+    @DisplayName("기본 카테고리 생성 요청은 기존 기본 카테고리를 해제하고 새 기본으로 저장한다")
+    void createCategory_defaultRequest_clearsExistingDefault() {
+        CategoryRequest request = categoryRequest("Default", 2, "BOARD_ADMIN", true);
+        BoardCategory previousDefault = BoardCategory.builder()
+                .board(board)
+                .name("Old Default")
+                .sortOrder(1)
+                .isDefault(true)
+                .build();
+        ReflectionTestUtils.setField(previousDefault, "categoryId", 9L);
+
+        when(boardRepository.findByBoardUrl("test-board")).thenReturn(Optional.of(board));
+        when(boardCategoryRepository.existsByBoard_BoardIdAndNameAndIsActive(1L, "Default", true))
+                .thenReturn(false);
+        when(boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(1L, true))
+                .thenReturn(List.of(previousDefault));
+        when(boardCategoryRepository.saveAndFlush(any(BoardCategory.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        authenticateUser();
+        CategoryResponse response;
+        try {
+            response = boardService.createCategory("test-board", request);
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
+
+        ArgumentCaptor<BoardCategory> categoryCaptor = ArgumentCaptor.forClass(BoardCategory.class);
+        verify(boardCategoryRepository).saveAndFlush(categoryCaptor.capture());
+        assertThat(previousDefault.isDefaultCategory()).isFalse();
+        assertThat(categoryCaptor.getValue().isDefaultCategory()).isTrue();
+        assertThat(response.isDefault()).isTrue();
+    }
+
+    @Test
     @DisplayName("카테고리 생성은 같은 게시판의 활성 이름 중복을 거부한다")
     void createCategory_duplicateActiveName_throwsDuplicateResource() {
         CategoryRequest request = categoryRequest("General", 1, "USER");
@@ -932,6 +969,130 @@ class BoardServiceTest {
                 anyBoolean(),
                 anyLong());
         verify(boardCategoryRepository).saveAndFlush(category);
+    }
+
+    @Test
+    @DisplayName("비활성 카테고리는 기본 카테고리로 지정할 수 없다")
+    void updateCategory_inactiveCategoryDefaultRequest_throwsValidationError() {
+        CategoryRequest request = categoryRequest("Archived", 1, "USER", true);
+        BoardCategory category = BoardCategory.builder()
+                .board(board)
+                .name("Archived")
+                .sortOrder(1)
+                .minWriteRole("USER")
+                .build();
+        ReflectionTestUtils.setField(category, "categoryId", 10L);
+        category.deactivate();
+        when(boardCategoryRepository.findById(10L)).thenReturn(Optional.of(category));
+
+        authenticateUser();
+        BusinessException exception;
+        try {
+            exception = assertThrows(BusinessException.class,
+                    () -> boardService.updateCategory(10L, request));
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
+
+        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.VALIDATION_ERROR);
+        verify(boardCategoryRepository, never()).findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(anyLong(), any());
+        verify(boardCategoryRepository, never()).saveAndFlush(any(BoardCategory.class));
+    }
+
+    @Test
+    @DisplayName("카테고리 수정으로 기본 카테고리를 교체할 수 있다")
+    void updateCategory_defaultRequest_switchesDefaultCategory() {
+        CategoryRequest request = categoryRequest("New Default", 2, "BOARD_ADMIN", true);
+        BoardCategory previousDefault = BoardCategory.builder()
+                .board(board)
+                .name("Old Default")
+                .sortOrder(1)
+                .isDefault(true)
+                .build();
+        ReflectionTestUtils.setField(previousDefault, "categoryId", 9L);
+        BoardCategory category = BoardCategory.builder()
+                .board(board)
+                .name("General")
+                .sortOrder(2)
+                .minWriteRole("USER")
+                .build();
+        ReflectionTestUtils.setField(category, "categoryId", 10L);
+
+        when(boardCategoryRepository.findById(10L)).thenReturn(Optional.of(category));
+        when(boardCategoryRepository.existsByBoard_BoardIdAndNameAndIsActiveAndCategoryIdNot(
+                1L, "New Default", true, 10L))
+                .thenReturn(false);
+        when(boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(1L, true))
+                .thenReturn(List.of(previousDefault, category));
+        when(boardCategoryRepository.saveAndFlush(category)).thenReturn(category);
+
+        authenticateUser();
+        CategoryResponse response;
+        try {
+            response = boardService.updateCategory(10L, request);
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
+
+        assertThat(previousDefault.isDefaultCategory()).isFalse();
+        assertThat(category.isDefaultCategory()).isTrue();
+        assertThat(category.getMinWriteRole()).isEqualTo("BOARD_ADMIN");
+        assertThat(response.isDefault()).isTrue();
+    }
+
+    @Test
+    @DisplayName("기본 카테고리는 직접 기본 해제할 수 없다")
+    void updateCategory_unsetDefault_throwsValidationError() {
+        CategoryRequest request = categoryRequest("Default", 1, "USER", false);
+        BoardCategory category = BoardCategory.builder()
+                .board(board)
+                .name("Default")
+                .sortOrder(1)
+                .isDefault(true)
+                .build();
+        ReflectionTestUtils.setField(category, "categoryId", 10L);
+
+        when(boardCategoryRepository.findById(10L)).thenReturn(Optional.of(category));
+        when(boardCategoryRepository.existsByBoard_BoardIdAndNameAndIsActiveAndCategoryIdNot(
+                1L, "Default", true, 10L))
+                .thenReturn(false);
+
+        authenticateUser();
+        BusinessException exception;
+        try {
+            exception = assertThrows(BusinessException.class,
+                    () -> boardService.updateCategory(10L, request));
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
+
+        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.VALIDATION_ERROR);
+        verify(boardCategoryRepository, never()).saveAndFlush(any(BoardCategory.class));
+    }
+
+    @Test
+    @DisplayName("기본 카테고리는 삭제할 수 없다")
+    void deleteCategory_defaultCategory_throwsValidationError() {
+        BoardCategory category = BoardCategory.builder()
+                .board(board)
+                .name("Default")
+                .sortOrder(1)
+                .isDefault(true)
+                .build();
+        ReflectionTestUtils.setField(category, "categoryId", 10L);
+        when(boardCategoryRepository.findById(10L)).thenReturn(Optional.of(category));
+
+        authenticateUser();
+        BusinessException exception;
+        try {
+            exception = assertThrows(BusinessException.class,
+                    () -> boardService.deleteCategory(10L));
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
+
+        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.VALIDATION_ERROR);
+        assertThat(category.getIsActive()).isTrue();
     }
 
     @Test
@@ -1646,6 +1807,8 @@ class BoardServiceTest {
         assertThat(categoryCaptor.getAllValues())
                 .extracting(BoardCategory::getName)
                 .containsOnly("일반");
+        assertThat(categoryCaptor.getAllValues())
+                .allMatch(BoardCategory::isDefaultCategory);
         verify(userRepository, org.mockito.Mockito.atLeastOnce()).findUsableSuperAdmins();
         verify(boardManagerAssignmentService, org.mockito.Mockito.atLeastOnce())
                 .assignBoardManager(boardCaptor.getValue(), activeSuperAdmin);
@@ -1692,6 +1855,7 @@ class BoardServiceTest {
         assertThat(board.getIsPublic()).isFalse();
         assertThat(board.isAgentEnabled()).isFalse();
         assertThat(defaultCategory.getSortOrder()).isEqualTo(1);
+        assertThat(defaultCategory.isDefaultCategory()).isTrue();
         assertThat(duplicateCategory.getIsActive()).isFalse();
         verify(boardCategoryRepository, never()).saveAndFlush(any());
         verify(boardManagerAssignmentService).assignBoardManager(board, superAdmin);
@@ -2067,10 +2231,15 @@ class BoardServiceTest {
     }
 
     private CategoryRequest categoryRequest(String name, Integer sortOrder, String minWriteRole) {
+        return categoryRequest(name, sortOrder, minWriteRole, null);
+    }
+
+    private CategoryRequest categoryRequest(String name, Integer sortOrder, String minWriteRole, Boolean isDefault) {
         CategoryRequest request = new CategoryRequest();
         ReflectionTestUtils.setField(request, "name", name);
         ReflectionTestUtils.setField(request, "sortOrder", sortOrder);
         ReflectionTestUtils.setField(request, "minWriteRole", minWriteRole);
+        ReflectionTestUtils.setField(request, "isDefault", isDefault);
         return request;
     }
 

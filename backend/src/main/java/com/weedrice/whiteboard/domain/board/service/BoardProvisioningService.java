@@ -137,6 +137,7 @@ class BoardProvisioningService {
                 .board(savedBoard)
                 .name(DEFAULT_CATEGORY_NAME)
                 .sortOrder(1)
+                .isDefault(true)
                 .build();
         boardCategoryRepository.save(defaultCategory);
 
@@ -297,24 +298,33 @@ class BoardProvisioningService {
     private void ensureInquiryBoardCategory(Board board) {
         List<BoardCategory> activeCategories = boardCategoryRepository
                 .findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(board.getBoardId(), true);
-        List<BoardCategory> defaultCategories = activeCategories.stream()
-                .filter(category -> DEFAULT_CATEGORY_NAME.equals(category.getName()))
-                .sorted(Comparator.comparing(BoardCategory::getSortOrder)
-                        .thenComparing(BoardCategory::getCategoryId, Comparator.nullsLast(Long::compareTo)))
-                .toList();
-
-        if (defaultCategories.isEmpty()) {
+        BoardCategory canonicalCategory = resolveInquiryDefaultCategory(activeCategories)
+                .orElse(null);
+        if (canonicalCategory == null) {
             createDefaultInquiryCategory(board);
             return;
         }
 
-        BoardCategory canonicalCategory = defaultCategories.get(0);
+        canonicalCategory.setDefaultCategory(true);
         if (!Objects.equals(canonicalCategory.getSortOrder(), 1)) {
             canonicalCategory.update(canonicalCategory.getName(), 1, canonicalCategory.getMinWriteRole());
         }
-        defaultCategories.stream()
-                .skip(1)
+        activeCategories.stream()
+                .filter(category -> category.isDefaultCategory() || DEFAULT_CATEGORY_NAME.equals(category.getName()))
+                .filter(category -> !Objects.equals(category.getCategoryId(), canonicalCategory.getCategoryId()))
                 .forEach(BoardCategory::deactivate);
+    }
+
+    private java.util.Optional<BoardCategory> resolveInquiryDefaultCategory(List<BoardCategory> activeCategories) {
+        return activeCategories.stream()
+                .filter(BoardCategory::isDefaultCategory)
+                .min(Comparator.comparing(BoardCategory::getSortOrder, Comparator.nullsLast(Integer::compareTo))
+                        .thenComparing(BoardCategory::getCategoryId, Comparator.nullsLast(Long::compareTo)))
+                .or(() -> activeCategories.stream()
+                        .filter(category -> DEFAULT_CATEGORY_NAME.equals(category.getName()))
+                        .min(Comparator.comparing(BoardCategory::getSortOrder, Comparator.nullsLast(Integer::compareTo))
+                                .thenComparing(BoardCategory::getCategoryId, Comparator.nullsLast(Long::compareTo))))
+                .or(() -> BoardDefaultCategoryResolver.resolveDefaultCategory(activeCategories));
     }
 
     private void createDefaultInquiryCategory(Board board) {
@@ -323,6 +333,7 @@ class BoardProvisioningService {
                     .board(board)
                     .name(DEFAULT_CATEGORY_NAME)
                     .sortOrder(1)
+                    .isDefault(true)
                     .build());
         } catch (DataIntegrityViolationException ex) {
             if (!containsBoardCategoryConstraint(ex)) {

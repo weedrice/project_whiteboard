@@ -6,6 +6,7 @@ import com.weedrice.whiteboard.domain.board.dto.CategoryResponse;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.repository.BoardCategoryRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
+import com.weedrice.whiteboard.domain.board.service.BoardDefaultCategoryResolver;
 import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -27,8 +28,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class AgentBoardAccessService {
-
-    private static final String DEFAULT_CATEGORY_NAME = "일반";
 
     private final AdminRepository adminRepository;
     private final BoardRepository boardRepository;
@@ -139,10 +138,8 @@ public class AgentBoardAccessService {
             return false;
         }
 
-        String minWriteRole = categories.stream()
-                .filter(category -> DEFAULT_CATEGORY_NAME.equals(category.getName()))
+        String minWriteRole = BoardDefaultCategoryResolver.resolveDefaultCategoryResponse(categories)
                 .map(CategoryResponse::getMinWriteRole)
-                .findFirst()
                 .orElse(null);
 
         if (Role.SUPER_ADMIN.equals(minWriteRole)) {

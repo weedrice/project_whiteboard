@@ -35,12 +35,17 @@ class BoardCategoryService {
         SecurityUtils.validateBoardAdminPermission(board);
         String normalizedName = normalizeCategoryName(request.getName());
         validateDuplicateActiveName(board.getBoardId(), normalizedName);
+        boolean requestedDefault = Boolean.TRUE.equals(request.getIsDefault());
+        if (requestedDefault) {
+            clearDefaultCategories(board.getBoardId(), null);
+        }
 
         BoardCategory category = BoardCategory.builder()
                 .board(board)
                 .name(normalizedName)
                 .sortOrder(request.getSortOrder())
                 .minWriteRole(request.getMinWriteRole())
+                .isDefault(requestedDefault)
                 .build();
         try {
             return new CategoryResponse(boardCategoryRepository.saveAndFlush(category));
@@ -61,8 +66,18 @@ class BoardCategoryService {
         if (Boolean.TRUE.equals(category.getIsActive())) {
             validateDuplicateActiveName(category.getBoard().getBoardId(), normalizedName, categoryId);
         }
+        if (!Boolean.TRUE.equals(category.getIsActive()) && Boolean.TRUE.equals(request.getIsDefault())) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "Inactive category cannot be default");
+        }
+        if (category.isDefaultCategory() && Boolean.FALSE.equals(request.getIsDefault())) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "Default category cannot be unset directly");
+        }
+        if (Boolean.TRUE.equals(request.getIsDefault())) {
+            clearDefaultCategories(category.getBoard().getBoardId(), categoryId);
+        }
 
-        category.update(normalizedName, request.getSortOrder(), request.getMinWriteRole());
+        Boolean nextDefault = request.getIsDefault() != null ? request.getIsDefault() : category.isDefaultCategory();
+        category.update(normalizedName, request.getSortOrder(), request.getMinWriteRole(), nextDefault);
         try {
             return new CategoryResponse(boardCategoryRepository.saveAndFlush(category));
         } catch (DataIntegrityViolationException ex) {
@@ -75,8 +90,18 @@ class BoardCategoryService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
 
         SecurityUtils.validateBoardAdminPermission(category.getBoard());
+        if (category.isDefaultCategory()) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "Default category cannot be deleted");
+        }
 
         category.deactivate();
+    }
+
+    private void clearDefaultCategories(Long boardId, Long exceptCategoryId) {
+        boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(boardId, true).stream()
+                .filter(BoardCategory::isDefaultCategory)
+                .filter(category -> exceptCategoryId == null || !exceptCategoryId.equals(category.getCategoryId()))
+                .forEach(category -> category.setDefaultCategory(false));
     }
 
     private String normalizeCategoryName(String name) {

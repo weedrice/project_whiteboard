@@ -4,6 +4,7 @@ import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
 import com.weedrice.whiteboard.domain.board.repository.BoardCategoryRepository;
 import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
+import com.weedrice.whiteboard.domain.board.service.BoardDefaultCategoryResolver;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -15,8 +16,6 @@ import org.springframework.stereotype.Service;
 @Service
 @RequiredArgsConstructor
 public class PostAuthorCommandPolicy {
-    private static final String DEFAULT_CATEGORY_NAME = "\uC77C\uBC18";
-
     private final BoardAccessPolicy boardAccessPolicy;
     private final BoardCategoryRepository boardCategoryRepository;
 
@@ -48,9 +47,10 @@ public class PostAuthorCommandPolicy {
             validateWriteRole(board, user, category.getMinWriteRole());
             return;
         }
-        boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(board.getBoardId(), true).stream()
-                .filter(defaultCategory -> DEFAULT_CATEGORY_NAME.equals(defaultCategory.getName()))
-                .findFirst()
+        BoardDefaultCategoryResolver.resolveDefaultCategory(
+                        boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(
+                                board.getBoardId(),
+                                true))
                 .ifPresent(defaultCategory -> validateWriteRole(board, user, defaultCategory.getMinWriteRole()));
     }
 
