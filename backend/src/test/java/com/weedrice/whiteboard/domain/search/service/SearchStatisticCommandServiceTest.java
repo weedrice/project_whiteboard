@@ -16,6 +16,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -32,7 +33,7 @@ class SearchStatisticCommandServiceTest {
     void recordSearchStatistic_incrementsExistingStatistic() {
         when(searchStatisticWriteService.incrementSearchCount(eq("test"), any(LocalDate.class))).thenReturn(1);
 
-        searchStatisticCommandService.recordSearchStatistic("test", LocalDate.now());
+        searchStatisticCommandService.recordSearchStatistic("  Test  ", LocalDate.now());
 
         verify(searchStatisticWriteService).incrementSearchCount(eq("test"), any(LocalDate.class));
         verify(searchStatisticWriteService, never()).createStatistic(eq("test"), any(LocalDate.class));
@@ -52,5 +53,13 @@ class SearchStatisticCommandServiceTest {
 
         verify(searchStatisticWriteService, times(2)).incrementSearchCount(eq("test"), any(LocalDate.class));
         verify(searchStatisticWriteService).createStatistic(eq("test"), any(LocalDate.class));
+    }
+
+    @Test
+    @DisplayName("빈 검색어는 통계 기록을 건너뛴다")
+    void recordSearchStatistic_ignoresBlankKeyword() {
+        searchStatisticCommandService.recordSearchStatistic("   ", LocalDate.now());
+
+        verifyNoInteractions(searchStatisticWriteService);
     }
 }

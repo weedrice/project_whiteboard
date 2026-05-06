@@ -70,13 +70,6 @@ class RecentSearchCommandServiceTest {
     }
 
     @Test
-    @DisplayName("정규화 키워드는 trim과 Locale.ROOT 소문자 규칙을 따른다")
-    void normalizeKeyword_trimsAndLowercases() {
-        assertThat(RecentSearchCommandService.normalizeKeyword("\t Test KEYWORD \n"))
-                .isEqualTo("test keyword");
-    }
-
-    @Test
     @DisplayName("빈 검색어는 무시한다")
     void recordRecentSearch_ignoresBlankKeyword() {
         recentSearchCommandService.recordRecentSearch(1L, "   ");

@@ -10,7 +10,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
@@ -31,7 +30,7 @@ public class RecentSearchCommandService {
 
         userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        String normalizedKeyword = normalizeKeyword(trimmedKeyword);
+        String normalizedKeyword = SearchKeywordNormalizer.normalize(trimmedKeyword);
         LocalDateTime searchedAt = DateTimeUtils.nowKST();
 
         int updated = recentSearchWriteService.updateRecentSearch(userId, trimmedKeyword, normalizedKeyword, searchedAt);
@@ -53,7 +52,4 @@ public class RecentSearchCommandService {
         }
     }
 
-    static String normalizeKeyword(String keyword) {
-        return keyword.trim().toLowerCase(Locale.ROOT);
-    }
 }

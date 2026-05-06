@@ -25,7 +25,7 @@ class SearchStatisticRepositoryTest {
     @DisplayName("인기 검색어 집계는 합산 순으로 정렬하고 상위 N개만 반환한다")
     void findPopularKeywords_returnsTopKeywordsWithinLimit() {
         searchStatisticRepository.save(SearchStatistic.builder()
-                .keyword("alpha")
+                .keyword("Alpha")
                 .searchDate(LocalDate.of(2026, 4, 15))
                 .initialSearchCount(3)
                 .build());

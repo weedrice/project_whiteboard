@@ -28,11 +28,11 @@ public interface SearchStatisticRepository extends JpaRepository<SearchStatistic
     int incrementSearchCount(@Param("keyword") String keyword, @Param("searchDate") LocalDate searchDate);
 
     @Query("""
-            SELECT s.keyword AS keyword, SUM(s.searchCount) AS count
+            SELECT LOWER(s.keyword) AS keyword, SUM(s.searchCount) AS count
             FROM SearchStatistic s
             WHERE s.searchDate BETWEEN :startDate AND :endDate
-            GROUP BY s.keyword
-            ORDER BY SUM(s.searchCount) DESC, s.keyword ASC
+            GROUP BY LOWER(s.keyword)
+            ORDER BY SUM(s.searchCount) DESC, LOWER(s.keyword) ASC
             """)
     List<PopularKeywordProjection> findPopularKeywords(@Param("startDate") LocalDate startDate,
             @Param("endDate") LocalDate endDate,
