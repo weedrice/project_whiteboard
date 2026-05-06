@@ -38,7 +38,7 @@ export function sanitizeQuillHtml(html: string): string {
             'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
             'ul', 'ol', 'li',
             'blockquote', 'code', 'pre',
-            'a', 'img', 'video', 'iframe',
+            'a', 'img', 'video', 'iframe', 'hr',
             'div', 'span', 'sub', 'sup',
             'table', 'thead', 'tbody', 'tr', 'th', 'td',
             'mark'

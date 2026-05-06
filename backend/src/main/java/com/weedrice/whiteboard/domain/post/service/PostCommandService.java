@@ -94,7 +94,7 @@ public class PostCommandService {
         }
         postAuthorCommandPolicy.validateAppliedCategoryWriteRole(board, user, category);
 
-        String sanitizedContents = InputSanitizer.sanitize(request.getContents());
+        String sanitizedContents = InputSanitizer.sanitizePostHtml(request.getContents());
         boolean isSecret = !boardAccessPolicy.isInquiryBoard(board) && request.isSecret();
 
         Post post = Post.builder()
@@ -137,7 +137,7 @@ public class PostCommandService {
 
         String originalTitle = post.getTitle();
         String originalContents = post.getContents();
-        String sanitizedContents = InputSanitizer.sanitize(request.getContents());
+        String sanitizedContents = InputSanitizer.sanitizePostHtml(request.getContents());
 
         boolean isSecret = !boardAccessPolicy.isInquiryBoard(post.getBoard()) && request.isSecret();
         post.updatePost(category, request.getTitle(), sanitizedContents, request.isNsfw(),

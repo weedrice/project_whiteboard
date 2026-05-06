@@ -1,7 +1,14 @@
 package com.weedrice.whiteboard.global.util;
 
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+import org.jsoup.safety.Safelist;
 import org.springframework.web.util.HtmlUtils;
 
+import java.net.URI;
+import java.util.Locale;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
@@ -10,6 +17,15 @@ import java.util.regex.Pattern;
  * XSS 공격 방지를 위한 입력값 정제 기능을 제공합니다.
  */
 public class InputSanitizer {
+
+    private static final String POST_HTML_BASE_URI = "https://noviis.kr";
+    private static final Set<String> POST_HTML_STYLE_PROPERTIES = Set.of(
+            "color",
+            "background-color",
+            "text-align",
+            "font-size",
+            "line-height"
+    );
 
     // HTML 태그 제거를 위한 정규식
     private static final Pattern HTML_TAG_PATTERN = Pattern.compile("<[^>]+>");
@@ -25,6 +41,33 @@ public class InputSanitizer {
             "on\\w+\\s*=",
             Pattern.CASE_INSENSITIVE
     );
+    private static final Document.OutputSettings POST_HTML_OUTPUT_SETTINGS = new Document.OutputSettings()
+            .prettyPrint(false);
+    private static final Safelist POST_HTML_SAFELIST = Safelist.none()
+            .addTags(
+                    "p", "br", "strong", "em", "u", "s", "strike",
+                    "h1", "h2", "h3", "h4", "h5", "h6",
+                    "ul", "ol", "li",
+                    "blockquote", "code", "pre",
+                    "a", "img", "video", "iframe",
+                    "div", "span", "sub", "sup",
+                    "table", "thead", "tbody", "tr", "th", "td", "hr",
+                    "mark")
+            .addAttributes(":all", "class", "title", "style")
+            .addAttributes("a", "href", "target", "rel")
+            .addAttributes("img", "src", "alt", "loading", "width", "height")
+            .addAttributes("video", "src", "controls", "width", "height")
+            .addAttributes("iframe", "src", "width", "height", "frameborder", "allowfullscreen", "allow")
+            .addAttributes("table", "width")
+            .addAttributes("th", "colspan", "rowspan")
+            .addAttributes("td", "colspan", "rowspan")
+            .addAttributes(":all", "data-id", "data-value", "data-video-embed", "data-color")
+            .addProtocols("a", "href", "http", "https", "mailto")
+            .addProtocols("img", "src", "http", "https")
+            .addProtocols("video", "src", "http", "https")
+            .addProtocols("iframe", "src", "http", "https")
+            .addEnforcedAttribute("a", "rel", "nofollow noopener noreferrer")
+            .preserveRelativeLinks(true);
 
     /**
      * HTML 태그를 이스케이프합니다.
@@ -72,6 +115,102 @@ public class InputSanitizer {
         sanitized = EVENT_HANDLER_PATTERN.matcher(sanitized).replaceAll("");
         
         return sanitized;
+    }
+
+    /**
+     * 게시글 본문에 허용된 rich HTML만 남깁니다.
+     *
+     * @param input 입력 HTML 문자열
+     * @return 허용 목록 기반으로 정제된 HTML
+     */
+    public static String sanitizePostHtml(String input) {
+        if (input == null) {
+            return null;
+        }
+        String sanitized = Jsoup.clean(input, POST_HTML_BASE_URI, POST_HTML_SAFELIST, POST_HTML_OUTPUT_SETTINGS);
+        Document document = Jsoup.parseBodyFragment(sanitized, POST_HTML_BASE_URI);
+        sanitizePostHtmlStyles(document);
+        sanitizePostHtmlIframes(document);
+        document.outputSettings(POST_HTML_OUTPUT_SETTINGS);
+        return document.body().html();
+    }
+
+    private static void sanitizePostHtmlStyles(Document document) {
+        for (Element element : document.body().getAllElements()) {
+            if (!element.hasAttr("style")) {
+                continue;
+            }
+            String sanitizedStyle = sanitizeStyleAttribute(element.attr("style"));
+            if (sanitizedStyle.isBlank()) {
+                element.removeAttr("style");
+            } else {
+                element.attr("style", sanitizedStyle);
+            }
+        }
+    }
+
+    private static String sanitizeStyleAttribute(String style) {
+        if (style == null || style.isBlank()) {
+            return "";
+        }
+        StringBuilder sanitized = new StringBuilder();
+        for (String declaration : style.split(";")) {
+            String[] parts = declaration.split(":", 2);
+            if (parts.length != 2) {
+                continue;
+            }
+            String property = parts[0].trim().toLowerCase(Locale.ROOT);
+            String value = parts[1].trim();
+            if (!POST_HTML_STYLE_PROPERTIES.contains(property) || isUnsafeStyleValue(value)) {
+                continue;
+            }
+            if (!sanitized.isEmpty()) {
+                sanitized.append("; ");
+            }
+            sanitized.append(property).append(": ").append(value);
+        }
+        return sanitized.toString();
+    }
+
+    private static boolean isUnsafeStyleValue(String value) {
+        String normalized = value.toLowerCase(Locale.ROOT);
+        return normalized.contains("javascript:")
+                || normalized.contains("expression(")
+                || normalized.contains("url(")
+                || normalized.contains("@import")
+                || normalized.contains("behavior:")
+                || normalized.contains("-moz-binding");
+    }
+
+    private static void sanitizePostHtmlIframes(Document document) {
+        for (Element iframe : document.select("iframe")) {
+            if (!isAllowedVideoEmbedUrl(iframe.attr("src"))) {
+                iframe.remove();
+            }
+        }
+    }
+
+    private static boolean isAllowedVideoEmbedUrl(String src) {
+        if (src == null || src.isBlank()) {
+            return false;
+        }
+        try {
+            URI uri = URI.create(src);
+            String host = uri.getHost();
+            String path = uri.getPath();
+            if (host == null || path == null) {
+                return false;
+            }
+            String normalizedHost = host.toLowerCase(Locale.ROOT);
+            return (("www.youtube.com".equals(normalizedHost)
+                    || "youtube.com".equals(normalizedHost)
+                    || "www.youtube-nocookie.com".equals(normalizedHost)
+                    || "youtube-nocookie.com".equals(normalizedHost))
+                    && path.startsWith("/embed/"))
+                    || "player.vimeo.com".equals(normalizedHost) && path.startsWith("/video/");
+        } catch (IllegalArgumentException ex) {
+            return false;
+        }
     }
 
     /**

@@ -23,11 +23,12 @@ describe('sanitize', () => {
     })
 
     it('sanitizeQuillHtml allows quill/tiptap tags and strips dangerous attrs', () => {
-        const html = '<video src="/a.mp4" onerror="x()"></video><mark data-color="#fff">m</mark>'
+        const html = '<video src="/a.mp4" onerror="x()"></video><mark data-color="#fff">m</mark><hr>'
         const clean = sanitizeQuillHtml(html)
 
         expect(clean).toContain('<video src="/a.mp4"></video>')
         expect(clean).toContain('<mark data-color="#fff">m</mark>')
+        expect(clean).toContain('<hr>')
         expect(clean).not.toContain('onerror=')
     })
 })

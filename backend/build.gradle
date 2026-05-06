@@ -65,6 +65,9 @@ dependencies {
 	// AWS SDK v2 (S3 only)
 	implementation platform('software.amazon.awssdk:bom:2.21.1')
 	implementation 'software.amazon.awssdk:s3'
+
+	// HTML sanitization
+	implementation 'org.jsoup:jsoup:1.17.2'
 }
 
 tasks.named('test') {

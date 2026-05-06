@@ -286,6 +286,32 @@ class PostServiceTest {
     }
 
     @Test
+    @DisplayName("게시글 생성은 본문 HTML을 허용 목록 기반으로 정제해 저장한다")
+    void createPost_sanitizesPostHtmlContent() {
+        PostCreateRequest request = new PostCreateRequest(null, "New Post",
+                "<p onclick=\"alert(1)\">Safe</p><a href=\"javascript:alert(1)\">bad</a>"
+                        + "<img src=\"/api/v1/files/1\" alt=\"ok\"><script>alert(1)</script>",
+                Collections.emptyList(), false, false, false, false, null);
+
+        when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
+        when(postRepository.save(any(Post.class))).thenAnswer(invocation -> {
+            Post saved = invocation.getArgument(0);
+            ReflectionTestUtils.setField(saved, "postId", 100L);
+            return saved;
+        });
+
+        Post created = postService.createPost(1L, "free", request);
+
+        assertThat(created.getContents()).contains("<p>Safe</p>");
+        assertThat(created.getContents()).contains("src=\"/api/v1/files/1\"");
+        assertThat(created.getContents()).doesNotContain("onclick");
+        assertThat(created.getContents()).doesNotContain("javascript:");
+        assertThat(created.getContents()).doesNotContain("<script");
+    }
+
+    @Test
     @DisplayName("게시글 작성 보상 설정이 잘못되면 기본값으로 지급한다")
     void createPost_invalidRewardConfig_usesDefaultReward() {
         PostCreateRequest request = new PostCreateRequest(null, "New Post", "New Contents", Collections.emptyList(),
@@ -764,6 +790,24 @@ class PostServiceTest {
         verify(tagAssignmentService).assignTags(post, request.getTags());
         verify(fileService).syncPostFiles(List.of(5L), 1L, 1L);
         verify(postVersionRepository).save(any(PostVersion.class));
+    }
+
+    @Test
+    @DisplayName("게시글 수정은 본문 HTML을 생성과 같은 정책으로 정제한다")
+    void updatePost_sanitizesPostHtmlContent() {
+        PostUpdateRequest request = new PostUpdateRequest(null, "Updated Title",
+                "<h2>Title</h2><p onmouseover=\"alert(1)\">Safe</p><iframe src=\"javascript:alert(1)\"></iframe>",
+                Collections.emptyList(), false, false, false, null);
+
+        when(postRepository.findById(1L)).thenReturn(Optional.of(post));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        Post updated = postService.updatePost(1L, 1L, request);
+
+        assertThat(updated.getContents()).contains("<h2>Title</h2>");
+        assertThat(updated.getContents()).contains("<p>Safe</p>");
+        assertThat(updated.getContents()).doesNotContain("onmouseover");
+        assertThat(updated.getContents()).doesNotContain("javascript:");
     }
 
     @Test
