@@ -13,7 +13,7 @@ import { TableKit } from '@tiptap/extension-table'
 import HorizontalRule from '@tiptap/extension-horizontal-rule'
 import { FontSize, LineHeight } from '@tiptap/extension-text-style'
 import { Video } from '@/extensions/tiptap-video'
-import { TextAlignCenter, TextAlignEnd, TextAlignJustify, TextAlignStart } from 'lucide-vue-next'
+import { Image as ImageIcon, TextAlignCenter, TextAlignEnd, TextAlignJustify, TextAlignStart, Video as VideoIcon } from 'lucide-vue-next'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import { useEditorImageUpload } from '@/composables/useEditorImageUpload'
 import { useI18n } from 'vue-i18n'
@@ -465,10 +465,10 @@ onBeforeUnmount(() => {
           {{ t('board.writePost.toolbar.link') }}
         </button>
         <button type="button" class="tiptap-btn" :title="t('board.writePost.toolbar.image')" :disabled="isUploadingImage" @mousedown.prevent @click="triggerImageUpload">
-          Img
+          <ImageIcon class="h-4 w-4" aria-hidden="true" />
         </button>
         <button type="button" class="tiptap-btn" :title="t('board.writePost.toolbar.video')" @mousedown.prevent @click="emit('open-video')">
-          Vid
+          <VideoIcon class="h-4 w-4" aria-hidden="true" />
         </button>
         <button type="button" class="tiptap-btn" :title="t('board.writePost.toolbar.emoticon')" @mousedown.prevent @click="emit('open-emoticon')">
           :)

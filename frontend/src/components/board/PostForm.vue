@@ -319,7 +319,6 @@ const {
   scheduleAutosave,
   restoreDraft,
   cleanupDraft,
-  clearRecovery,
   writeLocalSnapshot,
   lastSavedAt,
   isSavingDraft,
@@ -639,7 +638,6 @@ defineExpose({
     >
       <div class="nv-compose-header">
         <div class="min-w-0">
-          <p class="nv-compose-kicker">{{ props.mode === 'create' ? $t('board.writePost.composeMode.create') : $t('board.writePost.composeMode.edit') }}</p>
           <h2 class="truncate text-2xl font-semibold tracking-[-0.05em] text-[var(--nv-ink)] sm:text-3xl">
             {{ pageTitle }}
           </h2>
@@ -649,12 +647,6 @@ defineExpose({
         </div>
 
         <div class="flex flex-wrap items-center justify-end gap-2">
-          <BaseButton type="button" variant="ghost" size="sm" @click="showPreview = true">
-            {{ $t('board.writePost.actions.preview') }}
-          </BaseButton>
-          <BaseButton v-if="draftEnabled" type="button" variant="secondary" size="sm" @click="handleSaveDraft">
-            {{ $t('board.writePost.actions.saveDraft') }}
-          </BaseButton>
           <BaseButton type="button" variant="secondary" size="sm" @click="handleCancel">
             {{ $t('common.cancel') }}
           </BaseButton>
@@ -674,17 +666,7 @@ defineExpose({
         @submit.prevent="handleSubmit"
       >
         <section class="nv-compose-main">
-          <div class="nv-compose-main-card rounded-[28px] border border-[var(--nv-line)] bg-[var(--nv-surface)] p-4 shadow-[var(--nv-shadow-soft)] sm:p-5">
-            <div class="mb-4 hidden items-center justify-between gap-3 rounded-[20px] border border-[var(--nv-line)] bg-[var(--nv-elevated)] px-4 py-3 lg:flex">
-              <div>
-                <p class="nv-compose-kicker">{{ $t('board.writePost.sections.editor') }}</p>
-                <p class="mt-1 text-sm text-[var(--nv-ink-soft)]">{{ draftStatusLabel }}</p>
-              </div>
-              <div class="rounded-full border border-[var(--nv-line)] bg-[var(--nv-surface)] px-3 py-1 text-[11px] font-medium uppercase tracking-[0.16em] text-[var(--nv-muted)]">
-                {{ $t('board.writePost.toolbar.insertBlock') }}
-              </div>
-            </div>
-
+          <div class="nv-compose-main-card rounded-2xl border border-[var(--nv-line)] bg-[var(--nv-surface)] p-4 shadow-[var(--nv-shadow-soft)] sm:p-5">
             <div class="mb-4 flex flex-wrap items-center gap-2 lg:hidden">
               <div v-if="!props.hideCategory && filteredCategories.length > 0" class="min-w-[10rem] flex-1">
                 <BaseSelect id="category" v-model="form.categoryId" :label="$t('common.category')">
@@ -715,14 +697,14 @@ defineExpose({
               required
               :placeholder="$t('board.writePost.placeholder.title')"
               :label="$t('common.title')"
-              inputClass="!rounded-2xl !border-[var(--nv-line)] !bg-[var(--nv-elevated)] !px-4 !py-3 !text-sm sm:!text-base"
+              labelClass="!text-xs !font-medium !uppercase !tracking-[0.18em] !text-[var(--nv-muted)]"
+              inputClass="!rounded-xl !border-[var(--nv-line)] !bg-[var(--nv-elevated)] !px-4 !py-3 !text-sm sm:!text-base"
             />
 
             <div class="mt-4">
-              <div class="flex items-center justify-between rounded-t-[20px] border border-[var(--nv-line)] border-b-0 bg-[var(--nv-elevated)] px-3 py-2">
+              <div class="flex items-center justify-between rounded-t-xl border border-[var(--nv-line)] border-b-0 bg-[var(--nv-elevated)] px-3 py-2">
                 <div class="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.18em] text-[var(--nv-muted)]">
                   <span>{{ $t('board.writePost.sections.editor') }}</span>
-                  <span class="hidden sm:inline">{{ draftStatusLabel }}</span>
                 </div>
                 <div class="flex items-center gap-2">
                   <button
@@ -744,7 +726,7 @@ defineExpose({
                 </div>
               </div>
 
-              <div class="editor-area-container rounded-b-[24px] border border-[var(--nv-line)]">
+              <div class="editor-area-container rounded-b-xl border border-[var(--nv-line)]">
                 <div
                   v-if="editorViewMode === 'visual'"
                   ref="editorWrapperRef"
@@ -795,13 +777,6 @@ defineExpose({
               </div>
             </div>
 
-            <div class="mt-4 flex items-center justify-between gap-3 text-xs text-[var(--nv-muted)] sm:hidden">
-              <span>{{ draftStatusLabel }}</span>
-              <button v-if="draftEnabled" type="button" class="font-medium text-[var(--nv-accent)]" @click="handleSaveDraft">
-                {{ $t('board.writePost.actions.saveNow') }}
-              </button>
-            </div>
-
             <div v-if="!props.hideTags" class="mt-5 lg:hidden">
               <label for="tags" class="mb-2 block text-xs font-medium uppercase tracking-[0.18em] text-[var(--nv-muted)]">
                 {{ $t('common.tags') }}
@@ -812,7 +787,7 @@ defineExpose({
         </section>
 
         <aside class="space-y-4 lg:sticky lg:top-24 lg:self-start">
-          <section class="nv-compose-side-card rounded-[28px] border border-[var(--nv-line)] bg-[var(--nv-surface)] p-4 shadow-[var(--nv-shadow-soft)]">
+          <section class="nv-compose-side-card rounded-2xl border border-[var(--nv-line)] bg-[var(--nv-surface)] p-4 shadow-[var(--nv-shadow-soft)]">
             <div class="mb-4">
               <p class="nv-compose-kicker">{{ $t('board.writePost.sections.metadata') }}</p>
               <h3 class="text-lg font-semibold text-[var(--nv-ink)]">{{ $t('board.writePost.sections.postSettings') }}</h3>
@@ -847,30 +822,11 @@ defineExpose({
             </div>
           </section>
 
-          <section class="nv-compose-side-card rounded-[28px] border border-[var(--nv-line)] bg-[var(--nv-surface)] p-4 shadow-[var(--nv-shadow-soft)]">
+          <section class="nv-compose-side-card rounded-2xl border border-[var(--nv-line)] bg-[var(--nv-surface)] p-4 shadow-[var(--nv-shadow-soft)]">
             <div class="mb-3">
-              <p class="nv-compose-kicker">{{ $t('board.writePost.sections.status') }}</p>
-              <h3 class="text-lg font-semibold text-[var(--nv-ink)]">{{ $t('board.writePost.sections.draftState') }}</h3>
+              <p class="nv-compose-kicker">{{ $t('board.writePost.sections.draftState') }}</p>
             </div>
             <p class="text-sm text-[var(--nv-ink-soft)]">{{ draftStatusLabel }}</p>
-            <div class="mt-4 flex flex-wrap gap-2">
-              <BaseButton v-if="draftEnabled" type="button" variant="secondary" size="sm" @click="handleSaveDraft">
-                {{ $t('board.writePost.actions.saveDraft') }}
-              </BaseButton>
-              <BaseButton type="button" variant="ghost" size="sm" @click="showPreview = true">
-                {{ $t('board.writePost.actions.preview') }}
-              </BaseButton>
-              <BaseButton v-if="draftEnabled" type="button" variant="ghost" size="sm" @click="clearRecovery">
-                {{ $t('board.writePost.draftStatus.clearLocalBackup') }}
-              </BaseButton>
-            </div>
-            <p class="mt-4 text-xs text-[var(--nv-muted)]">
-              <kbd class="rounded border border-[var(--nv-line)] px-2 py-1">Ctrl/Cmd + S</kbd>
-              {{ $t('board.writePost.shortcuts.saveDraft') }}
-              <span class="mx-2">/</span>
-              <kbd class="rounded border border-[var(--nv-line)] px-2 py-1">Ctrl/Cmd + Enter</kbd>
-              {{ $t('board.writePost.shortcuts.publish') }}
-            </p>
           </section>
         </aside>
       </form>
@@ -946,7 +902,7 @@ defineExpose({
 }
 
 .editor-view-toggle-btn {
-  border-radius: 999px;
+  border-radius: 10px;
   border: 1px solid transparent;
   padding: 0.45rem 0.85rem;
   font-size: 0.75rem;
@@ -1002,7 +958,7 @@ defineExpose({
   padding: 12px 14px;
   background: var(--nv-surface);
   border: 1px solid var(--nv-line);
-  border-radius: 16px;
+  border-radius: 10px;
   box-shadow: var(--nv-shadow-soft);
   z-index: 10000;
 }
@@ -1021,7 +977,7 @@ defineExpose({
   margin-bottom: 10px;
   padding: 10px 12px;
   border: 1px solid var(--nv-line);
-  border-radius: 12px;
+  border-radius: 8px;
   background: var(--nv-elevated);
   color: var(--nv-ink);
   box-sizing: border-box;

@@ -133,6 +133,8 @@ vi.mock('@/extensions/tiptap-video', () => ({ Video: {} }))
 vi.mock('lucide-vue-next', () => {
     const icon = defineComponent({ name: 'TestIcon', setup: () => () => h('i') })
     return {
+        Image: icon,
+        Video: icon,
         TextAlignStart: icon,
         TextAlignCenter: icon,
         TextAlignEnd: icon,
