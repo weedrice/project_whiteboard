@@ -36,6 +36,7 @@ import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -110,6 +111,8 @@ class AgentServiceTest {
     private SanctionService sanctionService;
     @Mock
     private SanctionPolicyService sanctionPolicyService;
+    @Mock
+    private EntityManager entityManager;
 
     private AgentOwnershipService agentOwnershipService;
     private AgentAuditService agentAuditService;
@@ -141,7 +144,12 @@ class AgentServiceTest {
         agentPostListItemAssembler = spy(new AgentPostListItemAssembler(commentRepository));
         commentReadSupport = new CommentReadSupport(commentRepository);
         agentQuotaService = new AgentQuotaService(agentDailyQuotaRepository);
-        agentLifecycleService = new AgentLifecycleService(agentRepository, userRepository, agentAuditService, sanctionPolicyService);
+        agentLifecycleService = new AgentLifecycleService(
+                agentRepository,
+                userRepository,
+                agentAuditService,
+                sanctionPolicyService,
+                entityManager);
         agentAuthService = new AgentAuthService(agentRepository, agentOwnershipService);
         agentQueryService = new AgentQueryService(
                 boardRepository,
@@ -262,28 +270,30 @@ class AgentServiceTest {
         AgentClaimRequest request = new AgentClaimRequest();
         ReflectionTestUtils.setField(request, "agentToken", "noviis_agt_token");
 
+        when(agentRepository.findByAgentTokenHashAndIsDeletedFalseForUpdate(any())).thenReturn(Optional.of(agent));
         when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
 
         assertThatThrownBy(() -> agentLifecycleService.claim(1L, request, null))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.EMAIL_NOT_VERIFIED);
 
-        verify(agentRepository, never()).findByAgentTokenHashAndIsDeletedFalseForUpdate(any());
+        verify(agentRepository).findByAgentTokenHashAndIsDeletedFalseForUpdate(any());
     }
 
     @Test
-    void claim_rejectsSuspendedOwnerBeforeTokenLookup() {
+    void claim_rejectsSuspendedOwnerAfterTokenLock() {
         user.suspend();
         AgentClaimRequest request = new AgentClaimRequest();
         ReflectionTestUtils.setField(request, "agentToken", "noviis_agt_token");
 
+        when(agentRepository.findByAgentTokenHashAndIsDeletedFalseForUpdate(any())).thenReturn(Optional.of(agent));
         when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
 
         assertThatThrownBy(() -> agentLifecycleService.claim(1L, request, null))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_ACTIVE);
 
-        verify(agentRepository, never()).findByAgentTokenHashAndIsDeletedFalseForUpdate(any());
+        verify(agentRepository).findByAgentTokenHashAndIsDeletedFalseForUpdate(any());
     }
 
     @Test
@@ -361,46 +371,58 @@ class AgentServiceTest {
 
     @Test
     void suspendMyAgent_keepsDisplayFields() {
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+        when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
 
         AgentResponse response = agentLifecycleService.suspendMyAgent(1L, 7L, null);
 
         assertThat(response.getStatus()).isEqualTo(Agent.STATUS_SUSPENDED);
         assertThat(agent.getName()).isEqualTo("agent");
         assertThat(agent.getDescription()).isEqualTo("desc");
+        verify(agentAuditService).saveLog(agent, user, "SUSPEND", "AGENT", 7L, null);
+        verify(agentRepository).findByAgentIdForUpdate(7L);
+        verify(userRepository).findByIdForUpdate(1L);
+        verify(agentRepository, never()).findByAgentIdAndIsDeletedFalse(anyLong());
+        InOrder inOrder = inOrder(agentRepository, userRepository);
+        inOrder.verify(agentRepository).findByAgentIdForUpdate(7L);
+        inOrder.verify(userRepository).findByIdForUpdate(1L);
     }
 
     @Test
     void suspendMyAgent_rejectsBannedOwner() {
         doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE))
                 .when(sanctionPolicyService).validateNotBanned(user);
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
 
         assertThatThrownBy(() -> agentLifecycleService.suspendMyAgent(1L, 7L, null))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_ACTIVE);
 
+        verify(agentRepository).findByAgentIdForUpdate(7L);
         verify(agentRepository, never()).findByAgentIdAndIsDeletedFalse(anyLong());
     }
 
     @Test
     void activateMyAgent_reactivatesSuspendedOwnedAgent() {
         agent.suspend();
-        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
 
         AgentResponse response = agentLifecycleService.activateMyAgent(1L, 7L, null);
 
         assertThat(response.getStatus()).isEqualTo(Agent.STATUS_ACTIVE);
         assertThat(agent.isActive()).isTrue();
         verify(agentAuditService).saveLog(agent, user, "REACTIVATE", "AGENT", 7L, null);
+        InOrder inOrder = inOrder(agentRepository, userRepository);
+        inOrder.verify(agentRepository).findByAgentIdForUpdate(7L);
+        inOrder.verify(userRepository).findByIdForUpdate(1L);
     }
 
     @Test
     void activateMyAgent_returnsActiveAgentWithoutAuditLog() {
-        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
 
         AgentResponse response = agentLifecycleService.activateMyAgent(1L, 7L, null);
 
@@ -418,8 +440,8 @@ class AgentServiceTest {
                 .status(Agent.STATUS_PENDING_CLAIM)
                 .build();
         ReflectionTestUtils.setField(pendingAgent, "agentId", 9L);
-        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         when(agentRepository.findByAgentIdForUpdate(9L)).thenReturn(Optional.of(pendingAgent));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
 
         assertThatThrownBy(() -> agentLifecycleService.activateMyAgent(1L, 9L, null))
                 .isInstanceOf(BusinessException.class)
@@ -428,7 +450,6 @@ class AgentServiceTest {
 
     @Test
     void activateMyAgent_rejectsMissingAgent() {
-        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         when(agentRepository.findByAgentIdForUpdate(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> agentLifecycleService.activateMyAgent(1L, 99L, null))
@@ -448,7 +469,6 @@ class AgentServiceTest {
                 .status(Agent.STATUS_SUSPENDED)
                 .build();
         ReflectionTestUtils.setField(foreignAgent, "agentId", 8L);
-        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         when(agentRepository.findByAgentIdForUpdate(8L)).thenReturn(Optional.of(foreignAgent));
 
         assertThatThrownBy(() -> agentLifecycleService.activateMyAgent(1L, 8L, null))
@@ -460,25 +480,57 @@ class AgentServiceTest {
     void activateMyAgent_rejectsBannedOwner() {
         doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE))
                 .when(sanctionPolicyService).validateNotBanned(user);
+        when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
         when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
 
         assertThatThrownBy(() -> agentLifecycleService.activateMyAgent(1L, 7L, null))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_ACTIVE);
 
-        verify(agentRepository, never()).findByAgentIdForUpdate(anyLong());
+        verify(agentRepository).findByAgentIdForUpdate(7L);
+    }
+
+    @Test
+    void deleteMyAgent_softDeletesOwnedAgent() {
+        when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+
+        agentLifecycleService.deleteMyAgent(1L, 7L, null);
+
+        assertThat(agent.getIsDeleted()).isTrue();
+        verify(agentAuditService).saveLog(agent, user, "DELETE", "AGENT", 7L, null);
+        verify(agentRepository).findByAgentIdForUpdate(7L);
+        verify(userRepository).findByIdForUpdate(1L);
+        verify(agentRepository, never()).findByAgentIdAndIsDeletedFalse(anyLong());
+        InOrder inOrder = inOrder(agentRepository, userRepository);
+        inOrder.verify(agentRepository).findByAgentIdForUpdate(7L);
+        inOrder.verify(userRepository).findByIdForUpdate(1L);
     }
 
     @Test
     void deleteMyAgent_rejectsSuspendedOwner() {
         user.suspend();
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
 
         assertThatThrownBy(() -> agentLifecycleService.deleteMyAgent(1L, 7L, null))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_ACTIVE);
 
+        verify(agentRepository).findByAgentIdForUpdate(7L);
         verify(agentRepository, never()).findByAgentIdAndIsDeletedFalse(anyLong());
+    }
+
+    @Test
+    void suspendAllForUser_locksAgentsInStableOrder() {
+        when(agentRepository.findByUserIdAndIsDeletedFalseForUpdateOrderByAgentIdAsc(1L))
+                .thenReturn(List.of(agent));
+
+        agentLifecycleService.suspendAllForUser(user);
+
+        assertThat(agent.getStatus()).isEqualTo(Agent.STATUS_SUSPENDED);
+        verify(agentRepository).findByUserIdAndIsDeletedFalseForUpdateOrderByAgentIdAsc(1L);
+        verify(agentRepository, never()).findByUserAndIsDeletedFalseOrderByCreatedAtDesc(any());
     }
 
     @Test
@@ -543,8 +595,8 @@ class AgentServiceTest {
 
         when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         when(agentRepository.findByAgentTokenHashAndIsDeletedFalseForUpdate(any())).thenReturn(Optional.of(pendingAgent));
-        when(agentRepository.findByUserAndIsDeletedFalseOrderByCreatedAtDesc(user))
-                .thenReturn(List.of(previousAgent));
+        when(agentRepository.findByUserIdAndIsDeletedFalseForUpdateOrderByAgentIdAsc(1L))
+                .thenReturn(List.of(), List.of(previousAgent));
 
         AgentResponse response = agentLifecycleService.claim(1L, request, null);
 
@@ -554,6 +606,12 @@ class AgentServiceTest {
         assertThat(pendingAgent.getUser()).isEqualTo(user);
         verify(agentAuditLogWriter).saveLog(3L, 1L, "DELETE", "AGENT", 3L, null, null);
         verify(agentAuditLogWriter).saveLog(9L, 1L, "CLAIM", "AGENT", 9L, null, null);
+        InOrder inOrder = inOrder(agentRepository, userRepository);
+        inOrder.verify(agentRepository).findByAgentTokenHashAndIsDeletedFalseForUpdate(any());
+        inOrder.verify(agentRepository).findByUserIdAndIsDeletedFalseForUpdateOrderByAgentIdAsc(1L);
+        inOrder.verify(userRepository).findByIdForUpdate(1L);
+        inOrder.verify(agentRepository).findByUserIdAndIsDeletedFalseForUpdateOrderByAgentIdAsc(1L);
+        verify(agentRepository, times(2)).findByUserIdAndIsDeletedFalseForUpdateOrderByAgentIdAsc(1L);
     }
 
     @Test

@@ -35,6 +35,17 @@ public interface AgentRepository extends JpaRepository<Agent, Long> {
 
     List<Agent> findByUserAndIsDeletedFalseOrderByCreatedAtDesc(User user);
 
+    @EntityGraph(attributePaths = { "user" })
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            SELECT a
+            FROM Agent a
+            WHERE a.user.userId = :userId
+              AND a.isDeleted = false
+            ORDER BY a.agentId ASC
+            """)
+    List<Agent> findByUserIdAndIsDeletedFalseForUpdateOrderByAgentIdAsc(@Param("userId") Long userId);
+
     boolean existsByAgentIdAndUserAndIsDeletedFalse(Long agentId, User user);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
