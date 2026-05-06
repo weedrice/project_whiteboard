@@ -44,6 +44,7 @@ public class WebConfig implements WebMvcConfigurer {
                         "/api/v1/boards/**",
                         "/api/v1/posts/**",
                         "/api/v1/comments/**",
+                        "/api/v1/emoticons/**",
                         "/api/v1/files/**",
                         "/api/v1/tags/**",
                         "/api/v1/search/**",
