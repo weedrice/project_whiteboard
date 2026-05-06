@@ -1618,13 +1618,38 @@ class PostServiceTest {
     void getMyPosts_success() {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(postRepository.findByUserAndIsDeleted(eq(user), eq(false), any(Pageable.class))).thenReturn(Page.empty());
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
         // Page.empty()인 경우 getPostIdsWithImages가 빈 리스트를 받아 fileService가 호출되지 않음
         lenient().when(fileService.getFirstImageFileIdsForPosts(anyList()))
                 .thenReturn(Collections.emptyMap());
 
         postService.getMyPosts(1L, Pageable.unpaged());
 
-        verify(postRepository).findByUserAndIsDeleted(eq(user), eq(false), any(Pageable.class));
+        verify(postRepository).findByUserAndIsDeleted(eq(user), eq(false), pageableCaptor.capture());
+        Pageable safePageable = pageableCaptor.getValue();
+        assertThat(safePageable.getPageNumber()).isZero();
+        assertThat(safePageable.getPageSize()).isEqualTo(20);
+        assertThat(safePageable.getSort()).isEqualTo(Sort.by(
+                Sort.Order.desc("createdAt"),
+                Sort.Order.desc("postId")));
+    }
+
+    @Test
+    @DisplayName("내 게시글 조회는 페이지 크기와 정렬 필드를 제한한다")
+    void getMyPosts_normalizesPageable() {
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(postRepository.findByUserAndIsDeleted(eq(user), eq(false), any(Pageable.class))).thenReturn(Page.empty());
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+
+        postService.getMyPosts(1L, PageRequest.of(2, 250, Sort.by(Sort.Order.asc("commentCount"))));
+
+        verify(postRepository).findByUserAndIsDeleted(eq(user), eq(false), pageableCaptor.capture());
+        Pageable safePageable = pageableCaptor.getValue();
+        assertThat(safePageable.getPageNumber()).isEqualTo(2);
+        assertThat(safePageable.getPageSize()).isEqualTo(100);
+        assertThat(safePageable.getSort()).isEqualTo(Sort.by(
+                Sort.Order.desc("createdAt"),
+                Sort.Order.desc("postId")));
     }
 
     @Test

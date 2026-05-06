@@ -10,11 +10,13 @@ import com.weedrice.whiteboard.domain.report.entity.ReportTargetType;
 import com.weedrice.whiteboard.domain.report.repository.ReportRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,6 +24,10 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 class ReportModerationService {
+    private static final int DEFAULT_REPORT_PAGE_SIZE = 20;
+    private static final Sort DEFAULT_REPORT_SORT = Sort.by(
+            Sort.Order.desc("createdAt"),
+            Sort.Order.desc("reportId"));
 
     private final ReportRepository reportRepository;
     private final UserRepository userRepository;
@@ -29,8 +35,18 @@ class ReportModerationService {
     private final ReportReadAssembler reportReadAssembler;
 
     public Page<ReportResponse> getReports(String status, String targetType, Pageable pageable) {
+        String normalizedStatus = normalizeStatus(status);
+        String normalizedTargetType = normalizeTargetType(targetType);
+        Pageable safePageable = normalizeReportPageable(pageable);
         return reportReadAssembler.toAdminResponsePage(
-                reportRepository.findAdminReports(normalizeStatus(status), normalizeTargetType(targetType), pageable));
+                reportRepository.findAdminReports(normalizedStatus, normalizedTargetType, safePageable));
+    }
+
+    private Pageable normalizeReportPageable(Pageable pageable) {
+        if (pageable == null || pageable.isUnpaged()) {
+            return PageRequestUtils.of(0, DEFAULT_REPORT_PAGE_SIZE, DEFAULT_REPORT_SORT);
+        }
+        return PageRequestUtils.of(pageable.getPageNumber(), pageable.getPageSize(), DEFAULT_REPORT_SORT);
     }
 
     public Page<MyReportResponse> getMyReports(Long userId, Pageable pageable) {

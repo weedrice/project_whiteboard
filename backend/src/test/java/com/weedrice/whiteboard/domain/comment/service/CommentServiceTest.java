@@ -618,6 +618,24 @@ class CommentServiceTest {
     }
 
     @Test
+    @DisplayName("내 댓글 조회는 페이지 크기와 정렬 필드를 제한한다")
+    void getMyComments_normalizesPageableBeforeRepositoryCall() {
+        User user = User.builder().displayName("User").build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+
+        Pageable requested = PageRequest.of(2, 250, Sort.by(Sort.Order.asc("likeCount")));
+        Pageable normalized = PageRequest.of(2, 100, Sort.by(Sort.Order.desc("createdAt")));
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(commentRepository.findByUserAndIsDeletedOrderByCreatedAtDesc(user, false, normalized))
+                .thenReturn(Page.empty(normalized));
+
+        commentService.getMyComments(1L, requested);
+
+        verify(commentRepository).findByUserAndIsDeletedOrderByCreatedAtDesc(user, false, normalized);
+    }
+
+    @Test
     @DisplayName("get replies returns reply metadata for nested lazy loading")
     void getReplies_returnsReplyMetadata() {
         User author = User.builder().displayName("Author").build();

@@ -9,12 +9,14 @@ import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,6 +30,8 @@ import java.util.Set;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class CommentQueryService {
+    private static final int DEFAULT_MY_COMMENT_PAGE_SIZE = 20;
+    private static final Sort DEFAULT_MY_COMMENT_SORT = Sort.by(Sort.Order.desc("createdAt"));
 
     private final CommentRepository commentRepository;
     private final PostRepository postRepository;
@@ -90,8 +94,16 @@ public class CommentQueryService {
     public Page<MyCommentResponse> getMyComments(Long userId, Pageable pageable) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        return commentRepository.findByUserAndIsDeletedOrderByCreatedAtDesc(user, false, pageable)
+        Pageable safePageable = normalizeMyCommentPageable(pageable);
+        return commentRepository.findByUserAndIsDeletedOrderByCreatedAtDesc(user, false, safePageable)
                 .map(MyCommentResponse::from);
+    }
+
+    private Pageable normalizeMyCommentPageable(Pageable pageable) {
+        if (pageable == null || pageable.isUnpaged()) {
+            return PageRequestUtils.of(0, DEFAULT_MY_COMMENT_PAGE_SIZE, DEFAULT_MY_COMMENT_SORT);
+        }
+        return PageRequestUtils.of(pageable.getPageNumber(), pageable.getPageSize(), DEFAULT_MY_COMMENT_SORT);
     }
 
     private CommentReadContext resolveReadContext(Long currentUserId) {

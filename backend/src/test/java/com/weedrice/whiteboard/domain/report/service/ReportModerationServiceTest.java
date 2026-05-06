@@ -20,6 +20,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
@@ -74,10 +75,16 @@ class ReportModerationServiceTest {
     @DisplayName("getReports uses assembler for admin responses")
     void getReports_usesAssembler() {
         PageRequest pageable = PageRequest.of(0, 20);
-        Page<Report> reportPage = new PageImpl<>(List.of(report), pageable, 1);
-        Page<ReportResponse> responsePage = new PageImpl<>(List.of(ReportResponse.builder().reportId(7L).build()), pageable, 1);
+        PageRequest safePageable = PageRequest.of(0, 20, Sort.by(
+                Sort.Order.desc("createdAt"),
+                Sort.Order.desc("reportId")));
+        Page<Report> reportPage = new PageImpl<>(List.of(report), safePageable, 1);
+        Page<ReportResponse> responsePage = new PageImpl<>(
+                List.of(ReportResponse.builder().reportId(7L).build()),
+                safePageable,
+                1);
 
-        when(reportRepository.findAdminReports("PENDING", "POST", pageable)).thenReturn(reportPage);
+        when(reportRepository.findAdminReports("PENDING", "POST", safePageable)).thenReturn(reportPage);
         when(reportReadAssembler.toAdminResponsePage(reportPage)).thenReturn(responsePage);
 
         Page<ReportResponse> result = reportModerationService.getReports("PENDING", "POST", pageable);
@@ -90,16 +97,41 @@ class ReportModerationServiceTest {
     @DisplayName("getReports normalizes filter values before querying repository")
     void getReports_normalizesFilters() {
         PageRequest pageable = PageRequest.of(0, 20);
-        Page<Report> reportPage = new PageImpl<>(List.of(report), pageable, 1);
-        Page<ReportResponse> responsePage = new PageImpl<>(List.of(ReportResponse.builder().reportId(7L).build()), pageable, 1);
+        PageRequest safePageable = PageRequest.of(0, 20, Sort.by(
+                Sort.Order.desc("createdAt"),
+                Sort.Order.desc("reportId")));
+        Page<Report> reportPage = new PageImpl<>(List.of(report), safePageable, 1);
+        Page<ReportResponse> responsePage = new PageImpl<>(
+                List.of(ReportResponse.builder().reportId(7L).build()),
+                safePageable,
+                1);
 
-        when(reportRepository.findAdminReports("PENDING", "POST", pageable)).thenReturn(reportPage);
+        when(reportRepository.findAdminReports("PENDING", "POST", safePageable)).thenReturn(reportPage);
         when(reportReadAssembler.toAdminResponsePage(reportPage)).thenReturn(responsePage);
 
         Page<ReportResponse> result = reportModerationService.getReports("pending", "post", pageable);
 
         assertThat(result.getContent()).hasSize(1);
-        verify(reportRepository).findAdminReports("PENDING", "POST", pageable);
+        verify(reportRepository).findAdminReports("PENDING", "POST", safePageable);
+    }
+
+    @Test
+    @DisplayName("getReports limits page size and sort fields")
+    void getReports_normalizesPageable() {
+        PageRequest requested = PageRequest.of(2, 250, Sort.by(Sort.Order.asc("reporterId")));
+        PageRequest safePageable = PageRequest.of(2, 100, Sort.by(
+                Sort.Order.desc("createdAt"),
+                Sort.Order.desc("reportId")));
+        Page<Report> reportPage = Page.empty(safePageable);
+        Page<ReportResponse> responsePage = Page.empty(safePageable);
+
+        when(reportRepository.findAdminReports(null, null, safePageable)).thenReturn(reportPage);
+        when(reportReadAssembler.toAdminResponsePage(reportPage)).thenReturn(responsePage);
+
+        Page<ReportResponse> result = reportModerationService.getReports(null, null, requested);
+
+        assertThat(result).isSameAs(responsePage);
+        verify(reportRepository).findAdminReports(null, null, safePageable);
     }
 
     @Test

@@ -44,10 +44,15 @@ public class PostService {
     private static final Sort DEFAULT_TAG_POST_SORT = Sort.by(
             Sort.Order.desc("createdAt"),
             Sort.Order.desc("postId"));
+    private static final Sort DEFAULT_MY_POST_SORT = Sort.by(
+            Sort.Order.desc("createdAt"),
+            Sort.Order.desc("postId"));
     private static final Sort DEFAULT_INQUIRY_POST_SORT = Sort.by(Sort.Direction.DESC, "createdAt");
     private static final Set<String> BOARD_POST_SORT_PROPERTIES = Set.of(
             "createdAt", "postId", "viewCount", "likeCount");
     private static final Set<String> TAG_POST_SORT_PROPERTIES = Set.of(
+            "createdAt", "postId", "viewCount", "likeCount");
+    private static final Set<String> MY_POST_SORT_PROPERTIES = Set.of(
             "createdAt", "postId", "viewCount", "likeCount");
     private static final Set<String> INQUIRY_POST_SORT_PROPERTIES = Set.of(
             "createdAt", "postId", "viewCount", "likeCount");
@@ -207,8 +212,13 @@ public class PostService {
     public Page<PostSummary> getMyPosts(Long userId, @NonNull Pageable pageable) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        Page<Post> posts = postRepository.findByUserAndIsDeleted(user, false, pageable);
-        return postSummaryAssembler.assembleBoardPage(posts, pageable, true, true);
+        Pageable safePageable = PageRequestUtils.of(
+                pageable,
+                DEFAULT_BOARD_POST_PAGE_SIZE,
+                DEFAULT_MY_POST_SORT,
+                MY_POST_SORT_PROPERTIES);
+        Page<Post> posts = postRepository.findByUserAndIsDeleted(user, false, safePageable);
+        return postSummaryAssembler.assembleBoardPage(posts, safePageable, true, true);
     }
 
     public Page<PostSummary> getInquiryPostsForAdmin(@NonNull Pageable pageable) {
