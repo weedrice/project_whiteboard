@@ -168,6 +168,17 @@ class EmoticonMasterDtoTest {
             assertThat(dto.getCreatorId()).isEqualTo(9L);
             assertThat(dto.getCreatorName()).isEqualTo("creator");
         }
+
+        @Test
+        @DisplayName("legacy /files 썸네일 URL을 canonical API URL로 변환한다")
+        void fromWithoutImages_normalizesLegacyThumbnailUrl() {
+            EmoticonMaster master = createMaster(5L, null, "Y", null);
+            ReflectionTestUtils.setField(master, "thumbnailUrl", "/files/10");
+
+            EmoticonMasterDto dto = EmoticonMasterDto.fromWithoutImages(master);
+
+            assertThat(dto.getThumbnailUrl()).isEqualTo("/api/v1/files/10");
+        }
     }
 
     @Test

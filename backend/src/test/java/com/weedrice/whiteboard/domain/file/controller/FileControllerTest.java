@@ -39,7 +39,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(controllers = FileController.class,
+@WebMvcTest(controllers = {FileController.class, LegacyFileController.class},
     excludeFilters = {
         @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = com.weedrice.whiteboard.global.config.WebConfig.class),
         @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = com.weedrice.whiteboard.global.config.SecurityConfig.class)
@@ -163,6 +163,20 @@ class FileControllerTest {
         mockMvc.perform(get("/api/v1/files/{fileId}", fileId)
                         .with(user(customUserDetails)))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("기존 /files 경로 다운로드를 허용한다")
+    void downloadFile_legacyPathReturnsSuccess() throws Exception {
+        Long fileId = 4L;
+        when(fileDownloadService.downloadFile(eq(fileId), isNull())).thenReturn(downloadResponse(
+                "image/png",
+                ContentDisposition.inline().filename("emoticon.png", StandardCharsets.UTF_8).build()));
+
+        mockMvc.perform(get("/files/{fileId}", fileId))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Disposition", containsString("inline")))
+                .andExpect(header().string("X-Content-Type-Options", "nosniff"));
     }
 
     @Test

@@ -54,4 +54,27 @@ class EmoticonImageDtoTest {
         assertThat(dto.getImageUrl()).isEqualTo("url");
         assertThat(dto.getSortOrder()).isEqualTo(0);
     }
+
+    @Test
+    @DisplayName("from() - legacy /files URL을 canonical API URL로 변환")
+    void from_normalizesLegacyFileUrl() {
+        EmoticonMaster master = EmoticonMaster.builder()
+                .name("n")
+                .thumbnailUrl("u")
+                .tags(Collections.emptyList())
+                .creator(null)
+                .build();
+        ReflectionTestUtils.setField(master, "emoticonId", 5L);
+
+        EmoticonImage image = EmoticonImage.builder()
+                .emoticonMaster(master)
+                .imageUrl("/files/20")
+                .sortOrder(2)
+                .build();
+        ReflectionTestUtils.setField(image, "imageId", 20L);
+
+        EmoticonImageDto dto = EmoticonImageDto.from(image);
+
+        assertThat(dto.getImageUrl()).isEqualTo("/api/v1/files/20");
+    }
 }
