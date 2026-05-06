@@ -27,7 +27,7 @@ public class FileStorageService {
     @Value("${cloud.aws.s3.bucket}")
     private String bucket;
 
-    public String storeFile(MultipartFile file) {
+    public String storeFile(MultipartFile file, String validatedMimeType) {
         String originalFileName = file.getOriginalFilename();
         String fileExtension = "";
         if (originalFileName != null && originalFileName.contains(".")) {
@@ -39,7 +39,7 @@ public class FileStorageService {
             PutObjectRequest putOb = PutObjectRequest.builder()
                     .bucket(bucket)
                     .key(fileName)
-                    .contentType(file.getContentType())
+                    .contentType(validatedMimeType)
                     .build();
 
             RequestBody requestBody = RequestBody.fromInputStream(file.getInputStream(), file.getSize());

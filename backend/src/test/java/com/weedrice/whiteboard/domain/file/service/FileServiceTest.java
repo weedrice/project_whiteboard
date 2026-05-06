@@ -84,7 +84,7 @@ class FileServiceTest {
                 .build();
 
         when(userWritableResolver.resolve(uploaderId)).thenReturn(uploader);
-        when(fileStorageService.storeFile(multipartFile)).thenReturn("storedFileName.jpg");
+        when(fileStorageService.storeFile(multipartFile, "image/jpeg")).thenReturn("storedFileName.jpg");
         when(transactionTemplate.execute(any())).thenAnswer(invocation -> {
             org.springframework.transaction.support.TransactionCallback<File> callback = invocation.getArgument(0);
             return callback.doInTransaction(null);
@@ -96,6 +96,52 @@ class FileServiceTest {
         assertThat(uploadedFile.getOriginalName()).isEqualTo("test.jpg");
         assertThat(uploadedFile.getStoredName()).isEqualTo("storedFileName.jpg");
         assertThat(uploadedFile.getFileUrl()).isEqualTo("/api/v1/files/" + file.getFileId());
+        assertThat(uploadedFile.getMimeType()).isEqualTo("image/jpeg");
+        verify(fileStorageService).storeFile(multipartFile, "image/jpeg");
+    }
+
+    @Test
+    @DisplayName("image/jpg 선언 JPEG 파일은 image/jpeg로 정규화해 저장한다")
+    void uploadFile_jpgAliasStoresDetectedMimeType() {
+        Long uploaderId = 1L;
+        User uploader = User.builder().build();
+        byte[] jpegHeader = new byte[] {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, (byte) 0xD9};
+        MultipartFile multipartFile = new MockMultipartFile("file", "test.jpg", "image/jpg", jpegHeader);
+        File file = File.builder()
+                .filePath("storedFileName.jpg")
+                .originalName("test.jpg")
+                .fileSize(4L)
+                .mimeType("image/jpeg")
+                .uploader(uploader)
+                .build();
+
+        when(userWritableResolver.resolve(uploaderId)).thenReturn(uploader);
+        when(fileStorageService.storeFile(multipartFile, "image/jpeg")).thenReturn("storedFileName.jpg");
+        when(transactionTemplate.execute(any())).thenAnswer(invocation -> {
+            org.springframework.transaction.support.TransactionCallback<File> callback = invocation.getArgument(0);
+            return callback.doInTransaction(null);
+        });
+        when(fileRepository.save(any(File.class))).thenReturn(file);
+
+        FileUploadResponse uploadedFile = fileService.uploadFile(uploaderId, multipartFile);
+
+        assertThat(uploadedFile.getMimeType()).isEqualTo("image/jpeg");
+        verify(fileStorageService).storeFile(multipartFile, "image/jpeg");
+    }
+
+    @Test
+    @DisplayName("선언 MIME과 감지 MIME이 다르면 스토리지 저장 전에 거절한다")
+    void uploadFile_declaredMimeMismatch_rejectedBeforeStorage() {
+        Long uploaderId = 1L;
+        byte[] jpegHeader = new byte[] {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, (byte) 0xD9};
+        MultipartFile multipartFile = new MockMultipartFile("file", "test.jpg", "image/png", jpegHeader);
+
+        assertThatThrownBy(() -> fileService.uploadFile(uploaderId, multipartFile))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_FILE_TYPE);
+
+        verify(userWritableResolver, never()).resolve(any());
+        verify(fileStorageService, never()).storeFile(any(), any());
     }
 
     @Test
@@ -112,7 +158,7 @@ class FileServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_ACTIVE);
 
-        verify(fileStorageService, never()).storeFile(any());
+        verify(fileStorageService, never()).storeFile(any(), any());
         verify(transactionTemplate, never()).execute(any());
         verify(fileRepository, never()).save(any());
     }
@@ -128,7 +174,7 @@ class FileServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_FILE_TYPE);
         verify(userWritableResolver, never()).resolve(any());
-        verify(fileStorageService, never()).storeFile(any());
+        verify(fileStorageService, never()).storeFile(any(), any());
     }
 
     @Test

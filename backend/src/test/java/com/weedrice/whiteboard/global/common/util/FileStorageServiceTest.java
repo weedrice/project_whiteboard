@@ -6,6 +6,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -18,11 +19,8 @@ import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.PrintStream;
-import java.io.ByteArrayOutputStream;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -52,16 +50,18 @@ class FileStorageServiceTest {
     @DisplayName("파일 저장 성공")
     void storeFile_success() {
         // given
-        MockMultipartFile file = new MockMultipartFile("file", "test.txt", "text/plain", "content".getBytes());
+        MockMultipartFile file = new MockMultipartFile("file", "test.jpg", "image/jpg", "content".getBytes());
         when(s3Client.putObject(any(PutObjectRequest.class), any(RequestBody.class))).thenReturn(null);
 
         // when
-        String fileName = fileStorageService.storeFile(file);
+        String fileName = fileStorageService.storeFile(file, "image/jpeg");
 
         // then
         assertThat(fileName).isNotNull();
-        assertThat(fileName).endsWith(".txt");
-        verify(s3Client).putObject(any(PutObjectRequest.class), any(RequestBody.class));
+        assertThat(fileName).endsWith(".jpg");
+        ArgumentCaptor<PutObjectRequest> requestCaptor = ArgumentCaptor.forClass(PutObjectRequest.class);
+        verify(s3Client).putObject(requestCaptor.capture(), any(RequestBody.class));
+        assertThat(requestCaptor.getValue().contentType()).isEqualTo("image/jpeg");
     }
 
     @Test
@@ -73,7 +73,7 @@ class FileStorageServiceTest {
         when(s3Client.putObject(any(PutObjectRequest.class), any(RequestBody.class))).thenThrow(new RuntimeException("S3 Error"));
 
         // when & then
-        assertThatThrownBy(() -> fileStorageService.storeFile(file))
+        assertThatThrownBy(() -> fileStorageService.storeFile(file, "text/plain"))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INTERNAL_SERVER_ERROR);
     }
@@ -128,27 +128,17 @@ class FileStorageServiceTest {
     }
 
     @Test
-    @DisplayName("파일 삭제 실패 - S3 오류 로깅 확인")
-    void deleteFile_failureLogsError() {
+    @DisplayName("파일 삭제 실패는 예외를 전파하지 않고 조용히 처리한다")
+    void deleteFile_failureDoesNotThrow() {
         // given
         String fileName = "fail.txt";
         when(s3Client.deleteObject(any(DeleteObjectRequest.class))).thenThrow(new RuntimeException("S3 Delete Error"));
 
-        // Redirect stderr to capture output
-        ByteArrayOutputStream errContent = new ByteArrayOutputStream();
-        PrintStream originalErr = System.err;
-        System.setErr(new PrintStream(errContent));
+        // when
+        Throwable thrown = catchThrowable(() -> fileStorageService.deleteFile(fileName));
 
-        try {
-            // when
-            fileStorageService.deleteFile(fileName);
-
-            // then
-            verify(s3Client).deleteObject(any(DeleteObjectRequest.class));
-            assertThat(errContent.toString()).contains("S3 파일 삭제 실패: " + fileName + ", S3 Delete Error");
-        } finally {
-            // Restore original stderr
-            System.setErr(originalErr);
-        }
+        // then
+        assertThat(thrown).isNull();
+        verify(s3Client).deleteObject(any(DeleteObjectRequest.class));
     }
 }

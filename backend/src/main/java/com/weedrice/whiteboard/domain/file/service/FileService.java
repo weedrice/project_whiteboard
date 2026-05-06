@@ -96,7 +96,7 @@ public class FileService {
         }
 
         User uploader = userWritableResolver.resolve(uploaderId);
-        String storedFileName = fileStorageService.storeFile(multipartFile);
+        String storedFileName = fileStorageService.storeFile(multipartFile, detectedMimeType);
 
         try {
             return transactionTemplate.execute(status -> {
