@@ -6,12 +6,8 @@ import com.weedrice.whiteboard.domain.file.dto.FileUploadResponse;
 import com.weedrice.whiteboard.domain.file.entity.File;
 import com.weedrice.whiteboard.domain.file.entity.FileStorageStatus;
 import com.weedrice.whiteboard.domain.file.repository.FileRepository;
-import com.weedrice.whiteboard.domain.post.entity.Post;
-import com.weedrice.whiteboard.domain.post.repository.PostRepository;
-import com.weedrice.whiteboard.domain.post.service.PostAccessPolicy;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
-import com.weedrice.whiteboard.domain.user.service.UserBlockService;
 import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
 import com.weedrice.whiteboard.global.common.util.FileStorageService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -40,7 +36,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -57,12 +52,6 @@ class FileServiceTest {
     private UserWritableResolver userWritableResolver;
     @Mock
     private BoardRepository boardRepository;
-    @Mock
-    private PostRepository postRepository;
-    @Mock
-    private PostAccessPolicy postAccessPolicy;
-    @Mock
-    private UserBlockService userBlockService;
     @Mock
     private FileStorageService fileStorageService;
     @Mock
@@ -540,7 +529,7 @@ class FileServiceTest {
     }
 
     @Test
-    @DisplayName("DELETE_FAILED ?뚯씪???ъ떆?쒕룄 ??닔瑜?珥덇낵?섎㈃ ?묒뾽 ??곸뿉???쒖쇅?쒕떎")
+    @DisplayName("DELETE_FAILED 파일이 재시도 횟수를 초과하면 작업 대상에서 제외한다")
     void getRetryableFailedDeletionFileIds_excludesFilesOverRetryLimit() {
         File pendingDeleteFile = File.builder()
                 .filePath("pending.jpg")
@@ -580,287 +569,5 @@ class FileServiceTest {
         List<Long> fileIds = fileService.getRetryableFailedDeletionFileIds(10);
 
         assertThat(fileIds).containsExactly(11L);
-    }
-
-    @Test
-    @DisplayName("게시글 첨부 다운로드는 게시글 읽기 권한을 검증한다")
-    void getFileForDownload_validatesPostAccessForPostContent() {
-        User uploader = User.builder().build();
-        User viewer = User.builder().build();
-        ReflectionTestUtils.setField(viewer, "userId", 1L);
-        User author = User.builder().build();
-        ReflectionTestUtils.setField(author, "userId", 2L);
-        Post post = Post.builder()
-                .user(author)
-                .build();
-        File file = File.builder()
-                .filePath("storedFileName.jpg")
-                .originalName("test.jpg")
-                .fileSize(4L)
-                .mimeType("image/jpeg")
-                .uploader(uploader)
-                .relatedId(100L)
-                .relatedType(FileService.RELATED_TYPE_POST_CONTENT)
-                .build();
-
-        when(fileRepository.findByFileIdAndStorageStatus(10L, FileStorageStatus.ACTIVE)).thenReturn(Optional.of(file));
-        when(postRepository.findByIdWithRelations(100L)).thenReturn(Optional.of(post));
-        when(userRepository.findById(1L)).thenReturn(Optional.of(viewer));
-        when(userBlockService.isEitherDirectionBlocked(1L, 2L)).thenReturn(false);
-
-        File result = fileService.getFileForDownload(10L, 1L);
-
-        assertThat(result).isSameAs(file);
-        verify(postRepository).findByIdWithRelations(100L);
-        verify(postAccessPolicy).validateReadable(post, viewer, false);
-        verify(userBlockService).isEitherDirectionBlocked(1L, 2L);
-    }
-
-    @Test
-    @DisplayName("게시글 첨부 다운로드는 양방향 차단 여부를 게시글 읽기 정책에 전달한다")
-    void getFileForDownload_passesEitherDirectionBlockedForPostContent() {
-        User uploader = User.builder().build();
-        User viewer = User.builder().build();
-        ReflectionTestUtils.setField(viewer, "userId", 1L);
-        User author = User.builder().build();
-        ReflectionTestUtils.setField(author, "userId", 2L);
-        Post post = Post.builder()
-                .user(author)
-                .build();
-        File file = File.builder()
-                .filePath("storedFileName.jpg")
-                .originalName("test.jpg")
-                .fileSize(4L)
-                .mimeType("image/jpeg")
-                .uploader(uploader)
-                .relatedId(100L)
-                .relatedType(FileService.RELATED_TYPE_POST_CONTENT)
-                .build();
-
-        when(fileRepository.findByFileIdAndStorageStatus(10L, FileStorageStatus.ACTIVE)).thenReturn(Optional.of(file));
-        when(postRepository.findByIdWithRelations(100L)).thenReturn(Optional.of(post));
-        when(userRepository.findById(1L)).thenReturn(Optional.of(viewer));
-        when(userBlockService.isEitherDirectionBlocked(1L, 2L)).thenReturn(true);
-
-        File result = fileService.getFileForDownload(10L, 1L);
-
-        assertThat(result).isSameAs(file);
-        verify(postRepository).findByIdWithRelations(100L);
-        verify(postAccessPolicy).validateReadable(post, viewer, true);
-        verify(userBlockService).isEitherDirectionBlocked(1L, 2L);
-    }
-
-    @Test
-    @DisplayName("게시글 작성자가 조회자를 차단한 경우 첨부 다운로드도 숨김 처리한다")
-    void getFileForDownload_treatsAuthorBlockedViewerAsUnreadable() {
-        User uploader = User.builder().build();
-        User viewer = User.builder().build();
-        ReflectionTestUtils.setField(viewer, "userId", 1L);
-        User author = User.builder().build();
-        ReflectionTestUtils.setField(author, "userId", 2L);
-        Post post = Post.builder()
-                .user(author)
-                .build();
-        File file = File.builder()
-                .filePath("storedFileName.jpg")
-                .originalName("test.jpg")
-                .fileSize(4L)
-                .mimeType("image/jpeg")
-                .uploader(uploader)
-                .relatedId(100L)
-                .relatedType(FileService.RELATED_TYPE_POST_CONTENT)
-                .build();
-
-        when(fileRepository.findByFileIdAndStorageStatus(10L, FileStorageStatus.ACTIVE)).thenReturn(Optional.of(file));
-        when(postRepository.findByIdWithRelations(100L)).thenReturn(Optional.of(post));
-        when(userRepository.findById(1L)).thenReturn(Optional.of(viewer));
-        when(userBlockService.isEitherDirectionBlocked(1L, 2L)).thenReturn(true);
-        doThrow(new BusinessException(ErrorCode.POST_NOT_FOUND))
-                .when(postAccessPolicy).validateReadable(post, viewer, true);
-
-        assertThatThrownBy(() -> fileService.getFileForDownload(10L, 1L))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
-        verify(postRepository).findByIdWithRelations(100L);
-        verify(postAccessPolicy).validateReadable(post, viewer, true);
-        verify(userBlockService).isEitherDirectionBlocked(1L, 2L);
-    }
-
-    @Test
-    @DisplayName("삭제 예정 파일은 다운로드할 수 없다")
-    void getFileForDownload_rejectsPendingDeletionFile() {
-        when(fileRepository.findByFileIdAndStorageStatus(10L, FileStorageStatus.ACTIVE)).thenReturn(Optional.empty());
-
-        assertThatThrownBy(() -> fileService.getFileForDownload(10L, null))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.NOT_FOUND);
-    }
-
-    @Test
-    @DisplayName("공개 파일 타입은 추가 권한 검증 없이 다운로드한다")
-    void getFileForDownload_skipsAccessPolicyForPublicTypes() {
-        User uploader = User.builder().build();
-        File file = File.builder()
-                .filePath("storedFileName.jpg")
-                .originalName("profile.jpg")
-                .fileSize(4L)
-                .mimeType("image/jpeg")
-                .uploader(uploader)
-                .relatedId(100L)
-                .relatedType("USER_PROFILE")
-                .build();
-
-        when(fileRepository.findByFileIdAndStorageStatus(10L, FileStorageStatus.ACTIVE)).thenReturn(Optional.of(file));
-
-        File result = fileService.getFileForDownload(10L, null);
-
-        assertThat(result).isSameAs(file);
-        verify(postRepository, never()).findByIdWithRelations(any());
-        verify(postAccessPolicy, never()).validateReadable(any(), any());
-    }
-
-    @Test
-    @DisplayName("이모티콘 파일 타입은 공개 다운로드를 허용한다")
-    void getFileForDownload_allowsPublicEmoticonTypes() {
-        User uploader = User.builder().build();
-        File imageFile = File.builder()
-                .filePath("storedFileName.jpg")
-                .originalName("emoticon.jpg")
-                .fileSize(4L)
-                .mimeType("image/jpeg")
-                .uploader(uploader)
-                .relatedId(100L)
-                .relatedType(FileService.RELATED_TYPE_EMOTICON_IMAGE)
-                .build();
-        File thumbnailFile = File.builder()
-                .filePath("thumbnail.jpg")
-                .originalName("thumbnail.jpg")
-                .fileSize(4L)
-                .mimeType("image/jpeg")
-                .uploader(uploader)
-                .relatedId(100L)
-                .relatedType(FileService.RELATED_TYPE_EMOTICON_THUMBNAIL)
-                .build();
-
-        when(fileRepository.findByFileIdAndStorageStatus(10L, FileStorageStatus.ACTIVE)).thenReturn(Optional.of(imageFile));
-        when(fileRepository.findByFileIdAndStorageStatus(11L, FileStorageStatus.ACTIVE)).thenReturn(Optional.of(thumbnailFile));
-
-        File imageResult = fileService.getFileForDownload(10L, null);
-        File thumbnailResult = fileService.getFileForDownload(11L, null);
-
-        assertThat(imageResult).isSameAs(imageFile);
-        assertThat(thumbnailResult).isSameAs(thumbnailFile);
-        verify(postRepository, never()).findByIdWithRelations(any());
-        verify(postAccessPolicy, never()).validateReadable(any(), any());
-    }
-
-    @Test
-    @DisplayName("초안 첨부는 업로더만 다운로드할 수 있다")
-    void getFileForDownload_allowsDraftFileForUploader() {
-        User uploader = User.builder().build();
-        ReflectionTestUtils.setField(uploader, "userId", 1L);
-        File file = File.builder()
-                .filePath("storedFileName.jpg")
-                .originalName("draft.jpg")
-                .fileSize(4L)
-                .mimeType("image/jpeg")
-                .uploader(uploader)
-                .relatedId(100L)
-                .relatedType(FileService.RELATED_TYPE_DRAFT_POST)
-                .build();
-
-        when(fileRepository.findByFileIdAndStorageStatus(10L, FileStorageStatus.ACTIVE)).thenReturn(Optional.of(file));
-
-        File result = fileService.getFileForDownload(10L, 1L);
-
-        assertThat(result).isSameAs(file);
-        verify(postRepository, never()).findByIdWithRelations(any());
-        verify(postAccessPolicy, never()).validateReadable(any(), any());
-    }
-
-    @Test
-    @DisplayName("초안 첨부는 비인증 사용자가 다운로드할 수 없다")
-    void getFileForDownload_rejectsAnonymousDraftFile() {
-        User uploader = User.builder().build();
-        ReflectionTestUtils.setField(uploader, "userId", 1L);
-        File file = File.builder()
-                .filePath("storedFileName.jpg")
-                .originalName("draft.jpg")
-                .fileSize(4L)
-                .mimeType("image/jpeg")
-                .uploader(uploader)
-                .relatedId(100L)
-                .relatedType(FileService.RELATED_TYPE_DRAFT_POST)
-                .build();
-
-        when(fileRepository.findByFileIdAndStorageStatus(10L, FileStorageStatus.ACTIVE)).thenReturn(Optional.of(file));
-
-        assertThatThrownBy(() -> fileService.getFileForDownload(10L, null))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
-    }
-
-    @Test
-    @DisplayName("미연결 파일은 업로더만 다운로드할 수 있다")
-    void getFileForDownload_allowsTemporaryFileForUploader() {
-        User uploader = User.builder().build();
-        ReflectionTestUtils.setField(uploader, "userId", 1L);
-        File file = File.builder()
-                .filePath("storedFileName.jpg")
-                .originalName("temporary.jpg")
-                .fileSize(4L)
-                .mimeType("image/jpeg")
-                .uploader(uploader)
-                .build();
-
-        when(fileRepository.findByFileIdAndStorageStatus(10L, FileStorageStatus.ACTIVE)).thenReturn(Optional.of(file));
-
-        File result = fileService.getFileForDownload(10L, 1L);
-
-        assertThat(result).isSameAs(file);
-    }
-
-    @Test
-    @DisplayName("부분 연결된 파일은 다운로드를 거부한다")
-    void getFileForDownload_rejectsPartiallyAssociatedFile() {
-        User uploader = User.builder().build();
-        ReflectionTestUtils.setField(uploader, "userId", 1L);
-        File file = File.builder()
-                .filePath("storedFileName.jpg")
-                .originalName("partial.jpg")
-                .fileSize(4L)
-                .mimeType("image/jpeg")
-                .uploader(uploader)
-                .relatedId(100L)
-                .relatedType(null)
-                .build();
-
-        when(fileRepository.findByFileIdAndStorageStatus(10L, FileStorageStatus.ACTIVE)).thenReturn(Optional.of(file));
-
-        assertThatThrownBy(() -> fileService.getFileForDownload(10L, 1L))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
-    }
-
-    @Test
-    @DisplayName("알 수 없는 연결 타입은 다운로드를 거부한다")
-    void getFileForDownload_rejectsUnknownRelatedType() {
-        User uploader = User.builder().build();
-        ReflectionTestUtils.setField(uploader, "userId", 1L);
-        File file = File.builder()
-                .filePath("storedFileName.jpg")
-                .originalName("private.jpg")
-                .fileSize(4L)
-                .mimeType("image/jpeg")
-                .uploader(uploader)
-                .relatedId(100L)
-                .relatedType("UNKNOWN")
-                .build();
-
-        when(fileRepository.findByFileIdAndStorageStatus(10L, FileStorageStatus.ACTIVE)).thenReturn(Optional.of(file));
-
-        assertThatThrownBy(() -> fileService.getFileForDownload(10L, 1L))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
     }
 }

@@ -7,12 +7,8 @@ import com.weedrice.whiteboard.domain.file.entity.File;
 import com.weedrice.whiteboard.domain.file.entity.FileStorageStatus;
 import com.weedrice.whiteboard.domain.file.repository.FileRepository;
 import com.weedrice.whiteboard.domain.file.support.FileUrlResolver;
-import com.weedrice.whiteboard.domain.post.entity.Post;
-import com.weedrice.whiteboard.domain.post.repository.PostRepository;
-import com.weedrice.whiteboard.domain.post.service.PostAccessPolicy;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
-import com.weedrice.whiteboard.domain.user.service.UserBlockService;
 import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
 import com.weedrice.whiteboard.global.common.util.FileStorageService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -44,12 +40,12 @@ import java.util.Set;
 @Transactional(readOnly = true)
 public class FileService {
 
-    public static final String RELATED_TYPE_POST_CONTENT = "POST_CONTENT";
-    public static final String RELATED_TYPE_DRAFT_POST = "DRAFT_POST";
-    public static final String RELATED_TYPE_USER_PROFILE = "USER_PROFILE";
-    public static final String RELATED_TYPE_BOARD_ICON = "BOARD_ICON";
-    public static final String RELATED_TYPE_EMOTICON_THUMBNAIL = "EMOTICON_THUMBNAIL";
-    public static final String RELATED_TYPE_EMOTICON_IMAGE = "EMOTICON_IMAGE";
+    public static final String RELATED_TYPE_POST_CONTENT = FileRelatedType.POST_CONTENT;
+    public static final String RELATED_TYPE_DRAFT_POST = FileRelatedType.DRAFT_POST;
+    public static final String RELATED_TYPE_USER_PROFILE = FileRelatedType.USER_PROFILE;
+    public static final String RELATED_TYPE_BOARD_ICON = FileRelatedType.BOARD_ICON;
+    public static final String RELATED_TYPE_EMOTICON_THUMBNAIL = FileRelatedType.EMOTICON_THUMBNAIL;
+    public static final String RELATED_TYPE_EMOTICON_IMAGE = FileRelatedType.EMOTICON_IMAGE;
     private static final int MAX_DELETE_RETRY_COUNT = 5;
     private static final int TEMPORARY_FILE_CLEANUP_BATCH_SIZE = 500;
 
@@ -57,9 +53,6 @@ public class FileService {
     private final UserRepository userRepository;
     private final UserWritableResolver userWritableResolver;
     private final BoardRepository boardRepository;
-    private final PostRepository postRepository;
-    private final PostAccessPolicy postAccessPolicy;
-    private final UserBlockService userBlockService;
     private final FileStorageService fileStorageService;
     private final TransactionTemplate transactionTemplate;
     @PersistenceContext
@@ -366,13 +359,6 @@ public class FileService {
         } while (!temporaryFileIds.isEmpty());
     }
 
-    public File getFileForDownload(Long fileId, Long viewerUserId) {
-        File file = fileRepository.findByFileIdAndStorageStatus(fileId, FileStorageStatus.ACTIVE)
-                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
-        validateReadable(file, viewerUserId);
-        return file;
-    }
-
     public List<File> getFilesByRelatedEntity(Long relatedId, String relatedType) {
         return fileRepository.findByRelatedIdAndRelatedTypeAndStorageStatus(relatedId, relatedType,
                 FileStorageStatus.ACTIVE);
@@ -462,63 +448,6 @@ public class FileService {
                 .stream()
                 .map(File::getFileId)
                 .toList();
-    }
-
-    private void validateReadable(File file, Long viewerUserId) {
-        String relatedType = file.getRelatedType();
-        if (relatedType == null && file.getRelatedId() == null) {
-            validateUploader(file, viewerUserId);
-            return;
-        }
-        if (relatedType == null || file.getRelatedId() == null) {
-            throw new BusinessException(ErrorCode.FORBIDDEN);
-        }
-
-        switch (relatedType) {
-            case RELATED_TYPE_POST_CONTENT -> {
-                Post post = postRepository.findByIdWithRelations(file.getRelatedId())
-                        .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
-                User viewer = resolveViewer(viewerUserId);
-                boolean authorBlocked = isBlockedBetweenAuthorAndViewer(post, viewer);
-                postAccessPolicy.validateReadable(post, viewer, authorBlocked);
-            }
-            case RELATED_TYPE_USER_PROFILE,
-                    RELATED_TYPE_BOARD_ICON,
-                    RELATED_TYPE_EMOTICON_THUMBNAIL,
-                    RELATED_TYPE_EMOTICON_IMAGE -> {
-                return;
-            }
-            case RELATED_TYPE_DRAFT_POST -> validateUploader(file, viewerUserId);
-            default -> throw new BusinessException(ErrorCode.FORBIDDEN);
-        }
-    }
-
-    private void validateUploader(File file, Long viewerUserId) {
-        if (viewerUserId == null
-                || file.getUploader() == null
-                || !viewerUserId.equals(file.getUploader().getUserId())) {
-            throw new BusinessException(ErrorCode.FORBIDDEN);
-        }
-    }
-
-    private User resolveViewer(Long viewerUserId) {
-        if (viewerUserId == null) {
-            return null;
-        }
-        return userRepository.findById(viewerUserId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-    }
-
-    private boolean isBlockedBetweenAuthorAndViewer(Post post, User viewer) {
-        if (post == null || post.getUser() == null || viewer == null) {
-            return false;
-        }
-        Long authorUserId = post.getUser().getUserId();
-        Long viewerUserId = viewer.getUserId();
-        if (authorUserId == null || viewerUserId == null) {
-            return false;
-        }
-        return userBlockService.isEitherDirectionBlocked(viewerUserId, authorUserId);
     }
 
     private String detectImageMimeType(MultipartFile multipartFile) {

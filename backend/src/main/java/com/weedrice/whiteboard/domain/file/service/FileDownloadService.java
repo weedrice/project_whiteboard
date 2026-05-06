@@ -20,11 +20,11 @@ public class FileDownloadService {
     private static final String DEFAULT_CONTENT_TYPE = "application/octet-stream";
     private static final String SVG_CONTENT_TYPE = "image/svg+xml";
 
-    private final FileService fileService;
+    private final FileAccessService fileAccessService;
     private final FileStorageService fileStorageService;
 
     public FileDownloadResponse downloadFile(Long fileId, Long viewerUserId) {
-        File file = fileService.getFileForDownload(fileId, viewerUserId);
+        File file = fileAccessService.getFileForDownload(fileId, viewerUserId);
         InputStream inputStream = fileStorageService.loadFile(file.getFilePath());
         Resource resource = new InputStreamResource(inputStream);
 
