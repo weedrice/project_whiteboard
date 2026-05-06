@@ -15,6 +15,7 @@ import com.weedrice.whiteboard.domain.comment.repository.CommentVersionRepositor
 import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
 import com.weedrice.whiteboard.domain.point.entity.PointHistory;
 import com.weedrice.whiteboard.domain.point.repository.PointHistoryRepository;
+import com.weedrice.whiteboard.domain.point.service.ContentRewardService;
 import com.weedrice.whiteboard.domain.point.service.PointService;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
@@ -108,7 +109,7 @@ class CommentServiceTest {
                 userRepository,
                 commentPostAccessService,
                 commentReadSupport);
-        CommentRewardService commentRewardService = new CommentRewardService(
+        ContentRewardService contentRewardService = new ContentRewardService(
                 pointService,
                 pointHistoryRepository,
                 globalConfigService);
@@ -124,7 +125,7 @@ class CommentServiceTest {
                 agentOwnershipService,
                 sanctionService,
                 commentPostAccessService,
-                commentRewardService,
+                contentRewardService,
                 commentNotificationService,
                 reactionWriter);
         commentService = new CommentService(commentQueryService, commentCommandService);

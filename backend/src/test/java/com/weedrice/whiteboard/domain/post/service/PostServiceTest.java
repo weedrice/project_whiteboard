@@ -19,6 +19,7 @@ import com.weedrice.whiteboard.domain.feed.event.PostPublishedEvent;
 import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
 import com.weedrice.whiteboard.domain.point.entity.PointHistory;
 import com.weedrice.whiteboard.domain.point.repository.PointHistoryRepository;
+import com.weedrice.whiteboard.domain.point.service.ContentRewardService;
 import com.weedrice.whiteboard.domain.point.service.PointService;
 import com.weedrice.whiteboard.domain.post.dto.*;
 import com.weedrice.whiteboard.domain.post.entity.*;
@@ -186,6 +187,10 @@ class PostServiceTest {
                 postRepository,
                 userBlockService,
                 postSummaryAssembler);
+        ContentRewardService contentRewardService = new ContentRewardService(
+                pointService,
+                pointHistoryRepository,
+                globalConfigService);
         postCommandService = new PostCommandService(
                 postRepository,
                 boardRepository,
@@ -194,10 +199,8 @@ class PostServiceTest {
                 postVersionRepository,
                 tagAssignmentService,
                 eventPublisher,
-                pointService,
-                pointHistoryRepository,
+                contentRewardService,
                 fileService,
-                globalConfigService,
                 agentOwnershipService,
                 sanctionService,
                 boardAccessPolicy,

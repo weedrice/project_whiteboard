@@ -9,9 +9,8 @@ import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
 import com.weedrice.whiteboard.domain.file.service.FileService;
 import com.weedrice.whiteboard.domain.feed.event.PostPublishedEvent;
-import com.weedrice.whiteboard.domain.point.entity.PointHistory;
-import com.weedrice.whiteboard.domain.point.repository.PointHistoryRepository;
-import com.weedrice.whiteboard.domain.point.service.PointService;
+import com.weedrice.whiteboard.domain.point.service.ContentRewardPolicy;
+import com.weedrice.whiteboard.domain.point.service.ContentRewardService;
 import com.weedrice.whiteboard.domain.post.dto.PostCreateRequest;
 import com.weedrice.whiteboard.domain.post.dto.PostUpdateRequest;
 import com.weedrice.whiteboard.domain.post.entity.Post;
@@ -22,7 +21,6 @@ import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.tag.service.TagAssignmentService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
-import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.util.InputSanitizer;
@@ -40,9 +38,6 @@ import java.util.Objects;
 @Transactional(readOnly = true)
 public class PostCommandService {
 
-    private static final String POINT_POST_CREATE_REWARD_CONFIG_KEY = "POINT_POST_CREATE_REWARD";
-    private static final int DEFAULT_POST_CREATE_REWARD = 50;
-
     private final PostRepository postRepository;
     private final BoardRepository boardRepository;
     private final BoardCategoryRepository boardCategoryRepository;
@@ -50,10 +45,8 @@ public class PostCommandService {
     private final PostVersionRepository postVersionRepository;
     private final TagAssignmentService tagAssignmentService;
     private final ApplicationEventPublisher eventPublisher;
-    private final PointService pointService;
-    private final PointHistoryRepository pointHistoryRepository;
+    private final ContentRewardService contentRewardService;
     private final FileService fileService;
-    private final GlobalConfigService globalConfigService;
     private final AgentOwnershipService agentOwnershipService;
     private final SanctionService sanctionService;
     private final BoardAccessPolicy boardAccessPolicy;
@@ -125,14 +118,7 @@ public class PostCommandService {
             fileService.attachFilesToPost(request.getFileIds(), userId, savedPost.getPostId());
         }
 
-        String postCreateRewardConfig = globalConfigService.getConfig(POINT_POST_CREATE_REWARD_CONFIG_KEY);
-        int postCreateReward = GlobalConfigService.parseIntConfigOrDefault(
-                postCreateRewardConfig,
-                DEFAULT_POST_CREATE_REWARD,
-                0);
-        if (postCreateReward > 0) {
-            pointService.addPoint(userId, postCreateReward, "\uAC8C\uC2DC\uAE00 \uC791\uC131", savedPost.getPostId(), "POST");
-        }
+        contentRewardService.rewardCreate(userId, savedPost.getPostId(), ContentRewardPolicy.POST);
         eventPublisher.publishEvent(new PostPublishedEvent(savedPost.getPostId(), board.getBoardId()));
         return savedPost;
     }
@@ -180,10 +166,7 @@ public class PostCommandService {
         savePostVersion(post, modifier, "DELETE", post.getTitle(), post.getContents());
         fileService.markPostContentFilesDeletionPending(post.getPostId());
 
-        int rewardedAmount = getPostCreateRewardAmount(modifier, postId);
-        if (rewardedAmount > 0) {
-            pointService.forceSubtractPoint(userId, rewardedAmount, "\uAC8C\uC2DC\uAE00 \uC0AD\uC81C", postId, "POST");
-        }
+        contentRewardService.rollbackCreateReward(modifier, postId, ContentRewardPolicy.POST);
     }
 
     private User getWritableUser(Long userId) {
@@ -226,17 +209,4 @@ public class PostCommandService {
         postVersionRepository.save(postVersion);
     }
 
-    private int getPostCreateRewardAmount(User user, Long postId) {
-        return pointHistoryRepository.findByUserAndTypeAndRelatedTypeAndRelatedIdOrderByCreatedAtAsc(
-                        user,
-                        "EARN",
-                        "POST",
-                        postId)
-                .stream()
-                .map(PointHistory::getAmount)
-                .filter(Objects::nonNull)
-                .filter(amount -> amount > 0)
-                .mapToInt(Integer::intValue)
-                .sum();
-    }
 }

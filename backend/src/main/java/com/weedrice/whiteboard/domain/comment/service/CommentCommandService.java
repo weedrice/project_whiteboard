@@ -9,6 +9,8 @@ import com.weedrice.whiteboard.domain.comment.repository.CommentClosureRepositor
 import com.weedrice.whiteboard.domain.comment.repository.CommentLikeRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentVersionRepository;
+import com.weedrice.whiteboard.domain.point.service.ContentRewardPolicy;
+import com.weedrice.whiteboard.domain.point.service.ContentRewardService;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
@@ -37,7 +39,7 @@ public class CommentCommandService {
     private final AgentOwnershipService agentOwnershipService;
     private final SanctionService sanctionService;
     private final CommentPostAccessService commentPostAccessService;
-    private final CommentRewardService commentRewardService;
+    private final ContentRewardService contentRewardService;
     private final CommentNotificationService commentNotificationService;
     private final ReactionWriter reactionWriter;
 
@@ -114,7 +116,7 @@ public class CommentCommandService {
             commentClosureRepository.createSelfClosure(savedComment.getCommentId());
         }
 
-        commentRewardService.rewardCreate(userId, savedComment.getCommentId());
+        contentRewardService.rewardCreate(userId, savedComment.getCommentId(), ContentRewardPolicy.COMMENT);
         if (parentComment != null) {
             commentNotificationService.publishReplyNotification(user, agent, parentComment, parentId);
         } else {
@@ -193,7 +195,7 @@ public class CommentCommandService {
         postRepository.decrementCommentCount(comment.getPost().getPostId());
 
         saveCommentVersion(comment, user, "DELETE", originalContent);
-        commentRewardService.rollbackCreateReward(userId, user, commentId);
+        contentRewardService.rollbackCreateReward(user, commentId, ContentRewardPolicy.COMMENT);
     }
 
     @Transactional
