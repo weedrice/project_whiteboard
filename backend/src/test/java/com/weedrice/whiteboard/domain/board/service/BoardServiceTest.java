@@ -4,6 +4,7 @@ import com.weedrice.whiteboard.domain.admin.entity.Admin;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.admin.service.AdminEligibleUserService;
 import com.weedrice.whiteboard.domain.admin.service.BoardManagerAssignmentService;
+import com.weedrice.whiteboard.domain.board.dto.AdminBoardResponse;
 import com.weedrice.whiteboard.domain.board.dto.BoardCreateRequest;
 import com.weedrice.whiteboard.domain.board.dto.BoardDetailResponse;
 import com.weedrice.whiteboard.domain.board.dto.BoardListResponse;
@@ -218,6 +219,73 @@ class BoardServiceTest {
         // then
         assertThat(activeBoards).hasSize(1);
         assertThat(activeBoards.get(0).getBoardName()).isEqualTo("Test Board");
+    }
+
+    @Test
+    @DisplayName("super admin은 전체 게시판 목록을 조회할 수 있다")
+    void getAllBoards_superAdmin_success() {
+        user.grantSuperAdminRole();
+        UserDetails userDetails = mock(UserDetails.class);
+        when(userDetails.getUsername()).thenReturn(user.getLoginId());
+        when(boardRepository.findAllByOrderBySortOrderAscBoardIdAsc()).thenReturn(List.of(board));
+
+        List<AdminBoardResponse> responses = boardService.getAllBoards(userDetails);
+
+        assertThat(responses).hasSize(1);
+        assertThat(responses.get(0).getBoardId()).isEqualTo(1L);
+        verify(boardRepository).findAllByOrderBySortOrderAscBoardIdAsc();
+    }
+
+    @Test
+    @DisplayName("일반 사용자는 전체 게시판 목록을 조회할 수 없다")
+    void getAllBoards_normalUser_forbidden() {
+        UserDetails userDetails = mock(UserDetails.class);
+        when(userDetails.getUsername()).thenReturn(user.getLoginId());
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> boardService.getAllBoards(userDetails));
+
+        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.FORBIDDEN);
+        verify(boardRepository, never()).findAllByOrderBySortOrderAscBoardIdAsc();
+    }
+
+    @Test
+    @DisplayName("비인증 요청은 전체 게시판 목록을 조회할 수 없다")
+    void getAllBoards_nullPrincipal_forbidden() {
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> boardService.getAllBoards(null));
+
+        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.FORBIDDEN);
+        verify(boardRepository, never()).findAllByOrderBySortOrderAscBoardIdAsc();
+    }
+
+    @Test
+    @DisplayName("비활성 super admin은 전체 게시판 목록을 조회할 수 없다")
+    void getAllBoards_inactiveSuperAdmin_forbidden() {
+        user.grantSuperAdminRole();
+        user.suspend();
+        UserDetails userDetails = mock(UserDetails.class);
+        when(userDetails.getUsername()).thenReturn(user.getLoginId());
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> boardService.getAllBoards(userDetails));
+
+        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.FORBIDDEN);
+        verify(boardRepository, never()).findAllByOrderBySortOrderAscBoardIdAsc();
+    }
+
+    @Test
+    @DisplayName("없는 사용자의 전체 게시판 목록 조회는 USER_NOT_FOUND를 반환한다")
+    void getAllBoards_missingUser_userNotFound() {
+        UserDetails userDetails = mock(UserDetails.class);
+        when(userDetails.getUsername()).thenReturn("missing");
+        when(userRepository.findByLoginId("missing")).thenReturn(Optional.empty());
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> boardService.getAllBoards(userDetails));
+
+        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.USER_NOT_FOUND);
+        verify(boardRepository, never()).findAllByOrderBySortOrderAscBoardIdAsc();
     }
 
     @Test

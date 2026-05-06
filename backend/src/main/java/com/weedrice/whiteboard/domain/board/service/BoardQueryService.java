@@ -99,6 +99,9 @@ class BoardQueryService {
 
     List<AdminBoardResponse> getAllBoards(UserDetails userDetails) {
         User currentUser = getCurrentUserOrNull(userDetails);
+        if (currentUser == null || !currentUser.isUsableSuperAdmin()) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
         List<Board> boards = boardRepository.findAllByOrderBySortOrderAscBoardIdAsc();
         return boardResponseAssembler.assembleAdminAll(boards);
     }
