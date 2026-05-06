@@ -20,9 +20,9 @@ import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseCard from '@/components/common/ui/BaseCard.vue'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
-import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import BaseTextarea from '@/components/common/ui/BaseTextarea.vue'
 import CommentList from '@/components/comment/CommentList.vue'
+import PostDetailSkeleton from '@/components/board/PostDetailSkeleton.vue'
 import UserMenu from '@/components/common/widgets/UserMenu.vue'
 import PostTags from '@/components/tag/PostTags.vue'
 import { useConfirm } from '@/composables/useConfirm'
@@ -677,27 +677,7 @@ onUnmounted(() => {
 <template>
   <div class="nv-post-shell">
     <BaseCard noPadding>
-      <div v-if="isLoading" class="px-4 py-5 sm:px-6 sm:py-6">
-        <div class="mb-4 flex items-center justify-between">
-          <BaseSkeleton width="96px" height="36px" rounded="rounded-full" />
-          <div class="flex gap-2">
-            <BaseSkeleton width="40px" height="40px" rounded="rounded-full" />
-            <BaseSkeleton width="40px" height="40px" rounded="rounded-full" />
-          </div>
-        </div>
-        <div class="space-y-3">
-          <BaseSkeleton width="72%" height="34px" />
-          <div class="flex gap-3">
-            <BaseSkeleton width="128px" height="18px" />
-            <BaseSkeleton width="96px" height="18px" />
-            <BaseSkeleton width="72px" height="18px" />
-          </div>
-        </div>
-        <div class="mt-8 space-y-3">
-          <BaseSkeleton width="100%" height="40px" rounded="rounded-2xl" />
-          <BaseSkeleton width="100%" height="420px" rounded="rounded-[28px]" />
-        </div>
-      </div>
+      <PostDetailSkeleton v-if="isLoading" />
 
       <div v-else-if="error" class="px-4 py-12 text-center text-sm text-red-500 sm:px-6">
         {{ error }}
