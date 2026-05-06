@@ -245,34 +245,39 @@ class MessageServiceTest {
     @Test
     @DisplayName("메시지 상세 조회는 읽음 처리 없이 수행된다")
     void getMessage_success() {
-        when(messageRepository.findAccessibleMessage(2L, 1L)).thenReturn(Optional.of(message));
-        when(userBlockService.isEitherDirectionBlocked(2L, 1L)).thenReturn(false);
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(2L)).thenReturn(Collections.emptyList());
+        when(messageRepository.findAccessibleMessage(2L, 1L, Collections.emptyList()))
+                .thenReturn(Optional.of(message));
 
         Message result = messageService.getMessage(2L, 1L);
 
         assertThat(result).isNotNull();
         assertThat(result.getMessageId()).isEqualTo(1L);
         assertThat(result.getIsRead()).isFalse();
-        verify(userBlockService).isEitherDirectionBlocked(2L, 1L);
+        verify(userBlockService).getBlockedUserIdsEitherDirectionForExistingUser(2L);
+        verify(userBlockService, never()).isEitherDirectionBlocked(2L, 1L);
     }
 
     @Test
     @DisplayName("수신자는 별도 read endpoint로 읽음 처리한다")
     void markAsRead_success() {
-        when(messageRepository.findAccessibleMessage(2L, 1L)).thenReturn(Optional.of(message));
-        when(userBlockService.isEitherDirectionBlocked(2L, 1L)).thenReturn(false);
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(2L)).thenReturn(Collections.emptyList());
+        when(messageRepository.findAccessibleMessage(2L, 1L, Collections.emptyList()))
+                .thenReturn(Optional.of(message));
 
         messageService.markAsRead(2L, 1L);
 
         assertThat(message.getIsRead()).isTrue();
-        verify(userBlockService).isEitherDirectionBlocked(2L, 1L);
+        verify(userBlockService).getBlockedUserIdsEitherDirectionForExistingUser(2L);
+        verify(userBlockService, never()).isEitherDirectionBlocked(2L, 1L);
     }
 
     @Test
     @DisplayName("발신자는 read endpoint를 호출할 수 없다")
     void markAsRead_senderForbidden() {
-        when(messageRepository.findAccessibleMessage(1L, 1L)).thenReturn(Optional.of(message));
-        when(userBlockService.isEitherDirectionBlocked(1L, 2L)).thenReturn(false);
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
+        when(messageRepository.findAccessibleMessage(1L, 1L, Collections.emptyList()))
+                .thenReturn(Optional.of(message));
 
         assertThatThrownBy(() -> messageService.markAsRead(1L, 1L))
                 .isInstanceOf(BusinessException.class)
@@ -280,9 +285,37 @@ class MessageServiceTest {
     }
 
     @Test
+    @DisplayName("차단된 대화의 단건 조회는 찾을 수 없음으로 숨긴다")
+    void getMessage_blockedConversationNotFound() {
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(2L)).thenReturn(List.of(1L));
+        when(messageRepository.findAccessibleMessage(2L, 1L, List.of(1L))).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> messageService.getMessage(2L, 1L))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode()).isEqualTo(ErrorCode.NOT_FOUND));
+
+        verify(userBlockService, never()).isEitherDirectionBlocked(2L, 1L);
+    }
+
+    @Test
+    @DisplayName("차단된 대화의 읽음 처리는 찾을 수 없음으로 숨긴다")
+    void markAsRead_blockedConversationNotFound() {
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(2L)).thenReturn(List.of(1L));
+        when(messageRepository.findAccessibleMessage(2L, 1L, List.of(1L))).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> messageService.markAsRead(2L, 1L))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode()).isEqualTo(ErrorCode.NOT_FOUND));
+
+        assertThat(message.getIsRead()).isFalse();
+        verify(userBlockService, never()).isEitherDirectionBlocked(2L, 1L);
+    }
+
+    @Test
     @DisplayName("이미 삭제한 메시지는 읽음 처리에서도 찾을 수 없다")
     void markAsRead_deletedByViewerNotFound() {
-        when(messageRepository.findAccessibleMessage(2L, 1L)).thenReturn(Optional.empty());
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(2L)).thenReturn(Collections.emptyList());
+        when(messageRepository.findAccessibleMessage(2L, 1L, Collections.emptyList())).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> messageService.markAsRead(2L, 1L))
                 .isInstanceOf(BusinessException.class)
@@ -292,7 +325,8 @@ class MessageServiceTest {
     @Test
     @DisplayName("참여자가 아닌 사용자의 읽음 처리는 찾을 수 없음으로 처리된다")
     void markAsRead_nonParticipantNotFound() {
-        when(messageRepository.findAccessibleMessage(3L, 1L)).thenReturn(Optional.empty());
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(3L)).thenReturn(Collections.emptyList());
+        when(messageRepository.findAccessibleMessage(3L, 1L, Collections.emptyList())).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> messageService.markAsRead(3L, 1L))
                 .isInstanceOf(BusinessException.class)
@@ -302,7 +336,8 @@ class MessageServiceTest {
     @Test
     @DisplayName("이미 삭제한 메시지는 단건 조회에서 찾을 수 없다")
     void getMessage_deletedByViewerNotFound() {
-        when(messageRepository.findAccessibleMessage(2L, 1L)).thenReturn(Optional.empty());
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(2L)).thenReturn(Collections.emptyList());
+        when(messageRepository.findAccessibleMessage(2L, 1L, Collections.emptyList())).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> messageService.getMessage(2L, 1L))
                 .isInstanceOf(BusinessException.class)
@@ -312,7 +347,8 @@ class MessageServiceTest {
     @Test
     @DisplayName("참여자가 아닌 사용자의 단건 조회는 찾을 수 없음으로 처리된다")
     void getMessage_nonParticipantNotFound() {
-        when(messageRepository.findAccessibleMessage(3L, 1L)).thenReturn(Optional.empty());
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(3L)).thenReturn(Collections.emptyList());
+        when(messageRepository.findAccessibleMessage(3L, 1L, Collections.emptyList())).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> messageService.getMessage(3L, 1L))
                 .isInstanceOf(BusinessException.class)

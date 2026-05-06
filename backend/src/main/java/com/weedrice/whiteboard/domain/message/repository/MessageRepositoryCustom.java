@@ -12,5 +12,5 @@ public interface MessageRepositoryCustom {
     Page<Message> findReceivedMessagesExcludingBlocked(User user, Boolean isDeleted, List<Long> blockedUserIds, Pageable pageable);
     Page<Message> findSentMessagesExcludingBlocked(User user, Boolean isDeleted, List<Long> blockedUserIds, Pageable pageable);
     long countUnreadMessagesExcludingBlocked(User user, Boolean isRead, Boolean isDeleted, List<Long> blockedUserIds);
-    Optional<Message> findAccessibleMessage(Long userId, Long messageId);
+    Optional<Message> findAccessibleMessage(Long userId, Long messageId, List<Long> blockedUserIds);
 }

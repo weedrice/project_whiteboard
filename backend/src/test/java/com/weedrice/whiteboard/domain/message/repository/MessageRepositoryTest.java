@@ -284,8 +284,10 @@ class MessageRepositoryTest {
         entityManager.flush();
         entityManager.clear();
 
-        Optional<Message> hiddenForReceiver = messageRepository.findAccessibleMessage(receiver.getUserId(), message.getMessageId());
-        Optional<Message> visibleForSender = messageRepository.findAccessibleMessage(sender.getUserId(), message.getMessageId());
+        Optional<Message> hiddenForReceiver = messageRepository.findAccessibleMessage(
+                receiver.getUserId(), message.getMessageId(), List.of());
+        Optional<Message> visibleForSender = messageRepository.findAccessibleMessage(
+                sender.getUserId(), message.getMessageId(), List.of());
 
         assertThat(hiddenForReceiver).isEmpty();
         assertThat(visibleForSender).isPresent();
@@ -298,8 +300,10 @@ class MessageRepositoryTest {
         entityManager.flush();
         entityManager.clear();
 
-        Optional<Message> hiddenForSender = messageRepository.findAccessibleMessage(sender.getUserId(), message.getMessageId());
-        Optional<Message> visibleForReceiver = messageRepository.findAccessibleMessage(receiver.getUserId(), message.getMessageId());
+        Optional<Message> hiddenForSender = messageRepository.findAccessibleMessage(
+                sender.getUserId(), message.getMessageId(), List.of());
+        Optional<Message> visibleForReceiver = messageRepository.findAccessibleMessage(
+                receiver.getUserId(), message.getMessageId(), List.of());
 
         assertThat(hiddenForSender).isEmpty();
         assertThat(visibleForReceiver).isPresent();
@@ -318,7 +322,8 @@ class MessageRepositoryTest {
         entityManager.flush();
         entityManager.clear();
 
-        Optional<Message> result = messageRepository.findAccessibleMessage(outsider.getUserId(), message.getMessageId());
+        Optional<Message> result = messageRepository.findAccessibleMessage(
+                outsider.getUserId(), message.getMessageId(), List.of());
 
         assertThat(result).isEmpty();
     }
@@ -338,7 +343,34 @@ class MessageRepositoryTest {
         entityManager.flush();
         entityManager.clear();
 
-        Optional<Message> result = messageRepository.findAccessibleMessage(sender.getUserId(), selfMessage.getMessageId());
+        Optional<Message> result = messageRepository.findAccessibleMessage(
+                sender.getUserId(), selfMessage.getMessageId(), List.of());
+
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    @DisplayName("단건 접근 조회는 차단한 발신자 메시지를 수신자에게 숨긴다")
+    void findAccessibleMessage_blockedSenderHiddenFromReceiver() {
+        entityManager.clear();
+
+        Optional<Message> result = messageRepository.findAccessibleMessage(
+                receiver.getUserId(),
+                message.getMessageId(),
+                List.of(sender.getUserId()));
+
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    @DisplayName("단건 접근 조회는 차단한 수신자 메시지를 발신자에게 숨긴다")
+    void findAccessibleMessage_blockedReceiverHiddenFromSender() {
+        entityManager.clear();
+
+        Optional<Message> result = messageRepository.findAccessibleMessage(
+                sender.getUserId(),
+                message.getMessageId(),
+                List.of(receiver.getUserId()));
 
         assertThat(result).isEmpty();
     }

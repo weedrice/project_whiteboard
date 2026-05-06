@@ -2073,9 +2073,37 @@ GET /messages/{messageId}
 }
 ```
 
+**에러 코드**
+| 코드 | 설명 |
+|-----|------|
+| NOT_FOUND | 쪽지가 없거나, 접근할 수 없거나, 차단된 대화의 쪽지 |
+
 ---
 
-### 6.5 쪽지 삭제
+### 6.5 쪽지 읽음 처리
+```
+POST /messages/{messageId}/read
+```
+`🔒 인증 필요 (수신자)`
+
+**Response** `200 OK`
+```json
+{
+  "success": true,
+  "data": null,
+  "error": null
+}
+```
+
+**에러 코드**
+| 코드 | 설명 |
+|-----|------|
+| NOT_FOUND | 쪽지가 없거나, 접근할 수 없거나, 차단된 대화의 쪽지 |
+| FORBIDDEN | 수신자가 아닌 사용자의 읽음 처리 요청 |
+
+---
+
+### 6.6 쪽지 삭제
 ```
 DELETE /messages/{messageId}
 ```
@@ -2094,7 +2122,7 @@ DELETE /messages/{messageId}
 
 ---
 
-### 6.6 읽지 않은 쪽지 수
+### 6.7 읽지 않은 쪽지 수
 ```
 GET /messages/unread-count
 ```

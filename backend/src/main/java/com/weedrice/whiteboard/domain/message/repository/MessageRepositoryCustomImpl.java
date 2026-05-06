@@ -98,14 +98,15 @@ public class MessageRepositoryCustomImpl implements MessageRepositoryCustom {
     }
 
     @Override
-    public Optional<Message> findAccessibleMessage(Long userId, Long messageId) {
+    public Optional<Message> findAccessibleMessage(Long userId, Long messageId, List<Long> blockedUserIds) {
         Message result = queryFactory
                 .selectFrom(message)
                 .join(message.sender, user).fetchJoin()
                 .join(message.receiver).fetchJoin()
                 .where(
                         message.messageId.eq(messageId),
-                        senderOrReceiverCanAccess(userId)
+                        senderOrReceiverCanAccess(userId),
+                        notBlockedConversationPartnerCondition(userId, blockedUserIds)
                 )
                 .fetchOne();
         return Optional.ofNullable(result);
@@ -125,6 +126,16 @@ public class MessageRepositoryCustomImpl implements MessageRepositoryCustom {
 
     private BooleanExpression notBlockedReceiverCondition(List<Long> blockedUserIds) {
         return (blockedUserIds != null && !blockedUserIds.isEmpty()) ? message.receiver.userId.notIn(blockedUserIds) : null;
+    }
+
+    private BooleanExpression notBlockedConversationPartnerCondition(Long userId, List<Long> blockedUserIds) {
+        if (blockedUserIds == null || blockedUserIds.isEmpty()) {
+            return null;
+        }
+        return message.sender.userId.eq(userId)
+                .and(message.receiver.userId.notIn(blockedUserIds))
+                .or(message.receiver.userId.eq(userId)
+                        .and(message.sender.userId.notIn(blockedUserIds)));
     }
 
     private BooleanExpression senderOrReceiverCanAccess(Long userId) {

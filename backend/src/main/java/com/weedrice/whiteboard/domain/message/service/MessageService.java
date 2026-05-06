@@ -201,16 +201,9 @@ public class MessageService {
     }
 
     private Message getAccessibleMessage(Long userId, Long messageId) {
-        Message message = messageRepository.findAccessibleMessage(userId, messageId)
+        List<Long> blockedUserIds = getBlockedConversationUserIdsForExistingUser(userId);
+        return messageRepository.findAccessibleMessage(userId, messageId, blockedUserIds)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
-
-        Long partnerUserId = message.getSender().getUserId().equals(userId)
-                ? message.getReceiver().getUserId()
-                : message.getSender().getUserId();
-        if (userBlockService.isEitherDirectionBlocked(userId, partnerUserId)) {
-            throw new BusinessException(ErrorCode.BLOCKED_BY_USER);
-        }
-        return message;
     }
 
     private List<Long> getBlockedConversationUserIdsForExistingUser(Long userId) {
