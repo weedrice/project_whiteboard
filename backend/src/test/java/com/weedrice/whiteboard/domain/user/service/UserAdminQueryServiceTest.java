@@ -17,8 +17,6 @@ import com.weedrice.whiteboard.domain.user.dto.AdminUserSubscriptionResponse;
 import com.weedrice.whiteboard.domain.user.dto.UserAdminResponse;
 import com.weedrice.whiteboard.domain.user.dto.UserAdminSearchCondition;
 import com.weedrice.whiteboard.domain.user.entity.User;
-import com.weedrice.whiteboard.domain.user.repository.AdminUserDetailQueryRepository;
-import com.weedrice.whiteboard.domain.user.repository.AdminUserDetailQueryRepository.AdminUserDetailStats;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -58,7 +56,7 @@ class UserAdminQueryServiceTest {
     @Mock private AdminRepository adminRepository;
     @Mock private ModerationActorResolver moderationActorResolver;
     @Mock private BoardSubscriptionRepository boardSubscriptionRepository;
-    @Mock private AdminUserDetailQueryRepository adminUserDetailQueryRepository;
+    @Mock private AdminUserDetailStatsReader adminUserDetailStatsReader;
 
     @Test
     @DisplayName("searchUsersForAdmin resolves roles in batch")
@@ -128,8 +126,8 @@ class UserAdminQueryServiceTest {
     }
 
     @Test
-    @DisplayName("getUserDetailForAdmin assembles detail response from stats repository")
-    void getUserDetailForAdmin_usesStatsRepository() {
+    @DisplayName("getUserDetailForAdmin assembles detail response from stats reader")
+    void getUserDetailForAdmin_usesStatsReader() {
         User user = User.builder()
                 .loginId("target")
                 .email("target@test.com")
@@ -140,8 +138,16 @@ class UserAdminQueryServiceTest {
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(moderationActorResolver.findActiveAdmin(user)).thenReturn(Optional.empty());
-        when(adminUserDetailQueryRepository.findStats(user))
-                .thenReturn(new AdminUserDetailStats(3L, 4L, 5L, null, 6L, null, 7L, 8L));
+        when(adminUserDetailStatsReader.read(user))
+                .thenReturn(new AdminUserDetailStatsReader.AdminUserDetailStats(
+                        3L,
+                        4L,
+                        5L,
+                        null,
+                        6L,
+                        null,
+                        7L,
+                        8L));
 
         AdminUserDetailResponse response = userAdminQueryService.getUserDetailForAdmin(1L);
 
@@ -154,7 +160,7 @@ class UserAdminQueryServiceTest {
         assertThat(response.getSanctionSummary().getCount()).isEqualTo(6L);
         assertThat(response.getReportSummary().getTotalCount()).isEqualTo(7L);
         assertThat(response.getReportSummary().getPendingCount()).isEqualTo(8L);
-        verify(adminUserDetailQueryRepository).findStats(user);
+        verify(adminUserDetailStatsReader).read(user);
     }
 
     @Test

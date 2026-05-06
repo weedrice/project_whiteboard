@@ -16,8 +16,6 @@ import com.weedrice.whiteboard.domain.user.dto.UserAdminResponse;
 import com.weedrice.whiteboard.domain.user.dto.UserAdminSearchCondition;
 import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.User;
-import com.weedrice.whiteboard.domain.user.repository.AdminUserDetailQueryRepository;
-import com.weedrice.whiteboard.domain.user.repository.AdminUserDetailQueryRepository.AdminUserDetailStats;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -63,7 +61,7 @@ public class UserAdminQueryService {
     private final CommentRepository commentRepository;
     private final AdminRepository adminRepository;
     private final BoardSubscriptionRepository boardSubscriptionRepository;
-    private final AdminUserDetailQueryRepository adminUserDetailQueryRepository;
+    private final AdminUserDetailStatsReader adminUserDetailStatsReader;
     private final ModerationActorResolver moderationActorResolver;
 
     public Page<UserAdminResponse> searchUsersForAdmin(String keyword, Pageable pageable) {
@@ -135,7 +133,7 @@ public class UserAdminQueryService {
         User user = getUserOrThrow(userId);
 
         String role = resolveRoleForAdmin(user);
-        AdminUserDetailStats stats = adminUserDetailQueryRepository.findStats(user);
+        AdminUserDetailStatsReader.AdminUserDetailStats stats = adminUserDetailStatsReader.read(user);
 
         return AdminUserDetailResponse.from(
                 user,

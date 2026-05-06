@@ -1,15 +1,16 @@
-package com.weedrice.whiteboard.domain.user.repository;
+package com.weedrice.whiteboard.domain.user.service;
 
 import com.weedrice.whiteboard.domain.auth.entity.LoginHistory;
 import com.weedrice.whiteboard.domain.auth.repository.LoginHistoryRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
+import com.weedrice.whiteboard.domain.report.entity.Report;
+import com.weedrice.whiteboard.domain.report.entity.ReportTargetType;
 import com.weedrice.whiteboard.domain.report.repository.ReportRepository;
 import com.weedrice.whiteboard.domain.sanction.entity.Sanction;
 import com.weedrice.whiteboard.domain.sanction.repository.SanctionRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
-import com.weedrice.whiteboard.domain.user.repository.AdminUserDetailQueryRepository.AdminUserDetailStats;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -24,10 +25,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class AdminUserDetailQueryRepositoryTest {
+class AdminUserDetailStatsReaderTest {
 
     @InjectMocks
-    private AdminUserDetailQueryRepository repository;
+    private AdminUserDetailStatsReader reader;
 
     @Mock private PostRepository postRepository;
     @Mock private CommentRepository commentRepository;
@@ -37,8 +38,8 @@ class AdminUserDetailQueryRepositoryTest {
     @Mock private ReportRepository reportRepository;
 
     @Test
-    @DisplayName("findStats returns delegated count and recent values")
-    void findStats_returnsDelegatedValues() {
+    @DisplayName("read returns delegated count and recent values")
+    void read_returnsDelegatedValues() {
         User user = User.builder()
                 .loginId("target")
                 .email("target@test.com")
@@ -57,10 +58,13 @@ class AdminUserDetailQueryRepositoryTest {
         when(sanctionRepository.countByTargetUser(user)).thenReturn(4L);
         when(sanctionRepository.findTopByTargetUserOrderByCreatedAtDesc(user))
                 .thenReturn(Optional.of(recentSanction));
-        when(reportRepository.countByTargetTypeAndTargetId("USER", 1L)).thenReturn(5L);
-        when(reportRepository.countByTargetTypeAndTargetIdAndStatus("USER", 1L, "PENDING")).thenReturn(6L);
+        when(reportRepository.countByTargetTypeAndTargetId(ReportTargetType.USER.name(), 1L)).thenReturn(5L);
+        when(reportRepository.countByTargetTypeAndTargetIdAndStatus(
+                ReportTargetType.USER.name(),
+                1L,
+                Report.STATUS_PENDING)).thenReturn(6L);
 
-        AdminUserDetailStats stats = repository.findStats(user);
+        AdminUserDetailStatsReader.AdminUserDetailStats stats = reader.read(user);
 
         assertThat(stats.postCount()).isEqualTo(1L);
         assertThat(stats.commentCount()).isEqualTo(2L);
