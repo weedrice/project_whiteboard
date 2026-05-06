@@ -222,10 +222,7 @@ public class CommentCommandService {
 
     @Transactional
     public void unlikeComment(Long userId, Long commentId) {
-        User user = getWritableUser(userId);
-        Comment comment = commentRepository.findById(commentId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
-        validatePostReadable(comment.getPost(), user);
+        getWritableUser(userId);
 
         int deletedCount = commentLikeRepository.deleteByUserIdAndCommentId(userId, commentId);
         if (deletedCount == 0) {

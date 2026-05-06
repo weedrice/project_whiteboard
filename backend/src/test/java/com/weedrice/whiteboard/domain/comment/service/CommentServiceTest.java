@@ -818,6 +818,40 @@ class CommentServiceTest {
     }
 
     @Test
+    @DisplayName("댓글 좋아요 취소 성공")
+    void unlikeComment_success() {
+        User user = User.builder().displayName("User").build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(commentLikeRepository.deleteByUserIdAndCommentId(1L, 10L)).thenReturn(1);
+        when(commentRepository.decrementLikeCount(10L)).thenReturn(1);
+
+        commentService.unlikeComment(1L, 10L);
+
+        verify(commentLikeRepository).deleteByUserIdAndCommentId(1L, 10L);
+        verify(commentRepository, never()).findById(10L);
+        verify(commentRepository).decrementLikeCount(10L);
+    }
+
+    @Test
+    @DisplayName("좋아요하지 않은 댓글 취소는 NOT_LIKED를 반환한다")
+    void unlikeComment_notLiked() {
+        User user = User.builder().displayName("User").build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(commentLikeRepository.deleteByUserIdAndCommentId(1L, 10L)).thenReturn(0);
+
+        assertThatThrownBy(() -> commentService.unlikeComment(1L, 10L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.NOT_LIKED);
+
+        verify(commentRepository, never()).findById(anyLong());
+        verify(commentRepository, never()).decrementLikeCount(anyLong());
+    }
+
+    @Test
     @DisplayName("private board comments are hidden from anonymous users")
     void getComments_privateBoardAnonymous_forbidden() {
         User owner = User.builder().displayName("Owner").build();

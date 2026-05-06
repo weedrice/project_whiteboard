@@ -1014,8 +1014,6 @@ class PostServiceTest {
     @DisplayName("좋아요 취소 성공")
     void unlikePost_success() {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
-        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
         when(postLikeRepository.deleteByUserIdAndPostId(1L, 1L)).thenReturn(1);
         when(postRepository.decrementLikeCount(1L)).thenReturn(1);
         when(postRepository.findLikeCountByPostId(1L)).thenReturn(0);
@@ -1023,8 +1021,23 @@ class PostServiceTest {
         int likeCount = postService.unlikePost(1L, 1L);
 
         verify(postLikeRepository).deleteByUserIdAndPostId(1L, 1L);
+        verify(postRepository, never()).findByIdWithRelations(1L);
         verify(postRepository).decrementLikeCount(1L);
         assertThat(likeCount).isZero();
+    }
+
+    @Test
+    @DisplayName("좋아요하지 않은 게시글 취소는 NOT_LIKED를 반환한다")
+    void unlikePost_notLiked() {
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(postLikeRepository.deleteByUserIdAndPostId(1L, 1L)).thenReturn(0);
+
+        assertThatThrownBy(() -> postService.unlikePost(1L, 1L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.NOT_LIKED);
+
+        verify(postRepository, never()).findByIdWithRelations(anyLong());
+        verify(postRepository, never()).decrementLikeCount(anyLong());
     }
 
     @Test
@@ -2347,16 +2360,20 @@ class PostServiceTest {
     }
 
     @Test
-    @DisplayName("좋아요 취소 실패 - 삭제된 게시글")
-    void unlikePost_deletedPost() {
+    @DisplayName("삭제된 게시글도 기존 좋아요 row가 있으면 취소할 수 있다")
+    void unlikePost_deletedPost_deletesOwnedLike() {
         ReflectionTestUtils.setField(post, "isDeleted", true);
 
-        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(postLikeRepository.deleteByUserIdAndPostId(1L, 1L)).thenReturn(1);
+        when(postRepository.decrementLikeCount(1L)).thenReturn(1);
+        when(postRepository.findLikeCountByPostId(1L)).thenReturn(0);
 
-        assertThatThrownBy(() -> postService.unlikePost(1L, 1L))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
+        int likeCount = postService.unlikePost(1L, 1L);
+
+        assertThat(likeCount).isZero();
+        verify(postRepository, never()).findByIdWithRelations(1L);
+        verify(postLikeRepository).deleteByUserIdAndPostId(1L, 1L);
     }
 
     @Test

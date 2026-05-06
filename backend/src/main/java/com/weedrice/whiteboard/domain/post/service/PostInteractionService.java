@@ -180,7 +180,6 @@ public class PostInteractionService {
     @Transactional
     public int unlikePost(@NonNull Long userId, @NonNull Long postId) {
         getWritableUser(userId);
-        getPostById(postId, userId, false);
 
         int deletedCount = postLikeRepository.deleteByUserIdAndPostId(userId, postId);
         if (deletedCount == 0) {
