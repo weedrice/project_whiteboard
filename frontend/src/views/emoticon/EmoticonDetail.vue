@@ -152,13 +152,45 @@ useHead({
 
     <!-- 로딩 -->
     <div v-if="isLoading" class="animate-pulse">
-      <div class="flex gap-6">
-        <div class="w-40 h-40 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
-        <div class="flex-1 space-y-4">
-          <div class="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/3"></div>
-          <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/4"></div>
-          <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
+      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-8">
+        <div class="flex flex-col sm:flex-row gap-6">
+          <div class="flex-shrink-0">
+            <div class="w-40 h-40 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
+          </div>
+          <div class="flex-1">
+            <div class="flex items-start justify-between mb-4 gap-2 flex-wrap">
+              <div class="space-y-3 min-w-0 flex-1">
+                <div class="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/2 max-w-sm"></div>
+                <div class="h-5 bg-gray-200 dark:bg-gray-700 rounded w-20"></div>
+              </div>
+              <div class="flex items-center gap-2">
+                <div class="h-8 bg-gray-200 dark:bg-gray-700 rounded-lg w-20"></div>
+                <div class="h-8 bg-gray-200 dark:bg-gray-700 rounded-lg w-16"></div>
+              </div>
+            </div>
+            <div class="space-y-3">
+              <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-40"></div>
+              <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-52"></div>
+              <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-36"></div>
+            </div>
+          </div>
         </div>
+      </div>
+
+      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-8">
+        <div class="h-6 bg-gray-200 dark:bg-gray-700 rounded w-40 mb-4"></div>
+        <div class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-3">
+          <div
+            v-for="i in 10"
+            :key="i"
+            class="bg-gray-200 dark:bg-gray-700 rounded-lg"
+            style="width: 100px; height: 100px;"
+          ></div>
+        </div>
+      </div>
+
+      <div class="flex justify-end">
+        <div class="h-11 bg-gray-200 dark:bg-gray-700 rounded-lg w-32"></div>
       </div>
     </div>
 
