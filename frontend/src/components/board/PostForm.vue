@@ -17,6 +17,7 @@ import { useToastStore } from '@/stores/toast'
 import EmoticonPicker from '@/components/common/widgets/EmoticonPicker.vue'
 import PostEditorTipTap from '@/components/board/PostEditorTipTap.vue'
 import { sanitizeQuillHtml } from '@/utils/sanitize'
+import { normalizeLegacyFileUrls } from '@/utils/fileUrl'
 import logger from '@/utils/logger'
 
 const props = defineProps<{
@@ -288,6 +289,7 @@ function applyDraftSnapshot(draft: {
 
 const buildPayload = (fileIdScope: 'content' | 'draft' = 'content') => {
   const fileIds = resolvePayloadFileIds(fileIdScope)
+  const contents = normalizeLegacyFileUrls(form.value.content)
   const parsedCategoryId = typeof form.value.categoryId === 'string'
     ? parseInt(form.value.categoryId, 10)
     : form.value.categoryId
@@ -299,7 +301,7 @@ const buildPayload = (fileIdScope: 'content' | 'draft' = 'content') => {
     title: form.value.title,
     ...(categoryId !== undefined && { categoryId }),
     tags: props.hideTags ? [] : form.value.tags,
-    contents: form.value.content,
+    contents,
     isNsfw: canShowNsfw.value ? form.value.isNsfw : false,
     isSpoiler: props.hideSpoiler ? false : form.value.isSpoiler,
     isSecret: props.hideSecret ? false : form.value.isSecret,

@@ -34,6 +34,7 @@ import { isRestrictedResourceError } from '@/utils/errorHandler'
 import { isInputFocused } from '@/utils/keyboard'
 import logger from '@/utils/logger'
 import { sanitizeQuillHtml } from '@/utils/sanitize'
+import { normalizeLegacyFileUrls } from '@/utils/fileUrl'
 
 const route = useRoute()
 const router = useRouter()
@@ -157,7 +158,8 @@ const canReport = computed(() => authStore.isAuthenticated && !isAuthor.value)
 
 const processedContents = computed(() => {
   if (!post.value?.contents) return ''
-  const normalizedContents = post.value.contents.replace(/<p>\s*<\/p>/gi, '<p><br></p>')
+  const normalizedContents = normalizeLegacyFileUrls(post.value.contents)
+    .replace(/<p>\s*<\/p>/gi, '<p><br></p>')
   const sanitized = sanitizeQuillHtml(normalizedContents)
   return sanitized.replace(/<img(?![^>]*\bloading=)([^>]+)>/gi, '<img loading="lazy"$1>')
 })

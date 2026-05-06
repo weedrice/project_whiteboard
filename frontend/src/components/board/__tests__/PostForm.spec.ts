@@ -483,7 +483,7 @@ describe('PostForm', () => {
                 title: 'Created title',
                 categoryId: 12,
                 tags: ['alpha', 'beta'],
-                contents: 'Created body <img src="/api/v1/files/7"><img src="/files/8?download=true">',
+                contents: 'Created body <img src="/api/v1/files/7"><img src="/api/v1/files/8?download=true">',
                 isNsfw: true,
                 isSpoiler: true,
                 isSecret: false,
@@ -616,6 +616,7 @@ describe('PostForm', () => {
 
         const [variables] = mockUpdateMutate.mock.calls.at(-1) as [any]
         expect(variables.data.fileIds).toEqual([31, 32])
+        expect(variables.data.contents).toContain('src="/api/v1/files/32?size=sm"')
     })
 
     it('keeps current edit category when it is no longer selectable', async () => {
