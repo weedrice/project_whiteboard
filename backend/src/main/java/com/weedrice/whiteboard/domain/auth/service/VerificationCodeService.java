@@ -153,12 +153,11 @@ public class VerificationCodeService {
     }
 
     private void validateEmailForPurpose(String email, VerificationPurpose purpose, Long currentUserId) {
-        if (purpose == VerificationPurpose.SIGNUP) {
-            emailEligibilityService.validateSignupEmail(email);
-            return;
-        }
-        if (purpose == VerificationPurpose.CHANGE_EMAIL) {
-            emailEligibilityService.validateChangeEmail(email, currentUserId);
+        switch (purpose) {
+            case SIGNUP -> emailEligibilityService.validateSignupEmail(email);
+            case FIND_ID -> emailEligibilityService.validateFindIdEmail(email);
+            case PASSWORD_RESET -> emailEligibilityService.validatePasswordResetEmail(email);
+            case CHANGE_EMAIL -> emailEligibilityService.validateChangeEmail(email, currentUserId);
         }
     }
 

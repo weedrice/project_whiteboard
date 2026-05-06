@@ -152,8 +152,11 @@ public class SignupService {
 
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        if ("DELETED".equals(user.getStatus())) {
+        if (User.STATUS_DELETED.equals(user.getStatus()) || user.getDeletedAt() != null) {
             throw new BusinessException(ErrorCode.USER_DELETED);
+        }
+        if (!user.isActiveAccount()) {
+            throw new BusinessException(ErrorCode.USER_NOT_ACTIVE);
         }
         verificationCodeService.consumeValidatedVerificationTicket(email, VerificationPurpose.FIND_ID, verificationTicket);
         return new FindIdResponse(user.getLoginId());

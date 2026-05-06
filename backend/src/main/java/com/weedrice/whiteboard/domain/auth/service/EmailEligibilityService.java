@@ -42,6 +42,27 @@ public class EmailEligibilityService {
         validateChangeEmail(email, currentUser.getUserId());
     }
 
+    public void validateFindIdEmail(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        validateActiveAccount(user);
+    }
+
+    public void validatePasswordResetEmail(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND_BY_EMAIL));
+        validateActiveAccount(user);
+    }
+
+    private void validateActiveAccount(User user) {
+        if (User.STATUS_DELETED.equals(user.getStatus()) || user.getDeletedAt() != null) {
+            throw new BusinessException(ErrorCode.USER_DELETED);
+        }
+        if (!user.isActiveAccount()) {
+            throw new BusinessException(ErrorCode.USER_NOT_ACTIVE);
+        }
+    }
+
     private boolean isSameUser(User user, Long currentUserId) {
         return user.getUserId() != null && user.getUserId().equals(currentUserId);
     }

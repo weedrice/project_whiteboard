@@ -635,6 +635,29 @@ class AuthServiceTest {
     }
 
     @Test
+    @DisplayName("로그인 ID 찾기는 비활성 계정이면 ticket을 소비하지 않는다")
+    void findLoginId_inactiveUser_rejectsBeforeTicketConsumption() {
+        String email = "test@example.com";
+        String verificationTicket = "ticket-1";
+        ReflectionTestUtils.setField(user, "status", User.STATUS_SUSPENDED);
+        when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
+
+        BusinessException exception = assertThrows(
+                BusinessException.class,
+                () -> authService.findLoginId(email, verificationTicket));
+
+        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.USER_NOT_ACTIVE);
+        verify(verificationCodeService).validateVerificationTicket(
+                email,
+                VerificationPurpose.FIND_ID,
+                verificationTicket);
+        verify(verificationCodeService, never()).consumeValidatedVerificationTicket(
+                anyString(),
+                eq(VerificationPurpose.FIND_ID),
+                anyString());
+    }
+
+    @Test
     @DisplayName("비밀번호 재설정 링크 메일 발송 성공")
     void sendPasswordResetLinkByEmail_success() {
         String email = "test@example.com";
