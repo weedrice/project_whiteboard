@@ -22,6 +22,18 @@ public class ViewHistoryCommandService {
     }
 
     @Transactional
+    public void touchView(User user, Post post) {
+        int insertedCount = viewHistoryRepository.insertIgnore(user.getUserId(), post.getPostId());
+        if (insertedCount > 0) {
+            return;
+        }
+        int touchedCount = viewHistoryRepository.touchModifiedAt(user.getUserId(), post.getPostId());
+        if (touchedCount == 0) {
+            throw new IllegalStateException("View history must exist after insert.");
+        }
+    }
+
+    @Transactional
     public ViewHistory getOrCreateForUpdate(User user, Post post) {
         return viewHistoryRepository.findByUserAndPostForUpdate(user.getUserId(), post.getPostId())
                 .orElseGet(() -> insertAndLoadForUpdate(user, post));

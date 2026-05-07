@@ -47,6 +47,15 @@ public interface ViewHistoryRepository extends JpaRepository<ViewHistory, Long> 
             """, nativeQuery = true)
     int insertIgnore(@Param("userId") Long userId, @Param("postId") Long postId);
 
+    @Modifying
+    @Query(value = """
+            UPDATE view_histories
+            SET modified_at = CURRENT_TIMESTAMP
+            WHERE user_id = :userId
+              AND post_id = :postId
+            """, nativeQuery = true)
+    int touchModifiedAt(@Param("userId") Long userId, @Param("postId") Long postId);
+
     @Query(value = """
             SELECT vh.post_id
             FROM view_histories vh

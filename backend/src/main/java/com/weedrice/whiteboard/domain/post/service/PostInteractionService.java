@@ -86,8 +86,7 @@ public class PostInteractionService {
             entityManager.refresh(post);
 
             if (viewer != null) {
-                ViewHistory viewHistory = viewHistoryCommandService.getOrCreate(viewer, post);
-                viewHistory.updateView(null, 0);
+                viewHistoryCommandService.touchView(viewer, post);
             }
         }
 

@@ -547,9 +547,6 @@ class PostServiceTest {
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(viewHistoryRepository.findByUserAndPost(user, post))
-                .thenReturn(Optional.empty())
-                .thenReturn(Optional.of(new ViewHistory(user, post)));
         when(viewHistoryRepository.insertIgnore(1L, 1L)).thenReturn(1);
 
         Post result = postService.getPostById(1L, 1L);
@@ -558,26 +555,24 @@ class PostServiceTest {
         verify(postRepository).incrementViewCount(1L);
         verify(entityManager).refresh(post);
         verify(viewHistoryRepository).insertIgnore(1L, 1L);
+        verify(viewHistoryRepository, never()).touchModifiedAt(1L, 1L);
     }
 
     @Test
-    @DisplayName("게시글 조회 - 조회 이력 중복 insert를 기존 row로 흡수")
-    void getPostById_duplicateViewHistory_reusesExistingRow() {
-        ViewHistory existing = ViewHistory.builder().user(user).post(post).build();
-
+    @DisplayName("게시글 조회 - 기존 읽은 댓글 위치를 덮지 않고 조회 시각만 갱신")
+    void getPostById_existingViewHistory_touchesWithoutLoadingLastReadComment() {
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(viewHistoryRepository.findByUserAndPost(user, post))
-                .thenReturn(Optional.empty())
-                .thenReturn(Optional.of(existing));
         when(viewHistoryRepository.insertIgnore(1L, 1L)).thenReturn(0);
+        when(viewHistoryRepository.touchModifiedAt(1L, 1L)).thenReturn(1);
 
         Post result = postService.getPostById(1L, 1L);
 
         assertThat(result).isEqualTo(post);
         verify(viewHistoryRepository).insertIgnore(1L, 1L);
-        verify(viewHistoryRepository, times(2)).findByUserAndPost(user, post);
+        verify(viewHistoryRepository).touchModifiedAt(1L, 1L);
+        verify(viewHistoryRepository, never()).findByUserAndPost(user, post);
     }
 
     @Test
@@ -1865,6 +1860,36 @@ class PostServiceTest {
     }
 
     @Test
+    @DisplayName("게시글 응답 조회 - 조회수 증가 시 기존 마지막 읽은 댓글을 유지한다")
+    void getPostResponse_incrementViewPreservesLastReadComment() {
+        Comment lastReadComment = Comment.builder().post(post).build();
+        ReflectionTestUtils.setField(lastReadComment, "commentId", 100L);
+        ViewHistory existing = ViewHistory.builder().user(user).post(post).build();
+        existing.updateView(lastReadComment, 0);
+
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L))
+                .thenReturn(Collections.emptyList());
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(viewHistoryRepository.insertIgnore(1L, 1L)).thenReturn(0);
+        when(viewHistoryRepository.touchModifiedAt(1L, 1L)).thenReturn(1);
+        when(viewHistoryRepository.findByUserAndPost(user, post)).thenReturn(Optional.of(existing));
+        when(tagAssignmentService.getTagNames(post)).thenReturn(Collections.emptyList());
+        when(postLikeRepository.existsById(any(PostLikeId.class))).thenReturn(false);
+        when(scrapRepository.existsById(any(ScrapId.class))).thenReturn(false);
+        when(fileService.getFilesByRelatedEntity(1L, "POST_CONTENT")).thenReturn(Collections.emptyList());
+        when(postRepository.countPostsBeforeInBoardDefaultOrder(
+                eq(1L), nullable(LocalDateTime.class), eq(1L), eq(Collections.emptyList()), anyBoolean(), eq(1L)))
+                .thenReturn(0L);
+        when(postRepository.findViewCountByPostId(1L)).thenReturn(1);
+
+        PostResponse response = postService.getPostResponse(1L, 1L);
+
+        assertThat(response.getLastReadCommentId()).isEqualTo(100L);
+        verify(viewHistoryRepository).touchModifiedAt(1L, 1L);
+    }
+
+    @Test
     @DisplayName("게시글 응답 조회 - 작성자가 조회자를 차단하면 숨김 처리")
     void getPostResponse_authorBlocksViewer_throwsPostNotFound() {
         User viewer = User.builder().loginId("viewer").build();
@@ -2574,9 +2599,6 @@ class PostServiceTest {
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(viewHistoryRepository.findByUserAndPost(user, post))
-                .thenReturn(Optional.empty())
-                .thenReturn(Optional.of(new ViewHistory(user, post)));
         when(viewHistoryRepository.insertIgnore(1L, 1L)).thenReturn(1);
 
         Post result = postService.getPostById(1L, 1L);
@@ -2598,9 +2620,6 @@ class PostServiceTest {
         when(userRepository.findById(2L)).thenReturn(Optional.of(otherUser));
         when(adminRepository.findByUserAndBoard_BoardIdInAndIsActive(otherUser, List.of(1L), true))
                 .thenReturn(List.of(admin));
-        when(viewHistoryRepository.findByUserAndPost(otherUser, post))
-                .thenReturn(Optional.empty())
-                .thenReturn(Optional.of(new ViewHistory(otherUser, post)));
         when(viewHistoryRepository.insertIgnore(2L, 1L)).thenReturn(1);
 
         Post result = postService.getPostById(1L, 2L);
@@ -2616,9 +2635,6 @@ class PostServiceTest {
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(viewHistoryRepository.findByUserAndPost(user, post))
-                .thenReturn(Optional.empty())
-                .thenReturn(Optional.of(new ViewHistory(user, post)));
         when(viewHistoryRepository.insertIgnore(1L, 1L)).thenReturn(1);
 
         Post result = postService.getPostById(1L, 1L);
