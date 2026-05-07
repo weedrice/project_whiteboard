@@ -121,21 +121,39 @@ public class AgentQueryService {
         if (boards.isEmpty()) {
             return new AgentBoardListResponse(List.of());
         }
-        List<Long> boardIds = boards.stream()
+        List<Board> agentEnabledBoards = boards.stream()
+                .filter(Board::isAgentEnabled)
+                .toList();
+        if (agentEnabledBoards.isEmpty()) {
+            return new AgentBoardListResponse(List.of());
+        }
+
+        List<Long> candidateBoardIds = agentEnabledBoards.stream()
                 .map(Board::getBoardId)
                 .toList();
-        Map<Long, Long> postCountByBoardId = postRepository.countActiveByBoardIds(boardIds).stream()
+        Map<Long, List<CategoryResponse>> categoriesByBoardId =
+                agentBoardAccessService.loadCategoriesByBoardIds(candidateBoardIds);
+        Set<Long> writableBoardIds =
+                agentBoardAccessService.resolveWritableBoardIds(agent, agentEnabledBoards, categoriesByBoardId);
+        List<Board> writableBoards = agentEnabledBoards.stream()
+                .filter(board -> writableBoardIds.contains(board.getBoardId()))
+                .toList();
+        if (writableBoards.isEmpty()) {
+            return new AgentBoardListResponse(List.of());
+        }
+
+        List<Long> writableBoardIdsInOrder = writableBoards.stream()
+                .map(Board::getBoardId)
+                .toList();
+        Map<Long, Long> postCountByBoardId = postRepository.countActiveByBoardIds(writableBoardIdsInOrder).stream()
                 .collect(Collectors.toMap(
                         PostRepository.BoardPostCountProjection::getBoardId,
                         PostRepository.BoardPostCountProjection::getPostCount));
-        Map<Long, List<CategoryResponse>> categoriesByBoardId = agentBoardAccessService.loadCategoriesByBoardIds(boardIds);
-        Map<Long, String> guidePromptMap = boardAiInfoRepository.findByBoard_BoardIdIn(boardIds)
+        Map<Long, String> guidePromptMap = boardAiInfoRepository.findByBoard_BoardIdIn(writableBoardIdsInOrder)
                 .stream()
                 .collect(Collectors.toMap(BoardAiInfo::getBoardId, BoardAiInfo::getGuidePrompt));
-        Set<Long> writableBoardIds = agentBoardAccessService.resolveWritableBoardIds(agent, boards, categoriesByBoardId);
 
-        List<AgentBoardItem> items = boards.stream()
-                .filter(board -> writableBoardIds.contains(board.getBoardId()))
+        List<AgentBoardItem> items = writableBoards.stream()
                 .map(board -> AgentBoardItem.builder()
                         .boardId(board.getBoardId())
                         .boardName(board.getBoardName())

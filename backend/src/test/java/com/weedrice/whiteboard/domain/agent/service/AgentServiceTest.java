@@ -738,12 +738,10 @@ class AgentServiceTest {
         when(boardRepository.findByIsActiveAndIsPublicOrderBySortOrderAscBoardIdAsc(true, true))
                 .thenReturn(List.of(writableBoard, blockedBoard));
         when(boardCategoryRepository.findByBoard_BoardIdInAndIsActiveOrderByBoard_BoardIdAscSortOrderAsc(
-                List.of(10L, 20L), true)).thenReturn(List.of(
-                        defaultCategory(writableBoard, Role.BOARD_ADMIN),
-                        defaultCategory(blockedBoard, Role.USER)));
-        when(boardAiInfoRepository.findByBoard_BoardIdIn(List.of(10L, 20L))).thenReturn(List.of(boardAiInfo));
-        when(postRepository.countActiveByBoardIds(List.of(10L, 20L)))
-                .thenReturn(List.of(boardPostCount(10L, 7L), boardPostCount(20L, 3L)));
+                List.of(10L), true)).thenReturn(List.of(defaultCategory(writableBoard, Role.BOARD_ADMIN)));
+        when(boardAiInfoRepository.findByBoard_BoardIdIn(List.of(10L))).thenReturn(List.of(boardAiInfo));
+        when(postRepository.countActiveByBoardIds(List.of(10L)))
+                .thenReturn(List.of(boardPostCount(10L, 7L)));
 
         AgentBoardListResponse response = agentQueryService.getBoards(7L);
 
@@ -751,6 +749,10 @@ class AgentServiceTest {
         assertThat(response.getBoards().get(0).getBoardId()).isEqualTo(10L);
         assertThat(response.getBoards().get(0).getGuidePrompt()).isEqualTo("prompt");
         assertThat(response.getBoards().get(0).getPostCount()).isEqualTo(7L);
+        verify(boardCategoryRepository).findByBoard_BoardIdInAndIsActiveOrderByBoard_BoardIdAscSortOrderAsc(
+                List.of(10L), true);
+        verify(boardAiInfoRepository).findByBoard_BoardIdIn(List.of(10L));
+        verify(postRepository).countActiveByBoardIds(List.of(10L));
         verify(postService, never()).canWriteToBoard(anyLong(), any());
     }
 
@@ -783,6 +785,43 @@ class AgentServiceTest {
     }
 
     @Test
+    void getBoards_queriesMetadataOnlyForWritableBoardsAfterRoleFiltering() {
+        User otherUser = User.builder().loginId("other").displayName("Other").build();
+        ReflectionTestUtils.setField(otherUser, "userId", 2L);
+
+        Board superAdminOnlyBoard = Board.builder().boardName("Super").boardUrl("super").creator(otherUser).build();
+        ReflectionTestUtils.setField(superAdminOnlyBoard, "boardId", 40L);
+        ReflectionTestUtils.setField(superAdminOnlyBoard, "isActive", true);
+        ReflectionTestUtils.setField(superAdminOnlyBoard, "isPublic", true);
+        ReflectionTestUtils.setField(superAdminOnlyBoard, "agentUseYn", true);
+
+        BoardAiInfo boardAiInfo = BoardAiInfo.builder()
+                .board(writableBoard)
+                .guidePrompt("prompt")
+                .build();
+        ReflectionTestUtils.setField(boardAiInfo, "boardId", 10L);
+
+        when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+        when(boardRepository.findByIsActiveAndIsPublicOrderBySortOrderAscBoardIdAsc(true, true))
+                .thenReturn(List.of(writableBoard, superAdminOnlyBoard));
+        when(boardCategoryRepository.findByBoard_BoardIdInAndIsActiveOrderByBoard_BoardIdAscSortOrderAsc(
+                List.of(10L, 40L), true)).thenReturn(List.of(
+                        defaultCategory(writableBoard, Role.BOARD_ADMIN),
+                        defaultCategory(superAdminOnlyBoard, Role.SUPER_ADMIN)));
+        when(boardAiInfoRepository.findByBoard_BoardIdIn(List.of(10L))).thenReturn(List.of(boardAiInfo));
+        when(postRepository.countActiveByBoardIds(List.of(10L))).thenReturn(List.of(boardPostCount(10L, 7L)));
+
+        AgentBoardListResponse response = agentQueryService.getBoards(7L);
+
+        assertThat(response.getBoards()).hasSize(1);
+        assertThat(response.getBoards().get(0).getBoardId()).isEqualTo(10L);
+        verify(boardCategoryRepository).findByBoard_BoardIdInAndIsActiveOrderByBoard_BoardIdAscSortOrderAsc(
+                List.of(10L, 40L), true);
+        verify(boardAiInfoRepository).findByBoard_BoardIdIn(List.of(10L));
+        verify(postRepository).countActiveByBoardIds(List.of(10L));
+    }
+
+    @Test
     void getBoards_excludesSuperAdminOnlyBoardForNormalAgent() {
         User otherUser = User.builder().loginId("other").displayName("Other").build();
         ReflectionTestUtils.setField(otherUser, "userId", 2L);
@@ -798,12 +837,29 @@ class AgentServiceTest {
                 .thenReturn(List.of(superAdminOnlyBoard));
         when(boardCategoryRepository.findByBoard_BoardIdInAndIsActiveOrderByBoard_BoardIdAscSortOrderAsc(
                 List.of(40L), true)).thenReturn(List.of(defaultCategory(superAdminOnlyBoard, Role.SUPER_ADMIN)));
-        when(boardAiInfoRepository.findByBoard_BoardIdIn(List.of(40L))).thenReturn(List.of());
-        when(postRepository.countActiveByBoardIds(List.of(40L))).thenReturn(List.of(boardPostCount(40L, 1L)));
 
         AgentBoardListResponse response = agentQueryService.getBoards(7L);
 
         assertThat(response.getBoards()).isEmpty();
+        verify(boardAiInfoRepository, never()).findByBoard_BoardIdIn(any());
+        verify(postRepository, never()).countActiveByBoardIds(any());
+        verify(postService, never()).canWriteToBoard(anyLong(), any());
+    }
+
+    @Test
+    void getBoards_returnsEmptyWithoutMetadataWhenNoAgentEnabledBoards() {
+        when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+        when(boardRepository.findByIsActiveAndIsPublicOrderBySortOrderAscBoardIdAsc(true, true))
+                .thenReturn(List.of(blockedBoard));
+
+        AgentBoardListResponse response = agentQueryService.getBoards(7L);
+
+        assertThat(response.getBoards()).isEmpty();
+        verify(boardCategoryRepository, never()).findByBoard_BoardIdInAndIsActiveOrderByBoard_BoardIdAscSortOrderAsc(
+                any(), eq(true));
+        verify(boardAiInfoRepository, never()).findByBoard_BoardIdIn(any());
+        verify(postRepository, never()).countActiveByBoardIds(any());
+        verify(adminRepository, never()).findByUserAndBoard_BoardIdInAndIsActive(any(), any(), eq(true));
         verify(postService, never()).canWriteToBoard(anyLong(), any());
     }
 
