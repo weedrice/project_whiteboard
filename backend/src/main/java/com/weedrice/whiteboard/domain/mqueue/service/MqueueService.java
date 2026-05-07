@@ -15,6 +15,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Objects;
+import java.util.UUID;
 
 @Slf4j
 @Service
@@ -51,6 +52,18 @@ public class MqueueService {
             return;
         }
 
+        String sendAttemptId = UUID.randomUUID().toString();
+        LocalDateTime sendAttemptStartedAt = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS);
+        int recorded = messageQueueRepository.recordSendAttemptIfCurrent(
+                queueId,
+                renewedAt,
+                sendAttemptId,
+                sendAttemptStartedAt);
+        if (recorded != 1) {
+            log.warn("Skipped email send because send attempt could not be recorded: queueId={}", queueId);
+            return;
+        }
+
         boolean sentSuccessfully = false;
 
         try {
@@ -63,7 +76,15 @@ public class MqueueService {
         }
 
         boolean finalSentSuccessfully = sentSuccessfully;
-        persistSendResultWithRetry(queueId, renewedAt, finalSentSuccessfully);
+        try {
+            persistSendResultWithRetry(queueId, renewedAt, finalSentSuccessfully);
+        } catch (RuntimeException ex) {
+            if (finalSentSuccessfully) {
+                markDeliveredUnconfirmedWithRetry(queueId, renewedAt);
+                return;
+            }
+            throw ex;
+        }
     }
 
     @Transactional
@@ -91,6 +112,36 @@ public class MqueueService {
         throw lastException;
     }
 
+    private void markDeliveredUnconfirmedWithRetry(Long queueId, LocalDateTime leaseStartedAt) {
+        RuntimeException lastException = null;
+        for (int attempt = 1; attempt <= SEND_RESULT_PERSIST_ATTEMPTS; attempt++) {
+            try {
+                transactionTemplate.executeWithoutResult(status ->
+                        markDeliveredUnconfirmed(queueId, leaseStartedAt));
+                return;
+            } catch (RuntimeException ex) {
+                lastException = ex;
+                log.error("Failed to mark email delivery as unconfirmed: queueId={}, attempt={}",
+                        queueId,
+                        attempt,
+                        ex);
+            }
+        }
+        throw lastException;
+    }
+
+    private void markDeliveredUnconfirmed(Long queueId, LocalDateTime leaseStartedAt) {
+        int updated = messageQueueRepository.markDeliveredUnconfirmedIfCurrent(
+                queueId,
+                leaseStartedAt,
+                LocalDateTime.now().truncatedTo(ChronoUnit.MICROS));
+        if (updated != 1) {
+            throw new IllegalStateException("Failed to mark delivery unconfirmed for current lease");
+        }
+        log.error("Marked email delivery as unconfirmed after send-result persistence failure: queueId={}",
+                queueId);
+    }
+
     private void persistSendResult(Long queueId, LocalDateTime leaseStartedAt, boolean sentSuccessfully) {
         MessageQueue current = messageQueueRepository.findByIdForUpdate(queueId).orElse(null);
         if (current == null) {
@@ -99,7 +150,7 @@ public class MqueueService {
 
         if (isCurrentLease(current, leaseStartedAt)) {
             if (sentSuccessfully) {
-                current.sent();
+                current.sent(LocalDateTime.now().truncatedTo(ChronoUnit.MICROS));
             } else {
                 current.failForRetry(MessageQueuePolicy.MAX_RETRY_COUNT);
             }
@@ -111,7 +162,7 @@ public class MqueueService {
     }
 
     private boolean isCurrentLease(MessageQueue current, LocalDateTime leaseStartedAt) {
-        return "PROCESSING".equals(current.getStatus())
+        return MessageQueue.STATUS_PROCESSING.equals(current.getStatus())
                 && Objects.equals(current.getProcessingStartedAt(), leaseStartedAt);
     }
 

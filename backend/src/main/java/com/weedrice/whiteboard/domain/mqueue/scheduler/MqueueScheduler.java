@@ -26,9 +26,11 @@ public class MqueueScheduler {
     @Scheduled(cron = "0 * * * * ?")
     public void processMessageQueue() {
         log.info("Message queue scheduler started");
+        LocalDateTime now = LocalDateTime.now();
         int recovered = messageQueueRepository.recoverStaleProcessingMessages(
-                LocalDateTime.now().minusMinutes(MessageQueuePolicy.PROCESSING_LEASE_MINUTES),
-                MessageQueuePolicy.MAX_RETRY_COUNT);
+                now.minusMinutes(MessageQueuePolicy.PROCESSING_LEASE_MINUTES),
+                MessageQueuePolicy.MAX_RETRY_COUNT,
+                now);
         if (recovered > 0) {
             log.warn("Recovered {} stale processing message(s)", recovered);
         }

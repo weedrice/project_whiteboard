@@ -41,6 +41,7 @@ public interface MessageQueueRepository extends JpaRepository<MessageQueue, Long
             where m.queueId = :queueId
               and m.status = 'PENDING'
               and m.retryCount < :maxRetryCount
+              and m.sendAttemptId is null
             """)
     int claimForProcessing(@Param("queueId") Long queueId,
                            @Param("maxRetryCount") int maxRetryCount,
@@ -63,12 +64,66 @@ public interface MessageQueueRepository extends JpaRepository<MessageQueue, Long
     @Transactional
     @Query("""
             update MessageQueue m
-            set m.retryCount = m.retryCount + 1,
-                m.status = case when (m.retryCount + 1) >= :maxRetryCount then 'FAILED' else 'PENDING' end,
-                m.processingStartedAt = null
+            set m.sendAttemptId = :sendAttemptId,
+                m.sendAttemptStartedAt = :sendAttemptStartedAt,
+                m.deliveryUncertainAt = null
+            where m.queueId = :queueId
+              and m.status = 'PROCESSING'
+              and m.processingStartedAt = :expectedProcessingStartedAt
+              and m.sendAttemptId is null
+            """)
+    int recordSendAttemptIfCurrent(@Param("queueId") Long queueId,
+                                   @Param("expectedProcessingStartedAt") LocalDateTime expectedProcessingStartedAt,
+                                   @Param("sendAttemptId") String sendAttemptId,
+                                   @Param("sendAttemptStartedAt") LocalDateTime sendAttemptStartedAt);
+
+    @Modifying
+    @Transactional
+    @Query("""
+            update MessageQueue m
+            set m.retryCount = case when m.deliveryUncertainAt is null then m.retryCount + 1 else m.retryCount end,
+                m.status = case
+                    when m.deliveryUncertainAt is not null then 'DELIVERED_UNCONFIRMED'
+                    when (m.retryCount + 1) >= :maxRetryCount then 'FAILED'
+                    else 'PENDING'
+                end,
+                m.processingStartedAt = null,
+                m.sendAttemptId = case
+                    when m.deliveryUncertainAt is null then null
+                    else m.sendAttemptId
+                end,
+                m.sendAttemptStartedAt = case
+                    when m.deliveryUncertainAt is null then null
+                    else m.sendAttemptStartedAt
+                end,
+                m.sendAttemptConfirmedAt = case
+                    when m.deliveryUncertainAt is null then null
+                    else m.sendAttemptConfirmedAt
+                end,
+                m.deliveryUncertainAt = case
+                    when m.deliveryUncertainAt is not null then :recoveredAt
+                    else m.deliveryUncertainAt
+                end
             where m.status = 'PROCESSING'
               and (m.processingStartedAt is null or m.processingStartedAt < :staleBefore)
             """)
     int recoverStaleProcessingMessages(@Param("staleBefore") LocalDateTime staleBefore,
-                                       @Param("maxRetryCount") int maxRetryCount);
+                                       @Param("maxRetryCount") int maxRetryCount,
+                                       @Param("recoveredAt") LocalDateTime recoveredAt);
+
+    @Modifying
+    @Transactional
+    @Query("""
+            update MessageQueue m
+            set m.status = 'DELIVERED_UNCONFIRMED',
+                m.processingStartedAt = null,
+                m.deliveryUncertainAt = :uncertainAt
+            where m.queueId = :queueId
+              and m.status = 'PROCESSING'
+              and m.processingStartedAt = :expectedProcessingStartedAt
+              and m.sendAttemptId is not null
+            """)
+    int markDeliveredUnconfirmedIfCurrent(@Param("queueId") Long queueId,
+                                          @Param("expectedProcessingStartedAt") LocalDateTime expectedProcessingStartedAt,
+                                          @Param("uncertainAt") LocalDateTime uncertainAt);
 }

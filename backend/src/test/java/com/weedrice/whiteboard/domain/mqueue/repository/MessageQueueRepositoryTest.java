@@ -92,6 +92,31 @@ class MessageQueueRepositoryTest {
     }
 
     @Test
+    @DisplayName("recordSendAttemptIfCurrent stores attempt ledger for current processing lease")
+    void recordSendAttemptIfCurrent_storesAttemptLedger() {
+        MessageQueue message = persistMessageQueue();
+        LocalDateTime processingStartedAt = LocalDateTime.of(2026, 4, 22, 13, 30);
+        LocalDateTime attemptStartedAt = LocalDateTime.of(2026, 4, 22, 13, 31);
+        ReflectionTestUtils.setField(message, "status", "PROCESSING");
+        ReflectionTestUtils.setField(message, "processingStartedAt", processingStartedAt);
+        entityManager.persistAndFlush(message);
+
+        int updated = messageQueueRepository.recordSendAttemptIfCurrent(
+                message.getQueueId(),
+                processingStartedAt,
+                "attempt-1",
+                attemptStartedAt);
+
+        entityManager.flush();
+        entityManager.clear();
+
+        MessageQueue recorded = entityManager.find(MessageQueue.class, message.getQueueId());
+        assertThat(updated).isEqualTo(1);
+        assertThat(recorded.getSendAttemptId()).isEqualTo("attempt-1");
+        assertThat(recorded.getSendAttemptStartedAt()).isEqualTo(attemptStartedAt);
+    }
+
+    @Test
     @DisplayName("recoverStaleProcessingMessages increments retry count and releases stale processing lease")
     void recoverStaleProcessingMessages_requeuesStaleProcessingMessageWithinRetryBudget() {
         MessageQueue message = persistMessageQueue();
@@ -100,7 +125,9 @@ class MessageQueueRepositoryTest {
         entityManager.persistAndFlush(message);
 
         int updated = messageQueueRepository.recoverStaleProcessingMessages(
-                LocalDateTime.now().minusMinutes(5), MessageQueuePolicy.MAX_RETRY_COUNT);
+                LocalDateTime.now().minusMinutes(5),
+                MessageQueuePolicy.MAX_RETRY_COUNT,
+                LocalDateTime.now());
 
         entityManager.flush();
         entityManager.clear();
@@ -113,6 +140,63 @@ class MessageQueueRepositoryTest {
     }
 
     @Test
+    @DisplayName("recoverStaleProcessingMessages requeues send attempt rows without delivery marker")
+    void recoverStaleProcessingMessages_requeuesSendAttemptRowsWithoutDeliveryMarker() {
+        MessageQueue message = persistMessageQueue();
+        LocalDateTime attemptStartedAt = LocalDateTime.now().minusMinutes(10);
+        ReflectionTestUtils.setField(message, "status", "PROCESSING");
+        ReflectionTestUtils.setField(message, "processingStartedAt", attemptStartedAt);
+        ReflectionTestUtils.setField(message, "sendAttemptId", "attempt-1");
+        ReflectionTestUtils.setField(message, "sendAttemptStartedAt", attemptStartedAt);
+        entityManager.persistAndFlush(message);
+
+        int updated = messageQueueRepository.recoverStaleProcessingMessages(
+                LocalDateTime.now().minusMinutes(5),
+                MessageQueuePolicy.MAX_RETRY_COUNT,
+                LocalDateTime.now());
+
+        entityManager.flush();
+        entityManager.clear();
+
+        MessageQueue recovered = entityManager.find(MessageQueue.class, message.getQueueId());
+        assertThat(updated).isEqualTo(1);
+        assertThat(recovered.getStatus()).isEqualTo(MessageQueue.STATUS_PENDING);
+        assertThat(recovered.getRetryCount()).isEqualTo(1);
+        assertThat(recovered.getProcessingStartedAt()).isNull();
+        assertThat(recovered.getSendAttemptId()).isNull();
+    }
+
+    @Test
+    @DisplayName("recoverStaleProcessingMessages preserves rows with uncertain delivery marker")
+    void recoverStaleProcessingMessages_preservesRowsWithUncertainDeliveryMarker() {
+        MessageQueue message = persistMessageQueue();
+        LocalDateTime attemptStartedAt = LocalDateTime.now().minusMinutes(10);
+        LocalDateTime recoveredAt = LocalDateTime.of(2026, 4, 22, 13, 35);
+        ReflectionTestUtils.setField(message, "status", "PROCESSING");
+        ReflectionTestUtils.setField(message, "processingStartedAt", attemptStartedAt);
+        ReflectionTestUtils.setField(message, "sendAttemptId", "attempt-1");
+        ReflectionTestUtils.setField(message, "sendAttemptStartedAt", attemptStartedAt);
+        ReflectionTestUtils.setField(message, "deliveryUncertainAt", LocalDateTime.of(2026, 4, 22, 13, 34));
+        entityManager.persistAndFlush(message);
+
+        int updated = messageQueueRepository.recoverStaleProcessingMessages(
+                LocalDateTime.now().minusMinutes(5),
+                MessageQueuePolicy.MAX_RETRY_COUNT,
+                recoveredAt);
+
+        entityManager.flush();
+        entityManager.clear();
+
+        MessageQueue recovered = entityManager.find(MessageQueue.class, message.getQueueId());
+        assertThat(updated).isEqualTo(1);
+        assertThat(recovered.getStatus()).isEqualTo(MessageQueue.STATUS_DELIVERED_UNCONFIRMED);
+        assertThat(recovered.getRetryCount()).isZero();
+        assertThat(recovered.getProcessingStartedAt()).isNull();
+        assertThat(recovered.getSendAttemptId()).isEqualTo("attempt-1");
+        assertThat(recovered.getDeliveryUncertainAt()).isEqualTo(recoveredAt);
+    }
+
+    @Test
     @DisplayName("recoverStaleProcessingMessages marks message as failed when stale recovery reaches retry limit")
     void recoverStaleProcessingMessages_marksMessageAsFailedAtRetryLimit() {
         MessageQueue message = persistMessageQueue();
@@ -122,7 +206,9 @@ class MessageQueueRepositoryTest {
         entityManager.persistAndFlush(message);
 
         int updated = messageQueueRepository.recoverStaleProcessingMessages(
-                LocalDateTime.now().minusMinutes(5), MessageQueuePolicy.MAX_RETRY_COUNT);
+                LocalDateTime.now().minusMinutes(5),
+                MessageQueuePolicy.MAX_RETRY_COUNT,
+                LocalDateTime.now());
 
         entityManager.flush();
         entityManager.clear();
@@ -143,7 +229,9 @@ class MessageQueueRepositoryTest {
         entityManager.persistAndFlush(message);
 
         int updated = messageQueueRepository.recoverStaleProcessingMessages(
-                LocalDateTime.now().minusMinutes(5), MessageQueuePolicy.MAX_RETRY_COUNT);
+                LocalDateTime.now().minusMinutes(5),
+                MessageQueuePolicy.MAX_RETRY_COUNT,
+                LocalDateTime.now());
 
         entityManager.flush();
         entityManager.clear();

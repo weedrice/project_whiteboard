@@ -21,6 +21,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDateTime;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -63,6 +64,7 @@ class MqueueServiceTest {
         MessageQueue message = processingMessage(user, leaseStartedAt);
         when(messageQueueRepository.findByIdWithTargetUser(1L)).thenReturn(Optional.of(message));
         mockLeaseRenewal(1L, leaseStartedAt, message);
+        mockSendAttemptRecording(1L);
         when(messageQueueRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(message));
         mockTransactionCallback();
 
@@ -72,6 +74,7 @@ class MqueueServiceTest {
         verify(messageQueueRepository).save(message);
         assertThat(message.getStatus()).isEqualTo("SENT");
         assertThat(message.getProcessingStartedAt()).isNull();
+        assertThat(message.getSendAttemptConfirmedAt()).isNotNull();
     }
 
     @Test
@@ -87,6 +90,7 @@ class MqueueServiceTest {
             MessageQueue message = processingMessage(user, leaseStartedAt);
             when(messageQueueRepository.findByIdWithTargetUser(1L)).thenReturn(Optional.of(message));
             mockLeaseRenewal(1L, leaseStartedAt, message);
+            mockSendAttemptRecording(1L);
             when(messageQueueRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(message));
             mockTransactionCallback();
 
@@ -111,6 +115,7 @@ class MqueueServiceTest {
         MessageQueue message = processingMessage(user, leaseStartedAt);
         when(messageQueueRepository.findByIdWithTargetUser(1L)).thenReturn(Optional.of(message));
         mockLeaseRenewal(1L, leaseStartedAt, message);
+        mockSendAttemptRecording(1L);
         when(messageQueueRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(message));
         doThrow(new BusinessException(ErrorCode.EMAIL_SEND_FAILED))
                 .when(emailService).sendEmail(eq("user@test.com"), eq("[noviIs] Notification"), eq("<p>Hello</p>"));
@@ -122,6 +127,52 @@ class MqueueServiceTest {
         assertThat(message.getStatus()).isEqualTo("PENDING");
         assertThat(message.getRetryCount()).isEqualTo(1);
         assertThat(message.getProcessingStartedAt()).isNull();
+        assertThat(message.getSendAttemptId()).isNull();
+    }
+
+    @Test
+    @DisplayName("sendEmail skips SMTP call when send attempt ledger cannot be recorded")
+    void sendEmail_recordSendAttemptFails_skipsSmtpCall() {
+        LocalDateTime leaseStartedAt = LocalDateTime.now();
+        User user = User.builder().email("user@test.com").build();
+        MessageQueue message = processingMessage(user, leaseStartedAt);
+        when(messageQueueRepository.findByIdWithTargetUser(1L)).thenReturn(Optional.of(message));
+        mockLeaseRenewal(1L, leaseStartedAt, message);
+        when(messageQueueRepository.recordSendAttemptIfCurrent(eq(1L), any(), any(), any()))
+                .thenReturn(0);
+
+        mqueueService.sendEmail(1L, leaseStartedAt);
+
+        verify(emailService, never()).sendEmail(any(), any(), any());
+        verify(transactionTemplate, never()).executeWithoutResult(any());
+    }
+
+    @Test
+    @DisplayName("sendEmail marks delivery unconfirmed when sent result cannot be persisted")
+    void sendEmail_sentResultPersistenceFails_marksDeliveryUnconfirmed() {
+        LocalDateTime leaseStartedAt = LocalDateTime.now();
+        User user = User.builder().email("user@test.com").build();
+        MessageQueue message = processingMessage(user, leaseStartedAt);
+        when(messageQueueRepository.findByIdWithTargetUser(1L)).thenReturn(Optional.of(message));
+        mockLeaseRenewal(1L, leaseStartedAt, message);
+        mockSendAttemptRecording(1L);
+        when(messageQueueRepository.markDeliveredUnconfirmedIfCurrent(eq(1L), any(), any()))
+                .thenReturn(1);
+        AtomicInteger transactionCalls = new AtomicInteger();
+        doAnswer(invocation -> {
+            if (transactionCalls.incrementAndGet() <= 3) {
+                throw new RuntimeException("persist failed");
+            }
+            Consumer<Object> consumer = invocation.getArgument(0);
+            consumer.accept(null);
+            return null;
+        }).when(transactionTemplate).executeWithoutResult(any());
+
+        mqueueService.sendEmail(1L, leaseStartedAt);
+
+        verify(emailService).sendEmail("user@test.com", "[noviIs] Notification", "<p>Hello</p>");
+        verify(messageQueueRepository).markDeliveredUnconfirmedIfCurrent(eq(1L), any(), any());
+        assertThat(transactionCalls.get()).isEqualTo(4);
     }
 
     @Test
@@ -224,6 +275,11 @@ class MqueueServiceTest {
                     ReflectionTestUtils.setField(message, "processingStartedAt", renewedAt);
                     return 1;
                 });
+    }
+
+    private void mockSendAttemptRecording(Long queueId) {
+        when(messageQueueRepository.recordSendAttemptIfCurrent(eq(queueId), any(), any(), any()))
+                .thenReturn(1);
     }
 
     private MessageQueue processingMessage(User user, LocalDateTime processingStartedAt) {

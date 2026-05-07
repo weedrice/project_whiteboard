@@ -42,7 +42,8 @@ class MqueueSchedulerTest {
     @Test
     @DisplayName("scheduler recovers stale processing messages before claiming pending work")
     void processMessageQueue_recoversStaleMessagesFirst() {
-        when(messageQueueRepository.recoverStaleProcessingMessages(any(), eq(MessageQueuePolicy.MAX_RETRY_COUNT)))
+        when(messageQueueRepository.recoverStaleProcessingMessages(
+                any(), eq(MessageQueuePolicy.MAX_RETRY_COUNT), any()))
                 .thenReturn(2);
         when(messageQueueRepository.findByStatusAndRetryCountLessThanAndDeliveryMethod(
                 eq("PENDING"), eq(MessageQueuePolicy.MAX_RETRY_COUNT), eq("EMAIL"), any(Pageable.class)))
@@ -52,7 +53,7 @@ class MqueueSchedulerTest {
 
         var inOrder = inOrder(messageQueueRepository);
         inOrder.verify(messageQueueRepository)
-                .recoverStaleProcessingMessages(any(), eq(MessageQueuePolicy.MAX_RETRY_COUNT));
+                .recoverStaleProcessingMessages(any(), eq(MessageQueuePolicy.MAX_RETRY_COUNT), any());
         inOrder.verify(messageQueueRepository).findByStatusAndRetryCountLessThanAndDeliveryMethod(
                 eq("PENDING"), eq(MessageQueuePolicy.MAX_RETRY_COUNT), eq("EMAIL"), any(Pageable.class));
     }
@@ -60,7 +61,8 @@ class MqueueSchedulerTest {
     @Test
     @DisplayName("scheduler reads pending messages in stable FIFO order")
     void processMessageQueue_usesStableFifoPageRequest() {
-        when(messageQueueRepository.recoverStaleProcessingMessages(any(), eq(MessageQueuePolicy.MAX_RETRY_COUNT)))
+        when(messageQueueRepository.recoverStaleProcessingMessages(
+                any(), eq(MessageQueuePolicy.MAX_RETRY_COUNT), any()))
                 .thenReturn(0);
         when(messageQueueRepository.findByStatusAndRetryCountLessThanAndDeliveryMethod(
                 eq("PENDING"), eq(MessageQueuePolicy.MAX_RETRY_COUNT), eq("EMAIL"), any(Pageable.class)))
@@ -88,7 +90,8 @@ class MqueueSchedulerTest {
     @Test
     @DisplayName("scheduler queries only email messages")
     void processMessageQueue_queriesOnlyEmailMessages() {
-        when(messageQueueRepository.recoverStaleProcessingMessages(any(), eq(MessageQueuePolicy.MAX_RETRY_COUNT)))
+        when(messageQueueRepository.recoverStaleProcessingMessages(
+                any(), eq(MessageQueuePolicy.MAX_RETRY_COUNT), any()))
                 .thenReturn(0);
         when(messageQueueRepository.findByStatusAndRetryCountLessThanAndDeliveryMethod(
                 eq("PENDING"), eq(MessageQueuePolicy.MAX_RETRY_COUNT), eq("EMAIL"), any(Pageable.class)))
@@ -106,7 +109,8 @@ class MqueueSchedulerTest {
     @DisplayName("scheduler releases processing lease when async dispatch is rejected")
     void processMessageQueue_handlesDispatchRejection() {
         MessageQueue message = buildMessageQueue(1L, "EMAIL");
-        when(messageQueueRepository.recoverStaleProcessingMessages(any(), eq(MessageQueuePolicy.MAX_RETRY_COUNT)))
+        when(messageQueueRepository.recoverStaleProcessingMessages(
+                any(), eq(MessageQueuePolicy.MAX_RETRY_COUNT), any()))
                 .thenReturn(0);
         when(messageQueueRepository.findByStatusAndRetryCountLessThanAndDeliveryMethod(
                 eq("PENDING"), eq(MessageQueuePolicy.MAX_RETRY_COUNT), eq("EMAIL"), any(Pageable.class)))

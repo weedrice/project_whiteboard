@@ -19,6 +19,11 @@ import java.time.LocalDateTime;
         @Index(name = "idx_message_queue_user", columnList = "target_user_id")
 })
 public class MessageQueue extends BaseTimeEntity {
+    public static final String STATUS_PENDING = "PENDING";
+    public static final String STATUS_PROCESSING = "PROCESSING";
+    public static final String STATUS_SENT = "SENT";
+    public static final String STATUS_FAILED = "FAILED";
+    public static final String STATUS_DELIVERED_UNCONFIRMED = "DELIVERED_UNCONFIRMED";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -39,7 +44,7 @@ public class MessageQueue extends BaseTimeEntity {
     private LocalDateTime requestedAt;
 
     @Column(name = "status", length = 50, nullable = false)
-    private String status; // PENDING, PROCESSING, SENT, FAILED
+    private String status; // PENDING, PROCESSING, SENT, FAILED, DELIVERED_UNCONFIRMED
 
     @Column(name = "retry_count", nullable = false)
     private Integer retryCount;
@@ -47,33 +52,56 @@ public class MessageQueue extends BaseTimeEntity {
     @Column(name = "processing_started_at")
     private LocalDateTime processingStartedAt;
 
+    @Column(name = "send_attempt_id", length = 64)
+    private String sendAttemptId;
+
+    @Column(name = "send_attempt_started_at")
+    private LocalDateTime sendAttemptStartedAt;
+
+    @Column(name = "send_attempt_confirmed_at")
+    private LocalDateTime sendAttemptConfirmedAt;
+
+    @Column(name = "delivery_uncertain_at")
+    private LocalDateTime deliveryUncertainAt;
+
     @Builder
     public MessageQueue(User targetUser, String deliveryMethod, String content) {
         this.targetUser = targetUser;
         this.deliveryMethod = deliveryMethod;
         this.content = content;
         this.requestedAt = LocalDateTime.now();
-        this.status = "PENDING";
+        this.status = STATUS_PENDING;
         this.retryCount = 0;
     }
 
-    public void sent() {
-        this.status = "SENT";
+    public void sent(LocalDateTime confirmedAt) {
+        this.status = STATUS_SENT;
         this.processingStartedAt = null;
+        this.sendAttemptConfirmedAt = confirmedAt;
+        this.deliveryUncertainAt = null;
     }
 
     public void releaseProcessingLease() {
-        this.status = "PENDING";
+        this.status = STATUS_PENDING;
         this.processingStartedAt = null;
+        clearSendAttempt();
     }
 
     public void failForRetry(int maxRetryCount) {
         this.processingStartedAt = null;
+        clearSendAttempt();
         this.retryCount++;
         if (this.retryCount >= maxRetryCount) {
-            this.status = "FAILED";
+            this.status = STATUS_FAILED;
             return;
         }
-        this.status = "PENDING";
+        this.status = STATUS_PENDING;
+    }
+
+    private void clearSendAttempt() {
+        this.sendAttemptId = null;
+        this.sendAttemptStartedAt = null;
+        this.sendAttemptConfirmedAt = null;
+        this.deliveryUncertainAt = null;
     }
 }
