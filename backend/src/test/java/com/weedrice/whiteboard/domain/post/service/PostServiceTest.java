@@ -2488,8 +2488,8 @@ class PostServiceTest {
     }
 
     @Test
-    @DisplayName("게시글 삭제 - 기존 카테고리 최소 작성 권한이 올라가면 차단")
-    void deletePost_existingCategoryPermissionChanged_forbidden() {
+    @DisplayName("게시글 삭제는 기존 카테고리 권한 변경과 무관하게 작성자를 허용한다")
+    void deletePost_existingCategoryPermissionChanged_allowsAuthor() {
         BoardCategory restrictedCategory = BoardCategory.builder()
                 .name("Admin Only")
                 .board(board)
@@ -2503,17 +2503,22 @@ class PostServiceTest {
 
         when(postRepository.findById(1L)).thenReturn(Optional.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(adminRepository.existsByUserAndBoardAndIsActive(user, board, true)).thenReturn(false);
+        when(pointHistoryRepository.findByUserAndTypeAndRelatedTypeAndRelatedIdOrderByCreatedAtAsc(
+                user, "EARN", "POST", 1L))
+                .thenReturn(List.of());
 
-        assertThatThrownBy(() -> postService.deletePost(1L, 1L))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
-        verify(tagAssignmentService, never()).clearTags(any(Post.class));
+        postService.deletePost(1L, 1L);
+
+        assertThat(post.getIsDeleted()).isTrue();
+        verify(tagAssignmentService).clearTags(post);
+        verify(fileService).markPostContentFilesDeletionPending(1L);
+        verify(adminRepository, never()).existsByUserAndBoardAndIsActive(
+                any(User.class), any(Board.class), anyBoolean());
     }
 
     @Test
-    @DisplayName("게시글 삭제 - 비공개 게시판으로 전환되면 차단")
-    void deletePost_privateBoard_forbidden() {
+    @DisplayName("게시글 삭제는 게시판 공개 상태 변경과 무관하게 작성자를 허용한다")
+    void deletePost_privateBoard_allowsAuthor() {
         User boardOwner = User.builder().loginId("owner").build();
         ReflectionTestUtils.setField(boardOwner, "userId", 99L);
         ReflectionTestUtils.setField(board, "creator", boardOwner);
@@ -2521,12 +2526,17 @@ class PostServiceTest {
 
         when(postRepository.findById(1L)).thenReturn(Optional.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(adminRepository.existsByUserAndBoardAndIsActive(user, board, true)).thenReturn(false);
+        when(pointHistoryRepository.findByUserAndTypeAndRelatedTypeAndRelatedIdOrderByCreatedAtAsc(
+                user, "EARN", "POST", 1L))
+                .thenReturn(List.of());
 
-        assertThatThrownBy(() -> postService.deletePost(1L, 1L))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.BOARD_NOT_FOUND);
-        verify(tagAssignmentService, never()).clearTags(any(Post.class));
+        postService.deletePost(1L, 1L);
+
+        assertThat(post.getIsDeleted()).isTrue();
+        verify(tagAssignmentService).clearTags(post);
+        verify(fileService).markPostContentFilesDeletionPending(1L);
+        verify(adminRepository, never()).existsByUserAndBoardAndIsActive(
+                any(User.class), any(Board.class), anyBoolean());
     }
 
     @Test

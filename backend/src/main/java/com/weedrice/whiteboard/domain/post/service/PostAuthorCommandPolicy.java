@@ -35,7 +35,6 @@ public class PostAuthorCommandPolicy {
 
     public void validateDeletable(Post post, User user) {
         validateAuthorCommand(post, user);
-        validateWritableCommand(post, user, post.getCategory());
     }
 
     public void validateBoardWritable(Board board, User user) {
