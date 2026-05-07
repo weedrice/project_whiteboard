@@ -35,7 +35,7 @@ public class UserBlockService {
 
         User user = userWritableResolver.resolve(userId);
 
-        User target = userRepository.findById(targetUserId)
+        User target = userRepository.findByUserIdAndStatusAndDeletedAtIsNull(targetUserId, User.STATUS_ACTIVE)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
         if (userBlockRepository.existsByUserAndTarget(user, target)) {

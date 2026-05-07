@@ -112,6 +112,22 @@ class UserBlockRepositoryTest {
     }
 
     @Test
+    @DisplayName("block list page excludes inactive targets")
+    void findPageByUserWithTarget_excludesInactiveTargets() {
+        User inactiveTarget = entityManager.find(User.class, user3.getUserId());
+        inactiveTarget.suspend();
+        entityManager.flush();
+        entityManager.clear();
+
+        Page<UserBlock> result = userBlockRepository.findPageByUserWithTarget(user1, PageRequest.of(0, 10));
+
+        assertThat(result.getTotalElements()).isEqualTo(1);
+        assertThat(result.getContent())
+                .extracting(block -> block.getTarget().getUserId())
+                .containsExactly(user2.getUserId());
+    }
+
+    @Test
     @DisplayName("차단 사용자 ID 조회용 목록도 target을 함께 로드한다")
     void findByUserWithTarget_fetchesTarget() {
         List<UserBlock> result = userBlockRepository.findByUserWithTarget(user1);

@@ -50,11 +50,15 @@ public interface UserBlockRepository extends JpaRepository<UserBlock, Long> {
             SELECT ub
             FROM UserBlock ub
             WHERE ub.user = :user
+              AND ub.target.status = 'ACTIVE'
+              AND ub.target.deletedAt IS NULL
             ORDER BY ub.createdAt DESC
             """, countQuery = """
             SELECT COUNT(ub)
             FROM UserBlock ub
             WHERE ub.user = :user
+              AND ub.target.status = 'ACTIVE'
+              AND ub.target.deletedAt IS NULL
             """)
     Page<UserBlock> findPageByUserWithTarget(@Param("user") User user, Pageable pageable);
 

@@ -1,7 +1,6 @@
 package com.weedrice.whiteboard.domain.user.service;
 
 import com.weedrice.whiteboard.domain.user.dto.BlockedUserResponse;
-import com.weedrice.whiteboard.domain.user.dto.BlockedUsersResponse;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.entity.UserBlock;
 import com.weedrice.whiteboard.domain.user.repository.UserBlockRepository;
@@ -20,7 +19,6 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -55,7 +53,7 @@ class UserBlockServiceTest {
         ReflectionTestUtils.setField(blocked, "userId", 2L);
 
         when(userWritableResolver.resolve(1L)).thenReturn(blocker);
-        when(userRepository.findById(2L)).thenReturn(Optional.of(blocked));
+        when(userRepository.findByUserIdAndStatusAndDeletedAtIsNull(2L, User.STATUS_ACTIVE)).thenReturn(Optional.of(blocked));
         when(userBlockRepository.existsByUserAndTarget(blocker, blocked)).thenReturn(false);
         when(userBlockRepository.saveAndFlush(any(UserBlock.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -83,7 +81,7 @@ class UserBlockServiceTest {
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.USER_NOT_ACTIVE);
 
-        verify(userRepository, never()).findById(2L);
+        verify(userRepository, never()).findByUserIdAndStatusAndDeletedAtIsNull(2L, User.STATUS_ACTIVE);
         verify(userBlockRepository, never()).saveAndFlush(any(UserBlock.class));
     }
 
@@ -96,7 +94,7 @@ class UserBlockServiceTest {
         ReflectionTestUtils.setField(blocked, "userId", 2L);
 
         when(userWritableResolver.resolve(1L)).thenReturn(blocker);
-        when(userRepository.findById(2L)).thenReturn(Optional.of(blocked));
+        when(userRepository.findByUserIdAndStatusAndDeletedAtIsNull(2L, User.STATUS_ACTIVE)).thenReturn(Optional.of(blocked));
         when(userBlockRepository.existsByUserAndTarget(blocker, blocked)).thenReturn(true);
 
         assertThatThrownBy(() -> userBlockService.blockUser(1L, 2L))
@@ -114,7 +112,7 @@ class UserBlockServiceTest {
         ReflectionTestUtils.setField(blocked, "userId", 2L);
 
         when(userWritableResolver.resolve(1L)).thenReturn(blocker);
-        when(userRepository.findById(2L)).thenReturn(Optional.of(blocked));
+        when(userRepository.findByUserIdAndStatusAndDeletedAtIsNull(2L, User.STATUS_ACTIVE)).thenReturn(Optional.of(blocked));
         when(userBlockRepository.existsByUserAndTarget(blocker, blocked)).thenReturn(false);
         when(userBlockRepository.saveAndFlush(any(UserBlock.class)))
                 .thenThrow(new DataIntegrityViolationException("duplicate"));
@@ -252,12 +250,28 @@ class UserBlockServiceTest {
     void blockUser_blockedNotFound() {
         // Blocker exists, Blocked does not
         when(userWritableResolver.resolve(1L)).thenReturn(User.builder().build());
-        when(userRepository.findById(2L)).thenReturn(Optional.empty());
+        when(userRepository.findByUserIdAndStatusAndDeletedAtIsNull(2L, User.STATUS_ACTIVE)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> userBlockService.blockUser(1L, 2L))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.USER_NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("new block resolves only active target user")
+    void blockUser_resolvesOnlyActiveTarget() {
+        when(userWritableResolver.resolve(1L)).thenReturn(User.builder().build());
+        when(userRepository.findByUserIdAndStatusAndDeletedAtIsNull(2L, User.STATUS_ACTIVE)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> userBlockService.blockUser(1L, 2L))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.USER_NOT_FOUND);
+
+        verify(userRepository).findByUserIdAndStatusAndDeletedAtIsNull(2L, User.STATUS_ACTIVE);
+        verify(userRepository, never()).findById(2L);
+        verify(userBlockRepository, never()).saveAndFlush(any(UserBlock.class));
     }
 
     @Test

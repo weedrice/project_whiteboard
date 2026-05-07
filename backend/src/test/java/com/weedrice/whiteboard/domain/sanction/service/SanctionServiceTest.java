@@ -2,6 +2,10 @@ package com.weedrice.whiteboard.domain.sanction.service;
 
 import com.weedrice.whiteboard.domain.admin.entity.Admin;
 import com.weedrice.whiteboard.domain.admin.service.ModerationActorResolver;
+import com.weedrice.whiteboard.domain.comment.entity.Comment;
+import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
+import com.weedrice.whiteboard.domain.post.entity.Post;
+import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.sanction.dto.SanctionResponse;
 import com.weedrice.whiteboard.domain.sanction.entity.Sanction;
 import com.weedrice.whiteboard.domain.sanction.repository.SanctionRepository;
@@ -46,6 +50,8 @@ class SanctionServiceTest {
 
     @Mock private SanctionRepository sanctionRepository;
     @Mock private UserRepository userRepository;
+    @Mock private PostRepository postRepository;
+    @Mock private CommentRepository commentRepository;
     @Mock private ModerationActorResolver moderationActorResolver;
     @Mock private UserLifecycleService userLifecycleService;
     @Mock private SanctionPolicyService sanctionPolicyService;
@@ -89,6 +95,11 @@ class SanctionServiceTest {
         mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).then(invocation -> null);
         when(moderationActorResolver.resolveActiveAdmin(1L)).thenReturn(admin);
         when(userRepository.findById(2L)).thenReturn(Optional.of(targetUser));
+        when(postRepository.findById(100L)).thenReturn(Optional.of(Post.builder()
+                .user(targetUser)
+                .title("Post")
+                .contents("Content")
+                .build()));
 
         Sanction savedSanction = Sanction.builder()
                 .targetUser(targetUser)
@@ -139,13 +150,13 @@ class SanctionServiceTest {
         mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).then(invocation -> null);
         targetUser.delete();
         when(userRepository.findById(2L)).thenReturn(Optional.of(targetUser));
-        doThrow(new BusinessException(ErrorCode.INVALID_INPUT_VALUE))
-                .when(userLifecycleService).suspendUser(targetUser);
 
         assertThatThrownBy(() -> sanctionService.createSanction(1L, 2L, "BAN", "Deleted user", null, null, null))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
-                .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+                .isEqualTo(ErrorCode.USER_NOT_ACTIVE);
+
+        verify(userLifecycleService, never()).suspendUser(any(User.class));
     }
 
     @Test
@@ -229,6 +240,138 @@ class SanctionServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+    }
+
+    @Test
+    @DisplayName("reject sanction without target user id")
+    void createSanction_rejectsNullTargetUserId() {
+        mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).then(invocation -> null);
+
+        assertThatThrownBy(() -> sanctionService.createSanction(1L, null, "WARNING", "Invalid", null, null, null))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+
+        verify(userRepository, never()).findById(null);
+        verify(sanctionRepository, never()).save(any(Sanction.class));
+    }
+
+    @Test
+    @DisplayName("reject sanction when post target is missing")
+    void createSanction_rejectsMissingPostTarget() {
+        mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).then(invocation -> null);
+        when(userRepository.findById(2L)).thenReturn(Optional.of(targetUser));
+        when(postRepository.findById(100L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> sanctionService.createSanction(1L, 2L, "WARNING", "Invalid", null, 100L, "POST"))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.POST_NOT_FOUND);
+
+        verify(sanctionRepository, never()).save(any(Sanction.class));
+    }
+
+    @Test
+    @DisplayName("reject sanction when post target is deleted")
+    void createSanction_rejectsDeletedPostTarget() {
+        mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).then(invocation -> null);
+        Post post = Post.builder()
+                .user(targetUser)
+                .title("Post")
+                .contents("Content")
+                .build();
+        post.deletePost();
+        when(userRepository.findById(2L)).thenReturn(Optional.of(targetUser));
+        when(postRepository.findById(100L)).thenReturn(Optional.of(post));
+
+        assertThatThrownBy(() -> sanctionService.createSanction(1L, 2L, "WARNING", "Invalid", null, 100L, "POST"))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.POST_NOT_FOUND);
+
+        verify(sanctionRepository, never()).save(any(Sanction.class));
+    }
+
+    @Test
+    @DisplayName("reject sanction when post owner differs from target user")
+    void createSanction_rejectsPostOwnerMismatch() {
+        mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).then(invocation -> null);
+        User otherUser = User.builder().build();
+        ReflectionTestUtils.setField(otherUser, "userId", 3L);
+        Post post = Post.builder()
+                .user(otherUser)
+                .title("Post")
+                .contents("Content")
+                .build();
+        when(userRepository.findById(2L)).thenReturn(Optional.of(targetUser));
+        when(postRepository.findById(100L)).thenReturn(Optional.of(post));
+
+        assertThatThrownBy(() -> sanctionService.createSanction(1L, 2L, "WARNING", "Invalid", null, 100L, "POST"))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+
+        verify(sanctionRepository, never()).save(any(Sanction.class));
+    }
+
+    @Test
+    @DisplayName("reject sanction when comment target is missing or deleted")
+    void createSanction_rejectsMissingCommentTarget() {
+        mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).then(invocation -> null);
+        when(userRepository.findById(2L)).thenReturn(Optional.of(targetUser));
+        when(commentRepository.findNonDeletedByIdWithRelations(100L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> sanctionService.createSanction(1L, 2L, "WARNING", "Invalid", null, 100L, "COMMENT"))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.COMMENT_NOT_FOUND);
+
+        verify(sanctionRepository, never()).save(any(Sanction.class));
+    }
+
+    @Test
+    @DisplayName("reject sanction when comment post is deleted")
+    void createSanction_rejectsCommentOnDeletedPost() {
+        mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).then(invocation -> null);
+        Post post = Post.builder()
+                .user(targetUser)
+                .title("Post")
+                .contents("Content")
+                .build();
+        post.deletePost();
+        Comment comment = Comment.builder()
+                .post(post)
+                .user(targetUser)
+                .depth(0)
+                .content("Comment")
+                .build();
+        when(userRepository.findById(2L)).thenReturn(Optional.of(targetUser));
+        when(commentRepository.findNonDeletedByIdWithRelations(100L)).thenReturn(Optional.of(comment));
+
+        assertThatThrownBy(() -> sanctionService.createSanction(1L, 2L, "WARNING", "Invalid", null, 100L, "COMMENT"))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.COMMENT_NOT_FOUND);
+
+        verify(sanctionRepository, never()).save(any(Sanction.class));
+    }
+
+    @Test
+    @DisplayName("reject sanction when user content target is inactive")
+    void createSanction_rejectsInactiveUserContentTarget() {
+        mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).then(invocation -> null);
+        User inactiveUser = User.builder().build();
+        ReflectionTestUtils.setField(inactiveUser, "userId", 3L);
+        inactiveUser.suspend();
+        when(userRepository.findById(2L)).thenReturn(Optional.of(targetUser));
+        when(userRepository.findById(3L)).thenReturn(Optional.of(inactiveUser));
+
+        assertThatThrownBy(() -> sanctionService.createSanction(1L, 2L, "WARNING", "Invalid", null, 3L, "USER"))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.USER_NOT_ACTIVE);
+
+        verify(sanctionRepository, never()).save(any(Sanction.class));
     }
 
     @Test
