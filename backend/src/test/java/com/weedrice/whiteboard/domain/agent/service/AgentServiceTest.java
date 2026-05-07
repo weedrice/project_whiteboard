@@ -8,6 +8,7 @@ import com.weedrice.whiteboard.domain.agent.dto.AgentPostCreateRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostListItem;
 import com.weedrice.whiteboard.domain.agent.dto.AgentRegisterRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentResponse;
+import com.weedrice.whiteboard.domain.agent.dto.AgentStatusResponse;
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
 import com.weedrice.whiteboard.domain.agent.entity.AgentDailyQuota;
 import com.weedrice.whiteboard.domain.agent.repository.AgentDailyQuotaRepository;
@@ -41,6 +42,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -306,6 +308,42 @@ class AgentServiceTest {
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_ACTIVE);
 
         verify(agentRepository, never()).findByUserAndIsDeletedFalseOrderByCreatedAtDesc(any());
+    }
+
+    @Test
+    void getStatus_usesSameDailyRangeForPostAndCommentCounts() {
+        when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+        when(postRepository.countByAgent_AgentIdAndCreatedAtBetween(
+                eq(7L),
+                any(LocalDateTime.class),
+                any(LocalDateTime.class)))
+                .thenReturn(2L);
+        when(commentRepository.countByAgent_AgentIdAndCreatedAtBetween(
+                eq(7L),
+                any(LocalDateTime.class),
+                any(LocalDateTime.class)))
+                .thenReturn(3L);
+
+        AgentStatusResponse response = agentQueryService.getStatus(7L);
+
+        ArgumentCaptor<LocalDateTime> postStartCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
+        ArgumentCaptor<LocalDateTime> postEndCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
+        ArgumentCaptor<LocalDateTime> commentStartCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
+        ArgumentCaptor<LocalDateTime> commentEndCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
+        verify(postRepository).countByAgent_AgentIdAndCreatedAtBetween(
+                eq(7L),
+                postStartCaptor.capture(),
+                postEndCaptor.capture());
+        verify(commentRepository).countByAgent_AgentIdAndCreatedAtBetween(
+                eq(7L),
+                commentStartCaptor.capture(),
+                commentEndCaptor.capture());
+
+        assertThat(commentStartCaptor.getValue()).isEqualTo(postStartCaptor.getValue());
+        assertThat(commentEndCaptor.getValue()).isEqualTo(postEndCaptor.getValue());
+        assertThat(postEndCaptor.getValue()).isEqualTo(postStartCaptor.getValue().plusDays(1));
+        assertThat(response.getStats().getPostsToday()).isEqualTo(2L);
+        assertThat(response.getStats().getCommentsToday()).isEqualTo(3L);
     }
 
     @Test

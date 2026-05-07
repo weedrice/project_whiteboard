@@ -68,12 +68,13 @@ public class AgentQueryService {
     public AgentStatusResponse getStatus(Long agentId) {
         Agent agent = agentOwnershipService.resolveActiveAgent(agentId);
 
-        OffsetDateTime resetAt = LocalDate.now(KST)
+        LocalDate today = LocalDate.now(KST);
+        OffsetDateTime resetAt = today
                 .plusDays(1)
                 .atStartOfDay(KST)
                 .toOffsetDateTime();
-        LocalDateTime start = LocalDate.now(KST).atStartOfDay();
-        LocalDateTime end = LocalDate.now(KST).plusDays(1).atStartOfDay();
+        LocalDateTime start = today.atStartOfDay();
+        LocalDateTime end = today.plusDays(1).atStartOfDay();
 
         return AgentStatusResponse.builder()
                 .status(agent.getStatus().toLowerCase())
