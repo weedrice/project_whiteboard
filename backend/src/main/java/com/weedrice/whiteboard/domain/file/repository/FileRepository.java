@@ -15,6 +15,11 @@ import java.util.List;
 import java.util.Optional;
 
 public interface FileRepository extends JpaRepository<File, Long> {
+    interface FileCleanupCandidateProjection {
+        Long getFileId();
+
+        LocalDateTime getCreatedAt();
+    }
 
     @Query("""
             SELECT f
@@ -49,6 +54,41 @@ public interface FileRepository extends JpaRepository<File, Long> {
 
     default List<Long> findTemporaryFileIdsForCleanup(LocalDateTime dateTime, Pageable pageable) {
         return findTemporaryFileIdsForCleanup(dateTime, FileStorageStatus.ACTIVE, pageable);
+    }
+
+    @Query("""
+            SELECT f.fileId AS fileId,
+                   f.createdAt AS createdAt
+            FROM File f
+            WHERE f.relatedId IS NULL
+              AND f.relatedType IS NULL
+              AND f.createdAt < :dateTime
+              AND (f.storageStatus = :storageStatus
+                   OR (:storageStatus = com.weedrice.whiteboard.domain.file.entity.FileStorageStatus.ACTIVE
+                       AND f.storageStatus IS NULL))
+              AND (:lastCreatedAt IS NULL
+                   OR f.createdAt > :lastCreatedAt
+                   OR (f.createdAt = :lastCreatedAt AND f.fileId > :lastFileId))
+            ORDER BY f.createdAt ASC, f.fileId ASC
+            """)
+    List<FileCleanupCandidateProjection> findTemporaryFileCleanupCandidatesAfter(
+            @Param("dateTime") LocalDateTime dateTime,
+            @Param("storageStatus") FileStorageStatus storageStatus,
+            @Param("lastCreatedAt") LocalDateTime lastCreatedAt,
+            @Param("lastFileId") Long lastFileId,
+            Pageable pageable);
+
+    default List<FileCleanupCandidateProjection> findTemporaryFileCleanupCandidatesAfter(
+            LocalDateTime dateTime,
+            LocalDateTime lastCreatedAt,
+            Long lastFileId,
+            Pageable pageable) {
+        return findTemporaryFileCleanupCandidatesAfter(
+                dateTime,
+                FileStorageStatus.ACTIVE,
+                lastCreatedAt,
+                lastFileId,
+                pageable);
     }
 
     @Query("""

@@ -204,6 +204,35 @@ class FileRepositoryTest {
     }
 
     @Test
+    @DisplayName("임시 파일 정리 후보는 createdAt/fileId 커서 이후 항목만 조회한다")
+    void findTemporaryFileCleanupCandidatesAfter_usesCreatedAtAndFileIdCursor() {
+        LocalDateTime firstCreatedAt = LocalDateTime.of(2026, 5, 6, 10, 0);
+        LocalDateTime nextCreatedAt = LocalDateTime.of(2026, 5, 6, 10, 1);
+        File first = persistTemporaryFile("cursor-first.jpg");
+        File sameCreatedAtNext = persistTemporaryFile("cursor-second.jpg");
+        File later = persistTemporaryFile("cursor-later.jpg");
+        File pendingDelete = persistTemporaryFile("cursor-pending.jpg");
+        pendingDelete.markDeletionPending();
+        setCreatedAt(first, firstCreatedAt);
+        setCreatedAt(sameCreatedAtNext, firstCreatedAt);
+        setCreatedAt(later, nextCreatedAt);
+        setCreatedAt(pendingDelete, nextCreatedAt);
+        entityManager.flush();
+        entityManager.clear();
+
+        List<FileRepository.FileCleanupCandidateProjection> candidates =
+                fileRepository.findTemporaryFileCleanupCandidatesAfter(
+                        LocalDateTime.of(2026, 5, 7, 10, 0),
+                        firstCreatedAt,
+                        first.getFileId(),
+                        PageRequest.of(0, 10));
+
+        assertThat(candidates).extracting(FileRepository.FileCleanupCandidateProjection::getFileId)
+                .containsExactly(sameCreatedAtNext.getFileId(), later.getFileId())
+                .doesNotContain(first.getFileId(), file.getFileId(), pendingDelete.getFileId());
+    }
+
+    @Test
     @DisplayName("특정 관련 ID, 타입, MIME 타입으로 첫 번째 파일 조회")
     void findFirstByRelatedIdAndRelatedTypeAndMimeTypeStartingWith_success() {
         // when
@@ -313,5 +342,25 @@ class FileRepositoryTest {
         assertThat(updatedTarget.getStorageStatus()).isEqualTo(FileStorageStatus.PENDING_DELETE);
         assertThat(updatedTarget.getDeleteRequestedAt()).isNotNull();
         assertThat(untouchedAssociatedFile.getStorageStatus()).isEqualTo(FileStorageStatus.ACTIVE);
+    }
+
+    private File persistTemporaryFile(String originalName) {
+        File temporaryFile = File.builder()
+                .originalName(originalName)
+                .filePath("path/to/" + originalName)
+                .fileSize(512L)
+                .mimeType("image/jpeg")
+                .uploader(uploader)
+                .build();
+        entityManager.persist(temporaryFile);
+        return temporaryFile;
+    }
+
+    private void setCreatedAt(File target, LocalDateTime createdAt) {
+        entityManager.getEntityManager()
+                .createNativeQuery("UPDATE files SET created_at = :createdAt, modified_at = :createdAt WHERE file_id = :fileId")
+                .setParameter("createdAt", createdAt)
+                .setParameter("fileId", target.getFileId())
+                .executeUpdate();
     }
 }

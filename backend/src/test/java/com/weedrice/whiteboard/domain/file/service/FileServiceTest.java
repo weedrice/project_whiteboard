@@ -39,6 +39,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -626,15 +627,34 @@ class FileServiceTest {
     @Test
     @DisplayName("임시 파일 정리는 바로 삭제하지 않고 pending 상태로 전환한다")
     void cleanUpTemporaryFiles_marksFilesPendingDeleteInBatches() {
-        when(fileRepository.findTemporaryFileIdsForCleanup(any(LocalDateTime.class), eq(PageRequest.of(0, 500))))
-                .thenReturn(List.of(10L, 11L), List.of(12L), List.of());
+        LocalDateTime firstCreatedAt = LocalDateTime.of(2026, 5, 6, 10, 0);
+        LocalDateTime secondCreatedAt = LocalDateTime.of(2026, 5, 6, 10, 1);
+        LocalDateTime thirdCreatedAt = LocalDateTime.of(2026, 5, 6, 10, 2);
+        when(fileRepository.findTemporaryFileCleanupCandidatesAfter(
+                any(LocalDateTime.class),
+                nullable(LocalDateTime.class),
+                nullable(Long.class),
+                eq(PageRequest.of(0, 500))))
+                .thenReturn(
+                        List.of(
+                                cleanupCandidate(10L, firstCreatedAt),
+                                cleanupCandidate(11L, secondCreatedAt)),
+                        List.of(cleanupCandidate(12L, thirdCreatedAt)),
+                        List.of());
 
         fileService.cleanUpTemporaryFiles();
 
         verify(fileRepository).requestDeletionForTemporaryFiles(eq(List.of(10L, 11L)), any(LocalDateTime.class));
         verify(fileRepository).requestDeletionForTemporaryFiles(eq(List.of(12L)), any(LocalDateTime.class));
-        verify(fileRepository, times(3)).findTemporaryFileIdsForCleanup(any(LocalDateTime.class),
+        ArgumentCaptor<LocalDateTime> cursorCreatedAtCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
+        ArgumentCaptor<Long> cursorFileIdCaptor = ArgumentCaptor.forClass(Long.class);
+        verify(fileRepository, times(3)).findTemporaryFileCleanupCandidatesAfter(
+                any(LocalDateTime.class),
+                cursorCreatedAtCaptor.capture(),
+                cursorFileIdCaptor.capture(),
                 eq(PageRequest.of(0, 500)));
+        assertThat(cursorCreatedAtCaptor.getAllValues()).containsExactly(null, secondCreatedAt, thirdCreatedAt);
+        assertThat(cursorFileIdCaptor.getAllValues()).containsExactly(null, 11L, 12L);
         verify(fileStorageService, never()).deleteFile(any());
         verify(fileRepository, never()).delete(any());
     }
@@ -642,8 +662,20 @@ class FileServiceTest {
     @Test
     @DisplayName("이모티콘 URL에서 참조 중인 옛 임시 파일은 정리 대상에서 제외한다")
     void cleanUpTemporaryFiles_excludesFilesReferencedByEmoticonUrls() {
-        when(fileRepository.findTemporaryFileIdsForCleanup(any(LocalDateTime.class), eq(PageRequest.of(0, 500))))
-                .thenReturn(List.of(10L, 11L, 12L), List.of());
+        LocalDateTime firstCreatedAt = LocalDateTime.of(2026, 5, 6, 10, 0);
+        LocalDateTime secondCreatedAt = LocalDateTime.of(2026, 5, 6, 10, 1);
+        LocalDateTime thirdCreatedAt = LocalDateTime.of(2026, 5, 6, 10, 2);
+        when(fileRepository.findTemporaryFileCleanupCandidatesAfter(
+                any(LocalDateTime.class),
+                nullable(LocalDateTime.class),
+                nullable(Long.class),
+                eq(PageRequest.of(0, 500))))
+                .thenReturn(
+                        List.of(
+                                cleanupCandidate(10L, firstCreatedAt),
+                                cleanupCandidate(11L, secondCreatedAt)),
+                        List.of(cleanupCandidate(12L, thirdCreatedAt)),
+                        List.of());
         when(emoticonImageRepository.findReferencedImageUrls(any()))
                 .thenReturn(List.of("/api/v1/files/10"));
         when(emoticonMasterRepository.findReferencedThumbnailUrls(any()))
@@ -718,5 +750,19 @@ class FileServiceTest {
         List<Long> fileIds = fileService.getRetryableFailedDeletionFileIds(10);
 
         assertThat(fileIds).containsExactly(11L);
+    }
+
+    private FileRepository.FileCleanupCandidateProjection cleanupCandidate(Long fileId, LocalDateTime createdAt) {
+        return new FileRepository.FileCleanupCandidateProjection() {
+            @Override
+            public Long getFileId() {
+                return fileId;
+            }
+
+            @Override
+            public LocalDateTime getCreatedAt() {
+                return createdAt;
+            }
+        };
     }
 }

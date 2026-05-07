@@ -8,6 +8,7 @@ import com.weedrice.whiteboard.domain.file.dto.FileUploadResponse;
 import com.weedrice.whiteboard.domain.file.entity.File;
 import com.weedrice.whiteboard.domain.file.entity.FileStorageStatus;
 import com.weedrice.whiteboard.domain.file.repository.FileRepository;
+import com.weedrice.whiteboard.domain.file.repository.FileRepository.FileCleanupCandidateProjection;
 import com.weedrice.whiteboard.domain.file.support.FileUrlResolver;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
@@ -368,19 +369,28 @@ public class FileService {
     public void cleanUpTemporaryFiles() {
         LocalDateTime twentyFourHoursAgo = LocalDateTime.now().minusHours(24);
         LocalDateTime deleteRequestedAt = LocalDateTime.now();
-        List<Long> temporaryFileIds;
+        LocalDateTime lastCreatedAt = null;
+        Long lastFileId = null;
         do {
-            temporaryFileIds = fileRepository.findTemporaryFileIdsForCleanup(
+            List<FileCleanupCandidateProjection> candidates = fileRepository.findTemporaryFileCleanupCandidatesAfter(
                     twentyFourHoursAgo,
+                    lastCreatedAt,
+                    lastFileId,
                     PageRequest.of(0, TEMPORARY_FILE_CLEANUP_BATCH_SIZE));
-            if (temporaryFileIds.isEmpty()) {
-                continue;
+            if (candidates.isEmpty()) {
+                break;
             }
+            List<Long> temporaryFileIds = candidates.stream()
+                    .map(FileCleanupCandidateProjection::getFileId)
+                    .toList();
             List<Long> cleanupFileIds = excludeEmoticonReferencedFileIds(temporaryFileIds);
             if (!cleanupFileIds.isEmpty()) {
                 fileRepository.requestDeletionForTemporaryFiles(cleanupFileIds, deleteRequestedAt);
             }
-        } while (!temporaryFileIds.isEmpty());
+            FileCleanupCandidateProjection lastCandidate = candidates.get(candidates.size() - 1);
+            lastCreatedAt = lastCandidate.getCreatedAt();
+            lastFileId = lastCandidate.getFileId();
+        } while (true);
     }
 
     private List<Long> excludeEmoticonReferencedFileIds(List<Long> fileIds) {
