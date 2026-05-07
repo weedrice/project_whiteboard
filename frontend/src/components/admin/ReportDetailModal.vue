@@ -54,6 +54,10 @@ function getProcessorText(report: Report) {
   }
   return '-'
 }
+
+function getReportReasonText(report: Report) {
+  return report.contents?.trim() || report.remark?.trim() || '-'
+}
 </script>
 
 <template>
@@ -123,7 +127,7 @@ function getProcessorText(report: Report) {
 
       <div class="border-t border-gray-200 dark:border-gray-600 pt-4">
         <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">{{ t('admin.reports.remark') }}</h3>
-        <p class="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{{ report.remark || '-' }}</p>
+        <p class="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{{ getReportReasonText(report) }}</p>
       </div>
     </div>
   </BaseModal>

@@ -8,8 +8,10 @@ export interface Report {
     targetUserId?: number | null
     /** ?좉퀬 ?ъ쑀 ?좏삎 (SPAM, ABUSE, ADULT ?? */
     reasonType: string
-    /** 愿由ъ옄 泥섎━ 鍮꾧퀬 */
+    /** Report creation remark, such as a legacy user report link. */
     remark?: string | null
+    /** Admin processing note. */
+    processedRemark?: string | null
     status: 'PENDING' | 'RESOLVED' | 'REJECTED'
     /** ?좉퀬 ?곸꽭 ?댁슜(?ъ슜???낅젰) */
     contents?: string | null

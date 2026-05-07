@@ -43,6 +43,10 @@ function getProcessorText(report: Report) {
   return '-'
 }
 
+function getReportReasonText(report: Report) {
+  return report.contents?.trim() || report.remark?.trim() || '-'
+}
+
 const columns = computed(() => [
   { key: 'reportId', label: t('common.id'), width: '5%', align: 'center' as const },
   { key: 'reporterDisplayName', label: t('admin.reports.table.reporter'), width: '8%', align: 'center' as const },
@@ -94,8 +98,8 @@ const columns = computed(() => [
       </template>
 
       <template #cell-remark="{ item }">
-        <span class="inline-block max-w-full truncate" :title="item.remark || ''">
-          {{ item.remark || '-' }}
+        <span class="inline-block max-w-full truncate" :title="getReportReasonText(item)">
+          {{ getReportReasonText(item) }}
         </span>
       </template>
 
