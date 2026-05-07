@@ -58,13 +58,15 @@ class MqueueServiceTest {
     @Test
     @DisplayName("sendEmail marks current lease as sent on success")
     void sendEmail_success() {
+        LocalDateTime leaseStartedAt = LocalDateTime.now();
         User user = User.builder().email("user@test.com").build();
-        MessageQueue message = processingMessage(user, LocalDateTime.now());
+        MessageQueue message = processingMessage(user, leaseStartedAt);
         when(messageQueueRepository.findByIdWithTargetUser(1L)).thenReturn(Optional.of(message));
+        mockLeaseRenewal(1L, leaseStartedAt, message);
         when(messageQueueRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(message));
         mockTransactionCallback();
 
-        mqueueService.sendEmail(1L);
+        mqueueService.sendEmail(1L, leaseStartedAt);
 
         verify(emailService).sendEmail("user@test.com", "[noviIs] Notification", "<p>Hello</p>");
         verify(messageQueueRepository).save(message);
@@ -80,13 +82,15 @@ class MqueueServiceTest {
         appender.start();
         logger.addAppender(appender);
         try {
+            LocalDateTime leaseStartedAt = LocalDateTime.now();
             User user = User.builder().email("user@test.com").build();
-            MessageQueue message = processingMessage(user, LocalDateTime.now());
+            MessageQueue message = processingMessage(user, leaseStartedAt);
             when(messageQueueRepository.findByIdWithTargetUser(1L)).thenReturn(Optional.of(message));
+            mockLeaseRenewal(1L, leaseStartedAt, message);
             when(messageQueueRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(message));
             mockTransactionCallback();
 
-            mqueueService.sendEmail(1L);
+            mqueueService.sendEmail(1L, leaseStartedAt);
 
             assertThat(appender.list)
                     .extracting(ILoggingEvent::getFormattedMessage)
@@ -102,15 +106,17 @@ class MqueueServiceTest {
     @Test
     @DisplayName("sendEmail increments retry and requeues on failure")
     void sendEmail_failure() {
+        LocalDateTime leaseStartedAt = LocalDateTime.now();
         User user = User.builder().email("user@test.com").build();
-        MessageQueue message = processingMessage(user, LocalDateTime.now());
+        MessageQueue message = processingMessage(user, leaseStartedAt);
         when(messageQueueRepository.findByIdWithTargetUser(1L)).thenReturn(Optional.of(message));
+        mockLeaseRenewal(1L, leaseStartedAt, message);
         when(messageQueueRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(message));
         doThrow(new BusinessException(ErrorCode.EMAIL_SEND_FAILED))
                 .when(emailService).sendEmail(eq("user@test.com"), eq("[noviIs] Notification"), eq("<p>Hello</p>"));
         mockTransactionCallback();
 
-        mqueueService.sendEmail(1L);
+        mqueueService.sendEmail(1L, leaseStartedAt);
 
         verify(messageQueueRepository).save(message);
         assertThat(message.getStatus()).isEqualTo("PENDING");
@@ -119,92 +125,83 @@ class MqueueServiceTest {
     }
 
     @Test
-    @DisplayName("sendEmail skips recovered pending message after late success")
-    void sendEmail_successAfterLeaseRecovery_skipsRecoveredPendingMessage() {
+    @DisplayName("sendEmail skips SMTP call when lease renewal fails after stale recovery")
+    void sendEmail_leaseRenewalFails_skipsSmtpCall() {
         LocalDateTime leaseStartedAt = LocalDateTime.now().minusMinutes(6);
         User user = User.builder().email("user@test.com").build();
         MessageQueue processingMessage = processingMessage(user, leaseStartedAt);
-        MessageQueue recoveredMessage = MessageQueue.builder()
-                .targetUser(user)
-                .deliveryMethod("EMAIL")
-                .content("<p>Hello</p>")
-                .build();
-        ReflectionTestUtils.setField(recoveredMessage, "status", "PENDING");
-        ReflectionTestUtils.setField(recoveredMessage, "retryCount", 1);
 
         when(messageQueueRepository.findByIdWithTargetUser(1L)).thenReturn(Optional.of(processingMessage));
-        when(messageQueueRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(recoveredMessage));
-        mockTransactionCallback();
+        when(messageQueueRepository.renewProcessingLeaseIfCurrent(eq(1L), eq(leaseStartedAt), any()))
+                .thenReturn(0);
 
-        mqueueService.sendEmail(1L);
+        mqueueService.sendEmail(1L, leaseStartedAt);
 
+        verify(emailService, never()).sendEmail(any(), any(), any());
         verify(messageQueueRepository, never()).save(any(MessageQueue.class));
-        assertThat(recoveredMessage.getStatus()).isEqualTo("PENDING");
-        assertThat(recoveredMessage.getRetryCount()).isEqualTo(1);
-        assertThat(recoveredMessage.getProcessingStartedAt()).isNull();
+        assertThat(processingMessage.getStatus()).isEqualTo("PROCESSING");
+        assertThat(processingMessage.getProcessingStartedAt()).isEqualTo(leaseStartedAt);
     }
 
     @Test
-    @DisplayName("sendEmail skips recovered message after late failure")
-    void sendEmail_failureAfterLeaseRecovery_skipsRecoveredMessage() {
+    @DisplayName("sendEmail skips failure handling when lease renewal fails before SMTP")
+    void sendEmail_leaseRenewalFailsBeforeFailure_skipsFailureHandling() {
         LocalDateTime leaseStartedAt = LocalDateTime.now().minusMinutes(6);
         User user = User.builder().email("user@test.com").build();
         MessageQueue processingMessage = processingMessage(user, leaseStartedAt);
-        MessageQueue recoveredMessage = MessageQueue.builder()
-                .targetUser(user)
-                .deliveryMethod("EMAIL")
-                .content("<p>Hello</p>")
-                .build();
-        ReflectionTestUtils.setField(recoveredMessage, "status", "PENDING");
-        ReflectionTestUtils.setField(recoveredMessage, "retryCount", 1);
 
         when(messageQueueRepository.findByIdWithTargetUser(1L)).thenReturn(Optional.of(processingMessage));
-        when(messageQueueRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(recoveredMessage));
-        doThrow(new BusinessException(ErrorCode.EMAIL_SEND_FAILED))
-                .when(emailService).sendEmail(eq("user@test.com"), eq("[noviIs] Notification"), eq("<p>Hello</p>"));
-        mockTransactionCallback();
+        when(messageQueueRepository.renewProcessingLeaseIfCurrent(eq(1L), eq(leaseStartedAt), any()))
+                .thenReturn(0);
 
-        mqueueService.sendEmail(1L);
+        mqueueService.sendEmail(1L, leaseStartedAt);
 
+        verify(emailService, never()).sendEmail(any(), any(), any());
         verify(messageQueueRepository, never()).save(any(MessageQueue.class));
-        assertThat(recoveredMessage.getStatus()).isEqualTo("PENDING");
-        assertThat(recoveredMessage.getRetryCount()).isEqualTo(1);
-        assertThat(recoveredMessage.getProcessingStartedAt()).isNull();
+        assertThat(processingMessage.getStatus()).isEqualTo("PROCESSING");
+        assertThat(processingMessage.getProcessingStartedAt()).isEqualTo(leaseStartedAt);
     }
 
     @Test
-    @DisplayName("sendEmail skips recovered failed message after late success")
-    void sendEmail_successAfterFailedRecovery_skipsRecoveredFailedMessage() {
+    @DisplayName("sendEmail skips send after stale recovery consumes retry budget")
+    void sendEmail_recoveryConsumesRetryBudget_skipsSmtpCall() {
         LocalDateTime leaseStartedAt = LocalDateTime.now().minusMinutes(6);
         User user = User.builder().email("user@test.com").build();
         MessageQueue processingMessage = processingMessage(user, leaseStartedAt);
-        MessageQueue recoveredMessage = MessageQueue.builder()
-                .targetUser(user)
-                .deliveryMethod("EMAIL")
-                .content("<p>Hello</p>")
-                .build();
-        ReflectionTestUtils.setField(recoveredMessage, "status", "FAILED");
-        ReflectionTestUtils.setField(recoveredMessage, "retryCount", 5);
 
         when(messageQueueRepository.findByIdWithTargetUser(1L)).thenReturn(Optional.of(processingMessage));
-        when(messageQueueRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(recoveredMessage));
-        mockTransactionCallback();
+        when(messageQueueRepository.renewProcessingLeaseIfCurrent(eq(1L), eq(leaseStartedAt), any()))
+                .thenReturn(0);
 
-        mqueueService.sendEmail(1L);
+        mqueueService.sendEmail(1L, leaseStartedAt);
 
+        verify(emailService, never()).sendEmail(any(), any(), any());
         verify(messageQueueRepository, never()).save(any(MessageQueue.class));
-        assertThat(recoveredMessage.getStatus()).isEqualTo("FAILED");
-        assertThat(recoveredMessage.getRetryCount()).isEqualTo(5);
-        assertThat(recoveredMessage.getProcessingStartedAt()).isNull();
+        assertThat(processingMessage.getStatus()).isEqualTo("PROCESSING");
+        assertThat(processingMessage.getProcessingStartedAt()).isEqualTo(leaseStartedAt);
+    }
+
+    @Test
+    @DisplayName("sendEmail skips message without current processing lease")
+    void sendEmail_withoutCurrentProcessingLease_skipsSend() {
+        LocalDateTime leaseStartedAt = LocalDateTime.now();
+        MessageQueue message = processingMessage(User.builder().email("user@test.com").build(), null);
+        when(messageQueueRepository.findByIdWithTargetUser(1L)).thenReturn(Optional.of(message));
+
+        mqueueService.sendEmail(1L, leaseStartedAt);
+
+        verify(messageQueueRepository, never()).renewProcessingLeaseIfCurrent(any(), any(), any());
+        verify(emailService, never()).sendEmail(any(), any(), any());
     }
 
     @Test
     @DisplayName("recoverRejectedDispatch releases lease without retry increment")
     void recoverRejectedDispatch_revertsProcessingMessageToPendingWithoutRetryIncrement() {
-        MessageQueue message = processingMessage(User.builder().email("user@test.com").build(), LocalDateTime.now());
+        LocalDateTime leaseStartedAt = LocalDateTime.now();
+        MessageQueue message = processingMessage(User.builder().email("user@test.com").build(), leaseStartedAt);
         when(messageQueueRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(message));
 
-        mqueueService.recoverRejectedDispatch(1L);
+        mqueueService.recoverRejectedDispatch(1L, leaseStartedAt);
 
         verify(messageQueueRepository).save(message);
         assertThat(message.getStatus()).isEqualTo("PENDING");
@@ -218,6 +215,15 @@ class MqueueServiceTest {
             consumer.accept(null);
             return null;
         }).when(transactionTemplate).executeWithoutResult(any());
+    }
+
+    private void mockLeaseRenewal(Long queueId, LocalDateTime expectedLease, MessageQueue message) {
+        when(messageQueueRepository.renewProcessingLeaseIfCurrent(eq(queueId), eq(expectedLease), any()))
+                .thenAnswer(invocation -> {
+                    LocalDateTime renewedAt = invocation.getArgument(2);
+                    ReflectionTestUtils.setField(message, "processingStartedAt", renewedAt);
+                    return 1;
+                });
     }
 
     private MessageQueue processingMessage(User user, LocalDateTime processingStartedAt) {

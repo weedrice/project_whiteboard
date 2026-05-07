@@ -13,6 +13,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 @Slf4j
@@ -39,16 +40,17 @@ public class MqueueScheduler {
                 "PENDING", MessageQueuePolicy.MAX_RETRY_COUNT, "EMAIL", pendingPageRequest);
 
         for (MessageQueue message : pendingMessages) {
+            LocalDateTime claimedAt = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS);
             int claimed = messageQueueRepository.claimForProcessing(
                     message.getQueueId(),
                     MessageQueuePolicy.MAX_RETRY_COUNT,
-                    LocalDateTime.now());
+                    claimedAt);
             if (claimed == 1) {
                 try {
-                    mqueueService.sendEmail(message.getQueueId());
+                    mqueueService.sendEmail(message.getQueueId(), claimedAt);
                 } catch (TaskRejectedException ex) {
                     log.error("Email dispatch rejected: queueId={}", message.getQueueId(), ex);
-                    mqueueService.recoverRejectedDispatch(message.getQueueId());
+                    mqueueService.recoverRejectedDispatch(message.getQueueId(), claimedAt);
                 }
             }
         }

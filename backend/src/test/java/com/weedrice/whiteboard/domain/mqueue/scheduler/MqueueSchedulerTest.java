@@ -15,6 +15,7 @@ import org.springframework.core.task.TaskRejectedException;
 import org.springframework.data.domain.Pageable;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -98,7 +99,7 @@ class MqueueSchedulerTest {
         verify(messageQueueRepository).findByStatusAndRetryCountLessThanAndDeliveryMethod(
                 eq("PENDING"), eq(MessageQueuePolicy.MAX_RETRY_COUNT), eq("EMAIL"), any(Pageable.class));
         verify(messageQueueRepository, never()).claimForProcessing(any(), any(Integer.class), any());
-        verify(mqueueService, never()).sendEmail(any());
+        verify(mqueueService, never()).sendEmail(any(), any());
     }
 
     @Test
@@ -112,12 +113,16 @@ class MqueueSchedulerTest {
                 .thenReturn(List.of(message));
         when(messageQueueRepository.claimForProcessing(eq(1L), eq(MessageQueuePolicy.MAX_RETRY_COUNT), any()))
                 .thenReturn(1);
-        doThrow(new TaskRejectedException("rejected")).when(mqueueService).sendEmail(1L);
+        doThrow(new TaskRejectedException("rejected")).when(mqueueService).sendEmail(eq(1L), any());
 
         mqueueScheduler.processMessageQueue();
 
-        verify(mqueueService).sendEmail(1L);
-        verify(mqueueService).recoverRejectedDispatch(1L);
+        var claimedAtCaptor = forClass(LocalDateTime.class);
+        verify(messageQueueRepository).claimForProcessing(
+                eq(1L), eq(MessageQueuePolicy.MAX_RETRY_COUNT), claimedAtCaptor.capture());
+        LocalDateTime claimedAt = claimedAtCaptor.getValue();
+        verify(mqueueService).sendEmail(1L, claimedAt);
+        verify(mqueueService).recoverRejectedDispatch(1L, claimedAt);
     }
 
     private MessageQueue buildMessageQueue(Long queueId, String deliveryMethod) {

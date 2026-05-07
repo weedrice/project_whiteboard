@@ -50,6 +50,19 @@ public interface MessageQueueRepository extends JpaRepository<MessageQueue, Long
     @Transactional
     @Query("""
             update MessageQueue m
+            set m.processingStartedAt = :renewedAt
+            where m.queueId = :queueId
+              and m.status = 'PROCESSING'
+              and m.processingStartedAt = :expectedProcessingStartedAt
+            """)
+    int renewProcessingLeaseIfCurrent(@Param("queueId") Long queueId,
+                                      @Param("expectedProcessingStartedAt") LocalDateTime expectedProcessingStartedAt,
+                                      @Param("renewedAt") LocalDateTime renewedAt);
+
+    @Modifying
+    @Transactional
+    @Query("""
+            update MessageQueue m
             set m.retryCount = m.retryCount + 1,
                 m.status = case when (m.retryCount + 1) >= :maxRetryCount then 'FAILED' else 'PENDING' end,
                 m.processingStartedAt = null

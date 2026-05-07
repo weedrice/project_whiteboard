@@ -47,6 +47,51 @@ class MessageQueueRepositoryTest {
     }
 
     @Test
+    @DisplayName("renewProcessingLeaseIfCurrent extends only the current processing lease")
+    void renewProcessingLeaseIfCurrent_extendsCurrentProcessingLease() {
+        MessageQueue message = persistMessageQueue();
+        LocalDateTime processingStartedAt = LocalDateTime.of(2026, 4, 22, 13, 30);
+        LocalDateTime renewedAt = LocalDateTime.of(2026, 4, 22, 13, 31);
+        ReflectionTestUtils.setField(message, "status", "PROCESSING");
+        ReflectionTestUtils.setField(message, "processingStartedAt", processingStartedAt);
+        entityManager.persistAndFlush(message);
+
+        int updated = messageQueueRepository.renewProcessingLeaseIfCurrent(
+                message.getQueueId(), processingStartedAt, renewedAt);
+
+        entityManager.flush();
+        entityManager.clear();
+
+        MessageQueue renewed = entityManager.find(MessageQueue.class, message.getQueueId());
+        assertThat(updated).isEqualTo(1);
+        assertThat(renewed.getStatus()).isEqualTo("PROCESSING");
+        assertThat(renewed.getProcessingStartedAt()).isEqualTo(renewedAt);
+    }
+
+    @Test
+    @DisplayName("renewProcessingLeaseIfCurrent skips changed lease")
+    void renewProcessingLeaseIfCurrent_skipsChangedLease() {
+        MessageQueue message = persistMessageQueue();
+        LocalDateTime currentLease = LocalDateTime.of(2026, 4, 22, 13, 30);
+        LocalDateTime staleLease = LocalDateTime.of(2026, 4, 22, 13, 29);
+        LocalDateTime renewedAt = LocalDateTime.of(2026, 4, 22, 13, 31);
+        ReflectionTestUtils.setField(message, "status", "PROCESSING");
+        ReflectionTestUtils.setField(message, "processingStartedAt", currentLease);
+        entityManager.persistAndFlush(message);
+
+        int updated = messageQueueRepository.renewProcessingLeaseIfCurrent(
+                message.getQueueId(), staleLease, renewedAt);
+
+        entityManager.flush();
+        entityManager.clear();
+
+        MessageQueue unchanged = entityManager.find(MessageQueue.class, message.getQueueId());
+        assertThat(updated).isZero();
+        assertThat(unchanged.getStatus()).isEqualTo("PROCESSING");
+        assertThat(unchanged.getProcessingStartedAt()).isEqualTo(currentLease);
+    }
+
+    @Test
     @DisplayName("recoverStaleProcessingMessages increments retry count and releases stale processing lease")
     void recoverStaleProcessingMessages_requeuesStaleProcessingMessageWithinRetryBudget() {
         MessageQueue message = persistMessageQueue();

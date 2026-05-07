@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.Objects;
 
 @Slf4j
@@ -20,6 +21,7 @@ import java.util.Objects;
 @RequiredArgsConstructor
 public class MqueueService {
     private static final String EMAIL_SUBJECT = "[noviIs] Notification";
+    private static final int SEND_RESULT_PERSIST_ATTEMPTS = 3;
 
     private final MessageQueueRepository messageQueueRepository;
     private final EmailService emailService;
@@ -36,13 +38,19 @@ public class MqueueService {
     }
 
     @Async("taskExecutor")
-    public void sendEmail(Long queueId) {
+    public void sendEmail(Long queueId, LocalDateTime claimedAt) {
         MessageQueue message = messageQueueRepository.findByIdWithTargetUser(queueId).orElse(null);
-        if (message == null || !"PROCESSING".equals(message.getStatus())) {
+        if (message == null || !isCurrentLease(message, claimedAt)) {
             return;
         }
 
-        LocalDateTime leaseStartedAt = message.getProcessingStartedAt();
+        LocalDateTime renewedAt = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS);
+        int renewed = messageQueueRepository.renewProcessingLeaseIfCurrent(queueId, claimedAt, renewedAt);
+        if (renewed != 1) {
+            log.warn("Skipped email send because processing lease changed before SMTP call: queueId={}", queueId);
+            return;
+        }
+
         boolean sentSuccessfully = false;
 
         try {
@@ -55,18 +63,32 @@ public class MqueueService {
         }
 
         boolean finalSentSuccessfully = sentSuccessfully;
-        transactionTemplate.executeWithoutResult(status ->
-                persistSendResult(queueId, leaseStartedAt, finalSentSuccessfully));
+        persistSendResultWithRetry(queueId, renewedAt, finalSentSuccessfully);
     }
 
     @Transactional
-    public void recoverRejectedDispatch(Long queueId) {
+    public void recoverRejectedDispatch(Long queueId, LocalDateTime claimedAt) {
         MessageQueue message = messageQueueRepository.findByIdForUpdate(queueId).orElse(null);
-        if (message == null || !"PROCESSING".equals(message.getStatus())) {
+        if (message == null || !isCurrentLease(message, claimedAt)) {
             return;
         }
         message.releaseProcessingLease();
         messageQueueRepository.save(message);
+    }
+
+    private void persistSendResultWithRetry(Long queueId, LocalDateTime leaseStartedAt, boolean sentSuccessfully) {
+        RuntimeException lastException = null;
+        for (int attempt = 1; attempt <= SEND_RESULT_PERSIST_ATTEMPTS; attempt++) {
+            try {
+                transactionTemplate.executeWithoutResult(status ->
+                        persistSendResult(queueId, leaseStartedAt, sentSuccessfully));
+                return;
+            } catch (RuntimeException ex) {
+                lastException = ex;
+                log.error("Failed to persist email send result: queueId={}, attempt={}", queueId, attempt, ex);
+            }
+        }
+        throw lastException;
     }
 
     private void persistSendResult(Long queueId, LocalDateTime leaseStartedAt, boolean sentSuccessfully) {
