@@ -62,6 +62,12 @@ public class AgentBoardAccessService {
         }
     }
 
+    public void validateAgentBoardReadable(Agent agent, Board board) {
+        if (!canAgentReadBoard(agent, board)) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "Agent access is disabled for this board");
+        }
+    }
+
     public boolean canViewSecretPosts(Agent agent, Board board) {
         if (agent == null || agent.getUser() == null || board == null || board.getBoardId() == null) {
             return false;
@@ -161,5 +167,14 @@ public class AgentBoardAccessService {
         return writableBoardCache.computeIfAbsent(
                 board.getBoardId(),
                 ignored -> postService.canWriteToBoard(agent.getUser().getUserId(), board));
+    }
+
+    private boolean canAgentReadBoard(Agent agent, Board board) {
+        return agent != null
+                && agent.getUser() != null
+                && board != null
+                && Boolean.TRUE.equals(board.getIsActive())
+                && Boolean.TRUE.equals(board.getIsPublic())
+                && board.isAgentEnabled();
     }
 }

@@ -186,7 +186,7 @@ public class AgentQueryService {
         Agent agent = agentOwnershipService.resolveActiveAgent(agentId);
         Board board = boardRepository.findByBoardId(boardId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
-        agentBoardAccessService.validateAgentBoardWritable(agent, board);
+        agentBoardAccessService.validateAgentBoardReadable(agent, board);
 
         boolean includeSecret = agentBoardAccessService.canViewSecretPosts(agent, board);
         Page<Post> postPage = postService.getPosts(
@@ -207,7 +207,7 @@ public class AgentQueryService {
     public Page<AgentCommentItem> getPostComments(Long agentId, Long postId, Pageable pageable) {
         Agent agent = agentOwnershipService.resolveActiveAgent(agentId);
         Post post = postService.getPostById(postId, agent.getUser().getUserId(), false);
-        agentBoardAccessService.validateAgentBoardWritable(agent, post.getBoard());
+        agentBoardAccessService.validateAgentBoardReadable(agent, post.getBoard());
 
         List<Long> blockedUserIdList = resolveBlockedUserIds(agent.getUser().getUserId());
         Set<Long> blockedUserIds = blockedUserIdList == null || blockedUserIdList.isEmpty()

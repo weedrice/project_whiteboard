@@ -952,7 +952,7 @@ class AgentServiceTest {
     }
 
     @Test
-    void getBoardPosts_forbiddenWhenBoardIsNotWritable() {
+    void getBoardPosts_forbiddenWhenBoardIsNotReadable() {
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
         when(boardRepository.findByBoardId(20L)).thenReturn(Optional.of(blockedBoard));
 
@@ -965,7 +965,6 @@ class AgentServiceTest {
     void getBoardPosts_returnsAgentPostContract() {
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
         when(boardRepository.findByBoardId(10L)).thenReturn(Optional.of(writableBoard));
-        when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(true);
         when(postService.getPosts(eq(10L), eq(9L), isNull(), isNull(), eq(1L), eq(true), any()))
                 .thenReturn(new PageImpl<>(List.of(writablePost), PageRequest.of(0, 10), 1));
         when(commentRepository.findDistinctPostIdsByPost_PostIdInAndAgent_AgentIdAndIsDeletedFalse(List.of(100L), 7L))
@@ -985,26 +984,26 @@ class AgentServiceTest {
                 1L,
                 true,
                 PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "createdAt")));
+        verify(postService, never()).canWriteToBoard(anyLong(), any());
     }
 
     @Test
-    void getBoardPosts_excludesOtherSecretPostsForNormalWritableAgent() {
+    void getBoardPosts_excludesOtherSecretPostsForNormalReadableAgent() {
         User otherUser = User.builder().loginId("other").displayName("Other").build();
         ReflectionTestUtils.setField(otherUser, "userId", 2L);
 
-        Board normalWritableBoard = Board.builder()
+        Board normalReadableBoard = Board.builder()
                 .boardName("Normal")
                 .boardUrl("normal")
                 .creator(otherUser)
                 .build();
-        ReflectionTestUtils.setField(normalWritableBoard, "boardId", 30L);
-        ReflectionTestUtils.setField(normalWritableBoard, "isActive", true);
-        ReflectionTestUtils.setField(normalWritableBoard, "isPublic", true);
-        ReflectionTestUtils.setField(normalWritableBoard, "agentUseYn", true);
+        ReflectionTestUtils.setField(normalReadableBoard, "boardId", 30L);
+        ReflectionTestUtils.setField(normalReadableBoard, "isActive", true);
+        ReflectionTestUtils.setField(normalReadableBoard, "isPublic", true);
+        ReflectionTestUtils.setField(normalReadableBoard, "agentUseYn", true);
 
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
-        when(boardRepository.findByBoardId(30L)).thenReturn(Optional.of(normalWritableBoard));
-        when(postService.canWriteToBoard(1L, normalWritableBoard)).thenReturn(true);
+        when(boardRepository.findByBoardId(30L)).thenReturn(Optional.of(normalReadableBoard));
         when(postService.getPosts(eq(30L), isNull(), isNull(), isNull(), eq(1L), eq(false), any()))
                 .thenReturn(Page.empty(PageRequest.of(0, 10)));
 
@@ -1018,10 +1017,11 @@ class AgentServiceTest {
                 1L,
                 false,
                 PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "createdAt")));
+        verify(postService, never()).canWriteToBoard(anyLong(), any());
     }
 
     @Test
-    void getPostComments_forbiddenWhenPostBoardIsNotWritable() {
+    void getPostComments_forbiddenWhenPostBoardIsNotReadable() {
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
         when(postService.getPostById(200L, 1L, false)).thenReturn(blockedPost);
 
@@ -1055,7 +1055,6 @@ class AgentServiceTest {
 
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
         when(postService.getPostById(100L, 1L, false)).thenReturn(writablePost);
-        when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(true);
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(List.of(2L));
         Pageable commentsPageable = PageRequest.of(0, 10, Sort.by(Sort.Direction.ASC, "createdAt"));
         when(commentRepository.findParentsWithChildrenOrNotDeleted(100L, commentsPageable))
@@ -1078,6 +1077,61 @@ class AgentServiceTest {
         assertThat(deletedItem.getStatus()).isEqualTo(AgentCommentItem.STATUS_DELETED);
         assertThat(deletedItem.getContent()).isNull();
         assertThat(deletedItem.getAuthor()).isNull();
+        verify(postService, never()).canWriteToBoard(anyLong(), any());
+    }
+
+    @Test
+    void createPost_forbiddenWhenReadableBoardIsNotWritable() {
+        AgentPostCreateRequest request = new AgentPostCreateRequest();
+        ReflectionTestUtils.setField(request, "boardUrl", "free");
+        ReflectionTestUtils.setField(request, "title", "title");
+        ReflectionTestUtils.setField(request, "content", "a".repeat(60));
+
+        when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
+        when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(writableBoard));
+        when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(false);
+
+        assertThatThrownBy(() -> agentCommandService.createPost(7L, request, null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
+
+        verify(postService).canWriteToBoard(1L, writableBoard);
+        verify(agentDailyQuotaRepository, never()).findForUpdate(anyLong(), any(LocalDate.class), anyString());
+        verify(postService, never()).createPostAsAgent(anyLong(), anyLong(), anyString(), any());
+    }
+
+    @Test
+    void createComment_forbiddenWhenReadableBoardIsNotWritable() {
+        AgentCommentCreateRequest request = new AgentCommentCreateRequest();
+        ReflectionTestUtils.setField(request, "content", "b".repeat(25));
+
+        when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
+        when(postService.getPostById(100L, 1L, false)).thenReturn(writablePost);
+        when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(false);
+
+        assertThatThrownBy(() -> agentCommandService.createComment(7L, 100L, request, null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
+
+        verify(postService).canWriteToBoard(1L, writableBoard);
+        verify(agentDailyQuotaRepository, never()).findForUpdate(anyLong(), any(LocalDate.class), anyString());
+        verify(commentService, never()).createCommentAsAgent(anyLong(), anyLong(), anyLong(), any(), any(), any());
+    }
+
+    @Test
+    void likePost_forbiddenWhenReadableBoardIsNotWritable() {
+        when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+        when(postService.getPostById(100L, 1L, false)).thenReturn(writablePost);
+        when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(false);
+
+        assertThatThrownBy(() -> agentCommandService.likePost(7L, 100L, null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
+
+        verify(postService).canWriteToBoard(1L, writableBoard);
+        verify(postService, never()).likePost(anyLong(), anyLong(), anyLong());
+        verify(agentAuditLogWriter, never()).saveLog(anyLong(), anyLong(), anyString(), anyString(), anyLong(),
+                any(), any());
     }
 
     @Test
