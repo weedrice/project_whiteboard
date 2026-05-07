@@ -15,6 +15,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.boot.test.system.CapturedOutput;
@@ -309,19 +310,20 @@ class NotificationServiceTest {
     @DisplayName("Notification list lookup clamps pageable in service layer")
     void getNotifications_clampsPageableInService() {
         Long userId = 1L;
-        Pageable requestedPageable = PageRequest.of(0, 1000, Sort.by("notificationId"));
+        Pageable requestedPageable = PageRequest.of(0, 1000, Sort.by("unknown"));
         Page<Notification> notificationPage = new PageImpl<>(Collections.singletonList(notification), requestedPageable, 1);
         when(userRepository.existsById(userId)).thenReturn(true);
         when(notificationRepository.findByUser_UserIdOrderByCreatedAtDesc(anyLong(), any(Pageable.class))).thenReturn(notificationPage);
 
         notificationService.getNotifications(userId, requestedPageable);
 
-        org.mockito.ArgumentCaptor<Pageable> captor = org.mockito.ArgumentCaptor.forClass(Pageable.class);
+        ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
         verify(notificationRepository).findByUser_UserIdOrderByCreatedAtDesc(eq(userId), captor.capture());
         assertThat(captor.getValue().getPageSize()).isEqualTo(100);
         assertThat(captor.getValue().getSort().getOrderFor("createdAt")).isNotNull();
         assertThat(captor.getValue().getSort().getOrderFor("createdAt").isDescending()).isTrue();
-        assertThat(captor.getValue().getSort().getOrderFor("notificationId")).isNull();
+        assertThat(captor.getValue().getSort().getOrderFor("notificationId")).isNotNull();
+        assertThat(captor.getValue().getSort().getOrderFor("notificationId").isDescending()).isTrue();
     }
 
     @Test

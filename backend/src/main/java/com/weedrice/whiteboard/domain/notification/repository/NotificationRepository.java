@@ -15,7 +15,7 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
             LEFT JOIN FETCH n.actor
             LEFT JOIN FETCH n.actorAgent
             WHERE n.user.userId = :userId
-            ORDER BY n.createdAt DESC
+            ORDER BY n.createdAt DESC, n.notificationId DESC
             """, countQuery = """
             SELECT COUNT(n)
             FROM Notification n

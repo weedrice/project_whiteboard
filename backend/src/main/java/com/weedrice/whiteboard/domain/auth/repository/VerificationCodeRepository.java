@@ -19,7 +19,7 @@ public interface VerificationCodeRepository extends JpaRepository<VerificationCo
             WHERE email = :email
               AND purpose = :purpose
               AND (delivery_status = 'SENT' OR delivery_status IS NULL)
-            ORDER BY created_at DESC
+            ORDER BY created_at DESC, verification_id DESC
             LIMIT 1
             """, nativeQuery = true)
     Optional<VerificationCode> findLatestSentByEmailAndPurpose(
@@ -32,7 +32,7 @@ public interface VerificationCodeRepository extends JpaRepository<VerificationCo
             WHERE email = :email
               AND purpose = :purpose
               AND (delivery_status = 'SENT' OR delivery_status IS NULL)
-            ORDER BY created_at DESC
+            ORDER BY created_at DESC, verification_id DESC
             LIMIT 1
             FOR UPDATE
             """, nativeQuery = true)

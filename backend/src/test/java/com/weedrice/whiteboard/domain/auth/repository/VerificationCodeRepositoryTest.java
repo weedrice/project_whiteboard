@@ -24,6 +24,40 @@ class VerificationCodeRepositoryTest {
     private VerificationCodeRepository verificationCodeRepository;
 
     @Test
+    void findLatestSentByEmailAndPurpose_ordersByVerificationIdWhenCreatedAtTies() {
+        VerificationCode first = persistCode("tie@example.com", VerificationPurpose.SIGNUP, "111111");
+        VerificationCode second = persistCode("tie@example.com", VerificationPurpose.SIGNUP, "222222");
+        LocalDateTime sameCreatedAt = LocalDateTime.now().minusMinutes(1);
+        entityManager.flush();
+        updateCreatedAt(first, sameCreatedAt);
+        updateCreatedAt(second, sameCreatedAt);
+        entityManager.clear();
+
+        VerificationCode found = verificationCodeRepository
+                .findLatestSentByEmailAndPurpose("tie@example.com", VerificationPurpose.SIGNUP.name())
+                .orElseThrow();
+
+        assertThat(found.getVerificationId()).isEqualTo(second.getVerificationId());
+    }
+
+    @Test
+    void findLatestSentByEmailAndPurposeForUpdate_ordersByVerificationIdWhenCreatedAtTies() {
+        VerificationCode first = persistCode("lock@example.com", VerificationPurpose.PASSWORD_RESET, "111111");
+        VerificationCode second = persistCode("lock@example.com", VerificationPurpose.PASSWORD_RESET, "222222");
+        LocalDateTime sameCreatedAt = LocalDateTime.now().minusMinutes(1);
+        entityManager.flush();
+        updateCreatedAt(first, sameCreatedAt);
+        updateCreatedAt(second, sameCreatedAt);
+        entityManager.clear();
+
+        VerificationCode found = verificationCodeRepository
+                .findLatestSentByEmailAndPurposeForUpdate("lock@example.com", VerificationPurpose.PASSWORD_RESET.name())
+                .orElseThrow();
+
+        assertThat(found.getVerificationId()).isEqualTo(second.getVerificationId());
+    }
+
+    @Test
     void invalidateActiveTickets_invalidatesOnlyMatchingActiveTickets() {
         LocalDateTime now = LocalDateTime.now();
         VerificationCode active = persistCode("user@example.com", VerificationPurpose.SIGNUP, "111111");
@@ -97,5 +131,13 @@ class VerificationCodeRepositoryTest {
 
     private VerificationCode find(VerificationCode verificationCode) {
         return verificationCodeRepository.findById(verificationCode.getVerificationId()).orElseThrow();
+    }
+
+    private void updateCreatedAt(VerificationCode verificationCode, LocalDateTime createdAt) {
+        entityManager.getEntityManager()
+                .createNativeQuery("UPDATE verification_codes SET created_at = :createdAt WHERE verification_id = :verificationId")
+                .setParameter("createdAt", createdAt)
+                .setParameter("verificationId", verificationCode.getVerificationId())
+                .executeUpdate();
     }
 }

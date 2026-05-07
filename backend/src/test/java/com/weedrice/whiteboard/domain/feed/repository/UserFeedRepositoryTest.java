@@ -19,6 +19,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.jpa.repository.Query;
 
 import java.lang.reflect.Method;
+import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -108,6 +109,26 @@ class UserFeedRepositoryTest {
 
         assertThat(result.getTotalElements()).isEqualTo(1);
         assertThat(result.getContent().getFirst().getContentId()).isEqualTo(privatePost.getPostId());
+    }
+
+    @Test
+    void findVisibleByTargetUserOrderByCreatedAtDesc_ordersByFeedIdWhenCreatedAtTies() {
+        UserFeed first = persistFeed(viewer, "NOTICE", 10L);
+        UserFeed second = persistFeed(viewer, "NOTICE", 20L);
+        LocalDateTime sameCreatedAt = LocalDateTime.now().minusMinutes(1);
+        entityManager.flush();
+        updateCreatedAt(first, sameCreatedAt);
+        updateCreatedAt(second, sameCreatedAt);
+        entityManager.clear();
+
+        Page<UserFeed> result = userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(
+                viewer,
+                List.of(),
+                PageRequest.of(0, 10));
+
+        assertThat(result.getContent())
+                .extracting(UserFeed::getFeedId)
+                .containsSubsequence(second.getFeedId(), first.getFeedId());
     }
 
     @Test
@@ -240,14 +261,24 @@ class UserFeedRepositoryTest {
                 .build());
     }
 
-    private void persistFeed(User targetUser, String contentType, Long contentId) {
-        entityManager.persist(UserFeed.builder()
+    private UserFeed persistFeed(User targetUser, String contentType, Long contentId) {
+        UserFeed feed = UserFeed.builder()
                 .targetUser(targetUser)
                 .feedType("SUBSCRIPTION_POST")
                 .contentType(contentType)
                 .contentId(contentId)
                 .sourceCriteria("BOARD_SUBSCRIPTION")
                 .criteriaId(1L)
-                .build());
+                .build();
+        entityManager.persist(feed);
+        return feed;
+    }
+
+    private void updateCreatedAt(UserFeed feed, LocalDateTime createdAt) {
+        entityManager.getEntityManager()
+                .createNativeQuery("UPDATE user_feeds SET created_at = :createdAt WHERE feed_id = :feedId")
+                .setParameter("createdAt", createdAt)
+                .setParameter("feedId", feed.getFeedId())
+                .executeUpdate();
     }
 }

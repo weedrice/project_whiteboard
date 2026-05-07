@@ -29,7 +29,7 @@ public class UserFeedRepositoryCustomImpl implements UserFeedRepositoryCustom {
             Pageable pageable) {
         String fromClause = buildVisibleFeedFromClause(blockedUserIds);
         TypedQuery<UserFeed> contentQuery = entityManager.createQuery(
-                "SELECT uf " + fromClause + " ORDER BY uf.createdAt DESC",
+                "SELECT uf " + fromClause + " ORDER BY uf.createdAt DESC, uf.feedId DESC",
                 UserFeed.class);
         bindParameters(contentQuery, targetUser, blockedUserIds);
         if (pageable.isPaged()) {

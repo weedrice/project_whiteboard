@@ -14,6 +14,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -88,6 +89,25 @@ class NotificationRepositoryTest {
     }
 
     @Test
+    @DisplayName("동일 생성 시각 알림은 알림 ID 내림차순으로 정렬한다")
+    void findByUser_ordersByNotificationIdDescWhenCreatedAtTies() {
+        Notification first = persistNotification("First notification");
+        Notification second = persistNotification("Second notification");
+        LocalDateTime sameCreatedAt = LocalDateTime.now().minusMinutes(1);
+        entityManager.flush();
+        updateCreatedAt(first, sameCreatedAt);
+        updateCreatedAt(second, sameCreatedAt);
+        entityManager.clear();
+
+        Page<Notification> notifications =
+                notificationRepository.findByUser_UserIdOrderByCreatedAtDesc(user.getUserId(), PageRequest.of(0, 10));
+
+        assertThat(notifications.getContent())
+                .extracting(Notification::getNotificationId)
+                .containsSubsequence(second.getNotificationId(), first.getNotificationId());
+    }
+
+    @Test
     @DisplayName("사용자 ID 기반 읽지 않은 알림 개수 조회 성공")
     void countByUserIdAndIsRead_success() {
         long count = notificationRepository.countByUser_UserIdAndIsRead(user.getUserId(), false);
@@ -144,5 +164,25 @@ class NotificationRepositoryTest {
         assertThat(notificationRepository.existsByNotificationIdAndUser_UserId(
                 notification.getNotificationId(),
                 otherUser.getUserId())).isFalse();
+    }
+
+    private Notification persistNotification(String content) {
+        Notification notification = Notification.builder()
+                .user(user)
+                .notificationType(NotificationType.COMMENT)
+                .sourceType("POST")
+                .sourceId(1L)
+                .content(content)
+                .build();
+        entityManager.persist(notification);
+        return notification;
+    }
+
+    private void updateCreatedAt(Notification targetNotification, LocalDateTime createdAt) {
+        entityManager.getEntityManager()
+                .createNativeQuery("UPDATE notifications SET created_at = :createdAt WHERE notification_id = :notificationId")
+                .setParameter("createdAt", createdAt)
+                .setParameter("notificationId", targetNotification.getNotificationId())
+                .executeUpdate();
     }
 }

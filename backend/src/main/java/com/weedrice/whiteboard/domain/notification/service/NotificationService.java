@@ -30,7 +30,9 @@ import java.util.Set;
 public class NotificationService {
 
     private static final int DEFAULT_NOTIFICATION_PAGE_SIZE = 20;
-    private static final Sort NOTIFICATION_LIST_SORT = Sort.by(Sort.Order.desc("createdAt"));
+    private static final Sort NOTIFICATION_LIST_SORT = Sort.by(
+            Sort.Order.desc("createdAt"),
+            Sort.Order.desc("notificationId"));
     private static final Set<String> ALLOWED_NOTIFICATION_SORTS = Set.of("createdAt");
 
     private final NotificationRepository notificationRepository;
