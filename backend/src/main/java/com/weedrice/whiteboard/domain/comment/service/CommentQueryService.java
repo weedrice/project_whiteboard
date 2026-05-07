@@ -61,12 +61,16 @@ public class CommentQueryService {
     }
 
     public CommentListResponse getReplies(Long parentId, Long currentUserId, Pageable pageable) {
-        Comment parentComment = commentRepository.findNonDeletedByIdWithRelations(parentId)
+        Comment parentComment = commentRepository.findByIdWithRelations(parentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
+        Page<Comment> replies = commentRepository.findRepliesWithRelations(parentId, false, pageable);
+        if (Boolean.TRUE.equals(parentComment.getIsDeleted()) && replies.getTotalElements() == 0) {
+            throw new BusinessException(ErrorCode.COMMENT_NOT_FOUND);
+        }
+
         CommentReadContext context = resolveReadContext(currentUserId);
         commentPostAccessService.validateReadable(parentComment.getPost(), context);
 
-        Page<Comment> replies = commentRepository.findRepliesWithRelations(parentId, false, pageable);
         Map<Long, Long> replyCounts = commentReadSupport.loadVisibleReplyCounts(replies.getContent());
         List<CommentResponse> maskedReplies = replies.getContent().stream()
                 .map(comment -> toMaskedCommentResponse(comment, context.blockedUserIds(), replyCounts))

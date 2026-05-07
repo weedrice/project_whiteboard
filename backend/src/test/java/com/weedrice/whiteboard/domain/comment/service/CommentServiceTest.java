@@ -524,7 +524,7 @@ class CommentServiceTest {
         ReflectionTestUtils.setField(reply, "commentId", 10L);
         ReflectionTestUtils.setField(reply, "createdAt", LocalDateTime.now());
 
-        when(commentRepository.findNonDeletedByIdWithRelations(9L)).thenReturn(Optional.of(parent));
+        when(commentRepository.findByIdWithRelations(9L)).thenReturn(Optional.of(parent));
         when(userRepository.findById(1L)).thenReturn(Optional.of(viewer));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(List.of(2L));
         Pageable pageable = commentReadPageable(0, 10);
@@ -670,7 +670,7 @@ class CommentServiceTest {
         ReflectionTestUtils.setField(reply, "commentId", 10L);
         ReflectionTestUtils.setField(reply, "createdAt", LocalDateTime.now());
 
-        when(commentRepository.findNonDeletedByIdWithRelations(9L)).thenReturn(Optional.of(parent));
+        when(commentRepository.findByIdWithRelations(9L)).thenReturn(Optional.of(parent));
         when(userRepository.findById(1L)).thenReturn(Optional.of(viewer));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(List.of());
         Pageable pageable = commentReadPageable(0, 10);
@@ -691,15 +691,87 @@ class CommentServiceTest {
     }
 
     @Test
-    @DisplayName("deleted parent comment is hidden from direct replies lookup")
-    void getReplies_deletedParent_notFound() {
-        when(commentRepository.findNonDeletedByIdWithRelations(9L)).thenReturn(Optional.empty());
+    @DisplayName("deleted parent comment with no visible replies is hidden from direct replies lookup")
+    void getReplies_deletedParentWithoutVisibleReplies_notFound() {
+        User author = User.builder().displayName("Author").build();
+        ReflectionTestUtils.setField(author, "userId", 2L);
+
+        User viewer = User.builder().displayName("Viewer").build();
+        ReflectionTestUtils.setField(viewer, "userId", 1L);
+
+        Board board = Board.builder().boardUrl("free").creator(author).build();
+        ReflectionTestUtils.setField(board, "isActive", true);
+        ReflectionTestUtils.setField(board, "isPublic", true);
+
+        Post post = Post.builder().board(board).title("Title").user(author).build();
+        ReflectionTestUtils.setField(post, "postId", 100L);
+
+        Comment parent = Comment.builder()
+                .user(author)
+                .post(post)
+                .content("Parent")
+                .depth(0)
+                .build();
+        ReflectionTestUtils.setField(parent, "commentId", 9L);
+        ReflectionTestUtils.setField(parent, "isDeleted", true);
+
+        Pageable pageable = commentReadPageable(0, 10);
+        when(commentRepository.findByIdWithRelations(9L)).thenReturn(Optional.of(parent));
+        when(commentRepository.findRepliesWithRelations(9L, false, pageable)).thenReturn(Page.empty(pageable));
 
         assertThatThrownBy(() -> commentService.getReplies(9L, 1L, PageRequest.of(0, 10)))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.COMMENT_NOT_FOUND);
 
-        verify(commentRepository, never()).findRepliesWithRelations(anyLong(), any(), any());
+        verify(commentRepository).findRepliesWithRelations(9L, false, pageable);
+    }
+
+    @Test
+    @DisplayName("deleted parent comment with visible replies can load replies")
+    void getReplies_deletedParentWithVisibleReplies_returnsReplies() {
+        User author = User.builder().displayName("Author").build();
+        ReflectionTestUtils.setField(author, "userId", 2L);
+
+        User viewer = User.builder().displayName("Viewer").build();
+        ReflectionTestUtils.setField(viewer, "userId", 1L);
+
+        Board board = Board.builder().boardUrl("free").creator(author).build();
+        ReflectionTestUtils.setField(board, "isActive", true);
+        ReflectionTestUtils.setField(board, "isPublic", true);
+
+        Post post = Post.builder().board(board).title("Title").user(author).build();
+        ReflectionTestUtils.setField(post, "postId", 100L);
+
+        Comment parent = Comment.builder()
+                .user(author)
+                .post(post)
+                .content("Parent")
+                .depth(0)
+                .build();
+        ReflectionTestUtils.setField(parent, "commentId", 9L);
+        ReflectionTestUtils.setField(parent, "isDeleted", true);
+
+        Comment reply = Comment.builder()
+                .user(author)
+                .post(post)
+                .parent(parent)
+                .content("Reply")
+                .depth(1)
+                .build();
+        ReflectionTestUtils.setField(reply, "commentId", 10L);
+        ReflectionTestUtils.setField(reply, "createdAt", LocalDateTime.now());
+
+        Pageable pageable = commentReadPageable(0, 10);
+        when(commentRepository.findByIdWithRelations(9L)).thenReturn(Optional.of(parent));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(viewer));
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(List.of());
+        when(commentRepository.findRepliesWithRelations(9L, false, pageable))
+                .thenReturn(new PageImpl<>(List.of(reply), pageable, 1));
+
+        var result = commentService.getReplies(9L, 1L, PageRequest.of(0, 10));
+
+        assertThat(result.getContent()).hasSize(1);
+        assertThat(result.getContent().get(0).getCommentId()).isEqualTo(10L);
     }
 
     @Test
