@@ -17,6 +17,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.List;
 import java.util.Optional;
@@ -154,6 +155,59 @@ class GlobalConfigServiceTest {
             assertThat(created.getValue()).isEqualTo("value");
             verify(globalConfigRepository).saveAndFlush(any(GlobalConfig.class));
             verify(cache).put("key", "value");
+        }
+    }
+
+    @Test
+    @DisplayName("createConfig refreshes cache after transaction commit when synchronization is active")
+    void createConfig_activeTransactionSynchronization_refreshesCacheAfterCommit() {
+        try (MockedStatic<SecurityUtils> utilities = Mockito.mockStatic(SecurityUtils.class)) {
+            utilities.when(SecurityUtils::validateSuperAdminPermission).thenAnswer(invocation -> null);
+            when(globalConfigRepository.existsById(anyString())).thenReturn(false);
+            when(globalConfigRepository.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+            when(cacheManager.getCache("globalConfig")).thenReturn(cache);
+
+            TransactionSynchronizationManager.initSynchronization();
+            TransactionSynchronizationManager.setActualTransactionActive(true);
+            try {
+                GlobalConfigResponse created = globalConfigService.createConfig("key", "value", "desc");
+
+                assertThat(created.getKey()).isEqualTo("key");
+                assertThat(created.getValue()).isEqualTo("value");
+                verify(cache, never()).put(any(), any());
+
+                TransactionSynchronizationManager.getSynchronizations()
+                        .forEach(synchronization -> synchronization.afterCommit());
+                verify(cache).put("key", "value");
+            } finally {
+                TransactionSynchronizationManager.setActualTransactionActive(false);
+                TransactionSynchronizationManager.clearSynchronization();
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("createConfig ignores cache refresh failure after transaction commit")
+    void createConfig_afterCommitCacheRefreshFails_doesNotThrow() {
+        try (MockedStatic<SecurityUtils> utilities = Mockito.mockStatic(SecurityUtils.class)) {
+            utilities.when(SecurityUtils::validateSuperAdminPermission).thenAnswer(invocation -> null);
+            when(globalConfigRepository.existsById(anyString())).thenReturn(false);
+            when(globalConfigRepository.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+            when(cacheManager.getCache("globalConfig")).thenReturn(cache);
+
+            TransactionSynchronizationManager.initSynchronization();
+            TransactionSynchronizationManager.setActualTransactionActive(true);
+            try {
+                GlobalConfigResponse created = globalConfigService.createConfig("key", "value", "desc");
+                when(cacheManager.getCache("globalConfig")).thenThrow(new IllegalStateException("cache down"));
+
+                assertThat(created.getKey()).isEqualTo("key");
+                TransactionSynchronizationManager.getSynchronizations()
+                        .forEach(synchronization -> synchronization.afterCommit());
+            } finally {
+                TransactionSynchronizationManager.setActualTransactionActive(false);
+                TransactionSynchronizationManager.clearSynchronization();
+            }
         }
     }
 

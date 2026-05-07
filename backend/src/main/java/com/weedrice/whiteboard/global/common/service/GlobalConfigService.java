@@ -7,6 +7,7 @@ import com.weedrice.whiteboard.global.common.util.SecurityUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.CacheEvict;
@@ -14,10 +15,13 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.List;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class GlobalConfigService {
@@ -77,7 +81,7 @@ public class GlobalConfigService {
         GlobalConfig config = new GlobalConfig(key, value, description);
         try {
             GlobalConfig savedConfig = globalConfigRepository.saveAndFlush(config);
-            putConfigCache(key, savedConfig.getConfigValue());
+            putConfigCacheAfterCommit(key, savedConfig.getConfigValue());
             return GlobalConfigResponse.from(savedConfig);
         } catch (DataIntegrityViolationException e) {
             throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE);
@@ -115,6 +119,25 @@ public class GlobalConfigService {
         if (cache != null) {
             cache.put(key, value);
         }
+    }
+
+    private void putConfigCacheAfterCommit(String key, String value) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()
+                || !TransactionSynchronizationManager.isActualTransactionActive()) {
+            putConfigCache(key, value);
+            return;
+        }
+
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                try {
+                    putConfigCache(key, value);
+                } catch (RuntimeException ex) {
+                    log.warn("Failed to refresh global config cache after commit: key={}", key, ex);
+                }
+            }
+        });
     }
 
     private void validateConfigValue(String key, String value) {
