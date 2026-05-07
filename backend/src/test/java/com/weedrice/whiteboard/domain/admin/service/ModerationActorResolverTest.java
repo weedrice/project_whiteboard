@@ -16,6 +16,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -65,8 +66,8 @@ class ModerationActorResolverTest {
     @DisplayName("활성 관리자 행을 공통 resolver에서 조회한다")
     void resolveActiveAdmin_success() {
         when(userRepository.findById(1L)).thenReturn(Optional.of(adminUser));
-        when(adminRepository.findFirstByUserAndIsActiveOrderByAdminIdAsc(adminUser, true))
-                .thenReturn(Optional.of(admin));
+        when(adminRepository.findAllByUserAndIsActiveOrderByAdminIdAsc(adminUser, true))
+                .thenReturn(List.of(admin));
 
         Admin resolved = moderationActorResolver.resolveActiveAdmin(1L);
 
@@ -74,14 +75,56 @@ class ModerationActorResolverTest {
     }
 
     @Test
+    @DisplayName("활성 관리자 행이 여러 개면 역할 우선순위와 최신 ID 기준으로 actor를 선택한다")
+    void resolveActiveAdmin_prefersRolePriorityAndLatestAdminId() {
+        Admin moderator = admin("MODERATOR", 30L);
+        Admin olderBoardAdmin = admin(Role.BOARD_ADMIN, 20L);
+        Admin latestBoardAdmin = admin(Role.BOARD_ADMIN, 40L);
+        Admin unknownRole = admin("UNKNOWN", 50L);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(adminUser));
+        when(adminRepository.findAllByUserAndIsActiveOrderByAdminIdAsc(adminUser, true))
+                .thenReturn(List.of(moderator, olderBoardAdmin, latestBoardAdmin, unknownRole));
+
+        Admin resolved = moderationActorResolver.resolveActiveAdmin(1L);
+
+        assertThat(resolved).isEqualTo(latestBoardAdmin);
+    }
+
+    @Test
+    @DisplayName("ADMIN 역할은 BOARD_ADMIN보다 actor 우선순위가 높다")
+    void resolveActiveAdmin_prefersAdminRoleOverBoardAdmin() {
+        Admin boardAdmin = admin(Role.BOARD_ADMIN, 50L);
+        Admin adminRole = admin("ADMIN", 20L);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(adminUser));
+        when(adminRepository.findAllByUserAndIsActiveOrderByAdminIdAsc(adminUser, true))
+                .thenReturn(List.of(boardAdmin, adminRole));
+
+        Admin resolved = moderationActorResolver.resolveActiveAdmin(1L);
+
+        assertThat(resolved).isEqualTo(adminRole);
+    }
+
+    @Test
     @DisplayName("활성 관리자 행이 없으면 FORBIDDEN을 반환한다")
     void resolveActiveAdmin_forbidden() {
         when(userRepository.findById(1L)).thenReturn(Optional.of(adminUser));
-        when(adminRepository.findFirstByUserAndIsActiveOrderByAdminIdAsc(adminUser, true))
-                .thenReturn(Optional.empty());
+        when(adminRepository.findAllByUserAndIsActiveOrderByAdminIdAsc(adminUser, true))
+                .thenReturn(List.of());
 
         assertThatThrownBy(() -> moderationActorResolver.resolveActiveAdmin(1L))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
+    }
+
+    private Admin admin(String role, Long adminId) {
+        Admin targetAdmin = Admin.builder()
+                .user(adminUser)
+                .board(admin.getBoard())
+                .role(role)
+                .build();
+        ReflectionTestUtils.setField(targetAdmin, "adminId", adminId);
+        return targetAdmin;
     }
 }
