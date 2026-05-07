@@ -16,6 +16,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -49,6 +50,16 @@ class NotificationPreferenceServiceTest {
     }
 
     @Test
+    @DisplayName("Self-notification check is false when receiver id is missing")
+    void isSelfNotification_falseWhenReceiverIdMissing() {
+        User receiverWithoutId = User.builder().build();
+        NotificationEvent event = new NotificationEvent(
+                receiverWithoutId, actor, NotificationType.LIKE, "POST", 1L, "like");
+
+        assertThat(notificationPreferenceService.isSelfNotification(event)).isFalse();
+    }
+
+    @Test
     @DisplayName("비활성화된 알림 타입은 false를 반환한다")
     void isNotificationEnabled_falseWhenDisabled() {
         UserNotificationSettings setting = UserNotificationSettings.builder()
@@ -62,5 +73,23 @@ class NotificationPreferenceServiceTest {
         NotificationEvent event = new NotificationEvent(receiver, actor, NotificationType.COMMENT, "POST", 1L, "comment");
 
         assertThat(notificationPreferenceService.isNotificationEnabled(event)).isFalse();
+    }
+
+    @Test
+    @DisplayName("필수 대상자나 타입이 없으면 비활성으로 판단하고 설정을 조회하지 않는다")
+    void isNotificationEnabled_falseWhenRequiredFieldsMissing() {
+        NotificationEvent missingReceiver = new NotificationEvent(
+                null, actor, NotificationType.COMMENT, "POST", 1L, "comment");
+        NotificationEvent missingReceiverId = new NotificationEvent(
+                User.builder().build(), actor, NotificationType.COMMENT, "POST", 1L, "comment");
+        NotificationEvent missingType = new NotificationEvent(
+                receiver, actor, null, "POST", 1L, "comment");
+
+        assertThat(notificationPreferenceService.isNotificationEnabled(null)).isFalse();
+        assertThat(notificationPreferenceService.isNotificationEnabled(missingReceiver)).isFalse();
+        assertThat(notificationPreferenceService.isNotificationEnabled(missingReceiverId)).isFalse();
+        assertThat(notificationPreferenceService.isNotificationEnabled(missingType)).isFalse();
+
+        verifyNoInteractions(userNotificationSettingsRepository);
     }
 }

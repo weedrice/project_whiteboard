@@ -14,14 +14,19 @@ class NotificationPreferenceService {
     }
 
     boolean isSelfNotification(NotificationEvent event) {
-        return event.getActor() != null
+        return event != null
+                && event.getActor() != null
                 && event.getUserToNotify() != null
+                && event.getUserToNotify().getUserId() != null
                 && event.getUserToNotify().getUserId().equals(event.getActor().getUserId());
     }
 
     boolean isNotificationEnabled(NotificationEvent event) {
-        if (event.getUserToNotify() == null || event.getNotificationType() == null) {
-            return true;
+        if (event == null
+                || event.getUserToNotify() == null
+                || event.getUserToNotify().getUserId() == null
+                || event.getNotificationType() == null) {
+            return false;
         }
 
         return userNotificationSettingsRepository

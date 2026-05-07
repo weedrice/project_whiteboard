@@ -39,6 +39,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith({MockitoExtension.class, OutputCaptureExtension.class})
@@ -141,6 +142,25 @@ class NotificationServiceTest {
 
         verify(userNotificationSettingsRepository).findByUserIdAndNotificationType(1L, NotificationType.REPLY);
         verify(notificationRepository).save(any(Notification.class));
+    }
+
+    @Test
+    @DisplayName("Notification is skipped when required event payload is missing")
+    void handleNotificationEvent_missingRequiredPayload_skipsSave() {
+        notificationService.handleNotificationEvent(null);
+        notificationService.handleNotificationEvent(new NotificationEvent(
+                null, actor, NotificationType.LIKE, "POST", 1L, "Test Notification"));
+        notificationService.handleNotificationEvent(new NotificationEvent(
+                User.builder().build(), actor, NotificationType.LIKE, "POST", 1L, "Test Notification"));
+        notificationService.handleNotificationEvent(new NotificationEvent(
+                user, actor, null, "POST", 1L, "Test Notification"));
+        notificationService.handleNotificationEvent(new NotificationEvent(
+                user, actor, NotificationType.LIKE, " ", 1L, "Test Notification"));
+        notificationService.handleNotificationEvent(new NotificationEvent(
+                user, actor, NotificationType.LIKE, "POST", 1L, ""));
+
+        verifyNoInteractions(userNotificationSettingsRepository);
+        verify(notificationRepository, never()).save(any(Notification.class));
     }
 
     @Test

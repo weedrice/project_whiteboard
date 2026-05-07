@@ -20,6 +20,9 @@ class NotificationCommandService {
     }
 
     Notification handleNotificationEvent(NotificationEvent event) {
+        if (!hasRequiredPayload(event)) {
+            return null;
+        }
         if (preferenceService.isSelfNotification(event) || !preferenceService.isNotificationEnabled(event)) {
             return null;
         }
@@ -33,6 +36,19 @@ class NotificationCommandService {
                 .sourceId(event.getSourceId())
                 .content(event.getContent())
                 .build());
+    }
+
+    private boolean hasRequiredPayload(NotificationEvent event) {
+        return event != null
+                && event.getUserToNotify() != null
+                && event.getUserToNotify().getUserId() != null
+                && event.getNotificationType() != null
+                && hasText(event.getSourceType())
+                && hasText(event.getContent());
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.isBlank();
     }
 
     void readNotification(Long userId, Long notificationId) {
