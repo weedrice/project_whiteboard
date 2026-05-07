@@ -4,6 +4,7 @@ import com.weedrice.whiteboard.domain.agent.entity.Agent;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
 import com.weedrice.whiteboard.domain.file.entity.File;
+import com.weedrice.whiteboard.domain.file.entity.FileStorageStatus;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.tag.entity.PostTag;
 import com.weedrice.whiteboard.domain.tag.entity.Tag;
@@ -767,6 +768,44 @@ class PostRepositoryTest {
     }
 
     @Test
+    @DisplayName("트렌딩 첨부 이미지 조건은 활성 파일만 미디어로 집계한다")
+    void findTrendingPosts_excludesInactiveAttachedImages() {
+        LocalDateTime baseCreatedAt = LocalDateTime.now().minusHours(2);
+        Post activeImagePost = trendingPost("Active Image", "plain content", user, board, false);
+        Post pendingDeleteImagePost = trendingPost("Pending Delete Image", "plain content", user, board, false);
+        Post deleteFailedImagePost = trendingPost("Delete Failed Image", "plain content", user, board, false);
+        Post htmlImagePost = trendingPost("Html Image", "<img src=\"/still-visible.jpg\">", user, board, false);
+        entityManager.persist(activeImagePost);
+        entityManager.persist(pendingDeleteImagePost);
+        entityManager.persist(deleteFailedImagePost);
+        entityManager.persist(htmlImagePost);
+        entityManager.flush();
+
+        persistPostContentImage(activeImagePost, FileStorageStatus.ACTIVE);
+        persistPostContentImage(pendingDeleteImagePost, FileStorageStatus.PENDING_DELETE);
+        persistPostContentImage(deleteFailedImagePost, FileStorageStatus.DELETE_FAILED);
+        persistPostContentImage(htmlImagePost, FileStorageStatus.PENDING_DELETE);
+        updateCreatedAt(activeImagePost, baseCreatedAt);
+        updateCreatedAt(pendingDeleteImagePost, baseCreatedAt.plusMinutes(1));
+        updateCreatedAt(deleteFailedImagePost, baseCreatedAt.plusMinutes(2));
+        updateCreatedAt(htmlImagePost, baseCreatedAt.plusMinutes(3));
+        entityManager.flush();
+        entityManager.clear();
+
+        LocalDateTime since = baseCreatedAt.minusHours(1);
+        List<Post> trendingPosts = postRepository.findTrendingPosts(
+                since,
+                Collections.emptyList(),
+                PageRequest.of(0, 20));
+
+        assertThat(postRepository.countTrendingPosts(since, Collections.emptyList())).isEqualTo(trendingPosts.size());
+        assertThat(trendingPosts)
+                .extracting(Post::getTitle)
+                .contains("Active Image", "Html Image")
+                .doesNotContain("Pending Delete Image", "Delete Failed Image");
+    }
+
+    @Test
     @DisplayName("비활성 게시판의 게시글은 키워드 검색에서 제외됨")
     void searchPostsByKeyword_inactiveBoard_excluded() {
         // given
@@ -925,6 +964,10 @@ class PostRepositoryTest {
     }
 
     private void persistPostContentImage(Post targetPost) {
+        persistPostContentImage(targetPost, FileStorageStatus.ACTIVE);
+    }
+
+    private void persistPostContentImage(Post targetPost, FileStorageStatus storageStatus) {
         File file = File.builder()
                 .originalName("test-" + targetPost.getPostId() + ".jpg")
                 .mimeType("image/jpeg")
@@ -933,6 +976,7 @@ class PostRepositoryTest {
                 .uploader(user)
                 .relatedType("POST_CONTENT")
                 .relatedId(targetPost.getPostId())
+                .storageStatus(storageStatus)
                 .build();
         entityManager.persist(file);
     }
