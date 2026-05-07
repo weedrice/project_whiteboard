@@ -29,13 +29,12 @@ class BoardCategoryService {
     }
 
     CategoryResponse createCategory(String boardUrl, CategoryRequest request) {
-        Board board = boardRepository.findByBoardUrl(boardUrl)
-                .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
+        boolean requestedDefault = Boolean.TRUE.equals(request.getIsDefault());
+        Board board = findBoardForCategoryCreate(boardUrl);
 
         SecurityUtils.validateBoardAdminPermission(board);
         String normalizedName = normalizeCategoryName(request.getName());
         validateDuplicateActiveName(board.getBoardId(), normalizedName);
-        boolean requestedDefault = Boolean.TRUE.equals(request.getIsDefault());
         if (requestedDefault) {
             clearDefaultCategories(board.getBoardId(), null);
         }
@@ -58,8 +57,7 @@ class BoardCategoryService {
         if (categoryId == null) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "Category ID cannot be null");
         }
-        BoardCategory category = boardCategoryRepository.findById(categoryId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+        BoardCategory category = findCategoryForUpdate(categoryId);
 
         SecurityUtils.validateBoardAdminPermission(category.getBoard());
         String normalizedName = normalizeCategoryName(request.getName());
@@ -86,8 +84,7 @@ class BoardCategoryService {
     }
 
     void deleteCategory(Long categoryId) {
-        BoardCategory category = boardCategoryRepository.findById(categoryId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+        BoardCategory category = findCategoryForUpdate(categoryId);
 
         SecurityUtils.validateBoardAdminPermission(category.getBoard());
         if (category.isDefaultCategory()) {
@@ -95,6 +92,20 @@ class BoardCategoryService {
         }
 
         category.deactivate();
+    }
+
+    private Board findBoardForCategoryCreate(String boardUrl) {
+        return boardRepository.findByBoardUrlForUpdate(boardUrl)
+                .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
+    }
+
+    private BoardCategory findCategoryForUpdate(Long categoryId) {
+        Long boardId = boardCategoryRepository.findBoardIdByCategoryId(categoryId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+        boardRepository.findByIdForUpdate(boardId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
+        return boardCategoryRepository.findById(categoryId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
     }
 
     private void clearDefaultCategories(Long boardId, Long exceptCategoryId) {

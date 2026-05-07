@@ -835,7 +835,7 @@ class BoardServiceTest {
     @DisplayName("카테고리 생성은 이름을 trim하고 활성 이름 중복을 사전 검증한다")
     void createCategory_trimsNameAndChecksDuplicateActiveName() {
         CategoryRequest request = categoryRequest("  General  ", 1, "USER");
-        when(boardRepository.findByBoardUrl("test-board")).thenReturn(Optional.of(board));
+        when(boardRepository.findByBoardUrlForUpdate("test-board")).thenReturn(Optional.of(board));
         when(boardCategoryRepository.existsByBoard_BoardIdAndNameAndIsActive(1L, "General", true))
                 .thenReturn(false);
         when(boardCategoryRepository.saveAndFlush(any(BoardCategory.class)))
@@ -849,6 +849,7 @@ class BoardServiceTest {
         }
 
         ArgumentCaptor<BoardCategory> categoryCaptor = ArgumentCaptor.forClass(BoardCategory.class);
+        verify(boardRepository).findByBoardUrlForUpdate("test-board");
         verify(boardCategoryRepository).saveAndFlush(categoryCaptor.capture());
         assertThat(categoryCaptor.getValue().getName()).isEqualTo("General");
     }
@@ -865,7 +866,7 @@ class BoardServiceTest {
                 .build();
         ReflectionTestUtils.setField(previousDefault, "categoryId", 9L);
 
-        when(boardRepository.findByBoardUrl("test-board")).thenReturn(Optional.of(board));
+        when(boardRepository.findByBoardUrlForUpdate("test-board")).thenReturn(Optional.of(board));
         when(boardCategoryRepository.existsByBoard_BoardIdAndNameAndIsActive(1L, "Default", true))
                 .thenReturn(false);
         when(boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(1L, true))
@@ -882,6 +883,7 @@ class BoardServiceTest {
         }
 
         ArgumentCaptor<BoardCategory> categoryCaptor = ArgumentCaptor.forClass(BoardCategory.class);
+        verify(boardRepository).findByBoardUrlForUpdate("test-board");
         verify(boardCategoryRepository).saveAndFlush(categoryCaptor.capture());
         assertThat(previousDefault.isDefaultCategory()).isFalse();
         assertThat(categoryCaptor.getValue().isDefaultCategory()).isTrue();
@@ -892,7 +894,7 @@ class BoardServiceTest {
     @DisplayName("카테고리 생성은 같은 게시판의 활성 이름 중복을 거부한다")
     void createCategory_duplicateActiveName_throwsDuplicateResource() {
         CategoryRequest request = categoryRequest("General", 1, "USER");
-        when(boardRepository.findByBoardUrl("test-board")).thenReturn(Optional.of(board));
+        when(boardRepository.findByBoardUrlForUpdate("test-board")).thenReturn(Optional.of(board));
         when(boardCategoryRepository.existsByBoard_BoardIdAndNameAndIsActive(1L, "General", true))
                 .thenReturn(true);
 
@@ -920,6 +922,7 @@ class BoardServiceTest {
                 .minWriteRole("USER")
                 .build();
         ReflectionTestUtils.setField(category, "categoryId", 10L);
+        stubCategoryBoardLock(10L);
         when(boardCategoryRepository.findById(10L)).thenReturn(Optional.of(category));
         when(boardCategoryRepository.existsByBoard_BoardIdAndNameAndIsActiveAndCategoryIdNot(
                 1L,
@@ -953,6 +956,7 @@ class BoardServiceTest {
                 .build();
         ReflectionTestUtils.setField(category, "categoryId", 10L);
         category.deactivate();
+        stubCategoryBoardLock(10L);
         when(boardCategoryRepository.findById(10L)).thenReturn(Optional.of(category));
         when(boardCategoryRepository.saveAndFlush(category)).thenReturn(category);
 
@@ -983,6 +987,7 @@ class BoardServiceTest {
                 .build();
         ReflectionTestUtils.setField(category, "categoryId", 10L);
         category.deactivate();
+        stubCategoryBoardLock(10L);
         when(boardCategoryRepository.findById(10L)).thenReturn(Optional.of(category));
 
         authenticateUser();
@@ -1018,6 +1023,7 @@ class BoardServiceTest {
                 .build();
         ReflectionTestUtils.setField(category, "categoryId", 10L);
 
+        stubCategoryBoardLock(10L);
         when(boardCategoryRepository.findById(10L)).thenReturn(Optional.of(category));
         when(boardCategoryRepository.existsByBoard_BoardIdAndNameAndIsActiveAndCategoryIdNot(
                 1L, "New Default", true, 10L))
@@ -1034,6 +1040,10 @@ class BoardServiceTest {
             SecurityContextHolder.clearContext();
         }
 
+        InOrder lockOrder = inOrder(boardCategoryRepository, boardRepository);
+        lockOrder.verify(boardCategoryRepository).findBoardIdByCategoryId(10L);
+        lockOrder.verify(boardRepository).findByIdForUpdate(1L);
+        lockOrder.verify(boardCategoryRepository).findById(10L);
         assertThat(previousDefault.isDefaultCategory()).isFalse();
         assertThat(category.isDefaultCategory()).isTrue();
         assertThat(category.getMinWriteRole()).isEqualTo("BOARD_ADMIN");
@@ -1052,6 +1062,7 @@ class BoardServiceTest {
                 .build();
         ReflectionTestUtils.setField(category, "categoryId", 10L);
 
+        stubCategoryBoardLock(10L);
         when(boardCategoryRepository.findById(10L)).thenReturn(Optional.of(category));
         when(boardCategoryRepository.existsByBoard_BoardIdAndNameAndIsActiveAndCategoryIdNot(
                 1L, "Default", true, 10L))
@@ -1080,6 +1091,7 @@ class BoardServiceTest {
                 .isDefault(true)
                 .build();
         ReflectionTestUtils.setField(category, "categoryId", 10L);
+        stubCategoryBoardLock(10L);
         when(boardCategoryRepository.findById(10L)).thenReturn(Optional.of(category));
 
         authenticateUser();
@@ -1091,6 +1103,10 @@ class BoardServiceTest {
             SecurityContextHolder.clearContext();
         }
 
+        InOrder lockOrder = inOrder(boardCategoryRepository, boardRepository);
+        lockOrder.verify(boardCategoryRepository).findBoardIdByCategoryId(10L);
+        lockOrder.verify(boardRepository).findByIdForUpdate(1L);
+        lockOrder.verify(boardCategoryRepository).findById(10L);
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.VALIDATION_ERROR);
         assertThat(category.getIsActive()).isTrue();
     }
@@ -2241,6 +2257,11 @@ class BoardServiceTest {
         ReflectionTestUtils.setField(request, "minWriteRole", minWriteRole);
         ReflectionTestUtils.setField(request, "isDefault", isDefault);
         return request;
+    }
+
+    private void stubCategoryBoardLock(Long categoryId) {
+        when(boardCategoryRepository.findBoardIdByCategoryId(categoryId)).thenReturn(Optional.of(1L));
+        when(boardRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(board));
     }
 
     private BoardUpdateRequest createBoardUpdateRequest(String boardName, String boardUrl, String iconUrl) {
