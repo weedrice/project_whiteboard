@@ -13,6 +13,7 @@ import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,7 +40,9 @@ public class FeedService {
         Page<UserFeed> feedPage = userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(user, blockedUserIds, pageable);
         Map<Long, PostSummary> postSummariesById = resolvePostSummaries(feedPage, userId);
         logUnresolvedPostFeeds(feedPage, postSummariesById, userId);
-        return FeedResponse.from(feedPage, feedPage.getContent(), postSummariesById);
+        List<UserFeed> responseFeeds = excludeUnresolvedPostFeeds(feedPage, postSummariesById);
+        Page<UserFeed> responsePage = adjustPageMetadata(feedPage, responseFeeds);
+        return FeedResponse.from(responsePage, responseFeeds, postSummariesById);
     }
 
     @Transactional
@@ -65,8 +68,28 @@ public class FeedService {
                 .filter(feed -> !postSummariesById.containsKey(feed.getContentId()))
                 .count();
         if (unresolvedPostFeedCount > 0) {
-            log.warn("Returned POST feeds without resolved summaries. userId={}, count={}", userId,
+            log.warn("Excluded POST feeds without resolved summaries. userId={}, count={}", userId,
                     unresolvedPostFeedCount);
         }
+    }
+
+    private List<UserFeed> excludeUnresolvedPostFeeds(Page<UserFeed> feedPage, Map<Long, PostSummary> postSummariesById) {
+        return feedPage.getContent().stream()
+                .filter(feed -> !FeedGenerationService.CONTENT_TYPE_POST.equals(feed.getContentType())
+                        || postSummariesById.containsKey(feed.getContentId()))
+                .toList();
+    }
+
+    private Page<UserFeed> adjustPageMetadata(Page<UserFeed> feedPage, List<UserFeed> responseFeeds) {
+        int droppedCount = feedPage.getNumberOfElements() - responseFeeds.size();
+        if (droppedCount <= 0) {
+            return feedPage;
+        }
+        long adjustedTotal = Math.max(0L, feedPage.getTotalElements() - droppedCount);
+        if (feedPage.hasNext() && feedPage.getPageable().isPaged()) {
+            long minimumTotalToKeepNextPage = feedPage.getPageable().getOffset() + feedPage.getSize() + 1L;
+            adjustedTotal = Math.max(adjustedTotal, minimumTotalToKeepNextPage);
+        }
+        return new PageImpl<>(responseFeeds, feedPage.getPageable(), adjustedTotal);
     }
 }

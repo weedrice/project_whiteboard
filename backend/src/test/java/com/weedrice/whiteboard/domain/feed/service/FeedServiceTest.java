@@ -89,8 +89,8 @@ class FeedServiceTest {
     }
 
     @Test
-    @DisplayName("POST feed without resolved post summary keeps page metadata and null post")
-    void getUserFeeds_keepsPageMetadataWhenSummaryMissing() {
+    @DisplayName("POST feed without resolved post summary is excluded from response")
+    void getUserFeeds_excludesPostFeedWhenSummaryMissing() {
         Long userId = 1L;
         User user = User.builder().build();
         Pageable pageable = PageRequest.of(0, 10);
@@ -109,14 +109,36 @@ class FeedServiceTest {
 
         FeedResponse response = feedService.getUserFeeds(userId, pageable);
 
-        assertThat(response.getContent()).hasSize(2);
-        assertThat(response.getContent().get(0).getContentId()).isEqualTo(101L);
-        assertThat(response.getContent().get(0).getPost()).isNull();
-        assertThat(response.getContent().get(1).getContentId()).isEqualTo(202L);
-        assertThat(response.getContent().get(1).getPost()).isEqualTo(validPost);
-        assertThat(response.getTotalElements()).isEqualTo(2);
+        assertThat(response.getContent()).hasSize(1);
+        assertThat(response.getContent().getFirst().getContentId()).isEqualTo(202L);
+        assertThat(response.getContent().getFirst().getPost()).isEqualTo(validPost);
+        assertThat(response.getTotalElements()).isEqualTo(1);
         assertThat(response.getTotalPages()).isEqualTo(1);
         assertThat(response.isHasNext()).isFalse();
+    }
+
+    @Test
+    @DisplayName("POST feed filtering preserves next-page navigation when source page has more feeds")
+    void getUserFeeds_preservesHasNextWhenFilteredPageHasNext() {
+        Long userId = 1L;
+        User user = User.builder().build();
+        Pageable pageable = PageRequest.of(0, 1);
+
+        UserFeed staleFeed = createFeed(1L, user, "SUBSCRIPTION_POST", "POST", 101L, "BOARD_SUBSCRIPTION", 10L,
+                LocalDateTime.now());
+        Page<UserFeed> feedPage = new PageImpl<>(List.of(staleFeed), pageable, 2);
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(userId)).thenReturn(List.of());
+        when(userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(user, List.of(), pageable)).thenReturn(feedPage);
+        when(postService.getPostSummariesByIds(List.of(101L), userId)).thenReturn(Map.of());
+
+        FeedResponse response = feedService.getUserFeeds(userId, pageable);
+
+        assertThat(response.getContent()).isEmpty();
+        assertThat(response.getTotalElements()).isEqualTo(2);
+        assertThat(response.getTotalPages()).isEqualTo(2);
+        assertThat(response.isHasNext()).isTrue();
     }
 
     @Test
