@@ -10,6 +10,7 @@ import com.weedrice.whiteboard.domain.user.service.UserBlockService;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import com.weedrice.whiteboard.global.util.InputSanitizer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -42,6 +43,10 @@ public class MessageService {
 
     @Transactional
     public Message sendMessage(Long senderId, Long receiverId, String content) {
+        String sanitizedContent = InputSanitizer.stripHtml(content);
+        if (sanitizedContent == null || sanitizedContent.isBlank()) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
         User sender = userRepository.findById(senderId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         sanctionService.validateNotBanned(sender);
@@ -59,7 +64,7 @@ public class MessageService {
         Message message = Message.builder()
                 .sender(sender)
                 .receiver(receiver)
-                .content(content)
+                .content(sanitizedContent)
                 .build();
         return messageRepository.save(message);
     }
@@ -98,7 +103,7 @@ public class MessageService {
                         .userId(partner.getUserId())
                         .displayName(partner.getDisplayName())
                         .build())
-                .content(message.getContent())
+                .content(InputSanitizer.stripHtml(message.getContent()))
                 .isRead(message.getIsRead())
                 .createdAt(message.getCreatedAt())
                 .build();

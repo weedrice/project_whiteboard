@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.message.dto;
 
 import com.weedrice.whiteboard.domain.message.entity.Message;
 import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.global.util.InputSanitizer;
 import lombok.Builder;
 import lombok.Getter;
 import org.springframework.data.domain.Page;
@@ -49,7 +50,7 @@ public class MessageResponse {
                                     .userId(partner.getUserId())
                                     .displayName(partner.getDisplayName())
                                     .build())
-                            .content(message.getContent())
+                            .content(InputSanitizer.stripHtml(message.getContent()))
                             .isRead(message.getIsRead())
                             .createdAt(message.getCreatedAt())
                             .build();

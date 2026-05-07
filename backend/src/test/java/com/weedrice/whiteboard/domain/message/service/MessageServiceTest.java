@@ -93,6 +93,30 @@ class MessageServiceTest {
     }
 
     @Test
+    @DisplayName("message content is sanitized before save")
+    void sendMessage_sanitizesContentBeforeSave() {
+        when(userRepository.findById(1L)).thenReturn(Optional.of(sender));
+        when(userRepository.findById(2L)).thenReturn(Optional.of(receiver));
+        when(userBlockService.isEitherDirectionBlocked(1L, 2L)).thenReturn(false);
+        when(messageRepository.save(any(Message.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Message result = messageService.sendMessage(1L, 2L, "<b>Hello</b><script>alert(1)</script>");
+
+        assertThat(result.getContent()).isEqualTo("Helloalert(1)");
+    }
+
+    @Test
+    @DisplayName("message content blank after sanitizing is rejected")
+    void sendMessage_blankAfterSanitizing_invalidInput() {
+        assertThatThrownBy(() -> messageService.sendMessage(1L, 2L, "<b></b>"))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+
+        verify(messageRepository, never()).save(any());
+    }
+
+    @Test
     @DisplayName("차단된 상대에게는 쪽지를 보낼 수 없다")
     void sendMessage_blocked() {
         when(userRepository.findById(1L)).thenReturn(Optional.of(sender));
@@ -149,7 +173,30 @@ class MessageServiceTest {
         MessageResponse response = messageService.getReceivedMessages(2L, pageable);
 
         assertThat(response).isNotNull();
+        assertThat(response.getContent().get(0).getContent()).isEqualTo("Test message");
         verify(userRepository).findById(2L);
+    }
+
+    @Test
+    @DisplayName("received message content is sanitized for response")
+    void getReceivedMessages_sanitizesContentForResponse() {
+        Pageable pageable = PageRequest.of(0, 10);
+        Message unsafeMessage = Message.builder()
+                .sender(sender)
+                .receiver(receiver)
+                .content("<img src=x onerror=alert(1)>safe")
+                .build();
+        ReflectionTestUtils.setField(unsafeMessage, "messageId", 2L);
+        Page<Message> messagePage = new PageImpl<>(List.of(unsafeMessage), pageable, 1);
+
+        when(userRepository.findById(2L)).thenReturn(Optional.of(receiver));
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(2L)).thenReturn(Collections.emptyList());
+        when(messageRepository.findReceivedMessagesExcludingBlocked(eq(receiver), eq(false), anyList(), any(Pageable.class)))
+                .thenReturn(messagePage);
+
+        MessageResponse response = messageService.getReceivedMessages(2L, pageable);
+
+        assertThat(response.getContent().get(0).getContent()).isEqualTo("safe");
     }
 
     @Test
@@ -256,6 +303,24 @@ class MessageServiceTest {
         assertThat(result.getIsRead()).isFalse();
         verify(userBlockService).getBlockedUserIdsEitherDirectionForExistingUser(2L);
         verify(userBlockService, never()).isEitherDirectionBlocked(2L, 1L);
+    }
+
+    @Test
+    @DisplayName("message summary content is sanitized for response")
+    void getMessageSummary_sanitizesContentForResponse() {
+        Message unsafeMessage = Message.builder()
+                .sender(sender)
+                .receiver(receiver)
+                .content("<p>safe</p><script>alert(1)</script>")
+                .build();
+        ReflectionTestUtils.setField(unsafeMessage, "messageId", 2L);
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(2L)).thenReturn(Collections.emptyList());
+        when(messageRepository.findAccessibleMessage(2L, 2L, Collections.emptyList()))
+                .thenReturn(Optional.of(unsafeMessage));
+
+        MessageResponse.MessageSummary result = messageService.getMessageSummary(2L, 2L);
+
+        assertThat(result.getContent()).isEqualTo("safealert(1)");
     }
 
     @Test
