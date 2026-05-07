@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.notification.service;
 
 import com.weedrice.whiteboard.domain.notification.dto.NotificationResponse;
 import com.weedrice.whiteboard.domain.notification.entity.Notification;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -16,6 +17,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
+@Slf4j
 @Service
 class NotificationStreamService {
 
@@ -38,7 +40,7 @@ class NotificationStreamService {
     }
 
     SseEmitter subscribe(Long userId) {
-        SseEmitter emitter = new SseEmitter(timeoutMillis);
+        SseEmitter emitter = createEmitter();
         String connectionId = UUID.randomUUID().toString();
         EmitterConnection connection = new EmitterConnection(emitter, connectionSequence.incrementAndGet());
         List<SseEmitter> evictedEmitters;
@@ -69,7 +71,7 @@ class NotificationStreamService {
                     .name("connect")
                     .data("connected!"));
         } catch (IOException | RuntimeException e) {
-            removeEmitter(userId, connectionId);
+            completeWithError(userId, connectionId, emitter, e);
         }
 
         return emitter;
@@ -91,7 +93,7 @@ class NotificationStreamService {
                 try {
                     entry.getValue().emitter().send(SseEmitter.event().comment("heartbeat"));
                 } catch (IOException | RuntimeException e) {
-                    removeEmitter(userId, entry.getKey());
+                    completeWithError(userId, entry.getKey(), entry.getValue().emitter(), e);
                 }
             }
         }
@@ -110,9 +112,13 @@ class NotificationStreamService {
                         .name("notification")
                         .data(summary));
             } catch (IOException | RuntimeException e) {
-                removeEmitter(userId, entry.getKey());
+                completeWithError(userId, entry.getKey(), entry.getValue().emitter(), e);
             }
         }
+    }
+
+    SseEmitter createEmitter() {
+        return new SseEmitter(timeoutMillis);
     }
 
     private List<SseEmitter> enforceConnectionLimit(
@@ -165,6 +171,18 @@ class NotificationStreamService {
 
     private Object lockFor(Long userId) {
         return userLocks.computeIfAbsent(userId, ignored -> new Object());
+    }
+
+    private void completeWithError(Long userId, String connectionId, SseEmitter emitter, Throwable error) {
+        removeEmitter(userId, connectionId);
+        try {
+            emitter.completeWithError(error);
+        } catch (RuntimeException completeError) {
+            log.debug("Failed to complete SSE emitter with error: userId={}, connectionId={}",
+                    userId,
+                    connectionId,
+                    completeError);
+        }
     }
 
     private void removeEmptyUser(Long userId, Map<String, EmitterConnection> expectedEmitters) {

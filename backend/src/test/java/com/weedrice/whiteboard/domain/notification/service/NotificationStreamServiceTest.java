@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
@@ -52,6 +53,48 @@ class NotificationStreamServiceTest {
         service.deliverNotification(1L, notification(1L));
 
         assertThat(connectionCount(service, 1L)).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("subscribe removes and completes emitter with error when connect event fails")
+    void subscribe_connectEventFails_completesEmitterWithError() {
+        FailingSseEmitter emitter = FailingSseEmitter.failImmediately();
+        NotificationStreamService service = new FixedEmitterNotificationStreamService(emitter);
+
+        SseEmitter subscribed = service.subscribe(1L);
+
+        assertThat(subscribed).isSameAs(emitter);
+        assertThat(connectionCount(service, 1L)).isZero();
+        assertThat(emitter.completedWithError()).isTrue();
+        assertThat(emitter.completionError()).isInstanceOf(IOException.class);
+    }
+
+    @Test
+    @DisplayName("heartbeat failure removes and completes emitter with error")
+    void sendHeartbeat_sendFails_completesEmitterWithError() {
+        FailingSseEmitter emitter = FailingSseEmitter.failAfterConnectEvent();
+        NotificationStreamService service = new FixedEmitterNotificationStreamService(emitter);
+        service.subscribe(1L);
+
+        service.sendHeartbeat();
+
+        assertThat(connectionCount(service, 1L)).isZero();
+        assertThat(emitter.completedWithError()).isTrue();
+        assertThat(emitter.completionError()).isInstanceOf(IOException.class);
+    }
+
+    @Test
+    @DisplayName("notification delivery failure removes and completes emitter with error")
+    void deliverNotification_sendFails_completesEmitterWithError() {
+        FailingSseEmitter emitter = FailingSseEmitter.failAfterConnectEvent();
+        NotificationStreamService service = new FixedEmitterNotificationStreamService(emitter);
+        service.subscribe(1L);
+
+        service.deliverNotification(1L, notification(1L));
+
+        assertThat(connectionCount(service, 1L)).isZero();
+        assertThat(emitter.completedWithError()).isTrue();
+        assertThat(emitter.completionError()).isInstanceOf(IOException.class);
     }
 
     @Test
@@ -180,5 +223,62 @@ class NotificationStreamServiceTest {
             Thread.sleep(10L);
         }
         throw new AssertionError("subscriber did not wait for the stale user lock");
+    }
+
+    private static class FixedEmitterNotificationStreamService extends NotificationStreamService {
+
+        private final SseEmitter emitter;
+
+        private FixedEmitterNotificationStreamService(SseEmitter emitter) {
+            super(10_000L, 5);
+            this.emitter = emitter;
+        }
+
+        @Override
+        SseEmitter createEmitter() {
+            return emitter;
+        }
+    }
+
+    private static class FailingSseEmitter extends SseEmitter {
+
+        private final int successfulSends;
+        private int sends;
+        private boolean completedWithError;
+        private Throwable completionError;
+
+        private FailingSseEmitter(int successfulSends) {
+            super(10_000L);
+            this.successfulSends = successfulSends;
+        }
+
+        private static FailingSseEmitter failImmediately() {
+            return new FailingSseEmitter(0);
+        }
+
+        private static FailingSseEmitter failAfterConnectEvent() {
+            return new FailingSseEmitter(1);
+        }
+
+        @Override
+        public void send(SseEventBuilder builder) throws IOException {
+            if (sends++ >= successfulSends) {
+                throw new IOException("send failed");
+            }
+        }
+
+        @Override
+        public void completeWithError(Throwable ex) {
+            this.completedWithError = true;
+            this.completionError = ex;
+        }
+
+        private boolean completedWithError() {
+            return completedWithError;
+        }
+
+        private Throwable completionError() {
+            return completionError;
+        }
     }
 }
