@@ -105,4 +105,17 @@ public interface UserFeedRepository extends JpaRepository<UserFeed, Long>, UserF
             @Param("contentId") Long contentId,
             @Param("sourceCriteria") String sourceCriteria,
             @Param("criteriaId") Long criteriaId);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = """
+            DELETE FROM user_feeds
+            WHERE content_type = :contentType
+              AND NOT EXISTS (
+                    SELECT 1
+                    FROM posts p
+                    WHERE p.post_id = user_feeds.content_id
+                      AND p.is_deleted = 'N'
+              )
+            """, nativeQuery = true)
+    int deleteHardStalePostFeeds(@Param("contentType") String contentType);
 }

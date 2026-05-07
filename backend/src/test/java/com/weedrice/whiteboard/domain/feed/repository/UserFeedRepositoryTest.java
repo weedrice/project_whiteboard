@@ -151,6 +151,30 @@ class UserFeedRepositoryTest {
                 .contains("ON CONFLICT ON CONSTRAINT uk_user_feeds_target_content_source DO NOTHING");
     }
 
+    @Test
+    void deleteHardStalePostFeeds_deletesOnlyMissingOrDeletedPostFeeds() {
+        Post activePost = persistPost(publicBoard, author, false);
+        Post deletedPost = persistPost(publicBoard, author, false);
+        deletedPost.deletePost();
+        persistFeed(viewer, "POST", activePost.getPostId());
+        persistFeed(viewer, "POST", deletedPost.getPostId());
+        persistFeed(viewer, "POST", 999_999L);
+        persistFeed(viewer, "NOTICE", 999_999L);
+        entityManager.flush();
+        entityManager.clear();
+
+        int deletedCount = userFeedRepository.deleteHardStalePostFeeds("POST");
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(deletedCount).isEqualTo(2);
+        assertThat(userFeedRepository.findAll())
+                .extracting(UserFeed::getContentType, UserFeed::getContentId)
+                .containsExactlyInAnyOrder(
+                        org.assertj.core.groups.Tuple.tuple("POST", activePost.getPostId()),
+                        org.assertj.core.groups.Tuple.tuple("NOTICE", 999_999L));
+    }
+
     private String extractSubscriptionPostFeedTargetSelectQuery() throws NoSuchMethodException {
         String query = getInsertSubscriptionPostFeedsQuery();
         int fromStart = query.indexOf("FROM board_subscriptions");
