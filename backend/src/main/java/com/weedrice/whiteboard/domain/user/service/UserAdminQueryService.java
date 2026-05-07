@@ -2,7 +2,7 @@ package com.weedrice.whiteboard.domain.user.service;
 
 import com.weedrice.whiteboard.domain.admin.entity.Admin;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
-import com.weedrice.whiteboard.domain.admin.service.ModerationActorResolver;
+import com.weedrice.whiteboard.domain.admin.service.AdminRolePriority;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardSubscription;
 import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository;
@@ -62,7 +62,6 @@ public class UserAdminQueryService {
     private final AdminRepository adminRepository;
     private final BoardSubscriptionRepository boardSubscriptionRepository;
     private final AdminUserDetailStatsReader adminUserDetailStatsReader;
-    private final ModerationActorResolver moderationActorResolver;
 
     public Page<UserAdminResponse> searchUsersForAdmin(String keyword, Pageable pageable) {
         return searchUsersForAdmin(keyword, null, null, null, null, null,
@@ -175,9 +174,7 @@ public class UserAdminQueryService {
         if (Boolean.TRUE.equals(user.getIsSuperAdmin())) {
             return Role.SUPER_ADMIN;
         }
-        return moderationActorResolver.findActiveAdmin(user)
-                .map(Admin::getRole)
-                .orElse(Role.USER);
+        return resolveRolesForAdmin(List.of(user)).getOrDefault(user.getUserId(), Role.USER);
     }
 
     private User getUserOrThrow(Long userId) {
@@ -195,12 +192,22 @@ public class UserAdminQueryService {
             return Collections.emptyMap();
         }
 
-        return adminRepository.findByUserUserIdInAndIsActiveOrderByAdminIdAsc(userIds, true).stream()
-                .collect(Collectors.toMap(
-                        admin -> admin.getUser().getUserId(),
-                        Admin::getRole,
-                        (existingRole, ignoredRole) -> existingRole,
-                        LinkedHashMap::new));
+        Map<Long, List<Admin>> adminsByUserId = adminRepository
+                .findByUserUserIdInAndIsActiveOrderByAdminIdAsc(userIds, true)
+                .stream()
+                .collect(Collectors.groupingBy(admin -> admin.getUser().getUserId()));
+
+        Map<Long, String> rolesByUserId = new LinkedHashMap<>();
+        userIds.forEach(userId -> rolesByUserId.put(
+                userId,
+                resolveHighestPriorityRole(adminsByUserId.getOrDefault(userId, List.of()))));
+        return rolesByUserId;
+    }
+
+    private String resolveHighestPriorityRole(List<Admin> admins) {
+        return AdminRolePriority.selectHighestPriority(admins)
+                .map(Admin::getRole)
+                .orElse(Role.USER);
     }
 
     private Set<Long> resolveActiveAdminBoardIds(User user) {

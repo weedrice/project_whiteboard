@@ -2,7 +2,6 @@ package com.weedrice.whiteboard.domain.user.service;
 
 import com.weedrice.whiteboard.domain.admin.entity.Admin;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
-import com.weedrice.whiteboard.domain.admin.service.ModerationActorResolver;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardSubscription;
 import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository;
@@ -54,7 +53,6 @@ class UserAdminQueryServiceTest {
     @Mock private PostRepository postRepository;
     @Mock private CommentRepository commentRepository;
     @Mock private AdminRepository adminRepository;
-    @Mock private ModerationActorResolver moderationActorResolver;
     @Mock private BoardSubscriptionRepository boardSubscriptionRepository;
     @Mock private AdminUserDetailStatsReader adminUserDetailStatsReader;
 
@@ -82,6 +80,29 @@ class UserAdminQueryServiceTest {
         assertThat(response.getContent()).extracting(UserAdminResponse::getRole)
                 .containsExactly("SUPER_ADMIN", "MODERATOR");
         verify(adminRepository).findByUserUserIdInAndIsActiveOrderByAdminIdAsc(List.of(2L), true);
+    }
+
+    @Test
+    @DisplayName("searchUsersForAdmin resolves display role by priority")
+    void searchUsersForAdmin_resolvesRoleByPriority() {
+        User adminUser = User.builder().loginId("admin").email("admin@test.com").password("pw").displayName("admin").build();
+        ReflectionTestUtils.setField(adminUser, "userId", 1L);
+
+        Page<User> page = new PageImpl<>(List.of(adminUser), PageRequest.of(0, 20), 1);
+        Admin moderator = admin(adminUser, "MODERATOR", 30L);
+        Admin boardAdmin = admin(adminUser, "BOARD_ADMIN", 40L);
+        Admin siteAdmin = admin(adminUser, "ADMIN", 20L);
+
+        when(userRepository.searchUsersForAdmin(anyString(), any(), any())).thenReturn(page);
+        when(adminRepository.findByUserUserIdInAndIsActiveOrderByAdminIdAsc(List.of(1L), true))
+                .thenReturn(List.of(moderator, boardAdmin, siteAdmin));
+
+        Page<UserAdminResponse> response = userAdminQueryService.searchUsersForAdmin(
+                "query", null, null, null, null, null,
+                null, null, null, null, null, PageRequest.of(0, 20));
+
+        assertThat(response.getContent()).extracting(UserAdminResponse::getRole)
+                .containsExactly("ADMIN");
     }
 
     @Test
@@ -137,7 +158,8 @@ class UserAdminQueryServiceTest {
         ReflectionTestUtils.setField(user, "userId", 1L);
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(moderationActorResolver.findActiveAdmin(user)).thenReturn(Optional.empty());
+        when(adminRepository.findByUserUserIdInAndIsActiveOrderByAdminIdAsc(List.of(1L), true))
+                .thenReturn(List.of());
         when(adminUserDetailStatsReader.read(user))
                 .thenReturn(new AdminUserDetailStatsReader.AdminUserDetailStats(
                         3L,
@@ -161,6 +183,38 @@ class UserAdminQueryServiceTest {
         assertThat(response.getReportSummary().getTotalCount()).isEqualTo(7L);
         assertThat(response.getReportSummary().getPendingCount()).isEqualTo(8L);
         verify(adminUserDetailStatsReader).read(user);
+    }
+
+    @Test
+    @DisplayName("getUserDetailForAdmin resolves display role by priority")
+    void getUserDetailForAdmin_resolvesRoleByPriority() {
+        User user = User.builder()
+                .loginId("target")
+                .email("target@test.com")
+                .password("pw")
+                .displayName("target")
+                .build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+        Admin moderator = admin(user, "MODERATOR", 30L);
+        Admin boardAdmin = admin(user, "BOARD_ADMIN", 40L);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(adminRepository.findByUserUserIdInAndIsActiveOrderByAdminIdAsc(List.of(1L), true))
+                .thenReturn(List.of(moderator, boardAdmin));
+        when(adminUserDetailStatsReader.read(user))
+                .thenReturn(new AdminUserDetailStatsReader.AdminUserDetailStats(
+                        0L,
+                        0L,
+                        0L,
+                        null,
+                        0L,
+                        null,
+                        0L,
+                        0L));
+
+        AdminUserDetailResponse response = userAdminQueryService.getUserDetailForAdmin(1L);
+
+        assertThat(response.getRole()).isEqualTo("BOARD_ADMIN");
     }
 
     @Test
@@ -327,5 +381,15 @@ class UserAdminQueryServiceTest {
             assertThat(item.getInaccessibleReason()).isNull();
         });
         verify(adminRepository).findActiveBoardIdsByUser(user);
+    }
+
+    private Admin admin(User user, String role, Long adminId) {
+        Admin targetAdmin = Admin.builder()
+                .user(user)
+                .board(null)
+                .role(role)
+                .build();
+        ReflectionTestUtils.setField(targetAdmin, "adminId", adminId);
+        return targetAdmin;
     }
 }
