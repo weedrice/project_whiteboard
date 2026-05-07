@@ -214,14 +214,14 @@ public class PostInteractionService {
     }
 
     public ScrapListResponse getMyScraps(@NonNull Long userId, @NonNull Pageable pageable) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        PostReadContext context = postReadContextResolver.resolveForExistingUser(userId);
+        User user = context.viewer();
         Pageable safePageable = PageRequestUtils.of(
                 pageable,
                 DEFAULT_SCRAP_PAGE_SIZE,
                 DEFAULT_SCRAP_SORT,
                 ALLOWED_SCRAP_SORTS);
-        Set<Long> blockedUserIds = postReadContextResolver.resolveForExistingUser(userId).blockedUserIdSet();
+        Set<Long> blockedUserIds = context.blockedUserIdSet();
         List<Long> blockedUserIdParams = blockedUserIds.isEmpty()
                 ? List.of(-1L)
                 : new ArrayList<>(blockedUserIds);
@@ -235,9 +235,9 @@ public class PostInteractionService {
     }
 
     public Page<PostSummary> getRecentlyViewedPosts(@NonNull Long userId, @NonNull Pageable pageable) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        Set<Long> blockedUserIds = postReadContextResolver.resolveForExistingUser(userId).blockedUserIdSet();
+        PostReadContext context = postReadContextResolver.resolveForExistingUser(userId);
+        User user = context.viewer();
+        Set<Long> blockedUserIds = context.blockedUserIdSet();
         List<Long> blockedUserIdParams = blockedUserIds.isEmpty()
                 ? List.of(-1L)
                 : new ArrayList<>(blockedUserIds);

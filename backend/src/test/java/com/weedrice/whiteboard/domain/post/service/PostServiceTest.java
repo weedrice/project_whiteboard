@@ -1163,6 +1163,7 @@ class PostServiceTest {
         assertThat(response.getContent().getFirst().getPost().getBoardName()).isEqualTo("Test Board");
         verify(scrapRepository).findPageByUserWithPostDetails(
                 eq(user), eq(false), eq(true), eq(NO_BLOCKED_USER_IDS), any(Pageable.class));
+        verify(userRepository).findById(1L);
     }
 
     @Test
