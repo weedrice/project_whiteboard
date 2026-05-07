@@ -124,7 +124,13 @@ vi.mock('@tiptap/extension-color', () => ({
 }))
 vi.mock('@tiptap/extension-highlight', () => ({ default: { configure: vi.fn(() => ({})) } }))
 vi.mock('@tiptap/extension-link', () => ({ default: { configure: vi.fn(() => ({})) } }))
-vi.mock('@tiptap/extension-image', () => ({ default: { configure: vi.fn(() => ({})) } }))
+vi.mock('@tiptap/extension-image', () => {
+    const extension = {
+        configure: vi.fn(() => ({})),
+        extend: vi.fn(() => extension),
+    }
+    return { default: extension }
+})
 vi.mock('@tiptap/extension-text-align', () => ({ default: { configure: vi.fn(() => ({})) } }))
 vi.mock('@tiptap/extension-table', () => ({ TableKit: { configure: vi.fn(() => ({})) } }))
 vi.mock('@tiptap/extension-horizontal-rule', () => ({ default: {} }))
@@ -220,10 +226,16 @@ const openAdvancedTools = async (wrapper: ReturnType<typeof mountEditor>) => {
 describe('PostEditorTipTap', () => {
     afterEach(() => {
         vi.restoreAllMocks()
+        vi.unstubAllGlobals()
     })
 
     beforeEach(() => {
         vi.clearAllMocks()
+        vi.stubGlobal('URL', {
+            ...URL,
+            createObjectURL: vi.fn(() => 'blob:https://noviis.kr/local-preview'),
+            revokeObjectURL: vi.fn(),
+        })
         mocks.editorRef.value = mocks.editor
         mocks.themeStore.isDark = false
         mocks.editor.getHTML.mockReturnValue('<p>editor-html</p>')
@@ -408,7 +420,9 @@ describe('PostEditorTipTap', () => {
         mocks.uploadImage.mockResolvedValueOnce({ url: 'https://cdn.test/u1.png', fileId: 88 })
         setFile('ok.png')
         await fileInput.trigger('change')
-        expect(mocks.chain.setImage).toHaveBeenCalledWith({ src: 'https://cdn.test/u1.png' })
+        expect(mocks.chain.insertContent).toHaveBeenCalledWith(expect.stringContaining('src="blob:https://noviis.kr/local-preview"'))
+        expect(mocks.chain.insertContent).toHaveBeenCalledWith(expect.stringContaining('data-file-id="88"'))
+        expect(mocks.chain.insertContent).toHaveBeenCalledWith(expect.stringContaining('data-server-src="https://cdn.test/u1.png"'))
 
         mocks.validateImageFile.mockReturnValueOnce(null)
         mocks.uploadImage.mockRejectedValueOnce(new Error('abort'))
@@ -424,6 +438,9 @@ describe('PostEditorTipTap', () => {
         await fileInput.trigger('change')
         expect(mocks.loggerError).toHaveBeenCalledWith('Image upload failed:', expect.any(Error))
         expect(mocks.toastAdd).toHaveBeenCalledWith('common.messages.uploadFailed', 'error')
+
+        wrapper.unmount()
+        expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:https://noviis.kr/local-preview')
     })
 
     it('supports list helpers and slash menu actions', async () => {

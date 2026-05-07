@@ -22,6 +22,7 @@ import { extractErrorMessage } from '@/utils/errorHandler'
 import { formatDate } from '@/utils/date'
 import { isValidEmail } from '@/utils/validation'
 import { renderCommentContentHtml } from '@/utils/commentContent'
+import { applyImageFallback } from '@/utils/imageFallback'
 import type { User as UserType, PostSummary, Post, Comment } from '@/types'
 import type { UserAgent } from '@/api/user'
 
@@ -540,14 +541,14 @@ onUnmounted(() => {
                   </div>
                   <div class="mt-1 comment-content-list">
                     <p class="text-sm text-gray-900 dark:text-gray-300 line-clamp-2"
-                      v-html="renderCommentContent(comment.content)"></p>
+                      v-html="renderCommentContent(comment.content)" @error.capture="applyImageFallback"></p>
                   </div>
                 </router-link>
                 <div v-else class="block">
                   <p class="text-sm text-gray-500 dark:text-gray-400">{{ t('user.comments.deletedPost') }}</p>
                   <div class="comment-content-list mt-1">
                     <p class="text-sm text-gray-900 dark:text-gray-300 line-clamp-2"
-                      v-html="renderCommentContent(comment.content)"></p>
+                      v-html="renderCommentContent(comment.content)" @error.capture="applyImageFallback"></p>
                   </div>
                 </div>
               </li>
@@ -649,7 +650,7 @@ onUnmounted(() => {
             </div>
 
             <div class="max-h-[60vh] overflow-y-auto rounded-md bg-gray-50 p-4 text-sm text-gray-800 dark:bg-gray-900/30 dark:text-gray-200">
-              <div v-if="selectedInquiryPost.contents" class="break-words leading-6" v-html="selectedInquiryPost.contents" />
+              <div v-if="selectedInquiryPost.contents" class="break-words leading-6" v-html="selectedInquiryPost.contents" @error.capture="applyImageFallback" />
               <div v-else>-</div>
             </div>
 

@@ -37,6 +37,13 @@ describe('commentContent', () => {
         expect(blankHtml).not.toContain('<img')
     })
 
+    it('normalizes legacy file emoticon URLs', () => {
+        const html = renderCommentContentHtml('![emoticon](/files/123?size=sm)', 'emoji')
+
+        expect(html).toContain('/api/v1/files/123?size=sm')
+        expect(html).not.toContain('src="/files/123')
+    })
+
     it('preserves line breaks in comment text', () => {
         const html = renderCommentContentHtml('first line\nsecond line')
 

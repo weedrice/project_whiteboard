@@ -31,7 +31,7 @@ public class WebConfig implements WebMvcConfigurer {
         // Rate Limiting 인터셉터 (rate-limit.enabled=true일 때만 적용)
         if (rateLimitProperties.isEnabled()) {
             registry.addInterceptor(rateLimitInterceptor)
-                    .addPathPatterns("/api/**")
+                    .addPathPatterns("/api/**", "/files/**")
                     .order(1);
         }
 

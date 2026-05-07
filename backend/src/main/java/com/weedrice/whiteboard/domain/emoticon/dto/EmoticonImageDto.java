@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.emoticon.dto;
 
 import com.weedrice.whiteboard.domain.emoticon.entity.EmoticonImage;
+import com.weedrice.whiteboard.domain.file.support.FileUrlResolver;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -20,7 +21,7 @@ public class EmoticonImageDto {
         return EmoticonImageDto.builder()
                 .imageId(image.getImageId())
                 .emoticonId(image.getEmoticonMaster().getEmoticonId())
-                .imageUrl(image.getImageUrl())
+                .imageUrl(FileUrlResolver.normalize(image.getImageUrl()))
                 .sortOrder(image.getSortOrder())
                 .build();
     }

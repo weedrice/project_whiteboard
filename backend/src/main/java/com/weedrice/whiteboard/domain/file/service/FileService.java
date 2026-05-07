@@ -1,6 +1,8 @@
 package com.weedrice.whiteboard.domain.file.service;
 
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
+import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonImageRepository;
+import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonMasterRepository;
 import com.weedrice.whiteboard.domain.file.dto.FileSimpleResponse;
 import com.weedrice.whiteboard.domain.file.dto.FileUploadResponse;
 import com.weedrice.whiteboard.domain.file.entity.File;
@@ -57,6 +59,8 @@ public class FileService {
     private final BoardRepository boardRepository;
     private final FileStorageService fileStorageService;
     private final TransactionTemplate transactionTemplate;
+    private final EmoticonImageRepository emoticonImageRepository;
+    private final EmoticonMasterRepository emoticonMasterRepository;
     @PersistenceContext
     private EntityManager entityManager;
 
@@ -372,8 +376,39 @@ public class FileService {
             if (temporaryFileIds.isEmpty()) {
                 continue;
             }
-            fileRepository.requestDeletionForTemporaryFiles(temporaryFileIds, deleteRequestedAt);
+            List<Long> cleanupFileIds = excludeEmoticonReferencedFileIds(temporaryFileIds);
+            if (!cleanupFileIds.isEmpty()) {
+                fileRepository.requestDeletionForTemporaryFiles(cleanupFileIds, deleteRequestedAt);
+            }
         } while (!temporaryFileIds.isEmpty());
+    }
+
+    private List<Long> excludeEmoticonReferencedFileIds(List<Long> fileIds) {
+        if (fileIds == null || fileIds.isEmpty()) {
+            return List.of();
+        }
+
+        Map<String, Long> fileIdsByUrl = new LinkedHashMap<>();
+        for (Long fileId : fileIds) {
+            for (String candidateUrl : FileUrlResolver.referenceCandidates(fileId)) {
+                fileIdsByUrl.put(candidateUrl, fileId);
+            }
+        }
+
+        Set<Long> referencedFileIds = new LinkedHashSet<>();
+        List<String> candidateUrls = fileIdsByUrl.keySet().stream().toList();
+        List<String> imageUrls = emoticonImageRepository.findReferencedImageUrls(candidateUrls);
+        if (imageUrls != null) {
+            imageUrls.forEach(url -> referencedFileIds.add(fileIdsByUrl.get(url)));
+        }
+        List<String> thumbnailUrls = emoticonMasterRepository.findReferencedThumbnailUrls(candidateUrls);
+        if (thumbnailUrls != null) {
+            thumbnailUrls.forEach(url -> referencedFileIds.add(fileIdsByUrl.get(url)));
+        }
+
+        return fileIds.stream()
+                .filter(fileId -> !referencedFileIds.contains(fileId))
+                .toList();
     }
 
     public List<File> getFilesByRelatedEntity(Long relatedId, String relatedType) {

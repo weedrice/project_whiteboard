@@ -114,6 +114,13 @@ public class File extends BaseTimeEntity {
         this.deleteLastError = null;
     }
 
+    public void cancelDeletionRequest() {
+        this.storageStatus = FileStorageStatus.ACTIVE;
+        this.deleteRequestedAt = null;
+        this.deleteLastError = null;
+        this.deleteRetryCount = 0;
+    }
+
     public void markDeletionFailed(String deleteLastError) {
         this.storageStatus = FileStorageStatus.DELETE_FAILED;
         this.deleteRequestedAt = LocalDateTime.now();

@@ -483,7 +483,7 @@ describe('PostForm', () => {
                 title: 'Created title',
                 categoryId: 12,
                 tags: ['alpha', 'beta'],
-                contents: 'Created body <img src="/api/v1/files/7"><img src="/files/8?download=true">',
+                contents: 'Created body <img src="/api/v1/files/7"><img src="/api/v1/files/8?download=true">',
                 isNsfw: true,
                 isSpoiler: true,
                 isSecret: false,
@@ -494,6 +494,25 @@ describe('PostForm', () => {
 
         options.onSuccess({ data: { data: 99 } })
         expect(mockPush).toHaveBeenCalledWith('/board/free/post/99')
+    })
+
+    it('normalizes local editor preview images before submit', async () => {
+        categoriesRef.value = [{ categoryId: 12, name: 'General', minWriteRole: 'USER' }]
+        const wrapper = mountPostForm('create')
+
+        await wrapper.get('#title').setValue('Created title')
+        await wrapper.get('#category').setValue('12')
+        await wrapper.get('[data-testid=\"editor-input\"]').setValue(
+            '<p><img src="blob:https://noviis.kr/local" data-file-id="157" data-server-src="/api/v1/files/157"></p>',
+        )
+
+        await wrapper.get('form').trigger('submit')
+
+        const [variables] = mockCreateMutate.mock.calls.at(-1) as [any]
+        expect(variables.data.fileIds).toEqual([157])
+        expect(variables.data.contents).toContain('src="/api/v1/files/157"')
+        expect(variables.data.contents).not.toContain('blob:https://noviis.kr/local')
+        expect(variables.data.contents).not.toContain('data-file-id')
     })
 
     it('redirects to custom route after create when redirectOnCreate is provided', async () => {
@@ -616,6 +635,7 @@ describe('PostForm', () => {
 
         const [variables] = mockUpdateMutate.mock.calls.at(-1) as [any]
         expect(variables.data.fileIds).toEqual([31, 32])
+        expect(variables.data.contents).toContain('src="/api/v1/files/32?size=sm"')
     })
 
     it('keeps current edit category when it is no longer selectable', async () => {

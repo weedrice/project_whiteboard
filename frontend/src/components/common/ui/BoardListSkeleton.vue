@@ -1,11 +1,51 @@
 <template>
-  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-    <div v-for="i in count" :key="i" 
-      class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 flex items-center space-x-4 transition-colors duration-200">
-      <BaseSkeleton width="3rem" height="3rem" rounded="rounded-full" />
-      <div class="flex-1">
-        <BaseSkeleton width="60%" height="24px" className="mb-2" />
-        <BaseSkeleton width="90%" height="16px" />
+  <div class="space-y-6" aria-busy="true">
+    <div v-if="showSubscribed" class="mb-12">
+      <BaseSkeleton width="9rem" height="1.75rem" className="mb-6" />
+      <div class="flex space-x-6 overflow-hidden p-2 pb-4">
+        <div
+          v-for="i in subscribedCount"
+          :key="`subscribed-${i}`"
+          class="flex min-w-[80px] flex-shrink-0 flex-col items-center"
+        >
+          <BaseSkeleton width="4rem" height="4rem" rounded="rounded-full" />
+          <BaseSkeleton width="4.5rem" height="1rem" className="mt-3" />
+        </div>
+      </div>
+    </div>
+
+    <BaseSkeleton v-if="showSubscribed" width="7rem" height="1.75rem" className="mb-6" />
+
+    <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      <div
+        v-for="i in count"
+        :key="i"
+        class="block overflow-hidden rounded-lg border border-gray-100 bg-white shadow transition-colors duration-200 dark:border-gray-700 dark:bg-gray-800"
+      >
+        <div class="p-6">
+          <div class="flex items-center">
+            <BaseSkeleton width="3rem" height="3rem" rounded="rounded-md" className="flex-shrink-0" />
+            <div class="ml-4 min-w-0 flex-1">
+              <BaseSkeleton width="70%" height="1.75rem" />
+              <div class="mt-1 flex items-center">
+                <BaseSkeleton width="1rem" height="1rem" rounded="rounded-full" className="mr-1.5 flex-shrink-0" />
+                <BaseSkeleton width="45%" height="1rem" />
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-4 space-y-2">
+            <BaseSkeleton width="100%" height="1rem" />
+            <BaseSkeleton width="72%" height="1rem" />
+          </div>
+
+          <div class="mt-4 flex items-center justify-between border-t border-gray-100 pt-4 dark:border-gray-700">
+            <div class="flex items-center">
+              <BaseSkeleton width="1rem" height="1rem" rounded="rounded-full" className="mr-1.5 flex-shrink-0" />
+              <BaseSkeleton width="7.5rem" height="1rem" />
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -16,7 +56,11 @@ import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 
 withDefaults(defineProps<{
   count?: number
+  showSubscribed?: boolean
+  subscribedCount?: number
 }>(), {
-  count: 6
+  count: 6,
+  showSubscribed: false,
+  subscribedCount: 6
 })
 </script>

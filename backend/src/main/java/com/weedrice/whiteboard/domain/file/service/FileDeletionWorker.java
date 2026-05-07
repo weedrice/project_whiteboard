@@ -1,7 +1,10 @@
 package com.weedrice.whiteboard.domain.file.service;
 
+import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonImageRepository;
+import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonMasterRepository;
 import com.weedrice.whiteboard.domain.file.entity.File;
 import com.weedrice.whiteboard.domain.file.repository.FileRepository;
+import com.weedrice.whiteboard.domain.file.support.FileUrlResolver;
 import com.weedrice.whiteboard.global.common.util.FileStorageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,6 +23,8 @@ public class FileDeletionWorker {
     private final FileRepository fileRepository;
     private final FileStorageService fileStorageService;
     private final TransactionTemplate transactionTemplate;
+    private final EmoticonImageRepository emoticonImageRepository;
+    private final EmoticonMasterRepository emoticonMasterRepository;
     private final Set<Long> processingFileIds = ConcurrentHashMap.newKeySet();
 
     public boolean tryClaim(Long fileId) {
@@ -35,6 +40,10 @@ public class FileDeletionWorker {
         try {
             File file = fileRepository.findById(fileId).orElse(null);
             if (file == null || !file.isDeletionRequested()) {
+                return;
+            }
+            if (isReferencedByEmoticon(file)) {
+                cancelDeletion(fileId);
                 return;
             }
 
@@ -58,6 +67,23 @@ public class FileDeletionWorker {
             markDeletionFailed(fileId, e);
             return false;
         }
+    }
+
+    private boolean isReferencedByEmoticon(File file) {
+        if (file.getFileId() == null) {
+            return false;
+        }
+        var candidateUrls = FileUrlResolver.referenceCandidates(file.getFileId());
+        return emoticonImageRepository.existsByImageUrlIn(candidateUrls)
+                || emoticonMasterRepository.existsByThumbnailUrlIn(candidateUrls);
+    }
+
+    private void cancelDeletion(Long fileId) {
+        transactionTemplate.executeWithoutResult(status -> fileRepository.findById(fileId).ifPresent(current -> {
+            if (current.isDeletionRequested() && isReferencedByEmoticon(current)) {
+                current.cancelDeletionRequest();
+            }
+        }));
     }
 
     private void markDeletionFailed(Long fileId, RuntimeException cause) {

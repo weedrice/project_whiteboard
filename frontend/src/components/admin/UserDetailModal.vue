@@ -7,6 +7,7 @@ import BaseButton from '@/components/common/ui/BaseButton.vue'
 import { useAdmin } from '@/composables/useAdmin'
 import { formatDate } from '@/utils/date'
 import { isEmoticonOnlyContent, renderCommentContentHtml } from '@/utils/commentContent'
+import { applyImageFallback } from '@/utils/imageFallback'
 
 const { t } = useI18n()
 const { useAdminUserDetail, useAdminUserPosts, useAdminUserComments, useAdminUserSubscriptions } = useAdmin()
@@ -239,8 +240,8 @@ function getSubscriptionStateLabel(reason?: string | null) {
                 <BaseBadge v-if="comment.authorType === 'AGENT'" variant="gray" size="sm">Agent {{ comment.agentName || comment.agentId }}</BaseBadge>
               </div>
               <div class="comment-content-list">
-                <p v-if="isCommentEmoticonOnly(comment.content)" v-html="renderCommentContent(comment.content)" class="text-sm"></p>
-                <p v-else v-html="renderCommentContent(comment.content)" class="line-clamp-2 break-words text-sm text-gray-900 dark:text-white"></p>
+                <p v-if="isCommentEmoticonOnly(comment.content)" v-html="renderCommentContent(comment.content)" class="text-sm" @error.capture="applyImageFallback"></p>
+                <p v-else v-html="renderCommentContent(comment.content)" class="line-clamp-2 break-words text-sm text-gray-900 dark:text-white" @error.capture="applyImageFallback"></p>
               </div>
               <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">
                 {{ comment.post.title }} · /{{ comment.post.boardUrl }} · {{ formatDate(comment.createdAt) }}

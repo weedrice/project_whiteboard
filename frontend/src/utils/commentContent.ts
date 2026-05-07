@@ -1,4 +1,5 @@
 import { sanitizeHtml } from '@/utils/sanitize'
+import { normalizeFileUrl } from '@/utils/fileUrl'
 
 const EMOTICON_PATTERN = /!\[emoticon\]\(([^)]+)\)/g
 const EMOTICON_ONLY_PATTERN = /^!\[emoticon\]\([^)]+\)$/
@@ -14,7 +15,7 @@ function escapeHtmlAttribute(value: string): string {
 function normalizeEmoticonUrl(rawUrl: string): string | null {
     const trimmed = rawUrl.trim()
     if (!trimmed) return null
-    if (trimmed.startsWith('/')) return trimmed
+    if (trimmed.startsWith('/')) return normalizeFileUrl(trimmed)
     if (/^https?:\/\//i.test(trimmed)) return trimmed
     return null
 }

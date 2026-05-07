@@ -88,6 +88,7 @@ public class SecurityConfig {
                                                                 "/actuator/health")
                                                 .permitAll()
                                                 .requestMatchers(HttpMethod.GET,
+                                                                "/files/**",
                                                                 "/api/v1/files/**",
                                                                 "/api/v1/home/**",
                                                                 "/api/v1/boards/**", // /boards 로 시작하는 모든 GET 요청 허용

@@ -17,6 +17,7 @@ import { useToastStore } from '@/stores/toast'
 import EmoticonPicker from '@/components/common/widgets/EmoticonPicker.vue'
 import PostEditorTipTap from '@/components/board/PostEditorTipTap.vue'
 import { sanitizeQuillHtml } from '@/utils/sanitize'
+import { normalizeEditorFileImageUrls, normalizeLegacyFileUrls } from '@/utils/fileUrl'
 import logger from '@/utils/logger'
 
 const props = defineProps<{
@@ -157,6 +158,14 @@ function extractFileIdsFromContent(content: string): number[] {
   const parser = new DOMParser()
   const doc = parser.parseFromString(content, 'text/html')
   doc.querySelectorAll('img[src]').forEach((image) => {
+    const dataFileIdAttribute = image.getAttribute('data-file-id')
+    const dataFileId = dataFileIdAttribute && /^\d+$/.test(dataFileIdAttribute)
+      ? Number(dataFileIdAttribute)
+      : null
+    if (dataFileId != null && Number.isSafeInteger(dataFileId)) {
+      fileIds.add(dataFileId)
+      return
+    }
     const fileId = extractFileIdFromImageSrc(image.getAttribute('src') ?? '')
     if (fileId != null) {
       fileIds.add(fileId)
@@ -288,6 +297,7 @@ function applyDraftSnapshot(draft: {
 
 const buildPayload = (fileIdScope: 'content' | 'draft' = 'content') => {
   const fileIds = resolvePayloadFileIds(fileIdScope)
+  const contents = normalizeLegacyFileUrls(normalizeEditorFileImageUrls(form.value.content))
   const parsedCategoryId = typeof form.value.categoryId === 'string'
     ? parseInt(form.value.categoryId, 10)
     : form.value.categoryId
@@ -299,7 +309,7 @@ const buildPayload = (fileIdScope: 'content' | 'draft' = 'content') => {
     title: form.value.title,
     ...(categoryId !== undefined && { categoryId }),
     tags: props.hideTags ? [] : form.value.tags,
-    contents: form.value.content,
+    contents,
     isNsfw: canShowNsfw.value ? form.value.isNsfw : false,
     isSpoiler: props.hideSpoiler ? false : form.value.isSpoiler,
     isSecret: props.hideSecret ? false : form.value.isSecret,

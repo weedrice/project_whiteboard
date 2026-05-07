@@ -8,6 +8,7 @@ import { useHead } from '@unhead/vue'
 import { Search, X, PlusCircle, TrendingUp } from 'lucide-vue-next'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
+import { DEFAULT_EMOTICON_IMAGE_URL, applyImageFallback } from '@/utils/imageFallback'
 import type { EmoticonSearchParams } from '@/types/emoticon'
 
 const router = useRouter()
@@ -138,7 +139,19 @@ const periodLabels = {
 
       <!-- 인기 노비콘 그리드 -->
       <div v-if="popularLoading" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-        <div v-for="i in 5" :key="i" class="animate-pulse bg-gray-200 dark:bg-gray-700 rounded-lg aspect-square"></div>
+        <div
+          v-for="i in 5"
+          :key="i"
+          class="relative bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden animate-pulse"
+        >
+          <div class="absolute top-2 left-2 z-10 w-6 h-6 bg-gray-300 dark:bg-gray-600 rounded-full"></div>
+          <div class="aspect-square bg-gray-200 dark:bg-gray-700"></div>
+          <div class="p-3 space-y-2">
+            <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
+            <div class="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
+            <div class="h-3 bg-gray-200 dark:bg-gray-700 rounded w-2/3"></div>
+          </div>
+        </div>
       </div>
       <div v-else-if="popularEmoticons && popularEmoticons.length > 0" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
         <div
@@ -154,14 +167,11 @@ const periodLabels = {
           <!-- 썸네일 -->
           <div class="aspect-square bg-gray-100 dark:bg-gray-700">
             <img
-              v-if="emoticon.thumbnailUrl"
-              :src="emoticon.thumbnailUrl"
+              :src="emoticon.thumbnailUrl || DEFAULT_EMOTICON_IMAGE_URL"
               :alt="emoticon.name"
               class="w-full h-full object-contain"
+              @error="applyImageFallback"
             />
-            <div v-else class="w-full h-full flex items-center justify-center text-gray-400">
-              No Image
-            </div>
           </div>
           <!-- 정보 -->
           <div class="p-3">
@@ -212,7 +222,18 @@ const periodLabels = {
 
       <!-- 전체 노비콘 그리드 -->
       <div v-if="emoticonsLoading" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-        <div v-for="i in 10" :key="i" class="animate-pulse bg-gray-200 dark:bg-gray-700 rounded-lg aspect-square"></div>
+        <div
+          v-for="i in 10"
+          :key="i"
+          class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden animate-pulse"
+        >
+          <div class="aspect-square bg-gray-200 dark:bg-gray-700"></div>
+          <div class="p-3 space-y-2">
+            <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
+            <div class="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
+            <div class="h-3 bg-gray-200 dark:bg-gray-700 rounded w-2/3"></div>
+          </div>
+        </div>
       </div>
       <div v-else-if="emoticons.length > 0" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
         <div
@@ -224,14 +245,11 @@ const periodLabels = {
           <!-- 썸네일 -->
           <div class="aspect-square bg-gray-100 dark:bg-gray-700">
             <img
-              v-if="emoticon.thumbnailUrl"
-              :src="emoticon.thumbnailUrl"
+              :src="emoticon.thumbnailUrl || DEFAULT_EMOTICON_IMAGE_URL"
               :alt="emoticon.name"
               class="w-full h-full object-contain"
+              @error="applyImageFallback"
             />
-            <div v-else class="w-full h-full flex items-center justify-center text-gray-400">
-              No Image
-            </div>
           </div>
           <!-- 정보 -->
           <div class="p-3">

@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.emoticon.dto;
 
 import com.weedrice.whiteboard.domain.emoticon.entity.EmoticonImage;
 import com.weedrice.whiteboard.domain.emoticon.entity.EmoticonMaster;
+import com.weedrice.whiteboard.domain.file.support.FileUrlResolver;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -33,7 +34,7 @@ public class EmoticonMasterDto {
         return EmoticonMasterDto.builder()
                 .emoticonId(master.getEmoticonId())
                 .name(master.getName())
-                .thumbnailUrl(master.getThumbnailUrl())
+                .thumbnailUrl(FileUrlResolver.normalize(master.getThumbnailUrl()))
                 .tags(master.getTags())
                 .isActive("Y".equals(master.getIsActive()))
                 .creatorId(master.getCreator() != null ? master.getCreator().getUserId() : null)
@@ -59,7 +60,7 @@ public class EmoticonMasterDto {
         return EmoticonMasterDto.builder()
                 .emoticonId(master.getEmoticonId())
                 .name(master.getName())
-                .thumbnailUrl(master.getThumbnailUrl())
+                .thumbnailUrl(FileUrlResolver.normalize(master.getThumbnailUrl()))
                 .tags(master.getTags())
                 .isActive("Y".equals(master.getIsActive()))
                 .creatorId(creatorId)
