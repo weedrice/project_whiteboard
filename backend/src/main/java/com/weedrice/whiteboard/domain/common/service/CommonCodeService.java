@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Service
@@ -111,6 +112,10 @@ public class CommonCodeService {
     public CommonCodeDetailResponse updateCommonCodeDetail(Long id, CommonCodeDetailRequest request) {
         CommonCodeDetail detail = commonCodeDetailRepository.findById(id)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+
+        if (!Objects.equals(detail.getCodeValue(), request.getCodeValue())) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR);
+        }
 
         Boolean isActive = request.getIsActive() != null ? request.getIsActive() : detail.getIsActive();
         detail.update(request.getCodeName(), request.getSortOrder(), isActive);

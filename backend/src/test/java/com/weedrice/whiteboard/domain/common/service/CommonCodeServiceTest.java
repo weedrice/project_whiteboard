@@ -269,6 +269,7 @@ class CommonCodeServiceTest {
     void updateCommonCodeDetail_success() {
         // given
         CommonCodeDetailRequest request = new CommonCodeDetailRequest();
+        ReflectionTestUtils.setField(request, "codeValue", "TEST_VALUE");
         ReflectionTestUtils.setField(request, "codeName", "Updated Value");
         ReflectionTestUtils.setField(request, "sortOrder", 2);
         ReflectionTestUtils.setField(request, "isActive", false);
@@ -287,6 +288,7 @@ class CommonCodeServiceTest {
     @DisplayName("공통 코드 상세 수정 시 isActive가 없으면 기존 상태를 유지한다")
     void updateCommonCodeDetail_nullIsActive_keepsCurrentValue() {
         CommonCodeDetailRequest request = new CommonCodeDetailRequest();
+        ReflectionTestUtils.setField(request, "codeValue", "TEST_VALUE");
         ReflectionTestUtils.setField(request, "codeName", "Updated Value");
         ReflectionTestUtils.setField(request, "sortOrder", 2);
 
@@ -297,6 +299,24 @@ class CommonCodeServiceTest {
         assertThat(response.getIsActive()).isTrue();
         assertThat(commonCodeDetail.getIsActive()).isTrue();
         verify(commonCodeDetailRepository).findById(1L);
+    }
+
+    @Test
+    @DisplayName("공통 코드 상세 수정 시 코드값 변경 요청은 검증 오류로 거부한다")
+    void updateCommonCodeDetail_changedCodeValue_throwsValidationError() {
+        CommonCodeDetailRequest request = new CommonCodeDetailRequest();
+        ReflectionTestUtils.setField(request, "codeValue", "CHANGED_VALUE");
+        ReflectionTestUtils.setField(request, "codeName", "Updated Value");
+        ReflectionTestUtils.setField(request, "sortOrder", 2);
+
+        when(commonCodeDetailRepository.findById(1L)).thenReturn(Optional.of(commonCodeDetail));
+
+        assertThatThrownBy(() -> commonCodeService.updateCommonCodeDetail(1L, request))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VALIDATION_ERROR);
+
+        assertThat(commonCodeDetail.getCodeValue()).isEqualTo("TEST_VALUE");
+        assertThat(commonCodeDetail.getCodeName()).isEqualTo("Test Value");
     }
 
     @Test
