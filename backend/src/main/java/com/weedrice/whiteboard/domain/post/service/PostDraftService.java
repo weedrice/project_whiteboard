@@ -27,6 +27,7 @@ import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Objects;
 import java.util.Set;
 
 @Service
@@ -91,6 +92,7 @@ public class PostDraftService {
         if (request.getOriginalPostId() != null) {
             originalPost = postRepository.findById(request.getOriginalPostId())
                     .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
+            validateOriginalPostForDraft(originalPost, user, board, category);
         }
 
         DraftPost draftPost = resolveDraftPost(user, request, board, category, originalPost);
@@ -162,5 +164,13 @@ public class PostDraftService {
         }
         return boardCategoryRepository.findByCategoryIdAndBoard_BoardIdAndIsActive(categoryId, board.getBoardId(), true)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+    }
+
+    private void validateOriginalPostForDraft(Post originalPost, User user, Board board, BoardCategory category) {
+        postAuthorCommandPolicy.validateAuthorCommand(originalPost, user);
+        if (!Objects.equals(originalPost.getBoard().getBoardId(), board.getBoardId())) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        postAuthorCommandPolicy.validateWritableCommand(originalPost, user, originalPost.getCategory());
     }
 }

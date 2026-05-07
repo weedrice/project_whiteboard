@@ -1229,7 +1229,7 @@ class PostServiceTest {
     @Test
     @DisplayName("초안 저장 시 확장 필드와 파일 연결 정보를 함께 보존한다")
     void saveDraftPost_persistsExtendedFields() {
-        Post originalPost = Post.builder().title("Original").board(board).user(user).build();
+        Post originalPost = Post.builder().title("Original").board(board).category(category).user(user).build();
         ReflectionTestUtils.setField(originalPost, "postId", 77L);
         PostDraftRequest request = PostDraftRequest.builder()
                 .boardUrl("free")
@@ -1298,6 +1298,143 @@ class PostServiceTest {
 
         assertThat(draft.getTitle()).isEqualTo("New Title");
         verify(fileService).syncDraftFiles(Collections.emptyList(), 1L, 10L);
+    }
+
+    @Test
+    @DisplayName("draft original post must belong to current user")
+    void saveDraftPost_originalPostOtherAuthor_forbidden() {
+        User otherAuthor = User.builder().loginId("other").displayName("Other").build();
+        ReflectionTestUtils.setField(otherAuthor, "userId", 2L);
+        Post originalPost = Post.builder()
+                .title("Original")
+                .contents("Content")
+                .board(board)
+                .category(category)
+                .user(otherAuthor)
+                .build();
+        ReflectionTestUtils.setField(originalPost, "postId", 77L);
+        PostDraftRequest request = PostDraftRequest.builder()
+                .boardUrl("free")
+                .title("Draft")
+                .contents("Content")
+                .categoryId(1L)
+                .originalPostId(77L)
+                .build();
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
+        when(boardCategoryRepository.findByCategoryIdAndBoard_BoardIdAndIsActive(1L, 1L, true))
+                .thenReturn(Optional.of(category));
+        when(postRepository.findById(77L)).thenReturn(Optional.of(originalPost));
+
+        assertThatThrownBy(() -> postService.saveDraftPost(1L, request))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
+
+        verify(draftPostRepository, never()).save(any(DraftPost.class));
+        verify(fileService, never()).syncDraftFiles(any(), anyLong(), anyLong());
+    }
+
+    @Test
+    @DisplayName("draft original post must not be deleted")
+    void saveDraftPost_originalPostDeleted_notFound() {
+        Post originalPost = Post.builder()
+                .title("Original")
+                .contents("Content")
+                .board(board)
+                .category(category)
+                .user(user)
+                .build();
+        ReflectionTestUtils.setField(originalPost, "postId", 77L);
+        originalPost.deletePost();
+        PostDraftRequest request = PostDraftRequest.builder()
+                .boardUrl("free")
+                .title("Draft")
+                .contents("Content")
+                .categoryId(1L)
+                .originalPostId(77L)
+                .build();
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
+        when(boardCategoryRepository.findByCategoryIdAndBoard_BoardIdAndIsActive(1L, 1L, true))
+                .thenReturn(Optional.of(category));
+        when(postRepository.findById(77L)).thenReturn(Optional.of(originalPost));
+
+        assertThatThrownBy(() -> postService.saveDraftPost(1L, request))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
+
+        verify(draftPostRepository, never()).save(any(DraftPost.class));
+        verify(fileService, never()).syncDraftFiles(any(), anyLong(), anyLong());
+    }
+
+    @Test
+    @DisplayName("draft original post must match requested board")
+    void saveDraftPost_originalPostBoardMismatch_invalidInput() {
+        Board otherBoard = Board.builder().boardName("Other").creator(user).build();
+        ReflectionTestUtils.setField(otherBoard, "boardId", 2L);
+        ReflectionTestUtils.setField(otherBoard, "isActive", true);
+        Post originalPost = Post.builder()
+                .title("Original")
+                .contents("Content")
+                .board(otherBoard)
+                .user(user)
+                .build();
+        ReflectionTestUtils.setField(originalPost, "postId", 77L);
+        PostDraftRequest request = PostDraftRequest.builder()
+                .boardUrl("free")
+                .title("Draft")
+                .contents("Content")
+                .originalPostId(77L)
+                .build();
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
+        when(postRepository.findById(77L)).thenReturn(Optional.of(originalPost));
+
+        assertThatThrownBy(() -> postService.saveDraftPost(1L, request))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+
+        verify(draftPostRepository, never()).save(any(DraftPost.class));
+        verify(fileService, never()).syncDraftFiles(any(), anyLong(), anyLong());
+    }
+
+    @Test
+    @DisplayName("draft update also validates original post ownership")
+    void saveDraftPost_updateOriginalPostOtherAuthor_forbidden() {
+        User otherAuthor = User.builder().loginId("other").displayName("Other").build();
+        ReflectionTestUtils.setField(otherAuthor, "userId", 2L);
+        Post originalPost = Post.builder()
+                .title("Original")
+                .contents("Content")
+                .board(board)
+                .category(category)
+                .user(otherAuthor)
+                .build();
+        ReflectionTestUtils.setField(originalPost, "postId", 77L);
+        PostDraftRequest request = PostDraftRequest.builder()
+                .draftId(10L)
+                .boardUrl("free")
+                .title("Draft")
+                .contents("Content")
+                .categoryId(1L)
+                .originalPostId(77L)
+                .build();
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
+        when(boardCategoryRepository.findByCategoryIdAndBoard_BoardIdAndIsActive(1L, 1L, true))
+                .thenReturn(Optional.of(category));
+        when(postRepository.findById(77L)).thenReturn(Optional.of(originalPost));
+
+        assertThatThrownBy(() -> postService.saveDraftPost(1L, request))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
+
+        verify(draftPostRepository, never()).save(any(DraftPost.class));
+        verify(fileService, never()).syncDraftFiles(any(), anyLong(), anyLong());
     }
 
     @Test
@@ -2573,9 +2710,17 @@ class PostServiceTest {
     @Test
     @DisplayName("초안 저장 - originalPostId 포함")
     void saveDraftPost_withOriginalPost() {
-        PostDraftRequest request = new PostDraftRequest(null, "free", "Draft", "Content", 1L);
+        PostDraftRequest request = PostDraftRequest.builder()
+                .boardUrl("free")
+                .title("Draft")
+                .contents("Content")
+                .categoryId(1L)
+                .originalPostId(1L)
+                .build();
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
+        when(boardCategoryRepository.findByCategoryIdAndBoard_BoardIdAndIsActive(1L, 1L, true))
+                .thenReturn(Optional.of(category));
         when(postRepository.findById(1L)).thenReturn(Optional.of(post));
         when(draftPostRepository.save(any(DraftPost.class))).thenAnswer(i -> i.getArgument(0));
 
