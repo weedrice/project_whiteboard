@@ -23,11 +23,8 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.HexFormat;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
@@ -87,14 +84,14 @@ public class AgentLifecycleService {
 
     @Transactional(noRollbackFor = ExpiredPendingClaimNotFoundException.class)
     public AgentResponse claim(Long userId, AgentClaimRequest request, AgentRequestContext requestContext) {
-        Agent agent = agentRepository.findByAgentTokenHashAndIsDeletedFalseForUpdate(hashToken(request.getAgentToken()))
-                .orElseThrow(() -> new BusinessException(ErrorCode.AGENT_NOT_FOUND));
-        refreshLockedAgent(agent);
-        List<Agent> existingAgents = agentRepository.findByUserIdAndIsDeletedFalseForUpdateOrderByAgentIdAsc(userId);
         User user = resolveActiveOwnerForUpdate(userId);
         if (!Boolean.TRUE.equals(user.getIsEmailVerified())) {
             throw new BusinessException(ErrorCode.EMAIL_NOT_VERIFIED);
         }
+
+        Agent agent = agentRepository.findByAgentTokenHashAndIsDeletedFalseForUpdate(hashToken(request.getAgentToken()))
+                .orElseThrow(() -> new BusinessException(ErrorCode.AGENT_NOT_FOUND));
+        refreshLockedAgent(agent);
 
         if (agent.isPendingClaim() && isPendingClaimExpired(agent)) {
             agent.softDelete();
@@ -118,8 +115,7 @@ public class AgentLifecycleService {
             return AgentResponse.from(agent);
         }
 
-        existingAgents = mergeAgents(existingAgents,
-                agentRepository.findByUserIdAndIsDeletedFalseForUpdateOrderByAgentIdAsc(userId));
+        List<Agent> existingAgents = agentRepository.findByUserIdAndIsDeletedFalseForUpdateOrderByAgentIdAsc(userId);
         softDeleteOtherAgentsForUser(existingAgents, user, agent.getAgentId(), requestContext);
         agent.claim(user);
         agentAuditService.saveLog(agent, user, "CLAIM", "AGENT", agent.getAgentId(), requestContext);
@@ -151,8 +147,8 @@ public class AgentLifecycleService {
 
     @Transactional
     public AgentResponse suspendMyAgent(Long userId, Long agentId, AgentRequestContext requestContext) {
-        Agent agent = getOwnedAgentForUpdate(userId, agentId);
         User user = resolveActiveOwnerForUpdate(userId);
+        Agent agent = getOwnedAgentForUpdate(user, agentId);
         agent.suspend();
         agentAuditService.saveLog(agent, user, "SUSPEND", "AGENT", agent.getAgentId(), requestContext);
         return AgentResponse.from(agent);
@@ -160,8 +156,8 @@ public class AgentLifecycleService {
 
     @Transactional
     public AgentResponse activateMyAgent(Long userId, Long agentId, AgentRequestContext requestContext) {
-        Agent agent = getOwnedAgentForUpdate(userId, agentId);
         User user = resolveActiveOwnerForUpdate(userId);
+        Agent agent = getOwnedAgentForUpdate(user, agentId);
         if (agent.isActive()) {
             return AgentResponse.from(agent);
         }
@@ -178,8 +174,8 @@ public class AgentLifecycleService {
 
     @Transactional
     public void deleteMyAgent(Long userId, Long agentId, AgentRequestContext requestContext) {
-        Agent agent = getOwnedAgentForUpdate(userId, agentId);
         User user = resolveActiveOwnerForUpdate(userId);
+        Agent agent = getOwnedAgentForUpdate(user, agentId);
         agent.softDelete();
         agentAuditService.saveLog(agent, user, "DELETE", "AGENT", agent.getAgentId(), requestContext);
     }
@@ -205,22 +201,6 @@ public class AgentLifecycleService {
                     agentAuditService.saveLog(existingAgent, user, "DELETE", "AGENT", existingAgent.getAgentId(),
                             requestContext);
                 });
-    }
-
-    private List<Agent> mergeAgents(List<Agent> first, List<Agent> second) {
-        Map<Long, Agent> merged = new LinkedHashMap<>();
-        addAgentsById(merged, first);
-        addAgentsById(merged, second);
-        return new ArrayList<>(merged.values());
-    }
-
-    private void addAgentsById(Map<Long, Agent> target, List<Agent> agents) {
-        if (agents == null) {
-            return;
-        }
-        agents.stream()
-                .filter(Objects::nonNull)
-                .forEach(agent -> target.putIfAbsent(agent.getAgentId(), agent));
     }
 
     private boolean isPendingClaimExpired(Agent agent) {
@@ -257,11 +237,11 @@ public class AgentLifecycleService {
         sanctionPolicyService.validateNotBanned(user);
     }
 
-    private Agent getOwnedAgentForUpdate(Long userId, Long agentId) {
+    private Agent getOwnedAgentForUpdate(User user, Long agentId) {
         Agent agent = agentRepository.findByAgentIdForUpdate(agentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.AGENT_NOT_FOUND));
         refreshLockedAgent(agent);
-        if (agent.getUser() == null || !Objects.equals(agent.getUser().getUserId(), userId)) {
+        if (agent.getUser() == null || !Objects.equals(agent.getUser().getUserId(), user.getUserId())) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
         return agent;
