@@ -6,6 +6,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 
+import java.util.List;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 class EmoticonMasterRepositoryTest {
@@ -23,5 +25,20 @@ class EmoticonMasterRepositoryTest {
         assertThat(query.value())
                 .doesNotContain("JOIN FETCH")
                 .contains("e.emoticonId = :emoticonId");
+    }
+
+    @Test
+    @DisplayName("findFileAccessTargets resolves master by id or file URL references")
+    void findFileAccessTargets_declaresMasterAccessQuery() throws NoSuchMethodException {
+        var method = EmoticonMasterRepository.class.getMethod("findFileAccessTargets", Long.class, List.class);
+
+        Query query = method.getAnnotation(Query.class);
+
+        assertThat(query).isNotNull();
+        assertThat(query.value())
+                .contains("LEFT JOIN FETCH e.creator")
+                .contains("e.emoticonId = :emoticonId")
+                .contains("e.thumbnailUrl IN :fileUrls")
+                .contains("i.imageUrl IN :fileUrls");
     }
 }

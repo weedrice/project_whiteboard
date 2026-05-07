@@ -40,6 +40,9 @@ public class OAuthUserResolutionService {
         if (email == null || email.isBlank()) {
             return Optional.empty();
         }
+        if (!extractAttributes.isEmailVerified()) {
+            return Optional.empty();
+        }
 
         Optional<User> userOptional = userRepository.findByEmail(email);
         if (userOptional.isEmpty()) {

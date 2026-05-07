@@ -57,6 +57,19 @@ public interface EmoticonMasterRepository extends JpaRepository<EmoticonMaster, 
     @Query("SELECT DISTINCT e.thumbnailUrl FROM EmoticonMaster e WHERE e.thumbnailUrl IN :thumbnailUrls")
     List<String> findReferencedThumbnailUrls(@Param("thumbnailUrls") List<String> thumbnailUrls);
 
+    @Query("""
+            SELECT DISTINCT e
+            FROM EmoticonMaster e
+            LEFT JOIN FETCH e.creator
+            LEFT JOIN e.images i
+            WHERE e.emoticonId = :emoticonId
+               OR e.thumbnailUrl IN :fileUrls
+               OR i.imageUrl IN :fileUrls
+            """)
+    List<EmoticonMaster> findFileAccessTargets(
+            @Param("emoticonId") Long emoticonId,
+            @Param("fileUrls") List<String> fileUrls);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT e FROM EmoticonMaster e WHERE e.emoticonId = :emoticonId")
     Optional<EmoticonMaster> findByIdForUpdate(@Param("emoticonId") Long emoticonId);

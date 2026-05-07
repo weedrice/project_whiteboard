@@ -64,6 +64,7 @@ class OAuthUserResolutionServiceTest {
                 Map.of(
                         "sub", "provider-user-id",
                         "email", "oauth@example.com",
+                        "email_verified", true,
                         "name", "OAuth User",
                         "picture", "https://example.com/p.png"));
     }
@@ -88,6 +89,33 @@ class OAuthUserResolutionServiceTest {
     }
 
     @Test
+    @DisplayName("linked social account is resolved even when provider email is unverified")
+    void resolveUser_linkedAccountIgnoresEmailVerificationFlag() {
+        OAuthAttributes unverifiedAttributes = OAuthAttributes.of(
+                "google",
+                "sub",
+                Map.of(
+                        "sub", "provider-user-id",
+                        "email", "oauth@example.com",
+                        "email_verified", false,
+                        "name", "OAuth User",
+                        "picture", "https://example.com/p.png"));
+        SocialAccount socialAccount = SocialAccount.builder()
+                .user(user)
+                .provider("google")
+                .providerId("provider-user-id")
+                .build();
+        when(socialAccountRepository.findByProviderAndProviderId("google", "provider-user-id"))
+                .thenReturn(Optional.of(socialAccount));
+
+        Optional<User> resolvedUser = oauthUserResolutionService.resolveUser("google", unverifiedAttributes);
+
+        assertThat(resolvedUser).contains(user);
+        verify(sanctionService).validateNotBanned(user);
+        verify(socialAccountLinkService, never()).linkSocialAccount(any(), any(), any());
+    }
+
+    @Test
     @DisplayName("이메일 일치 사용자가 있으면 소셜 계정을 링크한 뒤 반환한다")
     void resolveUser_linksExistingEmailUser() {
         when(socialAccountRepository.findByProviderAndProviderId("google", "provider-user-id"))
@@ -99,6 +127,74 @@ class OAuthUserResolutionServiceTest {
         assertThat(resolvedUser).contains(user);
         verify(sanctionService).validateNotBanned(user);
         verify(socialAccountLinkService).linkSocialAccount(user, "google", "provider-user-id");
+    }
+
+    @Test
+    @DisplayName("email auto-link is skipped when provider email is not verified")
+    void resolveUser_unverifiedProviderEmail_skipsEmailLink() {
+        OAuthAttributes unverifiedAttributes = OAuthAttributes.of(
+                "google",
+                "sub",
+                Map.of(
+                        "sub", "provider-user-id",
+                        "email", "oauth@example.com",
+                        "email_verified", false,
+                        "name", "OAuth User",
+                        "picture", "https://example.com/p.png"));
+        when(socialAccountRepository.findByProviderAndProviderId("google", "provider-user-id"))
+                .thenReturn(Optional.empty());
+
+        Optional<User> resolvedUser = oauthUserResolutionService.resolveUser("google", unverifiedAttributes);
+
+        assertThat(resolvedUser).isEmpty();
+        verify(userRepository, never()).findByEmail(any());
+        verify(socialAccountLinkService, never()).linkSocialAccount(any(), any(), any());
+        verify(sanctionService, never()).validateNotBanned(any());
+    }
+
+    @Test
+    @DisplayName("email auto-link is skipped when provider verification is missing")
+    void resolveUser_missingProviderEmailVerification_skipsEmailLink() {
+        OAuthAttributes unverifiedAttributes = OAuthAttributes.of(
+                "google",
+                "sub",
+                Map.of(
+                        "sub", "provider-user-id",
+                        "email", "oauth@example.com",
+                        "name", "OAuth User",
+                        "picture", "https://example.com/p.png"));
+        when(socialAccountRepository.findByProviderAndProviderId("google", "provider-user-id"))
+                .thenReturn(Optional.empty());
+
+        Optional<User> resolvedUser = oauthUserResolutionService.resolveUser("google", unverifiedAttributes);
+
+        assertThat(resolvedUser).isEmpty();
+        verify(userRepository, never()).findByEmail(any());
+        verify(socialAccountLinkService, never()).linkSocialAccount(any(), any(), any());
+        verify(sanctionService, never()).validateNotBanned(any());
+    }
+
+    @Test
+    @DisplayName("discord verified email can auto-link an existing email user")
+    void resolveUser_discordVerifiedEmail_linksExistingEmailUser() {
+        OAuthAttributes discordAttributes = OAuthAttributes.of(
+                "discord",
+                "id",
+                Map.of(
+                        "id", "discord-user-id",
+                        "email", "oauth@example.com",
+                        "verified", true,
+                        "username", "OAuth User",
+                        "avatar", "avatar.png"));
+        when(socialAccountRepository.findByProviderAndProviderId("discord", "discord-user-id"))
+                .thenReturn(Optional.empty());
+        when(userRepository.findByEmail("oauth@example.com")).thenReturn(Optional.of(user));
+
+        Optional<User> resolvedUser = oauthUserResolutionService.resolveUser("discord", discordAttributes);
+
+        assertThat(resolvedUser).contains(user);
+        verify(sanctionService).validateNotBanned(user);
+        verify(socialAccountLinkService).linkSocialAccount(user, "discord", "discord-user-id");
     }
 
     @Test

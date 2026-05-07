@@ -1,6 +1,6 @@
 package com.weedrice.whiteboard.domain.file.service;
 
-import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonImageRepository;
+import com.weedrice.whiteboard.domain.emoticon.entity.EmoticonMaster;
 import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonMasterRepository;
 import com.weedrice.whiteboard.domain.file.entity.File;
 import com.weedrice.whiteboard.domain.file.entity.FileStorageStatus;
@@ -27,6 +27,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -45,8 +46,6 @@ class FileAccessServiceTest {
     @Mock
     private UserBlockService userBlockService;
     @Mock
-    private EmoticonImageRepository emoticonImageRepository;
-    @Mock
     private EmoticonMasterRepository emoticonMasterRepository;
 
     private FileAccessService fileAccessService;
@@ -59,7 +58,6 @@ class FileAccessServiceTest {
                 userRepository,
                 postAccessPolicy,
                 userBlockService,
-                emoticonImageRepository,
                 emoticonMasterRepository);
     }
 
@@ -126,9 +124,7 @@ class FileAccessServiceTest {
     void getFileForDownload_publicTypes_skipAccessPolicy() {
         List<String> relatedTypes = List.of(
                 FileRelatedType.USER_PROFILE,
-                FileRelatedType.BOARD_ICON,
-                FileRelatedType.EMOTICON_IMAGE,
-                FileRelatedType.EMOTICON_THUMBNAIL);
+                FileRelatedType.BOARD_ICON);
 
         for (int i = 0; i < relatedTypes.size(); i++) {
             Long fileId = 10L + i;
@@ -144,7 +140,95 @@ class FileAccessServiceTest {
     }
 
     @Test
-    @DisplayName("초안 파일은 업로더만 다운로드할 수 있다")
+    @DisplayName("active emoticon files are public")
+    void getFileForDownload_activeEmoticonFile_allowsAnonymous() {
+        File file = file(FileRelatedType.EMOTICON_IMAGE, 100L);
+        ReflectionTestUtils.setField(file, "fileId", 10L);
+        EmoticonMaster master = emoticonMaster(100L, User.builder().build(), true);
+        when(fileRepository.findByFileIdAndStorageStatus(10L, FileStorageStatus.ACTIVE)).thenReturn(Optional.of(file));
+        when(emoticonMasterRepository.findFileAccessTargets(100L, List.of("/api/v1/files/10", "/files/10")))
+                .thenReturn(List.of(master));
+
+        File result = fileAccessService.getFileForDownload(10L, null);
+
+        assertThat(result).isSameAs(file);
+        verifyNoInteractions(postRepository, userRepository, postAccessPolicy, userBlockService);
+    }
+
+    @Test
+    @DisplayName("inactive emoticon files are available to the owner")
+    void getFileForDownload_inactiveEmoticonFile_allowsOwner() {
+        User owner = User.builder().build();
+        ReflectionTestUtils.setField(owner, "userId", 1L);
+        File file = file(FileRelatedType.EMOTICON_THUMBNAIL, 100L);
+        ReflectionTestUtils.setField(file, "fileId", 10L);
+        EmoticonMaster master = emoticonMaster(100L, owner, false);
+        when(fileRepository.findByFileIdAndStorageStatus(10L, FileStorageStatus.ACTIVE)).thenReturn(Optional.of(file));
+        when(emoticonMasterRepository.findFileAccessTargets(100L, List.of("/api/v1/files/10", "/files/10")))
+                .thenReturn(List.of(master));
+
+        File result = fileAccessService.getFileForDownload(10L, 1L);
+
+        assertThat(result).isSameAs(file);
+        verify(emoticonMasterRepository, never()).canUseEmoticon(1L, 100L);
+    }
+
+    @Test
+    @DisplayName("inactive emoticon files are available to entitled users")
+    void getFileForDownload_inactiveEmoticonFile_allowsEntitledUser() {
+        User owner = User.builder().build();
+        ReflectionTestUtils.setField(owner, "userId", 2L);
+        File file = file(FileRelatedType.EMOTICON_IMAGE, 100L);
+        ReflectionTestUtils.setField(file, "fileId", 10L);
+        EmoticonMaster master = emoticonMaster(100L, owner, false);
+        when(fileRepository.findByFileIdAndStorageStatus(10L, FileStorageStatus.ACTIVE)).thenReturn(Optional.of(file));
+        when(emoticonMasterRepository.findFileAccessTargets(100L, List.of("/api/v1/files/10", "/files/10")))
+                .thenReturn(List.of(master));
+        when(emoticonMasterRepository.canUseEmoticon(1L, 100L)).thenReturn(true);
+
+        File result = fileAccessService.getFileForDownload(10L, 1L);
+
+        assertThat(result).isSameAs(file);
+        verify(emoticonMasterRepository).canUseEmoticon(1L, 100L);
+    }
+
+    @Test
+    @DisplayName("inactive emoticon files reject anonymous users")
+    void getFileForDownload_inactiveEmoticonFile_anonymousForbidden() {
+        User owner = User.builder().build();
+        ReflectionTestUtils.setField(owner, "userId", 2L);
+        File file = file(FileRelatedType.EMOTICON_IMAGE, 100L);
+        ReflectionTestUtils.setField(file, "fileId", 10L);
+        EmoticonMaster master = emoticonMaster(100L, owner, false);
+        when(fileRepository.findByFileIdAndStorageStatus(10L, FileStorageStatus.ACTIVE)).thenReturn(Optional.of(file));
+        when(emoticonMasterRepository.findFileAccessTargets(100L, List.of("/api/v1/files/10", "/files/10")))
+                .thenReturn(List.of(master));
+
+        assertThatThrownBy(() -> fileAccessService.getFileForDownload(10L, null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
+    }
+
+    @Test
+    @DisplayName("inactive emoticon files reject users without entitlement")
+    void getFileForDownload_inactiveEmoticonFile_unauthorizedForbidden() {
+        User owner = User.builder().build();
+        ReflectionTestUtils.setField(owner, "userId", 2L);
+        File file = file(FileRelatedType.EMOTICON_IMAGE, 100L);
+        ReflectionTestUtils.setField(file, "fileId", 10L);
+        EmoticonMaster master = emoticonMaster(100L, owner, false);
+        when(fileRepository.findByFileIdAndStorageStatus(10L, FileStorageStatus.ACTIVE)).thenReturn(Optional.of(file));
+        when(emoticonMasterRepository.findFileAccessTargets(100L, List.of("/api/v1/files/10", "/files/10")))
+                .thenReturn(List.of(master));
+        when(emoticonMasterRepository.canUseEmoticon(1L, 100L)).thenReturn(false);
+
+        assertThatThrownBy(() -> fileAccessService.getFileForDownload(10L, 1L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
+    }
+
+    @Test
+    @DisplayName("draft files are available to uploaders only")
     void getFileForDownload_draftFile_allowsUploaderOnly() {
         User uploader = User.builder().build();
         ReflectionTestUtils.setField(uploader, "userId", 1L);
@@ -183,12 +267,14 @@ class FileAccessServiceTest {
     }
 
     @Test
-    @DisplayName("이모티콘 이미지 URL로 참조된 레거시 파일은 공개 다운로드를 허용한다")
-    void getFileForDownload_unassociatedEmoticonImage_allowsAnonymous() {
+    @DisplayName("legacy active emoticon file URL references are public")
+    void getFileForDownload_legacyActiveEmoticonFile_allowsAnonymous() {
         File file = file(null, null, User.builder().build());
         ReflectionTestUtils.setField(file, "fileId", 10L);
+        EmoticonMaster master = emoticonMaster(100L, User.builder().build(), true);
         when(fileRepository.findByFileIdAndStorageStatus(10L, FileStorageStatus.ACTIVE)).thenReturn(Optional.of(file));
-        when(emoticonImageRepository.existsByImageUrlIn(List.of("/api/v1/files/10", "/files/10"))).thenReturn(true);
+        when(emoticonMasterRepository.findFileAccessTargets(null, List.of("/api/v1/files/10", "/files/10")))
+                .thenReturn(List.of(master));
 
         File result = fileAccessService.getFileForDownload(10L, null);
 
@@ -197,18 +283,18 @@ class FileAccessServiceTest {
     }
 
     @Test
-    @DisplayName("이모티콘 썸네일 URL로 참조된 레거시 파일은 공개 다운로드를 허용한다")
-    void getFileForDownload_unassociatedEmoticonThumbnail_allowsAnonymous() {
+    @DisplayName("legacy inactive emoticon file URL references reject anonymous users")
+    void getFileForDownload_legacyInactiveEmoticonFile_anonymousForbidden() {
         File file = file(null, null, User.builder().build());
         ReflectionTestUtils.setField(file, "fileId", 10L);
+        EmoticonMaster master = emoticonMaster(100L, User.builder().build(), false);
         when(fileRepository.findByFileIdAndStorageStatus(10L, FileStorageStatus.ACTIVE)).thenReturn(Optional.of(file));
-        when(emoticonImageRepository.existsByImageUrlIn(List.of("/api/v1/files/10", "/files/10"))).thenReturn(false);
-        when(emoticonMasterRepository.existsByThumbnailUrlIn(List.of("/api/v1/files/10", "/files/10"))).thenReturn(true);
+        when(emoticonMasterRepository.findFileAccessTargets(null, List.of("/api/v1/files/10", "/files/10")))
+                .thenReturn(List.of(master));
 
-        File result = fileAccessService.getFileForDownload(10L, null);
-
-        assertThat(result).isSameAs(file);
-        verifyNoInteractions(postRepository, userRepository, postAccessPolicy, userBlockService);
+        assertThatThrownBy(() -> fileAccessService.getFileForDownload(10L, null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
     }
 
     @Test
@@ -237,6 +323,19 @@ class FileAccessServiceTest {
 
     private File file(String relatedType, Long relatedId) {
         return file(relatedType, relatedId, User.builder().build());
+    }
+
+    private EmoticonMaster emoticonMaster(Long emoticonId, User creator, boolean active) {
+        EmoticonMaster master = EmoticonMaster.builder()
+                .name("emoticon")
+                .thumbnailUrl("/api/v1/files/10")
+                .creator(creator)
+                .build();
+        ReflectionTestUtils.setField(master, "emoticonId", emoticonId);
+        if (!active) {
+            master.deactivate();
+        }
+        return master;
     }
 
     private File file(String relatedType, Long relatedId, User uploader) {

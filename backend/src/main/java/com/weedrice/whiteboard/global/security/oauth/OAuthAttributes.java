@@ -1,6 +1,5 @@
 package com.weedrice.whiteboard.global.security.oauth;
 
-import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import lombok.Builder;
 import lombok.Getter;
@@ -16,15 +15,17 @@ public class OAuthAttributes {
     private String email;
     private String picture;
     private String nameAttributeKey;
+    private boolean emailVerified;
 
     @Builder
     public OAuthAttributes(Map<String, Object> attributes, String nameAttributeKey, String name, String email,
-            String picture) {
+            String picture, boolean emailVerified) {
         this.attributes = attributes;
         this.nameAttributeKey = nameAttributeKey;
         this.name = name;
         this.email = email;
         this.picture = picture;
+        this.emailVerified = emailVerified;
     }
 
     public String getProviderId() {
@@ -51,6 +52,7 @@ public class OAuthAttributes {
                 .name((String) attributes.get("name"))
                 .email((String) attributes.get("email"))
                 .picture((String) attributes.get("picture"))
+                .emailVerified(isTrue(attributes.get("email_verified")))
                 .attributes(attributes)
                 .nameAttributeKey(userNameAttributeName)
                 .build();
@@ -63,6 +65,7 @@ public class OAuthAttributes {
                 .name((String) response.get("name"))
                 .email((String) response.get("email"))
                 .picture((String) response.get("profile_image"))
+                .emailVerified(false)
                 .attributes(response)
                 .nameAttributeKey(userNameAttributeName)
                 .build();
@@ -73,6 +76,7 @@ public class OAuthAttributes {
                 .name((String) attributes.get("name"))
                 .email((String) attributes.get("email"))
                 .picture((String) attributes.get("avatar_url"))
+                .emailVerified(false)
                 .attributes(attributes)
                 .nameAttributeKey(userNameAttributeName)
                 .build();
@@ -84,9 +88,14 @@ public class OAuthAttributes {
                 .email((String) attributes.get("email"))
                 .picture("https://cdn.discordapp.com/avatars/" + attributes.get("id") + "/" + attributes.get("avatar")
                         + ".png")
+                .emailVerified(isTrue(attributes.get("verified")))
                 .attributes(attributes)
                 .nameAttributeKey(userNameAttributeName)
                 .build();
+    }
+
+    private static boolean isTrue(Object value) {
+        return Boolean.TRUE.equals(value);
     }
 
     public User toEntity(String registrationId, String nameAttributeKey) {

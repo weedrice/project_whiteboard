@@ -1,6 +1,6 @@
 package com.weedrice.whiteboard.domain.file.service;
 
-import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonImageRepository;
+import com.weedrice.whiteboard.domain.emoticon.entity.EmoticonMaster;
 import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonMasterRepository;
 import com.weedrice.whiteboard.domain.file.entity.File;
 import com.weedrice.whiteboard.domain.file.entity.FileStorageStatus;
@@ -18,6 +18,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -28,7 +30,6 @@ class FileAccessService {
     private final UserRepository userRepository;
     private final PostAccessPolicy postAccessPolicy;
     private final UserBlockService userBlockService;
-    private final EmoticonImageRepository emoticonImageRepository;
     private final EmoticonMasterRepository emoticonMasterRepository;
 
     public File getFileForDownload(Long fileId, Long viewerUserId) {
@@ -41,14 +42,14 @@ class FileAccessService {
     private void validateReadable(File file, Long viewerUserId) {
         String relatedType = file.getRelatedType();
         if (relatedType == null && file.getRelatedId() == null) {
-            if (isReferencedByEmoticon(file)) {
+            if (tryValidateReferencedEmoticonReadable(file, viewerUserId)) {
                 return;
             }
             validateUploader(file, viewerUserId);
             return;
         }
         if (relatedType == null || file.getRelatedId() == null) {
-            if (isReferencedByEmoticon(file)) {
+            if (tryValidateReferencedEmoticonReadable(file, viewerUserId)) {
                 return;
             }
             throw new BusinessException(ErrorCode.FORBIDDEN);
@@ -63,19 +64,19 @@ class FileAccessService {
                 postAccessPolicy.validateReadable(post, viewer, authorBlocked);
             }
             case FileRelatedType.USER_PROFILE,
-                    FileRelatedType.BOARD_ICON,
-                    FileRelatedType.EMOTICON_THUMBNAIL,
-                    FileRelatedType.EMOTICON_IMAGE -> {
+                    FileRelatedType.BOARD_ICON -> {
                 return;
             }
+            case FileRelatedType.EMOTICON_THUMBNAIL,
+                    FileRelatedType.EMOTICON_IMAGE -> validateEmoticonFile(file, viewerUserId);
             case FileRelatedType.DRAFT_POST -> {
-                if (isReferencedByEmoticon(file)) {
+                if (tryValidateReferencedEmoticonReadable(file, viewerUserId)) {
                     return;
                 }
                 validateUploader(file, viewerUserId);
             }
             default -> {
-                if (isReferencedByEmoticon(file)) {
+                if (tryValidateReferencedEmoticonReadable(file, viewerUserId)) {
                     return;
                 }
                 throw new BusinessException(ErrorCode.FORBIDDEN);
@@ -83,13 +84,51 @@ class FileAccessService {
         }
     }
 
-    private boolean isReferencedByEmoticon(File file) {
-        if (file.getFileId() == null) {
+    private void validateEmoticonFile(File file, Long viewerUserId) {
+        List<EmoticonMaster> masters = findEmoticonFileAccessTargets(file, file.getRelatedId());
+        if (masters.isEmpty()) {
+            throw new BusinessException(ErrorCode.NOT_FOUND);
+        }
+        validateEmoticonMastersReadable(masters, viewerUserId);
+    }
+
+    private boolean tryValidateReferencedEmoticonReadable(File file, Long viewerUserId) {
+        List<EmoticonMaster> masters = findEmoticonFileAccessTargets(file, null);
+        if (masters.isEmpty()) {
             return false;
         }
-        java.util.List<String> candidateUrls = FileUrlResolver.referenceCandidates(file.getFileId());
-        return emoticonImageRepository.existsByImageUrlIn(candidateUrls)
-                || emoticonMasterRepository.existsByThumbnailUrlIn(candidateUrls);
+        validateEmoticonMastersReadable(masters, viewerUserId);
+        return true;
+    }
+
+    private List<EmoticonMaster> findEmoticonFileAccessTargets(File file, Long emoticonId) {
+        if (file.getFileId() == null) {
+            return List.of();
+        }
+        List<String> candidateUrls = FileUrlResolver.referenceCandidates(file.getFileId());
+        return emoticonMasterRepository.findFileAccessTargets(emoticonId, candidateUrls);
+    }
+
+    private void validateEmoticonMastersReadable(List<EmoticonMaster> masters, Long viewerUserId) {
+        if (masters.stream().anyMatch(this::isActiveEmoticon)) {
+            return;
+        }
+        if (viewerUserId == null) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
+        if (masters.stream().anyMatch(master -> master.isOwner(viewerUserId))) {
+            return;
+        }
+        for (EmoticonMaster master : masters) {
+            if (emoticonMasterRepository.canUseEmoticon(viewerUserId, master.getEmoticonId())) {
+                return;
+            }
+        }
+        throw new BusinessException(ErrorCode.FORBIDDEN);
+    }
+
+    private boolean isActiveEmoticon(EmoticonMaster master) {
+        return "Y".equals(master.getIsActive());
     }
 
     private void validateUploader(File file, Long viewerUserId) {
