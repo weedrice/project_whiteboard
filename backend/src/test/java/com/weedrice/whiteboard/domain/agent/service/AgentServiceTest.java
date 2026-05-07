@@ -265,6 +265,33 @@ class AgentServiceTest {
     }
 
     @Test
+    void getFeed_excludesReadableOnlyBoardWhenBoardListUsesWritablePolicy() {
+        Board readableOnlyBoard = readableOnlyAgentEnabledBoard(30L);
+
+        when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+        when(boardRepository.findByIsActiveAndIsPublicOrderBySortOrderAscBoardIdAsc(true, true))
+                .thenReturn(List.of(writableBoard, readableOnlyBoard));
+        when(boardCategoryRepository.findByBoard_BoardIdInAndIsActiveOrderByBoard_BoardIdAscSortOrderAsc(
+                List.of(10L, 30L), true)).thenReturn(List.of(
+                        defaultCategory(writableBoard, Role.BOARD_ADMIN),
+                        defaultCategory(readableOnlyBoard, Role.BOARD_ADMIN)));
+        when(postRepository.findAgentFeedByBoardIds(
+                eq(List.of(10L)),
+                any(),
+                any(),
+                eq(1L),
+                any()))
+                .thenReturn(new PageImpl<>(List.of(writablePost), PageRequest.of(0, 10), 1));
+
+        Page<AgentPostListItem> response = agentQueryService.getFeed(7L, null, PageRequest.of(0, 10));
+
+        assertThat(response.getContent()).hasSize(1);
+        assertThat(response.getContent().get(0).getBoardId()).isEqualTo(10L);
+        verify(postRepository).findAgentFeedByBoardIds(eq(List.of(10L)), any(), any(), eq(1L), any());
+        verify(postService, never()).canWriteToBoard(anyLong(), any());
+    }
+
+    @Test
     void claim_requiresVerifiedEmail() {
         ReflectionTestUtils.setField(user, "isEmailVerified", false);
 
@@ -757,6 +784,30 @@ class AgentServiceTest {
     }
 
     @Test
+    void getBoards_excludesReadableOnlyBoardWhenBoardListUsesWritablePolicy() {
+        Board readableOnlyBoard = readableOnlyAgentEnabledBoard(30L);
+
+        when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+        when(boardRepository.findByIsActiveAndIsPublicOrderBySortOrderAscBoardIdAsc(true, true))
+                .thenReturn(List.of(writableBoard, readableOnlyBoard));
+        when(boardCategoryRepository.findByBoard_BoardIdInAndIsActiveOrderByBoard_BoardIdAscSortOrderAsc(
+                List.of(10L, 30L), true)).thenReturn(List.of(
+                        defaultCategory(writableBoard, Role.BOARD_ADMIN),
+                        defaultCategory(readableOnlyBoard, Role.BOARD_ADMIN)));
+        when(boardAiInfoRepository.findByBoard_BoardIdIn(List.of(10L))).thenReturn(List.of());
+        when(postRepository.countActiveByBoardIds(List.of(10L)))
+                .thenReturn(List.of(boardPostCount(10L, 7L)));
+
+        AgentBoardListResponse response = agentQueryService.getBoards(7L);
+
+        assertThat(response.getBoards()).hasSize(1);
+        assertThat(response.getBoards().get(0).getBoardId()).isEqualTo(10L);
+        verify(boardAiInfoRepository).findByBoard_BoardIdIn(List.of(10L));
+        verify(postRepository).countActiveByBoardIds(List.of(10L));
+        verify(postService, never()).canWriteToBoard(anyLong(), any());
+    }
+
+    @Test
     void getBoards_includesBoardAdminOnlyBoardForActiveAdmin() {
         User otherUser = User.builder().loginId("other").displayName("Other").build();
         ReflectionTestUtils.setField(otherUser, "userId", 2L);
@@ -1028,6 +1079,30 @@ class AgentServiceTest {
         assertThatThrownBy(() -> agentQueryService.getPostComments(7L, 200L, PageRequest.of(0, 10)))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
+    }
+
+    @Test
+    void getPostComments_allowsReadableOnlyBoardWithoutWritePermission() {
+        Board readableOnlyBoard = readableOnlyAgentEnabledBoard(30L);
+        Post readableOnlyPost = Post.builder()
+                .board(readableOnlyBoard)
+                .user(user)
+                .title("Readable")
+                .contents("content")
+                .build();
+        ReflectionTestUtils.setField(readableOnlyPost, "postId", 300L);
+
+        when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+        when(postService.getPostById(300L, 1L, false)).thenReturn(readableOnlyPost);
+        Pageable commentsPageable = PageRequest.of(0, 10, Sort.by(Sort.Direction.ASC, "createdAt"));
+        when(commentRepository.findParentsWithChildrenOrNotDeleted(300L, commentsPageable))
+                .thenReturn(Page.empty(commentsPageable));
+
+        Page<AgentCommentItem> response = agentQueryService.getPostComments(7L, 300L, PageRequest.of(0, 10));
+
+        assertThat(response.getContent()).isEmpty();
+        verify(commentRepository).findParentsWithChildrenOrNotDeleted(300L, commentsPageable);
+        verify(postService, never()).canWriteToBoard(anyLong(), any());
     }
 
     @Test
@@ -1311,6 +1386,21 @@ class AgentServiceTest {
                 .build();
         ReflectionTestUtils.setField(category, "categoryId", board.getBoardId() + 1000);
         return category;
+    }
+
+    private Board readableOnlyAgentEnabledBoard(Long boardId) {
+        User otherUser = User.builder().loginId("other").displayName("Other").build();
+        ReflectionTestUtils.setField(otherUser, "userId", 2L);
+        Board board = Board.builder()
+                .boardName("Readable")
+                .boardUrl("readable")
+                .creator(otherUser)
+                .build();
+        ReflectionTestUtils.setField(board, "boardId", boardId);
+        ReflectionTestUtils.setField(board, "isActive", true);
+        ReflectionTestUtils.setField(board, "isPublic", true);
+        ReflectionTestUtils.setField(board, "agentUseYn", true);
+        return board;
     }
 
     private Admin activeAdmin(User adminUser, Board board) {
