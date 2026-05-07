@@ -19,6 +19,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -50,12 +51,9 @@ class BoardResponseReadService {
                 .collect(Collectors.toMap(
                         BoardSubscriptionRepository.BoardSubscriberCountProjection::getBoardId,
                         BoardSubscriptionRepository.BoardSubscriberCountProjection::getSubscriberCount));
-        Map<Long, Long> postCounts = postRepository.countActiveByBoardIds(boardIds).stream()
-                .collect(Collectors.toMap(
-                        PostRepository.BoardPostCountProjection::getBoardId,
-                        PostRepository.BoardPostCountProjection::getPostCount));
         Map<Long, Admin> boardAdmins = resolveBoardAdmins(boardIds);
         Set<Long> adminBoardIds = resolveAdminBoardIds(currentUser, boards, boardIds);
+        Map<Long, Long> postCounts = resolvePostCounts(boards, boardIds, adminBoardIds);
         Set<Long> subscribedBoardIds = resolveSubscribedBoardIds(currentUser, boards);
         return new ListReadContext(
                 subscriberCounts,
@@ -119,6 +117,29 @@ class BoardResponseReadService {
                         Function.identity(),
                         (existing, ignored) -> existing,
                         LinkedHashMap::new));
+    }
+
+    private Map<Long, Long> resolvePostCounts(List<Board> boards, Collection<Long> boardIds, Set<Long> adminBoardIds) {
+        Set<Long> publicVisibleBoardIds = boards.stream()
+                .filter(board -> Boolean.TRUE.equals(board.getIsActive()))
+                .filter(board -> Boolean.TRUE.equals(board.getIsPublic()))
+                .map(Board::getBoardId)
+                .filter(boardId -> !adminBoardIds.contains(boardId))
+                .collect(Collectors.toSet());
+        List<Long> activeCountBoardIds = boardIds.stream()
+                .filter(boardId -> !publicVisibleBoardIds.contains(boardId))
+                .toList();
+
+        Map<Long, Long> postCounts = new HashMap<>();
+        if (!publicVisibleBoardIds.isEmpty()) {
+            postRepository.countPublicVisiblePostsByBoardIds(publicVisibleBoardIds)
+                    .forEach(count -> postCounts.put(count.getBoardId(), count.getPostCount()));
+        }
+        if (!activeCountBoardIds.isEmpty()) {
+            postRepository.countActiveByBoardIds(activeCountBoardIds)
+                    .forEach(count -> postCounts.put(count.getBoardId(), count.getPostCount()));
+        }
+        return postCounts;
     }
 
     private Set<Long> resolveAdminBoardIds(User currentUser, List<Board> boards, Collection<Long> boardIds) {

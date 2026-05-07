@@ -59,6 +59,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -169,6 +170,8 @@ class BoardServiceTest {
         lenient().when(boardCategoryRepository.findByBoard_BoardIdInAndIsActiveOrderByBoard_BoardIdAscSortOrderAsc(any(), any()))
                 .thenReturn(Collections.emptyList());
         lenient().when(boardSubscriptionRepository.countByBoardIds(any()))
+                .thenReturn(Collections.emptyList());
+        lenient().when(postRepository.countPublicVisiblePostsByBoardIds(any()))
                 .thenReturn(Collections.emptyList());
         lenient().when(postRepository.countActiveByBoardIds(any()))
                 .thenReturn(Collections.emptyList());
@@ -1265,7 +1268,7 @@ class BoardServiceTest {
         // given
         when(boardRepository.findTopPublicBoardIdsByPostCount(any())).thenReturn(Collections.singletonList(1L));
         when(boardRepository.findByBoardIdIn(List.of(1L))).thenReturn(Collections.singletonList(board));
-        when(postRepository.countActiveByBoardIds(List.of(1L))).thenReturn(List.of(new PostRepository.BoardPostCountProjection() {
+        when(postRepository.countPublicVisiblePostsByBoardIds(Set.of(1L))).thenReturn(List.of(new PostRepository.BoardPostCountProjection() {
             @Override
             public Long getBoardId() {
                 return 1L;

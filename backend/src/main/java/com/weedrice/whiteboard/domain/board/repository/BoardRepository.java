@@ -88,6 +88,7 @@ public interface BoardRepository extends JpaRepository<Board, Long> {
             FROM Post p
             JOIN p.board b
             WHERE p.isDeleted = false
+              AND p.isSecret = false
               AND b.isActive = true
               AND b.isPublic = true
               AND LOWER(b.boardUrl) <> 'inquiry'
@@ -101,6 +102,18 @@ public interface BoardRepository extends JpaRepository<Board, Long> {
             FROM Post p
             JOIN p.board b
             WHERE p.isDeleted = false
+              AND (
+                    p.isSecret = false
+                    OR :isSuperAdmin = true
+                    OR b.creator = :user
+                    OR EXISTS (
+                        SELECT 1
+                        FROM Admin secretAdmin
+                        WHERE secretAdmin.board = b
+                          AND secretAdmin.user = :user
+                          AND secretAdmin.isActive = true
+                    )
+              )
               AND b.isActive = true
               AND LOWER(b.boardUrl) <> 'inquiry'
               AND (

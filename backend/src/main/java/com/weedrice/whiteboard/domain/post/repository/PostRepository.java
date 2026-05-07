@@ -46,6 +46,18 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
                 """)
         List<BoardPostCountProjection> countActiveByBoardIds(@Param("boardIds") Collection<Long> boardIds);
         @Query("""
+                SELECT b.boardId AS boardId, COUNT(p) AS postCount
+                FROM Post p
+                JOIN p.board b
+                WHERE b.boardId IN :boardIds
+                  AND p.isDeleted = false
+                  AND p.isSecret = false
+                  AND b.isActive = true
+                  AND b.isPublic = true
+                GROUP BY b.boardId
+                """)
+        List<BoardPostCountProjection> countPublicVisiblePostsByBoardIds(@Param("boardIds") Collection<Long> boardIds);
+        @Query("""
                 SELECT COUNT(p)
                 FROM Post p
                 WHERE p.isDeleted = false

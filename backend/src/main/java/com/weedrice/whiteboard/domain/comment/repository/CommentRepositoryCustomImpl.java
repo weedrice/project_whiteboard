@@ -98,9 +98,11 @@ public class CommentRepositoryCustomImpl implements CommentRepositoryCustom {
     }
 
     private BooleanExpression notBlockedCondition(List<Long> blockedUserIds) {
-        return blockedUserIds != null && !blockedUserIds.isEmpty()
-                ? comment.user.userId.notIn(blockedUserIds)
-                : null;
+        if (blockedUserIds == null || blockedUserIds.isEmpty()) {
+            return null;
+        }
+        return comment.user.userId.notIn(blockedUserIds)
+                .and(post.user.userId.notIn(blockedUserIds));
     }
 
     private BooleanExpression postSecretCondition(Long viewerUserId) {

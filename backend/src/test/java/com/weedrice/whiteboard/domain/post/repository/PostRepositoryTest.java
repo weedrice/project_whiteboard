@@ -222,6 +222,39 @@ class PostRepositoryTest {
     }
 
     @Test
+    @DisplayName("게시판별 공개 게시글 수는 비밀글과 비공개/비활성 게시판을 제외한다")
+    void countPublicVisiblePostsByBoardIds_countsOnlyPublicVisiblePosts() {
+        Board publicBoard = persistBoard("Count Public Board", "count-public-board", true);
+        Board privateBoard = persistBoard("Count Private Board", "count-private-board", false);
+        Board inactiveBoard = persistBoard("Count Inactive Board", "count-inactive-board", true);
+        inactiveBoard.deactivate();
+        Post visiblePost = landingPost("Count Visible Post", publicBoard, false, false);
+        Post secretPost = landingPost("Count Secret Post", publicBoard, true, false);
+        Post deletedPost = landingPost("Count Deleted Post", publicBoard, false, true);
+        Post privateBoardPost = landingPost("Count Private Board Post", privateBoard, false, false);
+        Post inactiveBoardPost = landingPost("Count Inactive Board Post", inactiveBoard, false, false);
+        entityManager.persist(visiblePost);
+        entityManager.persist(secretPost);
+        entityManager.persist(deletedPost);
+        entityManager.persist(privateBoardPost);
+        entityManager.persist(inactiveBoardPost);
+        entityManager.flush();
+        entityManager.clear();
+
+        List<PostRepository.BoardPostCountProjection> counts = postRepository.countPublicVisiblePostsByBoardIds(
+                List.of(publicBoard.getBoardId(), privateBoard.getBoardId(), inactiveBoard.getBoardId()));
+
+        assertThat(counts)
+                .filteredOn(count -> count.getBoardId().equals(publicBoard.getBoardId()))
+                .singleElement()
+                .extracting(PostRepository.BoardPostCountProjection::getPostCount)
+                .isEqualTo(1L);
+        assertThat(counts)
+                .extracting(PostRepository.BoardPostCountProjection::getBoardId)
+                .doesNotContain(privateBoard.getBoardId(), inactiveBoard.getBoardId());
+    }
+
+    @Test
     @DisplayName("홈 랜딩 날짜별 게시글 수는 공개 랜딩 노출 범위와 기간 조건을 함께 적용한다")
     void countPublicLandingVisiblePostsCreatedBetween_countsOnlyVisiblePostsInRange() {
         LocalDateTime todayStart = LocalDateTime.of(2026, 5, 4, 0, 0);

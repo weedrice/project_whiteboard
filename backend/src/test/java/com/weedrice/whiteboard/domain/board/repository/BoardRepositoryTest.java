@@ -142,6 +142,7 @@ class BoardRepositoryTest {
         Board visibleTieFirst = persistBoard("Visible Tie First", "visible-tie-first", 10, true, true);
         Board visibleTieSecond = persistBoard("Visible Tie Second", "visible-tie-second", 10, true, true);
         Board deletedOnlyBoard = persistBoard("Deleted Only", "deleted-only", 15, true, true);
+        Board secretOnlyBoard = persistBoard("Secret Only", "secret-only", 5, true, true);
         Board privateBoard = persistBoard("Private Top", "private-top", 1, true, false);
         Board inactiveBoard = persistBoard("Inactive Top", "inactive-top", 2, false, true);
         Board inquiryBoard = persistBoard("Inquiry Top", "Inquiry", 3, true, true);
@@ -150,6 +151,7 @@ class BoardRepositoryTest {
         persistPosts(visibleTieFirst, 2);
         persistPosts(visibleTieSecond, 2);
         persistDeletedPosts(deletedOnlyBoard, 3);
+        persistSecretPosts(secretOnlyBoard, 8);
         persistPosts(privateBoard, 6);
         persistPosts(inactiveBoard, 5);
         persistPosts(inquiryBoard, 7);
@@ -166,6 +168,7 @@ class BoardRepositoryTest {
                 visibleTieSecond.getBoardId());
         assertThat(boards).extracting(Board::getBoardName)
                 .containsExactlyInAnyOrder("Visible Top", "Visible Tie First", "Visible Tie Second");
+        assertThat(boardIds).doesNotContain(secretOnlyBoard.getBoardId());
     }
 
     @Test
@@ -245,6 +248,8 @@ class BoardRepositoryTest {
     void findTopReadableBoardIdsByPostCount_filtersVisibilityBeforeLimit() {
         User reader = persistUser("top-reader");
         Board publicBoard = persistBoard("Readable Public", "readable-public", 20, true, true);
+        Board secretOnlyPublicBoard = persistBoard("Readable Secret Only Public", "readable-secret-only-public", 5,
+                true, true);
         Board adminPrivateBoard = persistBoard("Readable Admin Private", "readable-admin-private", 10, true, false);
         Board otherPrivateBoard = persistBoard("Unreadable Private", "unreadable-private", 1, true, false);
         Board inquiryBoard = persistBoard("Inquiry Top", "inquiry", 2, true, true);
@@ -256,6 +261,7 @@ class BoardRepositoryTest {
                 .build());
 
         persistPosts(publicBoard, 2);
+        persistSecretPosts(secretOnlyPublicBoard, 20);
         persistPosts(adminPrivateBoard, 5);
         persistPosts(otherPrivateBoard, 9);
         persistPosts(inquiryBoard, 8);
@@ -266,6 +272,7 @@ class BoardRepositoryTest {
         var boardIds = boardRepository.findTopReadableBoardIdsByPostCount(reader, false, PageRequest.of(0, 10));
 
         assertThat(boardIds).containsExactly(adminPrivateBoard.getBoardId(), publicBoard.getBoardId());
+        assertThat(boardIds).doesNotContain(secretOnlyPublicBoard.getBoardId());
     }
 
     private Board persistBoard(String boardName, String boardUrl, int sortOrder, boolean isActive, boolean isPublic) {
@@ -328,6 +335,21 @@ class BoardRepositoryTest {
                     .build();
             post.deletePost();
             entityManager.persist(post);
+        }
+    }
+
+    private void persistSecretPosts(Board board, int count) {
+        for (int index = 0; index < count; index++) {
+            entityManager.persist(Post.builder()
+                    .title(board.getBoardName() + " Secret Post " + index)
+                    .contents("contents")
+                    .user(creator)
+                    .board(board)
+                    .isNotice(false)
+                    .isNsfw(false)
+                    .isSpoiler(false)
+                    .isSecret(true)
+                    .build());
         }
     }
 }

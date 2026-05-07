@@ -298,6 +298,31 @@ class CommentRepositoryTest {
     }
 
     @Test
+    @DisplayName("댓글 검색은 차단한 댓글 작성자와 게시글 작성자를 모두 제외한다")
+    void searchCommentsByKeyword_excludesBlockedCommentAndPostAuthors() {
+        User blockedAuthor = persistUser("blocked-search-author", "blocked-search-author@test.com", "Blocked Author");
+        User responder = persistUser("search-responder", "search-responder@test.com", "Search Responder");
+        Post blockedAuthorPost = persistPost("Blocked Author Search Post", board, false, false, blockedAuthor);
+        Post visiblePost = persistPost("Visible Search Post", board, false, false, user);
+        entityManager.persist(commentFor(blockedAuthorPost, "needle blocked post author", responder));
+        entityManager.persist(commentFor(visiblePost, "needle blocked comment author", blockedAuthor));
+        entityManager.persist(commentFor(visiblePost, "needle visible comment", responder));
+        entityManager.flush();
+        entityManager.clear();
+
+        Page<Comment> result = commentRepository.searchCommentsByKeyword(
+                "needle",
+                List.of(blockedAuthor.getUserId()),
+                user.getUserId(),
+                PageRequest.of(0, 10));
+
+        assertThat(result.getTotalElements()).isEqualTo(1L);
+        assertThat(result.getContent())
+                .extracting(Comment::getContent)
+                .containsExactly("needle visible comment");
+    }
+
+    @Test
     @DisplayName("내 댓글 목록은 읽을 수 없는 게시글의 댓글을 제외하고 페이징 집계를 맞춘다")
     void findVisibleMyComments_filtersUnreadablePostsAndMatchesTotal() {
         User author = persistUser("author", "author@test.com", "Author");
