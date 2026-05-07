@@ -23,6 +23,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -99,6 +100,53 @@ class PointServiceTest {
                 .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
 
         assertThat(userPoint.getCurrentPoint()).isEqualTo(Integer.MAX_VALUE);
+        verify(userPointRepository, never()).save(any());
+        verify(pointHistoryRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("중복 방지 포인트 적립은 사용자 잠금 후 기존 이력을 확인하고 적립한다")
+    void addPointIfAbsent_noHistory_addsPointAfterUserLock() {
+        Long userId = 1L;
+        when(userRepository.findByIdForUpdate(userId)).thenReturn(Optional.of(user));
+        when(pointHistoryRepository.existsByUser_UserIdAndTypeAndRelatedTypeAndRelatedId(
+                userId,
+                "EARN",
+                "POST",
+                10L))
+                .thenReturn(false);
+        when(userPointRepository.findByUserId(userId)).thenReturn(Optional.of(userPoint));
+
+        pointService.addPointIfAbsent(userId, 100, "Post reward", 10L, "POST");
+
+        assertThat(userPoint.getCurrentPoint()).isEqualTo(100);
+        org.mockito.InOrder inOrder = inOrder(userRepository, pointHistoryRepository);
+        inOrder.verify(userRepository).findByIdForUpdate(userId);
+        inOrder.verify(pointHistoryRepository).existsByUser_UserIdAndTypeAndRelatedTypeAndRelatedId(
+                userId,
+                "EARN",
+                "POST",
+                10L);
+        verify(userPointRepository).save(any(UserPoint.class));
+        verify(pointHistoryRepository).save(any(PointHistory.class));
+    }
+
+    @Test
+    @DisplayName("중복 방지 포인트 적립은 기존 이력이 있으면 잔액과 이력을 변경하지 않는다")
+    void addPointIfAbsent_existingHistory_skipsPointChange() {
+        Long userId = 1L;
+        when(userRepository.findByIdForUpdate(userId)).thenReturn(Optional.of(user));
+        when(pointHistoryRepository.existsByUser_UserIdAndTypeAndRelatedTypeAndRelatedId(
+                userId,
+                "EARN",
+                "COMMENT",
+                20L))
+                .thenReturn(true);
+
+        pointService.addPointIfAbsent(userId, 100, "Comment reward", 20L, "COMMENT");
+
+        assertThat(userPoint.getCurrentPoint()).isZero();
+        verify(userPointRepository, never()).findByUserId(any());
         verify(userPointRepository, never()).save(any());
         verify(pointHistoryRepository, never()).save(any());
     }

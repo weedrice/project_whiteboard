@@ -47,7 +47,7 @@ class ContentRewardServiceTest {
 
         contentRewardService.rewardCreate(1L, 10L, ContentRewardPolicy.COMMENT);
 
-        verify(pointService).addPoint(1L, 10, "댓글 작성", 10L, "COMMENT");
+        verify(pointService).addPointIfAbsent(1L, 10, "댓글 작성", 10L, "COMMENT");
     }
 
     @Test
@@ -57,7 +57,7 @@ class ContentRewardServiceTest {
 
         contentRewardService.rewardCreate(1L, 100L, ContentRewardPolicy.POST);
 
-        verify(pointService).addPoint(1L, 50, "게시글 작성", 100L, "POST");
+        verify(pointService).addPointIfAbsent(1L, 50, "게시글 작성", 100L, "POST");
     }
 
     @Test
@@ -67,7 +67,17 @@ class ContentRewardServiceTest {
 
         contentRewardService.rewardCreate(1L, 10L, ContentRewardPolicy.COMMENT);
 
-        verify(pointService, never()).addPoint(anyLong(), anyInt(), anyString(), anyLong(), anyString());
+        verify(pointService, never()).addPointIfAbsent(anyLong(), anyInt(), anyString(), anyLong(), anyString());
+    }
+
+    @Test
+    @DisplayName("rewardCreate delegates idempotent reward payment")
+    void rewardCreate_positiveReward_delegatesIdempotentPayment() {
+        when(globalConfigService.getConfig("POINT_POST_CREATE_REWARD")).thenReturn("50");
+
+        contentRewardService.rewardCreate(1L, 100L, ContentRewardPolicy.POST);
+
+        verify(pointService).addPointIfAbsent(1L, 50, "게시글 작성", 100L, "POST");
     }
 
     @Test

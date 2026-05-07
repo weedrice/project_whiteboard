@@ -11,6 +11,11 @@ import java.util.List;
 public interface PointHistoryRepository extends JpaRepository<PointHistory, Long> {
     Page<PointHistory> findByUserOrderByCreatedAtDesc(User user, Pageable pageable);
     Page<PointHistory> findByUserAndTypeOrderByCreatedAtDesc(User user, String type, Pageable pageable);
+    boolean existsByUser_UserIdAndTypeAndRelatedTypeAndRelatedId(
+            Long userId,
+            String type,
+            String relatedType,
+            Long relatedId);
     List<PointHistory> findByUserAndTypeAndRelatedTypeAndRelatedIdOrderByCreatedAtAsc(
             User user,
             String type,

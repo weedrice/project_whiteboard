@@ -157,7 +157,7 @@ class CommentServiceTest {
         assertThat(result.getDepth()).isZero();
         verify(commentClosureRepository).createSelfClosure(10L);
         verify(postRepository).incrementCommentCount(1L);
-        verify(pointService).addPoint(eq(1L), eq(10), anyString(), eq(10L), eq("COMMENT"));
+        verify(pointService).addPointIfAbsent(eq(1L), eq(10), anyString(), eq(10L), eq("COMMENT"));
     }
 
     @Test

@@ -69,6 +69,13 @@ public class PointService {
         }
 
         @Transactional
+        public void addPointIfAbsent(@NonNull Long userId, int amount, String description, Long relatedId,
+                        String relatedType) {
+                validatePositiveAmount(amount);
+                changePoint(userId, amount, HISTORY_TYPE_EARN, description, relatedId, relatedType, true, false, true);
+        }
+
+        @Transactional
         public void forceSubtractPoint(@NonNull Long userId, int amount, String description, Long relatedId,
                         String relatedType) {
                 validatePositiveAmount(amount);
@@ -91,10 +98,24 @@ public class PointService {
 
         private void changePoint(@NonNull Long userId, int delta, String historyType, String description, Long relatedId,
                         String relatedType, boolean createIfMissing, boolean validateSufficientBalance) {
+                changePoint(userId, delta, historyType, description, relatedId, relatedType, createIfMissing,
+                                validateSufficientBalance, false);
+        }
+
+        private void changePoint(@NonNull Long userId, int delta, String historyType, String description, Long relatedId,
+                        String relatedType, boolean createIfMissing, boolean validateSufficientBalance,
+                        boolean skipExistingHistory) {
                 User user = userRepository.findByIdForUpdate(userId)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
                 if (HISTORY_TYPE_SPEND.equals(historyType)) {
                         sanctionService.validateNotBanned(user);
+                }
+                if (skipExistingHistory && pointHistoryRepository.existsByUser_UserIdAndTypeAndRelatedTypeAndRelatedId(
+                                userId,
+                                historyType,
+                                relatedType,
+                                relatedId)) {
+                        return;
                 }
                 UserPoint userPoint = getOrCreateUserPoint(user, createIfMissing);
 

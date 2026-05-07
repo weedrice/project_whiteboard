@@ -21,14 +21,15 @@ public class ContentRewardService {
     @Transactional
     public void rewardCreate(Long userId, Long relatedId, ContentRewardPolicy policy) {
         int createReward = resolveCreateReward(policy);
-        if (createReward > 0) {
-            pointService.addPoint(
-                    userId,
-                    createReward,
-                    policy.getCreateDescription(),
-                    relatedId,
-                    policy.getRelatedType());
+        if (createReward <= 0) {
+            return;
         }
+        pointService.addPointIfAbsent(
+                userId,
+                createReward,
+                policy.getCreateDescription(),
+                relatedId,
+                policy.getRelatedType());
     }
 
     @Transactional

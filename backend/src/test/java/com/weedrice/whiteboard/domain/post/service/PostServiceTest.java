@@ -282,7 +282,7 @@ class PostServiceTest {
         assertThat(created.getTitle()).isEqualTo("New Post");
         verify(tagAssignmentService).assignTags(created, request.getTags());
         verify(fileService).attachFilesToPost(List.of(1L, 2L), 1L, 100L);
-        verify(pointService).addPoint(eq(1L), eq(50), anyString(), eq(100L), eq("POST"));
+        verify(pointService).addPointIfAbsent(eq(1L), eq(50), anyString(), eq(100L), eq("POST"));
     }
 
     @Test
@@ -329,7 +329,7 @@ class PostServiceTest {
 
         postService.createPost(1L, "free", request);
 
-        verify(pointService).addPoint(eq(1L), eq(50), anyString(), eq(100L), eq("POST"));
+        verify(pointService).addPointIfAbsent(eq(1L), eq(50), anyString(), eq(100L), eq("POST"));
     }
 
     @Test
@@ -350,7 +350,7 @@ class PostServiceTest {
 
         postService.createPost(1L, "free", request);
 
-        verify(pointService, never()).addPoint(anyLong(), anyInt(), anyString(), anyLong(), anyString());
+        verify(pointService, never()).addPointIfAbsent(anyLong(), anyInt(), anyString(), anyLong(), anyString());
     }
 
     @Test
