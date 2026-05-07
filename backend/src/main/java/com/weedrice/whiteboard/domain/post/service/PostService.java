@@ -233,7 +233,7 @@ public class PostService {
             return Page.empty(safePageable);
         }
 
-        Page<Post> posts = postRepository.findByBoard_BoardId(inquiryBoard.getBoardId(), safePageable);
+        Page<Post> posts = postRepository.findByBoard_BoardIdAndIsDeletedFalse(inquiryBoard.getBoardId(), safePageable);
         return postSummaryAssembler.assembleBoardPage(posts, safePageable, false, true);
     }
 

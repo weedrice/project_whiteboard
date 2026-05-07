@@ -2693,13 +2693,13 @@ class PostServiceTest {
     void getInquiryPostsForAdmin_clampsPageSize() {
         ReflectionTestUtils.setField(board, "boardUrl", "inquiry");
         when(boardRepository.findByBoardUrl("inquiry")).thenReturn(Optional.of(board));
-        when(postRepository.findByBoard_BoardId(eq(1L), any(Pageable.class)))
+        when(postRepository.findByBoard_BoardIdAndIsDeletedFalse(eq(1L), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 100), 0));
 
         postService.getInquiryPostsForAdmin(PageRequest.of(0, 1000, Sort.by("createdAt").descending()));
 
         ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
-        verify(postRepository).findByBoard_BoardId(eq(1L), pageableCaptor.capture());
+        verify(postRepository).findByBoard_BoardIdAndIsDeletedFalse(eq(1L), pageableCaptor.capture());
         assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(100);
         assertThat(pageableCaptor.getValue().getSort().getOrderFor("createdAt")).isNotNull();
     }
@@ -2709,13 +2709,13 @@ class PostServiceTest {
     void getInquiryPostsForAdmin_replacesUnsupportedSort() {
         ReflectionTestUtils.setField(board, "boardUrl", "inquiry");
         when(boardRepository.findByBoardUrl("inquiry")).thenReturn(Optional.of(board));
-        when(postRepository.findByBoard_BoardId(eq(1L), any(Pageable.class)))
+        when(postRepository.findByBoard_BoardIdAndIsDeletedFalse(eq(1L), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 20), 0));
 
         postService.getInquiryPostsForAdmin(PageRequest.of(0, 20, Sort.by("title")));
 
         ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
-        verify(postRepository).findByBoard_BoardId(eq(1L), pageableCaptor.capture());
+        verify(postRepository).findByBoard_BoardIdAndIsDeletedFalse(eq(1L), pageableCaptor.capture());
         assertThat(pageableCaptor.getValue().getSort().getOrderFor("title")).isNull();
         assertThat(pageableCaptor.getValue().getSort().getOrderFor("createdAt")).isNotNull();
     }

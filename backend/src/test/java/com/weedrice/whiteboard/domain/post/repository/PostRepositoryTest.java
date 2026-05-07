@@ -373,6 +373,46 @@ class PostRepositoryTest {
     }
 
     @Test
+    @DisplayName("관리자 문의 목록은 삭제된 게시글을 제외한다")
+    void findByBoardAndIsDeletedFalse_excludesDeletedPosts() {
+        Board inquiryBoard = persistBoard("Admin Inquiry Board", "inquiry", false);
+        BoardCategory inquiryCategory = BoardCategory.builder()
+                .name("Inquiry")
+                .board(inquiryBoard)
+                .build();
+        entityManager.persist(inquiryCategory);
+        Post activePost = Post.builder()
+                .title("Active Inquiry")
+                .contents("Active Contents")
+                .user(user)
+                .board(inquiryBoard)
+                .category(inquiryCategory)
+                .build();
+        Post deletedPost = Post.builder()
+                .title("Deleted Inquiry")
+                .contents("Deleted Contents")
+                .user(user)
+                .board(inquiryBoard)
+                .category(inquiryCategory)
+                .build();
+        deletedPost.deletePost();
+        entityManager.persist(activePost);
+        entityManager.persist(deletedPost);
+        entityManager.flush();
+        entityManager.clear();
+
+        Page<Post> posts = postRepository.findByBoard_BoardIdAndIsDeletedFalse(
+                inquiryBoard.getBoardId(),
+                PageRequest.of(0, 10, Sort.by("createdAt").descending()));
+
+        assertThat(posts.getContent()).extracting(Post::getTitle)
+                .contains("Active Inquiry")
+                .doesNotContain("Deleted Inquiry");
+        assertThat(posts.getTotalElements()).isEqualTo(1);
+        assertThat(posts.getTotalPages()).isEqualTo(1);
+    }
+
+    @Test
     @DisplayName("요약용 게시글 ID 조회는 게시판 작성자까지 함께 로드한다")
     void findByPostIdInAndIsDeletedFalse_fetchesSummaryRelationsAndBoardCreator() {
         User boardCreator = User.builder()
