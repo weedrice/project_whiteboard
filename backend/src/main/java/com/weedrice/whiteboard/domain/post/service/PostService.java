@@ -174,18 +174,7 @@ public class PostService {
         Pageable safePageable = sanitizeTagPostPageable(pageable);
         PostReadContext context = postReadContextResolver.resolve(currentUserId);
         Page<Post> postPage = postRepository.findByTagId(tagId, context.blockedUserIds(), safePageable);
-
-        List<Long> postIds = postPage.getContent().stream()
-                .map(Post::getPostId)
-                .collect(Collectors.toList());
-
-        Set<Long> postIdsWithImages = postFacadeReadService.getPostIdsWithImages(postIds);
-
-        return postPage.map(post -> {
-            PostSummary summary = PostSummary.from(post);
-            summary.setHasImage(postIdsWithImages.contains(post.getPostId()));
-            return summary;
-        });
+        return postSummaryAssembler.assembleTagPage(postPage);
     }
 
     private Pageable sanitizeTagPostPageable(Pageable pageable) {

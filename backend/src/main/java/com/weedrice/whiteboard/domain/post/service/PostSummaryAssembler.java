@@ -63,6 +63,19 @@ public class PostSummaryAssembler {
         return assemblePage(posts, posts.getPageable(), true, false);
     }
 
+    Page<PostSummary> assembleTagPage(Page<Post> posts) {
+        List<Long> postIds = posts.getContent().stream()
+                .map(Post::getPostId)
+                .collect(Collectors.toList());
+        Set<Long> postIdsWithImages = new HashSet<>(getThumbnailFileIdsByPostId(postIds).keySet());
+
+        return posts.map(post -> {
+            PostSummary summary = PostSummary.from(post);
+            summary.setHasImage(postIdsWithImages.contains(post.getPostId()));
+            return summary;
+        });
+    }
+
     private Page<PostSummary> assemblePage(Page<Post> posts, Pageable pageable, boolean includeImages,
                                            boolean includeInquiryAnswered) {
         List<Long> postIds = posts.getContent().stream()

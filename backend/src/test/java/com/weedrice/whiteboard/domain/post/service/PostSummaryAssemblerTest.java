@@ -108,6 +108,49 @@ class PostSummaryAssemblerTest {
     }
 
     @Test
+    @DisplayName("태그 페이지 요약은 이미지 여부만 조립하고 기존 빈 필드는 보존한다")
+    void assembleTagPage_assignsOnlyImageFlag() {
+        User author = User.builder().displayName("Author").build();
+        ReflectionTestUtils.setField(author, "userId", 1L);
+
+        Board board = Board.builder()
+                .boardName("Free")
+                .boardUrl("free")
+                .creator(author)
+                .build();
+        ReflectionTestUtils.setField(board, "boardId", 10L);
+
+        Post firstPost = Post.builder()
+                .title("First")
+                .contents("Contents")
+                .user(author)
+                .board(board)
+                .build();
+        ReflectionTestUtils.setField(firstPost, "postId", 100L);
+        Post secondPost = Post.builder()
+                .title("Second")
+                .contents("Contents")
+                .user(author)
+                .board(board)
+                .build();
+        ReflectionTestUtils.setField(secondPost, "postId", 99L);
+
+        when(fileService.getFirstImageFileIdsForPosts(List.of(100L, 99L)))
+                .thenReturn(Map.of(100L, 1000L));
+
+        PageImpl<Post> page = new PageImpl<>(
+                List.of(firstPost, secondPost),
+                PageRequest.of(0, 2),
+                2);
+
+        List<PostSummary> summaries = postSummaryAssembler.assembleTagPage(page).getContent();
+
+        assertThat(summaries).extracting(PostSummary::isHasImage).containsExactly(true, false);
+        assertThat(summaries).extracting(PostSummary::getRowNum).containsOnlyNulls();
+        assertThat(summaries).extracting(PostSummary::getInquiryAnswered).containsOnlyNulls();
+    }
+
+    @Test
     @DisplayName("문의글 answered 상태를 게시글 목록 단위로 배치 조회한다")
     void assembleBoardPage_resolvesInquiryAnsweredInBatch() {
         User author = User.builder().displayName("Author").build();
