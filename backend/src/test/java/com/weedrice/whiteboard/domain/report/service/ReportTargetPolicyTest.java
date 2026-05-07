@@ -151,6 +151,20 @@ class ReportTargetPolicyTest {
         assertThatThrownBy(() -> reportTargetPolicy.validateUserReportable(target, reporter))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_TARGET);
+
+        verify(userBlockService, never()).isEitherDirectionBlocked(1L, 1L);
+    }
+
+    @Test
+    @DisplayName("USER report hides either-direction blocked target as USER_NOT_FOUND")
+    void validateUserReportable_rejectsEitherDirectionBlockedTarget() {
+        User reporter = user(1L);
+        User target = user(2L);
+        when(userBlockService.isEitherDirectionBlocked(1L, 2L)).thenReturn(true);
+
+        assertThatThrownBy(() -> reportTargetPolicy.validateUserReportable(target, reporter))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_FOUND);
     }
 
     private Comment comment(Post post, User author) {

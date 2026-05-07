@@ -45,7 +45,7 @@ class ReportTargetValidator {
     }
 
     private void validateUser(Long userId, User reporter) {
-        User target = userRepository.findById(userId)
+        User target = userRepository.findByUserIdAndStatusAndDeletedAtIsNull(userId, User.STATUS_ACTIVE)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         reportTargetPolicy.validateUserReportable(target, reporter);
     }

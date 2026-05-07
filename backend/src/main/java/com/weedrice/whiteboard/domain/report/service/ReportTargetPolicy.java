@@ -40,6 +40,9 @@ class ReportTargetPolicy {
             throw new BusinessException(ErrorCode.USER_NOT_FOUND);
         }
         validateNotSelfReport(target, reporter);
+        if (isEitherDirectionBlocked(reporter, target)) {
+            throw new BusinessException(ErrorCode.USER_NOT_FOUND);
+        }
     }
 
     private void validateNotSelfReport(User target, User reporter) {

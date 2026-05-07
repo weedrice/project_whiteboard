@@ -93,11 +93,12 @@ class ReportTargetValidatorTest {
     }
 
     @Test
-    @DisplayName("USER target validation keeps user existence check")
+    @DisplayName("USER target validation loads active user and delegates to policy")
     void validateUser_usesUserRepository() {
         User reporter = user(1L);
         User target = user(30L);
-        when(userRepository.findById(30L)).thenReturn(Optional.of(target));
+        when(userRepository.findByUserIdAndStatusAndDeletedAtIsNull(30L, User.STATUS_ACTIVE))
+                .thenReturn(Optional.of(target));
 
         reportTargetValidator.validate("USER", 30L, reporter);
 
@@ -105,9 +106,10 @@ class ReportTargetValidatorTest {
     }
 
     @Test
-    @DisplayName("missing USER target maps to USER_NOT_FOUND")
-    void validateUser_missing_throwsUserNotFound() {
-        when(userRepository.findById(30L)).thenReturn(Optional.empty());
+    @DisplayName("missing or inactive USER target maps to USER_NOT_FOUND")
+    void validateUser_missingOrInactive_throwsUserNotFound() {
+        when(userRepository.findByUserIdAndStatusAndDeletedAtIsNull(30L, User.STATUS_ACTIVE))
+                .thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> reportTargetValidator.validate("USER", 30L, user(1L)))
                 .isInstanceOf(BusinessException.class)
