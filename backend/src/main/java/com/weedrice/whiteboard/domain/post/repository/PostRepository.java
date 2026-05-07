@@ -118,7 +118,10 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
                 """)
         long countPublicProfilePostsByUser(@Param("user") User user);
 
-        long countByAgent_AgentIdAndCreatedAtBetween(Long agentId, LocalDateTime start, LocalDateTime end);
+        long countByAgent_AgentIdAndCreatedAtBetweenAndIsDeletedFalse(
+                Long agentId,
+                LocalDateTime start,
+                LocalDateTime end);
         long countByCreatedAtGreaterThanEqualAndCreatedAtLessThanAndIsDeletedFalse(LocalDateTime start, LocalDateTime end);
 
         @Modifying(flushAutomatically = true)

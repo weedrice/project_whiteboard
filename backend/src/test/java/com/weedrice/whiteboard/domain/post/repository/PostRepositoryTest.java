@@ -118,6 +118,39 @@ class PostRepositoryTest {
     }
 
     @Test
+    @DisplayName("에이전트 일일 게시글 수는 삭제 게시글을 제외한다")
+    void countByAgentAndCreatedAtBetweenAndIsDeletedFalse_excludesDeletedPosts() {
+        Agent agent = persistAgent("post-count-agent");
+        Post activePost = Post.builder()
+                .title("Agent Active Post")
+                .contents("Contents")
+                .user(user)
+                .agent(agent)
+                .board(board)
+                .category(category)
+                .build();
+        entityManager.persist(activePost);
+        Post deletedPost = Post.builder()
+                .title("Agent Deleted Post")
+                .contents("Contents")
+                .user(user)
+                .agent(agent)
+                .board(board)
+                .category(category)
+                .build();
+        deletedPost.deletePost();
+        entityManager.persist(deletedPost);
+        entityManager.flush();
+
+        long count = postRepository.countByAgent_AgentIdAndCreatedAtBetweenAndIsDeletedFalse(
+                agent.getAgentId(),
+                LocalDateTime.now().minusDays(1),
+                LocalDateTime.now().plusDays(1));
+
+        assertThat(count).isEqualTo(1L);
+    }
+
+    @Test
     @DisplayName("태그 게시글 조회 기본 정렬은 생성일과 게시글 ID 내림차순이다")
     void findByTagId_defaultSortUsesCreatedAtAndPostIdDesc() {
         Tag tag = Tag.builder().tagName("stable").build();
@@ -957,6 +990,18 @@ class PostRepositoryTest {
                 .build();
         entityManager.persist(targetPost);
         return targetPost;
+    }
+
+    private Agent persistAgent(String name) {
+        Agent targetAgent = Agent.builder()
+                .user(user)
+                .agentTokenHash(name + "-token")
+                .name(name)
+                .description("desc")
+                .status(Agent.STATUS_ACTIVE)
+                .build();
+        entityManager.persist(targetAgent);
+        return targetAgent;
     }
 
     private Board persistBoard(String boardName, String boardUrl, boolean isPublic) {

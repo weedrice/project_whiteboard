@@ -231,7 +231,10 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                         Pageable pageable);
 
         long countByPost_PostIdAndIsDeleted(Long postId, Boolean isDeleted);
-        long countByAgent_AgentIdAndCreatedAtBetween(Long agentId, LocalDateTime start, LocalDateTime end);
+        long countByAgent_AgentIdAndCreatedAtBetweenAndIsDeletedFalse(
+                        Long agentId,
+                        LocalDateTime start,
+                        LocalDateTime end);
         long countByCreatedAtGreaterThanEqualAndCreatedAtLessThanAndIsDeletedFalse(LocalDateTime start, LocalDateTime end);
         @Query("""
                         SELECT COUNT(c)

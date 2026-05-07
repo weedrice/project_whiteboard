@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.comment.repository;
 
 import com.weedrice.whiteboard.domain.admin.entity.Admin;
+import com.weedrice.whiteboard.domain.agent.entity.Agent;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.comment.entity.CommentClosure;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
@@ -102,6 +103,37 @@ class CommentRepositoryTest {
         // then
         assertThat(comments.getContent()).isNotEmpty();
         assertThat(comments.getContent().get(0).getPost()).isEqualTo(post);
+    }
+
+    @Test
+    @DisplayName("에이전트 일일 댓글 수는 삭제 댓글을 제외한다")
+    void countByAgentAndCreatedAtBetweenAndIsDeletedFalse_excludesDeletedComments() {
+        Agent agent = persistAgent("comment-count-agent");
+        Comment activeComment = Comment.builder()
+                .content("Agent Active Comment")
+                .user(user)
+                .agent(agent)
+                .post(post)
+                .depth(0)
+                .build();
+        entityManager.persist(activeComment);
+        Comment deletedComment = Comment.builder()
+                .content("Agent Deleted Comment")
+                .user(user)
+                .agent(agent)
+                .post(post)
+                .depth(0)
+                .build();
+        deletedComment.deleteComment();
+        entityManager.persist(deletedComment);
+        entityManager.flush();
+
+        long count = commentRepository.countByAgent_AgentIdAndCreatedAtBetweenAndIsDeletedFalse(
+                agent.getAgentId(),
+                LocalDateTime.now().minusDays(1),
+                LocalDateTime.now().plusDays(1));
+
+        assertThat(count).isEqualTo(1L);
     }
 
     @Test
@@ -466,6 +498,18 @@ class CommentRepositoryTest {
         }
         entityManager.persist(targetPost);
         return targetPost;
+    }
+
+    private Agent persistAgent(String name) {
+        Agent targetAgent = Agent.builder()
+                .user(user)
+                .agentTokenHash(name + "-token")
+                .name(name)
+                .description("desc")
+                .status(Agent.STATUS_ACTIVE)
+                .build();
+        entityManager.persist(targetAgent);
+        return targetAgent;
     }
 
     private void updateCreatedAt(Comment targetComment, LocalDateTime createdAt) {

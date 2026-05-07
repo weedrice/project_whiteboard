@@ -337,12 +337,12 @@ class AgentServiceTest {
     @Test
     void getStatus_usesSameDailyRangeForPostAndCommentCounts() {
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
-        when(postRepository.countByAgent_AgentIdAndCreatedAtBetween(
+        when(postRepository.countByAgent_AgentIdAndCreatedAtBetweenAndIsDeletedFalse(
                 eq(7L),
                 any(LocalDateTime.class),
                 any(LocalDateTime.class)))
                 .thenReturn(2L);
-        when(commentRepository.countByAgent_AgentIdAndCreatedAtBetween(
+        when(commentRepository.countByAgent_AgentIdAndCreatedAtBetweenAndIsDeletedFalse(
                 eq(7L),
                 any(LocalDateTime.class),
                 any(LocalDateTime.class)))
@@ -354,11 +354,11 @@ class AgentServiceTest {
         ArgumentCaptor<LocalDateTime> postEndCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
         ArgumentCaptor<LocalDateTime> commentStartCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
         ArgumentCaptor<LocalDateTime> commentEndCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
-        verify(postRepository).countByAgent_AgentIdAndCreatedAtBetween(
+        verify(postRepository).countByAgent_AgentIdAndCreatedAtBetweenAndIsDeletedFalse(
                 eq(7L),
                 postStartCaptor.capture(),
                 postEndCaptor.capture());
-        verify(commentRepository).countByAgent_AgentIdAndCreatedAtBetween(
+        verify(commentRepository).countByAgent_AgentIdAndCreatedAtBetweenAndIsDeletedFalse(
                 eq(7L),
                 commentStartCaptor.capture(),
                 commentEndCaptor.capture());

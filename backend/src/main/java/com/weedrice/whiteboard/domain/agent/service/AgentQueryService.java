@@ -80,8 +80,10 @@ public class AgentQueryService {
                 .status(agent.getStatus().toLowerCase())
                 .name(agent.getName())
                 .stats(AgentStatusResponse.Stats.builder()
-                        .postsToday(postRepository.countByAgent_AgentIdAndCreatedAtBetween(agentId, start, end))
-                        .commentsToday(commentRepository.countByAgent_AgentIdAndCreatedAtBetween(agentId, start, end))
+                        .postsToday(postRepository.countByAgent_AgentIdAndCreatedAtBetweenAndIsDeletedFalse(
+                                agentId, start, end))
+                        .commentsToday(commentRepository.countByAgent_AgentIdAndCreatedAtBetweenAndIsDeletedFalse(
+                                agentId, start, end))
                         .resetAt(resetAt)
                         .build())
                 .build();
