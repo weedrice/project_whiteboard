@@ -3,6 +3,8 @@ package com.weedrice.whiteboard.global.common.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.weedrice.whiteboard.global.common.dto.GlobalConfigResponse;
 import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
+import com.weedrice.whiteboard.global.exception.BusinessException;
+import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.HttpServletRequest;
@@ -122,7 +124,7 @@ class GlobalConfigControllerTest {
     @Test
     @DisplayName("설정 단건 조회")
     void getConfig_success() throws Exception {
-        when(globalConfigService.getConfig("key")).thenReturn("value");
+        when(globalConfigService.getConfigOrThrow("key")).thenReturn("value");
 
         mockMvc.perform(get("/api/v1/configs/{key}", "key")
                 .with(user(adminUser))
@@ -131,6 +133,20 @@ class GlobalConfigControllerTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.key").value("key"))
                 .andExpect(jsonPath("$.data.value").value("value"));
+    }
+
+    @Test
+    @DisplayName("단건 설정 조회는 없는 key에 404를 반환한다")
+    void getConfig_missing_returnsNotFound() throws Exception {
+        when(globalConfigService.getConfigOrThrow("missing"))
+                .thenThrow(new BusinessException(ErrorCode.NOT_FOUND));
+
+        mockMvc.perform(get("/api/v1/configs/{key}", "missing")
+                .with(user(adminUser))
+                .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.error.code").value(ErrorCode.NOT_FOUND.getCode()));
     }
 
     @Test

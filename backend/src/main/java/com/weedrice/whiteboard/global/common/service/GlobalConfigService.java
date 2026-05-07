@@ -35,6 +35,12 @@ public class GlobalConfigService {
                 .orElse(null);
     }
 
+    public String getConfigOrThrow(String key) {
+        return globalConfigRepository.findById(key)
+                .map(GlobalConfig::getConfigValue)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+    }
+
     public static int parseIntConfigOrDefault(String value, int defaultValue, int minValue) {
         if (value == null) {
             return defaultValue;

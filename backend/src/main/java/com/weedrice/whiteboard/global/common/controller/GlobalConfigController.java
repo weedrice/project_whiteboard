@@ -23,7 +23,7 @@ public class GlobalConfigController {
     @PreAuthorize("hasRole('SUPER_ADMIN')")
     @GetMapping("/configs/{key}")
     public ApiResponse<GlobalConfigResponse> getConfig(@PathVariable String key) {
-        String value = globalConfigService.getConfig(key);
+        String value = globalConfigService.getConfigOrThrow(key);
         return ApiResponse.success(GlobalConfigResponse.builder()
                 .key(key)
                 .value(value)

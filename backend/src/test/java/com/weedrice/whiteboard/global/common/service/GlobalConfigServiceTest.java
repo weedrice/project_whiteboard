@@ -56,6 +56,37 @@ class GlobalConfigServiceTest {
     }
 
     @Test
+    @DisplayName("getConfig returns null for missing config")
+    void getConfig_missing_returnsNull() {
+        when(globalConfigRepository.findById("key")).thenReturn(Optional.empty());
+
+        String value = globalConfigService.getConfig("key");
+
+        assertThat(value).isNull();
+    }
+
+    @Test
+    @DisplayName("getConfigOrThrow returns config value")
+    void getConfigOrThrow_success() {
+        GlobalConfig config = new GlobalConfig("key", "value", "desc");
+        when(globalConfigRepository.findById("key")).thenReturn(Optional.of(config));
+
+        String value = globalConfigService.getConfigOrThrow("key");
+
+        assertThat(value).isEqualTo("value");
+    }
+
+    @Test
+    @DisplayName("getConfigOrThrow throws NOT_FOUND for missing config")
+    void getConfigOrThrow_missing_throwsNotFound() {
+        when(globalConfigRepository.findById("key")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> globalConfigService.getConfigOrThrow("key"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.NOT_FOUND);
+    }
+
+    @Test
     @DisplayName("parseIntConfigOrDefault returns parsed integer")
     void parseIntConfigOrDefault_success() {
         int value = GlobalConfigService.parseIntConfigOrDefault(" 12 ", 10, 0);
