@@ -264,6 +264,28 @@ class NotificationServiceTest {
     }
 
     @Test
+    @DisplayName("SSE subscribe validates user existence")
+    void subscribe_validatesUserExists() {
+        Long userId = 1L;
+        when(userRepository.existsById(userId)).thenReturn(true);
+
+        assertThat(notificationService.subscribe(userId)).isNotNull();
+
+        verify(userRepository).existsById(userId);
+    }
+
+    @Test
+    @DisplayName("SSE subscribe rejects missing user")
+    void subscribe_missingUser_throwsUserNotFound() {
+        Long userId = 999L;
+        when(userRepository.existsById(userId)).thenReturn(false);
+
+        assertThatThrownBy(() -> notificationService.subscribe(userId))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_FOUND);
+    }
+
+    @Test
     @DisplayName("Notification list lookup clamps pageable in service layer")
     void getNotifications_clampsPageableInService() {
         Long userId = 1L;

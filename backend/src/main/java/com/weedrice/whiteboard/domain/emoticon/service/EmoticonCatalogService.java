@@ -14,12 +14,24 @@ import org.springframework.data.domain.Pageable;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 class EmoticonCatalogService {
+
+    private static final String SEARCH_TYPE_NAME = "NAME";
+    private static final String SEARCH_TYPE_CREATOR = "CREATOR";
+    private static final String SEARCH_TYPE_TAG = "TAG";
+    private static final String SEARCH_TYPE_ALL = "ALL";
+    private static final Set<String> SEARCH_TYPES = Set.of(
+            SEARCH_TYPE_NAME,
+            SEARCH_TYPE_CREATOR,
+            SEARCH_TYPE_TAG,
+            SEARCH_TYPE_ALL
+    );
 
     private final EmoticonMasterRepository emoticonMasterRepository;
     private final UserRepository userRepository;
@@ -92,6 +104,7 @@ class EmoticonCatalogService {
     }
 
     Page<EmoticonMasterDto> searchAll(String keyword, String searchType, Pageable pageable, String sortBy) {
+        String normalizedSearchType = normalizeSearchType(searchType);
         if (keyword == null || keyword.trim().isEmpty()) {
             return getActiveEmoticons(pageable, sortBy);
         }
@@ -100,30 +113,42 @@ class EmoticonCatalogService {
         Page<EmoticonMaster> result;
         boolean isPopular = "popular".equalsIgnoreCase(sortBy);
 
-        switch (searchType.toUpperCase()) {
-            case "NAME":
+        switch (normalizedSearchType) {
+            case SEARCH_TYPE_NAME:
                 result = isPopular
                         ? emoticonMasterRepository.searchByNameOrderByPurchase(trimmedKeyword, pageable)
                         : emoticonMasterRepository.searchByName(trimmedKeyword, pageable);
                 break;
-            case "CREATOR":
+            case SEARCH_TYPE_CREATOR:
                 result = isPopular
                         ? emoticonMasterRepository.searchByCreatorOrderByPurchase(trimmedKeyword, pageable)
                         : emoticonMasterRepository.searchByCreator(trimmedKeyword, pageable);
                 break;
-            case "TAG":
+            case SEARCH_TYPE_TAG:
                 result = isPopular
                         ? emoticonMasterRepository.searchByTagOrderByPurchase(trimmedKeyword, pageable)
                         : emoticonMasterRepository.findByTag(trimmedKeyword, pageable);
                 break;
-            case "ALL":
-            default:
+            case SEARCH_TYPE_ALL:
                 result = isPopular
                         ? emoticonMasterRepository.searchByKeywordAllOrderByPurchase(trimmedKeyword, pageable)
                         : emoticonMasterRepository.searchByKeywordAll(trimmedKeyword, pageable);
                 break;
+            default:
+                throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
         return toSummaryPage(result);
+    }
+
+    private String normalizeSearchType(String searchType) {
+        if (searchType == null || searchType.isBlank()) {
+            return SEARCH_TYPE_ALL;
+        }
+        String normalizedSearchType = searchType.trim().toUpperCase(Locale.ROOT);
+        if (!SEARCH_TYPES.contains(normalizedSearchType)) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        return normalizedSearchType;
     }
 
     Page<EmoticonMasterDto> getPurchasedEmoticons(Long userId, Pageable pageable) {

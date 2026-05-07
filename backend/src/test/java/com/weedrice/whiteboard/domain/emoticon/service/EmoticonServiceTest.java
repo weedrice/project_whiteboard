@@ -392,15 +392,43 @@ class EmoticonServiceTest {
         }
 
         @Test
-        @DisplayName("searchType default(알 수 없는 값) -> ALL 검색")
-        void searchAll_unknownSearchType() {
+        @DisplayName("null searchType defaults to ALL")
+        void searchAll_nullSearchType_defaultsToAll() {
             Page<EmoticonMaster> page = new PageImpl<>(List.of(emoticonMaster), PageRequest.of(0, 20), 1);
             when(emoticonMasterRepository.searchByKeywordAll(eq("q"), any(Pageable.class))).thenReturn(page);
 
-            Page<EmoticonMasterDto> result = emoticonService.searchAll("q", "OTHER", PageRequest.of(0, 20), "latest");
+            Page<EmoticonMasterDto> result = emoticonService.searchAll("q", null, PageRequest.of(0, 20), "latest");
 
             assertThat(result.getContent()).hasSize(1);
             verify(emoticonMasterRepository).searchByKeywordAll(eq("q"), any(Pageable.class));
+        }
+
+        @Test
+        @DisplayName("unknown searchType is rejected")
+        void searchAll_unknownSearchType_invalidInput() {
+            assertThatThrownBy(() -> emoticonService.searchAll("q", "OTHER", PageRequest.of(0, 20), "latest"))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+        }
+
+        @Test
+        @DisplayName("blank keyword still validates searchType")
+        void searchAll_blankKeywordUnknownSearchType_invalidInput() {
+            assertThatThrownBy(() -> emoticonService.searchAll(" ", "OTHER", PageRequest.of(0, 20), "latest"))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+        }
+
+        @Test
+        @DisplayName("searchType is trimmed and normalized")
+        void searchAll_searchTypeTrimmedAndNormalized() {
+            Page<EmoticonMaster> page = new PageImpl<>(List.of(emoticonMaster), PageRequest.of(0, 20), 1);
+            when(emoticonMasterRepository.searchByName(eq("q"), any(Pageable.class))).thenReturn(page);
+
+            Page<EmoticonMasterDto> result = emoticonService.searchAll("q", " name ", PageRequest.of(0, 20), "latest");
+
+            assertThat(result.getContent()).hasSize(1);
+            verify(emoticonMasterRepository).searchByName(eq("q"), any(Pageable.class));
         }
     }
 

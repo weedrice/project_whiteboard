@@ -59,6 +59,7 @@ public class NotificationService {
 
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public SseEmitter subscribe(Long userId) {
+        validateUserExists(userId);
         return streamService.subscribe(userId);
     }
 
