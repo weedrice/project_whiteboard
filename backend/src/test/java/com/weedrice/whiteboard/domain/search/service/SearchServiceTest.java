@@ -79,6 +79,8 @@ class SearchServiceTest {
     private ScrapRepository scrapRepository;
     @Mock
     private BoardSubscriptionRepository boardSubscriptionRepository;
+    @Mock
+    private SearchRecordEventPublisher searchRecordEventPublisher;
     private BoardAccessPolicy boardAccessPolicy;
 
     private SearchService searchService;
@@ -109,7 +111,8 @@ class SearchServiceTest {
                 boardRepository,
                 userBlockService,
                 postSummaryAssembler,
-                boardAccessPolicy);
+                boardAccessPolicy,
+                searchRecordEventPublisher);
     }
 
     @Test
@@ -179,6 +182,7 @@ class SearchServiceTest {
         verify(boardRepository).findByBoardNameContainingIgnoreCaseAndIsActiveTrueAndIsPublicTrueOrderBySortOrderAscBoardIdAsc(
                 eq(keyword), eq(previewPageable));
         verify(fileService, never()).getFirstImageFileIdsForPosts(anyList());
+        verify(searchRecordEventPublisher).publish(null, keyword);
     }
 
     @Test
@@ -201,6 +205,7 @@ class SearchServiceTest {
 
         assertThat(result.getKeyword()).isEqualTo(keyword);
         verify(postRepository).searchPostsByKeyword(eq(keyword), isNull(), isNull(), eq(previewPageable));
+        verify(searchRecordEventPublisher).publish(null, keyword);
     }
 
     @Test
@@ -211,6 +216,7 @@ class SearchServiceTest {
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
 
         verify(postRepository, never()).searchPostsByKeyword(anyString(), any(), any(), any());
+        verify(searchRecordEventPublisher, never()).publish(any(), anyString());
     }
 
     @Test
@@ -385,6 +391,7 @@ class SearchServiceTest {
         verify(userBlockService).getBlockedUserIdsEitherDirection(1L);
         verify(postRepository).searchPosts(eq("test"), isNull(), isNull(), eq(blockedUserIds), eq(false), eq(1L),
                 any(Pageable.class));
+        verify(searchRecordEventPublisher).publish(1L, "test");
     }
 
     @Test
@@ -404,6 +411,7 @@ class SearchServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.BOARD_NOT_FOUND);
         verify(postRepository, never()).searchPosts(any(), any(), any(), any(), anyBoolean(), any(), any());
+        verify(searchRecordEventPublisher, never()).publish(any(), anyString());
     }
 
     @Test
@@ -423,6 +431,7 @@ class SearchServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.BOARD_NOT_FOUND);
         verify(postRepository, never()).searchPosts(any(), any(), any(), any(), anyBoolean(), any(), any());
+        verify(searchRecordEventPublisher, never()).publish(any(), anyString());
     }
 
     @Test

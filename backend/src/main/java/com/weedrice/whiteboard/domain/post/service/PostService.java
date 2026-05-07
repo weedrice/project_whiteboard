@@ -15,6 +15,7 @@ import com.weedrice.whiteboard.domain.post.dto.ScrapListResponse;
 import com.weedrice.whiteboard.domain.post.dto.ViewHistoryRequest;
 import com.weedrice.whiteboard.domain.post.entity.*;
 import com.weedrice.whiteboard.domain.post.repository.*;
+import com.weedrice.whiteboard.domain.search.service.SearchRecordEventPublisher;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
@@ -70,6 +71,7 @@ public class PostService {
     private final PostCommandService postCommandService;
     private final PostLatestReadService postLatestReadService;
     private final PostFacadeReadService postFacadeReadService;
+    private final SearchRecordEventPublisher searchRecordEventPublisher;
 
     public Page<PostSummary> getPosts(String boardUrl, Long categoryId, String keyword, Integer minLikes, Long currentUserId,
             @NonNull Pageable pageable) {
@@ -91,7 +93,9 @@ public class PostService {
                 context,
                 includeSecret,
                 pageable);
-        return postSummaryAssembler.assembleBoardPage(posts, posts.getPageable(), true, true);
+        Page<PostSummary> response = postSummaryAssembler.assembleBoardPage(posts, posts.getPageable(), true, true);
+        publishSearchRecord(currentUserId, keyword);
+        return response;
     }
 
     public List<PostSummary> getNoticeSummaries(String boardUrl, Long currentUserId) {
@@ -154,6 +158,13 @@ public class PostService {
         }
         Sort stableSort = normalizedPageable.getSort().and(Sort.by(Sort.Order.desc("postId")));
         return PageRequestUtils.of(normalizedPageable.getPageNumber(), normalizedPageable.getPageSize(), stableSort);
+    }
+
+    private void publishSearchRecord(Long currentUserId, String keyword) {
+        if (keyword == null || keyword.trim().isEmpty()) {
+            return;
+        }
+        searchRecordEventPublisher.publish(currentUserId, keyword);
     }
 
     public List<Post> getNotices(Long boardId, Long currentUserId, Boolean includeSecret) {

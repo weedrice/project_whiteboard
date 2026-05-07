@@ -25,6 +25,7 @@ import com.weedrice.whiteboard.domain.post.dto.*;
 import com.weedrice.whiteboard.domain.post.entity.*;
 import com.weedrice.whiteboard.domain.post.repository.*;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
+import com.weedrice.whiteboard.domain.search.service.SearchRecordEventPublisher;
 import com.weedrice.whiteboard.domain.tag.service.TagAssignmentService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
@@ -107,6 +108,8 @@ class PostServiceTest {
     private SanctionService sanctionService;
     @Mock
     private EntityManager entityManager;
+    @Mock
+    private SearchRecordEventPublisher searchRecordEventPublisher;
     private BoardAccessPolicy boardAccessPolicy;
     private PostAccessPolicy postAccessPolicy;
     private PostSummaryAssembler postSummaryAssembler;
@@ -229,7 +232,8 @@ class PostServiceTest {
                 postAuthorCommandPolicy,
                 postCommandService,
                 postLatestReadService,
-                postFacadeReadService);
+                postFacadeReadService,
+                searchRecordEventPublisher);
 
         // GlobalConfigService 기본 mock 설정 - lenient()로 설정하여 일부 테스트에서 사용되지 않아도 허용
         lenient().when(globalConfigService.getConfig(anyString())).thenReturn("50");
@@ -629,6 +633,33 @@ class PostServiceTest {
         assertThat(pageable.getSort()).isEqualTo(Sort.by(
                 Sort.Order.desc("createdAt"),
                 Sort.Order.desc("postId")));
+        verify(searchRecordEventPublisher, never()).publish(any(), anyString());
+    }
+
+    @Test
+    @DisplayName("게시글 목록 키워드 조회 성공 후 검색 기록 이벤트를 발행한다")
+    void getPosts_withKeyword_publishesSearchRecord() {
+        when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
+        when(postRepository.findByBoardIdAndCategoryId(eq(1L), any(), eq(" test "), any(), any(),
+                any(Boolean.class), any(), any(Pageable.class)))
+                .thenAnswer(invocation -> Page.empty(invocation.getArgument(7)));
+
+        postService.getPosts("free", null, " test ", null, null, Pageable.unpaged());
+
+        verify(searchRecordEventPublisher).publish(null, " test ");
+    }
+
+    @Test
+    @DisplayName("게시글 목록 키워드가 비어 있으면 검색 기록 이벤트를 발행하지 않는다")
+    void getPosts_blankKeywordDoesNotPublishSearchRecord() {
+        when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
+        when(postRepository.findByBoardIdAndCategoryId(eq(1L), any(), eq("   "), any(), any(),
+                any(Boolean.class), any(), any(Pageable.class)))
+                .thenAnswer(invocation -> Page.empty(invocation.getArgument(7)));
+
+        postService.getPosts("free", null, "   ", null, null, Pageable.unpaged());
+
+        verify(searchRecordEventPublisher, never()).publish(any(), anyString());
     }
 
     @Test
@@ -676,9 +707,10 @@ class PostServiceTest {
 
         when(userRepository.findById(2L)).thenReturn(Optional.of(otherUser));
 
-        assertThatThrownBy(() -> postService.getPosts("free", null, null, null, 2L, Pageable.unpaged()))
+        assertThatThrownBy(() -> postService.getPosts("free", null, "test", null, 2L, Pageable.unpaged()))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.BOARD_NOT_FOUND);
+        verify(searchRecordEventPublisher, never()).publish(any(), anyString());
     }
 
     @Test

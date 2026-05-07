@@ -4,7 +4,6 @@ import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.search.dto.IntegratedSearchResponse;
 import com.weedrice.whiteboard.domain.search.dto.PopularKeywordDto;
 import com.weedrice.whiteboard.domain.search.dto.SearchPersonalizationResponse;
-import com.weedrice.whiteboard.domain.search.service.SearchRecordEventPublisher;
 import com.weedrice.whiteboard.domain.search.service.SearchService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -34,7 +33,6 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -74,9 +72,6 @@ class SearchControllerTest {
 
     @MockBean
     private SearchService searchService;
-
-    @MockBean
-    private SearchRecordEventPublisher searchRecordEventPublisher;
 
     @MockBean
     private com.weedrice.whiteboard.global.security.JwtAuthenticationFilter jwtAuthenticationFilter;
@@ -130,7 +125,6 @@ class SearchControllerTest {
                 emptyUserPage, java.util.Collections.emptyList(), query);
 
         when(searchService.integratedSearch(eq(query), isNull())).thenReturn(response);
-        doNothing().when(searchRecordEventPublisher).publish(isNull(), eq(query));
 
         // when & then
         mockMvc.perform(get("/api/v1/search")
@@ -139,14 +133,12 @@ class SearchControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
 
-        org.mockito.InOrder inOrder = inOrder(searchService, searchRecordEventPublisher);
-        inOrder.verify(searchService).integratedSearch(eq(query), isNull());
-        inOrder.verify(searchRecordEventPublisher).publish(isNull(), eq(query));
+        verify(searchService).integratedSearch(eq(query), isNull());
     }
 
     @Test
     @DisplayName("통합 검색은 검색어를 정규화해 검색과 기록에 사용한다")
-    void integratedSearch_trimsKeywordBeforeSearchAndRecord() throws Exception {
+    void integratedSearch_trimsKeywordBeforeSearch() throws Exception {
         String rawQuery = " test ";
         String canonicalQuery = "test";
         org.springframework.data.domain.Page<PostSummary> emptyPostPage = new PageImpl<>(List.of());
@@ -158,7 +150,6 @@ class SearchControllerTest {
                 emptyUserPage, java.util.Collections.emptyList(), canonicalQuery);
 
         when(searchService.integratedSearch(eq(canonicalQuery), isNull())).thenReturn(response);
-        doNothing().when(searchRecordEventPublisher).publish(isNull(), eq(canonicalQuery));
 
         mockMvc.perform(get("/api/v1/search")
                 .param("q", rawQuery)
@@ -166,9 +157,7 @@ class SearchControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
 
-        org.mockito.InOrder inOrder = inOrder(searchService, searchRecordEventPublisher);
-        inOrder.verify(searchService).integratedSearch(eq(canonicalQuery), isNull());
-        inOrder.verify(searchRecordEventPublisher).publish(isNull(), eq(canonicalQuery));
+        verify(searchService).integratedSearch(eq(canonicalQuery), isNull());
     }
 
     @Test
@@ -180,7 +169,6 @@ class SearchControllerTest {
                 .andExpect(status().isBadRequest());
 
         verify(searchService, never()).integratedSearch(anyString(), any());
-        verify(searchRecordEventPublisher, never()).publish(any(), anyString());
     }
 
     @Test
@@ -193,7 +181,6 @@ class SearchControllerTest {
         Page<PostSummary> page = new PageImpl<>(List.of(postSummary), pageRequest, 1);
 
         when(searchService.searchPosts(eq(query), any(), any(), any(), any())).thenReturn(page);
-        doNothing().when(searchRecordEventPublisher).publish(any(), eq(query));
 
         // when & then
         mockMvc.perform(get("/api/v1/search/posts")
@@ -205,9 +192,7 @@ class SearchControllerTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.content").isArray());
 
-        org.mockito.InOrder inOrder = inOrder(searchService, searchRecordEventPublisher);
-        inOrder.verify(searchService).searchPosts(eq(query), any(), any(), any(), eq(1L));
-        inOrder.verify(searchRecordEventPublisher).publish(eq(1L), eq(query));
+        verify(searchService).searchPosts(eq(query), any(), any(), any(), eq(1L));
     }
 
     @Test
@@ -238,14 +223,13 @@ class SearchControllerTest {
 
     @Test
     @DisplayName("게시글 검색은 검색어를 정규화해 검색과 기록에 사용한다")
-    void searchPosts_trimsKeywordBeforeSearchAndRecord() throws Exception {
+    void searchPosts_trimsKeywordBeforeSearch() throws Exception {
         String rawQuery = " test ";
         String canonicalQuery = "test";
         PageRequest pageRequest = PageRequest.of(0, 10);
         Page<PostSummary> page = new PageImpl<>(List.of(PostSummary.builder().build()), pageRequest, 1);
 
         when(searchService.searchPosts(eq(canonicalQuery), any(), any(), any(), any())).thenReturn(page);
-        doNothing().when(searchRecordEventPublisher).publish(any(), eq(canonicalQuery));
 
         mockMvc.perform(get("/api/v1/search/posts")
                 .param("q", rawQuery)
@@ -255,9 +239,7 @@ class SearchControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
 
-        org.mockito.InOrder inOrder = inOrder(searchService, searchRecordEventPublisher);
-        inOrder.verify(searchService).searchPosts(eq(canonicalQuery), any(), any(), any(), eq(1L));
-        inOrder.verify(searchRecordEventPublisher).publish(eq(1L), eq(canonicalQuery));
+        verify(searchService).searchPosts(eq(canonicalQuery), any(), any(), any(), eq(1L));
     }
 
     @Test
@@ -269,12 +251,11 @@ class SearchControllerTest {
                 .andExpect(status().isBadRequest());
 
         verify(searchService, never()).searchPosts(anyString(), any(), any(), any(), any());
-        verify(searchRecordEventPublisher, never()).publish(any(), anyString());
     }
 
     @Test
-    @DisplayName("게시글 검색 실패 시 검색 기록을 남기지 않는다")
-    void searchPosts_failureDoesNotPublishEvent() throws Exception {
+    @DisplayName("게시글 검색 실패 시 비즈니스 예외를 반환한다")
+    void searchPosts_failureReturnsBusinessException() throws Exception {
         String query = "test";
         when(searchService.searchPosts(eq(query), any(), any(), any(), any()))
                 .thenThrow(new BusinessException(ErrorCode.BOARD_NOT_FOUND));
@@ -284,23 +265,19 @@ class SearchControllerTest {
                         .param("boardUrl", "missing-board")
                         .with(user(customUserDetails)))
                 .andExpect(status().isNotFound());
-
-        verify(searchRecordEventPublisher, never()).publish(any(), anyString());
     }
 
     @Test
-    @DisplayName("통합 검색 실패 시 검색 기록을 남기지 않는다")
-    void integratedSearch_failureDoesNotPublishEvent() throws Exception {
+    @DisplayName("통합 검색 실패 시 비즈니스 예외를 반환한다")
+    void integratedSearch_failureReturnsBusinessException() throws Exception {
         String query = "test";
         when(searchService.integratedSearch(eq(query), isNull()))
                 .thenThrow(new BusinessException(ErrorCode.INVALID_INPUT_VALUE));
 
         mockMvc.perform(get("/api/v1/search")
-                        .param("q", query)
-                        .with(anonymous()))
+                .param("q", query)
+                .with(anonymous()))
                 .andExpect(status().isBadRequest());
-
-        verify(searchRecordEventPublisher, never()).publish(any(), anyString());
     }
 
     @Test

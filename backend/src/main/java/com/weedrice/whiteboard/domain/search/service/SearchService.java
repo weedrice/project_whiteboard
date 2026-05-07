@@ -52,6 +52,7 @@ public class SearchService {
     private final UserBlockService userBlockService;
     private final PostSummaryAssembler postSummaryAssembler;
     private final BoardAccessPolicy boardAccessPolicy;
+    private final SearchRecordEventPublisher searchRecordEventPublisher;
 
     @Transactional
     public void recordSearch(Long userId, String keyword, LocalDate searchDate) {
@@ -94,7 +95,9 @@ public class SearchService {
                 .map(BoardSummary::from)
                 .collect(Collectors.toList());
 
-        return IntegratedSearchResponse.from(posts, comments, users, boards, canonicalKeyword);
+        IntegratedSearchResponse response = IntegratedSearchResponse.from(posts, comments, users, boards, canonicalKeyword);
+        searchRecordEventPublisher.publish(currentUserId, canonicalKeyword);
+        return response;
     }
 
     public Page<PostSummary> searchPosts(String keyword, String searchType, String boardUrl, Pageable pageable,
@@ -123,7 +126,9 @@ public class SearchService {
         Page<Post> postPage = postRepository.searchPosts(canonicalKeyword, searchType,
                 boardUrl, blockedUserIds, includeSecret, currentUserId, normalizedPageable);
 
-        return postSummaryAssembler.assembleSearchPage(postPage);
+        Page<PostSummary> response = postSummaryAssembler.assembleSearchPage(postPage);
+        searchRecordEventPublisher.publish(currentUserId, canonicalKeyword);
+        return response;
     }
 
     public SearchPersonalizationResponse getRecentSearches(Long userId, Pageable pageable) {

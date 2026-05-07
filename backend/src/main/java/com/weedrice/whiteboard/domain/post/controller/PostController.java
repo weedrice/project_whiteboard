@@ -4,7 +4,6 @@ import com.weedrice.whiteboard.domain.post.dto.*;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.entity.ViewHistory;
 import com.weedrice.whiteboard.domain.post.service.PostService;
-import com.weedrice.whiteboard.domain.search.service.SearchRecordEventPublisher;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
@@ -29,7 +28,6 @@ import java.util.List;
 public class PostController {
 
     private final PostService postService;
-    private final SearchRecordEventPublisher searchRecordEventPublisher;
 
     @GetMapping("/boards/{boardUrl}/posts")
     public ApiResponse<PageResponse<PostSummary>> getPosts(
@@ -45,14 +43,7 @@ public class PostController {
             userId = ((CustomUserDetails) authentication.getPrincipal()).getUserId();
         }
 
-        Page<PostSummary> summaryPage;
-        if (keyword != null && !keyword.trim().isEmpty()) {
-            summaryPage = postService.getPosts(boardUrl, categoryId, keyword, minLikes, userId, pageable);
-            searchRecordEventPublisher.publish(userId, keyword);
-            return ApiResponse.success(new PageResponse<>(summaryPage));
-        }
-
-        summaryPage = postService.getPosts(boardUrl, categoryId, keyword, minLikes, userId, pageable);
+        Page<PostSummary> summaryPage = postService.getPosts(boardUrl, categoryId, keyword, minLikes, userId, pageable);
 
         return ApiResponse.success(new PageResponse<>(summaryPage));
     }

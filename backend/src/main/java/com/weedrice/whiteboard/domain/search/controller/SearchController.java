@@ -5,7 +5,6 @@ import com.weedrice.whiteboard.domain.search.dto.IntegratedSearchResponse;
 import com.weedrice.whiteboard.domain.search.dto.PopularKeywordDto;
 import com.weedrice.whiteboard.domain.search.dto.PopularKeywordResponse;
 import com.weedrice.whiteboard.domain.search.dto.SearchPersonalizationResponse;
-import com.weedrice.whiteboard.domain.search.service.SearchRecordEventPublisher;
 import com.weedrice.whiteboard.domain.search.service.SearchRequestNormalizer;
 import com.weedrice.whiteboard.domain.search.service.SearchService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
@@ -26,7 +25,6 @@ import java.util.List;
 public class SearchController {
 
     private final SearchService searchService;
-    private final SearchRecordEventPublisher searchRecordEventPublisher;
 
     @GetMapping
     public ApiResponse<IntegratedSearchResponse> integratedSearch(
@@ -36,7 +34,6 @@ public class SearchController {
         String keyword = SearchRequestNormalizer.canonicalizeKeyword(q);
         Long userId = (userDetails != null) ? userDetails.getUserId() : null;
         IntegratedSearchResponse response = searchService.integratedSearch(keyword, userId);
-        searchRecordEventPublisher.publish(userId, keyword);
         return ApiResponse.success(response);
     }
 
@@ -55,7 +52,6 @@ public class SearchController {
         Pageable pageable = SearchRequestNormalizer.normalizePostSearchPageable(page, size, sort);
         Page<PostSummary> response = searchService.searchPosts(keyword, searchType, boardUrl, pageable, userId);
 
-        searchRecordEventPublisher.publish(userId, keyword);
         return ApiResponse.success(new PageResponse<>(response));
     }
 

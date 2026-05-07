@@ -8,7 +8,6 @@ import com.weedrice.whiteboard.domain.post.entity.DraftPost;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.entity.Scrap;
 import com.weedrice.whiteboard.domain.post.service.PostService;
-import com.weedrice.whiteboard.domain.search.service.SearchRecordEventPublisher;
 import com.weedrice.whiteboard.domain.tag.constant.TagConstraints;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
@@ -72,9 +71,6 @@ class PostControllerTest {
 
     @MockBean
     private PostService postService;
-
-    @MockBean
-    private SearchRecordEventPublisher searchRecordEventPublisher;
 
     @MockBean
     private com.weedrice.whiteboard.global.security.JwtAuthenticationFilter jwtAuthenticationFilter;
@@ -163,25 +159,20 @@ class PostControllerTest {
             Page<PostSummary> summaryPage = new PageImpl<>(List.of(summary));
 
             when(postService.getPosts(eq(boardUrl), any(), eq(keyword), any(), isNull(), any(Pageable.class))).thenReturn(summaryPage);
-            doNothing().when(searchRecordEventPublisher).publish(isNull(), eq(keyword));
 
             mockMvc.perform(get("/api/v1/boards/{boardUrl}/posts", boardUrl)
                     .param("keyword", keyword)
                     .accept(MediaType.APPLICATION_JSON))
                     .andExpect(status().isOk());
 
-            org.mockito.InOrder inOrder = inOrder(postService, searchRecordEventPublisher);
-            inOrder.verify(postService).getPosts(eq(boardUrl), any(), eq(keyword), any(), isNull(), any(Pageable.class));
-            inOrder.verify(searchRecordEventPublisher).publish(isNull(), eq(keyword));
             verify(postService).getPosts(eq(boardUrl), any(), eq(keyword), any(), isNull(), any(Pageable.class));
         }
 
         @Test
-        @DisplayName("게시글 목록 조회 실패 시 검색 기록을 남기지 않는다")
-        void getPosts_withKeyword_doesNotPublishSearchRecordOnFailure() throws Exception {
+        @DisplayName("게시글 목록 조회 실패 시 비즈니스 예외를 반환한다")
+        void getPosts_withKeyword_returnsBusinessExceptionOnFailure() throws Exception {
             String boardUrl = "unknown";
             String keyword = "test";
-            clearInvocations(searchRecordEventPublisher);
 
             doThrow(new com.weedrice.whiteboard.global.exception.BusinessException(
                     com.weedrice.whiteboard.global.exception.ErrorCode.BOARD_NOT_FOUND))
@@ -192,8 +183,6 @@ class PostControllerTest {
                     .param("keyword", keyword)
                     .accept(MediaType.APPLICATION_JSON))
                     .andExpect(status().isNotFound());
-
-            verifyNoInteractions(searchRecordEventPublisher);
         }
 
         @Test
