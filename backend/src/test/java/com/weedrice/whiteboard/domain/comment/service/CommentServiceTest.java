@@ -627,12 +627,12 @@ class CommentServiceTest {
         Pageable normalized = PageRequest.of(2, 100, Sort.by(Sort.Order.desc("createdAt")));
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(commentRepository.findByUserAndIsDeletedOrderByCreatedAtDesc(user, false, normalized))
+        when(commentRepository.findVisibleMyComments(user, false, true, List.of(-1L), normalized))
                 .thenReturn(Page.empty(normalized));
 
         commentService.getMyComments(1L, requested);
 
-        verify(commentRepository).findByUserAndIsDeletedOrderByCreatedAtDesc(user, false, normalized);
+        verify(commentRepository).findVisibleMyComments(user, false, true, List.of(-1L), normalized);
     }
 
     @Test

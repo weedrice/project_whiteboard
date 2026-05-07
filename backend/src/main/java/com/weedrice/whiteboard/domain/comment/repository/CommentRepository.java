@@ -125,6 +125,111 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
         @org.springframework.data.jpa.repository.Query(value = "SELECT DISTINCT c FROM Comment c JOIN FETCH c.post p JOIN FETCH p.board WHERE c.user = :user AND c.isDeleted = :isDeleted ORDER BY c.createdAt DESC", countQuery = "SELECT COUNT(DISTINCT c) FROM Comment c WHERE c.user = :user AND c.isDeleted = :isDeleted")
         Page<Comment> findByUserAndIsDeletedOrderByCreatedAtDesc(@org.springframework.data.repository.query.Param("user") User user, @org.springframework.data.repository.query.Param("isDeleted") Boolean isDeleted, Pageable pageable);
 
+        @Query(value = """
+                        SELECT DISTINCT c
+                        FROM Comment c
+                        JOIN FETCH c.post p
+                        JOIN FETCH p.board b
+                        WHERE c.user = :user
+                          AND c.isDeleted = false
+                          AND p.isDeleted = false
+                          AND (:blockedUserIdsEmpty = true OR p.user.userId NOT IN (:blockedUserIds))
+                          AND (
+                                b.isActive = true
+                                OR p.user = :user
+                                OR :viewerIsSuperAdmin = true
+                                OR b.creator = :user
+                                OR EXISTS (
+                                        SELECT 1
+                                        FROM Admin a
+                                        WHERE a.user = :user
+                                          AND a.board = b
+                                          AND a.isActive = true
+                                )
+                          )
+                          AND (
+                                b.isPublic = true
+                                OR (LOWER(b.boardUrl) = 'inquiry' AND p.user = :user)
+                                OR :viewerIsSuperAdmin = true
+                                OR b.creator = :user
+                                OR EXISTS (
+                                        SELECT 1
+                                        FROM Admin a
+                                        WHERE a.user = :user
+                                          AND a.board = b
+                                          AND a.isActive = true
+                                )
+                          )
+                          AND (
+                                p.isSecret = false
+                                OR p.user = :user
+                                OR :viewerIsSuperAdmin = true
+                                OR b.creator = :user
+                                OR EXISTS (
+                                        SELECT 1
+                                        FROM Admin a
+                                        WHERE a.user = :user
+                                          AND a.board = b
+                                          AND a.isActive = true
+                                )
+                          )
+                        ORDER BY c.createdAt DESC
+                        """, countQuery = """
+                        SELECT COUNT(DISTINCT c)
+                        FROM Comment c
+                        JOIN c.post p
+                        JOIN p.board b
+                        WHERE c.user = :user
+                          AND c.isDeleted = false
+                          AND p.isDeleted = false
+                          AND (:blockedUserIdsEmpty = true OR p.user.userId NOT IN (:blockedUserIds))
+                          AND (
+                                b.isActive = true
+                                OR p.user = :user
+                                OR :viewerIsSuperAdmin = true
+                                OR b.creator = :user
+                                OR EXISTS (
+                                        SELECT 1
+                                        FROM Admin a
+                                        WHERE a.user = :user
+                                          AND a.board = b
+                                          AND a.isActive = true
+                                )
+                          )
+                          AND (
+                                b.isPublic = true
+                                OR (LOWER(b.boardUrl) = 'inquiry' AND p.user = :user)
+                                OR :viewerIsSuperAdmin = true
+                                OR b.creator = :user
+                                OR EXISTS (
+                                        SELECT 1
+                                        FROM Admin a
+                                        WHERE a.user = :user
+                                          AND a.board = b
+                                          AND a.isActive = true
+                                )
+                          )
+                          AND (
+                                p.isSecret = false
+                                OR p.user = :user
+                                OR :viewerIsSuperAdmin = true
+                                OR b.creator = :user
+                                OR EXISTS (
+                                        SELECT 1
+                                        FROM Admin a
+                                        WHERE a.user = :user
+                                          AND a.board = b
+                                          AND a.isActive = true
+                                )
+                          )
+                        """)
+        Page<Comment> findVisibleMyComments(
+                        @org.springframework.data.repository.query.Param("user") User user,
+                        @org.springframework.data.repository.query.Param("viewerIsSuperAdmin") boolean viewerIsSuperAdmin,
+                        @org.springframework.data.repository.query.Param("blockedUserIdsEmpty") boolean blockedUserIdsEmpty,
+                        @org.springframework.data.repository.query.Param("blockedUserIds") Collection<Long> blockedUserIds,
+                        Pageable pageable);
+
         long countByPost_PostIdAndIsDeleted(Long postId, Boolean isDeleted);
         long countByAgent_AgentIdAndCreatedAtBetween(Long agentId, LocalDateTime start, LocalDateTime end);
         long countByCreatedAtGreaterThanEqualAndCreatedAtLessThanAndIsDeletedFalse(LocalDateTime start, LocalDateTime end);

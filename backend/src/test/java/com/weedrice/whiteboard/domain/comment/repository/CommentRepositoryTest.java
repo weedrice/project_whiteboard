@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.comment.repository;
 
+import com.weedrice.whiteboard.domain.admin.entity.Admin;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.comment.entity.CommentClosure;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
@@ -296,20 +297,127 @@ class CommentRepositoryTest {
         assertThat(answeredPostIds).containsExactly(post.getPostId());
     }
 
+    @Test
+    @DisplayName("내 댓글 목록은 읽을 수 없는 게시글의 댓글을 제외하고 페이징 집계를 맞춘다")
+    void findVisibleMyComments_filtersUnreadablePostsAndMatchesTotal() {
+        User author = persistUser("author", "author@test.com", "Author");
+        Board publicBoard = persistBoard("My Comment Public Board", "my-comment-public-board", true, author);
+        Board privateBoard = persistBoard("My Comment Private Board", "my-comment-private-board", false, author);
+        Board inactiveBoard = persistBoard("My Comment Inactive Board", "my-comment-inactive-board", true, author);
+        inactiveBoard.deactivate();
+        Board inquiryBoard = persistBoard("My Comment Inquiry Board", "inquiry", false, author);
+
+        Post visiblePost = persistPost("Visible Post", publicBoard, false, false, author);
+        Post deletedPost = persistPost("Deleted Post", publicBoard, false, true, author);
+        Post privatePost = persistPost("Private Post", privateBoard, false, false, author);
+        Post inactivePost = persistPost("Inactive Post", inactiveBoard, false, false, author);
+        Post secretPost = persistPost("Secret Post", publicBoard, true, false, author);
+        Post ownSecretPost = persistPost("Own Secret Post", publicBoard, true, false, user);
+        Post ownInquiryPost = persistPost("Own Inquiry Post", inquiryBoard, false, false, user);
+        entityManager.persist(commentFor(visiblePost, "Visible Comment", user));
+        entityManager.persist(commentFor(deletedPost, "Deleted Post Comment", user));
+        entityManager.persist(commentFor(privatePost, "Private Post Comment", user));
+        entityManager.persist(commentFor(inactivePost, "Inactive Post Comment", user));
+        entityManager.persist(commentFor(secretPost, "Secret Post Comment", user));
+        entityManager.persist(commentFor(ownSecretPost, "Own Secret Comment", user));
+        entityManager.persist(commentFor(ownInquiryPost, "Own Inquiry Comment", user));
+        entityManager.flush();
+        entityManager.clear();
+
+        Page<Comment> result = commentRepository.findVisibleMyComments(
+                user,
+                false,
+                true,
+                List.of(-1L),
+                PageRequest.of(0, 10));
+
+        assertThat(result.getTotalElements()).isEqualTo(4L);
+        assertThat(result.getContent())
+                .extracting(comment -> comment.getPost().getTitle())
+                .containsExactlyInAnyOrder("Test Post", "Visible Post", "Own Secret Post", "Own Inquiry Post");
+    }
+
+    @Test
+    @DisplayName("내 댓글 목록은 차단한 게시글 작성자의 글을 제외한다")
+    void findVisibleMyComments_excludesBlockedPostAuthors() {
+        User blockedAuthor = persistUser("blocked-author", "blocked-author@test.com", "Blocked Author");
+        Post blockedAuthorPost = persistPost("Blocked Author Post", board, false, false, blockedAuthor);
+        entityManager.persist(commentFor(blockedAuthorPost, "Blocked Author Comment", user));
+        entityManager.flush();
+        entityManager.clear();
+
+        Page<Comment> result = commentRepository.findVisibleMyComments(
+                user,
+                false,
+                false,
+                List.of(blockedAuthor.getUserId()),
+                PageRequest.of(0, 10));
+
+        assertThat(result.getContent())
+                .extracting(comment -> comment.getPost().getTitle())
+                .doesNotContain("Blocked Author Post");
+    }
+
+    @Test
+    @DisplayName("내 댓글 목록은 게시판 관리자에게 비공개 게시판 댓글을 노출한다")
+    void findVisibleMyComments_allowsActiveBoardAdmin() {
+        Board privateBoard = persistBoard("Managed Private Board", "managed-private-board", false);
+        entityManager.persist(Admin.builder()
+                .user(user)
+                .board(privateBoard)
+                .role("MANAGER")
+                .build());
+        User author = persistUser("managed-author", "managed-author@test.com", "Managed Author");
+        Post privatePost = persistPost("Managed Private Post", privateBoard, false, false, author);
+        entityManager.persist(commentFor(privatePost, "Managed Private Comment", user));
+        entityManager.flush();
+        entityManager.clear();
+
+        Page<Comment> result = commentRepository.findVisibleMyComments(
+                user,
+                false,
+                true,
+                List.of(-1L),
+                PageRequest.of(0, 10));
+
+        assertThat(result.getContent())
+                .extracting(comment -> comment.getPost().getTitle())
+                .contains("Managed Private Post");
+    }
+
     private Comment commentFor(Post post, String content) {
+        return commentFor(post, content, user);
+    }
+
+    private Comment commentFor(Post post, String content, User commentAuthor) {
         return Comment.builder()
                 .content(content)
-                .user(user)
+                .user(commentAuthor)
                 .post(post)
                 .depth(0)
                 .build();
     }
 
+    private User persistUser(String loginId, String email, String displayName) {
+        User targetUser = User.builder()
+                .loginId(loginId)
+                .email(email)
+                .password("password")
+                .displayName(displayName)
+                .build();
+        entityManager.persist(targetUser);
+        return targetUser;
+    }
+
     private Board persistBoard(String boardName, String boardUrl, boolean isPublic) {
+        return persistBoard(boardName, boardUrl, isPublic, user);
+    }
+
+    private Board persistBoard(String boardName, String boardUrl, boolean isPublic, User creator) {
         Board targetBoard = Board.builder()
                 .boardName(boardName)
                 .boardUrl(boardUrl)
-                .creator(user)
+                .creator(creator)
                 .isPublic(isPublic)
                 .build();
         entityManager.persist(targetBoard);
@@ -317,10 +425,14 @@ class CommentRepositoryTest {
     }
 
     private Post persistPost(String title, Board targetBoard, boolean isSecret, boolean isDeleted) {
+        return persistPost(title, targetBoard, isSecret, isDeleted, user);
+    }
+
+    private Post persistPost(String title, Board targetBoard, boolean isSecret, boolean isDeleted, User author) {
         Post targetPost = Post.builder()
                 .title(title)
                 .contents("Contents")
-                .user(user)
+                .user(author)
                 .board(targetBoard)
                 .isSecret(isSecret)
                 .build();

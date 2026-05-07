@@ -30,6 +30,7 @@ import java.util.Set;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class CommentQueryService {
+    private static final Long EMPTY_BLOCKED_USER_ID_SENTINEL = -1L;
     private static final int DEFAULT_MY_COMMENT_PAGE_SIZE = 20;
     private static final Sort DEFAULT_MY_COMMENT_SORT = Sort.by(Sort.Order.desc("createdAt"));
 
@@ -99,7 +100,17 @@ public class CommentQueryService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         Pageable safePageable = normalizeMyCommentPageable(pageable);
-        return commentRepository.findByUserAndIsDeletedOrderByCreatedAtDesc(user, false, safePageable)
+        CommentReadContext context = commentPostAccessService.resolveReadContext(user);
+        Set<Long> blockedUserIds = context.blockedUserIds();
+        List<Long> blockedUserIdParams = blockedUserIds.isEmpty()
+                ? List.of(EMPTY_BLOCKED_USER_ID_SENTINEL)
+                : List.copyOf(blockedUserIds);
+        return commentRepository.findVisibleMyComments(
+                user,
+                Boolean.TRUE.equals(user.getIsSuperAdmin()),
+                blockedUserIds.isEmpty(),
+                blockedUserIdParams,
+                safePageable)
                 .map(MyCommentResponse::from);
     }
 
