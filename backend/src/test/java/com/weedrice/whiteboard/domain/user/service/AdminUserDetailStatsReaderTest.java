@@ -2,15 +2,12 @@ package com.weedrice.whiteboard.domain.user.service;
 
 import com.weedrice.whiteboard.domain.auth.entity.LoginHistory;
 import com.weedrice.whiteboard.domain.auth.repository.LoginHistoryRepository;
-import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository;
-import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
-import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.report.entity.Report;
 import com.weedrice.whiteboard.domain.report.entity.ReportTargetType;
-import com.weedrice.whiteboard.domain.report.repository.ReportRepository;
 import com.weedrice.whiteboard.domain.sanction.entity.Sanction;
 import com.weedrice.whiteboard.domain.sanction.repository.SanctionRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -30,12 +27,9 @@ class AdminUserDetailStatsReaderTest {
     @InjectMocks
     private AdminUserDetailStatsReader reader;
 
-    @Mock private PostRepository postRepository;
-    @Mock private CommentRepository commentRepository;
-    @Mock private BoardSubscriptionRepository boardSubscriptionRepository;
+    @Mock private UserRepository userRepository;
     @Mock private LoginHistoryRepository loginHistoryRepository;
     @Mock private SanctionRepository sanctionRepository;
-    @Mock private ReportRepository reportRepository;
 
     @Test
     @DisplayName("read returns delegated count and recent values")
@@ -50,19 +44,14 @@ class AdminUserDetailStatsReaderTest {
         LoginHistory recentLogin = LoginHistory.builder().user(user).ipAddress("127.0.0.1").userAgent("agent").build();
         Sanction recentSanction = Sanction.builder().targetUser(user).type("BAN").remark("reason").build();
 
-        when(postRepository.countByUserAndIsDeleted(user, false)).thenReturn(1L);
-        when(commentRepository.countByUserAndIsDeleted(user, false)).thenReturn(2L);
-        when(boardSubscriptionRepository.countByUser(user)).thenReturn(3L);
+        when(userRepository.countAdminUserDetailStats(
+                user,
+                ReportTargetType.USER.name(),
+                Report.STATUS_PENDING)).thenReturn(adminUserStats(1L, 2L, 3L, 4L, 5L, 6L));
         when(loginHistoryRepository.findTopByUserAndIsSuccessTrueOrderByCreatedAtDesc(user))
                 .thenReturn(Optional.of(recentLogin));
-        when(sanctionRepository.countByTargetUser(user)).thenReturn(4L);
         when(sanctionRepository.findTopByTargetUserOrderByCreatedAtDesc(user))
                 .thenReturn(Optional.of(recentSanction));
-        when(reportRepository.countByTargetTypeAndTargetId(ReportTargetType.USER.name(), 1L)).thenReturn(5L);
-        when(reportRepository.countByTargetTypeAndTargetIdAndStatus(
-                ReportTargetType.USER.name(),
-                1L,
-                Report.STATUS_PENDING)).thenReturn(6L);
 
         AdminUserDetailStatsReader.AdminUserDetailStats stats = reader.read(user);
 
@@ -74,5 +63,45 @@ class AdminUserDetailStatsReaderTest {
         assertThat(stats.recentSanction()).isSameAs(recentSanction);
         assertThat(stats.reportTotalCount()).isEqualTo(5L);
         assertThat(stats.reportPendingCount()).isEqualTo(6L);
+    }
+
+    private UserRepository.AdminUserDetailStatsProjection adminUserStats(
+            long postCount,
+            long commentCount,
+            long subscriptionCount,
+            long sanctionCount,
+            long reportTotalCount,
+            long reportPendingCount) {
+        return new UserRepository.AdminUserDetailStatsProjection() {
+            @Override
+            public Long getPostCount() {
+                return postCount;
+            }
+
+            @Override
+            public Long getCommentCount() {
+                return commentCount;
+            }
+
+            @Override
+            public Long getSubscriptionCount() {
+                return subscriptionCount;
+            }
+
+            @Override
+            public Long getSanctionCount() {
+                return sanctionCount;
+            }
+
+            @Override
+            public Long getReportTotalCount() {
+                return reportTotalCount;
+            }
+
+            @Override
+            public Long getReportPendingCount() {
+                return reportPendingCount;
+            }
+        };
     }
 }

@@ -2,8 +2,12 @@ package com.weedrice.whiteboard.domain.user.repository;
 
 import com.weedrice.whiteboard.domain.admin.entity.Admin;
 import com.weedrice.whiteboard.domain.board.entity.Board;
+import com.weedrice.whiteboard.domain.board.entity.BoardSubscription;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.post.entity.Post;
+import com.weedrice.whiteboard.domain.report.entity.Report;
+import com.weedrice.whiteboard.domain.report.entity.ReportTargetType;
+import com.weedrice.whiteboard.domain.sanction.entity.Sanction;
 import com.weedrice.whiteboard.domain.user.dto.UserAdminSearchCondition;
 import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -434,6 +438,87 @@ class UserRepositoryTest {
 
         assertThat(stats.getNewMembersLast24Hours()).isEqualTo(1L);
         assertThat(stats.getOnlineCount()).isEqualTo(2L);
+    }
+
+    @Test
+    @DisplayName("관리자 사용자 상세 통계를 한 번에 집계한다")
+    void countAdminUserDetailStats_aggregatesDetailCounts() {
+        Post activePost = Post.builder().board(board).user(user1).title("active").contents("content").build();
+        Post deletedPost = Post.builder().board(board).user(user1).title("deleted").contents("content").build();
+        deletedPost.deletePost();
+        entityManager.persist(activePost);
+        entityManager.persist(deletedPost);
+        Comment activeComment = Comment.builder().post(activePost).user(user1).content("active").depth(0).build();
+        Comment deletedComment = Comment.builder().post(activePost).user(user1).content("deleted").depth(0).build();
+        deletedComment.deleteComment();
+        entityManager.persist(activeComment);
+        entityManager.persist(deletedComment);
+        entityManager.persist(BoardSubscription.builder()
+                .user(user1)
+                .board(board)
+                .role("MEMBER")
+                .sortOrder(1)
+                .build());
+        Admin admin = Admin.builder().user(user3).board(board).role(Role.BOARD_ADMIN).build();
+        entityManager.persist(admin);
+        entityManager.persist(Sanction.builder()
+                .targetUser(user1)
+                .admin(admin)
+                .type("BAN")
+                .remark("target")
+                .startDate(LocalDateTime.of(2026, 5, 4, 12, 0))
+                .build());
+        entityManager.persist(Sanction.builder()
+                .targetUser(user3)
+                .admin(admin)
+                .type("BAN")
+                .remark("other")
+                .startDate(LocalDateTime.of(2026, 5, 4, 13, 0))
+                .build());
+        User reporter = User.builder()
+                .loginId("detail-reporter")
+                .displayName("Detail Reporter")
+                .email("detail-reporter@test.com")
+                .password("pass")
+                .build();
+        entityManager.persist(reporter);
+        entityManager.persist(Report.builder()
+                .reporter(user3)
+                .targetType(ReportTargetType.USER.name())
+                .targetId(user1.getUserId())
+                .reasonType("SPAM")
+                .contents("pending")
+                .build());
+        Report resolvedReport = Report.builder()
+                .reporter(reporter)
+                .targetType(ReportTargetType.USER.name())
+                .targetId(user1.getUserId())
+                .reasonType("ABUSE")
+                .contents("resolved")
+                .build();
+        resolvedReport.processReport(admin, user3.getUserId(), Report.STATUS_RESOLVED, "processed");
+        entityManager.persist(resolvedReport);
+        entityManager.persist(Report.builder()
+                .reporter(user1)
+                .targetType(ReportTargetType.USER.name())
+                .targetId(user3.getUserId())
+                .reasonType("SPAM")
+                .contents("other target")
+                .build());
+        entityManager.flush();
+        entityManager.clear();
+
+        UserRepository.AdminUserDetailStatsProjection stats = userRepository.countAdminUserDetailStats(
+                user1,
+                ReportTargetType.USER.name(),
+                Report.STATUS_PENDING);
+
+        assertThat(stats.getPostCount()).isEqualTo(1L);
+        assertThat(stats.getCommentCount()).isEqualTo(1L);
+        assertThat(stats.getSubscriptionCount()).isEqualTo(1L);
+        assertThat(stats.getSanctionCount()).isEqualTo(1L);
+        assertThat(stats.getReportTotalCount()).isEqualTo(2L);
+        assertThat(stats.getReportPendingCount()).isEqualTo(1L);
     }
 
     @Test

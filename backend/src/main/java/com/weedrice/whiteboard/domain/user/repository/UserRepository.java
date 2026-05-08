@@ -14,6 +14,20 @@ import java.util.List;
 import java.util.Optional;
 
 public interface UserRepository extends JpaRepository<User, Long>, UserRepositoryCustom {
+    interface AdminUserDetailStatsProjection {
+        Long getPostCount();
+
+        Long getCommentCount();
+
+        Long getSubscriptionCount();
+
+        Long getSanctionCount();
+
+        Long getReportTotalCount();
+
+        Long getReportPendingCount();
+    }
+
     interface PublicLandingUserStatsProjection {
         Long getNewMembersLast24Hours();
 
@@ -70,6 +84,29 @@ public interface UserRepository extends JpaRepository<User, Long>, UserRepositor
               AND u.deletedAt IS NULL
             """)
     PublicLandingUserStatsProjection countPublicLandingUserStats(@Param("since") LocalDateTime since);
+
+    @Query("""
+            SELECT
+                (SELECT COUNT(p) FROM Post p WHERE p.user = u AND p.isDeleted = false) AS postCount,
+                (SELECT COUNT(c) FROM Comment c WHERE c.user = u AND c.isDeleted = false) AS commentCount,
+                (SELECT COUNT(bs) FROM BoardSubscription bs WHERE bs.user = u) AS subscriptionCount,
+                (SELECT COUNT(s) FROM Sanction s WHERE s.targetUser = u) AS sanctionCount,
+                (SELECT COUNT(r)
+                 FROM Report r
+                 WHERE r.targetType = :reportTargetType
+                   AND r.targetId = u.userId) AS reportTotalCount,
+                (SELECT COUNT(r)
+                 FROM Report r
+                 WHERE r.targetType = :reportTargetType
+                   AND r.targetId = u.userId
+                   AND r.status = :reportPendingStatus) AS reportPendingCount
+            FROM User u
+            WHERE u = :user
+            """)
+    AdminUserDetailStatsProjection countAdminUserDetailStats(
+            @Param("user") User user,
+            @Param("reportTargetType") String reportTargetType,
+            @Param("reportPendingStatus") String reportPendingStatus);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""

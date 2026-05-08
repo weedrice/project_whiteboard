@@ -2,15 +2,12 @@ package com.weedrice.whiteboard.domain.user.service;
 
 import com.weedrice.whiteboard.domain.auth.entity.LoginHistory;
 import com.weedrice.whiteboard.domain.auth.repository.LoginHistoryRepository;
-import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository;
-import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
-import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.report.entity.Report;
 import com.weedrice.whiteboard.domain.report.entity.ReportTargetType;
-import com.weedrice.whiteboard.domain.report.repository.ReportRepository;
 import com.weedrice.whiteboard.domain.sanction.entity.Sanction;
 import com.weedrice.whiteboard.domain.sanction.repository.SanctionRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,26 +20,29 @@ public class AdminUserDetailStatsReader {
     private static final String REPORT_TARGET_TYPE_USER = ReportTargetType.USER.name();
     private static final String REPORT_STATUS_PENDING = Report.STATUS_PENDING;
 
-    private final PostRepository postRepository;
-    private final CommentRepository commentRepository;
-    private final BoardSubscriptionRepository boardSubscriptionRepository;
+    private final UserRepository userRepository;
     private final LoginHistoryRepository loginHistoryRepository;
     private final SanctionRepository sanctionRepository;
-    private final ReportRepository reportRepository;
 
     public AdminUserDetailStats read(User user) {
+        UserRepository.AdminUserDetailStatsProjection stats = userRepository.countAdminUserDetailStats(
+                user,
+                REPORT_TARGET_TYPE_USER,
+                REPORT_STATUS_PENDING);
+
         return new AdminUserDetailStats(
-                postRepository.countByUserAndIsDeleted(user, false),
-                commentRepository.countByUserAndIsDeleted(user, false),
-                boardSubscriptionRepository.countByUser(user),
+                countOrZero(stats.getPostCount()),
+                countOrZero(stats.getCommentCount()),
+                countOrZero(stats.getSubscriptionCount()),
                 loginHistoryRepository.findTopByUserAndIsSuccessTrueOrderByCreatedAtDesc(user).orElse(null),
-                sanctionRepository.countByTargetUser(user),
+                countOrZero(stats.getSanctionCount()),
                 sanctionRepository.findTopByTargetUserOrderByCreatedAtDesc(user).orElse(null),
-                reportRepository.countByTargetTypeAndTargetId(REPORT_TARGET_TYPE_USER, user.getUserId()),
-                reportRepository.countByTargetTypeAndTargetIdAndStatus(
-                        REPORT_TARGET_TYPE_USER,
-                        user.getUserId(),
-                        REPORT_STATUS_PENDING));
+                countOrZero(stats.getReportTotalCount()),
+                countOrZero(stats.getReportPendingCount()));
+    }
+
+    private long countOrZero(Long count) {
+        return count == null ? 0L : count;
     }
 
     public record AdminUserDetailStats(
