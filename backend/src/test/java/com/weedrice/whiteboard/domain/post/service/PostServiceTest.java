@@ -30,6 +30,7 @@ import com.weedrice.whiteboard.domain.tag.service.TagAssignmentService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
+import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
 import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
 import com.weedrice.whiteboard.global.common.service.ReactionWriter;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -125,6 +126,7 @@ class PostServiceTest {
     private PostLatestReadService postLatestReadService;
     private PostAuthorCommandPolicy postAuthorCommandPolicy;
     private PostCommandService postCommandService;
+    private UserWritableResolver userWritableResolver;
 
     private PostService postService;
 
@@ -154,6 +156,7 @@ class PostServiceTest {
         postImageAttachmentReader = new PostImageAttachmentReader(fileService);
         ReactionWriter reactionWriter = new ReactionWriter();
         postAuthorCommandPolicy = new PostAuthorCommandPolicy(boardAccessPolicy, boardCategoryRepository);
+        userWritableResolver = new UserWritableResolver(userRepository, sanctionService);
         viewHistoryCommandService = new ViewHistoryCommandService(viewHistoryRepository);
         postDetailReadService = new PostDetailReadService(
                 postRepository,
@@ -173,12 +176,12 @@ class PostServiceTest {
                 postRepository,
                 draftPostRepository,
                 fileService,
+                userWritableResolver,
                 sanctionService,
                 boardAccessPolicy,
                 postAuthorCommandPolicy);
         postInteractionService = new PostInteractionService(
                 postRepository,
-                userRepository,
                 postLikeRepository,
                 scrapRepository,
                 viewHistoryRepository,
@@ -186,7 +189,7 @@ class PostServiceTest {
                 commentRepository,
                 postReadContextResolver,
                 agentOwnershipService,
-                sanctionService,
+                userWritableResolver,
                 eventPublisher,
                 postSummaryAssembler,
                 postAccessPolicy,
@@ -204,13 +207,13 @@ class PostServiceTest {
                 postRepository,
                 boardRepository,
                 boardCategoryRepository,
-                userRepository,
                 postVersionRepository,
                 tagAssignmentService,
                 eventPublisher,
                 contentRewardService,
                 fileService,
                 agentOwnershipService,
+                userWritableResolver,
                 sanctionService,
                 boardAccessPolicy,
                 postAuthorCommandPolicy);

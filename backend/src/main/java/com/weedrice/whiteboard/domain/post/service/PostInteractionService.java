@@ -19,9 +19,8 @@ import com.weedrice.whiteboard.domain.post.repository.PostLikeRepository;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.repository.ScrapRepository;
 import com.weedrice.whiteboard.domain.post.repository.ViewHistoryRepository;
-import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.entity.User;
-import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
 import com.weedrice.whiteboard.global.common.service.ReactionWriter;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -55,7 +54,6 @@ public class PostInteractionService {
     private static final Set<String> ALLOWED_SCRAP_SORTS = Set.of("createdAt");
 
     private final PostRepository postRepository;
-    private final UserRepository userRepository;
     private final PostLikeRepository postLikeRepository;
     private final ScrapRepository scrapRepository;
     private final ViewHistoryRepository viewHistoryRepository;
@@ -63,7 +61,7 @@ public class PostInteractionService {
     private final CommentRepository commentRepository;
     private final PostReadContextResolver postReadContextResolver;
     private final AgentOwnershipService agentOwnershipService;
-    private final SanctionService sanctionService;
+    private final UserWritableResolver userWritableResolver;
     private final ApplicationEventPublisher eventPublisher;
     private final PostSummaryAssembler postSummaryAssembler;
     private final PostAccessPolicy postAccessPolicy;
@@ -147,7 +145,7 @@ public class PostInteractionService {
 
     @Transactional
     public int likePost(@NonNull Long userId, Long actorAgentId, @NonNull Long postId) {
-        User user = getWritableUser(userId);
+        User user = userWritableResolver.resolve(userId);
         Agent actorAgent = agentOwnershipService.resolveOwnedActiveAgent(userId, actorAgentId);
         Post post = getPostById(postId, userId, false);
         boolean skipNotification = post.getAgent() != null;
@@ -178,7 +176,7 @@ public class PostInteractionService {
 
     @Transactional
     public int unlikePost(@NonNull Long userId, @NonNull Long postId) {
-        getWritableUser(userId);
+        userWritableResolver.resolve(userId);
 
         int deletedCount = postLikeRepository.deleteByUserIdAndPostId(userId, postId);
         if (deletedCount == 0) {
@@ -191,7 +189,7 @@ public class PostInteractionService {
 
     @Transactional
     public void scrapPost(@NonNull Long userId, @NonNull Long postId, String remark) {
-        User user = getWritableUser(userId);
+        User user = userWritableResolver.resolve(userId);
         Post post = getPostById(postId, userId, false);
 
         Scrap scrap = Scrap.builder()
@@ -206,7 +204,7 @@ public class PostInteractionService {
 
     @Transactional
     public void unscrapPost(@NonNull Long userId, @NonNull Long postId) {
-        getWritableUser(userId);
+        userWritableResolver.resolve(userId);
         long deletedCount = scrapRepository.deleteByUser_UserIdAndPost_PostId(userId, postId);
         if (deletedCount == 0) {
             throw new BusinessException(ErrorCode.NOT_SCRAPED);
@@ -303,13 +301,6 @@ public class PostInteractionService {
                 context.viewer(),
                 context.isAuthorBlocked(post),
                 context.activeAdminBoardIds());
-    }
-
-    private User getWritableUser(Long userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        sanctionService.validateNotBanned(user);
-        return user;
     }
 
     private int getPostLikeCount(Long postId) {

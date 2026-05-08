@@ -24,6 +24,7 @@ import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
+import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
 import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
 import com.weedrice.whiteboard.global.common.service.ReactionWriter;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -115,14 +116,15 @@ class CommentServiceTest {
                 globalConfigService);
         CommentNotificationService commentNotificationService = new CommentNotificationService(eventPublisher);
         ReactionWriter reactionWriter = new ReactionWriter();
+        UserWritableResolver userWritableResolver = new UserWritableResolver(userRepository, sanctionService);
         CommentCommandService commentCommandService = new CommentCommandService(
                 commentRepository,
                 postRepository,
-                userRepository,
                 commentLikeRepository,
                 commentVersionRepository,
                 commentClosureRepository,
                 agentOwnershipService,
+                userWritableResolver,
                 sanctionService,
                 commentPostAccessService,
                 contentRewardService,

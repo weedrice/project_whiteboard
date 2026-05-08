@@ -16,6 +16,7 @@ import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -46,6 +47,7 @@ public class PostDraftService {
     private final PostRepository postRepository;
     private final DraftPostRepository draftPostRepository;
     private final FileService fileService;
+    private final UserWritableResolver userWritableResolver;
     private final SanctionService sanctionService;
     private final BoardAccessPolicy boardAccessPolicy;
     private final PostAuthorCommandPolicy postAuthorCommandPolicy;
@@ -72,7 +74,7 @@ public class PostDraftService {
 
     @Transactional
     public DraftPost saveDraftPost(@NonNull Long userId, PostDraftRequest request) {
-        User user = getWritableUser(userId);
+        User user = userWritableResolver.resolve(userId);
         sanctionService.validateNotMuted(user);
         Board board = boardRepository.findByBoardUrl(request.getBoardUrl())
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
@@ -103,7 +105,7 @@ public class PostDraftService {
 
     @Transactional
     public void deleteDraftPost(@NonNull Long userId, @NonNull Long draftId) {
-        User user = getWritableUser(userId);
+        User user = userWritableResolver.resolve(userId);
         DraftPost draftPost = draftPostRepository.findByDraftIdAndUser(draftId, user)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
         fileService.markDraftFilesDeletionPending(draftId);
@@ -149,13 +151,6 @@ public class PostDraftService {
                 request.getFileIds(),
                 originalPost);
         return draftPost;
-    }
-
-    private User getWritableUser(Long userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        sanctionService.validateNotBanned(user);
-        return user;
     }
 
     private BoardCategory findActiveCategory(Board board, Long categoryId) {

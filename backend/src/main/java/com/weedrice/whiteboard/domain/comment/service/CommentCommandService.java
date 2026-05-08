@@ -15,7 +15,7 @@ import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.entity.User;
-import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.common.service.ReactionWriter;
@@ -34,11 +34,11 @@ public class CommentCommandService {
 
     private final CommentRepository commentRepository;
     private final PostRepository postRepository;
-    private final UserRepository userRepository;
     private final CommentLikeRepository commentLikeRepository;
     private final CommentVersionRepository commentVersionRepository;
     private final CommentClosureRepository commentClosureRepository;
     private final AgentOwnershipService agentOwnershipService;
+    private final UserWritableResolver userWritableResolver;
     private final SanctionService sanctionService;
     private final CommentPostAccessService commentPostAccessService;
     private final ContentRewardService contentRewardService;
@@ -68,7 +68,7 @@ public class CommentCommandService {
 
     private Comment createComment(Long userId, Long agentId, Long postId, Long parentId, String content,
             CommentCreateContext context) {
-        User user = getWritableUser(userId);
+        User user = userWritableResolver.resolve(userId);
         sanctionService.validateNotMuted(user);
         Agent agent = resolveAgent(userId, agentId, context);
         Post post = resolvePost(postId, context);
@@ -157,7 +157,7 @@ public class CommentCommandService {
     public Comment updateComment(Long userId, Long commentId, String content) {
         Comment comment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
-        User user = getWritableUser(userId);
+        User user = userWritableResolver.resolve(userId);
         sanctionService.validateNotMuted(user);
         validatePostReadable(comment.getPost(), user);
 
@@ -181,7 +181,7 @@ public class CommentCommandService {
     public void deleteComment(Long userId, Long commentId) {
         Comment comment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
-        User user = getWritableUser(userId);
+        User user = userWritableResolver.resolve(userId);
         validatePostReadable(comment.getPost(), user);
 
         if (comment.getIsDeleted()) {
@@ -202,7 +202,7 @@ public class CommentCommandService {
 
     @Transactional
     public void likeComment(Long userId, Long commentId) {
-        User user = getWritableUser(userId);
+        User user = userWritableResolver.resolve(userId);
         Comment comment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
         validatePostReadable(comment.getPost(), user);
@@ -224,7 +224,7 @@ public class CommentCommandService {
 
     @Transactional
     public void unlikeComment(Long userId, Long commentId) {
-        getWritableUser(userId);
+        userWritableResolver.resolve(userId);
 
         int deletedCount = commentLikeRepository.deleteByUserIdAndCommentId(userId, commentId);
         if (deletedCount == 0) {
@@ -251,13 +251,6 @@ public class CommentCommandService {
                 .originalContent(originalContent)
                 .build();
         commentVersionRepository.save(commentVersion);
-    }
-
-    private User getWritableUser(Long userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        sanctionService.validateNotBanned(user);
-        return user;
     }
 
     private void validatePostReadable(Post post, User viewer) {

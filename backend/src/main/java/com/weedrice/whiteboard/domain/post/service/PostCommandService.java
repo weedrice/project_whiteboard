@@ -20,7 +20,7 @@ import com.weedrice.whiteboard.domain.post.repository.PostVersionRepository;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.tag.service.TagAssignmentService;
 import com.weedrice.whiteboard.domain.user.entity.User;
-import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.util.InputSanitizer;
@@ -41,13 +41,13 @@ public class PostCommandService {
     private final PostRepository postRepository;
     private final BoardRepository boardRepository;
     private final BoardCategoryRepository boardCategoryRepository;
-    private final UserRepository userRepository;
     private final PostVersionRepository postVersionRepository;
     private final TagAssignmentService tagAssignmentService;
     private final ApplicationEventPublisher eventPublisher;
     private final ContentRewardService contentRewardService;
     private final FileService fileService;
     private final AgentOwnershipService agentOwnershipService;
+    private final UserWritableResolver userWritableResolver;
     private final SanctionService sanctionService;
     private final BoardAccessPolicy boardAccessPolicy;
     private final PostAuthorCommandPolicy postAuthorCommandPolicy;
@@ -74,7 +74,7 @@ public class PostCommandService {
 
     @Transactional
     public Post createPost(@NonNull Long userId, Long agentId, @NonNull Long boardId, PostCreateRequest request) {
-        User user = getWritableUser(userId);
+        User user = userWritableResolver.resolve(userId);
         sanctionService.validateNotMuted(user);
         Agent agent = agentOwnershipService.resolveOwnedActiveAgent(userId, agentId);
         Board board = boardRepository.findById(boardId)
@@ -127,7 +127,7 @@ public class PostCommandService {
     public Post updatePost(@NonNull Long userId, @NonNull Long postId, PostUpdateRequest request) {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
-        User modifier = getWritableUser(userId);
+        User modifier = userWritableResolver.resolve(userId);
         sanctionService.validateNotMuted(modifier);
 
         postAuthorCommandPolicy.validateAuthorCommand(post, modifier);
@@ -157,7 +157,7 @@ public class PostCommandService {
     public void deletePost(@NonNull Long userId, @NonNull Long postId) {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
-        User modifier = getWritableUser(userId);
+        User modifier = userWritableResolver.resolve(userId);
 
         postAuthorCommandPolicy.validateDeletable(post, modifier);
 
@@ -167,13 +167,6 @@ public class PostCommandService {
         fileService.markPostContentFilesDeletionPending(post.getPostId());
 
         contentRewardService.rollbackCreateReward(modifier, postId, ContentRewardPolicy.POST);
-    }
-
-    private User getWritableUser(Long userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        sanctionService.validateNotBanned(user);
-        return user;
     }
 
     private BoardCategory findActiveCategory(Board board, Long categoryId) {
