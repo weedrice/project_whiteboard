@@ -8,7 +8,6 @@ import com.weedrice.whiteboard.domain.feed.dto.HomeLandingResponse;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.service.PostService;
-import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
@@ -57,21 +56,21 @@ public class HomeLandingService {
         LocalDateTime yesterdayStart = today.minusDays(1).atStartOfDay();
         LocalDateTime twentyFourHoursAgo = LocalDateTime.now(clock).minusHours(24);
 
-        long postsToday = postRepository.countPublicLandingVisiblePostsCreatedAtGreaterThanEqualAndCreatedAtLessThan(
+        PostRepository.PublicLandingPostStatsProjection postStats = postRepository.countPublicLandingPostStats(
                 todayStart,
-                tomorrowStart);
-        long totalPosts = postRepository.countPublicLandingVisiblePosts();
-        long postsYesterday = postRepository.countPublicLandingVisiblePostsCreatedAtGreaterThanEqualAndCreatedAtLessThan(
-                yesterdayStart,
-                todayStart);
+                tomorrowStart,
+                yesterdayStart);
         long activeBoardCount = boardRepository.countPublicLandingVisibleBoards();
-        long newMembersLast24Hours = userRepository.countByStatusAndDeletedAtIsNullAndCreatedAtAfter(
-                User.STATUS_ACTIVE,
-                twentyFourHoursAgo);
-        long onlineCount = userRepository.countRecentlyLoggedInActiveUsersForPublicLanding(twentyFourHoursAgo);
+        UserRepository.PublicLandingUserStatsProjection userStats =
+                userRepository.countPublicLandingUserStats(twentyFourHoursAgo);
         long commentsToday = commentRepository.countPublicLandingVisibleCommentsCreatedAtGreaterThanEqualAndCreatedAtLessThan(
                 todayStart,
                 tomorrowStart);
+        long totalPosts = countOrZero(postStats.getTotalPosts());
+        long postsToday = countOrZero(postStats.getPostsToday());
+        long postsYesterday = countOrZero(postStats.getPostsYesterday());
+        long newMembersLast24Hours = countOrZero(userStats.getNewMembersLast24Hours());
+        long onlineCount = countOrZero(userStats.getOnlineCount());
 
         return HomeLandingResponse.Stats.builder()
                 .boardCount(activeBoardCount)
@@ -91,6 +90,10 @@ public class HomeLandingService {
             return null;
         }
         return (int) Math.round(((double) (current - previous) / previous) * 100);
+    }
+
+    private long countOrZero(Long count) {
+        return count == null ? 0L : count;
     }
 
     private List<PostSummary> getCuratedPosts(Long userId, String period) {

@@ -332,6 +332,60 @@ class PostRepositoryTest {
     }
 
     @Test
+    @DisplayName("공개 랜딩 게시글 통계를 한 번에 집계한다")
+    void countPublicLandingPostStats_aggregatesVisiblePostCounts() {
+        LocalDateTime todayStart = LocalDateTime.of(2026, 5, 4, 0, 0);
+        LocalDateTime tomorrowStart = todayStart.plusDays(1);
+        LocalDateTime yesterdayStart = todayStart.minusDays(1);
+        Board privateBoard = persistBoard("Landing Stats Private Board", "landing-stats-private-board", false);
+        Board inactiveBoard = persistBoard("Landing Stats Inactive Board", "landing-stats-inactive-board", true);
+        inactiveBoard.deactivate();
+        Board inquiryBoard = persistBoard("Landing Stats Inquiry Board", "inquiry", true);
+
+        Post visibleToday = landingPost("Landing Stats Today", board, false, false);
+        Post visibleYesterday = landingPost("Landing Stats Yesterday", board, false, false);
+        Post visibleOld = landingPost("Landing Stats Old", board, false, false);
+        Post visibleAtEnd = landingPost("Landing Stats End", board, false, false);
+        Post secretToday = landingPost("Landing Stats Secret", board, true, false);
+        Post deletedToday = landingPost("Landing Stats Deleted", board, false, true);
+        Post privateToday = landingPost("Landing Stats Private", privateBoard, false, false);
+        Post inactiveToday = landingPost("Landing Stats Inactive", inactiveBoard, false, false);
+        Post inquiryToday = landingPost("Landing Stats Inquiry", inquiryBoard, false, false);
+        entityManager.persist(visibleToday);
+        entityManager.persist(visibleYesterday);
+        entityManager.persist(visibleOld);
+        entityManager.persist(visibleAtEnd);
+        entityManager.persist(secretToday);
+        entityManager.persist(deletedToday);
+        entityManager.persist(privateToday);
+        entityManager.persist(inactiveToday);
+        entityManager.persist(inquiryToday);
+        entityManager.flush();
+
+        updateCreatedAt(post, todayStart.minusDays(10));
+        updateCreatedAt(visibleToday, todayStart.plusHours(1));
+        updateCreatedAt(visibleYesterday, yesterdayStart.plusHours(1));
+        updateCreatedAt(visibleOld, todayStart.minusDays(2));
+        updateCreatedAt(visibleAtEnd, tomorrowStart);
+        updateCreatedAt(secretToday, todayStart.plusHours(2));
+        updateCreatedAt(deletedToday, todayStart.plusHours(3));
+        updateCreatedAt(privateToday, todayStart.plusHours(4));
+        updateCreatedAt(inactiveToday, todayStart.plusHours(5));
+        updateCreatedAt(inquiryToday, todayStart.plusHours(6));
+        entityManager.flush();
+        entityManager.clear();
+
+        PostRepository.PublicLandingPostStatsProjection stats = postRepository.countPublicLandingPostStats(
+                todayStart,
+                tomorrowStart,
+                yesterdayStart);
+
+        assertThat(stats.getTotalPosts()).isEqualTo(5L);
+        assertThat(stats.getPostsToday()).isEqualTo(1L);
+        assertThat(stats.getPostsYesterday()).isEqualTo(1L);
+    }
+
+    @Test
     @DisplayName("게시판별 공지사항 조회 성공")
     void findByBoardAndIsNotice_fetchesSummaryRelations() {
         Agent agent = Agent.builder()

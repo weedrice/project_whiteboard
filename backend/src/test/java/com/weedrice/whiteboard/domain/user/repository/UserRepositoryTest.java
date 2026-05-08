@@ -368,6 +368,74 @@ class UserRepositoryTest {
         assertThat(userRepository.countRecentlyLoggedInActiveUsersForAdminDashboard(since)).isEqualTo(1L);
         assertThat(userRepository.countRecentlyLoggedInActiveUsersForPublicLanding(since)).isEqualTo(1L);
     }
+
+    @Test
+    @DisplayName("공개 랜딩 사용자 통계는 active non-deleted 사용자만 한 번에 집계한다")
+    void countPublicLandingUserStats_aggregatesActiveNonDeletedCounts() {
+        LocalDateTime since = LocalDateTime.of(2099, 5, 4, 12, 0);
+
+        User boundaryActive = User.builder()
+                .loginId("landing-boundary-active")
+                .displayName("Landing Boundary Active")
+                .email("landing-boundary-active@test.com")
+                .password("pass")
+                .build();
+        ReflectionTestUtils.setField(boundaryActive, "lastLoginAt", since);
+
+        User recentActive = User.builder()
+                .loginId("landing-recent-active")
+                .displayName("Landing Recent Active")
+                .email("landing-recent-active@test.com")
+                .password("pass")
+                .build();
+        ReflectionTestUtils.setField(recentActive, "lastLoginAt", since.plusMinutes(2));
+
+        User oldOnlineActive = User.builder()
+                .loginId("landing-old-online")
+                .displayName("Landing Old Online")
+                .email("landing-old-online@test.com")
+                .password("pass")
+                .build();
+        ReflectionTestUtils.setField(oldOnlineActive, "lastLoginAt", since.plusMinutes(3));
+
+        User suspendedRecent = User.builder()
+                .loginId("landing-suspended-recent")
+                .displayName("Landing Suspended Recent")
+                .email("landing-suspended-recent@test.com")
+                .password("pass")
+                .build();
+        suspendedRecent.suspend();
+        ReflectionTestUtils.setField(suspendedRecent, "lastLoginAt", since.plusMinutes(5));
+
+        User deletedRecent = User.builder()
+                .loginId("landing-deleted-recent")
+                .displayName("Landing Deleted Recent")
+                .email("landing-deleted-recent@test.com")
+                .password("pass")
+                .build();
+        ReflectionTestUtils.setField(deletedRecent, "lastLoginAt", since.plusMinutes(7));
+        deletedRecent.delete();
+
+        entityManager.persist(boundaryActive);
+        entityManager.persist(recentActive);
+        entityManager.persist(oldOnlineActive);
+        entityManager.persist(suspendedRecent);
+        entityManager.persist(deletedRecent);
+        entityManager.flush();
+        updateCreatedAt(boundaryActive, since);
+        updateCreatedAt(recentActive, since.plusMinutes(1));
+        updateCreatedAt(oldOnlineActive, since.minusDays(2));
+        updateCreatedAt(suspendedRecent, since.plusMinutes(4));
+        updateCreatedAt(deletedRecent, since.plusMinutes(6));
+        entityManager.flush();
+        entityManager.clear();
+
+        UserRepository.PublicLandingUserStatsProjection stats = userRepository.countPublicLandingUserStats(since);
+
+        assertThat(stats.getNewMembersLast24Hours()).isEqualTo(1L);
+        assertThat(stats.getOnlineCount()).isEqualTo(2L);
+    }
+
     @Test
     @DisplayName("usable super admin query returns only active non-deleted super admins")
     void findUsableSuperAdmins_returnsOnlyUsableSuperAdmins() {
@@ -442,5 +510,13 @@ class UserRepositoryTest {
         assertThat(actual.getTotalElements()).isEqualTo(expected.getTotalElements());
         assertThat(actual.getContent()).extracting(User::getUserId)
                 .containsExactlyElementsOf(expected.getContent().stream().map(User::getUserId).toList());
+    }
+
+    private void updateCreatedAt(User targetUser, LocalDateTime createdAt) {
+        entityManager.getEntityManager()
+                .createNativeQuery("UPDATE users SET created_at = :createdAt WHERE user_id = :userId")
+                .setParameter("createdAt", createdAt)
+                .setParameter("userId", targetUser.getUserId())
+                .executeUpdate();
     }
 }

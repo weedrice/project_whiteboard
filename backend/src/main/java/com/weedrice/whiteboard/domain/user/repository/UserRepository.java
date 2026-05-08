@@ -14,6 +14,12 @@ import java.util.List;
 import java.util.Optional;
 
 public interface UserRepository extends JpaRepository<User, Long>, UserRepositoryCustom {
+    interface PublicLandingUserStatsProjection {
+        Long getNewMembersLast24Hours();
+
+        Long getOnlineCount();
+    }
+
     Optional<User> findByLoginId(String loginId);
     Optional<User> findByUserIdAndStatusAndDeletedAtIsNull(Long userId, String status);
     boolean existsByLoginId(String loginId);
@@ -54,6 +60,16 @@ public interface UserRepository extends JpaRepository<User, Long>, UserRepositor
               AND u.lastLoginAt > :since
             """)
     long countRecentlyLoggedInActiveUsersForPublicLanding(@Param("since") LocalDateTime since);
+
+    @Query("""
+            SELECT
+                COALESCE(SUM(CASE WHEN u.createdAt > :since THEN 1L ELSE 0L END), 0L) AS newMembersLast24Hours,
+                COALESCE(SUM(CASE WHEN u.lastLoginAt > :since THEN 1L ELSE 0L END), 0L) AS onlineCount
+            FROM User u
+            WHERE u.status = 'ACTIVE'
+              AND u.deletedAt IS NULL
+            """)
+    PublicLandingUserStatsProjection countPublicLandingUserStats(@Param("since") LocalDateTime since);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""

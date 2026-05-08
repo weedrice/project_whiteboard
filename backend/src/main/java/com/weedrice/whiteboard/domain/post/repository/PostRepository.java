@@ -25,6 +25,14 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
                 Long getPostCount();
         }
 
+        interface PublicLandingPostStatsProjection {
+                Long getTotalPosts();
+
+                Long getPostsToday();
+
+                Long getPostsYesterday();
+        }
+
         List<Post> findByCreatedAtAfterAndIsDeleted(LocalDateTime dateTime, Boolean isDeleted);
         @EntityGraph(attributePaths = {"user", "agent", "board", "category"})
         Page<Post> findByUserAndIsDeleted(User user, Boolean isDeleted, Pageable pageable);
@@ -75,6 +83,30 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
                   AND LOWER(b.boardUrl) <> 'inquiry'
                 """)
         long countPublicLandingVisiblePosts();
+
+        @Query("""
+                SELECT
+                    COUNT(p) AS totalPosts,
+                    COALESCE(SUM(CASE
+                        WHEN p.createdAt >= :todayStart AND p.createdAt < :tomorrowStart
+                        THEN 1L ELSE 0L
+                    END), 0L) AS postsToday,
+                    COALESCE(SUM(CASE
+                        WHEN p.createdAt >= :yesterdayStart AND p.createdAt < :todayStart
+                        THEN 1L ELSE 0L
+                    END), 0L) AS postsYesterday
+                FROM Post p
+                JOIN p.board b
+                WHERE p.isDeleted = false
+                  AND p.isSecret = false
+                  AND b.isActive = true
+                  AND b.isPublic = true
+                  AND LOWER(b.boardUrl) <> 'inquiry'
+                """)
+        PublicLandingPostStatsProjection countPublicLandingPostStats(
+                @Param("todayStart") LocalDateTime todayStart,
+                @Param("tomorrowStart") LocalDateTime tomorrowStart,
+                @Param("yesterdayStart") LocalDateTime yesterdayStart);
 
         @Query("""
                 SELECT COUNT(p)
