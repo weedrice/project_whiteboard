@@ -132,6 +132,19 @@ class CommonCodeControllerTest {
     }
 
     @Test
+    @DisplayName("없는 공통 코드 상세 목록 조회는 404를 반환한다")
+    void getCommonCodeDetails_returnsNotFoundWhenTypeMissing() throws Exception {
+        String typeCode = "MISSING";
+        when(commonCodeService.getCommonCodeDetails(eq(typeCode)))
+                .thenThrow(new BusinessException(ErrorCode.NOT_FOUND));
+
+        mockMvc.perform(get("/api/v1/common-codes/{typeCode}/details", typeCode))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.error.code").value(ErrorCode.NOT_FOUND.getCode()));
+    }
+
+    @Test
     @DisplayName("공통 코드 생성 충돌은 409를 반환한다")
     void createCommonCode_returnsConflictWhenDuplicate() throws Exception {
         CommonCodeRequest request = new CommonCodeRequest();

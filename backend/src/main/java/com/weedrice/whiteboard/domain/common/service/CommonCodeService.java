@@ -103,6 +103,9 @@ public class CommonCodeService {
     }
 
     public List<CommonCodeDetailResponse> getCommonCodeDetails(String typeCode) {
+        if (!commonCodeRepository.existsById(typeCode)) {
+            throw new BusinessException(ErrorCode.NOT_FOUND);
+        }
         return commonCodeDetailRepository.findByCommonCode_TypeCodeAndIsActiveOrderBySortOrderAsc(typeCode, true).stream()
                 .map(CommonCodeDetailResponse::from)
                 .collect(Collectors.toList());

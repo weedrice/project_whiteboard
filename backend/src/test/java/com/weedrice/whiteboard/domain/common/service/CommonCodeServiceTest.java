@@ -254,6 +254,7 @@ class CommonCodeServiceTest {
     @DisplayName("공통 코드 상세 목록 조회 성공")
     void getCommonCodeDetails_success() {
         // given
+        when(commonCodeRepository.existsById("TEST_TYPE")).thenReturn(true);
         when(commonCodeDetailRepository.findByCommonCode_TypeCodeAndIsActiveOrderBySortOrderAsc("TEST_TYPE", true))
                 .thenReturn(Arrays.asList(commonCodeDetail));
 
@@ -262,6 +263,36 @@ class CommonCodeServiceTest {
 
         // then
         assertThat(responses).hasSize(1);
+        verify(commonCodeRepository).existsById("TEST_TYPE");
+    }
+
+    @Test
+    @DisplayName("공통 코드가 있으면 상세 코드가 없어도 빈 목록을 반환한다")
+    void getCommonCodeDetails_existingTypeWithoutDetails_returnsEmptyList() {
+        when(commonCodeRepository.existsById("EMPTY_TYPE")).thenReturn(true);
+        when(commonCodeDetailRepository.findByCommonCode_TypeCodeAndIsActiveOrderBySortOrderAsc("EMPTY_TYPE", true))
+                .thenReturn(List.of());
+
+        List<CommonCodeDetailResponse> responses = commonCodeService.getCommonCodeDetails("EMPTY_TYPE");
+
+        assertThat(responses).isEmpty();
+        verify(commonCodeRepository).existsById("EMPTY_TYPE");
+        verify(commonCodeDetailRepository)
+                .findByCommonCode_TypeCodeAndIsActiveOrderBySortOrderAsc("EMPTY_TYPE", true);
+    }
+
+    @Test
+    @DisplayName("공통 코드가 없으면 상세 목록 조회는 NOT_FOUND를 반환한다")
+    void getCommonCodeDetails_missingType_throwsNotFound() {
+        when(commonCodeRepository.existsById("MISSING_TYPE")).thenReturn(false);
+
+        assertThatThrownBy(() -> commonCodeService.getCommonCodeDetails("MISSING_TYPE"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.NOT_FOUND);
+
+        verify(commonCodeRepository).existsById("MISSING_TYPE");
+        verify(commonCodeDetailRepository, never())
+                .findByCommonCode_TypeCodeAndIsActiveOrderBySortOrderAsc(anyString(), any());
     }
 
     @Test
