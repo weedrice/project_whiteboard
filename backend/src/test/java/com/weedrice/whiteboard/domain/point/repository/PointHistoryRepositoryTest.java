@@ -1,0 +1,104 @@
+package com.weedrice.whiteboard.domain.point.repository;
+
+import com.weedrice.whiteboard.domain.point.entity.PointHistory;
+import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.global.config.QuerydslConfig;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
+import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+
+import java.time.LocalDateTime;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+@DataJpaTest
+@Import(QuerydslConfig.class)
+class PointHistoryRepositoryTest {
+
+    @Autowired
+    private TestEntityManager entityManager;
+
+    @Autowired
+    private PointHistoryRepository pointHistoryRepository;
+
+    private User user;
+
+    @BeforeEach
+    void setUp() {
+        user = User.builder()
+                .loginId("point-user")
+                .email("point-user@test.com")
+                .password("password")
+                .displayName("Point User")
+                .build();
+        entityManager.persist(user);
+    }
+
+    @Test
+    @DisplayName("포인트 이력 전체 조회는 생성 시각이 같으면 historyId 내림차순으로 정렬한다")
+    void findByUserOrderByCreatedAtDescHistoryIdDesc_ordersByHistoryIdWhenCreatedAtTies() {
+        PointHistory first = persistHistory("EARN", 10, 10);
+        PointHistory second = persistHistory("SPEND", -5, 5);
+        LocalDateTime sameCreatedAt = LocalDateTime.now().minusMinutes(1);
+        entityManager.flush();
+        updateCreatedAt(first, sameCreatedAt);
+        updateCreatedAt(second, sameCreatedAt);
+        entityManager.clear();
+
+        Page<PointHistory> result = pointHistoryRepository.findByUserOrderByCreatedAtDescHistoryIdDesc(
+                user,
+                PageRequest.of(0, 10));
+
+        assertThat(result.getContent())
+                .extracting(PointHistory::getHistoryId)
+                .containsExactly(second.getHistoryId(), first.getHistoryId());
+    }
+
+    @Test
+    @DisplayName("포인트 이력 타입별 조회는 생성 시각이 같으면 historyId 내림차순으로 정렬한다")
+    void findByUserAndTypeOrderByCreatedAtDescHistoryIdDesc_ordersByHistoryIdWhenCreatedAtTies() {
+        PointHistory first = persistHistory("EARN", 10, 10);
+        PointHistory second = persistHistory("EARN", 20, 30);
+        persistHistory("SPEND", -5, 25);
+        LocalDateTime sameCreatedAt = LocalDateTime.now().minusMinutes(1);
+        entityManager.flush();
+        updateCreatedAt(first, sameCreatedAt);
+        updateCreatedAt(second, sameCreatedAt);
+        entityManager.clear();
+
+        Page<PointHistory> result = pointHistoryRepository.findByUserAndTypeOrderByCreatedAtDescHistoryIdDesc(
+                user,
+                "EARN",
+                PageRequest.of(0, 10));
+
+        assertThat(result.getContent())
+                .extracting(PointHistory::getHistoryId)
+                .containsExactly(second.getHistoryId(), first.getHistoryId());
+    }
+
+    private PointHistory persistHistory(String type, int amount, int balanceAfter) {
+        PointHistory history = PointHistory.builder()
+                .user(user)
+                .type(type)
+                .amount(amount)
+                .balanceAfter(balanceAfter)
+                .description("test")
+                .build();
+        entityManager.persist(history);
+        return history;
+    }
+
+    private void updateCreatedAt(PointHistory history, LocalDateTime createdAt) {
+        entityManager.getEntityManager()
+                .createNativeQuery("UPDATE point_histories SET created_at = :createdAt WHERE history_id = :historyId")
+                .setParameter("createdAt", createdAt)
+                .setParameter("historyId", history.getHistoryId())
+                .executeUpdate();
+    }
+}

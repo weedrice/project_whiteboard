@@ -328,7 +328,7 @@ class PointServiceTest {
                 java.util.Collections.singletonList(history), pageable, 1);
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        when(pointHistoryRepository.findByUserOrderByCreatedAtDesc(user, pageable)).thenReturn(historyPage);
+        when(pointHistoryRepository.findByUserOrderByCreatedAtDescHistoryIdDesc(user, pageable)).thenReturn(historyPage);
 
         // when
         com.weedrice.whiteboard.domain.point.dto.PointHistoryResponse response = pointService.getPointHistories(userId, null, pageable);
@@ -356,14 +356,15 @@ class PointServiceTest {
                 java.util.Collections.singletonList(history), pageable, 1);
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        when(pointHistoryRepository.findByUserAndTypeOrderByCreatedAtDesc(user, type, pageable)).thenReturn(historyPage);
+        when(pointHistoryRepository.findByUserAndTypeOrderByCreatedAtDescHistoryIdDesc(user, type, pageable))
+                .thenReturn(historyPage);
 
         // when
         com.weedrice.whiteboard.domain.point.dto.PointHistoryResponse response = pointService.getPointHistories(userId, type, pageable);
 
         // then
         assertThat(response).isNotNull();
-        verify(pointHistoryRepository).findByUserAndTypeOrderByCreatedAtDesc(user, type, pageable);
+        verify(pointHistoryRepository).findByUserAndTypeOrderByCreatedAtDescHistoryIdDesc(user, type, pageable);
     }
 
     @Test
@@ -375,14 +376,14 @@ class PointServiceTest {
                 java.util.Collections.emptyList(), pageable, 0);
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        when(pointHistoryRepository.findByUserAndTypeOrderByCreatedAtDesc(user, "SPEND", pageable))
+        when(pointHistoryRepository.findByUserAndTypeOrderByCreatedAtDescHistoryIdDesc(user, "SPEND", pageable))
                 .thenReturn(historyPage);
 
         com.weedrice.whiteboard.domain.point.dto.PointHistoryResponse response =
                 pointService.getPointHistories(userId, " spend ", pageable);
 
         assertThat(response).isNotNull();
-        verify(pointHistoryRepository).findByUserAndTypeOrderByCreatedAtDesc(user, "SPEND", pageable);
+        verify(pointHistoryRepository).findByUserAndTypeOrderByCreatedAtDescHistoryIdDesc(user, "SPEND", pageable);
     }
 
     @Test
@@ -394,14 +395,14 @@ class PointServiceTest {
                 java.util.Collections.emptyList(), pageable, 0);
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        when(pointHistoryRepository.findByUserOrderByCreatedAtDesc(user, pageable)).thenReturn(historyPage);
+        when(pointHistoryRepository.findByUserOrderByCreatedAtDescHistoryIdDesc(user, pageable)).thenReturn(historyPage);
 
         com.weedrice.whiteboard.domain.point.dto.PointHistoryResponse response =
                 pointService.getPointHistories(userId, "   ", pageable);
 
         assertThat(response).isNotNull();
-        verify(pointHistoryRepository).findByUserOrderByCreatedAtDesc(user, pageable);
-        verify(pointHistoryRepository, never()).findByUserAndTypeOrderByCreatedAtDesc(any(), any(), any());
+        verify(pointHistoryRepository).findByUserOrderByCreatedAtDescHistoryIdDesc(user, pageable);
+        verify(pointHistoryRepository, never()).findByUserAndTypeOrderByCreatedAtDescHistoryIdDesc(any(), any(), any());
     }
 
     @Test
@@ -415,8 +416,8 @@ class PointServiceTest {
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
 
-        verify(pointHistoryRepository, never()).findByUserAndTypeOrderByCreatedAtDesc(any(), any(), any());
-        verify(pointHistoryRepository, never()).findByUserOrderByCreatedAtDesc(any(), any());
+        verify(pointHistoryRepository, never()).findByUserAndTypeOrderByCreatedAtDescHistoryIdDesc(any(), any(), any());
+        verify(pointHistoryRepository, never()).findByUserOrderByCreatedAtDescHistoryIdDesc(any(), any());
     }
 
     private int[] invalidAmounts() {

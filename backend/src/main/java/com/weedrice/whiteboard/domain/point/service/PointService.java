@@ -55,9 +55,12 @@ public class PointService {
                                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
                 Page<PointHistory> historyPage;
                 if (normalizedType != null) {
-                        historyPage = pointHistoryRepository.findByUserAndTypeOrderByCreatedAtDesc(user, normalizedType, pageable);
+                        historyPage = pointHistoryRepository.findByUserAndTypeOrderByCreatedAtDescHistoryIdDesc(
+                                        user,
+                                        normalizedType,
+                                        pageable);
                 } else {
-                        historyPage = pointHistoryRepository.findByUserOrderByCreatedAtDesc(user, pageable);
+                        historyPage = pointHistoryRepository.findByUserOrderByCreatedAtDescHistoryIdDesc(user, pageable);
                 }
                 return PointHistoryResponse.from(historyPage);
         }
