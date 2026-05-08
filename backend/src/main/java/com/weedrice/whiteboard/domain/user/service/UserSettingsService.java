@@ -19,9 +19,12 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.DateTimeException;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -36,6 +39,8 @@ public class UserSettingsService {
         private static final String DEFAULT_LANGUAGE = "ko";
         private static final String DEFAULT_TIMEZONE = "Asia/Seoul";
         private static final boolean DEFAULT_HIDE_NSFW = true;
+        private static final Set<String> SUPPORTED_THEMES = Set.of("LIGHT", "DARK");
+        private static final Set<String> SUPPORTED_LANGUAGES = Set.of("ko", "en");
 
         private final UserRepository userRepository;
         private final UserSettingsRepository userSettingsRepository;
@@ -54,7 +59,12 @@ public class UserSettingsService {
         public UserSettingsResponse updateSettings(Long userId, String theme, String language, String timezone,
                         Boolean hideNsfw) {
                 validateUserCanWrite(userId);
-                UserSettings settings = updateSettingsEntity(userId, theme, language, timezone, hideNsfw);
+                UserSettings settings = updateSettingsEntity(
+                                userId,
+                                normalizeTheme(theme),
+                                normalizeLanguage(language),
+                                normalizeTimezone(timezone),
+                                hideNsfw);
                 return new UserSettingsResponse(settings.getTheme(), settings.getLanguage(), settings.getTimezone(),
                                 settings.getHideNsfw());
         }
@@ -135,6 +145,47 @@ public class UserSettingsService {
 
         private UserSettingsResponse defaultSettingsResponse() {
                 return new UserSettingsResponse(DEFAULT_THEME, DEFAULT_LANGUAGE, DEFAULT_TIMEZONE, DEFAULT_HIDE_NSFW);
+        }
+
+        private String normalizeTheme(String theme) {
+                if (theme == null) {
+                        return null;
+                }
+
+                String normalizedTheme = theme.strip().toUpperCase(Locale.ROOT);
+                if (normalizedTheme.isBlank() || !SUPPORTED_THEMES.contains(normalizedTheme)) {
+                        throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+                }
+                return normalizedTheme;
+        }
+
+        private String normalizeLanguage(String language) {
+                if (language == null) {
+                        return null;
+                }
+
+                String normalizedLanguage = language.strip().toLowerCase(Locale.ROOT);
+                if (normalizedLanguage.isBlank() || !SUPPORTED_LANGUAGES.contains(normalizedLanguage)) {
+                        throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+                }
+                return normalizedLanguage;
+        }
+
+        private String normalizeTimezone(String timezone) {
+                if (timezone == null) {
+                        return null;
+                }
+
+                String normalizedTimezone = timezone.strip();
+                if (normalizedTimezone.isBlank()) {
+                        throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+                }
+
+                try {
+                        return ZoneId.of(normalizedTimezone).getId();
+                } catch (DateTimeException ex) {
+                        throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+                }
         }
 
         private List<NormalizedNotificationSettingRequest> normalizeNotificationSettingRequests(

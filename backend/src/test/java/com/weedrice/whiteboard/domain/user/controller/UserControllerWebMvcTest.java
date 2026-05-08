@@ -9,7 +9,9 @@ import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.domain.user.dto.NotificationSettingResponse;
 import com.weedrice.whiteboard.domain.user.dto.UpdateNotificationSettingItem;
 import com.weedrice.whiteboard.domain.user.dto.UpdateNotificationSettingsRequest;
+import com.weedrice.whiteboard.domain.user.dto.UpdateSettingsRequest;
 import com.weedrice.whiteboard.domain.user.dto.UserProfileResponse;
+import com.weedrice.whiteboard.domain.user.dto.UserSettingsResponse;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
 import com.weedrice.whiteboard.domain.user.service.UserProfileService;
 import com.weedrice.whiteboard.domain.user.service.UserSecurityService;
@@ -156,6 +158,45 @@ class UserControllerWebMvcTest {
                 .andExpect(jsonPath("$.data.commentCount").value(7))
                 .andExpect(jsonPath("$.data.loginId").doesNotExist())
                 .andExpect(jsonPath("$.data.lastLoginAt").doesNotExist());
+    }
+
+    @Test
+    @DisplayName("Settings update request succeeds")
+    void updateMySettings_returnsSuccess() throws Exception {
+        UpdateSettingsRequest request = new UpdateSettingsRequest();
+        request.setTheme("DARK");
+        request.setLanguage("en");
+        request.setTimezone("Asia/Seoul");
+        request.setHideNsfw(false);
+
+        when(userSettingsService.updateSettings(any(), any(), any(), any(), any()))
+                .thenReturn(new UserSettingsResponse("DARK", "en", "Asia/Seoul", false));
+
+        mockMvc.perform(put("/api/v1/users/me/settings")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request))
+                        .with(user(customUserDetails))
+                        .with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.theme").value("DARK"))
+                .andExpect(jsonPath("$.data.language").value("en"))
+                .andExpect(jsonPath("$.data.timezone").value("Asia/Seoul"))
+                .andExpect(jsonPath("$.data.hideNsfw").value(false));
+    }
+
+    @Test
+    @DisplayName("Settings update request fails when field length exceeds DTO limit")
+    void updateMySettings_tooLongField_returnsBadRequest() throws Exception {
+        mockMvc.perform(put("/api/v1/users/me/settings")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"theme\":\"123456789012345678901\"}")
+                        .with(user(customUserDetails))
+                        .with(csrf()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+
+        verify(userSettingsService, never()).updateSettings(any(), any(), any(), any(), any());
     }
 
     @Test

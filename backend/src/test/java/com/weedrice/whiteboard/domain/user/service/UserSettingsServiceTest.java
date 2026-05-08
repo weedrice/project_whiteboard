@@ -109,10 +109,68 @@ class UserSettingsServiceTest {
         when(userSettingsRepository.findById(1L)).thenReturn(Optional.of(settings));
         when(userSettingsRepository.save(any())).thenReturn(settings);
 
-        UserSettingsResponse response = userSettingsService.updateSettings(1L, "dark", "en", "UTC", true);
+        UserSettingsResponse response = userSettingsService.updateSettings(1L, " dark ", " EN ", " UTC ", true);
 
-        assertThat(response.getTheme()).isEqualTo("dark");
+        assertThat(response.getTheme()).isEqualTo("DARK");
+        assertThat(response.getLanguage()).isEqualTo("en");
+        assertThat(response.getTimezone()).isEqualTo("UTC");
         assertThat(response.isHideNsfw()).isTrue();
+    }
+
+    @Test
+    @DisplayName("Settings update rejects unsupported theme")
+    void updateSettings_invalidTheme() {
+        User user = User.builder().build();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> userSettingsService.updateSettings(1L, "SYSTEM", null, null, null))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+
+        verify(userSettingsRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Settings update rejects unsupported language")
+    void updateSettings_invalidLanguage() {
+        User user = User.builder().build();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> userSettingsService.updateSettings(1L, null, "fr", null, null))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+
+        verify(userSettingsRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Settings update rejects invalid timezone")
+    void updateSettings_invalidTimezone() {
+        User user = User.builder().build();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> userSettingsService.updateSettings(1L, null, null, "Not/AZone", null))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+
+        verify(userSettingsRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Settings update rejects blank timezone")
+    void updateSettings_blankTimezone() {
+        User user = User.builder().build();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> userSettingsService.updateSettings(1L, null, null, "   ", null))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+
+        verify(userSettingsRepository, never()).save(any());
     }
 
     @Test
@@ -146,9 +204,9 @@ class UserSettingsServiceTest {
                 .thenThrow(new DataIntegrityViolationException("duplicate user_settings"));
         when(userSettingsRepository.save(settings)).thenReturn(settings);
 
-        UserSettings result = userSettingsService.updateSettingsEntity(1L, "dark", "en", "UTC", false);
+        UserSettings result = userSettingsService.updateSettingsEntity(1L, "DARK", "en", "UTC", false);
 
-        assertThat(result.getTheme()).isEqualTo("dark");
+        assertThat(result.getTheme()).isEqualTo("DARK");
         assertThat(result.getLanguage()).isEqualTo("en");
         assertThat(result.getTimezone()).isEqualTo("UTC");
         assertThat(result.getHideNsfw()).isFalse();
