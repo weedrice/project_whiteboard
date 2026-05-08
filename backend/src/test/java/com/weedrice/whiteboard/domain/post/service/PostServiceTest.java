@@ -2986,21 +2986,21 @@ class PostServiceTest {
     }
 
     @Test
-    @DisplayName("Feed summary lookup allows board creator without admin lookup")
-    void getPostSummariesByIds_boardCreatorUsesInMemoryAccess() {
+    @DisplayName("Feed summary lookup denies board creator without active admin role")
+    void getPostSummariesByIds_boardCreatorDeniedWithoutAdminRole() {
         Board creatorBoard = createBoard(10L, "creator-board", user, false, false);
         Post creatorPost = createPost(100L, creatorBoard, createUser(2L, "author"), true);
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
         when(postRepository.findByPostIdInAndIsDeletedFalse(List.of(100L))).thenReturn(List.of(creatorPost));
-        stubSummaryInteractions(user, List.of(creatorPost));
+        when(adminRepository.findByUserAndBoard_BoardIdInAndIsActive(user, List.of(10L), true))
+                .thenReturn(Collections.emptyList());
 
         Map<Long, PostSummary> summaries = postService.getPostSummariesByIds(List.of(100L), 1L);
 
-        assertThat(summaries.keySet()).containsExactly(100L);
-        verify(adminRepository, never()).findByUserAndBoard_BoardIdInAndIsActive(
-                any(User.class), anyCollection(), anyBoolean());
+        assertThat(summaries).isEmpty();
+        verify(adminRepository).findByUserAndBoard_BoardIdInAndIsActive(user, List.of(10L), true);
         verify(adminRepository, never()).existsByUserAndBoardAndIsActive(
                 any(User.class), any(Board.class), anyBoolean());
     }

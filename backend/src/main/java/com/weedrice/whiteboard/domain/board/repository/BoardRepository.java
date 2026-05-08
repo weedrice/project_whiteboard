@@ -38,7 +38,6 @@ public interface BoardRepository extends JpaRepository<Board, Long> {
               AND (
                     :isSuperAdmin = true
                     OR b.isPublic = true
-                    OR b.creator = :user
                     OR EXISTS (
                         SELECT 1
                         FROM Admin a
@@ -105,7 +104,6 @@ public interface BoardRepository extends JpaRepository<Board, Long> {
               AND (
                     p.isSecret = false
                     OR :isSuperAdmin = true
-                    OR b.creator = :user
                     OR EXISTS (
                         SELECT 1
                         FROM Admin secretAdmin
@@ -119,7 +117,6 @@ public interface BoardRepository extends JpaRepository<Board, Long> {
               AND (
                     :isSuperAdmin = true
                     OR b.isPublic = true
-                    OR b.creator = :user
                     OR EXISTS (
                         SELECT 1
                         FROM Admin a

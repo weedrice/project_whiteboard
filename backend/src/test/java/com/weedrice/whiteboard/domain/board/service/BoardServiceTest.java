@@ -208,6 +208,12 @@ class BoardServiceTest {
                 .build();
         ReflectionTestUtils.setField(board, "boardId", 1L);
         ReflectionTestUtils.setField(board, "isActive", true);
+        lenient().when(adminRepository.findByUserAndBoardAndIsActive(user, board, true))
+                .thenReturn(Optional.of(Admin.builder()
+                        .user(user)
+                        .board(board)
+                        .role("BOARD_ADMIN")
+                        .build()));
     }
 
     @Test
@@ -403,7 +409,6 @@ class BoardServiceTest {
         ReflectionTestUtils.setField(nextManager, "userId", 2L);
 
         when(boardRepository.findByBoardUrlForUpdate("test-board")).thenReturn(Optional.of(board));
-        when(adminRepository.findByUserAndBoardAndIsActive(user, board, true)).thenReturn(Optional.empty());
         when(adminEligibleUserService.getActiveUserByLoginId("nextmanager")).thenReturn(nextManager);
 
         authenticateUser();
@@ -734,7 +739,6 @@ class BoardServiceTest {
         when(userDetails.getUsername()).thenReturn(user.getLoginId());
         when(userRepository.findByLoginId(user.getLoginId())).thenReturn(Optional.of(user));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(adminRepository.findByUserAndBoardAndIsActive(user, board, true)).thenReturn(Optional.empty());
         when(boardRepository.findByBoardUrl("test-board")).thenReturn(Optional.of(board));
 
         CustomUserDetails principal = new CustomUserDetails(1L, user.getLoginId(), "password", Collections.emptyList());

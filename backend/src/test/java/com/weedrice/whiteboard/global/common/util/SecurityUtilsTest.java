@@ -159,15 +159,17 @@ class SecurityUtilsTest {
     }
 
     @Test
-    @DisplayName("validateBoardAdminPermission accepts creator")
-    void validateBoardAdminPermission_creator() {
+    @DisplayName("validateBoardAdminPermission rejects creator without active board admin role")
+    void validateBoardAdminPermission_rejectsCreatorWithoutActiveBoardAdminRole() {
         setupSecurityContext(1L);
         User user = activeUser(1L);
         Board board = Board.builder().creator(user).build();
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(adminRepository.findByUserAndBoardAndIsActive(eq(user), eq(board), eq(true))).thenReturn(Optional.empty());
 
-        SecurityUtils.validateBoardAdminPermission(board);
+        assertThatThrownBy(() -> SecurityUtils.validateBoardAdminPermission(board))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
     }
 
     @Test

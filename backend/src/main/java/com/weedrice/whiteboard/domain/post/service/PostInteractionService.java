@@ -227,7 +227,7 @@ public class PostInteractionService {
                 : new ArrayList<>(blockedUserIds);
         Page<Scrap> scrapPage = scrapRepository.findPageByUserWithPostDetails(
                 user,
-                Boolean.TRUE.equals(user.getIsSuperAdmin()),
+                user.isUsableSuperAdmin(),
                 blockedUserIds.isEmpty(),
                 blockedUserIdParams,
                 safePageable);
@@ -243,7 +243,7 @@ public class PostInteractionService {
                 : new ArrayList<>(blockedUserIds);
         Page<Long> visiblePostIdsPage = viewHistoryRepository.findVisiblePostIdsByUserIdOrderByModifiedAtDesc(
                 userId,
-                Boolean.TRUE.equals(user.getIsSuperAdmin()),
+                user.isUsableSuperAdmin(),
                 blockedUserIds.isEmpty(),
                 blockedUserIdParams,
                 pageable);

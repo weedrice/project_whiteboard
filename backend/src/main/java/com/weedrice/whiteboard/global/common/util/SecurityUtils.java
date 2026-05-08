@@ -63,9 +63,8 @@ public class SecurityUtils {
 
         boolean usableSuperAdmin = currentUser.isUsableSuperAdmin();
         boolean isBoardAdmin = staticAdminRepository.findByUserAndBoardAndIsActive(currentUser, board, true).isPresent();
-        boolean isCreator = board.getCreator().getUserId().equals(currentUser.getUserId());
 
-        if (!usableSuperAdmin && !isBoardAdmin && !isCreator) {
+        if (!usableSuperAdmin && !isBoardAdmin) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
     }

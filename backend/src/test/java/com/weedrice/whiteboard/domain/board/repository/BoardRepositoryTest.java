@@ -172,7 +172,7 @@ class BoardRepositoryTest {
     }
 
     @Test
-    @DisplayName("Readable active boards filter public creator admin super admin and inquiry")
+    @DisplayName("Readable active boards filter public active admin super admin and inquiry")
     void findReadableActiveBoardsOrderBySortOrderAscBoardIdAsc_filtersReadableBoards() {
         User reader = persistUser("reader");
         Board creatorPrivateBoard = persistBoard("Creator Private", "creator-private", 10, true, false, reader);
@@ -192,8 +192,8 @@ class BoardRepositoryTest {
         var superAdminBoards = boardRepository.findReadableActiveBoardsOrderBySortOrderAscBoardIdAsc(reader, true);
 
         assertThat(readableBoards).extracting(Board::getBoardName)
-                .contains("Test Board", "Creator Private", "Admin Private")
-                .doesNotContain("Other Private", "Inactive Public", "Inquiry Board");
+                .contains("Test Board", "Admin Private")
+                .doesNotContain("Creator Private", "Other Private", "Inactive Public", "Inquiry Board");
         assertThat(superAdminBoards).extracting(Board::getBoardName)
                 .contains("Test Board", "Creator Private", "Admin Private", "Other Private")
                 .doesNotContain("Inactive Public", "Inquiry Board");

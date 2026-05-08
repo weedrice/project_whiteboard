@@ -8,7 +8,6 @@ import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
-import java.util.Objects;
 import java.util.Set;
 
 @Component
@@ -31,7 +30,7 @@ public class BoardAccessPolicy {
         if (board == null || user == null) {
             return false;
         }
-        if (hasStaticBoardAdminAccess(board, user)) {
+        if (hasStaticBoardAdminAccess(user)) {
             return true;
         }
         return adminRepository.existsByUserAndBoardAndIsActive(user, board, true);
@@ -41,7 +40,7 @@ public class BoardAccessPolicy {
         if (board == null || user == null) {
             return false;
         }
-        if (hasStaticBoardAdminAccess(board, user)) {
+        if (hasStaticBoardAdminAccess(user)) {
             return true;
         }
         if (activeAdminBoardIds == null) {
@@ -50,16 +49,15 @@ public class BoardAccessPolicy {
         return activeAdminBoardIds.contains(board.getBoardId());
     }
 
-    private boolean hasStaticBoardAdminAccess(Board board, User user) {
-        return Boolean.TRUE.equals(user.getIsSuperAdmin())
-                || (board.getCreator() != null && Objects.equals(board.getCreator().getUserId(), user.getUserId()));
+    private boolean hasStaticBoardAdminAccess(User user) {
+        return user.isUsableSuperAdmin();
     }
 
     public boolean hasElevatedBoardVisibility(User user) {
         if (user == null) {
             return false;
         }
-        if (Boolean.TRUE.equals(user.getIsSuperAdmin())) {
+        if (user.isUsableSuperAdmin()) {
             return true;
         }
         return adminRepository.existsByUserAndIsActive(user, true);

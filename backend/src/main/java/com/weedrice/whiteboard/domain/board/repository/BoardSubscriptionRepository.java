@@ -74,7 +74,6 @@ public interface BoardSubscriptionRepository extends JpaRepository<BoardSubscrip
               AND b.boardUrl IN :boardUrls
               AND (
                     :isSuperAdmin = true
-                    OR b.creator = :user
                     OR EXISTS (
                         SELECT admin.adminId
                         FROM Admin admin
@@ -98,7 +97,6 @@ public interface BoardSubscriptionRepository extends JpaRepository<BoardSubscrip
             WHERE bs.user = :user
               AND (
                     :isSuperAdmin = true
-                    OR b.creator = :user
                     OR EXISTS (
                         SELECT admin.adminId
                         FROM Admin admin
@@ -117,7 +115,6 @@ public interface BoardSubscriptionRepository extends JpaRepository<BoardSubscrip
             WHERE bs.user = :user
               AND (
                     :isSuperAdmin = true
-                    OR b.creator = :user
                     OR EXISTS (
                         SELECT admin.adminId
                         FROM Admin admin

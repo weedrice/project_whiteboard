@@ -56,6 +56,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -236,7 +237,14 @@ class AgentServiceTest {
         ReflectionTestUtils.setField(blockedPost, "isDeleted", false);
 
         lenient().when(adminRepository.findByUserAndBoard_BoardIdInAndIsActive(any(), any(), eq(true)))
-                .thenReturn(List.of());
+                .thenAnswer(invocation -> {
+                    User adminUser = invocation.getArgument(0);
+                    Collection<?> boardIds = invocation.getArgument(1);
+                    if (adminUser == user && boardIds != null && boardIds.contains(10L)) {
+                        return List.of(activeAdmin(user, writableBoard));
+                    }
+                    return List.of();
+                });
     }
 
     @Test

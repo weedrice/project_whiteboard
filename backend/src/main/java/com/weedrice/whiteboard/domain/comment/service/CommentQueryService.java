@@ -107,7 +107,7 @@ public class CommentQueryService {
                 : List.copyOf(blockedUserIds);
         return commentRepository.findVisibleMyComments(
                 user,
-                Boolean.TRUE.equals(user.getIsSuperAdmin()),
+                user.isUsableSuperAdmin(),
                 blockedUserIds.isEmpty(),
                 blockedUserIdParams,
                 safePageable)

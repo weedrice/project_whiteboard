@@ -66,7 +66,6 @@ public class UserFeedRepositoryCustomImpl implements UserFeedRepositoryCustom {
                                     b.isActive = true
                                     OR p.user = :targetUser
                                     OR :isSuperAdmin = true
-                                    OR b.creator = :targetUser
                                     OR EXISTS (
                                         SELECT 1
                                         FROM Admin admin
@@ -82,7 +81,6 @@ public class UserFeedRepositoryCustomImpl implements UserFeedRepositoryCustom {
                                         AND p.user = :targetUser
                                     )
                                     OR :isSuperAdmin = true
-                                    OR b.creator = :targetUser
                                     OR EXISTS (
                                         SELECT 1
                                         FROM Admin admin
@@ -95,7 +93,6 @@ public class UserFeedRepositoryCustomImpl implements UserFeedRepositoryCustom {
                                     p.isSecret = false
                                     OR p.user = :targetUser
                                     OR :isSuperAdmin = true
-                                    OR b.creator = :targetUser
                                     OR EXISTS (
                                         SELECT 1
                                         FROM Admin admin
@@ -114,7 +111,7 @@ public class UserFeedRepositoryCustomImpl implements UserFeedRepositoryCustom {
         query.setParameter("targetUser", targetUser);
         query.setParameter("postContentType", CONTENT_TYPE_POST);
         query.setParameter("inquiryBoardUrl", INQUIRY_BOARD_URL);
-        query.setParameter("isSuperAdmin", Boolean.TRUE.equals(targetUser.getIsSuperAdmin()));
+        query.setParameter("isSuperAdmin", targetUser.isUsableSuperAdmin());
         if (blockedUserIds != null && !blockedUserIds.isEmpty()) {
             query.setParameter("blockedUserIds", blockedUserIds);
         }

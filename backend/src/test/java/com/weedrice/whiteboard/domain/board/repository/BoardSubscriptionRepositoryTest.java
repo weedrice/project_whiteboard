@@ -91,10 +91,10 @@ class BoardSubscriptionRepositoryTest {
                 PageRequest.of(0, 10));
         PersistenceUnitUtil persistenceUnitUtil = entityManagerFactory.getPersistenceUnitUtil();
 
-        assertThat(result.getTotalElements()).isEqualTo(3);
+        assertThat(result.getTotalElements()).isEqualTo(2);
         assertThat(result.getContent())
                 .extracting(subscription -> subscription.getBoard().getBoardUrl())
-                .containsExactly("admin-only", "own-private", "public");
+                .containsExactly("admin-only", "public");
         assertThat(persistenceUnitUtil.isLoaded(result.getContent().get(0), "board")).isTrue();
         assertThat(persistenceUnitUtil.isLoaded(result.getContent().get(0).getBoard(), "creator")).isTrue();
     }

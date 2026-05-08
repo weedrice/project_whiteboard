@@ -462,23 +462,22 @@ class SearchServiceTest {
     }
 
     @Test
-    @DisplayName("게시글 검색 - 작성자는 secret 포함 검색")
-    void searchPosts_boardCreator_includesSecretPosts() {
+    @DisplayName("게시글 검색 - 게시판 생성자는 관리자 권한 없으면 비공개 게시판 검색 불가")
+    void searchPosts_boardCreator_deniedWithoutBoardAdminRole() {
         Board privateBoard = board(2L, "Private", "private");
         ReflectionTestUtils.setField(privateBoard, "isPublic", false);
         Pageable pageable = PageRequest.of(0, 20);
 
         when(boardRepository.findByBoardUrl("private")).thenReturn(Optional.of(privateBoard));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(userBlockService.getBlockedUserIdsEitherDirection(1L)).thenReturn(Collections.emptyList());
-        when(postRepository.searchPosts(eq("test"), isNull(), eq("private"), eq(Collections.emptyList()),
-                eq(true), eq(1L), any(Pageable.class))).thenReturn(Page.empty(pageable));
+        when(adminRepository.existsByUserAndBoardAndIsActive(user, privateBoard, true)).thenReturn(false);
 
-        searchService.searchPosts("test", null, "private", pageable, 1L);
+        assertThatThrownBy(() -> searchService.searchPosts("test", null, "private", pageable, 1L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.BOARD_NOT_FOUND);
 
-        verify(adminRepository, never()).existsByUserAndBoardAndIsActive(any(), any(), anyBoolean());
-        verify(postRepository).searchPosts(eq("test"), isNull(), eq("private"), eq(Collections.emptyList()),
-                eq(true), eq(1L), any(Pageable.class));
+        verify(postRepository, never()).searchPosts(any(), any(), any(), any(), anyBoolean(), any(), any());
+        verify(searchRecordEventPublisher, never()).publish(any(), anyString());
     }
 
     @Test

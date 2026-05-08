@@ -146,9 +146,9 @@ class ScrapRepositoryTest {
 
     @Test
     @DisplayName("스크랩 목록은 본인 제한 게시글을 노출한다")
-    void findPageByUserWithPostDetails_allowsOwnRestrictedPosts() {
+    void findPageByUserWithPostDetails_allowsOwnRestrictedInquiryPosts() {
         User managedScrapper = entityManager.find(User.class, scrapper.getUserId());
-        Board ownBoard = persistBoard("own-private-board", managedScrapper, false);
+        Board ownBoard = persistBoard("inquiry", managedScrapper, false);
         ownBoard.deactivate();
         Post ownSecretPost = persistPost(ownBoard, managedScrapper, "내 비밀글", true);
         entityManager.persist(Scrap.builder()

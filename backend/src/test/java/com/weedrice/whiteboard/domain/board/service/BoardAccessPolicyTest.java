@@ -90,6 +90,17 @@ class BoardAccessPolicyTest {
     }
 
     @Test
+    @DisplayName("Private inactive board read denies creator without active admin board id")
+    void canReadBoard_privateInactiveBoardDeniesCreatorWithoutAdminRole() {
+        Board board = board("hidden", false, false);
+
+        boolean readable = boardAccessPolicy.canReadBoard(board, creator, Set.of());
+
+        assertThat(readable).isFalse();
+        verifyNoInteractions(adminRepository);
+    }
+
+    @Test
     @DisplayName("Public active board write skips admin lookup")
     void canWriteBoard_publicActiveBoardSkipsAdminLookup() {
         Board board = board("free", true, true);
@@ -110,6 +121,18 @@ class BoardAccessPolicyTest {
 
         assertThat(writable).isTrue();
         verify(adminRepository).existsByUserAndBoardAndIsActive(manager, board, true);
+    }
+
+    @Test
+    @DisplayName("Secret posts are not visible to creator without active admin role")
+    void canViewSecretPosts_deniesCreatorWithoutAdminRole() {
+        Board board = board("hidden", false, false);
+        when(adminRepository.existsByUserAndBoardAndIsActive(creator, board, true)).thenReturn(false);
+
+        boolean canViewSecretPosts = boardAccessPolicy.canViewSecretPosts(board, creator);
+
+        assertThat(canViewSecretPosts).isFalse();
+        verify(adminRepository).existsByUserAndBoardAndIsActive(creator, board, true);
     }
 
     @Test

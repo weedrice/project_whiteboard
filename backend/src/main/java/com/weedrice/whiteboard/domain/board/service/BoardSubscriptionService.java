@@ -92,7 +92,7 @@ class BoardSubscriptionService {
         List<BoardSubscription> subscriptions = boardSubscriptionRepository.findReorderableByUserAndBoardUrlIn(
                 user,
                 requestedBoardUrls,
-                Boolean.TRUE.equals(user.getIsSuperAdmin()));
+                user.isUsableSuperAdmin());
 
         Set<String> currentBoardUrls = subscriptions.stream()
                 .map(sub -> sub.getBoard().getBoardUrl())

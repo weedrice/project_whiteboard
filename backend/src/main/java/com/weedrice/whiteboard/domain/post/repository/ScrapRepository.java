@@ -27,7 +27,6 @@ public interface ScrapRepository extends JpaRepository<Scrap, ScrapId> {
                     b.isActive = true
                     OR p.user = :user
                     OR :viewerIsSuperAdmin = true
-                    OR b.creator = :user
                     OR EXISTS (
                         SELECT 1
                         FROM Admin a
@@ -35,12 +34,11 @@ public interface ScrapRepository extends JpaRepository<Scrap, ScrapId> {
                           AND a.board = b
                           AND a.isActive = true
                     )
-                  )
+              )
               AND (
                     b.isPublic = true
                     OR (LOWER(b.boardUrl) = 'inquiry' AND p.user = :user)
                     OR :viewerIsSuperAdmin = true
-                    OR b.creator = :user
                     OR EXISTS (
                         SELECT 1
                         FROM Admin a
@@ -53,7 +51,6 @@ public interface ScrapRepository extends JpaRepository<Scrap, ScrapId> {
                     p.isSecret = false
                     OR p.user = :user
                     OR :viewerIsSuperAdmin = true
-                    OR b.creator = :user
                     OR EXISTS (
                         SELECT 1
                         FROM Admin a
@@ -75,7 +72,6 @@ public interface ScrapRepository extends JpaRepository<Scrap, ScrapId> {
                     b.isActive = true
                     OR p.user = :user
                     OR :viewerIsSuperAdmin = true
-                    OR b.creator = :user
                     OR EXISTS (
                         SELECT 1
                         FROM Admin a
@@ -83,12 +79,11 @@ public interface ScrapRepository extends JpaRepository<Scrap, ScrapId> {
                           AND a.board = b
                           AND a.isActive = true
                     )
-                  )
+              )
               AND (
                     b.isPublic = true
                     OR (LOWER(b.boardUrl) = 'inquiry' AND p.user = :user)
                     OR :viewerIsSuperAdmin = true
-                    OR b.creator = :user
                     OR EXISTS (
                         SELECT 1
                         FROM Admin a
@@ -101,7 +96,6 @@ public interface ScrapRepository extends JpaRepository<Scrap, ScrapId> {
                     p.isSecret = false
                     OR p.user = :user
                     OR :viewerIsSuperAdmin = true
-                    OR b.creator = :user
                     OR EXISTS (
                         SELECT 1
                         FROM Admin a

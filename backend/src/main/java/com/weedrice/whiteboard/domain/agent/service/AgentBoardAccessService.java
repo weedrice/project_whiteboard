@@ -20,7 +20,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -120,22 +119,16 @@ public class AgentBoardAccessService {
         if (user == null || boards == null || boards.isEmpty()) {
             return Collections.emptySet();
         }
-        if (Boolean.TRUE.equals(user.getIsSuperAdmin())) {
+        if (user.isUsableSuperAdmin()) {
             return boards.stream()
                     .map(Board::getBoardId)
                     .collect(Collectors.toSet());
         }
 
-        Set<Long> boardAdminIds = adminRepository.findByUserAndBoard_BoardIdInAndIsActive(user, boardIds, true)
+        return adminRepository.findByUserAndBoard_BoardIdInAndIsActive(user, boardIds, true)
                 .stream()
                 .map(admin -> admin.getBoard().getBoardId())
                 .collect(Collectors.toSet());
-        boards.stream()
-                .filter(board -> board.getCreator() != null
-                        && Objects.equals(board.getCreator().getUserId(), user.getUserId()))
-                .map(Board::getBoardId)
-                .forEach(boardAdminIds::add);
-        return boardAdminIds;
     }
 
     private boolean hasRequiredWriteRole(Board board, User user, Set<Long> boardAdminIds,
@@ -149,7 +142,7 @@ public class AgentBoardAccessService {
                 .orElse(null);
 
         if (Role.SUPER_ADMIN.equals(minWriteRole)) {
-            return Boolean.TRUE.equals(user.getIsSuperAdmin());
+            return user.isUsableSuperAdmin();
         }
         if (Role.BOARD_ADMIN.equals(minWriteRole)) {
             return boardAdminIds.contains(board.getBoardId());

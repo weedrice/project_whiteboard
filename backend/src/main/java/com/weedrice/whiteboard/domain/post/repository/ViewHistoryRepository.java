@@ -67,7 +67,6 @@ public interface ViewHistoryRepository extends JpaRepository<ViewHistory, Long> 
               AND (
                     b.is_active = 'Y'
                     OR :isSuperAdmin = true
-                    OR b.creator_id = :userId
                     OR p.user_id = :userId
                     OR EXISTS (
                         SELECT 1
@@ -80,7 +79,6 @@ public interface ViewHistoryRepository extends JpaRepository<ViewHistory, Long> 
               AND (
                     b.is_public = 'Y'
                     OR :isSuperAdmin = true
-                    OR b.creator_id = :userId
                     OR EXISTS (
                         SELECT 1
                         FROM admins a
@@ -93,7 +91,6 @@ public interface ViewHistoryRepository extends JpaRepository<ViewHistory, Long> 
               AND (
                     p.is_secret = 'N'
                     OR :isSuperAdmin = true
-                    OR b.creator_id = :userId
                     OR p.user_id = :userId
                     OR EXISTS (
                         SELECT 1
@@ -115,7 +112,6 @@ public interface ViewHistoryRepository extends JpaRepository<ViewHistory, Long> 
               AND (
                     b.is_active = 'Y'
                     OR :isSuperAdmin = true
-                    OR b.creator_id = :userId
                     OR p.user_id = :userId
                     OR EXISTS (
                         SELECT 1
@@ -128,7 +124,6 @@ public interface ViewHistoryRepository extends JpaRepository<ViewHistory, Long> 
               AND (
                     b.is_public = 'Y'
                     OR :isSuperAdmin = true
-                    OR b.creator_id = :userId
                     OR EXISTS (
                         SELECT 1
                         FROM admins a
@@ -141,7 +136,6 @@ public interface ViewHistoryRepository extends JpaRepository<ViewHistory, Long> 
               AND (
                     p.is_secret = 'N'
                     OR :isSuperAdmin = true
-                    OR b.creator_id = :userId
                     OR p.user_id = :userId
                     OR EXISTS (
                         SELECT 1

@@ -67,7 +67,7 @@ class PostReadContextResolver {
     PostReadContext resolveForExistingUserPosts(Long currentUserId, Collection<Post> posts) {
         PostReadContext context = resolveForExistingUser(currentUserId);
         if (context.viewer() == null || posts == null || posts.isEmpty()
-                || Boolean.TRUE.equals(context.viewer().getIsSuperAdmin())) {
+                || context.viewer().isUsableSuperAdmin()) {
             return context;
         }
         Set<Long> activeAdminBoardIds = resolveActiveAdminBoardIdsForPosts(context.viewer(), posts);
@@ -81,7 +81,7 @@ class PostReadContextResolver {
 
     PostReadContext withAdminBoardIds(PostReadContext context, Collection<Board> boards) {
         if (context == null || context.viewer() == null || boards == null || boards.isEmpty()
-                || Boolean.TRUE.equals(context.viewer().getIsSuperAdmin())) {
+                || context.viewer().isUsableSuperAdmin()) {
             return context;
         }
         Set<Long> activeAdminBoardIds = resolveActiveAdminBoardIds(context.viewer(), boards);
@@ -98,8 +98,6 @@ class PostReadContextResolver {
                 .filter(Objects::nonNull)
                 .filter(this::requiresAdminAccess)
                 .filter(board -> board.getBoardId() != null)
-                .filter(board -> board.getCreator() == null
-                        || !Objects.equals(board.getCreator().getUserId(), viewer.getUserId()))
                 .map(Board::getBoardId)
                 .distinct()
                 .toList();
@@ -122,8 +120,6 @@ class PostReadContextResolver {
                 .map(Post::getBoard)
                 .filter(Objects::nonNull)
                 .filter(board -> board.getBoardId() != null)
-                .filter(board -> board.getCreator() == null
-                        || !Objects.equals(board.getCreator().getUserId(), viewer.getUserId()))
                 .map(Board::getBoardId)
                 .distinct()
                 .toList();

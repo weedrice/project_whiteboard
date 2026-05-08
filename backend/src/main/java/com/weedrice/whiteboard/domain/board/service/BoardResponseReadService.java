@@ -151,11 +151,8 @@ class BoardResponseReadService {
                 .stream()
                 .map(admin -> admin.getBoard().getBoardId())
                 .collect(Collectors.toSet());
-        for (Board board : boards) {
-            if (Boolean.TRUE.equals(currentUser.getIsSuperAdmin())
-                    || board.getCreator() != null && board.getCreator().getUserId().equals(currentUser.getUserId())) {
-                adminBoardIds.add(board.getBoardId());
-            }
+        if (currentUser.isUsableSuperAdmin()) {
+            adminBoardIds.addAll(boardIds);
         }
         return adminBoardIds;
     }

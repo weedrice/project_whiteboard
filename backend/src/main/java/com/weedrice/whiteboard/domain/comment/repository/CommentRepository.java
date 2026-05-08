@@ -138,7 +138,6 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                                 b.isActive = true
                                 OR p.user = :user
                                 OR :viewerIsSuperAdmin = true
-                                OR b.creator = :user
                                 OR EXISTS (
                                         SELECT 1
                                         FROM Admin a
@@ -151,7 +150,6 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                                 b.isPublic = true
                                 OR (LOWER(b.boardUrl) = 'inquiry' AND p.user = :user)
                                 OR :viewerIsSuperAdmin = true
-                                OR b.creator = :user
                                 OR EXISTS (
                                         SELECT 1
                                         FROM Admin a
@@ -164,7 +162,6 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                                 p.isSecret = false
                                 OR p.user = :user
                                 OR :viewerIsSuperAdmin = true
-                                OR b.creator = :user
                                 OR EXISTS (
                                         SELECT 1
                                         FROM Admin a
@@ -187,7 +184,6 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                                 b.isActive = true
                                 OR p.user = :user
                                 OR :viewerIsSuperAdmin = true
-                                OR b.creator = :user
                                 OR EXISTS (
                                         SELECT 1
                                         FROM Admin a
@@ -200,7 +196,6 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                                 b.isPublic = true
                                 OR (LOWER(b.boardUrl) = 'inquiry' AND p.user = :user)
                                 OR :viewerIsSuperAdmin = true
-                                OR b.creator = :user
                                 OR EXISTS (
                                         SELECT 1
                                         FROM Admin a
@@ -213,7 +208,6 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                                 p.isSecret = false
                                 OR p.user = :user
                                 OR :viewerIsSuperAdmin = true
-                                OR b.creator = :user
                                 OR EXISTS (
                                         SELECT 1
                                         FROM Admin a

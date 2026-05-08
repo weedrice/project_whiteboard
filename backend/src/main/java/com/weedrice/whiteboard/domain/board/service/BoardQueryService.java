@@ -27,7 +27,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -68,7 +67,7 @@ class BoardQueryService {
         User currentUser = getCurrentUserOrNull(userDetails);
         List<Board> boards = boardRepository.findReadableActiveBoardsOrderBySortOrderAscBoardIdAsc(
                 currentUser,
-                currentUser != null && Boolean.TRUE.equals(currentUser.getIsSuperAdmin()));
+                currentUser != null && currentUser.isUsableSuperAdmin());
         return boardResponseAssembler.assembleListAll(boards, currentUser);
     }
 
@@ -91,7 +90,7 @@ class BoardQueryService {
 
         List<Long> boardIds = boardRepository.findTopReadableBoardIdsByPostCount(
                 currentUser,
-                Boolean.TRUE.equals(currentUser.getIsSuperAdmin()),
+                currentUser.isUsableSuperAdmin(),
                 PageRequest.of(0, TOP_BOARD_LIMIT));
         List<Board> boards = findBoardsByIdsInOrder(boardIds);
         return boardResponseAssembler.assembleListAll(boards, currentUser);
@@ -169,7 +168,7 @@ class BoardQueryService {
         }
         Page<BoardSubscription> visibleSubscriptions = boardSubscriptionRepository.findVisibleByUserOrderBySortOrderAsc(
                 user,
-                Boolean.TRUE.equals(user.getIsSuperAdmin()),
+                user.isUsableSuperAdmin(),
                 pageable);
         List<Board> visibleBoards = visibleSubscriptions.getContent().stream()
                 .map(BoardSubscription::getBoard)
@@ -182,9 +181,7 @@ class BoardQueryService {
         List<Long> boardIds = subscriptions.stream()
                 .map(BoardSubscription::getBoard)
                 .filter(board -> !isPublicActive(board))
-                .filter(board -> !Boolean.TRUE.equals(user.getIsSuperAdmin()))
-                .filter(board -> board.getCreator() == null
-                        || !Objects.equals(board.getCreator().getUserId(), user.getUserId()))
+                .filter(board -> !user.isUsableSuperAdmin())
                 .map(Board::getBoardId)
                 .toList();
         if (boardIds.isEmpty()) {
