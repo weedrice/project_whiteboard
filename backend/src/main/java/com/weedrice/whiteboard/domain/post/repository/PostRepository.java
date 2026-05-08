@@ -80,9 +80,9 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
                   AND p.isSecret = false
                   AND b.isActive = true
                   AND b.isPublic = true
-                  AND LOWER(b.boardUrl) <> 'inquiry'
+                  AND LOWER(b.boardUrl) <> :inquiryBoardUrl
                 """)
-        long countPublicLandingVisiblePosts();
+        long countPublicLandingVisiblePosts(@Param("inquiryBoardUrl") String inquiryBoardUrl);
 
         @Query("""
                 SELECT
@@ -101,12 +101,13 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
                   AND p.isSecret = false
                   AND b.isActive = true
                   AND b.isPublic = true
-                  AND LOWER(b.boardUrl) <> 'inquiry'
+                  AND LOWER(b.boardUrl) <> :inquiryBoardUrl
                 """)
         PublicLandingPostStatsProjection countPublicLandingPostStats(
                 @Param("todayStart") LocalDateTime todayStart,
                 @Param("tomorrowStart") LocalDateTime tomorrowStart,
-                @Param("yesterdayStart") LocalDateTime yesterdayStart);
+                @Param("yesterdayStart") LocalDateTime yesterdayStart,
+                @Param("inquiryBoardUrl") String inquiryBoardUrl);
 
         @Query("""
                 SELECT COUNT(p)
@@ -118,11 +119,12 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
                   AND p.isSecret = false
                   AND b.isActive = true
                   AND b.isPublic = true
-                  AND LOWER(b.boardUrl) <> 'inquiry'
+                  AND LOWER(b.boardUrl) <> :inquiryBoardUrl
                 """)
         long countPublicLandingVisiblePostsCreatedAtGreaterThanEqualAndCreatedAtLessThan(
                 @Param("start") LocalDateTime start,
-                @Param("end") LocalDateTime end);
+                @Param("end") LocalDateTime end,
+                @Param("inquiryBoardUrl") String inquiryBoardUrl);
         @EntityGraph(attributePaths = {"user", "agent", "board", "category"})
         List<Post> findByBoard_BoardIdAndIsNoticeAndIsDeletedOrderByCreatedAtDesc(Long boardId, Boolean isNotice, Boolean isDeleted);
         @EntityGraph(attributePaths = {"user", "board", "category"})

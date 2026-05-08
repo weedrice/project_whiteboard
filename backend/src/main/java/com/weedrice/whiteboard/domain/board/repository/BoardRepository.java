@@ -22,9 +22,9 @@ public interface BoardRepository extends JpaRepository<Board, Long> {
             FROM Board b
             WHERE b.isActive = true
               AND b.isPublic = true
-              AND LOWER(b.boardUrl) <> 'inquiry'
+              AND LOWER(b.boardUrl) <> :inquiryBoardUrl
             """)
-    long countPublicLandingVisibleBoards();
+    long countPublicLandingVisibleBoards(@Param("inquiryBoardUrl") String inquiryBoardUrl);
 
     @EntityGraph(attributePaths = "creator")
     List<Board> findByIsActiveOrderBySortOrderAscBoardIdAsc(Boolean isActive);
@@ -34,7 +34,7 @@ public interface BoardRepository extends JpaRepository<Board, Long> {
             SELECT b
             FROM Board b
             WHERE b.isActive = true
-              AND LOWER(b.boardUrl) <> 'inquiry'
+              AND LOWER(b.boardUrl) <> :inquiryBoardUrl
               AND (
                     :isSuperAdmin = true
                     OR b.isPublic = true
@@ -50,7 +50,8 @@ public interface BoardRepository extends JpaRepository<Board, Long> {
             """)
     List<Board> findReadableActiveBoardsOrderBySortOrderAscBoardIdAsc(
             @Param("user") User user,
-            @Param("isSuperAdmin") boolean isSuperAdmin);
+            @Param("isSuperAdmin") boolean isSuperAdmin,
+            @Param("inquiryBoardUrl") String inquiryBoardUrl);
 
     @EntityGraph(attributePaths = "creator")
     List<Board> findByIsActiveAndIsPublicOrderBySortOrderAscBoardIdAsc(Boolean isActive, Boolean isPublic);
@@ -90,11 +91,13 @@ public interface BoardRepository extends JpaRepository<Board, Long> {
               AND p.isSecret = false
               AND b.isActive = true
               AND b.isPublic = true
-              AND LOWER(b.boardUrl) <> 'inquiry'
+              AND LOWER(b.boardUrl) <> :inquiryBoardUrl
             GROUP BY b.boardId, b.sortOrder
             ORDER BY COUNT(p) DESC, b.sortOrder ASC, b.boardId ASC
             """)
-    List<Long> findTopPublicBoardIdsByPostCount(Pageable pageable);
+    List<Long> findTopPublicBoardIdsByPostCount(
+            @Param("inquiryBoardUrl") String inquiryBoardUrl,
+            Pageable pageable);
 
     @Query("""
             SELECT b.boardId
@@ -113,7 +116,7 @@ public interface BoardRepository extends JpaRepository<Board, Long> {
                     )
               )
               AND b.isActive = true
-              AND LOWER(b.boardUrl) <> 'inquiry'
+              AND LOWER(b.boardUrl) <> :inquiryBoardUrl
               AND (
                     :isSuperAdmin = true
                     OR b.isPublic = true
@@ -131,6 +134,7 @@ public interface BoardRepository extends JpaRepository<Board, Long> {
     List<Long> findTopReadableBoardIdsByPostCount(
             @Param("user") User user,
             @Param("isSuperAdmin") boolean isSuperAdmin,
+            @Param("inquiryBoardUrl") String inquiryBoardUrl,
             Pageable pageable);
 
     @EntityGraph(attributePaths = "creator")

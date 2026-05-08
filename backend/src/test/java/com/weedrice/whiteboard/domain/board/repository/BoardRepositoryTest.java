@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.board.repository;
 
 import com.weedrice.whiteboard.domain.admin.entity.Admin;
+import com.weedrice.whiteboard.domain.board.constant.BoardPolicyConstants;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -90,7 +91,7 @@ class BoardRepositoryTest {
         persistBoard("Landing Inquiry Board", "Inquiry", 40, true, true);
         entityManager.flush();
 
-        long count = boardRepository.countPublicLandingVisibleBoards();
+        long count = boardRepository.countPublicLandingVisibleBoards(BoardPolicyConstants.INQUIRY_BOARD_URL);
 
         assertThat(count).isEqualTo(2L);
     }
@@ -159,7 +160,9 @@ class BoardRepositoryTest {
         entityManager.flush();
         entityManager.clear();
 
-        var boardIds = boardRepository.findTopPublicBoardIdsByPostCount(PageRequest.of(0, 10));
+        var boardIds = boardRepository.findTopPublicBoardIdsByPostCount(
+                BoardPolicyConstants.INQUIRY_BOARD_URL,
+                PageRequest.of(0, 10));
         var boards = boardRepository.findByBoardIdIn(boardIds);
 
         assertThat(boardIds).containsExactly(
@@ -188,8 +191,14 @@ class BoardRepositoryTest {
         entityManager.flush();
         entityManager.clear();
 
-        var readableBoards = boardRepository.findReadableActiveBoardsOrderBySortOrderAscBoardIdAsc(reader, false);
-        var superAdminBoards = boardRepository.findReadableActiveBoardsOrderBySortOrderAscBoardIdAsc(reader, true);
+        var readableBoards = boardRepository.findReadableActiveBoardsOrderBySortOrderAscBoardIdAsc(
+                reader,
+                false,
+                BoardPolicyConstants.INQUIRY_BOARD_URL);
+        var superAdminBoards = boardRepository.findReadableActiveBoardsOrderBySortOrderAscBoardIdAsc(
+                reader,
+                true,
+                BoardPolicyConstants.INQUIRY_BOARD_URL);
 
         assertThat(readableBoards).extracting(Board::getBoardName)
                 .contains("Test Board", "Admin Private")
@@ -212,7 +221,10 @@ class BoardRepositoryTest {
         entityManager.flush();
         entityManager.clear();
 
-        var boards = boardRepository.findReadableActiveBoardsOrderBySortOrderAscBoardIdAsc(null, false);
+        var boards = boardRepository.findReadableActiveBoardsOrderBySortOrderAscBoardIdAsc(
+                null,
+                false,
+                BoardPolicyConstants.INQUIRY_BOARD_URL);
 
         assertThat(boards).extracting(Board::getBoardName)
                 .contains("Test Board")
@@ -233,7 +245,10 @@ class BoardRepositoryTest {
                 sameSortSecond.getBoardId());
 
         var publicBoards = boardRepository.findByIsActiveAndIsPublicOrderBySortOrderAscBoardIdAsc(true, true);
-        var readableBoards = boardRepository.findReadableActiveBoardsOrderBySortOrderAscBoardIdAsc(null, false);
+        var readableBoards = boardRepository.findReadableActiveBoardsOrderBySortOrderAscBoardIdAsc(
+                null,
+                false,
+                BoardPolicyConstants.INQUIRY_BOARD_URL);
         var activeBoards = boardRepository.findByIsActiveOrderBySortOrderAscBoardIdAsc(true);
         var allBoards = boardRepository.findAllByOrderBySortOrderAscBoardIdAsc();
 
@@ -269,7 +284,11 @@ class BoardRepositoryTest {
         entityManager.flush();
         entityManager.clear();
 
-        var boardIds = boardRepository.findTopReadableBoardIdsByPostCount(reader, false, PageRequest.of(0, 10));
+        var boardIds = boardRepository.findTopReadableBoardIdsByPostCount(
+                reader,
+                false,
+                BoardPolicyConstants.INQUIRY_BOARD_URL,
+                PageRequest.of(0, 10));
 
         assertThat(boardIds).containsExactly(adminPrivateBoard.getBoardId(), publicBoard.getBoardId());
         assertThat(boardIds).doesNotContain(secretOnlyPublicBoard.getBoardId());

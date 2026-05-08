@@ -37,7 +37,7 @@ public interface ScrapRepository extends JpaRepository<Scrap, ScrapId> {
               )
               AND (
                     b.isPublic = true
-                    OR (LOWER(b.boardUrl) = 'inquiry' AND p.user = :user)
+                    OR (LOWER(b.boardUrl) = :inquiryBoardUrl AND p.user = :user)
                     OR :viewerIsSuperAdmin = true
                     OR EXISTS (
                         SELECT 1
@@ -82,7 +82,7 @@ public interface ScrapRepository extends JpaRepository<Scrap, ScrapId> {
               )
               AND (
                     b.isPublic = true
-                    OR (LOWER(b.boardUrl) = 'inquiry' AND p.user = :user)
+                    OR (LOWER(b.boardUrl) = :inquiryBoardUrl AND p.user = :user)
                     OR :viewerIsSuperAdmin = true
                     OR EXISTS (
                         SELECT 1
@@ -110,6 +110,7 @@ public interface ScrapRepository extends JpaRepository<Scrap, ScrapId> {
             @Param("viewerIsSuperAdmin") boolean viewerIsSuperAdmin,
             @Param("blockedUserIdsEmpty") boolean blockedUserIdsEmpty,
             @Param("blockedUserIds") Collection<Long> blockedUserIds,
+            @Param("inquiryBoardUrl") String inquiryBoardUrl,
             Pageable pageable);
 
     List<Scrap> findByUserAndPostIn(User user, List<Post> posts);

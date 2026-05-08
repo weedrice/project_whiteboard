@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.post.service;
 
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
 import com.weedrice.whiteboard.domain.agent.service.AgentOwnershipService;
+import com.weedrice.whiteboard.domain.board.constant.BoardPolicyConstants;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.notification.constant.NotificationType;
@@ -228,6 +229,7 @@ public class PostInteractionService {
                 user.isUsableSuperAdmin(),
                 blockedUserIds.isEmpty(),
                 blockedUserIdParams,
+                BoardPolicyConstants.INQUIRY_BOARD_URL,
                 safePageable);
         return ScrapListResponse.from(scrapPage);
     }
@@ -244,6 +246,7 @@ public class PostInteractionService {
                 user.isUsableSuperAdmin(),
                 blockedUserIds.isEmpty(),
                 blockedUserIdParams,
+                BoardPolicyConstants.INQUIRY_BOARD_URL,
                 pageable);
 
         if (visiblePostIdsPage.isEmpty()) {

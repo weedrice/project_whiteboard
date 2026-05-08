@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.feed.repository;
 
+import com.weedrice.whiteboard.domain.board.constant.BoardPolicyConstants;
 import com.weedrice.whiteboard.domain.feed.entity.UserFeed;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import jakarta.persistence.EntityManager;
@@ -18,7 +19,6 @@ import java.util.List;
 public class UserFeedRepositoryCustomImpl implements UserFeedRepositoryCustom {
 
     private static final String CONTENT_TYPE_POST = "POST";
-    private static final String INQUIRY_BOARD_URL = "inquiry";
 
     private final EntityManager entityManager;
 
@@ -110,7 +110,7 @@ public class UserFeedRepositoryCustomImpl implements UserFeedRepositoryCustom {
     private void bindParameters(TypedQuery<?> query, User targetUser, Collection<Long> blockedUserIds) {
         query.setParameter("targetUser", targetUser);
         query.setParameter("postContentType", CONTENT_TYPE_POST);
-        query.setParameter("inquiryBoardUrl", INQUIRY_BOARD_URL);
+        query.setParameter("inquiryBoardUrl", BoardPolicyConstants.INQUIRY_BOARD_URL);
         query.setParameter("isSuperAdmin", targetUser.isUsableSuperAdmin());
         if (blockedUserIds != null && !blockedUserIds.isEmpty()) {
             query.setParameter("blockedUserIds", blockedUserIds);

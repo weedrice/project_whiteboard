@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.feed.service;
 
+import com.weedrice.whiteboard.domain.board.constant.BoardPolicyConstants;
 import com.weedrice.whiteboard.domain.board.dto.BoardListResponse;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
@@ -89,12 +90,15 @@ class HomeLandingServiceTest {
 
         when(postService.getTrendingPosts(any(), eq(1L), eq("24h"))).thenReturn(curatedPosts);
         when(boardService.getTopBoardsByUserId(1L)).thenReturn(boards);
-        when(postRepository.countPublicLandingPostStats(any(), any(), any()))
+        when(postRepository.countPublicLandingPostStats(any(), any(), any(), eq(BoardPolicyConstants.INQUIRY_BOARD_URL)))
                 .thenReturn(postStats(8421L, 12L, 10L));
-        when(boardRepository.countPublicLandingVisibleBoards()).thenReturn(11L);
+        when(boardRepository.countPublicLandingVisibleBoards(BoardPolicyConstants.INQUIRY_BOARD_URL)).thenReturn(11L);
         when(userRepository.countPublicLandingUserStats(any()))
                 .thenReturn(userStats(47L, 1247L));
-        when(commentRepository.countPublicLandingVisibleCommentsCreatedAtGreaterThanEqualAndCreatedAtLessThan(any(), any()))
+        when(commentRepository.countPublicLandingVisibleCommentsCreatedAtGreaterThanEqualAndCreatedAtLessThan(
+                any(),
+                any(),
+                eq(BoardPolicyConstants.INQUIRY_BOARD_URL)))
                 .thenReturn(1824L);
 
         HomeLandingResponse response = homeLandingService.getLanding(1L, "24h");
@@ -126,7 +130,7 @@ class HomeLandingServiceTest {
                 .hasMessage("post failure");
 
         verify(boardService, never()).getTopBoardsByUserId(any());
-        verify(postRepository, never()).countPublicLandingPostStats(any(), any(), any());
+        verify(postRepository, never()).countPublicLandingPostStats(any(), any(), any(), any());
     }
 
     @Test
@@ -134,7 +138,7 @@ class HomeLandingServiceTest {
     void getLanding_propagatesStatsFailures() {
         when(postService.getTrendingPosts(any(), isNull(), eq("24h"))).thenReturn(List.of());
         when(boardService.getTopBoardsByUserId(isNull())).thenReturn(List.of(board(1L, "free")));
-        when(postRepository.countPublicLandingPostStats(any(), any(), any()))
+        when(postRepository.countPublicLandingPostStats(any(), any(), any(), eq(BoardPolicyConstants.INQUIRY_BOARD_URL)))
                 .thenThrow(new IllegalStateException("stats failure"));
 
         assertThatThrownBy(() -> homeLandingService.getLanding(null, "24h"))
@@ -152,7 +156,7 @@ class HomeLandingServiceTest {
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("board failure");
 
-        verify(postRepository, never()).countPublicLandingPostStats(any(), any(), any());
+        verify(postRepository, never()).countPublicLandingPostStats(any(), any(), any(), any());
     }
 
     @Test
@@ -160,11 +164,14 @@ class HomeLandingServiceTest {
     void getLanding_statsUseKstDayBoundaries() {
         when(postService.getTrendingPosts(any(), isNull(), eq("24h"))).thenReturn(List.of());
         when(boardService.getTopBoardsByUserId(isNull())).thenReturn(List.of());
-        when(postRepository.countPublicLandingPostStats(any(), any(), any()))
+        when(postRepository.countPublicLandingPostStats(any(), any(), any(), eq(BoardPolicyConstants.INQUIRY_BOARD_URL)))
                 .thenReturn(postStats(8421L, 12L, 10L));
-        when(boardRepository.countPublicLandingVisibleBoards()).thenReturn(11L);
+        when(boardRepository.countPublicLandingVisibleBoards(BoardPolicyConstants.INQUIRY_BOARD_URL)).thenReturn(11L);
         when(userRepository.countPublicLandingUserStats(any())).thenReturn(userStats(47L, 1247L));
-        when(commentRepository.countPublicLandingVisibleCommentsCreatedAtGreaterThanEqualAndCreatedAtLessThan(any(), any()))
+        when(commentRepository.countPublicLandingVisibleCommentsCreatedAtGreaterThanEqualAndCreatedAtLessThan(
+                any(),
+                any(),
+                eq(BoardPolicyConstants.INQUIRY_BOARD_URL)))
                 .thenReturn(1824L);
 
         homeLandingService.getLanding(null, "24h");
@@ -175,7 +182,8 @@ class HomeLandingServiceTest {
         verify(postRepository).countPublicLandingPostStats(
                 postStartCaptor.capture(),
                 postEndCaptor.capture(),
-                yesterdayStartCaptor.capture());
+                yesterdayStartCaptor.capture(),
+                eq(BoardPolicyConstants.INQUIRY_BOARD_URL));
         assertThat(postStartCaptor.getValue()).isEqualTo(LocalDateTime.of(2026, 4, 29, 0, 0));
         assertThat(postEndCaptor.getValue()).isEqualTo(LocalDateTime.of(2026, 4, 30, 0, 0));
         assertThat(yesterdayStartCaptor.getValue()).isEqualTo(LocalDateTime.of(2026, 4, 28, 0, 0));
@@ -183,7 +191,8 @@ class HomeLandingServiceTest {
                 LocalDateTime.of(2026, 4, 28, 1, 5));
         verify(commentRepository).countPublicLandingVisibleCommentsCreatedAtGreaterThanEqualAndCreatedAtLessThan(
                 LocalDateTime.of(2026, 4, 29, 0, 0),
-                LocalDateTime.of(2026, 4, 30, 0, 0));
+                LocalDateTime.of(2026, 4, 30, 0, 0),
+                BoardPolicyConstants.INQUIRY_BOARD_URL);
     }
 
     private PostRepository.PublicLandingPostStatsProjection postStats(

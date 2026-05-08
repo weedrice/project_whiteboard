@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.post.repository;
 
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
+import com.weedrice.whiteboard.domain.board.constant.BoardPolicyConstants;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
 import com.weedrice.whiteboard.domain.file.entity.File;
@@ -249,7 +250,7 @@ class PostRepositoryTest {
         entityManager.persist(landingPost("Landing Inquiry Post", inquiryBoard, false, false));
         entityManager.flush();
 
-        long count = postRepository.countPublicLandingVisiblePosts();
+        long count = postRepository.countPublicLandingVisiblePosts(BoardPolicyConstants.INQUIRY_BOARD_URL);
 
         assertThat(count).isEqualTo(2L);
     }
@@ -326,7 +327,8 @@ class PostRepositoryTest {
 
         long count = postRepository.countPublicLandingVisiblePostsCreatedAtGreaterThanEqualAndCreatedAtLessThan(
                 todayStart,
-                tomorrowStart);
+                tomorrowStart,
+                BoardPolicyConstants.INQUIRY_BOARD_URL);
 
         assertThat(count).isEqualTo(1L);
     }
@@ -378,7 +380,8 @@ class PostRepositoryTest {
         PostRepository.PublicLandingPostStatsProjection stats = postRepository.countPublicLandingPostStats(
                 todayStart,
                 tomorrowStart,
-                yesterdayStart);
+                yesterdayStart,
+                BoardPolicyConstants.INQUIRY_BOARD_URL);
 
         assertThat(stats.getTotalPosts()).isEqualTo(5L);
         assertThat(stats.getPostsToday()).isEqualTo(1L);

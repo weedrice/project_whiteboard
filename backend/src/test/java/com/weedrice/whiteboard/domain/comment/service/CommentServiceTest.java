@@ -3,6 +3,7 @@ package com.weedrice.whiteboard.domain.comment.service;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
 import com.weedrice.whiteboard.domain.agent.service.AgentOwnershipService;
+import com.weedrice.whiteboard.domain.board.constant.BoardPolicyConstants;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
 import com.weedrice.whiteboard.domain.comment.dto.CommentResponse;
@@ -698,12 +699,24 @@ class CommentServiceTest {
         Pageable normalized = PageRequest.of(2, 100, Sort.by(Sort.Order.desc("createdAt")));
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(commentRepository.findVisibleMyComments(user, false, true, List.of(-1L), normalized))
+        when(commentRepository.findVisibleMyComments(
+                user,
+                false,
+                true,
+                List.of(-1L),
+                BoardPolicyConstants.INQUIRY_BOARD_URL,
+                normalized))
                 .thenReturn(Page.empty(normalized));
 
         commentService.getMyComments(1L, requested);
 
-        verify(commentRepository).findVisibleMyComments(user, false, true, List.of(-1L), normalized);
+        verify(commentRepository).findVisibleMyComments(
+                user,
+                false,
+                true,
+                List.of(-1L),
+                BoardPolicyConstants.INQUIRY_BOARD_URL,
+                normalized);
     }
 
     @Test

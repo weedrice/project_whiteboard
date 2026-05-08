@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.comment.service;
 
+import com.weedrice.whiteboard.domain.board.constant.BoardPolicyConstants;
 import com.weedrice.whiteboard.domain.comment.dto.CommentListResponse;
 import com.weedrice.whiteboard.domain.comment.dto.CommentResponse;
 import com.weedrice.whiteboard.domain.comment.dto.MyCommentResponse;
@@ -110,6 +111,7 @@ public class CommentQueryService {
                 user.isUsableSuperAdmin(),
                 blockedUserIds.isEmpty(),
                 blockedUserIdParams,
+                BoardPolicyConstants.INQUIRY_BOARD_URL,
                 safePageable)
                 .map(MyCommentResponse::from);
     }

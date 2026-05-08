@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.comment.repository;
 
 import com.weedrice.whiteboard.domain.admin.entity.Admin;
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
+import com.weedrice.whiteboard.domain.board.constant.BoardPolicyConstants;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.comment.entity.CommentClosure;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
@@ -256,7 +257,8 @@ class CommentRepositoryTest {
 
         long count = commentRepository.countPublicLandingVisibleCommentsCreatedAtGreaterThanEqualAndCreatedAtLessThan(
                 todayStart,
-                tomorrowStart);
+                tomorrowStart,
+                BoardPolicyConstants.INQUIRY_BOARD_URL);
 
         assertThat(count).isEqualTo(1L);
     }
@@ -386,6 +388,7 @@ class CommentRepositoryTest {
                 false,
                 true,
                 List.of(-1L),
+                BoardPolicyConstants.INQUIRY_BOARD_URL,
                 PageRequest.of(0, 10));
 
         assertThat(result.getTotalElements()).isEqualTo(4L);
@@ -408,6 +411,7 @@ class CommentRepositoryTest {
                 false,
                 false,
                 List.of(blockedAuthor.getUserId()),
+                BoardPolicyConstants.INQUIRY_BOARD_URL,
                 PageRequest.of(0, 10));
 
         assertThat(result.getContent())
@@ -435,6 +439,7 @@ class CommentRepositoryTest {
                 false,
                 true,
                 List.of(-1L),
+                BoardPolicyConstants.INQUIRY_BOARD_URL,
                 PageRequest.of(0, 10));
 
         assertThat(result.getContent())

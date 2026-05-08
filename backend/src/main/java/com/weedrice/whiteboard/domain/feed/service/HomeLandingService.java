@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.feed.service;
 
+import com.weedrice.whiteboard.domain.board.constant.BoardPolicyConstants;
 import com.weedrice.whiteboard.domain.board.dto.BoardListResponse;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.board.service.BoardService;
@@ -59,13 +60,15 @@ public class HomeLandingService {
         PostRepository.PublicLandingPostStatsProjection postStats = postRepository.countPublicLandingPostStats(
                 todayStart,
                 tomorrowStart,
-                yesterdayStart);
-        long activeBoardCount = boardRepository.countPublicLandingVisibleBoards();
+                yesterdayStart,
+                BoardPolicyConstants.INQUIRY_BOARD_URL);
+        long activeBoardCount = boardRepository.countPublicLandingVisibleBoards(BoardPolicyConstants.INQUIRY_BOARD_URL);
         UserRepository.PublicLandingUserStatsProjection userStats =
                 userRepository.countPublicLandingUserStats(twentyFourHoursAgo);
         long commentsToday = commentRepository.countPublicLandingVisibleCommentsCreatedAtGreaterThanEqualAndCreatedAtLessThan(
                 todayStart,
-                tomorrowStart);
+                tomorrowStart,
+                BoardPolicyConstants.INQUIRY_BOARD_URL);
         long totalPosts = countOrZero(postStats.getTotalPosts());
         long postsToday = countOrZero(postStats.getPostsToday());
         long postsYesterday = countOrZero(postStats.getPostsYesterday());

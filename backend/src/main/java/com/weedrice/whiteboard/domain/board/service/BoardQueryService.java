@@ -67,7 +67,8 @@ class BoardQueryService {
         User currentUser = getCurrentUserOrNull(userDetails);
         List<Board> boards = boardRepository.findReadableActiveBoardsOrderBySortOrderAscBoardIdAsc(
                 currentUser,
-                currentUser != null && currentUser.isUsableSuperAdmin());
+                currentUser != null && currentUser.isUsableSuperAdmin(),
+                boardAccessPolicy.getInquiryBoardUrl());
         return boardResponseAssembler.assembleListAll(boards, currentUser);
     }
 
@@ -83,7 +84,9 @@ class BoardQueryService {
 
     private List<BoardListResponse> getTopBoardsForUser(User currentUser) {
         if (currentUser == null || !boardAccessPolicy.hasElevatedBoardVisibility(currentUser)) {
-            List<Long> boardIds = boardRepository.findTopPublicBoardIdsByPostCount(PageRequest.of(0, TOP_BOARD_LIMIT));
+            List<Long> boardIds = boardRepository.findTopPublicBoardIdsByPostCount(
+                    boardAccessPolicy.getInquiryBoardUrl(),
+                    PageRequest.of(0, TOP_BOARD_LIMIT));
             List<Board> boards = findBoardsByIdsInOrder(boardIds);
             return boardResponseAssembler.assembleListAll(boards, currentUser);
         }
@@ -91,6 +94,7 @@ class BoardQueryService {
         List<Long> boardIds = boardRepository.findTopReadableBoardIdsByPostCount(
                 currentUser,
                 currentUser.isUsableSuperAdmin(),
+                boardAccessPolicy.getInquiryBoardUrl(),
                 PageRequest.of(0, TOP_BOARD_LIMIT));
         List<Board> boards = findBoardsByIdsInOrder(boardIds);
         return boardResponseAssembler.assembleListAll(boards, currentUser);

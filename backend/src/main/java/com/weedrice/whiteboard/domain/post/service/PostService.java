@@ -39,7 +39,6 @@ import java.util.stream.StreamSupport;
 @Transactional(readOnly = true)
 @SuppressWarnings({ "null" })
 public class PostService {
-    private static final String DEFAULT_INQUIRY_BOARD_URL = "inquiry";
     private static final int DEFAULT_BOARD_POST_PAGE_SIZE = 20;
     private static final Sort DEFAULT_BOARD_POST_SORT = Sort.by(
             Sort.Order.desc("createdAt"),
@@ -232,7 +231,7 @@ public class PostService {
                 20,
                 DEFAULT_INQUIRY_POST_SORT,
                 INQUIRY_POST_SORT_PROPERTIES);
-        Board inquiryBoard = boardRepository.findByBoardUrl(DEFAULT_INQUIRY_BOARD_URL)
+        Board inquiryBoard = boardRepository.findByBoardUrl(boardAccessPolicy.getInquiryBoardUrl())
                 .orElse(null);
         if (inquiryBoard == null) {
             return Page.empty(safePageable);

@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.board.service;
 
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
+import com.weedrice.whiteboard.domain.board.constant.BoardPolicyConstants;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -14,12 +15,14 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class BoardAccessPolicy {
 
-    private static final String DEFAULT_INQUIRY_BOARD_URL = "inquiry";
-
     private final AdminRepository adminRepository;
 
     public boolean isInquiryBoardUrl(String boardUrl) {
-        return boardUrl != null && DEFAULT_INQUIRY_BOARD_URL.equalsIgnoreCase(boardUrl.trim());
+        return boardUrl != null && BoardPolicyConstants.INQUIRY_BOARD_URL.equalsIgnoreCase(boardUrl.trim());
+    }
+
+    public String getInquiryBoardUrl() {
+        return BoardPolicyConstants.INQUIRY_BOARD_URL;
     }
 
     public boolean isInquiryBoard(Board board) {

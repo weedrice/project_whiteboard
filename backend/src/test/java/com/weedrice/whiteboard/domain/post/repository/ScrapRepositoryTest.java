@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.post.repository;
 
+import com.weedrice.whiteboard.domain.board.constant.BoardPolicyConstants;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.entity.Scrap;
@@ -87,7 +88,12 @@ class ScrapRepositoryTest {
     @DisplayName("스크랩 목록 전용 조회는 post, post.board, post.user를 함께 로드한다")
     void findPageByUserWithPostDetails_fetchesPostDetails() {
         Page<Scrap> result = scrapRepository.findPageByUserWithPostDetails(
-                scrapper, false, true, NO_BLOCKED_USER_IDS, PageRequest.of(0, 10));
+                scrapper,
+                false,
+                true,
+                NO_BLOCKED_USER_IDS,
+                BoardPolicyConstants.INQUIRY_BOARD_URL,
+                PageRequest.of(0, 10));
         PersistenceUnitUtil persistenceUnitUtil = entityManagerFactory.getPersistenceUnitUtil();
 
         assertThat(result.getContent()).hasSize(1);
@@ -136,6 +142,7 @@ class ScrapRepositoryTest {
                 false,
                 false,
                 List.of(blockedAuthor.getUserId()),
+                BoardPolicyConstants.INQUIRY_BOARD_URL,
                 PageRequest.of(0, 10));
 
         assertThat(result.getContent())
@@ -160,7 +167,12 @@ class ScrapRepositoryTest {
         entityManager.clear();
 
         Page<Scrap> result = scrapRepository.findPageByUserWithPostDetails(
-                scrapper, false, true, NO_BLOCKED_USER_IDS, PageRequest.of(0, 10));
+                scrapper,
+                false,
+                true,
+                NO_BLOCKED_USER_IDS,
+                BoardPolicyConstants.INQUIRY_BOARD_URL,
+                PageRequest.of(0, 10));
 
         assertThat(result.getContent())
                 .extracting(scrap -> scrap.getPost().getTitle())

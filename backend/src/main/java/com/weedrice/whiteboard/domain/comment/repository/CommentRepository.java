@@ -148,7 +148,7 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                           )
                           AND (
                                 b.isPublic = true
-                                OR (LOWER(b.boardUrl) = 'inquiry' AND p.user = :user)
+                                OR (LOWER(b.boardUrl) = :inquiryBoardUrl AND p.user = :user)
                                 OR :viewerIsSuperAdmin = true
                                 OR EXISTS (
                                         SELECT 1
@@ -194,7 +194,7 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                           )
                           AND (
                                 b.isPublic = true
-                                OR (LOWER(b.boardUrl) = 'inquiry' AND p.user = :user)
+                                OR (LOWER(b.boardUrl) = :inquiryBoardUrl AND p.user = :user)
                                 OR :viewerIsSuperAdmin = true
                                 OR EXISTS (
                                         SELECT 1
@@ -222,6 +222,7 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                         @org.springframework.data.repository.query.Param("viewerIsSuperAdmin") boolean viewerIsSuperAdmin,
                         @org.springframework.data.repository.query.Param("blockedUserIdsEmpty") boolean blockedUserIdsEmpty,
                         @org.springframework.data.repository.query.Param("blockedUserIds") Collection<Long> blockedUserIds,
+                        @org.springframework.data.repository.query.Param("inquiryBoardUrl") String inquiryBoardUrl,
                         Pageable pageable);
 
         long countByPost_PostIdAndIsDeleted(Long postId, Boolean isDeleted);
@@ -242,11 +243,12 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                           AND p.isSecret = false
                           AND b.isActive = true
                           AND b.isPublic = true
-                          AND LOWER(b.boardUrl) <> 'inquiry'
+                          AND LOWER(b.boardUrl) <> :inquiryBoardUrl
                         """)
         long countPublicLandingVisibleCommentsCreatedAtGreaterThanEqualAndCreatedAtLessThan(
                         @org.springframework.data.repository.query.Param("start") LocalDateTime start,
-                        @org.springframework.data.repository.query.Param("end") LocalDateTime end);
+                        @org.springframework.data.repository.query.Param("end") LocalDateTime end,
+                        @org.springframework.data.repository.query.Param("inquiryBoardUrl") String inquiryBoardUrl);
         Optional<Comment> findByCommentIdAndPost_PostId(Long commentId, Long postId);
 
         long countByUser(User user);

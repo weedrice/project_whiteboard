@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.board.service;
 
 import com.weedrice.whiteboard.domain.admin.service.AdminEligibleUserService;
 import com.weedrice.whiteboard.domain.admin.service.BoardManagerAssignmentService;
+import com.weedrice.whiteboard.domain.board.constant.BoardPolicyConstants;
 import com.weedrice.whiteboard.domain.board.dto.BoardCreateRequest;
 import com.weedrice.whiteboard.domain.board.dto.BoardUpdateRequest;
 import com.weedrice.whiteboard.domain.board.entity.Board;
@@ -30,7 +31,6 @@ import java.util.Objects;
 @Service
 class BoardProvisioningService {
 
-    private static final String DEFAULT_INQUIRY_BOARD_URL = "inquiry";
     private static final String DEFAULT_INQUIRY_BOARD_NAME = "문의";
     private static final String DEFAULT_INQUIRY_BOARD_DESCRIPTION = "운영진에게 문의를 남기는 비공개 게시판입니다.";
     private static final String DEFAULT_CATEGORY_NAME = "일반";
@@ -242,7 +242,7 @@ class BoardProvisioningService {
     }
 
     private String normalizeInquiryBoardUrl(String requestedBoardUrl) {
-        return DEFAULT_INQUIRY_BOARD_URL;
+        return BoardPolicyConstants.INQUIRY_BOARD_URL;
     }
 
     private Board createInquiryBoard(User requester, String inquiryBoardUrl) {
@@ -431,7 +431,7 @@ class BoardProvisioningService {
         if (boardUrl == null) {
             return;
         }
-        if (DEFAULT_INQUIRY_BOARD_URL.equalsIgnoreCase(boardUrl.trim())) {
+        if (BoardPolicyConstants.INQUIRY_BOARD_URL.equalsIgnoreCase(boardUrl.trim())) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "Reserved board URL");
         }
     }

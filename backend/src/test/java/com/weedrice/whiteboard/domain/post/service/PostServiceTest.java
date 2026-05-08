@@ -4,6 +4,7 @@ import com.weedrice.whiteboard.domain.agent.entity.Agent;
 import com.weedrice.whiteboard.domain.agent.service.AgentOwnershipService;
 import com.weedrice.whiteboard.domain.admin.entity.Admin;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
+import com.weedrice.whiteboard.domain.board.constant.BoardPolicyConstants;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
 import com.weedrice.whiteboard.domain.board.entity.BoardSubscription;
@@ -1210,7 +1211,12 @@ class PostServiceTest {
                 .build();
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
         when(scrapRepository.findPageByUserWithPostDetails(
-                eq(user), eq(false), eq(true), eq(NO_BLOCKED_USER_IDS), any(Pageable.class)))
+                eq(user),
+                eq(false),
+                eq(true),
+                eq(NO_BLOCKED_USER_IDS),
+                eq(BoardPolicyConstants.INQUIRY_BOARD_URL),
+                any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(scrap), PageRequest.of(0, 10), 1));
 
         ScrapListResponse response = postService.getMyScraps(1L, PageRequest.of(0, 10));
@@ -1220,7 +1226,12 @@ class PostServiceTest {
         assertThat(response.getContent().getFirst().getPost().getTitle()).isEqualTo("Test Post");
         assertThat(response.getContent().getFirst().getPost().getBoardName()).isEqualTo("Test Board");
         verify(scrapRepository).findPageByUserWithPostDetails(
-                eq(user), eq(false), eq(true), eq(NO_BLOCKED_USER_IDS), any(Pageable.class));
+                eq(user),
+                eq(false),
+                eq(true),
+                eq(NO_BLOCKED_USER_IDS),
+                eq(BoardPolicyConstants.INQUIRY_BOARD_URL),
+                any(Pageable.class));
         verify(userRepository).findById(1L);
     }
 
@@ -1230,14 +1241,24 @@ class PostServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(List.of(99L));
         when(scrapRepository.findPageByUserWithPostDetails(
-                eq(user), eq(false), eq(false), eq(List.of(99L)), any(Pageable.class)))
-                .thenAnswer(invocation -> Page.empty(invocation.getArgument(4)));
+                eq(user),
+                eq(false),
+                eq(false),
+                eq(List.of(99L)),
+                eq(BoardPolicyConstants.INQUIRY_BOARD_URL),
+                any(Pageable.class)))
+                .thenAnswer(invocation -> Page.empty(invocation.getArgument(5)));
 
         ScrapListResponse response = postService.getMyScraps(1L, PageRequest.of(0, 10));
 
         assertThat(response.getContent()).isEmpty();
         verify(scrapRepository).findPageByUserWithPostDetails(
-                eq(user), eq(false), eq(false), eq(List.of(99L)), any(Pageable.class));
+                eq(user),
+                eq(false),
+                eq(false),
+                eq(List.of(99L)),
+                eq(BoardPolicyConstants.INQUIRY_BOARD_URL),
+                any(Pageable.class));
     }
 
     @Test
@@ -1246,14 +1267,24 @@ class PostServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
         when(scrapRepository.findPageByUserWithPostDetails(
-                eq(user), eq(false), eq(true), eq(NO_BLOCKED_USER_IDS), any(Pageable.class)))
-                .thenAnswer(invocation -> Page.empty(invocation.getArgument(4)));
+                eq(user),
+                eq(false),
+                eq(true),
+                eq(NO_BLOCKED_USER_IDS),
+                eq(BoardPolicyConstants.INQUIRY_BOARD_URL),
+                any(Pageable.class)))
+                .thenAnswer(invocation -> Page.empty(invocation.getArgument(5)));
 
         postService.getMyScraps(1L, PageRequest.of(2, 1000, Sort.by("unknown")));
 
         ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
         verify(scrapRepository).findPageByUserWithPostDetails(
-                eq(user), eq(false), eq(true), eq(NO_BLOCKED_USER_IDS), pageableCaptor.capture());
+                eq(user),
+                eq(false),
+                eq(true),
+                eq(NO_BLOCKED_USER_IDS),
+                eq(BoardPolicyConstants.INQUIRY_BOARD_URL),
+                pageableCaptor.capture());
         Pageable pageable = pageableCaptor.getValue();
         assertThat(pageable.getPageNumber()).isEqualTo(2);
         assertThat(pageable.getPageSize()).isEqualTo(100);
@@ -1683,7 +1714,12 @@ class PostServiceTest {
     void getRecentlyViewedPosts() {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(viewHistoryRepository.findVisiblePostIdsByUserIdOrderByModifiedAtDesc(
-                eq(1L), eq(false), eq(true), eq(List.of(-1L)), any(Pageable.class)))
+                eq(1L),
+                eq(false),
+                eq(true),
+                eq(List.of(-1L)),
+                eq(BoardPolicyConstants.INQUIRY_BOARD_URL),
+                any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(1L), Pageable.unpaged(), 1));
         when(postRepository.findByPostIdInAndIsDeletedFalse(List.of(1L))).thenReturn(List.of(post));
 
@@ -1693,7 +1729,12 @@ class PostServiceTest {
         assertThat(result.getContent().get(0).getPostId()).isEqualTo(1L);
         assertThat(result.getTotalElements()).isEqualTo(1);
         verify(viewHistoryRepository).findVisiblePostIdsByUserIdOrderByModifiedAtDesc(
-                eq(1L), eq(false), eq(true), eq(List.of(-1L)), any(Pageable.class));
+                eq(1L),
+                eq(false),
+                eq(true),
+                eq(List.of(-1L)),
+                eq(BoardPolicyConstants.INQUIRY_BOARD_URL),
+                any(Pageable.class));
     }
 
     @Test
@@ -1702,7 +1743,12 @@ class PostServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(List.of(99L));
         when(viewHistoryRepository.findVisiblePostIdsByUserIdOrderByModifiedAtDesc(
-                eq(1L), eq(false), eq(false), eq(List.of(99L)), any(Pageable.class)))
+                eq(1L),
+                eq(false),
+                eq(false),
+                eq(List.of(99L)),
+                eq(BoardPolicyConstants.INQUIRY_BOARD_URL),
+                any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(1L), Pageable.unpaged(), 1));
         when(postRepository.findByPostIdInAndIsDeletedFalse(List.of(1L))).thenReturn(List.of(post));
 
@@ -1710,7 +1756,12 @@ class PostServiceTest {
 
         assertThat(result.getContent()).extracting(PostSummary::getPostId).containsExactly(1L);
         verify(viewHistoryRepository).findVisiblePostIdsByUserIdOrderByModifiedAtDesc(
-                eq(1L), eq(false), eq(false), eq(List.of(99L)), any(Pageable.class));
+                eq(1L),
+                eq(false),
+                eq(false),
+                eq(List.of(99L)),
+                eq(BoardPolicyConstants.INQUIRY_BOARD_URL),
+                any(Pageable.class));
     }
 
     // --- Misc ---

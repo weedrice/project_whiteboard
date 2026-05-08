@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.board.service;
 
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
+import com.weedrice.whiteboard.domain.board.constant.BoardPolicyConstants;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import org.junit.jupiter.api.BeforeEach;
@@ -40,6 +41,7 @@ class BoardAccessPolicyTest {
     void isInquiryBoardUrl_matchesTrimmedCaseInsensitiveValue() {
         assertThat(boardAccessPolicy.isInquiryBoardUrl(" inquiry ")).isTrue();
         assertThat(boardAccessPolicy.isInquiryBoardUrl("INQUIRY")).isTrue();
+        assertThat(boardAccessPolicy.getInquiryBoardUrl()).isEqualTo(BoardPolicyConstants.INQUIRY_BOARD_URL);
         assertThat(boardAccessPolicy.isInquiryBoardUrl("free")).isFalse();
         assertThat(boardAccessPolicy.isInquiryBoardUrl(null)).isFalse();
     }

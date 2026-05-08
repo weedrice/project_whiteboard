@@ -86,7 +86,7 @@ public interface ViewHistoryRepository extends JpaRepository<ViewHistory, Long> 
                           AND a.user_id = :userId
                           AND a.is_active = 'Y'
                     )
-                    OR (b.board_url = 'inquiry' AND p.user_id = :userId)
+                    OR (LOWER(b.board_url) = :inquiryBoardUrl AND p.user_id = :userId)
                   )
               AND (
                     p.is_secret = 'N'
@@ -131,7 +131,7 @@ public interface ViewHistoryRepository extends JpaRepository<ViewHistory, Long> 
                           AND a.user_id = :userId
                           AND a.is_active = 'Y'
                     )
-                    OR (b.board_url = 'inquiry' AND p.user_id = :userId)
+                    OR (LOWER(b.board_url) = :inquiryBoardUrl AND p.user_id = :userId)
                   )
               AND (
                     p.is_secret = 'N'
@@ -151,5 +151,6 @@ public interface ViewHistoryRepository extends JpaRepository<ViewHistory, Long> 
                                                                @Param("isSuperAdmin") boolean isSuperAdmin,
                                                                @Param("blockedUserIdsEmpty") boolean blockedUserIdsEmpty,
                                                                @Param("blockedUserIds") Collection<Long> blockedUserIds,
+                                                               @Param("inquiryBoardUrl") String inquiryBoardUrl,
                                                                Pageable pageable);
 }
