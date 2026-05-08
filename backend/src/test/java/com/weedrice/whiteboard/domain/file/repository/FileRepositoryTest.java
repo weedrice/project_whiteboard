@@ -245,8 +245,9 @@ class FileRepositoryTest {
     }
 
     @Test
-    @DisplayName("삭제 후보 조회는 pending delete만 반환한다")
-    void findPendingDeletionCandidates_returnsOnlyPendingDelete() {
+    @DisplayName("삭제 후보 조회는 pending delete와 stale deleting만 반환한다")
+    void findPendingDeletionCandidates_returnsPendingAndStaleDeleting() {
+        LocalDateTime staleBefore = LocalDateTime.now().minusMinutes(30);
         File failedFile = File.builder()
                 .originalName("failed.jpg")
                 .filePath("path/to/failed.jpg")
@@ -258,6 +259,28 @@ class FileRepositoryTest {
                 .deleteRetryCount(1)
                 .build();
         entityManager.persist(failedFile);
+
+        File freshDeletingFile = File.builder()
+                .originalName("fresh-deleting.jpg")
+                .filePath("path/to/fresh-deleting.jpg")
+                .fileSize(512L)
+                .mimeType("image/jpeg")
+                .uploader(uploader)
+                .storageStatus(FileStorageStatus.DELETING)
+                .deleteRequestedAt(staleBefore.plusMinutes(1))
+                .build();
+        entityManager.persist(freshDeletingFile);
+
+        File staleDeletingFile = File.builder()
+                .originalName("stale-deleting.jpg")
+                .filePath("path/to/stale-deleting.jpg")
+                .fileSize(512L)
+                .mimeType("image/jpeg")
+                .uploader(uploader)
+                .storageStatus(FileStorageStatus.DELETING)
+                .deleteRequestedAt(staleBefore.minusMinutes(1))
+                .build();
+        entityManager.persist(staleDeletingFile);
 
         File pendingFile = File.builder()
                 .originalName("pending.jpg")
@@ -272,10 +295,11 @@ class FileRepositoryTest {
         entityManager.flush();
         entityManager.clear();
 
-        List<File> candidates = fileRepository.findPendingDeletionCandidates(PageRequest.of(0, 10));
+        List<File> candidates = fileRepository.findPendingDeletionCandidates(staleBefore, PageRequest.of(0, 10));
+        List<String> candidatePaths = candidates.stream().map(File::getFilePath).toList();
 
-        assertThat(candidates).extracting(File::getStorageStatus)
-                .containsOnly(FileStorageStatus.PENDING_DELETE);
+        assertThat(candidatePaths)
+                .containsExactlyInAnyOrder("path/to/pending.jpg", "path/to/stale-deleting.jpg");
     }
 
     @Test

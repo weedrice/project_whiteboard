@@ -3,6 +3,7 @@ package com.weedrice.whiteboard.domain.file.service;
 import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonImageRepository;
 import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonMasterRepository;
 import com.weedrice.whiteboard.domain.file.entity.File;
+import com.weedrice.whiteboard.domain.file.entity.FileStorageStatus;
 import com.weedrice.whiteboard.domain.file.repository.FileRepository;
 import com.weedrice.whiteboard.domain.file.support.FileUrlResolver;
 import com.weedrice.whiteboard.global.common.util.FileStorageService;
@@ -12,6 +13,9 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -19,6 +23,12 @@ import java.util.concurrent.ConcurrentHashMap;
 @Service
 @RequiredArgsConstructor
 public class FileDeletionWorker {
+
+    private static final int MAX_DELETE_RETRY_COUNT = 5;
+    private static final int DELETE_CLAIM_STALE_MINUTES = 30;
+    private static final String REFERENCED_BEFORE_STORAGE_ERROR = "File deletion blocked by active reference";
+    private static final String REFERENCED_AFTER_STORAGE_ERROR =
+            "File deletion blocked by active reference after storage delete";
 
     private final FileRepository fileRepository;
     private final FileStorageService fileStorageService;
@@ -28,6 +38,7 @@ public class FileDeletionWorker {
     private final Set<Long> processingFileIds = ConcurrentHashMap.newKeySet();
 
     public boolean tryClaim(Long fileId) {
+        // Local duplicate throttle only. The DELETING state transition is the cross-node claim.
         return processingFileIds.add(fileId);
     }
 
@@ -38,19 +49,18 @@ public class FileDeletionWorker {
     @Async("taskExecutor")
     public void processDeletion(Long fileId) {
         try {
-            File file = fileRepository.findById(fileId).orElse(null);
-            if (file == null || !file.isDeletionRequested()) {
+            FileDeletionSnapshot snapshot = claimDeletion(fileId);
+            if (snapshot == null) {
                 return;
             }
-            if (isReferencedByEmoticon(file)) {
-                cancelDeletion(fileId);
+            if (cancelIfReferencedBeforeStorage(snapshot)) {
                 return;
             }
 
-            if (!deleteFromStorage(fileId, file)) {
+            if (!deleteFromStorage(snapshot)) {
                 return;
             }
-            finalizeDeletion(fileId);
+            finalizeDeletion(snapshot);
         } catch (RuntimeException e) {
             log.warn("Failed to finalize deleted file. fileId={}", fileId, e);
         } finally {
@@ -58,13 +68,43 @@ public class FileDeletionWorker {
         }
     }
 
-    private boolean deleteFromStorage(Long fileId, File file) {
+    private FileDeletionSnapshot claimDeletion(Long fileId) {
+        LocalDateTime claimedAt = LocalDateTime.now().truncatedTo(ChronoUnit.MILLIS);
+        LocalDateTime staleBefore = claimedAt.minusMinutes(DELETE_CLAIM_STALE_MINUTES);
+        return transactionTemplate.execute(status -> fileRepository
+                .findDeletionClaimCandidateForUpdate(fileId, MAX_DELETE_RETRY_COUNT, staleBefore)
+                .map(file -> {
+                    boolean staleProcessingClaim = file.getStorageStatus() == FileStorageStatus.DELETING;
+                    file.markDeleting(claimedAt);
+                    return FileDeletionSnapshot.from(file, claimedAt, staleProcessingClaim);
+                })
+                .orElse(null));
+    }
+
+    private boolean cancelIfReferencedBeforeStorage(FileDeletionSnapshot snapshot) {
+        return Boolean.TRUE.equals(transactionTemplate.execute(status -> fileRepository
+                .findByIdForUpdate(snapshot.fileId())
+                .map(current -> {
+                    if (!snapshot.matches(current) || !isReferencedByEmoticon(current)) {
+                        return false;
+                    }
+                    if (snapshot.staleProcessingClaim()) {
+                        current.markDeletionFailed(REFERENCED_BEFORE_STORAGE_ERROR);
+                    } else {
+                        current.cancelDeletionRequest();
+                    }
+                    return true;
+                })
+                .orElse(false)));
+    }
+
+    private boolean deleteFromStorage(FileDeletionSnapshot snapshot) {
         try {
-            fileStorageService.deleteFileOrThrow(file.getFilePath());
+            fileStorageService.deleteFileOrThrow(snapshot.filePath());
             return true;
         } catch (RuntimeException e) {
-            log.warn("Failed to delete file from storage. fileId={}", fileId, e);
-            markDeletionFailed(fileId, e);
+            log.warn("Failed to delete file from storage. fileId={}", snapshot.fileId(), e);
+            markDeletionFailed(snapshot, e);
             return false;
         }
     }
@@ -78,27 +118,57 @@ public class FileDeletionWorker {
                 || emoticonMasterRepository.existsByThumbnailUrlIn(candidateUrls);
     }
 
-    private void cancelDeletion(Long fileId) {
-        transactionTemplate.executeWithoutResult(status -> fileRepository.findById(fileId).ifPresent(current -> {
-            if (current.isDeletionRequested() && isReferencedByEmoticon(current)) {
-                current.cancelDeletionRequest();
-            }
-        }));
+    private void markDeletionFailed(FileDeletionSnapshot snapshot, RuntimeException cause) {
+        transactionTemplate.executeWithoutResult(status -> fileRepository.findByIdForUpdate(snapshot.fileId())
+                .ifPresent(current -> {
+                    if (snapshot.matches(current)) {
+                        current.markDeletionFailed(cause.getMessage());
+                    }
+                }));
     }
 
-    private void markDeletionFailed(Long fileId, RuntimeException cause) {
-        transactionTemplate.executeWithoutResult(status -> fileRepository.findById(fileId).ifPresent(current -> {
-            if (current.isDeletionRequested()) {
-                current.markDeletionFailed(cause.getMessage());
-            }
-        }));
+    private void finalizeDeletion(FileDeletionSnapshot snapshot) {
+        transactionTemplate.executeWithoutResult(status -> fileRepository.findByIdForUpdate(snapshot.fileId())
+                .ifPresent(current -> {
+                    if (!snapshot.matches(current)) {
+                        return;
+                    }
+                    if (isReferencedByEmoticon(current)) {
+                        current.markDeletionFailed(REFERENCED_AFTER_STORAGE_ERROR);
+                        return;
+                    }
+                    if (current.isDeletionRequested()) {
+                        fileRepository.delete(current);
+                    }
+                }));
     }
 
-    private void finalizeDeletion(Long fileId) {
-        transactionTemplate.executeWithoutResult(status -> fileRepository.findById(fileId).ifPresent(current -> {
-            if (current.isDeletionRequested()) {
-                fileRepository.delete(current);
-            }
-        }));
+    private record FileDeletionSnapshot(
+            Long fileId,
+            String filePath,
+            Long relatedId,
+            String relatedType,
+            LocalDateTime claimedAt,
+            boolean staleProcessingClaim) {
+
+        private static FileDeletionSnapshot from(File file, LocalDateTime claimedAt, boolean staleProcessingClaim) {
+            return new FileDeletionSnapshot(
+                    file.getFileId(),
+                    file.getFilePath(),
+                    file.getRelatedId(),
+                    file.getRelatedType(),
+                    claimedAt,
+                    staleProcessingClaim);
+        }
+
+        private boolean matches(File file) {
+            return file != null
+                    && file.getStorageStatus() == FileStorageStatus.DELETING
+                    && Objects.equals(fileId, file.getFileId())
+                    && Objects.equals(filePath, file.getFilePath())
+                    && Objects.equals(relatedId, file.getRelatedId())
+                    && Objects.equals(relatedType, file.getRelatedType())
+                    && Objects.equals(claimedAt, file.getDeleteRequestedAt());
+        }
     }
 }

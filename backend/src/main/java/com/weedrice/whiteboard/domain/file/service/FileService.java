@@ -51,6 +51,7 @@ public class FileService {
     public static final String RELATED_TYPE_EMOTICON_THUMBNAIL = FileRelatedType.EMOTICON_THUMBNAIL;
     public static final String RELATED_TYPE_EMOTICON_IMAGE = FileRelatedType.EMOTICON_IMAGE;
     private static final int MAX_DELETE_RETRY_COUNT = 5;
+    private static final int DELETE_CLAIM_STALE_MINUTES = 30;
     private static final int TEMPORARY_FILE_CLEANUP_BATCH_SIZE = 500;
     private static final int MAX_ORIGINAL_FILENAME_LENGTH = 255;
 
@@ -499,7 +500,8 @@ public class FileService {
     }
 
     public List<Long> getPendingDeletionFileIds(int limit) {
-        return fileRepository.findPendingDeletionCandidates(PageRequest.of(0, limit))
+        LocalDateTime staleBefore = LocalDateTime.now().minusMinutes(DELETE_CLAIM_STALE_MINUTES);
+        return fileRepository.findPendingDeletionCandidates(staleBefore, PageRequest.of(0, limit))
                 .stream()
                 .map(File::getFileId)
                 .toList();

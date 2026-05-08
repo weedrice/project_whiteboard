@@ -242,6 +242,36 @@ public interface FileRepository extends JpaRepository<File, Long> {
                 fileId, relatedId, relatedType, FileStorageStatus.ACTIVE);
     }
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            SELECT f
+            FROM File f
+            WHERE f.fileId = :fileId
+            """)
+    Optional<File> findByIdForUpdate(@Param("fileId") Long fileId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            SELECT f
+            FROM File f
+            WHERE f.fileId = :fileId
+              AND (
+                    f.storageStatus = com.weedrice.whiteboard.domain.file.entity.FileStorageStatus.PENDING_DELETE
+                    OR (
+                        f.storageStatus = com.weedrice.whiteboard.domain.file.entity.FileStorageStatus.DELETE_FAILED
+                        AND COALESCE(f.deleteRetryCount, 0) < :maxRetryCount
+                    )
+                    OR (
+                        f.storageStatus = com.weedrice.whiteboard.domain.file.entity.FileStorageStatus.DELETING
+                        AND (f.deleteRequestedAt IS NULL OR f.deleteRequestedAt < :staleBefore)
+                    )
+              )
+            """)
+    Optional<File> findDeletionClaimCandidateForUpdate(
+            @Param("fileId") Long fileId,
+            @Param("maxRetryCount") int maxRetryCount,
+            @Param("staleBefore") LocalDateTime staleBefore);
+
     @Modifying(flushAutomatically = true)
     @Query("""
             UPDATE File f
@@ -315,9 +345,13 @@ public interface FileRepository extends JpaRepository<File, Long> {
             SELECT f
             FROM File f
             WHERE f.storageStatus = com.weedrice.whiteboard.domain.file.entity.FileStorageStatus.PENDING_DELETE
+               OR (
+                    f.storageStatus = com.weedrice.whiteboard.domain.file.entity.FileStorageStatus.DELETING
+                    AND (f.deleteRequestedAt IS NULL OR f.deleteRequestedAt < :staleBefore)
+               )
             ORDER BY COALESCE(f.deleteRequestedAt, f.createdAt) ASC, f.fileId ASC
             """)
-    List<File> findPendingDeletionCandidates(Pageable pageable);
+    List<File> findPendingDeletionCandidates(@Param("staleBefore") LocalDateTime staleBefore, Pageable pageable);
 
     @Query("""
             SELECT f

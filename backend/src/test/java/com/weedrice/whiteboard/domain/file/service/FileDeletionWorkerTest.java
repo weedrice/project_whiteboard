@@ -14,8 +14,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.TransactionStatus;
+import org.springframework.transaction.support.TransactionCallback;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
 
@@ -48,21 +52,12 @@ class FileDeletionWorkerTest {
     @Test
     @DisplayName("스토리지 삭제 성공 시 파일 레코드를 최종 삭제한다")
     void processDeletion_deletesFileAfterStorageSuccess() {
-        File file = File.builder()
-                .filePath("stored.jpg")
-                .originalName("stored.jpg")
-                .fileSize(4L)
-                .mimeType("image/jpeg")
-                .uploader(com.weedrice.whiteboard.domain.user.entity.User.builder().build())
-                .storageStatus(FileStorageStatus.PENDING_DELETE)
-                .build();
+        File file = pendingFile();
 
-        when(fileRepository.findById(10L)).thenReturn(Optional.of(file));
-        doAnswer(invocation -> {
-            Consumer<Object> callback = invocation.getArgument(0);
-            callback.accept(null);
-            return null;
-        }).when(transactionTemplate).executeWithoutResult(any());
+        when(fileRepository.findDeletionClaimCandidateForUpdate(eq(10L), eq(5), any()))
+                .thenReturn(Optional.of(file));
+        when(fileRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(file), Optional.of(file));
+        executeTransactions();
 
         fileDeletionWorker.processDeletion(10L);
 
@@ -73,25 +68,15 @@ class FileDeletionWorkerTest {
     @Test
     @DisplayName("이모티콘에서 참조 중인 pending 파일은 삭제하지 않고 active로 복구한다")
     void processDeletion_restoresEmoticonReferencedFile() {
-        File file = File.builder()
-                .filePath("stored.jpg")
-                .originalName("stored.jpg")
-                .fileSize(4L)
-                .mimeType("image/jpeg")
-                .uploader(com.weedrice.whiteboard.domain.user.entity.User.builder().build())
-                .storageStatus(FileStorageStatus.PENDING_DELETE)
-                .deleteRetryCount(2)
-                .build();
-        org.springframework.test.util.ReflectionTestUtils.setField(file, "fileId", 10L);
+        File file = pendingFile();
+        ReflectionTestUtils.setField(file, "deleteRetryCount", 2);
 
-        when(fileRepository.findById(10L)).thenReturn(Optional.of(file));
-        when(emoticonImageRepository.existsByImageUrlIn(java.util.List.of("/api/v1/files/10", "/files/10")))
+        when(fileRepository.findDeletionClaimCandidateForUpdate(eq(10L), eq(5), any()))
+                .thenReturn(Optional.of(file));
+        when(fileRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(file));
+        when(emoticonImageRepository.existsByImageUrlIn(List.of("/api/v1/files/10", "/files/10")))
                 .thenReturn(true);
-        doAnswer(invocation -> {
-            Consumer<Object> callback = invocation.getArgument(0);
-            callback.accept(null);
-            return null;
-        }).when(transactionTemplate).executeWithoutResult(any());
+        executeTransactionCallbackOnly();
 
         fileDeletionWorker.processDeletion(10L);
 
@@ -103,23 +88,34 @@ class FileDeletionWorkerTest {
     }
 
     @Test
+    @DisplayName("stale deleting 파일이 이모티콘에서 참조 중이면 실패 상태로 남긴다")
+    void processDeletion_marksStaleDeletingReferenceAsFailed() {
+        File file = deletingFile();
+
+        when(fileRepository.findDeletionClaimCandidateForUpdate(eq(10L), eq(5), any()))
+                .thenReturn(Optional.of(file));
+        when(fileRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(file));
+        when(emoticonImageRepository.existsByImageUrlIn(List.of("/api/v1/files/10", "/files/10")))
+                .thenReturn(true);
+        executeTransactionCallbackOnly();
+
+        fileDeletionWorker.processDeletion(10L);
+
+        assertThat(file.getStorageStatus()).isEqualTo(FileStorageStatus.DELETE_FAILED);
+        assertThat(file.getDeleteRetryCount()).isEqualTo(1);
+        verify(fileStorageService, never()).deleteFileOrThrow(any());
+        verify(fileRepository, never()).delete(any());
+    }
+
+    @Test
     @DisplayName("스토리지 삭제 실패 시 파일 상태를 DELETE_FAILED로 전환한다")
     void processDeletion_marksFileFailedWhenStorageDeleteFails() {
-        File file = File.builder()
-                .filePath("stored.jpg")
-                .originalName("stored.jpg")
-                .fileSize(4L)
-                .mimeType("image/jpeg")
-                .uploader(com.weedrice.whiteboard.domain.user.entity.User.builder().build())
-                .storageStatus(FileStorageStatus.PENDING_DELETE)
-                .build();
+        File file = pendingFile();
 
-        when(fileRepository.findById(10L)).thenReturn(Optional.of(file));
-        doAnswer(invocation -> {
-            Consumer<Object> callback = invocation.getArgument(0);
-            callback.accept(null);
-            return null;
-        }).when(transactionTemplate).executeWithoutResult(any());
+        when(fileRepository.findDeletionClaimCandidateForUpdate(eq(10L), eq(5), any()))
+                .thenReturn(Optional.of(file));
+        when(fileRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(file), Optional.of(file));
+        executeTransactions();
         doThrow(new BusinessException(ErrorCode.FILE_DELETE_ERROR))
                 .when(fileStorageService).deleteFileOrThrow(eq("stored.jpg"));
 
@@ -133,6 +129,60 @@ class FileDeletionWorkerTest {
     @Test
     @DisplayName("스토리지 삭제 후 DB 정리 실패는 DELETE_FAILED로 전환하지 않는다")
     void processDeletion_doesNotMarkFailedWhenFinalizeFailsAfterStorageDelete() {
+        File file = pendingFile();
+
+        when(fileRepository.findDeletionClaimCandidateForUpdate(eq(10L), eq(5), any()))
+                .thenReturn(Optional.of(file));
+        when(fileRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(file));
+        when(transactionTemplate.execute(any())).thenAnswer(invocation -> {
+            TransactionCallback<?> callback = invocation.getArgument(0);
+            return callback.doInTransaction(null);
+        });
+        doThrow(new IllegalStateException("db unavailable"))
+                .when(transactionTemplate)
+                .executeWithoutResult(any());
+
+        fileDeletionWorker.processDeletion(10L);
+
+        verify(fileStorageService).deleteFileOrThrow("stored.jpg");
+        assertThat(file.getStorageStatus()).isEqualTo(FileStorageStatus.DELETING);
+        assertThat(file.getDeleteRetryCount()).isZero();
+        verify(fileRepository, never()).delete(any());
+    }
+
+    @Test
+    @DisplayName("DB claim에 실패하면 스토리지 삭제를 실행하지 않는다")
+    void processDeletion_skipsStorageDeleteWhenClaimFails() {
+        when(fileRepository.findDeletionClaimCandidateForUpdate(eq(10L), eq(5), any()))
+                .thenReturn(Optional.empty());
+        executeTransactionCallbackOnly();
+
+        fileDeletionWorker.processDeletion(10L);
+
+        verify(fileStorageService, never()).deleteFileOrThrow(any());
+        verify(fileRepository, never()).delete(any());
+    }
+
+    @Test
+    @DisplayName("스토리지 삭제 후 파일 삭제 조건이 바뀌면 DB row를 삭제하지 않는다")
+    void processDeletion_doesNotDeleteRowWhenDeletionSnapshotChanges() {
+        File file = pendingFile();
+        File changedFile = pendingFile();
+        changedFile.markDeleting(java.time.LocalDateTime.now());
+        changedFile.updateRelatedInfo(99L, "POST_CONTENT");
+
+        when(fileRepository.findDeletionClaimCandidateForUpdate(eq(10L), eq(5), any()))
+                .thenReturn(Optional.of(file));
+        when(fileRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(file), Optional.of(changedFile));
+        executeTransactions();
+
+        fileDeletionWorker.processDeletion(10L);
+
+        verify(fileStorageService).deleteFileOrThrow("stored.jpg");
+        verify(fileRepository, never()).delete(any());
+    }
+
+    private File pendingFile() {
         File file = File.builder()
                 .filePath("stored.jpg")
                 .originalName("stored.jpg")
@@ -141,17 +191,37 @@ class FileDeletionWorkerTest {
                 .uploader(com.weedrice.whiteboard.domain.user.entity.User.builder().build())
                 .storageStatus(FileStorageStatus.PENDING_DELETE)
                 .build();
+        ReflectionTestUtils.setField(file, "fileId", 10L);
+        return file;
+    }
 
-        when(fileRepository.findById(10L)).thenReturn(Optional.of(file));
-        doThrow(new IllegalStateException("db unavailable"))
-                .when(transactionTemplate)
-                .executeWithoutResult(any());
+    private File deletingFile() {
+        File file = File.builder()
+                .filePath("stored.jpg")
+                .originalName("stored.jpg")
+                .fileSize(4L)
+                .mimeType("image/jpeg")
+                .uploader(com.weedrice.whiteboard.domain.user.entity.User.builder().build())
+                .storageStatus(FileStorageStatus.DELETING)
+                .deleteRequestedAt(java.time.LocalDateTime.now().minusHours(1))
+                .build();
+        ReflectionTestUtils.setField(file, "fileId", 10L);
+        return file;
+    }
 
-        fileDeletionWorker.processDeletion(10L);
+    private void executeTransactions() {
+        executeTransactionCallbackOnly();
+        doAnswer(invocation -> {
+            Consumer<TransactionStatus> callback = invocation.getArgument(0);
+            callback.accept(null);
+            return null;
+        }).when(transactionTemplate).executeWithoutResult(any());
+    }
 
-        verify(fileStorageService).deleteFileOrThrow("stored.jpg");
-        assertThat(file.getStorageStatus()).isEqualTo(FileStorageStatus.PENDING_DELETE);
-        assertThat(file.getDeleteRetryCount()).isZero();
-        verify(fileRepository, never()).delete(any());
+    private void executeTransactionCallbackOnly() {
+        when(transactionTemplate.execute(any())).thenAnswer(invocation -> {
+            TransactionCallback<?> callback = invocation.getArgument(0);
+            return callback.doInTransaction(null);
+        });
     }
 }

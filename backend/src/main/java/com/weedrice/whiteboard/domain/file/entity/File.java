@@ -105,12 +105,19 @@ public class File extends BaseTimeEntity {
 
     public boolean isDeletionRequested() {
         return this.storageStatus == FileStorageStatus.PENDING_DELETE
+                || this.storageStatus == FileStorageStatus.DELETING
                 || this.storageStatus == FileStorageStatus.DELETE_FAILED;
     }
 
     public void markDeletionPending() {
         this.storageStatus = FileStorageStatus.PENDING_DELETE;
         this.deleteRequestedAt = LocalDateTime.now();
+        this.deleteLastError = null;
+    }
+
+    public void markDeleting(LocalDateTime claimedAt) {
+        this.storageStatus = FileStorageStatus.DELETING;
+        this.deleteRequestedAt = claimedAt;
         this.deleteLastError = null;
     }
 
