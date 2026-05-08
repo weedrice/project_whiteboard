@@ -24,6 +24,9 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class UserProfileService {
 
+    private static final int DISPLAY_NAME_MIN_LENGTH = 2;
+    private static final int DISPLAY_NAME_MAX_LENGTH = 50;
+
     private final UserRepository userRepository;
     private final CurrentUserSummaryAssembler currentUserSummaryAssembler;
     private final CommentRepository commentRepository;
@@ -84,14 +87,15 @@ public class UserProfileService {
     public UpdateProfileResponse updateMyProfile(Long userId, String displayName, Long profileImageId) {
         User user = userWritableResolver.resolve(userId);
         String oldDisplayName = user.getDisplayName();
+        String normalizedDisplayName = normalizeDisplayName(displayName);
 
-        if (displayName != null && !displayName.equals(oldDisplayName)) {
+        if (normalizedDisplayName != null && !normalizedDisplayName.equals(oldDisplayName)) {
             displayNameHistoryRepository.save(DisplayNameHistory.builder()
                     .user(user)
                     .previousName(oldDisplayName)
-                    .newName(displayName)
+                    .newName(normalizedDisplayName)
                     .build());
-            user.updateDisplayName(displayName);
+            user.updateDisplayName(normalizedDisplayName);
         }
 
         if (profileImageId != null) {
@@ -99,6 +103,20 @@ public class UserProfileService {
         }
 
         return new UpdateProfileResponse(user.getUserId(), user.getDisplayName(), user.getProfileImageUrl());
+    }
+
+    private String normalizeDisplayName(String displayName) {
+        if (displayName == null) {
+            return null;
+        }
+
+        String normalizedDisplayName = displayName.strip();
+        if (normalizedDisplayName.isBlank()
+                || normalizedDisplayName.length() < DISPLAY_NAME_MIN_LENGTH
+                || normalizedDisplayName.length() > DISPLAY_NAME_MAX_LENGTH) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        return normalizedDisplayName;
     }
 
     @Transactional

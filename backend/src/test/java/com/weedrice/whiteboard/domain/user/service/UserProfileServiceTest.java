@@ -11,6 +11,7 @@ import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.dto.MyInfoResponse;
 import com.weedrice.whiteboard.domain.user.dto.UpdateProfileResponse;
 import com.weedrice.whiteboard.domain.user.dto.UserProfileResponse;
+import com.weedrice.whiteboard.domain.user.entity.DisplayNameHistory;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.entity.UserSettings;
 import com.weedrice.whiteboard.domain.user.repository.DisplayNameHistoryRepository;
@@ -22,6 +23,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -186,6 +188,66 @@ class UserProfileServiceTest {
 
         assertThat(response.getProfileImageUrl()).isEqualTo("/api/v1/files/100");
         verify(fileService).replaceUserProfileImage(100L, 1L, 1L);
+    }
+
+    @Test
+    @DisplayName("표시명 변경 시 앞뒤 공백을 제거한 최종 값을 저장하고 이력에 남긴다")
+    void updateMyProfile_normalizesDisplayName() {
+        User user = User.builder().displayName("Old Name").build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        UpdateProfileResponse response = userProfileService.updateMyProfile(1L, "  New Name  ", null);
+
+        assertThat(response.getDisplayName()).isEqualTo("New Name");
+        assertThat(user.getDisplayName()).isEqualTo("New Name");
+        ArgumentCaptor<DisplayNameHistory> historyCaptor = ArgumentCaptor.forClass(DisplayNameHistory.class);
+        verify(displayNameHistoryRepository).save(historyCaptor.capture());
+        assertThat(historyCaptor.getValue().getPreviousName()).isEqualTo("Old Name");
+        assertThat(historyCaptor.getValue().getNewName()).isEqualTo("New Name");
+    }
+
+    @Test
+    @DisplayName("정규화한 표시명이 기존 이름과 같으면 변경 이력을 남기지 않는다")
+    void updateMyProfile_sameDisplayNameAfterNormalize_doesNotSaveHistory() {
+        User user = User.builder().displayName("Same Name").build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        UpdateProfileResponse response = userProfileService.updateMyProfile(1L, " Same Name ", null);
+
+        assertThat(response.getDisplayName()).isEqualTo("Same Name");
+        verify(displayNameHistoryRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("공백 표시명은 거부한다")
+    void updateMyProfile_blankDisplayName_throwsInvalidInput() {
+        User user = User.builder().displayName("Old Name").build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> userProfileService.updateMyProfile(1L, "   ", null))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+
+        verify(displayNameHistoryRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("정규화한 표시명이 길이 제한을 벗어나면 거부한다")
+    void updateMyProfile_normalizedDisplayNameTooShort_throwsInvalidInput() {
+        User user = User.builder().displayName("Old Name").build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> userProfileService.updateMyProfile(1L, " a ", null))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+
+        verify(displayNameHistoryRepository, never()).save(any());
     }
 
     @Test
