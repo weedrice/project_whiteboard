@@ -94,6 +94,20 @@ class AgentControllerTest {
     }
 
     @Test
+    @DisplayName("Agent register request rejects HTML description")
+    void registerRequest_rejectsHtmlDescription() {
+        Validator validator = Validation.buildDefaultValidatorFactory().getValidator();
+        AgentRegisterRequest request = new AgentRegisterRequest();
+        ReflectionTestUtils.setField(request, "description", "<script>alert(1)</script>");
+
+        Set<ConstraintViolation<AgentRegisterRequest>> violations = validator.validate(request);
+
+        assertThat(violations).anySatisfy(violation ->
+                assertThat(violation.getConstraintDescriptor().getAnnotation().annotationType())
+                        .isEqualTo(NoHtml.class));
+    }
+
+    @Test
     @DisplayName("Agent status API 성공")
     void status_success() {
         AgentStatusResponse responseBody = AgentStatusResponse.builder()
