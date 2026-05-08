@@ -16,6 +16,7 @@ import com.weedrice.whiteboard.domain.post.dto.ViewHistoryRequest;
 import com.weedrice.whiteboard.domain.post.entity.*;
 import com.weedrice.whiteboard.domain.post.repository.*;
 import com.weedrice.whiteboard.domain.search.service.SearchRecordEventPublisher;
+import com.weedrice.whiteboard.domain.search.service.SearchRequestNormalizer;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
@@ -85,17 +86,18 @@ public class PostService {
         PostReadContext context = postReadContextResolver.resolveForBoards(currentUserId, List.of(board));
         validateBoardReadable(board, context);
         boolean includeSecret = context.canViewSecretPosts(board, boardAccessPolicy);
+        String canonicalKeyword = SearchRequestNormalizer.canonicalizeOptionalKeyword(keyword);
 
         Page<Post> posts = this.getPosts(
                 board.getBoardId(),
                 categoryId,
-                keyword,
+                canonicalKeyword,
                 minLikes,
                 context,
                 includeSecret,
                 pageable);
         Page<PostSummary> response = postSummaryAssembler.assembleBoardPage(posts, posts.getPageable(), true, true);
-        publishSearchRecord(currentUserId, keyword);
+        publishSearchRecord(currentUserId, canonicalKeyword);
         return response;
     }
 
@@ -137,10 +139,11 @@ public class PostService {
     private Page<Post> getPosts(Long boardId, Long categoryId, String keyword, Integer minLikes,
             PostReadContext context, Boolean includeSecret, @NonNull Pageable pageable) {
         Pageable safePageable = normalizeBoardPostPageable(pageable);
+        String canonicalKeyword = SearchRequestNormalizer.canonicalizeOptionalKeyword(keyword);
         return postRepository.findByBoardIdAndCategoryId(
                 boardId,
                 categoryId,
-                keyword,
+                canonicalKeyword,
                 minLikes,
                 context.blockedUserIds(),
                 includeSecret,
@@ -162,10 +165,11 @@ public class PostService {
     }
 
     private void publishSearchRecord(Long currentUserId, String keyword) {
-        if (keyword == null || keyword.trim().isEmpty()) {
+        String canonicalKeyword = SearchRequestNormalizer.canonicalizeOptionalKeyword(keyword);
+        if (canonicalKeyword == null) {
             return;
         }
-        searchRecordEventPublisher.publish(currentUserId, keyword);
+        searchRecordEventPublisher.publish(currentUserId, canonicalKeyword);
     }
 
     public List<Post> getNotices(Long boardId, Long currentUserId, Boolean includeSecret) {

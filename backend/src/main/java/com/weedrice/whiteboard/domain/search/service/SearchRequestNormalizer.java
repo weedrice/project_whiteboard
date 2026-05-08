@@ -11,6 +11,8 @@ import java.util.Set;
 
 public final class SearchRequestNormalizer {
 
+    static final int MAX_KEYWORD_LENGTH = 255;
+
     private static final int MAX_POPULAR_KEYWORD_LIMIT = 100;
     private static final int DEFAULT_POST_SEARCH_PAGE_SIZE = 20;
     private static final Sort DEFAULT_POST_SEARCH_SORT = Sort.by(
@@ -35,7 +37,29 @@ public final class SearchRequestNormalizer {
         if (canonicalKeyword.isEmpty()) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
-        return canonicalKeyword;
+        return truncateKeyword(canonicalKeyword);
+    }
+
+    public static String canonicalizeOptionalKeyword(String keyword) {
+        if (keyword == null) {
+            return null;
+        }
+        String canonicalKeyword = keyword.trim();
+        if (canonicalKeyword.isEmpty()) {
+            return null;
+        }
+        return truncateKeyword(canonicalKeyword);
+    }
+
+    static String truncateKeyword(String keyword) {
+        if (keyword == null || keyword.length() <= MAX_KEYWORD_LENGTH) {
+            return keyword;
+        }
+        int endIndex = MAX_KEYWORD_LENGTH;
+        if (Character.isHighSurrogate(keyword.charAt(endIndex - 1))) {
+            endIndex--;
+        }
+        return keyword.substring(0, endIndex);
     }
 
     public static int normalizePopularKeywordLimit(int limit) {

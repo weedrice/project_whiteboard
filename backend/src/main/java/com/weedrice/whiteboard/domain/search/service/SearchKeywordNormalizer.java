@@ -8,6 +8,8 @@ final class SearchKeywordNormalizer {
     }
 
     static String normalize(String keyword) {
-        return keyword.trim().toLowerCase(Locale.ROOT);
+        String normalizedKeyword = SearchRequestNormalizer.canonicalizeKeyword(keyword)
+                .toLowerCase(Locale.ROOT);
+        return SearchRequestNormalizer.truncateKeyword(normalizedKeyword);
     }
 }

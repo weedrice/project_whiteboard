@@ -40,6 +40,17 @@ class SearchStatisticCommandServiceTest {
     }
 
     @Test
+    @DisplayName("search statistic keyword is capped at 255 characters")
+    void recordSearchStatistic_truncatesKeyword() {
+        String keyword = "A".repeat(SearchRequestNormalizer.MAX_KEYWORD_LENGTH + 10);
+        String normalizedKeyword = "a".repeat(SearchRequestNormalizer.MAX_KEYWORD_LENGTH);
+
+        searchStatisticCommandService.recordSearchStatistic(keyword, LocalDate.now());
+
+        verify(searchStatisticWriteService).incrementSearchCount(eq(normalizedKeyword), any(LocalDate.class));
+    }
+
+    @Test
     @DisplayName("통계 생성 충돌 시 새 트랜잭션으로 다시 증가시킨다")
     void recordSearchStatistic_retriesIncrementAfterDuplicateInsert() {
         when(searchStatisticWriteService.incrementSearchCount(eq("test"), any(LocalDate.class)))

@@ -54,6 +54,8 @@ import jakarta.servlet.http.HttpServletResponse;
 @org.springframework.context.annotation.Import(SearchControllerTest.TestSecurityConfig.class)
 class SearchControllerTest {
 
+    private static final int MAX_KEYWORD_LENGTH = 255;
+
     @org.springframework.boot.test.context.TestConfiguration
     @org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
     static class TestSecurityConfig {
@@ -154,6 +156,30 @@ class SearchControllerTest {
         mockMvc.perform(get("/api/v1/search")
                 .param("q", rawQuery)
                 .with(anonymous()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+
+        verify(searchService).integratedSearch(eq(canonicalQuery), isNull());
+    }
+
+    @Test
+    @DisplayName("integrated search caps keyword before service call")
+    void integratedSearch_truncatesKeywordBeforeSearch() throws Exception {
+        String rawQuery = "A".repeat(MAX_KEYWORD_LENGTH + 10);
+        String canonicalQuery = "A".repeat(MAX_KEYWORD_LENGTH);
+        org.springframework.data.domain.Page<PostSummary> emptyPostPage = new PageImpl<>(List.of());
+        org.springframework.data.domain.Page<com.weedrice.whiteboard.domain.comment.dto.CommentResponse> emptyCommentPage = new PageImpl<>(
+                List.of());
+        org.springframework.data.domain.Page<com.weedrice.whiteboard.domain.user.dto.UserSummary> emptyUserPage = new PageImpl<>(
+                List.of());
+        IntegratedSearchResponse response = IntegratedSearchResponse.from(emptyPostPage, emptyCommentPage,
+                emptyUserPage, java.util.Collections.emptyList(), canonicalQuery);
+
+        when(searchService.integratedSearch(eq(canonicalQuery), isNull())).thenReturn(response);
+
+        mockMvc.perform(get("/api/v1/search")
+                        .param("q", rawQuery)
+                        .with(anonymous()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
 

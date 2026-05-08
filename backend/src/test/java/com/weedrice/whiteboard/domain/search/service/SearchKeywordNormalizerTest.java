@@ -13,4 +13,28 @@ class SearchKeywordNormalizerTest {
         assertThat(SearchKeywordNormalizer.normalize("\t Test KEYWORD \n"))
                 .isEqualTo("test keyword");
     }
+
+    @Test
+    @DisplayName("normalized search keyword is capped at 255 characters")
+    void normalize_truncatesToMaxKeywordLengthAfterLowercase() {
+        String keyword = "A".repeat(SearchRequestNormalizer.MAX_KEYWORD_LENGTH + 10);
+
+        String normalizedKeyword = SearchKeywordNormalizer.normalize(keyword);
+
+        assertThat(normalizedKeyword)
+                .hasSize(SearchRequestNormalizer.MAX_KEYWORD_LENGTH)
+                .isEqualTo("a".repeat(SearchRequestNormalizer.MAX_KEYWORD_LENGTH));
+    }
+
+    @Test
+    @DisplayName("keyword truncation does not split surrogate pairs")
+    void normalize_doesNotSplitSurrogatePair() {
+        String keyword = "A".repeat(SearchRequestNormalizer.MAX_KEYWORD_LENGTH - 1) + "\uD83D\uDE00";
+
+        String normalizedKeyword = SearchKeywordNormalizer.normalize(keyword);
+
+        assertThat(normalizedKeyword)
+                .hasSize(SearchRequestNormalizer.MAX_KEYWORD_LENGTH - 1)
+                .isEqualTo("a".repeat(SearchRequestNormalizer.MAX_KEYWORD_LENGTH - 1));
+    }
 }

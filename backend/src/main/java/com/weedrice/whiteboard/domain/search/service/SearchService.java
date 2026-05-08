@@ -56,13 +56,18 @@ public class SearchService {
 
     @Transactional
     public void recordSearch(Long userId, String keyword, LocalDate searchDate) {
-        searchStatisticCommandService.recordSearchStatistic(keyword, searchDate);
+        String canonicalKeyword = SearchRequestNormalizer.canonicalizeOptionalKeyword(keyword);
+        if (canonicalKeyword == null) {
+            return;
+        }
+
+        searchStatisticCommandService.recordSearchStatistic(canonicalKeyword, searchDate);
 
         if (userId != null) {
             try {
-                recentSearchCommandService.recordRecentSearch(userId, keyword);
+                recentSearchCommandService.recordRecentSearch(userId, canonicalKeyword);
             } catch (RuntimeException e) {
-                log.warn("Failed to record recent search. userId={}, keyword={}", userId, keyword, e);
+                log.warn("Failed to record recent search. userId={}, keyword={}", userId, canonicalKeyword, e);
             }
         }
     }

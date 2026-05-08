@@ -70,6 +70,28 @@ class RecentSearchCommandServiceTest {
     }
 
     @Test
+    @DisplayName("recent search keyword is capped at 255 characters")
+    void recordRecentSearch_truncatesKeyword() {
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(recentSearchWriteService.updateRecentSearch(any(), any(), any(), any())).thenReturn(0);
+        String keyword = "A".repeat(SearchRequestNormalizer.MAX_KEYWORD_LENGTH + 10);
+
+        recentSearchCommandService.recordRecentSearch(1L, keyword);
+
+        ArgumentCaptor<String> keywordCaptor = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<String> normalizedKeywordCaptor = ArgumentCaptor.forClass(String.class);
+        verify(recentSearchWriteService).createRecentSearch(
+                eq(1L),
+                keywordCaptor.capture(),
+                normalizedKeywordCaptor.capture(),
+                any());
+        assertThat(keywordCaptor.getValue()).hasSize(SearchRequestNormalizer.MAX_KEYWORD_LENGTH);
+        assertThat(normalizedKeywordCaptor.getValue())
+                .hasSize(SearchRequestNormalizer.MAX_KEYWORD_LENGTH)
+                .isEqualTo("a".repeat(SearchRequestNormalizer.MAX_KEYWORD_LENGTH));
+    }
+
+    @Test
     @DisplayName("빈 검색어는 무시한다")
     void recordRecentSearch_ignoresBlankKeyword() {
         recentSearchCommandService.recordRecentSearch(1L, "   ");

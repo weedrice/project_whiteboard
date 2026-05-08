@@ -135,6 +135,19 @@ class SearchServiceTest {
     }
 
     @Test
+    @DisplayName("search record keyword is capped before statistics and recent search")
+    void recordSearch_truncatesKeyword() {
+        Long userId = 1L;
+        String keyword = "A".repeat(SearchRequestNormalizer.MAX_KEYWORD_LENGTH + 10);
+        String canonicalKeyword = "A".repeat(SearchRequestNormalizer.MAX_KEYWORD_LENGTH);
+
+        searchService.recordSearch(userId, keyword, LocalDate.now());
+
+        verify(searchStatisticCommandService).recordSearchStatistic(eq(canonicalKeyword), any(LocalDate.class));
+        verify(recentSearchCommandService).recordRecentSearch(userId, canonicalKeyword);
+    }
+
+    @Test
     @DisplayName("검색 기록 저장 성공 - userId가 null인 경우")
     void recordSearch_success_withNullUserId() {
         // given
@@ -210,6 +223,32 @@ class SearchServiceTest {
         assertThat(result.getKeyword()).isEqualTo(keyword);
         verify(postRepository).searchPostsByKeyword(eq(keyword), isNull(), isNull(), eq(previewPageable));
         verify(searchRecordEventPublisher).publish(null, keyword);
+    }
+
+    @Test
+    @DisplayName("integrated search caps keyword at 255 characters")
+    void integratedSearch_truncatesKeywordBeforeRepositoryCall() {
+        String rawKeyword = "A".repeat(SearchRequestNormalizer.MAX_KEYWORD_LENGTH + 10);
+        String canonicalKeyword = "A".repeat(SearchRequestNormalizer.MAX_KEYWORD_LENGTH);
+        Pageable previewPageable = PageRequest.of(0, 5);
+
+        when(postRepository.searchPostsByKeyword(eq(canonicalKeyword), isNull(), isNull(), any(Pageable.class)))
+                .thenReturn(Page.empty(previewPageable));
+        when(commentRepository.searchCommentsByKeyword(eq(canonicalKeyword), isNull(), isNull(), any(Pageable.class)))
+                .thenReturn(Page.empty(previewPageable));
+        when(userRepository.searchUsersVisibleTo(eq(canonicalKeyword), isNull(), any(Pageable.class)))
+                .thenReturn(Page.empty(previewPageable));
+        when(boardRepository.findByBoardNameContainingIgnoreCaseAndIsActiveTrueAndIsPublicTrueOrderBySortOrderAscBoardIdAsc(
+                eq(canonicalKeyword), any(Pageable.class)))
+                .thenReturn(Collections.emptyList());
+
+        var result = searchService.integratedSearch(rawKeyword, null);
+
+        assertThat(result.getKeyword())
+                .hasSize(SearchRequestNormalizer.MAX_KEYWORD_LENGTH)
+                .isEqualTo(canonicalKeyword);
+        verify(postRepository).searchPostsByKeyword(eq(canonicalKeyword), isNull(), isNull(), eq(previewPageable));
+        verify(searchRecordEventPublisher).publish(null, canonicalKeyword);
     }
 
     @Test

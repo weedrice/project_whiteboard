@@ -66,6 +66,7 @@ import static org.mockito.Mockito.*;
 class PostServiceTest {
 
     private static final List<Long> NO_BLOCKED_USER_IDS = List.of(-1L);
+    private static final int MAX_KEYWORD_LENGTH = 255;
 
     @Mock
     private PostRepository postRepository;
@@ -645,20 +646,37 @@ class PostServiceTest {
     @DisplayName("게시글 목록 키워드 조회 성공 후 검색 기록 이벤트를 발행한다")
     void getPosts_withKeyword_publishesSearchRecord() {
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
-        when(postRepository.findByBoardIdAndCategoryId(eq(1L), any(), eq(" test "), any(), any(),
+        when(postRepository.findByBoardIdAndCategoryId(eq(1L), any(), eq("test"), any(), any(),
                 any(Boolean.class), any(), any(Pageable.class)))
                 .thenAnswer(invocation -> Page.empty(invocation.getArgument(7)));
 
         postService.getPosts("free", null, " test ", null, null, Pageable.unpaged());
 
-        verify(searchRecordEventPublisher).publish(null, " test ");
+        verify(searchRecordEventPublisher).publish(null, "test");
+    }
+
+    @Test
+    @DisplayName("board post search caps keyword before repository and record event")
+    void getPosts_truncatesKeywordBeforeSearchAndRecord() {
+        String rawKeyword = "A".repeat(MAX_KEYWORD_LENGTH + 10);
+        String canonicalKeyword = "A".repeat(MAX_KEYWORD_LENGTH);
+        when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
+        when(postRepository.findByBoardIdAndCategoryId(eq(1L), any(), eq(canonicalKeyword), any(), any(),
+                any(Boolean.class), any(), any(Pageable.class)))
+                .thenAnswer(invocation -> Page.empty(invocation.getArgument(7)));
+
+        postService.getPosts("free", null, rawKeyword, null, null, Pageable.unpaged());
+
+        verify(postRepository).findByBoardIdAndCategoryId(eq(1L), any(), eq(canonicalKeyword), any(), any(),
+                any(Boolean.class), any(), any(Pageable.class));
+        verify(searchRecordEventPublisher).publish(null, canonicalKeyword);
     }
 
     @Test
     @DisplayName("게시글 목록 키워드가 비어 있으면 검색 기록 이벤트를 발행하지 않는다")
     void getPosts_blankKeywordDoesNotPublishSearchRecord() {
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
-        when(postRepository.findByBoardIdAndCategoryId(eq(1L), any(), eq("   "), any(), any(),
+        when(postRepository.findByBoardIdAndCategoryId(eq(1L), any(), isNull(), any(), any(),
                 any(Boolean.class), any(), any(Pageable.class)))
                 .thenAnswer(invocation -> Page.empty(invocation.getArgument(7)));
 

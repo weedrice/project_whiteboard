@@ -19,31 +19,31 @@ public class RecentSearchCommandService {
     private final UserRepository userRepository;
 
     public void recordRecentSearch(Long userId, String keyword) {
-        if (userId == null || keyword == null) {
+        if (userId == null) {
             return;
         }
 
-        String trimmedKeyword = keyword.trim();
-        if (trimmedKeyword.isEmpty()) {
+        String canonicalKeyword = SearchRequestNormalizer.canonicalizeOptionalKeyword(keyword);
+        if (canonicalKeyword == null) {
             return;
         }
 
         userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        String normalizedKeyword = SearchKeywordNormalizer.normalize(trimmedKeyword);
+        String normalizedKeyword = SearchKeywordNormalizer.normalize(canonicalKeyword);
         LocalDateTime searchedAt = DateTimeUtils.nowKST();
 
-        int updated = recentSearchWriteService.updateRecentSearch(userId, trimmedKeyword, normalizedKeyword, searchedAt);
+        int updated = recentSearchWriteService.updateRecentSearch(userId, canonicalKeyword, normalizedKeyword, searchedAt);
         if (updated > 0) {
             return;
         }
 
         try {
-            recentSearchWriteService.createRecentSearch(userId, trimmedKeyword, normalizedKeyword, searchedAt);
+            recentSearchWriteService.createRecentSearch(userId, canonicalKeyword, normalizedKeyword, searchedAt);
         } catch (DataIntegrityViolationException e) {
             int recovered = recentSearchWriteService.updateRecentSearch(
                     userId,
-                    trimmedKeyword,
+                    canonicalKeyword,
                     normalizedKeyword,
                     searchedAt);
             if (recovered == 0) {
