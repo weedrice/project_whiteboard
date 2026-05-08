@@ -9,6 +9,7 @@ import lombok.NoArgsConstructor;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
+import java.util.Objects;
 
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -39,10 +40,10 @@ public class AdClickLog extends BaseTimeEntity {
     private String ipAddress;
 
     @Builder
-    public AdClickLog(Ad ad, User user, String ipAddress) {
+    public AdClickLog(Ad ad, User user, String ipAddress, LocalDateTime clickedAt) {
         this.ad = ad;
         this.user = user;
         this.ipAddress = ipAddress;
-        this.clickedAt = LocalDateTime.now();
+        this.clickedAt = Objects.requireNonNull(clickedAt, "clickedAt must not be null");
     }
 }

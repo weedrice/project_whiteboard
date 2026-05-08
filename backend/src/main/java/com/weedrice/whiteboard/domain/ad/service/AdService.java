@@ -81,6 +81,7 @@ public class AdService {
                 .ad(ad)
                 .user(user)
                 .ipAddress(ipAddress)
+                .clickedAt(now)
                 .build();
         adClickLogRepository.save(clickLog);
 

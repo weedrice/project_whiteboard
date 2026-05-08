@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.ad.service;
 
 import com.weedrice.whiteboard.domain.ad.entity.Ad;
+import com.weedrice.whiteboard.domain.ad.entity.AdClickLog;
 import com.weedrice.whiteboard.domain.ad.repository.AdClickLogRepository;
 import com.weedrice.whiteboard.domain.ad.repository.AdRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
@@ -150,7 +151,9 @@ class AdServiceTest {
         assertThat(targetUrl).isEqualTo("https://example.com");
         verify(adRepository).findActiveById(1L, FIXED_NOW);
         verify(adRepository).incrementClickCountForActive(1L, FIXED_NOW);
-        verify(adClickLogRepository).save(any());
+        ArgumentCaptor<AdClickLog> clickLogCaptor = ArgumentCaptor.forClass(AdClickLog.class);
+        verify(adClickLogRepository).save(clickLogCaptor.capture());
+        assertThat(clickLogCaptor.getValue().getClickedAt()).isEqualTo(FIXED_NOW);
     }
 
     @Test
