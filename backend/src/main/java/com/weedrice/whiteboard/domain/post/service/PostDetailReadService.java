@@ -39,13 +39,27 @@ public class PostDetailReadService {
     private final PostAccessPolicy postAccessPolicy;
     private final BoardAccessPolicy boardAccessPolicy;
 
-    @Transactional
-    public PostResponse getPostResponse(@NonNull Long postId, Long userId, boolean incrementView) {
-        return getPostResponse(postId, userId, incrementView, DEFAULT_BOARD_PAGE_SIZE);
+    public PostResponse getPostResponse(@NonNull Long postId, Long userId) {
+        return getPostResponse(postId, userId, DEFAULT_BOARD_PAGE_SIZE);
+    }
+
+    public PostResponse getPostResponse(@NonNull Long postId, Long userId, int boardListPageSize) {
+        return assemblePostResponse(postId, userId, boardListPageSize, false);
     }
 
     @Transactional
-    public PostResponse getPostResponse(@NonNull Long postId, Long userId, boolean incrementView, int boardListPageSize) {
+    public PostResponse getPostResponseWithViewIncrement(
+            @NonNull Long postId,
+            Long userId,
+            int boardListPageSize) {
+        return assemblePostResponse(postId, userId, boardListPageSize, true);
+    }
+
+    private PostResponse assemblePostResponse(
+            @NonNull Long postId,
+            Long userId,
+            int boardListPageSize,
+            boolean incrementView) {
         int normalizedBoardListPageSize = PageRequestUtils.of(0, boardListPageSize).getPageSize();
         PostDetailContext context = loadPostDetailContext(postId, userId, incrementView);
         Post post = context.post();
@@ -73,9 +87,10 @@ public class PostDetailReadService {
 
             if (readContext.viewer() != null) {
                 viewHistoryCommandService.touchView(readContext.viewer(), post);
-                viewHistory = viewHistoryRepository.findByUserAndPost(readContext.viewer(), post).orElse(null);
             }
-        } else if (readContext.viewer() != null) {
+        }
+
+        if (readContext.viewer() != null) {
             viewHistory = viewHistoryRepository.findByUserAndPost(readContext.viewer(), post).orElse(null);
         }
 

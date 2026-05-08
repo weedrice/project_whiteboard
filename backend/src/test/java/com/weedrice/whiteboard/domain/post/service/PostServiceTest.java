@@ -50,7 +50,10 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.lang.reflect.Method;
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -1890,6 +1893,45 @@ class PostServiceTest {
         assertThat(response.getTitle()).isEqualTo("Test Post");
         assertThat(response.getViewCount()).isEqualTo(1);
         assertThat(response.getBoardListPage()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("게시글 상세 응답 라우팅은 외부 write 트랜잭션을 열지 않는다")
+    void getPostResponseRouting_doesNotOpenOuterWriteTransaction() throws Exception {
+        Method defaultMethod = PostService.class.getMethod("getPostResponse", Long.class, Long.class);
+        Method booleanMethod = PostService.class.getMethod("getPostResponse", Long.class, Long.class, boolean.class);
+        Method sizedMethod = PostService.class.getMethod(
+                "getPostResponse",
+                Long.class,
+                Long.class,
+                boolean.class,
+                int.class);
+
+        assertThat(defaultMethod.getAnnotation(Transactional.class).propagation())
+                .isEqualTo(Propagation.NOT_SUPPORTED);
+        assertThat(booleanMethod.getAnnotation(Transactional.class).propagation())
+                .isEqualTo(Propagation.NOT_SUPPORTED);
+        assertThat(sizedMethod.getAnnotation(Transactional.class).propagation())
+                .isEqualTo(Propagation.NOT_SUPPORTED);
+    }
+
+    @Test
+    @DisplayName("게시글 상세 조회 전용 경로는 read-only 클래스 트랜잭션을 사용한다")
+    void postDetailReadServiceReadPath_usesClassReadOnlyTransaction() throws Exception {
+        Method readMethod = PostDetailReadService.class.getMethod(
+                "getPostResponse",
+                Long.class,
+                Long.class,
+                int.class);
+        Method commandMethod = PostDetailReadService.class.getMethod(
+                "getPostResponseWithViewIncrement",
+                Long.class,
+                Long.class,
+                int.class);
+
+        assertThat(PostDetailReadService.class.getAnnotation(Transactional.class).readOnly()).isTrue();
+        assertThat(readMethod.getAnnotation(Transactional.class)).isNull();
+        assertThat(commandMethod.getAnnotation(Transactional.class).readOnly()).isFalse();
     }
 
     @Test

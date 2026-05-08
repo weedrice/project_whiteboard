@@ -25,6 +25,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.*;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
@@ -284,20 +285,35 @@ public class PostService {
         return postInteractionService.getPostById(postId, userId, incrementView);
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public PostResponse getPostResponse(@NonNull Long postId, Long userId) {
-        return getPostResponse(postId, userId, true);
+        return getPostResponseInternal(postId, userId, true, DEFAULT_BOARD_POST_PAGE_SIZE);
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public PostResponse getPostResponse(@NonNull Long postId, Long userId, boolean incrementView) {
-        return postDetailReadService.getPostResponse(postId, userId, incrementView);
+        return getPostResponseInternal(postId, userId, incrementView, DEFAULT_BOARD_POST_PAGE_SIZE);
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public PostResponse getPostResponse(@NonNull Long postId, Long userId, boolean incrementView,
             int boardListPageSize) {
-        return postDetailReadService.getPostResponse(postId, userId, incrementView, boardListPageSize);
+        return getPostResponseInternal(postId, userId, incrementView, boardListPageSize);
+    }
+
+    private PostResponse getPostResponseInternal(
+            @NonNull Long postId,
+            Long userId,
+            boolean incrementView,
+            int boardListPageSize) {
+        int normalizedBoardListPageSize = PageRequestUtils.of(0, boardListPageSize).getPageSize();
+        if (incrementView) {
+            return postDetailReadService.getPostResponseWithViewIncrement(
+                    postId,
+                    userId,
+                    normalizedBoardListPageSize);
+        }
+        return postDetailReadService.getPostResponse(postId, userId, normalizedBoardListPageSize);
     }
 
     public PostResponse getInquiryPostResponseForAdmin(@NonNull Long postId) {
