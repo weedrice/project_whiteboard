@@ -9,27 +9,21 @@ import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-class PostInteractionContextResolver {
+@Component
+@RequiredArgsConstructor
+public class PostInteractionContextResolver {
 
     private final UserRepository userRepository;
     private final PostLikeRepository postLikeRepository;
     private final ScrapRepository scrapRepository;
     private final BoardSubscriptionRepository boardSubscriptionRepository;
-
-    PostInteractionContextResolver(UserRepository userRepository,
-                                   PostLikeRepository postLikeRepository,
-                                   ScrapRepository scrapRepository,
-                                   BoardSubscriptionRepository boardSubscriptionRepository) {
-        this.userRepository = userRepository;
-        this.postLikeRepository = postLikeRepository;
-        this.scrapRepository = scrapRepository;
-        this.boardSubscriptionRepository = boardSubscriptionRepository;
-    }
 
     PostUserInteractionContext resolve(List<Post> posts, Long currentUserId) {
         if (currentUserId == null) {

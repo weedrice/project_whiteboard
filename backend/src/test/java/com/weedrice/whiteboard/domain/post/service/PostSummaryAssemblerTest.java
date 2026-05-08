@@ -57,12 +57,14 @@ class PostSummaryAssemblerTest {
     void setUp() {
         postSummaryAssembler = new PostSummaryAssembler(
                 fileService,
-                userRepository,
-                postLikeRepository,
-                scrapRepository,
-                boardSubscriptionRepository,
                 commentRepository,
-                new BoardAccessPolicy(adminRepository));
+                new BoardAccessPolicy(adminRepository),
+                new PostInteractionContextResolver(
+                        userRepository,
+                        postLikeRepository,
+                        scrapRepository,
+                        boardSubscriptionRepository),
+                new PostContentSummaryExtractor());
     }
 
     @Test

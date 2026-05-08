@@ -1,16 +1,12 @@
 package com.weedrice.whiteboard.domain.post.service;
 
 import com.weedrice.whiteboard.domain.board.entity.Board;
-import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository;
 import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.file.service.FileService;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.entity.ViewHistory;
-import com.weedrice.whiteboard.domain.post.repository.PostLikeRepository;
-import com.weedrice.whiteboard.domain.post.repository.ScrapRepository;
-import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -37,21 +33,15 @@ public class PostSummaryAssembler {
     private final PostContentSummaryExtractor contentSummaryExtractor;
 
     public PostSummaryAssembler(FileService fileService,
-                                UserRepository userRepository,
-                                PostLikeRepository postLikeRepository,
-                                ScrapRepository scrapRepository,
-                                BoardSubscriptionRepository boardSubscriptionRepository,
                                 CommentRepository commentRepository,
-                                BoardAccessPolicy boardAccessPolicy) {
+                                BoardAccessPolicy boardAccessPolicy,
+                                PostInteractionContextResolver interactionContextResolver,
+                                PostContentSummaryExtractor contentSummaryExtractor) {
         this.fileService = fileService;
         this.commentRepository = commentRepository;
         this.boardAccessPolicy = boardAccessPolicy;
-        this.interactionContextResolver = new PostInteractionContextResolver(
-                userRepository,
-                postLikeRepository,
-                scrapRepository,
-                boardSubscriptionRepository);
-        this.contentSummaryExtractor = new PostContentSummaryExtractor();
+        this.interactionContextResolver = interactionContextResolver;
+        this.contentSummaryExtractor = contentSummaryExtractor;
     }
 
     Page<PostSummary> assembleBoardPage(Page<Post> posts, Pageable pageable, boolean includeImages,

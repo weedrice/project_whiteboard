@@ -1,13 +1,15 @@
 package com.weedrice.whiteboard.domain.post.service;
 
 import com.weedrice.whiteboard.domain.post.entity.Post;
+import org.springframework.stereotype.Component;
 
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-class PostContentSummaryExtractor {
+@Component
+public class PostContentSummaryExtractor {
 
     String extractSummary(Post post) {
         String summary = post.getContents().replaceAll("<[^>]*>", "").trim();

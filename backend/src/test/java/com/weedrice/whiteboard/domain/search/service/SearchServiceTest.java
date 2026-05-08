@@ -12,6 +12,8 @@ import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostLikeRepository;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.repository.ScrapRepository;
+import com.weedrice.whiteboard.domain.post.service.PostContentSummaryExtractor;
+import com.weedrice.whiteboard.domain.post.service.PostInteractionContextResolver;
 import com.weedrice.whiteboard.domain.post.service.PostSummaryAssembler;
 import com.weedrice.whiteboard.domain.search.dto.PopularKeywordDto;
 import com.weedrice.whiteboard.domain.search.dto.SearchPersonalizationResponse;
@@ -94,12 +96,14 @@ class SearchServiceTest {
         boardAccessPolicy = new BoardAccessPolicy(adminRepository);
         PostSummaryAssembler postSummaryAssembler = new PostSummaryAssembler(
                 fileService,
-                userRepository,
-                postLikeRepository,
-                scrapRepository,
-                boardSubscriptionRepository,
                 commentRepository,
-                boardAccessPolicy);
+                boardAccessPolicy,
+                new PostInteractionContextResolver(
+                        userRepository,
+                        postLikeRepository,
+                        scrapRepository,
+                        boardSubscriptionRepository),
+                new PostContentSummaryExtractor());
         searchService = new SearchService(
                 searchStatisticRepository,
                 searchStatisticCommandService,

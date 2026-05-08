@@ -137,12 +137,14 @@ class PostServiceTest {
         boardAccessPolicy = new BoardAccessPolicy(adminRepository);
         postSummaryAssembler = new PostSummaryAssembler(
                 fileService,
-                userRepository,
-                postLikeRepository,
-                scrapRepository,
-                boardSubscriptionRepository,
                 commentRepository,
-                boardAccessPolicy);
+                boardAccessPolicy,
+                new PostInteractionContextResolver(
+                        userRepository,
+                        postLikeRepository,
+                        scrapRepository,
+                        boardSubscriptionRepository),
+                new PostContentSummaryExtractor());
         postAccessPolicy = new PostAccessPolicy(boardAccessPolicy);
         PostReadContextResolver postReadContextResolver = new PostReadContextResolver(
                 userRepository,
