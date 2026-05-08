@@ -352,7 +352,7 @@ class ShopServiceTest {
         ReflectionTestUtils.setField(purchaseHistory, "purchaseId", 10L);
         Pageable pageable = PageRequest.of(0, 20);
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(purchaseHistoryRepository.findByUserOrderByCreatedAtDesc(user, pageable))
+        when(purchaseHistoryRepository.findByUserOrderByCreatedAtDescPurchaseIdDesc(user, pageable))
                 .thenReturn(new PageImpl<>(List.of(purchaseHistory), pageable, 1));
 
         PurchaseHistoryResponse response = shopService.getPurchaseHistories(1L, pageable);

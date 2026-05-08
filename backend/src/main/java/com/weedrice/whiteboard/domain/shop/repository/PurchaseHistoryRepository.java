@@ -9,5 +9,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface PurchaseHistoryRepository extends JpaRepository<PurchaseHistory, Long> {
     @EntityGraph(attributePaths = "item")
-    Page<PurchaseHistory> findByUserOrderByCreatedAtDesc(User user, Pageable pageable);
+    Page<PurchaseHistory> findByUserOrderByCreatedAtDescPurchaseIdDesc(User user, Pageable pageable);
 }

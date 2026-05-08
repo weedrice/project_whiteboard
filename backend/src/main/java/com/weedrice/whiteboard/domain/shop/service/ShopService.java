@@ -99,7 +99,8 @@ public class ShopService {
     public PurchaseHistoryResponse getPurchaseHistories(Long userId, Pageable pageable) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        return PurchaseHistoryResponse.from(purchaseHistoryRepository.findByUserOrderByCreatedAtDesc(user, pageable));
+        return PurchaseHistoryResponse.from(
+                purchaseHistoryRepository.findByUserOrderByCreatedAtDescPurchaseIdDesc(user, pageable));
     }
 
     private ShopItemResponse emptyShopItems(Pageable pageable) {
