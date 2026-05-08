@@ -150,6 +150,24 @@ class ReportControllerTest {
     }
 
     @Test
+    @DisplayName("reportUser rejects overlong link")
+    void reportUser_rejectsOverlongLink() throws Exception {
+        mockMvc.perform(post("/api/v1/reports/users")
+                        .with(user(customUserDetails))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "targetUserId": 11,
+                                  "reason": "spam user",
+                                  "link": "%s"
+                                }
+                                """.formatted("a".repeat(256))))
+                .andExpect(status().isBadRequest());
+
+        verify(reportService, never()).createReport(anyLong(), anyString(), anyLong(), anyString(), any(), any());
+    }
+
+    @Test
     @DisplayName("reportPost forwards the provided reasonType")
     void reportPost_usesProvidedReasonType() throws Exception {
         when(reportService.createReport(any(), any(), any(), any(), any(), any())).thenReturn(3L);
@@ -264,6 +282,25 @@ class ReportControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.error.code").value(ErrorCode.VALIDATION_ERROR.getCode()));
+
+        verify(reportService, never()).createReport(anyLong(), anyString(), anyLong(), anyString(), any(), any());
+    }
+
+    @Test
+    @DisplayName("createReport rejects overlong remark")
+    void createReport_rejectsOverlongRemark() throws Exception {
+        ReportCreateRequest request = new ReportCreateRequest();
+        org.springframework.test.util.ReflectionTestUtils.setField(request, "targetType", ReportTargetType.POST);
+        org.springframework.test.util.ReflectionTestUtils.setField(request, "targetId", 1L);
+        org.springframework.test.util.ReflectionTestUtils.setField(request, "reasonType", ReportReasonType.SPAM);
+        org.springframework.test.util.ReflectionTestUtils.setField(request, "remark", "a".repeat(256));
+
+        mockMvc.perform(post("/api/v1/reports")
+                        .with(user(customUserDetails))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
 
         verify(reportService, never()).createReport(anyLong(), anyString(), anyLong(), anyString(), any(), any());
     }

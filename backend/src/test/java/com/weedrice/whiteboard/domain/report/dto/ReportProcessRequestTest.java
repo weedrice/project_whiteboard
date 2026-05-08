@@ -41,4 +41,17 @@ class ReportProcessRequestTest {
         assertThat(violations).hasSize(1);
         assertThat(violations.iterator().next().getPropertyPath().toString()).isEqualTo("terminalStatusValid");
     }
+
+    @Test
+    @DisplayName("overlong remark is rejected")
+    void validate_overlongRemark_reportsRemarkViolation() {
+        ReportProcessRequest request = new ReportProcessRequest();
+        ReflectionTestUtils.setField(request, "status", ReportStatus.RESOLVED);
+        ReflectionTestUtils.setField(request, "remark", "a".repeat(256));
+
+        var violations = validator.validate(request);
+
+        assertThat(violations).hasSize(1);
+        assertThat(violations.iterator().next().getPropertyPath().toString()).isEqualTo("remark");
+    }
 }

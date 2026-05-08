@@ -258,6 +258,25 @@ class AdminReportControllerTest {
     }
 
     @Test
+    @DisplayName("processReport rejects overlong remark")
+    void processReport_rejectsOverlongRemark() throws Exception {
+        mockMvc.perform(put("/api/v1/admin/reports/{reportId}", 1L)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "status": "RESOLVED",
+                                  "remark": "%s"
+                                }
+                                """.formatted("a".repeat(256)))
+                        .with(user(customUserDetails))
+                        .with(csrf()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+
+        verify(reportService, never()).processReport(anyLong(), anyLong(), anyString(), anyString());
+    }
+
+    @Test
     @DisplayName("이미 처리된 신고는 API에서 409를 반환한다")
     void processReport_returnsConflictWhenAlreadyProcessed() throws Exception {
         ReportProcessRequest request = new ReportProcessRequest();

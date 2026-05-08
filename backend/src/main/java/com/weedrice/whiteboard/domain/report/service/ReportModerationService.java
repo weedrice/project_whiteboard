@@ -24,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 class ReportModerationService {
+    private static final int MAX_REMARK_LENGTH = 255;
     private static final int DEFAULT_REPORT_PAGE_SIZE = 20;
     private static final Sort DEFAULT_REPORT_SORT = Sort.by(
             Sort.Order.desc("createdAt"),
@@ -58,14 +59,15 @@ class ReportModerationService {
 
     @Transactional
     public ReportResponse processReport(Long adminUserId, Long reportId, String status, String remark) {
+        String normalizedStatus = normalizeTerminalStatus(status);
+        String normalizedRemark = normalizeRemark(remark);
         Report report = reportRepository.findByIdForUpdate(reportId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
         User adminUser = userRepository.findById(adminUserId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         Admin admin = moderationActorResolver.findActiveAdmin(adminUser).orElse(null);
-        String normalizedStatus = normalizeTerminalStatus(status);
 
-        report.processReport(admin, adminUserId, normalizedStatus, remark);
+        report.processReport(admin, adminUserId, normalizedStatus, normalizedRemark);
         reportRepository.save(report);
         return reportReadAssembler.toAdminResponse(report);
     }
@@ -98,5 +100,16 @@ class ReportModerationService {
         } catch (IllegalArgumentException ex) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR);
         }
+    }
+
+    private String normalizeRemark(String remark) {
+        if (remark == null) {
+            return null;
+        }
+        String normalizedRemark = remark.strip();
+        if (normalizedRemark.length() > MAX_REMARK_LENGTH) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR);
+        }
+        return normalizedRemark;
     }
 }

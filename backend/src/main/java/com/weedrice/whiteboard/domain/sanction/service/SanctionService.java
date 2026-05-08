@@ -31,6 +31,7 @@ import java.util.Set;
 @Transactional(readOnly = true)
 public class SanctionService {
     private static final String TYPE_BAN = "BAN";
+    private static final int MAX_REMARK_LENGTH = 255;
     private static final Set<String> ALLOWED_TYPES = Set.of("WARNING", "MUTE", "BAN");
     private static final int DEFAULT_SANCTION_PAGE_SIZE = 20;
     private static final Sort DEFAULT_SANCTION_SORT = Sort.by(
@@ -69,6 +70,7 @@ public class SanctionService {
         SecurityUtils.validateSuperAdminPermission();
         String normalizedType = normalizeType(type);
         String normalizedContentType = normalizeContentType(contentId, contentType);
+        String normalizedRemark = normalizeRemark(remark);
         validateEndDate(endDate);
 
         Admin admin = moderationActorResolver.resolveActiveAdmin(adminUserId);
@@ -84,7 +86,7 @@ public class SanctionService {
                 .targetUser(targetUser)
                 .admin(admin)
                 .type(normalizedType)
-                .remark(remark)
+                .remark(normalizedRemark)
                 .startDate(LocalDateTime.now())
                 .endDate(endDate)
                 .contentId(contentId)
@@ -161,6 +163,17 @@ public class SanctionService {
         } catch (IllegalArgumentException ex) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
+    }
+
+    private String normalizeRemark(String remark) {
+        if (remark == null) {
+            return null;
+        }
+        String normalizedRemark = remark.strip();
+        if (normalizedRemark.length() > MAX_REMARK_LENGTH) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        return normalizedRemark;
     }
 
     private User findSanctionTargetUser(Long targetUserId) {

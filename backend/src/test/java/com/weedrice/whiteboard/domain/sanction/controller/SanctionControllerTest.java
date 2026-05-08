@@ -135,6 +135,23 @@ class SanctionControllerTest {
     }
 
     @Test
+    @DisplayName("createSanction rejects overlong remark")
+    void createSanction_rejectsOverlongRemark() throws Exception {
+        SanctionCreateRequest request = new SanctionCreateRequest();
+        org.springframework.test.util.ReflectionTestUtils.setField(request, "targetUserId", 2L);
+        org.springframework.test.util.ReflectionTestUtils.setField(request, "type", "WARNING");
+        org.springframework.test.util.ReflectionTestUtils.setField(request, "remark", "a".repeat(256));
+
+        mockMvc.perform(post("/api/v1/admin/sanctions")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request))
+                        .with(user(customUserDetails)))
+                .andExpect(status().isBadRequest());
+
+        verify(sanctionService, never()).createSanction(any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
     @DisplayName("제재 목록 조회 성공")
     void getSanctions_returnsSuccess() throws Exception {
         // given

@@ -182,6 +182,41 @@ class SanctionServiceTest {
     }
 
     @Test
+    @DisplayName("create sanction trims remark before save")
+    void createSanction_trimsRemarkBeforeSave() {
+        mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).then(invocation -> null);
+        when(userRepository.findById(2L)).thenReturn(Optional.of(targetUser));
+
+        Sanction savedSanction = Sanction.builder()
+                .targetUser(targetUser)
+                .admin(admin)
+                .type("WARNING")
+                .remark("Trimmed")
+                .startDate(LocalDateTime.now())
+                .build();
+        ReflectionTestUtils.setField(savedSanction, "sanctionId", 4L);
+        when(sanctionRepository.save(any(Sanction.class))).thenReturn(savedSanction);
+
+        sanctionService.createSanction(1L, 2L, "WARNING", "  Trimmed  ", null, null, null);
+
+        verify(sanctionRepository).save(argThat(sanction -> "Trimmed".equals(sanction.getRemark())));
+    }
+
+    @Test
+    @DisplayName("create sanction rejects overlong remark")
+    void createSanction_rejectsOverlongRemark() {
+        mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).then(invocation -> null);
+
+        assertThatThrownBy(() -> sanctionService.createSanction(
+                1L, 2L, "WARNING", "a".repeat(256), null, null, null))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+
+        verify(sanctionRepository, never()).save(any(Sanction.class));
+    }
+
+    @Test
     @DisplayName("reject endDate when it is not in the future")
     void createSanction_rejectsPastOrImmediateEndDate() {
         mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).then(invocation -> null);

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.weedrice.whiteboard.domain.report.entity.ReportStatus;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -12,6 +13,7 @@ import lombok.NoArgsConstructor;
 public class ReportProcessRequest {
     @NotNull
     private ReportStatus status;
+    @Size(max = 255)
     private String remark;
 
     @JsonIgnore

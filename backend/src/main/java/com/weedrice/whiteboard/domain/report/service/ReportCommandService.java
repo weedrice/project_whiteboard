@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 class ReportCommandService {
 
     private static final String REPORT_DUPLICATE_CONSTRAINT = "uk_reports_user_target";
+    private static final int MAX_REMARK_LENGTH = 255;
 
     private final ReportRepository reportRepository;
     private final UserRepository userRepository;
@@ -34,6 +35,7 @@ class ReportCommandService {
         sanctionService.validateNotBanned(reporter);
         String normalizedTargetType = normalizeTargetType(targetType);
         String normalizedReasonType = normalizeReasonType(reasonType);
+        String normalizedRemark = normalizeRemark(remark);
 
         reportRepository.findByReporterAndTargetTypeAndTargetId(reporter, normalizedTargetType, targetId)
                 .ifPresent(report -> {
@@ -47,7 +49,7 @@ class ReportCommandService {
                 .targetType(normalizedTargetType)
                 .targetId(targetId)
                 .reasonType(normalizedReasonType)
-                .remark(remark)
+                .remark(normalizedRemark)
                 .contents(contents)
                 .build();
         try {
@@ -77,6 +79,17 @@ class ReportCommandService {
         } catch (IllegalArgumentException ex) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR);
         }
+    }
+
+    private String normalizeRemark(String remark) {
+        if (remark == null) {
+            return null;
+        }
+        String normalizedRemark = remark.strip();
+        if (normalizedRemark.length() > MAX_REMARK_LENGTH) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR);
+        }
+        return normalizedRemark;
     }
 
     private boolean isDuplicateReportConflict(DataIntegrityViolationException exception) {

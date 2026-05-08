@@ -118,6 +118,46 @@ class ReportCommandServiceTest {
     }
 
     @Test
+    @DisplayName("createReport trims remark before save")
+    void createReport_trimsRemarkBeforeSave() {
+        User reporter = User.builder().build();
+        ReflectionTestUtils.setField(reporter, "userId", 1L);
+        Report savedReport = Report.builder()
+                .reporter(reporter)
+                .targetType("POST")
+                .targetId(2L)
+                .reasonType("SPAM")
+                .remark("details")
+                .build();
+        ReflectionTestUtils.setField(savedReport, "reportId", 13L);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(reporter));
+        when(reportRepository.findByReporterAndTargetTypeAndTargetId(reporter, "POST", 2L))
+                .thenReturn(Optional.empty());
+        when(reportRepository.saveAndFlush(any(Report.class))).thenReturn(savedReport);
+
+        reportCommandService.createReport(1L, "POST", 2L, "SPAM", "  details  ", null);
+
+        ArgumentCaptor<Report> captor = ArgumentCaptor.forClass(Report.class);
+        verify(reportRepository).saveAndFlush(captor.capture());
+        assertThat(captor.getValue().getRemark()).isEqualTo("details");
+    }
+
+    @Test
+    @DisplayName("createReport rejects overlong remark")
+    void createReport_overlongRemark_throwsValidationError() {
+        User reporter = User.builder().build();
+        ReflectionTestUtils.setField(reporter, "userId", 1L);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(reporter));
+
+        assertThatThrownBy(() -> reportCommandService.createReport(
+                1L, "POST", 2L, "SPAM", "a".repeat(256), null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VALIDATION_ERROR);
+
+        verify(reportRepository, never()).saveAndFlush(any(Report.class));
+    }
+
+    @Test
     @DisplayName("createReport defaults blank reasonType to ETC")
     void createReport_blankReasonType_defaultsToEtc() {
         User reporter = User.builder().build();

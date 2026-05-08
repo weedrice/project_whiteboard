@@ -212,6 +212,33 @@ class ReportModerationServiceTest {
     }
 
     @Test
+    @DisplayName("processReport trims remark before save")
+    void processReport_trimsRemarkBeforeSave() {
+        ReportResponse response = ReportResponse.builder()
+                .reportId(7L)
+                .status(Report.STATUS_RESOLVED)
+                .build();
+
+        when(reportRepository.findByIdForUpdate(7L)).thenReturn(Optional.of(report));
+        when(userRepository.findById(2L)).thenReturn(Optional.of(adminUser));
+        when(moderationActorResolver.findActiveAdmin(adminUser)).thenReturn(Optional.of(admin));
+        when(reportReadAssembler.toAdminResponse(report)).thenReturn(response);
+
+        reportModerationService.processReport(2L, 7L, Report.STATUS_RESOLVED, "  done  ");
+
+        assertThat(report.getProcessedRemark()).isEqualTo("done");
+    }
+
+    @Test
+    @DisplayName("processReport rejects overlong remark")
+    void processReport_overlongRemark_throwsValidationError() {
+        assertThatThrownBy(() -> reportModerationService.processReport(
+                2L, 7L, Report.STATUS_RESOLVED, "a".repeat(256)))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VALIDATION_ERROR);
+    }
+
+    @Test
     @DisplayName("processReport records processorUserId without active admin")
     void processReport_withoutAdmin_recordsProcessorUserId() {
         ReportResponse response = ReportResponse.builder()
@@ -248,10 +275,6 @@ class ReportModerationServiceTest {
     @Test
     @DisplayName("processReport accepts only terminal statuses")
     void processReport_invalidTerminalStatus_throwsValidationError() {
-        when(reportRepository.findByIdForUpdate(7L)).thenReturn(Optional.of(report));
-        when(userRepository.findById(2L)).thenReturn(Optional.of(adminUser));
-        when(moderationActorResolver.findActiveAdmin(adminUser)).thenReturn(Optional.of(admin));
-
         assertThatThrownBy(() -> reportModerationService.processReport(2L, 7L, "APPROVED", "invalid"))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VALIDATION_ERROR);
