@@ -14,5 +14,5 @@ public interface LoginHistoryRepository extends JpaRepository<LoginHistory, Long
 
     Page<LoginHistory> findByIpAddressOrderByCreatedAtDesc(String ipAddress, Pageable pageable);
 
-    Optional<LoginHistory> findTopByUserAndIsSuccessTrueOrderByCreatedAtDesc(User user);
+    Optional<LoginHistory> findTopByUserAndIsSuccessTrueOrderByCreatedAtDescHistoryIdDesc(User user);
 }

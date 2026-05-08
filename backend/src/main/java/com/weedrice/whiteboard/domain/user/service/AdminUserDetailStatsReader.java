@@ -34,7 +34,7 @@ public class AdminUserDetailStatsReader {
                 countOrZero(stats.getPostCount()),
                 countOrZero(stats.getCommentCount()),
                 countOrZero(stats.getSubscriptionCount()),
-                loginHistoryRepository.findTopByUserAndIsSuccessTrueOrderByCreatedAtDesc(user).orElse(null),
+                loginHistoryRepository.findTopByUserAndIsSuccessTrueOrderByCreatedAtDescHistoryIdDesc(user).orElse(null),
                 countOrZero(stats.getSanctionCount()),
                 sanctionRepository.findTopByTargetUserOrderByCreatedAtDesc(user).orElse(null),
                 countOrZero(stats.getReportTotalCount()),

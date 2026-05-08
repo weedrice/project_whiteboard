@@ -48,7 +48,7 @@ class AdminUserDetailStatsReaderTest {
                 user,
                 ReportTargetType.USER.name(),
                 Report.STATUS_PENDING)).thenReturn(adminUserStats(1L, 2L, 3L, 4L, 5L, 6L));
-        when(loginHistoryRepository.findTopByUserAndIsSuccessTrueOrderByCreatedAtDesc(user))
+        when(loginHistoryRepository.findTopByUserAndIsSuccessTrueOrderByCreatedAtDescHistoryIdDesc(user))
                 .thenReturn(Optional.of(recentLogin));
         when(sanctionRepository.findTopByTargetUserOrderByCreatedAtDesc(user))
                 .thenReturn(Optional.of(recentSanction));
