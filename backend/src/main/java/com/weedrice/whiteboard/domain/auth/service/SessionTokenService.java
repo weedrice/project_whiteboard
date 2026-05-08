@@ -4,11 +4,9 @@ import com.weedrice.whiteboard.domain.auth.dto.LoginRequest;
 import com.weedrice.whiteboard.domain.auth.dto.LoginResponse;
 import com.weedrice.whiteboard.domain.auth.dto.LoginResult;
 import com.weedrice.whiteboard.domain.auth.dto.TokenResponse;
-import com.weedrice.whiteboard.domain.auth.entity.LoginHistory;
 import com.weedrice.whiteboard.domain.auth.entity.RefreshToken;
-import com.weedrice.whiteboard.domain.auth.service.LoginAccountEligibilityService.LoginAccountEligibility;
-import com.weedrice.whiteboard.domain.auth.repository.LoginHistoryRepository;
 import com.weedrice.whiteboard.domain.auth.repository.RefreshTokenRepository;
+import com.weedrice.whiteboard.domain.auth.service.LoginAccountEligibilityService.LoginAccountEligibility;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -53,7 +51,6 @@ public class SessionTokenService {
     private final JwtTokenProvider jwtTokenProvider;
     private final AuthenticationManagerBuilder authenticationManagerBuilder;
     private final RefreshTokenRepository refreshTokenRepository;
-    private final LoginHistoryRepository loginHistoryRepository;
     private final SanctionService sanctionService;
     private final TokenHashService tokenHashService;
     private final LoginHistoryAuditService loginHistoryAuditService;
@@ -98,9 +95,7 @@ public class SessionTokenService {
 
         TokenResponse issuedTokens = issueTokens(authentication, user, ipAddress, userAgent);
 
-        LoginHistory loginHistory = LoginHistory.success(user, request.getLoginId(), ipAddress, userAgent);
-        loginHistoryRepository.save(loginHistory);
-
+        recordLoginSuccess(request, user, ipAddress, userAgent);
         user.updateLastLogin();
         CurrentUserSummaryAssembler.CurrentUserSummary userSummary = currentUserSummaryAssembler.assemble(user);
 
@@ -199,8 +194,8 @@ public class SessionTokenService {
         RefreshToken issuedRefreshToken = RefreshToken.builder()
                 .user(user)
                 .tokenHash(refreshTokenHash)
-                .ipAddress(ipAddress != null ? ipAddress : "unknown")
-                .deviceInfo(userAgent)
+                .ipAddress(LoginClientMetadataNormalizer.normalizeIpAddress(ipAddress))
+                .deviceInfo(LoginClientMetadataNormalizer.normalizeDeviceInfo(userAgent))
                 .expiresAt(LocalDateTime.now().plus(getRefreshTokenValidityDuration()))
                 .build();
         refreshTokenRepository.save(issuedRefreshToken);
@@ -217,6 +212,14 @@ public class SessionTokenService {
                 .refreshToken(refreshToken)
                 .expiresIn(jwtTokenProvider.getAccessTokenValidityInMilliseconds())
                 .build();
+    }
+
+    private void recordLoginSuccess(LoginRequest request, User user, String ipAddress, String userAgent) {
+        try {
+            loginHistoryAuditService.recordSuccess(user.getUserId(), request.getLoginId(), ipAddress, userAgent);
+        } catch (RuntimeException exception) {
+            log.warn("Failed to record login success history", exception);
+        }
     }
 
     private void recordLoginFailure(

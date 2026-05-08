@@ -7,7 +7,6 @@ import com.weedrice.whiteboard.domain.auth.dto.SignupResponse;
 import com.weedrice.whiteboard.domain.auth.entity.PasswordResetToken;
 import com.weedrice.whiteboard.domain.auth.entity.RefreshToken;
 import com.weedrice.whiteboard.domain.auth.entity.VerificationPurpose;
-import com.weedrice.whiteboard.domain.auth.repository.LoginHistoryRepository;
 import com.weedrice.whiteboard.domain.auth.repository.PasswordResetTokenRepository;
 import com.weedrice.whiteboard.domain.auth.repository.RefreshTokenRepository;
 import com.weedrice.whiteboard.domain.point.repository.UserPointRepository;
@@ -88,7 +87,6 @@ class AuthServiceTest {
     @Mock private JwtTokenProvider jwtTokenProvider;
     @Mock private AuthenticationManagerBuilder authenticationManagerBuilder;
     @Mock private RefreshTokenRepository refreshTokenRepository;
-    @Mock private LoginHistoryRepository loginHistoryRepository;
     @Mock private LoginHistoryAuditService loginHistoryAuditService;
     @Mock private SocialAccountLinkService socialAccountLinkService;
     @Mock private PasswordHistoryRepository passwordHistoryRepository;
@@ -118,7 +116,7 @@ class AuthServiceTest {
                 new CurrentUserSummaryAssembler(userPointRepository, userSettingsRepository);
         SessionTokenService sessionTokenService = new SessionTokenService(
                 userRepository, currentUserSummaryAssembler, jwtTokenProvider, authenticationManagerBuilder,
-                refreshTokenRepository, loginHistoryRepository, sanctionService, tokenHashService,
+                refreshTokenRepository, sanctionService, tokenHashService,
                 loginHistoryAuditService, loginAccountEligibilityService);
         PasswordResetTokenOrchestrationService passwordResetTokenOrchestrationService =
                 new PasswordResetTokenOrchestrationService(
@@ -361,6 +359,74 @@ class AuthServiceTest {
         assertThat(response.getRefreshToken()).isEqualTo("refreshToken");
         assertThat(response.getUser().getLoginId()).isEqualTo("testuser");
         assertThat(response.getUser().getTheme()).isEqualTo("DARK");
+        verify(loginHistoryAuditService).recordSuccess(1L, "testuser", null, null);
+    }
+
+    @Test
+    @DisplayName("Login success response is preserved when success history recording fails")
+    void login_success_whenSuccessHistoryRecordingFails_preservesLoginResponse() {
+        LoginRequest request = new LoginRequest("testuser", "password123");
+        CustomUserDetails userDetails = new CustomUserDetails(1L, "testuser", "encodedPassword",
+                Collections.emptyList());
+        Authentication authentication = new UsernamePasswordAuthenticationToken(userDetails, null,
+                Collections.emptyList());
+        AuthenticationManager authenticationManager = mock(AuthenticationManager.class);
+        HttpServletRequest httpServletRequest = mock(HttpServletRequest.class);
+
+        when(authenticationManagerBuilder.getObject()).thenReturn(authenticationManager);
+        when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
+                .thenReturn(authentication);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userPointRepository.findById(1L)).thenReturn(Optional.empty());
+        when(sanctionPolicyService.isUserBanned(user)).thenReturn(false);
+        when(jwtTokenProvider.createAccessToken(authentication)).thenReturn("accessToken");
+        when(jwtTokenProvider.createRefreshToken(authentication)).thenReturn("refreshToken");
+        when(jwtTokenProvider.getAccessTokenValidityInMilliseconds()).thenReturn(1800L);
+        when(jwtTokenProvider.getRefreshTokenValidityInMilliseconds()).thenReturn(1209600000L);
+        doThrow(new RuntimeException("audit unavailable"))
+                .when(loginHistoryAuditService)
+                .recordSuccess(1L, "testuser", null, null);
+
+        LoginResult response = authService.login(request, httpServletRequest);
+
+        assertThat(response.getAccessToken()).isEqualTo("accessToken");
+        assertThat(response.getRefreshToken()).isEqualTo("refreshToken");
+        assertThat(response.getUser().getLoginId()).isEqualTo("testuser");
+        verify(refreshTokenRepository).save(any(RefreshToken.class));
+    }
+
+    @Test
+    @DisplayName("Login trims persisted client metadata to column limits")
+    void login_success_truncatesClientMetadataBeforePersistingRefreshToken() {
+        LoginRequest request = new LoginRequest("testuser", "password123");
+        CustomUserDetails userDetails = new CustomUserDetails(1L, "testuser", "encodedPassword",
+                Collections.emptyList());
+        Authentication authentication = new UsernamePasswordAuthenticationToken(userDetails, null,
+                Collections.emptyList());
+        AuthenticationManager authenticationManager = mock(AuthenticationManager.class);
+        HttpServletRequest httpServletRequest = mock(HttpServletRequest.class);
+        String longIpAddress = "1".repeat(60);
+        String longUserAgent = "a".repeat(600);
+
+        when(authenticationManagerBuilder.getObject()).thenReturn(authenticationManager);
+        when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
+                .thenReturn(authentication);
+        when(httpServletRequest.getHeader("X-Forwarded-For")).thenReturn(longIpAddress);
+        when(httpServletRequest.getHeader("User-Agent")).thenReturn(longUserAgent);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userPointRepository.findById(1L)).thenReturn(Optional.empty());
+        when(sanctionPolicyService.isUserBanned(user)).thenReturn(false);
+        when(jwtTokenProvider.createAccessToken(authentication)).thenReturn("accessToken");
+        when(jwtTokenProvider.createRefreshToken(authentication)).thenReturn("refreshToken");
+        when(jwtTokenProvider.getAccessTokenValidityInMilliseconds()).thenReturn(1800L);
+        when(jwtTokenProvider.getRefreshTokenValidityInMilliseconds()).thenReturn(1209600000L);
+
+        authService.login(request, httpServletRequest);
+
+        verify(refreshTokenRepository).save(argThat(token ->
+                longIpAddress.substring(0, 45).equals(token.getIpAddress())
+                        && longUserAgent.substring(0, 255).equals(token.getDeviceInfo())));
+        verify(loginHistoryAuditService).recordSuccess(1L, "testuser", longIpAddress, longUserAgent);
     }
 
     @Test
