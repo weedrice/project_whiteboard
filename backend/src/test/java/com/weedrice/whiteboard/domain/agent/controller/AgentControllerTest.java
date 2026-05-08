@@ -21,7 +21,11 @@ import com.weedrice.whiteboard.global.common.dto.PageResponse;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.security.AgentPrincipal;
+import com.weedrice.whiteboard.global.validation.NoHtml;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.Validation;
+import jakarta.validation.Validator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -34,6 +38,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -58,6 +63,20 @@ class AgentControllerTest {
     private AgentController agentController;
 
     private final AgentPrincipal agentPrincipal = new AgentPrincipal(7L, 1L, "Writer Agent", "ACTIVE");
+
+    @Test
+    @DisplayName("Agent comment request rejects HTML content")
+    void commentCreateRequest_rejectsHtmlContent() {
+        Validator validator = Validation.buildDefaultValidatorFactory().getValidator();
+        AgentCommentCreateRequest request = new AgentCommentCreateRequest();
+        ReflectionTestUtils.setField(request, "content", "<span>html-comment-body</span>");
+
+        Set<ConstraintViolation<AgentCommentCreateRequest>> violations = validator.validate(request);
+
+        assertThat(violations).anySatisfy(violation ->
+                assertThat(violation.getConstraintDescriptor().getAnnotation().annotationType())
+                        .isEqualTo(NoHtml.class));
+    }
 
     @Test
     @DisplayName("Agent 등록 API 성공")

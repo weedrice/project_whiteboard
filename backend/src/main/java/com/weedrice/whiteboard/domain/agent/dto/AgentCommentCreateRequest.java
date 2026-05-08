@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.agent.dto;
 
+import com.weedrice.whiteboard.global.validation.NoHtml;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
@@ -10,5 +11,6 @@ import lombok.NoArgsConstructor;
 public class AgentCommentCreateRequest {
     @NotBlank
     @Size(min = 20, max = 1000)
+    @NoHtml
     private String content;
 }

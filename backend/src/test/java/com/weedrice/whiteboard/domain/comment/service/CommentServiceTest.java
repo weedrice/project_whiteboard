@@ -161,6 +161,46 @@ class CommentServiceTest {
     }
 
     @Test
+    @DisplayName("HTML만 남는 댓글 본문은 INVALID_INPUT_VALUE로 거부한다")
+    void createComment_htmlOnlyContent_throwsInvalidInput() {
+        User user = User.builder().build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+        Board board = Board.builder().boardUrl("free").build();
+        Post post = Post.builder().user(user).board(board).build();
+        ReflectionTestUtils.setField(post, "postId", 1L);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+
+        assertThatThrownBy(() -> commentService.createComment(1L, 1L, null, "<p></p>"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+
+        verify(commentRepository, never()).save(any(Comment.class));
+        verify(postRepository, never()).incrementCommentCount(anyLong());
+    }
+
+    @Test
+    @DisplayName("서비스 진입점은 1000자를 초과하는 댓글 본문을 거부한다")
+    void createComment_tooLongContent_throwsInvalidInput() {
+        User user = User.builder().build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+        Board board = Board.builder().boardUrl("free").build();
+        Post post = Post.builder().user(user).board(board).build();
+        ReflectionTestUtils.setField(post, "postId", 1L);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+
+        assertThatThrownBy(() -> commentService.createComment(1L, 1L, null, "a".repeat(1001)))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+
+        verify(commentRepository, never()).save(any(Comment.class));
+        verify(postRepository, never()).incrementCommentCount(anyLong());
+    }
+
+    @Test
     @DisplayName("작성자가 댓글 작성자를 차단하면 댓글을 작성할 수 없다")
     void createComment_authorBlocksViewer_throwsPostNotFound() {
         User viewer = User.builder().displayName("Viewer").build();
@@ -294,6 +334,35 @@ class CommentServiceTest {
         assertThatThrownBy(() -> commentService.createCommentAsAgent(1L, 10L, 1L, null, "content"))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
+    }
+
+    @Test
+    @DisplayName("agent 댓글도 HTML만 남는 본문은 INVALID_INPUT_VALUE로 거부한다")
+    void createCommentAsAgent_htmlOnlyContent_throwsInvalidInput() {
+        User user = User.builder().build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+        Agent agent = Agent.builder()
+                .user(user)
+                .agentTokenHash("hash")
+                .name("agent")
+                .description("desc")
+                .status(Agent.STATUS_ACTIVE)
+                .build();
+        ReflectionTestUtils.setField(agent, "agentId", 10L);
+        Board board = Board.builder().boardUrl("free").build();
+        Post post = Post.builder().user(user).board(board).build();
+        ReflectionTestUtils.setField(post, "postId", 1L);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(agentOwnershipService.resolveOwnedActiveAgent(1L, 10L)).thenReturn(agent);
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+
+        assertThatThrownBy(() -> commentService.createCommentAsAgent(1L, 10L, 1L, null, "<span></span>"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+
+        verify(commentRepository, never()).save(any(Comment.class));
+        verify(postRepository, never()).incrementCommentCount(anyLong());
     }
 
     @Test
@@ -1054,6 +1123,26 @@ class CommentServiceTest {
         assertThatThrownBy(() -> commentService.updateComment(1L, 10L, "New"))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
+    }
+
+    @Test
+    @DisplayName("HTML만 남는 댓글 수정 본문은 INVALID_INPUT_VALUE로 거부한다")
+    void updateComment_htmlOnlyContent_throwsInvalidInput() {
+        User user = User.builder().build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+        Board board = Board.builder().boardUrl("free").build();
+        Post post = Post.builder().board(board).user(user).build();
+        Comment comment = Comment.builder().user(user).post(post).content("Old").build();
+
+        when(commentRepository.findById(10L)).thenReturn(Optional.of(comment));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> commentService.updateComment(1L, 10L, "<b></b>"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+
+        assertThat(comment.getContent()).isEqualTo("Old");
+        verify(commentVersionRepository, never()).save(any());
     }
 
     @Test

@@ -30,6 +30,8 @@ import java.util.Objects;
 @RequiredArgsConstructor
 public class CommentCommandService {
 
+    private static final int MAX_COMMENT_CONTENT_LENGTH = 1000;
+
     private final CommentRepository commentRepository;
     private final PostRepository postRepository;
     private final UserRepository userRepository;
@@ -95,7 +97,7 @@ public class CommentCommandService {
             depth = parentComment.getDepth() + 1;
         }
 
-        String sanitizedContent = InputSanitizer.stripHtml(content);
+        String sanitizedContent = sanitizeCommentContent(content);
 
         Comment comment = Comment.builder()
                 .post(post)
@@ -168,7 +170,7 @@ public class CommentCommandService {
         }
 
         String originalContent = comment.getContent();
-        String sanitizedContent = InputSanitizer.stripHtml(content);
+        String sanitizedContent = sanitizeCommentContent(content);
         comment.updateContent(sanitizedContent);
 
         saveCommentVersion(comment, user, "MODIFY", originalContent);
@@ -230,6 +232,15 @@ public class CommentCommandService {
         }
 
         commentRepository.decrementLikeCount(commentId);
+    }
+
+    private String sanitizeCommentContent(String content) {
+        String sanitizedContent = InputSanitizer.stripHtml(content);
+        if (sanitizedContent == null || sanitizedContent.isBlank()
+                || sanitizedContent.length() > MAX_COMMENT_CONTENT_LENGTH) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        return sanitizedContent;
     }
 
     private void saveCommentVersion(Comment comment, User modifier, String versionType, String originalContent) {
