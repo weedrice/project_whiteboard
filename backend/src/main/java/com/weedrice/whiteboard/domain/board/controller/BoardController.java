@@ -10,6 +10,7 @@ import com.weedrice.whiteboard.domain.board.dto.BoardUpdateRequest;
 import com.weedrice.whiteboard.domain.board.dto.CategoryRequest;
 import com.weedrice.whiteboard.domain.board.dto.CategoryResponse;
 import com.weedrice.whiteboard.domain.board.entity.Board;
+import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
 import com.weedrice.whiteboard.domain.board.service.BoardService;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.global.common.ApiResponse;
@@ -32,6 +33,7 @@ import java.util.List;
 public class BoardController {
 
     private final BoardService boardService;
+    private final BoardAccessPolicy boardAccessPolicy;
 
     @GetMapping
     public ApiResponse<List<BoardListResponse>> getBoards(@AuthenticationPrincipal UserDetails userDetails) {
@@ -158,7 +160,7 @@ public class BoardController {
     }
 
     private void validateBlockedInquiryBoardPath(String boardUrl) {
-        if (boardUrl != null && "inquiry".equalsIgnoreCase(boardUrl.trim())) {
+        if (boardAccessPolicy.isInquiryBoardUrl(boardUrl)) {
             throw new BusinessException(ErrorCode.BOARD_NOT_FOUND);
         }
     }

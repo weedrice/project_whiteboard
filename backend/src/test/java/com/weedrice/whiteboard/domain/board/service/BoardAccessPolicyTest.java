@@ -36,6 +36,15 @@ class BoardAccessPolicyTest {
     }
 
     @Test
+    @DisplayName("Inquiry board url matches null-safe trimmed case-insensitive value")
+    void isInquiryBoardUrl_matchesTrimmedCaseInsensitiveValue() {
+        assertThat(boardAccessPolicy.isInquiryBoardUrl(" inquiry ")).isTrue();
+        assertThat(boardAccessPolicy.isInquiryBoardUrl("INQUIRY")).isTrue();
+        assertThat(boardAccessPolicy.isInquiryBoardUrl("free")).isFalse();
+        assertThat(boardAccessPolicy.isInquiryBoardUrl(null)).isFalse();
+    }
+
+    @Test
     @DisplayName("Public active board read skips admin lookup")
     void canReadBoard_publicActiveBoardSkipsAdminLookup() {
         Board board = board("free", true, true);

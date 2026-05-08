@@ -3,9 +3,9 @@ package com.weedrice.whiteboard.domain.user.service;
 import com.weedrice.whiteboard.domain.admin.entity.Admin;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.admin.service.AdminRolePriority;
-import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardSubscription;
 import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository;
+import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.user.dto.AdminUserCommentResponse;
@@ -34,7 +34,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -62,6 +61,7 @@ public class UserAdminQueryService {
     private final AdminRepository adminRepository;
     private final BoardSubscriptionRepository boardSubscriptionRepository;
     private final AdminUserDetailStatsReader adminUserDetailStatsReader;
+    private final BoardAccessPolicy boardAccessPolicy;
 
     public Page<UserAdminResponse> searchUsersForAdmin(String keyword, Pageable pageable) {
         return searchUsersForAdmin(keyword, null, null, null, null, null,
@@ -167,7 +167,7 @@ public class UserAdminQueryService {
         return subscriptions
                 .map(subscription -> AdminUserSubscriptionResponse.from(
                         subscription,
-                        canReadSubscriptionBoard(subscription.getBoard(), user, activeAdminBoardIds)));
+                        boardAccessPolicy.canReadBoard(subscription.getBoard(), user, activeAdminBoardIds)));
     }
 
     private String resolveRoleForAdmin(User user) {
@@ -216,33 +216,6 @@ public class UserAdminQueryService {
         }
         return adminRepository.findActiveBoardIdsByUser(user).stream()
                 .collect(Collectors.toSet());
-    }
-
-    private boolean canReadSubscriptionBoard(Board board, User user, Set<Long> activeAdminBoardIds) {
-        if (board == null) {
-            return false;
-        }
-        boolean hasBoardAdminAccess = hasBoardAdminAccess(board, user, activeAdminBoardIds);
-        if (!Boolean.TRUE.equals(board.getIsActive()) && !hasBoardAdminAccess) {
-            return false;
-        }
-        if (!Boolean.TRUE.equals(board.getIsPublic()) && !hasBoardAdminAccess) {
-            return false;
-        }
-        return true;
-    }
-
-    private boolean hasBoardAdminAccess(Board board, User user, Set<Long> activeAdminBoardIds) {
-        if (board == null || user == null) {
-            return false;
-        }
-        if (Boolean.TRUE.equals(user.getIsSuperAdmin())) {
-            return true;
-        }
-        if (board.getCreator() != null && Objects.equals(board.getCreator().getUserId(), user.getUserId())) {
-            return true;
-        }
-        return activeAdminBoardIds.contains(board.getBoardId());
     }
 
     private LocalDateTime toStartOfDay(LocalDate date) {

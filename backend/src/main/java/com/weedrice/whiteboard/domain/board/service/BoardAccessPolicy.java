@@ -19,10 +19,12 @@ public class BoardAccessPolicy {
 
     private final AdminRepository adminRepository;
 
+    public boolean isInquiryBoardUrl(String boardUrl) {
+        return boardUrl != null && DEFAULT_INQUIRY_BOARD_URL.equalsIgnoreCase(boardUrl.trim());
+    }
+
     public boolean isInquiryBoard(Board board) {
-        return board != null
-                && board.getBoardUrl() != null
-                && DEFAULT_INQUIRY_BOARD_URL.equalsIgnoreCase(board.getBoardUrl());
+        return board != null && isInquiryBoardUrl(board.getBoardUrl());
     }
 
     public boolean hasBoardAdminAccess(Board board, User user) {

@@ -5,6 +5,7 @@ import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardSubscription;
 import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository;
+import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.post.entity.Post;
@@ -33,6 +34,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -55,6 +57,7 @@ class UserAdminQueryServiceTest {
     @Mock private AdminRepository adminRepository;
     @Mock private BoardSubscriptionRepository boardSubscriptionRepository;
     @Mock private AdminUserDetailStatsReader adminUserDetailStatsReader;
+    @Mock private BoardAccessPolicy boardAccessPolicy;
 
     @Test
     @DisplayName("searchUsersForAdmin resolves roles in batch")
@@ -362,6 +365,8 @@ class UserAdminQueryServiceTest {
         when(boardSubscriptionRepository.findByUserOrderBySortOrderAsc(user, PageRequest.of(0, 10)))
                 .thenReturn(new PageImpl<>(List.of(subscription, adminSubscription), PageRequest.of(0, 10), 2));
         when(adminRepository.findActiveBoardIdsByUser(user)).thenReturn(List.of(14L));
+        when(boardAccessPolicy.canReadBoard(board, user, Set.of(14L))).thenReturn(false);
+        when(boardAccessPolicy.canReadBoard(adminBoard, user, Set.of(14L))).thenReturn(true);
 
         Page<AdminUserSubscriptionResponse> response = userAdminQueryService.getUserSubscriptionsForAdmin(1L, PageRequest.of(0, 10));
 
@@ -381,6 +386,8 @@ class UserAdminQueryServiceTest {
             assertThat(item.getInaccessibleReason()).isNull();
         });
         verify(adminRepository).findActiveBoardIdsByUser(user);
+        verify(boardAccessPolicy).canReadBoard(board, user, Set.of(14L));
+        verify(boardAccessPolicy).canReadBoard(adminBoard, user, Set.of(14L));
     }
 
     private Admin admin(User user, String role, Long adminId) {
