@@ -79,13 +79,12 @@ public class PostDraftService {
         Board board = boardRepository.findByBoardUrl(request.getBoardUrl())
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
         postAuthorCommandPolicy.validateBoardWritable(board, user);
-        postAuthorCommandPolicy.validateAppliedCategoryWriteRole(board, user, null);
 
         BoardCategory category = null;
         if (request.getCategoryId() != null) {
             category = findActiveCategory(board, request.getCategoryId());
-            postAuthorCommandPolicy.validateWriteRole(board, user, category.getMinWriteRole());
         }
+        postAuthorCommandPolicy.validateAppliedCategoryWriteRole(board, user, category);
         if (request.isNotice() && !boardAccessPolicy.hasBoardAdminAccess(board, user)) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
@@ -106,7 +105,7 @@ public class PostDraftService {
     @Transactional
     public void deleteDraftPost(@NonNull Long userId, @NonNull Long draftId) {
         User user = userWritableResolver.resolve(userId);
-        DraftPost draftPost = draftPostRepository.findByDraftIdAndUser(draftId, user)
+        DraftPost draftPost = draftPostRepository.findByDraftIdAndUserForUpdate(draftId, user)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
         fileService.markDraftFilesDeletionPending(draftId);
         draftPostRepository.delete(draftPost);
@@ -131,7 +130,7 @@ public class PostDraftService {
                     .build();
         }
 
-        DraftPost draftPost = draftPostRepository.findByDraftIdAndUser(request.getDraftId(), user)
+        DraftPost draftPost = draftPostRepository.findByDraftIdAndUserForUpdate(request.getDraftId(), user)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
         if (request.getUpdatedAt() != null
                 && draftPost.getModifiedAt() != null

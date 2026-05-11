@@ -1421,7 +1421,7 @@ class PostServiceTest {
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
-        when(draftPostRepository.findByDraftIdAndUser(10L, user)).thenReturn(Optional.of(existingDraft));
+        when(draftPostRepository.findByDraftIdAndUserForUpdate(10L, user)).thenReturn(Optional.of(existingDraft));
         when(draftPostRepository.save(any(DraftPost.class))).thenAnswer(i -> i.getArgument(0));
 
         DraftPost draft = postService.saveDraftPost(1L, request);
@@ -1582,7 +1582,7 @@ class PostServiceTest {
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
-        when(draftPostRepository.findByDraftIdAndUser(10L, user)).thenReturn(Optional.of(existingDraft));
+        when(draftPostRepository.findByDraftIdAndUserForUpdate(10L, user)).thenReturn(Optional.of(existingDraft));
 
         assertThatThrownBy(() -> postService.saveDraftPost(1L, request))
                 .isInstanceOf(BusinessException.class)
@@ -1688,11 +1688,47 @@ class PostServiceTest {
     }
 
     @Test
+    @DisplayName("임시저장은 선택 카테고리가 있으면 기본 카테고리 권한을 요구하지 않는다")
+    void saveDraftPost_explicitCategorySkipsDefaultCategoryWriteRole() {
+        PostDraftRequest request = PostDraftRequest.builder()
+                .boardUrl("free")
+                .title("Draft Title")
+                .contents("Draft Content")
+                .categoryId(2L)
+                .fileIds(Collections.emptyList())
+                .build();
+        User otherCreator = User.builder().loginId("other").displayName("Other").build();
+        ReflectionTestUtils.setField(otherCreator, "userId", 2L);
+        ReflectionTestUtils.setField(board, "creator", otherCreator);
+        BoardCategory selectedCategory = BoardCategory.builder()
+                .name("General")
+                .board(board)
+                .minWriteRole("USER")
+                .build();
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
+        when(boardCategoryRepository.findByCategoryIdAndBoard_BoardIdAndIsActive(2L, 1L, true))
+                .thenReturn(Optional.of(selectedCategory));
+        when(draftPostRepository.save(any(DraftPost.class))).thenAnswer(i -> {
+            DraftPost draftPost = i.getArgument(0);
+            ReflectionTestUtils.setField(draftPost, "draftId", 23L);
+            return draftPost;
+        });
+
+        DraftPost draft = postService.saveDraftPost(1L, request);
+
+        assertThat(draft.getCategory()).isEqualTo(selectedCategory);
+        verify(boardCategoryRepository, never()).findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(anyLong(), anyBoolean());
+        verify(fileService).syncDraftFiles(Collections.emptyList(), 1L, 23L);
+    }
+
+    @Test
     @DisplayName("초안 삭제")
     void deleteDraftPost_success() {
         DraftPost existingDraft = DraftPost.builder().user(user).build();
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(draftPostRepository.findByDraftIdAndUser(10L, user)).thenReturn(Optional.of(existingDraft));
+        when(draftPostRepository.findByDraftIdAndUserForUpdate(10L, user)).thenReturn(Optional.of(existingDraft));
 
         postService.deleteDraftPost(1L, 10L);
 
