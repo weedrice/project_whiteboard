@@ -10,6 +10,7 @@ import com.weedrice.whiteboard.domain.post.entity.ViewHistory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -84,9 +85,7 @@ public class PostSummaryAssembler {
         long totalElements = posts.getTotalElements();
         int pageNumber = posts.getNumber();
         int pageSize = posts.getSize();
-        boolean isAscending = pageable.getSort().stream()
-                .anyMatch(order -> order.getProperty().equals("createdAt") && order.isAscending()
-                        || order.getProperty().equals("postId") && order.isAscending());
+        boolean isAscending = isAscendingRowNumberSort(pageable.getSort());
 
         List<PostSummary> summaries = new ArrayList<>();
         for (int i = 0; i < posts.getContent().size(); i++) {
@@ -108,6 +107,18 @@ public class PostSummaryAssembler {
         }
 
         return new PageImpl<>(summaries, pageable, totalElements);
+    }
+
+    private boolean isAscendingRowNumberSort(Sort sort) {
+        if (sort == null || sort.isUnsorted()) {
+            return false;
+        }
+        for (Sort.Order order : sort) {
+            if ("createdAt".equals(order.getProperty()) || "postId".equals(order.getProperty())) {
+                return order.isAscending();
+            }
+        }
+        return false;
     }
 
     Page<PostSummary> assembleHistoryPage(Page<ViewHistory> historyPage) {

@@ -110,6 +110,47 @@ class PostSummaryAssemblerTest {
     }
 
     @Test
+    @DisplayName("검색 페이지 rowNum은 createdAt 또는 postId 중 첫 정렬 기준을 따른다")
+    void assembleSearchPage_usesFirstRowNumberSortDirection() {
+        User author = User.builder().displayName("Author").build();
+        ReflectionTestUtils.setField(author, "userId", 1L);
+        Board board = Board.builder()
+                .boardName("Free")
+                .boardUrl("free")
+                .creator(author)
+                .build();
+        ReflectionTestUtils.setField(board, "boardId", 10L);
+        Post firstPost = post(100L, author, board);
+        Post secondPost = post(99L, author, board);
+
+        when(fileService.getFirstImageFileIdsForPosts(anyList()))
+                .thenReturn(Collections.emptyMap());
+
+        PageImpl<Post> createdAtDescPage = new PageImpl<>(
+                List.of(firstPost, secondPost),
+                PageRequest.of(0, 2, Sort.by(Sort.Order.desc("createdAt"), Sort.Order.asc("postId"))),
+                5);
+        PageImpl<Post> createdAtAscPage = new PageImpl<>(
+                List.of(firstPost, secondPost),
+                PageRequest.of(0, 2, Sort.by(Sort.Order.asc("createdAt"), Sort.Order.desc("postId"))),
+                5);
+        PageImpl<Post> postIdDescPage = new PageImpl<>(
+                List.of(firstPost, secondPost),
+                PageRequest.of(0, 2, Sort.by(Sort.Order.desc("postId"), Sort.Order.asc("createdAt"))),
+                5);
+
+        assertThat(postSummaryAssembler.assembleSearchPage(createdAtDescPage).getContent())
+                .extracting(PostSummary::getRowNum)
+                .containsExactly(5L, 4L);
+        assertThat(postSummaryAssembler.assembleSearchPage(createdAtAscPage).getContent())
+                .extracting(PostSummary::getRowNum)
+                .containsExactly(1L, 2L);
+        assertThat(postSummaryAssembler.assembleSearchPage(postIdDescPage).getContent())
+                .extracting(PostSummary::getRowNum)
+                .containsExactly(5L, 4L);
+    }
+
+    @Test
     @DisplayName("태그 페이지 요약은 이미지 여부만 조립하고 기존 빈 필드는 보존한다")
     void assembleTagPage_assignsOnlyImageFlag() {
         User author = User.builder().displayName("Author").build();
@@ -223,5 +264,16 @@ class PostSummaryAssemblerTest {
         assertThat(latest.get(0).getContentsExcerpt()).isNull();
         assertThat(latest.get(0).getFirstMediaType()).isNull();
         assertThat(latest.get(0).getFirstMediaUrl()).isNull();
+    }
+
+    private Post post(Long postId, User author, Board board) {
+        Post post = Post.builder()
+                .title("Post " + postId)
+                .contents("Contents")
+                .user(author)
+                .board(board)
+                .build();
+        ReflectionTestUtils.setField(post, "postId", postId);
+        return post;
     }
 }

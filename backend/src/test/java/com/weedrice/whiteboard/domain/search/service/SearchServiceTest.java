@@ -397,6 +397,26 @@ class SearchServiceTest {
     }
 
     @Test
+    @DisplayName("게시글 검색은 createdAt DESC, postId ASC 정렬에서 첫 정렬 기준대로 rowNum을 역순으로 부여한다")
+    void searchPosts_assignsDescendingRowNumbersForMixedCreatedAtDescPostIdAscSort() {
+        Pageable pageable = PageRequest.of(0, 2, Sort.by(
+                Sort.Order.desc("createdAt"),
+                Sort.Order.asc("postId")));
+        var firstPost = post(11L, "first", LocalDateTime.of(2026, 4, 20, 10, 0));
+        var secondPost = post(10L, "second", LocalDateTime.of(2026, 4, 20, 10, 0));
+
+        when(postRepository.searchPosts(anyString(), any(), any(), any(), anyBoolean(), any(), eq(pageable)))
+                .thenReturn(new PageImpl<>(List.of(firstPost, secondPost), pageable, 5));
+        when(fileService.getFirstImageFileIdsForPosts(List.of(11L, 10L)))
+                .thenReturn(Collections.emptyMap());
+
+        Page<PostSummary> result = searchService.searchPosts(
+                "test", null, null, pageable, null);
+
+        assertThat(result.getContent()).extracting("rowNum").containsExactly(5L, 4L);
+    }
+
+    @Test
     @DisplayName("게시글 검색은 서비스 계층에서도 페이지 크기와 정렬 필드를 정규화한다")
     void searchPosts_normalizesPageableBeforeRepositoryCall() {
         Pageable pageable = PageRequest.of(3, 1000, Sort.by(Sort.Order.asc("unknown")));
