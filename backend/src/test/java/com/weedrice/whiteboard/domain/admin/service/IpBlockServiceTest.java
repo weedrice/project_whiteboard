@@ -90,16 +90,31 @@ class IpBlockServiceTest {
     @Test
     @DisplayName("활성 관리자면 IP 차단을 저장한다")
     void blockIp_success() {
-        String ipAddress = "127.0.0.1";
+        String ipAddress = " 127.0.0.1 ";
+        String normalizedIpAddress = "127.0.0.1";
 
         when(moderationActorResolver.resolveActiveAdmin(1L)).thenReturn(admin);
+        when(ipBlockRepository.findByIdForUpdate(normalizedIpAddress)).thenReturn(Optional.empty());
+        when(ipBlockRepository.saveAndFlush(any(IpBlock.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        IpBlockResponse response = ipBlockService.blockIp(1L, ipAddress, "test", null);
+
+        assertThat(response.getIpAddress()).isEqualTo(normalizedIpAddress);
+        assertThat(response.getAdmin().getAdminId()).isEqualTo(admin.getAdminId());
+        verify(ipBlockRepository).saveAndFlush(any(IpBlock.class));
+    }
+
+    @Test
+    @DisplayName("IPv6 리터럴도 차단 주소로 허용한다")
+    void blockIp_acceptsIpv6Literal() {
+        String ipAddress = "2001:db8::1";
+
         when(ipBlockRepository.findByIdForUpdate(ipAddress)).thenReturn(Optional.empty());
         when(ipBlockRepository.saveAndFlush(any(IpBlock.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         IpBlockResponse response = ipBlockService.blockIp(1L, ipAddress, "test", null);
 
         assertThat(response.getIpAddress()).isEqualTo(ipAddress);
-        assertThat(response.getAdmin().getAdminId()).isEqualTo(admin.getAdminId());
         verify(ipBlockRepository).saveAndFlush(any(IpBlock.class));
     }
 
@@ -152,6 +167,39 @@ class IpBlockServiceTest {
         String reason = "a".repeat(256);
 
         assertThatThrownBy(() -> ipBlockService.blockIp(1L, "127.0.0.1", reason, null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VALIDATION_ERROR);
+
+        verify(ipBlockRepository, never()).findByIdForUpdate(any());
+        verify(ipBlockRepository, never()).saveAndFlush(any(IpBlock.class));
+    }
+
+    @Test
+    @DisplayName("IP 주소가 너무 길면 검증 오류를 반환한다")
+    void blockIp_rejectsTooLongIpAddress() {
+        assertThatThrownBy(() -> ipBlockService.blockIp(1L, "1".repeat(46), "test", null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VALIDATION_ERROR);
+
+        verify(ipBlockRepository, never()).findByIdForUpdate(any());
+        verify(ipBlockRepository, never()).saveAndFlush(any(IpBlock.class));
+    }
+
+    @Test
+    @DisplayName("CIDR 주소는 별도 설계 전까지 거부한다")
+    void blockIp_rejectsCidrAddress() {
+        assertThatThrownBy(() -> ipBlockService.blockIp(1L, "127.0.0.1/32", "test", null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VALIDATION_ERROR);
+
+        verify(ipBlockRepository, never()).findByIdForUpdate(any());
+        verify(ipBlockRepository, never()).saveAndFlush(any(IpBlock.class));
+    }
+
+    @Test
+    @DisplayName("IP 리터럴이 아닌 값은 거부한다")
+    void blockIp_rejectsNonLiteralAddress() {
+        assertThatThrownBy(() -> ipBlockService.blockIp(1L, "localhost", "test", null))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VALIDATION_ERROR);
 
@@ -235,7 +283,7 @@ class IpBlockServiceTest {
         when(ipBlockRepository.findActiveByIpAddress(eq(ipAddress), any(LocalDateTime.class)))
                 .thenReturn(Optional.of(activeBlock));
 
-        ipBlockService.unblockIp(ipAddress);
+        ipBlockService.unblockIp(" 127.0.0.1 ");
 
         assertThat(activeBlock.getEndDate()).isNotNull();
         verify(ipBlockRepository, never()).delete(any());
@@ -273,7 +321,7 @@ class IpBlockServiceTest {
                         .endDate(null)
                         .build()));
 
-        assertThat(ipBlockService.isIpBlocked("127.0.0.1")).isFalse();
+        assertThat(ipBlockService.isIpBlocked(" 127.0.0.1 ")).isFalse();
         assertThat(ipBlockService.isIpBlocked("127.0.0.1")).isTrue();
     }
 }
