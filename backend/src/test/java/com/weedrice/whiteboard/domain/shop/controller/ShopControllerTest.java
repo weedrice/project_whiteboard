@@ -220,6 +220,23 @@ class ShopControllerTest {
         }
 
         @Test
+        @DisplayName("지원하지 않는 itemType은 잘못된 요청으로 응답")
+        void getShopItems_unsupportedType_returnsBadRequest() throws Exception {
+            when(shopService.getShopItems(eq("BADGE"), any()))
+                    .thenThrow(new BusinessException(ErrorCode.INVALID_INPUT_VALUE));
+
+            mockMvc.perform(get("/api/v1/shop/items")
+                            .param("itemType", "BADGE")
+                            .param("page", "0")
+                            .param("size", "20")
+                            .with(user(customUserDetails))
+                            .with(csrf()))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.success").value(false))
+                    .andExpect(jsonPath("$.error.code").value(ErrorCode.INVALID_INPUT_VALUE.getCode()));
+        }
+
+        @Test
         @DisplayName("기본 페이징 값으로 아이템 조회")
         void getShopItems_withDefaultPaging() throws Exception {
             // given

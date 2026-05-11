@@ -110,8 +110,8 @@ class ShopServiceTest {
         void getShopItems_supportedType() {
             Pageable pageable = PageRequest.of(0, 20);
             Pageable expectedPageable = PageRequest.of(0, 20, Sort.by(Sort.Order.asc("itemId")));
-            when(shopEntitlementCapabilityRegistry.supports("EMOTICON")).thenReturn(true);
             when(shopEntitlementCapabilityRegistry.getSupportedItemTypes()).thenReturn(Set.of("EMOTICON"));
+            when(shopEntitlementCapabilityRegistry.supports("EMOTICON")).thenReturn(true);
             when(shopItemRepository.findByIsActiveAndItemType(true, "EMOTICON", expectedPageable))
                     .thenReturn(new PageImpl<>(List.of(emoticonItem), expectedPageable, 1));
 
@@ -151,14 +151,30 @@ class ShopServiceTest {
         }
 
         @Test
-        @DisplayName("Returns empty for an unsupported type filter")
-        void getShopItems_unsupportedType_returnsEmpty() {
+        @DisplayName("Returns empty for a type filter when there is no supported handler")
+        void getShopItems_withoutSupportedHandlersAndType_returnsEmpty() {
             Pageable pageable = PageRequest.of(0, 20);
-            when(shopEntitlementCapabilityRegistry.supports("EMOTICON")).thenReturn(false);
+            when(shopEntitlementCapabilityRegistry.getSupportedItemTypes()).thenReturn(Set.of());
 
-            ShopItemResponse response = shopService.getShopItems("EMOTICON", pageable);
+            ShopItemResponse response = shopService.getShopItems("BADGE", pageable);
 
             assertThat(response.getContent()).isEmpty();
+            verify(shopEntitlementCapabilityRegistry, never()).supports(anyString());
+            verify(shopItemRepository, never()).findByIsActiveAndItemType(any(), anyString(), any());
+        }
+
+        @Test
+        @DisplayName("Rejects an unsupported type filter")
+        void getShopItems_unsupportedType_throwsInvalidInput() {
+            Pageable pageable = PageRequest.of(0, 20);
+            when(shopEntitlementCapabilityRegistry.getSupportedItemTypes()).thenReturn(Set.of("EMOTICON"));
+            when(shopEntitlementCapabilityRegistry.supports("BADGE")).thenReturn(false);
+
+            assertThatThrownBy(() -> shopService.getShopItems("BADGE", pageable))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+
             verify(shopItemRepository, never()).findByIsActiveAndItemType(any(), anyString(), any());
         }
     }

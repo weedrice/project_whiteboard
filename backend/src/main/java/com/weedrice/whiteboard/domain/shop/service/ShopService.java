@@ -42,13 +42,13 @@ public class ShopService {
 
     public ShopItemResponse getShopItems(String itemType, Pageable pageable) {
         Pageable effectivePageable = normalizeShopItemPageable(pageable);
-        if (itemType != null && !itemType.isEmpty() && !shopEntitlementCapabilityRegistry.supports(itemType)) {
-            return emptyShopItems(effectivePageable);
-        }
-
         Set<String> supportedItemTypes = shopEntitlementCapabilityRegistry.getSupportedItemTypes();
         if (supportedItemTypes.isEmpty()) {
             return emptyShopItems(effectivePageable);
+        }
+
+        if (itemType != null && !itemType.isEmpty() && !shopEntitlementCapabilityRegistry.supports(itemType)) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
 
         Page<ShopItem> items;
