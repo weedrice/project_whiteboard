@@ -17,6 +17,7 @@ import jakarta.persistence.LockModeType;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 public interface PostRepository extends JpaRepository<Post, Long>, PostRepositoryCustom {
         interface BoardPostCountProjection {
@@ -136,7 +137,12 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
 
         @Lock(LockModeType.PESSIMISTIC_WRITE)
         @Query("SELECT p FROM Post p WHERE p.postId = :postId")
-        java.util.Optional<Post> findByIdForUpdate(@Param("postId") Long postId);
+        Optional<Post> findByIdForUpdate(@Param("postId") Long postId);
+
+        @EntityGraph(attributePaths = {"user", "agent", "board", "category"})
+        @Lock(LockModeType.PESSIMISTIC_WRITE)
+        @Query("SELECT p FROM Post p WHERE p.postId = :postId")
+        Optional<Post> findByIdWithRelationsForUpdate(@Param("postId") Long postId);
     
         long countByUserAndIsDeleted(User user, Boolean isDeleted);
 

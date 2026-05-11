@@ -12,6 +12,7 @@ import com.weedrice.whiteboard.domain.tag.entity.Tag;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.global.config.QuerydslConfig;
 import jakarta.persistence.EntityManagerFactory;
+import jakarta.persistence.LockModeType;
 import jakarta.persistence.PersistenceUnitUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -23,8 +24,11 @@ import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.repository.EntityGraph;
+import org.springframework.data.jpa.repository.Lock;
 
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -1067,6 +1071,21 @@ class PostRepositoryTest {
         entityManager.flush();
 
         assertThat(postRepository.countVisiblePostsForAdminDashboard()).isEqualTo(2L);
+    }
+
+    @Test
+    @DisplayName("findByIdWithRelationsForUpdate는 비관적 쓰기 잠금을 선언한다")
+    void findByIdWithRelationsForUpdate_declaresPessimisticWriteLock() throws NoSuchMethodException {
+        var method = PostRepository.class.getMethod("findByIdWithRelationsForUpdate", Long.class);
+
+        Lock lock = method.getAnnotation(Lock.class);
+        EntityGraph entityGraph = method.getAnnotation(EntityGraph.class);
+
+        assertThat(lock).isNotNull();
+        assertThat(lock.value()).isEqualTo(LockModeType.PESSIMISTIC_WRITE);
+        assertThat(entityGraph).isNotNull();
+        assertThat(Arrays.asList(entityGraph.attributePaths()))
+                .containsExactlyInAnyOrder("user", "agent", "board", "category");
     }
 
     private void updateCreatedAt(Post targetPost, LocalDateTime createdAt) {

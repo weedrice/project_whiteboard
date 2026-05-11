@@ -125,7 +125,7 @@ public class PostCommandService {
 
     @Transactional
     public Post updatePost(@NonNull Long userId, @NonNull Long postId, PostUpdateRequest request) {
-        Post post = postRepository.findByIdWithRelations(postId)
+        Post post = postRepository.findByIdWithRelationsForUpdate(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
         User modifier = userWritableResolver.resolve(userId);
         sanctionService.validateNotMuted(modifier);
@@ -155,7 +155,7 @@ public class PostCommandService {
 
     @Transactional
     public void deletePost(@NonNull Long userId, @NonNull Long postId) {
-        Post post = postRepository.findByIdWithRelations(postId)
+        Post post = postRepository.findByIdWithRelationsForUpdate(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
         User modifier = userWritableResolver.resolve(userId);
 
