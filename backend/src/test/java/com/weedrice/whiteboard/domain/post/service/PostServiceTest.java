@@ -835,7 +835,7 @@ class PostServiceTest {
         PostUpdateRequest request = new PostUpdateRequest(null, "Updated Title", "Updated Contents",
                 Collections.emptyList(), false, false, false, List.of(5L));
 
-        when(postRepository.findById(1L)).thenReturn(Optional.of(post));
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
 
         Post updated = postService.updatePost(1L, 1L, request);
@@ -853,7 +853,7 @@ class PostServiceTest {
                 "<h2>Title</h2><p onmouseover=\"alert(1)\">Safe</p><iframe src=\"javascript:alert(1)\"></iframe>",
                 Collections.emptyList(), false, false, false, null);
 
-        when(postRepository.findById(1L)).thenReturn(Optional.of(post));
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
 
         Post updated = postService.updatePost(1L, 1L, request);
@@ -870,7 +870,7 @@ class PostServiceTest {
         PostUpdateRequest request = new PostUpdateRequest(null, "Updated Title", "Updated Contents",
                 Collections.emptyList(), false, false, false, null);
 
-        when(postRepository.findById(1L)).thenReturn(Optional.of(post));
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
 
         postService.updatePost(1L, 1L, request);
@@ -884,7 +884,7 @@ class PostServiceTest {
         PostUpdateRequest request = new PostUpdateRequest(null, "Updated Title", "Updated Contents",
                 Collections.emptyList(), false, false, false, List.of());
 
-        when(postRepository.findById(1L)).thenReturn(Optional.of(post));
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
 
         postService.updatePost(1L, 1L, request);
@@ -898,7 +898,7 @@ class PostServiceTest {
         PostUpdateRequest request = new PostUpdateRequest(null, "Updated Title", "Updated Contents",
                 Collections.emptyList(), false, false, false, null);
 
-        when(postRepository.findById(1L)).thenReturn(Optional.of(post));
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE)).when(sanctionService).validateNotBanned(user);
 
@@ -913,7 +913,7 @@ class PostServiceTest {
     @DisplayName("게시글 수정 실패 - 작성자 아님")
     void updatePost_forbidden() {
         PostUpdateRequest request = new PostUpdateRequest(null, "Title", "Content", null, false, false, false, null);
-        when(postRepository.findById(1L)).thenReturn(Optional.of(post));
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
         User otherUser = User.builder().loginId("other").displayName("Other User").build();
         ReflectionTestUtils.setField(otherUser, "userId", 2L);
         when(userRepository.findById(2L)).thenReturn(Optional.of(otherUser));
@@ -929,7 +929,7 @@ class PostServiceTest {
         PostUpdateRequest request = new PostUpdateRequest(2L, "Updated Title", "Updated Contents",
                 Collections.emptyList(), false, false, false, null);
 
-        when(postRepository.findById(1L)).thenReturn(Optional.of(post));
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(boardCategoryRepository.findByCategoryIdAndBoard_BoardIdAndIsActive(2L, 1L, true))
                 .thenReturn(Optional.empty());
@@ -944,7 +944,7 @@ class PostServiceTest {
     @Test
     @DisplayName("게시글 삭제 성공")
     void deletePost_success() {
-        when(postRepository.findById(1L)).thenReturn(Optional.of(post));
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(pointHistoryRepository.findByUserAndTypeAndRelatedTypeAndRelatedIdOrderByCreatedAtAsc(
                 user, "EARN", "POST", 1L))
@@ -966,7 +966,7 @@ class PostServiceTest {
     @Test
     @DisplayName("게시글 삭제 시 적립 이력이 없으면 포인트를 차감하지 않는다")
     void deletePost_withoutRewardHistory_skipsPointRollback() {
-        when(postRepository.findById(1L)).thenReturn(Optional.of(post));
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(pointHistoryRepository.findByUserAndTypeAndRelatedTypeAndRelatedIdOrderByCreatedAtAsc(
                 user, "EARN", "POST", 1L))
@@ -982,7 +982,7 @@ class PostServiceTest {
     @Test
     @DisplayName("?쒖꽦 BAN ?ъ슜?먮뒗 寃뚯떆湲???쒖젣?????녿떎")
     void deletePost_bannedUser_forbidden() {
-        when(postRepository.findById(1L)).thenReturn(Optional.of(post));
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE)).when(sanctionService).validateNotBanned(user);
 
@@ -2488,7 +2488,7 @@ class PostServiceTest {
         ReflectionTestUtils.setField(board, "creator", boardOwner);
         PostUpdateRequest request = new PostUpdateRequest(2L, "Title", "Content", null, false, false, false, null);
 
-        when(postRepository.findById(1L)).thenReturn(Optional.of(post));
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(boardCategoryRepository.findByCategoryIdAndBoard_BoardIdAndIsActive(2L, 1L, true))
                 .thenReturn(Optional.of(otherCategory));
@@ -2514,7 +2514,7 @@ class PostServiceTest {
         ReflectionTestUtils.setField(board, "creator", boardOwner);
         PostUpdateRequest request = new PostUpdateRequest(1L, "Title", "Content", null, false, false, false, null);
 
-        when(postRepository.findById(1L)).thenReturn(Optional.of(post));
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(adminRepository.existsByUserAndBoardAndIsActive(user, board, true)).thenReturn(false);
 
@@ -2533,7 +2533,7 @@ class PostServiceTest {
         ReflectionTestUtils.setField(board, "isActive", false);
         PostUpdateRequest request = new PostUpdateRequest(null, "Title", "Content", null, false, false, false, null);
 
-        when(postRepository.findById(1L)).thenReturn(Optional.of(post));
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(adminRepository.existsByUserAndBoardAndIsActive(user, board, true)).thenReturn(false);
 
@@ -2548,7 +2548,7 @@ class PostServiceTest {
     void updatePost_inactiveCategory_notFound() {
         PostUpdateRequest request = new PostUpdateRequest(2L, "Title", "Content", null, false, false, false, null);
 
-        when(postRepository.findById(1L)).thenReturn(Optional.of(post));
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(boardCategoryRepository.findByCategoryIdAndBoard_BoardIdAndIsActive(2L, 1L, true))
                 .thenReturn(Optional.empty());
@@ -2566,7 +2566,7 @@ class PostServiceTest {
         PostUpdateRequest request = new PostUpdateRequest(1L, "Updated Title", "Updated Contents",
                 Collections.emptyList(), false, false, false, null);
 
-        when(postRepository.findById(1L)).thenReturn(Optional.of(post));
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
 
         Post updated = postService.updatePost(1L, 1L, request);
@@ -2582,7 +2582,7 @@ class PostServiceTest {
         ReflectionTestUtils.setField(post, "isDeleted", true);
         PostUpdateRequest request = new PostUpdateRequest(null, "Title", "Content", null, false, false, false, null);
 
-        when(postRepository.findById(1L)).thenReturn(Optional.of(post));
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
 
         assertThatThrownBy(() -> postService.updatePost(1L, 1L, request))
@@ -2595,7 +2595,7 @@ class PostServiceTest {
     void deletePost_alreadyDeleted() {
         ReflectionTestUtils.setField(post, "isDeleted", true);
 
-        when(postRepository.findById(1L)).thenReturn(Optional.of(post));
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
 
         assertThatThrownBy(() -> postService.deletePost(1L, 1L))
@@ -2617,7 +2617,7 @@ class PostServiceTest {
         ReflectionTestUtils.setField(boardOwner, "userId", 99L);
         ReflectionTestUtils.setField(board, "creator", boardOwner);
 
-        when(postRepository.findById(1L)).thenReturn(Optional.of(post));
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(pointHistoryRepository.findByUserAndTypeAndRelatedTypeAndRelatedIdOrderByCreatedAtAsc(
                 user, "EARN", "POST", 1L))
@@ -2640,7 +2640,7 @@ class PostServiceTest {
         ReflectionTestUtils.setField(board, "creator", boardOwner);
         ReflectionTestUtils.setField(board, "isPublic", false);
 
-        when(postRepository.findById(1L)).thenReturn(Optional.of(post));
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(pointHistoryRepository.findByUserAndTypeAndRelatedTypeAndRelatedIdOrderByCreatedAtAsc(
                 user, "EARN", "POST", 1L))
