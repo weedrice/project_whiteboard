@@ -22,6 +22,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -31,6 +32,8 @@ class SuperAdminServiceTest {
 
     @Mock
     private UserRepository userRepository;
+    @Mock
+    private OperationalPrivilegeRevocationGuard privilegeRevocationGuard;
 
     @InjectMocks
     private SuperAdminService superAdminService;
@@ -85,13 +88,13 @@ class SuperAdminServiceTest {
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken("other-admin", "", List.of()));
         when(userRepository.findByLoginId("target")).thenReturn(Optional.of(target));
-        when(userRepository.findUsableSuperAdminsForUpdate()).thenReturn(List.of(target, other));
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         SuperAdminUpdateResponse response = superAdminService.deactivateSuperAdmin("target");
 
         assertThat(response.isSuperAdmin()).isFalse();
         assertThat(response.getLoginId()).isEqualTo("target");
+        verify(privilegeRevocationGuard).validateSuperAdminCanBeRevoked(target);
     }
 
     @Test
@@ -101,7 +104,9 @@ class SuperAdminServiceTest {
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken("other-admin", "", List.of()));
         when(userRepository.findByLoginId("target")).thenReturn(Optional.of(target));
-        when(userRepository.findUsableSuperAdminsForUpdate()).thenReturn(List.of(target));
+        doThrow(new BusinessException(ErrorCode.FORBIDDEN))
+                .when(privilegeRevocationGuard)
+                .validateSuperAdminCanBeRevoked(target);
 
         assertThatThrownBy(() -> superAdminService.deactivateSuperAdmin("target"))
                 .isInstanceOf(BusinessException.class)
@@ -121,7 +126,7 @@ class SuperAdminServiceTest {
         SuperAdminUpdateResponse response = superAdminService.deactivateSuperAdmin("target");
 
         assertThat(response.isSuperAdmin()).isFalse();
-        verify(userRepository, never()).findUsableSuperAdminsForUpdate();
+        verify(privilegeRevocationGuard).validateSuperAdminCanBeRevoked(suspendedTarget);
     }
 
     @Test

@@ -44,6 +44,8 @@ class AdminAssignmentServiceTest {
 
     @Mock
     private BoardManagerAssignmentService boardManagerAssignmentService;
+    @Mock
+    private OperationalPrivilegeRevocationGuard privilegeRevocationGuard;
 
     @InjectMocks
     private AdminAssignmentService adminAssignmentService;
@@ -250,16 +252,16 @@ class AdminAssignmentServiceTest {
         adminAssignmentService.deactivateAdmin(200L);
 
         assertThat(moderator.getIsActive()).isFalse();
-        verify(boardRepository, never()).findByIdForUpdate(any());
+        verify(privilegeRevocationGuard, never()).validateBoardAdminCanBeRevoked(any());
     }
 
     @Test
     @DisplayName("Last active board manager cannot be deactivated")
     void deactivateAdmin_lastActiveBoardAdmin_throwsValidationError() {
         when(adminRepository.findById(100L)).thenReturn(Optional.of(admin));
-        when(boardRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(board));
-        when(adminRepository.countByBoardAndRoleAndIsActiveAndAdminIdNot(board, Role.BOARD_ADMIN, true, 100L))
-                .thenReturn(0L);
+        doThrow(new BusinessException(ErrorCode.VALIDATION_ERROR))
+                .when(privilegeRevocationGuard)
+                .validateBoardAdminCanBeRevoked(admin);
 
         assertThatThrownBy(() -> adminAssignmentService.deactivateAdmin(100L))
                 .isInstanceOf(BusinessException.class)
@@ -272,13 +274,10 @@ class AdminAssignmentServiceTest {
     @DisplayName("Board manager can be deactivated when another active manager remains")
     void deactivateAdmin_boardAdminWithAnotherActiveManager_success() {
         when(adminRepository.findById(100L)).thenReturn(Optional.of(admin));
-        when(boardRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(board));
-        when(adminRepository.countByBoardAndRoleAndIsActiveAndAdminIdNot(board, Role.BOARD_ADMIN, true, 100L))
-                .thenReturn(1L);
 
         adminAssignmentService.deactivateAdmin(100L);
 
         assertThat(admin.getIsActive()).isFalse();
-        verify(boardRepository).findByIdForUpdate(10L);
+        verify(privilegeRevocationGuard).validateBoardAdminCanBeRevoked(admin);
     }
 }

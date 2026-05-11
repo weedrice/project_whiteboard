@@ -23,6 +23,7 @@ import java.util.List;
 public class SuperAdminService {
 
     private final UserRepository userRepository;
+    private final OperationalPrivilegeRevocationGuard privilegeRevocationGuard;
 
     @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
     @Transactional
@@ -53,9 +54,7 @@ public class SuperAdminService {
         if (isCurrentSuperAdmin(loginId)) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
-        if (user.isUsableSuperAdmin() && getUsableSuperAdminsForUpdate().size() <= 1) {
-            throw new BusinessException(ErrorCode.FORBIDDEN);
-        }
+        privilegeRevocationGuard.validateSuperAdminCanBeRevoked(user);
 
         user.revokeSuperAdminRole();
         return SuperAdminUpdateResponse.from(userRepository.save(user));
@@ -77,7 +76,4 @@ public class SuperAdminService {
         return userRepository.findUsableSuperAdmins();
     }
 
-    private List<User> getUsableSuperAdminsForUpdate() {
-        return userRepository.findUsableSuperAdminsForUpdate();
-    }
 }

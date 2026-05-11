@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.user.service;
 
 import com.weedrice.whiteboard.domain.admin.entity.Admin;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
+import com.weedrice.whiteboard.domain.admin.service.OperationalPrivilegeRevocationGuard;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -15,16 +16,20 @@ import java.util.Objects;
 public class UserPrivilegeCleanupService {
 
     private final AdminRepository adminRepository;
+    private final OperationalPrivilegeRevocationGuard privilegeRevocationGuard;
 
     @Transactional
     public void removeOperationalPrivileges(User user) {
         Objects.requireNonNull(user, "user must not be null");
 
+        var activeAdmins = adminRepository.findByUserAndIsActiveOrderByAdminIdAsc(user, true);
+        privilegeRevocationGuard.validateOperationalPrivilegesCanBeRevoked(user, activeAdmins);
+        var lockedActiveAdmins = adminRepository.findAllByUserAndIsActiveOrderByAdminIdAsc(user, true);
+
         if (Boolean.TRUE.equals(user.getIsSuperAdmin())) {
             user.revokeSuperAdminRole();
         }
 
-        adminRepository.findAllByUserAndIsActiveOrderByAdminIdAsc(user, true)
-                .forEach(Admin::deactivate);
+        lockedActiveAdmins.forEach(Admin::deactivate);
     }
 }

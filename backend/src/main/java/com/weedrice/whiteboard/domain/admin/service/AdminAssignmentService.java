@@ -23,6 +23,7 @@ public class AdminAssignmentService {
     private final BoardRepository boardRepository;
     private final AdminEligibleUserService adminEligibleUserService;
     private final BoardManagerAssignmentService boardManagerAssignmentService;
+    private final OperationalPrivilegeRevocationGuard privilegeRevocationGuard;
 
     @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
     @Transactional
@@ -90,7 +91,7 @@ public class AdminAssignmentService {
         Admin admin = adminRepository.findById(adminId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
         if (Role.BOARD_ADMIN.equals(admin.getRole()) && Boolean.TRUE.equals(admin.getIsActive())) {
-            validateBoardAdminCanBeDeactivated(admin);
+            privilegeRevocationGuard.validateBoardAdminCanBeRevoked(admin);
         }
         admin.deactivate();
     }
@@ -135,13 +136,4 @@ public class AdminAssignmentService {
         }
     }
 
-    private void validateBoardAdminCanBeDeactivated(Admin admin) {
-        Board board = boardRepository.findByIdForUpdate(admin.getBoard().getBoardId())
-                .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
-        long otherActiveBoardAdmins = adminRepository.countByBoardAndRoleAndIsActiveAndAdminIdNot(
-                board, Role.BOARD_ADMIN, true, admin.getAdminId());
-        if (otherActiveBoardAdmins == 0) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "At least one active board manager is required");
-        }
-    }
 }

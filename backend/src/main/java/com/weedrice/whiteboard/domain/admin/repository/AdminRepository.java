@@ -40,6 +40,7 @@ public interface AdminRepository extends JpaRepository<Admin, Long> {
     List<Long> findActiveBoardIdsByUser(@Param("user") User user);
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     List<Admin> findAllByUserAndIsActiveOrderByAdminIdAsc(User user, Boolean isActive);
+    List<Admin> findByUserAndIsActiveOrderByAdminIdAsc(User user, Boolean isActive);
     @EntityGraph(attributePaths = {"user", "board"})
     List<Admin> findByBoard_BoardIdInAndRoleAndIsActiveOrderByBoard_BoardIdAscAdminIdDesc(
             Collection<Long> boardIds, String role, Boolean isActive);
