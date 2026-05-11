@@ -33,6 +33,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.cookie;
@@ -192,5 +194,21 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.error.code").value("C008"))
                 .andExpect(jsonPath("$.error.message").value("잘못된 인증 코드입니다."));
+    }
+
+    @Test
+    @DisplayName("이메일 인증 요청은 100자를 초과하는 이메일을 거부한다")
+    void sendVerificationCode_rejectsTooLongEmail() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/email/send-verification")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email": "%s",
+                                  "purpose": "SIGNUP"
+                                }
+                                """.formatted("a".repeat(92) + "@example.com")))
+                .andExpect(status().isBadRequest());
+
+        verify(verificationCodeService, never()).sendVerificationCode(any(), any(), any());
     }
 }

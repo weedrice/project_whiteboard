@@ -124,10 +124,11 @@ class VerificationCodeServiceTest {
     void sendVerificationCode_success_marksSent() {
         when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.empty());
 
-        verificationCodeService.sendVerificationCode("test@example.com", VerificationPurpose.SIGNUP, null);
+        verificationCodeService.sendVerificationCode(" test@example.com ", VerificationPurpose.SIGNUP, null);
 
         assertThat(verificationCodes.values()).hasSize(1);
         VerificationCode verificationCode = verificationCodes.values().iterator().next();
+        assertThat(verificationCode.getEmail()).isEqualTo("test@example.com");
         assertThat(verificationCode.getDeliveryStatus()).isEqualTo(VerificationCode.DELIVERY_STATUS_SENT);
         assertThat(verificationCode.getPurpose()).isEqualTo(VerificationPurpose.SIGNUP);
         ArgumentCaptor<String> subjectCaptor = ArgumentCaptor.forClass(String.class);
@@ -138,6 +139,21 @@ class VerificationCodeServiceTest {
                 .contains("<h1>이메일 인증 코드</h1>")
                 .contains("아래 인증 코드를 입력하여 이메일 인증을 완료해 주세요.")
                 .contains("<h3>" + verificationCode.getCode() + "</h3>");
+    }
+
+    @Test
+    @DisplayName("인증 코드 발송은 너무 긴 이메일을 저장/발송 전에 거부한다")
+    void sendVerificationCode_rejectsTooLongEmailBeforeSaveAndSend() {
+        assertThatThrownBy(() -> verificationCodeService.sendVerificationCode(
+                "a".repeat(101),
+                VerificationPurpose.SIGNUP,
+                null))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode())
+                        .isEqualTo(ErrorCode.VALIDATION_ERROR));
+
+        verify(verificationCodeRepository, never()).save(any(VerificationCode.class));
+        verify(emailService, never()).sendEmail(anyString(), anyString(), anyString());
     }
 
     @Test
@@ -344,7 +360,7 @@ class VerificationCodeServiceTest {
         verificationCodes.put(2L, otherPurposeCode);
 
         VerifyCodeResponse response = verificationCodeService.verifyCode(
-                "test@example.com",
+                " test@example.com ",
                 "123456",
                 VerificationPurpose.SIGNUP);
 

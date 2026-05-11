@@ -14,6 +14,7 @@ import lombok.NoArgsConstructor;
 public class VerifyCodeRequest {
     @NotBlank
     @Email
+    @Size(max = 100)
     private String email;
 
     @NotBlank

@@ -40,29 +40,36 @@ public class VerificationCodeService {
 
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void sendVerificationCode(String email, VerificationPurpose purpose, Long currentUserId) {
-        validateEmailForPurpose(email, purpose, currentUserId);
+        String normalizedEmail = AuthEmailNormalizer.normalize(email);
+        validateEmailForPurpose(normalizedEmail, purpose, currentUserId);
 
         String code = generateRandomCode();
         LocalDateTime expiryDate = LocalDateTime.now().plusMinutes(5);
         String body = VERIFICATION_EMAIL_BODY_TEMPLATE.formatted(code);
 
         mailDeliveryOrchestrationService.send(new AuthMailDeliveryOrchestrationService.MailDeliveryCommand(
-                email,
+                normalizedEmail,
                 VERIFICATION_EMAIL_SUBJECT,
                 body,
-                () -> createPendingVerificationCode(email, purpose, code, expiryDate),
+                () -> createPendingVerificationCode(normalizedEmail, purpose, code, expiryDate),
                 verificationId -> updateDeliveryStatus(verificationId, false),
-                verificationId -> promotePendingVerificationCode(verificationId, email, purpose, code, expiryDate),
+                verificationId -> promotePendingVerificationCode(
+                        verificationId,
+                        normalizedEmail,
+                        purpose,
+                        code,
+                        expiryDate),
                 (verificationId, e) -> markCurrentVerificationCodeSentAfterPromotionFailure(
                         verificationId,
-                        email,
+                        normalizedEmail,
                         purpose,
                         e)));
     }
 
     @Transactional
     public VerifyCodeResponse verifyCode(String email, String code, VerificationPurpose purpose) {
-        VerificationCode verificationCode = getLatestSentVerificationCodeForUpdate(email, purpose);
+        String normalizedEmail = AuthEmailNormalizer.normalize(email);
+        VerificationCode verificationCode = getLatestSentVerificationCodeForUpdate(normalizedEmail, purpose);
 
         if (verificationCode.isExpired()) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, EXPIRED_CODE_MESSAGE);
@@ -74,32 +81,35 @@ public class VerificationCodeService {
 
         if (Boolean.TRUE.equals(verificationCode.getIsVerified())) {
             if (verificationCode.hasActiveVerificationTicket()) {
-                return buildVerifyCodeResponse(email, purpose, verificationCode.getVerificationTicket());
+                return buildVerifyCodeResponse(normalizedEmail, purpose, verificationCode.getVerificationTicket());
             }
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, USED_CODE_MESSAGE);
         }
 
         String verificationTicket = UUID.randomUUID().toString();
-        invalidateOutstandingTickets(email, purpose, verificationCode.getVerificationId());
+        invalidateOutstandingTickets(normalizedEmail, purpose, verificationCode.getVerificationId());
         verificationCode.issueVerificationTicket(verificationTicket, LocalDateTime.now().plusMinutes(10));
 
-        return buildVerifyCodeResponse(email, purpose, verificationTicket);
+        return buildVerifyCodeResponse(normalizedEmail, purpose, verificationTicket);
     }
 
     @Transactional
     public void consumeVerificationTicket(String email, VerificationPurpose purpose, String verificationTicket) {
-        VerificationCode verificationCode = getValidVerificationTicket(email, purpose, verificationTicket);
+        String normalizedEmail = AuthEmailNormalizer.normalize(email);
+        VerificationCode verificationCode = getValidVerificationTicket(normalizedEmail, purpose, verificationTicket);
         verificationCode.consumeVerificationTicket();
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
     public void validateVerificationTicket(String email, VerificationPurpose purpose, String verificationTicket) {
-        getValidVerificationTicket(email, purpose, verificationTicket);
+        String normalizedEmail = AuthEmailNormalizer.normalize(email);
+        getValidVerificationTicket(normalizedEmail, purpose, verificationTicket);
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
     public void consumeValidatedVerificationTicket(String email, VerificationPurpose purpose, String verificationTicket) {
-        VerificationCode verificationCode = getConsumableVerificationTicket(email, purpose, verificationTicket);
+        String normalizedEmail = AuthEmailNormalizer.normalize(email);
+        VerificationCode verificationCode = getConsumableVerificationTicket(normalizedEmail, purpose, verificationTicket);
         verificationCode.consumeVerificationTicket();
     }
 

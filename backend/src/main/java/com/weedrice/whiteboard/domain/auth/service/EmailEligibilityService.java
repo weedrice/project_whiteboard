@@ -16,7 +16,8 @@ public class EmailEligibilityService {
     private final UserRepository userRepository;
 
     public void validateSignupEmail(String email) {
-        userRepository.findByEmail(email).ifPresent(user -> {
+        String normalizedEmail = AuthEmailNormalizer.normalize(email);
+        userRepository.findByEmail(normalizedEmail).ifPresent(user -> {
             if (!"DELETED".equals(user.getStatus())) {
                 throw new BusinessException(ErrorCode.DUPLICATE_EMAIL);
             }
@@ -27,8 +28,9 @@ public class EmailEligibilityService {
         if (currentUserId == null) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED);
         }
+        String normalizedEmail = AuthEmailNormalizer.normalize(email);
 
-        userRepository.findByEmail(email)
+        userRepository.findByEmail(normalizedEmail)
                 .filter(other -> !isSameUser(other, currentUserId))
                 .ifPresent(other -> {
                     throw new BusinessException(ErrorCode.DUPLICATE_EMAIL);
@@ -43,13 +45,15 @@ public class EmailEligibilityService {
     }
 
     public void validateFindIdEmail(String email) {
-        User user = userRepository.findByEmail(email)
+        String normalizedEmail = AuthEmailNormalizer.normalize(email);
+        User user = userRepository.findByEmail(normalizedEmail)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         validateActiveAccount(user);
     }
 
     public void validatePasswordResetEmail(String email) {
-        User user = userRepository.findByEmail(email)
+        String normalizedEmail = AuthEmailNormalizer.normalize(email);
+        User user = userRepository.findByEmail(normalizedEmail)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND_BY_EMAIL));
         validateActiveAccount(user);
     }

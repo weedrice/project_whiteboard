@@ -15,6 +15,7 @@ import lombok.NoArgsConstructor;
 public class PasswordResetByCodeRequest {
     @NotBlank
     @Email
+    @Size(max = 100)
     @NoHtml
     private String email;
 

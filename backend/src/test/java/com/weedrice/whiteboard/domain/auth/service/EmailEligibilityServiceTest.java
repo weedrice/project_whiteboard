@@ -14,6 +14,8 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -34,7 +36,17 @@ class EmailEligibilityServiceTest {
         User deletedUser = user("old@example.com", 1L, "DELETED");
         when(userRepository.findByEmail("old@example.com")).thenReturn(Optional.of(deletedUser));
 
-        emailEligibilityService.validateSignupEmail("old@example.com");
+        emailEligibilityService.validateSignupEmail(" old@example.com ");
+    }
+
+    @Test
+    void validateSignupEmail_rejectsTooLongEmailBeforeRepositoryLookup() {
+        assertThatThrownBy(() -> emailEligibilityService.validateSignupEmail("a".repeat(101)))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.VALIDATION_ERROR);
+
+        verify(userRepository, never()).findByEmail(org.mockito.ArgumentMatchers.anyString());
     }
 
     @Test

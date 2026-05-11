@@ -29,6 +29,7 @@ public class SignupRequest {
 
     @NotBlank(message = "{validation.email.required}")
     @Email(message = "{validation.email.format}")
+    @Size(max = 100)
     @NoHtml
     private String email;
 
