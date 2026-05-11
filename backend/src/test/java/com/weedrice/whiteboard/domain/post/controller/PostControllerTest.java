@@ -563,6 +563,21 @@ class PostControllerTest {
         }
 
         @Test
+        @DisplayName("스크랩 생성 - remark 길이 초과는 400")
+        void scrapPost_longRemark_validationFailure() throws Exception {
+            Long postId = 1L;
+            PostScrapRequest request = new PostScrapRequest("a".repeat(256));
+
+            mockMvc.perform(post("/api/v1/posts/{postId}/scrap", postId)
+                    .with(user(customUserDetails))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isBadRequest());
+
+            verify(postService, never()).scrapPost(anyLong(), anyLong(), any());
+        }
+
+        @Test
         @DisplayName("스크랩 성공 - Request Body 없음")
         void scrapPost_noRequest() throws Exception {
             Long postId = 1L;

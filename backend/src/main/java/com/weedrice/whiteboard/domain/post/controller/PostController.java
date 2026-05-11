@@ -133,7 +133,7 @@ public class PostController {
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<Void> scrapPost(
             @PathVariable Long postId,
-            @RequestBody(required = false) PostScrapRequest request,
+            @Valid @RequestBody(required = false) PostScrapRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         String remark = (request != null) ? request.getRemark() : null;
         postService.scrapPost(userDetails.getUserId(), postId, remark);

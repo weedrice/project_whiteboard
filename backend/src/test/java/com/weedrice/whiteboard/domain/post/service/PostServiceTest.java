@@ -1132,7 +1132,32 @@ class PostServiceTest {
     }
 
     @Test
-    @DisplayName("?쒖꽦 BAN ?ъ슜?먮뒗 寃뚯떆湲 ???ㅽ겕?앺븷 ????녿떎")
+    @DisplayName("스크랩 메모는 앞뒤 공백을 제거해 저장한다")
+    void scrapPost_trimsRemark() {
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
+        when(scrapRepository.saveAndFlush(any(Scrap.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        postService.scrapPost(1L, 1L, "  My Scrap  ");
+
+        ArgumentCaptor<Scrap> scrapCaptor = ArgumentCaptor.forClass(Scrap.class);
+        verify(scrapRepository).saveAndFlush(scrapCaptor.capture());
+        assertThat(scrapCaptor.getValue().getRemark()).isEqualTo("My Scrap");
+    }
+
+    @Test
+    @DisplayName("스크랩 메모가 255자를 초과하면 저장하지 않는다")
+    void scrapPost_longRemark_throwsInvalidInput() {
+        assertThatThrownBy(() -> postService.scrapPost(1L, 1L, "a".repeat(256)))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+
+        verify(scrapRepository, never()).saveAndFlush(any(Scrap.class));
+    }
+
+    @Test
+    @DisplayName("활성 BAN 사용자는 게시글을 스크랩할 수 없다")
     void scrapPost_bannedUser_forbidden() {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE)).when(sanctionService).validateNotBanned(user);

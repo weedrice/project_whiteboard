@@ -7,6 +7,7 @@ import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.notification.constant.NotificationType;
 import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
+import com.weedrice.whiteboard.domain.post.constant.ScrapConstraints;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.dto.ScrapListResponse;
 import com.weedrice.whiteboard.domain.post.dto.ViewHistoryRequest;
@@ -190,13 +191,14 @@ public class PostInteractionService {
 
     @Transactional
     public void scrapPost(@NonNull Long userId, @NonNull Long postId, String remark) {
+        String normalizedRemark = normalizeScrapRemark(remark);
         User user = userWritableResolver.resolve(userId);
         Post post = getPostById(postId, userId, false);
 
         Scrap scrap = Scrap.builder()
                 .user(user)
                 .post(post)
-                .remark(remark)
+                .remark(normalizedRemark)
                 .build();
         reactionWriter.insertOrThrowDuplicate(
                 () -> scrapRepository.saveAndFlush(scrap),
@@ -288,6 +290,17 @@ public class PostInteractionService {
         }
         return commentRepository.findByCommentIdAndPost_PostId(lastReadCommentId, postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_INPUT_VALUE));
+    }
+
+    private String normalizeScrapRemark(String remark) {
+        if (remark == null) {
+            return null;
+        }
+        String normalizedRemark = remark.trim();
+        if (normalizedRemark.length() > ScrapConstraints.MAX_REMARK_LENGTH) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        return normalizedRemark;
     }
 
     private Post getReadablePost(@NonNull Long postId, PostReadContext context) {
