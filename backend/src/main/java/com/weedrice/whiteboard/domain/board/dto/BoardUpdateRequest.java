@@ -21,6 +21,7 @@ public class BoardUpdateRequest {
     @Pattern(regexp = "^[a-z0-9_]+$", message = "{validation.board.url.pattern}")
     private String boardUrl;
 
+    @Size(max = 255)
     private String iconUrl;
     private Boolean allowNsfw;
     @Min(0)

@@ -564,7 +564,7 @@ class BoardServiceTest {
                 "New Board",
                 "new-board",
                 "New Description",
-                "/api/v1/files/55",
+                " /api/v1/files/55 ",
                 null);
 
         when(userRepository.findById(creatorId)).thenReturn(Optional.of(user));
@@ -583,6 +583,8 @@ class BoardServiceTest {
         boardService.createBoard(creatorId, request);
 
         verify(fileService).replaceBoardIcon(55L, creatorId, 1L);
+        verify(boardRepository).saveAndFlush(argThat(savedBoard ->
+                "/api/v1/files/55".equals(savedBoard.getIconUrl())));
     }
 
     @Test

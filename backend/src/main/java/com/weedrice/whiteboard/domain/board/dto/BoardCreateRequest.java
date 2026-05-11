@@ -21,6 +21,7 @@ public class BoardCreateRequest {
     @Size(max = 255)
     private String description;
 
+    @Size(max = 255)
     private String iconUrl;
     private Boolean isPublic;
     private Boolean agentUseYn;

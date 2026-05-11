@@ -214,6 +214,44 @@ class BoardControllerTest {
     }
 
     @Test
+    @DisplayName("게시판 생성은 255자를 초과하는 iconUrl을 거부한다")
+    void createBoard_rejectsTooLongIconUrl() throws Exception {
+        mockMvc.perform(post("/api/v1/boards")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "boardName": "New Board",
+                                  "boardUrl": "newboard",
+                                  "description": "Description",
+                                  "iconUrl": "%s"
+                                }
+                                """.formatted("a".repeat(256)))
+                        .with(user(customUserDetails))
+                        .with(csrf()))
+                .andExpect(status().isBadRequest());
+
+        verify(boardService, never()).createBoard(any(), any());
+    }
+
+    @Test
+    @DisplayName("게시판 수정은 255자를 초과하는 iconUrl을 거부한다")
+    void updateBoard_rejectsTooLongIconUrl() throws Exception {
+        mockMvc.perform(put("/api/v1/boards/{boardUrl}", "free")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "boardName": "Updated Board",
+                                  "iconUrl": "%s"
+                                }
+                                """.formatted("a".repeat(256)))
+                        .with(user(customUserDetails))
+                        .with(csrf()))
+                .andExpect(status().isBadRequest());
+
+        verify(boardService, never()).updateBoard(any(), any(), any());
+    }
+
+    @Test
     @DisplayName("게시판 관리자 이양 성공")
     void transferBoardManager_returnsSuccess() throws Exception {
         String boardUrl = "free";

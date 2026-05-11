@@ -92,6 +92,7 @@ class BoardProvisioningService {
         User creator = userRepository.findById(creatorId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         adminEligibleUserService.validateActiveUser(creator);
+        String iconUrl = normalizeIconUrl(request.getIconUrl());
 
         validateCreatableBoardUrl(request.getBoardUrl());
 
@@ -109,7 +110,7 @@ class BoardProvisioningService {
                 .boardUrl(request.getBoardUrl())
                 .description(normalizeDescription(request.getDescription()))
                 .creator(creator)
-                .iconUrl(request.getIconUrl())
+                .iconUrl(iconUrl)
                 .sortOrder(maxSortOrder + 1)
                 .isPublic(request.getIsPublic())
                 .agentUseYn(resolveAgentUseYn(request.getIsPublic(), request.getAgentUseYn()))
@@ -161,6 +162,7 @@ class BoardProvisioningService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
         User currentUser = getCurrentUser(userDetails);
         String previousIconUrl = board.getIconUrl();
+        String iconUrl = normalizeIconUrl(request.getIconUrl());
 
         SecurityUtils.validateBoardAdminPermission(board);
 
@@ -181,7 +183,7 @@ class BoardProvisioningService {
         }
 
         Integer sortOrder = request.getSortOrder() != null ? request.getSortOrder() : board.getSortOrder();
-        board.update(request.getBoardName(), normalizeDescription(request.getDescription()), request.getIconUrl(),
+        board.update(request.getBoardName(), normalizeDescription(request.getDescription()), iconUrl,
                 sortOrder,
                 request.getAllowNsfw() != null ? request.getAllowNsfw() : board.getAllowNsfw(),
                 request.getIsActive(),
@@ -497,5 +499,13 @@ class BoardProvisioningService {
 
     private String normalizeDescription(String description) {
         return description == null || description.isBlank() ? "" : description;
+    }
+
+    private String normalizeIconUrl(String iconUrl) {
+        if (iconUrl == null) {
+            return null;
+        }
+        String trimmedIconUrl = iconUrl.trim();
+        return trimmedIconUrl.isEmpty() ? null : trimmedIconUrl;
     }
 }
