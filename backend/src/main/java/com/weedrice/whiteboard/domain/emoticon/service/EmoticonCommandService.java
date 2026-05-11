@@ -15,6 +15,9 @@ import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.springframework.dao.DataIntegrityViolationException;
 
 import java.util.Comparator;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 class EmoticonCommandService {
@@ -44,6 +47,7 @@ class EmoticonCommandService {
     }
 
     EmoticonMasterDto createEmoticon(Long userId, EmoticonCreateRequest request) {
+        validateDistinctImageFileIds(request.getImageFileIds());
         User user = userWritableResolver.resolve(userId);
 
         EmoticonMaster master = EmoticonMaster.builder()
@@ -79,6 +83,18 @@ class EmoticonCommandService {
         }
 
         return EmoticonMasterDto.from(master);
+    }
+
+    private void validateDistinctImageFileIds(List<Long> imageFileIds) {
+        if (imageFileIds == null || imageFileIds.isEmpty()) {
+            return;
+        }
+        Set<Long> uniqueImageFileIds = new HashSet<>();
+        for (Long imageFileId : imageFileIds) {
+            if (!uniqueImageFileIds.add(imageFileId)) {
+                throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+            }
+        }
     }
 
     EmoticonMasterDto updateEmoticon(Long userId, Long emoticonId, EmoticonUpdateRequest request) {

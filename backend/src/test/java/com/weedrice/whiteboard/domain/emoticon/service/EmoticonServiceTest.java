@@ -509,6 +509,26 @@ class EmoticonServiceTest {
         }
 
         @Test
+        @DisplayName("이모티콘 생성 - imageFileIds 중복은 저장 전 거부한다")
+        void createEmoticon_rejectsDuplicateImageFileIdsBeforeSave() {
+            EmoticonCreateRequest request = EmoticonCreateRequest.builder()
+                    .name("새 이모티콘")
+                    .thumbnailFileId(10L)
+                    .tags(List.of("태그1"))
+                    .imageFileIds(List.of(11L, 12L, 11L))
+                    .build();
+
+            assertThatThrownBy(() -> emoticonService.createEmoticon(1L, request))
+                    .isInstanceOf(BusinessException.class)
+                    .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode())
+                            .isEqualTo(ErrorCode.INVALID_INPUT_VALUE));
+
+            verify(userWritableResolver, never()).resolve(anyLong());
+            verify(emoticonMasterRepository, never()).save(any(EmoticonMaster.class));
+            verify(fileService, never()).associateFileWithEntity(any(), any(), any(), any());
+        }
+
+        @Test
         @DisplayName("이모티콘 생성 - 사용자 없으면 USER_NOT_FOUND")
         void createEmoticon_userNotFound() {
             EmoticonCreateRequest request = EmoticonCreateRequest.builder().name("이모티콘").build();
