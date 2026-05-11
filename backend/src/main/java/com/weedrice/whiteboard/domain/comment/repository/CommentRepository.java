@@ -4,9 +4,13 @@ import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+
+import jakarta.persistence.LockModeType;
 
 import java.time.LocalDateTime;
 import java.util.Collection;
@@ -250,6 +254,12 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                         @org.springframework.data.repository.query.Param("end") LocalDateTime end,
                         @org.springframework.data.repository.query.Param("inquiryBoardUrl") String inquiryBoardUrl);
         Optional<Comment> findByCommentIdAndPost_PostIdAndIsDeletedFalse(Long commentId, Long postId);
+
+        @EntityGraph(attributePaths = {"user", "agent", "post", "post.board"})
+        @Lock(LockModeType.PESSIMISTIC_WRITE)
+        @Query("SELECT c FROM Comment c WHERE c.commentId = :commentId")
+        Optional<Comment> findByIdWithRelationsForUpdate(
+                        @org.springframework.data.repository.query.Param("commentId") Long commentId);
 
         long countByUser(User user);
         long countByUserAndIsDeleted(User user, Boolean isDeleted);

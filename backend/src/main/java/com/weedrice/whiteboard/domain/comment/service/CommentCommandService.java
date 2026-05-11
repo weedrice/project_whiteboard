@@ -155,7 +155,7 @@ public class CommentCommandService {
 
     @Transactional
     public Comment updateComment(Long userId, Long commentId, String content) {
-        Comment comment = commentRepository.findById(commentId)
+        Comment comment = commentRepository.findByIdWithRelationsForUpdate(commentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
         User user = userWritableResolver.resolve(userId);
         sanctionService.validateNotMuted(user);
@@ -179,7 +179,7 @@ public class CommentCommandService {
 
     @Transactional
     public void deleteComment(Long userId, Long commentId) {
-        Comment comment = commentRepository.findById(commentId)
+        Comment comment = commentRepository.findByIdWithRelationsForUpdate(commentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
         User user = userWritableResolver.resolve(userId);
         validatePostReadable(comment.getPost(), user);

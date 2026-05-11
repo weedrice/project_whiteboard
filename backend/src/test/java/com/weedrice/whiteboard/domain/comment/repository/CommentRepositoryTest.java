@@ -9,6 +9,7 @@ import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.global.config.QuerydslConfig;
+import jakarta.persistence.LockModeType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -18,8 +19,11 @@ import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.jpa.repository.EntityGraph;
+import org.springframework.data.jpa.repository.Lock;
 
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
@@ -445,6 +449,22 @@ class CommentRepositoryTest {
         assertThat(result.getContent())
                 .extracting(comment -> comment.getPost().getTitle())
                 .contains("Managed Private Post");
+    }
+
+    @Test
+    @DisplayName("findByIdWithRelationsForUpdate는 비관적 쓰기 잠금과 관계 조회를 선언한다")
+    void findByIdWithRelationsForUpdate_declaresPessimisticWriteLockAndEntityGraph()
+            throws NoSuchMethodException {
+        var method = CommentRepository.class.getMethod("findByIdWithRelationsForUpdate", Long.class);
+
+        Lock lock = method.getAnnotation(Lock.class);
+        EntityGraph entityGraph = method.getAnnotation(EntityGraph.class);
+
+        assertThat(lock).isNotNull();
+        assertThat(lock.value()).isEqualTo(LockModeType.PESSIMISTIC_WRITE);
+        assertThat(entityGraph).isNotNull();
+        assertThat(Arrays.asList(entityGraph.attributePaths()))
+                .containsExactlyInAnyOrder("user", "agent", "post", "post.board");
     }
 
     private Comment commentFor(Post post, String content) {

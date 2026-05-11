@@ -1166,7 +1166,7 @@ class CommentServiceTest {
         Post post = Post.builder().board(board).user(author).build();
         Comment comment = Comment.builder().user(viewer).post(post).content("Old").build();
 
-        when(commentRepository.findById(10L)).thenReturn(Optional.of(comment));
+        when(commentRepository.findByIdWithRelationsForUpdate(10L)).thenReturn(Optional.of(comment));
         when(userRepository.findById(2L)).thenReturn(Optional.of(viewer));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(2L)).thenReturn(List.of(1L));
 
@@ -1188,7 +1188,7 @@ class CommentServiceTest {
         Post post = Post.builder().board(board).user(other).build();
         Comment comment = Comment.builder().user(other).post(post).content("Old").build();
 
-        when(commentRepository.findById(10L)).thenReturn(Optional.of(comment));
+        when(commentRepository.findByIdWithRelationsForUpdate(10L)).thenReturn(Optional.of(comment));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
 
         assertThatThrownBy(() -> commentService.updateComment(1L, 10L, "New"))
@@ -1205,7 +1205,7 @@ class CommentServiceTest {
         Post post = Post.builder().board(board).user(user).build();
         Comment comment = Comment.builder().user(user).post(post).content("Old").build();
 
-        when(commentRepository.findById(10L)).thenReturn(Optional.of(comment));
+        when(commentRepository.findByIdWithRelationsForUpdate(10L)).thenReturn(Optional.of(comment));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
 
         assertThatThrownBy(() -> commentService.updateComment(1L, 10L, "<b></b>"))
@@ -1226,7 +1226,7 @@ class CommentServiceTest {
         Post post = Post.builder().board(board).user(user).build();
         Comment comment = Comment.builder().user(user).post(post).content("Old").build();
 
-        when(commentRepository.findById(10L)).thenReturn(Optional.of(comment));
+        when(commentRepository.findByIdWithRelationsForUpdate(10L)).thenReturn(Optional.of(comment));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE)).when(sanctionService).validateNotBanned(user);
 
@@ -1248,7 +1248,7 @@ class CommentServiceTest {
         Comment comment = Comment.builder().user(user).post(post).content("Content").build();
         ReflectionTestUtils.setField(comment, "commentId", 10L);
 
-        when(commentRepository.findById(10L)).thenReturn(Optional.of(comment));
+        when(commentRepository.findByIdWithRelationsForUpdate(10L)).thenReturn(Optional.of(comment));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(postRepository.decrementCommentCount(1L)).thenReturn(1);
         when(pointHistoryRepository.findByUserAndTypeAndRelatedTypeAndRelatedIdOrderByCreatedAtAsc(
@@ -1283,7 +1283,7 @@ class CommentServiceTest {
         Post post = Post.builder().board(board).user(user).build();
         Comment comment = Comment.builder().user(user).post(post).content("Content").build();
 
-        when(commentRepository.findById(10L)).thenReturn(Optional.of(comment));
+        when(commentRepository.findByIdWithRelationsForUpdate(10L)).thenReturn(Optional.of(comment));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE)).when(sanctionService).validateNotBanned(user);
 
@@ -1307,7 +1307,7 @@ class CommentServiceTest {
         Comment comment = Comment.builder().user(user).post(post).content("Content").build();
         ReflectionTestUtils.setField(comment, "commentId", 10L);
 
-        when(commentRepository.findById(10L)).thenReturn(Optional.of(comment));
+        when(commentRepository.findByIdWithRelationsForUpdate(10L)).thenReturn(Optional.of(comment));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(postRepository.decrementCommentCount(1L)).thenReturn(1);
         when(pointHistoryRepository.findByUserAndTypeAndRelatedTypeAndRelatedIdOrderByCreatedAtAsc(
@@ -1353,7 +1353,7 @@ class CommentServiceTest {
         Comment comment = Comment.builder().user(user).post(post).content("Content").build();
         ReflectionTestUtils.setField(comment, "commentId", 10L);
 
-        when(commentRepository.findById(10L)).thenReturn(Optional.of(comment));
+        when(commentRepository.findByIdWithRelationsForUpdate(10L)).thenReturn(Optional.of(comment));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(postRepository.decrementCommentCount(1L)).thenReturn(1);
         when(pointHistoryRepository.findByUserAndTypeAndRelatedTypeAndRelatedIdOrderByCreatedAtAsc(
