@@ -293,6 +293,60 @@ class GlobalConfigServiceTest {
     }
 
     @Test
+    @DisplayName("updateConfig refreshes cache after transaction commit when synchronization is active")
+    void updateConfig_activeTransactionSynchronization_refreshesCacheAfterCommit() {
+        try (MockedStatic<SecurityUtils> utilities = Mockito.mockStatic(SecurityUtils.class)) {
+            GlobalConfig config = new GlobalConfig("key", "old", "old");
+            utilities.when(SecurityUtils::validateSuperAdminPermission).thenAnswer(invocation -> null);
+            when(globalConfigRepository.findById("key")).thenReturn(Optional.of(config));
+            when(globalConfigRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+            when(cacheManager.getCache("globalConfig")).thenReturn(cache);
+
+            TransactionSynchronizationManager.initSynchronization();
+            TransactionSynchronizationManager.setActualTransactionActive(true);
+            try {
+                GlobalConfigResponse updated = globalConfigService.updateConfig("key", "new", "new");
+
+                assertThat(updated.getValue()).isEqualTo("new");
+                verify(cache, never()).put(any(), any());
+
+                TransactionSynchronizationManager.getSynchronizations()
+                        .forEach(synchronization -> synchronization.afterCommit());
+                verify(cache).put("key", "new");
+            } finally {
+                TransactionSynchronizationManager.setActualTransactionActive(false);
+                TransactionSynchronizationManager.clearSynchronization();
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("deleteConfig evicts cache after transaction commit when synchronization is active")
+    void deleteConfig_activeTransactionSynchronization_evictsCacheAfterCommit() {
+        try (MockedStatic<SecurityUtils> utilities = Mockito.mockStatic(SecurityUtils.class)) {
+            utilities.when(SecurityUtils::validateSuperAdminPermission).thenAnswer(invocation -> null);
+            when(globalConfigRepository.existsById("key")).thenReturn(true);
+            when(cacheManager.getCache("globalConfig")).thenReturn(cache);
+
+            TransactionSynchronizationManager.initSynchronization();
+            TransactionSynchronizationManager.setActualTransactionActive(true);
+            try {
+                globalConfigService.deleteConfig("key");
+
+                verify(cache, never()).evict(any());
+                verify(globalConfigRepository).deleteById("key");
+
+                TransactionSynchronizationManager.getSynchronizations()
+                        .forEach(synchronization -> synchronization.afterCommit());
+                verify(cache).evict("key");
+            } finally {
+                TransactionSynchronizationManager.setActualTransactionActive(false);
+                TransactionSynchronizationManager.clearSynchronization();
+            }
+        }
+    }
+
+    @Test
     @DisplayName("updateConfig rejects invalid point config values")
     void updateConfig_pointConfig_rejectsInvalidValue() {
         try (MockedStatic<SecurityUtils> utilities = Mockito.mockStatic(SecurityUtils.class)) {

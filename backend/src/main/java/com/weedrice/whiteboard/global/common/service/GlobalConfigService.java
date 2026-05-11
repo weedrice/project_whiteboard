@@ -10,7 +10,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
-import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -89,7 +88,6 @@ public class GlobalConfigService {
     }
 
     @Transactional
-    @CacheEvict(value = GLOBAL_CONFIG_CACHE, key = "#key")
     public GlobalConfigResponse updateConfig(String key, String value, String description) {
         SecurityUtils.validateSuperAdminPermission();
         validateConfigValue(key, value);
@@ -101,17 +99,19 @@ public class GlobalConfigService {
             config.setDescription(description);
         }
 
-        return GlobalConfigResponse.from(globalConfigRepository.save(config));
+        GlobalConfig savedConfig = globalConfigRepository.save(config);
+        putConfigCacheAfterCommit(key, savedConfig.getConfigValue());
+        return GlobalConfigResponse.from(savedConfig);
     }
 
     @Transactional
-    @CacheEvict(value = GLOBAL_CONFIG_CACHE, key = "#key")
     public void deleteConfig(String key) {
         SecurityUtils.validateSuperAdminPermission();
         if (!globalConfigRepository.existsById(key)) {
             throw new BusinessException(ErrorCode.NOT_FOUND);
         }
         globalConfigRepository.deleteById(key);
+        evictConfigCacheAfterCommit(key);
     }
 
     private void putConfigCache(String key, String value) {
@@ -122,9 +122,24 @@ public class GlobalConfigService {
     }
 
     private void putConfigCacheAfterCommit(String key, String value) {
+        runConfigCacheActionAfterCommit(key, "refresh", () -> putConfigCache(key, value));
+    }
+
+    private void evictConfigCache(String key) {
+        Cache cache = cacheManager.getCache(GLOBAL_CONFIG_CACHE);
+        if (cache != null) {
+            cache.evict(key);
+        }
+    }
+
+    private void evictConfigCacheAfterCommit(String key) {
+        runConfigCacheActionAfterCommit(key, "evict", () -> evictConfigCache(key));
+    }
+
+    private void runConfigCacheActionAfterCommit(String key, String action, Runnable cacheAction) {
         if (!TransactionSynchronizationManager.isSynchronizationActive()
                 || !TransactionSynchronizationManager.isActualTransactionActive()) {
-            putConfigCache(key, value);
+            cacheAction.run();
             return;
         }
 
@@ -132,9 +147,9 @@ public class GlobalConfigService {
             @Override
             public void afterCommit() {
                 try {
-                    putConfigCache(key, value);
+                    cacheAction.run();
                 } catch (RuntimeException ex) {
-                    log.warn("Failed to refresh global config cache after commit: key={}", key, ex);
+                    log.warn("Failed to {} global config cache after commit: key={}", action, key, ex);
                 }
             }
         });
