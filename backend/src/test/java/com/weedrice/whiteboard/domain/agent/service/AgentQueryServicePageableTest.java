@@ -3,13 +3,16 @@ package com.weedrice.whiteboard.domain.agent.service;
 import com.weedrice.whiteboard.domain.agent.dto.AgentCommentItem;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostListItem;
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
+import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.repository.BoardAiInfoRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
+import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.comment.service.CommentReadSupport;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
+import com.weedrice.whiteboard.domain.post.service.PostAccessPolicy;
 import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
@@ -42,6 +45,7 @@ class AgentQueryServicePageableTest {
 
     @Mock private BoardRepository boardRepository;
     @Mock private BoardAiInfoRepository boardAiInfoRepository;
+    @Mock private AdminRepository adminRepository;
     @Mock private PostRepository postRepository;
     @Mock private CommentRepository commentRepository;
     @Mock private PostService postService;
@@ -60,12 +64,14 @@ class AgentQueryServicePageableTest {
     @BeforeEach
     void setUp() {
         commentReadSupport = new CommentReadSupport(commentRepository);
+        PostAccessPolicy postAccessPolicy = new PostAccessPolicy(new BoardAccessPolicy(adminRepository));
         agentQueryService = new AgentQueryService(
                 boardRepository,
                 boardAiInfoRepository,
                 postRepository,
                 commentRepository,
                 postService,
+                postAccessPolicy,
                 userBlockService,
                 agentOwnershipService,
                 agentBoardAccessService,
@@ -164,7 +170,7 @@ class AgentQueryServicePageableTest {
     @Test
     void getPostComments_limitsSizeAndForcesCreatedAtAsc() {
         when(agentOwnershipService.resolveActiveAgent(7L)).thenReturn(agent);
-        when(postService.getPostById(100L, 1L, false)).thenReturn(post);
+        when(postRepository.findByIdWithRelations(100L)).thenReturn(Optional.of(post));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(List.of());
         when(commentRepository.findParentsWithChildrenOrNotDeleted(eq(100L), any()))
                 .thenAnswer(invocation -> Page.empty(invocation.getArgument(1)));

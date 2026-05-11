@@ -16,6 +16,7 @@ import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.comment.service.CommentReadSupport;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
+import com.weedrice.whiteboard.domain.post.service.PostAccessPolicy;
 import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -59,6 +60,7 @@ public class AgentQueryService {
     private final PostRepository postRepository;
     private final CommentRepository commentRepository;
     private final PostService postService;
+    private final PostAccessPolicy postAccessPolicy;
     private final UserBlockService userBlockService;
     private final AgentOwnershipService agentOwnershipService;
     private final AgentBoardAccessService agentBoardAccessService;
@@ -208,13 +210,10 @@ public class AgentQueryService {
 
     public Page<AgentCommentItem> getPostComments(Long agentId, Long postId, Pageable pageable) {
         Agent agent = agentOwnershipService.resolveActiveAgent(agentId);
-        Post post = postService.getPostById(postId, agent.getUser().getUserId(), false);
-        agentBoardAccessService.validateAgentBoardReadable(agent, post.getBoard());
-
         List<Long> blockedUserIdList = resolveBlockedUserIds(agent.getUser().getUserId());
-        Set<Long> blockedUserIds = blockedUserIdList == null || blockedUserIdList.isEmpty()
-                ? Set.of()
-                : Set.copyOf(blockedUserIdList);
+        Set<Long> blockedUserIds = toBlockedUserIdSet(blockedUserIdList);
+        validateReadableAgentCommentPost(agent, postId, blockedUserIds);
+
         Pageable effectivePageable = boundedPageable(
                 pageable,
                 DEFAULT_READ_PAGE_SIZE_LIMIT,
@@ -263,6 +262,20 @@ public class AgentQueryService {
 
     private List<Long> resolveBlockedUserIds(Long userId) {
         return userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(userId);
+    }
+
+    private Set<Long> toBlockedUserIdSet(List<Long> blockedUserIds) {
+        return blockedUserIds == null || blockedUserIds.isEmpty()
+                ? Set.of()
+                : Set.copyOf(blockedUserIds);
+    }
+
+    private void validateReadableAgentCommentPost(Agent agent, Long postId, Set<Long> blockedUserIds) {
+        Post post = postRepository.findByIdWithRelations(postId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
+        boolean authorBlocked = post.getUser() != null && blockedUserIds.contains(post.getUser().getUserId());
+        postAccessPolicy.validateReadable(post, agent.getUser(), authorBlocked);
+        agentBoardAccessService.validateAgentBoardReadable(agent, post.getBoard());
     }
 
     private AgentCommentItem toAgentCommentItem(Comment comment, Set<Long> blockedUserIds, Map<Long, Long> replyCounts) {

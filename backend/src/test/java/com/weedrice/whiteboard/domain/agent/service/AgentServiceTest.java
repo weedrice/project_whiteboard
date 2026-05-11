@@ -21,6 +21,7 @@ import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
 import com.weedrice.whiteboard.domain.board.repository.BoardAiInfoRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardCategoryRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
+import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.comment.service.CommentCreateContext;
@@ -28,6 +29,7 @@ import com.weedrice.whiteboard.domain.comment.service.CommentReadSupport;
 import com.weedrice.whiteboard.domain.comment.service.CommentService;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
+import com.weedrice.whiteboard.domain.post.service.PostAccessPolicy;
 import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionPolicyService;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
@@ -153,12 +155,14 @@ class AgentServiceTest {
                 sanctionPolicyService,
                 entityManager);
         agentAuthService = new AgentAuthService(agentRepository, agentOwnershipService);
+        PostAccessPolicy postAccessPolicy = new PostAccessPolicy(new BoardAccessPolicy(adminRepository));
         agentQueryService = new AgentQueryService(
                 boardRepository,
                 boardAiInfoRepository,
                 postRepository,
                 commentRepository,
                 postService,
+                postAccessPolicy,
                 userBlockService,
                 agentOwnershipService,
                 agentBoardAccessService,
@@ -1082,7 +1086,7 @@ class AgentServiceTest {
     @Test
     void getPostComments_forbiddenWhenPostBoardIsNotReadable() {
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
-        when(postService.getPostById(200L, 1L, false)).thenReturn(blockedPost);
+        when(postRepository.findByIdWithRelations(200L)).thenReturn(Optional.of(blockedPost));
 
         assertThatThrownBy(() -> agentQueryService.getPostComments(7L, 200L, PageRequest.of(0, 10)))
                 .isInstanceOf(BusinessException.class)
@@ -1101,7 +1105,7 @@ class AgentServiceTest {
         ReflectionTestUtils.setField(readableOnlyPost, "postId", 300L);
 
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
-        when(postService.getPostById(300L, 1L, false)).thenReturn(readableOnlyPost);
+        when(postRepository.findByIdWithRelations(300L)).thenReturn(Optional.of(readableOnlyPost));
         Pageable commentsPageable = PageRequest.of(0, 10, Sort.by(Sort.Direction.ASC, "createdAt"));
         when(commentRepository.findParentsWithChildrenOrNotDeleted(300L, commentsPageable))
                 .thenReturn(Page.empty(commentsPageable));
@@ -1111,6 +1115,43 @@ class AgentServiceTest {
         assertThat(response.getContent()).isEmpty();
         verify(commentRepository).findParentsWithChildrenOrNotDeleted(300L, commentsPageable);
         verify(postService, never()).canWriteToBoard(anyLong(), any());
+    }
+
+    @Test
+    void getPostComments_deletedPost_returnsPostNotFound() {
+        ReflectionTestUtils.setField(writablePost, "isDeleted", true);
+        when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+        when(postRepository.findByIdWithRelations(100L)).thenReturn(Optional.of(writablePost));
+
+        assertThatThrownBy(() -> agentQueryService.getPostComments(7L, 100L, PageRequest.of(0, 10)))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
+
+        verify(commentRepository, never()).findParentsWithChildrenOrNotDeleted(anyLong(), any());
+    }
+
+    @Test
+    void getPostComments_blockedPostAuthor_returnsPostNotFound() {
+        User postAuthor = User.builder().loginId("post-author").displayName("Post Author").build();
+        ReflectionTestUtils.setField(postAuthor, "userId", 2L);
+        Post blockedAuthorPost = Post.builder()
+                .board(writableBoard)
+                .user(postAuthor)
+                .title("Blocked author post")
+                .contents("content")
+                .build();
+        ReflectionTestUtils.setField(blockedAuthorPost, "postId", 400L);
+        ReflectionTestUtils.setField(blockedAuthorPost, "isDeleted", false);
+
+        when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+        when(postRepository.findByIdWithRelations(400L)).thenReturn(Optional.of(blockedAuthorPost));
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(List.of(2L));
+
+        assertThatThrownBy(() -> agentQueryService.getPostComments(7L, 400L, PageRequest.of(0, 10)))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
+
+        verify(commentRepository, never()).findParentsWithChildrenOrNotDeleted(anyLong(), any());
     }
 
     @Test
@@ -1137,7 +1178,7 @@ class AgentServiceTest {
         ReflectionTestUtils.setField(deletedComment, "isDeleted", true);
 
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
-        when(postService.getPostById(100L, 1L, false)).thenReturn(writablePost);
+        when(postRepository.findByIdWithRelations(100L)).thenReturn(Optional.of(writablePost));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(List.of(2L));
         Pageable commentsPageable = PageRequest.of(0, 10, Sort.by(Sort.Direction.ASC, "createdAt"));
         when(commentRepository.findParentsWithChildrenOrNotDeleted(100L, commentsPageable))
