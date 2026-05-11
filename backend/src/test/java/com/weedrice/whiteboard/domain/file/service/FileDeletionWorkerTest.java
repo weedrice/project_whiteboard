@@ -29,6 +29,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -88,23 +89,23 @@ class FileDeletionWorkerTest {
     }
 
     @Test
-    @DisplayName("stale deleting 파일이 이모티콘에서 참조 중이면 실패 상태로 남긴다")
-    void processDeletion_marksStaleDeletingReferenceAsFailed() {
+    @DisplayName("stale deleting 파일은 이모티콘 참조를 확인하지 않고 삭제를 이어간다")
+    void processDeletion_deletesStaleDeletingFileWithoutReferenceCheck() {
         File file = deletingFile();
 
         when(fileRepository.findDeletionClaimCandidateForUpdate(eq(10L), eq(5), any()))
                 .thenReturn(Optional.of(file));
-        when(fileRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(file));
-        when(emoticonImageRepository.existsByImageUrlIn(List.of("/api/v1/files/10", "/files/10")))
-                .thenReturn(true);
-        executeTransactionCallbackOnly();
+        when(fileRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(file), Optional.of(file));
+        executeTransactions();
 
         fileDeletionWorker.processDeletion(10L);
 
-        assertThat(file.getStorageStatus()).isEqualTo(FileStorageStatus.DELETE_FAILED);
-        assertThat(file.getDeleteRetryCount()).isEqualTo(1);
-        verify(fileStorageService, never()).deleteFileOrThrow(any());
-        verify(fileRepository, never()).delete(any());
+        verify(fileStorageService).deleteFileOrThrow("stored.jpg");
+        verify(fileRepository).delete(file);
+        verify(emoticonImageRepository, never()).existsByImageUrlIn(any());
+        verify(emoticonMasterRepository, never()).existsByThumbnailUrlIn(any());
+        assertThat(file.getStorageStatus()).isEqualTo(FileStorageStatus.DELETING);
+        assertThat(file.getDeleteRetryCount()).isZero();
     }
 
     @Test
@@ -148,6 +149,28 @@ class FileDeletionWorkerTest {
         assertThat(file.getStorageStatus()).isEqualTo(FileStorageStatus.DELETING);
         assertThat(file.getDeleteRetryCount()).isZero();
         verify(fileRepository, never()).delete(any());
+    }
+
+    @Test
+    @DisplayName("스토리지 삭제 후에는 이모티콘 참조를 다시 검사하지 않고 파일 레코드를 삭제한다")
+    void processDeletion_doesNotRecheckReferenceAfterStorageDelete() {
+        File file = pendingFile();
+
+        when(fileRepository.findDeletionClaimCandidateForUpdate(eq(10L), eq(5), any()))
+                .thenReturn(Optional.of(file));
+        when(fileRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(file), Optional.of(file));
+        when(emoticonImageRepository.existsByImageUrlIn(List.of("/api/v1/files/10", "/files/10")))
+                .thenReturn(false);
+        executeTransactions();
+
+        fileDeletionWorker.processDeletion(10L);
+
+        verify(fileStorageService).deleteFileOrThrow("stored.jpg");
+        verify(fileRepository).delete(file);
+        verify(emoticonImageRepository, times(1))
+                .existsByImageUrlIn(List.of("/api/v1/files/10", "/files/10"));
+        assertThat(file.getStorageStatus()).isEqualTo(FileStorageStatus.DELETING);
+        assertThat(file.getDeleteRetryCount()).isZero();
     }
 
     @Test

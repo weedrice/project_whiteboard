@@ -26,9 +26,6 @@ public class FileDeletionWorker {
 
     private static final int MAX_DELETE_RETRY_COUNT = 5;
     private static final int DELETE_CLAIM_STALE_MINUTES = 30;
-    private static final String REFERENCED_BEFORE_STORAGE_ERROR = "File deletion blocked by active reference";
-    private static final String REFERENCED_AFTER_STORAGE_ERROR =
-            "File deletion blocked by active reference after storage delete";
 
     private final FileRepository fileRepository;
     private final FileStorageService fileStorageService;
@@ -85,14 +82,13 @@ public class FileDeletionWorker {
         return Boolean.TRUE.equals(transactionTemplate.execute(status -> fileRepository
                 .findByIdForUpdate(snapshot.fileId())
                 .map(current -> {
-                    if (!snapshot.matches(current) || !isReferencedByEmoticon(current)) {
+                    if (!snapshot.matches(current) || snapshot.staleProcessingClaim()) {
                         return false;
                     }
-                    if (snapshot.staleProcessingClaim()) {
-                        current.markDeletionFailed(REFERENCED_BEFORE_STORAGE_ERROR);
-                    } else {
-                        current.cancelDeletionRequest();
+                    if (!isReferencedByEmoticon(current)) {
+                        return false;
                     }
+                    current.cancelDeletionRequest();
                     return true;
                 })
                 .orElse(false)));
@@ -131,10 +127,6 @@ public class FileDeletionWorker {
         transactionTemplate.executeWithoutResult(status -> fileRepository.findByIdForUpdate(snapshot.fileId())
                 .ifPresent(current -> {
                     if (!snapshot.matches(current)) {
-                        return;
-                    }
-                    if (isReferencedByEmoticon(current)) {
-                        current.markDeletionFailed(REFERENCED_AFTER_STORAGE_ERROR);
                         return;
                     }
                     if (current.isDeletionRequested()) {
