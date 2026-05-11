@@ -139,15 +139,16 @@ class PostServiceTest {
     @BeforeEach
     void setUp() {
         boardAccessPolicy = new BoardAccessPolicy(adminRepository);
+        PostInteractionContextResolver postInteractionContextResolver = new PostInteractionContextResolver(
+                userRepository,
+                postLikeRepository,
+                scrapRepository,
+                boardSubscriptionRepository);
         postSummaryAssembler = new PostSummaryAssembler(
                 fileService,
                 commentRepository,
                 boardAccessPolicy,
-                new PostInteractionContextResolver(
-                        userRepository,
-                        postLikeRepository,
-                        scrapRepository,
-                        boardSubscriptionRepository),
+                postInteractionContextResolver,
                 new PostContentSummaryExtractor());
         postAccessPolicy = new PostAccessPolicy(boardAccessPolicy);
         PostReadContextResolver postReadContextResolver = new PostReadContextResolver(
@@ -161,13 +162,12 @@ class PostServiceTest {
         viewHistoryCommandService = new ViewHistoryCommandService(viewHistoryRepository);
         postDetailReadService = new PostDetailReadService(
                 postRepository,
-                postLikeRepository,
-                scrapRepository,
                 viewHistoryRepository,
                 viewHistoryCommandService,
                 tagAssignmentService,
                 postImageAttachmentReader,
                 postReadContextResolver,
+                postInteractionContextResolver,
                 postAccessPolicy,
                 boardAccessPolicy);
         postDraftService = new PostDraftService(
@@ -2068,8 +2068,10 @@ class PostServiceTest {
                 .thenReturn(Optional.of(new ViewHistory(user, post)));
         lenient().when(viewHistoryRepository.insertIgnore(1L, 1L)).thenReturn(1);
         lenient().when(tagAssignmentService.getTagNames(post)).thenReturn(Collections.emptyList());
-        lenient().when(postLikeRepository.existsById(any(PostLikeId.class))).thenReturn(false);
-        lenient().when(scrapRepository.existsById(any(ScrapId.class))).thenReturn(false);
+        lenient().when(postLikeRepository.findPostIdsByUserIdAndPostIdIn(eq(1L), anyCollection()))
+                .thenReturn(List.of(1L));
+        lenient().when(scrapRepository.findPostIdsByUserIdAndPostIdIn(eq(1L), anyCollection()))
+                .thenReturn(List.of(1L));
         lenient().when(fileService.getFilesByRelatedEntity(1L, "POST_CONTENT")).thenReturn(Collections.emptyList());
         lenient().when(adminRepository.findByUserAndBoardAndIsActive(user, board, true)).thenReturn(Optional.empty());
         lenient().when(postRepository.countPostsBeforeInBoardDefaultOrder(
@@ -2083,6 +2085,9 @@ class PostServiceTest {
         assertThat(response.getTitle()).isEqualTo("Test Post");
         assertThat(response.getViewCount()).isEqualTo(1);
         assertThat(response.getBoardListPage()).isEqualTo(2);
+        assertThat(response.isLiked()).isTrue();
+        assertThat(response.isScrapped()).isTrue();
+        verify(boardSubscriptionRepository, never()).findBoardUrlsByUserIdAndBoardIdIn(eq(1L), anyCollection());
     }
 
     @Test
@@ -2140,8 +2145,10 @@ class PostServiceTest {
         when(viewHistoryRepository.touchModifiedAt(1L, 1L)).thenReturn(1);
         when(viewHistoryRepository.findByUserAndPost(user, post)).thenReturn(Optional.of(existing));
         when(tagAssignmentService.getTagNames(post)).thenReturn(Collections.emptyList());
-        when(postLikeRepository.existsById(any(PostLikeId.class))).thenReturn(false);
-        when(scrapRepository.existsById(any(ScrapId.class))).thenReturn(false);
+        when(postLikeRepository.findPostIdsByUserIdAndPostIdIn(eq(1L), anyCollection()))
+                .thenReturn(Collections.emptyList());
+        when(scrapRepository.findPostIdsByUserIdAndPostIdIn(eq(1L), anyCollection()))
+                .thenReturn(Collections.emptyList());
         when(fileService.getFilesByRelatedEntity(1L, "POST_CONTENT")).thenReturn(Collections.emptyList());
         when(postRepository.countPostsBeforeInBoardDefaultOrder(
                 eq(1L), nullable(LocalDateTime.class), eq(1L), eq(Collections.emptyList()), anyBoolean(), eq(1L)))
@@ -2178,8 +2185,10 @@ class PostServiceTest {
         lenient().when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         lenient().when(viewHistoryRepository.findByUserAndPost(user, post)).thenReturn(Optional.empty());
         lenient().when(tagAssignmentService.getTagNames(post)).thenReturn(Collections.emptyList());
-        lenient().when(postLikeRepository.existsById(any(PostLikeId.class))).thenReturn(false);
-        lenient().when(scrapRepository.existsById(any(ScrapId.class))).thenReturn(false);
+        lenient().when(postLikeRepository.findPostIdsByUserIdAndPostIdIn(eq(1L), anyCollection()))
+                .thenReturn(Collections.emptyList());
+        lenient().when(scrapRepository.findPostIdsByUserIdAndPostIdIn(eq(1L), anyCollection()))
+                .thenReturn(Collections.emptyList());
         lenient().when(fileService.getFilesByRelatedEntity(1L, "POST_CONTENT")).thenReturn(Collections.emptyList());
         lenient().when(postRepository.countPostsBeforeInBoardDefaultOrder(
                 eq(1L), nullable(LocalDateTime.class), eq(1L), eq(Collections.emptyList()), anyBoolean(), eq(1L)))
@@ -2199,8 +2208,10 @@ class PostServiceTest {
         lenient().when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         lenient().when(viewHistoryRepository.findByUserAndPost(user, post)).thenReturn(Optional.empty());
         lenient().when(tagAssignmentService.getTagNames(post)).thenReturn(Collections.emptyList());
-        lenient().when(postLikeRepository.existsById(any(PostLikeId.class))).thenReturn(false);
-        lenient().when(scrapRepository.existsById(any(ScrapId.class))).thenReturn(false);
+        lenient().when(postLikeRepository.findPostIdsByUserIdAndPostIdIn(eq(1L), anyCollection()))
+                .thenReturn(Collections.emptyList());
+        lenient().when(scrapRepository.findPostIdsByUserIdAndPostIdIn(eq(1L), anyCollection()))
+                .thenReturn(Collections.emptyList());
         lenient().when(fileService.getFilesByRelatedEntity(1L, "POST_CONTENT")).thenReturn(Collections.emptyList());
         lenient().when(postRepository.countPostsBeforeInBoardDefaultOrder(
                 eq(1L), nullable(LocalDateTime.class), eq(1L), eq(Collections.emptyList()), anyBoolean(), eq(1L)))
@@ -2230,8 +2241,10 @@ class PostServiceTest {
         lenient().when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         lenient().when(postRepository.findById(1L)).thenReturn(Optional.of(post));
         lenient().when(tagAssignmentService.getTagNames(post)).thenReturn(Collections.emptyList());
-        lenient().when(postLikeRepository.existsById(any(PostLikeId.class))).thenReturn(false);
-        lenient().when(scrapRepository.existsById(any(ScrapId.class))).thenReturn(false);
+        lenient().when(postLikeRepository.findPostIdsByUserIdAndPostIdIn(eq(1L), anyCollection()))
+                .thenReturn(Collections.emptyList());
+        lenient().when(scrapRepository.findPostIdsByUserIdAndPostIdIn(eq(1L), anyCollection()))
+                .thenReturn(Collections.emptyList());
         lenient().when(fileService.getFilesByRelatedEntity(1L, "POST_CONTENT")).thenReturn(Collections.emptyList());
         lenient().when(adminRepository.findByUserAndBoardAndIsActive(user, board, true)).thenReturn(Optional.empty());
 

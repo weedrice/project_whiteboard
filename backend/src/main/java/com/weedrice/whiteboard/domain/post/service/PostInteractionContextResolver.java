@@ -35,20 +35,48 @@ public class PostInteractionContextResolver {
             return PostUserInteractionContext.empty();
         }
 
-        Set<Long> postIds = posts.stream()
+        Set<Long> postIds = resolvePostIds(posts);
+
+        return new PostUserInteractionContext(
+                resolveLikedPostIds(currentUserId, postIds),
+                resolveScrappedPostIds(currentUserId, postIds),
+                resolveSubscribedBoardUrls(currentUserId, posts));
+    }
+
+    PostUserInteractionContext resolvePostReactionsForExistingUser(List<Post> posts, Long currentUserId) {
+        if (currentUserId == null || posts.isEmpty()) {
+            return PostUserInteractionContext.empty();
+        }
+
+        Set<Long> postIds = resolvePostIds(posts);
+
+        return new PostUserInteractionContext(
+                resolveLikedPostIds(currentUserId, postIds),
+                resolveScrappedPostIds(currentUserId, postIds),
+                Set.of());
+    }
+
+    private Set<Long> resolvePostIds(List<Post> posts) {
+        return posts.stream()
                 .map(Post::getPostId)
                 .collect(Collectors.toSet());
+    }
+
+    private Set<String> resolveSubscribedBoardUrls(Long currentUserId, List<Post> posts) {
         Set<Long> boardIds = posts.stream()
                 .map(post -> post.getBoard().getBoardId())
                 .collect(Collectors.toSet());
-        Set<Long> likedPostIds = postLikeRepository.findPostIdsByUserIdAndPostIdIn(currentUserId, postIds).stream()
+        return boardSubscriptionRepository.findBoardUrlsByUserIdAndBoardIdIn(currentUserId, boardIds).stream()
                 .collect(Collectors.toSet());
-        Set<Long> scrappedPostIds = scrapRepository.findPostIdsByUserIdAndPostIdIn(currentUserId, postIds).stream()
-                .collect(Collectors.toSet());
-        Set<String> subscribedBoardUrls = boardSubscriptionRepository
-                .findBoardUrlsByUserIdAndBoardIdIn(currentUserId, boardIds).stream()
-                .collect(Collectors.toSet());
+    }
 
-        return new PostUserInteractionContext(likedPostIds, scrappedPostIds, subscribedBoardUrls);
+    private Set<Long> resolveLikedPostIds(Long currentUserId, Set<Long> postIds) {
+        return postLikeRepository.findPostIdsByUserIdAndPostIdIn(currentUserId, postIds).stream()
+                .collect(Collectors.toSet());
+    }
+
+    private Set<Long> resolveScrappedPostIds(Long currentUserId, Set<Long> postIds) {
+        return scrapRepository.findPostIdsByUserIdAndPostIdIn(currentUserId, postIds).stream()
+                .collect(Collectors.toSet());
     }
 }

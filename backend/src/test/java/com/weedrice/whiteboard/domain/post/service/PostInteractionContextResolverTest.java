@@ -116,4 +116,29 @@ class PostInteractionContextResolverTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_FOUND);
     }
+
+    @Test
+    @DisplayName("post detail reactions skip user validation and board subscriptions")
+    void resolvePostReactionsForExistingUser_skipsUserAndSubscriptionLookup() {
+        when(postLikeRepository.findPostIdsByUserIdAndPostIdIn(1L, Set.of(100L)))
+                .thenReturn(List.of(100L));
+        when(scrapRepository.findPostIdsByUserIdAndPostIdIn(1L, Set.of(100L)))
+                .thenReturn(List.of(100L));
+
+        PostUserInteractionContext context = resolver.resolvePostReactionsForExistingUser(List.of(post), 1L);
+
+        assertThat(context.likedPostIds()).containsExactly(100L);
+        assertThat(context.scrappedPostIds()).containsExactly(100L);
+        assertThat(context.subscribedBoardUrls()).isEmpty();
+        verifyNoInteractions(userRepository, boardSubscriptionRepository);
+    }
+
+    @Test
+    @DisplayName("anonymous post detail reactions are empty")
+    void resolvePostReactionsForExistingUser_anonymous_returnsEmptyContext() {
+        PostUserInteractionContext context = resolver.resolvePostReactionsForExistingUser(List.of(post), null);
+
+        assertThat(context).isEqualTo(PostUserInteractionContext.empty());
+        verifyNoInteractions(userRepository, postLikeRepository, scrapRepository, boardSubscriptionRepository);
+    }
 }
