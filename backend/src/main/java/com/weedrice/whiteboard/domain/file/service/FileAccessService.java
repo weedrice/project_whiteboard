@@ -19,6 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -119,10 +120,14 @@ class FileAccessService {
         if (masters.stream().anyMatch(master -> master.isOwner(viewerUserId))) {
             return;
         }
-        for (EmoticonMaster master : masters) {
-            if (emoticonMasterRepository.canUseEmoticon(viewerUserId, master.getEmoticonId())) {
-                return;
-            }
+        List<Long> emoticonIds = masters.stream()
+                .map(EmoticonMaster::getEmoticonId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        if (!emoticonIds.isEmpty()
+                && emoticonMasterRepository.canUseAnyEmoticon(viewerUserId, emoticonIds)) {
+            return;
         }
         throw new BusinessException(ErrorCode.FORBIDDEN);
     }

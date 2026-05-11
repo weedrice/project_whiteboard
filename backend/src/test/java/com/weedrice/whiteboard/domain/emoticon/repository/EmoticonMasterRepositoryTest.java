@@ -41,4 +41,19 @@ class EmoticonMasterRepositoryTest {
                 .contains("e.thumbnailUrl IN :fileUrls")
                 .contains("i.imageUrl IN :fileUrls");
     }
+
+    @Test
+    @DisplayName("canUseAnyEmoticon checks entitlement for any requested master")
+    void canUseAnyEmoticon_declaresBulkEntitlementQuery() throws NoSuchMethodException {
+        var method = EmoticonMasterRepository.class.getMethod("canUseAnyEmoticon", Long.class, List.class);
+
+        Query query = method.getAnnotation(Query.class);
+
+        assertThat(query).isNotNull();
+        assertThat(query.value())
+                .contains("COUNT(e) > 0")
+                .contains("e.emoticonId IN :emoticonIds")
+                .contains("ep.purchaseId IS NOT NULL")
+                .contains("e.creator.userId = :userId");
+    }
 }

@@ -26,6 +26,8 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -170,7 +172,7 @@ class FileAccessServiceTest {
         File result = fileAccessService.getFileForDownload(10L, 1L);
 
         assertThat(result).isSameAs(file);
-        verify(emoticonMasterRepository, never()).canUseEmoticon(1L, 100L);
+        verify(emoticonMasterRepository, never()).canUseAnyEmoticon(anyLong(), anyList());
     }
 
     @Test
@@ -184,12 +186,33 @@ class FileAccessServiceTest {
         when(fileRepository.findByFileIdAndStorageStatus(10L, FileStorageStatus.ACTIVE)).thenReturn(Optional.of(file));
         when(emoticonMasterRepository.findFileAccessTargets(100L, List.of("/api/v1/files/10", "/files/10")))
                 .thenReturn(List.of(master));
-        when(emoticonMasterRepository.canUseEmoticon(1L, 100L)).thenReturn(true);
+        when(emoticonMasterRepository.canUseAnyEmoticon(1L, List.of(100L))).thenReturn(true);
 
         File result = fileAccessService.getFileForDownload(10L, 1L);
 
         assertThat(result).isSameAs(file);
-        verify(emoticonMasterRepository).canUseEmoticon(1L, 100L);
+        verify(emoticonMasterRepository).canUseAnyEmoticon(1L, List.of(100L));
+    }
+
+    @Test
+    @DisplayName("inactive emoticon file entitlement checks distinct emoticon ids once")
+    void getFileForDownload_inactiveEmoticonFile_checksDistinctEmoticonIdsOnce() {
+        User owner = User.builder().build();
+        ReflectionTestUtils.setField(owner, "userId", 2L);
+        File file = file(FileRelatedType.EMOTICON_IMAGE, 100L);
+        ReflectionTestUtils.setField(file, "fileId", 10L);
+        EmoticonMaster firstMaster = emoticonMaster(100L, owner, false);
+        EmoticonMaster duplicateMaster = emoticonMaster(100L, owner, false);
+        EmoticonMaster secondMaster = emoticonMaster(200L, owner, false);
+        when(fileRepository.findByFileIdAndStorageStatus(10L, FileStorageStatus.ACTIVE)).thenReturn(Optional.of(file));
+        when(emoticonMasterRepository.findFileAccessTargets(100L, List.of("/api/v1/files/10", "/files/10")))
+                .thenReturn(List.of(firstMaster, duplicateMaster, secondMaster));
+        when(emoticonMasterRepository.canUseAnyEmoticon(1L, List.of(100L, 200L))).thenReturn(true);
+
+        File result = fileAccessService.getFileForDownload(10L, 1L);
+
+        assertThat(result).isSameAs(file);
+        verify(emoticonMasterRepository).canUseAnyEmoticon(1L, List.of(100L, 200L));
     }
 
     @Test
@@ -220,7 +243,7 @@ class FileAccessServiceTest {
         when(fileRepository.findByFileIdAndStorageStatus(10L, FileStorageStatus.ACTIVE)).thenReturn(Optional.of(file));
         when(emoticonMasterRepository.findFileAccessTargets(100L, List.of("/api/v1/files/10", "/files/10")))
                 .thenReturn(List.of(master));
-        when(emoticonMasterRepository.canUseEmoticon(1L, 100L)).thenReturn(false);
+        when(emoticonMasterRepository.canUseAnyEmoticon(1L, List.of(100L))).thenReturn(false);
 
         assertThatThrownBy(() -> fileAccessService.getFileForDownload(10L, 1L))
                 .isInstanceOf(BusinessException.class)
