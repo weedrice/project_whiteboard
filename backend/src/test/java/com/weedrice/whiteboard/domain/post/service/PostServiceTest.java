@@ -1077,6 +1077,8 @@ class PostServiceTest {
     @DisplayName("좋아요 취소 성공")
     void unlikePost_success() {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
         when(postLikeRepository.deleteByUserIdAndPostId(1L, 1L)).thenReturn(1);
         when(postRepository.decrementLikeCount(1L)).thenReturn(1);
         when(postRepository.findLikeCountByPostId(1L)).thenReturn(0);
@@ -1084,7 +1086,7 @@ class PostServiceTest {
         int likeCount = postService.unlikePost(1L, 1L);
 
         verify(postLikeRepository).deleteByUserIdAndPostId(1L, 1L);
-        verify(postRepository, never()).findByIdWithRelations(1L);
+        verify(postRepository).findByIdWithRelations(1L);
         verify(postRepository).decrementLikeCount(1L);
         assertThat(likeCount).isZero();
     }
@@ -1093,18 +1095,20 @@ class PostServiceTest {
     @DisplayName("좋아요하지 않은 게시글 취소는 NOT_LIKED를 반환한다")
     void unlikePost_notLiked() {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
         when(postLikeRepository.deleteByUserIdAndPostId(1L, 1L)).thenReturn(0);
 
         assertThatThrownBy(() -> postService.unlikePost(1L, 1L))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.NOT_LIKED);
 
-        verify(postRepository, never()).findByIdWithRelations(anyLong());
+        verify(postRepository).findByIdWithRelations(1L);
         verify(postRepository, never()).decrementLikeCount(anyLong());
     }
 
     @Test
-    @DisplayName("?쒖꽦 BAN ?ъ슜?먮뒗 寃뚯떆湲 醫뗭븘??痍⑥냼?????녿떎")
+    @DisplayName("활성 BAN 사용자는 게시글 좋아요를 취소할 수 없다")
     void unlikePost_bannedUser_forbidden() {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE)).when(sanctionService).validateNotBanned(user);
@@ -1173,15 +1177,18 @@ class PostServiceTest {
     @DisplayName("스크랩 취소 성공")
     void unscrapPost_success() {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
         when(scrapRepository.deleteByUser_UserIdAndPost_PostId(1L, 1L)).thenReturn(1L);
 
         postService.unscrapPost(1L, 1L);
 
+        verify(postRepository).findByIdWithRelations(1L);
         verify(scrapRepository).deleteByUser_UserIdAndPost_PostId(1L, 1L);
     }
 
     @Test
-    @DisplayName("?쒖꽦 BAN ?ъ슜?먮뒗 寃뚯떆湲 ???ㅽ겕???⑥냼?????녿떎")
+    @DisplayName("활성 BAN 사용자는 게시글 스크랩을 취소할 수 없다")
     void unscrapPost_bannedUser_forbidden() {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE)).when(sanctionService).validateNotBanned(user);
@@ -1227,11 +1234,15 @@ class PostServiceTest {
     @DisplayName("unscrap returns NOT_SCRAPED when no row is deleted")
     void unscrapPost_notScrapped() {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
         when(scrapRepository.deleteByUser_UserIdAndPost_PostId(1L, 1L)).thenReturn(0L);
 
         assertThatThrownBy(() -> postService.unscrapPost(1L, 1L))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.NOT_SCRAPED);
+
+        verify(postRepository).findByIdWithRelations(1L);
     }
 
     @Test
@@ -2746,20 +2757,20 @@ class PostServiceTest {
     }
 
     @Test
-    @DisplayName("삭제된 게시글도 기존 좋아요 row가 있으면 취소할 수 있다")
-    void unlikePost_deletedPost_deletesOwnedLike() {
+    @DisplayName("삭제된 게시글의 좋아요 취소는 실패한다")
+    void unlikePost_deletedPost_throwsPostNotFound() {
         ReflectionTestUtils.setField(post, "isDeleted", true);
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(postLikeRepository.deleteByUserIdAndPostId(1L, 1L)).thenReturn(1);
-        when(postRepository.decrementLikeCount(1L)).thenReturn(1);
-        when(postRepository.findLikeCountByPostId(1L)).thenReturn(0);
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
 
-        int likeCount = postService.unlikePost(1L, 1L);
+        assertThatThrownBy(() -> postService.unlikePost(1L, 1L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
 
-        assertThat(likeCount).isZero();
-        verify(postRepository, never()).findByIdWithRelations(1L);
-        verify(postLikeRepository).deleteByUserIdAndPostId(1L, 1L);
+        verify(postLikeRepository, never()).deleteByUserIdAndPostId(anyLong(), anyLong());
+        verify(postRepository, never()).decrementLikeCount(anyLong());
     }
 
     @Test
@@ -2773,6 +2784,22 @@ class PostServiceTest {
         assertThatThrownBy(() -> postService.scrapPost(1L, 1L, "remark"))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("삭제된 게시글의 스크랩 취소는 실패한다")
+    void unscrapPost_deletedPost_throwsPostNotFound() {
+        ReflectionTestUtils.setField(post, "isDeleted", true);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
+
+        assertThatThrownBy(() -> postService.unscrapPost(1L, 1L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
+
+        verify(scrapRepository, never()).deleteByUser_UserIdAndPost_PostId(anyLong(), anyLong());
     }
 
     @Test

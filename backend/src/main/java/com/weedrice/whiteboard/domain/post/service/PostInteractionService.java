@@ -179,6 +179,7 @@ public class PostInteractionService {
     @Transactional
     public int unlikePost(@NonNull Long userId, @NonNull Long postId) {
         userWritableResolver.resolve(userId);
+        getPostById(postId, userId, false);
 
         int deletedCount = postLikeRepository.deleteByUserIdAndPostId(userId, postId);
         if (deletedCount == 0) {
@@ -208,6 +209,7 @@ public class PostInteractionService {
     @Transactional
     public void unscrapPost(@NonNull Long userId, @NonNull Long postId) {
         userWritableResolver.resolve(userId);
+        getPostById(postId, userId, false);
         long deletedCount = scrapRepository.deleteByUser_UserIdAndPost_PostId(userId, postId);
         if (deletedCount == 0) {
             throw new BusinessException(ErrorCode.NOT_SCRAPED);

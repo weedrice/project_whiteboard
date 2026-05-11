@@ -996,15 +996,20 @@ class CommentServiceTest {
     void unlikeComment_success() {
         User user = User.builder().displayName("User").build();
         ReflectionTestUtils.setField(user, "userId", 1L);
+        Board board = Board.builder().boardUrl("free").build();
+        Post post = Post.builder().board(board).user(user).build();
+        Comment comment = Comment.builder().user(user).post(post).build();
+        ReflectionTestUtils.setField(comment, "commentId", 10L);
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(commentRepository.findById(10L)).thenReturn(Optional.of(comment));
         when(commentLikeRepository.deleteByUserIdAndCommentId(1L, 10L)).thenReturn(1);
         when(commentRepository.decrementLikeCount(10L)).thenReturn(1);
 
         commentService.unlikeComment(1L, 10L);
 
         verify(commentLikeRepository).deleteByUserIdAndCommentId(1L, 10L);
-        verify(commentRepository, never()).findById(10L);
+        verify(commentRepository).findById(10L);
         verify(commentRepository).decrementLikeCount(10L);
     }
 
@@ -1013,15 +1018,66 @@ class CommentServiceTest {
     void unlikeComment_notLiked() {
         User user = User.builder().displayName("User").build();
         ReflectionTestUtils.setField(user, "userId", 1L);
+        Board board = Board.builder().boardUrl("free").build();
+        Post post = Post.builder().board(board).user(user).build();
+        Comment comment = Comment.builder().user(user).post(post).build();
+        ReflectionTestUtils.setField(comment, "commentId", 10L);
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(commentRepository.findById(10L)).thenReturn(Optional.of(comment));
         when(commentLikeRepository.deleteByUserIdAndCommentId(1L, 10L)).thenReturn(0);
 
         assertThatThrownBy(() -> commentService.unlikeComment(1L, 10L))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.NOT_LIKED);
 
-        verify(commentRepository, never()).findById(anyLong());
+        verify(commentRepository).findById(10L);
+        verify(commentRepository, never()).decrementLikeCount(anyLong());
+    }
+
+    @Test
+    @DisplayName("삭제된 댓글의 좋아요 취소는 실패한다")
+    void unlikeComment_deletedComment_throwsCommentNotFound() {
+        User user = User.builder().displayName("User").build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+        Board board = Board.builder().boardUrl("free").build();
+        Post post = Post.builder().board(board).user(user).build();
+        Comment comment = Comment.builder().user(user).post(post).build();
+        ReflectionTestUtils.setField(comment, "commentId", 10L);
+        comment.deleteComment();
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(commentRepository.findById(10L)).thenReturn(Optional.of(comment));
+
+        assertThatThrownBy(() -> commentService.unlikeComment(1L, 10L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.COMMENT_NOT_FOUND);
+
+        verify(commentLikeRepository, never()).deleteByUserIdAndCommentId(anyLong(), anyLong());
+        verify(commentRepository, never()).decrementLikeCount(anyLong());
+    }
+
+    @Test
+    @DisplayName("읽을 수 없는 게시글의 댓글 좋아요 취소는 실패한다")
+    void unlikeComment_authorBlocksViewer_throwsPostNotFound() {
+        User viewer = User.builder().displayName("Viewer").build();
+        ReflectionTestUtils.setField(viewer, "userId", 2L);
+        User author = User.builder().displayName("Author").build();
+        ReflectionTestUtils.setField(author, "userId", 1L);
+        Board board = Board.builder().boardUrl("free").creator(author).build();
+        Post post = Post.builder().board(board).user(author).build();
+        Comment comment = Comment.builder().user(author).post(post).build();
+        ReflectionTestUtils.setField(comment, "commentId", 10L);
+
+        when(userRepository.findById(2L)).thenReturn(Optional.of(viewer));
+        when(commentRepository.findById(10L)).thenReturn(Optional.of(comment));
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(2L)).thenReturn(List.of(1L));
+
+        assertThatThrownBy(() -> commentService.unlikeComment(2L, 10L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
+
+        verify(commentLikeRepository, never()).deleteByUserIdAndCommentId(anyLong(), anyLong());
         verify(commentRepository, never()).decrementLikeCount(anyLong());
     }
 
@@ -1315,7 +1371,7 @@ class CommentServiceTest {
     }
 
     @Test
-    @DisplayName("?쒖꽦 BAN ?ъ슜?먮뒗 ?볤? 醫뗭븘??痍⑥냼?????녿떎")
+    @DisplayName("활성 BAN 사용자는 댓글 좋아요를 취소할 수 없다")
     void unlikeComment_bannedUser_forbidden() {
         User user = User.builder().displayName("User").build();
         ReflectionTestUtils.setField(user, "userId", 1L);
