@@ -14,5 +14,10 @@ public class CommonCodeRequest {
     @NotBlank
     @Size(max = 100)
     private String typeName;
+    @Size(max = 255)
     private String description;
+
+    public void setDescription(String description) {
+        this.description = description == null ? null : description.trim();
+    }
 }

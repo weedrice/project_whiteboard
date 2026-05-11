@@ -25,10 +25,13 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.lang.reflect.Method;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -161,6 +164,47 @@ class CommonCodeControllerTest {
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.error.code").value(ErrorCode.DUPLICATE_RESOURCE.getCode()));
+    }
+
+    @Test
+    @DisplayName("공통 코드 설명이 255자를 초과하면 400을 반환한다")
+    void createCommonCode_descriptionTooLong_returnsBadRequest() throws Exception {
+        Map<String, Object> request = Map.of(
+                "typeCode", "TEST",
+                "typeName", "Test Code",
+                "description", "a".repeat(256));
+
+        mockMvc.perform(post("/api/v1/common-codes")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request))
+                        .with(csrf()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.error.code").value(ErrorCode.VALIDATION_ERROR.getCode()));
+
+        verify(commonCodeService, never()).createCommonCode(any(CommonCodeRequest.class));
+    }
+
+    @Test
+    @DisplayName("공통 코드 설명은 검증 전에 trim 된다")
+    void createCommonCode_trimsDescriptionBeforeValidation() throws Exception {
+        String description = "a".repeat(255);
+        Map<String, Object> request = Map.of(
+                "typeCode", "TEST",
+                "typeName", "Test Code",
+                "description", "  " + description + "  ");
+        CommonCodeResponse response = new CommonCodeResponse("TEST", "Test Code", description, null, null);
+        when(commonCodeService.createCommonCode(any(CommonCodeRequest.class))).thenReturn(response);
+
+        mockMvc.perform(post("/api/v1/common-codes")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request))
+                        .with(csrf()))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.success").value(true));
+
+        verify(commonCodeService).createCommonCode(argThat(commonCodeRequest ->
+                description.equals(commonCodeRequest.getDescription())));
     }
 
     @Test

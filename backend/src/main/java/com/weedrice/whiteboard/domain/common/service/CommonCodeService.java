@@ -21,6 +21,8 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class CommonCodeService {
 
+    private static final int MAX_DESCRIPTION_LENGTH = 255;
+
     private final CommonCodeRepository commonCodeRepository;
     private final CommonCodeDetailRepository commonCodeDetailRepository;
 
@@ -35,7 +37,7 @@ public class CommonCodeService {
         CommonCode commonCode = CommonCode.builder()
                 .typeCode(request.getTypeCode())
                 .typeName(request.getTypeName())
-                .description(request.getDescription())
+                .description(normalizeDescription(request.getDescription()))
                 .build();
 
         try {
@@ -62,8 +64,19 @@ public class CommonCodeService {
         CommonCode commonCode = commonCodeRepository.findById(typeCode)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
         
-        commonCode.update(request.getTypeName(), request.getDescription());
+        commonCode.update(request.getTypeName(), normalizeDescription(request.getDescription()));
         return CommonCodeResponse.from(commonCode);
+    }
+
+    private String normalizeDescription(String description) {
+        if (description == null) {
+            return null;
+        }
+        String normalized = description.trim();
+        if (normalized.length() > MAX_DESCRIPTION_LENGTH) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        return normalized;
     }
 
     // --- Common Code Detail ---

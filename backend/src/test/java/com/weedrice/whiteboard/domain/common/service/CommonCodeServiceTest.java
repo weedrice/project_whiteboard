@@ -85,6 +85,39 @@ class CommonCodeServiceTest {
     }
 
     @Test
+    @DisplayName("공통 코드 생성은 설명을 trim 해서 저장한다")
+    void createCommonCode_trimsDescription() {
+        CommonCodeRequest request = new CommonCodeRequest();
+        ReflectionTestUtils.setField(request, "typeCode", "NEW_TYPE");
+        ReflectionTestUtils.setField(request, "typeName", "New Type");
+        ReflectionTestUtils.setField(request, "description", "  New Description  ");
+
+        when(commonCodeRepository.existsById("NEW_TYPE")).thenReturn(false);
+        when(commonCodeRepository.saveAndFlush(any(CommonCode.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        CommonCodeResponse response = commonCodeService.createCommonCode(request);
+
+        assertThat(response.getDescription()).isEqualTo("New Description");
+    }
+
+    @Test
+    @DisplayName("공통 코드 생성은 설명이 255자를 초과하면 거부한다")
+    void createCommonCode_descriptionTooLong_invalidInput() {
+        CommonCodeRequest request = new CommonCodeRequest();
+        ReflectionTestUtils.setField(request, "typeCode", "NEW_TYPE");
+        ReflectionTestUtils.setField(request, "typeName", "New Type");
+        ReflectionTestUtils.setField(request, "description", "a".repeat(256));
+
+        when(commonCodeRepository.existsById("NEW_TYPE")).thenReturn(false);
+
+        assertThatThrownBy(() -> commonCodeService.createCommonCode(request))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+        verify(commonCodeRepository, never()).saveAndFlush(any(CommonCode.class));
+    }
+
+    @Test
     @DisplayName("공통 코드 생성 실패 - 중복된 타입 코드")
     void createCommonCode_fail_duplicate() {
         // given
@@ -179,6 +212,22 @@ class CommonCodeServiceTest {
         // then
         assertThat(response).isNotNull();
         verify(commonCodeRepository).findById("TEST_TYPE");
+    }
+
+    @Test
+    @DisplayName("공통 코드 수정은 설명이 255자를 초과하면 거부한다")
+    void updateCommonCode_descriptionTooLong_invalidInput() {
+        CommonCodeRequest request = new CommonCodeRequest();
+        ReflectionTestUtils.setField(request, "typeName", "Updated Type");
+        ReflectionTestUtils.setField(request, "description", "a".repeat(256));
+
+        when(commonCodeRepository.findById("TEST_TYPE")).thenReturn(Optional.of(commonCode));
+
+        assertThatThrownBy(() -> commonCodeService.updateCommonCode("TEST_TYPE", request))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+        assertThat(commonCode.getDescription()).isEqualTo("Test Description");
     }
 
     @Test

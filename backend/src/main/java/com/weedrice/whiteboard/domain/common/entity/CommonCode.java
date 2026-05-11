@@ -29,7 +29,7 @@ public class CommonCode {
     @Column(name = "type_name", nullable = false, length = 100)
     private String typeName;
 
-    @Column(name = "description")
+    @Column(name = "description", length = 255)
     private String description;
 
     @CreatedDate
