@@ -1725,7 +1725,7 @@ class PostServiceTest {
                 .thenReturn(Optional.empty())
                 .thenReturn(Optional.of(new ViewHistory(user, post)));
         when(viewHistoryRepository.insertIgnore(1L, 1L)).thenReturn(1);
-        when(commentRepository.findByCommentIdAndPost_PostId(100L, 1L))
+        when(commentRepository.findByCommentIdAndPost_PostIdAndIsDeletedFalse(100L, 1L))
                 .thenReturn(Optional.of(Comment.builder().post(post).build()));
 
         postService.updateViewHistory(1L, 1L, request);
@@ -1745,7 +1745,7 @@ class PostServiceTest {
                 .thenReturn(Optional.empty())
                 .thenReturn(Optional.of(existing));
         when(viewHistoryRepository.insertIgnore(1L, 1L)).thenReturn(0);
-        when(commentRepository.findByCommentIdAndPost_PostId(100L, 1L))
+        when(commentRepository.findByCommentIdAndPost_PostIdAndIsDeletedFalse(100L, 1L))
                 .thenReturn(Optional.of(Comment.builder().post(post).build()));
 
         postService.updateViewHistory(1L, 1L, request);
@@ -2984,7 +2984,7 @@ class PostServiceTest {
 
         postService.updateViewHistory(1L, 1L, request);
 
-        verify(commentRepository, never()).findByCommentIdAndPost_PostId(anyLong(), anyLong());
+        verify(commentRepository, never()).findByCommentIdAndPost_PostIdAndIsDeletedFalse(anyLong(), anyLong());
     }
 
     @Test
@@ -3045,11 +3045,28 @@ class PostServiceTest {
         ViewHistoryRequest request = new ViewHistoryRequest(200L, 1000L);
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
-        when(commentRepository.findByCommentIdAndPost_PostId(200L, 1L)).thenReturn(Optional.empty());
+        when(commentRepository.findByCommentIdAndPost_PostIdAndIsDeletedFalse(200L, 1L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> postService.updateViewHistory(1L, 1L, request))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+    }
+
+    @Test
+    @DisplayName("조회 이력 업데이트 - 삭제 댓글 커서는 실패한다")
+    void updateViewHistory_deletedComment_throwsInvalidInput() {
+        ViewHistoryRequest request = new ViewHistoryRequest(200L, 1000L);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+        when(commentRepository.findByCommentIdAndPost_PostIdAndIsDeletedFalse(200L, 1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> postService.updateViewHistory(1L, 1L, request))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+
+        verify(commentRepository).findByCommentIdAndPost_PostIdAndIsDeletedFalse(200L, 1L);
+        verify(viewHistoryRepository, never()).insertIgnore(anyLong(), anyLong());
+        verify(viewHistoryRepository, never()).findByUserAndPostForUpdate(anyLong(), anyLong());
     }
 
     @Test

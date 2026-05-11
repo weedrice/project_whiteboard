@@ -290,7 +290,7 @@ public class PostInteractionService {
         if (lastReadCommentId == null) {
             return null;
         }
-        return commentRepository.findByCommentIdAndPost_PostId(lastReadCommentId, postId)
+        return commentRepository.findByCommentIdAndPost_PostIdAndIsDeletedFalse(lastReadCommentId, postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_INPUT_VALUE));
     }
 

@@ -249,7 +249,7 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                         @org.springframework.data.repository.query.Param("start") LocalDateTime start,
                         @org.springframework.data.repository.query.Param("end") LocalDateTime end,
                         @org.springframework.data.repository.query.Param("inquiryBoardUrl") String inquiryBoardUrl);
-        Optional<Comment> findByCommentIdAndPost_PostId(Long commentId, Long postId);
+        Optional<Comment> findByCommentIdAndPost_PostIdAndIsDeletedFalse(Long commentId, Long postId);
 
         long countByUser(User user);
         long countByUserAndIsDeleted(User user, Boolean isDeleted);
