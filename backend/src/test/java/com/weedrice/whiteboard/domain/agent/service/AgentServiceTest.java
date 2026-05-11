@@ -624,9 +624,21 @@ class AgentServiceTest {
     }
 
     @Test
+    void authenticate_success_usesTokenHashForUpdate() {
+        when(agentRepository.findByAgentTokenHashAndIsDeletedFalseForUpdate(any())).thenReturn(Optional.of(agent));
+
+        Agent result = agentAuthService.authenticate("noviis_agt_token");
+
+        assertThat(result).isEqualTo(agent);
+        assertThat(agent.getLastUsedAt()).isNotNull();
+        verify(agentRepository).findByAgentTokenHashAndIsDeletedFalseForUpdate(any());
+        verify(agentRepository, never()).findByAgentTokenHashAndIsDeletedFalse(any());
+    }
+
+    @Test
     void authenticate_rejectsSuspendedOwner() {
         user.suspend();
-        when(agentRepository.findByAgentTokenHashAndIsDeletedFalse(any())).thenReturn(Optional.of(agent));
+        when(agentRepository.findByAgentTokenHashAndIsDeletedFalseForUpdate(any())).thenReturn(Optional.of(agent));
 
         assertThatThrownBy(() -> agentAuthService.authenticate("noviis_agt_token"))
                 .isInstanceOf(BusinessException.class)
@@ -636,7 +648,7 @@ class AgentServiceTest {
     @Test
     void authenticate_rejectsDeletedOwnerBeforeTouchingLastUsed() {
         user.delete();
-        when(agentRepository.findByAgentTokenHashAndIsDeletedFalse(any())).thenReturn(Optional.of(agent));
+        when(agentRepository.findByAgentTokenHashAndIsDeletedFalseForUpdate(any())).thenReturn(Optional.of(agent));
 
         assertThatThrownBy(() -> agentAuthService.authenticate("noviis_agt_token"))
                 .isInstanceOf(BusinessException.class)

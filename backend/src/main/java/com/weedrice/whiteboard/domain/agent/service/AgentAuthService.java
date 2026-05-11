@@ -23,7 +23,7 @@ public class AgentAuthService {
 
     @Transactional
     public Agent authenticate(String rawToken) {
-        Agent agent = agentRepository.findByAgentTokenHashAndIsDeletedFalse(hashToken(rawToken))
+        Agent agent = agentRepository.findByAgentTokenHashAndIsDeletedFalseForUpdate(hashToken(rawToken))
                 .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED));
         agentOwnershipService.validateAuthenticatedAgent(agent);
         agent.touchLastUsed();
