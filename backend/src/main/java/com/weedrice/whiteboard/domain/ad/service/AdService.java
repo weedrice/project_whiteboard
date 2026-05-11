@@ -7,6 +7,7 @@ import com.weedrice.whiteboard.domain.ad.repository.AdClickLogRepository;
 import com.weedrice.whiteboard.domain.ad.repository.AdRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.global.common.util.ClientMetadataNormalizer;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -80,7 +81,7 @@ public class AdService {
         AdClickLog clickLog = AdClickLog.builder()
                 .ad(ad)
                 .user(user)
-                .ipAddress(ipAddress)
+                .ipAddress(ClientMetadataNormalizer.normalizeIpAddress(ipAddress))
                 .clickedAt(now)
                 .build();
         adClickLogRepository.save(clickLog);

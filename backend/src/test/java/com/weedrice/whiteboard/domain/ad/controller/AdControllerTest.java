@@ -25,6 +25,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
 import org.springframework.data.jpa.mapping.JpaMetamodelMappingContext;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -137,10 +138,13 @@ class AdControllerTest {
     @Test
     @DisplayName("광고 클릭 기록 성공")
     void recordAdClick_returnsSuccess() throws Exception {
-        when(adService.recordAdClick(eq(1L), any(), nullable(String.class))).thenReturn("http://example.com");
+        UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
+                customUserDetails, null, customUserDetails.getAuthorities());
+        when(adService.recordAdClick(eq(1L), eq(1L), eq("203.0.113.10"))).thenReturn("http://example.com");
 
         mockMvc.perform(post("/api/v1/ads/{adId}/click", 1L)
-                        .with(user(customUserDetails)))
+                        .header("X-Forwarded-For", "203.0.113.10, 10.0.0.1")
+                        .principal(auth))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data").exists());

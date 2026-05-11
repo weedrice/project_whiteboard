@@ -146,7 +146,7 @@ class AdServiceTest {
         when(adRepository.findActiveById(1L, FIXED_NOW)).thenReturn(Optional.of(ad));
         when(adRepository.incrementClickCountForActive(1L, FIXED_NOW)).thenReturn(1);
 
-        String targetUrl = adService.recordAdClick(1L, null, "127.0.0.1");
+        String targetUrl = adService.recordAdClick(1L, null, " 203.0.113.10, 10.0.0.1 ");
 
         assertThat(targetUrl).isEqualTo("https://example.com");
         verify(adRepository).findActiveById(1L, FIXED_NOW);
@@ -154,6 +154,21 @@ class AdServiceTest {
         ArgumentCaptor<AdClickLog> clickLogCaptor = ArgumentCaptor.forClass(AdClickLog.class);
         verify(adClickLogRepository).save(clickLogCaptor.capture());
         assertThat(clickLogCaptor.getValue().getClickedAt()).isEqualTo(FIXED_NOW);
+        assertThat(clickLogCaptor.getValue().getIpAddress()).isEqualTo("203.0.113.10");
+    }
+
+    @Test
+    @DisplayName("click 기록 IP는 45자를 초과하면 절삭된다")
+    void recordAdClick_truncatesLongIpAddress() {
+        Ad ad = buildActiveAd("HEADER", FIXED_NOW.plusDays(1));
+        when(adRepository.findActiveById(1L, FIXED_NOW)).thenReturn(Optional.of(ad));
+        when(adRepository.incrementClickCountForActive(1L, FIXED_NOW)).thenReturn(1);
+
+        adService.recordAdClick(1L, null, "1".repeat(46));
+
+        ArgumentCaptor<AdClickLog> clickLogCaptor = ArgumentCaptor.forClass(AdClickLog.class);
+        verify(adClickLogRepository).save(clickLogCaptor.capture());
+        assertThat(clickLogCaptor.getValue().getIpAddress()).hasSize(45);
     }
 
     @Test
