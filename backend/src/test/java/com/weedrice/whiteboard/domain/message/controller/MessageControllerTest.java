@@ -5,6 +5,8 @@ import com.weedrice.whiteboard.domain.message.dto.MessageCreateRequest;
 import com.weedrice.whiteboard.domain.message.dto.MessageResponse;
 import com.weedrice.whiteboard.domain.message.entity.Message;
 import com.weedrice.whiteboard.domain.message.service.MessageService;
+import com.weedrice.whiteboard.global.exception.BusinessException;
+import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.HttpServletRequest;
@@ -24,6 +26,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.LongStream;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -202,6 +205,28 @@ class MessageControllerTest {
                 .andExpect(jsonPath("$.error.code").value("C008"));
 
         verifyNoInteractions(messageService);
+    }
+
+    @Test
+    @DisplayName("메시지 일괄 삭제 500개 초과 요청은 INVALID_INPUT_VALUE로 응답한다")
+    void deleteMessages_overLimit_returnsBadRequest() throws Exception {
+        List<Long> messageIds = LongStream.rangeClosed(1, 501)
+                .boxed()
+                .toList();
+        doAnswer(invocation -> {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }).when(messageService).deleteMessages(1L, messageIds);
+
+        mockMvc.perform(delete("/api/v1/messages")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(messageIds))
+                        .with(user(customUserDetails))
+                        .with(csrf()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.error.code").value(ErrorCode.INVALID_INPUT_VALUE.getCode()));
+
+        verify(messageService).deleteMessages(1L, messageIds);
     }
 
     @Test

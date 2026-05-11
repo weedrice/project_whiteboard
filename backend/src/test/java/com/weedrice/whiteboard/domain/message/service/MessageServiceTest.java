@@ -24,10 +24,12 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -534,26 +536,56 @@ class MessageServiceTest {
     }
 
     @Test
-    @DisplayName("메시지 일괄 삭제는 많은 ID를 나누어 조회한다")
-    void deleteMessages_fetchesLargeRequestsInChunks() {
-        List<Long> messageIds = LongStream.rangeClosed(1, 501)
+    @DisplayName("message bulk delete allows exactly 500 distinct ids")
+    void deleteMessages_allowsUpToMaxBulkDeleteCount() {
+        List<Long> messageIds = LongStream.rangeClosed(1, 500)
                 .boxed()
                 .toList();
-        List<Long> firstChunkIds = messageIds.subList(0, 500);
-        List<Long> secondChunkIds = messageIds.subList(500, 501);
-        List<Message> firstChunkMessages = firstChunkIds.stream()
+        List<Message> messages = messageIds.stream()
                 .map(this::messageWithId)
                 .toList();
-        List<Message> secondChunkMessages = secondChunkIds.stream()
-                .map(this::messageWithId)
-                .toList();
-        when(messageRepository.findDeletableByMessageIdInForUpdate(1L, firstChunkIds)).thenReturn(firstChunkMessages);
-        when(messageRepository.findDeletableByMessageIdInForUpdate(1L, secondChunkIds)).thenReturn(secondChunkMessages);
+        when(messageRepository.findDeletableByMessageIdInForUpdate(1L, messageIds)).thenReturn(messages);
 
         messageService.deleteMessages(1L, messageIds);
 
-        verify(messageRepository).findDeletableByMessageIdInForUpdate(1L, firstChunkIds);
-        verify(messageRepository).findDeletableByMessageIdInForUpdate(1L, secondChunkIds);
+        verify(messageRepository).findDeletableByMessageIdInForUpdate(1L, messageIds);
+    }
+
+    @Test
+    @DisplayName("message bulk delete rejects more than 500 distinct ids")
+    void deleteMessages_overMaxBulkDeleteCount_invalidInput() {
+        List<Long> messageIds = LongStream.rangeClosed(1, 501)
+                .boxed()
+                .toList();
+
+        assertThatThrownBy(() -> messageService.deleteMessages(1L, messageIds))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode())
+                        .isEqualTo(ErrorCode.INVALID_INPUT_VALUE));
+
+        verify(messageRepository, never()).findDeletableByMessageIdInForUpdate(any(), anyList());
+        verify(messageRepository, never()).deleteAll(anyList());
+    }
+
+    @Test
+    @DisplayName("message bulk delete applies max after removing nulls and duplicates")
+    void deleteMessages_appliesMaxAfterDistinctNonNullIds() {
+        List<Long> requestIds = LongStream.rangeClosed(1, 500)
+                .boxed()
+                .collect(Collectors.toCollection(ArrayList::new));
+        requestIds.add(null);
+        requestIds.add(500L);
+        List<Long> distinctIds = LongStream.rangeClosed(1, 500)
+                .boxed()
+                .toList();
+        List<Message> messages = distinctIds.stream()
+                .map(this::messageWithId)
+                .toList();
+        when(messageRepository.findDeletableByMessageIdInForUpdate(1L, distinctIds)).thenReturn(messages);
+
+        messageService.deleteMessages(1L, requestIds);
+
+        verify(messageRepository).findDeletableByMessageIdInForUpdate(1L, distinctIds);
     }
 
     @Test

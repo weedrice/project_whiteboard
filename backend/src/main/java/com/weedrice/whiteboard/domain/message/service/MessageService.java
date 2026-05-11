@@ -32,6 +32,7 @@ import java.util.stream.Collectors;
 public class MessageService {
 
     private static final int MESSAGE_DELETE_FETCH_CHUNK_SIZE = 500;
+    private static final int MAX_BULK_DELETE_MESSAGE_COUNT = 500;
     private static final int DEFAULT_MESSAGE_PAGE_SIZE = 20;
     private static final Sort MESSAGE_LIST_SORT = Sort.by(Sort.Order.desc("createdAt"));
     private static final Set<String> ALLOWED_MESSAGE_SORTS = Set.of("createdAt");
@@ -138,6 +139,9 @@ public class MessageService {
                 .toList();
         if (requestedMessageIds.isEmpty()) {
             return;
+        }
+        if (requestedMessageIds.size() > MAX_BULK_DELETE_MESSAGE_COUNT) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
 
         Map<Long, Message> messagesById = findDeletableMessagesByIdsInChunks(userId, requestedMessageIds.stream()
