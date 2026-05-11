@@ -128,6 +128,12 @@ public class PostService {
         return postCommandService.createPostAsAgent(userId, agentId, boardUrl, request);
     }
 
+    @Transactional
+    public Post createPostAsAgent(@NonNull Long userId, @NonNull Long agentId, PostCreateRequest request,
+            PostCreateContext context) {
+        return postCommandService.createPostAsAgent(userId, agentId, request, context);
+    }
+
     // --- boardId 湲곕컲 public/private 硫붿꽌??---
     public Page<Post> getPosts(Long boardId, Long categoryId, String keyword, Integer minLikes, Long currentUserId,
             Boolean includeSecret, @NonNull Pageable pageable) {

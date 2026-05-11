@@ -27,9 +27,11 @@ import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.comment.service.CommentCreateContext;
 import com.weedrice.whiteboard.domain.comment.service.CommentReadSupport;
 import com.weedrice.whiteboard.domain.comment.service.CommentService;
+import com.weedrice.whiteboard.domain.post.dto.PostCreateRequest;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.service.PostAccessPolicy;
+import com.weedrice.whiteboard.domain.post.service.PostCreateContext;
 import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionPolicyService;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
@@ -172,6 +174,7 @@ class AgentServiceTest {
         ReflectionTestUtils.setField(agentLinkBuilder, "frontendUrl", "https://noviis.kr");
         agentCommandService = new AgentCommandService(
                 boardRepository,
+                boardCategoryRepository,
                 commentRepository,
                 postService,
                 commentService,
@@ -301,6 +304,31 @@ class AgentServiceTest {
         assertThat(response.getContent().get(0).getBoardId()).isEqualTo(10L);
         verify(postRepository).findAgentFeedByBoardIds(eq(List.of(10L)), any(), any(), eq(1L), any());
         verify(postService, never()).canWriteToBoard(anyLong(), any());
+    }
+
+    @Test
+    void getFeed_keepsLegacyUnknownMinWriteRoleLenientForBoardList() {
+        Board legacyBoard = readableOnlyAgentEnabledBoard(30L);
+        BoardCategory legacyCategory = defaultCategory(legacyBoard, Role.USER);
+        ReflectionTestUtils.setField(legacyCategory, "minWriteRole", "LEGACY");
+
+        when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+        when(boardRepository.findByIsActiveAndIsPublicOrderBySortOrderAscBoardIdAsc(true, true))
+                .thenReturn(List.of(legacyBoard));
+        when(boardCategoryRepository.findByBoard_BoardIdInAndIsActiveOrderByBoard_BoardIdAscSortOrderAsc(
+                List.of(30L), true)).thenReturn(List.of(legacyCategory));
+        when(postRepository.findAgentFeedByBoardIds(
+                eq(List.of(30L)),
+                any(),
+                any(),
+                eq(1L),
+                any()))
+                .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 10), 0));
+
+        Page<AgentPostListItem> response = agentQueryService.getFeed(7L, null, PageRequest.of(0, 10));
+
+        assertThat(response.getContent()).isEmpty();
+        verify(postRepository).findAgentFeedByBoardIds(eq(List.of(30L)), any(), any(), eq(1L), any());
     }
 
     @Test
@@ -1224,7 +1252,7 @@ class AgentServiceTest {
         ReflectionTestUtils.setField(request, "content", "a".repeat(60));
 
         when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
-        when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(writableBoard));
+        when(boardRepository.findByBoardUrlForUpdate("free")).thenReturn(Optional.of(writableBoard));
         when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(false);
 
         assertThatThrownBy(() -> agentCommandService.createPost(7L, request, null))
@@ -1233,7 +1261,11 @@ class AgentServiceTest {
 
         verify(postService).canWriteToBoard(1L, writableBoard);
         verify(agentDailyQuotaRepository, never()).findForUpdate(anyLong(), any(LocalDate.class), anyString());
-        verify(postService, never()).createPostAsAgent(anyLong(), anyLong(), anyString(), any());
+        verify(postService, never()).createPostAsAgent(
+                anyLong(),
+                anyLong(),
+                any(PostCreateRequest.class),
+                any(PostCreateContext.class));
     }
 
     @Test
@@ -1279,7 +1311,7 @@ class AgentServiceTest {
         ReflectionTestUtils.setField(request, "content", "a".repeat(60));
 
         when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
-        when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(writableBoard));
+        when(boardRepository.findByBoardUrlForUpdate("free")).thenReturn(Optional.of(writableBoard));
         when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(true);
         when(agentDailyQuotaRepository.findForUpdate(eq(7L), any(LocalDate.class), eq("POST")))
                 .thenReturn(Optional.of(quota("POST", 50L)));
@@ -1288,7 +1320,11 @@ class AgentServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.RATE_LIMIT_EXCEEDED);
 
-        verify(postService, never()).createPostAsAgent(anyLong(), anyLong(), eq("free"), any());
+        verify(postService, never()).createPostAsAgent(
+                anyLong(),
+                anyLong(),
+                any(PostCreateRequest.class),
+                any(PostCreateContext.class));
     }
 
     @Test
@@ -1319,17 +1355,73 @@ class AgentServiceTest {
         ReflectionTestUtils.setField(request, "content", "a".repeat(60));
 
         when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
-        when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(writableBoard));
+        when(boardRepository.findByBoardUrlForUpdate("free")).thenReturn(Optional.of(writableBoard));
         when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(true);
         when(agentDailyQuotaRepository.findForUpdate(eq(7L), any(LocalDate.class), eq("POST")))
                 .thenReturn(Optional.of(quota("POST", 49L)));
-        when(postService.createPostAsAgent(eq(1L), eq(7L), eq("free"), any())).thenReturn(writablePost);
+        when(postService.createPostAsAgent(
+                eq(1L),
+                eq(7L),
+                any(PostCreateRequest.class),
+                any(PostCreateContext.class))).thenReturn(writablePost);
 
         var response = agentCommandService.createPost(7L, request, null);
 
         assertThat(response.getPostId()).isEqualTo(100L);
         verify(agentRepository).findByAgentIdForUpdate(7L);
-        verify(postService).createPostAsAgent(eq(1L), eq(7L), eq("free"), any());
+        verify(postService).createPostAsAgent(
+                eq(1L),
+                eq(7L),
+                any(PostCreateRequest.class),
+                any(PostCreateContext.class));
+    }
+
+    @Test
+    void createPost_withExplicitCategoryPassesPrevalidatedContext() {
+        AgentPostCreateRequest request = new AgentPostCreateRequest();
+        ReflectionTestUtils.setField(request, "boardUrl", "free");
+        ReflectionTestUtils.setField(request, "categoryId", 11L);
+        ReflectionTestUtils.setField(request, "title", "title");
+        ReflectionTestUtils.setField(request, "content", "a".repeat(60));
+
+        BoardCategory category = BoardCategory.builder()
+                .board(writableBoard)
+                .name("Open")
+                .sortOrder(1)
+                .minWriteRole(Role.USER)
+                .isDefault(false)
+                .build();
+        ReflectionTestUtils.setField(category, "categoryId", 11L);
+
+        when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
+        when(boardRepository.findByBoardUrlForUpdate("free")).thenReturn(Optional.of(writableBoard));
+        when(boardCategoryRepository.findByCategoryIdAndBoard_BoardIdAndIsActive(11L, 10L, true))
+                .thenReturn(Optional.of(category));
+        when(agentDailyQuotaRepository.findForUpdate(eq(7L), any(LocalDate.class), eq("POST")))
+                .thenReturn(Optional.of(quota("POST", 0L)));
+        when(postService.createPostAsAgent(
+                eq(1L),
+                eq(7L),
+                any(PostCreateRequest.class),
+                any(PostCreateContext.class))).thenReturn(writablePost);
+
+        var response = agentCommandService.createPost(7L, request, null);
+
+        assertThat(response.getPostId()).isEqualTo(100L);
+        ArgumentCaptor<PostCreateRequest> requestCaptor = ArgumentCaptor.forClass(PostCreateRequest.class);
+        ArgumentCaptor<PostCreateContext> contextCaptor = ArgumentCaptor.forClass(PostCreateContext.class);
+        verify(postService).createPostAsAgent(
+                eq(1L),
+                eq(7L),
+                requestCaptor.capture(),
+                contextCaptor.capture());
+        assertThat(requestCaptor.getValue().getCategoryId()).isEqualTo(11L);
+        PostCreateContext context = contextCaptor.getValue();
+        assertThat(context.agent()).isSameAs(agent);
+        assertThat(context.board()).isSameAs(writableBoard);
+        assertThat(context.category()).isSameAs(category);
+        assertThat(context.boardWritablePrevalidated()).isTrue();
+        verify(postService, never()).canWriteToBoard(anyLong(), any());
     }
 
     @Test
@@ -1340,16 +1432,25 @@ class AgentServiceTest {
         ReflectionTestUtils.setField(request, "content", "first line\nsecond line\n\nnext paragraph");
 
         when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
-        when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(writableBoard));
+        when(boardRepository.findByBoardUrlForUpdate("free")).thenReturn(Optional.of(writableBoard));
         when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(true);
         when(agentDailyQuotaRepository.findForUpdate(eq(7L), any(LocalDate.class), eq("POST")))
                 .thenReturn(Optional.of(quota("POST", 0L)));
-        when(postService.createPostAsAgent(eq(1L), eq(7L), eq("free"), any())).thenReturn(writablePost);
+        when(postService.createPostAsAgent(
+                eq(1L),
+                eq(7L),
+                any(PostCreateRequest.class),
+                any(PostCreateContext.class))).thenReturn(writablePost);
 
         agentCommandService.createPost(7L, request, null);
 
-        verify(postService).createPostAsAgent(eq(1L), eq(7L), eq("free"), argThat(postRequest ->
-                "<p>first line<br>second line</p><p>next paragraph</p>".equals(postRequest.getContents())));
+        verify(postService).createPostAsAgent(
+                eq(1L),
+                eq(7L),
+                argThat(postRequest ->
+                        "<p>first line<br>second line</p><p>next paragraph</p>"
+                                .equals(postRequest.getContents())),
+                any(PostCreateContext.class));
     }
 
     @Test

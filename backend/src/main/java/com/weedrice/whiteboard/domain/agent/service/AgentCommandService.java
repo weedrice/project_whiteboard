@@ -7,6 +7,8 @@ import com.weedrice.whiteboard.domain.agent.dto.AgentPostCreateResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostLikeResponse;
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
 import com.weedrice.whiteboard.domain.board.entity.Board;
+import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
+import com.weedrice.whiteboard.domain.board.repository.BoardCategoryRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
@@ -14,6 +16,7 @@ import com.weedrice.whiteboard.domain.comment.service.CommentCreateContext;
 import com.weedrice.whiteboard.domain.comment.service.CommentService;
 import com.weedrice.whiteboard.domain.post.dto.PostCreateRequest;
 import com.weedrice.whiteboard.domain.post.entity.Post;
+import com.weedrice.whiteboard.domain.post.service.PostCreateContext;
 import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -31,6 +34,7 @@ import java.util.List;
 public class AgentCommandService {
 
     private final BoardRepository boardRepository;
+    private final BoardCategoryRepository boardCategoryRepository;
     private final CommentRepository commentRepository;
     private final PostService postService;
     private final CommentService commentService;
@@ -44,9 +48,11 @@ public class AgentCommandService {
     public AgentPostCreateResponse createPost(Long agentId, AgentPostCreateRequest request,
             AgentRequestContext requestContext) {
         Agent agent = agentOwnershipService.resolveActiveAgentForUpdate(agentId);
-        Board board = boardRepository.findByBoardUrl(request.getBoardUrl())
+        Board board = boardRepository.findByBoardUrlForUpdate(request.getBoardUrl())
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
-        agentBoardAccessService.validateAgentBoardWritable(agent, board);
+        agentBoardAccessService.validateAgentBoardReadable(agent, board);
+        BoardCategory category = resolveCategory(board, request.getCategoryId());
+        agentBoardAccessService.validateAgentBoardWritable(agent, board, category);
         agentQuotaService.reservePostCreation(agent);
         PostCreateRequest postCreateRequest = new PostCreateRequest(
                 request.getCategoryId(),
@@ -58,8 +64,11 @@ public class AgentCommandService {
                 false,
                 false,
                 null);
-        Post post = postService.createPostAsAgent(agent.getUser().getUserId(), agentId, request.getBoardUrl(),
-                postCreateRequest);
+        Post post = postService.createPostAsAgent(
+                agent.getUser().getUserId(),
+                agentId,
+                postCreateRequest,
+                PostCreateContext.agent(agent, board, category));
         agentAuditService.saveLog(agent, agent.getUser(), "CREATE_POST", "POST", post.getPostId(), requestContext);
         return new AgentPostCreateResponse(post.getPostId(), agentLinkBuilder.postUrl(post.getPostId()));
     }
@@ -124,5 +133,16 @@ public class AgentCommandService {
                 .filter(paragraph -> !paragraph.isEmpty())
                 .map(paragraph -> "<p>" + InputSanitizer.escapeHtml(paragraph).replaceAll("\\r?\\n", "<br>") + "</p>")
                 .collect(java.util.stream.Collectors.joining());
+    }
+
+    private BoardCategory resolveCategory(Board board, Long categoryId) {
+        if (categoryId == null) {
+            return null;
+        }
+        return boardCategoryRepository.findByCategoryIdAndBoard_BoardIdAndIsActive(
+                        categoryId,
+                        board.getBoardId(),
+                        true)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
     }
 }

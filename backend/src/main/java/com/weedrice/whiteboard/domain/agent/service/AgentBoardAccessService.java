@@ -4,6 +4,7 @@ import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
 import com.weedrice.whiteboard.domain.board.dto.CategoryResponse;
 import com.weedrice.whiteboard.domain.board.entity.Board;
+import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
 import com.weedrice.whiteboard.domain.board.repository.BoardCategoryRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.board.service.BoardDefaultCategoryResolver;
@@ -20,6 +21,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -57,6 +59,12 @@ public class AgentBoardAccessService {
 
     public void validateAgentBoardWritable(Agent agent, Board board) {
         if (!canAgentWriteBoard(agent, board, new HashMap<>())) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "Agent access is disabled for this board");
+        }
+    }
+
+    public void validateAgentBoardWritable(Agent agent, Board board, BoardCategory category) {
+        if (!canAgentWriteBoard(agent, board, category)) {
             throw new BusinessException(ErrorCode.FORBIDDEN, "Agent access is disabled for this board");
         }
     }
@@ -141,6 +149,10 @@ public class AgentBoardAccessService {
                 .map(CategoryResponse::getMinWriteRole)
                 .orElse(null);
 
+        return hasRequiredWriteRole(board, user, boardAdminIds, minWriteRole);
+    }
+
+    private boolean hasRequiredWriteRole(Board board, User user, Set<Long> boardAdminIds, String minWriteRole) {
         if (Role.SUPER_ADMIN.equals(minWriteRole)) {
             return user.isUsableSuperAdmin();
         }
@@ -150,11 +162,46 @@ public class AgentBoardAccessService {
         return true;
     }
 
+    private boolean hasResolvedRequiredWriteRole(Board board, User user, Set<Long> boardAdminIds,
+            String minWriteRole) {
+        return switch (BoardCategory.resolveMinWriteRole(minWriteRole)) {
+            case Role.SUPER_ADMIN -> user.isUsableSuperAdmin();
+            case Role.BOARD_ADMIN -> boardAdminIds.contains(board.getBoardId());
+            default -> true;
+        };
+    }
+
+    private boolean canAgentWriteBoard(Agent agent, Board board, BoardCategory category) {
+        if (agent == null || agent.getUser() == null || board == null) {
+            return false;
+        }
+        if (!Boolean.TRUE.equals(board.getIsActive())
+                || !Boolean.TRUE.equals(board.getIsPublic())
+                || !board.isAgentEnabled()) {
+            return false;
+        }
+        if (category == null) {
+            return canAgentWriteBoard(agent, board, new HashMap<>());
+        }
+        if (category.getBoard() == null
+                || !Objects.equals(category.getBoard().getBoardId(), board.getBoardId())
+                || !Boolean.TRUE.equals(category.getIsActive())) {
+            return false;
+        }
+        return hasResolvedRequiredWriteRole(
+                board,
+                agent.getUser(),
+                resolveBoardAdminIds(agent.getUser(), List.of(board), List.of(board.getBoardId())),
+                category.getMinWriteRole());
+    }
+
     private boolean canAgentWriteBoard(Agent agent, Board board, Map<Long, Boolean> writableBoardCache) {
         if (agent == null || board == null) {
             return false;
         }
-        if (!board.getIsActive() || !board.getIsPublic() || !board.isAgentEnabled()) {
+        if (!Boolean.TRUE.equals(board.getIsActive())
+                || !Boolean.TRUE.equals(board.getIsPublic())
+                || !board.isAgentEnabled()) {
             return false;
         }
         return writableBoardCache.computeIfAbsent(

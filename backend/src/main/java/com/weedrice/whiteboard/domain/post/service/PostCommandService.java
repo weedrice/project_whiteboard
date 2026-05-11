@@ -68,19 +68,32 @@ public class PostCommandService {
     }
 
     @Transactional
+    public Post createPostAsAgent(@NonNull Long userId, @NonNull Long agentId, PostCreateRequest request,
+            PostCreateContext context) {
+        return createPost(userId, agentId, null, request, context);
+    }
+
+    @Transactional
     public Post createPost(@NonNull Long userId, @NonNull Long boardId, PostCreateRequest request) {
         return createPost(userId, null, boardId, request);
     }
 
     @Transactional
     public Post createPost(@NonNull Long userId, Long agentId, @NonNull Long boardId, PostCreateRequest request) {
+        return createPost(userId, agentId, boardId, request, null);
+    }
+
+    private Post createPost(@NonNull Long userId, Long agentId, Long boardId, PostCreateRequest request,
+            PostCreateContext context) {
         User user = userWritableResolver.resolve(userId);
         sanctionService.validateNotMuted(user);
-        Agent agent = agentOwnershipService.resolveOwnedActiveAgent(userId, agentId);
-        Board board = boardRepository.findById(boardId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
+        Agent agent = resolveAgent(userId, agentId, context);
+        Board board = resolveBoard(boardId, context);
 
-        postAuthorCommandPolicy.validateBoardWritable(board, user);
+        boolean boardWritablePrevalidated = isBoardWritablePrevalidated(context);
+        if (!boardWritablePrevalidated) {
+            postAuthorCommandPolicy.validateBoardWritable(board, user);
+        }
 
         if (request.isNotice()) {
             if (!boardAccessPolicy.hasBoardAdminAccess(board, user)) {
@@ -88,11 +101,10 @@ public class PostCommandService {
             }
         }
 
-        BoardCategory category = null;
-        if (request.getCategoryId() != null) {
-            category = findActiveCategory(board, request.getCategoryId());
+        BoardCategory category = resolveCreatedCategory(board, request.getCategoryId(), context);
+        if (!isCategoryWriteRolePrevalidated(context, request.getCategoryId(), category)) {
+            postAuthorCommandPolicy.validateAppliedCategoryWriteRole(board, user, category);
         }
-        postAuthorCommandPolicy.validateAppliedCategoryWriteRole(board, user, category);
 
         String sanitizedContents = InputSanitizer.sanitizePostHtml(request.getContents());
         boolean isSecret = !boardAccessPolicy.isInquiryBoard(board) && request.isSecret();
@@ -121,6 +133,71 @@ public class PostCommandService {
         contentRewardService.rewardCreate(userId, savedPost.getPostId(), ContentRewardPolicy.POST);
         eventPublisher.publishEvent(new PostPublishedEvent(savedPost.getPostId(), board.getBoardId()));
         return savedPost;
+    }
+
+    private boolean isBoardWritablePrevalidated(PostCreateContext context) {
+        return context != null && context.boardWritablePrevalidated();
+    }
+
+    private boolean isCategoryWriteRolePrevalidated(PostCreateContext context, Long categoryId,
+            BoardCategory category) {
+        if (!isBoardWritablePrevalidated(context)) {
+            return false;
+        }
+        if (categoryId == null) {
+            return category == null;
+        }
+        return category != null
+                && context.category() != null
+                && Objects.equals(context.category().getCategoryId(), categoryId)
+                && Objects.equals(context.category().getCategoryId(), category.getCategoryId());
+    }
+
+    private Agent resolveAgent(Long userId, Long agentId, PostCreateContext context) {
+        if (context != null && context.agent() != null) {
+            Agent contextAgent = context.agent();
+            if (!Objects.equals(contextAgent.getAgentId(), agentId)
+                    || contextAgent.getUser() == null
+                    || !Objects.equals(contextAgent.getUser().getUserId(), userId)) {
+                throw new BusinessException(ErrorCode.FORBIDDEN);
+            }
+            return contextAgent;
+        }
+        if (agentId == null) {
+            return null;
+        }
+        return agentOwnershipService.resolveOwnedActiveAgent(userId, agentId);
+    }
+
+    private Board resolveBoard(Long boardId, PostCreateContext context) {
+        if (context != null && context.board() != null) {
+            Board contextBoard = context.board();
+            if (boardId != null && !Objects.equals(contextBoard.getBoardId(), boardId)) {
+                throw new BusinessException(ErrorCode.BOARD_NOT_FOUND);
+            }
+            return contextBoard;
+        }
+        if (boardId == null) {
+            throw new BusinessException(ErrorCode.BOARD_NOT_FOUND);
+        }
+        return boardRepository.findById(boardId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
+    }
+
+    private BoardCategory resolveCreatedCategory(Board board, Long categoryId, PostCreateContext context) {
+        if (context != null && context.category() != null) {
+            BoardCategory contextCategory = context.category();
+            if (!Objects.equals(contextCategory.getCategoryId(), categoryId)
+                    || contextCategory.getBoard() == null
+                    || !Objects.equals(contextCategory.getBoard().getBoardId(), board.getBoardId())) {
+                throw new BusinessException(ErrorCode.NOT_FOUND);
+            }
+            return contextCategory;
+        }
+        if (categoryId == null) {
+            return null;
+        }
+        return findActiveCategory(board, categoryId);
     }
 
     @Transactional

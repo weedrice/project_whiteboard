@@ -553,6 +553,41 @@ class PostServiceTest {
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
     }
 
+    @Test
+    void createPostAsAgent_prevalidatedContextWithoutCategoryStillValidatesRequestedCategoryRole() {
+        PostCreateRequest request = new PostCreateRequest(10L, "Title", "Contents", Collections.emptyList(), false,
+                false, false, false, null);
+        BoardCategory restrictedCategory = BoardCategory.builder().name("Restricted").board(board)
+                .minWriteRole("BOARD_ADMIN")
+                .isDefault(false)
+                .build();
+        ReflectionTestUtils.setField(restrictedCategory, "categoryId", 10L);
+
+        Agent agent = Agent.builder()
+                .user(user)
+                .agentTokenHash("hash")
+                .name("agent")
+                .description("desc")
+                .status(Agent.STATUS_ACTIVE)
+                .build();
+        ReflectionTestUtils.setField(agent, "agentId", 10L);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(boardCategoryRepository.findByCategoryIdAndBoard_BoardIdAndIsActive(10L, 1L, true))
+                .thenReturn(Optional.of(restrictedCategory));
+        when(adminRepository.existsByUserAndBoardAndIsActive(user, board, true)).thenReturn(false);
+
+        assertThatThrownBy(() -> postService.createPostAsAgent(
+                1L,
+                10L,
+                request,
+                PostCreateContext.agent(agent, board, null)))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
+
+        verify(postRepository, never()).save(any(Post.class));
+    }
+
     // --- Read Post ---
 
     @Test
