@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.global.log.service;
 
 import com.weedrice.whiteboard.global.common.util.SecurityUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
+import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.log.dto.ErrorLogSearchRequest;
 import com.weedrice.whiteboard.global.log.dto.ErrorLogStatsResponse;
 import com.weedrice.whiteboard.global.log.entity.ErrorLog;
@@ -28,7 +29,10 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class ErrorLogServiceTest {
@@ -64,7 +68,7 @@ class ErrorLogServiceTest {
                 .message("Error")
                 .requestUri("/api/v1/test")
                 .requestMethod("GET")
-                .ipAddress("127.0.0.1")
+                .ipAddress(" 127.0.0.1, 10.0.0.1 ")
                 .build();
 
         when(errorLogRepository.save(any(ErrorLog.class))).thenReturn(errorLog);
@@ -73,7 +77,9 @@ class ErrorLogServiceTest {
         errorLogService.saveErrorLog(errorLog);
 
         // then
-        verify(errorLogRepository).save(errorLog);
+        ArgumentCaptor<ErrorLog> captor = ArgumentCaptor.forClass(ErrorLog.class);
+        verify(errorLogRepository).save(captor.capture());
+        assertThat(captor.getValue().getIpAddress()).isEqualTo("127.0.0.1");
     }
 
     @Test
@@ -160,6 +166,42 @@ class ErrorLogServiceTest {
         ArgumentCaptor<ErrorLog> captor = ArgumentCaptor.forClass(ErrorLog.class);
         verify(errorLogRepository).save(captor.capture());
         assertThat(captor.getValue().getUserAgent()).hasSize(500);
+    }
+
+    @Test
+    @DisplayName("에러 로그 저장 - IP 주소 정규화")
+    void saveErrorLog_normalizesIpAddress() {
+        // given
+        when(errorLogRepository.save(any(ErrorLog.class))).thenAnswer(i -> i.getArgument(0));
+
+        // when
+        errorLogService.saveErrorLog(
+                "ERROR", "Exception", 500,
+                "msg", "/api/test", "GET",
+                null, " 203.0.113.10, 10.0.0.1 ", null, null);
+
+        // then
+        ArgumentCaptor<ErrorLog> captor = ArgumentCaptor.forClass(ErrorLog.class);
+        verify(errorLogRepository).save(captor.capture());
+        assertThat(captor.getValue().getIpAddress()).isEqualTo("203.0.113.10");
+    }
+
+    @Test
+    @DisplayName("에러 로그 저장 - 45자 초과 IP 자동 절삭")
+    void saveErrorLog_truncatesLongIpAddress() {
+        // given
+        when(errorLogRepository.save(any(ErrorLog.class))).thenAnswer(i -> i.getArgument(0));
+
+        // when
+        errorLogService.saveErrorLog(
+                "ERROR", "Exception", 500,
+                "msg", "/api/test", "GET",
+                null, "1".repeat(46), null, null);
+
+        // then
+        ArgumentCaptor<ErrorLog> captor = ArgumentCaptor.forClass(ErrorLog.class);
+        verify(errorLogRepository).save(captor.capture());
+        assertThat(captor.getValue().getIpAddress()).hasSize(45);
     }
 
     @Test
@@ -270,6 +312,55 @@ class ErrorLogServiceTest {
         assertThat(errorLog.getResolvedAt()).isNotNull();
         assertThat(errorLog.getResolvedMemo()).isEqualTo(memo);
         securityUtilsMockedStatic.verify(SecurityUtils::validateSuperAdminPermission);
+    }
+
+    @Test
+    @DisplayName("에러 로그 확인 처리 - memo 앞뒤 공백 제거")
+    void resolveErrorLog_trimsMemo() {
+        // given
+        Long errorLogId = 1L;
+        Long adminUserId = 100L;
+        ErrorLog errorLog = ErrorLog.builder()
+                .errorCode("ERROR").errorType("Type").httpStatus(500)
+                .message("msg").requestUri("/test").requestMethod("GET")
+                .ipAddress("127.0.0.1").build();
+        when(errorLogRepository.findById(errorLogId)).thenReturn(Optional.of(errorLog));
+
+        // when
+        errorLogService.resolveErrorLog(errorLogId, adminUserId, " 확인 완료 ");
+
+        // then
+        assertThat(errorLog.getResolvedMemo()).isEqualTo("확인 완료");
+    }
+
+    @Test
+    @DisplayName("에러 로그 확인 처리 - 공백 memo는 null로 정규화")
+    void resolveErrorLog_blankMemoToNull() {
+        // given
+        Long errorLogId = 1L;
+        Long adminUserId = 100L;
+        ErrorLog errorLog = ErrorLog.builder()
+                .errorCode("ERROR").errorType("Type").httpStatus(500)
+                .message("msg").requestUri("/test").requestMethod("GET")
+                .ipAddress("127.0.0.1").build();
+        when(errorLogRepository.findById(errorLogId)).thenReturn(Optional.of(errorLog));
+
+        // when
+        errorLogService.resolveErrorLog(errorLogId, adminUserId, "   ");
+
+        // then
+        assertThat(errorLog.getResolvedMemo()).isNull();
+    }
+
+    @Test
+    @DisplayName("에러 로그 확인 처리 - 500자 초과 memo 거부")
+    void resolveErrorLog_rejectsTooLongMemo() {
+        // when & then
+        assertThatThrownBy(() -> errorLogService.resolveErrorLog(1L, 100L, "a".repeat(501)))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+
+        verify(errorLogRepository, never()).findById(any());
     }
 
     @Test

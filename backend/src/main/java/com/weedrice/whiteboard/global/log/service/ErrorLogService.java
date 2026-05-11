@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.global.log.service;
 
+import com.weedrice.whiteboard.global.common.util.ClientMetadataNormalizer;
 import com.weedrice.whiteboard.global.common.util.SecurityUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -19,6 +20,8 @@ import static org.springframework.transaction.annotation.Propagation.REQUIRES_NE
 @Service
 @RequiredArgsConstructor
 public class ErrorLogService {
+    private static final int MAX_TEXT_LENGTH = 500;
+    private static final int MAX_RESOLVED_MEMO_LENGTH = 500;
 
     private final ErrorLogRepository errorLogRepository;
 
@@ -29,7 +32,17 @@ public class ErrorLogService {
     @Async("taskExecutor")
     @Transactional(propagation = REQUIRES_NEW)
     public void saveErrorLog(ErrorLog errorLog) {
-        errorLogRepository.save(errorLog);
+        errorLogRepository.save(buildErrorLog(
+                errorLog.getErrorCode(),
+                errorLog.getErrorType(),
+                errorLog.getHttpStatus(),
+                errorLog.getMessage(),
+                errorLog.getRequestUri(),
+                errorLog.getRequestMethod(),
+                errorLog.getUserId(),
+                errorLog.getIpAddress(),
+                errorLog.getUserAgent(),
+                errorLog.getStackTrace()));
     }
 
     /**
@@ -40,19 +53,26 @@ public class ErrorLogService {
     public void saveErrorLog(String errorCode, String errorType, int httpStatus, String message,
             String requestUri, String requestMethod, Long userId,
             String ipAddress, String userAgent, String stackTrace) {
-        ErrorLog errorLog = ErrorLog.builder()
+        errorLogRepository.save(buildErrorLog(
+                errorCode, errorType, httpStatus, message, requestUri, requestMethod, userId,
+                ipAddress, userAgent, stackTrace));
+    }
+
+    private ErrorLog buildErrorLog(String errorCode, String errorType, int httpStatus, String message,
+            String requestUri, String requestMethod, Long userId,
+            String ipAddress, String userAgent, String stackTrace) {
+        return ErrorLog.builder()
                 .errorCode(errorCode)
                 .errorType(errorType)
                 .httpStatus(httpStatus)
-                .message(message != null && message.length() > 500 ? message.substring(0, 500) : message)
-                .requestUri(requestUri != null && requestUri.length() > 500 ? requestUri.substring(0, 500) : requestUri)
+                .message(truncate(message, MAX_TEXT_LENGTH))
+                .requestUri(truncate(requestUri, MAX_TEXT_LENGTH))
                 .requestMethod(requestMethod)
                 .userId(userId)
-                .ipAddress(ipAddress)
-                .userAgent(userAgent != null && userAgent.length() > 500 ? userAgent.substring(0, 500) : userAgent)
+                .ipAddress(ClientMetadataNormalizer.normalizeIpAddress(ipAddress))
+                .userAgent(truncate(userAgent, MAX_TEXT_LENGTH))
                 .stackTrace(stackTrace)
                 .build();
-        errorLogRepository.save(errorLog);
     }
 
     /**
@@ -80,9 +100,10 @@ public class ErrorLogService {
     @Transactional
     public void resolveErrorLog(Long errorLogId, Long adminUserId, String memo) {
         SecurityUtils.validateSuperAdminPermission();
+        String normalizedMemo = normalizeResolvedMemo(memo);
         ErrorLog errorLog = errorLogRepository.findById(errorLogId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
-        errorLog.resolve(adminUserId, memo);
+        errorLog.resolve(adminUserId, normalizedMemo);
     }
 
     /**
@@ -100,5 +121,24 @@ public class ErrorLogService {
                 .unresolvedCount(unresolvedCount)
                 .resolvedCount(resolvedCount)
                 .build();
+    }
+
+    private String normalizeResolvedMemo(String memo) {
+        if (memo == null) {
+            return null;
+        }
+
+        String normalizedMemo = memo.trim();
+        if (normalizedMemo.length() > MAX_RESOLVED_MEMO_LENGTH) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        return normalizedMemo.isBlank() ? null : normalizedMemo;
+    }
+
+    private String truncate(String value, int maxLength) {
+        if (value == null || value.length() <= maxLength) {
+            return value;
+        }
+        return value.substring(0, maxLength);
     }
 }
