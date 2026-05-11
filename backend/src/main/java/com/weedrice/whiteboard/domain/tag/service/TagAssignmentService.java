@@ -37,22 +37,23 @@ public class TagAssignmentService {
         Map<String, PostTag> existingPostTagsByName = existingPostTags.stream()
                 .collect(Collectors.toMap(postTag -> postTag.getTag().getTagName(), Function.identity()));
 
-        for (PostTag postTag : existingPostTags) {
-            if (!normalizedTagNames.contains(postTag.getTag().getTagName())) {
-                removePostTag(postTag);
-            }
-        }
+        List<PostTag> postTagsToRemove = existingPostTags.stream()
+                .filter(postTag -> !normalizedTagNames.contains(postTag.getTag().getTagName()))
+                .toList();
+        Set<String> tagNamesToAdd = normalizedTagNames.stream()
+                .filter(tagName -> !existingPostTagsByName.containsKey(tagName))
+                .collect(Collectors.toCollection(LinkedHashSet::new));
 
-        for (String tagName : normalizedTagNames) {
-            if (!existingPostTagsByName.containsKey(tagName)) {
-                addPostTag(post, tagName);
-            }
-        }
+        List<Long> removedTagIds = removePostTags(postTagsToRemove);
+        List<Long> addedTagIds = addPostTags(post, tagNamesToAdd);
+        decrementPostCounts(removedTagIds);
+        incrementPostCounts(addedTagIds);
     }
 
     @Transactional
     public void clearTags(Post post) {
-        postTagRepository.findByPost(post).forEach(this::removePostTag);
+        List<Long> removedTagIds = removePostTags(postTagRepository.findByPost(post));
+        decrementPostCounts(removedTagIds);
     }
 
     public List<String> getTagNames(Post post) {
@@ -65,18 +66,48 @@ public class TagAssignmentService {
         normalizeTagNames(requestedTagNames);
     }
 
-    private void addPostTag(Post post, String tagName) {
-        Tag tag = findOrCreateTag(tagName);
+    private List<Long> addPostTags(Post post, Set<String> tagNamesToAdd) {
+        if (tagNamesToAdd.isEmpty()) {
+            return List.of();
+        }
+
+        Map<String, Tag> tagsByName = tagRepository.findByTagNameIn(tagNamesToAdd).stream()
+                .collect(Collectors.toMap(Tag::getTagName, Function.identity()));
+        return tagNamesToAdd.stream()
+                .map(tagName -> addPostTag(post, tagName, tagsByName))
+                .toList();
+    }
+
+    private Long addPostTag(Post post, String tagName, Map<String, Tag> tagsByName) {
+        Tag tag = tagsByName.computeIfAbsent(tagName, this::createTag);
         postTagRepository.save(PostTag.builder()
                 .post(post)
                 .tag(tag)
                 .build());
-        tagRepository.incrementPostCount(tag.getTagId());
+        return tag.getTagId();
     }
 
-    private void removePostTag(PostTag postTag) {
+    private List<Long> removePostTags(List<PostTag> postTags) {
+        return postTags.stream()
+                .map(this::removePostTag)
+                .toList();
+    }
+
+    private Long removePostTag(PostTag postTag) {
         postTagRepository.delete(postTag);
-        tagRepository.decrementPostCount(postTag.getTag().getTagId());
+        return postTag.getTag().getTagId();
+    }
+
+    private void incrementPostCounts(List<Long> tagIds) {
+        if (!tagIds.isEmpty()) {
+            tagRepository.incrementPostCountIn(tagIds);
+        }
+    }
+
+    private void decrementPostCounts(List<Long> tagIds) {
+        if (!tagIds.isEmpty()) {
+            tagRepository.decrementPostCountIn(tagIds);
+        }
     }
 
     private Set<String> normalizeTagNames(List<String> tagNames) {
@@ -101,11 +132,6 @@ public class TagAssignmentService {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
         return normalizedTagNames;
-    }
-
-    private Tag findOrCreateTag(String tagName) {
-        return tagRepository.findByTagName(tagName)
-                .orElseGet(() -> createTag(tagName));
     }
 
     private Tag createTag(String tagName) {

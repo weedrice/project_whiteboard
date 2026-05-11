@@ -6,16 +6,24 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 public interface TagRepository extends JpaRepository<Tag, Long> {
     Optional<Tag> findByTagName(String tagName);
 
-    java.util.List<Tag> findTop10ByPostCountGreaterThanOrderByPostCountDesc(Integer postCount);
+    List<Tag> findByTagNameIn(Collection<String> tagNames);
+
+    List<Tag> findTop10ByPostCountGreaterThanOrderByPostCountDesc(Integer postCount);
 
     @Modifying(flushAutomatically = true)
     @Query("UPDATE Tag t SET t.postCount = t.postCount + 1 WHERE t.tagId = :tagId")
     int incrementPostCount(@Param("tagId") Long tagId);
+
+    @Modifying(flushAutomatically = true)
+    @Query("UPDATE Tag t SET t.postCount = t.postCount + 1 WHERE t.tagId IN :tagIds")
+    int incrementPostCountIn(@Param("tagIds") Collection<Long> tagIds);
 
     @Modifying(flushAutomatically = true)
     @Query("""
@@ -24,4 +32,12 @@ public interface TagRepository extends JpaRepository<Tag, Long> {
             WHERE t.tagId = :tagId
             """)
     int decrementPostCount(@Param("tagId") Long tagId);
+
+    @Modifying(flushAutomatically = true)
+    @Query("""
+            UPDATE Tag t
+            SET t.postCount = CASE WHEN t.postCount > 0 THEN t.postCount - 1 ELSE 0 END
+            WHERE t.tagId IN :tagIds
+            """)
+    int decrementPostCountIn(@Param("tagIds") Collection<Long> tagIds);
 }

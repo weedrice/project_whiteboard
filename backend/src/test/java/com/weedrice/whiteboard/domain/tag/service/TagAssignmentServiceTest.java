@@ -19,6 +19,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.IntStream;
@@ -63,13 +64,13 @@ class TagAssignmentServiceTest {
         when(postTagRepository.findByPost(post)).thenReturn(Collections.emptyList());
         Tag savedTag = new Tag("newTag");
         ReflectionTestUtils.setField(savedTag, "tagId", 20L);
-        when(tagRepository.findByTagName("newTag")).thenReturn(Optional.empty());
+        when(tagRepository.findByTagNameIn(Collections.singleton("newTag"))).thenReturn(List.of());
         when(tagCreationService.create("newTag")).thenReturn(savedTag);
 
         tagAssignmentService.assignTags(post, Collections.singletonList("newTag"));
 
         verify(postTagRepository).save(any(PostTag.class));
-        verify(tagRepository).incrementPostCount(20L);
+        verify(tagRepository).incrementPostCountIn(List.of(20L));
     }
 
     @Test
@@ -78,25 +79,23 @@ class TagAssignmentServiceTest {
         when(postTagRepository.findByPost(post)).thenReturn(Collections.emptyList());
         Tag concurrentlyCreatedTag = new Tag("newTag");
         ReflectionTestUtils.setField(concurrentlyCreatedTag, "tagId", 20L);
-        when(tagRepository.findByTagName("newTag"))
-                .thenReturn(Optional.empty())
-                .thenReturn(Optional.of(concurrentlyCreatedTag));
+        when(tagRepository.findByTagNameIn(Collections.singleton("newTag"))).thenReturn(List.of());
+        when(tagRepository.findByTagName("newTag")).thenReturn(Optional.of(concurrentlyCreatedTag));
         doThrow(new DataIntegrityViolationException("duplicate"))
                 .when(tagCreationService).create("newTag");
 
         tagAssignmentService.assignTags(post, Collections.singletonList("newTag"));
 
         verify(postTagRepository).save(any(PostTag.class));
-        verify(tagRepository).incrementPostCount(20L);
+        verify(tagRepository).incrementPostCountIn(List.of(20L));
     }
 
     @Test
     @DisplayName("assignTags preserves duplicate error when duplicate tag cannot be recovered")
     void assignTags_preservesDuplicateErrorWhenDuplicateTagCannotBeRecovered() {
         when(postTagRepository.findByPost(post)).thenReturn(Collections.emptyList());
-        when(tagRepository.findByTagName("newTag"))
-                .thenReturn(Optional.empty())
-                .thenReturn(Optional.empty());
+        when(tagRepository.findByTagNameIn(Collections.singleton("newTag"))).thenReturn(List.of());
+        when(tagRepository.findByTagName("newTag")).thenReturn(Optional.empty());
         doThrow(new DataIntegrityViolationException("duplicate"))
                 .when(tagCreationService).create("newTag");
 
@@ -105,7 +104,7 @@ class TagAssignmentServiceTest {
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.DUPLICATE_RESOURCE);
 
         verify(postTagRepository, never()).save(any(PostTag.class));
-        verify(tagRepository, never()).incrementPostCount(any());
+        verify(tagRepository, never()).incrementPostCountIn(any());
     }
 
     @Test
@@ -116,7 +115,7 @@ class TagAssignmentServiceTest {
         tagAssignmentService.assignTags(post, Collections.emptyList());
 
         verify(postTagRepository).delete(existingPostTag);
-        verify(tagRepository).decrementPostCount(10L);
+        verify(tagRepository).decrementPostCountIn(List.of(10L));
     }
 
     @Test
@@ -138,6 +137,7 @@ class TagAssignmentServiceTest {
         tagAssignmentService.assignTags(post, null);
 
         verify(postTagRepository).delete(existingPostTag);
+        verify(tagRepository).decrementPostCountIn(List.of(10L));
         verify(postTagRepository, never()).save(any());
     }
 
@@ -150,15 +150,15 @@ class TagAssignmentServiceTest {
         when(postTagRepository.findByPost(post)).thenReturn(Arrays.asList(existingPostTag, postTagToRemove));
         Tag savedTag = new Tag("newTag");
         ReflectionTestUtils.setField(savedTag, "tagId", 12L);
-        when(tagRepository.findByTagName("newTag")).thenReturn(Optional.empty());
+        when(tagRepository.findByTagNameIn(Collections.singleton("newTag"))).thenReturn(List.of());
         when(tagCreationService.create("newTag")).thenReturn(savedTag);
 
         tagAssignmentService.assignTags(post, Arrays.asList("existingTag", "newTag"));
 
         verify(postTagRepository).save(any(PostTag.class));
         verify(postTagRepository).delete(postTagToRemove);
-        verify(tagRepository).incrementPostCount(12L);
-        verify(tagRepository).decrementPostCount(11L);
+        verify(tagRepository).incrementPostCountIn(List.of(12L));
+        verify(tagRepository).decrementPostCountIn(List.of(11L));
     }
 
     @Test
@@ -167,17 +167,15 @@ class TagAssignmentServiceTest {
         Tag javaTag = new Tag("Java");
         ReflectionTestUtils.setField(javaTag, "tagId", 31L);
         when(postTagRepository.findByPost(post)).thenReturn(Collections.emptyList());
-        when(tagRepository.findByTagName("Java"))
-                .thenReturn(Optional.of(javaTag));
         Tag springTag = new Tag("Spring");
         ReflectionTestUtils.setField(springTag, "tagId", 22L);
-        when(tagRepository.findByTagName("Spring")).thenReturn(Optional.of(springTag));
+        when(tagRepository.findByTagNameIn(new LinkedHashSet<>(List.of("Java", "Spring"))))
+                .thenReturn(List.of(springTag, javaTag));
 
         tagAssignmentService.assignTags(post, List.of("  Java  ", "Spring", "Java"));
 
         verify(postTagRepository, times(2)).save(any(PostTag.class));
-        verify(tagRepository).incrementPostCount(31L);
-        verify(tagRepository).incrementPostCount(22L);
+        verify(tagRepository).incrementPostCountIn(List.of(31L, 22L));
     }
 
     @Test
@@ -234,8 +232,7 @@ class TagAssignmentServiceTest {
 
         verify(postTagRepository).delete(existingPostTag);
         verify(postTagRepository).delete(secondPostTag);
-        verify(tagRepository).decrementPostCount(10L);
-        verify(tagRepository).decrementPostCount(21L);
+        verify(tagRepository).decrementPostCountIn(List.of(10L, 21L));
     }
 
     @Test
