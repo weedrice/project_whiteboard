@@ -1,14 +1,11 @@
 package com.weedrice.whiteboard.domain.file.service;
 
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
-import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonImageRepository;
-import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonMasterRepository;
 import com.weedrice.whiteboard.domain.file.dto.FileSimpleResponse;
 import com.weedrice.whiteboard.domain.file.dto.FileUploadResponse;
 import com.weedrice.whiteboard.domain.file.entity.File;
 import com.weedrice.whiteboard.domain.file.entity.FileStorageStatus;
 import com.weedrice.whiteboard.domain.file.repository.FileRepository;
-import com.weedrice.whiteboard.domain.file.repository.FileRepository.FileCleanupCandidateProjection;
 import com.weedrice.whiteboard.domain.file.support.FileUrlResolver;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
@@ -61,8 +58,7 @@ public class FileService {
     private final BoardRepository boardRepository;
     private final FileStorageService fileStorageService;
     private final TransactionTemplate transactionTemplate;
-    private final EmoticonImageRepository emoticonImageRepository;
-    private final EmoticonMasterRepository emoticonMasterRepository;
+    private final FileTemporaryCleanupWorker fileTemporaryCleanupWorker;
     @PersistenceContext
     private EntityManager entityManager;
 
@@ -366,60 +362,25 @@ public class FileService {
         }
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void cleanUpTemporaryFiles() {
         LocalDateTime twentyFourHoursAgo = LocalDateTime.now().minusHours(24);
         LocalDateTime deleteRequestedAt = LocalDateTime.now();
         LocalDateTime lastCreatedAt = null;
         Long lastFileId = null;
         do {
-            List<FileCleanupCandidateProjection> candidates = fileRepository.findTemporaryFileCleanupCandidatesAfter(
+            FileTemporaryCleanupWorker.CleanupBatchResult result = fileTemporaryCleanupWorker.requestDeletionBatch(
                     twentyFourHoursAgo,
                     lastCreatedAt,
                     lastFileId,
-                    PageRequest.of(0, TEMPORARY_FILE_CLEANUP_BATCH_SIZE));
-            if (candidates.isEmpty()) {
+                    TEMPORARY_FILE_CLEANUP_BATCH_SIZE,
+                    deleteRequestedAt);
+            if (result.finished()) {
                 break;
             }
-            List<Long> temporaryFileIds = candidates.stream()
-                    .map(FileCleanupCandidateProjection::getFileId)
-                    .toList();
-            List<Long> cleanupFileIds = excludeEmoticonReferencedFileIds(temporaryFileIds);
-            if (!cleanupFileIds.isEmpty()) {
-                fileRepository.requestDeletionForTemporaryFiles(cleanupFileIds, deleteRequestedAt);
-            }
-            FileCleanupCandidateProjection lastCandidate = candidates.get(candidates.size() - 1);
-            lastCreatedAt = lastCandidate.getCreatedAt();
-            lastFileId = lastCandidate.getFileId();
+            lastCreatedAt = result.lastCreatedAt();
+            lastFileId = result.lastFileId();
         } while (true);
-    }
-
-    private List<Long> excludeEmoticonReferencedFileIds(List<Long> fileIds) {
-        if (fileIds == null || fileIds.isEmpty()) {
-            return List.of();
-        }
-
-        Map<String, Long> fileIdsByUrl = new LinkedHashMap<>();
-        for (Long fileId : fileIds) {
-            for (String candidateUrl : FileUrlResolver.referenceCandidates(fileId)) {
-                fileIdsByUrl.put(candidateUrl, fileId);
-            }
-        }
-
-        Set<Long> referencedFileIds = new LinkedHashSet<>();
-        List<String> candidateUrls = fileIdsByUrl.keySet().stream().toList();
-        List<String> imageUrls = emoticonImageRepository.findReferencedImageUrls(candidateUrls);
-        if (imageUrls != null) {
-            imageUrls.forEach(url -> referencedFileIds.add(fileIdsByUrl.get(url)));
-        }
-        List<String> thumbnailUrls = emoticonMasterRepository.findReferencedThumbnailUrls(candidateUrls);
-        if (thumbnailUrls != null) {
-            thumbnailUrls.forEach(url -> referencedFileIds.add(fileIdsByUrl.get(url)));
-        }
-
-        return fileIds.stream()
-                .filter(fileId -> !referencedFileIds.contains(fileId))
-                .toList();
     }
 
     public List<File> getFilesByRelatedEntity(Long relatedId, String relatedType) {

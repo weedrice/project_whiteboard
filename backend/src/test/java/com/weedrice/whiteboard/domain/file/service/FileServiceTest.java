@@ -2,8 +2,6 @@ package com.weedrice.whiteboard.domain.file.service;
 
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
-import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonImageRepository;
-import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonMasterRepository;
 import com.weedrice.whiteboard.domain.file.dto.FileUploadResponse;
 import com.weedrice.whiteboard.domain.file.entity.File;
 import com.weedrice.whiteboard.domain.file.entity.FileStorageStatus;
@@ -61,9 +59,7 @@ class FileServiceTest {
     @Mock
     private TransactionTemplate transactionTemplate;
     @Mock
-    private EmoticonImageRepository emoticonImageRepository;
-    @Mock
-    private EmoticonMasterRepository emoticonMasterRepository;
+    private FileTemporaryCleanupWorker fileTemporaryCleanupWorker;
     @Mock
     private EntityManager entityManager;
 
@@ -625,34 +621,31 @@ class FileServiceTest {
     }
 
     @Test
-    @DisplayName("임시 파일 정리는 바로 삭제하지 않고 pending 상태로 전환한다")
-    void cleanUpTemporaryFiles_marksFilesPendingDeleteInBatches() {
-        LocalDateTime firstCreatedAt = LocalDateTime.of(2026, 5, 6, 10, 0);
+    @DisplayName("임시 파일 정리는 배치 worker를 커서로 반복 호출한다")
+    void cleanUpTemporaryFiles_callsCleanupWorkerWithCursorUntilFinished() {
         LocalDateTime secondCreatedAt = LocalDateTime.of(2026, 5, 6, 10, 1);
         LocalDateTime thirdCreatedAt = LocalDateTime.of(2026, 5, 6, 10, 2);
-        when(fileRepository.findTemporaryFileCleanupCandidatesAfter(
+        when(fileTemporaryCleanupWorker.requestDeletionBatch(
                 any(LocalDateTime.class),
                 nullable(LocalDateTime.class),
                 nullable(Long.class),
-                eq(PageRequest.of(0, 500))))
+                eq(500),
+                any(LocalDateTime.class)))
                 .thenReturn(
-                        List.of(
-                                cleanupCandidate(10L, firstCreatedAt),
-                                cleanupCandidate(11L, secondCreatedAt)),
-                        List.of(cleanupCandidate(12L, thirdCreatedAt)),
-                        List.of());
+                        FileTemporaryCleanupWorker.CleanupBatchResult.next(secondCreatedAt, 11L, 2, 2),
+                        FileTemporaryCleanupWorker.CleanupBatchResult.next(thirdCreatedAt, 12L, 1, 1),
+                        FileTemporaryCleanupWorker.CleanupBatchResult.completed());
 
         fileService.cleanUpTemporaryFiles();
 
-        verify(fileRepository).requestDeletionForTemporaryFiles(eq(List.of(10L, 11L)), any(LocalDateTime.class));
-        verify(fileRepository).requestDeletionForTemporaryFiles(eq(List.of(12L)), any(LocalDateTime.class));
         ArgumentCaptor<LocalDateTime> cursorCreatedAtCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
         ArgumentCaptor<Long> cursorFileIdCaptor = ArgumentCaptor.forClass(Long.class);
-        verify(fileRepository, times(3)).findTemporaryFileCleanupCandidatesAfter(
+        verify(fileTemporaryCleanupWorker, times(3)).requestDeletionBatch(
                 any(LocalDateTime.class),
                 cursorCreatedAtCaptor.capture(),
                 cursorFileIdCaptor.capture(),
-                eq(PageRequest.of(0, 500)));
+                eq(500),
+                any(LocalDateTime.class));
         assertThat(cursorCreatedAtCaptor.getAllValues()).containsExactly(null, secondCreatedAt, thirdCreatedAt);
         assertThat(cursorFileIdCaptor.getAllValues()).containsExactly(null, 11L, 12L);
         verify(fileStorageService, never()).deleteFile(any());
@@ -660,32 +653,33 @@ class FileServiceTest {
     }
 
     @Test
-    @DisplayName("이모티콘 URL에서 참조 중인 옛 임시 파일은 정리 대상에서 제외한다")
-    void cleanUpTemporaryFiles_excludesFilesReferencedByEmoticonUrls() {
+    @DisplayName("삭제 요청이 없는 배치도 반환된 커서로 계속 진행한다")
+    void cleanUpTemporaryFiles_continuesWhenBatchRequestsNothing() {
         LocalDateTime firstCreatedAt = LocalDateTime.of(2026, 5, 6, 10, 0);
         LocalDateTime secondCreatedAt = LocalDateTime.of(2026, 5, 6, 10, 1);
-        LocalDateTime thirdCreatedAt = LocalDateTime.of(2026, 5, 6, 10, 2);
-        when(fileRepository.findTemporaryFileCleanupCandidatesAfter(
+        when(fileTemporaryCleanupWorker.requestDeletionBatch(
                 any(LocalDateTime.class),
                 nullable(LocalDateTime.class),
                 nullable(Long.class),
-                eq(PageRequest.of(0, 500))))
+                eq(500),
+                any(LocalDateTime.class)))
                 .thenReturn(
-                        List.of(
-                                cleanupCandidate(10L, firstCreatedAt),
-                                cleanupCandidate(11L, secondCreatedAt)),
-                        List.of(cleanupCandidate(12L, thirdCreatedAt)),
-                        List.of());
-        when(emoticonImageRepository.findReferencedImageUrls(any()))
-                .thenReturn(List.of("/api/v1/files/10"));
-        when(emoticonMasterRepository.findReferencedThumbnailUrls(any()))
-                .thenReturn(List.of("/files/11"));
+                        FileTemporaryCleanupWorker.CleanupBatchResult.next(firstCreatedAt, 10L, 2, 0),
+                        FileTemporaryCleanupWorker.CleanupBatchResult.next(secondCreatedAt, 11L, 1, 1),
+                        FileTemporaryCleanupWorker.CleanupBatchResult.completed());
 
         fileService.cleanUpTemporaryFiles();
 
-        verify(fileRepository).requestDeletionForTemporaryFiles(eq(List.of(12L)), any(LocalDateTime.class));
-        verify(fileRepository, never()).requestDeletionForTemporaryFiles(eq(List.of(10L, 11L)),
+        ArgumentCaptor<LocalDateTime> cursorCreatedAtCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
+        ArgumentCaptor<Long> cursorFileIdCaptor = ArgumentCaptor.forClass(Long.class);
+        verify(fileTemporaryCleanupWorker, times(3)).requestDeletionBatch(
+                any(LocalDateTime.class),
+                cursorCreatedAtCaptor.capture(),
+                cursorFileIdCaptor.capture(),
+                eq(500),
                 any(LocalDateTime.class));
+        assertThat(cursorCreatedAtCaptor.getAllValues()).containsExactly(null, firstCreatedAt, secondCreatedAt);
+        assertThat(cursorFileIdCaptor.getAllValues()).containsExactly(null, 10L, 11L);
     }
 
     @Test
@@ -752,17 +746,4 @@ class FileServiceTest {
         assertThat(fileIds).containsExactly(11L);
     }
 
-    private FileRepository.FileCleanupCandidateProjection cleanupCandidate(Long fileId, LocalDateTime createdAt) {
-        return new FileRepository.FileCleanupCandidateProjection() {
-            @Override
-            public Long getFileId() {
-                return fileId;
-            }
-
-            @Override
-            public LocalDateTime getCreatedAt() {
-                return createdAt;
-            }
-        };
-    }
 }
